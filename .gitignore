@@ -3,8 +3,10 @@
 # Project specific structure
 /bin/
 /target/
+/local/
 
-# Place and extension I use for non-SCM-able scraps
+# Places and extensions I use for non-SCM-able scraps
+/scraps/
 /temp/
 *.saved
 
