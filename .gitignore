@@ -2,8 +2,11 @@
 
 # Project specific structure
 /bin/
-/target/
 /local/
+
+# Generated during build
+/target/
+**/_build/
 
 # Places and extensions I use for non-SCM-able scraps
 /scraps/
