@@ -11,8 +11,8 @@ The narrative of the development is in reStructuredText using Sphinx.
 Without building the project, GitHub does a reasonable job of rendering it, except for the [contents](src/site/sphinx/index.rst).
 The main sections are these:
 
-1. [Background to the Very Slow Jython Project](src/site/background/background.rst)
-1. [A Tree-Python Interpreter](src/site/treepython/treepython.rst)
+1. [Background to the Very Slow Jython Project](src/site/sphinx/background/background.rst)
+1. [A Tree-Python Interpreter](src/site/sphinx/treepython/treepython.rst)
 
 
 ## Building the Project
