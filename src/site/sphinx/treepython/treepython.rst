@@ -1,8 +1,8 @@
 ..  treepython/treepthyon.rst
 
 
-Fundamentals of Interpretation
-##############################
+A Tree-Python Interpreter
+#########################
 
 Some Help from the Reference Interpreter
 ****************************************
@@ -13,7 +13,7 @@ not so much how we parse and compile it:
 we'll have to tackle that too,
 but we'll begin with that central problem of execution.
 
-Incidentally, "execution" or "interpretation"?
+Incidentally, is it "execution" or "interpretation"?
 It is largely a matter of perspective.
 In the C implementation of Python, code is generated for a Python Virtual Machine.
 (The design of the machine,
