@@ -279,14 +279,14 @@ class EmitJavaVisitor(PrettyPrintVisitor):
 
 
 def pretty(prog):
-    if isinstance(prog, ast.AST):
+    if not isinstance(prog, ast.AST):
         prog = ast.parse(prog)
     v = PrettyPrintVisitor(width=80)
     r = v.visit(prog)
     print(r[0])
 
 def pretty_java(prog):
-    if isinstance(prog, ast.AST):
+    if not isinstance(prog, ast.AST):
         prog = ast.parse(prog)
     v = EmitJavaVisitor()
     r = v.visit(prog)

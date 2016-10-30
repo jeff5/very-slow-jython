@@ -104,13 +104,4 @@ public abstract class TreePython {
 
         T visit_Name(expr.Name _Name);
     }
-
-    // @formatter:off
-    public static final operator Add = operator.Add;
-    public static final expr_context Load = expr_context.Load;
-    public static final expr Name(String id, expr_context ctx) {return new expr.Name(id, ctx); }
-    public static final expr Num(Object n) {return new expr.Num(n); }
-    public static final expr BinOp(expr left, operator op, expr right)
-        {return new expr.BinOp(left, op, right); }
-    // @formatter:on
 }
