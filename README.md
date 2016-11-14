@@ -13,7 +13,9 @@ The main sections are these:
 
 1. [Background to the Very Slow Jython Project](src/site/sphinx/background/background.rst)
 1. [A Tree-Python Interpreter](src/site/sphinx/treepython/treepython.rst)
-
+  1. [Some Help from the Reference Interpreter](src/site/sphinx/treepython/ref_interp_help.rst)
+  2. [An Interpreter in Java for the Python AST](src/site/sphinx/treepython/ast_java.rst)
+  3. [Type and Operation Dispatch](src/site/sphinx/treepython/type+dispatch.rst)
 
 ## Building the Project
 
