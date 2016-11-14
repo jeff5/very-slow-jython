@@ -14,10 +14,11 @@ Contents
 ********
 
 ..  toctree::
-    :maxdepth: 2
+    :numbered: 3
+    :maxdepth: 3
 
-    background/background.rst
-    treepython/treepython.rst
+    background/background
+    treepython/treepython
 
 
 Indices and tables
