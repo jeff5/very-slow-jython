@@ -111,7 +111,7 @@ These correspond to the slots in a CPython type object,
 and there is a finite repertoire of them.
 
 Dispatch via overloading in Java
-================================
+********************************
 
 Suppose we want to support the ``Add`` and ``Mult`` binary operations.
 The implementation must differ according to the types of the arguments.
@@ -308,5 +308,179 @@ is to give objects defined in Python a special handler
 in which each operation checks for the corresponding definition
 in the dictionary of the Python class.
 
+Dispatch via a Java ``MethodHandle``
+************************************
+
+In CPython, operator dispatch uses several arrays of pointers to functions,
+and these are re-written when special functions (like ``__add__``) are defined.
+Our nearest equivalent in Java is the ``MethodHandle``.
+Using that would give us similar capabilities.
+We may modify the ``TypeHandler`` to contain a method array like so:
+
+..  code-block:: java
+
+    static abstract class TypeHandler {
+
+        /**
+         * A (static) method implementing a binary operation has this type.
+         */
+        protected static final MethodType MT_BINOP = MethodType
+                .methodType(Object.class, Object.class, Object.class);
+        /** Number of binary operations supported. */
+        protected static final int N_BINOPS = operator.values().length;
+
+        /**
+         * Table of binary operations (equivalent of Python
+         * <code>nb_</code> slots).
+         */
+        private MethodHandle[] binOp = new MethodHandle[N_BINOPS];
+
+        /**
+         * Look up the (handle of) the method for the given
+         * <code>op</code>.
+         */
+        public MethodHandle getBinOp(operator op) {
+            return binOp[op.ordinal()];
+        }
+        // ...
+
+The handler for each type extends this class,
+and each handler must provide ``static`` methods roughly as before,
+to perform the operations.
+Now we are not using overloading,
+we no longer need an abstract function for each
+(although that may still help the author).
+However, if we choose conventional names for the functions,
+we can centralise filling the ``binOp`` table like this:
+
+..  code-block:: java
+
+        // ...
+        /**
+         * Initialise the slots for binary operations in this
+         * <code>TypeHandler</code>.
+         */
+        protected void fillBinOpSlots() {
+            fillBinOpSlot(Add, "add");
+            fillBinOpSlot(Sub, "sub");
+            fillBinOpSlot(Mult, "mul");
+            fillBinOpSlot(Div, "div");
+        }
+
+        /** The lookup rights object of the implementing class. */
+        private final MethodHandles.Lookup lookup;
+
+        protected TypeHandler(MethodHandles.Lookup lookup) {
+            this.lookup = lookup;
+        }
+
+        /* Helper to fill one binary operation slot. */
+        private void fillBinOpSlot(operator op, String name) {
+            MethodHandle mh = null;
+            try {
+                mh = lookup.findStatic(getClass(), name, MT_BINOP);
+            } catch (NoSuchMethodException | IllegalAccessException e) {
+                // Let it be null
+            }
+            binOp[op.ordinal()] = mh;
+        };
+    }
+
+Each handler enforces its singleton nature,
+and ensures that its dispatch table is filled.
+Here is one handler for ``Double``:
+
+..  code-block:: java
+
+    /**
+     * Singleton class defining the operations for a Java
+     * <code>Double</code>, so as to make it a Python <code>float</code>.
+     */
+    static class DoubleHandler extends TypeHandler {
+
+        private static DoubleHandler instance;
+
+        private DoubleHandler() {
+            super(MethodHandles.lookup());
+        }
+
+        public static synchronized DoubleHandler getInstance() {
+            if (instance == null) {
+                instance = new DoubleHandler();
+                instance.fillBinOpSlots();
+            }
+            return instance;
+        }
+
+        private static double convertToDouble(Object o) {
+            Class<?> c = o.getClass();
+            if (c == Double.class) {
+                return ((Double)o).doubleValue();
+            } else if (c == Integer.class) {
+                return (Integer)o;
+            } else {
+                throw new IllegalArgumentException();
+            }
+        }
+
+        private static Object add(Object vObj, Object wObj) {
+            try {
+                double v = convertToDouble(vObj);
+                double w = convertToDouble(wObj);
+                return v + w;
+            } catch (IllegalArgumentException iae) {
+                return null;
+            }
+        }
+        // ...
+    }
+
+The ``MethodHandles.Lookup`` object of each handler
+grants access to its implementing functions.
+
+So far this looks no more succinct than previously.
+The gain is in the implementation of ``visit_BinOp``:
+
+..  code-block:: java
+
+        @Override
+        public Object visit_BinOp(expr.BinOp binOp) {
+            Object v = binOp.left.accept(this);
+            Object w = binOp.right.accept(this);
+            TypeHandler V = Runtime.handler.get(v.getClass());
+            TypeHandler W = Runtime.handler.get(w.getClass());
+            Object r = null;
+            // Omit the case W is a Python sub-type of V, for now.
+            try {
+                // Get the implementation for V=type(v).
+                MethodHandle mh = V.getBinOp(binOp.op);
+                if (mh != null) {
+                    r = mh.invokeExact(v, w);
+                    if (r == null) {
+                        // V.op does not support a W right-hand
+                        if (W != V) {
+                            // Get implementation of for W=type(w).
+                            mh = W.getBinOp(binOp.op);
+                            // Arguments *not* reversed unlike __radd__
+                            r = mh.invokeExact(v, w);
+                        }
+                    }
+                }
+            } catch (Throwable e) {
+                // r == null
+            }
+            String msg = "Operation %s not defined between %s and %s";
+            if (r == null) {
+                throw new IllegalArgumentException(String.format(msg,
+                        binOp.op, v.getClass().getName(),
+                        w.getClass().getName()));
+            }
+            return r;
+        }
+
+The ``switch`` statement has gone entirely,
+and there is only one copy of the delegation logic,
+which begins to resemble that in CPython
+(in ``abstract.c`` at ``binary_op1()``).
 
 

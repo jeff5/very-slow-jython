@@ -25,13 +25,6 @@ import uk.co.farowl.vsj1.TreePython.operator;
  */
 public class TestEx2 {
 
-// @BeforeClass
-// public static void initRuntime() {
-// // Initialise the types we're using
-// Runtime.register(Integer.class, new IntegerHandler());
-// Runtime.register(Double.class, new DoubleHandler());
-// }
-
     // Visitor to execute the code.
     Evaluator evaluator;
 
@@ -169,7 +162,7 @@ public class TestEx2 {
     }
 
     /**
-     * <code>NumericType</code> is the base class of the classes that
+     * <code>TypeHandler</code> is the base class of the classes that
      * collect together the operations on each Python type. These
      * subclasses should be singletons.(At present just a few of the binary
      * operations are defined.)
