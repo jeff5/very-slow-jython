@@ -38,10 +38,14 @@ public class TestEx3 {
 
     @Test
     public void testInt() {
-        // 9 + x*11
+        // @formatter:off
+        // 24*x - x*10
         Node tree =
-                BinOp(Num(9), Add, BinOp(Name("x", Load), Mult, Num(11)));
-        // x = 3
+                BinOp(
+                    BinOp(Num(24), Mult, Name("x", Load)),
+                    Sub,
+                    BinOp(Name("x", Load), Mult, Num(10)));
+        // @formatter:on
         evaluator.variables.put("x", 3);
         // Execute the code.
         Object result = tree.accept(evaluator);
@@ -50,10 +54,14 @@ public class TestEx3 {
 
     @Test
     public void testFloat() {
-        // 9. + x*11.
+        // @formatter:off
+        // 24.*x - 90./x
         Node tree =
-                BinOp(Num(9), Add, BinOp(Name("x", Load), Mult, Num(11)));
-        // x = 3.
+                BinOp(
+                    BinOp(Num(24.), Mult, Name("x", Load)),
+                    Sub,
+                    BinOp(Num(90.), Div, Name("x", Load)));
+        // @formatter:on
         evaluator.variables.put("x", 3.);
         // Execute the code.
         Object result = tree.accept(evaluator);
@@ -62,10 +70,14 @@ public class TestEx3 {
 
     @Test
     public void testFloatNum() {
-        // 9. + x*11
+        // @formatter:off
+        // 24.*x - 90/x
         Node tree =
-                BinOp(Num(9.), Add, BinOp(Name("x", Load), Mult, Num(11)));
-        // x = 3
+                BinOp(
+                    BinOp(Num(24.), Mult, Name("x", Load)),
+                    Sub,
+                    BinOp(Num(90), Div, Name("x", Load)));
+        // @formatter:on
         evaluator.variables.put("x", 3);
         // Execute the code.
         Object result = tree.accept(evaluator);
@@ -74,10 +86,14 @@ public class TestEx3 {
 
     @Test
     public void testFloatVar() {
-        // 9 + x*11
+        // @formatter:off
+        // 24*x - 90/x
         Node tree =
-                BinOp(Num(9), Add, BinOp(Name("x", Load), Mult, Num(11)));
-        // x = 3.
+                BinOp(
+                    BinOp(Num(24), Mult, Name("x", Load)),
+                    Sub,
+                    BinOp(Num(90), Div, Name("x", Load)));
+        // @formatter:on
         evaluator.variables.put("x", 3.);
         // Execute the code.
         Object result = tree.accept(evaluator);
