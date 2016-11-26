@@ -113,6 +113,10 @@ and there is a finite repertoire of them.
 Dispatch via overloading in Java
 ********************************
 
+    Code fragments in this section are taken from
+    ``.../vsj1/example/treepython/TestEx2.java``
+    in the project test source.
+
 Suppose we want to support the ``Add`` and ``Mult`` binary operations.
 The implementation must differ according to the types of the arguments.
 CPython dispatches primarily on a single argument,
@@ -311,6 +315,10 @@ in the dictionary of the Python class.
 Dispatch via a Java ``MethodHandle``
 ************************************
 
+    Code fragments in this section are taken from
+    ``.../vsj1/example/treepython/TestEx3.java``
+    in the project test source.
+
 In CPython, operator dispatch uses several arrays of pointers to functions,
 and these are re-written when special functions (like ``__add__``) are defined.
 Our nearest equivalent in Java is the ``MethodHandle``.
@@ -482,5 +490,341 @@ The ``switch`` statement has gone entirely,
 and there is only one copy of the delegation logic,
 which begins to resemble that in CPython
 (in ``abstract.c`` at ``binary_op1()``).
+
+Caching Type Decisions
+**********************
+
+In the preceding examples,
+we can see that between gathering the ``left`` and ``right``
+values in a ``BinOp`` node,
+and any actual arithmetic,
+stands some reasoning about the argument types.
+This reasoning is embedded in the implementation of each type.
+Something very similar is true in the C implementation of Python.
+
+While we are not interested in
+optimising the performance of *this* implementation,
+because it is a toy,
+we *are* interested in playing with
+the techniques the JVM has for efficient implementation of dynamic languages.
+That support revolves around the "dynamic call site" and
+the ``invokedynamic`` instruction.
+We don't actually (yet) have to generate ``invokedynamic`` opcodes:
+we can study the elements by attaching a call site to each AST node,
+and using it first in the ``BinOp`` node type,
+by invoking its target.
+The JVM will not optimise these,
+as it would were they used in an ``invokedynamic`` instruction,
+but that doesn't matter for now.
+
+In a real program,
+any given expression is likely to be evaluated many times,
+for different values, and
+in a dynamic language,
+for different types.
+(We seldom care about speed otherwise.)
+It is commonly observed that,
+even in dynamic languages,
+code is executed many times in succession with the *same* types,
+for example within a loop.
+The type wrangling in our implementation is a costly part of the work,
+so Java offers us a way to cache the result of that work
+at the particular site where the operation is needed,
+and re-use it as often as the same argument types recur.
+We need the following elements to pull this off (for a binary operation):
+
+*   An implementation of the binary operation,
+    specialised to the argument types,
+    or rather, one for each combination of types.
+*   A mechanism to map from (a pair of) types to the specialised implementation.
+*   A test (called a guard) that the types this time are the same as last time.
+*   A structure to hold the last decision
+    and the types for which the site is currently specialised
+    (the call site).
+
+It is possible to create call sites in which several specialisations
+are cached for re-use,
+according to any strategy the language implementer favours,
+but we'll demonstrate it with a single cached specialisation.
+
+We'll point out in passing that
+we've slipped a false assumption into this argument:
+namely that type alone
+is the determinant of where or whether an operation is implemented.
+This is an assumption with which the ``invokedynamic`` framework
+is usually explained,
+but it isn't wholly valid for us.
+In Python,
+an implementation of ``__add__`` (say) could return ``NotImplemented``
+for certain *values*,
+causing delegation to the ``__radd__`` function of the other type.
+This hardly ever happens in practice,
+the determinant usually *is* just the types involved,
+and it can be accommodated in the technique we're about to demonstrate.
+
+Mapping to a Specialised Implementation
+=======================================
+
+    Code fragments in this section are taken from
+    ``.../vsj1/example/treepython/TestEx4.java``
+    in the project test source.
+
+We'll avoid an explicit ``CallSite`` object to begin with.
+The first transformation we need is to separate
+choosing an implementation of the binary operation,
+in the ``visit_BinOp`` method of the ``Evaluator``,
+from calling the chosen implementation.
+
+..  code-block:: java
+
+    static class Evaluator implements Visitor<Object> {
+
+        Map<String, Object> variables = new HashMap<>();
+        Lookup lookup = lookup();
+
+        @Override
+        public Object visit_BinOp(expr.BinOp binOp) {
+            // This must be a first visit
+            Object v = binOp.left.accept(this);
+            Object w = binOp.right.accept(this);
+            try {
+                MethodHandle mh = Runtime.findBinOp(v.getClass(), binOp.op,
+                        w.getClass());
+                return mh.invokeExact(v, w);
+            } catch (NoSuchMethodException | IllegalAccessException e) {
+                // Implementation returned NotImplemented or equivalent
+                throw notDefined(v, binOp.op, w);
+            } catch (Throwable e) {
+                // Something else went wrong
+                e.printStackTrace();
+                return null;
+            }
+        }
+
+        // ...
+    }
+
+One delicate point is how to handle the absence of an implementation
+in a consistent way.
+``java.lang.invoke`` lookups throw a ``NoSuchMethodException``
+when no implementation is found.
+In some places it suits us to convert that condition to
+a method handle that would return ``NotImplemented`` when invoked,
+as a Python implementation must,
+and test for this special handle, or special value.
+However,
+the binary operation itself must raise a Python ``NotImplementedError``,
+if neither argument type knows what to do.
+The strategy is to turn everything into ``NoSuchMethodException``,
+within the finding and invoking section,
+then convert that to an appropriate exception
+here where we know all the necessary facts.
+
+It remains to be seen how we will implement ``Runtime.findBinOp``
+to return the ``MethodHandle`` we need.
+Skipping to the other end of the problem,
+this is how we would like to write specialised implementations:
+
+..  code-block:: java
+
+    static class DoubleHandler extends TypeHandler {
+
+        DoubleHandler() { super(lookup(), Double.class); }
+
+        private static Object add(Double v, Integer w) { return v+w; }
+        private static Object add(Integer v, Double w) { return v+w; }
+        private static Object add(Double v, Double w)  { return v+w; }
+        private static Object sub(Double v, Integer w) { return v-w; }
+        private static Object sub(Integer v, Double w) { return v-w; }
+        private static Object sub(Double v, Double w)  { return v-w; }
+        private static Object mul(Double v, Integer w) { return v*w; }
+        private static Object mul(Integer v, Double w) { return v*w; }
+        private static Object mul(Double v, Double w)  { return v*w; }
+        private static Object div(Double v, Integer w) { return v/w; }
+        private static Object div(Integer v, Double w) { return v/w; }
+        private static Object div(Double v, Double w)  { return v/w; }
+    }
+
+Notice how clean this is relative to the previous handler code.
+This is partly because implicit Java un-boxing and widening rules
+happen to be just what we need:
+the text of every implementation of ``add`` is the same,
+but the JVM byte code is not.
+
+In Python,
+when differing types meet in a binary operation,
+and each has an implementation of the operation
+(in the corresponding slot, in CPython),
+each is given the chance to compute the result,
+first the left-hand, then the right-hand type.
+Or if the right-hand type is a sub-class of the left,
+first the right-hand type gets a chance, then the left.
+This chance is given by actually calling the implementation,
+which returns ``NotImplemented`` if it can't deal with the arguments.
+For our purpose here,
+we therefore invent the convention that
+every type provides a method we can consult to find the implementation,
+given the operation and the *type* of the other argument.
+For types implemented in Java, this can work by reflection:
+
+..  code-block:: java
+
+    static abstract class TypeHandler {
+
+        /** A method implementing a binary operation has this type. */
+        protected static final MethodType BINOP = Runtime.BINOP;
+        /** Shorthand for <code>Object.class</code>. */
+        static final Class<Object> O = Object.class;
+
+        // ...
+
+        /**
+         * Return the method handle of the implementation of
+         * <code>left op right</code>, where left is an object of this
+         * handler's type.
+         */
+        public MethodHandle findBinOp(operator op, TypeHandler rightType) {
+            String name = composeNameFor(op);
+            Class<?> here = this.getClass();
+            Class<?> leftClass = this.javaClass;
+            Class<?> rightClass = rightType.javaClass;
+
+            // Look for an exact match with the actual types
+            MethodType mt = MethodType.methodType(O, leftClass, rightClass);
+            MethodHandle mh = findStaticOrNull(here, name, mt);
+
+            // ...
+            return mh == null ? Runtime.BINOP_NOT_IMPLEMENTED : mh;
+        }
+
+        /**
+         * Return the method handle of the (reverse) implementation of
+         * <code>left op right</code>, where right is an object of this
+         * handler's type.
+         */
+        public MethodHandle findBinOp(TypeHandler leftType, operator op)
+            // Essentially the same code ...
+        // ...
+    }
+
+In fact, the code above for ``TypeHandler.findBinOp`` is a simplification.
+We'd like to support the possibility of implementations that
+accept any type of argument and embed their own type logic,
+which then operates when the binary operation is executed.
+(We certainly need this for objects defined in Python.)
+These will be recognisable because they have one or two ``Object`` arguments.
+With the missing clauses visible, we have:
+
+..  code-block:: java
+
+    static abstract class TypeHandler {
+        // ...
+
+        /**
+         * Return the method handle of the implementation of
+         * <code>left op right</code>, where left is an object of this
+         * handler's type.
+         */
+        public MethodHandle findBinOp(operator op, TypeHandler rightType) {
+            String name = composeNameFor(op);
+            Class<?> here = this.getClass();
+            Class<?> leftClass = this.javaClass;
+            Class<?> rightClass = rightType.javaClass;
+
+            // Look for an exact match with the actual types
+            MethodType mt = MethodType.methodType(O, leftClass, rightClass);
+            MethodHandle mh = findStaticOrNull(here, name, mt);
+
+            // Look for a match with (T, Object)
+            if (mh == null) {
+                mt = MethodType.methodType(O, leftClass, O);
+                mh = findStaticOrNull(here, name, mt);
+            }
+
+            // Look for a match with (Object, Object)
+            if (mh == null) {
+                mh = findStaticOrNull(here, name, BINOP);
+            }
+
+            return mh == null ? Runtime.BINOP_NOT_IMPLEMENTED : mh;
+        }
+        // ...
+    }
+
+
+Now we can use this to implement the required Python delegation pattern:
+
+..  code-block:: java
+
+    /** Runtime support for the interpreter. */
+    static class Runtime {
+        //...
+
+        static MethodHandle findBinOp(Class<?> leftClass, operator op,
+                Class<?> rightClass)
+                throws NoSuchMethodException, IllegalAccessException {
+            TypeHandler V = Runtime.typeFor(leftClass);
+            TypeHandler W = Runtime.typeFor(rightClass);
+            MethodHandle mhV = V.findBinOp(op, W);
+            if (W == V) {
+                return mhV;
+            }
+            MethodHandle mhW = W.findBinOp(V, op); // reversed op
+            if (mhW == BINOP_NOT_IMPLEMENTED) {
+                return mhV;
+            } else if (mhV == BINOP_NOT_IMPLEMENTED) {
+                return mhW;
+            } else if (mhW.equals(mhV)) {
+                return mhV;
+            } else if (W.isSubtypeOf(V)) {
+                return firstImplementer(mhW, mhV);
+            } else {
+                return firstImplementer(mhV, mhW);
+            }
+        }
+
+        //...
+    }
+
+In many cases, only one of the argument types will offer an implementation,
+and a simple (direct) method handle may be returned.
+The complicated case arises when both offer to do the job;
+in that case,
+and this is the clever bit,
+we have to create an appropriate method handle blob that,
+when invoked,
+will try them in turn, and raise an exception when both fail:
+
+..  code-block:: java
+
+    /** Runtime support for the interpreter. */
+    static class Runtime {
+        //...
+
+        private static MethodHandle firstImplementer(MethodHandle a,
+                MethodHandle b) {
+            // apply_b = λ(x,y,z): b(y,z)
+            MethodHandle apply_b = MethodHandles.filterReturnValue(
+                    dropArguments(b, 0, O), THROW_IF_NOT_IMPLEMENTED);
+            // keep_a = λ(x,y,z): x
+            MethodHandle keep_a = dropArguments(identity(O), 1, O, O);
+            // x==NotImplemented ? b(y,z) : a(y,z)
+            MethodHandle guarded =
+                    guardWithTest(IS_NOT_IMPLEMENTED, apply_b, keep_a);
+            // The functions above apply to (a(y,z), y, z) thanks to:
+            return foldArguments(guarded, a);
+        }
+    }
+
+This is an adapter for two method handles ``a`` and ``b``.
+When its returned handle is invoked,
+first ``a`` is invoked,
+then if it returns ``NotImplemented``,
+``b`` is invoked on the same arguments.
+If ``b`` returns ``NotImplemented``,
+that is converted to a thrown ``NoSuchMethodException``.
+This corresponds to the way Python implements binary operations when
+each operand offers a different implementation.
+
 
 
