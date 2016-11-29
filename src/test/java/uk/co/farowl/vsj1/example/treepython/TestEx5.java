@@ -9,10 +9,12 @@ import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assert.assertThat;
 
+import java.lang.invoke.CallSite;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.invoke.MethodType;
+import java.lang.invoke.MutableCallSite;
 import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.Map;
@@ -28,11 +30,10 @@ import uk.co.farowl.vsj1.TreePython.expr_context;
 import uk.co.farowl.vsj1.TreePython.operator;
 
 /**
- * Demonstrate interpretation of the AST for expressions using two phases:
- * one to link the implementation of the operation for those Java types,
- * and a second to execute that linked method.
+ * Demonstrate interpretation of the AST where nodes contain an embedded
+ * CallSite object.
  */
-public class TestEx4 {
+public class TestEx5 {
 
     @BeforeClass
     public static void setUpClass() {
@@ -75,9 +76,15 @@ public class TestEx4 {
 
     @Test
     public void simpleInt() {
+        Node tree = simple();
         evaluator.variables.put("v", 6);
         evaluator.variables.put("w", 7);
-        assertThat(simple().accept(evaluator), is(42));
+        assertThat(tree.accept(evaluator), is(42));
+        int baseline = BinOpCallSite.fallbackCalls;
+        evaluator.variables.put("v", 3);
+        evaluator.variables.put("w", 8);
+        assertThat(tree.accept(evaluator), is(24));
+        assertThat(BinOpCallSite.fallbackCalls, is(baseline + 0));
     }
 
     private Node add() { // v + w
@@ -86,9 +93,10 @@ public class TestEx4 {
 
     @Test
     public void addAA() {
+        Node tree = add();
         evaluator.variables.put("v", new A());
         evaluator.variables.put("w", new A());
-        assertThat(add().accept(evaluator), is(instanceOf(A.class)));
+        assertThat(tree.accept(evaluator), is(instanceOf(A.class)));
     }
 
     @Test(expected = IllegalArgumentException.class)
@@ -143,6 +151,74 @@ public class TestEx4 {
         assertThat(cubic().accept(evaluator), is(42.));
     }
 
+    @Test
+    public void testIntRepeat() {
+        Node tree = cubic();
+        evaluator.variables.put("x", 3);
+        evaluator.variables.put("y", 3);
+        assertThat(tree.accept(evaluator), is(42));
+        int baseline = BinOpCallSite.fallbackCalls;
+        evaluator.variables.put("x", 4);
+        evaluator.variables.put("y", -1);
+        assertThat(tree.accept(evaluator), is(42));
+        evaluator.variables.put("x", 2);
+        evaluator.variables.put("y", 19);
+        assertThat(tree.accept(evaluator), is(42));
+        evaluator.variables.put("x", 6);
+        evaluator.variables.put("y", 7);
+        assertThat(tree.accept(evaluator), is(442));
+        assertThat(BinOpCallSite.fallbackCalls, is(baseline + 0));
+    }
+
+    @Test
+    public void testFloatRepeat() {
+        Node tree = cubic();
+        evaluator.variables.put("x", 3.);
+        evaluator.variables.put("y", 3);
+        assertThat(tree.accept(evaluator), is(42.));
+        int baseline = BinOpCallSite.fallbackCalls;
+        evaluator.variables.put("x", 4.);
+        evaluator.variables.put("y", -1);
+        assertThat(tree.accept(evaluator), is(42.));
+        evaluator.variables.put("x", 2.);
+        evaluator.variables.put("y", 19);
+        assertThat(tree.accept(evaluator), is(42.));
+        evaluator.variables.put("x", 6.);
+        evaluator.variables.put("y", 7);
+        assertThat(tree.accept(evaluator), is(442.));
+        assertThat(BinOpCallSite.fallbackCalls, is(baseline + 0));
+    }
+
+    @Test
+    public void testChangeType() {
+        Node tree = cubic();
+        evaluator.variables.put("x", 3);
+        evaluator.variables.put("y", 3);
+        assertThat(tree.accept(evaluator), is(42));
+        int baseline = BinOpCallSite.fallbackCalls;
+        evaluator.variables.put("x", 4);
+        evaluator.variables.put("y", -1);
+        assertThat(tree.accept(evaluator), is(42));
+        assertThat(BinOpCallSite.fallbackCalls, is(baseline + 0));
+        // Suddenly y is a float
+        evaluator.variables.put("x", 2);
+        evaluator.variables.put("y", 19.);
+        assertThat(tree.accept(evaluator), is(42.));
+        assertThat(BinOpCallSite.fallbackCalls, is(baseline + 2));
+        // And now so is x
+        baseline = BinOpCallSite.fallbackCalls;
+        evaluator.variables.put("x", 6.);
+        evaluator.variables.put("y", 7.);
+        assertThat(tree.accept(evaluator), is(442.));
+        assertThat(BinOpCallSite.fallbackCalls, is(baseline + 4));
+        // And now y is an int again
+        baseline = BinOpCallSite.fallbackCalls;
+        evaluator.variables.put("x", 6.);
+        evaluator.variables.put("y", 7);
+        assertThat(tree.accept(evaluator), is(442.));
+        assertThat(BinOpCallSite.fallbackCalls, is(baseline + 1));
+    }
+
     /**
      * An interpreter for Python that works by walking the AST, and uses
      * look-up to find the type object corresponding to the Java native
@@ -151,14 +227,20 @@ public class TestEx4 {
     static class Evaluator implements Visitor<Object> {
 
         Map<String, Object> variables = new HashMap<>();
+        Lookup lookup = lookup();
 
         @Override
         public Object visit_BinOp(expr.BinOp binOp) {
+            // Evaluate sub-trees
             Object v = binOp.left.accept(this);
             Object w = binOp.right.accept(this);
+            // Evaluate the node
             try {
-                MethodHandle mh = Runtime.findBinOp(v.getClass(), binOp.op,
-                        w.getClass());
+                if (binOp.site == null) {
+                    // This must be a first visit
+                    binOp.site = Runtime.bootstrap(lookup, binOp);
+                }
+                MethodHandle mh = binOp.site.dynamicInvoker();
                 return mh.invokeExact(v, w);
             } catch (NoSuchMethodException | IllegalAccessException e) {
                 // Implementation returned NotImplemented or equivalent
@@ -186,8 +268,64 @@ public class TestEx4 {
             String msg = "Operation %s not defined between %s and %s";
             String V = v.getClass().getSimpleName();
             String W = w.getClass().getSimpleName();
-            return new IllegalArgumentException(
+            throw new IllegalArgumentException(
                     String.format(msg, op, V, W));
+        }
+    }
+
+    static class BinOpCallSite extends MutableCallSite {
+
+        final operator op;
+        final Lookup lookup;
+        final MethodHandle fallbackMH;
+
+        static int fallbackCalls = 0;
+
+        public BinOpCallSite(Lookup lookup, operator op)
+                throws NoSuchMethodException, IllegalAccessException {
+            super(Runtime.BINOP);
+            this.op = op;
+            this.lookup = lookup;
+            fallbackMH = lookup().bind(this, "fallback", Runtime.BINOP);
+            setTarget(fallbackMH);
+        }
+
+        @SuppressWarnings("unused")
+        private Object fallback(Object v, Object w) throws Throwable {
+            fallbackCalls += 1;
+            Class<?> V = v.getClass();
+            Class<?> W = w.getClass();
+            MethodType mt = MethodType.methodType(Object.class, V, W);
+            // MH to compute the result for these classes
+            MethodHandle resultMH = Runtime.findBinOp(V, op, W);
+            // MH for guarded invocation (becomes new target)
+            MethodHandle guarded = makeGuarded(V, W, resultMH, fallbackMH);
+            setTarget(guarded);
+            // Compute the result for this case
+            return resultMH.invokeExact(v, w);
+        }
+
+        /**
+         * Adapt two method handles, one that computes the desired result
+         * specialised to the given classes, and a fall-back appropriate
+         * when the arguments (when the handle is invoked) are not the
+         * given types.
+         *
+         * @param V Java class of left argument of operation
+         * @param W Java class of right argument of operation
+         * @param resultMH computes v op w, where v&in;V and w&in;W.
+         * @param fallbackMH computes the result otherwise
+         * @return method handle computing the result either way
+         */
+        private MethodHandle makeGuarded(Class<?> V, Class<?> W,
+                MethodHandle resultMH, MethodHandle fallbackMH) {
+            MethodHandle testV, testW, guardedForW, guarded;
+            testV = Runtime.HAS_CLASS.bindTo(V);
+            testW = Runtime.HAS_CLASS.bindTo(W);
+            testW = dropArguments(testW, 0, Object.class);
+            guardedForW = guardWithTest(testW, resultMH, fallbackMH);
+            guarded = guardWithTest(testV, guardedForW, fallbackMH);
+            return guarded;
         }
     }
 
@@ -232,8 +370,16 @@ public class TestEx4 {
         static final MethodHandle IS_NOT_IMPLEMENTED;
         /** Handle of a method throwing if result == NotImplemented. */
         static final MethodHandle THROW_IF_NOT_IMPLEMENTED;
+        /** Handle of Object.getClass. */
+        static final MethodHandle GET_CLASS;
+        /** Handle of a method for testing class equality. */
+        static final MethodHandle CLASS_EQUALS;
+        /** Handle of testing that an object has a particular class. */
+        static final MethodHandle HAS_CLASS;
         /** Shorthand for <code>Object.class</code>. */
         static final Class<Object> O = Object.class;
+        /** Shorthand for <code>Class.class</code>. */
+        static final Class<?> C = Class.class;
 
         private static final Lookup lookup;
 
@@ -248,6 +394,13 @@ public class TestEx4 {
                             MethodType.methodType(boolean.class, O));
             THROW_IF_NOT_IMPLEMENTED = findStatic(Runtime.class,
                     "throwIfNotImplemented", UOP);
+            GET_CLASS =
+                    findVirtual(O, "getClass", MethodType.methodType(C));
+            CLASS_EQUALS = findVirtual(C, "equals",
+                    MethodType.methodType(boolean.class, O));
+            // HAS_CLASS = filterArguments(CLASS_EQUALS, 0, GET_CLASS);
+            HAS_CLASS = findStatic(Runtime.class, "classEquals",
+                    MethodType.methodType(boolean.class, C, O));
         }
 
         /** Singleton object for return by unimplemented operations. */
@@ -282,46 +435,73 @@ public class TestEx4 {
             }
         }
 
+        @SuppressWarnings("unused") // referenced as HAS_CLASS
+        private static boolean classEquals(Class<?> clazz, Object obj) {
+            return clazz == obj.getClass();
+        }
+
         /**
          * Convenience function wrapping
          * {@link Lookup#findStatic(Class, String, MethodType)}, throwing
-         * {@code ExceptionInInitializerError} if the method cannot be
-         * found, an unchecked exception, wrapping the real cause.
+         * {@code RuntimeException} if the method cannot be found, an
+         * unchecked exception, wrapping the real cause.
          *
          * @param refc class in which to find the method
          * @param name method name
          * @param type method type
          * @return handle to the method
-         * @throws ExceptionInInitializerError if the method was not found
+         * @throws RuntimeException if the method was not found
          */
-        private static MethodHandle findStatic(Class<?> refc, String name,
-                MethodType type) throws ExceptionInInitializerError {
+        static MethodHandle findStatic(Class<?> refc, String name,
+                MethodType type) throws RuntimeException {
             try {
                 return lookup.findStatic(refc, name, type);
             } catch (NoSuchMethodException | IllegalAccessException e) {
-                throw new ExceptionInInitializerError(e);
+                throw lookupRTE(refc, name, type, false, e);
             }
         }
 
         /**
          * Convenience function wrapping
          * {@link Lookup#findVirtual(Class, String, MethodType)}, throwing
-         * {@code ExceptionInInitializerError} if the method cannot be
-         * found, an unchecked exception, wrapping the real cause.
+         * {@code RuntimeException} if the method cannot be found, an
+         * unchecked exception, wrapping the real cause.
          *
          * @param refc class in which to find the method
          * @param name method name
          * @param type method type
          * @return handle to the method
-         * @throws ExceptionInInitializerError if the method was not found
+         * @throws RuntimeException if the method was not found
          */
-        private static MethodHandle findVirtual(Class<?> refc, String name,
-                MethodType type) throws ExceptionInInitializerError {
+        static MethodHandle findVirtual(Class<?> refc, String name,
+                MethodType type) throws RuntimeException {
             try {
                 return lookup.findVirtual(refc, name, type);
             } catch (NoSuchMethodException | IllegalAccessException e) {
-                throw new ExceptionInInitializerError(e);
+                throw lookupRTE(refc, name, type, true, e);
             }
+        }
+
+        /** Convenience method to create a lookup RuntimeException. */
+        private static RuntimeException lookupRTE(Class<?> refc,
+                String name, MethodType type, boolean isVirtual,
+                Throwable t) {
+            final String modeString = isVirtual ? "virtual" : "static";
+            String fmt = "In runtime looking up %s %s#%s with type %s";
+            String msg = String.format(fmt, modeString,
+                    refc.getSimpleName(), name, type);
+            return new RuntimeException(msg, t);
+        }
+
+        /**
+         * Bootstrap a simulated invokedynamic call site.
+         *
+         * @throws IllegalAccessException
+         * @throws NoSuchMethodException
+         */
+        static CallSite bootstrap(Lookup lookup, expr.BinOp binOp)
+                throws NoSuchMethodException, IllegalAccessException {
+            return new BinOpCallSite(lookup, binOp.op);
         }
 
         /**

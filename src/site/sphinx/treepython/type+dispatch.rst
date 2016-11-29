@@ -99,7 +99,8 @@ since it carries additional state.
 We're going to explore this approach
 in preference to reproducing the Jython approach,
 partly for its potential to reduce indirection,
-partly because the `cookbook`_ (slide 34, minute 53 in the `cookbook video`_)
+partly because the JSR-292 `cookbook`_
+(slide 34, minute 53 in the `cookbook video`_)
 on dynamic JVM languages recommends it.
 
 ..  _cookbook: http://www.wiki.jvmlangsummit.com/images/9/93/2011_Forax.pdf
@@ -825,6 +826,175 @@ If ``b`` returns ``NotImplemented``,
 that is converted to a thrown ``NoSuchMethodException``.
 This corresponds to the way Python implements binary operations when
 each operand offers a different implementation.
+
+Bootstrapping a Call Site
+=========================
+
+    Code fragments in this section are taken from
+    ``.../vsj1/example/treepython/TestEx5.java``
+    in the project test source.
+
+It remains for us to introduce a ``CallSite`` object into the AST node
+and to use that in place of a call to ``Runtime.findBinOp``.
+On first encountering each binary AST node,
+we create the ``CallSite``,
+as would an ``invokedynamic`` instruction.
+The revised code looks like this:
+
+..  code-block:: java
+
+    static class Evaluator implements Visitor<Object> {
+
+        Map<String, Object> variables = new HashMap<>();
+        Lookup lookup = lookup();
+
+        @Override
+        public Object visit_BinOp(expr.BinOp binOp) {
+            // Evaluate sub-trees
+            Object v = binOp.left.accept(this);
+            Object w = binOp.right.accept(this);
+            // Evaluate the node
+            try {
+                if (binOp.site == null) {
+                    // This must be a first visit
+                    binOp.site = Runtime.bootstrap(lookup, binOp);
+                }
+                MethodHandle mh = binOp.site.dynamicInvoker();
+                return mh.invokeExact(v, w);
+            } catch (NoSuchMethodException | IllegalAccessException e) {
+                // Implementation returned NotImplemented or equivalent
+                throw notDefined(v, binOp.op, w);
+            } catch (Throwable e) {
+                // Something else went wrong
+                e.printStackTrace();
+                return null;
+            }
+        }
+
+       //...
+    }
+
+The constant pool supporting an ``invokedynamic`` instruction
+would specify a bootstrap method, name and (static) calling signature.
+Here the binary operation provides the name and (implicit) signature.
+
+The bootstrap method just passes the ``op``
+to the constructor of the ``BinOpCallSite`` class.
+This class has only one interesting method, called ``fallback``.
+This method computes the result of the operation
+by using ``findBinOp`` to find the specialised implementation,
+returned as a method handle ``resultMH``,
+which it invokes.
+This method (as ``fallbackMH``) is the first target of the call site.
+However, when invoked it installs a new target,
+constructed by ``makeGuarded``,
+that re-uses the ``resultMH`` if it can,
+or resorts to ``fallbackMH`` if it must.
+Thus it forms a single level, in-line cache.
+We're following the JSR-292 `cookbook`_ almost exactly.
+
+..  code-block:: java
+
+    static class BinOpCallSite extends MutableCallSite {
+
+        final operator op;
+        final Lookup lookup;
+        final MethodHandle fallbackMH;
+
+        public BinOpCallSite(Lookup lookup, operator op)
+                throws NoSuchMethodException, IllegalAccessException {
+            super(Runtime.BINOP);
+            this.op = op;
+            this.lookup = lookup;
+            fallbackMH = lookup().bind(this, "fallback", Runtime.BINOP);
+            setTarget(fallbackMH);
+        }
+
+        private Object fallback(Object v, Object w) throws Throwable {
+            Class<?> V = v.getClass();
+            Class<?> W = w.getClass();
+            MethodType mt = MethodType.methodType(Object.class, V, W);
+            // MH to compute the result for these classes
+            MethodHandle resultMH = Runtime.findBinOp(V, op, W);
+            // MH for guarded invocation (becomes new target)
+            MethodHandle guarded = makeGuarded(V, W, resultMH, fallbackMH);
+            setTarget(guarded);
+            // Compute the result for this case
+            return resultMH.invokeExact(v, w);
+        }
+
+        /**
+         * Adapt two method handles, one that computes the desired result
+         * specialised to the given classes, and a fall-back appropriate
+         * when the arguments (when the handle is invoked) are not the
+         * given types.
+         */
+        private MethodHandle makeGuarded(Class<?> V, Class<?> W,
+                MethodHandle resultMH, MethodHandle fallbackMH) {
+            MethodHandle testV, testW, guardedForW, guarded;
+            testV = Runtime.HAS_CLASS.bindTo(V);
+            testW = Runtime.HAS_CLASS.bindTo(W);
+            testW = dropArguments(testW, 0, Object.class);
+            guardedForW = guardWithTest(testW, resultMH, fallbackMH);
+            guarded = guardWithTest(testV, guardedForW, fallbackMH);
+            return guarded;
+        }
+    }
+
+We decorate ``BinOpCallSite`` and ``fallback``
+so that they count the calls to ``fallback`` (not shown above).
+We may test the approach with a program such as this:
+
+..  code-block:: java
+
+    private Node cubic() {
+        // (x*x-2) * (x+y)
+        Node tree =
+            BinOp(
+                BinOp(
+                    BinOp(Name("x", Load), Mult, Name("x", Load)),
+                    Sub,
+                    Num(2)),
+                Mult,
+                BinOp(Name("x", Load), Add, Name("y", Load)));
+        return tree;
+    }
+
+    @Test
+    public void testChangeType() {
+        Node tree = cubic();
+        evaluator.variables.put("x", 3);
+        evaluator.variables.put("y", 3);
+        assertThat(tree.accept(evaluator), is(42));
+        int baseline = BinOpCallSite.fallbackCalls;
+        evaluator.variables.put("x", 4);
+        evaluator.variables.put("y", -1);
+        assertThat(tree.accept(evaluator), is(42));
+        assertThat(BinOpCallSite.fallbackCalls, is(baseline + 0));
+        // Suddenly y is a float
+        evaluator.variables.put("x", 2);
+        evaluator.variables.put("y", 19.);
+        assertThat(tree.accept(evaluator), is(42.));
+        assertThat(BinOpCallSite.fallbackCalls, is(baseline + 2));
+        // And now so is x
+        baseline = BinOpCallSite.fallbackCalls;
+        evaluator.variables.put("x", 6.);
+        evaluator.variables.put("y", 7.);
+        assertThat(tree.accept(evaluator), is(442.));
+        assertThat(BinOpCallSite.fallbackCalls, is(baseline + 4));
+        // And now y is an int again
+        baseline = BinOpCallSite.fallbackCalls;
+        evaluator.variables.put("x", 6.);
+        evaluator.variables.put("y", 7);
+        assertThat(tree.accept(evaluator), is(442.));
+        assertThat(BinOpCallSite.fallbackCalls, is(baseline + 1));
+    }
+
+The passing test demonstrates that the fall-back is not called again
+when the tree is evaluated a second time
+with new integer values for the variables,
+and is called only once per affected operator when the types change
+after that.
 
 
 
