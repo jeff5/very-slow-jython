@@ -5,7 +5,6 @@ import static java.lang.invoke.MethodHandles.foldArguments;
 import static java.lang.invoke.MethodHandles.guardWithTest;
 import static java.lang.invoke.MethodHandles.identity;
 import static java.lang.invoke.MethodHandles.lookup;
-import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assert.assertThat;
 
@@ -28,22 +27,19 @@ import uk.co.farowl.vsj1.TreePython.Visitor;
 import uk.co.farowl.vsj1.TreePython.expr;
 import uk.co.farowl.vsj1.TreePython.expr_context;
 import uk.co.farowl.vsj1.TreePython.operator;
-import uk.co.farowl.vsj1.example.treepython.TestEx6.Runtime;
+import uk.co.farowl.vsj1.TreePython.unaryop;
 
 /**
  * Demonstrate interpretation of the AST where nodes contain an embedded
- * CallSite object.
+ * CallSite object. Extension to unary operations.
  */
-public class TestEx5 {
+public class TestEx6 {
 
     @BeforeClass
     public static void setUpClass() {
         // Built-in types
         Runtime.registerTypeFor(Integer.class, new IntegerHandler());
         Runtime.registerTypeFor(Double.class, new DoubleHandler());
-        Runtime.registerTypeFor(A.class, new AHandler());
-        Runtime.registerTypeFor(B.class, new BHandler());
-        Runtime.registerTypeFor(C.class, new CHandler());
     }
 
     // Visitor to execute the code.
@@ -58,74 +54,37 @@ public class TestEx5 {
     private Node cubic() {
         // Build the expression tree (unlinked)
         // @formatter:off
-        // (x*x-2) * (x+y)
+        // (x*x-2) * -(-x-y)
         Node tree =
-            BinOp(
                 BinOp(
-                    BinOp(Name("x", Load), Mult, Name("x", Load)),
-                    Sub,
-                    Num(2)),
-                Mult,
-                BinOp(Name("x", Load), Add, Name("y", Load)));
+                    BinOp(
+                        BinOp(Name("x", Load), Mult, Name("x", Load)),
+                        Sub,
+                        Num(2)),
+                    Mult,
+                    UnaryOp(
+                        USub,
+                        BinOp(
+                            UnaryOp(USub, Name("x", Load)),
+                            Sub,
+                            Name("y", Load))));
         // @formatter:on
         return tree;
     }
 
-    private Node simple() { // v * w
-        return BinOp(Name("v", Load), Mult, Name("w", Load));
+    private Node simple() { // -v
+        return UnaryOp(USub, Name("v", Load));
     }
 
     @Test
     public void simpleInt() {
         Node tree = simple();
         evaluator.variables.put("v", 6);
-        evaluator.variables.put("w", 7);
-        assertThat(tree.accept(evaluator), is(42));
+        assertThat(tree.accept(evaluator), is(-6));
         int baseline = BinOpCallSite.fallbackCalls;
-        evaluator.variables.put("v", 3);
-        evaluator.variables.put("w", 8);
-        assertThat(tree.accept(evaluator), is(24));
+        evaluator.variables.put("v", -3);
+        assertThat(tree.accept(evaluator), is(3));
         assertThat(BinOpCallSite.fallbackCalls, is(baseline + 0));
-    }
-
-    private Node add() { // v + w
-        return BinOp(Name("v", Load), Add, Name("w", Load));
-    }
-
-    @Test
-    public void addAA() {
-        Node tree = add();
-        evaluator.variables.put("v", new A());
-        evaluator.variables.put("w", new A());
-        assertThat(tree.accept(evaluator), is(instanceOf(A.class)));
-    }
-
-    @Test(expected = IllegalArgumentException.class)
-    public void addAB() {
-        evaluator.variables.put("v", new A());
-        evaluator.variables.put("w", new B());
-        add().accept(evaluator);
-    }
-
-    @Test(expected = IllegalArgumentException.class)
-    public void addBA() {
-        evaluator.variables.put("v", new B());
-        evaluator.variables.put("w", new A());
-        add().accept(evaluator);
-    }
-
-    @Test
-    public void addAC() {
-        evaluator.variables.put("v", new A());
-        evaluator.variables.put("w", new C());
-        assertThat(add().accept(evaluator), is(instanceOf(C.class)));
-    }
-
-    @Test
-    public void addCA() {
-        evaluator.variables.put("v", new C());
-        evaluator.variables.put("w", new A());
-        assertThat(add().accept(evaluator), is(instanceOf(C.class)));
     }
 
     @Test
@@ -263,14 +222,47 @@ public class TestEx5 {
             return variables.get(name.id);
         }
 
-        /** Convenience method to create an IllegalArgumentException. */
+        @Override
+        public Object visit_UnaryOp(expr.UnaryOp unaryOp) {
+            // Evaluate sub-trees
+            Object v = unaryOp.operand.accept(this);
+            // Evaluate the node
+            try {
+                if (unaryOp.site == null) {
+                    // This must be a first visit
+                    unaryOp.site = Runtime.bootstrap(lookup, unaryOp);
+                }
+                MethodHandle mh = unaryOp.site.dynamicInvoker();
+                return mh.invokeExact(v);
+            } catch (NoSuchMethodException | IllegalAccessException e) {
+                // Implementation returned NotImplemented or equivalent
+                throw notDefined(v, unaryOp.op);
+            } catch (Throwable e) {
+                // Something else went wrong
+                e.printStackTrace();
+                return null;
+            }
+        }
+
+        /** Binary operation: create an IllegalArgumentException. */
         private static IllegalArgumentException notDefined(Object v,
                 operator op, Object w) {
-            String msg = "Operation %s not defined between %s and %s";
+            String msg =
+                    "unsupported operand type(s) for %s: '%s' and '%s'";
+            String s = BinOpInfo.forOp(op).symbol;
             String V = v.getClass().getSimpleName();
             String W = w.getClass().getSimpleName();
             throw new IllegalArgumentException(
-                    String.format(msg, op, V, W));
+                    String.format(msg, s, V, W));
+        }
+
+        /** Unary operation: create an IllegalArgumentException. */
+        private static IllegalArgumentException notDefined(Object v,
+                unaryop op) {
+            String msg = "bad operand type for unary %s: '%s'";
+            String s = UnaryOpInfo.forOp(op).symbol;
+            String V = v.getClass().getSimpleName();
+            throw new IllegalArgumentException(String.format(msg, s, V));
         }
     }
 
@@ -330,6 +322,38 @@ public class TestEx5 {
         }
     }
 
+    static class UnaryOpCallSite extends MutableCallSite {
+
+        final unaryop op;
+        final Lookup lookup;
+        final MethodHandle fallbackMH;
+
+        static int fallbackCalls = 0;
+
+        public UnaryOpCallSite(Lookup lookup, unaryop op)
+                throws NoSuchMethodException, IllegalAccessException {
+            super(Runtime.UOP);
+            this.op = op;
+            this.lookup = lookup;
+            fallbackMH = lookup().bind(this, "fallback", Runtime.UOP);
+            setTarget(fallbackMH);
+        }
+
+        @SuppressWarnings("unused")
+        private Object fallback(Object v) throws Throwable {
+            fallbackCalls += 1;
+            Class<?> V = v.getClass();
+            MethodType mt = MethodType.methodType(Object.class, V);
+            // MH to compute the result for this class
+            MethodHandle resultMH = Runtime.findUnaryOp(V, op);
+            // MH for guarded invocation (becomes new target)
+            MethodHandle testV = Runtime.HAS_CLASS.bindTo(V);
+            setTarget(guardWithTest(testV, resultMH, fallbackMH));
+            // Compute the result for this case
+            return resultMH.invokeExact(v);
+        }
+    }
+
     /** Runtime support for the interpreter. */
     static class Runtime {
 
@@ -363,9 +387,11 @@ public class TestEx5 {
 
         /** A (static) method implementing a unary op has this type. */
         protected static final MethodType UOP;
+        /** Handle of a method returning NotImplemented (1 arg). */
+        static final MethodHandle UOP_NOT_IMPLEMENTED;
         /** A (static) method implementing a binary op has this type. */
         protected static final MethodType BINOP;
-        /** Handle of a method returning NotImplemented. */
+        /** Handle of a method returning NotImplemented (2 args). */
         static final MethodHandle BINOP_NOT_IMPLEMENTED;
         /** Handle of a method testing result == NotImplemented. */
         static final MethodHandle IS_NOT_IMPLEMENTED;
@@ -387,6 +413,8 @@ public class TestEx5 {
         static {
             lookup = lookup();
             UOP = MethodType.methodType(O, O);
+            UOP_NOT_IMPLEMENTED =
+                    findStatic(Runtime.class, "notImplemented", UOP);
             BINOP = MethodType.methodType(O, O, O);
             BINOP_NOT_IMPLEMENTED =
                     findStatic(Runtime.class, "notImplemented", BINOP);
@@ -418,6 +446,16 @@ public class TestEx5 {
          * @throws NoSuchMethodException
          */
         static Object notImplemented(Object v, Object w)
+                throws NoSuchMethodException {
+            throw new NoSuchMethodException();
+        }
+
+        /**
+         * Unary operation throwing NoSuchMethodError, use as dummy.
+         *
+         * @throws NoSuchMethodException
+         */
+        static Object notImplemented(Object v)
                 throws NoSuchMethodException {
             throw new NoSuchMethodException();
         }
@@ -495,7 +533,37 @@ public class TestEx5 {
         }
 
         /**
-         * Bootstrap a simulated invokedynamic call site.
+         * Bootstrap a simulated invokedynamic call site for a unary
+         * operation.
+         *
+         * @throws IllegalAccessException
+         * @throws NoSuchMethodException
+         */
+        static CallSite bootstrap(Lookup lookup, expr.UnaryOp unaryOp)
+                throws NoSuchMethodException, IllegalAccessException {
+            return new UnaryOpCallSite(lookup, unaryOp.op);
+        }
+
+        /**
+         * Provide (as a method handle) an appropriate implementation of
+         * the given operation, on a a target Java type.
+         *
+         * @param operandClass Java class of operand
+         * @param op operator to apply
+         * @return MH representing the operation
+         * @throws NoSuchMethodException
+         * @throws IllegalAccessException
+         */
+        static MethodHandle findUnaryOp(Class<?> operandClass, unaryop op)
+                throws NoSuchMethodException, IllegalAccessException {
+            TypeHandler V = Runtime.typeFor(operandClass);
+            MethodHandle mhV = V.findUnaryOp(op);
+            return mhV;
+        }
+
+        /**
+         * Bootstrap a simulated invokedynamic call site for a binary
+         * operation.
          *
          * @throws IllegalAccessException
          * @throws NoSuchMethodException
@@ -565,6 +633,66 @@ public class TestEx5 {
         }
     }
 
+    /** Mapping from unary operation to function names. */
+    enum UnaryOpInfo {
+
+        POS(unaryop.UAdd, "+", "pos"),
+
+        NEG(unaryop.USub, "-", "neg");
+
+        /** Unary operation represented e.g. USub for NEG. */
+        public final unaryop op;
+        /** Symbol for the operation e.g. "-" for NEG. */
+        public final String symbol;
+        /** Function name implementing the operation e.g. "neg". */
+        public final String name;
+
+        private UnaryOpInfo(unaryop op, String symbol, String name) {
+            this.op = op;
+            this.symbol = symbol;
+            this.name = name;
+            // Must have same ordinal value.
+            assert this.ordinal() == op.ordinal();
+        }
+
+        /** Get the information for the given {@link unaryop}. */
+        static final UnaryOpInfo forOp(unaryop op) {
+            return UnaryOpInfo.values()[op.ordinal()];
+        }
+    };
+
+    /** Mapping from unary operation to function names. */
+    enum BinOpInfo {
+
+        ADD(operator.Add, "+", "add"),
+
+        SUB(operator.Sub, "-", "sub"),
+
+        MUL(operator.Mult, "*", "mul"),
+
+        DIV(operator.Div, "/", "div");
+
+        /** Unary operation represented e.g. MULT for MUL. */
+        public final operator op;
+        /** Symbol for the operation e.g. "*" for MUL. */
+        public final String symbol;
+        /** Function name implementing the operation e.g. "mul". */
+        public final String name;
+
+        private BinOpInfo(operator op, String symbol, String name) {
+            this.op = op;
+            this.symbol = symbol;
+            this.name = name;
+            // Must have same ordinal value.
+            assert this.ordinal() == op.ordinal();
+        }
+
+        /** Get the information for the given {@link operator}. */
+        static final BinOpInfo forOp(operator op) {
+            return BinOpInfo.values()[op.ordinal()];
+        }
+    };
+
     /**
      * <code>TypeHandler</code> is the base class of the classes that
      * collect together the operations on each Python type. These
@@ -572,6 +700,8 @@ public class TestEx5 {
      */
     static abstract class TypeHandler {
 
+        /** A method implementing a unary operation has this type. */
+        protected static final MethodType UOP = Runtime.UOP;
         /** A method implementing a binary operation has this type. */
         protected static final MethodType BINOP = Runtime.BINOP;
         /** Shorthand for <code>Object.class</code>. */
@@ -613,15 +743,50 @@ public class TestEx5 {
 
         /**
          * Return the method handle of the implementation of
-         * <code>left op right</code>, where left is an object of this
+         * <code>op v</code>, where <code>v</code> is an object of this
          * handler's type.
+         *
+         * @param op the binary operation to find
+         * @return
+         */
+        public MethodHandle findUnaryOp(unaryop op) {
+            String name = UnaryOpInfo.forOp(op).name;
+            Class<?> here = this.getClass();
+            Class<?> targetClass = this.javaClass;
+
+            // Look for an exact match with the actual types
+            MethodType mt = MethodType.methodType(O, targetClass);
+            MethodHandle mh = findStaticOrNull(here, name, mt);
+
+            // Look for a match with (T)
+            if (mh == null) {
+                mt = MethodType.methodType(O, targetClass, O);
+                mh = findStaticOrNull(here, name, mt);
+            }
+
+            // Look for a match with (Object)
+            if (mh == null) {
+                mh = findStaticOrNull(here, name, UOP);
+            }
+
+            if (mh == null) {
+                return Runtime.UOP_NOT_IMPLEMENTED;
+            } else {
+                return mh.asType(UOP);
+            }
+        }
+
+        /**
+         * Return the method handle of the implementation of
+         * <code>left op right</code>, where <code>left</code> is an object
+         * of this handler's type.
          *
          * @param op the binary operation to find
          * @param rightType
          * @return
          */
         public MethodHandle findBinOp(operator op, TypeHandler rightType) {
-            String name = composeNameFor(op);
+            String name = BinOpInfo.forOp(op).name;
             Class<?> here = this.getClass();
             Class<?> leftClass = this.javaClass;
             Class<?> rightClass = rightType.javaClass;
@@ -708,8 +873,8 @@ public class TestEx5 {
     }
 
     /**
-     * Cclass defining the operations for a Java <code>Integer</code>, so
-     * as to make it a Python <code>int</code>.
+     * Class defining the operations for a Java <code>Integer</code>, so as
+     * to make it a Python <code>int</code>.
      */
     @SuppressWarnings(value = {"unused"})
     static class IntegerHandler extends TypeHandler {
@@ -723,6 +888,8 @@ public class TestEx5 {
         private static Object div(Integer v, Integer w) {
             return v.doubleValue() / w.doubleValue();
         }
+        private static Object neg(Integer v) { return -v; }
+        private static Object pos(Integer v) { return v; }
         // @formatter:on
     }
 
@@ -748,71 +915,26 @@ public class TestEx5 {
         private static Object div(Double v, Integer w) { return v/w; }
         private static Object div(Integer v, Double w) { return v/w; }
         private static Object div(Double v, Double w)  { return v/w; }
+        private static Object neg(Double v) { return -v; }
+        private static Object pos(Double v) { return v; }
         // @formatter:on
     }
-
-    // @formatter:off
-    static class A {}
-    static class AHandler extends TypeHandler {
-        AHandler() {
-            super(lookup(), A.class); }
-        @SuppressWarnings(value = {"unused"})
-        private static Object add(Object v, Object w) {
-            if (v instanceof A && w instanceof A) { return new A(); }
-            return Runtime.NotImplemented;
-        }
-    }
-
-    static class B {}
-    static class BHandler extends TypeHandler {
-        BHandler() { super(lookup(), B.class); }
-        @SuppressWarnings(value = {"unused"})
-        private static Object add(Object v, Object w) {
-            if (v instanceof B && w instanceof B) { return new B(); }
-            return Runtime.NotImplemented;
-        }
-    }
-
-    static class C {}
-    static class CHandler extends TypeHandler {
-
-        private CHandler() { super(lookup(), C.class); }
-
-        @Override
-        public boolean isSubtypeOf(TypeHandler other) {
-             return other.getClass() == AHandler.class;
-        }
-
-        // C knows how to do addition with an A
-        @SuppressWarnings(value = {"unused"})
-        private static Object add(Object v, Object w) {
-            if (v instanceof C) {
-                // __add__(self, w)
-                if (w instanceof C || w instanceof A) {
-                    return new C();
-                }
-            } else if (w instanceof C) {
-                // __radd__(self, v)
-                if (v instanceof A || v instanceof C) {
-                    return new C();
-                }
-            }
-            return Runtime.NotImplemented;
-        }
-    }
-    // @formatter:on
 
     // @formatter:off
     public static final operator Add = operator.Add;
     public static final operator Sub = operator.Sub;
     public static final operator Mult = operator.Mult;
     public static final operator Div = operator.Div;
+    public static final unaryop UAdd = unaryop.UAdd;
+    public static final unaryop USub = unaryop.USub;
     public static final expr_context Load = expr_context.Load;
     public static final expr Name(String id, expr_context ctx)
-        {return new expr.Name(id, ctx); }
-    public static final expr Num(Object n) {return new expr.Num(n); }
+        { return new expr.Name(id, ctx); }
+    public static final expr Num(Object n) { return new expr.Num(n); }
     public static final expr BinOp(expr left, operator op, expr right)
-        {return new expr.BinOp(left, op, right); }
+        { return new expr.BinOp(left, op, right); }
+    public static final expr UnaryOp(unaryop op, expr operand)
+        { return new expr.UnaryOp(op, operand); }
     // @formatter:on
 
 }

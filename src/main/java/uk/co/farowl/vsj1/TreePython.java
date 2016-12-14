@@ -5,7 +5,7 @@ package uk.co.farowl.vsj1;
 
 /**
  * Outer class scoping the types defined in the ASDL
- * file:   <code>C:\Users\Jeff\Documents\Eclipse\very-slow-jython\local\\asdl\TreePython.asdl</code>,
+ * file:   <code>~\local\\asdl\TreePython.asdl</code>,
  * module: <code>TreePython</code>.
  */
 public abstract class TreePython {
@@ -41,6 +41,20 @@ public abstract class TreePython {
             }
         }
 
+        public static class UnaryOp extends expr {
+            public unaryop op;
+            public expr operand;
+            public UnaryOp(unaryop op, expr operand){
+                this.op = op;
+                this.operand = operand;
+            }
+
+            @Override
+            public <T> T accept(Visitor<T> visitor) {
+                return visitor.visit_UnaryOp(this);
+            }
+        }
+
         public static class Num extends expr {
             public Object n;
             public Num(Object n){
@@ -73,12 +87,16 @@ public abstract class TreePython {
     public enum operator {Add, Sub, Mult, Div}
 
 
+    public enum unaryop {UAdd, USub}
+
+
     public enum expr_context {Load, Store, Del}
 
 
     public interface Visitor<T> {
-        T visit_BinOp(expr.BinOp _BinOp);
-        T visit_Num(expr.Num _Num);
-        T visit_Name(expr.Name _Name);
+        default T visit_BinOp(expr.BinOp _BinOp){ return null; }
+        default T visit_UnaryOp(expr.UnaryOp _UnaryOp){ return null; }
+        default T visit_Num(expr.Num _Num){ return null; }
+        default T visit_Name(expr.Name _Name){ return null; }
     }
 }

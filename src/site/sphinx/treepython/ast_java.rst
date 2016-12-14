@@ -4,7 +4,7 @@
 An Interpreter in Java for the Python AST
 #########################################
 
-The example above is already too complicated for us to start with.
+THe AST of a module is already too complicated for us to start with.
 We'll focus on just this part of the AST::
 
     value=BinOp(left=Name(id='x', ctx=Load()), op=Add(), right=Num(n=1))),

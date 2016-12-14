@@ -695,7 +695,11 @@ For types implemented in Java, this can work by reflection:
             MethodHandle mh = findStaticOrNull(here, name, mt);
 
             // ...
-            return mh == null ? Runtime.BINOP_NOT_IMPLEMENTED : mh;
+            if (mh == null) {
+                return Runtime.BINOP_NOT_IMPLEMENTED;
+            } else {
+                return mh.asType(BINOP);
+            }
         }
 
         /**
@@ -747,7 +751,11 @@ With the missing clauses visible, we have:
                 mh = findStaticOrNull(here, name, BINOP);
             }
 
-            return mh == null ? Runtime.BINOP_NOT_IMPLEMENTED : mh;
+            if (mh == null) {
+                return Runtime.BINOP_NOT_IMPLEMENTED;
+            } else {
+                return mh.asType(BINOP);
+            }
         }
         // ...
     }
@@ -996,5 +1004,195 @@ with new integer values for the variables,
 and is called only once per affected operator when the types change
 after that.
 
+Extension to Unary Operators
+****************************
+
+In the discussion above, we've implemented only binary operations.
+It was important to tackle binary operations early
+because they present certain difficulties (of multiple dispatch).
+We need to study other kinds of slot function,
+that will present new difficulties,
+but one type that ought to be easier is the unary operation.
+We'll go there next.
+
+    Code fragments in this section are taken from
+    ``.../vsj1/example/treepython/TestEx6.java``
+    in the project test source.
+
+The first job is to implement a little more of the Python AST for expressions,
+represented here in ASDL::
+
+    module TreePython
+    {
+        expr = BinOp(expr left, operator op, expr right)
+             | UnaryOp(unaryop op, expr operand)
+             | Num(object n)
+             | Name(identifier id, expr_context ctx)
+
+        operator = Add | Sub | Mult | Div
+        unaryop = UAdd | USub
+        expr_context = Load | Store | Del
+    }
+
+When we regenerate the ``TreePython`` AST class from this,
+we shall have the necessary data structures to represent unary ``+`` and ``-``.
+In order that we can easily write expressions in Java,
+representing expression ASTs,
+we add the corresponding wrapper functions and constants:
+
+..  code-block:: java
+
+    public static final unaryop UAdd = unaryop.UAdd;
+    public static final unaryop USub = unaryop.USub;
+    public static final expr UnaryOp(unaryop op, expr operand)
+        { return new expr.UnaryOp(op, operand); }
+
+The ``UnaryOp`` node has to be added to the ``Visitor`` interface:
+
+..  code-block:: java
+
+    public abstract class TreePython { //...
+
+        public interface Visitor<T> {
+            default T visit_BinOp(expr.BinOp _BinOp){ return null; }
+            default T visit_UnaryOp(expr.UnaryOp _UnaryOp){ return null; }
+            default T visit_Num(expr.Num _Num){ return null; }
+            default T visit_Name(expr.Name _Name){ return null; }
+        }
+    }
+
+Use of the ``default`` keyword allows our old examples to work,
+even though their version of the visitor ``Evaluator`` was
+written before we added this node type.
+We must add a specific visit method to our ``Evaluator``,
+but it's just a simplified version of ``visit_BinOp``:
+
+..  code-block:: java
+
+        public Object visit_UnaryOp(expr.UnaryOp unaryOp) {
+            // Evaluate sub-trees
+            Object v = unaryOp.operand.accept(this);
+            // Evaluate the node
+            try {
+                if (unaryOp.site == null) {
+                    // This must be a first visit
+                    unaryOp.site = Runtime.bootstrap(lookup, unaryOp);
+                }
+                MethodHandle mh = unaryOp.site.dynamicInvoker();
+                return mh.invokeExact(v);
+            } catch (NoSuchMethodException | IllegalAccessException e) {
+                // Implementation returned NotImplemented or equivalent
+                throw notDefined(v, unaryOp.op);
+            } catch (Throwable e) {
+                // Something else went wrong
+                e.printStackTrace();
+                return null;
+            }
+        }
+
+
+We choose ``neg`` and ``pos`` as the standard names,
+corresponding to the Python special functions ``__neg__`` and ``__pos__``,
+and within the handlers for applicable types we define:
+
+..  code-block:: java
+
+    static class IntegerHandler extends TypeHandler {
+        // ...
+        private static Object neg(Integer v) { return -v; }
+        private static Object pos(Integer v) { return v; }
+    }
+
+    static class DoubleHandler extends TypeHandler {
+        // ...
+        private static Object neg(Double v) { return -v; }
+        private static Object pos(Double v) { return v; }
+    }
+
+Finding the implementation of a unary operation within the ``TypeHandler``
+is not so complex as it was for binary operations.
+
+..  code-block:: java
+
+    static class Runtime {
+        //...
+        static MethodHandle findUnaryOp(Class<?> operandClass, unaryop op)
+                throws NoSuchMethodException, IllegalAccessException {
+            TypeHandler V = Runtime.typeFor(operandClass);
+            MethodHandle mhV = V.findUnaryOp(op);
+            return mhV;
+        }
+        //...
+    }
+
+    static abstract class TypeHandler {
+        //...
+        public MethodHandle findUnaryOp(unaryop op) {
+            String name = UnaryOpInfo.forOp(op).name;
+            Class<?> here = this.getClass();
+            Class<?> targetClass = this.javaClass;
+
+            // Look for an exact match with the actual types
+            MethodType mt = MethodType.methodType(O, targetClass);
+            MethodHandle mh = findStaticOrNull(here, name, mt);
+
+            // Look for a match with (T)
+            if (mh == null) {
+                mt = MethodType.methodType(O, targetClass, O);
+                mh = findStaticOrNull(here, name, mt);
+            }
+
+            // Look for a match with (Object)
+            if (mh == null) {
+                mh = findStaticOrNull(here, name, UOP);
+            }
+
+            if (mh == null) {
+                return Runtime.UOP_NOT_IMPLEMENTED;
+            } else {
+                return mh.asType(UOP);
+            }
+        }
+        //...
+    }
+
+For unary operators, we need a new ``CallSite`` subclass.
+However, there is only one class to test in the guarded method handle:
+
+..  code-block:: java
+
+    static class UnaryOpCallSite extends MutableCallSite {
+
+        final unaryop op;
+        final Lookup lookup;
+        final MethodHandle fallbackMH;
+
+        static int fallbackCalls = 0;
+
+        public UnaryOpCallSite(Lookup lookup, unaryop op)
+                throws NoSuchMethodException, IllegalAccessException {
+            super(Runtime.UOP);
+            this.op = op;
+            this.lookup = lookup;
+            fallbackMH = lookup().bind(this, "fallback", Runtime.UOP);
+            setTarget(fallbackMH);
+        }
+
+        @SuppressWarnings("unused")
+        private Object fallback(Object v) throws Throwable {
+            fallbackCalls += 1;
+            Class<?> V = v.getClass();
+            MethodType mt = MethodType.methodType(Object.class, V);
+            // MH to compute the result for this class
+            MethodHandle resultMH = Runtime.findUnaryOp(V, op);
+            // MH for guarded invocation (becomes new target)
+            MethodHandle testV = Runtime.HAS_CLASS.bindTo(V);
+            setTarget(guardWithTest(testV, resultMH, fallbackMH));
+            // Compute the result for this case
+            return resultMH.invokeExact(v);
+        }
+    }
+
+And that's the pattern for unary operations.
 
 
