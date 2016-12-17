@@ -3,6 +3,7 @@
 # Project specific structure
 /bin/
 /local/
+**/venv/
 
 # Generated during build
 /target/

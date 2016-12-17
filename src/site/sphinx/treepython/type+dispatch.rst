@@ -1195,4 +1195,48 @@ However, there is only one class to test in the guarded method handle:
 
 And that's the pattern for unary operations.
 
+Dispatch with Multiple Implementations
+**************************************
+
+We've implemented the Python ``int`` type incorrectly!
+Python is able to represent any integer within the capacity of computer memory,
+not just the range [-2\ :sup:`31`, 2\ :sup:`31`-1].
+The corresponding Java type is ``java.math.BigInteger``,
+however, the implementation of basic operations in ``BigInteger`` is costly.
+Also, Java methods will return ``int``, or ``Integer``,
+and it would be good to minimise conversions.
+It would be useful to permit an object that is a Python ``int`` to have
+either implementation,
+without visible difference at the Python language level.
+
+There are other uses (such as implementing ``str``)
+where it may be useful to have two or more implementations,
+in that case because of the space-efficiency possible when all characters
+are ASCII, or Unicode BMP,
+rather than always use arrays of (20-bit) Unicode characters.
+
+Suppose, for a moment,
+that we make ``BigInteger`` our *only* integer implementation,
+then we may follow the pattern discovered so far.
+
+We must also deal with incoming operands that are ``BigInteger``.
+
+
+Where should the operation for a given pair reside?
+
+
+We seem forced to create a static method for each operation,
+and for every combination of numeric types.
+How can we control this square-law explosion of signatures?
+
+As usual, Python has an answer,
+but we have to interpret it carefully for the Java implementation.
+
+Our guide here is the :py:mod:`numbers` module.
+The documentation (also linked from the language reference)
+provides this example of a user-defined integer type:
+
+
+
+
 

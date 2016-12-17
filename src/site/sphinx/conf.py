@@ -16,8 +16,8 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-# import os
-# import sys
+import os
+import sys
 # sys.path.insert(0, os.path.abspath('.'))
 
 # -- General configuration ------------------------------------------------
@@ -320,9 +320,13 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    (master_doc, 'TheVerySlowJythonProject', u'The Very Slow Jython Project Documentation',
-     author, 'TheVerySlowJythonProject', 'One line description of project.',
-     'Miscellaneous'),
+    (   master_doc, 
+        'TheVerySlowJythonProject',
+        u'The Very Slow Jython Project Documentation',
+        author, 
+        'TheVerySlowJythonProject',
+        'One line description of project.',
+        'Miscellaneous'),
 ]
 
 # Documents to append as an appendix to all manuals.
@@ -342,5 +346,22 @@ texinfo_documents = [
 # texinfo_no_detailmenu = False
 
 
-# Example configuration for intersphinx: refer to the Python standard library.
-intersphinx_mapping = {'https://docs.python.org/': None}
+# Configuration for intersphinx.
+
+primary_domain = 'python3'
+
+#intersphinx_mapping = {'https://docs.python.org/3': None} # (old syntax)
+
+intersphinx_mapping = {
+    'https://docs.python.org/3':
+        os.path.join('reference', 'python3-objects.inv'),
+}
+
+
+# intersphinx_mapping = {
+#     'python3' : ('https://docs.python.org/3',
+#     (
+#         os.path.join('reference', 'python3-objects.inv'), # Spare python.org
+#         None,
+#     ))
+# }
