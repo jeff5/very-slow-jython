@@ -5,6 +5,7 @@ import static java.lang.invoke.MethodHandles.foldArguments;
 import static java.lang.invoke.MethodHandles.guardWithTest;
 import static java.lang.invoke.MethodHandles.identity;
 import static java.lang.invoke.MethodHandles.lookup;
+import static org.hamcrest.CoreMatchers.instanceOf;
 import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assert.assertThat;
 
@@ -14,6 +15,7 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.invoke.MethodType;
 import java.lang.invoke.MutableCallSite;
+import java.math.BigInteger;
 import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.Map;
@@ -30,15 +32,26 @@ import uk.co.farowl.vsj1.TreePython.operator;
 import uk.co.farowl.vsj1.TreePython.unaryop;
 
 /**
- * Demonstrate interpretation of the AST where nodes contain an embedded
- * CallSite object. Extension to unary operations.
+ * Dealing with many implementations of the integer type
+ * (<code>Byte</code>, <code>Integer</code>, <code>Long</code> etc., and
+ * <code>BigInteger</code>) in the interpretation of the AST. Emphasis on
+ * sensible use of <code>Numeric</code> to avoid an explosion of
+ * implementations of the binary operations.
  */
-public class TestEx6 {
+public class TestEx7 {
 
     @BeforeClass
     public static void setUpClass() {
         // Built-in types
-        Runtime.registerTypeFor(Integer.class, new IntegerHandler());
+        Runtime.registerTypeFor(BigInteger.class, new BigIntegerHandler());
+        TypeHandler uptoLongHandler = new UptoLongHandler();
+        Runtime.registerTypeFor(Byte.class, uptoLongHandler);
+        Runtime.registerTypeFor(Short.class, uptoLongHandler);
+        Runtime.registerTypeFor(Integer.class, uptoLongHandler);
+        Runtime.registerTypeFor(Long.class, uptoLongHandler);
+        TypeHandler uptoFloatHandler = new UptoFloatHandler();
+        Runtime.registerTypeFor(Float.class, uptoFloatHandler);
+        // Runtime.registerTypeFor(Double.class, uptoFloatHandler);
         Runtime.registerTypeFor(Double.class, new DoubleHandler());
     }
 
@@ -52,6 +65,22 @@ public class TestEx6 {
     }
 
     private Node cubic() {
+        // Build the expression tree (unlinked)
+        // @formatter:off
+        // (x*x-2) * (x+y)
+        Node tree =
+            BinOp(
+                BinOp(
+                    BinOp(Name("x", Load), Mult, Name("x", Load)),
+                    Sub,
+                    Num(2)),
+                Mult,
+                BinOp(Name("x", Load), Add, Name("y", Load)));
+        // @formatter:on
+        return tree;
+    }
+
+    private Node uncubic() {
         // Build the expression tree (unlinked)
         // @formatter:off
         // (x*x-2) * -(-x-y)
@@ -72,111 +101,324 @@ public class TestEx6 {
         return tree;
     }
 
-    private Node simple() { // -v
-        return UnaryOp(USub, Name("v", Load));
+    @Test
+    public void simpleUnaryInt() {
+        Node tree = UnaryOp(USub, Name("v", Load));
+        evaluator.variables.put("v", 6);
+        assertThat(tree.accept(evaluator), is(BIG_M6));
+        int ufb = UnaryOpCallSite.fallbackCalls;
+
+        // Test promotion in unary -
+        evaluator.variables.put("v", Integer.MIN_VALUE);
+        BigInteger expected =
+                BigInteger.valueOf(1 + (long)Integer.MAX_VALUE);
+        assertThat(tree.accept(evaluator), is(expected));
+        assertThat(UnaryOpCallSite.fallbackCalls, is(ufb + 0));
     }
 
     @Test
-    public void simpleInt() {
-        Node tree = simple();
+    public void simpleUnaryByte() {
+        Node tree = UnaryOp(USub, Name("v", Load));
+        evaluator.variables.put("v", (byte)6);
+        assertThat(tree.accept(evaluator), is(BIG_M6));
+    }
+
+    @Test
+    public void simpleUnaryLong() {
+        Node tree = UnaryOp(USub, Name("v", Load));
+        evaluator.variables.put("v", 6L);
+        assertThat(tree.accept(evaluator), is(BIG_M6));
+        int ufb = UnaryOpCallSite.fallbackCalls;
+
+        // Test promotion in unary -
+        evaluator.variables.put("v", Long.MIN_VALUE);
+        BigInteger expected =
+                BigInteger.valueOf(Long.MAX_VALUE).add(BigInteger.ONE);
+        assertThat(tree.accept(evaluator), is(expected));
+        assertThat(UnaryOpCallSite.fallbackCalls, is(ufb + 0));
+    }
+
+    @Test
+    public void simpleUnaryBigInt() {
+        Node tree = UnaryOp(USub, Name("v", Load));
+        evaluator.variables.put("v", BigInteger.valueOf(-42));
+        assertThat(tree.accept(evaluator), is(BIG_42));
+    }
+
+    private static final BigInteger BIG_2 = BigInteger.valueOf(2);
+    private static final BigInteger BIG_3 = BigInteger.valueOf(3);
+    private static final BigInteger BIG_19 = BigInteger.valueOf(19);
+    private static final BigInteger BIG_21 = BigInteger.valueOf(21);
+    private static final BigInteger BIG_42 = BigInteger.valueOf(42);
+    private static final BigInteger BIG_M6 = BigInteger.valueOf(-6);
+
+    @Test
+    public void simpleBinaryBigInt() {
+        Node tree = BinOp(Name("v", Load), Mult, Name("w", Load));
         evaluator.variables.put("v", 6);
-        assertThat(tree.accept(evaluator), is(-6));
-        int baseline = BinOpCallSite.fallbackCalls;
-        evaluator.variables.put("v", -3);
-        assertThat(tree.accept(evaluator), is(3));
-        assertThat(BinOpCallSite.fallbackCalls, is(baseline + 0));
+        evaluator.variables.put("w", 7);
+        assertThat(tree.accept(evaluator), is(BIG_42));
+        int bfb = BinOpCallSite.fallbackCalls;
+
+        evaluator.variables.put("v", BIG_21);
+        evaluator.variables.put("w", BIG_2);
+        assertThat(tree.accept(evaluator), is(BIG_42));
+        assertThat(BinOpCallSite.fallbackCalls, is(bfb + 1));
+    }
+
+    @Test
+    public void testByte() {
+        Node tree = uncubic();
+        evaluator.variables.put("x", (byte)3);
+        evaluator.variables.put("y", (byte)3);
+        assertThat(tree.accept(evaluator), is(BIG_42));
+    }
+
+    @Test
+    public void testShort() {
+        Node tree = uncubic();
+        evaluator.variables.put("x", (short)3);
+        evaluator.variables.put("y", (short)3);
+        assertThat(tree.accept(evaluator), is(BIG_42));
     }
 
     @Test
     public void testInt() {
+        Node tree = uncubic();
         evaluator.variables.put("x", 3);
         evaluator.variables.put("y", 3);
-        assertThat(cubic().accept(evaluator), is(42));
+        assertThat(tree.accept(evaluator), is(BIG_42));
     }
 
     @Test
-    public void testFloatInt() {
-        // (x*x-2) exercises sub(Double, Integer)
-        evaluator.variables.put("x", 3.);
+    public void testLong() {
+        Node tree = uncubic();
+        evaluator.variables.put("x", 3L);
+        evaluator.variables.put("y", 3L);
+        assertThat(tree.accept(evaluator), is(BIG_42));
+    }
+
+    @Test
+    public void testBigInt() {
+        Node tree = uncubic();
+        evaluator.variables.put("x", BIG_3);
+        evaluator.variables.put("y", BIG_3);
+        assertThat(tree.accept(evaluator), is(BIG_42));
+    }
+
+    @Test
+    public void testByteInt() {
+        Node tree = uncubic();
+        evaluator.variables.put("x", (byte)3);
         evaluator.variables.put("y", 3);
+        assertThat(tree.accept(evaluator), is(BIG_42));
+    }
+
+    @Test
+    public void testLongInt() {
+        Node tree = uncubic();
+        evaluator.variables.put("x", 3L);
+        evaluator.variables.put("y", 3);
+        assertThat(tree.accept(evaluator), is(BIG_42));
+    }
+
+    @Test
+    public void testBigIntInt() {
+        Node tree = uncubic();
+        evaluator.variables.put("x", BIG_3);
+        evaluator.variables.put("y", 3);
+        assertThat(tree.accept(evaluator), is(BIG_42));
+    }
+
+    @Test
+    public void testByteLong() {
+        Node tree = uncubic();
+        evaluator.variables.put("x", (byte)3);
+        evaluator.variables.put("y", 3L);
+        assertThat(tree.accept(evaluator), is(BIG_42));
+    }
+
+    @Test
+    public void testIntLong() {
+        Node tree = uncubic();
+        evaluator.variables.put("x", 3);
+        evaluator.variables.put("y", 3L);
+        assertThat(tree.accept(evaluator), is(BIG_42));
+    }
+
+    @Test
+    public void testBigIntLong() {
+        Node tree = uncubic();
+        evaluator.variables.put("x", BIG_3);
+        evaluator.variables.put("y", 3L);
+        assertThat(tree.accept(evaluator), is(BIG_42));
+    }
+
+    @Test
+    public void testByteBigInt() {
+        Node tree = uncubic();
+        evaluator.variables.put("x", (byte)2);
+        evaluator.variables.put("y", BIG_19);
+        assertThat(tree.accept(evaluator), is(BIG_42));
+    }
+
+    @Test
+    public void testIntBigInt() {
+        Node tree = uncubic();
+        evaluator.variables.put("x", 2);
+        evaluator.variables.put("y", BIG_19);
+        assertThat(tree.accept(evaluator), is(BIG_42));
+    }
+
+    @Test
+    public void testLongBigInt() {
+        Node tree = uncubic();
+        evaluator.variables.put("x", 3L);
+        evaluator.variables.put("y", BIG_3);
+        assertThat(tree.accept(evaluator), is(BIG_42));
+    }
+
+    @Test
+    public void testIntByte() {
+        Node tree = uncubic();
+        evaluator.variables.put("x", 3);
+        evaluator.variables.put("y", (byte)3);
+        assertThat(tree.accept(evaluator), is(BIG_42));
+    }
+
+    @Test
+    public void testFloatBigInt() {
+        // x*x exercises mul(Float, Float)
+        // (x*x-2) exercises sub(Double, Integer)
+        evaluator.variables.put("x", 3f);
+        evaluator.variables.put("y", BIG_3);
         assertThat(cubic().accept(evaluator), is(42.));
     }
 
     @Test
-    public void testIntFloat() {
+    public void testDoubleBigInt() {
+        // x*x exercises mul(Double, Double)
+        // (x*x-2) exercises sub(Double, Integer)
+        evaluator.variables.put("x", 3d);
+        evaluator.variables.put("y", BIG_3);
+        assertThat(cubic().accept(evaluator), is(42.));
+    }
+
+    @Test
+    public void testBigIntFloat() {
         // (x+y) exercises add(Integer, Double) (float.__radd__)
         // (x*x-2)*(x+y) exercises mul(Integer, Double) (float.__rmul__)
-        evaluator.variables.put("x", 3);
-        evaluator.variables.put("y", 3.);
+        evaluator.variables.put("x", BIG_3);
+        evaluator.variables.put("y", 3f);
         assertThat(cubic().accept(evaluator), is(42.));
     }
 
     @Test
-    public void testIntRepeat() {
-        Node tree = cubic();
-        evaluator.variables.put("x", 3);
-        evaluator.variables.put("y", 3);
-        assertThat(tree.accept(evaluator), is(42));
-        int baseline = BinOpCallSite.fallbackCalls;
-        evaluator.variables.put("x", 4);
-        evaluator.variables.put("y", -1);
-        assertThat(tree.accept(evaluator), is(42));
-        evaluator.variables.put("x", 2);
-        evaluator.variables.put("y", 19);
-        assertThat(tree.accept(evaluator), is(42));
-        evaluator.variables.put("x", 6);
-        evaluator.variables.put("y", 7);
-        assertThat(tree.accept(evaluator), is(442));
-        assertThat(BinOpCallSite.fallbackCalls, is(baseline + 0));
+    public void testBigIntDouble() {
+        // (x+y) exercises add(Integer, Double) (float.__radd__)
+        // (x*x-2)*(x+y) exercises mul(Integer, Double) (float.__rmul__)
+        evaluator.variables.put("x", BIG_3);
+        evaluator.variables.put("y", 3d);
+        assertThat(cubic().accept(evaluator), is(42.));
     }
 
     @Test
-    public void testFloatRepeat() {
-        Node tree = cubic();
-        evaluator.variables.put("x", 3.);
-        evaluator.variables.put("y", 3);
-        assertThat(tree.accept(evaluator), is(42.));
-        int baseline = BinOpCallSite.fallbackCalls;
-        evaluator.variables.put("x", 4.);
-        evaluator.variables.put("y", -1);
-        assertThat(tree.accept(evaluator), is(42.));
-        evaluator.variables.put("x", 2.);
-        evaluator.variables.put("y", 19);
-        assertThat(tree.accept(evaluator), is(42.));
-        evaluator.variables.put("x", 6.);
-        evaluator.variables.put("y", 7);
-        assertThat(tree.accept(evaluator), is(442.));
-        assertThat(BinOpCallSite.fallbackCalls, is(baseline + 0));
+    public void testBigIntRepeat() {
+        Node tree = uncubic();
+        evaluator.variables.put("x", BIG_3);
+        evaluator.variables.put("y", BIG_3);
+        assertThat(tree.accept(evaluator), is(BIG_42));
+        int bfb = BinOpCallSite.fallbackCalls;
+        int ufb = UnaryOpCallSite.fallbackCalls;
+
+        evaluator.variables.put("x", BigInteger.valueOf(4));
+        evaluator.variables.put("y", BigInteger.valueOf(-1));
+        assertThat(tree.accept(evaluator), is(BIG_42));
+
+        evaluator.variables.put("x", BIG_2);
+        evaluator.variables.put("y", BIG_19);
+        assertThat(tree.accept(evaluator), is(BIG_42));
+
+        evaluator.variables.put("x", BigInteger.valueOf(6));
+        evaluator.variables.put("y", BigInteger.valueOf(7));
+        assertThat(tree.accept(evaluator), is(BigInteger.valueOf(442)));
+        assertThat(BinOpCallSite.fallbackCalls, is(bfb + 0));
+        assertThat(UnaryOpCallSite.fallbackCalls, is(ufb + 0));
     }
 
-    @Test
-    public void testChangeType() {
-        Node tree = cubic();
+    // @Test
+    public void smallToInteger() {
+        // (x*x-2) * -(-x-y)
+        Node tree = uncubic();
+
+        // All calculations are Integer
         evaluator.variables.put("x", 3);
         evaluator.variables.put("y", 3);
         assertThat(tree.accept(evaluator), is(42));
-        int baseline = BinOpCallSite.fallbackCalls;
-        evaluator.variables.put("x", 4);
-        evaluator.variables.put("y", -1);
-        assertThat(tree.accept(evaluator), is(42));
-        assertThat(BinOpCallSite.fallbackCalls, is(baseline + 0));
-        // Suddenly y is a float
-        evaluator.variables.put("x", 2);
-        evaluator.variables.put("y", 19.);
-        assertThat(tree.accept(evaluator), is(42.));
-        assertThat(BinOpCallSite.fallbackCalls, is(baseline + 2));
-        // And now so is x
-        baseline = BinOpCallSite.fallbackCalls;
-        evaluator.variables.put("x", 6.);
-        evaluator.variables.put("y", 7.);
-        assertThat(tree.accept(evaluator), is(442.));
-        assertThat(BinOpCallSite.fallbackCalls, is(baseline + 4));
-        // And now y is an int again
-        baseline = BinOpCallSite.fallbackCalls;
-        evaluator.variables.put("x", 6.);
-        evaluator.variables.put("y", 7);
-        assertThat(tree.accept(evaluator), is(442.));
-        assertThat(BinOpCallSite.fallbackCalls, is(baseline + 1));
+
+        // x*x, -x and (-x)-y and promote Byte to Integer
+        int bfb = BinOpCallSite.fallbackCalls;
+        int ufb = UnaryOpCallSite.fallbackCalls;
+        evaluator.variables.put("x", (byte)3);
+        evaluator.variables.put("y", (byte)3);
+        Object result = tree.accept(evaluator);
+        assertThat(result, is(42));
+        assertThat(result, is(instanceOf(Integer.class)));
+        assertThat(BinOpCallSite.fallbackCalls, is(bfb + 2));
+        assertThat(UnaryOpCallSite.fallbackCalls, is(ufb + 1));
+
+        // x*x, -x and (-x)-y and promote Short to Integer
+        bfb = BinOpCallSite.fallbackCalls;
+        ufb = UnaryOpCallSite.fallbackCalls;
+        evaluator.variables.put("x", (short)2);
+        evaluator.variables.put("y", (short)19);
+        result = tree.accept(evaluator);
+        assertThat(result, is(42));
+        assertThat(result, is(instanceOf(Integer.class)));
+        assertThat(BinOpCallSite.fallbackCalls, is(bfb + 2));
+        assertThat(UnaryOpCallSite.fallbackCalls, is(ufb + 1));
+    }
+
+    @Test
+    public void integerToBigInteger() {
+        // (x*x-2) * -(-x-y)
+        Node tree = uncubic();
+
+        // All calculations are BigInteger
+        evaluator.variables.put("x", BIG_3);
+        evaluator.variables.put("y", BIG_3);
+        assertThat(tree.accept(evaluator), is(BIG_42));
+
+        // (-x)-y promotes Byte to BigInteger
+        int bfb = BinOpCallSite.fallbackCalls;
+        int ufb = UnaryOpCallSite.fallbackCalls;
+        evaluator.variables.put("y", (byte)3);
+        Object result = tree.accept(evaluator);
+        assertThat(result, is(BIG_42));
+        assertThat(result, is(instanceOf(BigInteger.class)));
+// assertThat(BinOpCallSite.fallbackCalls, is(bfb + 2));
+// assertThat(UnaryOpCallSite.fallbackCalls, is(ufb));
+
+        // (-x)-y promotes Short to BigInteger
+        bfb = BinOpCallSite.fallbackCalls;
+        ufb = UnaryOpCallSite.fallbackCalls;
+        evaluator.variables.put("y", (short)3);
+        result = tree.accept(evaluator);
+        assertThat(result, is(BIG_42));
+        assertThat(result, is(instanceOf(BigInteger.class)));
+// assertThat(BinOpCallSite.fallbackCalls, is(bfb + 2));
+// assertThat(UnaryOpCallSite.fallbackCalls, is(ufb));
+
+        // x*x promotes Long to BigInteger (but +, - etc do not)
+        bfb = BinOpCallSite.fallbackCalls;
+        ufb = UnaryOpCallSite.fallbackCalls;
+        evaluator.variables.put("x", 100000002L);
+        evaluator.variables.put("y", 100000019L);
+        BigInteger expected = new BigInteger("2000000290000008800000042");
+        result = tree.accept(evaluator);
+        assertThat(result, is(expected));
+// assertThat(BinOpCallSite.fallbackCalls, is(bfb + 4));
+// assertThat(UnaryOpCallSite.fallbackCalls, is(ufb + 2));
     }
 
     /**
@@ -248,7 +490,7 @@ public class TestEx6 {
         private static IllegalArgumentException notDefined(Object v,
                 operator op, Object w) {
             String msg =
-                    "unsupported operand type(s) for %s: '%s' and '%s'";
+                    "unsupported operand type(s) for %s : '%s' and '%s'";
             String s = BinOpInfo.forOp(op).symbol;
             String V = v.getClass().getSimpleName();
             String W = w.getClass().getSimpleName();
@@ -259,7 +501,7 @@ public class TestEx6 {
         /** Unary operation: create an IllegalArgumentException. */
         private static IllegalArgumentException notDefined(Object v,
                 unaryop op) {
-            String msg = "bad operand type for unary %s: '%s'";
+            String msg = "bad operand type for unary %s : '%s'";
             String s = UnaryOpInfo.forOp(op).symbol;
             String V = v.getClass().getSimpleName();
             throw new IllegalArgumentException(String.format(msg, s, V));
@@ -578,23 +820,23 @@ public class TestEx6 {
          * the given operation, between operands of two Java types,
          * conforming to Python delegation rules.
          *
-         * @param leftClass Java class of left operand
+         * @param VClass Java class of left operand
          * @param op operator to apply
-         * @param rightClass Java class of left operand
+         * @param WClass Java class of right operand
          * @return MH representing the operation
          * @throws NoSuchMethodException
          * @throws IllegalAccessException
          */
-        static MethodHandle findBinOp(Class<?> leftClass, operator op,
-                Class<?> rightClass)
+        static MethodHandle findBinOp(Class<?> VClass, operator op,
+                Class<?> WClass)
                 throws NoSuchMethodException, IllegalAccessException {
-            TypeHandler V = Runtime.typeFor(leftClass);
-            TypeHandler W = Runtime.typeFor(rightClass);
-            MethodHandle mhV = V.findBinOp(op, W);
+            TypeHandler V = Runtime.typeFor(VClass);
+            TypeHandler W = Runtime.typeFor(WClass);
+            MethodHandle mhV = V.findBinOp(op, WClass);
             if (W == V) {
                 return mhV;
             }
-            MethodHandle mhW = W.findBinOp(V, op); // reversed op
+            MethodHandle mhW = W.findBinOp(VClass, op); // reversed op
             if (mhW == BINOP_NOT_IMPLEMENTED) {
                 return mhV;
             } else if (mhV == BINOP_NOT_IMPLEMENTED) {
@@ -718,7 +960,7 @@ public class TestEx6 {
          * @param type method type
          * @return handle to the method or null
          */
-        private MethodHandle findStaticOrNull(Class<?> refc, String name,
+        protected MethodHandle findStaticOrNull(Class<?> refc, String name,
                 MethodType type) {
             try {
                 MethodHandle mh = lookup.findStatic(refc, name, type);
@@ -739,27 +981,16 @@ public class TestEx6 {
         public MethodHandle findUnaryOp(unaryop op) {
             String name = UnaryOpInfo.forOp(op).name;
             Class<?> here = this.getClass();
-            Class<?> targetClass = this.javaClass;
+            Class<?> targetClass = this.targetClass;
 
-            // Look for an exact match with the actual types
+            // Look for a match with the actual type
             MethodType mt = MethodType.methodType(O, targetClass);
             MethodHandle mh = findStaticOrNull(here, name, mt);
 
-            // Look for a match with (T)
-            if (mh == null) {
-                mt = MethodType.methodType(O, targetClass, O);
-                mh = findStaticOrNull(here, name, mt);
-            }
-
-            // Look for a match with (Object)
-            if (mh == null) {
-                mh = findStaticOrNull(here, name, UOP);
-            }
-
-            if (mh == null) {
-                return Runtime.UOP_NOT_IMPLEMENTED;
-            } else {
+            if (mh != null) {
                 return mh.asType(UOP);
+            } else {
+                return Runtime.UOP_NOT_IMPLEMENTED;
             }
         }
 
@@ -769,30 +1000,17 @@ public class TestEx6 {
          * of this handler's type.
          *
          * @param op the binary operation to find
-         * @param rightType
+         * @param WClass
          * @return
          */
-        public MethodHandle findBinOp(operator op, TypeHandler rightType) {
+        public MethodHandle findBinOp(operator op, Class<?> WClass) {
             String name = BinOpInfo.forOp(op).name;
             Class<?> here = this.getClass();
-            Class<?> leftClass = this.javaClass;
-            Class<?> rightClass = rightType.javaClass;
+            Class<?> VClass = this.targetClass;
 
-            // Look for an exact match with the actual types
-            MethodType mt =
-                    MethodType.methodType(O, leftClass, rightClass);
+            // Look for a match with the actual types
+            MethodType mt = MethodType.methodType(O, VClass, WClass);
             MethodHandle mh = findStaticOrNull(here, name, mt);
-
-            // Look for a match with (T, Object)
-            if (mh == null) {
-                mt = MethodType.methodType(O, leftClass, O);
-                mh = findStaticOrNull(here, name, mt);
-            }
-
-            // Look for a match with (Object, Object)
-            if (mh == null) {
-                mh = findStaticOrNull(here, name, BINOP);
-            }
 
             if (mh == null) {
                 return Runtime.BINOP_NOT_IMPLEMENTED;
@@ -806,31 +1024,18 @@ public class TestEx6 {
          * <code>left op right</code>, where right is an object of this
          * handler's type.
          *
-         * @param leftType
+         * @param VClass
          * @param op the binary operation to find
          * @return
          */
-        public MethodHandle findBinOp(TypeHandler leftType, operator op) {
+        public MethodHandle findBinOp(Class<?> VClass, operator op) {
             String name = BinOpInfo.forOp(op).name;
             Class<?> here = this.getClass();
-            Class<?> leftClass = leftType.javaClass;
-            Class<?> rightClass = this.javaClass;
+            Class<?> WClass = this.targetClass;
 
-            // Look for an exact match with the actual types
-            MethodType mt =
-                    MethodType.methodType(O, leftClass, rightClass);
+            // Look for a match with the actual types
+            MethodType mt = MethodType.methodType(O, VClass, WClass);
             MethodHandle mh = findStaticOrNull(here, name, mt);
-
-            // Look for a match with (Object, T)
-            if (mh == null) {
-                mt = MethodType.methodType(O, O, rightClass);
-                mh = findStaticOrNull(here, name, mt);
-            }
-
-            // Look for a match with (Object, Object)
-            if (mh == null) {
-                mh = findStaticOrNull(here, name, BINOP);
-            }
 
             if (mh == null) {
                 return Runtime.BINOP_NOT_IMPLEMENTED;
@@ -843,11 +1048,11 @@ public class TestEx6 {
         private final Lookup lookup;
 
         /** The implementing class served by this type handler. */
-        public final Class<?> javaClass;
+        public final Class<?> targetClass;
 
-        protected TypeHandler(Lookup lookup, Class<?> javaClass) {
+        protected TypeHandler(Lookup lookup, Class<?> targetClass) {
             this.lookup = lookup;
-            this.javaClass = javaClass;
+            this.targetClass = targetClass;
         }
 
         /**
@@ -860,24 +1065,224 @@ public class TestEx6 {
     }
 
     /**
-     * Class defining the operations for a Java <code>Integer</code>, so as
-     * to make it a Python <code>int</code>.
+     * <code>MixedNumberHandler</code> is the base class of handlers for
+     * types that implement <code>Numeric</code>.
+     */
+    static abstract class MixedNumberHandler extends TypeHandler {
+
+        /** Shorthand for <code>Number.class</code>. */
+        static final Class<Number> N = Number.class;
+
+        protected MixedNumberHandler(Lookup lookup, Class<?> targetClass) {
+            super(lookup, targetClass);
+        }
+
+        /** Test that the actual class of an operand is acceptable. */
+        abstract protected boolean acceptable(Class<?> oClass);
+
+        @Override
+        public MethodHandle findBinOp(operator op, Class<?> WClass) {
+            String name = BinOpInfo.forOp(op).name;
+            Class<?> here = this.getClass();
+
+            // Look for a match with the actual types
+            MethodType mt = MethodType.methodType(O, targetClass, WClass);
+            MethodHandle mh = findStaticOrNull(here, name, mt);
+
+            // Look for a match with (targetClass, Number)
+            if (mh == null && acceptable(WClass)) {
+                mt = MethodType.methodType(O, targetClass, N);
+                mh = findStaticOrNull(here, name, mt);
+            }
+
+            if (mh == null) {
+                return Runtime.BINOP_NOT_IMPLEMENTED;
+            } else {
+                return mh.asType(BINOP);
+            }
+        }
+
+        @Override
+        public MethodHandle findBinOp(Class<?> VClass, operator op) {
+            String name = BinOpInfo.forOp(op).name;
+            Class<?> here = this.getClass();
+
+            // Look for a match with the actual types
+            MethodType mt = MethodType.methodType(O, VClass, targetClass);
+            MethodHandle mh = findStaticOrNull(here, name, mt);
+
+            // Look for a match with (Number, targetClass)
+            if (mh == null && acceptable(VClass)) {
+                mt = MethodType.methodType(O, N, targetClass);
+                mh = findStaticOrNull(here, name, mt);
+            }
+
+            if (mh == null) {
+                return Runtime.BINOP_NOT_IMPLEMENTED;
+            } else {
+                return mh.asType(BINOP);
+            }
+        }
+    }
+
+    /**
+     * <code>PureNumberHandler</code> is the base class of handlers for
+     * types that extend the abstract class <code>Number</code>.
+     * Sub-classes should define unary operations of <code>(Number)</code>
+     * and binary operations on <code>(Number, Number)</code>.
+     */
+    static abstract class PureNumberHandler extends MixedNumberHandler {
+
+        protected static final MethodType UOP_N =
+                MethodType.methodType(O, N);
+        protected static final MethodType BINOP_NN =
+                MethodType.methodType(O, N, N);
+
+        protected PureNumberHandler(Lookup lookup) {
+            super(lookup, N);
+        }
+
+        @Override
+        public MethodHandle findUnaryOp(unaryop op) {
+            String name = UnaryOpInfo.forOp(op).name;
+            Class<?> here = this.getClass();
+            // Look for a match with (Number)
+            MethodHandle mh = findStaticOrNull(here, name, UOP_N);
+            if (mh != null) {
+                return mh.asType(UOP);
+            } else {
+                return Runtime.UOP_NOT_IMPLEMENTED;
+            }
+        }
+
+        @Override
+        public MethodHandle findBinOp(operator op, Class<?> WClass) {
+            String name = BinOpInfo.forOp(op).name;
+            Class<?> here = this.getClass();
+            // Look for a match with (Number, Number)
+            if (acceptable(WClass)) {
+                MethodHandle mh = findStaticOrNull(here, name, BINOP_NN);
+                if (mh != null) {
+                    return mh.asType(BINOP);
+                }
+            }
+            return Runtime.BINOP_NOT_IMPLEMENTED;
+        }
+
+        @Override
+        public MethodHandle findBinOp(Class<?> VClass, operator op) {
+            String name = BinOpInfo.forOp(op).name;
+            Class<?> here = this.getClass();
+            // Look for a match with (Number, Number)
+            if (acceptable(VClass)) {
+                MethodHandle mh = findStaticOrNull(here, name, BINOP_NN);
+                if (mh != null) {
+                    return mh.asType(BINOP);
+                }
+            }
+            return Runtime.BINOP_NOT_IMPLEMENTED;
+        }
+    }
+
+    /**
+     * Class defining the operations for a Java <code>BigInteger</code>, so
+     * as to make it a Python <code>int</code>.
      */
     @SuppressWarnings(value = {"unused"})
-    static class IntegerHandler extends TypeHandler {
+    static class BigIntegerHandler extends MixedNumberHandler {
 
         // @formatter:off
-        IntegerHandler() { super(lookup(), Integer.class); }
+        BigIntegerHandler() { super(lookup(), BigInteger.class); }
 
-        private static Object add(Integer v, Integer w) { return v+w; }
-        private static Object sub(Integer v, Integer w) { return v-w; }
-        private static Object mul(Integer v, Integer w) { return v*w; }
-        private static Object div(Integer v, Integer w) {
+        private static Object add(BigInteger v, BigInteger w)
+            { return v.add(w); }
+        private static Object sub(BigInteger v, BigInteger w)
+            { return v.subtract(w); }
+        private static Object mul(BigInteger v, BigInteger w)
+            { return v.multiply(w); }
+        private static Object div(BigInteger v, BigInteger w)
+            { return v.doubleValue() / w.doubleValue(); }
+
+        private static Object neg(BigInteger v) { return v.negate(); }
+        private static Object pos(BigInteger v) { return v; }
+
+        // Accept any integer type by cast to long (__add__, etc)
+        private static Object add(BigInteger v, Number w)
+            { return v.add(BigInteger.valueOf(w.longValue())); }
+        private static Object sub(BigInteger v, Number w)
+            { return v.subtract(BigInteger.valueOf(w.longValue())); }
+        private static Object mul(BigInteger v, Number w)
+            { return v.multiply(BigInteger.valueOf(w.longValue())); }
+        private static Object div(BigInteger v, Number w)
+            { return v.doubleValue() / w.doubleValue(); }
+
+        // Accept any integer type by cast to long (__radd__, etc)
+        private static Object add(Number v, BigInteger w)
+            { return BigInteger.valueOf(v.longValue()).add(w); }
+        private static Object sub(Number v, BigInteger w)
+            { return BigInteger.valueOf(v.longValue()).subtract(w); }
+        private static Object mul(Number v, BigInteger w)
+            { return BigInteger.valueOf(v.longValue()).multiply(w); }
+        private static Object div(Number v, BigInteger w)
+            { return v.doubleValue() / w.doubleValue(); }
+        // @formatter:on
+
+        @Override
+        protected boolean acceptable(Class<?> oClass) {
+            return oClass == Byte.class || oClass == Short.class
+                    || oClass == Integer.class || oClass == Long.class;
+        }
+    }
+
+    /**
+     * Operations handler for all Java integers up to <code>Long</code>,
+     * treating each as abstract base <code>Number</code>, so as to make
+     * each a Python <code>int</code>, and performing arithmetic as
+     * <code>BigInteger</code>.
+     */
+    @SuppressWarnings(value = {"unused"})
+    static class UptoLongHandler extends PureNumberHandler {
+
+        UptoLongHandler() {
+            super(lookup());
+        }
+
+        /*
+         * Although the following all take Number arguments, they won't be
+         * called unless the actual type is representable in a Long.
+         */
+        private static Object add(Number v, Number w) {
+            return BigInteger.valueOf(v.longValue())
+                    .add(BigInteger.valueOf(w.longValue()));
+        }
+
+        private static Object sub(Number v, Number w) {
+            return BigInteger.valueOf(v.longValue())
+                    .subtract(BigInteger.valueOf(w.longValue()));
+        }
+
+        private static Object mul(Number v, Number w) {
+            return BigInteger.valueOf(v.longValue())
+                    .multiply(BigInteger.valueOf(w.longValue()));
+        }
+
+        private static Object div(Number v, Number w) {
             return v.doubleValue() / w.doubleValue();
         }
-        private static Object neg(Integer v) { return -v; }
-        private static Object pos(Integer v) { return v; }
-        // @formatter:on
+
+        private static Object neg(Number v) {
+            return BigInteger.valueOf(v.longValue()).negate();
+        }
+
+        private static Object pos(Number v) {
+            return v;
+        }
+
+        @Override
+        protected boolean acceptable(Class<?> oClass) {
+            return oClass == Byte.class || oClass == Short.class
+                    || oClass == Integer.class || oClass == Long.class;
+        }
     }
 
     /**
@@ -885,26 +1290,77 @@ public class TestEx6 {
      * to make it a Python <code>float</code>.
      */
     @SuppressWarnings(value = {"unused"})
-    static class DoubleHandler extends TypeHandler {
+    static class DoubleHandler extends MixedNumberHandler {
 
         // @formatter:off
         DoubleHandler() { super(lookup(), Double.class); }
 
-        private static Object add(Double v, Integer w) { return v+w; }
-        private static Object add(Integer v, Double w) { return v+w; }
         private static Object add(Double v, Double w)  { return v+w; }
-        private static Object sub(Double v, Integer w) { return v-w; }
-        private static Object sub(Integer v, Double w) { return v-w; }
         private static Object sub(Double v, Double w)  { return v-w; }
-        private static Object mul(Double v, Integer w) { return v*w; }
-        private static Object mul(Integer v, Double w) { return v*w; }
         private static Object mul(Double v, Double w)  { return v*w; }
-        private static Object div(Double v, Integer w) { return v/w; }
-        private static Object div(Integer v, Double w) { return v/w; }
         private static Object div(Double v, Double w)  { return v/w; }
+
         private static Object neg(Double v) { return -v; }
         private static Object pos(Double v) { return v; }
+
+        private static Object add(Double v, Number w)
+            { return v + w.doubleValue(); }
+        private static Object sub(Double v, Number w)
+            { return v - w.doubleValue(); }
+        private static Object mul(Double v, Number w)
+            { return v * w.doubleValue(); }
+        private static Object div(Double v, Number w)
+            { return v / w.doubleValue(); }
+
+        private static Object add(Number v, Double w)
+            { return v.doubleValue() + w; }
+        private static Object sub(Number v, Double w)
+            { return v.doubleValue() - w; }
+        private static Object mul(Number v, Double w)
+            { return v.doubleValue() * w; }
+        private static Object div(Number v, Double w)
+            { return v.doubleValue() / w; }
         // @formatter:on
+
+        @Override
+        protected boolean acceptable(Class<?> oClass) {
+            return oClass == Byte.class || oClass == Short.class
+                    || oClass == Integer.class || oClass == Long.class
+                    || oClass == BigInteger.class || oClass == Float.class;
+        }
+    }
+
+    /**
+     * Operations handler for all Java integers and reals up to
+     * <code>Float</code>, treating each as abstract base
+     * <code>Number</code>, with <code>Double</code> result.
+     */
+    @SuppressWarnings(value = {"unused"})
+    static class UptoFloatHandler extends PureNumberHandler {
+
+        // @formatter:off
+        UptoFloatHandler() { super(lookup()); }
+
+        private static Object add(Number v, Number w)
+            { return v.doubleValue() + w.doubleValue(); }
+        private static Object sub(Number v, Number w)
+            { return v.doubleValue() - w.doubleValue(); }
+        private static Object mul(Number v, Number w)
+            { return v.doubleValue() * w.doubleValue(); }
+        private static Object div(Number v, Number w)
+            { return v.doubleValue() / w.doubleValue(); }
+
+        private static Object neg(Number v) { return -v.doubleValue(); }
+        private static Object pos(Number v) { return v; }
+        // @formatter:on
+
+        @Override
+        protected boolean acceptable(Class<?> oClass) {
+            return oClass == Byte.class || oClass == Short.class
+                    || oClass == Integer.class || oClass == Long.class
+                    || oClass == BigInteger.class || oClass == Float.class
+                    || oClass == Double.class;
+        }
     }
 
     // @formatter:off

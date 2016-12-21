@@ -1199,44 +1199,465 @@ Dispatch with Multiple Implementations
 **************************************
 
 We've implemented the Python ``int`` type incorrectly!
-Python is able to represent any integer within the capacity of computer memory,
-not just the range [-2\ :sup:`31`, 2\ :sup:`31`-1].
-The corresponding Java type is ``java.math.BigInteger``,
+Python integers have effectively no size limits
+except the amount of memory available.
+``Integer`` is limited to the range [-2\ :sup:`31`, 2\ :sup:`31`-1].
+
+The Java type corresponding to ``int`` should be ``java.math.BigInteger``,
 however, the implementation of basic operations in ``BigInteger`` is costly.
 Also, Java methods will return ``int``, or ``Integer``,
-and it would be good to minimise conversions.
-It would be useful to permit an object that is a Python ``int`` to have
+and it would be helpful to accept these in their native form.
+Suppose we permit an object that is a Python ``int`` to have
 either implementation,
-without visible difference at the Python language level.
+without visible difference at the Python language level?
 
-There are other uses (such as implementing ``str``)
-where it may be useful to have two or more implementations,
-in that case because of the space-efficiency possible when all characters
-are ASCII, or Unicode BMP,
-rather than always use arrays of (20-bit) Unicode characters.
+There are other applications for this.
+When implementing ``str``,
+it is efficient to have two or three implementations.
+Many strings contain only ASCII, or Unicode BMP characters.
+Only rarely do we need (20-bit) Unicode characters
+that are likely to occupy a 32-bit word.
 
 Suppose, for a moment,
-that we make ``BigInteger`` our *only* integer implementation,
-then we may follow the pattern discovered so far.
+that ``BigInteger`` is our *only* implementation of ``int``,
+and as before,
+we implement the operations in a class with static methods like this:
 
-We must also deal with incoming operands that are ``BigInteger``.
+..  code-block:: java
+
+    static class BigIntegerHandler extends TypeHandler {
+
+        BigIntegerHandler() { super(lookup(), BigInteger.class); }
+
+        private static Object add(BigInteger v, BigInteger w)
+            { return v.add(w); }
+        private static Object sub(BigInteger v, BigInteger w)
+            { return v.subtract(w); }
+        private static Object mul(BigInteger v, BigInteger w)
+            { return v.multiply(w); }
+        private static Object div(BigInteger v, BigInteger w)
+            { return v.doubleValue() / w.doubleValue(); }
+
+        private static Object neg(BigInteger v) { return v.negate(); }
+        private static Object pos(BigInteger v) { return v; }
+    }
+
+Now suppose that we choose to add the 32-bit ``Integer``
+as an alternative implementation of ``int``.
+Operations between ``Integer`` and ``Integer``
+could follow the same pattern,
+except that the result may sometimes overflow to a ``BigInteger``.
+But what will we do when these two types meet at a binary operator?
+We encountered this already where ``DoubleHandler`` accepted ``Integer``.
+Continuing the same way,
+we have to define every combination in at least one operation handler.
+So, ``BigInteger`` has:
+
+..  code-block:: java
+
+        private static Object add(BigInteger v, BigInteger w) { ... }
+        private static Object add(BigInteger v, Integer w) { ... }
+        private static Object add(Integer v, BigInteger w) { ... }
+
+and ``Double`` has:
+
+..  code-block:: java
+
+        private static Object add(Double v, Double w)  { ... }
+        private static Object add(Double v, BigInteger w)  { ... }
+        private static Object add(BigInteger v, Double w)  { ... }
+        private static Object add(Double v, Integer w)  { ... }
+        private static Object add(Integer v, Double w)  { ... }
+
+Now, suppose further that we wish to admit other integer Java types:
+``Byte``, ``Short``, ``Long``.
+And suppose we wish to allow for single-precision floating-point ``Float``.
+There could be an operations handler for each type,
+accepting (say) all other types up to its own size.
+It would work, but the number of combinations becomes uncomfortably large.
+
+..  code-block:: java
+
+        private static Object add(BigInteger v, BigInteger w) { ... }
+        private static Object add(BigInteger v, Long w) { ... }
+        private static Object add(Long v, BigInteger w) { ... }
+        private static Object add(BigInteger v, Integer w) { ... }
+        private static Object add(Integer v, BigInteger w) { ... }
+        private static Object add(BigInteger v, Short w) { ... }
+        private static Object add(Short v, BigInteger w) { ... }
+        private static Object add(BigInteger v, Byte w) { ... }
+        private static Object add(Byte v, BigInteger w) { ... }
+
+Now in pure Java programming,
+we would take advantage of the fact that
+all these types extend the abstract class ``Number``.
+We'd like do the same here, and write signatures like this:
+
+..  code-block:: java
+
+        private static Object add(BigInteger v, BigInteger w) { ... }
+        private static Object add(BigInteger v, Number w) { ... }
+        private static Object add(Number v, BigInteger w) { ... }
+
+or even this:
+
+..  code-block:: java
+
+        private static Object add(Number v, Number w) { ... }
+
+but this is not possible with the version of ``TypeHandler.findBinOp``
+that we have been using,
+since it looks for an exact match with the operand types.
+However, these signatures possible if we specialise ``TypeHandler``.
+
+Specialisation of ``TypeHandler`` for one ``Number`` operand
+============================================================
+
+    Code fragments in this section and the next are taken from
+    ``.../vsj1/example/treepython/TestEx7.java``
+    in the project test source.
+
+Consider making ``BigIntegerHandler`` accept
+a variety of integer ``Number`` types as the other operand.
+After checking for an exactly matching signature in ``findBinOp``,
+we could look for one where the other argument is any ``Number``,
+in which we will convert ``other`` to a ``BigInteger``.
+Actually, that won't quite work:
+we don't want to accept every ``Number``:
+only the types for which the conversion to ``BigInteger`` is a widening one,
+so not ``Float``, for example.
+The general solution looks like this:
+
+..  code-block:: java
+
+    static abstract class MixedNumberHandler extends TypeHandler {
+
+        /** Shorthand for <code>Number.class</code>. */
+        static final Class<Number> N = Number.class;
+
+        protected MixedNumberHandler(Lookup lookup, Class<?> targetClass) {
+            super(lookup, targetClass);
+        }
+
+        /** Test that the actual class of an operand is acceptable. */
+        abstract protected boolean acceptable(Class<?> oClass);
+
+        @Override
+        public MethodHandle findBinOp(operator op, Class<?> WClass) {
+            String name = BinOpInfo.forOp(op).name;
+            Class<?> here = this.getClass();
+
+            // Look for a match with the actual types
+            MethodType mt = MethodType.methodType(O, targetClass, WClass);
+            MethodHandle mh = findStaticOrNull(here, name, mt);
+
+            // Look for a match with (targetClass, Number)
+            if (mh == null && acceptable(WClass)) {
+                mt = MethodType.methodType(O, targetClass, N);
+                mh = findStaticOrNull(here, name, mt);
+            }
+
+            if (mh == null) {
+                return Runtime.BINOP_NOT_IMPLEMENTED;
+            } else {
+                return mh.asType(BINOP);
+            }
+        }
+
+        @Override
+        public MethodHandle findBinOp(Class<?> VClass, operator op) {
+            String name = BinOpInfo.forOp(op).name;
+            Class<?> here = this.getClass();
+
+            // Look for a match with the actual types
+            MethodType mt = MethodType.methodType(O, VClass, targetClass);
+            MethodHandle mh = findStaticOrNull(here, name, mt);
+
+            // Look for a match with (Number, targetClass)
+            if (mh == null && acceptable(VClass)) {
+                mt = MethodType.methodType(O, N, targetClass);
+                mh = findStaticOrNull(here, name, mt);
+            }
+
+            if (mh == null) {
+                return Runtime.BINOP_NOT_IMPLEMENTED;
+            } else {
+                return mh.asType(BINOP);
+            }
+        }
+    }
+
+Now, for ``BigInteger`` we define:
+
+..  code-block:: java
+
+    static class BigIntegerHandler extends MixedNumberHandler {
+
+    // @formatter:off
+        BigIntegerHandler() { super(lookup(), BigInteger.class); }
+
+        private static Object add(BigInteger v, BigInteger w)
+            { return v.add(w); }
+        private static Object sub(BigInteger v, BigInteger w)
+            { return v.subtract(w); }
+        private static Object mul(BigInteger v, BigInteger w)
+            { return v.multiply(w); }
+        private static Object div(BigInteger v, BigInteger w)
+            { return v.doubleValue() / w.doubleValue(); }
+
+        private static Object neg(BigInteger v) { return v.negate(); }
+        private static Object pos(BigInteger v) { return v; }
+
+        // Accept any integer type by cast to long (__add__, etc)
+        private static Object add(BigInteger v, Number w)
+            { return v.add(BigInteger.valueOf(w.longValue())); }
+        private static Object sub(BigInteger v, Number w)
+            { return v.subtract(BigInteger.valueOf(w.longValue())); }
+        private static Object mul(BigInteger v, Number w)
+            { return v.multiply(BigInteger.valueOf(w.longValue())); }
+        private static Object div(BigInteger v, Number w)
+            { return v.doubleValue() / w.doubleValue(); }
+
+        // Accept any integer type by cast to long (__radd__, etc)
+        private static Object add(Number v, BigInteger w)
+            { return BigInteger.valueOf(v.longValue()).add(w); }
+        private static Object sub(Number v, BigInteger w)
+            { return BigInteger.valueOf(v.longValue()).subtract(w); }
+        private static Object mul(Number v, BigInteger w)
+            { return BigInteger.valueOf(v.longValue()).multiply(w); }
+        private static Object div(Number v, BigInteger w)
+            { return v.doubleValue() / w.doubleValue(); }
+
+        // @formatter:on
+
+        @Override
+        protected boolean acceptable(Class<?> oClass) {
+            return oClass == Byte.class || oClass == Short.class
+                    || oClass == Integer.class || oClass == Long.class;
+        }
+    }
+
+A similar solution can be provided for ``Double``,
+in which the acceptable types of other operand are defined by:
+
+..  code-block:: java
+
+    static class DoubleHandler extends MixedNumberHandler {
+        // ...
+        protected boolean acceptable(Class<?> oClass) {
+            return oClass == Byte.class || oClass == Short.class
+                    || oClass == Integer.class || oClass == Long.class
+                    || oClass == BigInteger.class || oClass == Float.class;
+        }
+    }
+
+Specialisation of ``TypeHandler`` for only ``Number`` operands
+==============================================================
+The account in the last section remains incomplete:
+what happens when a ``Short`` and a ``Byte`` meet in a binary operation?
+We can solve that by creating
+(and registering)
+a handler for each type,
+in which the acceptable other operands are all types narrower than the target.
+So our example is served by ``ShortHandler`` accepting ``Byte``.
+(There are none narrower than ``Byte``, of course.)
+
+There is another approach.
+Define a further specialisation treating operands purely as ``Number``:
+
+..  code-block:: java
+
+    static abstract class PureNumberHandler extends MixedNumberHandler {
+
+        protected static final MethodType UOP_N =
+                MethodType.methodType(O, N);
+        protected static final MethodType BINOP_NN =
+                MethodType.methodType(O, N, N);
+
+        protected PureNumberHandler(Lookup lookup, Class<?> targetClass) {
+            super(lookup, targetClass);
+        }
+
+        @Override
+        public MethodHandle findUnaryOp(unaryop op) {
+            String name = UnaryOpInfo.forOp(op).name;
+            Class<?> here = this.getClass();
+            // Look for a match with (Number)
+            MethodHandle mh = findStaticOrNull(here, name, UOP_N);
+            if (mh != null) {
+                return mh.asType(UOP);
+            } else {
+                return Runtime.UOP_NOT_IMPLEMENTED;
+            }
+        }
+
+        @Override
+        public MethodHandle findBinOp(operator op, Class<?> WClass) {
+            String name = BinOpInfo.forOp(op).name;
+            Class<?> here = this.getClass();
+            // Look for a match with (Number, Number)
+            if (acceptable(WClass)) {
+                MethodHandle mh = findStaticOrNull(here, name, BINOP_NN);
+                if (mh != null) {
+                    return mh.asType(BINOP);
+                }
+            }
+            return Runtime.BINOP_NOT_IMPLEMENTED;
+        }
+
+        @Override
+        public MethodHandle findBinOp(Class<?> VClass, operator op) {
+            String name = BinOpInfo.forOp(op).name;
+            Class<?> here = this.getClass();
+            // Look for a match with (Number, Number)
+            if (acceptable(VClass)) {
+                MethodHandle mh = findStaticOrNull(here, name, BINOP_NN);
+                if (mh != null) {
+                    return mh.asType(BINOP);
+                }
+            }
+            return Runtime.BINOP_NOT_IMPLEMENTED;
+        }
+    }
+
+Notice that in this case we also have to redefine ``findUnaryOp``.
+We can now use this class to define operations that work with any ``Number``
+up to ``Long``,
+by registering (the same instance of) this handler for each target type.
+It returns results that are ``BigInteger``,
+since they cannot be guaranteed to fit a long.
+
+..  code-block:: java
+
+    static class Int64Handler extends PureNumberHandler {
+
+        Int64Handler() {
+            super(lookup(), N);
+        }
+
+        /*
+         * Although the following all take Number arguments, they won't be
+         * called unless the actual type is representable in a Long.
+         */
+        private static Object add(Number v, Number w) {
+            return BigInteger.valueOf(v.longValue())
+                    .add(BigInteger.valueOf(w.longValue()));
+        }
+
+        private static Object sub(Number v, Number w) {
+            return BigInteger.valueOf(v.longValue())
+                    .subtract(BigInteger.valueOf(w.longValue()));
+        }
+
+        private static Object mul(Number v, Number w) {
+            return BigInteger.valueOf(v.longValue())
+                    .multiply(BigInteger.valueOf(w.longValue()));
+        }
+
+        private static Object div(Number v, Number w) {
+            return v.doubleValue() / w.doubleValue();
+        }
+
+        private static Object neg(Number v) {
+            return BigInteger.valueOf(v.longValue()).negate();
+        }
+
+        private static Object pos(Number v) {
+            return v;
+        }
+
+        @Override
+        protected boolean acceptable(Class<?> oClass) {
+            return oClass == Byte.class || oClass == Short.class
+                    || oClass == Integer.class || oClass == Long.class;
+        }
+    }
 
 
-Where should the operation for a given pair reside?
+Specimen Optimisation for ``Integer``
+=====================================
 
+    Code fragments in this section are taken from
+    ``.../vsj1/example/treepython/TestEx8.java``
+    in the project test source.
 
-We seem forced to create a static method for each operation,
-and for every combination of numeric types.
-How can we control this square-law explosion of signatures?
+In the implementation so far,
+every integer operation promotes the type immediately to ``BigInteger``,
+which is a type necessary for generality,
+but quite costly to compute with.
+Where the operands are ``Integer`` or narrower,
+it is desirable to keep the result as an ``Integer`` if it does not overflow.
 
-As usual, Python has an answer,
-but we have to interpret it carefully for the Java implementation.
+In order to do this we (re-)create the handler for ``Integer``,
+which now makes its computations in ``long``
+and returns via a wrapper
+(that we hope the JIT compiler will in-line)
+that chooses the representation according to the size of the result:
 
-Our guide here is the :py:mod:`numbers` module.
-The documentation (also linked from the language reference)
-provides this example of a user-defined integer type:
+..  code-block:: java
 
+    @SuppressWarnings(value = {"unused"})
+    static class IntegerHandler extends MixedNumberHandler {
 
+        IntegerHandler() {
+            super(lookup(), Integer.class);
+        }
 
+        // @formatter:off
+        private static Object add(Integer v, Integer w)
+            { return result( (long)v + (long)w); }
+        private static Object sub(Integer v, Integer w)
+            { return result( (long)v - (long)w); }
+        private static Object mul(Integer v, Integer w)
+            { return result( (long)v * (long)w); }
+        private static Object div(Integer v, Integer w)
+            { return v.doubleValue() / w.doubleValue(); }
 
+        private static Object neg(Integer v)
+            { return v != Integer.MIN_VALUE ? -v : BIG_2_31; }
+        private static Object pos(Integer v) { return v; }
+
+        private static Object add(Integer v, Number w)
+            { return result( v + w.longValue()); }
+        private static Object sub(Integer v, Number w)
+            { return result( v - w.longValue()); }
+        private static Object mul(Integer v, Number w)
+            { return result( v * w.longValue()); }
+        private static Object div(Integer v, Number w)
+            { return v.doubleValue() / w.doubleValue(); }
+
+        private static Object add(Number v, Integer w)
+            { return result( v.longValue() + w); }
+        private static Object sub(Number v, Integer w)
+            { return result( v.longValue() - w); }
+        private static Object mul(Number v, Integer w)
+            { return result( v.longValue() * w); }
+        private static Object div(Number v, Integer w)
+            { return v.doubleValue() / w.doubleValue(); }
+        // @formatter:on
+
+        @Override
+        protected boolean acceptable(Class<?> oClass) {
+            return oClass == Byte.class || oClass == Short.class;
+        }
+
+        private static final long BIT31 = 0x8000_0000L;
+        private static final long HIGHMASK = 0xFFFF_FFFF_0000_0000L;
+        private static BigInteger BIG_2_31 = BigInteger.valueOf(BIT31);
+
+        private static final Object result(long r) {
+            // 0b0...0_0rrr_rrrr_rrrr_rrrr -> Positive Integer
+            // 0b1...1_1rrr_rrrr_rrrr_rrrr -> Negative Integer
+            // Anything else -> BigInteger
+            if (((r + BIT31) & HIGHMASK) == 0L) {
+                return Integer.valueOf((int)r);
+            } else {
+                return BigInteger.valueOf(r);
+            }
+        }
+    }
+
+Note that we do not try to select adaptively between all available
+integer types, ``Byte``, ``Short``, etc.,
+in order to avoid too frequent relinking of the call site.
 
