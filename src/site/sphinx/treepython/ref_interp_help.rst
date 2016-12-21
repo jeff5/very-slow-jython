@@ -38,7 +38,8 @@ that it is useful to study:
 this is the AST (abstract syntax tree).
 The Python compiler creates the AST as an intermediate product
 between your code and Python bytecode,
-but it will also provide it to you as an object.
+but it will also provide it to you as an object,
+supported by the :py:mod:`ast` module.
 It is attractive to manipulate the AST in tools because it is:
 
 * recognisably related to your source code and its symbols, and

@@ -348,20 +348,18 @@ texinfo_documents = [
 
 # Configuration for intersphinx.
 
-primary_domain = 'python3'
-
-#intersphinx_mapping = {'https://docs.python.org/3': None} # (old syntax)
+# intersphinx_mapping = {
+#     'https://docs.python.org/3':
+#         os.path.join('reference', 'python3-objects.inv'),
+# }
 
 intersphinx_mapping = {
-    'https://docs.python.org/3':
-        os.path.join('reference', 'python3-objects.inv'),
+    'python' : ('https://docs.python.org/3',
+    (
+        os.path.join('reference', 'python3-objects.inv'), # Spare python.org
+        None,
+    ))
 }
 
+primary_domain = 'py'
 
-# intersphinx_mapping = {
-#     'python3' : ('https://docs.python.org/3',
-#     (
-#         os.path.join('reference', 'python3-objects.inv'), # Spare python.org
-#         None,
-#     ))
-# }
