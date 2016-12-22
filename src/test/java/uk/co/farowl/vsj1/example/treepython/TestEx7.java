@@ -35,7 +35,7 @@ import uk.co.farowl.vsj1.TreePython.unaryop;
  * Dealing with many implementations of the integer type
  * (<code>Byte</code>, <code>Integer</code>, <code>Long</code> etc., and
  * <code>BigInteger</code>) in the interpretation of the AST. Emphasis on
- * sensible use of <code>Numeric</code> to avoid an explosion of
+ * sensible use of <code>Number</code> to avoid an explosion of
  * implementations of the binary operations.
  */
 public class TestEx7 {
@@ -43,16 +43,16 @@ public class TestEx7 {
     @BeforeClass
     public static void setUpClass() {
         // Built-in types
-        Runtime.registerTypeFor(BigInteger.class, new BigIntegerHandler());
-        TypeHandler uptoLongHandler = new UptoLongHandler();
-        Runtime.registerTypeFor(Byte.class, uptoLongHandler);
-        Runtime.registerTypeFor(Short.class, uptoLongHandler);
-        Runtime.registerTypeFor(Integer.class, uptoLongHandler);
-        Runtime.registerTypeFor(Long.class, uptoLongHandler);
-        TypeHandler uptoFloatHandler = new UptoFloatHandler();
-        Runtime.registerTypeFor(Float.class, uptoFloatHandler);
-        // Runtime.registerTypeFor(Double.class, uptoFloatHandler);
-        Runtime.registerTypeFor(Double.class, new DoubleHandler());
+        TypeHandler bigIntegerHandler = new BigIntegerHandler();
+        Runtime.registerTypeFor(Byte.class, bigIntegerHandler);
+        Runtime.registerTypeFor(Short.class, bigIntegerHandler);
+        Runtime.registerTypeFor(Integer.class, bigIntegerHandler);
+        Runtime.registerTypeFor(Long.class, bigIntegerHandler);
+        Runtime.registerTypeFor(BigInteger.class, bigIntegerHandler);
+
+        TypeHandler doubleHandler = new DoubleHandler();
+        Runtime.registerTypeFor(Float.class, doubleHandler);
+        Runtime.registerTypeFor(Double.class, doubleHandler);
     }
 
     // Visitor to execute the code.
@@ -466,7 +466,7 @@ public class TestEx7 {
 
         @Override
         public Object visit_UnaryOp(expr.UnaryOp unaryOp) {
-            // Evaluate sub-trees
+            // Evaluate sub-tree
             Object v = unaryOp.operand.accept(this);
             // Evaluate the node
             try {
@@ -587,7 +587,7 @@ public class TestEx7 {
             Class<?> V = v.getClass();
             MethodType mt = MethodType.methodType(Object.class, V);
             // MH to compute the result for this class
-            MethodHandle resultMH = Runtime.findUnaryOp(V, op);
+            MethodHandle resultMH = Runtime.findUnaryOp(op, V);
             // MH for guarded invocation (becomes new target)
             MethodHandle testV = Runtime.HAS_CLASS.bindTo(V);
             setTarget(guardWithTest(testV, resultMH, fallbackMH));
@@ -790,16 +790,16 @@ public class TestEx7 {
          * Provide (as a method handle) an appropriate implementation of
          * the given operation, on a a target Java type.
          *
-         * @param operandClass Java class of operand
          * @param op operator to apply
+         * @param vClass Java class of operand
          * @return MH representing the operation
          * @throws NoSuchMethodException
          * @throws IllegalAccessException
          */
-        static MethodHandle findUnaryOp(Class<?> operandClass, unaryop op)
+        static MethodHandle findUnaryOp(unaryop op, Class<?> vClass)
                 throws NoSuchMethodException, IllegalAccessException {
-            TypeHandler V = Runtime.typeFor(operandClass);
-            MethodHandle mhV = V.findUnaryOp(op);
+            TypeHandler V = Runtime.typeFor(vClass);
+            MethodHandle mhV = V.findUnaryOp(op, vClass);
             return mhV;
         }
 
@@ -820,23 +820,23 @@ public class TestEx7 {
          * the given operation, between operands of two Java types,
          * conforming to Python delegation rules.
          *
-         * @param VClass Java class of left operand
+         * @param vClass Java class of left operand
          * @param op operator to apply
-         * @param WClass Java class of right operand
+         * @param wClass Java class of right operand
          * @return MH representing the operation
          * @throws NoSuchMethodException
          * @throws IllegalAccessException
          */
-        static MethodHandle findBinOp(Class<?> VClass, operator op,
-                Class<?> WClass)
+        static MethodHandle findBinOp(Class<?> vClass, operator op,
+                Class<?> wClass)
                 throws NoSuchMethodException, IllegalAccessException {
-            TypeHandler V = Runtime.typeFor(VClass);
-            TypeHandler W = Runtime.typeFor(WClass);
-            MethodHandle mhV = V.findBinOp(op, WClass);
+            TypeHandler V = Runtime.typeFor(vClass);
+            TypeHandler W = Runtime.typeFor(wClass);
+            MethodHandle mhV = V.findBinOp(vClass, op, wClass);
             if (W == V) {
                 return mhV;
             }
-            MethodHandle mhW = W.findBinOp(VClass, op); // reversed op
+            MethodHandle mhW = W.findBinOp(vClass, op, wClass);
             if (mhW == BINOP_NOT_IMPLEMENTED) {
                 return mhV;
             } else if (mhV == BINOP_NOT_IMPLEMENTED) {
@@ -903,7 +903,7 @@ public class TestEx7 {
         }
     };
 
-    /** Mapping from unary operation to function names. */
+    /** Mapping from binary operation to function names. */
     enum BinOpInfo {
 
         ADD(operator.Add, "+", "add"),
@@ -914,7 +914,7 @@ public class TestEx7 {
 
         DIV(operator.Div, "/", "div");
 
-        /** Unary operation represented e.g. MULT for MUL. */
+        /** Binary operation represented e.g. MULT for MUL. */
         public final operator op;
         /** Symbol for the operation e.g. "*" for MUL. */
         public final String symbol;
@@ -976,65 +976,40 @@ public class TestEx7 {
          * handler's type.
          *
          * @param op the binary operation to find
+         * @param vClass Java class of operand
          * @return
          */
-        public MethodHandle findUnaryOp(unaryop op) {
+        public MethodHandle findUnaryOp(unaryop op, Class<?> vClass) {
             String name = UnaryOpInfo.forOp(op).name;
             Class<?> here = this.getClass();
-            Class<?> targetClass = this.targetClass;
 
-            // Look for a match with the actual type
-            MethodType mt = MethodType.methodType(O, targetClass);
+            // Look for a match with the operand class
+            MethodType mt = MethodType.methodType(O, vClass);
             MethodHandle mh = findStaticOrNull(here, name, mt);
 
-            if (mh != null) {
-                return mh.asType(UOP);
-            } else {
+            if (mh == null) {
                 return Runtime.UOP_NOT_IMPLEMENTED;
+            } else {
+                return mh.asType(UOP);
             }
         }
 
         /**
          * Return the method handle of the implementation of
-         * <code>left op right</code>, where <code>left</code> is an object
-         * of this handler's type.
+         * <code>v op w</code>, if one exists within this handler.
          *
-         * @param op the binary operation to find
-         * @param WClass
+         * @param vClass Java class of left operand
+         * @param op operator to apply
+         * @param wClass Java class of right operand
          * @return
          */
-        public MethodHandle findBinOp(operator op, Class<?> WClass) {
+        public MethodHandle findBinOp(Class<?> vClass, operator op,
+                Class<?> wClass) {
             String name = BinOpInfo.forOp(op).name;
             Class<?> here = this.getClass();
-            Class<?> VClass = this.targetClass;
 
-            // Look for a match with the actual types
-            MethodType mt = MethodType.methodType(O, VClass, WClass);
-            MethodHandle mh = findStaticOrNull(here, name, mt);
-
-            if (mh == null) {
-                return Runtime.BINOP_NOT_IMPLEMENTED;
-            } else {
-                return mh.asType(BINOP);
-            }
-        }
-
-        /**
-         * Return the method handle of the (reverse) implementation of
-         * <code>left op right</code>, where right is an object of this
-         * handler's type.
-         *
-         * @param VClass
-         * @param op the binary operation to find
-         * @return
-         */
-        public MethodHandle findBinOp(Class<?> VClass, operator op) {
-            String name = BinOpInfo.forOp(op).name;
-            Class<?> here = this.getClass();
-            Class<?> WClass = this.targetClass;
-
-            // Look for a match with the actual types
-            MethodType mt = MethodType.methodType(O, VClass, WClass);
+            // Look for an exact match with the actual types
+            MethodType mt = MethodType.methodType(O, vClass, wClass);
             MethodHandle mh = findStaticOrNull(here, name, mt);
 
             if (mh == null) {
@@ -1047,12 +1022,8 @@ public class TestEx7 {
         /** The lookup rights object of the implementing class. */
         private final Lookup lookup;
 
-        /** The implementing class served by this type handler. */
-        public final Class<?> targetClass;
-
-        protected TypeHandler(Lookup lookup, Class<?> targetClass) {
+        protected TypeHandler(Lookup lookup) {
             this.lookup = lookup;
-            this.targetClass = targetClass;
         }
 
         /**
@@ -1066,121 +1037,77 @@ public class TestEx7 {
 
     /**
      * <code>MixedNumberHandler</code> is the base class of handlers for
-     * types that implement <code>Numeric</code>.
+     * types that implement <code>Number</code>.
      */
     static abstract class MixedNumberHandler extends TypeHandler {
 
         /** Shorthand for <code>Number.class</code>. */
         static final Class<Number> N = Number.class;
 
-        protected MixedNumberHandler(Lookup lookup, Class<?> targetClass) {
-            super(lookup, targetClass);
+        protected static final MethodType UOP_N =
+                MethodType.methodType(O, N);
+        protected static final MethodType BINOP_NN =
+                MethodType.methodType(O, N, N);
+
+        protected MixedNumberHandler(Lookup lookup) {
+            super(lookup);
         }
 
         /** Test that the actual class of an operand is acceptable. */
         abstract protected boolean acceptable(Class<?> oClass);
 
         @Override
-        public MethodHandle findBinOp(operator op, Class<?> WClass) {
-            String name = BinOpInfo.forOp(op).name;
-            Class<?> here = this.getClass();
-
-            // Look for a match with the actual types
-            MethodType mt = MethodType.methodType(O, targetClass, WClass);
-            MethodHandle mh = findStaticOrNull(here, name, mt);
-
-            // Look for a match with (targetClass, Number)
-            if (mh == null && acceptable(WClass)) {
-                mt = MethodType.methodType(O, targetClass, N);
-                mh = findStaticOrNull(here, name, mt);
-            }
-
-            if (mh == null) {
-                return Runtime.BINOP_NOT_IMPLEMENTED;
-            } else {
-                return mh.asType(BINOP);
-            }
-        }
-
-        @Override
-        public MethodHandle findBinOp(Class<?> VClass, operator op) {
-            String name = BinOpInfo.forOp(op).name;
-            Class<?> here = this.getClass();
-
-            // Look for a match with the actual types
-            MethodType mt = MethodType.methodType(O, VClass, targetClass);
-            MethodHandle mh = findStaticOrNull(here, name, mt);
-
-            // Look for a match with (Number, targetClass)
-            if (mh == null && acceptable(VClass)) {
-                mt = MethodType.methodType(O, N, targetClass);
-                mh = findStaticOrNull(here, name, mt);
-            }
-
-            if (mh == null) {
-                return Runtime.BINOP_NOT_IMPLEMENTED;
-            } else {
-                return mh.asType(BINOP);
-            }
-        }
-    }
-
-    /**
-     * <code>PureNumberHandler</code> is the base class of handlers for
-     * types that extend the abstract class <code>Number</code>.
-     * Sub-classes should define unary operations of <code>(Number)</code>
-     * and binary operations on <code>(Number, Number)</code>.
-     */
-    static abstract class PureNumberHandler extends MixedNumberHandler {
-
-        protected static final MethodType UOP_N =
-                MethodType.methodType(O, N);
-        protected static final MethodType BINOP_NN =
-                MethodType.methodType(O, N, N);
-
-        protected PureNumberHandler(Lookup lookup) {
-            super(lookup, N);
-        }
-
-        @Override
-        public MethodHandle findUnaryOp(unaryop op) {
+        public MethodHandle findUnaryOp(unaryop op, Class<?> vClass) {
             String name = UnaryOpInfo.forOp(op).name;
             Class<?> here = this.getClass();
-            // Look for a match with (Number)
-            MethodHandle mh = findStaticOrNull(here, name, UOP_N);
-            if (mh != null) {
-                return mh.asType(UOP);
-            } else {
+
+            // Look for a match with the operand class
+            MethodType mt = MethodType.methodType(O, vClass);
+            MethodHandle mh = findStaticOrNull(here, name, mt);
+
+            if (mh == null && acceptable(vClass)) {
+                // Look for a match with (Number)
+                mh = findStaticOrNull(here, name, UOP_N);
+            }
+
+            if (mh == null) {
                 return Runtime.UOP_NOT_IMPLEMENTED;
+            } else {
+                return mh.asType(UOP);
             }
         }
 
         @Override
-        public MethodHandle findBinOp(operator op, Class<?> WClass) {
+        public MethodHandle findBinOp(Class<?> vClass, operator op,
+                Class<?> wClass) {
             String name = BinOpInfo.forOp(op).name;
             Class<?> here = this.getClass();
-            // Look for a match with (Number, Number)
-            if (acceptable(WClass)) {
-                MethodHandle mh = findStaticOrNull(here, name, BINOP_NN);
-                if (mh != null) {
-                    return mh.asType(BINOP);
-                }
-            }
-            return Runtime.BINOP_NOT_IMPLEMENTED;
-        }
 
-        @Override
-        public MethodHandle findBinOp(Class<?> VClass, operator op) {
-            String name = BinOpInfo.forOp(op).name;
-            Class<?> here = this.getClass();
-            // Look for a match with (Number, Number)
-            if (acceptable(VClass)) {
-                MethodHandle mh = findStaticOrNull(here, name, BINOP_NN);
-                if (mh != null) {
-                    return mh.asType(BINOP);
+            // Look for an exact match with the actual types
+            MethodType mt = MethodType.methodType(O, vClass, wClass);
+            MethodHandle mh = findStaticOrNull(here, name, mt);
+
+            if (mh == null) {
+                if (acceptable(wClass)) {
+                    // Look for a match with (vClass, Number)
+                    mt = MethodType.methodType(O, vClass, N);
+                    mh = findStaticOrNull(here, name, mt);
+                    if (mh == null && acceptable(wClass)) {
+                        // Look for a match with (Number, Number)
+                        mh = findStaticOrNull(here, name, BINOP_NN);
+                    }
+                } else if (acceptable(vClass)) {
+                    // Look for a match with (Number, wClass)
+                    mt = MethodType.methodType(O, N, wClass);
+                    mh = findStaticOrNull(here, name, mt);
                 }
             }
-            return Runtime.BINOP_NOT_IMPLEMENTED;
+
+            if (mh == null) {
+                return Runtime.BINOP_NOT_IMPLEMENTED;
+            } else {
+                return mh.asType(BINOP);
+            }
         }
     }
 
@@ -1192,7 +1119,7 @@ public class TestEx7 {
     static class BigIntegerHandler extends MixedNumberHandler {
 
         // @formatter:off
-        BigIntegerHandler() { super(lookup(), BigInteger.class); }
+        BigIntegerHandler() { super(lookup()); }
 
         private static Object add(BigInteger v, BigInteger w)
             { return v.add(w); }
@@ -1200,83 +1127,48 @@ public class TestEx7 {
             { return v.subtract(w); }
         private static Object mul(BigInteger v, BigInteger w)
             { return v.multiply(w); }
-        private static Object div(BigInteger v, BigInteger w)
+        // Delegate to div(Number, Number): same for all types
+        private static Object div(Number v, Number w)
             { return v.doubleValue() / w.doubleValue(); }
 
         private static Object neg(BigInteger v) { return v.negate(); }
-        private static Object pos(BigInteger v) { return v; }
+        // Delegate to pos(Number) as just returning self
+        private static Object pos(Number v) { return v; }
 
-        // Accept any integer type by cast to long (__add__, etc)
+        // Accept any integer as w by widening to BigInteger
         private static Object add(BigInteger v, Number w)
             { return v.add(BigInteger.valueOf(w.longValue())); }
         private static Object sub(BigInteger v, Number w)
             { return v.subtract(BigInteger.valueOf(w.longValue())); }
         private static Object mul(BigInteger v, Number w)
             { return v.multiply(BigInteger.valueOf(w.longValue())); }
-        private static Object div(BigInteger v, Number w)
-            { return v.doubleValue() / w.doubleValue(); }
 
-        // Accept any integer type by cast to long (__radd__, etc)
+        // Accept any integer as v by widening to BigInteger
         private static Object add(Number v, BigInteger w)
             { return BigInteger.valueOf(v.longValue()).add(w); }
         private static Object sub(Number v, BigInteger w)
             { return BigInteger.valueOf(v.longValue()).subtract(w); }
         private static Object mul(Number v, BigInteger w)
             { return BigInteger.valueOf(v.longValue()).multiply(w); }
-        private static Object div(Number v, BigInteger w)
-            { return v.doubleValue() / w.doubleValue(); }
-        // @formatter:on
 
-        @Override
-        protected boolean acceptable(Class<?> oClass) {
-            return oClass == Byte.class || oClass == Short.class
-                    || oClass == Integer.class || oClass == Long.class;
-        }
-    }
-
-    /**
-     * Operations handler for all Java integers up to <code>Long</code>,
-     * treating each as abstract base <code>Number</code>, so as to make
-     * each a Python <code>int</code>, and performing arithmetic as
-     * <code>BigInteger</code>.
-     */
-    @SuppressWarnings(value = {"unused"})
-    static class UptoLongHandler extends PureNumberHandler {
-
-        UptoLongHandler() {
-            super(lookup());
-        }
-
-        /*
-         * Although the following all take Number arguments, they won't be
-         * called unless the actual type is representable in a Long.
-         */
+        // Accept any integers as v, w by widening to BigInteger
         private static Object add(Number v, Number w) {
             return BigInteger.valueOf(v.longValue())
                     .add(BigInteger.valueOf(w.longValue()));
         }
-
         private static Object sub(Number v, Number w) {
             return BigInteger.valueOf(v.longValue())
                     .subtract(BigInteger.valueOf(w.longValue()));
         }
-
         private static Object mul(Number v, Number w) {
             return BigInteger.valueOf(v.longValue())
                     .multiply(BigInteger.valueOf(w.longValue()));
         }
 
-        private static Object div(Number v, Number w) {
-            return v.doubleValue() / w.doubleValue();
-        }
-
         private static Object neg(Number v) {
             return BigInteger.valueOf(v.longValue()).negate();
         }
-
-        private static Object pos(Number v) {
-            return v;
-        }
+        // @formatter:on
 
         @Override
         protected boolean acceptable(Class<?> oClass) {
@@ -1293,7 +1185,7 @@ public class TestEx7 {
     static class DoubleHandler extends MixedNumberHandler {
 
         // @formatter:off
-        DoubleHandler() { super(lookup(), Double.class); }
+        DoubleHandler() { super(lookup()); }
 
         private static Object add(Double v, Double w)  { return v+w; }
         private static Object sub(Double v, Double w)  { return v-w; }
@@ -1301,46 +1193,8 @@ public class TestEx7 {
         private static Object div(Double v, Double w)  { return v/w; }
 
         private static Object neg(Double v) { return -v; }
-        private static Object pos(Double v) { return v; }
 
-        private static Object add(Double v, Number w)
-            { return v + w.doubleValue(); }
-        private static Object sub(Double v, Number w)
-            { return v - w.doubleValue(); }
-        private static Object mul(Double v, Number w)
-            { return v * w.doubleValue(); }
-        private static Object div(Double v, Number w)
-            { return v / w.doubleValue(); }
-
-        private static Object add(Number v, Double w)
-            { return v.doubleValue() + w; }
-        private static Object sub(Number v, Double w)
-            { return v.doubleValue() - w; }
-        private static Object mul(Number v, Double w)
-            { return v.doubleValue() * w; }
-        private static Object div(Number v, Double w)
-            { return v.doubleValue() / w; }
-        // @formatter:on
-
-        @Override
-        protected boolean acceptable(Class<?> oClass) {
-            return oClass == Byte.class || oClass == Short.class
-                    || oClass == Integer.class || oClass == Long.class
-                    || oClass == BigInteger.class || oClass == Float.class;
-        }
-    }
-
-    /**
-     * Operations handler for all Java integers and reals up to
-     * <code>Float</code>, treating each as abstract base
-     * <code>Number</code>, with <code>Double</code> result.
-     */
-    @SuppressWarnings(value = {"unused"})
-    static class UptoFloatHandler extends PureNumberHandler {
-
-        // @formatter:off
-        UptoFloatHandler() { super(lookup()); }
-
+        // Accept any Number types by widening to double
         private static Object add(Number v, Number w)
             { return v.doubleValue() + w.doubleValue(); }
         private static Object sub(Number v, Number w)
@@ -1352,6 +1206,7 @@ public class TestEx7 {
 
         private static Object neg(Number v) { return -v.doubleValue(); }
         private static Object pos(Number v) { return v; }
+
         // @formatter:on
 
         @Override

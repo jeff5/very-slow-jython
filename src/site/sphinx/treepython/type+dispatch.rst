@@ -119,15 +119,15 @@ Dispatch via overloading in Java
     in the project test source.
 
 Suppose we want to support the ``Add`` and ``Mult`` binary operations.
-The implementation must differ according to the types of the arguments.
-CPython dispatches primarily on a single argument,
+The implementation must differ according to the types of the operands.
+CPython dispatches primarily on a single operand,
 via the slots table,
 combining two alternatives according to language rules for binary operations.
 
 The single dispatch fits naturally with direct use of overloading in Java.
 We cannot give ``java.lang.Integer`` itself any new behaviour,
-and so we must map that type to a handler object with the extra capabilities.
-In support, we need a registry of class to handler mappings,
+and so we must map that type to a handler object for the Python operations.
+In support, we need a registry that maps class to operations handler,
 that for now we may initialise statically.
 Java provides a class for thread-safe lookup in ``java.lang``
 called ``ClassValue``.
@@ -295,7 +295,7 @@ we use what we've provided like this:
 
 
 The pattern used follows that of CPython.
-The type (``V``) of the left argument gets the first go at evaluation.
+The type (``V``) of the left operand gets the first go at evaluation.
 If that fails (returns ``null`` here),
 then the type (``W``) of the right operand gets a chance.
 There should be another consideration here:
@@ -353,12 +353,11 @@ We may modify the ``TypeHandler`` to contain a method array like so:
         }
         // ...
 
-The handler for each type extends this class,
+The operation handler for each type extends this class,
 and each handler must provide ``static`` methods roughly as before,
 to perform the operations.
 Now we are not using overloading,
-we no longer need an abstract function for each
-(although that may still help the author).
+we no longer need an abstract function for each.
 However, if we choose conventional names for the functions,
 we can centralise filling the ``binOp`` table like this:
 
@@ -395,7 +394,7 @@ we can centralise filling the ``binOp`` table like this:
         };
     }
 
-Each handler enforces its singleton nature,
+Each operation handler enforces its singleton nature,
 and ensures that its dispatch table is filled.
 Here is one handler for ``Double``:
 
@@ -499,7 +498,7 @@ In the preceding examples,
 we can see that between gathering the ``left`` and ``right``
 values in a ``BinOp`` node,
 and any actual arithmetic,
-stands some reasoning about the argument types.
+stands some reasoning about the operand types.
 This reasoning is embedded in the implementation of each type.
 Something very similar is true in the C implementation of Python.
 
@@ -508,22 +507,23 @@ optimising the performance of *this* implementation,
 because it is a toy,
 we *are* interested in playing with
 the techniques the JVM has for efficient implementation of dynamic languages.
-That support revolves around the "dynamic call site" and
+That support revolves around the dynamic call site concept and
 the ``invokedynamic`` instruction.
 We don't actually (yet) have to generate ``invokedynamic`` opcodes:
-we can study the elements by attaching a call site to each AST node,
-and using it first in the ``BinOp`` node type,
+we can study the elements by attaching a call site to each AST node.
+We'll use it first in the ``BinOp`` node type,
 by invoking its target.
 The JVM will not optimise these,
 as it would were they used in an ``invokedynamic`` instruction,
-but that doesn't matter for now.
+but that doesn't matter:
+we're learning the elements to  use in generated code.
 
 In a real program,
 any given expression is likely to be evaluated many times,
 for different values, and
 in a dynamic language,
 for different types.
-(We seldom care about speed otherwise.)
+(We seldom care about speed in code run only once.)
 It is commonly observed that,
 even in dynamic languages,
 code is executed many times in succession with the *same* types,
@@ -531,14 +531,14 @@ for example within a loop.
 The type wrangling in our implementation is a costly part of the work,
 so Java offers us a way to cache the result of that work
 at the particular site where the operation is needed,
-and re-use it as often as the same argument types recur.
+and re-use it as often as the same operand types recur.
 We need the following elements to pull this off (for a binary operation):
 
 *   An implementation of the binary operation,
-    specialised to the argument types,
+    specialised to the operand types,
     or rather, one for each combination of types.
 *   A mechanism to map from (a pair of) types to the specialised implementation.
-*   A test (called a guard) that the types this time are the same as last time.
+*   A test (called a guard) that the types this time match the implementation.
 *   A structure to hold the last decision
     and the types for which the site is currently specialised
     (the call site).
@@ -559,8 +559,8 @@ In Python,
 an implementation of ``__add__`` (say) could return ``NotImplemented``
 for certain *values*,
 causing delegation to the ``__radd__`` function of the other type.
-This hardly ever happens in practice,
-the determinant usually *is* just the types involved,
+This hardly ever happens in practice --
+the determinant usually *is* just the types involved --
 and it can be accommodated in the technique we're about to demonstrate.
 
 Mapping to a Specialised Implementation
@@ -571,10 +571,10 @@ Mapping to a Specialised Implementation
     in the project test source.
 
 We'll avoid an explicit ``CallSite`` object to begin with.
-The first transformation we need is to separate
-choosing an implementation of the binary operation,
+The first transformation we need is to separate,
 in the ``visit_BinOp`` method of the ``Evaluator``,
-from calling the chosen implementation.
+*choosing* an implementation of the binary operation,
+from *calling* the chosen implementation.
 
 ..  code-block:: java
 
@@ -615,7 +615,7 @@ as a Python implementation must,
 and test for this special handle, or special value.
 However,
 the binary operation itself must raise a Python ``NotImplementedError``,
-if neither argument type knows what to do.
+if neither operand type knows what to do.
 The strategy is to turn everything into ``NoSuchMethodException``,
 within the finding and invoking section,
 then convert that to an appropriate exception
@@ -630,7 +630,7 @@ this is how we would like to write specialised implementations:
 
     static class DoubleHandler extends TypeHandler {
 
-        DoubleHandler() { super(lookup(), Double.class); }
+        DoubleHandler() { super(lookup()); }
 
         private static Object add(Double v, Integer w) { return v+w; }
         private static Object add(Integer v, Double w) { return v+w; }
@@ -660,12 +660,14 @@ each is given the chance to compute the result,
 first the left-hand, then the right-hand type.
 Or if the right-hand type is a sub-class of the left,
 first the right-hand type gets a chance, then the left.
-This chance is given by actually calling the implementation,
-which returns ``NotImplemented`` if it can't deal with the arguments.
-For our purpose here,
-we therefore invent the convention that
-every type provides a method we can consult to find the implementation,
-given the operation and the *type* of the other argument.
+In CPython, this chance is offered by actually calling the implementation,
+which returns ``NotImplemented`` if it can't deal with the operands.
+This is where we part company with CPython,
+since our purpose is only to obtain a method handle,
+without calling it at this point.
+We therefore invent the convention that
+every handler provide a method we can consult to find the implementation,
+given the operation and the Java class of each operand.
 For types implemented in Java, this can work by reflection:
 
 ..  code-block:: java
@@ -681,20 +683,22 @@ For types implemented in Java, this can work by reflection:
 
         /**
          * Return the method handle of the implementation of
-         * <code>left op right</code>, where left is an object of this
-         * handler's type.
+         * <code>v op w</code>, if one exists within this handler.
+         *
+         * @param vClass Java class of left operand
+         * @param op operator to apply
+         * @param wClass Java class of right operand
+         * @return
          */
-        public MethodHandle findBinOp(operator op, TypeHandler rightType) {
-            String name = composeNameFor(op);
+        public MethodHandle findBinOp(Class<?> vClass, operator op,
+                Class<?> wClass) {
+            String name = BinOpInfo.forOp(op).name;
             Class<?> here = this.getClass();
-            Class<?> leftClass = this.javaClass;
-            Class<?> rightClass = rightType.javaClass;
 
             // Look for an exact match with the actual types
-            MethodType mt = MethodType.methodType(O, leftClass, rightClass);
+            MethodType mt = MethodType.methodType(O, vClass, wClass);
             MethodHandle mh = findStaticOrNull(here, name, mt);
 
-            // ...
             if (mh == null) {
                 return Runtime.BINOP_NOT_IMPLEMENTED;
             } else {
@@ -702,64 +706,16 @@ For types implemented in Java, this can work by reflection:
             }
         }
 
-        /**
-         * Return the method handle of the (reverse) implementation of
-         * <code>left op right</code>, where right is an object of this
-         * handler's type.
-         */
-        public MethodHandle findBinOp(TypeHandler leftType, operator op)
-            // Essentially the same code ...
         // ...
     }
 
-In fact, the code above for ``TypeHandler.findBinOp`` is a simplification.
+In fact, the logic above for ``TypeHandler.findBinOp``
+will not cover all cases of interest.
 We'd like to support the possibility of implementations that
-accept any type of argument and embed their own type logic,
+accept any type of operand and embed their own type logic,
 which then operates when the binary operation is executed.
 (We certainly need this for objects defined in Python.)
-These will be recognisable because they have one or two ``Object`` arguments.
-With the missing clauses visible, we have:
-
-..  code-block:: java
-
-    static abstract class TypeHandler {
-        // ...
-
-        /**
-         * Return the method handle of the implementation of
-         * <code>left op right</code>, where left is an object of this
-         * handler's type.
-         */
-        public MethodHandle findBinOp(operator op, TypeHandler rightType) {
-            String name = composeNameFor(op);
-            Class<?> here = this.getClass();
-            Class<?> leftClass = this.javaClass;
-            Class<?> rightClass = rightType.javaClass;
-
-            // Look for an exact match with the actual types
-            MethodType mt = MethodType.methodType(O, leftClass, rightClass);
-            MethodHandle mh = findStaticOrNull(here, name, mt);
-
-            // Look for a match with (T, Object)
-            if (mh == null) {
-                mt = MethodType.methodType(O, leftClass, O);
-                mh = findStaticOrNull(here, name, mt);
-            }
-
-            // Look for a match with (Object, Object)
-            if (mh == null) {
-                mh = findStaticOrNull(here, name, BINOP);
-            }
-
-            if (mh == null) {
-                return Runtime.BINOP_NOT_IMPLEMENTED;
-            } else {
-                return mh.asType(BINOP);
-            }
-        }
-        // ...
-    }
-
+This may be accomplished by overriding ``findBinOp`` in a sub-class handler.
 
 Now we can use this to implement the required Python delegation pattern:
 
@@ -769,16 +725,16 @@ Now we can use this to implement the required Python delegation pattern:
     static class Runtime {
         //...
 
-        static MethodHandle findBinOp(Class<?> leftClass, operator op,
-                Class<?> rightClass)
+        static MethodHandle findBinOp(Class<?> vClass, operator op,
+                Class<?> wClass)
                 throws NoSuchMethodException, IllegalAccessException {
-            TypeHandler V = Runtime.typeFor(leftClass);
-            TypeHandler W = Runtime.typeFor(rightClass);
-            MethodHandle mhV = V.findBinOp(op, W);
+            TypeHandler V = Runtime.typeFor(vClass);
+            TypeHandler W = Runtime.typeFor(wClass);
+            MethodHandle mhV = V.findBinOp(vClass, op, wClass);
             if (W == V) {
                 return mhV;
             }
-            MethodHandle mhW = W.findBinOp(V, op); // reversed op
+            MethodHandle mhW = W.findBinOp(vClass, op, wClass);
             if (mhW == BINOP_NOT_IMPLEMENTED) {
                 return mhV;
             } else if (mhV == BINOP_NOT_IMPLEMENTED) {
@@ -795,7 +751,7 @@ Now we can use this to implement the required Python delegation pattern:
         //...
     }
 
-In many cases, only one of the argument types will offer an implementation,
+In many cases, only one of the operand types will offer an implementation,
 and a simple (direct) method handle may be returned.
 The complicated case arises when both offer to do the job;
 in that case,
@@ -879,7 +835,7 @@ The revised code looks like this:
             }
         }
 
-       //...
+        //...
     }
 
 The constant pool supporting an ``invokedynamic`` instruction
@@ -1070,7 +1026,7 @@ but it's just a simplified version of ``visit_BinOp``:
 ..  code-block:: java
 
         public Object visit_UnaryOp(expr.UnaryOp unaryOp) {
-            // Evaluate sub-trees
+            // Evaluate sub-tree
             Object v = unaryOp.operand.accept(this);
             // Evaluate the node
             try {
@@ -1093,7 +1049,7 @@ but it's just a simplified version of ``visit_BinOp``:
 
 We choose ``neg`` and ``pos`` as the standard names,
 corresponding to the Python special functions ``__neg__`` and ``__pos__``,
-and within the handlers for applicable types we define:
+and within the operation handlers for applicable types we define:
 
 ..  code-block:: java
 
@@ -1116,10 +1072,10 @@ is not so complex as it was for binary operations.
 
     static class Runtime {
         //...
-        static MethodHandle findUnaryOp(Class<?> operandClass, unaryop op)
+        static MethodHandle findUnaryOp(unaryop op, Class<?> vClass)
                 throws NoSuchMethodException, IllegalAccessException {
-            TypeHandler V = Runtime.typeFor(operandClass);
-            MethodHandle mhV = V.findUnaryOp(op);
+            TypeHandler V = Runtime.typeFor(vClass);
+            MethodHandle mhV = V.findUnaryOp(op, vClass);
             return mhV;
         }
         //...
@@ -1127,25 +1083,13 @@ is not so complex as it was for binary operations.
 
     static abstract class TypeHandler {
         //...
-        public MethodHandle findUnaryOp(unaryop op) {
+        public MethodHandle findUnaryOp(unaryop op, Class<?> vClass) {
             String name = UnaryOpInfo.forOp(op).name;
             Class<?> here = this.getClass();
-            Class<?> targetClass = this.javaClass;
 
-            // Look for an exact match with the actual types
-            MethodType mt = MethodType.methodType(O, targetClass);
+            // Look for a match with the operand class
+            MethodType mt = MethodType.methodType(O, vClass);
             MethodHandle mh = findStaticOrNull(here, name, mt);
-
-            // Look for a match with (T)
-            if (mh == null) {
-                mt = MethodType.methodType(O, targetClass, O);
-                mh = findStaticOrNull(here, name, mt);
-            }
-
-            // Look for a match with (Object)
-            if (mh == null) {
-                mh = findStaticOrNull(here, name, UOP);
-            }
 
             if (mh == null) {
                 return Runtime.UOP_NOT_IMPLEMENTED;
@@ -1153,8 +1097,6 @@ is not so complex as it was for binary operations.
                 return mh.asType(UOP);
             }
         }
-        //...
-    }
 
 For unary operators, we need a new ``CallSite`` subclass.
 However, there is only one class to test in the guarded method handle:
@@ -1167,8 +1109,6 @@ However, there is only one class to test in the guarded method handle:
         final Lookup lookup;
         final MethodHandle fallbackMH;
 
-        static int fallbackCalls = 0;
-
         public UnaryOpCallSite(Lookup lookup, unaryop op)
                 throws NoSuchMethodException, IllegalAccessException {
             super(Runtime.UOP);
@@ -1180,11 +1120,10 @@ However, there is only one class to test in the guarded method handle:
 
         @SuppressWarnings("unused")
         private Object fallback(Object v) throws Throwable {
-            fallbackCalls += 1;
             Class<?> V = v.getClass();
             MethodType mt = MethodType.methodType(Object.class, V);
             // MH to compute the result for this class
-            MethodHandle resultMH = Runtime.findUnaryOp(V, op);
+            MethodHandle resultMH = Runtime.findUnaryOp(op, V);
             // MH for guarded invocation (becomes new target)
             MethodHandle testV = Runtime.HAS_CLASS.bindTo(V);
             setTarget(guardWithTest(testV, resultMH, fallbackMH));
@@ -1203,31 +1142,34 @@ Python integers have effectively no size limits
 except the amount of memory available.
 ``Integer`` is limited to the range [-2\ :sup:`31`, 2\ :sup:`31`-1].
 
-The Java type corresponding to ``int`` should be ``java.math.BigInteger``,
-however, the implementation of basic operations in ``BigInteger`` is costly.
-Also, Java methods will return ``int``, or ``Integer``,
-and it would be helpful to accept these in their native form.
-Suppose we permit an object that is a Python ``int`` to have
+The Java type corresponding to ``int`` should be ``java.math.BigInteger``.
+However, the implementation of basic operations in ``BigInteger`` is costly,
+while the integers used in programs will often be small.
+The JVM works naturally with 32-bit integers,
+and many Java methods will return ``int``.
+(We can't avoid boxing Java ``int`` to ``Integer``:
+not if we want it to be an object in either language.)
+Is it possible we could permit an object that is a Python ``int`` to have
 either implementation,
 without visible difference at the Python language level?
 
-There are other applications for this.
+There are other applications for this too.
 When implementing ``str``,
-it is efficient to have two or three implementations.
+it is efficient to have two or three implementations
+(as CPython does under the covers).
 Many strings contain only ASCII, or Unicode BMP characters.
 Only rarely do we need (20-bit) Unicode characters
 that are likely to occupy a 32-bit word.
 
-Suppose, for a moment,
-that ``BigInteger`` is our *only* implementation of ``int``,
-and as before,
+Let us begin by taking ``BigInteger`` as our *only* implementation of ``int``.
+As before,
 we implement the operations in a class with static methods like this:
 
 ..  code-block:: java
 
     static class BigIntegerHandler extends TypeHandler {
 
-        BigIntegerHandler() { super(lookup(), BigInteger.class); }
+        BigIntegerHandler() { super(lookup()); }
 
         private static Object add(BigInteger v, BigInteger w)
             { return v.add(w); }
@@ -1272,7 +1214,7 @@ and ``Double`` has:
 Now, suppose further that we wish to admit other integer Java types:
 ``Byte``, ``Short``, ``Long``.
 And suppose we wish to allow for single-precision floating-point ``Float``.
-There could be an operations handler for each type,
+There could be an operation handler for each type,
 accepting (say) all other types up to its own size.
 It would work, but the number of combinations becomes uncomfortably large.
 
@@ -1288,7 +1230,7 @@ It would work, but the number of combinations becomes uncomfortably large.
         private static Object add(BigInteger v, Byte w) { ... }
         private static Object add(Byte v, BigInteger w) { ... }
 
-Now in pure Java programming,
+In a normal Java program,
 we would take advantage of the fact that
 all these types extend the abstract class ``Number``.
 We'd like do the same here, and write signatures like this:
@@ -1308,24 +1250,32 @@ or even this:
 but this is not possible with the version of ``TypeHandler.findBinOp``
 that we have been using,
 since it looks for an exact match with the operand types.
-However, these signatures possible if we specialise ``TypeHandler``.
+However, these signatures become usable if we specialise ``TypeHandler``.
 
-Specialisation of ``TypeHandler`` for one ``Number`` operand
-============================================================
+A ``TypeHandler`` for  ``Number`` operands
+==========================================
 
     Code fragments in this section and the next are taken from
     ``.../vsj1/example/treepython/TestEx7.java``
     in the project test source.
 
 Consider making ``BigIntegerHandler`` accept
-a variety of integer ``Number`` types as the other operand.
+a variety of integer ``Number`` types as either operand.
 After checking for an exactly matching signature in ``findBinOp``,
-we could look for one where the other argument is any ``Number``,
-in which we will convert ``other`` to a ``BigInteger``.
-Actually, that won't quite work:
-we don't want to accept every ``Number``:
-only the types for which the conversion to ``BigInteger`` is a widening one,
+we could look for one where the other operand,
+left or right,
+is any ``Number``.
+In that method we could convert the ``Number`` to a ``BigInteger``,
+before performing the arithmetic.
+Or finally, we could allow both operands to be ``Number``.
+
+In fact, that won't quite work.
+We don't want to accept every ``Number``:
+only the types for which conversion to ``BigInteger`` is a widening one,
 so not ``Float``, for example.
+For a given operation handler
+we must state what kinds of ``Number`` are acceptable.
+
 The general solution looks like this:
 
 ..  code-block:: java
@@ -1335,48 +1285,61 @@ The general solution looks like this:
         /** Shorthand for <code>Number.class</code>. */
         static final Class<Number> N = Number.class;
 
-        protected MixedNumberHandler(Lookup lookup, Class<?> targetClass) {
-            super(lookup, targetClass);
-        }
+        protected static final MethodType UOP_N =
+                MethodType.methodType(O, N);
+        protected static final MethodType BINOP_NN =
+                MethodType.methodType(O, N, N);
+
+        protected MixedNumberHandler(Lookup lookup) { super(lookup); }
 
         /** Test that the actual class of an operand is acceptable. */
         abstract protected boolean acceptable(Class<?> oClass);
 
         @Override
-        public MethodHandle findBinOp(operator op, Class<?> WClass) {
-            String name = BinOpInfo.forOp(op).name;
+        public MethodHandle findUnaryOp(unaryop op, Class<?> vClass) {
+            String name = UnaryOpInfo.forOp(op).name;
             Class<?> here = this.getClass();
 
-            // Look for a match with the actual types
-            MethodType mt = MethodType.methodType(O, targetClass, WClass);
+            // Look for a match with the operand class
+            MethodType mt = MethodType.methodType(O, vClass);
             MethodHandle mh = findStaticOrNull(here, name, mt);
 
-            // Look for a match with (targetClass, Number)
-            if (mh == null && acceptable(WClass)) {
-                mt = MethodType.methodType(O, targetClass, N);
-                mh = findStaticOrNull(here, name, mt);
+            if (mh == null && acceptable(vClass)) {
+                // Look for a match with (Number)
+                mh = findStaticOrNull(here, name, UOP_N);
             }
 
             if (mh == null) {
-                return Runtime.BINOP_NOT_IMPLEMENTED;
+                return Runtime.UOP_NOT_IMPLEMENTED;
             } else {
-                return mh.asType(BINOP);
+                return mh.asType(UOP);
             }
         }
 
         @Override
-        public MethodHandle findBinOp(Class<?> VClass, operator op) {
+        public MethodHandle findBinOp(Class<?> vClass, operator op,
+                Class<?> wClass) {
             String name = BinOpInfo.forOp(op).name;
             Class<?> here = this.getClass();
 
-            // Look for a match with the actual types
-            MethodType mt = MethodType.methodType(O, VClass, targetClass);
+            // Look for an exact match with the actual types
+            MethodType mt = MethodType.methodType(O, vClass, wClass);
             MethodHandle mh = findStaticOrNull(here, name, mt);
 
-            // Look for a match with (Number, targetClass)
-            if (mh == null && acceptable(VClass)) {
-                mt = MethodType.methodType(O, N, targetClass);
-                mh = findStaticOrNull(here, name, mt);
+            if (mh == null) {
+                if (acceptable(wClass)) {
+                    // Look for a match with (vClass, Number)
+                    mt = MethodType.methodType(O, vClass, N);
+                    mh = findStaticOrNull(here, name, mt);
+                    if (mh == null && acceptable(wClass)) {
+                        // Look for a match with (Number, Number)
+                        mh = findStaticOrNull(here, name, BINOP_NN);
+                    }
+                } else if (acceptable(vClass)) {
+                    // Look for a match with (Number, wClass)
+                    mt = MethodType.methodType(O, N, wClass);
+                    mh = findStaticOrNull(here, name, mt);
+                }
             }
 
             if (mh == null) {
@@ -1387,14 +1350,81 @@ The general solution looks like this:
         }
     }
 
-Now, for ``BigInteger`` we define:
+The finder methods for unary and binary operations look,
+as before,
+for an exact match with the operands,
+but then go on to seek a relaxed match *if* the types are acceptable.
+Let's see how we might use this.
+
+A simple case is that of the handler for ``Double``:
+
+..  code-block:: java
+
+    static class DoubleHandler extends MixedNumberHandler {
+
+        DoubleHandler() { super(lookup()); }
+
+        private static Object add(Double v, Double w)  { return v+w; }
+        private static Object sub(Double v, Double w)  { return v-w; }
+        private static Object mul(Double v, Double w)  { return v*w; }
+        private static Object div(Double v, Double w)  { return v/w; }
+
+        private static Object neg(Double v) { return -v; }
+
+        // Accept any Number types by widening to double
+        private static Object add(Number v, Number w)
+            { return v.doubleValue() + w.doubleValue(); }
+        private static Object sub(Number v, Number w)
+            { return v.doubleValue() - w.doubleValue(); }
+        private static Object mul(Number v, Number w)
+            { return v.doubleValue() * w.doubleValue(); }
+        private static Object div(Number v, Number w)
+            { return v.doubleValue() / w.doubleValue(); }
+
+        private static Object neg(Number v) { return -v.doubleValue(); }
+        private static Object pos(Number v) { return v; }
+
+        @Override
+        protected boolean acceptable(Class<?> oClass) {
+            return oClass == Byte.class || oClass == Short.class
+                    || oClass == Integer.class || oClass == Long.class
+                    || oClass == BigInteger.class || oClass == Float.class
+                    || oClass == Double.class;
+        }
+    }
+
+Notice there are methods specific to ``Double``,
+implementing the four rules and negation.
+Here we need no conversion methods and un-boxing is automatic.
+Then we offer same again, applicable to ``Number``,
+converting to double with a call to (virtual) ``Number.doubleValue()``.
+The finder methods ensure these will only be called with acceptable
+sub-classes of ``Number``.
+
+We have not bothered to define explicit mixed methods with signature
+``(Double, Number)`` and ``(Number, Double)``.
+For this reason, ``Double.class`` must be amongst the acceptable types,
+so that ``add(Double, Integer)`` matches ``add (Number, Number)``.
+We don't actually need the ``(Double, Double)`` signatures at all,
+but this way we avoid two virtual calls in the most common case.
+
+Now, for ``BigInteger`` we have to work a little harder.
+We convert ``Number`` operands to ``long`` first using ``Number.longValue()``,
+and then to ``BigInteger`` to perform the arithmetic.
+``BigInteger`` also implements ``Number.longValue``,
+but to use it would truncate large values.
+The list of acceptable ``Number`` types therefore does not include
+``BigInteger`` itself,
+only those types that may be widened to ``long``,
+and we must implement the combinations with ``Number`` explicitly.
+This argument doesn't apply to ``div`` (because it converts to ``double``)
+or ``pos`` (because it is a pass-through).
 
 ..  code-block:: java
 
     static class BigIntegerHandler extends MixedNumberHandler {
 
-    // @formatter:off
-        BigIntegerHandler() { super(lookup(), BigInteger.class); }
+        BigIntegerHandler() { super(lookup()); }
 
         private static Object add(BigInteger v, BigInteger w)
             { return v.add(w); }
@@ -1402,168 +1432,46 @@ Now, for ``BigInteger`` we define:
             { return v.subtract(w); }
         private static Object mul(BigInteger v, BigInteger w)
             { return v.multiply(w); }
-        private static Object div(BigInteger v, BigInteger w)
+        // Delegate to div(Number, Number): same for all types
+        private static Object div(Number v, Number w)
             { return v.doubleValue() / w.doubleValue(); }
 
         private static Object neg(BigInteger v) { return v.negate(); }
-        private static Object pos(BigInteger v) { return v; }
+        // Delegate to pos(Number) as just returning self
+        private static Object pos(Number v) { return v; }
 
-        // Accept any integer type by cast to long (__add__, etc)
+        // Accept any integer as w by widening to BigInteger
         private static Object add(BigInteger v, Number w)
             { return v.add(BigInteger.valueOf(w.longValue())); }
         private static Object sub(BigInteger v, Number w)
             { return v.subtract(BigInteger.valueOf(w.longValue())); }
         private static Object mul(BigInteger v, Number w)
             { return v.multiply(BigInteger.valueOf(w.longValue())); }
-        private static Object div(BigInteger v, Number w)
-            { return v.doubleValue() / w.doubleValue(); }
 
-        // Accept any integer type by cast to long (__radd__, etc)
+        // Accept any integer as v by widening to BigInteger
         private static Object add(Number v, BigInteger w)
             { return BigInteger.valueOf(v.longValue()).add(w); }
         private static Object sub(Number v, BigInteger w)
             { return BigInteger.valueOf(v.longValue()).subtract(w); }
         private static Object mul(Number v, BigInteger w)
             { return BigInteger.valueOf(v.longValue()).multiply(w); }
-        private static Object div(Number v, BigInteger w)
-            { return v.doubleValue() / w.doubleValue(); }
 
-        // @formatter:on
-
-        @Override
-        protected boolean acceptable(Class<?> oClass) {
-            return oClass == Byte.class || oClass == Short.class
-                    || oClass == Integer.class || oClass == Long.class;
-        }
-    }
-
-A similar solution can be provided for ``Double``,
-in which the acceptable types of other operand are defined by:
-
-..  code-block:: java
-
-    static class DoubleHandler extends MixedNumberHandler {
-        // ...
-        protected boolean acceptable(Class<?> oClass) {
-            return oClass == Byte.class || oClass == Short.class
-                    || oClass == Integer.class || oClass == Long.class
-                    || oClass == BigInteger.class || oClass == Float.class;
-        }
-    }
-
-Specialisation of ``TypeHandler`` for only ``Number`` operands
-==============================================================
-The account in the last section remains incomplete:
-what happens when a ``Short`` and a ``Byte`` meet in a binary operation?
-We can solve that by creating
-(and registering)
-a handler for each type,
-in which the acceptable other operands are all types narrower than the target.
-So our example is served by ``ShortHandler`` accepting ``Byte``.
-(There are none narrower than ``Byte``, of course.)
-
-There is another approach.
-Define a further specialisation treating operands purely as ``Number``:
-
-..  code-block:: java
-
-    static abstract class PureNumberHandler extends MixedNumberHandler {
-
-        protected static final MethodType UOP_N =
-                MethodType.methodType(O, N);
-        protected static final MethodType BINOP_NN =
-                MethodType.methodType(O, N, N);
-
-        protected PureNumberHandler(Lookup lookup, Class<?> targetClass) {
-            super(lookup, targetClass);
-        }
-
-        @Override
-        public MethodHandle findUnaryOp(unaryop op) {
-            String name = UnaryOpInfo.forOp(op).name;
-            Class<?> here = this.getClass();
-            // Look for a match with (Number)
-            MethodHandle mh = findStaticOrNull(here, name, UOP_N);
-            if (mh != null) {
-                return mh.asType(UOP);
-            } else {
-                return Runtime.UOP_NOT_IMPLEMENTED;
-            }
-        }
-
-        @Override
-        public MethodHandle findBinOp(operator op, Class<?> WClass) {
-            String name = BinOpInfo.forOp(op).name;
-            Class<?> here = this.getClass();
-            // Look for a match with (Number, Number)
-            if (acceptable(WClass)) {
-                MethodHandle mh = findStaticOrNull(here, name, BINOP_NN);
-                if (mh != null) {
-                    return mh.asType(BINOP);
-                }
-            }
-            return Runtime.BINOP_NOT_IMPLEMENTED;
-        }
-
-        @Override
-        public MethodHandle findBinOp(Class<?> VClass, operator op) {
-            String name = BinOpInfo.forOp(op).name;
-            Class<?> here = this.getClass();
-            // Look for a match with (Number, Number)
-            if (acceptable(VClass)) {
-                MethodHandle mh = findStaticOrNull(here, name, BINOP_NN);
-                if (mh != null) {
-                    return mh.asType(BINOP);
-                }
-            }
-            return Runtime.BINOP_NOT_IMPLEMENTED;
-        }
-    }
-
-Notice that in this case we also have to redefine ``findUnaryOp``.
-We can now use this class to define operations that work with any ``Number``
-up to ``Long``,
-by registering (the same instance of) this handler for each target type.
-It returns results that are ``BigInteger``,
-since they cannot be guaranteed to fit a long.
-
-..  code-block:: java
-
-    static class Int64Handler extends PureNumberHandler {
-
-        Int64Handler() {
-            super(lookup(), N);
-        }
-
-        /*
-         * Although the following all take Number arguments, they won't be
-         * called unless the actual type is representable in a Long.
-         */
+        // Accept any integers as v, w by widening to BigInteger
         private static Object add(Number v, Number w) {
             return BigInteger.valueOf(v.longValue())
                     .add(BigInteger.valueOf(w.longValue()));
         }
-
         private static Object sub(Number v, Number w) {
             return BigInteger.valueOf(v.longValue())
                     .subtract(BigInteger.valueOf(w.longValue()));
         }
-
         private static Object mul(Number v, Number w) {
             return BigInteger.valueOf(v.longValue())
                     .multiply(BigInteger.valueOf(w.longValue()));
         }
 
-        private static Object div(Number v, Number w) {
-            return v.doubleValue() / w.doubleValue();
-        }
-
         private static Object neg(Number v) {
             return BigInteger.valueOf(v.longValue()).negate();
-        }
-
-        private static Object pos(Number v) {
-            return v;
         }
 
         @Override
@@ -1583,15 +1491,16 @@ Specimen Optimisation for ``Integer``
 
 In the implementation so far,
 every integer operation promotes the type immediately to ``BigInteger``,
-which is a type necessary for generality,
-but quite costly to compute with.
+which gets the right result,
+but isn't achieving our objective to compute with narrower types where possible.
 Where the operands are ``Integer`` or narrower,
-it is desirable to keep the result as an ``Integer`` if it does not overflow.
+it is desirable to keep the result as an ``Integer``,
+if it does not overflow.
 
 In order to do this we (re-)create the handler for ``Integer``,
 which now makes its computations in ``long``
-and returns via a wrapper
-(that we hope the JIT compiler will in-line)
+and returns via a wrapper,
+that we hope the JIT compiler will in-line,
 that chooses the representation according to the size of the result:
 
 ..  code-block:: java
@@ -1599,11 +1508,8 @@ that chooses the representation according to the size of the result:
     @SuppressWarnings(value = {"unused"})
     static class IntegerHandler extends MixedNumberHandler {
 
-        IntegerHandler() {
-            super(lookup(), Integer.class);
-        }
+        IntegerHandler() { super(lookup()); }
 
-        // @formatter:off
         private static Object add(Integer v, Integer w)
             { return result( (long)v + (long)w); }
         private static Object sub(Integer v, Integer w)
@@ -1613,8 +1519,7 @@ that chooses the representation according to the size of the result:
         private static Object div(Integer v, Integer w)
             { return v.doubleValue() / w.doubleValue(); }
 
-        private static Object neg(Integer v)
-            { return v != Integer.MIN_VALUE ? -v : BIG_2_31; }
+        private static Object neg(Integer v) { return result(-(long)v); }
         private static Object pos(Integer v) { return v; }
 
         private static Object add(Integer v, Number w)
@@ -1634,7 +1539,18 @@ that chooses the representation according to the size of the result:
             { return result( v.longValue() * w); }
         private static Object div(Number v, Integer w)
             { return v.doubleValue() / w.doubleValue(); }
-        // @formatter:on
+
+        private static Object add(Number v, Number w)
+            { return v.intValue() + w.intValue(); }
+        private static Object sub(Number v, Number w)
+            { return v.intValue() - w.intValue(); }
+        private static Object mul(Number v, Number w)
+            { return v.intValue() * w.intValue(); }
+        private static Object div(Number v, Number w)
+            { return v.doubleValue() / w.doubleValue(); }
+
+        private static Object neg(Number v) { return -v.intValue(); }
+        private static Object pos(Number v) { return v; }
 
         @Override
         protected boolean acceptable(Class<?> oClass) {
@@ -1643,21 +1559,21 @@ that chooses the representation according to the size of the result:
 
         private static final long BIT31 = 0x8000_0000L;
         private static final long HIGHMASK = 0xFFFF_FFFF_0000_0000L;
-        private static BigInteger BIG_2_31 = BigInteger.valueOf(BIT31);
 
         private static final Object result(long r) {
             // 0b0...0_0rrr_rrrr_rrrr_rrrr -> Positive Integer
             // 0b1...1_1rrr_rrrr_rrrr_rrrr -> Negative Integer
-            // Anything else -> BigInteger
+            // Anything else -> Long
             if (((r + BIT31) & HIGHMASK) == 0L) {
                 return Integer.valueOf((int)r);
             } else {
-                return BigInteger.valueOf(r);
+                return Long.valueOf(r);
             }
         }
     }
 
+The methods here return ``Integer`` if they can and ``Long`` if they must.
 Note that we do not try to select adaptively between all available
 integer types, ``Byte``, ``Short``, etc.,
-in order to avoid too frequent relinking of the call site.
+in order to avoid too frequent relinking of call sites.
 

@@ -224,7 +224,7 @@ public class TestEx6 {
 
         @Override
         public Object visit_UnaryOp(expr.UnaryOp unaryOp) {
-            // Evaluate sub-trees
+            // Evaluate sub-tree
             Object v = unaryOp.operand.accept(this);
             // Evaluate the node
             try {
@@ -345,7 +345,7 @@ public class TestEx6 {
             Class<?> V = v.getClass();
             MethodType mt = MethodType.methodType(Object.class, V);
             // MH to compute the result for this class
-            MethodHandle resultMH = Runtime.findUnaryOp(V, op);
+            MethodHandle resultMH = Runtime.findUnaryOp(op, V);
             // MH for guarded invocation (becomes new target)
             MethodHandle testV = Runtime.HAS_CLASS.bindTo(V);
             setTarget(guardWithTest(testV, resultMH, fallbackMH));
@@ -548,16 +548,16 @@ public class TestEx6 {
          * Provide (as a method handle) an appropriate implementation of
          * the given operation, on a a target Java type.
          *
-         * @param operandClass Java class of operand
          * @param op operator to apply
+         * @param vClass Java class of operand
          * @return MH representing the operation
          * @throws NoSuchMethodException
          * @throws IllegalAccessException
          */
-        static MethodHandle findUnaryOp(Class<?> operandClass, unaryop op)
+        static MethodHandle findUnaryOp(unaryop op, Class<?> vClass)
                 throws NoSuchMethodException, IllegalAccessException {
-            TypeHandler V = Runtime.typeFor(operandClass);
-            MethodHandle mhV = V.findUnaryOp(op);
+            TypeHandler V = Runtime.typeFor(vClass);
+            MethodHandle mhV = V.findUnaryOp(op, vClass);
             return mhV;
         }
 
@@ -578,23 +578,23 @@ public class TestEx6 {
          * the given operation, between operands of two Java types,
          * conforming to Python delegation rules.
          *
-         * @param leftClass Java class of left operand
+         * @param vClass Java class of left operand
          * @param op operator to apply
-         * @param rightClass Java class of left operand
+         * @param wClass Java class of right operand
          * @return MH representing the operation
          * @throws NoSuchMethodException
          * @throws IllegalAccessException
          */
-        static MethodHandle findBinOp(Class<?> leftClass, operator op,
-                Class<?> rightClass)
+        static MethodHandle findBinOp(Class<?> vClass, operator op,
+                Class<?> wClass)
                 throws NoSuchMethodException, IllegalAccessException {
-            TypeHandler V = Runtime.typeFor(leftClass);
-            TypeHandler W = Runtime.typeFor(rightClass);
-            MethodHandle mhV = V.findBinOp(op, W);
+            TypeHandler V = Runtime.typeFor(vClass);
+            TypeHandler W = Runtime.typeFor(wClass);
+            MethodHandle mhV = V.findBinOp(vClass, op, wClass);
             if (W == V) {
                 return mhV;
             }
-            MethodHandle mhW = W.findBinOp(V, op); // reversed op
+            MethodHandle mhW = W.findBinOp(vClass, op, wClass);
             if (mhW == BINOP_NOT_IMPLEMENTED) {
                 return mhV;
             } else if (mhV == BINOP_NOT_IMPLEMENTED) {
@@ -661,7 +661,7 @@ public class TestEx6 {
         }
     };
 
-    /** Mapping from unary operation to function names. */
+    /** Mapping from binary operation to function names. */
     enum BinOpInfo {
 
         ADD(operator.Add, "+", "add"),
@@ -672,7 +672,7 @@ public class TestEx6 {
 
         DIV(operator.Div, "/", "div");
 
-        /** Unary operation represented e.g. MULT for MUL. */
+        /** Binary operation represented e.g. MULT for MUL. */
         public final operator op;
         /** Symbol for the operation e.g. "*" for MUL. */
         public final String symbol;
@@ -734,27 +734,16 @@ public class TestEx6 {
          * handler's type.
          *
          * @param op the binary operation to find
+         * @param vClass Java class of operand
          * @return
          */
-        public MethodHandle findUnaryOp(unaryop op) {
+        public MethodHandle findUnaryOp(unaryop op, Class<?> vClass) {
             String name = UnaryOpInfo.forOp(op).name;
             Class<?> here = this.getClass();
-            Class<?> targetClass = this.javaClass;
 
-            // Look for an exact match with the actual types
-            MethodType mt = MethodType.methodType(O, targetClass);
+            // Look for a match with the operand class
+            MethodType mt = MethodType.methodType(O, vClass);
             MethodHandle mh = findStaticOrNull(here, name, mt);
-
-            // Look for a match with (T)
-            if (mh == null) {
-                mt = MethodType.methodType(O, targetClass, O);
-                mh = findStaticOrNull(here, name, mt);
-            }
-
-            // Look for a match with (Object)
-            if (mh == null) {
-                mh = findStaticOrNull(here, name, UOP);
-            }
 
             if (mh == null) {
                 return Runtime.UOP_NOT_IMPLEMENTED;
@@ -765,72 +754,21 @@ public class TestEx6 {
 
         /**
          * Return the method handle of the implementation of
-         * <code>left op right</code>, where <code>left</code> is an object
-         * of this handler's type.
+         * <code>v op w</code>, if one exists within this handler.
          *
-         * @param op the binary operation to find
-         * @param rightType
+         * @param vClass Java class of left operand
+         * @param op operator to apply
+         * @param wClass Java class of right operand
          * @return
          */
-        public MethodHandle findBinOp(operator op, TypeHandler rightType) {
+        public MethodHandle findBinOp(Class<?> vClass, operator op,
+                Class<?> wClass) {
             String name = BinOpInfo.forOp(op).name;
             Class<?> here = this.getClass();
-            Class<?> leftClass = this.javaClass;
-            Class<?> rightClass = rightType.javaClass;
 
             // Look for an exact match with the actual types
-            MethodType mt =
-                    MethodType.methodType(O, leftClass, rightClass);
+            MethodType mt = MethodType.methodType(O, vClass, wClass);
             MethodHandle mh = findStaticOrNull(here, name, mt);
-
-            // Look for a match with (T, Object)
-            if (mh == null) {
-                mt = MethodType.methodType(O, leftClass, O);
-                mh = findStaticOrNull(here, name, mt);
-            }
-
-            // Look for a match with (Object, Object)
-            if (mh == null) {
-                mh = findStaticOrNull(here, name, BINOP);
-            }
-
-            if (mh == null) {
-                return Runtime.BINOP_NOT_IMPLEMENTED;
-            } else {
-                return mh.asType(BINOP);
-            }
-        }
-
-        /**
-         * Return the method handle of the (reverse) implementation of
-         * <code>left op right</code>, where right is an object of this
-         * handler's type.
-         *
-         * @param leftType
-         * @param op the binary operation to find
-         * @return
-         */
-        public MethodHandle findBinOp(TypeHandler leftType, operator op) {
-            String name = BinOpInfo.forOp(op).name;
-            Class<?> here = this.getClass();
-            Class<?> leftClass = leftType.javaClass;
-            Class<?> rightClass = this.javaClass;
-
-            // Look for an exact match with the actual types
-            MethodType mt =
-                    MethodType.methodType(O, leftClass, rightClass);
-            MethodHandle mh = findStaticOrNull(here, name, mt);
-
-            // Look for a match with (Object, T)
-            if (mh == null) {
-                mt = MethodType.methodType(O, O, rightClass);
-                mh = findStaticOrNull(here, name, mt);
-            }
-
-            // Look for a match with (Object, Object)
-            if (mh == null) {
-                mh = findStaticOrNull(here, name, BINOP);
-            }
 
             if (mh == null) {
                 return Runtime.BINOP_NOT_IMPLEMENTED;
@@ -842,12 +780,8 @@ public class TestEx6 {
         /** The lookup rights object of the implementing class. */
         private final Lookup lookup;
 
-        /** The implementing class served by this type handler. */
-        public final Class<?> javaClass;
-
-        protected TypeHandler(Lookup lookup, Class<?> javaClass) {
+        protected TypeHandler(Lookup lookup) {
             this.lookup = lookup;
-            this.javaClass = javaClass;
         }
 
         /**
@@ -867,7 +801,7 @@ public class TestEx6 {
     static class IntegerHandler extends TypeHandler {
 
         // @formatter:off
-        IntegerHandler() { super(lookup(), Integer.class); }
+        IntegerHandler() { super(lookup()); }
 
         private static Object add(Integer v, Integer w) { return v+w; }
         private static Object sub(Integer v, Integer w) { return v-w; }
@@ -888,7 +822,7 @@ public class TestEx6 {
     static class DoubleHandler extends TypeHandler {
 
         // @formatter:off
-        DoubleHandler() { super(lookup(), Double.class); }
+        DoubleHandler() { super(lookup()); }
 
         private static Object add(Double v, Integer w) { return v+w; }
         private static Object add(Integer v, Double w) { return v+w; }

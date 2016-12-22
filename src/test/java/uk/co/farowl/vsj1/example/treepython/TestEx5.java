@@ -28,7 +28,6 @@ import uk.co.farowl.vsj1.TreePython.Visitor;
 import uk.co.farowl.vsj1.TreePython.expr;
 import uk.co.farowl.vsj1.TreePython.expr_context;
 import uk.co.farowl.vsj1.TreePython.operator;
-import uk.co.farowl.vsj1.example.treepython.TestEx6.Runtime;
 
 /**
  * Demonstrate interpretation of the AST where nodes contain an embedded
@@ -510,23 +509,23 @@ public class TestEx5 {
          * the given operation, between operands of two Java types,
          * conforming to Python delegation rules.
          *
-         * @param leftClass Java class of left operand
+         * @param vClass Java class of left operand
          * @param op operator to apply
-         * @param rightClass Java class of left operand
+         * @param wClass Java class of right operand
          * @return MH representing the operation
          * @throws NoSuchMethodException
          * @throws IllegalAccessException
          */
-        static MethodHandle findBinOp(Class<?> leftClass, operator op,
-                Class<?> rightClass)
+        static MethodHandle findBinOp(Class<?> vClass, operator op,
+                Class<?> wClass)
                 throws NoSuchMethodException, IllegalAccessException {
-            TypeHandler V = Runtime.typeFor(leftClass);
-            TypeHandler W = Runtime.typeFor(rightClass);
-            MethodHandle mhV = V.findBinOp(op, W);
+            TypeHandler V = Runtime.typeFor(vClass);
+            TypeHandler W = Runtime.typeFor(wClass);
+            MethodHandle mhV = V.findBinOp(vClass, op, wClass);
             if (W == V) {
                 return mhV;
             }
-            MethodHandle mhW = W.findBinOp(V, op); // reversed op
+            MethodHandle mhW = W.findBinOp(vClass, op, wClass);
             if (mhW == BINOP_NOT_IMPLEMENTED) {
                 return mhV;
             } else if (mhV == BINOP_NOT_IMPLEMENTED) {
@@ -565,6 +564,38 @@ public class TestEx5 {
         }
     }
 
+    /** Mapping from binary operation to function names. */
+    enum BinOpInfo {
+
+        ADD(operator.Add, "+", "add"),
+
+        SUB(operator.Sub, "-", "sub"),
+
+        MUL(operator.Mult, "*", "mul"),
+
+        DIV(operator.Div, "/", "div");
+
+        /** Binary operation represented e.g. MULT for MUL. */
+        public final operator op;
+        /** Symbol for the operation e.g. "*" for MUL. */
+        public final String symbol;
+        /** Function name implementing the operation e.g. "mul". */
+        public final String name;
+
+        private BinOpInfo(operator op, String symbol, String name) {
+            this.op = op;
+            this.symbol = symbol;
+            this.name = name;
+            // Must have same ordinal value.
+            assert this.ordinal() == op.ordinal();
+        }
+
+        /** Get the information for the given {@link operator}. */
+        static final BinOpInfo forOp(operator op) {
+            return BinOpInfo.values()[op.ordinal()];
+        }
+    };
+
     /**
      * <code>TypeHandler</code> is the base class of the classes that
      * collect together the operations on each Python type. These
@@ -576,19 +607,6 @@ public class TestEx5 {
         protected static final MethodType BINOP = Runtime.BINOP;
         /** Shorthand for <code>Object.class</code>. */
         static final Class<Object> O = Object.class;
-
-        /**
-         * Compose the function name (in this handler) for an operation or
-         * its reverse.
-         *
-         * @param op binary operation e.g. Mult
-         * @return the name e.g. mul
-         */
-        protected String composeNameFor(operator op) {
-            String opstr = op.toString();
-            int len = Math.min(3, opstr.length());
-            return opstr.substring(0, len).toLowerCase();
-        }
 
         /**
          * Convenience function wrapping
@@ -613,72 +631,21 @@ public class TestEx5 {
 
         /**
          * Return the method handle of the implementation of
-         * <code>left op right</code>, where left is an object of this
-         * handler's type.
+         * <code>v op w</code>, if one exists within this handler.
          *
-         * @param op the binary operation to find
-         * @param rightType
+         * @param vClass Java class of left operand
+         * @param op operator to apply
+         * @param wClass Java class of right operand
          * @return
          */
-        public MethodHandle findBinOp(operator op, TypeHandler rightType) {
-            String name = composeNameFor(op);
+        public MethodHandle findBinOp(Class<?> vClass, operator op,
+                Class<?> wClass) {
+            String name = BinOpInfo.forOp(op).name;
             Class<?> here = this.getClass();
-            Class<?> leftClass = this.javaClass;
-            Class<?> rightClass = rightType.javaClass;
 
             // Look for an exact match with the actual types
-            MethodType mt =
-                    MethodType.methodType(O, leftClass, rightClass);
+            MethodType mt = MethodType.methodType(O, vClass, wClass);
             MethodHandle mh = findStaticOrNull(here, name, mt);
-
-            // Look for a match with (T, Object)
-            if (mh == null) {
-                mt = MethodType.methodType(O, leftClass, O);
-                mh = findStaticOrNull(here, name, mt);
-            }
-
-            // Look for a match with (Object, Object)
-            if (mh == null) {
-                mh = findStaticOrNull(here, name, BINOP);
-            }
-
-            if (mh == null) {
-                return Runtime.BINOP_NOT_IMPLEMENTED;
-            } else {
-                return mh.asType(BINOP);
-            }
-        }
-
-        /**
-         * Return the method handle of the (reverse) implementation of
-         * <code>left op right</code>, where right is an object of this
-         * handler's type.
-         *
-         * @param leftType
-         * @param op the binary operation to find
-         * @return
-         */
-        public MethodHandle findBinOp(TypeHandler leftType, operator op) {
-            String name = composeNameFor(op);
-            Class<?> here = this.getClass();
-            Class<?> leftClass = leftType.javaClass;
-            Class<?> rightClass = this.javaClass;
-
-            // Look for an exact match with the actual types
-            MethodType mt =
-                    MethodType.methodType(O, leftClass, rightClass);
-            MethodHandle mh = findStaticOrNull(here, name, mt);
-
-            // Look for a match with (Object, T)
-            if (mh == null) {
-                mt = MethodType.methodType(O, O, rightClass);
-                mh = findStaticOrNull(here, name, mt);
-            }
-
-            // Look for a match with (Object, Object)
-            if (mh == null) {
-                mh = findStaticOrNull(here, name, BINOP);
-            }
 
             if (mh == null) {
                 return Runtime.BINOP_NOT_IMPLEMENTED;
@@ -690,12 +657,8 @@ public class TestEx5 {
         /** The lookup rights object of the implementing class. */
         private final Lookup lookup;
 
-        /** The implementing class served by this type handler. */
-        public final Class<?> javaClass;
-
-        protected TypeHandler(Lookup lookup, Class<?> javaClass) {
+        protected TypeHandler(Lookup lookup) {
             this.lookup = lookup;
-            this.javaClass = javaClass;
         }
 
         /**
@@ -708,21 +671,20 @@ public class TestEx5 {
     }
 
     /**
-     * Cclass defining the operations for a Java <code>Integer</code>, so
-     * as to make it a Python <code>int</code>.
+     * Class defining the operations for a Java <code>Integer</code>, so as
+     * to make it a Python <code>int</code>.
      */
     @SuppressWarnings(value = {"unused"})
     static class IntegerHandler extends TypeHandler {
 
         // @formatter:off
-        IntegerHandler() { super(lookup(), Integer.class); }
+        IntegerHandler() { super(lookup()); }
 
         private static Object add(Integer v, Integer w) { return v+w; }
         private static Object sub(Integer v, Integer w) { return v-w; }
         private static Object mul(Integer v, Integer w) { return v*w; }
-        private static Object div(Integer v, Integer w) {
-            return v.doubleValue() / w.doubleValue();
-        }
+        private static Object div(Integer v, Integer w)
+            { return v.doubleValue() / w.doubleValue(); }
         // @formatter:on
     }
 
@@ -734,7 +696,7 @@ public class TestEx5 {
     static class DoubleHandler extends TypeHandler {
 
         // @formatter:off
-        DoubleHandler() { super(lookup(), Double.class); }
+        DoubleHandler() { super(lookup()); }
 
         private static Object add(Double v, Integer w) { return v+w; }
         private static Object add(Integer v, Double w) { return v+w; }
@@ -754,51 +716,28 @@ public class TestEx5 {
     // @formatter:off
     static class A {}
     static class AHandler extends TypeHandler {
-        AHandler() {
-            super(lookup(), A.class); }
+        AHandler() { super(lookup()); }
         @SuppressWarnings(value = {"unused"})
-        private static Object add(Object v, Object w) {
-            if (v instanceof A && w instanceof A) { return new A(); }
-            return Runtime.NotImplemented;
-        }
+        private static Object add(A v, A w) { return new A(); }
     }
 
     static class B {}
     static class BHandler extends TypeHandler {
-        BHandler() { super(lookup(), B.class); }
+        BHandler() { super(lookup()); }
         @SuppressWarnings(value = {"unused"})
-        private static Object add(Object v, Object w) {
-            if (v instanceof B && w instanceof B) { return new B(); }
-            return Runtime.NotImplemented;
-        }
+        private static Object add(B v, B w) { return new B(); }
     }
 
     static class C {}
+    @SuppressWarnings(value = {"unused"})
     static class CHandler extends TypeHandler {
-
-        private CHandler() { super(lookup(), C.class); }
-
+        private CHandler() { super(lookup()); }
         @Override
-        public boolean isSubtypeOf(TypeHandler other) {
-             return other.getClass() == AHandler.class;
-        }
-
-        // C knows how to do addition with an A
-        @SuppressWarnings(value = {"unused"})
-        private static Object add(Object v, Object w) {
-            if (v instanceof C) {
-                // __add__(self, w)
-                if (w instanceof C || w instanceof A) {
-                    return new C();
-                }
-            } else if (w instanceof C) {
-                // __radd__(self, v)
-                if (v instanceof A || v instanceof C) {
-                    return new C();
-                }
-            }
-            return Runtime.NotImplemented;
-        }
+        public boolean isSubtypeOf(TypeHandler other)
+            { return other.getClass() == AHandler.class; }
+        private static Object add(C v, A w) { return new C(); }
+        private static Object add(A v, C w) { return new C(); }
+        private static Object add(C v, C w) { return new C(); }
     }
     // @formatter:on
 
