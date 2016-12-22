@@ -111,13 +111,13 @@ public class TestEx8 {
         Node tree = UnaryOp(USub, Name("v", Load));
         evaluator.variables.put("v", 6);
         assertThat(tree.accept(evaluator), is(-6));
-        int ufb = UnaryOpCallSite.fallbackCalls;
 
         // Test promotion in unary -
+        resetFallbackCalls();
         evaluator.variables.put("v", Integer.MIN_VALUE);
         Long expected = Long.valueOf(-(long)Integer.MIN_VALUE);
         assertThat(tree.accept(evaluator), is(expected));
-        assertThat(UnaryOpCallSite.fallbackCalls, is(ufb + 0));
+        assertThat(UnaryOpCallSite.fallbackCalls, is(0));
     }
 
     @Test
@@ -132,14 +132,14 @@ public class TestEx8 {
         Node tree = UnaryOp(USub, Name("v", Load));
         evaluator.variables.put("v", 6L);
         assertThat(tree.accept(evaluator), is(-6L));
-        int ufb = UnaryOpCallSite.fallbackCalls;
 
         // Test promotion in unary -
+        resetFallbackCalls();
         evaluator.variables.put("v", Long.MIN_VALUE);
         BigInteger expected =
                 BigInteger.valueOf(Long.MAX_VALUE).add(BigInteger.ONE);
         assertThat(tree.accept(evaluator), is(expected));
-        assertThat(UnaryOpCallSite.fallbackCalls, is(ufb + 0));
+        assertThat(UnaryOpCallSite.fallbackCalls, is(0));
     }
 
     @Test

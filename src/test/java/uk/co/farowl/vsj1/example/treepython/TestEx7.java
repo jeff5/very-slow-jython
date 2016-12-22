@@ -30,8 +30,6 @@ import uk.co.farowl.vsj1.TreePython.expr;
 import uk.co.farowl.vsj1.TreePython.expr_context;
 import uk.co.farowl.vsj1.TreePython.operator;
 import uk.co.farowl.vsj1.TreePython.unaryop;
-import uk.co.farowl.vsj1.example.treepython.TestEx8.BinOpCallSite;
-import uk.co.farowl.vsj1.example.treepython.TestEx8.UnaryOpCallSite;
 
 /**
  * Dealing with many implementations of the integer type

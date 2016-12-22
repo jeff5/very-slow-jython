@@ -242,6 +242,7 @@ public class TestEx3 {
      * Singleton class defining the operations for a Java
      * <code>Integer</code>, so as to make it a Python <code>int</code>.
      */
+    @SuppressWarnings(value = {"unused"})
     static class IntegerHandler extends TypeHandler {
 
         private static IntegerHandler instance;
@@ -304,6 +305,7 @@ public class TestEx3 {
      * Singleton class defining the operations for a Java
      * <code>Double</code>, so as to make it a Python <code>float</code>.
      */
+    @SuppressWarnings(value = {"unused"})
     static class DoubleHandler extends TypeHandler {
 
         private static DoubleHandler instance;

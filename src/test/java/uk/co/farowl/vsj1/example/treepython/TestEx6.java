@@ -28,8 +28,6 @@ import uk.co.farowl.vsj1.TreePython.expr;
 import uk.co.farowl.vsj1.TreePython.expr_context;
 import uk.co.farowl.vsj1.TreePython.operator;
 import uk.co.farowl.vsj1.TreePython.unaryop;
-import uk.co.farowl.vsj1.example.treepython.TestEx7.BinOpCallSite;
-import uk.co.farowl.vsj1.example.treepython.TestEx7.UnaryOpCallSite;
 
 /**
  * Demonstrate interpretation of the AST where nodes contain an embedded

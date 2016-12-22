@@ -28,8 +28,6 @@ import uk.co.farowl.vsj1.TreePython.Visitor;
 import uk.co.farowl.vsj1.TreePython.expr;
 import uk.co.farowl.vsj1.TreePython.expr_context;
 import uk.co.farowl.vsj1.TreePython.operator;
-import uk.co.farowl.vsj1.example.treepython.TestEx7.BinOpCallSite;
-import uk.co.farowl.vsj1.example.treepython.TestEx7.UnaryOpCallSite;
 
 /**
  * Demonstrate interpretation of the AST where nodes contain an embedded
@@ -58,7 +56,6 @@ public class TestEx5 {
 
     private static void resetFallbackCalls() {
         BinOpCallSite.fallbackCalls = 0;
-        UnaryOpCallSite.fallbackCalls = 0;
     }
 
     private Node cubic() {
