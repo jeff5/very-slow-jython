@@ -28,6 +28,8 @@ import uk.co.farowl.vsj1.TreePython.expr;
 import uk.co.farowl.vsj1.TreePython.expr_context;
 import uk.co.farowl.vsj1.TreePython.operator;
 import uk.co.farowl.vsj1.TreePython.unaryop;
+import uk.co.farowl.vsj1.example.treepython.TestEx7.BinOpCallSite;
+import uk.co.farowl.vsj1.example.treepython.TestEx7.UnaryOpCallSite;
 
 /**
  * Demonstrate interpretation of the AST where nodes contain an embedded
@@ -49,6 +51,11 @@ public class TestEx6 {
     public void setUp() {
         // Create a visitor to execute the code.
         evaluator = new Evaluator();
+    }
+
+    private static void resetFallbackCalls() {
+        BinOpCallSite.fallbackCalls = 0;
+        UnaryOpCallSite.fallbackCalls = 0;
     }
 
     private Node cubic() {
@@ -81,10 +88,10 @@ public class TestEx6 {
         Node tree = simple();
         evaluator.variables.put("v", 6);
         assertThat(tree.accept(evaluator), is(-6));
-        int baseline = BinOpCallSite.fallbackCalls;
+        resetFallbackCalls();
         evaluator.variables.put("v", -3);
         assertThat(tree.accept(evaluator), is(3));
-        assertThat(BinOpCallSite.fallbackCalls, is(baseline + 0));
+        assertThat(BinOpCallSite.fallbackCalls, is(0));
     }
 
     @Test
@@ -117,7 +124,7 @@ public class TestEx6 {
         evaluator.variables.put("x", 3);
         evaluator.variables.put("y", 3);
         assertThat(tree.accept(evaluator), is(42));
-        int baseline = BinOpCallSite.fallbackCalls;
+        resetFallbackCalls();
         evaluator.variables.put("x", 4);
         evaluator.variables.put("y", -1);
         assertThat(tree.accept(evaluator), is(42));
@@ -127,7 +134,7 @@ public class TestEx6 {
         evaluator.variables.put("x", 6);
         evaluator.variables.put("y", 7);
         assertThat(tree.accept(evaluator), is(442));
-        assertThat(BinOpCallSite.fallbackCalls, is(baseline + 0));
+        assertThat(BinOpCallSite.fallbackCalls, is(0));
     }
 
     @Test
@@ -136,7 +143,7 @@ public class TestEx6 {
         evaluator.variables.put("x", 3.);
         evaluator.variables.put("y", 3);
         assertThat(tree.accept(evaluator), is(42.));
-        int baseline = BinOpCallSite.fallbackCalls;
+        resetFallbackCalls();
         evaluator.variables.put("x", 4.);
         evaluator.variables.put("y", -1);
         assertThat(tree.accept(evaluator), is(42.));
@@ -146,7 +153,7 @@ public class TestEx6 {
         evaluator.variables.put("x", 6.);
         evaluator.variables.put("y", 7);
         assertThat(tree.accept(evaluator), is(442.));
-        assertThat(BinOpCallSite.fallbackCalls, is(baseline + 0));
+        assertThat(BinOpCallSite.fallbackCalls, is(0));
     }
 
     @Test
@@ -155,28 +162,28 @@ public class TestEx6 {
         evaluator.variables.put("x", 3);
         evaluator.variables.put("y", 3);
         assertThat(tree.accept(evaluator), is(42));
-        int baseline = BinOpCallSite.fallbackCalls;
+        resetFallbackCalls();
         evaluator.variables.put("x", 4);
         evaluator.variables.put("y", -1);
         assertThat(tree.accept(evaluator), is(42));
-        assertThat(BinOpCallSite.fallbackCalls, is(baseline + 0));
+        assertThat(BinOpCallSite.fallbackCalls, is(0));
         // Suddenly y is a float
         evaluator.variables.put("x", 2);
         evaluator.variables.put("y", 19.);
         assertThat(tree.accept(evaluator), is(42.));
-        assertThat(BinOpCallSite.fallbackCalls, is(baseline + 2));
+        assertThat(BinOpCallSite.fallbackCalls, is(2));
         // And now so is x
-        baseline = BinOpCallSite.fallbackCalls;
+        resetFallbackCalls();
         evaluator.variables.put("x", 6.);
         evaluator.variables.put("y", 7.);
         assertThat(tree.accept(evaluator), is(442.));
-        assertThat(BinOpCallSite.fallbackCalls, is(baseline + 4));
+        assertThat(BinOpCallSite.fallbackCalls, is(4));
         // And now y is an int again
-        baseline = BinOpCallSite.fallbackCalls;
+        resetFallbackCalls();
         evaluator.variables.put("x", 6.);
         evaluator.variables.put("y", 7);
         assertThat(tree.accept(evaluator), is(442.));
-        assertThat(BinOpCallSite.fallbackCalls, is(baseline + 1));
+        assertThat(BinOpCallSite.fallbackCalls, is(1));
     }
 
     /**

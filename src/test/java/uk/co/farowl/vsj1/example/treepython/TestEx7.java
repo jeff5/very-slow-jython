@@ -30,6 +30,8 @@ import uk.co.farowl.vsj1.TreePython.expr;
 import uk.co.farowl.vsj1.TreePython.expr_context;
 import uk.co.farowl.vsj1.TreePython.operator;
 import uk.co.farowl.vsj1.TreePython.unaryop;
+import uk.co.farowl.vsj1.example.treepython.TestEx8.BinOpCallSite;
+import uk.co.farowl.vsj1.example.treepython.TestEx8.UnaryOpCallSite;
 
 /**
  * Dealing with many implementations of the integer type
@@ -62,6 +64,11 @@ public class TestEx7 {
     public void setUp() {
         // Create a visitor to execute the code.
         evaluator = new Evaluator();
+    }
+
+    private static void resetFallbackCalls() {
+        BinOpCallSite.fallbackCalls = 0;
+        UnaryOpCallSite.fallbackCalls = 0;
     }
 
     private Node cubic() {
@@ -106,14 +113,14 @@ public class TestEx7 {
         Node tree = UnaryOp(USub, Name("v", Load));
         evaluator.variables.put("v", 6);
         assertThat(tree.accept(evaluator), is(BIG_M6));
-        int ufb = UnaryOpCallSite.fallbackCalls;
 
         // Test promotion in unary -
+        resetFallbackCalls();
         evaluator.variables.put("v", Integer.MIN_VALUE);
         BigInteger expected =
                 BigInteger.valueOf(1 + (long)Integer.MAX_VALUE);
         assertThat(tree.accept(evaluator), is(expected));
-        assertThat(UnaryOpCallSite.fallbackCalls, is(ufb + 0));
+        assertThat(UnaryOpCallSite.fallbackCalls, is(0));
     }
 
     @Test
@@ -128,14 +135,14 @@ public class TestEx7 {
         Node tree = UnaryOp(USub, Name("v", Load));
         evaluator.variables.put("v", 6L);
         assertThat(tree.accept(evaluator), is(BIG_M6));
-        int ufb = UnaryOpCallSite.fallbackCalls;
 
         // Test promotion in unary -
+        resetFallbackCalls();
         evaluator.variables.put("v", Long.MIN_VALUE);
         BigInteger expected =
                 BigInteger.valueOf(Long.MAX_VALUE).add(BigInteger.ONE);
         assertThat(tree.accept(evaluator), is(expected));
-        assertThat(UnaryOpCallSite.fallbackCalls, is(ufb + 0));
+        assertThat(UnaryOpCallSite.fallbackCalls, is(0));
     }
 
     @Test
@@ -158,12 +165,12 @@ public class TestEx7 {
         evaluator.variables.put("v", 6);
         evaluator.variables.put("w", 7);
         assertThat(tree.accept(evaluator), is(BIG_42));
-        int bfb = BinOpCallSite.fallbackCalls;
 
+        resetFallbackCalls();
         evaluator.variables.put("v", BIG_21);
         evaluator.variables.put("w", BIG_2);
         assertThat(tree.accept(evaluator), is(BIG_42));
-        assertThat(BinOpCallSite.fallbackCalls, is(bfb + 1));
+        assertThat(BinOpCallSite.fallbackCalls, is(1));
     }
 
     @Test
@@ -328,8 +335,8 @@ public class TestEx7 {
         evaluator.variables.put("x", BIG_3);
         evaluator.variables.put("y", BIG_3);
         assertThat(tree.accept(evaluator), is(BIG_42));
-        int bfb = BinOpCallSite.fallbackCalls;
-        int ufb = UnaryOpCallSite.fallbackCalls;
+
+        resetFallbackCalls();
 
         evaluator.variables.put("x", BigInteger.valueOf(4));
         evaluator.variables.put("y", BigInteger.valueOf(-1));
@@ -342,8 +349,8 @@ public class TestEx7 {
         evaluator.variables.put("x", BigInteger.valueOf(6));
         evaluator.variables.put("y", BigInteger.valueOf(7));
         assertThat(tree.accept(evaluator), is(BigInteger.valueOf(442)));
-        assertThat(BinOpCallSite.fallbackCalls, is(bfb + 0));
-        assertThat(UnaryOpCallSite.fallbackCalls, is(ufb + 0));
+        assertThat(BinOpCallSite.fallbackCalls, is(0));
+        assertThat(UnaryOpCallSite.fallbackCalls, is(0));
     }
 
     // @Test
@@ -357,26 +364,24 @@ public class TestEx7 {
         assertThat(tree.accept(evaluator), is(42));
 
         // x*x, -x and (-x)-y and promote Byte to Integer
-        int bfb = BinOpCallSite.fallbackCalls;
-        int ufb = UnaryOpCallSite.fallbackCalls;
+        resetFallbackCalls();
         evaluator.variables.put("x", (byte)3);
         evaluator.variables.put("y", (byte)3);
         Object result = tree.accept(evaluator);
         assertThat(result, is(42));
         assertThat(result, is(instanceOf(Integer.class)));
-        assertThat(BinOpCallSite.fallbackCalls, is(bfb + 2));
-        assertThat(UnaryOpCallSite.fallbackCalls, is(ufb + 1));
+        assertThat(BinOpCallSite.fallbackCalls, is(2));
+        assertThat(UnaryOpCallSite.fallbackCalls, is(1));
 
         // x*x, -x and (-x)-y and promote Short to Integer
-        bfb = BinOpCallSite.fallbackCalls;
-        ufb = UnaryOpCallSite.fallbackCalls;
+        resetFallbackCalls();
         evaluator.variables.put("x", (short)2);
         evaluator.variables.put("y", (short)19);
         result = tree.accept(evaluator);
         assertThat(result, is(42));
         assertThat(result, is(instanceOf(Integer.class)));
-        assertThat(BinOpCallSite.fallbackCalls, is(bfb + 2));
-        assertThat(UnaryOpCallSite.fallbackCalls, is(ufb + 1));
+        assertThat(BinOpCallSite.fallbackCalls, is(2));
+        assertThat(UnaryOpCallSite.fallbackCalls, is(1));
     }
 
     @Test
@@ -390,35 +395,32 @@ public class TestEx7 {
         assertThat(tree.accept(evaluator), is(BIG_42));
 
         // (-x)-y promotes Byte to BigInteger
-        int bfb = BinOpCallSite.fallbackCalls;
-        int ufb = UnaryOpCallSite.fallbackCalls;
+        resetFallbackCalls();
         evaluator.variables.put("y", (byte)3);
         Object result = tree.accept(evaluator);
         assertThat(result, is(BIG_42));
         assertThat(result, is(instanceOf(BigInteger.class)));
-// assertThat(BinOpCallSite.fallbackCalls, is(bfb + 2));
-// assertThat(UnaryOpCallSite.fallbackCalls, is(ufb));
+        assertThat(BinOpCallSite.fallbackCalls, is(1));
+        assertThat(UnaryOpCallSite.fallbackCalls, is(0));
 
         // (-x)-y promotes Short to BigInteger
-        bfb = BinOpCallSite.fallbackCalls;
-        ufb = UnaryOpCallSite.fallbackCalls;
+        resetFallbackCalls();
         evaluator.variables.put("y", (short)3);
         result = tree.accept(evaluator);
         assertThat(result, is(BIG_42));
         assertThat(result, is(instanceOf(BigInteger.class)));
-// assertThat(BinOpCallSite.fallbackCalls, is(bfb + 2));
-// assertThat(UnaryOpCallSite.fallbackCalls, is(ufb));
+        assertThat(BinOpCallSite.fallbackCalls, is(1));
+        assertThat(UnaryOpCallSite.fallbackCalls, is(0));
 
         // x*x promotes Long to BigInteger (but +, - etc do not)
-        bfb = BinOpCallSite.fallbackCalls;
-        ufb = UnaryOpCallSite.fallbackCalls;
+        resetFallbackCalls();
         evaluator.variables.put("x", 100000002L);
         evaluator.variables.put("y", 100000019L);
         BigInteger expected = new BigInteger("2000000290000008800000042");
         result = tree.accept(evaluator);
         assertThat(result, is(expected));
-// assertThat(BinOpCallSite.fallbackCalls, is(bfb + 4));
-// assertThat(UnaryOpCallSite.fallbackCalls, is(ufb + 2));
+        assertThat(BinOpCallSite.fallbackCalls, is(2));
+        assertThat(UnaryOpCallSite.fallbackCalls, is(1));
     }
 
     /**

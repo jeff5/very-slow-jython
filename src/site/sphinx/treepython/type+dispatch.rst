@@ -930,29 +930,34 @@ We may test the approach with a program such as this:
         evaluator.variables.put("x", 3);
         evaluator.variables.put("y", 3);
         assertThat(tree.accept(evaluator), is(42));
-        int baseline = BinOpCallSite.fallbackCalls;
+
+        resetFallbackCalls();
         evaluator.variables.put("x", 4);
         evaluator.variables.put("y", -1);
         assertThat(tree.accept(evaluator), is(42));
-        assertThat(BinOpCallSite.fallbackCalls, is(baseline + 0));
+        assertThat(BinOpCallSite.fallbackCalls, is(0));
+
         // Suddenly y is a float
         evaluator.variables.put("x", 2);
         evaluator.variables.put("y", 19.);
         assertThat(tree.accept(evaluator), is(42.));
-        assertThat(BinOpCallSite.fallbackCalls, is(baseline + 2));
+        assertThat(BinOpCallSite.fallbackCalls, is(2));
+
         // And now so is x
-        baseline = BinOpCallSite.fallbackCalls;
+        resetFallbackCalls();
         evaluator.variables.put("x", 6.);
         evaluator.variables.put("y", 7.);
         assertThat(tree.accept(evaluator), is(442.));
-        assertThat(BinOpCallSite.fallbackCalls, is(baseline + 4));
+        assertThat(BinOpCallSite.fallbackCalls, is(4));
+
         // And now y is an int again
-        baseline = BinOpCallSite.fallbackCalls;
+        resetFallbackCalls();
         evaluator.variables.put("x", 6.);
         evaluator.variables.put("y", 7);
         assertThat(tree.accept(evaluator), is(442.));
-        assertThat(BinOpCallSite.fallbackCalls, is(baseline + 1));
+        assertThat(BinOpCallSite.fallbackCalls, is(1));
     }
+
 
 The passing test demonstrates that the fall-back is not called again
 when the tree is evaluated a second time
