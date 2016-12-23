@@ -8,7 +8,6 @@ import java.util.Hashtable;
 import java.util.Map;
 
 import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.Test;
 
 import uk.co.farowl.vsj1.TreePython.Node;

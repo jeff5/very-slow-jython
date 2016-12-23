@@ -53,6 +53,8 @@ public class TestEx8 {
         TypeHandler doubleHandler = new DoubleHandler();
         Runtime.registerTypeFor(Float.class, doubleHandler);
         Runtime.registerTypeFor(Double.class, doubleHandler);
+
+        Runtime.registerTypeFor(String.class, new StringHandler());
     }
 
     // Visitor to execute the code.
@@ -416,6 +418,29 @@ public class TestEx8 {
         assertThat(result, is(expected));
         assertThat(BinOpCallSite.fallbackCalls, is(4));
         assertThat(UnaryOpCallSite.fallbackCalls, is(2));
+    }
+
+    @Test
+    public void stringAdd() {
+        Node tree = BinOp(Name("x", Load), Add, Name("y", Load));
+        evaluator.variables.put("x", "Hello");
+        evaluator.variables.put("y", " world!");
+        assertThat(tree.accept(evaluator), is("Hello world!"));
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void stringSubException() {
+        Node tree = BinOp(Name("x", Load), Sub, Name("y", Load));
+        evaluator.variables.put("x", "Hello");
+        evaluator.variables.put("y", " world!");
+        tree.accept(evaluator);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void stringNegException() {
+        Node tree = UnaryOp(USub, Name("x", Load));
+        evaluator.variables.put("x", "Hello");
+        tree.accept(evaluator);
     }
 
     /**
@@ -1448,6 +1473,23 @@ public class TestEx8 {
             return oClass == Byte.class || oClass == Short.class
                     || oClass == Integer.class || oClass == Long.class
                     || oClass == BigInteger.class || oClass == Float.class;
+        }
+    }
+
+    /**
+     * Class defining the operations for a Java <code>String</code>, so as
+     * to make it (almost entirely, but not quite, totally unlike) a Python
+     * <code>str</code>.
+     */
+    @SuppressWarnings(value = {"unused"})
+    private static class StringHandler extends TypeHandler {
+
+        protected StringHandler() {
+            super(lookup());
+        }
+
+        private static Object add(String v, String w) {
+            return v.concat(w);
         }
     }
 
