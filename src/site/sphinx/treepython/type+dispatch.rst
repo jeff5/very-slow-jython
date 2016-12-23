@@ -115,8 +115,8 @@ Dispatch via overloading in Java
 ********************************
 
     Code fragments in this section are taken from
-    ``.../vsj1/example/treepython/TestEx2.java``
-    in the project test source.
+    ``~/src/test/java/.../vsj1/example/treepython/TestEx2.java``
+    in the project source.
 
 Suppose we want to support the ``Add`` and ``Mult`` binary operations.
 The implementation must differ according to the types of the operands.
@@ -317,8 +317,8 @@ Dispatch via a Java ``MethodHandle``
 ************************************
 
     Code fragments in this section are taken from
-    ``.../vsj1/example/treepython/TestEx3.java``
-    in the project test source.
+    ``~/src/test/java/.../vsj1/example/treepython/TestEx3.java``
+    in the project source.
 
 In CPython, operator dispatch uses several arrays of pointers to functions,
 and these are re-written when special functions (like ``__add__``) are defined.
@@ -567,8 +567,8 @@ Mapping to a Specialised Implementation
 =======================================
 
     Code fragments in this section are taken from
-    ``.../vsj1/example/treepython/TestEx4.java``
-    in the project test source.
+    ``~/src/test/java/.../vsj1/example/treepython/TestEx4.java``
+    in the project source.
 
 We'll avoid an explicit ``CallSite`` object to begin with.
 The first transformation we need is to separate,
@@ -795,8 +795,8 @@ Bootstrapping a Call Site
 =========================
 
     Code fragments in this section are taken from
-    ``.../vsj1/example/treepython/TestEx5.java``
-    in the project test source.
+    ``~/src/test/java/.../vsj1/example/treepython/TestEx5.java``
+    in the project source.
 
 It remains for us to introduce a ``CallSite`` object into the AST node
 and to use that in place of a call to ``Runtime.findBinOp``.
@@ -958,7 +958,6 @@ We may test the approach with a program such as this:
         assertThat(BinOpCallSite.fallbackCalls, is(1));
     }
 
-
 The passing test demonstrates that the fall-back is not called again
 when the tree is evaluated a second time
 with new integer values for the variables,
@@ -977,8 +976,8 @@ but one type that ought to be easier is the unary operation.
 We'll go there next.
 
     Code fragments in this section are taken from
-    ``.../vsj1/example/treepython/TestEx6.java``
-    in the project test source.
+    ``~/src/test/java/.../vsj1/example/treepython/TestEx6.java``
+    in the project source.
 
 The first job is to implement a little more of the Python AST for expressions,
 represented here in ASDL::
@@ -1261,8 +1260,8 @@ A ``TypeHandler`` for  ``Number`` operands
 ==========================================
 
     Code fragments in this section and the next are taken from
-    ``.../vsj1/example/treepython/TestEx7.java``
-    in the project test source.
+    ``~/src/test/java/.../vsj1/example/treepython/TestEx7.java``
+    in the project source.
 
 Consider making ``BigIntegerHandler`` accept
 a variety of integer ``Number`` types as either operand.
@@ -1491,8 +1490,8 @@ Specimen Optimisation for ``Integer``
 =====================================
 
     Code fragments in this section are taken from
-    ``.../vsj1/example/treepython/TestEx8.java``
-    in the project test source.
+    ``~/src/test/java/.../vsj1/example/treepython/TestEx8.java``
+    in the project source.
 
 In the implementation so far,
 every integer operation promotes the type immediately to ``BigInteger``,
@@ -1581,4 +1580,156 @@ The methods here return ``Integer`` if they can and ``Long`` if they must.
 Note that we do not try to select adaptively between all available
 integer types, ``Byte``, ``Short``, etc.,
 in order to avoid too frequent relinking of call sites.
+
+Progress so far
+***************
+Refactoring
+===========
+At this point,
+the classes developed in test programs
+are solid enough to place in the core support library at
+``~/src/main/java/.../vsj1``
+in the source of the project (not under ``test``).
+What's left of the test program after this refactoring is at
+``~/src/test/java/.../vsj1/example/treepython/TestEx9.java``
+in the project source.
+
+We take this opprtunity to adjust the supporting methods to simplify
+writing operation handlers.
+Changes include:
+
+* ``TypeHandler`` was re-named ``Operations`` (see notes below).
+* ``Runtime`` was re-named ``Py`` for brevity and clarity, and to avoid
+  accidentally designating ``java.lang.Runtime``.
+* There is a single ``NOT_IMPLEMENTED`` handle,
+  ignoring an ``Object[]`` argument,
+  and used uniformly
+  (where previously ``null`` indicated a method was not found).
+* ``Operations.findBinOp`` does not call ``asType``
+  to ensure the return type can be invoked exactly as ``(Object,Object)``.
+  Instead, ``Py.findBinOp`` takes care of the conversion.
+
+With these changes, the finders within the ``Operations`` class
+(was ``TypeHandler``)
+now look like:
+
+..  code-block:: java
+
+    public abstract class Operations {
+        // ...
+
+        public MethodHandle findUnaryOp(unaryop op, Class<?> vClass) {
+            String name = UnaryOpInfo.forOp(op).name;
+            // Look for a match with the operand class
+            MethodType mt = MethodType.methodType(O, vClass);
+            return findStatic(name, mt);
+        }
+
+        public MethodHandle findBinOp(Class<?> vClass, operator op,
+                Class<?> wClass) {
+            String name = BinOpInfo.forOp(op).name;
+            // Look for an exact match with the actual types
+            MethodType mt = MethodType.methodType(O, vClass, wClass);
+            return findStatic(name, mt);
+        }
+
+        protected MethodHandle findStatic(String name, MethodType type) {
+            try {
+                return lookup.findStatic(this.getClass(), name, type);
+            } catch (NoSuchMethodException | IllegalAccessException e) {
+                return NOT_IMPLEMENTED;
+            }
+        }
+        // ...
+    }
+
+The runtime support in class ``Py`` (was ``Runtime``)
+gets a little more complicated because of the need to cast:
+
+..  code-block:: java
+
+    public class Py {
+        // ...
+        /** Handle of a method returning NotImplemented (any number args). */
+        public static final MethodHandle NOT_IMPLEMENTED;
+        /** A (static) method implementing a unary op has this type. */
+        public static final MethodType UOP;
+        /** A (static) method implementing a binary op has this type. */
+        public static final MethodType BINOP;
+
+        /** Operation throwing NoSuchMethodError, use as dummy. */
+        static Object notImplemented(Object... ignored)
+                throws NoSuchMethodException {
+            throw new NoSuchMethodException();
+        }
+
+        /**
+         * Provide (as a method handle) an appropriate implementation of the
+         * given operation, on a a target Java type.
+         */
+        public static MethodHandle findUnaryOp(unaryop op, Class<?> vClass)
+                throws NoSuchMethodException, IllegalAccessException {
+            Operations V = Py.opsFor(vClass);
+            MethodHandle mhV = V.findUnaryOp(op, vClass);
+            return mhV.asType(UOP);
+        }
+
+        /**
+         * Provide (as a method handle) an appropriate implementation of the
+         * given operation, between operands of two Java types, conforming to
+         * Python delegation rules.
+         */
+        public static MethodHandle findBinOp(Class<?> vClass, operator op,
+                Class<?> wClass)
+                throws NoSuchMethodException, IllegalAccessException {
+            Operations V = Py.opsFor(vClass);
+            Operations W = Py.opsFor(wClass);
+            MethodHandle mhV = V.findBinOp(vClass, op, wClass);
+            MethodHandle opV = mhV.asType(BINOP);
+            if (W == V) {
+                return opV;
+            }
+            MethodHandle mhW = W.findBinOp(vClass, op, wClass);
+            if (mhW == NOT_IMPLEMENTED) {
+                return opV;
+            }
+            MethodHandle opW = mhW.asType(BINOP);
+            if (mhV == NOT_IMPLEMENTED || mhW.equals(mhV)) {
+                return opW;
+            } else if (W.isSubtypeOf(V)) {
+                return firstImplementer(opW, opV);
+            } else {
+                return firstImplementer(opV, opW);
+            }
+        }
+        // ...
+    }
+
+
+Reflection
+==========
+To note for future work:
+
+* We have successfully implemented binary and unary operations
+  using the dynamic features of Java -- call sites and method handles.
+* We have used guarded invocation to create a simple cache in a textbook way.
+* Something is not quite right regarding ``MethodHandles.Lookup``:
+
+  * Each concrete sub-class of ``Operations`` yields method handles for its
+    ``private static`` implementation methods, using its own look-up.
+    (Good.)
+  * Each call-site class uses its own look-up to access a ``fallback`` method
+    it owns.
+    (Good.)
+  * The ultimate caller (node visitor here) gives its own look-up object to the
+    call-site, as it will under ``invokedynamic``, but we don't need it.
+    (Something wrong?)
+
+* We have not yet discovered an actual Python ``type`` object.
+  The class tentatively named ``TypeHandler`` (now ``Operations``) is not it,
+  since we have many such for one type ``int``:
+  it holds the Java *operations* (slots) not the Python *type* information.
+* Speculation: we will discover a proper type object
+  when we need a Python *class* attribute (like the MRO or ``__new__``.
+  So far, only *instance* methods have appeared.
 
