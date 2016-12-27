@@ -518,7 +518,7 @@ public class TestEx9 {
             String s = BinOpInfo.forOp(op).symbol;
             String V = v.getClass().getSimpleName();
             String W = w.getClass().getSimpleName();
-            throw new IllegalArgumentException(
+            return new IllegalArgumentException(
                     String.format(msg, s, V, W));
         }
 
@@ -528,7 +528,7 @@ public class TestEx9 {
             String msg = "bad operand type for unary %s : '%s'";
             String s = UnaryOpInfo.forOp(op).symbol;
             String V = v.getClass().getSimpleName();
-            throw new IllegalArgumentException(String.format(msg, s, V));
+            return new IllegalArgumentException(String.format(msg, s, V));
         }
     }
 

@@ -276,7 +276,7 @@ public class TestEx5 {
             String msg = "Operation %s not defined between %s and %s";
             String V = v.getClass().getSimpleName();
             String W = w.getClass().getSimpleName();
-            throw new IllegalArgumentException(
+            return new IllegalArgumentException(
                     String.format(msg, op, V, W));
         }
     }
