@@ -277,18 +277,35 @@ class EmitJavaVisitor(PrettyPrintVisitor):
             r = '"' + r[1:-1].replace('"', '\\"').replace("\\'", "'") + '"'
         return r, False
 
+    _INT_MAX = 2**31-1
+    _INT_MIN = -2**31
+    _LONG_MAX = 2**63-1
+    _LONG_MIN = -2**63
 
-def pretty(prog):
+    def leaf_int(self, value, depth, available):
+        """Called when a field is an int."""
+        if value > EmitJavaVisitor._LONG_MAX \
+                or value < EmitJavaVisitor._LONG_MIN :
+            r = 'BigInteger.valueOf("' + repr(value) + '")'
+        elif value > EmitJavaVisitor._INT_MAX \
+                or value < EmitJavaVisitor._INT_MIN :
+            r = repr(value) + 'L'
+        else :
+            r = repr(value)
+        return r, False
+
+
+def pretty(prog, width=80, indent=4):
     if not isinstance(prog, ast.AST):
         prog = ast.parse(prog)
-    v = PrettyPrintVisitor(width=80)
+    v = PrettyPrintVisitor(width, indent)
     r = v.visit(prog)
     print(r[0])
 
-def pretty_java(prog):
+def pretty_java(prog, width=72, indent=4):
     if not isinstance(prog, ast.AST):
         prog = ast.parse(prog)
-    v = EmitJavaVisitor()
+    v = EmitJavaVisitor(False, width, indent)
     r = v.visit(prog)
     print(r[0])
 
