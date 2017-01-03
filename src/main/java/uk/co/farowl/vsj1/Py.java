@@ -53,6 +53,16 @@ public class Py {
         }
     }
 
+    /** Remove all <code>Operations</code> from Java classes. */
+    public static void deregisterOps() {
+        // System.out.println(
+        // "Discarding " + opsHandlerMap.size() + " class bindings.");
+        for (Class<?> c : opsHandlerMap.keySet()) {
+            opsRegistry.remove(c);
+        }
+        opsHandlerMap.clear();
+    }
+
     /** A (static) method implementing a unary op has this type. */
     public static final MethodType UOP;
     /** Handle of a method returning NotImplemented (any number args). */

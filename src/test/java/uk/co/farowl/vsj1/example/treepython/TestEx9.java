@@ -11,6 +11,7 @@ import java.math.BigInteger;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -49,6 +50,11 @@ public class TestEx9 {
         Py.registerOps(new BigIntegerOperations(), BigInteger.class);
         Py.registerOps(new DoubleOperations(), Float.class, Double.class);
         Py.registerOps(new StringOperations(), String.class);
+    }
+
+    @AfterClass
+    public static void tearDownClass() {
+        Py.deregisterOps();
     }
 
     // Visitor to execute the code.
