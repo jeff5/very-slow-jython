@@ -81,7 +81,10 @@ shows them to consist mostly of things we're far from ready to implement.
 But we are going to take clues from it,
 and from corresponding parts of Jython 2.7.1,
 since the object architecture must be conceptually equivalent.
-
+A first attempt to write about this
+led a long way beyond what this section needs,
+so the (unfinished) discussion has moved to
+:doc:`/architecture/interpreter`.
 
 CPython defines four structures,
 that Java would consider classes,

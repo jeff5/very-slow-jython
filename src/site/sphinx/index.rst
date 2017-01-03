@@ -19,6 +19,7 @@ Contents
 
     background/background
     treepython/treepython
+    architecture/architecture
 
 
 Indices and tables
