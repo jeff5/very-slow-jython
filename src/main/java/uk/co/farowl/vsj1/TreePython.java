@@ -23,6 +23,76 @@ public abstract class TreePython {
         <T> T accept(Visitor<T> visitor);
     }
 
+    public static abstract class mod extends ExecNode implements Node {
+
+        public static class Module extends mod {
+            public java.util.List<stmt> body;
+            public Module(java.util.List<stmt> body){
+                this.body = body;
+            }
+
+            @Override
+            public <T> T accept(Visitor<T> visitor) {
+                return visitor.visit_Module(this);
+            }
+        }
+
+    }
+
+    public static abstract class stmt extends ExecNode implements Node {
+
+        public static class Delete extends stmt {
+            public java.util.List<expr> targets;
+            public Delete(java.util.List<expr> targets){
+                this.targets = targets;
+            }
+
+            @Override
+            public <T> T accept(Visitor<T> visitor) {
+                return visitor.visit_Delete(this);
+            }
+        }
+
+        public static class Assign extends stmt {
+            public java.util.List<expr> targets;
+            public expr value;
+            public Assign(java.util.List<expr> targets, expr value){
+                this.targets = targets;
+                this.value = value;
+            }
+
+            @Override
+            public <T> T accept(Visitor<T> visitor) {
+                return visitor.visit_Assign(this);
+            }
+        }
+
+        public static class Global extends stmt {
+            public java.util.List<String> names;
+            public Global(java.util.List<String> names){
+                this.names = names;
+            }
+
+            @Override
+            public <T> T accept(Visitor<T> visitor) {
+                return visitor.visit_Global(this);
+            }
+        }
+
+        public static class Nonlocal extends stmt {
+            public java.util.List<String> names;
+            public Nonlocal(java.util.List<String> names){
+                this.names = names;
+            }
+
+            @Override
+            public <T> T accept(Visitor<T> visitor) {
+                return visitor.visit_Nonlocal(this);
+            }
+        }
+
+    }
+
     public static abstract class expr extends ExecNode implements Node {
 
         public static class BinOp extends expr {
@@ -83,20 +153,23 @@ public abstract class TreePython {
 
     }
 
-
     public enum operator {Add, Sub, Mult, Div}
 
-
     public enum unaryop {UAdd, USub}
-
 
     public enum expr_context {Load, Store, Del}
 
 
     public interface Visitor<T> {
+        default T visit_Module(mod.Module _Module){ return null; }
+        default T visit_Delete(stmt.Delete _Delete){ return null; }
+        default T visit_Assign(stmt.Assign _Assign){ return null; }
+        default T visit_Global(stmt.Global _Global){ return null; }
+        default T visit_Nonlocal(stmt.Nonlocal _Nonlocal){ return null; }
         default T visit_BinOp(expr.BinOp _BinOp){ return null; }
         default T visit_UnaryOp(expr.UnaryOp _UnaryOp){ return null; }
         default T visit_Num(expr.Num _Num){ return null; }
         default T visit_Name(expr.Name _Name){ return null; }
+
     }
 }

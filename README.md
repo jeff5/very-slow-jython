@@ -16,6 +16,7 @@ The main sections are these:
   1. [Some Help from the Reference Interpreter](src/site/sphinx/treepython/ref_interp_help.rst)
   2. [An Interpreter in Java for the Python AST](src/site/sphinx/treepython/ast_java.rst)
   3. [Type and Operation Dispatch](src/site/sphinx/treepython/type+dispatch.rst)
+  4. [Interpretation of Simple Statements](src/site/sphinx/treepython/simple_statements.rst) 
 
 ## Building the Project
 
