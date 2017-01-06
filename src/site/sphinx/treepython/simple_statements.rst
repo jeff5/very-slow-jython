@@ -99,7 +99,7 @@ in the vicinity of the core interpreter:
 * :c:type:`PyThreadState` holds per-thread state,
   most notably the linked list of frames that forms the Python stack.
 * :c:type:`PyInterpreterState` holds state shared between threads,
-  including the module list and built-in objects.
+  the import mechanism, modules list, and the character encoding registry.
 
 Threading is not likely to be important to us in the toy implementation,
 still less the possibility of multiple interpreters,
@@ -120,6 +120,14 @@ argument and variable names, rationalised constants, and more.
 
 ..  code-block::    java
 
+    class PyCode {
+
+        final Node ast;
+
+        PyCode(Node ast) {
+            this.ast = ast;
+        }
+    }
 
 
 ``PyFrame``
@@ -146,6 +154,17 @@ rather than as global functions as one is forced to in C.
 
 ..  code-block::    java
 
+    class PyFrame implements Visitor<Object> {
+        /** Frames form a stack by chaining through the back pointer. */
+        PyFrame f_back;
+        /** Code this frame is to execute. */
+        final PyCode f_code;
+        /** Global context (name space) of execution. */
+        Map<String, Object> f_globals;
+        /** Local context (name space) of execution. */
+        Map<String, Object> f_locals;
+        // ...
+    }
 
 
 
@@ -166,6 +185,21 @@ However, for a long time we will only need the one thread.
 
 ..  code-block::    java
 
+    class ThreadState {
+        /** Interpreter to which this <code>ThreadState</code> belongs. */
+        final SystemState interp;
+        /** Top of execution frame stack. */
+        PyFrame frame;
+        /**
+         * Construct a ThreadState in the context of an owning interpreter
+         * and the current Java <code>Thread</code>.
+         */
+        private ThreadState(SystemState interp) {
+            this.interp = interp;
+            this.frame = null;
+            interp.threads.add(this);
+        }
+    }
 
 
 ``PyInterpreterState``
