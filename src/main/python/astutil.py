@@ -294,6 +294,10 @@ class EmitJavaVisitor(PrettyPrintVisitor):
             r = repr(value)
         return r, False
 
+    def leaf_NoneType(self, value, depth, available):
+        """Called when a field is None."""
+        return "null", False
+
 
 def pretty(prog, width=80, indent=4):
     if not isinstance(prog, ast.AST):
