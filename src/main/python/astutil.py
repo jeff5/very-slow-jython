@@ -12,6 +12,12 @@ class PrettyPrintVisitor(object):
        are two types of visit-like methods: those named visit_<node>,
        where <node> is the type name of an AST node, and those named
        leaf_<type> where <type> is any other type (such as int or str).
+
+       The optional keyword arguments mean:
+       annotate_fields=True : names of fields (+attributes) are printed;
+       include_attributes=False : only fields, not attributes, printed;
+       width=72 : line width to aim for in display (not guaranteed);
+       indent=4 : amount to indent each time wrapped nesting occurs.
     """
 
     def __init__(self, annotate_fields=True, include_attributes=False,
@@ -165,10 +171,11 @@ class EmitJavaVisitor(PrettyPrintVisitor):
         The returned strings are based on the node type, to go before
         and after the arguments of the constructor, so for a node of
         type X, return 'X(' and ')'. As a special case, a node with no
-        fields (an enumeration constant) will return simply 'X' and ''.
+        fields or attributes (an enumeration constant) will return simply
+        'X' and ''.
         """
         left = node.__class__.__name__
-        if node._fields or self.include_attributes and node._attributes:
+        if node._fields or node._attributes:
             left += '('
             right = ')'
         else:
@@ -299,10 +306,11 @@ class EmitJavaVisitor(PrettyPrintVisitor):
         return "null", False
 
 
-def pretty(prog, width=80, indent=4):
+def pretty(prog, annotate_fields=True, include_attributes=False,
+           width=80, indent=4):
     if not isinstance(prog, ast.AST):
         prog = ast.parse(prog)
-    v = PrettyPrintVisitor(width, indent)
+    v = PrettyPrintVisitor(annotate_fields, include_attributes, width, indent)
     r = v.visit(prog)
     print(r[0])
 

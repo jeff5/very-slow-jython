@@ -122,6 +122,16 @@ public abstract class TreePython {
             }
         }
 
+        public static class Pass extends stmt {
+            public Pass(){
+            }
+
+            @Override
+            public <T> T accept(Visitor<T> visitor) {
+                return visitor.visit_Pass(this);
+            }
+        }
+
     }
 
     public static abstract class expr extends ExecNode implements Node {
@@ -268,6 +278,7 @@ public abstract class TreePython {
         default T visit_Global(stmt.Global _Global){ return null; }
         default T visit_Nonlocal(stmt.Nonlocal _Nonlocal){ return null; }
         default T visit_Expr(stmt.Expr _Expr){ return null; }
+        default T visit_Pass(stmt.Pass _Pass){ return null; }
         default T visit_BinOp(expr.BinOp _BinOp){ return null; }
         default T visit_UnaryOp(expr.UnaryOp _UnaryOp){ return null; }
         default T visit_Call(expr.Call _Call){ return null; }
