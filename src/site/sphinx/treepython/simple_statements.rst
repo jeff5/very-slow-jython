@@ -213,11 +213,11 @@ that store locally and load from local, global or built-in name spaces::
 
     >>> import dis
     >>> dis.dis(compile(prog, '<module>', 'exec'))
-      1           0 LOAD_CONST               0 (<code object f at 0x000001F08F98AE40, file "<module>", line 1>)
+      1           0 LOAD_CONST               0 (<code object f ... >)
                   3 LOAD_CONST               1 ('f')
                   6 MAKE_FUNCTION            0
                   9 STORE_NAME               0 (f)
-    
+
       8          12 LOAD_CONST               2 (42)
                  15 STORE_NAME               1 (x)
                  18 LOAD_CONST               3 (None)
@@ -489,7 +489,7 @@ Threading is not likely to be important to us in the toy implementation,
 still less the possibility of multiple interpreters,
 but the choice of data structures here is shot through with these concepts.
 In following CPython (and Jython)
-we'll try to cvreate an implementation that supports this multiplicity,
+we'll try to create an implementation that supports this multiplicity,
 although we will not test thoroughly that we've achieved that.
 
 

@@ -15,6 +15,7 @@ import java.util.Set;
 
 import org.junit.Test;
 
+import uk.co.farowl.vsj1.TreePython.AbstractVisitor;
 import uk.co.farowl.vsj1.TreePython.Node;
 import uk.co.farowl.vsj1.TreePython.Visitor;
 import uk.co.farowl.vsj1.TreePython.arg;
@@ -59,11 +60,11 @@ public class TestInterp1 {
         final boolean is_parameter;
         final boolean is_referenced;
 
-        RefSymbol(String name, SymbolTable.ScopeType scope, boolean is_assigned,
-                boolean is_declared_global, boolean is_free,
-                boolean is_global, boolean is_imported, boolean is_local,
-                boolean is_namespace, boolean is_parameter,
-                boolean is_referenced) {
+        RefSymbol(String name, SymbolTable.ScopeType scope,
+                boolean is_assigned, boolean is_declared_global,
+                boolean is_free, boolean is_global, boolean is_imported,
+                boolean is_local, boolean is_namespace,
+                boolean is_parameter, boolean is_referenced) {
             super();
             this.name = name;
             this.scope = scope;
@@ -99,7 +100,7 @@ public class TestInterp1 {
         blockMap.get(module).resolveSymbolsRecursively();
 
         // Collect generated scope deductions in a list
-        Visitor<Void> checker = new AbstractTreeVisitor<Void>() {
+        Visitor<Void> checker = new AbstractVisitor<Void>() {
 
             @Override
             public Void visit_Module(mod.Module module) {
@@ -150,114 +151,6 @@ public class TestInterp1 {
                 assertEquals(name + " is_referenced", r.is_referenced,
                         s.is_referenced());
             }
-        }
-    }
-
-    /**
-     * Base class Visitor on the AST that simply traverses the nodes using
-     * the {@link Node#accept(Visitor)} method.
-     */
-    private static class AbstractTreeVisitor<T> implements Visitor<T> {
-
-        /** Visit all non-null nodes in some collection. */
-        protected T visitAll(Collection<? extends Node> nodes) {
-            for (Node node : nodes) {
-                visitIfNotNull(node);
-            }
-            return null;
-        }
-
-        /** Visit node if not null. */
-        protected T visitIfNotNull(Node node) {
-            return node == null ? null : node.accept(this);
-        }
-
-        @Override
-        public T visit_Module(mod.Module module) {
-            // Process the statements in the block
-            return visitAll(module.body);
-        }
-
-        @Override
-        public T visit_FunctionDef(stmt.FunctionDef functionDef) {
-            functionDef.args.accept(this);
-            visitAll(functionDef.body);
-            visitAll(functionDef.decorator_list);
-            return visitIfNotNull(functionDef.returns);
-        }
-
-        @Override
-        public T visit_Delete(stmt.Delete delete) {
-            return visitAll(delete.targets);
-        }
-
-        @Override
-        public T visit_Assign(stmt.Assign assign) {
-            visitAll(assign.targets);
-            return assign.value.accept(this);
-        }
-
-        @Override
-        public T visit_Global(stmt.Global global) {
-            return null;
-        }
-
-        @Override
-        public T visit_Nonlocal(stmt.Nonlocal nonlocal) {
-            return null;
-        }
-
-        @Override
-        public T visit_Expr(stmt.Expr expr) {
-            return expr.value.accept(this);
-        }
-
-        @Override
-        public T visit_BinOp(expr.BinOp binOp) {
-            binOp.left.accept(this);
-            return binOp.right.accept(this);
-        }
-
-        @Override
-        public T visit_UnaryOp(expr.UnaryOp unaryOp) {
-            return unaryOp.operand.accept(this);
-        }
-
-        @Override
-        public T visit_Call(expr.Call call) {
-            call.func.accept(this);
-            visitAll(call.args);
-            return visitAll(call.keywords);
-        }
-
-        @Override
-        public T visit_Num(expr.Num num) {
-            return null;
-        }
-
-        @Override
-        public T visit_Name(expr.Name name) {
-            return null;
-        }
-
-        @Override
-        public T visit_arguments(arguments arguments) {
-            visitAll(arguments.args);
-            visitIfNotNull(arguments.vararg);
-            visitAll(arguments.kwonlyargs);
-            visitAll(arguments.kw_defaults);
-            visitIfNotNull(arguments.kwarg);
-            return visitAll(arguments.defaults);
-        }
-
-        @Override
-        public T visit_arg(arg arg) {
-            return visitIfNotNull(arg.annotation);
-        }
-
-        @Override
-        public T visit_keyword(keyword keyword) {
-            return keyword.value.accept(this);
         }
     }
 
@@ -712,7 +605,7 @@ public class TestInterp1 {
      * added externally through a Map created in construction and filled
      * during the traverse.
      */
-    private static class SymbolVisitor extends AbstractTreeVisitor<Void> {
+    private static class SymbolVisitor extends AbstractVisitor<Void> {
 
         final String filename;
 
@@ -921,7 +814,8 @@ public class TestInterp1 {
 
     // ======= Generated examples ==========
 
-    @Test public void example0010() {
+    @Test
+    public void example0010() {
         // @formatter:off
         // def f():
         //     def g():
@@ -947,21 +841,27 @@ public class TestInterp1 {
         ;
         // @formatter:on
 
-checkExample(module, new RefSymbol[][]{
-    { // <SymbolTable for top in <module>>
-        new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-    },
-    { // <Function SymbolTable for f in <module>>
-        new RefSymbol("g", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-    },
-    { // <Function SymbolTable for g in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_IMPLICIT, false, false, false, true, false, false, false, false, true),
-        new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-});
-}
+        checkExample(module, new RefSymbol[][] {
+                { // <SymbolTable for top in <module>>
+                        new RefSymbol("f", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),},
+                { // <Function SymbolTable for f in <module>>
+                        new RefSymbol("g", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),},
+                { // <Function SymbolTable for g in <module>>
+                        new RefSymbol("x",
+                                SymbolTable.ScopeType.GLOBAL_IMPLICIT,
+                                false, false, false, true, false, false,
+                                false, false, true),
+                        new RefSymbol("y", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),},});
+    }
 
-    @Test public void example0020() {
+    @Test
+    public void example0020() {
         // @formatter:off
         // def f():
         //     def g():
@@ -987,20 +887,23 @@ checkExample(module, new RefSymbol[][]{
         ;
         // @formatter:on
 
-checkExample(module, new RefSymbol[][]{
-    { // <SymbolTable for top in <module>>
-        new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-    },
-    { // <Function SymbolTable for f in <module>>
-        new RefSymbol("g", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-    },
-    { // <Function SymbolTable for g in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-});
-}
+        checkExample(module, new RefSymbol[][] {
+                { // <SymbolTable for top in <module>>
+                        new RefSymbol("f", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),},
+                { // <Function SymbolTable for f in <module>>
+                        new RefSymbol("g", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),},
+                { // <Function SymbolTable for g in <module>>
+                        new RefSymbol("x", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),},});
+    }
 
-    @Test public void example0030() {
+    @Test
+    public void example0030() {
         // @formatter:off
         // def f():
         //     def g():
@@ -1027,21 +930,27 @@ checkExample(module, new RefSymbol[][]{
         ;
         // @formatter:on
 
-checkExample(module, new RefSymbol[][]{
-    { // <SymbolTable for top in <module>>
-        new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT, false, true, false, true, false, false, false, false, false),
-    },
-    { // <Function SymbolTable for f in <module>>
-        new RefSymbol("g", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-    },
-    { // <Function SymbolTable for g in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT, true, true, false, true, false, true, false, false, false),
-    },
-});
-}
+        checkExample(module, new RefSymbol[][] {{ // <SymbolTable for top
+                                                  // in <module>>
+                new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true,
+                        false, false, false, false, true, true, false,
+                        false),
+                new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT,
+                        false, true, false, true, false, false, false,
+                        false, false),},
+                { // <Function SymbolTable for f in <module>>
+                        new RefSymbol("g", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),},
+                { // <Function SymbolTable for g in <module>>
+                        new RefSymbol("x",
+                                SymbolTable.ScopeType.GLOBAL_EXPLICIT,
+                                true, true, false, true, false, true,
+                                false, false, false),},});
+    }
 
-    @Test public void example0110() {
+    @Test
+    public void example0110() {
         // @formatter:off
         // def f():
         //     def g():
@@ -1067,23 +976,34 @@ checkExample(module, new RefSymbol[][]{
         ;
         // @formatter:on
 
-checkExample(module, new RefSymbol[][]{
-    { // <SymbolTable for top in <module>>
-        new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-    },
-    { // <Function SymbolTable for f in <module>>
-        new RefSymbol("g", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_IMPLICIT, false, false, false, true, false, false, false, false, true),
-    },
-    { // <Function SymbolTable for g in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_IMPLICIT, false, false, false, true, false, false, false, false, true),
-        new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-});
-}
+        checkExample(module, new RefSymbol[][] {
+                { // <SymbolTable for top in <module>>
+                        new RefSymbol("f", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),},
+                { // <Function SymbolTable for f in <module>>
+                        new RefSymbol("g", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),
+                        new RefSymbol("y", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),
+                        new RefSymbol("x",
+                                SymbolTable.ScopeType.GLOBAL_IMPLICIT,
+                                false, false, false, true, false, false,
+                                false, false, true),},
+                { // <Function SymbolTable for g in <module>>
+                        new RefSymbol("x",
+                                SymbolTable.ScopeType.GLOBAL_IMPLICIT,
+                                false, false, false, true, false, false,
+                                false, false, true),
+                        new RefSymbol("y", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),},});
+    }
 
-    @Test public void example0120() {
+    @Test
+    public void example0120() {
         // @formatter:off
         // def f():
         //     def g():
@@ -1109,22 +1029,30 @@ checkExample(module, new RefSymbol[][]{
         ;
         // @formatter:on
 
-checkExample(module, new RefSymbol[][]{
-    { // <SymbolTable for top in <module>>
-        new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-    },
-    { // <Function SymbolTable for f in <module>>
-        new RefSymbol("g", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_IMPLICIT, false, false, false, true, false, false, false, false, true),
-    },
-    { // <Function SymbolTable for g in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-});
-}
+        checkExample(module, new RefSymbol[][] {
+                { // <SymbolTable for top in <module>>
+                        new RefSymbol("f", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),},
+                { // <Function SymbolTable for f in <module>>
+                        new RefSymbol("g", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),
+                        new RefSymbol("y", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),
+                        new RefSymbol("x",
+                                SymbolTable.ScopeType.GLOBAL_IMPLICIT,
+                                false, false, false, true, false, false,
+                                false, false, true),},
+                { // <Function SymbolTable for g in <module>>
+                        new RefSymbol("x", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),},});
+    }
 
-    @Test public void example0130() {
+    @Test
+    public void example0130() {
         // @formatter:off
         // def f():
         //     def g():
@@ -1151,23 +1079,34 @@ checkExample(module, new RefSymbol[][]{
         ;
         // @formatter:on
 
-checkExample(module, new RefSymbol[][]{
-    { // <SymbolTable for top in <module>>
-        new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT, false, true, false, true, false, false, false, false, false),
-    },
-    { // <Function SymbolTable for f in <module>>
-        new RefSymbol("g", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_IMPLICIT, false, false, false, true, false, false, false, false, true),
-    },
-    { // <Function SymbolTable for g in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT, true, true, false, true, false, true, false, false, false),
-    },
-});
-}
+        checkExample(module, new RefSymbol[][] {{ // <SymbolTable for top
+                                                  // in <module>>
+                new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true,
+                        false, false, false, false, true, true, false,
+                        false),
+                new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT,
+                        false, true, false, true, false, false, false,
+                        false, false),},
+                { // <Function SymbolTable for f in <module>>
+                        new RefSymbol("g", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),
+                        new RefSymbol("y", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),
+                        new RefSymbol("x",
+                                SymbolTable.ScopeType.GLOBAL_IMPLICIT,
+                                false, false, false, true, false, false,
+                                false, false, true),},
+                { // <Function SymbolTable for g in <module>>
+                        new RefSymbol("x",
+                                SymbolTable.ScopeType.GLOBAL_EXPLICIT,
+                                true, true, false, true, false, true,
+                                false, false, false),},});
+    }
 
-    @Test public void example0210() {
+    @Test
+    public void example0210() {
         // @formatter:off
         // def f():
         //     def g():
@@ -1193,22 +1132,29 @@ checkExample(module, new RefSymbol[][]{
         ;
         // @formatter:on
 
-checkExample(module, new RefSymbol[][]{
-    { // <SymbolTable for top in <module>>
-        new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-    },
-    { // <Function SymbolTable for f in <module>>
-        new RefSymbol("g", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.CELL, true, false, false, false, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for g in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.FREE, false, false, true, false, false, false, false, false, true),
-        new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-});
-}
+        checkExample(module, new RefSymbol[][] {
+                { // <SymbolTable for top in <module>>
+                        new RefSymbol("f", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),},
+                { // <Function SymbolTable for f in <module>>
+                        new RefSymbol("g", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),
+                        new RefSymbol("x", SymbolTable.ScopeType.CELL,
+                                true, false, false, false, false, true,
+                                false, false, false),},
+                { // <Function SymbolTable for g in <module>>
+                        new RefSymbol("x", SymbolTable.ScopeType.FREE,
+                                false, false, true, false, false, false,
+                                false, false, true),
+                        new RefSymbol("y", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),},});
+    }
 
-    @Test public void example0220() {
+    @Test
+    public void example0220() {
         // @formatter:off
         // def f():
         //     def g():
@@ -1234,21 +1180,26 @@ checkExample(module, new RefSymbol[][]{
         ;
         // @formatter:on
 
-checkExample(module, new RefSymbol[][]{
-    { // <SymbolTable for top in <module>>
-        new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-    },
-    { // <Function SymbolTable for f in <module>>
-        new RefSymbol("g", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for g in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-});
-}
+        checkExample(module, new RefSymbol[][] {
+                { // <SymbolTable for top in <module>>
+                        new RefSymbol("f", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),},
+                { // <Function SymbolTable for f in <module>>
+                        new RefSymbol("g", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),
+                        new RefSymbol("x", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),},
+                { // <Function SymbolTable for g in <module>>
+                        new RefSymbol("x", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),},});
+    }
 
-    @Test public void example0230() {
+    @Test
+    public void example0230() {
         // @formatter:off
         // def f():
         //     def g():
@@ -1275,22 +1226,30 @@ checkExample(module, new RefSymbol[][]{
         ;
         // @formatter:on
 
-checkExample(module, new RefSymbol[][]{
-    { // <SymbolTable for top in <module>>
-        new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT, false, true, false, true, false, false, false, false, false),
-    },
-    { // <Function SymbolTable for f in <module>>
-        new RefSymbol("g", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for g in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT, true, true, false, true, false, true, false, false, false),
-    },
-});
-}
+        checkExample(module, new RefSymbol[][] {{ // <SymbolTable for top
+                                                  // in <module>>
+                new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true,
+                        false, false, false, false, true, true, false,
+                        false),
+                new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT,
+                        false, true, false, true, false, false, false,
+                        false, false),},
+                { // <Function SymbolTable for f in <module>>
+                        new RefSymbol("g", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),
+                        new RefSymbol("x", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),},
+                { // <Function SymbolTable for g in <module>>
+                        new RefSymbol("x",
+                                SymbolTable.ScopeType.GLOBAL_EXPLICIT,
+                                true, true, false, true, false, true,
+                                false, false, false),},});
+    }
 
-    @Test public void example0240() {
+    @Test
+    public void example0240() {
         // @formatter:off
         // def f():
         //     def g():
@@ -1317,21 +1276,26 @@ checkExample(module, new RefSymbol[][]{
         ;
         // @formatter:on
 
-checkExample(module, new RefSymbol[][]{
-    { // <SymbolTable for top in <module>>
-        new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-    },
-    { // <Function SymbolTable for f in <module>>
-        new RefSymbol("g", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.CELL, true, false, false, false, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for g in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.FREE, true, false, true, false, false, true, false, false, false),
-    },
-});
-}
+        checkExample(module, new RefSymbol[][] {
+                { // <SymbolTable for top in <module>>
+                        new RefSymbol("f", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),},
+                { // <Function SymbolTable for f in <module>>
+                        new RefSymbol("g", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),
+                        new RefSymbol("x", SymbolTable.ScopeType.CELL,
+                                true, false, false, false, false, true,
+                                false, false, false),},
+                { // <Function SymbolTable for g in <module>>
+                        new RefSymbol("x", SymbolTable.ScopeType.FREE,
+                                true, false, true, false, false, true,
+                                false, false, false),},});
+    }
 
-    @Test public void example0310() {
+    @Test
+    public void example0310() {
         // @formatter:off
         // def f():
         //     def g():
@@ -1359,23 +1323,34 @@ checkExample(module, new RefSymbol[][]{
         ;
         // @formatter:on
 
-checkExample(module, new RefSymbol[][]{
-    { // <SymbolTable for top in <module>>
-        new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT, false, true, false, true, false, false, false, false, false),
-    },
-    { // <Function SymbolTable for f in <module>>
-        new RefSymbol("g", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT, true, true, false, true, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for g in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_IMPLICIT, false, false, false, true, false, false, false, false, true),
-        new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-});
-}
+        checkExample(module, new RefSymbol[][] {{ // <SymbolTable for top
+                                                  // in <module>>
+                new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true,
+                        false, false, false, false, true, true, false,
+                        false),
+                new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT,
+                        false, true, false, true, false, false, false,
+                        false, false),},
+                { // <Function SymbolTable for f in <module>>
+                        new RefSymbol("g", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),
+                        new RefSymbol("x",
+                                SymbolTable.ScopeType.GLOBAL_EXPLICIT,
+                                true, true, false, true, false, true,
+                                false, false, false),},
+                { // <Function SymbolTable for g in <module>>
+                        new RefSymbol("x",
+                                SymbolTable.ScopeType.GLOBAL_IMPLICIT,
+                                false, false, false, true, false, false,
+                                false, false, true),
+                        new RefSymbol("y", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),},});
+    }
 
-    @Test public void example0320() {
+    @Test
+    public void example0320() {
         // @formatter:off
         // def f():
         //     def g():
@@ -1403,22 +1378,30 @@ checkExample(module, new RefSymbol[][]{
         ;
         // @formatter:on
 
-checkExample(module, new RefSymbol[][]{
-    { // <SymbolTable for top in <module>>
-        new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT, false, true, false, true, false, false, false, false, false),
-    },
-    { // <Function SymbolTable for f in <module>>
-        new RefSymbol("g", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT, true, true, false, true, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for g in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-});
-}
+        checkExample(module, new RefSymbol[][] {{ // <SymbolTable for top
+                                                  // in <module>>
+                new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true,
+                        false, false, false, false, true, true, false,
+                        false),
+                new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT,
+                        false, true, false, true, false, false, false,
+                        false, false),},
+                { // <Function SymbolTable for f in <module>>
+                        new RefSymbol("g", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),
+                        new RefSymbol("x",
+                                SymbolTable.ScopeType.GLOBAL_EXPLICIT,
+                                true, true, false, true, false, true,
+                                false, false, false),},
+                { // <Function SymbolTable for g in <module>>
+                        new RefSymbol("x", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),},});
+    }
 
-    @Test public void example0330() {
+    @Test
+    public void example0330() {
         // @formatter:off
         // def f():
         //     def g():
@@ -1447,22 +1430,31 @@ checkExample(module, new RefSymbol[][]{
         ;
         // @formatter:on
 
-checkExample(module, new RefSymbol[][]{
-    { // <SymbolTable for top in <module>>
-        new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT, false, true, false, true, false, false, false, false, false),
-    },
-    { // <Function SymbolTable for f in <module>>
-        new RefSymbol("g", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT, true, true, false, true, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for g in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT, true, true, false, true, false, true, false, false, false),
-    },
-});
-}
+        checkExample(module, new RefSymbol[][] {{ // <SymbolTable for top
+                                                  // in <module>>
+                new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true,
+                        false, false, false, false, true, true, false,
+                        false),
+                new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT,
+                        false, true, false, true, false, false, false,
+                        false, false),},
+                { // <Function SymbolTable for f in <module>>
+                        new RefSymbol("g", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),
+                        new RefSymbol("x",
+                                SymbolTable.ScopeType.GLOBAL_EXPLICIT,
+                                true, true, false, true, false, true,
+                                false, false, false),},
+                { // <Function SymbolTable for g in <module>>
+                        new RefSymbol("x",
+                                SymbolTable.ScopeType.GLOBAL_EXPLICIT,
+                                true, true, false, true, false, true,
+                                false, false, false),},});
+    }
 
-    @Test public void example1010() {
+    @Test
+    public void example1010() {
         // @formatter:off
         // def f():
         //     def g():
@@ -1488,23 +1480,33 @@ checkExample(module, new RefSymbol[][]{
         ;
         // @formatter:on
 
-checkExample(module, new RefSymbol[][]{
-    { // <SymbolTable for top in <module>>
-        new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_IMPLICIT, false, false, false, true, false, false, false, false, true),
-        new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for f in <module>>
-        new RefSymbol("g", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-    },
-    { // <Function SymbolTable for g in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_IMPLICIT, false, false, false, true, false, false, false, false, true),
-        new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-});
-}
+        checkExample(module, new RefSymbol[][] {{ // <SymbolTable for top
+                                                  // in <module>>
+                new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true,
+                        false, false, false, false, true, true, false,
+                        false),
+                new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_IMPLICIT,
+                        false, false, false, true, false, false, false,
+                        false, true),
+                new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true,
+                        false, false, false, false, true, false, false,
+                        false),},
+                { // <Function SymbolTable for f in <module>>
+                        new RefSymbol("g", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),},
+                { // <Function SymbolTable for g in <module>>
+                        new RefSymbol("x",
+                                SymbolTable.ScopeType.GLOBAL_IMPLICIT,
+                                false, false, false, true, false, false,
+                                false, false, true),
+                        new RefSymbol("y", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),},});
+    }
 
-    @Test public void example1020() {
+    @Test
+    public void example1020() {
         // @formatter:off
         // def f():
         //     def g():
@@ -1530,22 +1532,29 @@ checkExample(module, new RefSymbol[][]{
         ;
         // @formatter:on
 
-checkExample(module, new RefSymbol[][]{
-    { // <SymbolTable for top in <module>>
-        new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_IMPLICIT, false, false, false, true, false, false, false, false, true),
-        new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for f in <module>>
-        new RefSymbol("g", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-    },
-    { // <Function SymbolTable for g in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-});
-}
+        checkExample(module, new RefSymbol[][] {{ // <SymbolTable for top
+                                                  // in <module>>
+                new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true,
+                        false, false, false, false, true, true, false,
+                        false),
+                new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_IMPLICIT,
+                        false, false, false, true, false, false, false,
+                        false, true),
+                new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true,
+                        false, false, false, false, true, false, false,
+                        false),},
+                { // <Function SymbolTable for f in <module>>
+                        new RefSymbol("g", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),},
+                { // <Function SymbolTable for g in <module>>
+                        new RefSymbol("x", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),},});
+    }
 
-    @Test public void example1030() {
+    @Test
+    public void example1030() {
         // @formatter:off
         // def f():
         //     def g():
@@ -1572,22 +1581,30 @@ checkExample(module, new RefSymbol[][]{
         ;
         // @formatter:on
 
-checkExample(module, new RefSymbol[][]{
-    { // <SymbolTable for top in <module>>
-        new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT, false, true, false, true, false, false, false, false, true),
-        new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for f in <module>>
-        new RefSymbol("g", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-    },
-    { // <Function SymbolTable for g in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT, true, true, false, true, false, true, false, false, false),
-    },
-});
-}
+        checkExample(module, new RefSymbol[][] {{ // <SymbolTable for top
+                                                  // in <module>>
+                new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true,
+                        false, false, false, false, true, true, false,
+                        false),
+                new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT,
+                        false, true, false, true, false, false, false,
+                        false, true),
+                new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true,
+                        false, false, false, false, true, false, false,
+                        false),},
+                { // <Function SymbolTable for f in <module>>
+                        new RefSymbol("g", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),},
+                { // <Function SymbolTable for g in <module>>
+                        new RefSymbol("x",
+                                SymbolTable.ScopeType.GLOBAL_EXPLICIT,
+                                true, true, false, true, false, true,
+                                false, false, false),},});
+    }
 
-    @Test public void example1110() {
+    @Test
+    public void example1110() {
         // @formatter:off
         // def f():
         //     def g():
@@ -1613,25 +1630,40 @@ checkExample(module, new RefSymbol[][]{
         ;
         // @formatter:on
 
-checkExample(module, new RefSymbol[][]{
-    { // <SymbolTable for top in <module>>
-        new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_IMPLICIT, false, false, false, true, false, false, false, false, true),
-        new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for f in <module>>
-        new RefSymbol("g", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_IMPLICIT, false, false, false, true, false, false, false, false, true),
-    },
-    { // <Function SymbolTable for g in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_IMPLICIT, false, false, false, true, false, false, false, false, true),
-        new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-});
-}
+        checkExample(module, new RefSymbol[][] {{ // <SymbolTable for top
+                                                  // in <module>>
+                new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true,
+                        false, false, false, false, true, true, false,
+                        false),
+                new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_IMPLICIT,
+                        false, false, false, true, false, false, false,
+                        false, true),
+                new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true,
+                        false, false, false, false, true, false, false,
+                        false),},
+                { // <Function SymbolTable for f in <module>>
+                        new RefSymbol("g", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),
+                        new RefSymbol("y", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),
+                        new RefSymbol("x",
+                                SymbolTable.ScopeType.GLOBAL_IMPLICIT,
+                                false, false, false, true, false, false,
+                                false, false, true),},
+                { // <Function SymbolTable for g in <module>>
+                        new RefSymbol("x",
+                                SymbolTable.ScopeType.GLOBAL_IMPLICIT,
+                                false, false, false, true, false, false,
+                                false, false, true),
+                        new RefSymbol("y", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),},});
+    }
 
-    @Test public void example1120() {
+    @Test
+    public void example1120() {
         // @formatter:off
         // def f():
         //     def g():
@@ -1657,24 +1689,36 @@ checkExample(module, new RefSymbol[][]{
         ;
         // @formatter:on
 
-checkExample(module, new RefSymbol[][]{
-    { // <SymbolTable for top in <module>>
-        new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_IMPLICIT, false, false, false, true, false, false, false, false, true),
-        new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for f in <module>>
-        new RefSymbol("g", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_IMPLICIT, false, false, false, true, false, false, false, false, true),
-    },
-    { // <Function SymbolTable for g in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-});
-}
+        checkExample(module, new RefSymbol[][] {{ // <SymbolTable for top
+                                                  // in <module>>
+                new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true,
+                        false, false, false, false, true, true, false,
+                        false),
+                new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_IMPLICIT,
+                        false, false, false, true, false, false, false,
+                        false, true),
+                new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true,
+                        false, false, false, false, true, false, false,
+                        false),},
+                { // <Function SymbolTable for f in <module>>
+                        new RefSymbol("g", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),
+                        new RefSymbol("y", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),
+                        new RefSymbol("x",
+                                SymbolTable.ScopeType.GLOBAL_IMPLICIT,
+                                false, false, false, true, false, false,
+                                false, false, true),},
+                { // <Function SymbolTable for g in <module>>
+                        new RefSymbol("x", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),},});
+    }
 
-    @Test public void example1130() {
+    @Test
+    public void example1130() {
         // @formatter:off
         // def f():
         //     def g():
@@ -1701,24 +1745,37 @@ checkExample(module, new RefSymbol[][]{
         ;
         // @formatter:on
 
-checkExample(module, new RefSymbol[][]{
-    { // <SymbolTable for top in <module>>
-        new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT, false, true, false, true, false, false, false, false, true),
-        new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for f in <module>>
-        new RefSymbol("g", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_IMPLICIT, false, false, false, true, false, false, false, false, true),
-    },
-    { // <Function SymbolTable for g in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT, true, true, false, true, false, true, false, false, false),
-    },
-});
-}
+        checkExample(module, new RefSymbol[][] {{ // <SymbolTable for top
+                                                  // in <module>>
+                new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true,
+                        false, false, false, false, true, true, false,
+                        false),
+                new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT,
+                        false, true, false, true, false, false, false,
+                        false, true),
+                new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true,
+                        false, false, false, false, true, false, false,
+                        false),},
+                { // <Function SymbolTable for f in <module>>
+                        new RefSymbol("g", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),
+                        new RefSymbol("y", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),
+                        new RefSymbol("x",
+                                SymbolTable.ScopeType.GLOBAL_IMPLICIT,
+                                false, false, false, true, false, false,
+                                false, false, true),},
+                { // <Function SymbolTable for g in <module>>
+                        new RefSymbol("x",
+                                SymbolTable.ScopeType.GLOBAL_EXPLICIT,
+                                true, true, false, true, false, true,
+                                false, false, false),},});
+    }
 
-    @Test public void example1210() {
+    @Test
+    public void example1210() {
         // @formatter:off
         // def f():
         //     def g():
@@ -1744,24 +1801,35 @@ checkExample(module, new RefSymbol[][]{
         ;
         // @formatter:on
 
-checkExample(module, new RefSymbol[][]{
-    { // <SymbolTable for top in <module>>
-        new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_IMPLICIT, false, false, false, true, false, false, false, false, true),
-        new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for f in <module>>
-        new RefSymbol("g", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.CELL, true, false, false, false, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for g in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.FREE, false, false, true, false, false, false, false, false, true),
-        new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-});
-}
+        checkExample(module, new RefSymbol[][] {{ // <SymbolTable for top
+                                                  // in <module>>
+                new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true,
+                        false, false, false, false, true, true, false,
+                        false),
+                new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_IMPLICIT,
+                        false, false, false, true, false, false, false,
+                        false, true),
+                new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true,
+                        false, false, false, false, true, false, false,
+                        false),},
+                { // <Function SymbolTable for f in <module>>
+                        new RefSymbol("g", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),
+                        new RefSymbol("x", SymbolTable.ScopeType.CELL,
+                                true, false, false, false, false, true,
+                                false, false, false),},
+                { // <Function SymbolTable for g in <module>>
+                        new RefSymbol("x", SymbolTable.ScopeType.FREE,
+                                false, false, true, false, false, false,
+                                false, false, true),
+                        new RefSymbol("y", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),},});
+    }
 
-    @Test public void example1220() {
+    @Test
+    public void example1220() {
         // @formatter:off
         // def f():
         //     def g():
@@ -1787,23 +1855,32 @@ checkExample(module, new RefSymbol[][]{
         ;
         // @formatter:on
 
-checkExample(module, new RefSymbol[][]{
-    { // <SymbolTable for top in <module>>
-        new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_IMPLICIT, false, false, false, true, false, false, false, false, true),
-        new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for f in <module>>
-        new RefSymbol("g", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for g in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-});
-}
+        checkExample(module, new RefSymbol[][] {{ // <SymbolTable for top
+                                                  // in <module>>
+                new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true,
+                        false, false, false, false, true, true, false,
+                        false),
+                new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_IMPLICIT,
+                        false, false, false, true, false, false, false,
+                        false, true),
+                new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true,
+                        false, false, false, false, true, false, false,
+                        false),},
+                { // <Function SymbolTable for f in <module>>
+                        new RefSymbol("g", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),
+                        new RefSymbol("x", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),},
+                { // <Function SymbolTable for g in <module>>
+                        new RefSymbol("x", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),},});
+    }
 
-    @Test public void example1230() {
+    @Test
+    public void example1230() {
         // @formatter:off
         // def f():
         //     def g():
@@ -1830,23 +1907,33 @@ checkExample(module, new RefSymbol[][]{
         ;
         // @formatter:on
 
-checkExample(module, new RefSymbol[][]{
-    { // <SymbolTable for top in <module>>
-        new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT, false, true, false, true, false, false, false, false, true),
-        new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for f in <module>>
-        new RefSymbol("g", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for g in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT, true, true, false, true, false, true, false, false, false),
-    },
-});
-}
+        checkExample(module, new RefSymbol[][] {{ // <SymbolTable for top
+                                                  // in <module>>
+                new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true,
+                        false, false, false, false, true, true, false,
+                        false),
+                new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT,
+                        false, true, false, true, false, false, false,
+                        false, true),
+                new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true,
+                        false, false, false, false, true, false, false,
+                        false),},
+                { // <Function SymbolTable for f in <module>>
+                        new RefSymbol("g", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),
+                        new RefSymbol("x", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),},
+                { // <Function SymbolTable for g in <module>>
+                        new RefSymbol("x",
+                                SymbolTable.ScopeType.GLOBAL_EXPLICIT,
+                                true, true, false, true, false, true,
+                                false, false, false),},});
+    }
 
-    @Test public void example1240() {
+    @Test
+    public void example1240() {
         // @formatter:off
         // def f():
         //     def g():
@@ -1873,23 +1960,32 @@ checkExample(module, new RefSymbol[][]{
         ;
         // @formatter:on
 
-checkExample(module, new RefSymbol[][]{
-    { // <SymbolTable for top in <module>>
-        new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_IMPLICIT, false, false, false, true, false, false, false, false, true),
-        new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for f in <module>>
-        new RefSymbol("g", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.CELL, true, false, false, false, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for g in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.FREE, true, false, true, false, false, true, false, false, false),
-    },
-});
-}
+        checkExample(module, new RefSymbol[][] {{ // <SymbolTable for top
+                                                  // in <module>>
+                new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true,
+                        false, false, false, false, true, true, false,
+                        false),
+                new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_IMPLICIT,
+                        false, false, false, true, false, false, false,
+                        false, true),
+                new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true,
+                        false, false, false, false, true, false, false,
+                        false),},
+                { // <Function SymbolTable for f in <module>>
+                        new RefSymbol("g", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),
+                        new RefSymbol("x", SymbolTable.ScopeType.CELL,
+                                true, false, false, false, false, true,
+                                false, false, false),},
+                { // <Function SymbolTable for g in <module>>
+                        new RefSymbol("x", SymbolTable.ScopeType.FREE,
+                                true, false, true, false, false, true,
+                                false, false, false),},});
+    }
 
-    @Test public void example1310() {
+    @Test
+    public void example1310() {
         // @formatter:off
         // def f():
         //     def g():
@@ -1917,24 +2013,37 @@ checkExample(module, new RefSymbol[][]{
         ;
         // @formatter:on
 
-checkExample(module, new RefSymbol[][]{
-    { // <SymbolTable for top in <module>>
-        new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT, false, true, false, true, false, false, false, false, true),
-        new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for f in <module>>
-        new RefSymbol("g", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT, true, true, false, true, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for g in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_IMPLICIT, false, false, false, true, false, false, false, false, true),
-        new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-});
-}
+        checkExample(module, new RefSymbol[][] {{ // <SymbolTable for top
+                                                  // in <module>>
+                new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true,
+                        false, false, false, false, true, true, false,
+                        false),
+                new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT,
+                        false, true, false, true, false, false, false,
+                        false, true),
+                new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true,
+                        false, false, false, false, true, false, false,
+                        false),},
+                { // <Function SymbolTable for f in <module>>
+                        new RefSymbol("g", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),
+                        new RefSymbol("x",
+                                SymbolTable.ScopeType.GLOBAL_EXPLICIT,
+                                true, true, false, true, false, true,
+                                false, false, false),},
+                { // <Function SymbolTable for g in <module>>
+                        new RefSymbol("x",
+                                SymbolTable.ScopeType.GLOBAL_IMPLICIT,
+                                false, false, false, true, false, false,
+                                false, false, true),
+                        new RefSymbol("y", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),},});
+    }
 
-    @Test public void example1320() {
+    @Test
+    public void example1320() {
         // @formatter:off
         // def f():
         //     def g():
@@ -1962,23 +2071,33 @@ checkExample(module, new RefSymbol[][]{
         ;
         // @formatter:on
 
-checkExample(module, new RefSymbol[][]{
-    { // <SymbolTable for top in <module>>
-        new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT, false, true, false, true, false, false, false, false, true),
-        new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for f in <module>>
-        new RefSymbol("g", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT, true, true, false, true, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for g in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-});
-}
+        checkExample(module, new RefSymbol[][] {{ // <SymbolTable for top
+                                                  // in <module>>
+                new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true,
+                        false, false, false, false, true, true, false,
+                        false),
+                new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT,
+                        false, true, false, true, false, false, false,
+                        false, true),
+                new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true,
+                        false, false, false, false, true, false, false,
+                        false),},
+                { // <Function SymbolTable for f in <module>>
+                        new RefSymbol("g", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),
+                        new RefSymbol("x",
+                                SymbolTable.ScopeType.GLOBAL_EXPLICIT,
+                                true, true, false, true, false, true,
+                                false, false, false),},
+                { // <Function SymbolTable for g in <module>>
+                        new RefSymbol("x", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),},});
+    }
 
-    @Test public void example1330() {
+    @Test
+    public void example1330() {
         // @formatter:off
         // def f():
         //     def g():
@@ -2007,23 +2126,34 @@ checkExample(module, new RefSymbol[][]{
         ;
         // @formatter:on
 
-checkExample(module, new RefSymbol[][]{
-    { // <SymbolTable for top in <module>>
-        new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT, false, true, false, true, false, false, false, false, true),
-        new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for f in <module>>
-        new RefSymbol("g", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT, true, true, false, true, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for g in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT, true, true, false, true, false, true, false, false, false),
-    },
-});
-}
+        checkExample(module, new RefSymbol[][] {{ // <SymbolTable for top
+                                                  // in <module>>
+                new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true,
+                        false, false, false, false, true, true, false,
+                        false),
+                new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT,
+                        false, true, false, true, false, false, false,
+                        false, true),
+                new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true,
+                        false, false, false, false, true, false, false,
+                        false),},
+                { // <Function SymbolTable for f in <module>>
+                        new RefSymbol("g", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),
+                        new RefSymbol("x",
+                                SymbolTable.ScopeType.GLOBAL_EXPLICIT,
+                                true, true, false, true, false, true,
+                                false, false, false),},
+                { // <Function SymbolTable for g in <module>>
+                        new RefSymbol("x",
+                                SymbolTable.ScopeType.GLOBAL_EXPLICIT,
+                                true, true, false, true, false, true,
+                                false, false, false),},});
+    }
 
-    @Test public void example2010() {
+    @Test
+    public void example2010() {
         // @formatter:off
         // def f():
         //     def g():
@@ -2049,22 +2179,30 @@ checkExample(module, new RefSymbol[][]{
         ;
         // @formatter:on
 
-checkExample(module, new RefSymbol[][]{
-    { // <SymbolTable for top in <module>>
-        new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for f in <module>>
-        new RefSymbol("g", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-    },
-    { // <Function SymbolTable for g in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_IMPLICIT, false, false, false, true, false, false, false, false, true),
-        new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-});
-}
+        checkExample(module, new RefSymbol[][] {
+                { // <SymbolTable for top in <module>>
+                        new RefSymbol("f", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),
+                        new RefSymbol("x", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),},
+                { // <Function SymbolTable for f in <module>>
+                        new RefSymbol("g", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),},
+                { // <Function SymbolTable for g in <module>>
+                        new RefSymbol("x",
+                                SymbolTable.ScopeType.GLOBAL_IMPLICIT,
+                                false, false, false, true, false, false,
+                                false, false, true),
+                        new RefSymbol("y", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),},});
+    }
 
-    @Test public void example2020() {
+    @Test
+    public void example2020() {
         // @formatter:off
         // def f():
         //     def g():
@@ -2090,21 +2228,26 @@ checkExample(module, new RefSymbol[][]{
         ;
         // @formatter:on
 
-checkExample(module, new RefSymbol[][]{
-    { // <SymbolTable for top in <module>>
-        new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for f in <module>>
-        new RefSymbol("g", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-    },
-    { // <Function SymbolTable for g in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-});
-}
+        checkExample(module, new RefSymbol[][] {
+                { // <SymbolTable for top in <module>>
+                        new RefSymbol("f", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),
+                        new RefSymbol("x", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),},
+                { // <Function SymbolTable for f in <module>>
+                        new RefSymbol("g", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),},
+                { // <Function SymbolTable for g in <module>>
+                        new RefSymbol("x", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),},});
+    }
 
-    @Test public void example2030() {
+    @Test
+    public void example2030() {
         // @formatter:off
         // def f():
         //     def g():
@@ -2131,21 +2274,27 @@ checkExample(module, new RefSymbol[][]{
         ;
         // @formatter:on
 
-checkExample(module, new RefSymbol[][]{
-    { // <SymbolTable for top in <module>>
-        new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT, true, true, false, true, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for f in <module>>
-        new RefSymbol("g", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-    },
-    { // <Function SymbolTable for g in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT, true, true, false, true, false, true, false, false, false),
-    },
-});
-}
+        checkExample(module, new RefSymbol[][] {{ // <SymbolTable for top
+                                                  // in <module>>
+                new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true,
+                        false, false, false, false, true, true, false,
+                        false),
+                new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT,
+                        true, true, false, true, false, true, false, false,
+                        false),},
+                { // <Function SymbolTable for f in <module>>
+                        new RefSymbol("g", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),},
+                { // <Function SymbolTable for g in <module>>
+                        new RefSymbol("x",
+                                SymbolTable.ScopeType.GLOBAL_EXPLICIT,
+                                true, true, false, true, false, true,
+                                false, false, false),},});
+    }
 
-    @Test public void example2110() {
+    @Test
+    public void example2110() {
         // @formatter:off
         // def f():
         //     def g():
@@ -2171,24 +2320,37 @@ checkExample(module, new RefSymbol[][]{
         ;
         // @formatter:on
 
-checkExample(module, new RefSymbol[][]{
-    { // <SymbolTable for top in <module>>
-        new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for f in <module>>
-        new RefSymbol("g", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_IMPLICIT, false, false, false, true, false, false, false, false, true),
-    },
-    { // <Function SymbolTable for g in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_IMPLICIT, false, false, false, true, false, false, false, false, true),
-        new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-});
-}
+        checkExample(module, new RefSymbol[][] {
+                { // <SymbolTable for top in <module>>
+                        new RefSymbol("f", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),
+                        new RefSymbol("x", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),},
+                { // <Function SymbolTable for f in <module>>
+                        new RefSymbol("g", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),
+                        new RefSymbol("y", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),
+                        new RefSymbol("x",
+                                SymbolTable.ScopeType.GLOBAL_IMPLICIT,
+                                false, false, false, true, false, false,
+                                false, false, true),},
+                { // <Function SymbolTable for g in <module>>
+                        new RefSymbol("x",
+                                SymbolTable.ScopeType.GLOBAL_IMPLICIT,
+                                false, false, false, true, false, false,
+                                false, false, true),
+                        new RefSymbol("y", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),},});
+    }
 
-    @Test public void example2120() {
+    @Test
+    public void example2120() {
         // @formatter:off
         // def f():
         //     def g():
@@ -2214,23 +2376,33 @@ checkExample(module, new RefSymbol[][]{
         ;
         // @formatter:on
 
-checkExample(module, new RefSymbol[][]{
-    { // <SymbolTable for top in <module>>
-        new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for f in <module>>
-        new RefSymbol("g", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_IMPLICIT, false, false, false, true, false, false, false, false, true),
-    },
-    { // <Function SymbolTable for g in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-});
-}
+        checkExample(module, new RefSymbol[][] {
+                { // <SymbolTable for top in <module>>
+                        new RefSymbol("f", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),
+                        new RefSymbol("x", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),},
+                { // <Function SymbolTable for f in <module>>
+                        new RefSymbol("g", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),
+                        new RefSymbol("y", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),
+                        new RefSymbol("x",
+                                SymbolTable.ScopeType.GLOBAL_IMPLICIT,
+                                false, false, false, true, false, false,
+                                false, false, true),},
+                { // <Function SymbolTable for g in <module>>
+                        new RefSymbol("x", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),},});
+    }
 
-    @Test public void example2130() {
+    @Test
+    public void example2130() {
         // @formatter:off
         // def f():
         //     def g():
@@ -2257,23 +2429,34 @@ checkExample(module, new RefSymbol[][]{
         ;
         // @formatter:on
 
-checkExample(module, new RefSymbol[][]{
-    { // <SymbolTable for top in <module>>
-        new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT, true, true, false, true, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for f in <module>>
-        new RefSymbol("g", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_IMPLICIT, false, false, false, true, false, false, false, false, true),
-    },
-    { // <Function SymbolTable for g in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT, true, true, false, true, false, true, false, false, false),
-    },
-});
-}
+        checkExample(module, new RefSymbol[][] {{ // <SymbolTable for top
+                                                  // in <module>>
+                new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true,
+                        false, false, false, false, true, true, false,
+                        false),
+                new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT,
+                        true, true, false, true, false, true, false, false,
+                        false),},
+                { // <Function SymbolTable for f in <module>>
+                        new RefSymbol("g", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),
+                        new RefSymbol("y", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),
+                        new RefSymbol("x",
+                                SymbolTable.ScopeType.GLOBAL_IMPLICIT,
+                                false, false, false, true, false, false,
+                                false, false, true),},
+                { // <Function SymbolTable for g in <module>>
+                        new RefSymbol("x",
+                                SymbolTable.ScopeType.GLOBAL_EXPLICIT,
+                                true, true, false, true, false, true,
+                                false, false, false),},});
+    }
 
-    @Test public void example2210() {
+    @Test
+    public void example2210() {
         // @formatter:off
         // def f():
         //     def g():
@@ -2299,23 +2482,32 @@ checkExample(module, new RefSymbol[][]{
         ;
         // @formatter:on
 
-checkExample(module, new RefSymbol[][]{
-    { // <SymbolTable for top in <module>>
-        new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for f in <module>>
-        new RefSymbol("g", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.CELL, true, false, false, false, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for g in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.FREE, false, false, true, false, false, false, false, false, true),
-        new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-});
-}
+        checkExample(module, new RefSymbol[][] {
+                { // <SymbolTable for top in <module>>
+                        new RefSymbol("f", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),
+                        new RefSymbol("x", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),},
+                { // <Function SymbolTable for f in <module>>
+                        new RefSymbol("g", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),
+                        new RefSymbol("x", SymbolTable.ScopeType.CELL,
+                                true, false, false, false, false, true,
+                                false, false, false),},
+                { // <Function SymbolTable for g in <module>>
+                        new RefSymbol("x", SymbolTable.ScopeType.FREE,
+                                false, false, true, false, false, false,
+                                false, false, true),
+                        new RefSymbol("y", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),},});
+    }
 
-    @Test public void example2220() {
+    @Test
+    public void example2220() {
         // @formatter:off
         // def f():
         //     def g():
@@ -2341,22 +2533,29 @@ checkExample(module, new RefSymbol[][]{
         ;
         // @formatter:on
 
-checkExample(module, new RefSymbol[][]{
-    { // <SymbolTable for top in <module>>
-        new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for f in <module>>
-        new RefSymbol("g", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for g in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-});
-}
+        checkExample(module, new RefSymbol[][] {
+                { // <SymbolTable for top in <module>>
+                        new RefSymbol("f", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),
+                        new RefSymbol("x", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),},
+                { // <Function SymbolTable for f in <module>>
+                        new RefSymbol("g", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),
+                        new RefSymbol("x", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),},
+                { // <Function SymbolTable for g in <module>>
+                        new RefSymbol("x", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),},});
+    }
 
-    @Test public void example2230() {
+    @Test
+    public void example2230() {
         // @formatter:off
         // def f():
         //     def g():
@@ -2383,22 +2582,30 @@ checkExample(module, new RefSymbol[][]{
         ;
         // @formatter:on
 
-checkExample(module, new RefSymbol[][]{
-    { // <SymbolTable for top in <module>>
-        new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT, true, true, false, true, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for f in <module>>
-        new RefSymbol("g", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for g in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT, true, true, false, true, false, true, false, false, false),
-    },
-});
-}
+        checkExample(module, new RefSymbol[][] {{ // <SymbolTable for top
+                                                  // in <module>>
+                new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true,
+                        false, false, false, false, true, true, false,
+                        false),
+                new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT,
+                        true, true, false, true, false, true, false, false,
+                        false),},
+                { // <Function SymbolTable for f in <module>>
+                        new RefSymbol("g", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),
+                        new RefSymbol("x", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),},
+                { // <Function SymbolTable for g in <module>>
+                        new RefSymbol("x",
+                                SymbolTable.ScopeType.GLOBAL_EXPLICIT,
+                                true, true, false, true, false, true,
+                                false, false, false),},});
+    }
 
-    @Test public void example2240() {
+    @Test
+    public void example2240() {
         // @formatter:off
         // def f():
         //     def g():
@@ -2425,22 +2632,29 @@ checkExample(module, new RefSymbol[][]{
         ;
         // @formatter:on
 
-checkExample(module, new RefSymbol[][]{
-    { // <SymbolTable for top in <module>>
-        new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for f in <module>>
-        new RefSymbol("g", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.CELL, true, false, false, false, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for g in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.FREE, true, false, true, false, false, true, false, false, false),
-    },
-});
-}
+        checkExample(module, new RefSymbol[][] {
+                { // <SymbolTable for top in <module>>
+                        new RefSymbol("f", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),
+                        new RefSymbol("x", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),},
+                { // <Function SymbolTable for f in <module>>
+                        new RefSymbol("g", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),
+                        new RefSymbol("x", SymbolTable.ScopeType.CELL,
+                                true, false, false, false, false, true,
+                                false, false, false),},
+                { // <Function SymbolTable for g in <module>>
+                        new RefSymbol("x", SymbolTable.ScopeType.FREE,
+                                true, false, true, false, false, true,
+                                false, false, false),},});
+    }
 
-    @Test public void example2310() {
+    @Test
+    public void example2310() {
         // @formatter:off
         // def f():
         //     def g():
@@ -2468,23 +2682,34 @@ checkExample(module, new RefSymbol[][]{
         ;
         // @formatter:on
 
-checkExample(module, new RefSymbol[][]{
-    { // <SymbolTable for top in <module>>
-        new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT, true, true, false, true, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for f in <module>>
-        new RefSymbol("g", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT, true, true, false, true, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for g in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_IMPLICIT, false, false, false, true, false, false, false, false, true),
-        new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-});
-}
+        checkExample(module, new RefSymbol[][] {{ // <SymbolTable for top
+                                                  // in <module>>
+                new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true,
+                        false, false, false, false, true, true, false,
+                        false),
+                new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT,
+                        true, true, false, true, false, true, false, false,
+                        false),},
+                { // <Function SymbolTable for f in <module>>
+                        new RefSymbol("g", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),
+                        new RefSymbol("x",
+                                SymbolTable.ScopeType.GLOBAL_EXPLICIT,
+                                true, true, false, true, false, true,
+                                false, false, false),},
+                { // <Function SymbolTable for g in <module>>
+                        new RefSymbol("x",
+                                SymbolTable.ScopeType.GLOBAL_IMPLICIT,
+                                false, false, false, true, false, false,
+                                false, false, true),
+                        new RefSymbol("y", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),},});
+    }
 
-    @Test public void example2320() {
+    @Test
+    public void example2320() {
         // @formatter:off
         // def f():
         //     def g():
@@ -2512,22 +2737,30 @@ checkExample(module, new RefSymbol[][]{
         ;
         // @formatter:on
 
-checkExample(module, new RefSymbol[][]{
-    { // <SymbolTable for top in <module>>
-        new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT, true, true, false, true, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for f in <module>>
-        new RefSymbol("g", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT, true, true, false, true, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for g in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-});
-}
+        checkExample(module, new RefSymbol[][] {{ // <SymbolTable for top
+                                                  // in <module>>
+                new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true,
+                        false, false, false, false, true, true, false,
+                        false),
+                new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT,
+                        true, true, false, true, false, true, false, false,
+                        false),},
+                { // <Function SymbolTable for f in <module>>
+                        new RefSymbol("g", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),
+                        new RefSymbol("x",
+                                SymbolTable.ScopeType.GLOBAL_EXPLICIT,
+                                true, true, false, true, false, true,
+                                false, false, false),},
+                { // <Function SymbolTable for g in <module>>
+                        new RefSymbol("x", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),},});
+    }
 
-    @Test public void example2330() {
+    @Test
+    public void example2330() {
         // @formatter:off
         // def f():
         //     def g():
@@ -2556,22 +2789,31 @@ checkExample(module, new RefSymbol[][]{
         ;
         // @formatter:on
 
-checkExample(module, new RefSymbol[][]{
-    { // <SymbolTable for top in <module>>
-        new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT, true, true, false, true, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for f in <module>>
-        new RefSymbol("g", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT, true, true, false, true, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for g in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT, true, true, false, true, false, true, false, false, false),
-    },
-});
-}
+        checkExample(module, new RefSymbol[][] {{ // <SymbolTable for top
+                                                  // in <module>>
+                new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true,
+                        false, false, false, false, true, true, false,
+                        false),
+                new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT,
+                        true, true, false, true, false, true, false, false,
+                        false),},
+                { // <Function SymbolTable for f in <module>>
+                        new RefSymbol("g", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),
+                        new RefSymbol("x",
+                                SymbolTable.ScopeType.GLOBAL_EXPLICIT,
+                                true, true, false, true, false, true,
+                                false, false, false),},
+                { // <Function SymbolTable for g in <module>>
+                        new RefSymbol("x",
+                                SymbolTable.ScopeType.GLOBAL_EXPLICIT,
+                                true, true, false, true, false, true,
+                                false, false, false),},});
+    }
 
-    @Test public void example3010() {
+    @Test
+    public void example3010() {
         // @formatter:off
         // def f():
         //     def g():
@@ -2599,22 +2841,30 @@ checkExample(module, new RefSymbol[][]{
         ;
         // @formatter:on
 
-checkExample(module, new RefSymbol[][]{
-    { // <SymbolTable for top in <module>>
-        new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT, true, true, false, true, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for f in <module>>
-        new RefSymbol("g", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-    },
-    { // <Function SymbolTable for g in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_IMPLICIT, false, false, false, true, false, false, false, false, true),
-        new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-});
-}
+        checkExample(module, new RefSymbol[][] {{ // <SymbolTable for top
+                                                  // in <module>>
+                new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true,
+                        false, false, false, false, true, true, false,
+                        false),
+                new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT,
+                        true, true, false, true, false, true, false, false,
+                        false),},
+                { // <Function SymbolTable for f in <module>>
+                        new RefSymbol("g", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),},
+                { // <Function SymbolTable for g in <module>>
+                        new RefSymbol("x",
+                                SymbolTable.ScopeType.GLOBAL_IMPLICIT,
+                                false, false, false, true, false, false,
+                                false, false, true),
+                        new RefSymbol("y", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),},});
+    }
 
-    @Test public void example3020() {
+    @Test
+    public void example3020() {
         // @formatter:off
         // def f():
         //     def g():
@@ -2642,21 +2892,26 @@ checkExample(module, new RefSymbol[][]{
         ;
         // @formatter:on
 
-checkExample(module, new RefSymbol[][]{
-    { // <SymbolTable for top in <module>>
-        new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT, true, true, false, true, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for f in <module>>
-        new RefSymbol("g", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-    },
-    { // <Function SymbolTable for g in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-});
-}
+        checkExample(module, new RefSymbol[][] {{ // <SymbolTable for top
+                                                  // in <module>>
+                new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true,
+                        false, false, false, false, true, true, false,
+                        false),
+                new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT,
+                        true, true, false, true, false, true, false, false,
+                        false),},
+                { // <Function SymbolTable for f in <module>>
+                        new RefSymbol("g", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),},
+                { // <Function SymbolTable for g in <module>>
+                        new RefSymbol("x", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),},});
+    }
 
-    @Test public void example3030() {
+    @Test
+    public void example3030() {
         // @formatter:off
         // def f():
         //     def g():
@@ -2685,21 +2940,27 @@ checkExample(module, new RefSymbol[][]{
         ;
         // @formatter:on
 
-checkExample(module, new RefSymbol[][]{
-    { // <SymbolTable for top in <module>>
-        new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT, true, true, false, true, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for f in <module>>
-        new RefSymbol("g", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-    },
-    { // <Function SymbolTable for g in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT, true, true, false, true, false, true, false, false, false),
-    },
-});
-}
+        checkExample(module, new RefSymbol[][] {{ // <SymbolTable for top
+                                                  // in <module>>
+                new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true,
+                        false, false, false, false, true, true, false,
+                        false),
+                new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT,
+                        true, true, false, true, false, true, false, false,
+                        false),},
+                { // <Function SymbolTable for f in <module>>
+                        new RefSymbol("g", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),},
+                { // <Function SymbolTable for g in <module>>
+                        new RefSymbol("x",
+                                SymbolTable.ScopeType.GLOBAL_EXPLICIT,
+                                true, true, false, true, false, true,
+                                false, false, false),},});
+    }
 
-    @Test public void example3110() {
+    @Test
+    public void example3110() {
         // @formatter:off
         // def f():
         //     def g():
@@ -2727,24 +2988,37 @@ checkExample(module, new RefSymbol[][]{
         ;
         // @formatter:on
 
-checkExample(module, new RefSymbol[][]{
-    { // <SymbolTable for top in <module>>
-        new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT, true, true, false, true, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for f in <module>>
-        new RefSymbol("g", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_IMPLICIT, false, false, false, true, false, false, false, false, true),
-    },
-    { // <Function SymbolTable for g in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_IMPLICIT, false, false, false, true, false, false, false, false, true),
-        new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-});
-}
+        checkExample(module, new RefSymbol[][] {{ // <SymbolTable for top
+                                                  // in <module>>
+                new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true,
+                        false, false, false, false, true, true, false,
+                        false),
+                new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT,
+                        true, true, false, true, false, true, false, false,
+                        false),},
+                { // <Function SymbolTable for f in <module>>
+                        new RefSymbol("g", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),
+                        new RefSymbol("y", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),
+                        new RefSymbol("x",
+                                SymbolTable.ScopeType.GLOBAL_IMPLICIT,
+                                false, false, false, true, false, false,
+                                false, false, true),},
+                { // <Function SymbolTable for g in <module>>
+                        new RefSymbol("x",
+                                SymbolTable.ScopeType.GLOBAL_IMPLICIT,
+                                false, false, false, true, false, false,
+                                false, false, true),
+                        new RefSymbol("y", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),},});
+    }
 
-    @Test public void example3120() {
+    @Test
+    public void example3120() {
         // @formatter:off
         // def f():
         //     def g():
@@ -2772,23 +3046,33 @@ checkExample(module, new RefSymbol[][]{
         ;
         // @formatter:on
 
-checkExample(module, new RefSymbol[][]{
-    { // <SymbolTable for top in <module>>
-        new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT, true, true, false, true, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for f in <module>>
-        new RefSymbol("g", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_IMPLICIT, false, false, false, true, false, false, false, false, true),
-    },
-    { // <Function SymbolTable for g in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-});
-}
+        checkExample(module, new RefSymbol[][] {{ // <SymbolTable for top
+                                                  // in <module>>
+                new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true,
+                        false, false, false, false, true, true, false,
+                        false),
+                new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT,
+                        true, true, false, true, false, true, false, false,
+                        false),},
+                { // <Function SymbolTable for f in <module>>
+                        new RefSymbol("g", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),
+                        new RefSymbol("y", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),
+                        new RefSymbol("x",
+                                SymbolTable.ScopeType.GLOBAL_IMPLICIT,
+                                false, false, false, true, false, false,
+                                false, false, true),},
+                { // <Function SymbolTable for g in <module>>
+                        new RefSymbol("x", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),},});
+    }
 
-    @Test public void example3130() {
+    @Test
+    public void example3130() {
         // @formatter:off
         // def f():
         //     def g():
@@ -2817,23 +3101,34 @@ checkExample(module, new RefSymbol[][]{
         ;
         // @formatter:on
 
-checkExample(module, new RefSymbol[][]{
-    { // <SymbolTable for top in <module>>
-        new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT, true, true, false, true, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for f in <module>>
-        new RefSymbol("g", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_IMPLICIT, false, false, false, true, false, false, false, false, true),
-    },
-    { // <Function SymbolTable for g in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT, true, true, false, true, false, true, false, false, false),
-    },
-});
-}
+        checkExample(module, new RefSymbol[][] {{ // <SymbolTable for top
+                                                  // in <module>>
+                new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true,
+                        false, false, false, false, true, true, false,
+                        false),
+                new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT,
+                        true, true, false, true, false, true, false, false,
+                        false),},
+                { // <Function SymbolTable for f in <module>>
+                        new RefSymbol("g", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),
+                        new RefSymbol("y", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),
+                        new RefSymbol("x",
+                                SymbolTable.ScopeType.GLOBAL_IMPLICIT,
+                                false, false, false, true, false, false,
+                                false, false, true),},
+                { // <Function SymbolTable for g in <module>>
+                        new RefSymbol("x",
+                                SymbolTable.ScopeType.GLOBAL_EXPLICIT,
+                                true, true, false, true, false, true,
+                                false, false, false),},});
+    }
 
-    @Test public void example3210() {
+    @Test
+    public void example3210() {
         // @formatter:off
         // def f():
         //     def g():
@@ -2861,23 +3156,32 @@ checkExample(module, new RefSymbol[][]{
         ;
         // @formatter:on
 
-checkExample(module, new RefSymbol[][]{
-    { // <SymbolTable for top in <module>>
-        new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT, true, true, false, true, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for f in <module>>
-        new RefSymbol("g", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.CELL, true, false, false, false, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for g in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.FREE, false, false, true, false, false, false, false, false, true),
-        new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-});
-}
+        checkExample(module, new RefSymbol[][] {{ // <SymbolTable for top
+                                                  // in <module>>
+                new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true,
+                        false, false, false, false, true, true, false,
+                        false),
+                new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT,
+                        true, true, false, true, false, true, false, false,
+                        false),},
+                { // <Function SymbolTable for f in <module>>
+                        new RefSymbol("g", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),
+                        new RefSymbol("x", SymbolTable.ScopeType.CELL,
+                                true, false, false, false, false, true,
+                                false, false, false),},
+                { // <Function SymbolTable for g in <module>>
+                        new RefSymbol("x", SymbolTable.ScopeType.FREE,
+                                false, false, true, false, false, false,
+                                false, false, true),
+                        new RefSymbol("y", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),},});
+    }
 
-    @Test public void example3220() {
+    @Test
+    public void example3220() {
         // @formatter:off
         // def f():
         //     def g():
@@ -2905,22 +3209,29 @@ checkExample(module, new RefSymbol[][]{
         ;
         // @formatter:on
 
-checkExample(module, new RefSymbol[][]{
-    { // <SymbolTable for top in <module>>
-        new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT, true, true, false, true, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for f in <module>>
-        new RefSymbol("g", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for g in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-});
-}
+        checkExample(module, new RefSymbol[][] {{ // <SymbolTable for top
+                                                  // in <module>>
+                new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true,
+                        false, false, false, false, true, true, false,
+                        false),
+                new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT,
+                        true, true, false, true, false, true, false, false,
+                        false),},
+                { // <Function SymbolTable for f in <module>>
+                        new RefSymbol("g", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),
+                        new RefSymbol("x", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),},
+                { // <Function SymbolTable for g in <module>>
+                        new RefSymbol("x", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),},});
+    }
 
-    @Test public void example3230() {
+    @Test
+    public void example3230() {
         // @formatter:off
         // def f():
         //     def g():
@@ -2949,22 +3260,30 @@ checkExample(module, new RefSymbol[][]{
         ;
         // @formatter:on
 
-checkExample(module, new RefSymbol[][]{
-    { // <SymbolTable for top in <module>>
-        new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT, true, true, false, true, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for f in <module>>
-        new RefSymbol("g", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for g in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT, true, true, false, true, false, true, false, false, false),
-    },
-});
-}
+        checkExample(module, new RefSymbol[][] {{ // <SymbolTable for top
+                                                  // in <module>>
+                new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true,
+                        false, false, false, false, true, true, false,
+                        false),
+                new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT,
+                        true, true, false, true, false, true, false, false,
+                        false),},
+                { // <Function SymbolTable for f in <module>>
+                        new RefSymbol("g", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),
+                        new RefSymbol("x", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),},
+                { // <Function SymbolTable for g in <module>>
+                        new RefSymbol("x",
+                                SymbolTable.ScopeType.GLOBAL_EXPLICIT,
+                                true, true, false, true, false, true,
+                                false, false, false),},});
+    }
 
-    @Test public void example3240() {
+    @Test
+    public void example3240() {
         // @formatter:off
         // def f():
         //     def g():
@@ -2993,22 +3312,29 @@ checkExample(module, new RefSymbol[][]{
         ;
         // @formatter:on
 
-checkExample(module, new RefSymbol[][]{
-    { // <SymbolTable for top in <module>>
-        new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT, true, true, false, true, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for f in <module>>
-        new RefSymbol("g", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.CELL, true, false, false, false, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for g in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.FREE, true, false, true, false, false, true, false, false, false),
-    },
-});
-}
+        checkExample(module, new RefSymbol[][] {{ // <SymbolTable for top
+                                                  // in <module>>
+                new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true,
+                        false, false, false, false, true, true, false,
+                        false),
+                new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT,
+                        true, true, false, true, false, true, false, false,
+                        false),},
+                { // <Function SymbolTable for f in <module>>
+                        new RefSymbol("g", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),
+                        new RefSymbol("x", SymbolTable.ScopeType.CELL,
+                                true, false, false, false, false, true,
+                                false, false, false),},
+                { // <Function SymbolTable for g in <module>>
+                        new RefSymbol("x", SymbolTable.ScopeType.FREE,
+                                true, false, true, false, false, true,
+                                false, false, false),},});
+    }
 
-    @Test public void example3310() {
+    @Test
+    public void example3310() {
         // @formatter:off
         // def f():
         //     def g():
@@ -3038,23 +3364,34 @@ checkExample(module, new RefSymbol[][]{
         ;
         // @formatter:on
 
-checkExample(module, new RefSymbol[][]{
-    { // <SymbolTable for top in <module>>
-        new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT, true, true, false, true, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for f in <module>>
-        new RefSymbol("g", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT, true, true, false, true, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for g in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_IMPLICIT, false, false, false, true, false, false, false, false, true),
-        new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-});
-}
+        checkExample(module, new RefSymbol[][] {{ // <SymbolTable for top
+                                                  // in <module>>
+                new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true,
+                        false, false, false, false, true, true, false,
+                        false),
+                new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT,
+                        true, true, false, true, false, true, false, false,
+                        false),},
+                { // <Function SymbolTable for f in <module>>
+                        new RefSymbol("g", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),
+                        new RefSymbol("x",
+                                SymbolTable.ScopeType.GLOBAL_EXPLICIT,
+                                true, true, false, true, false, true,
+                                false, false, false),},
+                { // <Function SymbolTable for g in <module>>
+                        new RefSymbol("x",
+                                SymbolTable.ScopeType.GLOBAL_IMPLICIT,
+                                false, false, false, true, false, false,
+                                false, false, true),
+                        new RefSymbol("y", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),},});
+    }
 
-    @Test public void example3320() {
+    @Test
+    public void example3320() {
         // @formatter:off
         // def f():
         //     def g():
@@ -3084,22 +3421,30 @@ checkExample(module, new RefSymbol[][]{
         ;
         // @formatter:on
 
-checkExample(module, new RefSymbol[][]{
-    { // <SymbolTable for top in <module>>
-        new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT, true, true, false, true, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for f in <module>>
-        new RefSymbol("g", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT, true, true, false, true, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for g in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-});
-}
+        checkExample(module, new RefSymbol[][] {{ // <SymbolTable for top
+                                                  // in <module>>
+                new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true,
+                        false, false, false, false, true, true, false,
+                        false),
+                new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT,
+                        true, true, false, true, false, true, false, false,
+                        false),},
+                { // <Function SymbolTable for f in <module>>
+                        new RefSymbol("g", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),
+                        new RefSymbol("x",
+                                SymbolTable.ScopeType.GLOBAL_EXPLICIT,
+                                true, true, false, true, false, true,
+                                false, false, false),},
+                { // <Function SymbolTable for g in <module>>
+                        new RefSymbol("x", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),},});
+    }
 
-    @Test public void example3330() {
+    @Test
+    public void example3330() {
         // @formatter:off
         // def f():
         //     def g():
@@ -3130,22 +3475,31 @@ checkExample(module, new RefSymbol[][]{
         ;
         // @formatter:on
 
-checkExample(module, new RefSymbol[][]{
-    { // <SymbolTable for top in <module>>
-        new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT, true, true, false, true, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for f in <module>>
-        new RefSymbol("g", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT, true, true, false, true, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for g in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT, true, true, false, true, false, true, false, false, false),
-    },
-});
-}
+        checkExample(module, new RefSymbol[][] {{ // <SymbolTable for top
+                                                  // in <module>>
+                new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true,
+                        false, false, false, false, true, true, false,
+                        false),
+                new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT,
+                        true, true, false, true, false, true, false, false,
+                        false),},
+                { // <Function SymbolTable for f in <module>>
+                        new RefSymbol("g", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),
+                        new RefSymbol("x",
+                                SymbolTable.ScopeType.GLOBAL_EXPLICIT,
+                                true, true, false, true, false, true,
+                                false, false, false),},
+                { // <Function SymbolTable for g in <module>>
+                        new RefSymbol("x",
+                                SymbolTable.ScopeType.GLOBAL_EXPLICIT,
+                                true, true, false, true, false, true,
+                                false, false, false),},});
+    }
 
-    @Test public void example1101() {
+    @Test
+    public void example1101() {
         // @formatter:off
         // def f():
         //     def g():
@@ -3180,28 +3534,44 @@ checkExample(module, new RefSymbol[][]{
         ;
         // @formatter:on
 
-checkExample(module, new RefSymbol[][]{
-    { // <SymbolTable for top in <module>>
-        new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_IMPLICIT, false, false, false, true, false, false, false, false, true),
-        new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for f in <module>>
-        new RefSymbol("g", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_IMPLICIT, false, false, false, true, false, false, false, false, true),
-    },
-    { // <Function SymbolTable for g in <module>>
-        new RefSymbol("h", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-    },
-    { // <Function SymbolTable for h in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_IMPLICIT, false, false, false, true, false, false, false, false, true),
-        new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-});
-}
+        checkExample(module, new RefSymbol[][] {{ // <SymbolTable for top
+                                                  // in <module>>
+                new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true,
+                        false, false, false, false, true, true, false,
+                        false),
+                new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_IMPLICIT,
+                        false, false, false, true, false, false, false,
+                        false, true),
+                new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true,
+                        false, false, false, false, true, false, false,
+                        false),},
+                { // <Function SymbolTable for f in <module>>
+                        new RefSymbol("g", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),
+                        new RefSymbol("y", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),
+                        new RefSymbol("x",
+                                SymbolTable.ScopeType.GLOBAL_IMPLICIT,
+                                false, false, false, true, false, false,
+                                false, false, true),},
+                { // <Function SymbolTable for g in <module>>
+                        new RefSymbol("h", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),},
+                { // <Function SymbolTable for h in <module>>
+                        new RefSymbol("x",
+                                SymbolTable.ScopeType.GLOBAL_IMPLICIT,
+                                false, false, false, true, false, false,
+                                false, false, true),
+                        new RefSymbol("y", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),},});
+    }
 
-    @Test public void example1131() {
+    @Test
+    public void example1131() {
         // @formatter:off
         // def f():
         //     def g():
@@ -3238,29 +3608,48 @@ checkExample(module, new RefSymbol[][]{
         ;
         // @formatter:on
 
-checkExample(module, new RefSymbol[][]{
-    { // <SymbolTable for top in <module>>
-        new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT, false, true, false, true, false, false, false, false, true),
-        new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for f in <module>>
-        new RefSymbol("g", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_IMPLICIT, false, false, false, true, false, false, false, false, true),
-    },
-    { // <Function SymbolTable for g in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT, true, true, false, true, false, true, false, false, false),
-        new RefSymbol("h", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-    },
-    { // <Function SymbolTable for h in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_IMPLICIT, false, false, false, true, false, false, false, false, true),
-        new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-});
-}
+        checkExample(module, new RefSymbol[][] {{ // <SymbolTable for top
+                                                  // in <module>>
+                new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true,
+                        false, false, false, false, true, true, false,
+                        false),
+                new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT,
+                        false, true, false, true, false, false, false,
+                        false, true),
+                new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true,
+                        false, false, false, false, true, false, false,
+                        false),},
+                { // <Function SymbolTable for f in <module>>
+                        new RefSymbol("g", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),
+                        new RefSymbol("y", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),
+                        new RefSymbol("x",
+                                SymbolTable.ScopeType.GLOBAL_IMPLICIT,
+                                false, false, false, true, false, false,
+                                false, false, true),},
+                { // <Function SymbolTable for g in <module>>
+                        new RefSymbol("x",
+                                SymbolTable.ScopeType.GLOBAL_EXPLICIT,
+                                true, true, false, true, false, true,
+                                false, false, false),
+                        new RefSymbol("h", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),},
+                { // <Function SymbolTable for h in <module>>
+                        new RefSymbol("x",
+                                SymbolTable.ScopeType.GLOBAL_IMPLICIT,
+                                false, false, false, true, false, false,
+                                false, false, true),
+                        new RefSymbol("y", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),},});
+    }
 
-    @Test public void example1201() {
+    @Test
+    public void example1201() {
         // @formatter:off
         // def f():
         //     def g():
@@ -3295,28 +3684,42 @@ checkExample(module, new RefSymbol[][]{
         ;
         // @formatter:on
 
-checkExample(module, new RefSymbol[][]{
-    { // <SymbolTable for top in <module>>
-        new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_IMPLICIT, false, false, false, true, false, false, false, false, true),
-        new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for f in <module>>
-        new RefSymbol("g", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.CELL, true, false, false, false, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for g in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.FREE, false, false, true, false, false, false, false, false, false),
-        new RefSymbol("h", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-    },
-    { // <Function SymbolTable for h in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.FREE, false, false, true, false, false, false, false, false, true),
-        new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-});
-}
+        checkExample(module, new RefSymbol[][] {{ // <SymbolTable for top
+                                                  // in <module>>
+                new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true,
+                        false, false, false, false, true, true, false,
+                        false),
+                new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_IMPLICIT,
+                        false, false, false, true, false, false, false,
+                        false, true),
+                new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true,
+                        false, false, false, false, true, false, false,
+                        false),},
+                { // <Function SymbolTable for f in <module>>
+                        new RefSymbol("g", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),
+                        new RefSymbol("x", SymbolTable.ScopeType.CELL,
+                                true, false, false, false, false, true,
+                                false, false, false),},
+                { // <Function SymbolTable for g in <module>>
+                        new RefSymbol("x", SymbolTable.ScopeType.FREE,
+                                false, false, true, false, false, false,
+                                false, false, false),
+                        new RefSymbol("h", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),},
+                { // <Function SymbolTable for h in <module>>
+                        new RefSymbol("x", SymbolTable.ScopeType.FREE,
+                                false, false, true, false, false, false,
+                                false, false, true),
+                        new RefSymbol("y", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),},});
+    }
 
-    @Test public void example1204() {
+    @Test
+    public void example1204() {
         // @formatter:off
         // def f():
         //     def g():
@@ -3352,27 +3755,39 @@ checkExample(module, new RefSymbol[][]{
         ;
         // @formatter:on
 
-checkExample(module, new RefSymbol[][]{
-    { // <SymbolTable for top in <module>>
-        new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_IMPLICIT, false, false, false, true, false, false, false, false, true),
-        new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for f in <module>>
-        new RefSymbol("g", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.CELL, true, false, false, false, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for g in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.FREE, false, false, true, false, false, false, false, false, false),
-        new RefSymbol("h", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-    },
-    { // <Function SymbolTable for h in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.FREE, true, false, true, false, false, true, false, false, false),
-    },
-});
-}
+        checkExample(module, new RefSymbol[][] {{ // <SymbolTable for top
+                                                  // in <module>>
+                new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true,
+                        false, false, false, false, true, true, false,
+                        false),
+                new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_IMPLICIT,
+                        false, false, false, true, false, false, false,
+                        false, true),
+                new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true,
+                        false, false, false, false, true, false, false,
+                        false),},
+                { // <Function SymbolTable for f in <module>>
+                        new RefSymbol("g", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),
+                        new RefSymbol("x", SymbolTable.ScopeType.CELL,
+                                true, false, false, false, false, true,
+                                false, false, false),},
+                { // <Function SymbolTable for g in <module>>
+                        new RefSymbol("x", SymbolTable.ScopeType.FREE,
+                                false, false, true, false, false, false,
+                                false, false, false),
+                        new RefSymbol("h", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),},
+                { // <Function SymbolTable for h in <module>>
+                        new RefSymbol("x", SymbolTable.ScopeType.FREE,
+                                true, false, true, false, false, true,
+                                false, false, false),},});
+    }
 
-    @Test public void example1231() {
+    @Test
+    public void example1231() {
         // @formatter:off
         // def f():
         //     def g():
@@ -3409,28 +3824,44 @@ checkExample(module, new RefSymbol[][]{
         ;
         // @formatter:on
 
-checkExample(module, new RefSymbol[][]{
-    { // <SymbolTable for top in <module>>
-        new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT, false, true, false, true, false, false, false, false, true),
-        new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for f in <module>>
-        new RefSymbol("g", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for g in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT, true, true, false, true, false, true, false, false, false),
-        new RefSymbol("h", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-    },
-    { // <Function SymbolTable for h in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_IMPLICIT, false, false, false, true, false, false, false, false, true),
-        new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-});
-}
+        checkExample(module, new RefSymbol[][] {{ // <SymbolTable for top
+                                                  // in <module>>
+                new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true,
+                        false, false, false, false, true, true, false,
+                        false),
+                new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT,
+                        false, true, false, true, false, false, false,
+                        false, true),
+                new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true,
+                        false, false, false, false, true, false, false,
+                        false),},
+                { // <Function SymbolTable for f in <module>>
+                        new RefSymbol("g", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),
+                        new RefSymbol("x", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),},
+                { // <Function SymbolTable for g in <module>>
+                        new RefSymbol("x",
+                                SymbolTable.ScopeType.GLOBAL_EXPLICIT,
+                                true, true, false, true, false, true,
+                                false, false, false),
+                        new RefSymbol("h", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),},
+                { // <Function SymbolTable for h in <module>>
+                        new RefSymbol("x",
+                                SymbolTable.ScopeType.GLOBAL_IMPLICIT,
+                                false, false, false, true, false, false,
+                                false, false, true),
+                        new RefSymbol("y", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),},});
+    }
 
-    @Test public void example2101() {
+    @Test
+    public void example2101() {
         // @formatter:off
         // def f():
         //     def g():
@@ -3465,27 +3896,41 @@ checkExample(module, new RefSymbol[][]{
         ;
         // @formatter:on
 
-checkExample(module, new RefSymbol[][]{
-    { // <SymbolTable for top in <module>>
-        new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for f in <module>>
-        new RefSymbol("g", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_IMPLICIT, false, false, false, true, false, false, false, false, true),
-    },
-    { // <Function SymbolTable for g in <module>>
-        new RefSymbol("h", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-    },
-    { // <Function SymbolTable for h in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_IMPLICIT, false, false, false, true, false, false, false, false, true),
-        new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-});
-}
+        checkExample(module, new RefSymbol[][] {
+                { // <SymbolTable for top in <module>>
+                        new RefSymbol("f", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),
+                        new RefSymbol("x", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),},
+                { // <Function SymbolTable for f in <module>>
+                        new RefSymbol("g", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),
+                        new RefSymbol("y", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),
+                        new RefSymbol("x",
+                                SymbolTable.ScopeType.GLOBAL_IMPLICIT,
+                                false, false, false, true, false, false,
+                                false, false, true),},
+                { // <Function SymbolTable for g in <module>>
+                        new RefSymbol("h", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),},
+                { // <Function SymbolTable for h in <module>>
+                        new RefSymbol("x",
+                                SymbolTable.ScopeType.GLOBAL_IMPLICIT,
+                                false, false, false, true, false, false,
+                                false, false, true),
+                        new RefSymbol("y", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),},});
+    }
 
-    @Test public void example2131() {
+    @Test
+    public void example2131() {
         // @formatter:off
         // def f():
         //     def g():
@@ -3522,28 +3967,45 @@ checkExample(module, new RefSymbol[][]{
         ;
         // @formatter:on
 
-checkExample(module, new RefSymbol[][]{
-    { // <SymbolTable for top in <module>>
-        new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT, true, true, false, true, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for f in <module>>
-        new RefSymbol("g", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_IMPLICIT, false, false, false, true, false, false, false, false, true),
-    },
-    { // <Function SymbolTable for g in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT, true, true, false, true, false, true, false, false, false),
-        new RefSymbol("h", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-    },
-    { // <Function SymbolTable for h in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_IMPLICIT, false, false, false, true, false, false, false, false, true),
-        new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-});
-}
+        checkExample(module, new RefSymbol[][] {{ // <SymbolTable for top
+                                                  // in <module>>
+                new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true,
+                        false, false, false, false, true, true, false,
+                        false),
+                new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT,
+                        true, true, false, true, false, true, false, false,
+                        false),},
+                { // <Function SymbolTable for f in <module>>
+                        new RefSymbol("g", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),
+                        new RefSymbol("y", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),
+                        new RefSymbol("x",
+                                SymbolTable.ScopeType.GLOBAL_IMPLICIT,
+                                false, false, false, true, false, false,
+                                false, false, true),},
+                { // <Function SymbolTable for g in <module>>
+                        new RefSymbol("x",
+                                SymbolTable.ScopeType.GLOBAL_EXPLICIT,
+                                true, true, false, true, false, true,
+                                false, false, false),
+                        new RefSymbol("h", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),},
+                { // <Function SymbolTable for h in <module>>
+                        new RefSymbol("x",
+                                SymbolTable.ScopeType.GLOBAL_IMPLICIT,
+                                false, false, false, true, false, false,
+                                false, false, true),
+                        new RefSymbol("y", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),},});
+    }
 
-    @Test public void example2201() {
+    @Test
+    public void example2201() {
         // @formatter:off
         // def f():
         //     def g():
@@ -3578,27 +4040,39 @@ checkExample(module, new RefSymbol[][]{
         ;
         // @formatter:on
 
-checkExample(module, new RefSymbol[][]{
-    { // <SymbolTable for top in <module>>
-        new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for f in <module>>
-        new RefSymbol("g", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.CELL, true, false, false, false, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for g in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.FREE, false, false, true, false, false, false, false, false, false),
-        new RefSymbol("h", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-    },
-    { // <Function SymbolTable for h in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.FREE, false, false, true, false, false, false, false, false, true),
-        new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-});
-}
+        checkExample(module, new RefSymbol[][] {
+                { // <SymbolTable for top in <module>>
+                        new RefSymbol("f", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),
+                        new RefSymbol("x", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),},
+                { // <Function SymbolTable for f in <module>>
+                        new RefSymbol("g", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),
+                        new RefSymbol("x", SymbolTable.ScopeType.CELL,
+                                true, false, false, false, false, true,
+                                false, false, false),},
+                { // <Function SymbolTable for g in <module>>
+                        new RefSymbol("x", SymbolTable.ScopeType.FREE,
+                                false, false, true, false, false, false,
+                                false, false, false),
+                        new RefSymbol("h", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),},
+                { // <Function SymbolTable for h in <module>>
+                        new RefSymbol("x", SymbolTable.ScopeType.FREE,
+                                false, false, true, false, false, false,
+                                false, false, true),
+                        new RefSymbol("y", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),},});
+    }
 
-    @Test public void example2204() {
+    @Test
+    public void example2204() {
         // @formatter:off
         // def f():
         //     def g():
@@ -3634,26 +4108,36 @@ checkExample(module, new RefSymbol[][]{
         ;
         // @formatter:on
 
-checkExample(module, new RefSymbol[][]{
-    { // <SymbolTable for top in <module>>
-        new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for f in <module>>
-        new RefSymbol("g", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.CELL, true, false, false, false, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for g in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.FREE, false, false, true, false, false, false, false, false, false),
-        new RefSymbol("h", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-    },
-    { // <Function SymbolTable for h in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.FREE, true, false, true, false, false, true, false, false, false),
-    },
-});
-}
+        checkExample(module, new RefSymbol[][] {
+                { // <SymbolTable for top in <module>>
+                        new RefSymbol("f", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),
+                        new RefSymbol("x", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),},
+                { // <Function SymbolTable for f in <module>>
+                        new RefSymbol("g", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),
+                        new RefSymbol("x", SymbolTable.ScopeType.CELL,
+                                true, false, false, false, false, true,
+                                false, false, false),},
+                { // <Function SymbolTable for g in <module>>
+                        new RefSymbol("x", SymbolTable.ScopeType.FREE,
+                                false, false, true, false, false, false,
+                                false, false, false),
+                        new RefSymbol("h", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),},
+                { // <Function SymbolTable for h in <module>>
+                        new RefSymbol("x", SymbolTable.ScopeType.FREE,
+                                true, false, true, false, false, true,
+                                false, false, false),},});
+    }
 
-    @Test public void example2231() {
+    @Test
+    public void example2231() {
         // @formatter:off
         // def f():
         //     def g():
@@ -3690,26 +4174,38 @@ checkExample(module, new RefSymbol[][]{
         ;
         // @formatter:on
 
-checkExample(module, new RefSymbol[][]{
-    { // <SymbolTable for top in <module>>
-        new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT, true, true, false, true, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for f in <module>>
-        new RefSymbol("g", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-        new RefSymbol("x", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-    { // <Function SymbolTable for g in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT, true, true, false, true, false, true, false, false, false),
-        new RefSymbol("h", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, true, false, false),
-    },
-    { // <Function SymbolTable for h in <module>>
-        new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_IMPLICIT, false, false, false, true, false, false, false, false, true),
-        new RefSymbol("y", SymbolTable.ScopeType.LOCAL, true, false, false, false, false, true, false, false, false),
-    },
-});
-}
-
+        checkExample(module, new RefSymbol[][] {{ // <SymbolTable for top
+                                                  // in <module>>
+                new RefSymbol("f", SymbolTable.ScopeType.LOCAL, true,
+                        false, false, false, false, true, true, false,
+                        false),
+                new RefSymbol("x", SymbolTable.ScopeType.GLOBAL_EXPLICIT,
+                        true, true, false, true, false, true, false, false,
+                        false),},
+                { // <Function SymbolTable for f in <module>>
+                        new RefSymbol("g", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),
+                        new RefSymbol("x", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),},
+                { // <Function SymbolTable for g in <module>>
+                        new RefSymbol("x",
+                                SymbolTable.ScopeType.GLOBAL_EXPLICIT,
+                                true, true, false, true, false, true,
+                                false, false, false),
+                        new RefSymbol("h", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                true, false, false),},
+                { // <Function SymbolTable for h in <module>>
+                        new RefSymbol("x",
+                                SymbolTable.ScopeType.GLOBAL_IMPLICIT,
+                                false, false, false, true, false, false,
+                                false, false, true),
+                        new RefSymbol("y", SymbolTable.ScopeType.LOCAL,
+                                true, false, false, false, false, true,
+                                false, false, false),},});
+    }
 
     // ======= End of generated examples ==========
 }
