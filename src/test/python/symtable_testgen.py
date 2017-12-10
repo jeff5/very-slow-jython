@@ -112,7 +112,7 @@ def emit_java_symtable_test(prog, name):
     emit_java_ast(prog, tree)
     print("        // @formatter:on")
     print()
-    print("checkExample(module, new RefSymbol[][]{")
+    print("checkExample(module, new RefSymbol[][]{ //", name)
     for st in stlist:
         emit_java_symbol_table(st)
     print("});")
