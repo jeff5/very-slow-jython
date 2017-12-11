@@ -5,16 +5,19 @@ Interpretation of Simple Statements
 ###################################
 In this section we'll find a way to implement
 a subset of assignment statements.
-This is a step up from the evaluation of expressions,
-in that we deal with *sequences* of statements,
-although previous work provides the "right hand side" for our assignments.
+This is a step up from the evaluation of expressions in two ways:
+
+* we have to deal with *sequences* of statements, and
+* we assign the results of expressions to variables, local and global.
+
+Previous work provides the "right hand side" for our assignments.
 
 Additions to the AST
 ********************
 ASDL
 ====
 In order to represent the data structures of assignment statements
-we advance the ASDL of TreePython so::
+we advance the ASDL of TreePython to this::
 
     module TreePython
     {
@@ -49,17 +52,18 @@ we advance the ASDL of TreePython so::
         keyword = (identifier? arg, expr value)
     }
 
-We can see that, since assignment is a statement,
-we have to address the interpretation of sequences of statements.
+We can see that modules and function definitions have a body attribute
+that is a *sequence* of statements.
 This is what leads us into careful consideration of data structures
-around the interpreter.
+known in python as ``code`` (to hold the sequence of statements)
+and ``frame`` (to hold local variable state between statements).
 
 We've included function definition in the ASDL,
 not because we're ready to tackle functions properly,
 but because important aspects of binding variable names only emerge
 once nested scopes are considered.
-It turns out that ``pass`` is a useful statement in generated examples.
-It shouldn't be difficult to implement.
+It turns out that ``pass`` is a useful statement in generated examples,
+and does not add much to the challenge we set ourselves.
 
 Visitor
 =======
@@ -100,7 +104,6 @@ we will try to replicate the CPython interpreter,
 using the visitor internally.
 
 
-
 Access to Variables
 *******************
 In the section on expressions,
@@ -119,6 +122,7 @@ Some "local" variables may be simultaneously local in multiple frames:
 these are called cell variables.
 They exist "off frame" in a holder object of type ``PyCell`` ,
 and are accessed indirectly.
+
 These name spaces are available as dictionaries (mappings)
 through the functions :py:func:`local` and :py:func:`global`,
 but usually code refers to variables through their names directly.
@@ -148,7 +152,7 @@ and within each, load, store and delete operations:
 |        | ``__builtins__`` module | (store always local)         |
 +--------+-------------------------+------------------------------+
 | cell   | shared between frames   | access indirectly through    |
-|        |                         | holder object                |
+|        |                         | ``PyCell``                   |
 +--------+-------------------------+------------------------------+
 
 The mode is not identified in the AST node describing the load or store;
@@ -224,7 +228,7 @@ that store locally and load from local, global or built-in name spaces::
                  21 RETURN_VALUE
 
 Navigating the symbol tables by hand is tedious,
-so there is a module at ``~/src/test/python/symbolutil.py``
+but there is a module at ``~/src/test/python/symbolutil.py``
 that will help::
 
     >>> import symbolutil as su
@@ -270,8 +274,8 @@ at ``~/src/test/python/symtable_testgen.py``,
 and it generates the test material for
 ``~/src/test/.../treepython/TestInterp1.java``.
 
-Deducing the scope of names
-===========================
+The Scope of Names (Symbol Tables)
+==================================
 We can easily reproduce in Java the sort of data structures exposed by
 ``symtable``.
 We take two passes over the source to resolve the scope of each name,
@@ -457,6 +461,25 @@ It is only interesting in the case of a function scope:
 This is the bit of code that ensures intervening scopes are given
 free copies of variables that are FREE in enclosed scopes
 and CELL in an enclosing scope.
+
+The Layout of Variables (the Frame)
+===================================
+
+We've encountered the Python ``code`` object as the result of compilation,
+and as the executable form of a module acceptable to :py:func:`exec`.
+
+When executing code,
+the interpreter creates a stack of ``frame`` objects,
+each one being the execution context of the current module
+or function invocation,
+and holding its local variables and other state.
+``frame`` objects also occur in the stack traces of exceptions,
+and as the state of a generator function after it returns.
+
+In addition to the compiled form of the statements,
+a ``code`` object contains the information necessary to create
+a Python ``frame`` object.
+
 
 Critical Structures -- First Implementation
 *******************************************

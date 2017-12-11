@@ -20,13 +20,13 @@ code is generated for a Python Virtual Machine.
 (The design of the machine,
 and the machine language it accepts,
 change from one version of the implementation to the next.)
-From a hardware perspective (or that of the C programmer),
+From a hardware perspective, or that of the C programmer,
 the virtual machine is an interpreter for this intermediate language.
 
-It will get even more layered with a Java implementation.
+Things get even more complicated when we consider a Java implementation.
 From the hardware perspective, the JVM itself is an interpreter,
 and our Java programs are compiled to its Java bytecode.
-We will (probably) want to translate Python into Java bytecode,
+We will probably want to translate Python into Java bytecode eventually,
 as Jython does.
 But we might also write an interpreter in Java,
 compiled to Java bytecode,
@@ -35,7 +35,7 @@ to interpret an intermediate language compiled from Python.
 Python possesses another intermediate form,
 other than Python bytecode,
 that it is useful to study:
-this is the AST (abstract syntax tree).
+the AST (abstract syntax tree).
 The Python compiler creates the AST as an intermediate product
 between your code and Python bytecode,
 but it will also provide it to you as an object,
@@ -45,7 +45,8 @@ It is attractive to manipulate the AST in tools because it is:
 * recognisably related to your source code and its symbols, and
 * standardised in a way the bytecode is not.
 
-Otherwise, one would be compelled to start by writing a Python compiler.
+We'll use it to avoid writing a full Python compiler:
+remember we first want to study *execution* of code.
 
 Python Compilation Example
 **************************

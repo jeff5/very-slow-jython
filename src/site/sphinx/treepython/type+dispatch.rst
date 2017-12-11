@@ -10,8 +10,9 @@ Operation Dispatch in CPython
 ..  _PyTypeObject (API): https://docs.python.org/3/c-api/typeobj.html
 
 Types are at the heart of the CPython interpreter.
-Every object contains storage for its state and a pointer to an instance of
-``PyTypeObject``.
+Every object instance contains storage for its state and
+a pointer to an instance of ``PyTypeObject``.
+
 It is not easy to implement an adequate type system.
 The support in CPython is found at ``typeobject.c``,
 which runs to more than 7500 lines,
@@ -46,6 +47,10 @@ It also differs in significant ways, including:
 * The structure is fixed by the needs of the interpreter:
   user-defined methods are not added here but in the dictionary.
 
+For these reasons something more than Java overloaded methods is neeeded
+to implement Python semantics,
+although we'll try that shortly to see where we get to.
+
 Operation Dispatch in Jython 2.7.1
 **********************************
 
@@ -63,17 +68,20 @@ by means of a class declaration, say,
 ``__add__`` and ``__radd__`` are both overidden,
 to check for the existence of ``__add__`` and ``__radd__`` respectively,
 defined in Python, in the type's dictionary.
+As well as being the base type of all objects,
+``PyObject`` contains much of the runtime support for generated code.
 
 The final assembly is quite complex, as is the corresponding CPython code,
 but we may be sure it implements the Python rules well enough,
 since it passes the extensive Python regression tests.
 The general path through the code (for derived types defined in Python)
-appears slow,
+has the potential to be slow,
 since multiple nested calls occur.
+However, one cannot be categorical about this.
 If the JVM JIT compiler is able to infer (or speculate on) argument types,
-it is quite possible the original call site could be in-lined,
-if the code is hot,
-and would collapse to one of the many special cases.
+and if the code is used enough,
+it is possible for it to in-line the code at the call site of ``_add``,
+where it would collapse to one of the many type-specific cases.
 
 Where a complex pure Java object is handled in Python,
 the interpreter handles it via a proxy that is Java-derived from ``PyObject``.
@@ -81,6 +89,7 @@ Expressions that have simple Java types are converted to and from Jython built-i
 (``PyString``, ``PyFloat``, and so on)
 at the boundary between Python and Java,
 for example when passing arguments to a method.
+
 
 A Java Object Approach
 **********************
@@ -93,22 +102,21 @@ and generically,
 an arbitrary object may only be assumed to be a ``java.lang.Object``,
 not a ``PyObject`` with language-specific properties.
 Counter-intuitively perhaps,
-a Python ``object`` is not *implemented* by ``java.lang.Object``,
+a Python ``object`` cannot be implemented by ``java.lang.Object``,
 since it carries additional state.
 
 We're going to explore this approach
 in preference to reproducing the Jython approach,
 partly for its potential to reduce indirection,
-partly because the JSR-292 `cookbook`_
-(slide 34, minute 53 in the `cookbook video`_)
-on dynamic JVM languages recommends it.
+but mainly because the very helpful JSR-292 `cookbook`_ recommends it
+(slide 34, minute 53 in the `cookbook video`_).
 
 ..  _cookbook: http://www.wiki.jvmlangsummit.com/images/9/93/2011_Forax.pdf
 ..  _cookbook video: http://medianetwork.oracle.com/video/player/1113248965001
 
 The first challenge in this approach is
 how to locate the operations the interpreter needs.
-These correspond to the slots in a CPython type object,
+These correspond to the function slots in a CPython type object,
 and there is a finite repertoire of them.
 
 Dispatch via overloading in Java
@@ -126,12 +134,13 @@ combining two alternatives according to language rules for binary operations.
 
 The single dispatch fits naturally with direct use of overloading in Java.
 We cannot give ``java.lang.Integer`` itself any new behaviour,
-and so we must map that type to a handler object for the Python operations.
-In support, we need a registry that maps class to operations handler,
+and so we must map that type to a handler object that understands
+the Python operations.
+A registry is necessary to map the Java class to operations handler,
 that for now we may initialise statically.
-Java provides a class for thread-safe lookup in ``java.lang``
+Java provides a class for exactly this thread-safe lookup in ``java.lang``
 called ``ClassValue``.
-We'll use this inside a runtime support class like this:
+We'll use this for runtime support like this:
 
 ..  code-block:: java
 
@@ -159,11 +168,11 @@ We'll use this inside a runtime support class like this:
                 };
     }
 
-The alert reader will notice that the classes shown are often ``static``,
-nested classes.
+The alert reader will notice that the classes shown in our examples
+are often ``static`` nested classes.
 This has no functional significance.
-Simply we wish to hide them within the test class that demonstrates them.
-Once they mature, we'll create public- or package-visible classes.
+We simply want to hide them within the test class that demonstrates them.
+Once they mature, we'll create public or package-visible classes.
 
 Each handler must be capable of all the operations the interpreter might need,
 but for now we'll be satisfied with two arithmetic operations:
@@ -178,8 +187,7 @@ but for now we'll be satisfied with two arithmetic operations:
 
 We can see how the interface could be extended (for sequences, etc.).
 Note that the methods take and return ``Object``
-as there is no restriction on the type of arguments and returns in Python,
-or the equivalent slot functions in CPython.
+as there is no restriction on the type of arguments and returns in Python.
 
 Our attempt at implementing the operations for ``int`` then looks like this:
 
@@ -538,15 +546,15 @@ We need the following elements to pull this off (for a binary operation):
     specialised to the operand types,
     or rather, one for each combination of types.
 *   A mechanism to map from (a pair of) types to the specialised implementation.
-*   A test (called a guard) that the types this time match the implementation.
 *   A structure to hold the last decision
     and the types for which the site is currently specialised
     (the call site).
+*   A test (called a guard) that the types this time match those last time.
 
 It is possible to create call sites in which several specialisations
 are cached for re-use,
 according to any strategy the language implementer favours,
-but we'll demonstrate it with a single cached specialisation.
+but we'll demonstrate it with a cache size of one.
 
 We'll point out in passing that
 we've slipped a false assumption into this argument:
@@ -623,8 +631,8 @@ here where we know all the necessary facts.
 
 It remains to be seen how we will implement ``Runtime.findBinOp``
 to return the ``MethodHandle`` we need.
-Skipping to the other end of the problem,
-this is how we would like to write specialised implementations:
+To explain it, we'll skip to the other end of the problem first.
+This is how we would like to write specialised implementations:
 
 ..  code-block:: java
 
@@ -662,8 +670,9 @@ Or if the right-hand type is a sub-class of the left,
 first the right-hand type gets a chance, then the left.
 In CPython, this chance is offered by actually calling the implementation,
 which returns ``NotImplemented`` if it can't deal with the operands.
+
 This is where we part company with CPython,
-since our purpose is only to obtain a method handle,
+since our purpose is *only* to obtain a method handle,
 without calling it at this point.
 We therefore invent the convention that
 every handler provide a method we can consult to find the implementation,
@@ -703,6 +712,16 @@ For types implemented in Java, this can work by reflection:
                 return Runtime.BINOP_NOT_IMPLEMENTED;
             } else {
                 return mh.asType(BINOP);
+            }
+        }
+
+        private MethodHandle findStaticOrNull(Class<?> refc, String name,
+                MethodType type) {
+            try {
+                MethodHandle mh = lookup.findStatic(refc, name, type);
+                return mh.asType(BINOP);
+            } catch (NoSuchMethodException | IllegalAccessException e) {
+                return null;
             }
         }
 
@@ -1265,7 +1284,7 @@ A ``TypeHandler`` for  ``Number`` operands
 
 Consider making ``BigIntegerHandler`` accept
 a variety of integer ``Number`` types as either operand.
-After checking for an exactly matching signature in ``findBinOp``,
+After checking in ``findBinOp`` for a signature that matches exactly,
 we could look for one where the other operand,
 left or right,
 is any ``Number``.
@@ -1400,7 +1419,7 @@ A simple case is that of the handler for ``Double``:
 Notice there are methods specific to ``Double``,
 implementing the four rules and negation.
 Here we need no conversion methods and un-boxing is automatic.
-Then we offer same again, applicable to ``Number``,
+Then we offer the same operations again, applicable to ``Number``,
 converting to double with a call to (virtual) ``Number.doubleValue()``.
 The finder methods ensure these will only be called with acceptable
 sub-classes of ``Number``.
@@ -1504,7 +1523,6 @@ if it does not overflow.
 In order to do this we (re-)create the handler for ``Integer``,
 which now makes its computations in ``long``
 and returns via a wrapper,
-that we hope the JIT compiler will in-line,
 that chooses the representation according to the size of the result:
 
 ..  code-block:: java
@@ -1576,6 +1594,7 @@ that chooses the representation according to the size of the result:
         }
     }
 
+We hope the JIT compiler will in-line the wrapper ``result``.
 The methods here return ``Integer`` if they can and ``Long`` if they must.
 Note that we do not try to select adaptively between all available
 integer types, ``Byte``, ``Short``, etc.,
@@ -1594,7 +1613,7 @@ What's left of the test program after this refactoring is at
 ``~/src/test/java/.../vsj1/example/treepython/TestEx9.java``
 in the project source.
 
-We take this opprtunity to adjust the supporting methods to simplify
+We take this opportunity to adjust the supporting methods to simplify
 writing operation handlers.
 Changes include:
 
@@ -1610,7 +1629,7 @@ Changes include:
   Instead, ``Py.findBinOp`` takes care of the conversion.
 
 With these changes, the finders within the ``Operations`` class
-(was ``TypeHandler``)
+(previously ``TypeHandler``)
 now look like:
 
 ..  code-block:: java
@@ -1643,7 +1662,8 @@ now look like:
         // ...
     }
 
-The runtime support in class ``Py`` (was ``Runtime``)
+The runtime support in class ``Py``
+(previously ``Runtime``)
 gets a little more complicated because of the need to cast:
 
 ..  code-block:: java
@@ -1722,13 +1742,14 @@ To note for future work:
     it owns.
     (Good.)
   * The ultimate caller (node visitor here) gives its own look-up object to the
-    call-site, as it will under ``invokedynamic``, but we don't need it.
+    call-site, as it will under ``invokedynamic``, but we don't use it.
     (Something wrong?)
 
 * We have not yet discovered an actual Python ``type`` object.
   The class tentatively named ``TypeHandler`` (now ``Operations``) is not it,
-  since we have many such for one type ``int``:
-  it holds the Java *operations* (slots) not the Python *type* information.
+  since we have several for one type ``int``:
+  it holds the *operations* for one Java implementation of the type,
+  not the Python-level *type* information.
 * Speculation: we will discover a proper type object
   when we need a Python *class* attribute (like the MRO or ``__new__``.
   So far, only *instance* methods have appeared.

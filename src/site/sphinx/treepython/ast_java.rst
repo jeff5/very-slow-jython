@@ -4,7 +4,7 @@
 An Interpreter in Java for the Python AST
 #########################################
 
-THe AST of a module is already too complicated for us to start with.
+The AST of a module is already too complicated for us to start with.
 We'll focus on just this part of the AST::
 
     value=BinOp(left=Name(id='x', ctx=Load()), op=Add(), right=Num(n=1))),
@@ -99,7 +99,8 @@ by defining functions and constants so that we may write:
 
 While it is feasible to write this by hand,
 it would be nicer if Python could generate it from the source.
-Basically, the technique is to use an alternative pretty-printer for the AST.
+It can, of course.
+The technique is to use an alternative pretty-printer for the AST.
 The function call ``astutil.pretty_java(tree)``
 turns the AST of the sample program into:
 
