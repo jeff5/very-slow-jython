@@ -55,19 +55,19 @@ public class TestInterp2 {
         final int kwonlyargcount;
         final String[] names;
         final String[] varnames;
-        final String[] freevars;
         final String[] cellvars;
+        final String[] freevars;
 
         RefCode(int argcount, int kwonlyargcount, String[] names,
-                String[] varnames, String[] freevars, String[] cellvars,
+                String[] varnames, String[] cellvars, String[] freevars,
                 String name) {
             this.argcount = argcount;
             this.kwonlyargcount = kwonlyargcount;
             this.name = name;
             this.names = names;
             this.varnames = varnames;
-            this.freevars = freevars;
             this.cellvars = cellvars;
+            this.freevars = freevars;
         }
 
         void check(PyCode c) {
@@ -77,17 +77,18 @@ public class TestInterp2 {
         }
 
         void checkCounts(PyCode c) {
-            assertEquals("argcount", argcount, c.argcount);
-            assertEquals("kwonlyargcount", kwonlyargcount,
+            assertEquals(name+".name", name, c.co_name);
+            assertEquals(name+".argcount", argcount, c.argcount);
+            assertEquals(name+".kwonlyargcount", kwonlyargcount,
                     c.kwonlyargcount);
         }
 
         void checkArrays(PyCode c) {
-            checkSortedArray("names", names, c.co_names);
-            checkSortedArray("varnames", varnames, c.co_varnames,
+            checkSortedArray(name+".names", names, c.co_names);
+            checkSortedArray(name+".varnames", varnames, c.co_varnames,
                     argcount);
-            checkSortedArray("cellvars", cellvars, c.co_cellvars);
-            checkSortedArray("freevars", freevars, c.co_freevars);
+            checkSortedArray(name+".cellvars", cellvars, c.co_cellvars);
+            checkSortedArray(name+".freevars", freevars, c.co_freevars);
         }
 
         /** Assert arrays are equal after sorting the contents of each. */
@@ -185,7 +186,7 @@ public class TestInterp2 {
     private static class PyCode {
 
         /**
-         * This is our equivalent to bytecode that holds a sequence of
+         * This is our equivalent to byte code that holds a sequence of
          * statements comprising the body of a function or module. Since
          * these are nodes in the AST, references to variables are
          * symbolic, and the symbol table must be present to map them into
@@ -199,14 +200,14 @@ public class TestInterp2 {
             final List<stmt> body;
             /** Map names used in this scope to their meanings. */
             final SymbolTable symbolTable;
-            /** Associate a node to a constant it requires. */
-            final Map<Node, Object> constMap;
+            /** Associate a node to code it requires. */
+            final Map<Node, PyCode> codeMap;
 
             Code(List<stmt> body, SymbolTable symbolTable,
-                    Map<Node, Object> constMap) {
+                    Map<Node, PyCode> codeMap) {
                 this.body = body;
                 this.symbolTable = symbolTable;
-                this.constMap = constMap;
+                this.codeMap = codeMap;
             }
         }
 
@@ -235,6 +236,8 @@ public class TestInterp2 {
         final String[] co_freevars; // names ref'd but not defined here
         final String[] co_cellvars; // names def'd here & ref'd elsewhere
 
+        final String co_name; // name of function etc.
+
         /** Construct from result of walking the AST. */
         public PyCode( //
                 int argcount, // co_argcount
@@ -250,8 +253,9 @@ public class TestInterp2 {
                 Collection<String> varnames, // args and non-cell locals
                 Collection<String> freevars, // names ref'd but not defined
                                              // here
-                Collection<String> cellvars // names def'd here & ref'd
+                Collection<String> cellvars, // names def'd here & ref'd
                                             // elsewhere
+                String name // of function etc.
         ) {
             this.argcount = argcount;
             this.kwonlyargcount = kwonlyargcount;
@@ -266,6 +270,8 @@ public class TestInterp2 {
             this.co_varnames = names(varnames);
             this.co_freevars = names(freevars);
             this.co_cellvars = names(cellvars);
+
+            this.co_name = name;
         }
 
         private static String[] names(Collection<String> c) {
@@ -487,8 +493,10 @@ public class TestInterp2 {
             int flags;
             /** The final decision how the variable is accessed. */
             ScopeType scope = null;
-            /** Index within a storage array in the executing frame. */
+            /** Index within local variable array in executing frame. */
             int index = -1;
+            /** Index within cell variable array in executing frame. */
+            int cellIndex = -1;
 
             /**
              * When the symbol represents a function or class, list the
@@ -1014,20 +1022,30 @@ public class TestInterp2 {
         /** Map names used in this scope to their meanings. */
         SymbolTable symbolTable;
 
+        /** Name of the function generating the code. */
+        private String name;
         /**
          * Holds a mapping from a function definition or module node to the
-         * code object representing its body. MOre generally, maps any node
-         * to a constant it needs.
+         * code object representing its body.
          */
-        private final Map<Node, Object> constMap = new HashMap<>();
+        private final Map<Node, PyCode> codeMap = new HashMap<>();
 
         /** Characteristics of the code block (CPython co_flags). */
         Set<PyCode.Trait> traits = EnumSet.noneOf(PyCode.Trait.class);
 
+        /** Count arguments and locals as we add them. */
+        private int localIndex = 0;
+
+        /** Count cells and frees as we add them. */
+        private int cellIndex = 0;
+
+        /** Count names of globals etc. as we add them. */
+        private int nameIndex = 0;
+
         /** Number of positional arguments. */
-        int argcount = 0;
+        int argcount;
         /** Number of keyword-only arguments. */
-        int kwonlyargcount = 0;
+        int kwonlyargcount;
 
         /** Values appearing as constants in the code. */
         List<Object> consts = new LinkedList<>();
@@ -1056,19 +1074,16 @@ public class TestInterp2 {
          * this visitor.
          */
         PyCode getPyCode() {
-            PyCode.Code raw = new PyCode.Code(body, symbolTable, constMap);
+            PyCode.Code raw = new PyCode.Code(body, symbolTable, codeMap);
             PyCode code = new PyCode( //
-                    argcount, kwonlyargcount, varnames.size(), // sizes
+                    argcount, kwonlyargcount, localIndex, // sizes
                     traits, // co_flags
                     raw, // co_code
                     consts, // co_consta
-                    names, varnames, freevars, cellvars // co_* names
+                    names, varnames, freevars, cellvars, // co_* names
+                    name // co_name
             );
             return code;
-        }
-
-        private static String[] names(Collection<String> c) {
-            return c.toArray(new String[c.size()]);
         }
 
         /**
@@ -1079,46 +1094,61 @@ public class TestInterp2 {
          * @param table for the current block
          */
         private void finishLayout() {
-            // Iterate symbols (in insertion order)
+
+            // Defer FREE variables until after (bound) CELLs.
+            List<SymbolTable.Symbol> free = new LinkedList<>();
+
+            // Iterate symbols, assigning their offsets (except if FREE).
             for (SymbolTable.Symbol s : symbolTable.symbols.values()) {
                 switch (s.scope) {
                     case CELL:
-                        addSymbol(s, cellvars);
+                        addCell(s);
                         break;
                     case FREE:
-                        addSymbol(s, freevars);
+                        free.add(s);
                         break;
                     case GLOBAL_EXPLICIT:
                     case GLOBAL_IMPLICIT:
                         if (s.is_assigned() || s.is_referenced()) {
-                            addSymbol(s, names);
+                            addName(s);
                         }
                         break;
                     case LOCAL:
                         // Parameters were already added in the walk
                         if (!s.is_parameter()) {
                             if (symbolTable.isNested()) {
-                                addSymbol(s, varnames);
+                                addLocal(s);
                             } else {
-                                addSymbol(s, names);
+                                addName(s);
                             }
                         }
                         break;
                 }
             }
+
+            // Allocate the FREE variables after the (bound) CELL.
+            for (SymbolTable.Symbol s : free) {
+                addCell(s);
+            }
         }
 
-        /**
-         * Lay out one variable in the given section of the (implied)
-         * frame, and record its position in the symbol table.
-         *
-         * @param s symbol; table entry for the variable
-         * @param c collection to which it is added
-         */
-        private static void addSymbol(SymbolTable.Symbol s,
-                Collection<String> c) {
-            s.index = c.size();
-            c.add(s.name);
+        /** Allocate a symbol in the local variables the code object. */
+        private void addLocal(SymbolTable.Symbol s) {
+            s.index = localIndex++;
+            varnames.add(s.name);
+        }
+
+        /** Allocate a symbol in the cell variables the code object. */
+        private void addCell(SymbolTable.Symbol s) {
+            s.cellIndex = cellIndex++;
+            (s.scope == SymbolTable.ScopeType.FREE ? freevars : cellvars)
+                    .add(s.name);
+        }
+
+        /** Allocate a symbol in the names section the code object. */
+        private void addName(SymbolTable.Symbol s) {
+            s.index = nameIndex++;
+            names.add(s.name);
         }
 
         /**
@@ -1138,6 +1168,7 @@ public class TestInterp2 {
             // Process the associated block scope from the symbol table
             symbolTable = scopeMap.get(module);
             body = module.body;
+            name = "<module>";
 
             // Walk the child nodes: some define functions
             super.visit_Module(module);
@@ -1146,7 +1177,7 @@ public class TestInterp2 {
             finishLayout();
 
             // The code currently generated is the code for this node
-            constMap.put(module, getPyCode());
+            codeMap.put(module, getPyCode());
             return null;
         }
 
@@ -1163,7 +1194,7 @@ public class TestInterp2 {
                 functionDef.accept(codeGenerator);
                 // The code object generated is the code for this node
                 PyCode code = codeGenerator.getPyCode();
-                constMap.put(functionDef, code);
+                codeMap.put(functionDef, code);
                 addConst(code);
 
             } else {
@@ -1173,6 +1204,7 @@ public class TestInterp2 {
                  */
                 symbolTable = scopeMap.get(functionDef);
                 body = functionDef.body;
+                name = functionDef.name;
                 // Visit the parameters, assigning frame locations
                 functionDef.args.accept(this);
 
@@ -1197,9 +1229,9 @@ public class TestInterp2 {
             // Order of visiting determines storage layout
             // args, kwarg, vararg, kwonlyargs
             visitAll(parameters.args);
-            argcount = varnames.size();
+            argcount = localIndex;
             visitAll(parameters.kwonlyargs);
-            kwonlyargcount = varnames.size() - argcount;
+            kwonlyargcount = localIndex - argcount;
             // Optionally, there's a *args
             if (parameters.vararg != null) {
                 // Function accepts arguments as a tuple
@@ -1221,16 +1253,10 @@ public class TestInterp2 {
         @Override
         public Void visit_arg(arg arg) {
             // Allocate this parameter a space in the frame
-            addSymbol(symbolTable.lookup(arg.arg), varnames);
+            addLocal(symbolTable.lookup(arg.arg));
             return null;
         }
 
-        @Override
-        public Void visit_keyword(keyword keyword) {
-            // Allocate this parameter a space in the frame
-            addSymbol(symbolTable.lookup(keyword.arg), varnames);
-            return null;
-        }
     }
 
     // ------------------------------------------------------------------
@@ -1333,11 +1359,11 @@ public class TestInterp2 {
 
     // ======= Generated examples ==========
 
+    // globprog1
 
- // globprog1
-
-     @Test public void globprog1() {
-         // @formatter:off
+    @Test
+    public void globprog1() {
+        // @formatter:off
          // # Test allocation of "names" (globals)
          // # global d is *not* ref'd at module level
          // b = 1
@@ -1379,39 +1405,39 @@ public class TestInterp2 {
          ;
          // @formatter:on
 
- checkCode(module, new RefCode[]{ // globprog1
-     new RefCode( //
-         0, // co_argcount,
-         0, // co_kwonlyargcount
-         new String[]{"b","a","result","p"}, // co_names,
-         new String[]{}, // co_varnames,
-         new String[]{}, // co_cellvars,
-         new String[]{}, // co_freevars
-         "<module>" ),
-     new RefCode( //
-         0, // co_argcount,
-         0, // co_kwonlyargcount
-         new String[]{"a","d","result"}, // co_names,
-         new String[]{"q"}, // co_varnames,
-         new String[]{}, // co_cellvars,
-         new String[]{}, // co_freevars
-         "p" ),
-     new RefCode( //
-         0, // co_argcount,
-         0, // co_kwonlyargcount
-         new String[]{"a","b","d"}, // co_names,
-         new String[]{}, // co_varnames,
-         new String[]{}, // co_cellvars,
-         new String[]{}, // co_freevars
-         "q" ),
- });
- }
+        checkCode(module,
+                new RefCode[] { // globprog1
+                        new RefCode( //
+                                0, // co_argcount,
+                                0, // co_kwonlyargcount
+                                new String[] {"b", "a", "result", "p"}, // co_names,
+                                new String[] {}, // co_varnames,
+                                new String[] {}, // co_cellvars,
+                                new String[] {}, // co_freevars
+                                "<module>"),
+                        new RefCode( //
+                                0, // co_argcount,
+                                0, // co_kwonlyargcount
+                                new String[] {"a", "d", "result"}, // co_names,
+                                new String[] {"q"}, // co_varnames,
+                                new String[] {}, // co_cellvars,
+                                new String[] {}, // co_freevars
+                                "p"),
+                        new RefCode( //
+                                0, // co_argcount,
+                                0, // co_kwonlyargcount
+                                new String[] {"a", "b", "d"}, // co_names,
+                                new String[] {}, // co_varnames,
+                                new String[] {}, // co_cellvars,
+                                new String[] {}, // co_freevars
+                                "q"),});
+    }
 
+    // globprog2
 
- // globprog2
-
-     @Test public void globprog2() {
-         // @formatter:off
+    @Test
+    public void globprog2() {
+        // @formatter:off
          // # Test allocation of "names" (globals)
          // # global d is *assigned* at module level
          // b = 1
@@ -1455,39 +1481,40 @@ public class TestInterp2 {
          ;
          // @formatter:on
 
- checkCode(module, new RefCode[]{ // globprog2
-     new RefCode( //
-         0, // co_argcount,
-         0, // co_kwonlyargcount
-         new String[]{"b","a","result","p","d"}, // co_names,
-         new String[]{}, // co_varnames,
-         new String[]{}, // co_cellvars,
-         new String[]{}, // co_freevars
-         "<module>" ),
-     new RefCode( //
-         0, // co_argcount,
-         0, // co_kwonlyargcount
-         new String[]{"a","d","result"}, // co_names,
-         new String[]{"q"}, // co_varnames,
-         new String[]{}, // co_cellvars,
-         new String[]{}, // co_freevars
-         "p" ),
-     new RefCode( //
-         0, // co_argcount,
-         0, // co_kwonlyargcount
-         new String[]{"a","b","d"}, // co_names,
-         new String[]{}, // co_varnames,
-         new String[]{}, // co_cellvars,
-         new String[]{}, // co_freevars
-         "q" ),
- });
- }
+        checkCode(module,
+                new RefCode[] { // globprog2
+                        new RefCode( //
+                                0, // co_argcount,
+                                0, // co_kwonlyargcount
+                                new String[] {"b", "a", "result", "p",
+                                        "d"}, // co_names,
+                                new String[] {}, // co_varnames,
+                                new String[] {}, // co_cellvars,
+                                new String[] {}, // co_freevars
+                                "<module>"),
+                        new RefCode( //
+                                0, // co_argcount,
+                                0, // co_kwonlyargcount
+                                new String[] {"a", "d", "result"}, // co_names,
+                                new String[] {"q"}, // co_varnames,
+                                new String[] {}, // co_cellvars,
+                                new String[] {}, // co_freevars
+                                "p"),
+                        new RefCode( //
+                                0, // co_argcount,
+                                0, // co_kwonlyargcount
+                                new String[] {"a", "b", "d"}, // co_names,
+                                new String[] {}, // co_varnames,
+                                new String[] {}, // co_cellvars,
+                                new String[] {}, // co_freevars
+                                "q"),});
+    }
 
+    // globprog3
 
- // globprog3
-
-     @Test public void globprog3() {
-         // @formatter:off
+    @Test
+    public void globprog3() {
+        // @formatter:off
          // # Test allocation of "names" (globals)
          // # global d *decalred* but not used at module level
          // global a, b, d
@@ -1531,39 +1558,39 @@ public class TestInterp2 {
          ;
          // @formatter:on
 
- checkCode(module, new RefCode[]{ // globprog3
-     new RefCode( //
-         0, // co_argcount,
-         0, // co_kwonlyargcount
-         new String[]{"b","a","result","p"}, // co_names,
-         new String[]{}, // co_varnames,
-         new String[]{}, // co_cellvars,
-         new String[]{}, // co_freevars
-         "<module>" ),
-     new RefCode( //
-         0, // co_argcount,
-         0, // co_kwonlyargcount
-         new String[]{"a","d","result"}, // co_names,
-         new String[]{"q"}, // co_varnames,
-         new String[]{}, // co_cellvars,
-         new String[]{}, // co_freevars
-         "p" ),
-     new RefCode( //
-         0, // co_argcount,
-         0, // co_kwonlyargcount
-         new String[]{"a","b","d"}, // co_names,
-         new String[]{}, // co_varnames,
-         new String[]{}, // co_cellvars,
-         new String[]{}, // co_freevars
-         "q" ),
- });
- }
+        checkCode(module,
+                new RefCode[] { // globprog3
+                        new RefCode( //
+                                0, // co_argcount,
+                                0, // co_kwonlyargcount
+                                new String[] {"b", "a", "result", "p"}, // co_names,
+                                new String[] {}, // co_varnames,
+                                new String[] {}, // co_cellvars,
+                                new String[] {}, // co_freevars
+                                "<module>"),
+                        new RefCode( //
+                                0, // co_argcount,
+                                0, // co_kwonlyargcount
+                                new String[] {"a", "d", "result"}, // co_names,
+                                new String[] {"q"}, // co_varnames,
+                                new String[] {}, // co_cellvars,
+                                new String[] {}, // co_freevars
+                                "p"),
+                        new RefCode( //
+                                0, // co_argcount,
+                                0, // co_kwonlyargcount
+                                new String[] {"a", "b", "d"}, // co_names,
+                                new String[] {}, // co_varnames,
+                                new String[] {}, // co_cellvars,
+                                new String[] {}, // co_freevars
+                                "q"),});
+    }
 
+    // builtin
 
- // builtin
-
-     @Test public void builtin() {
-         // @formatter:off
+    @Test
+    public void builtin() {
+        // @formatter:off
          // # Test allocation of "names" (globals and a built-in)
          // a = -6
          // b = 7
@@ -1604,39 +1631,40 @@ public class TestInterp2 {
          ;
          // @formatter:on
 
- checkCode(module, new RefCode[]{ // builtin
-     new RefCode( //
-         0, // co_argcount,
-         0, // co_kwonlyargcount
-         new String[]{"a","b","min","result","p"}, // co_names,
-         new String[]{}, // co_varnames,
-         new String[]{}, // co_cellvars,
-         new String[]{}, // co_freevars
-         "<module>" ),
-     new RefCode( //
-         0, // co_argcount,
-         0, // co_kwonlyargcount
-         new String[]{"a","b","result"}, // co_names,
-         new String[]{"q"}, // co_varnames,
-         new String[]{}, // co_cellvars,
-         new String[]{}, // co_freevars
-         "p" ),
-     new RefCode( //
-         0, // co_argcount,
-         0, // co_kwonlyargcount
-         new String[]{"abs","a"}, // co_names,
-         new String[]{}, // co_varnames,
-         new String[]{}, // co_cellvars,
-         new String[]{}, // co_freevars
-         "q" ),
- });
- }
+        checkCode(module,
+                new RefCode[] { // builtin
+                        new RefCode( //
+                                0, // co_argcount,
+                                0, // co_kwonlyargcount
+                                new String[] {"a", "b", "min", "result",
+                                        "p"}, // co_names,
+                                new String[] {}, // co_varnames,
+                                new String[] {}, // co_cellvars,
+                                new String[] {}, // co_freevars
+                                "<module>"),
+                        new RefCode( //
+                                0, // co_argcount,
+                                0, // co_kwonlyargcount
+                                new String[] {"a", "b", "result"}, // co_names,
+                                new String[] {"q"}, // co_varnames,
+                                new String[] {}, // co_cellvars,
+                                new String[] {}, // co_freevars
+                                "p"),
+                        new RefCode( //
+                                0, // co_argcount,
+                                0, // co_kwonlyargcount
+                                new String[] {"abs", "a"}, // co_names,
+                                new String[] {}, // co_varnames,
+                                new String[] {}, // co_cellvars,
+                                new String[] {}, // co_freevars
+                                "q"),});
+    }
 
+    // argprog1
 
- // argprog1
-
-     @Test public void argprog1() {
-         // @formatter:off
+    @Test
+    public void argprog1() {
+        // @formatter:off
          // # Test allocation of argument lists and locals
          // def p(eins, zwei):
          //     def sum(un, deux, trois):
@@ -1703,51 +1731,611 @@ public class TestInterp2 {
          ;
          // @formatter:on
 
- checkCode(module, new RefCode[]{ // argprog1
-     new RefCode( //
-         0, // co_argcount,
-         0, // co_kwonlyargcount
-         new String[]{"p","result"}, // co_names,
-         new String[]{}, // co_varnames,
-         new String[]{}, // co_cellvars,
-         new String[]{}, // co_freevars
-         "<module>" ),
-     new RefCode( //
-         2, // co_argcount,
-         0, // co_kwonlyargcount
-         new String[]{}, // co_names,
-         new String[]{"eins","zwei","sum","diff","prod","drei","six","seven"}, // co_varnames,
-         new String[]{}, // co_cellvars,
-         new String[]{}, // co_freevars
-         "p" ),
-     new RefCode( //
-         3, // co_argcount,
-         0, // co_kwonlyargcount
-         new String[]{}, // co_names,
-         new String[]{"un","deux","trois"}, // co_varnames,
-         new String[]{}, // co_cellvars,
-         new String[]{}, // co_freevars
-         "sum" ),
-     new RefCode( //
-         2, // co_argcount,
-         0, // co_kwonlyargcount
-         new String[]{}, // co_names,
-         new String[]{"tolv","fem"}, // co_varnames,
-         new String[]{}, // co_cellvars,
-         new String[]{}, // co_freevars
-         "diff" ),
-     new RefCode( //
-         2, // co_argcount,
-         0, // co_kwonlyargcount
-         new String[]{}, // co_names,
-         new String[]{"sex","sju"}, // co_varnames,
-         new String[]{}, // co_cellvars,
-         new String[]{}, // co_freevars
-         "prod" ),
- });
- }
+        checkCode(module, new RefCode[] { // argprog1
+                new RefCode( //
+                        0, // co_argcount,
+                        0, // co_kwonlyargcount
+                        new String[] {"p", "result"}, // co_names,
+                        new String[] {}, // co_varnames,
+                        new String[] {}, // co_cellvars,
+                        new String[] {}, // co_freevars
+                        "<module>"),
+                new RefCode( //
+                        2, // co_argcount,
+                        0, // co_kwonlyargcount
+                        new String[] {}, // co_names,
+                        new String[] {"eins", "zwei", "sum", "diff",
+                                "prod", "drei", "six", "seven"}, // co_varnames,
+                        new String[] {}, // co_cellvars,
+                        new String[] {}, // co_freevars
+                        "p"),
+                new RefCode( //
+                        3, // co_argcount,
+                        0, // co_kwonlyargcount
+                        new String[] {}, // co_names,
+                        new String[] {"un", "deux", "trois"}, // co_varnames,
+                        new String[] {}, // co_cellvars,
+                        new String[] {}, // co_freevars
+                        "sum"),
+                new RefCode( //
+                        2, // co_argcount,
+                        0, // co_kwonlyargcount
+                        new String[] {}, // co_names,
+                        new String[] {"tolv", "fem"}, // co_varnames,
+                        new String[] {}, // co_cellvars,
+                        new String[] {}, // co_freevars
+                        "diff"),
+                new RefCode( //
+                        2, // co_argcount,
+                        0, // co_kwonlyargcount
+                        new String[] {}, // co_names,
+                        new String[] {"sex", "sju"}, // co_varnames,
+                        new String[] {}, // co_cellvars,
+                        new String[] {}, // co_freevars
+                        "prod"),});
+    }
 
+    // closprog1
 
+    @Test
+    public void closprog1() {
+        // @formatter:off
+         // # Program requiring closures made of local variables
+         // def p(a, b):
+         //     x = a + 1 # =2
+         //     def q(c):
+         //         y = x + c # =4
+         //         def r(d):
+         //             z = y + d # =6
+         //             def s(e):
+         //                 return (e + x + y - 1) * z # =42
+         //             return s(d)
+         //         return r(c)
+         //     return q(b)
+         //
+         // result = p(1, 2)
+         mod module = Module(
+     list(
+         FunctionDef(
+             "p",
+             arguments(list(arg("a", null), arg("b", null)), null, list(), list(), null, list()),
+             list(
+                 Assign(list(Name("x", Store)), BinOp(Name("a", Load), Add, Num(1))),
+                 FunctionDef(
+                     "q",
+                     arguments(list(arg("c", null)), null, list(), list(), null, list()),
+                     list(
+                         Assign(list(Name("y", Store)), BinOp(Name("x", Load), Add, Name("c", Load))),
+                         FunctionDef(
+                             "r",
+                             arguments(list(arg("d", null)), null, list(), list(), null, list()),
+                             list(
+                                 Assign(list(Name("z", Store)), BinOp(Name("y", Load), Add, Name("d", Load))),
+                                 FunctionDef(
+                                     "s",
+                                     arguments(list(arg("e", null)), null, list(), list(), null, list()),
+                                     list(
+                                         Return(
+                                             BinOp(
+                                                 BinOp(
+                                                     BinOp(
+                                                         BinOp(Name("e", Load), Add, Name("x", Load)),
+                                                         Add,
+                                                         Name("y", Load)),
+                                                     Sub,
+                                                     Num(1)),
+                                                 Mult,
+                                                 Name("z", Load)))),
+                                     list(),
+                                     null),
+                                 Return(Call(Name("s", Load), list(Name("d", Load)), list()))),
+                             list(),
+                             null),
+                         Return(Call(Name("r", Load), list(Name("c", Load)), list()))),
+                     list(),
+                     null),
+                 Return(Call(Name("q", Load), list(Name("b", Load)), list()))),
+             list(),
+             null),
+         Assign(list(Name("result", Store)), Call(Name("p", Load), list(Num(1), Num(2)), list()))))
+         ;
+         // @formatter:on
+
+        checkCode(module,
+                new RefCode[] { // closprog1
+                        new RefCode( //
+                                0, // co_argcount,
+                                0, // co_kwonlyargcount
+                                new String[] {"p", "result"}, // co_names,
+                                new String[] {}, // co_varnames,
+                                new String[] {}, // co_cellvars,
+                                new String[] {}, // co_freevars
+                                "<module>"),
+                        new RefCode( //
+                                2, // co_argcount,
+                                0, // co_kwonlyargcount
+                                new String[] {}, // co_names,
+                                new String[] {"a", "b", "q"}, // co_varnames,
+                                new String[] {"x"}, // co_cellvars,
+                                new String[] {}, // co_freevars
+                                "p"),
+                        new RefCode( //
+                                1, // co_argcount,
+                                0, // co_kwonlyargcount
+                                new String[] {}, // co_names,
+                                new String[] {"c", "r"}, // co_varnames,
+                                new String[] {"y"}, // co_cellvars,
+                                new String[] {"x"}, // co_freevars
+                                "q"),
+                        new RefCode( //
+                                1, // co_argcount,
+                                0, // co_kwonlyargcount
+                                new String[] {}, // co_names,
+                                new String[] {"d", "s"}, // co_varnames,
+                                new String[] {"z"}, // co_cellvars,
+                                new String[] {"x", "y"}, // co_freevars
+                                "r"),
+                        new RefCode( //
+                                1, // co_argcount,
+                                0, // co_kwonlyargcount
+                                new String[] {}, // co_names,
+                                new String[] {"e"}, // co_varnames,
+                                new String[] {}, // co_cellvars,
+                                new String[] {"x", "y", "z"}, // co_freevars
+                                "s"),});
+    }
+
+    // closprog2
+
+    @Test
+    public void closprog2() {
+        // @formatter:off
+         // # Program requiring closures from arguments
+         // def p(r, i):
+         //     def sum():
+         //         return r + i
+         //     def diff():
+         //         def q():
+         //             return r - i
+         //         return q()
+         //     def prod():
+         //         return r * i
+         //     return prod() + sum() + diff()
+         //
+         // result = p(7, 4)
+         mod module = Module(
+     list(
+         FunctionDef(
+             "p",
+             arguments(list(arg("r", null), arg("i", null)), null, list(), list(), null, list()),
+             list(
+                 FunctionDef(
+                     "sum",
+                     arguments(list(), null, list(), list(), null, list()),
+                     list(Return(BinOp(Name("r", Load), Add, Name("i", Load)))),
+                     list(),
+                     null),
+                 FunctionDef(
+                     "diff",
+                     arguments(list(), null, list(), list(), null, list()),
+                     list(
+                         FunctionDef(
+                             "q",
+                             arguments(list(), null, list(), list(), null, list()),
+                             list(Return(BinOp(Name("r", Load), Sub, Name("i", Load)))),
+                             list(),
+                             null),
+                         Return(Call(Name("q", Load), list(), list()))),
+                     list(),
+                     null),
+                 FunctionDef(
+                     "prod",
+                     arguments(list(), null, list(), list(), null, list()),
+                     list(Return(BinOp(Name("r", Load), Mult, Name("i", Load)))),
+                     list(),
+                     null),
+                 Return(
+                     BinOp(
+                         BinOp(
+                             Call(Name("prod", Load), list(), list()),
+                             Add,
+                             Call(Name("sum", Load), list(), list())),
+                         Add,
+                         Call(Name("diff", Load), list(), list())))),
+             list(),
+             null),
+         Assign(list(Name("result", Store)), Call(Name("p", Load), list(Num(7), Num(4)), list()))))
+         ;
+         // @formatter:on
+
+        checkCode(module, new RefCode[] { // closprog2
+                new RefCode( //
+                        0, // co_argcount,
+                        0, // co_kwonlyargcount
+                        new String[] {"p", "result"}, // co_names,
+                        new String[] {}, // co_varnames,
+                        new String[] {}, // co_cellvars,
+                        new String[] {}, // co_freevars
+                        "<module>"),
+                new RefCode( //
+                        2, // co_argcount,
+                        0, // co_kwonlyargcount
+                        new String[] {}, // co_names,
+                        new String[] {"r", "i", "sum", "diff", "prod"}, // co_varnames,
+                        new String[] {"i", "r"}, // co_cellvars,
+                        new String[] {}, // co_freevars
+                        "p"),
+                new RefCode( //
+                        0, // co_argcount,
+                        0, // co_kwonlyargcount
+                        new String[] {}, // co_names,
+                        new String[] {}, // co_varnames,
+                        new String[] {}, // co_cellvars,
+                        new String[] {"i", "r"}, // co_freevars
+                        "sum"),
+                new RefCode( //
+                        0, // co_argcount,
+                        0, // co_kwonlyargcount
+                        new String[] {}, // co_names,
+                        new String[] {"q"}, // co_varnames,
+                        new String[] {}, // co_cellvars,
+                        new String[] {"i", "r"}, // co_freevars
+                        "diff"),
+                new RefCode( //
+                        0, // co_argcount,
+                        0, // co_kwonlyargcount
+                        new String[] {}, // co_names,
+                        new String[] {}, // co_varnames,
+                        new String[] {}, // co_cellvars,
+                        new String[] {"i", "r"}, // co_freevars
+                        "q"),
+                new RefCode( //
+                        0, // co_argcount,
+                        0, // co_kwonlyargcount
+                        new String[] {}, // co_names,
+                        new String[] {}, // co_varnames,
+                        new String[] {}, // co_cellvars,
+                        new String[] {"i", "r"}, // co_freevars
+                        "prod"),});
+    }
+
+    // closprog3
+
+    @Test
+    public void closprog3() {
+        // @formatter:off
+         // # Program requiring closures (mixed)
+         // def p(ua, b): #(1,2)
+         //     z = ua + b # 3
+         //     def q(uc, d): #(1,3)
+         //         y = ua + uc + z # 5
+         //         def r(ue, f): #(1,5)
+         //             x = (ua + uc) + (ue + f) + (y + z) # 16
+         //             def s(uf, g): # (1,16)
+         //                 return (ua + uc - ue) + (uf + g) + (x + y + z)
+         //             return s(ue, x)
+         //         return r(uc, y)
+         //     return q(ua, z)
+         // result = p(1, 2)
+         mod module = Module(
+     list(
+         FunctionDef(
+             "p",
+             arguments(list(arg("ua", null), arg("b", null)), null, list(), list(), null, list()),
+             list(
+                 Assign(list(Name("z", Store)), BinOp(Name("ua", Load), Add, Name("b", Load))),
+                 FunctionDef(
+                     "q",
+                     arguments(list(arg("uc", null), arg("d", null)), null, list(), list(), null, list()),
+                     list(
+                         Assign(
+                             list(Name("y", Store)),
+                             BinOp(BinOp(Name("ua", Load), Add, Name("uc", Load)), Add, Name("z", Load))),
+                         FunctionDef(
+                             "r",
+                             arguments(list(arg("ue", null), arg("f", null)), null, list(), list(), null, list()),
+                             list(
+                                 Assign(
+                                     list(Name("x", Store)),
+                                     BinOp(
+                                         BinOp(
+                                             BinOp(Name("ua", Load), Add, Name("uc", Load)),
+                                             Add,
+                                             BinOp(Name("ue", Load), Add, Name("f", Load))),
+                                         Add,
+                                         BinOp(Name("y", Load), Add, Name("z", Load)))),
+                                 FunctionDef(
+                                     "s",
+                                     arguments(
+                                         list(arg("uf", null), arg("g", null)),
+                                         null,
+                                         list(),
+                                         list(),
+                                         null,
+                                         list()),
+                                     list(
+                                         Return(
+                                             BinOp(
+                                                 BinOp(
+                                                     BinOp(
+                                                         BinOp(Name("ua", Load), Add, Name("uc", Load)),
+                                                         Sub,
+                                                         Name("ue", Load)),
+                                                     Add,
+                                                     BinOp(Name("uf", Load), Add, Name("g", Load))),
+                                                 Add,
+                                                 BinOp(
+                                                     BinOp(Name("x", Load), Add, Name("y", Load)),
+                                                     Add,
+                                                     Name("z", Load))))),
+                                     list(),
+                                     null),
+                                 Return(Call(Name("s", Load), list(Name("ue", Load), Name("x", Load)), list()))),
+                             list(),
+                             null),
+                         Return(Call(Name("r", Load), list(Name("uc", Load), Name("y", Load)), list()))),
+                     list(),
+                     null),
+                 Return(Call(Name("q", Load), list(Name("ua", Load), Name("z", Load)), list()))),
+             list(),
+             null),
+         Assign(list(Name("result", Store)), Call(Name("p", Load), list(Num(1), Num(2)), list()))))
+         ;
+         // @formatter:on
+
+        checkCode(module, new RefCode[] { // closprog3
+                new RefCode( //
+                        0, // co_argcount,
+                        0, // co_kwonlyargcount
+                        new String[] {"p", "result"}, // co_names,
+                        new String[] {}, // co_varnames,
+                        new String[] {}, // co_cellvars,
+                        new String[] {}, // co_freevars
+                        "<module>"),
+                new RefCode( //
+                        2, // co_argcount,
+                        0, // co_kwonlyargcount
+                        new String[] {}, // co_names,
+                        new String[] {"ua", "b", "q"}, // co_varnames,
+                        new String[] {"ua", "z"}, // co_cellvars,
+                        new String[] {}, // co_freevars
+                        "p"),
+                new RefCode( //
+                        2, // co_argcount,
+                        0, // co_kwonlyargcount
+                        new String[] {}, // co_names,
+                        new String[] {"uc", "d", "r"}, // co_varnames,
+                        new String[] {"uc", "y"}, // co_cellvars,
+                        new String[] {"ua", "z"}, // co_freevars
+                        "q"),
+                new RefCode( //
+                        2, // co_argcount,
+                        0, // co_kwonlyargcount
+                        new String[] {}, // co_names,
+                        new String[] {"ue", "f", "s"}, // co_varnames,
+                        new String[] {"ue", "x"}, // co_cellvars,
+                        new String[] {"ua", "uc", "y", "z"}, // co_freevars
+                        "r"),
+                new RefCode( //
+                        2, // co_argcount,
+                        0, // co_kwonlyargcount
+                        new String[] {}, // co_names,
+                        new String[] {"uf", "g"}, // co_varnames,
+                        new String[] {}, // co_cellvars,
+                        new String[] {"ua", "uc", "ue", "x", "y", "z"}, // co_freevars
+                        "s"),});
+    }
+
+    // kwargprog
+
+    @Test
+    public void kwargprog() {
+        // @formatter:off
+         // # Program where functions have keyword arguments
+         // def p(r, i=4):
+         //     def sum(r, q, *args, j, i, **kwargs):
+         //         mysum = r + i
+         //         return mysum
+         //     def diff():
+         //         def q():
+         //             return r - i
+         //         return q()
+         //     def prod():
+         //         return r * i
+         //     s = sum(r, 1, 2, 3, i=i, j=0, k="hello", l="world")
+         //     return prod() + s + diff()
+         //
+         // result = p(7, 4)
+         mod module = Module(
+     list(
+         FunctionDef(
+             "p",
+             arguments(list(arg("r", null), arg("i", null)), null, list(), list(), null, list(Num(4))),
+             list(
+                 FunctionDef(
+                     "sum",
+                     arguments(
+                         list(arg("r", null), arg("q", null)),
+                         arg("args", null),
+                         list(arg("j", null), arg("i", null)),
+                         list(null, null),
+                         arg("kwargs", null),
+                         list()),
+                     list(
+                         Assign(list(Name("mysum", Store)), BinOp(Name("r", Load), Add, Name("i", Load))),
+                         Return(Name("mysum", Load))),
+                     list(),
+                     null),
+                 FunctionDef(
+                     "diff",
+                     arguments(list(), null, list(), list(), null, list()),
+                     list(
+                         FunctionDef(
+                             "q",
+                             arguments(list(), null, list(), list(), null, list()),
+                             list(Return(BinOp(Name("r", Load), Sub, Name("i", Load)))),
+                             list(),
+                             null),
+                         Return(Call(Name("q", Load), list(), list()))),
+                     list(),
+                     null),
+                 FunctionDef(
+                     "prod",
+                     arguments(list(), null, list(), list(), null, list()),
+                     list(Return(BinOp(Name("r", Load), Mult, Name("i", Load)))),
+                     list(),
+                     null),
+                 Assign(
+                     list(Name("s", Store)),
+                     Call(
+                         Name("sum", Load),
+                         list(Name("r", Load), Num(1), Num(2), Num(3)),
+                         list(
+                             keyword("i", Name("i", Load)),
+                             keyword("j", Num(0)),
+                             keyword("k", Str("hello")),
+                             keyword("l", Str("world"))))),
+                 Return(
+                     BinOp(
+                         BinOp(Call(Name("prod", Load), list(), list()), Add, Name("s", Load)),
+                         Add,
+                         Call(Name("diff", Load), list(), list())))),
+             list(),
+             null),
+         Assign(list(Name("result", Store)), Call(Name("p", Load), list(Num(7), Num(4)), list()))))
+         ;
+         // @formatter:on
+
+        checkCode(module,
+                new RefCode[] { // kwargprog
+                        new RefCode( //
+                                0, // co_argcount,
+                                0, // co_kwonlyargcount
+                                new String[] {"p", "result"}, // co_names,
+                                new String[] {}, // co_varnames,
+                                new String[] {}, // co_cellvars,
+                                new String[] {}, // co_freevars
+                                "<module>"),
+                        new RefCode( //
+                                2, // co_argcount,
+                                0, // co_kwonlyargcount
+                                new String[] {}, // co_names,
+                                new String[] {"r", "i", "sum", "diff",
+                                        "prod", "s"}, // co_varnames,
+                                new String[] {"i", "r"}, // co_cellvars,
+                                new String[] {}, // co_freevars
+                                "p"),
+                        new RefCode( //
+                                2, // co_argcount,
+                                2, // co_kwonlyargcount
+                                new String[] {}, // co_names,
+                                new String[] {"r", "q", "j", "i", "args",
+                                        "kwargs", "mysum"}, // co_varnames,
+                                new String[] {}, // co_cellvars,
+                                new String[] {}, // co_freevars
+                                "sum"),
+                        new RefCode( //
+                                0, // co_argcount,
+                                0, // co_kwonlyargcount
+                                new String[] {}, // co_names,
+                                new String[] {"q"}, // co_varnames,
+                                new String[] {}, // co_cellvars,
+                                new String[] {"i", "r"}, // co_freevars
+                                "diff"),
+                        new RefCode( //
+                                0, // co_argcount,
+                                0, // co_kwonlyargcount
+                                new String[] {}, // co_names,
+                                new String[] {}, // co_varnames,
+                                new String[] {}, // co_cellvars,
+                                new String[] {"i", "r"}, // co_freevars
+                                "q"),
+                        new RefCode( //
+                                0, // co_argcount,
+                                0, // co_kwonlyargcount
+                                new String[] {}, // co_names,
+                                new String[] {}, // co_varnames,
+                                new String[] {}, // co_cellvars,
+                                new String[] {"i", "r"}, // co_freevars
+                                "prod"),});
+    }
+
+    // kwargcell
+
+    @Test
+    public void kwargcell() {
+        // @formatter:off
+         // # Program where a default value is a non-local (cell)
+         // def p(i):
+         //     def q():
+         //         def r(m=i):
+         //             i = 43
+         //             return m
+         //         return r()
+         //     return q()
+         //
+         // result = p(42)
+         mod module = Module(
+     list(
+         FunctionDef(
+             "p",
+             arguments(list(arg("i", null)), null, list(), list(), null, list()),
+             list(
+                 FunctionDef(
+                     "q",
+                     arguments(list(), null, list(), list(), null, list()),
+                     list(
+                         FunctionDef(
+                             "r",
+                             arguments(list(arg("m", null)), null, list(), list(), null, list(Name("i", Load))),
+                             list(Assign(list(Name("i", Store)), Num(43)), Return(Name("m", Load))),
+                             list(),
+                             null),
+                         Return(Call(Name("r", Load), list(), list()))),
+                     list(),
+                     null),
+                 Return(Call(Name("q", Load), list(), list()))),
+             list(),
+             null),
+         Assign(list(Name("result", Store)), Call(Name("p", Load), list(Num(42)), list()))))
+         ;
+         // @formatter:on
+
+        checkCode(module,
+                new RefCode[] { // kwargcell
+                        new RefCode( //
+                                0, // co_argcount,
+                                0, // co_kwonlyargcount
+                                new String[] {"p", "result"}, // co_names,
+                                new String[] {}, // co_varnames,
+                                new String[] {}, // co_cellvars,
+                                new String[] {}, // co_freevars
+                                "<module>"),
+                        new RefCode( //
+                                1, // co_argcount,
+                                0, // co_kwonlyargcount
+                                new String[] {}, // co_names,
+                                new String[] {"i", "q"}, // co_varnames,
+                                new String[] {"i"}, // co_cellvars,
+                                new String[] {}, // co_freevars
+                                "p"),
+                        new RefCode( //
+                                0, // co_argcount,
+                                0, // co_kwonlyargcount
+                                new String[] {}, // co_names,
+                                new String[] {"r"}, // co_varnames,
+                                new String[] {}, // co_cellvars,
+                                new String[] {"i"}, // co_freevars
+                                "q"),
+                        new RefCode( //
+                                1, // co_argcount,
+                                0, // co_kwonlyargcount
+                                new String[] {}, // co_names,
+                                new String[] {"m", "i"}, // co_varnames,
+                                new String[] {}, // co_cellvars,
+                                new String[] {}, // co_freevars
+                                "r"),});
+    }
 
     // ======= End of generated examples ==========
 }

@@ -287,11 +287,11 @@ worklist = (
     ("globprog3", 1),
     ("builtin", 1),
     ("argprog1", 1),
-    ##("closprog1", 1),
-    ##("closprog2", 1),
-    ##("closprog3", 1),
-    ##("kwargprog", 1),
-    ##("kwargcell", 1),
+    ("closprog1", 1),
+    ("closprog2", 1),
+    ("closprog3", 1),
+    ("kwargprog", 1),
+    ("kwargcell", 1),
 )
 
 

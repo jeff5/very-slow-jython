@@ -135,6 +135,13 @@ However,
 one can supply separate local and global dictionaries explicitly,
 when executing any code using the :py:func:`eval` function.
 
+.. note::
+
+   In order to access the project-specific tools
+   used in the Python examples in this section,
+   put the dirsctory ``~/src/test/python`` on the ``sys.path``,
+   for example via the environment variable ``PYTHONPATH``.
+
 Modes of Access
 ===============
 There are roughly 4 types of variable access in Python,
@@ -474,11 +481,177 @@ each one being the execution context of the current module
 or function invocation,
 and holding its local variables and other state.
 ``frame`` objects also occur in the stack traces of exceptions,
-and as the state of a generator function after it returns.
+and as the state of a generator::
 
-In addition to the compiled form of the statements,
-a ``code`` object contains the information necessary to create
-a Python ``frame`` object.
+   >>> def g(a, b):
+           n = a
+           while n < b:
+               yield n
+               n += 1
+
+   >>> x = g(10, 20)
+   >>> x.gi_frame.f_locals
+   {'a': 10, 'b': 20}
+   >>> next(x)
+   10
+   >>> next(x)
+   11
+   >>> x.gi_frame.f_locals
+   {'a': 10, 'n': 11, 'b': 20}
+
+We can see that the state of the generator function is in the local variables of the frame.
+And there is an associated code object::
+
+   >>> dis.dis(x.gi_code)
+     2           0 LOAD_FAST                0 (a)
+                 3 STORE_FAST               2 (n)
+
+     3           6 SETUP_LOOP              31 (to 40)
+           >>    9 LOAD_FAST                2 (n)
+                12 LOAD_FAST                1 (b)
+                15 COMPARE_OP               0 (<)
+                18 POP_JUMP_IF_FALSE       39
+
+     4          21 LOAD_FAST                2 (n)
+                24 YIELD_VALUE
+                25 POP_TOP
+
+     5          26 LOAD_FAST                2 (n)
+                29 LOAD_CONST               1 (1)
+                32 INPLACE_ADD
+                33 STORE_FAST               2 (n)
+                36 JUMP_ABSOLUTE            9
+           >>   39 POP_BLOCK
+           >>   40 LOAD_CONST               0 (None)
+                43 RETURN_VALUE
+
+The ``LOAD_FAST`` and ``STORE_FAST`` instructions
+reference offsets in the execution frame.
+The variables ``a``, ``b`` and ``n``
+are at offsets 0, 1 and 2 respectively.
+It is the ``code`` object that specifies this layout,
+and holds the constants used::
+
+   >>> x.gi_code.co_varnames
+   ('a', 'b', 'n')
+   >>> x.gi_code.co_consts
+   (None, 1)
+
+In fact, a ``code`` object contains the information necessary to create
+a Python ``frame`` object to support its block of code
+
+Turning to our example program again, and nested functions,
+that when the is code disassembled,
+it only shows instructions for the module level::
+
+    >>> prog = """\
+    def f():
+        def g():
+            def h():
+                nonlocal x
+                x = 42000
+            pass
+        x = 420
+    x = 42
+    """
+    >>> progcode = compile(prog, '<module>', 'exec')
+    >>> dis.dis(progcode)
+      1           0 LOAD_CONST               0 (<code object f ... >)
+                  3 LOAD_CONST               1 ('f')
+                  6 MAKE_FUNCTION            0
+                  9 STORE_NAME               0 (f)
+
+      8          12 LOAD_CONST               2 (42)
+                 15 STORE_NAME               1 (x)
+                 18 LOAD_CONST               3 (None)
+                 21 RETURN_VALUE
+
+Where are the code objects for the nested functions?
+The code for ``f`` appears as constant in the first instruction,
+pushed to the stack for the ``MAKE_FUNCTION`` instruction to access.
+Remember, a function definition is an executable statement in Python,
+in which the suite (body) is a sort of argument.
+The corresponding constant contains the code expected::
+
+   >>> progcode.co_consts[0]
+   <code object f at 0x000001941F6001E0, file "<module>", line 1>
+   >>> dis.dis(progcode.co_consts[0])
+     2           0 LOAD_CLOSURE             0 (x)
+                 3 BUILD_TUPLE              1
+                 6 LOAD_CONST               1 (<code object g ... >)
+                 9 LOAD_CONST               2 ('f.<locals>.g')
+                12 MAKE_CLOSURE             0
+                15 STORE_FAST               0 (g)
+
+     7          18 LOAD_CONST               3 (420)
+                21 STORE_DEREF              0 (x)
+                24 LOAD_CONST               0 (None)
+                27 RETURN_VALUE
+
+There is a project-specific tool in ``~/src/test/python/codeutil.py``
+(put the dirctory on ``sys.path``)
+that will dump out the tree of ``code`` objects and the attributes
+that define the ``frame`` they create::
+
+   >>> import codeutil as cu
+   >>> cu.show_code(prog)
+   Code block: <module>
+       co_argcount  : 0
+       co_kwonlyargcount : 0
+       co_nlocals   : 0
+       co_name      : '<module>'
+       co_names     : ('f', 'x')
+       co_varnames  : ()
+       co_cellvars  : ()
+       co_freevars  : ()
+   Code block: f
+       co_argcount  : 0
+       co_kwonlyargcount : 0
+       co_nlocals   : 1
+       co_name      : 'f'
+       co_names     : ()
+       co_varnames  : ('g',)
+       co_cellvars  : ('x',)
+       co_freevars  : ()
+   Code block: g
+       co_argcount  : 0
+       co_kwonlyargcount : 0
+       co_nlocals   : 1
+       co_name      : 'g'
+       co_names     : ()
+       co_varnames  : ('h',)
+       co_cellvars  : ()
+       co_freevars  : ('x',)
+   Code block: h
+       co_argcount  : 0
+       co_kwonlyargcount : 0
+       co_nlocals   : 0
+       co_name      : 'h'
+       co_names     : ()
+       co_varnames  : ()
+       co_cellvars  : ()
+       co_freevars  : ('x',)
+
+In order to represent Python execution context in full,
+we need to create code objects for all the nested functions in an AST.
+The symbol table we have already created contains the usage information,
+list the names in
+``co_varnames``, ``co_varnames``, ``co_cellvars`` and ``co_freevars``.
+Local variable access in CPython byte code uses numerical indexes,
+directly into an array in the frame,
+not the names in ``co_varnames``, ``co_cellvars`` and ``co_freevars``.
+They are consulted to produce error messages that mention the variable names,
+such as when one is accessed before it is assigned.
+The names in ``co_varnames`` *are* used as constants,
+to access globals and built-ins for example.
+
+In the AST interpreter, we do not need these arrays (``tuple``) at all,
+because the AST itself contains the names at each node.
+Instead, we must map in the opposite direction,
+using the symbol table to look up the index in the frame.
+However, we'll produce them for comparison with CPython.
+
+
 
 
 Critical Structures -- First Implementation
