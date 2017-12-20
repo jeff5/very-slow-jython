@@ -53,16 +53,25 @@ public class TestInterp2 {
         final String name;
         final int argcount;
         final int kwonlyargcount;
+        final int nlocals;
+        final int flags;
         final String[] names;
         final String[] varnames;
         final String[] cellvars;
         final String[] freevars;
 
-        RefCode(int argcount, int kwonlyargcount, String[] names,
-                String[] varnames, String[] cellvars, String[] freevars,
-                String name) {
+        /**
+         * Construct reference result. Each test written by
+         * <code>src/test/python/code_testgen.py</code> contains a use of
+         * this constructor.
+         */
+        RefCode(int argcount, int kwonlyargcount, int nlocals, int flags,
+                String[] names, String[] varnames, String[] cellvars,
+                String[] freevars, String name) {
             this.argcount = argcount;
             this.kwonlyargcount = kwonlyargcount;
+            this.nlocals = nlocals;
+            this.flags = flags;
             this.name = name;
             this.names = names;
             this.varnames = varnames;
@@ -70,25 +79,57 @@ public class TestInterp2 {
             this.freevars = freevars;
         }
 
+        /** Check test result against this reference. */
         void check(PyCode c) {
             // System.out.printf(" *** Block %s ***\n", name);
+            assertEquals(name + ".name", name, c.co_name);
             checkCounts(c);
+            checkTraits(c);
             checkArrays(c);
         }
 
         void checkCounts(PyCode c) {
-            assertEquals(name+".name", name, c.co_name);
-            assertEquals(name+".argcount", argcount, c.argcount);
-            assertEquals(name+".kwonlyargcount", kwonlyargcount,
+            assertEquals(name + ".argcount", argcount, c.argcount);
+            assertEquals(name + ".kwonlyargcount", kwonlyargcount,
                     c.kwonlyargcount);
+            assertEquals(name + ".nlocals", nlocals, c.nlocals);
+        }
+
+        /**
+         * Check each of the {@link PyCode.Trait}s we support against the
+         * flags.
+         */
+        void checkTraits(PyCode c) {
+            for (PyCode.Trait t : PyCode.Trait.values()) {
+                switch (t) {
+                    case OPTIMIZED:
+                        assertEquals(name + " OPTIMIZED",//
+                                (flags & 1) != 0, c.traits.contains(t));
+                        break;
+                    case NEWLOCALS:
+                        assertEquals(name + " NEWLOCALS",//
+                                (flags & 2) != 0, c.traits.contains(t));
+                        break;
+                    case VARARGS:
+                        assertEquals(name + " VARARGS",//
+                                (flags & 4) != 0, c.traits.contains(t));
+                        break;
+                    case VARKEYWORDS:
+                        assertEquals(name + " VARKEYWORDS",//
+                                (flags & 8) != 0, c.traits.contains(t));
+                        break;
+                }
+
+            }
+            assertEquals(name + ".nlocals", nlocals, c.nlocals);
         }
 
         void checkArrays(PyCode c) {
-            checkSortedArray(name+".names", names, c.co_names);
-            checkSortedArray(name+".varnames", varnames, c.co_varnames,
+            checkSortedArray(name + ".names", names, c.co_names);
+            checkSortedArray(name + ".varnames", varnames, c.co_varnames,
                     argcount);
-            checkSortedArray(name+".cellvars", cellvars, c.co_cellvars);
-            checkSortedArray(name+".freevars", freevars, c.co_freevars);
+            checkSortedArray(name + ".cellvars", cellvars, c.co_cellvars);
+            checkSortedArray(name + ".freevars", freevars, c.co_freevars);
         }
 
         /** Assert arrays are equal after sorting the contents of each. */
@@ -213,7 +254,7 @@ public class TestInterp2 {
 
         /** Characteristics of a PyCode (as CPython co_flags). */
         enum Trait {
-            VARARGS, VARKEYWORDS
+            OPTIMIZED, NEWLOCALS, VARARGS, VARKEYWORDS
         }
 
         final EnumSet<Trait> traits;
@@ -238,25 +279,26 @@ public class TestInterp2 {
 
         final String co_name; // name of function etc.
 
-        /** Construct from result of walking the AST. */
-        public PyCode( //
-                int argcount, // co_argcount
-                int kwonlyargcount, // co_kwonlyargcount
-                int nlocals, // co_nlocals
-
-                Set<Trait> traits, // co_flags
-
-                Code code, // co_code
-                List<Object> consts, // co_consts
-
-                Collection<String> names, // names ref'd in code
-                Collection<String> varnames, // args and non-cell locals
-                Collection<String> freevars, // names ref'd but not defined
-                                             // here
-                Collection<String> cellvars, // names def'd here & ref'd
-                                            // elsewhere
-                String name // of function etc.
-        ) {
+        /**
+         * Construct from result of walking the AST.
+         *
+         * @param argcount argument count
+         * @param kwonlyargcount keyword only argument count
+         * @param nlocals number of args and non-cell locals
+         * @param traits characteristics (CPython <code>co_flags</code>)
+         * @param code to execute: an AST and necessary symbol table
+         * @param consts constants mentioned in code
+         * @param names ref'd in code
+         * @param varnames args and non-cell locals
+         * @param freevars ref'd but not def'd here
+         * @param cellvars def'd here, ref'd elsewhere
+         * @param name of function etc. of which thios ios the code
+         */
+        public PyCode(int argcount, int kwonlyargcount, int nlocals,
+                Set<Trait> traits, Code code, List<Object> consts,
+                Collection<String> names, Collection<String> varnames,
+                Collection<String> freevars, Collection<String> cellvars,
+                String name) {
             this.argcount = argcount;
             this.kwonlyargcount = kwonlyargcount;
             this.nlocals = nlocals;
@@ -1205,6 +1247,12 @@ public class TestInterp2 {
                 symbolTable = scopeMap.get(functionDef);
                 body = functionDef.body;
                 name = functionDef.name;
+
+                // Local variables will be in arrays not a map
+                traits.add(PyCode.Trait.OPTIMIZED);
+                // And the caller won't supply a local variable map
+                traits.add(PyCode.Trait.NEWLOCALS);
+
                 // Visit the parameters, assigning frame locations
                 functionDef.args.accept(this);
 
@@ -1409,7 +1457,9 @@ public class TestInterp2 {
                 new RefCode[] { // globprog1
                         new RefCode( //
                                 0, // co_argcount,
-                                0, // co_kwonlyargcount
+                                0, // co_kwonlyargcount,
+                                0, // co_nlocals,
+                                64, // co_flags
                                 new String[] {"b", "a", "result", "p"}, // co_names,
                                 new String[] {}, // co_varnames,
                                 new String[] {}, // co_cellvars,
@@ -1417,7 +1467,9 @@ public class TestInterp2 {
                                 "<module>"),
                         new RefCode( //
                                 0, // co_argcount,
-                                0, // co_kwonlyargcount
+                                0, // co_kwonlyargcount,
+                                1, // co_nlocals,
+                                67, // co_flags
                                 new String[] {"a", "d", "result"}, // co_names,
                                 new String[] {"q"}, // co_varnames,
                                 new String[] {}, // co_cellvars,
@@ -1425,7 +1477,9 @@ public class TestInterp2 {
                                 "p"),
                         new RefCode( //
                                 0, // co_argcount,
-                                0, // co_kwonlyargcount
+                                0, // co_kwonlyargcount,
+                                0, // co_nlocals,
+                                83, // co_flags
                                 new String[] {"a", "b", "d"}, // co_names,
                                 new String[] {}, // co_varnames,
                                 new String[] {}, // co_cellvars,
@@ -1485,7 +1539,9 @@ public class TestInterp2 {
                 new RefCode[] { // globprog2
                         new RefCode( //
                                 0, // co_argcount,
-                                0, // co_kwonlyargcount
+                                0, // co_kwonlyargcount,
+                                0, // co_nlocals,
+                                64, // co_flags
                                 new String[] {"b", "a", "result", "p",
                                         "d"}, // co_names,
                                 new String[] {}, // co_varnames,
@@ -1494,7 +1550,9 @@ public class TestInterp2 {
                                 "<module>"),
                         new RefCode( //
                                 0, // co_argcount,
-                                0, // co_kwonlyargcount
+                                0, // co_kwonlyargcount,
+                                1, // co_nlocals,
+                                67, // co_flags
                                 new String[] {"a", "d", "result"}, // co_names,
                                 new String[] {"q"}, // co_varnames,
                                 new String[] {}, // co_cellvars,
@@ -1502,7 +1560,9 @@ public class TestInterp2 {
                                 "p"),
                         new RefCode( //
                                 0, // co_argcount,
-                                0, // co_kwonlyargcount
+                                0, // co_kwonlyargcount,
+                                0, // co_nlocals,
+                                83, // co_flags
                                 new String[] {"a", "b", "d"}, // co_names,
                                 new String[] {}, // co_varnames,
                                 new String[] {}, // co_cellvars,
@@ -1562,7 +1622,9 @@ public class TestInterp2 {
                 new RefCode[] { // globprog3
                         new RefCode( //
                                 0, // co_argcount,
-                                0, // co_kwonlyargcount
+                                0, // co_kwonlyargcount,
+                                0, // co_nlocals,
+                                64, // co_flags
                                 new String[] {"b", "a", "result", "p"}, // co_names,
                                 new String[] {}, // co_varnames,
                                 new String[] {}, // co_cellvars,
@@ -1570,7 +1632,9 @@ public class TestInterp2 {
                                 "<module>"),
                         new RefCode( //
                                 0, // co_argcount,
-                                0, // co_kwonlyargcount
+                                0, // co_kwonlyargcount,
+                                1, // co_nlocals,
+                                67, // co_flags
                                 new String[] {"a", "d", "result"}, // co_names,
                                 new String[] {"q"}, // co_varnames,
                                 new String[] {}, // co_cellvars,
@@ -1578,7 +1642,9 @@ public class TestInterp2 {
                                 "p"),
                         new RefCode( //
                                 0, // co_argcount,
-                                0, // co_kwonlyargcount
+                                0, // co_kwonlyargcount,
+                                0, // co_nlocals,
+                                83, // co_flags
                                 new String[] {"a", "b", "d"}, // co_names,
                                 new String[] {}, // co_varnames,
                                 new String[] {}, // co_cellvars,
@@ -1635,7 +1701,9 @@ public class TestInterp2 {
                 new RefCode[] { // builtin
                         new RefCode( //
                                 0, // co_argcount,
-                                0, // co_kwonlyargcount
+                                0, // co_kwonlyargcount,
+                                0, // co_nlocals,
+                                64, // co_flags
                                 new String[] {"a", "b", "min", "result",
                                         "p"}, // co_names,
                                 new String[] {}, // co_varnames,
@@ -1644,7 +1712,9 @@ public class TestInterp2 {
                                 "<module>"),
                         new RefCode( //
                                 0, // co_argcount,
-                                0, // co_kwonlyargcount
+                                0, // co_kwonlyargcount,
+                                1, // co_nlocals,
+                                67, // co_flags
                                 new String[] {"a", "b", "result"}, // co_names,
                                 new String[] {"q"}, // co_varnames,
                                 new String[] {}, // co_cellvars,
@@ -1652,7 +1722,9 @@ public class TestInterp2 {
                                 "p"),
                         new RefCode( //
                                 0, // co_argcount,
-                                0, // co_kwonlyargcount
+                                0, // co_kwonlyargcount,
+                                0, // co_nlocals,
+                                83, // co_flags
                                 new String[] {"abs", "a"}, // co_names,
                                 new String[] {}, // co_varnames,
                                 new String[] {}, // co_cellvars,
@@ -1734,7 +1806,9 @@ public class TestInterp2 {
         checkCode(module, new RefCode[] { // argprog1
                 new RefCode( //
                         0, // co_argcount,
-                        0, // co_kwonlyargcount
+                        0, // co_kwonlyargcount,
+                        0, // co_nlocals,
+                        64, // co_flags
                         new String[] {"p", "result"}, // co_names,
                         new String[] {}, // co_varnames,
                         new String[] {}, // co_cellvars,
@@ -1742,7 +1816,9 @@ public class TestInterp2 {
                         "<module>"),
                 new RefCode( //
                         2, // co_argcount,
-                        0, // co_kwonlyargcount
+                        0, // co_kwonlyargcount,
+                        8, // co_nlocals,
+                        67, // co_flags
                         new String[] {}, // co_names,
                         new String[] {"eins", "zwei", "sum", "diff",
                                 "prod", "drei", "six", "seven"}, // co_varnames,
@@ -1751,7 +1827,9 @@ public class TestInterp2 {
                         "p"),
                 new RefCode( //
                         3, // co_argcount,
-                        0, // co_kwonlyargcount
+                        0, // co_kwonlyargcount,
+                        3, // co_nlocals,
+                        83, // co_flags
                         new String[] {}, // co_names,
                         new String[] {"un", "deux", "trois"}, // co_varnames,
                         new String[] {}, // co_cellvars,
@@ -1759,7 +1837,9 @@ public class TestInterp2 {
                         "sum"),
                 new RefCode( //
                         2, // co_argcount,
-                        0, // co_kwonlyargcount
+                        0, // co_kwonlyargcount,
+                        2, // co_nlocals,
+                        83, // co_flags
                         new String[] {}, // co_names,
                         new String[] {"tolv", "fem"}, // co_varnames,
                         new String[] {}, // co_cellvars,
@@ -1767,7 +1847,9 @@ public class TestInterp2 {
                         "diff"),
                 new RefCode( //
                         2, // co_argcount,
-                        0, // co_kwonlyargcount
+                        0, // co_kwonlyargcount,
+                        2, // co_nlocals,
+                        83, // co_flags
                         new String[] {}, // co_names,
                         new String[] {"sex", "sju"}, // co_varnames,
                         new String[] {}, // co_cellvars,
@@ -1845,7 +1927,9 @@ public class TestInterp2 {
                 new RefCode[] { // closprog1
                         new RefCode( //
                                 0, // co_argcount,
-                                0, // co_kwonlyargcount
+                                0, // co_kwonlyargcount,
+                                0, // co_nlocals,
+                                64, // co_flags
                                 new String[] {"p", "result"}, // co_names,
                                 new String[] {}, // co_varnames,
                                 new String[] {}, // co_cellvars,
@@ -1853,7 +1937,9 @@ public class TestInterp2 {
                                 "<module>"),
                         new RefCode( //
                                 2, // co_argcount,
-                                0, // co_kwonlyargcount
+                                0, // co_kwonlyargcount,
+                                3, // co_nlocals,
+                                3, // co_flags
                                 new String[] {}, // co_names,
                                 new String[] {"a", "b", "q"}, // co_varnames,
                                 new String[] {"x"}, // co_cellvars,
@@ -1861,7 +1947,9 @@ public class TestInterp2 {
                                 "p"),
                         new RefCode( //
                                 1, // co_argcount,
-                                0, // co_kwonlyargcount
+                                0, // co_kwonlyargcount,
+                                2, // co_nlocals,
+                                19, // co_flags
                                 new String[] {}, // co_names,
                                 new String[] {"c", "r"}, // co_varnames,
                                 new String[] {"y"}, // co_cellvars,
@@ -1869,7 +1957,9 @@ public class TestInterp2 {
                                 "q"),
                         new RefCode( //
                                 1, // co_argcount,
-                                0, // co_kwonlyargcount
+                                0, // co_kwonlyargcount,
+                                2, // co_nlocals,
+                                19, // co_flags
                                 new String[] {}, // co_names,
                                 new String[] {"d", "s"}, // co_varnames,
                                 new String[] {"z"}, // co_cellvars,
@@ -1877,7 +1967,9 @@ public class TestInterp2 {
                                 "r"),
                         new RefCode( //
                                 1, // co_argcount,
-                                0, // co_kwonlyargcount
+                                0, // co_kwonlyargcount,
+                                1, // co_nlocals,
+                                19, // co_flags
                                 new String[] {}, // co_names,
                                 new String[] {"e"}, // co_varnames,
                                 new String[] {}, // co_cellvars,
@@ -1951,7 +2043,9 @@ public class TestInterp2 {
         checkCode(module, new RefCode[] { // closprog2
                 new RefCode( //
                         0, // co_argcount,
-                        0, // co_kwonlyargcount
+                        0, // co_kwonlyargcount,
+                        0, // co_nlocals,
+                        64, // co_flags
                         new String[] {"p", "result"}, // co_names,
                         new String[] {}, // co_varnames,
                         new String[] {}, // co_cellvars,
@@ -1959,7 +2053,9 @@ public class TestInterp2 {
                         "<module>"),
                 new RefCode( //
                         2, // co_argcount,
-                        0, // co_kwonlyargcount
+                        0, // co_kwonlyargcount,
+                        5, // co_nlocals,
+                        3, // co_flags
                         new String[] {}, // co_names,
                         new String[] {"r", "i", "sum", "diff", "prod"}, // co_varnames,
                         new String[] {"i", "r"}, // co_cellvars,
@@ -1967,7 +2063,9 @@ public class TestInterp2 {
                         "p"),
                 new RefCode( //
                         0, // co_argcount,
-                        0, // co_kwonlyargcount
+                        0, // co_kwonlyargcount,
+                        0, // co_nlocals,
+                        19, // co_flags
                         new String[] {}, // co_names,
                         new String[] {}, // co_varnames,
                         new String[] {}, // co_cellvars,
@@ -1975,7 +2073,9 @@ public class TestInterp2 {
                         "sum"),
                 new RefCode( //
                         0, // co_argcount,
-                        0, // co_kwonlyargcount
+                        0, // co_kwonlyargcount,
+                        1, // co_nlocals,
+                        19, // co_flags
                         new String[] {}, // co_names,
                         new String[] {"q"}, // co_varnames,
                         new String[] {}, // co_cellvars,
@@ -1983,7 +2083,9 @@ public class TestInterp2 {
                         "diff"),
                 new RefCode( //
                         0, // co_argcount,
-                        0, // co_kwonlyargcount
+                        0, // co_kwonlyargcount,
+                        0, // co_nlocals,
+                        19, // co_flags
                         new String[] {}, // co_names,
                         new String[] {}, // co_varnames,
                         new String[] {}, // co_cellvars,
@@ -1991,7 +2093,9 @@ public class TestInterp2 {
                         "q"),
                 new RefCode( //
                         0, // co_argcount,
-                        0, // co_kwonlyargcount
+                        0, // co_kwonlyargcount,
+                        0, // co_nlocals,
+                        19, // co_flags
                         new String[] {}, // co_names,
                         new String[] {}, // co_varnames,
                         new String[] {}, // co_cellvars,
@@ -2086,7 +2190,9 @@ public class TestInterp2 {
         checkCode(module, new RefCode[] { // closprog3
                 new RefCode( //
                         0, // co_argcount,
-                        0, // co_kwonlyargcount
+                        0, // co_kwonlyargcount,
+                        0, // co_nlocals,
+                        64, // co_flags
                         new String[] {"p", "result"}, // co_names,
                         new String[] {}, // co_varnames,
                         new String[] {}, // co_cellvars,
@@ -2094,7 +2200,9 @@ public class TestInterp2 {
                         "<module>"),
                 new RefCode( //
                         2, // co_argcount,
-                        0, // co_kwonlyargcount
+                        0, // co_kwonlyargcount,
+                        3, // co_nlocals,
+                        3, // co_flags
                         new String[] {}, // co_names,
                         new String[] {"ua", "b", "q"}, // co_varnames,
                         new String[] {"ua", "z"}, // co_cellvars,
@@ -2102,7 +2210,9 @@ public class TestInterp2 {
                         "p"),
                 new RefCode( //
                         2, // co_argcount,
-                        0, // co_kwonlyargcount
+                        0, // co_kwonlyargcount,
+                        3, // co_nlocals,
+                        19, // co_flags
                         new String[] {}, // co_names,
                         new String[] {"uc", "d", "r"}, // co_varnames,
                         new String[] {"uc", "y"}, // co_cellvars,
@@ -2110,7 +2220,9 @@ public class TestInterp2 {
                         "q"),
                 new RefCode( //
                         2, // co_argcount,
-                        0, // co_kwonlyargcount
+                        0, // co_kwonlyargcount,
+                        3, // co_nlocals,
+                        19, // co_flags
                         new String[] {}, // co_names,
                         new String[] {"ue", "f", "s"}, // co_varnames,
                         new String[] {"ue", "x"}, // co_cellvars,
@@ -2118,7 +2230,9 @@ public class TestInterp2 {
                         "r"),
                 new RefCode( //
                         2, // co_argcount,
-                        0, // co_kwonlyargcount
+                        0, // co_kwonlyargcount,
+                        2, // co_nlocals,
+                        19, // co_flags
                         new String[] {}, // co_names,
                         new String[] {"uf", "g"}, // co_varnames,
                         new String[] {}, // co_cellvars,
@@ -2210,7 +2324,9 @@ public class TestInterp2 {
                 new RefCode[] { // kwargprog
                         new RefCode( //
                                 0, // co_argcount,
-                                0, // co_kwonlyargcount
+                                0, // co_kwonlyargcount,
+                                0, // co_nlocals,
+                                64, // co_flags
                                 new String[] {"p", "result"}, // co_names,
                                 new String[] {}, // co_varnames,
                                 new String[] {}, // co_cellvars,
@@ -2218,7 +2334,9 @@ public class TestInterp2 {
                                 "<module>"),
                         new RefCode( //
                                 2, // co_argcount,
-                                0, // co_kwonlyargcount
+                                0, // co_kwonlyargcount,
+                                6, // co_nlocals,
+                                3, // co_flags
                                 new String[] {}, // co_names,
                                 new String[] {"r", "i", "sum", "diff",
                                         "prod", "s"}, // co_varnames,
@@ -2227,7 +2345,9 @@ public class TestInterp2 {
                                 "p"),
                         new RefCode( //
                                 2, // co_argcount,
-                                2, // co_kwonlyargcount
+                                2, // co_kwonlyargcount,
+                                7, // co_nlocals,
+                                95, // co_flags
                                 new String[] {}, // co_names,
                                 new String[] {"r", "q", "j", "i", "args",
                                         "kwargs", "mysum"}, // co_varnames,
@@ -2236,7 +2356,9 @@ public class TestInterp2 {
                                 "sum"),
                         new RefCode( //
                                 0, // co_argcount,
-                                0, // co_kwonlyargcount
+                                0, // co_kwonlyargcount,
+                                1, // co_nlocals,
+                                19, // co_flags
                                 new String[] {}, // co_names,
                                 new String[] {"q"}, // co_varnames,
                                 new String[] {}, // co_cellvars,
@@ -2244,7 +2366,9 @@ public class TestInterp2 {
                                 "diff"),
                         new RefCode( //
                                 0, // co_argcount,
-                                0, // co_kwonlyargcount
+                                0, // co_kwonlyargcount,
+                                0, // co_nlocals,
+                                19, // co_flags
                                 new String[] {}, // co_names,
                                 new String[] {}, // co_varnames,
                                 new String[] {}, // co_cellvars,
@@ -2252,7 +2376,9 @@ public class TestInterp2 {
                                 "q"),
                         new RefCode( //
                                 0, // co_argcount,
-                                0, // co_kwonlyargcount
+                                0, // co_kwonlyargcount,
+                                0, // co_nlocals,
+                                19, // co_flags
                                 new String[] {}, // co_names,
                                 new String[] {}, // co_varnames,
                                 new String[] {}, // co_cellvars,
@@ -2305,7 +2431,9 @@ public class TestInterp2 {
                 new RefCode[] { // kwargcell
                         new RefCode( //
                                 0, // co_argcount,
-                                0, // co_kwonlyargcount
+                                0, // co_kwonlyargcount,
+                                0, // co_nlocals,
+                                64, // co_flags
                                 new String[] {"p", "result"}, // co_names,
                                 new String[] {}, // co_varnames,
                                 new String[] {}, // co_cellvars,
@@ -2313,7 +2441,9 @@ public class TestInterp2 {
                                 "<module>"),
                         new RefCode( //
                                 1, // co_argcount,
-                                0, // co_kwonlyargcount
+                                0, // co_kwonlyargcount,
+                                2, // co_nlocals,
+                                3, // co_flags
                                 new String[] {}, // co_names,
                                 new String[] {"i", "q"}, // co_varnames,
                                 new String[] {"i"}, // co_cellvars,
@@ -2321,7 +2451,9 @@ public class TestInterp2 {
                                 "p"),
                         new RefCode( //
                                 0, // co_argcount,
-                                0, // co_kwonlyargcount
+                                0, // co_kwonlyargcount,
+                                1, // co_nlocals,
+                                19, // co_flags
                                 new String[] {}, // co_names,
                                 new String[] {"r"}, // co_varnames,
                                 new String[] {}, // co_cellvars,
@@ -2329,7 +2461,9 @@ public class TestInterp2 {
                                 "q"),
                         new RefCode( //
                                 1, // co_argcount,
-                                0, // co_kwonlyargcount
+                                0, // co_kwonlyargcount,
+                                2, // co_nlocals,
+                                83, // co_flags
                                 new String[] {}, // co_names,
                                 new String[] {"m", "i"}, // co_varnames,
                                 new String[] {}, // co_cellvars,

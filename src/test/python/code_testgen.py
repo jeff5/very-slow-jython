@@ -39,8 +39,8 @@ def emit_java_codetest(prog, name):
 _REF_INT_ATTRS = (
     'co_argcount',
     'co_kwonlyargcount',
-    #'co_nlocals',
-    #'co_flags',
+    'co_nlocals',
+    'co_flags',
     )
 
 _REF_NAME_LISTS = (
@@ -318,4 +318,5 @@ def main():
 
 ##show_worklist()
 
-main()
+if __name__ == '__main__':
+    main()
