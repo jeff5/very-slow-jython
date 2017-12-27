@@ -118,7 +118,7 @@ public class TestInterp3 {
     /** Interface presented by callable objects. */
     interface PyCallable {
 
-        Object call(PyFrame back, List<Object> args);
+        Object call(Frame back, List<Object> args);
     }
 
     /**
@@ -128,12 +128,12 @@ public class TestInterp3 {
     private static class Function implements PyCallable {
 
         final String name;
-        final PyCode code;
+        final Code code;
         final Map<String, Object> globals;
         final List<Cell> closure;
 
         /** Create a function from code and the globals in context. */
-        Function(PyCode code, Map<String, Object> globals, String name) {
+        Function(Code code, Map<String, Object> globals, String name) {
             this(code, globals, name, null);
         }
 
@@ -141,7 +141,7 @@ public class TestInterp3 {
          * Create a function from code and the globals in context, with a
          * closure.
          */
-        Function(PyCode code, Map<String, Object> globals, String name,
+        Function(Code code, Map<String, Object> globals, String name,
                 List<Cell> closure) {
             this.code = code;
             this.globals = globals;
@@ -150,7 +150,7 @@ public class TestInterp3 {
         }
 
         @Override
-        public Object call(PyFrame back, List<Object> args) {
+        public Object call(Frame back, List<Object> args) {
             // Execution occurs in a new frame
             ExecutionFrame frame =
                     new ExecutionFrame(back, code, globals, closure);
@@ -198,104 +198,36 @@ public class TestInterp3 {
     /**
      * A <code>PyFrame</code> is the context for the execution of code.
      */
-    private static abstract class PyFrame {
+    private static abstract class Frame {
 
         /** Frames form a stack by chaining through the back pointer. */
-        final PyFrame f_back;
+        final Frame f_back;
         /** Code this frame is to execute. */
-        final protected PyCode f_code;
+        final Code f_code;
         /** Global context (name space) of execution. */
         final Map<String, Object> f_globals;
         /** Local context (name space) of execution. (Assign if needed.) */
-        Map<String, Object> f_locals;
+        Map<String, Object> f_locals = null;
         // /** Built-in objects */
         // final Map<String, Object> f_builtins;
         /** Local simple variables (corresponds to "varnames"). */
-        final Object[] fastlocals;
+        Object[] fastlocals = null;
         /** Local cell variables: concatenation of cellvars & freevars. */
-        final Cell[] freevars;
+        Cell[] cellvars = null;
 
         /**
-         * Constructor for a frame suitable to run module-level code.
-         *
-         * In code compiled for the module-level:
-         * <ul>
-         * <li>The local variables will be the same dictionary as the
-         * globals.</li>
-         * <li>There can be no free variables, therefore no closure
-         * given.</li>
-         * <li>Cell variables are not normally created.</li>
-         * </ul>
+         * Partial constructor, leaves {@link #f_locals},
+         * {@link #fastlocals} and {@link #cellvars} <code>null</code>.
          *
          * @param back calling frame or <code>null</code> if first frame
          * @param code that this frame executes
          * @param globals global name space
          */
-        PyFrame(PyFrame back, PyCode code, Map<String, Object> globals) {
-            this(back, code, globals, null, null, true);
-        }
-
-        /**
-         * Constructor suitable to execute code for the <code>exec()</code>
-         * built-in function.
-         *
-         * <ul>
-         * <li>The local variables will be the specified dictionary.</li>
-         * <li>The {@link #fastlocals} will be allocated if the code has
-         * the trait {@link PyCode.Trait#OPTIMIZED}.</li>
-         * <li>There can be no free variables, therefore no closure
-         * given.</li>
-         * <li>Cell variables are not normally created.</li>
-         * </ul>
-         *
-         *
-         *
-         * There can be no free variables, therefore no closure given. The
-         * {@link #fastlocals} will be allocated if the code has the trait
-         * {@link PyCode.Trait#OPTIMIZED}. Cell variables will be allocated
-         * if specified in the code, but code compiled as a module will
-         * create no cell variables.
-         *
-         * @param back calling frame or <code>null</code> if first frame
-         * @param code that this frame executes
-         * @param globals global name space
-         * @param locals local name space (may be <code>null</code>,
-         *            meaning use the global space)
-         */
-        PyFrame(PyFrame back, PyCode code, Map<String, Object> globals,
-                Map<String, Object> locals) {
-            this(back, code, globals, locals, null, true);
-        }
-
-        /**
-         * Constructor suitable to run the code of a function (optionally
-         * with a closure).
-         *
-         * @param back calling frame or <code>null</code> if first frame
-         * @param code that this frame executes
-         * @param globals global name space
-         * @param closure variables free here but bound in an enclosing
-         *            block or <code>null</code> if no closure
-         */
-        PyFrame(PyFrame back, PyCode code, Map<String, Object> globals,
-                List<Cell> closure) {
-            this(back, code, globals, null, closure, true);
-        }
-
-        /**
-         * Constructor suitable to run the function that represents the
-         * body of a class (optionally with a closure).
-         *
-         * @param back calling frame or <code>null</code> if first frame
-         * @param code that this frame executes
-         * @param globals global name space
-         * @param locals local name space (becomes name space of type)
-         * @param closure variables free here but bound in an enclosing
-         *            block or <code>null</code> if no closure
-         */
-        PyFrame(PyFrame back, PyCode code, Map<String, Object> globals,
-                Map<String, Object> locals, List<Cell> closure) {
-            this(back, code, globals, locals, closure, true);
+        Frame(Frame back, Code code, Map<String, Object> globals) {
+            f_code = code;
+            f_back = back;
+            f_globals = globals;
+            // f_builtins = ?
         }
 
         /**
@@ -304,11 +236,11 @@ public class TestInterp3 {
          * <ul>
          * <li>The local variables will be the specified dictionary.</li>
          * <li>The {@link #fastlocals} will be allocated if the code has
-         * the traits {@link PyCode.Trait#NEWLOCALS} and
-         * {@link PyCode.Trait#OPTIMIZED}.</li>
+         * the traits {@link Code.Trait#NEWLOCALS} and
+         * {@link Code.Trait#OPTIMIZED}.</li>
          * <li>A new {@link #f_locals} will be allocated if the code has
-         * the trait {@link PyCode.Trait#NEWLOCALS} but not
-         * {@link PyCode.Trait#OPTIMIZED}.</li>
+         * the trait {@link Code.Trait#NEWLOCALS} but not
+         * {@link Code.Trait#OPTIMIZED}.</li>
          * <li>Otherwise, {@link #f_locals} is as specified by the
          * <code>locals</code> or <code>globals</code> arguments.</li>
          * <li>If the code specifies free variables, the closure must
@@ -316,27 +248,23 @@ public class TestInterp3 {
          * <li>Cell variables will be created according to the code.</li>
          * </ul>
          *
-         *
          * @param back calling frame or <code>null</code> if first frame
          * @param code that this frame executes
          * @param globals global name space
          * @param locals local name space (maybe <code>==globals</code>)
          * @param closure variables bound in an enclosing block
-         * @param ignored
          */
-        private PyFrame(PyFrame back, PyCode code,
-                Map<String, Object> globals, Map<String, Object> locals,
-                List<Cell> closure, boolean ignored) {
-            f_code = code;
-            f_back = back;
-            f_globals = globals;
-            // f_builtins = ?
+        protected Frame(Frame back, Code code, Map<String, Object> globals,
+                Map<String, Object> locals, List<Cell> closure) {
+
+            // Initialise the basics.
+            this(back, code, globals);
 
             // The need for a dictionary of locals depends on the code
-            EnumSet<PyCode.Trait> traits = code.traits;
-            if (traits.contains(PyCode.Trait.NEWLOCALS)) {
+            EnumSet<Code.Trait> traits = code.traits;
+            if (traits.contains(Code.Trait.NEWLOCALS)) {
                 // Ignore locals argument
-                if (traits.contains(PyCode.Trait.OPTIMIZED)) {
+                if (traits.contains(Code.Trait.OPTIMIZED)) {
                     // We can create it later but probably won't need to
                     f_locals = null;
                 } else {
@@ -353,8 +281,8 @@ public class TestInterp3 {
              */
             // XXX How do we store/load local variables when there is both
             // a dictionary realisation of them and a fastlocals and/or
-            // freevars array?
-            if (traits.contains(PyCode.Trait.OPTIMIZED)) {
+            // cellvars array?
+            if (traits.contains(Code.Trait.OPTIMIZED)) {
                 fastlocals = new Object[code.nlocals];
             } else {
                 fastlocals = null;
@@ -370,23 +298,23 @@ public class TestInterp3 {
             if (closure == null) {
                 // Initialise the cells that have to be created here
                 assert code.co_freevars.length == 0;
-                freevars = new Cell[ncells];
+                cellvars = new Cell[ncells];
                 for (int cellIndex = 0; cellIndex < ncells; cellIndex++) {
-                    freevars[cellIndex] = new Cell(null);
+                    cellvars[cellIndex] = new Cell(null);
                 }
             } else {
                 int nfrees = closure.size(), cellIndex = 0;
                 assert code.co_freevars.length == nfrees;
-                freevars = new Cell[ncells + nfrees];
+                cellvars = new Cell[ncells + nfrees];
 
                 // Initialise the cells that have to be created here
                 while (cellIndex < ncells) {
-                    freevars[cellIndex++] = new Cell(null);
+                    cellvars[cellIndex++] = new Cell(null);
                 }
 
                 // Add the cells that were created elsewhere (the closure)
                 for (Cell c : closure) {
-                    freevars[cellIndex++] = c;
+                    cellvars[cellIndex++] = c;
                 }
             }
         }
@@ -400,7 +328,7 @@ public class TestInterp3 {
      * actually runs. In this implementation it works by walking the
      * fragment of the AST from which the frame was created.
      */
-    private static class ExecutionFrame extends PyFrame
+    private static class ExecutionFrame extends Frame
             implements Visitor<Object> {
 
         /** Assigned eventually by return statement (or stays None). */
@@ -424,9 +352,9 @@ public class TestInterp3 {
          * @param code that this frame executes
          * @param globals global name space
          */
-        ExecutionFrame(PyFrame back, PyCode code,
+        ExecutionFrame(Frame back, Code code,
                 Map<String, Object> globals) {
-            super(back, code, globals);
+            super(back, code, globals, null, null);
         }
 
         /**
@@ -439,9 +367,9 @@ public class TestInterp3 {
          * @param closure variables free here but bound in an enclosing
          *            block or <code>null</code> if no closure
          */
-        ExecutionFrame(PyFrame back, PyCode code,
-                Map<String, Object> globals, List<Cell> closure) {
-            super(back, code, globals, closure);
+        ExecutionFrame(Frame back, Code code, Map<String, Object> globals,
+                List<Cell> closure) {
+            super(back, code, globals, null, closure);
         }
 
         /**
@@ -459,9 +387,9 @@ public class TestInterp3 {
          * @param globals global name space
          * @param locals local name space
          */
-        ExecutionFrame(PyFrame back, PyCode code,
-                Map<String, Object> globals, Map<String, Object> locals) {
-            super(back, code, globals, locals);
+        ExecutionFrame(Frame back, Code code, Map<String, Object> globals,
+                Map<String, Object> locals) {
+            super(back, code, globals, locals, null);
         }
 
         /**
@@ -487,15 +415,15 @@ public class TestInterp3 {
                 String name = f_code.co_varnames[i];
                 SymbolTable.Symbol symbol = table.lookup(name);
                 if (symbol.scope == SymbolTable.ScopeType.CELL) {
-                    freevars[symbol.cellIndex].obj = fastlocals[i];
+                    cellvars[symbol.cellIndex].obj = fastlocals[i];
                 }
             }
         }
 
         /**
          * Execute the code in this frame. In the AST-based implementation,
-         * we execute a list of {@link stmt} ASTs and the return from the
-         * last {@link stmt#accept(Visitor)} call is the result.
+         * we execute a list of {@link stmt} ASTs and return the final
+         * value of {@link #returnValue}.
          */
         @Override
         Object eval() {
@@ -509,22 +437,20 @@ public class TestInterp3 {
         @Override
         public Object visit_Name(expr.Name name) {
 
-            // Load from name or local according to scope etc.
-            Object value;
             SymbolTable.Symbol symbol =
                     f_code.ast.symbolTable.lookup(name.id);
 
             // Storage mechanism depends on scope of name & OPTIMIZED trait
             switch (symbol.scope) {
                 case LOCAL:
-                    if (f_code.traits.contains(PyCode.Trait.OPTIMIZED)) {
+                    if (f_code.traits.contains(Code.Trait.OPTIMIZED)) {
                         return fastlocals[symbol.index];
                     } else {
                         return f_locals.get(name.id);
                     }
                 case CELL:
                 case FREE:
-                    return freevars[symbol.cellIndex].obj;
+                    return cellvars[symbol.cellIndex].obj;
                 default: // GLOBAL_*
                     return f_globals.get(name.id);
             }
@@ -553,7 +479,7 @@ public class TestInterp3 {
             // Storage mechanism depends on scope of name & OPTIMIZED trait
             switch (symbol.scope) {
                 case LOCAL:
-                    if (f_code.traits.contains(PyCode.Trait.OPTIMIZED)) {
+                    if (f_code.traits.contains(Code.Trait.OPTIMIZED)) {
                         fastlocals[symbol.index] = value;
                     } else {
                         f_locals.put(name, value);
@@ -561,13 +487,12 @@ public class TestInterp3 {
                     break;
                 case CELL:
                 case FREE:
-                    freevars[symbol.cellIndex].obj = value;
+                    cellvars[symbol.cellIndex].obj = value;
                     break;
                 default: // GLOBAL_EXPLICIT, GLOBAL_IMPLICIT:
                     f_globals.put(name, value);
                     break;
             }
-
         }
 
         @Override
@@ -581,7 +506,7 @@ public class TestInterp3 {
              * The code object of the function being defined is present as
              * a constant in the current code object.
              */
-            PyCode targetCode = f_code.ast.codeMap.get(def);
+            Code targetCode = f_code.ast.codeMap.get(def);
             List<Cell> closure = closure(targetCode);
             Function func = new Function(targetCode, f_globals,
                     targetCode.co_name, closure);
@@ -593,7 +518,7 @@ public class TestInterp3 {
          * Obtain the cells that should be wrapped into a function
          * definition.
          */
-        private List<Cell> closure(PyCode targetCode) {
+        private List<Cell> closure(Code targetCode) {
             int nfrees = targetCode.co_freevars.length;
             if (nfrees == 0) {
                 // No closure necessary
@@ -605,7 +530,7 @@ public class TestInterp3 {
                     String name = targetCode.co_freevars[i];
                     SymbolTable.Symbol symbol = localSymbols.lookup(name);
                     int n = symbol.cellIndex;
-                    closure.add(freevars[n]);
+                    closure.add(cellvars[n]);
                 }
                 return closure;
             }
@@ -717,7 +642,7 @@ public class TestInterp3 {
     }
 
     /** Our equivalent to the Python code object. */
-    private static class PyCode {
+    private static class Code {
 
         /**
          * This is our equivalent to byte code that holds a sequence of
@@ -726,7 +651,7 @@ public class TestInterp3 {
          * symbolic, and the symbol table must be present to map them into
          * frame locations. Literal constants are present in the AST nodes
          * that need them. Constants generated by compilation, in
-         * particular, PyCode objects have to be associated through a map.
+         * particular, Code objects have to be associated through a map.
          */
         static class ASTCode {
 
@@ -735,17 +660,17 @@ public class TestInterp3 {
             /** Map names used in this scope to their meanings. */
             final SymbolTable symbolTable;
             /** Associate a node to code it requires. */
-            final Map<Node, PyCode> codeMap;
+            final Map<Node, Code> codeMap;
 
             ASTCode(List<stmt> body, SymbolTable symbolTable,
-                    Map<Node, PyCode> codeMap) {
+                    Map<Node, Code> codeMap) {
                 this.body = body;
                 this.symbolTable = symbolTable;
                 this.codeMap = codeMap;
             }
         }
 
-        /** Characteristics of a PyCode (as CPython co_flags). */
+        /** Characteristics of a Code (as CPython co_flags). */
         enum Trait {
             OPTIMIZED, NEWLOCALS, VARARGS, VARKEYWORDS
         }
@@ -773,7 +698,7 @@ public class TestInterp3 {
         final String co_name; // name of function etc.
 
         /** Construct from result of walking the AST. */
-        public PyCode( //
+        public Code( //
                 int argcount, // co_argcount
                 int kwonlyargcount, // co_kwonlyargcount
                 int nlocals, // co_nlocals
@@ -1513,16 +1438,16 @@ public class TestInterp3 {
     /**
      * Visitor on the AST adding code objects using the symbol data
      * attached to each block scope in a previous pass. Each instance of
-     * <code>CodeGenerator</code> produces one <code>PyCode</code> object,
+     * <code>CodeGenerator</code> produces one <code>Code</code> object,
      * representing the starting node (which must be a module), and makes
      * an entry for it in the map passed in at construction time.
      * <p>
      * Each time a <code>CodeGenerator</code> encounters a function
      * definition, it launches another <code>CodeGenerator</code> to
      * analyse it and add it to the same map, and so on recursively down
-     * the program structure. The <code>PyCode</code> it generates must be
-     * accessed by calling {@link #getPyCode()}, and all the
-     * <code>PyCode</code> objects generated by nested invocation appear
+     * the program structure. The <code>Code</code> it generates must be
+     * accessed by calling {@link #getCode()}, and all the
+     * <code>Code</code> objects generated by nested invocation appear
      * within this structure as constants.
      */
     private static class CodeGenerator extends AbstractVisitor<Void> {
@@ -1545,10 +1470,10 @@ public class TestInterp3 {
          * Holds a mapping from a function definition or module node to the
          * code object representing its body.
          */
-        private final Map<Node, PyCode> codeMap = new HashMap<>();
+        private final Map<Node, Code> codeMap = new HashMap<>();
 
         /** Characteristics of the code block (CPython co_flags). */
-        Set<PyCode.Trait> traits = EnumSet.noneOf(PyCode.Trait.class);
+        Set<Code.Trait> traits = EnumSet.noneOf(Code.Trait.class);
 
         /** Count arguments and locals as we add them. */
         private int localIndex = 0;
@@ -1587,13 +1512,13 @@ public class TestInterp3 {
         }
 
         /**
-         * Create a <code>PyCode</code> from the information gathered by
-         * this visitor.
+         * Create a <code>Code</code> from the information gathered by this
+         * visitor.
          */
-        PyCode getPyCode() {
-            PyCode.ASTCode raw =
-                    new PyCode.ASTCode(body, symbolTable, codeMap);
-            PyCode code = new PyCode( //
+        private Code getCode() {
+            Code.ASTCode raw =
+                    new Code.ASTCode(body, symbolTable, codeMap);
+            Code code = new Code( //
                     argcount, kwonlyargcount, localIndex, // sizes
                     traits, // co_flags
                     raw, // co_code
@@ -1695,7 +1620,7 @@ public class TestInterp3 {
             finishLayout();
 
             // The code currently generated is the code for this node
-            codeMap.put(module, getPyCode());
+            codeMap.put(module, getCode());
             return null;
         }
 
@@ -1711,7 +1636,7 @@ public class TestInterp3 {
                 CodeGenerator codeGenerator = new CodeGenerator(scopeMap);
                 functionDef.accept(codeGenerator);
                 // The code object generated is the code for this node
-                PyCode code = codeGenerator.getPyCode();
+                Code code = codeGenerator.getCode();
                 codeMap.put(functionDef, code);
                 addConst(code);
 
@@ -1725,16 +1650,12 @@ public class TestInterp3 {
                 name = functionDef.name;
 
                 // Local variables will be in arrays not a map
-                traits.add(PyCode.Trait.OPTIMIZED);
+                traits.add(Code.Trait.OPTIMIZED);
                 // And the caller won't supply a local variable map
-                traits.add(PyCode.Trait.NEWLOCALS);
+                traits.add(Code.Trait.NEWLOCALS);
 
                 // Visit the parameters, assigning frame locations
                 functionDef.args.accept(this);
-
-                // Don't care about decorators (?)
-                // visitAll(functionDef.decorator_list);
-                // visitIfNotNull(functionDef.returns);
 
                 /*
                  * Walk the child nodes assigning frame locations to names.
@@ -1759,13 +1680,13 @@ public class TestInterp3 {
             // Optionally, there's a *args
             if (parameters.vararg != null) {
                 // Function accepts arguments as a tuple
-                traits.add(PyCode.Trait.VARARGS);
+                traits.add(Code.Trait.VARARGS);
                 parameters.vararg.accept(this);
             }
             // Optionally, there's a **kwargs
             if (parameters.kwarg != null) {
                 // Function accepts arguments as a keyword dictionary
-                traits.add(PyCode.Trait.VARKEYWORDS);
+                traits.add(Code.Trait.VARKEYWORDS);
                 parameters.kwarg.accept(this);
             }
             // No code to generate for these?
@@ -1786,15 +1707,15 @@ public class TestInterp3 {
     /**
      * Compile the module AST and return its code object. No actual
      * compilation is performed (since we aim to interpret the AST), but we
-     * return a <code>PyCode</code> object. The returned module (code
-     * object) will contain in its constants the code objects of functions
-     * declared at module level, and so on recursively down the structure.
-     * In our present implementation, the statements (AST nodes, not byte
-     * code) to which the code corresponds are to be interpreted here.
-     * Therefore, code objects contain a list of {@link TreePython.stmt}
-     * and the symbol table generated from the AST.
+     * return a <code>Code</code> object. The returned module (code object)
+     * will contain in its constants the code objects of functions declared
+     * at module level, and so on recursively down the structure. In our
+     * present implementation, the statements (AST nodes, not byte code) to
+     * which the code corresponds are to be interpreted here. Therefore,
+     * code objects contain a list of {@link TreePython.stmt} and the
+     * symbol table generated from the AST.
      */
-    private static PyCode compileAST(mod module, String filename) {
+    private static Code compileAST(mod module, String filename) {
 
         // Build symbol table from the module AST
         SymbolVisitor visitor = new SymbolVisitor(module, filename);
@@ -1807,21 +1728,21 @@ public class TestInterp3 {
         // Walk the AST to create code objects at appropriate nodes
         CodeGenerator codeGenerator = new CodeGenerator(scopeMap);
         module.accept(codeGenerator);
-        return codeGenerator.getPyCode();
+        return codeGenerator.getCode();
     }
 
     private static void executeTest(mod module,
             Map<String, Object> state) {
 
         // Compile the test AST
-        PyCode code = compileAST(module, "<module>");
+        Code code = compileAST(module, "<module>");
 
-        // Set up globals (&locals?) to hold result
+        // Set up globals to hold result
         Map<String, Object> globals = new HashMap<>();
 
         // Equivalent to: PyEval_EvalCode(co, globals, locals)
         // Compare pythonrun.c:run_mod()
-        PyFrame frame = new ExecutionFrame(null, code, globals, globals);
+        Frame frame = new ExecutionFrame(null, code, globals, globals);
         frame.eval();
 
         // Check the results
@@ -1931,465 +1852,466 @@ public class TestInterp3 {
     // @formatter:on
 
     // ======= Generated examples ==========
+    // See variable_access_testgen.py
 
-    // globprog1
+// globprog1
 
     @Test
     public void globprog1() {
         // @formatter:off
-         // # Test allocation of "names" (globals)
-         // # global d is *not* ref'd at module level
-         // b = 1
-         // a = 6
-         // result = 0
-         //
-         // def p():
-         //     global result
-         //     def q():
-         //         global d # not ref'd at module level
-         //         d = a + b
-         //     q()
-         //     result = a * d
-         //
-         // p()
-         mod module = Module(
-     list(
-         Assign(list(Name("b", Store)), Num(1)),
-         Assign(list(Name("a", Store)), Num(6)),
-         Assign(list(Name("result", Store)), Num(0)),
-         FunctionDef(
-             "p",
-             arguments(list(), null, list(), list(), null, list()),
-             list(
-                 Global(list("result")),
-                 FunctionDef(
-                     "q",
-                     arguments(list(), null, list(), list(), null, list()),
-                     list(
-                         Global(list("d")),
-                         Assign(list(Name("d", Store)), BinOp(Name("a", Load), Add, Name("b", Load)))),
-                     list(),
-                     null),
-                 Expr(Call(Name("q", Load), list(), list())),
-                 Assign(list(Name("result", Store)), BinOp(Name("a", Load), Mult, Name("d", Load)))),
-             list(),
-             null),
-         Expr(Call(Name("p", Load), list(), list()))))
-         ;
-         // @formatter:on
+        // # Test allocation of "names" (globals)
+        // # global d is *not* ref'd at module level
+        // b = 1
+        // a = 6
+        // result = 0
+        //
+        // def p():
+        //     global result
+        //     def q():
+        //         global d # not ref'd at module level
+        //         d = a + b
+        //     q()
+        //     result = a * d
+        //
+        // p()
+        mod module = Module(
+    list(
+        Assign(list(Name("b", Store)), Num(1)),
+        Assign(list(Name("a", Store)), Num(6)),
+        Assign(list(Name("result", Store)), Num(0)),
+        FunctionDef(
+            "p",
+            arguments(list(), null, list(), list(), null, list()),
+            list(
+                Global(list("result")),
+                FunctionDef(
+                    "q",
+                    arguments(list(), null, list(), list(), null, list()),
+                    list(
+                        Global(list("d")),
+                        Assign(list(Name("d", Store)), BinOp(Name("a", Load), Add, Name("b", Load)))),
+                    list(),
+                    null),
+                Expr(Call(Name("q", Load), list(), list())),
+                Assign(list(Name("result", Store)), BinOp(Name("a", Load), Mult, Name("d", Load)))),
+            list(),
+            null),
+        Expr(Call(Name("p", Load), list(), list()))))
+        ;
+        // @formatter:on
         Map<String, Object> state = new HashMap<>();
-        state.put("a", 6);
-        state.put("b", 1);
         state.put("result", 42);
+        state.put("b", 1);
         state.put("d", 7);
+        state.put("a", 6);
         executeTest(module, state); // globprog1
     }
 
-    // globprog2
+// globprog2
 
     @Test
     public void globprog2() {
         // @formatter:off
-         // # Test allocation of "names" (globals)
-         // # global d is *assigned* at module level
-         // b = 1
-         // a = 6
-         // result = 0
-         //
-         // def p():
-         //     global result
-         //     def q():
-         //         global d
-         //         d = a + b
-         //     q()
-         //     result = a * d
-         //
-         // d = 41
-         // p()
-         mod module = Module(
-     list(
-         Assign(list(Name("b", Store)), Num(1)),
-         Assign(list(Name("a", Store)), Num(6)),
-         Assign(list(Name("result", Store)), Num(0)),
-         FunctionDef(
-             "p",
-             arguments(list(), null, list(), list(), null, list()),
-             list(
-                 Global(list("result")),
-                 FunctionDef(
-                     "q",
-                     arguments(list(), null, list(), list(), null, list()),
-                     list(
-                         Global(list("d")),
-                         Assign(list(Name("d", Store)), BinOp(Name("a", Load), Add, Name("b", Load)))),
-                     list(),
-                     null),
-                 Expr(Call(Name("q", Load), list(), list())),
-                 Assign(list(Name("result", Store)), BinOp(Name("a", Load), Mult, Name("d", Load)))),
-             list(),
-             null),
-         Assign(list(Name("d", Store)), Num(41)),
-         Expr(Call(Name("p", Load), list(), list()))))
-         ;
-         // @formatter:on
+        // # Test allocation of "names" (globals)
+        // # global d is *assigned* at module level
+        // b = 1
+        // a = 6
+        // result = 0
+        //
+        // def p():
+        //     global result
+        //     def q():
+        //         global d
+        //         d = a + b
+        //     q()
+        //     result = a * d
+        //
+        // d = 41
+        // p()
+        mod module = Module(
+    list(
+        Assign(list(Name("b", Store)), Num(1)),
+        Assign(list(Name("a", Store)), Num(6)),
+        Assign(list(Name("result", Store)), Num(0)),
+        FunctionDef(
+            "p",
+            arguments(list(), null, list(), list(), null, list()),
+            list(
+                Global(list("result")),
+                FunctionDef(
+                    "q",
+                    arguments(list(), null, list(), list(), null, list()),
+                    list(
+                        Global(list("d")),
+                        Assign(list(Name("d", Store)), BinOp(Name("a", Load), Add, Name("b", Load)))),
+                    list(),
+                    null),
+                Expr(Call(Name("q", Load), list(), list())),
+                Assign(list(Name("result", Store)), BinOp(Name("a", Load), Mult, Name("d", Load)))),
+            list(),
+            null),
+        Assign(list(Name("d", Store)), Num(41)),
+        Expr(Call(Name("p", Load), list(), list()))))
+        ;
+        // @formatter:on
         Map<String, Object> state = new HashMap<>();
-        state.put("a", 6);
-        state.put("b", 1);
         state.put("result", 42);
+        state.put("b", 1);
         state.put("d", 7);
+        state.put("a", 6);
         executeTest(module, state); // globprog2
     }
 
-    // globprog3
+// globprog3
 
     @Test
     public void globprog3() {
         // @formatter:off
-         // # Test allocation of "names" (globals)
-         // # global d *decalred* but not used at module level
-         // global a, b, d
-         // b = 1
-         // a = 6
-         // result = 0
-         //
-         // def p():
-         //     global result
-         //     def q():
-         //         global d
-         //         d = a + b
-         //     q()
-         //     result = a * d
-         //
-         // p()
-         mod module = Module(
-     list(
-         Global(list("a", "b", "d")),
-         Assign(list(Name("b", Store)), Num(1)),
-         Assign(list(Name("a", Store)), Num(6)),
-         Assign(list(Name("result", Store)), Num(0)),
-         FunctionDef(
-             "p",
-             arguments(list(), null, list(), list(), null, list()),
-             list(
-                 Global(list("result")),
-                 FunctionDef(
-                     "q",
-                     arguments(list(), null, list(), list(), null, list()),
-                     list(
-                         Global(list("d")),
-                         Assign(list(Name("d", Store)), BinOp(Name("a", Load), Add, Name("b", Load)))),
-                     list(),
-                     null),
-                 Expr(Call(Name("q", Load), list(), list())),
-                 Assign(list(Name("result", Store)), BinOp(Name("a", Load), Mult, Name("d", Load)))),
-             list(),
-             null),
-         Expr(Call(Name("p", Load), list(), list()))))
-         ;
-         // @formatter:on
+        // # Test allocation of "names" (globals)
+        // # global d *decalred* but not used at module level
+        // global a, b, d
+        // b = 1
+        // a = 6
+        // result = 0
+        //
+        // def p():
+        //     global result
+        //     def q():
+        //         global d
+        //         d = a + b
+        //     q()
+        //     result = a * d
+        //
+        // p()
+        mod module = Module(
+    list(
+        Global(list("a", "b", "d")),
+        Assign(list(Name("b", Store)), Num(1)),
+        Assign(list(Name("a", Store)), Num(6)),
+        Assign(list(Name("result", Store)), Num(0)),
+        FunctionDef(
+            "p",
+            arguments(list(), null, list(), list(), null, list()),
+            list(
+                Global(list("result")),
+                FunctionDef(
+                    "q",
+                    arguments(list(), null, list(), list(), null, list()),
+                    list(
+                        Global(list("d")),
+                        Assign(list(Name("d", Store)), BinOp(Name("a", Load), Add, Name("b", Load)))),
+                    list(),
+                    null),
+                Expr(Call(Name("q", Load), list(), list())),
+                Assign(list(Name("result", Store)), BinOp(Name("a", Load), Mult, Name("d", Load)))),
+            list(),
+            null),
+        Expr(Call(Name("p", Load), list(), list()))))
+        ;
+        // @formatter:on
         Map<String, Object> state = new HashMap<>();
-        state.put("a", 6);
-        state.put("b", 1);
         state.put("result", 42);
+        state.put("b", 1);
         state.put("d", 7);
+        state.put("a", 6);
         executeTest(module, state); // globprog3
     }
 
-    // argprog1
+// argprog1
 
     @Test
     public void argprog1() {
         // @formatter:off
-         // # Test allocation of argument lists and locals
-         // def p(eins, zwei):
-         //     def sum(un, deux, trois):
-         //         return un + deux + trois
-         //     def diff(tolv, fem):
-         //         return tolv - fem
-         //     def prod(sex, sju):
-         //         return sex * sju
-         //     drei = 3
-         //     six = sum(eins, zwei, drei)
-         //     seven = diff(2*six, drei+zwei)
-         //     return prod(six, seven)
-         //
-         // result = p(1, 2)
-         mod module = Module(
-     list(
-         FunctionDef(
-             "p",
-             arguments(list(arg("eins", null), arg("zwei", null)), null, list(), list(), null, list()),
-             list(
-                 FunctionDef(
-                     "sum",
-                     arguments(
-                         list(arg("un", null), arg("deux", null), arg("trois", null)),
-                         null,
-                         list(),
-                         list(),
-                         null,
-                         list()),
-                     list(Return(BinOp(BinOp(Name("un", Load), Add, Name("deux", Load)), Add, Name("trois", Load)))),
-                     list(),
-                     null),
-                 FunctionDef(
-                     "diff",
-                     arguments(list(arg("tolv", null), arg("fem", null)), null, list(), list(), null, list()),
-                     list(Return(BinOp(Name("tolv", Load), Sub, Name("fem", Load)))),
-                     list(),
-                     null),
-                 FunctionDef(
-                     "prod",
-                     arguments(list(arg("sex", null), arg("sju", null)), null, list(), list(), null, list()),
-                     list(Return(BinOp(Name("sex", Load), Mult, Name("sju", Load)))),
-                     list(),
-                     null),
-                 Assign(list(Name("drei", Store)), Num(3)),
-                 Assign(
-                     list(Name("six", Store)),
-                     Call(
-                         Name("sum", Load),
-                         list(Name("eins", Load), Name("zwei", Load), Name("drei", Load)),
-                         list())),
-                 Assign(
-                     list(Name("seven", Store)),
-                     Call(
-                         Name("diff", Load),
-                         list(
-                             BinOp(Num(2), Mult, Name("six", Load)),
-                             BinOp(Name("drei", Load), Add, Name("zwei", Load))),
-                         list())),
-                 Return(Call(Name("prod", Load), list(Name("six", Load), Name("seven", Load)), list()))),
-             list(),
-             null),
-         Assign(list(Name("result", Store)), Call(Name("p", Load), list(Num(1), Num(2)), list()))))
-         ;
-         // @formatter:on
+        // # Test allocation of argument lists and locals
+        // def p(eins, zwei):
+        //     def sum(un, deux, trois):
+        //         return un + deux + trois
+        //     def diff(tolv, fem):
+        //         return tolv - fem
+        //     def prod(sex, sju):
+        //         return sex * sju
+        //     drei = 3
+        //     six = sum(eins, zwei, drei)
+        //     seven = diff(2*six, drei+zwei)
+        //     return prod(six, seven)
+        //
+        // result = p(1, 2)
+        mod module = Module(
+    list(
+        FunctionDef(
+            "p",
+            arguments(list(arg("eins", null), arg("zwei", null)), null, list(), list(), null, list()),
+            list(
+                FunctionDef(
+                    "sum",
+                    arguments(
+                        list(arg("un", null), arg("deux", null), arg("trois", null)),
+                        null,
+                        list(),
+                        list(),
+                        null,
+                        list()),
+                    list(Return(BinOp(BinOp(Name("un", Load), Add, Name("deux", Load)), Add, Name("trois", Load)))),
+                    list(),
+                    null),
+                FunctionDef(
+                    "diff",
+                    arguments(list(arg("tolv", null), arg("fem", null)), null, list(), list(), null, list()),
+                    list(Return(BinOp(Name("tolv", Load), Sub, Name("fem", Load)))),
+                    list(),
+                    null),
+                FunctionDef(
+                    "prod",
+                    arguments(list(arg("sex", null), arg("sju", null)), null, list(), list(), null, list()),
+                    list(Return(BinOp(Name("sex", Load), Mult, Name("sju", Load)))),
+                    list(),
+                    null),
+                Assign(list(Name("drei", Store)), Num(3)),
+                Assign(
+                    list(Name("six", Store)),
+                    Call(
+                        Name("sum", Load),
+                        list(Name("eins", Load), Name("zwei", Load), Name("drei", Load)),
+                        list())),
+                Assign(
+                    list(Name("seven", Store)),
+                    Call(
+                        Name("diff", Load),
+                        list(
+                            BinOp(Num(2), Mult, Name("six", Load)),
+                            BinOp(Name("drei", Load), Add, Name("zwei", Load))),
+                        list())),
+                Return(Call(Name("prod", Load), list(Name("six", Load), Name("seven", Load)), list()))),
+            list(),
+            null),
+        Assign(list(Name("result", Store)), Call(Name("p", Load), list(Num(1), Num(2)), list()))))
+        ;
+        // @formatter:on
         Map<String, Object> state = new HashMap<>();
         state.put("result", 42);
         executeTest(module, state); // argprog1
     }
 
-    // closprog1
+// closprog1
 
     @Test
     public void closprog1() {
         // @formatter:off
-         // # Program requiring closures made of local variables
-         // def p(a, b):
-         //     x = a + 1 # =2
-         //     def q(c):
-         //         y = x + c # =4
-         //         def r(d):
-         //             z = y + d # =6
-         //             def s(e):
-         //                 return (e + x + y - 1) * z # =42
-         //             return s(d)
-         //         return r(c)
-         //     return q(b)
-         //
-         // result = p(1, 2)
-         mod module = Module(
-     list(
-         FunctionDef(
-             "p",
-             arguments(list(arg("a", null), arg("b", null)), null, list(), list(), null, list()),
-             list(
-                 Assign(list(Name("x", Store)), BinOp(Name("a", Load), Add, Num(1))),
-                 FunctionDef(
-                     "q",
-                     arguments(list(arg("c", null)), null, list(), list(), null, list()),
-                     list(
-                         Assign(list(Name("y", Store)), BinOp(Name("x", Load), Add, Name("c", Load))),
-                         FunctionDef(
-                             "r",
-                             arguments(list(arg("d", null)), null, list(), list(), null, list()),
-                             list(
-                                 Assign(list(Name("z", Store)), BinOp(Name("y", Load), Add, Name("d", Load))),
-                                 FunctionDef(
-                                     "s",
-                                     arguments(list(arg("e", null)), null, list(), list(), null, list()),
-                                     list(
-                                         Return(
-                                             BinOp(
-                                                 BinOp(
-                                                     BinOp(
-                                                         BinOp(Name("e", Load), Add, Name("x", Load)),
-                                                         Add,
-                                                         Name("y", Load)),
-                                                     Sub,
-                                                     Num(1)),
-                                                 Mult,
-                                                 Name("z", Load)))),
-                                     list(),
-                                     null),
-                                 Return(Call(Name("s", Load), list(Name("d", Load)), list()))),
-                             list(),
-                             null),
-                         Return(Call(Name("r", Load), list(Name("c", Load)), list()))),
-                     list(),
-                     null),
-                 Return(Call(Name("q", Load), list(Name("b", Load)), list()))),
-             list(),
-             null),
-         Assign(list(Name("result", Store)), Call(Name("p", Load), list(Num(1), Num(2)), list()))))
-         ;
-         // @formatter:on
+        // # Program requiring closures made of local variables
+        // def p(a, b):
+        //     x = a + 1 # =2
+        //     def q(c):
+        //         y = x + c # =4
+        //         def r(d):
+        //             z = y + d # =6
+        //             def s(e):
+        //                 return (e + x + y - 1) * z # =42
+        //             return s(d)
+        //         return r(c)
+        //     return q(b)
+        //
+        // result = p(1, 2)
+        mod module = Module(
+    list(
+        FunctionDef(
+            "p",
+            arguments(list(arg("a", null), arg("b", null)), null, list(), list(), null, list()),
+            list(
+                Assign(list(Name("x", Store)), BinOp(Name("a", Load), Add, Num(1))),
+                FunctionDef(
+                    "q",
+                    arguments(list(arg("c", null)), null, list(), list(), null, list()),
+                    list(
+                        Assign(list(Name("y", Store)), BinOp(Name("x", Load), Add, Name("c", Load))),
+                        FunctionDef(
+                            "r",
+                            arguments(list(arg("d", null)), null, list(), list(), null, list()),
+                            list(
+                                Assign(list(Name("z", Store)), BinOp(Name("y", Load), Add, Name("d", Load))),
+                                FunctionDef(
+                                    "s",
+                                    arguments(list(arg("e", null)), null, list(), list(), null, list()),
+                                    list(
+                                        Return(
+                                            BinOp(
+                                                BinOp(
+                                                    BinOp(
+                                                        BinOp(Name("e", Load), Add, Name("x", Load)),
+                                                        Add,
+                                                        Name("y", Load)),
+                                                    Sub,
+                                                    Num(1)),
+                                                Mult,
+                                                Name("z", Load)))),
+                                    list(),
+                                    null),
+                                Return(Call(Name("s", Load), list(Name("d", Load)), list()))),
+                            list(),
+                            null),
+                        Return(Call(Name("r", Load), list(Name("c", Load)), list()))),
+                    list(),
+                    null),
+                Return(Call(Name("q", Load), list(Name("b", Load)), list()))),
+            list(),
+            null),
+        Assign(list(Name("result", Store)), Call(Name("p", Load), list(Num(1), Num(2)), list()))))
+        ;
+        // @formatter:on
         Map<String, Object> state = new HashMap<>();
         state.put("result", 42);
         executeTest(module, state); // closprog1
     }
 
-    // closprog2
+// closprog2
 
     @Test
     public void closprog2() {
         // @formatter:off
-         // # Program requiring closures from arguments
-         // def p(r, i):
-         //     def sum():
-         //         return r + i
-         //     def diff():
-         //         def q():
-         //             return r - i
-         //         return q()
-         //     def prod():
-         //         return r * i
-         //     return prod() + sum() + diff()
-         //
-         // result = p(7, 4)
-         mod module = Module(
-     list(
-         FunctionDef(
-             "p",
-             arguments(list(arg("r", null), arg("i", null)), null, list(), list(), null, list()),
-             list(
-                 FunctionDef(
-                     "sum",
-                     arguments(list(), null, list(), list(), null, list()),
-                     list(Return(BinOp(Name("r", Load), Add, Name("i", Load)))),
-                     list(),
-                     null),
-                 FunctionDef(
-                     "diff",
-                     arguments(list(), null, list(), list(), null, list()),
-                     list(
-                         FunctionDef(
-                             "q",
-                             arguments(list(), null, list(), list(), null, list()),
-                             list(Return(BinOp(Name("r", Load), Sub, Name("i", Load)))),
-                             list(),
-                             null),
-                         Return(Call(Name("q", Load), list(), list()))),
-                     list(),
-                     null),
-                 FunctionDef(
-                     "prod",
-                     arguments(list(), null, list(), list(), null, list()),
-                     list(Return(BinOp(Name("r", Load), Mult, Name("i", Load)))),
-                     list(),
-                     null),
-                 Return(
-                     BinOp(
-                         BinOp(
-                             Call(Name("prod", Load), list(), list()),
-                             Add,
-                             Call(Name("sum", Load), list(), list())),
-                         Add,
-                         Call(Name("diff", Load), list(), list())))),
-             list(),
-             null),
-         Assign(list(Name("result", Store)), Call(Name("p", Load), list(Num(7), Num(4)), list()))))
-         ;
-         // @formatter:on
+        // # Program requiring closures from arguments
+        // def p(r, i):
+        //     def sum():
+        //         return r + i
+        //     def diff():
+        //         def q():
+        //             return r - i
+        //         return q()
+        //     def prod():
+        //         return r * i
+        //     return prod() + sum() + diff()
+        //
+        // result = p(7, 4)
+        mod module = Module(
+    list(
+        FunctionDef(
+            "p",
+            arguments(list(arg("r", null), arg("i", null)), null, list(), list(), null, list()),
+            list(
+                FunctionDef(
+                    "sum",
+                    arguments(list(), null, list(), list(), null, list()),
+                    list(Return(BinOp(Name("r", Load), Add, Name("i", Load)))),
+                    list(),
+                    null),
+                FunctionDef(
+                    "diff",
+                    arguments(list(), null, list(), list(), null, list()),
+                    list(
+                        FunctionDef(
+                            "q",
+                            arguments(list(), null, list(), list(), null, list()),
+                            list(Return(BinOp(Name("r", Load), Sub, Name("i", Load)))),
+                            list(),
+                            null),
+                        Return(Call(Name("q", Load), list(), list()))),
+                    list(),
+                    null),
+                FunctionDef(
+                    "prod",
+                    arguments(list(), null, list(), list(), null, list()),
+                    list(Return(BinOp(Name("r", Load), Mult, Name("i", Load)))),
+                    list(),
+                    null),
+                Return(
+                    BinOp(
+                        BinOp(
+                            Call(Name("prod", Load), list(), list()),
+                            Add,
+                            Call(Name("sum", Load), list(), list())),
+                        Add,
+                        Call(Name("diff", Load), list(), list())))),
+            list(),
+            null),
+        Assign(list(Name("result", Store)), Call(Name("p", Load), list(Num(7), Num(4)), list()))))
+        ;
+        // @formatter:on
         Map<String, Object> state = new HashMap<>();
         state.put("result", 42);
         executeTest(module, state); // closprog2
     }
 
-    // closprog3
+// closprog3
 
     @Test
     public void closprog3() {
         // @formatter:off
-         // # Program requiring closures (mixed)
-         // def p(ua, b): #(1,2)
-         //     z = ua + b # 3
-         //     def q(uc, d): #(1,3)
-         //         y = ua + uc + z # 5
-         //         def r(ue, f): #(1,5)
-         //             x = (ua + uc) + (ue + f) + (y + z) # 16
-         //             def s(uf, g): # (1,16)
-         //                 return (ua + uc - ue) + (uf + g) + (x + y + z)
-         //             return s(ue, x)
-         //         return r(uc, y)
-         //     return q(ua, z)
-         // result = p(1, 2)
-         mod module = Module(
-     list(
-         FunctionDef(
-             "p",
-             arguments(list(arg("ua", null), arg("b", null)), null, list(), list(), null, list()),
-             list(
-                 Assign(list(Name("z", Store)), BinOp(Name("ua", Load), Add, Name("b", Load))),
-                 FunctionDef(
-                     "q",
-                     arguments(list(arg("uc", null), arg("d", null)), null, list(), list(), null, list()),
-                     list(
-                         Assign(
-                             list(Name("y", Store)),
-                             BinOp(BinOp(Name("ua", Load), Add, Name("uc", Load)), Add, Name("z", Load))),
-                         FunctionDef(
-                             "r",
-                             arguments(list(arg("ue", null), arg("f", null)), null, list(), list(), null, list()),
-                             list(
-                                 Assign(
-                                     list(Name("x", Store)),
-                                     BinOp(
-                                         BinOp(
-                                             BinOp(Name("ua", Load), Add, Name("uc", Load)),
-                                             Add,
-                                             BinOp(Name("ue", Load), Add, Name("f", Load))),
-                                         Add,
-                                         BinOp(Name("y", Load), Add, Name("z", Load)))),
-                                 FunctionDef(
-                                     "s",
-                                     arguments(
-                                         list(arg("uf", null), arg("g", null)),
-                                         null,
-                                         list(),
-                                         list(),
-                                         null,
-                                         list()),
-                                     list(
-                                         Return(
-                                             BinOp(
-                                                 BinOp(
-                                                     BinOp(
-                                                         BinOp(Name("ua", Load), Add, Name("uc", Load)),
-                                                         Sub,
-                                                         Name("ue", Load)),
-                                                     Add,
-                                                     BinOp(Name("uf", Load), Add, Name("g", Load))),
-                                                 Add,
-                                                 BinOp(
-                                                     BinOp(Name("x", Load), Add, Name("y", Load)),
-                                                     Add,
-                                                     Name("z", Load))))),
-                                     list(),
-                                     null),
-                                 Return(Call(Name("s", Load), list(Name("ue", Load), Name("x", Load)), list()))),
-                             list(),
-                             null),
-                         Return(Call(Name("r", Load), list(Name("uc", Load), Name("y", Load)), list()))),
-                     list(),
-                     null),
-                 Return(Call(Name("q", Load), list(Name("ua", Load), Name("z", Load)), list()))),
-             list(),
-             null),
-         Assign(list(Name("result", Store)), Call(Name("p", Load), list(Num(1), Num(2)), list()))))
-         ;
-         // @formatter:on
+        // # Program requiring closures (mixed)
+        // def p(ua, b): #(1,2)
+        //     z = ua + b # 3
+        //     def q(uc, d): #(1,3)
+        //         y = ua + uc + z # 5
+        //         def r(ue, f): #(1,5)
+        //             x = (ua + uc) + (ue + f) + (y + z) # 16
+        //             def s(uf, g): # (1,16)
+        //                 return (ua + uc - ue) + (uf + g) + (x + y + z)
+        //             return s(ue, x)
+        //         return r(uc, y)
+        //     return q(ua, z)
+        // result = p(1, 2)
+        mod module = Module(
+    list(
+        FunctionDef(
+            "p",
+            arguments(list(arg("ua", null), arg("b", null)), null, list(), list(), null, list()),
+            list(
+                Assign(list(Name("z", Store)), BinOp(Name("ua", Load), Add, Name("b", Load))),
+                FunctionDef(
+                    "q",
+                    arguments(list(arg("uc", null), arg("d", null)), null, list(), list(), null, list()),
+                    list(
+                        Assign(
+                            list(Name("y", Store)),
+                            BinOp(BinOp(Name("ua", Load), Add, Name("uc", Load)), Add, Name("z", Load))),
+                        FunctionDef(
+                            "r",
+                            arguments(list(arg("ue", null), arg("f", null)), null, list(), list(), null, list()),
+                            list(
+                                Assign(
+                                    list(Name("x", Store)),
+                                    BinOp(
+                                        BinOp(
+                                            BinOp(Name("ua", Load), Add, Name("uc", Load)),
+                                            Add,
+                                            BinOp(Name("ue", Load), Add, Name("f", Load))),
+                                        Add,
+                                        BinOp(Name("y", Load), Add, Name("z", Load)))),
+                                FunctionDef(
+                                    "s",
+                                    arguments(
+                                        list(arg("uf", null), arg("g", null)),
+                                        null,
+                                        list(),
+                                        list(),
+                                        null,
+                                        list()),
+                                    list(
+                                        Return(
+                                            BinOp(
+                                                BinOp(
+                                                    BinOp(
+                                                        BinOp(Name("ua", Load), Add, Name("uc", Load)),
+                                                        Sub,
+                                                        Name("ue", Load)),
+                                                    Add,
+                                                    BinOp(Name("uf", Load), Add, Name("g", Load))),
+                                                Add,
+                                                BinOp(
+                                                    BinOp(Name("x", Load), Add, Name("y", Load)),
+                                                    Add,
+                                                    Name("z", Load))))),
+                                    list(),
+                                    null),
+                                Return(Call(Name("s", Load), list(Name("ue", Load), Name("x", Load)), list()))),
+                            list(),
+                            null),
+                        Return(Call(Name("r", Load), list(Name("uc", Load), Name("y", Load)), list()))),
+                    list(),
+                    null),
+                Return(Call(Name("q", Load), list(Name("ua", Load), Name("z", Load)), list()))),
+            list(),
+            null),
+        Assign(list(Name("result", Store)), Call(Name("p", Load), list(Num(1), Num(2)), list()))))
+        ;
+        // @formatter:on
         Map<String, Object> state = new HashMap<>();
         state.put("result", 42);
         executeTest(module, state); // closprog3
