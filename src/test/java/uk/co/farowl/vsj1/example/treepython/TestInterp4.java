@@ -600,29 +600,6 @@ public class TestInterp4 {
             }
         }
 
-        /** Assign value to name according to its storage type */
-        private void assign(String name, Object value) {
-            SymbolTable.Symbol symbol =
-                    f_code.ast.symbolTable.lookup(name);
-            // Storage mechanism depends on scope of name & OPTIMIZED trait
-            switch (symbol.scope) {
-                case LOCAL:
-                    if (f_code.traits.contains(Code.Trait.OPTIMIZED)) {
-                        fastlocals[symbol.index] = value;
-                    } else {
-                        f_locals.put(name, value);
-                    }
-                    break;
-                case CELL:
-                case FREE:
-                    cellvars[symbol.cellIndex].obj = value;
-                    break;
-                default: // GLOBAL_EXPLICIT, GLOBAL_IMPLICIT:
-                    f_globals.put(name, value);
-                    break;
-            }
-        }
-
         /**
          * Method handle to bootstrap a simulated
          * <code>invokedynamic</code> call site for assignment to an
@@ -765,8 +742,24 @@ public class TestInterp4 {
             List<Cell> closure = closure(targetCode);
             Function func = new Function(targetCode, f_globals,
                     targetCode.co_name, closure);
-            assign(def.name, func);
-            return null;
+
+            if (def.site == null) {
+                // This must be a first visit
+                try {
+                    def.site = new ConstantCallSite(storeMH(def.name));
+                } catch (ReflectiveOperationException e) {
+                    throw linkageFailure(def.name, def, e);
+                }
+            }
+
+            MethodHandle mh = def.site.dynamicInvoker();
+
+            try {
+                mh.invokeExact(this, (Object)func);
+                return null;
+            } catch (Throwable e) {
+                throw invocationFailure("def " + def.name, def, e);
+            }
         }
 
         /**
