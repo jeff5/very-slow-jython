@@ -1520,3 +1520,197 @@ with the reference result in ``state``.
 In the ``closprog`` example, the result is ``{p=<function p>, result=42}``.
 This constitutes success.
 
+Dynamic Language Features
+*************************
+
+    Code fragments in this section are taken from
+    ``~/src/test/java/.../vsj1/example/treepython/TestInterp4.java``
+    in the project source.
+
+A ``CallSite`` for Name Lookup
+==============================
+
+Name lookup in Frame-based Locals
+---------------------------------
+
+In the design so far,
+each time control enters the AST node for a name,
+we look that name up in the symbol table,
+in order to discover where it is kept and (if in the frame) at what index.
+We could easily cache that result in the node.
+However, since we have a ``CallSite`` field,
+this provides an interesting way to embed the symbol table result.
+
+The first step is to separate finding the location of the variable
+from retrieving the value. We re-write the visit method to look like this:
+
+..  code-block::    java
+
+    private static class ExecutionFrame extends Frame
+            implements Visitor<Object> {
+        // ...
+        @Override
+        public Object visit_Name(expr.Name name) {
+            if (name.site == null) {
+                // This must be a first visit
+                try {
+                    name.site = new ConstantCallSite(loadMH(name.id));
+                } catch (ReflectiveOperationException e) {
+                    throw linkageFailure(name.id, name, e);
+                }
+            }
+
+            MethodHandle mh = name.site.dynamicInvoker();
+
+            try {
+                return mh.invokeExact(this);
+            } catch (Throwable e) {
+                throw invocationFailure("=" + name.id, name, e);
+            }
+        }
+        // ...
+    }
+
+It is important to understand that,
+since there is a new frame for each function call,
+and the same AST code is used with all of them,
+we must create a mapping from ``ExecutionFrame`` to ``Object``:
+a mapping that retrieves not exactly the same object each time,
+but whatever object has that name, interpreted for the given frame.
+We cannot therefore cache a reference to the specific array or dictionary,
+only a sort of "pointer to member" of the given *class* of frame.
+In the call ``mh.invokeExact(this)``,
+``this`` is the current ``ExecutionFrame`` and
+``mh`` holds the rest of the information.
+
+The method handle we create once, and cache in the call site,
+is chosen according to the entry in the symbol table like this:
+
+..  code-block::    java
+
+        private MethodHandle loadMH(String id)
+                throws ReflectiveOperationException,
+                IllegalAccessException {
+
+            // How is the id used?
+            SymbolTable.Symbol symbol = f_code.ast.symbolTable.lookup(id);
+
+            // Mechanism depends on scope & OPTIMIZED trait
+            switch (symbol.scope) {
+                case LOCAL:
+                    if (f_code.traits.contains(Code.Trait.OPTIMIZED)) {
+                        return loadFastMH(symbol.index);
+                    } else {
+                        return loadNameMH(id, "f_locals");
+                    }
+                case CELL:
+                case FREE:
+                    return loadCellMH(symbol.cellIndex);
+                default: // GLOBAL_*
+                    return loadNameMH(id, "f_globals");
+            }
+        }
+
+We choose amongst three basic method handle structures,
+according to the scope of the symbol.
+There are four modes, but
+the mechanism for lookup in a map covers both globals and dictionary locals.
+By way of illustration, here is the implementation of that:
+
+..  code-block::    java
+
+        MethodHandle loadNameMH(String name, String mapName)
+                throws ReflectiveOperationException,
+                IllegalAccessException {
+
+            Class<Object> O = Object.class;
+            Class<Map> MAP = Map.class;
+            Class<ExecutionFrame> EF = ExecutionFrame.class;
+            MethodType UOP = MethodType.methodType(O, O);
+
+            // map = λ(f) : f.(mapName)
+            MethodHandle map = lookup.findGetter(EF, mapName, MAP);
+            // get = λ(m,k) : m.get(k)
+            MethodHandle get = lookup.findVirtual(MAP, "get", UOP);
+            // getMap = λ(f,k) : f.(mapName).get(k)
+            MethodHandle getMap = collectArguments(get, 0, map);
+            // λ(f) : f.(mapName).get(name)
+            return insertArguments(getMap, 1, name);
+        }
+
+One could consider that this creates
+the equivalent to a ``LOAD_NAME`` opcode, together with its argument.
+
+Let us reflect on what we've achieved here for a moment.
+One difference from the previous work with unary and binary operations,
+is the use of a ``ConstantCallSite``.
+Once linked, the target does not need to be reconsidered.
+This is because it is not dependent on
+the class of object presented at run-time:
+it depends only on information available in the symbol table,
+and which is known during compilation.
+Our need to use this logic at all at run-time
+stems from the fact that we are interpreting the AST.
+In a Jython compiler that generates Java byte code,
+we would generate instructions to access fast locals, cells or a map directly,
+and the index or name would be a constant in that code.
+
+Another obvious optimisation would be
+to have merged identical ``Name`` nodes, so that
+we do not have to repeat the work for each use of the name in the program text.
+We will not implement that, given the observation that
+this entire class of work belongs to compile time activity.
+
+
+A ``CallSite`` for Assignment
+=============================
+
+A complementary use of method handles may be made for assignment.
+This is very similar to the load operation,
+except that the returned handle takes an extra argument (the value to store).
+Here is the method handle equivalent to a ``STORE_NAME`` opcode:
+
+..  code-block::    java
+
+        MethodHandle storeNameMH(String name, String mapName)
+                throws ReflectiveOperationException,
+                IllegalAccessException {
+
+            Class<Object> O = Object.class;
+            Class<Map> MAP = Map.class;
+            Class<ExecutionFrame> EF = ExecutionFrame.class;
+            MethodType BINOP = MethodType.methodType(O, O, O);
+
+            // put = λ(m,k,v) : m.put(k,v)
+            MethodHandle put = lookup.findVirtual(MAP, "put", BINOP);
+
+            // map = λ(f) : f.(mapName)
+            MethodHandle map = lookup.findGetter(getClass(), mapName, MAP);
+            // putMap = λ(f,k,v) : f.(mapName).put(k,v)
+            MethodHandle putMap = collectArguments(put, 0, map);
+            // λ(f,v) : f.(mapName).put(name,v)
+            return insertArguments(putMap, 1, name)
+                    // Discard the return from Map.put
+                    .asType(MethodType.methodType(void.class, EF, O));
+        }
+
+However, the same comment applies,
+that in a compiler that generates Java byte code,
+the opportunity to generate efficient code at compile time
+makes it unnecessary to optimise like this at run-time.
+
+
+A ``CallSite`` for Function Call
+================================
+
+Opportunity in frame creation and movement of arguments to parameters.
+More pronounced in full implementation, with keywords and varargs.
+Not always a the same function: the "name" is just an expression. (Example.)
+Check the *identity* of the function (not just the type).
+
+
+
+
+
+
+
