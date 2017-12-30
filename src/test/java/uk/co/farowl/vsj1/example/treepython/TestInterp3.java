@@ -13,7 +13,6 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -117,8 +116,7 @@ public class TestInterp3 {
 
     /** Interface presented by callable objects. */
     interface PyCallable {
-
-        Object call(Frame back, List<Object> args);
+        Object call(Frame back, Object[] args);
     }
 
     /**
@@ -150,7 +148,7 @@ public class TestInterp3 {
         }
 
         @Override
-        public Object call(Frame back, List<Object> args) {
+        public Object call(Frame back, Object[] args) {
             // Execution occurs in a new frame
             ExecutionFrame frame =
                     new ExecutionFrame(back, code, globals, closure);
@@ -397,21 +395,20 @@ public class TestInterp3 {
          *
          * @param args positional arguments
          */
-        void setArguments(List<Object> args) {
+        void setArguments(Object[] args) {
 
-            SymbolTable table = f_code.ast.symbolTable;
 
             // Only fixed number of positional arguments supported so far
-            for (int i = 0; i < f_code.argcount; i++) {
-                fastlocals[i] = args.get(i);
-            }
+            assert args.length==f_code.argcount;
 
             /*
              * Arguments are placed in the start of plain local variables,
              * but sometimes they have to be cell variables. The
              * information is in the symbol table.
              */
-            for (int i = 0; i < f_code.argcount; i++) {
+            SymbolTable table = f_code.ast.symbolTable;
+            for (int i = 0; i < args.length; i++) {
+                fastlocals[i] = args[i];
                 String name = f_code.co_varnames[i];
                 SymbolTable.Symbol symbol = table.lookup(name);
                 if (symbol.scope == SymbolTable.ScopeType.CELL) {
@@ -540,18 +537,19 @@ public class TestInterp3 {
         public Object visit_Call(Call call) {
             // Evaluating the expression should return a callable object
             Object funcObj = call.func.accept(this);
-            if (!(funcObj instanceof PyCallable)) {
+            if (funcObj instanceof PyCallable) {
+                PyCallable callable = (PyCallable)funcObj;
+                // Only fixed number of positional arguments supported
+                int n = call.args.size();
+                Object[] argValues = new Object[n];
+                // Visit the values of positional args
+                for (int i = 0; i < n; i++) {
+                    argValues[i] = call.args.get(i).accept(this);
+                }
+                return callable.call(this, argValues);
+            } else {
                 throw notSupported("target not callable", call);
             }
-            Function func = (Function)funcObj;
-            // Visit the values of positional args
-            List<Object> args = new ArrayList<>();
-            for (expr arg : call.args) {
-                args.add(arg.accept(this));
-            }
-            // Only fixed number of positional arguments supported so far
-            Object value = func.call(this, args);
-            return value;
         }
 
         @Override
