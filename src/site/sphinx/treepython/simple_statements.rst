@@ -1278,7 +1278,7 @@ but we have prepared for the creation of the closure with the ``Cell`` type.
         }
 
         @Override
-        public Object call(Frame back, List<Object> args) {
+        public Object call(Frame back, Object[] args) {
             // Execution occurs in a new frame
             ExecutionFrame frame =
                     new ExecutionFrame(back, code, globals, closure);
@@ -1411,18 +1411,19 @@ but it does spot those cases where parameters are also cells.
         public Object visit_Call(Call call) {
             // Evaluating the expression should return a callable object
             Object funcObj = call.func.accept(this);
-            if (!(funcObj instanceof PyCallable)) {
+            if (funcObj instanceof PyCallable) {
+                PyCallable callable = (PyCallable)funcObj;
+                // Only fixed number of positional arguments supported
+                int n = call.args.size();
+                Object[] argValues = new Object[n];
+                // Visit the values of positional args
+                for (int i = 0; i < n; i++) {
+                    argValues[i] = call.args.get(i).accept(this);
+                }
+                return callable.call(this, argValues);
+            } else {
                 throw notSupported("target not callable", call);
             }
-            Function func = (Function)funcObj;
-            // Visit the values of positional args
-            List<Object> args = new ArrayList<>();
-            for (expr arg : call.args) {
-                args.add(arg.accept(this));
-            }
-            // Only fixed number of positional arguments supported so far
-            Object value = func.call(this, args);
-            return value;
         }
 
         @Override
@@ -1520,18 +1521,15 @@ with the reference result in ``state``.
 In the ``closprog`` example, the result is ``{p=<function p>, result=42}``.
 This constitutes success.
 
-Dynamic Language Features
-*************************
+Efficient load and store
+************************
 
     Code fragments in this section are taken from
     ``~/src/test/java/.../vsj1/example/treepython/TestInterp4.java``
     in the project source.
 
-A ``CallSite`` for Name Lookup
-==============================
-
-Name lookup in Frame-based Locals
----------------------------------
+A ``CallSite`` for Loading a Variable
+=====================================
 
 In the design so far,
 each time control enters the AST node for a name,
@@ -1662,8 +1660,8 @@ We will not implement that, given the observation that
 this entire class of work belongs to compile time activity.
 
 
-A ``CallSite`` for Assignment
-=============================
+A ``CallSite`` for Assignment to a Variable
+===========================================
 
 A complementary use of method handles may be made for assignment.
 This is very similar to the load operation,
@@ -1700,13 +1698,167 @@ the opportunity to generate efficient code at compile time
 makes it unnecessary to optimise like this at run-time.
 
 
-A ``CallSite`` for Function Call
-================================
+Optimisation of Function Calls
+******************************
 
-Opportunity in frame creation and movement of arguments to parameters.
-More pronounced in full implementation, with keywords and varargs.
-Not always a the same function: the "name" is just an expression. (Example.)
-Check the *identity* of the function (not just the type).
+Argument Transfer
+=================
+
+As implemented, arguments are computed and stored in a list,
+passed in the call.
+(This reflects the genralised signature ``f(*args, **kwargs)``.)
+The function object then creates the frame and loads the arguments
+into the variables that are the parameters.
+
+It is sensible to have the function create the frame,
+because the frame's specification is implied by the code the function holds,
+and there may be callable objects that use a different type of frame, or none.
+But if the frame (when there is one) could exist
+as soon as the called object is known,
+we could place the arguments as they are produced,
+and avoid the intermediate array.
+
+CPython has a comparable optimisation in ``ceval.c`` at ``fast_function``,
+that when the target is a function defined in Python,
+is simple enough (e.g. uses fast locals), and
+the call has a fixed argument list (no keywords or starred arguments),
+creates the frame and populates it from the interpreter stack.
+
+This idea leads to a version of the ``visit_Call`` that looks like this:
+
+..  code-block::    java
+
+    private static class ExecutionFrame extends Frame
+            implements Visitor<Object> {
+        // ...
+
+        @Override
+        public Object visit_Call(Call call) {
+            // Evaluating the expression should return a callable object
+            Object funcObj = call.func.accept(this);
+
+            if (funcObj instanceof PyGetFrame) {
+                return functionCall((PyGetFrame)funcObj, call.args);
+            } else if (funcObj instanceof PyCallable) {
+                return generalCall((PyCallable)funcObj, call.args);
+            } else {
+                throw notSupported("target not callable", call);
+            }
+        }
+
+        /** Call to {@link PyGetFrame} style of function. */
+        private Object functionCall(PyGetFrame func, List<expr> args) {
+
+            // Create the destination frame
+            ExecutionFrame targetFrame = func.getFrame(this);
+
+            // Only fixed number of positional arguments supported
+            int n = args.size();
+            assert n == targetFrame.f_code.argcount;
+
+            // Visit the values of positional args
+            for (int i = 0; i < n; i++) {
+                targetFrame.setArgument(i, args.get(i).accept(this));
+            }
+            // Execute with the prepared frame
+            return targetFrame.eval();
+        }
+
+        // ... generalCall as previous visit_Call
+
+        private void setArgument(int position, Object value) {
+
+            fastlocals[position] = value;
+
+            // Sometimes an argument is also a cell variable.
+            SymbolTable table = f_code.ast.symbolTable;
+            String name = f_code.co_varnames[position];
+            SymbolTable.Symbol symbol = table.lookup(name);
+            if (symbol.scope == SymbolTable.ScopeType.CELL) {
+                cellvars[symbol.cellIndex].obj = value;
+            }
+        }
+        // ...
+    }
+
+Later, we shall have to tackle the full semantics of calls,
+and will see how this idea survives the extra complications.
+
+
+Re-thinking Closures
+====================
+
+We have followed CPython in using the same code
+(corresponding to CPython's ``*_DEREF`` opcode)
+to access the variables named in the ``co_cellvars`` tuple of ``code``,
+and those named in the ``co_freevars`` tuple.
+
+For this reason, both are in one array.
+(We have not followed CPython
+in that the cells in our frame form an array distinct from fastlocals.)
+
+The variables in ``co_cellvars``,
+are created as new blank cells in the called frame,
+whereas those in ``co_freevars`` are from the closure array in the ``function``.
+
+This involves making a copy of the contents of that array with every call.
+
+We could save storage and data movement
+(where a closure exists)
+by referring to the closure in the function.
+The downside is the extra field in every frame
+(or two classes of frame).
+
+
+A ``CallSite`` for a Function Call?
+===================================
+
+Although the use of method handles to streamline assignment has doubtful value,
+the function call is a different matter.
+Why think this?
+The activity that takes place when execution arrives at a call site
+is determined by two sets of characteristics:
+
+* the pattern of arguments supplied at the call site; and
+* the signature of the function called (``function`` or ``code`` object).
+
+Python supports a rich diversity in both.
+Additionally,
+while the characteristics of the call site are evident to the compiler,
+it is not able to predict the signature of the function it will call:
+in general the called object is the result of an arbitrary expression,
+and perhaps does not yield a ``function`` object at all,
+but something else with a ``__call__`` method
+(and we may not know that until run-time).
+The most the compiler can do is to describe the call site
+in terms of the positional and keyword arguments,
+and the starred array and dictionary arguments.
+
+Because of this, Python has to be prepared to work hard during a call,
+matching actual arguments to parameters in the signature,
+and positioning these in the frame,
+where the particular called object expects them to be.
+There are fast paths in the code of CPython for the common cases,
+and a scheme in which discarded frames of the right "shape"
+are cached on the function that needs them ("zombie frames").
+
+We observe that:
+
+* The pattern is fixed for the call site.
+* The identity of the function is frequently the same from call to call.
+
+These two factors suggest that a cache at each site,
+keyed to the *identity* (not just class) of the function,
+would be a worthwhile optimisation.
+
+Our implementation does not have the full Python richness:
+only functions with a fixed number of parameters.
+The general case must wait until a later chapter.
+However, we'll look at what method handles can do for the simple case.
+
+
+
+
 
 
 

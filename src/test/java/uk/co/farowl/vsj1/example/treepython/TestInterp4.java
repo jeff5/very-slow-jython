@@ -122,14 +122,20 @@ public class TestInterp4 {
     /** Interface presented by callable objects. */
     interface PyCallable {
 
-        Object call(Frame back, List<Object> args);
+        Object call(Frame back, Object[] args);
+    }
+
+    /** Interface presented by call-optimised objects. */
+    interface PyGetFrame {
+
+        ExecutionFrame getFrame(Frame back);
     }
 
     /**
      * Function object as created by a function definition and subsequently
      * called.
      */
-    private static class Function implements PyCallable {
+    private static class Function implements PyGetFrame {
 
         final String name;
         final Code code;
@@ -148,8 +154,48 @@ public class TestInterp4 {
             this.closure = closure;
         }
 
+        /**
+         * Create the frame for executing this function, without arguments
+         * filled in, but do not begin execution.
+         */
         @Override
-        public Object call(Frame back, List<Object> args) {
+        public ExecutionFrame getFrame(Frame back) {
+            // Execution occurs in a new frame
+            return new ExecutionFrame(back, code, globals, closure);
+        }
+
+        @Override
+        public String toString() {
+            return String.format("<function %s>", name);
+        }
+
+    }
+
+    /**
+     * An older implementation of the Function object, without the
+     * {@link Function#getFrame(Frame)} optimisation.
+     */
+    private static class OtherCallable implements PyCallable {
+
+        final String name;
+        final Code code;
+        final Map<String, Object> globals;
+        final List<Cell> closure;
+
+        /**
+         * Create a function-like object from code and the globals in
+         * context, with a closure.
+         */
+        OtherCallable(Code code, Map<String, Object> globals, String name,
+                List<Cell> closure) {
+            this.code = code;
+            this.globals = globals;
+            this.name = name;
+            this.closure = closure;
+        }
+
+        @Override
+        public Object call(Frame back, Object[] args) {
             // Execution occurs in a new frame
             ExecutionFrame frame =
                     new ExecutionFrame(back, code, globals, closure);
@@ -160,7 +206,7 @@ public class TestInterp4 {
 
         @Override
         public String toString() {
-            return String.format("<function %s>", name);
+            return String.format("<callable %s>", name);
         }
     }
 
@@ -377,34 +423,6 @@ public class TestInterp4 {
         ExecutionFrame(Frame back, Code code, Map<String, Object> globals,
                 Map<String, Object> locals) {
             super(back, code, globals, locals, null);
-        }
-
-        /**
-         * Post the arguments into their correct positions in the frame.
-         *
-         * @param args positional arguments
-         */
-        void setArguments(List<Object> args) {
-
-            SymbolTable table = f_code.ast.symbolTable;
-
-            // Only fixed number of positional arguments supported so far
-            for (int i = 0; i < f_code.argcount; i++) {
-                fastlocals[i] = args.get(i);
-            }
-
-            /*
-             * Arguments are placed in the start of plain local variables,
-             * but sometimes they have to be cell variables. The
-             * information is in the symbol table.
-             */
-            for (int i = 0; i < f_code.argcount; i++) {
-                String name = f_code.co_varnames[i];
-                SymbolTable.Symbol symbol = table.lookup(name);
-                if (symbol.scope == SymbolTable.ScopeType.CELL) {
-                    cellvars[symbol.cellIndex].obj = fastlocals[i];
-                }
-            }
         }
 
         /**
@@ -742,6 +760,9 @@ public class TestInterp4 {
             List<Cell> closure = closure(targetCode);
             Function func = new Function(targetCode, f_globals,
                     targetCode.co_name, closure);
+            // OtherCallable func = new OtherCallable(targetCode,
+            // f_globals,
+            // targetCode.co_name, closure);
 
             if (def.site == null) {
                 // This must be a first visit
@@ -788,18 +809,74 @@ public class TestInterp4 {
         public Object visit_Call(Call call) {
             // Evaluating the expression should return a callable object
             Object funcObj = call.func.accept(this);
-            if (!(funcObj instanceof PyCallable)) {
+
+            if (funcObj instanceof PyGetFrame) {
+                return functionCall((PyGetFrame)funcObj, call.args);
+            } else if (funcObj instanceof PyCallable) {
+                return generalCall((PyCallable)funcObj, call.args);
+            } else {
                 throw notSupported("target not callable", call);
             }
-            Function func = (Function)funcObj;
+        }
+
+        /** Call to {@link PyGetFrame} style of function. */
+        private Object functionCall(PyGetFrame func, List<expr> args) {
+
+            // Create the destination frame
+            ExecutionFrame targetFrame = func.getFrame(this);
+
+            // Only fixed number of positional arguments supported
+            int n = args.size();
+            assert n == targetFrame.f_code.argcount;
+
             // Visit the values of positional args
-            List<Object> args = new ArrayList<>();
-            for (expr arg : call.args) {
-                args.add(arg.accept(this));
+            for (int i = 0; i < n; i++) {
+                targetFrame.setArgument(i, args.get(i).accept(this));
             }
+
+            // Execute with the prepared frame
+            return targetFrame.eval();
+        }
+
+        /** Call to {@link PyCallable} style of function. */
+        private Object generalCall(PyCallable callable, List<expr> args) {
+
             // Only fixed number of positional arguments supported so far
-            Object value = func.call(this, args);
-            return value;
+            int n = args.size();
+            Object[] argValues = new Object[n];
+
+            // Visit the values of positional args
+            for (int i = 0; i < n; i++) {
+                argValues[i] = args.get(i).accept(this);
+            }
+
+            return callable.call(this, argValues);
+        }
+
+        /** Post one positional argument into the frame. */
+        private void setArgument(int position, Object value) {
+
+            fastlocals[position] = value;
+
+            // Sometimes an argument is also a cell variable.
+            SymbolTable table = f_code.ast.symbolTable;
+            String name = f_code.co_varnames[position];
+            SymbolTable.Symbol symbol = table.lookup(name);
+            if (symbol.scope == SymbolTable.ScopeType.CELL) {
+                cellvars[symbol.cellIndex].obj = value;
+            }
+        }
+
+        /**
+         * Post the arguments into their correct positions in the frame.
+         *
+         * @param args positional arguments
+         */
+        void setArguments(Object[] args) {
+            // Only fixed number of positional arguments supported so far
+            for (int i = 0; i < f_code.argcount; i++) {
+                setArgument(i, args[i]);
+            }
         }
 
         @Override
