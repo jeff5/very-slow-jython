@@ -653,30 +653,34 @@ In CPython, storage is allocated contiguously
 (as a block of ``PyObject *`` pointers)
 and the interpreter in ``ceval.c`` defines pointers into it like this:
 
-+-------------------+-----------------+---------------------------+----------------+
-| pointer name      | variables       | use                       | type           |
-+===================+=================+===========================+================+
-| ``fastlocals``    | ``co_varnames`` | * positional arguments    | ``PyObject *`` |
-|                   |                 | * keyword only arguments  |                |
-|                   |                 | * ref varargs tuple       |                |
-|                   |                 | * ref keyword dictionary  |                |
-|                   |                 | * local variables         |                |
-+-------------------+-----------------+---------------------------+----------------+
-| ``freevars``      | ``co_cellvars`` | names referred to in a    | ``PyCell *``   |
-| (we call this     |                 | nested scope, for which   |                |
-| ``cellvars``)     |                 | this one is outermost     |                |
-+-------------------+-----------------+---------------------------+----------------+
-|                   | ``co_freevars`` | names that refer to       | ``PyCell *``   |
-|                   |                 | variables in an enclosing |                |
-|                   |                 | scope, used here or or    |                |
-|                   |                 | in an enclosed scope      |                |
-+-------------------+-----------------+---------------------------+----------------+
-| ``stack_pointer`` |                 | value stack               | ``PyObject *`` |
-+-------------------+-----------------+---------------------------+----------------+
++-----------------------+-----------------+---------------------------+----------------+
+| pointer name          | variables       | use                       | type           |
++=======================+=================+===========================+================+
+| ``fastlocals``        | ``co_varnames`` | * positional arguments    | ``PyObject *`` |
+|                       |                 | * keyword only arguments  |                |
+|                       |                 | * ref varargs tuple       |                |
+|                       |                 | * ref keyword dictionary  |                |
+|                       |                 | * local variables         |                |
++-----------------------+-----------------+---------------------------+----------------+
+| ``freevars``          | ``co_cellvars`` | names referred to in a    | ``PyCell *``   |
+| (we call this         |                 | nested scope, for which   |                |
+| ``cellvars``)         |                 | this one is outermost     |                |
++-----------------------+-----------------+---------------------------+----------------+
+| (from ``TestInterp5`` | ``co_freevars`` | names that refer to       | ``PyCell *``   |
+| we will call this     |                 | variables in an enclosing |                |
+| ``freevars``          |                 | scope, used here or or    |                |
+|                       |                 | in an enclosed scope      |                |
++-----------------------+-----------------+---------------------------+----------------+
+| ``stack_pointer``     |                 | value stack               | ``PyObject *`` |
++-----------------------+-----------------+---------------------------+----------------+
 
 We'll do something similar in Java, except
 we do not need a value stack (in the frame), and
 it suits Java better to have distinct arrays of ``Object``\ s and ``Cell``\ s.
+Note that the names (first column) are local variables in the CPython
+interpreter,
+not names visible to Python.
+(We make them interpreter state variables.)
 
 
 In Java
@@ -1706,23 +1710,28 @@ Argument Transfer
 
 As implemented, arguments are computed and stored in a list,
 passed in the call.
-(This reflects the genralised signature ``f(*args, **kwargs)``.)
+(This reflects the generalised signature ``f(*args, **kwargs)``.)
 The function object then creates the frame and loads the arguments
 into the variables that are the parameters.
 
-It is sensible to have the function create the frame,
-because the frame's specification is implied by the code the function holds,
-and there may be callable objects that use a different type of frame, or none.
-But if the frame (when there is one) could exist
-as soon as the called object is known,
+It is sensible to have the called object create the frame,
+because the frame's specification is implied by the code the callable holds.
+In fact,
+that there is a frame at all, or that it is an ``ExecutionFrame`` anyway,
+is a consequence of the callable having been created by ``ExecutionFrame``.
+Other callable objects could use a different type of frame, or none.
+But if the frame exists and is an ``ExecutionFrame`,
+then as soon as the called object is known,
 we could place the arguments as they are produced,
 and avoid the intermediate array.
 
-CPython has a comparable optimisation in ``ceval.c`` at ``fast_function``,
-that when the target is a function defined in Python,
+CPython has a comparable optimisation
+in ``ceval.c`` at ``_PyFunction_FastCall``:
+when the target is a function defined in Python,
 is simple enough (e.g. uses fast locals), and
 the call has a fixed argument list (no keywords or starred arguments),
-creates the frame and populates it from the interpreter stack.
+it creates the frame and populates it from the interpreter stack,
+going straight to ``PyEval_EvalFrameEx(f,0)``.
 
 This idea leads to a version of the ``visit_Call`` that looks like this:
 
@@ -1788,26 +1797,220 @@ and will see how this idea survives the extra complications.
 Re-thinking Closures
 ====================
 
+    Code fragments in this section are taken from
+    ``~/src/test/java/.../vsj1/example/treepython/TestInterp5.java``
+    in the project source.
+
 We have followed CPython in using the same code
-(corresponding to CPython's ``*_DEREF`` opcode)
+(corresponding to CPython's ``*_DEREF`` opcodes)
 to access the variables named in the ``co_cellvars`` tuple of ``code``,
 and those named in the ``co_freevars`` tuple.
-
 For this reason, both are in one array.
-(We have not followed CPython
-in that the cells in our frame form an array distinct from fastlocals.)
+However, this layout is private to the interpreter, so we have a free choice.
+(We already parted company with CPython
+in not making one contiguous array of all locals.)
 
-The variables in ``co_cellvars``,
-are created as new blank cells in the called frame,
-whereas those in ``co_freevars`` are from the closure array in the ``function``.
-
-This involves making a copy of the contents of that array with every call.
-
+While the variables named in ``co_cellvars``
+are new blank cells created in the called frame,
+those in ``co_freevars`` are from the closure array in the ``function``.
+This involves making a copying that array (of references) on every call.
 We could save storage and data movement
-(where a closure exists)
 by referring to the closure in the function.
-The downside is the extra field in every frame
-(or two classes of frame).
+
+Adjustments to the Frame
+------------------------
+
+This involves minor change to the ``ExecutionFrame``
+and how we allocate storage at the end of ``CodeGenerator``.
+The main changes are to ``ExecutionFrame`` itself.
+
+We'll take this opportunity to separate more clearly those fields that have
+direct analogues in CPython (holding them in the ``Frame`` class),
+and those that are interpreter state,
+holding them in the ``ExecutionFrame`` class.
+There's a corresponding adjustment to be made to the constructor,
+and how we compose the closure for a function definition.
+(In an implementation that generates Java byte code,
+composing the closure would be generated code.)
+
+..  code-block::    java
+
+    private static abstract class Frame {
+
+        final Frame f_back;
+        final Code f_code;
+        final Map<String, Object> f_globals;
+        Map<String, Object> f_locals = null;
+        // ... constructors, etc.
+    }
+
+    private static class ExecutionFrame extends Frame
+            implements Visitor<Object> {
+        final Cell[] freevars;
+        final Cell[] cellvars;
+        final Object[] fastlocals;
+        Object returnValue = Py.NONE;
+        Lookup lookup = lookup();
+
+        /** Constructor suitable to run a function (with closure). */
+        ExecutionFrame(Frame back, Code code, Map<String, Object> globals,
+                Cell[] closure) {
+            super(back, code, globals, null);
+
+            if (code.traits.contains(Code.Trait.OPTIMIZED)) {
+                fastlocals = new Object[code.nlocals];
+            } else {
+                fastlocals = null;
+            }
+
+            // Names free in this code form the function closure.
+            this.freevars = closure;
+
+            // Create cell variables locally for nested blocks to access.
+            int ncells = code.co_cellvars.length;
+            if (ncells > 0) {
+                // Initialise the cells that have to be created here
+                cellvars = new Cell[ncells];
+                for (int i = 0; i < ncells; i++) {
+                    cellvars[i] = new Cell(null);
+                }
+            } else {
+                cellvars = Cell.EMPTY_ARRAY;
+            }
+        }
+
+        //...
+        private Cell[] closure(Code targetCode) {
+            int nfrees = targetCode.co_freevars.length;
+            if (nfrees == 0) {
+                // No closure necessary
+                return Cell.EMPTY_ARRAY;
+            } else {
+                SymbolTable localSymbols = f_code.ast.symbolTable;
+                Cell[] closure = new Cell[nfrees];
+                for (int i = 0; i < nfrees; i++) {
+                    String name = targetCode.co_freevars[i];
+                    SymbolTable.Symbol symbol = localSymbols.lookup(name);
+                    boolean isFree =
+                            symbol.scope == SymbolTable.ScopeType.FREE;
+                    int n = symbol.cellIndex;
+                    closure[i] = (isFree ? freevars : cellvars)[n];
+                }
+                return closure;
+            }
+        // ...
+        }
+    }
+
+
+Access to Variables
+-------------------
+
+The allocation of storage is actually a little simpler than before.
+Now that there are two arrays of cells,
+a method handle that accesses a cell variable has to be bound to the right one.
+The handle to store a cell variable is now constructed
+separately for the ``CELL`` and ``FREE`` clauses, naming the array:
+
+..  code-block::    java
+
+    private static class ExecutionFrame extends Frame
+            implements Visitor<Object> {
+        // ...
+
+        private MethodHandle storeMH(String id)
+                throws ReflectiveOperationException,
+                IllegalAccessException {
+
+            // How is the id used?
+            SymbolTable.Symbol symbol = f_code.ast.symbolTable.lookup(id);
+
+            // Mechanism depends on scope & OPTIMIZED trait
+            switch (symbol.scope) {
+                case LOCAL:
+                    if (f_code.traits.contains(Code.Trait.OPTIMIZED)) {
+                        return storeFastMH(symbol.index);
+                    } else {
+                        return storeNameMH(id, "f_locals");
+                    }
+                case CELL:
+                    return storeCellMH(symbol.cellIndex, "cellvars");
+                case FREE:
+                    return storeCellMH(symbol.cellIndex, "freevars");
+                default: // GLOBAL_*
+                    return storeNameMH(id, "f_globals");
+            }
+        }
+
+        MethodHandle storeCellMH(int index, String arrayName)
+                throws ReflectiveOperationException,
+                IllegalAccessException {
+
+            Class<Object> O = Object.class;
+            Class<Cell[]> CA = Cell[].class;
+            Class<ExecutionFrame> EF = ExecutionFrame.class;
+
+            // get = λ(a,i) : a[i]
+            MethodHandle get = arrayElementGetter(CA);
+            // cells = λ(f) : f.(arrayName)
+            MethodHandle cells = lookup.findGetter(EF, arrayName, CA);
+            // getCell = λ(f,i) : f.cellvars[i]
+            MethodHandle getCell = collectArguments(get, 0, cells);
+
+            // setObj = λ(c,v) : (c.obj = v)
+            MethodHandle setObj = lookup.findSetter(Cell.class, "obj", O);
+            // setCellObj = λ(f,i,v) : (f.(arrayName)[i] = v)
+            MethodHandle putCell = collectArguments(setObj, 0, getCell);
+            // λ(f,v) : (f.(arrayName)[index].obj = v)
+            return insertArguments(putCell, 1, index);
+        }
+        // ...
+    }
+
+
+
+Parameters that are Cells
+-------------------------
+
+The call itself is largely as we have seen it before,
+except that by delaying the problem of parameters that are cells to the
+``eval()`` method, the code to load the frame is now simplified.
+The code added to ``eval()`` would be generated by the compiler:
+
+..  code-block::    java
+
+        /** Call to {@link PyGetFrame} style of function. */
+        private Object functionCall(PyGetFrame func, List<expr> args) {
+            // ...
+            // Visit the values of positional args
+            for (int i = 0; i < n; i++) {
+                targetFrame.fastlocals[i] = args.get(i).accept(this);
+            }
+            // Execute with the prepared frame
+            return targetFrame.eval();
+        }
+
+        // ...
+        @Override
+        Object eval() {
+            // Some arguments may be cell variables instead.
+            SymbolTable table = f_code.ast.symbolTable;
+            for (int i = 0; i < f_code.argcount; i++) {
+                String name = f_code.co_varnames[i];
+                SymbolTable.Symbol symbol = table.lookup(name);
+                if (symbol.scope == SymbolTable.ScopeType.CELL) {
+                    cellvars[symbol.cellIndex].obj = fastlocals[i];
+                }
+            }
+
+            // Execute the body of statements
+            for (stmt s : f_code.ast.body) {
+                s.accept(this);
+            }
+            return returnValue;
+        }
+        // ...
+    }
 
 
 A ``CallSite`` for a Function Call?
