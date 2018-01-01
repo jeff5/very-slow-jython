@@ -183,14 +183,20 @@ The bare-essential Java implementation of ``frame`` will look like this:
 
     private static class Frame {
 
+        /** Frames form a stack by chaining through the back pointer. */
+        final Frame f_back;
+        /** Code this frame is to execute. */
+        final Code f_code;
         /** Global context (name space) of execution. */
         final Map<String, Object> f_globals;
-        /** Local variables (when looked up by name). */
-        Map<String, Object> f_locals;
-        /** Local simple variables (array-based implementation). */
-        final Object[] fastlocals;
-        /** Local cell variables. */
-        final Cell[] cellvars;
+        /** Local context (name space) of execution. (Assign if needed.) */
+        Map<String, Object> f_locals = null;
+        /** Built-in objects */
+        final Map<String, Object> f_builtins;
+        /** Local simple variables (corresponds to "varnames"). */
+        Object[] fastlocals = null;
+        /** Local cell variables: concatenation of cellvars & freevars. */
+        Cell[] cellvars = null;
         // ...
     }
 
@@ -201,7 +207,7 @@ the ``fastlocals`` and ``cellvars`` arrays.
 
    In order to access the project-specific tools
    used in the Python examples in this section,
-   put the dirsctory ``~/src/test/python`` on the ``sys.path``,
+   put the directory ``~/src/test/python`` on the ``sys.path``,
    for example via the environment variable ``PYTHONPATH``.
 
 Generating the Layout
@@ -527,7 +533,7 @@ from which the Java code snippets were taken.
 Code Objects
 ============
 
-Having decided from the AST which names in a given lexical scope,
+Having decided from the AST which names in a given lexical scope
 are bound or free, global or local, and where cells must be created,
 we have enough information to place them in the frame storage of that scope.
 A ``frame`` object only exists while the function executes.
@@ -1016,6 +1022,7 @@ A data structure equivalent to that in CPython is easy enough to define.
         final Code f_code;
         final Map<String, Object> f_globals;
         Map<String, Object> f_locals = null;
+        final Map<String, Object> f_builtins;
         Object[] fastlocals = null;
         Cell[] cellvars = null;
 
@@ -1025,6 +1032,7 @@ A data structure equivalent to that in CPython is easy enough to define.
             f_code = code;
             f_back = back;
             f_globals = globals;
+            f_builtins = new HashMap<>();
         }
     }
 
@@ -1171,8 +1179,15 @@ and (for local variables) to locate the particular storage in the frame.
                 case LOCAL:
                     if (f_code.traits.contains(Code.Trait.OPTIMIZED)) {
                         return fastlocals[symbol.index];
-                    } else {
-                        return f_locals.get(name.id);
+                    } else { // compare CPython LOAD_NAME opcode
+                        Object v = f_locals.get(name.id);
+                        if (v == null && f_globals != f_locals) {
+                            v = f_globals.get(name.id);
+                        }
+                        if (v == null) {
+                            v = f_builtins.get(name.id);
+                        }
+                        return v;
                     }
                 case CELL:
                 case FREE:
@@ -1187,7 +1202,8 @@ and (for local variables) to locate the particular storage in the frame.
     }
 
 Notice that code has an attribute that determines what LOCAL access means:
-whether we may rely on the ``fastlocals`` array or have to use a dictionary.
+whether we may rely on the ``fastlocals`` array or
+have to use a series of dictionaries.
 In CPython compiled to byte code, this choice is made at compile time,
 and decides between the ``LOAD_FAST`` and ``LOAD_NAME`` instructions.
 (Equally, in Jython compiled to Java byte code,
@@ -1602,8 +1618,10 @@ is chosen according to the entry in the symbol table like this:
                 case LOCAL:
                     if (f_code.traits.contains(Code.Trait.OPTIMIZED)) {
                         return loadFastMH(symbol.index);
+                    } else if (f_locals == f_globals) {
+                        return loadNameMH(id, "loadNameGB");
                     } else {
-                        return loadNameMH(id, "f_locals");
+                        return loadNameMH(id, "loadNameLGB");
                     }
                 case CELL:
                 case FREE:
@@ -1617,31 +1635,29 @@ We choose amongst three basic method handle structures,
 according to the scope of the symbol.
 There are four modes, but
 the mechanism for lookup in a map covers both globals and dictionary locals.
-By way of illustration, here is the implementation of that:
+By way of illustration, here is the implementation of ``fastlocals`` access:
 
 ..  code-block::    java
 
-        MethodHandle loadNameMH(String name, String mapName)
+        MethodHandle loadFastMH(int index)
                 throws ReflectiveOperationException,
                 IllegalAccessException {
 
-            Class<Object> O = Object.class;
-            Class<Map> MAP = Map.class;
+            Class<Object[]> OA = Object[].class;
             Class<ExecutionFrame> EF = ExecutionFrame.class;
-            MethodType UOP = MethodType.methodType(O, O);
 
-            // map = λ(f) : f.(mapName)
-            MethodHandle map = lookup.findGetter(EF, mapName, MAP);
-            // get = λ(m,k) : m.get(k)
-            MethodHandle get = lookup.findVirtual(MAP, "get", UOP);
-            // getMap = λ(f,k) : f.(mapName).get(k)
-            MethodHandle getMap = collectArguments(get, 0, map);
-            // λ(f) : f.(mapName).get(name)
-            return insertArguments(getMap, 1, name);
+            // fast = λ(f) : f.fastlocals
+            MethodHandle fast = lookup.findGetter(EF, "fastlocals", OA);
+            // get = λ(a,i) : a[i]
+            MethodHandle get = arrayElementGetter(OA);
+            // atIndex = λ(a) : a[index]
+            MethodHandle atIndex = insertArguments(get, 1, index);
+            // λ(f) : f.fastlocals[index]
+            return collectArguments(atIndex, 0, fast);
         }
 
 One could consider that this creates
-the equivalent to a ``LOAD_NAME`` opcode, together with its argument.
+the equivalent to a ``LOAD_FAST`` opcode, together with its argument.
 
 Let us reflect on what we've achieved here for a moment.
 One difference from the previous work with unary and binary operations,
@@ -1651,8 +1667,10 @@ This is because it is not dependent on
 the class of object presented at run-time:
 it depends only on information available in the symbol table,
 and which is known during compilation.
+(With the minor exception of whether locals and globals are the same.)
 Our need to use this logic at all at run-time
-stems from the fact that we are interpreting the AST.
+stems from the fact that we are interpreting the AST,
+rather than generating code.
 In a Jython compiler that generates Java byte code,
 we would generate instructions to access fast locals, cells or a map directly,
 and the index or name would be a constant in that code.
@@ -1670,30 +1688,25 @@ A ``CallSite`` for Assignment to a Variable
 A complementary use of method handles may be made for assignment.
 This is very similar to the load operation,
 except that the returned handle takes an extra argument (the value to store).
-Here is the method handle equivalent to a ``STORE_NAME`` opcode:
+Here is the method handle equivalent to a ``STORE_FAST`` opcode:
 
 ..  code-block::    java
 
-        MethodHandle storeNameMH(String name, String mapName)
+        MethodHandle storeFastMH(int index)
                 throws ReflectiveOperationException,
                 IllegalAccessException {
 
-            Class<Object> O = Object.class;
-            Class<Map> MAP = Map.class;
+            Class<Object[]> OA = Object[].class;
             Class<ExecutionFrame> EF = ExecutionFrame.class;
-            MethodType BINOP = MethodType.methodType(O, O, O);
 
-            // put = λ(m,k,v) : m.put(k,v)
-            MethodHandle put = lookup.findVirtual(MAP, "put", BINOP);
-
-            // map = λ(f) : f.(mapName)
-            MethodHandle map = lookup.findGetter(getClass(), mapName, MAP);
-            // putMap = λ(f,k,v) : f.(mapName).put(k,v)
-            MethodHandle putMap = collectArguments(put, 0, map);
-            // λ(f,v) : f.(mapName).put(name,v)
-            return insertArguments(putMap, 1, name)
-                    // Discard the return from Map.put
-                    .asType(MethodType.methodType(void.class, EF, O));
+            // fast = λ(f) : f.fastlocals
+            MethodHandle fast = lookup.findGetter(EF, "fastlocals", OA);
+            // store = λ(a,k,v) : a[k] = v
+            MethodHandle store = arrayElementSetter(OA);
+            // storeFast = λ(f,k,v) : (f.fastlocals[k] = v)
+            MethodHandle storeFast = collectArguments(store, 0, fast);
+            // mh = λ(f,v) : (f.fastlocals[index] = v)
+            return insertArguments(storeFast, 1, index);
         }
 
 However, the same comment applies,
@@ -2028,16 +2041,15 @@ is determined by two sets of characteristics:
 Python supports a rich diversity in both.
 Additionally,
 while the characteristics of the call site are evident to the compiler,
-it is not able to predict the signature of the function it will call:
+it is not able to predict the type of object it will call:
 in general the called object is the result of an arbitrary expression,
-and perhaps does not yield a ``function`` object at all,
-but something else with a ``__call__`` method
-(and we may not know that until run-time).
-The most the compiler can do is to describe the call site
-in terms of the positional and keyword arguments,
-and the starred array and dictionary arguments.
+and perhaps does not yield a ``function`` object,
+but something else with a ``__call__`` method, unknown until run-time.
+This is a distinction we could manage with a guarded method handle,
+calling ``functionCall`` or ``generalCall`` as appropriate.
 
-Because of this, Python has to be prepared to work hard during a call,
+Because of this richness,
+Python has to be prepared to work hard during a call,
 matching actual arguments to parameters in the signature,
 and positioning these in the frame,
 where the particular called object expects them to be.
@@ -2047,25 +2059,16 @@ are cached on the function that needs them ("zombie frames").
 
 We observe that:
 
-* The pattern is fixed for the call site.
-* The identity of the function is frequently the same from call to call.
+*  The pattern is fixed for the call site
+   (meaning the positional and keyword arguments,
+   and the starred array and dictionary arguments).
+*  The identity of the function is frequently the same from call to call.
+   (It is a built-in or module-level function,
+   or a monomorphic instance method.)
 
 These two factors suggest that a cache at each site,
 keyed to the *identity* (not just class) of the function,
 would be a worthwhile optimisation.
-
-Our implementation does not have the full Python richness:
-only functions with a fixed number of parameters.
-The general case must wait until a later chapter.
-However, we'll look at what method handles can do for the simple case.
-
-
-
-
-
-
-
-
-
-
+As this is only testable when we have a variety of callable types,
+it will wait until a later chapter.
 

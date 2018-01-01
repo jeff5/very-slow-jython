@@ -116,6 +116,7 @@ public class TestInterp3 {
 
     /** Interface presented by callable objects. */
     interface PyCallable {
+
         Object call(Frame back, Object[] args);
     }
 
@@ -206,8 +207,8 @@ public class TestInterp3 {
         final Map<String, Object> f_globals;
         /** Local context (name space) of execution. (Assign if needed.) */
         Map<String, Object> f_locals = null;
-        // /** Built-in objects */
-        // final Map<String, Object> f_builtins;
+        /** Built-in objects */
+        final Map<String, Object> f_builtins;
         /** Local simple variables (corresponds to "varnames"). */
         Object[] fastlocals = null;
         /** Local cell variables: concatenation of cellvars & freevars. */
@@ -225,7 +226,8 @@ public class TestInterp3 {
             f_code = code;
             f_back = back;
             f_globals = globals;
-            // f_builtins = ?
+            // globals.get("__builtins__") ought to be a module with dict:
+            f_builtins = new HashMap<>();
         }
 
         /**
@@ -397,9 +399,8 @@ public class TestInterp3 {
          */
         void setArguments(Object[] args) {
 
-
             // Only fixed number of positional arguments supported so far
-            assert args.length==f_code.argcount;
+            assert args.length == f_code.argcount;
 
             /*
              * Arguments are placed in the start of plain local variables,
@@ -442,8 +443,15 @@ public class TestInterp3 {
                 case LOCAL:
                     if (f_code.traits.contains(Code.Trait.OPTIMIZED)) {
                         return fastlocals[symbol.index];
-                    } else {
-                        return f_locals.get(name.id);
+                    } else { // compare CPython LOAD_NAME opcode
+                        Object v = f_locals.get(name.id);
+                        if (v == null && f_globals != f_locals) {
+                            v = f_globals.get(name.id);
+                        }
+                        if (v == null) {
+                            v = f_builtins.get(name.id);
+                        }
+                        return v;
                     }
                 case CELL:
                 case FREE:

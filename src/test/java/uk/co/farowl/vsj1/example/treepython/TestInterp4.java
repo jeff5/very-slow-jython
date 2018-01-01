@@ -241,8 +241,8 @@ public class TestInterp4 {
         final Map<String, Object> f_globals;
         /** Local context (name space) of execution. (Assign if needed.) */
         Map<String, Object> f_locals = null;
-        // /** Built-in objects */
-        // final Map<String, Object> f_builtins;
+        /** Built-in objects */
+        final Map<String, Object> f_builtins;
         /** Local simple variables (corresponds to "varnames"). */
         Object[] fastlocals = null;
         /** Local cell variables: concatenation of cellvars & freevars. */
@@ -260,7 +260,8 @@ public class TestInterp4 {
             f_code = code;
             f_back = back;
             f_globals = globals;
-            // f_builtins = ?
+            // globals.get("__builtins__") ought to be a module with dict:
+            f_builtins = new HashMap<>();
         }
 
         /**
@@ -459,6 +460,29 @@ public class TestInterp4 {
             }
         }
 
+        /** Search locals, globals and built-ins, in that order. */
+        @SuppressWarnings("unused")
+        private Object loadNameLGB(String id) {
+            Object v = f_locals.get(id);
+            if (v == null) {
+                v = f_globals.get(id);
+            }
+            if (v == null) {
+                v = f_builtins.get(id);
+            }
+            return v;
+        }
+
+        /** Search globals and built-ins, in that order. */
+        @SuppressWarnings("unused")
+        private Object loadNameGB(String id) {
+            Object v = f_globals.get(id);
+            if (v == null) {
+                v = f_builtins.get(id);
+            }
+            return v;
+        }
+
         /**
          * Method handle to bootstrap a simulated
          * <code>invokedynamic</code> call site for an identifier in
@@ -481,14 +505,16 @@ public class TestInterp4 {
                 case LOCAL:
                     if (f_code.traits.contains(Code.Trait.OPTIMIZED)) {
                         return loadFastMH(symbol.index);
+                    } else if (f_locals == f_globals) {
+                        return loadNameMH(id, "loadNameGB");
                     } else {
-                        return loadNameMH(id, "f_locals");
+                        return loadNameMH(id, "loadNameLGB");
                     }
                 case CELL:
                 case FREE:
                     return loadCellMH(symbol.cellIndex);
                 default: // GLOBAL_*
-                    return loadNameMH(id, "f_globals");
+                    return loadNameMH(id, "loadNameGB");
             }
         }
 
@@ -551,36 +577,35 @@ public class TestInterp4 {
             return collectArguments(obj, 0, cell);
         }
 
+
+
         /**
-         * A method handle that may be invoked with an ExecutionFrame to
-         * return a particular variable from a field that is a
-         * <code>Map</code>, either {@link Frame#f_locals} or
-         * {@link Frame#f_globals}.
+         * A method handle that may be invoked with an
+         * <code>ExecutionFrame</code> to return a particular variable by
+         * name from (optionally) {@link Frame#f_locals},
+         * {@link Frame#f_globals} or {@link Frame#f_builtins}. Whether or
+         * not {@link Frame#f_locals} is in the search list is determined
+         * by the method name: "loadNameLGB" to include the locals.
          *
          * @param name of variable to look up
-         * @param mapName either "f_locals" or "f_globals"
+         * @param mapName either "loadNameLGB" or "loadNameGB"
          * @return method handle to look up the name
+         *
          * @throws ReflectiveOperationException
          * @throws IllegalAccessException
          */
-        MethodHandle loadNameMH(String name, String mapName)
+        MethodHandle loadNameMH(String name, String method)
                 throws ReflectiveOperationException,
                 IllegalAccessException {
 
             Class<Object> O = Object.class;
-            @SuppressWarnings("rawtypes")
-            Class<Map> MAP = Map.class;
             Class<ExecutionFrame> EF = ExecutionFrame.class;
-            MethodType UOP = MethodType.methodType(O, O);
+            MethodType LOAD = MethodType.methodType(O, String.class);
 
-            // map = λ(f) : f.(mapName)
-            MethodHandle map = lookup.findGetter(EF, mapName, MAP);
-            // get = λ(m,k) : m.get(k)
-            MethodHandle get = lookup.findVirtual(MAP, "get", UOP);
-            // getMap = λ(f,k) : f.(mapName).get(k)
-            MethodHandle getMap = collectArguments(get, 0, map);
-            // λ(f) : f.(mapName).get(name)
-            return insertArguments(getMap, 1, name);
+            // λ(f) : f.loadNameGB(k)
+            MethodHandle load = lookup.findVirtual(EF, method, LOAD);
+            // λ(f) : f.loadNameGB(name)
+            return insertArguments(load, 1, name);
         }
 
         @Override
