@@ -1,5 +1,6 @@
 ..  treepython/simple_statements.rst
 
+..  _simple-statements:
 
 Simple Statements and Assignment
 ################################
@@ -64,8 +65,8 @@ we advance the ASDL of TreePython to this:
         unaryop = UAdd | USub
         expr_context = Load | Store | Del
 
-        arguments = (arg* args, arg? vararg, arg* kwonlyargs, expr* kw_defaults,
-                     arg? kwarg, expr* defaults)
+        arguments = (arg* args, arg? vararg, arg* kwonlyargs,
+                     expr* kw_defaults, arg? kwarg, expr* defaults)
 
         arg = (identifier arg, expr? annotation)
         keyword = (identifier? arg, expr value)
@@ -132,7 +133,7 @@ Global variables are easily understood: they are always a dictionary,
 like the one we used during our experiments to implement expressions.
 This is almost always the dictionary of the module containing the code.
 
-These name spaces (global and local) are available as dictionaries (mappings)
+These name spaces (local and global) are available as dictionaries (mappings)
 through the functions :py:func:`locals` and :py:func:`globals`,
 but usually code refers to variables by name directly.
 
@@ -189,7 +190,7 @@ The bare-essential Java implementation of ``frame`` will look like this:
         final Code f_code;
         /** Global context (name space) of execution. */
         final Map<String, Object> f_globals;
-        /** Local context (name space) of execution. (Assign if needed.) */
+        /** Local context (name space) of execution (if needed). */
         Map<String, Object> f_locals = null;
         /** Built-in objects */
         final Map<String, Object> f_builtins;
@@ -203,15 +204,15 @@ The bare-essential Java implementation of ``frame`` will look like this:
 We need some processing that decides how to allocate variables in
 the ``fastlocals`` and ``cellvars`` arrays.
 
+Generating the Layout
+*********************
+
 .. note::
 
    In order to access the project-specific tools
    used in the Python examples in this section,
    put the directory ``~/src/test/python`` on the ``sys.path``,
    for example via the environment variable ``PYTHONPATH``.
-
-Generating the Layout
-*********************
 
 Symbol Tables
 =============
@@ -319,7 +320,7 @@ The five possibilities are:
 ``FREE``, ``LOCAL``, ``GLOBAL_IMPLICIT``, ``GLOBAL_EXPLICIT``, ``CELL``.
 The other information (lowercase)
 is the result of calling the informational methods e.g. ``is_assigned()``
-on the symbol.
+on the symbol, and recording which return ``True``.
 These access the observations made by the compiler
 of how the name is used in that lexical scope.
 An interesting feature of this example is that,
@@ -546,7 +547,7 @@ In CPython
 We've encountered the Python ``code`` object as the result of compilation,
 as the executable form of a module acceptable to :py:func:`exec`.
 Turning to our example program again, and its nested functions,
-we see that when its compiled code is disassembled,
+we see that when the compiled code is disassembled,
 it only shows instructions for the module level::
 
     >>> prog = """\
@@ -600,7 +601,7 @@ In our example ``co_consts[0]`` contains the code for ``f``::
 There is a project-specific tool in ``~/src/test/python/codeutil.py``
 (put the directory on ``sys.path``)
 that will dump out the tree of ``code`` objects and the attributes
-that define each ``frame`` they create::
+that define the ``frame`` each creates::
 
    >>> import codeutil as cu
    >>> cu.show_code(prog)
@@ -664,8 +665,8 @@ and the interpreter in ``ceval.c`` defines pointers into it like this:
 +=======================+=================+===========================+================+
 | ``fastlocals``        | ``co_varnames`` | * positional arguments    | ``PyObject *`` |
 |                       |                 | * keyword only arguments  |                |
-|                       |                 | * ref varargs tuple       |                |
-|                       |                 | * ref keyword dictionary  |                |
+|                       |                 | * varargs tuple           |                |
+|                       |                 | * keyword dictionary      |                |
 |                       |                 | * local variables         |                |
 +-----------------------+-----------------+---------------------------+----------------+
 | ``freevars``          | ``co_cellvars`` | names referred to in a    | ``PyCell *``   |
@@ -812,7 +813,7 @@ and at the end it calls the ``Code`` constructor.
                     argcount, kwonlyargcount, localIndex, // sizes
                     traits, // co_flags
                     raw, // co_code
-                    consts, // co_consta
+                    consts, // co_consts
                     names, varnames, freevars, cellvars, // co_* names
                     name // co_name
             );
@@ -1006,7 +1007,7 @@ Now let's step that a couple of times::
 
 The generator is now poised at the end of the second execution of ``yield``,
 where ``n`` has the value just yielded through ``next()``.
-We'll move on swiftly to the Java implementation.
+We'll move on swiftly to the Java implementation of frames.
 
 
 Java Frame and Execution Loop
@@ -1038,8 +1039,9 @@ A data structure equivalent to that in CPython is easy enough to define.
 
 A study of the CPython interpreter in ``ceval.c`` shows it, naturally,
 to be very busy with the fields of the ``frame``.
-It takes several local variables that are pointers into this frame,
-or local shadows of its properties, for efficiency.
+For the sake of efficiency,
+it uses several local variables that are pointers into this frame,
+or that are local shadows of its properties.
 In the same source are functions that set up frames
 for :py:func:`eval`, or :py:func:`exec`, or in support of function calls.
 These populate the parameters from argument lists
@@ -1049,7 +1051,7 @@ In Java we try to combine state and behaviour one object.
 As evaluation is so intimately involved with the frame,
 we shall make the interpreter the *behaviour* of a ``Frame``.
 In aid of this, we will make ``Frame`` abstract
-and add a constructor and an abst5ract method:
+and add a constructor and an abstract method:
 
 ..  code-block::    java
 
@@ -1198,7 +1200,7 @@ and (for local variables) to locate the particular storage in the frame.
         }
 
         // ... other operations
-        // ... unary & binary operations as previos work
+        // ... unary & binary operations as previous work
     }
 
 Notice that code has an attribute that determines what LOCAL access means:
@@ -1527,8 +1529,8 @@ For ``closprog1`` this looks like:
             // ... many lines of AST omitted ...
 
             ),
-        Assign(list(Name("result", Store)), Call(Name("p", Load), list(Num(1), 
-                Num(2)), list()))));
+        Assign(list(Name("result", Store)), Call(Name("p", Load),
+                list(Num(1), Num(2)), list()))));
         // @formatter:on
         Map<String, Object> state = new HashMap<>();
         state.put("result", 42);
@@ -1536,7 +1538,7 @@ For ``closprog1`` this looks like:
     }
 
 ``executeTest`` runs the AST
-and compares the strings and numbers left globals at the end,
+and compares the strings and numbers left as globals at the end,
 with the reference result in ``state``.
 In the ``closprog`` example, the result is ``{p=<function p>, result=42}``.
 This constitutes success.
@@ -1601,7 +1603,8 @@ In the call ``mh.invokeExact(this)``,
 ``this`` is the current ``ExecutionFrame`` and
 ``mh`` holds the rest of the information.
 
-The method handle we create once, and cache in the call site,
+The method handle,
+which we create once and cache in the call site,
 is chosen according to the entry in the symbol table like this:
 
 ..  code-block::    java
@@ -1733,7 +1736,7 @@ In fact,
 that there is a frame at all, or that it is an ``ExecutionFrame`` anyway,
 is a consequence of the callable having been created by ``ExecutionFrame``.
 Other callable objects could use a different type of frame, or none.
-But if the frame exists and is an ``ExecutionFrame`,
+But if the frame exists and is an ``ExecutionFrame``,
 then as soon as the called object is known,
 we could place the arguments as they are produced,
 and avoid the intermediate array.
@@ -1741,8 +1744,8 @@ and avoid the intermediate array.
 CPython has a comparable optimisation
 in ``ceval.c`` at ``_PyFunction_FastCall``:
 when the target is a function defined in Python,
-is simple enough (e.g. uses fast locals), and
-the call has a fixed argument list (no keywords or starred arguments),
+when it is simple enough (e.g. uses fast locals), and
+when the call has a fixed argument list (no keywords or starred arguments),
 it creates the frame and populates it from the interpreter stack,
 going straight to ``PyEval_EvalFrameEx(f,0)``.
 
@@ -1826,7 +1829,7 @@ in not making one contiguous array of all locals.)
 While the variables named in ``co_cellvars``
 are new blank cells created in the called frame,
 those in ``co_freevars`` are from the closure array in the ``function``.
-This involves making a copying that array (of references) on every call.
+This involves copying that array (of references) on every call.
 We could save storage and data movement
 by referring to the closure in the function.
 
@@ -1844,7 +1847,7 @@ holding them in the ``ExecutionFrame`` class.
 There's a corresponding adjustment to be made to the constructor,
 and how we compose the closure for a function definition.
 (In an implementation that generates Java byte code,
-composing the closure would be generated code.)
+we would compose the closure in generated code.)
 
 ..  code-block::    java
 
@@ -1922,8 +1925,9 @@ Access to Variables
 The allocation of storage is actually a little simpler than before.
 Now that there are two arrays of cells,
 a method handle that accesses a cell variable has to be bound to the right one.
-The handle to store a cell variable is now constructed
-separately for the ``CELL`` and ``FREE`` clauses, naming the array:
+The handle to store a cell variable is constructed
+identically for the ``CELL`` and ``FREE`` clauses,
+while naming the correct array:
 
 ..  code-block::    java
 
@@ -1988,7 +1992,9 @@ Parameters that are Cells
 The call itself is largely as we have seen it before,
 except that by delaying the problem of parameters that are cells to the
 ``eval()`` method, the code to load the frame is now simplified.
-The code added to ``eval()`` would be generated by the compiler:
+The code added to ``eval()`` for this purpose
+uses only information known at compile time,
+so the move could be generated by the compiler:
 
 ..  code-block::    java
 

@@ -143,7 +143,7 @@ they merely construct an AST that represents it.
 In order to evaluate the expression we must walk the tree,
 which we accomplish using a Visitor design pattern.
 Parts of the definition of the ``TreePython`` class, that we missed out above,
-provide a ``Visitor`` interface and to give ``Node`` an ``accept`` method:
+provide a ``Visitor`` interface and give ``Node`` an ``accept`` method:
 
 ..  code-block:: java
 

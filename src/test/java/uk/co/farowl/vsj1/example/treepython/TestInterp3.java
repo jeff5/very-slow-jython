@@ -1528,7 +1528,7 @@ public class TestInterp3 {
                     argcount, kwonlyargcount, localIndex, // sizes
                     traits, // co_flags
                     raw, // co_code
-                    consts, // co_consta
+                    consts, // co_consts
                     names, varnames, freevars, cellvars, // co_* names
                     name // co_name
             );

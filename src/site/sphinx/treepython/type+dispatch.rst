@@ -675,7 +675,7 @@ This is where we part company with CPython,
 since our purpose is *only* to obtain a method handle,
 without calling it at this point.
 We therefore invent the convention that
-every handler provide a method we can consult to find the implementation,
+every handler must provide a method we can consult to find the implementation,
 given the operation and the Java class of each operand.
 For types implemented in Java, this can work by reflection:
 

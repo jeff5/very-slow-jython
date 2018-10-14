@@ -35,7 +35,7 @@ the use of multiple interpreters seems not to be fully developed.
 The possibility of multiple "sub-interpreters" is enunciated,
 but there is also a warning against their use with multiple threads.
 It seems the architecture of CPython cannot simply be copied
-in a version of Python for use in that type application.
+in a version of Python for use in that type of application.
 
 This all gets quite complex and subtle,
 so the argument has been moved from where it first arose,
@@ -128,10 +128,12 @@ and all local execution state.
 A chain of frames forms the Python execution stack of one thread.
 
 The ``PyFrame`` holds argument values and local variables,
-in CPython the arithmetic stack (not necessary for Java),
-and any state associated with a particular execution of the code.
+and any state associated with a particular execution of the code,
+if it is not in the local variables of the interpreter itself.
+In CPython it provides space for the arithmetic stack.
 
-A ``PyFrame`` also exists disconnected from the thread state:
+A ``PyFrame`` also exists
+apart from representing the current state of a thread:
 
 * when it is new (e.g. during a function call before the *push*);
 * as part of a trace-back (in an exception, say); or
@@ -146,8 +148,11 @@ as methods on the ``frame`` object,
 rather than as static methods following CPython.
 
 The architectural question for Python compiled to JVM byte code will be
-how this relates to a JVM frame,
-and the variables it holds.
+the extent to which program state information should be in the JVM frame,
+and the variables it holds,
+rather than in the ``frame``.
+Information in the ``frame``
+is accessible to Python in tracebacks and debugging.
 
 
 ``ThreadState``
@@ -164,7 +169,7 @@ how to achieve the same for ``java.lang.Thread``, and
 how to make use of Java concurrency and garbage collection.
 
 Whenever a C function is called in CPython,
-any local reference code may have to execution context
+any local reference that code may hold to execution context
 (like the Python frame stack or the module list)
 will go out of scope.
 In a single-threaded implementation,
@@ -277,7 +282,7 @@ An API avoiding singletons has the following features:
   which may have to be created within their class loader.
 
 In order to cope with multiple interpreters,
-I need each Thread
+we need each Thread
 to have one thread state
 in each system state that it enters.
 However,
