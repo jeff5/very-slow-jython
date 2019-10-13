@@ -22,12 +22,19 @@ The main sections are these:
 
 ## Building the Project
 
-This project builds with Apache Maven.
+This project builds using Gradle.
 As it stands, the primary output is the narrative.
-It uses the excellent [sphinx-maven-plugin](https://trustin.github.io/sphinx-maven-plugin), which delivers HTML output to the directory ``target/site/sphinx``, when you type:
+It uses the excellent [sphinx-gradle-plugin](https://trustin.github.io/sphinx-gradle-plugin),
+which delivers HTML output to the directory ``build/site``, when you type:
 ```
-mvn site
+gradlew site
 ```
+The conventional main task:
+```
+gradlew build
+```
+compiles and runs the unit tests that are the examples in the text.
+
 
 ## Organisation of Sources
 
