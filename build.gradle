@@ -23,9 +23,9 @@ dependencies {
 }
 
 group = 'uk.co.farowl.vsj'
-version = '0.0.1-SNAPSHOT'
+version = '0.3.0-SNAPSHOT'
 description = 'Very Slow Jython'
-sourceCompatibility = '1.8'
+sourceCompatibility = '11'
 
 // Ensure build task also creates the narrative Sphinx docs.
 build.dependsOn("site")

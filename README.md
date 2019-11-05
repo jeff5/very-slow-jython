@@ -26,13 +26,13 @@ This project builds using Gradle.
 As it stands, the primary output is the narrative.
 It uses the excellent [sphinx-gradle-plugin](https://trustin.github.io/sphinx-gradle-plugin),
 which delivers HTML output to the directory ``build/site``, when you type:
-```
-gradlew site
-```
+
+    .\gradlew site
+
 The conventional main task:
-```
-gradlew build
-```
+
+    .\gradlew build
+
 compiles and runs the unit tests that are the examples in the text.
 
 
