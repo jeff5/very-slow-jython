@@ -13,33 +13,41 @@ The main sections are these:
 
 1. [Background to the Very Slow Jython Project](src/site/sphinx/background/background.rst)
 1. [A Tree-Python Interpreter](src/site/sphinx/treepython/treepython.rst)
-  1. [Some Help from the Reference Interpreter](src/site/sphinx/treepython/ref_interp_help.rst)
-  2. [An Interpreter in Java for the Python AST](src/site/sphinx/treepython/ast_java.rst)
-  3. [Type and Operation Dispatch](src/site/sphinx/treepython/type+dispatch.rst)
-  4. [Interpretation of Simple Statements](src/site/sphinx/treepython/simple_statements.rst) 
+   1. [Some Help from the Reference Interpreter](src/site/sphinx/treepython/ref_interp_help.rst)
+   2. [An Interpreter in Java for the Python AST](src/site/sphinx/treepython/ast_java.rst)
+   3. [Type and Operation Dispatch](src/site/sphinx/treepython/type+dispatch.rst)
+   4. [Interpretation of Simple Statements](src/site/sphinx/treepython/simple_statements.rst) 
 1. [Architecture](src/site/sphinx/architecture/architecture.rst)
-  1. [Interpreter Structure](src/site/sphinx/architecture/interpreter.rst)
+   1. [Interpreter Structure](src/site/sphinx/architecture/interpreter.rst)
 
 ## Building the Project
 
 This project builds using Gradle.
 As it stands, the primary output is the narrative.
 It uses the excellent [sphinx-gradle-plugin](https://trustin.github.io/sphinx-gradle-plugin),
-which delivers HTML output to the directory ``build/site``, when you type:
+which delivers HTML output to the directory ``docs/build/site``.
 
-    .\gradlew site
+### Windows
+To build the narrative documentation type:
+
+    .\gradlew --console=plain site
 
 The conventional main task:
 
-    .\gradlew build
+    .\gradlew --console=plain build
 
 compiles and runs the unit tests that are the examples in the text.
 
 
 ## Organisation of Sources
 
-The [narrative](src/site/sphinx) of the Very Slow Jython project will be maintained as documentation in reStructuredText, in the same repository as the code itself.
-However the "false starts", various failed implementation ideas, will stay around so that the narrative can make reference to them.
+The [narrative](docs/src/site/sphinx) of the Very Slow Jython project
+will be maintained as documentation in reStructuredText,
+in the same repository as the code itself.
+However the "false starts", various failed implementation ideas,
+will stay around so that the narrative can make reference to them.
 
-Currently, I'm not sure how I want to organise the successive versions: probably they will exist as versions, concurrently in the package structure, at the cost of some duplication.
+Currently, I'm not sure how I want to organise the successive versions:
+probably they will exist as versions, concurrently in the package structure,
+at the cost of some duplication.
 

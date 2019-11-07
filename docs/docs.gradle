@@ -1,0 +1,16 @@
+/*
+ * docs subproject (narrative setting out ideas on interpreter construction).
+ *
+ * The docs will appear in ./build/site relative to the location of this file.
+ *
+ * Code-level documentation (e.g. Javadocs) are generated within the
+ * corresponding subprojects.
+ */
+
+plugins {
+    id 'base'
+    // Plugins from repositories (must include a version number)
+    // Sphinx for our docs. https://trustin.github.io/sphinx-gradle-plugin
+    id 'kr.motd.sphinx' version '2.6.1' //
+}
+

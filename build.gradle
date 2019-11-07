@@ -8,37 +8,13 @@ plugins {
 
     // Plugins from repositories (must include a version number)
     // Sphinx for our docs. https://trustin.github.io/sphinx-gradle-plugin
-    id "kr.motd.sphinx" version "2.6.1" //
+    //id "kr.motd.sphinx" version "2.6.1" //
 }
 
-repositories {
-    mavenLocal()
-    maven {
-        url = 'http://repo.maven.apache.org/maven2'
-    }
-}
-
-dependencies {
-    testCompile 'junit:junit:4.12'
-}
 
 group = 'uk.co.farowl.vsj'
 version = '0.3.0-SNAPSHOT'
 description = 'Very Slow Jython'
 sourceCompatibility = '11'
 
-// Ensure build task also creates the narrative Sphinx docs.
-build.dependsOn("site")
-
-publishing {
-    publications {
-        maven(MavenPublication) {
-            from(components.java)
-        }
-    }
-}
-
-tasks.withType(JavaCompile) {
-    options.encoding = 'UTF-8'
-}
 
