@@ -6,8 +6,7 @@
 **/venv/
 
 # Generated during build
-/target/
-/build/
+**/build/
 **/_build/
 
 # Places and extensions I use for non-SCM-able scraps
