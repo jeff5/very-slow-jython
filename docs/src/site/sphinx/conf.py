@@ -45,7 +45,7 @@ extensions = [
 
 master_doc = 'index' # The master toctree document.
 
-templates_path = ['_templates']
+# templates_path = ['_templates']
 exclude_trees = ['.build']
 # source_suffix = ['.rst', '.md']
 source_suffix = '.rst'
@@ -66,7 +66,7 @@ source_encoding = 'utf-8-sig'
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This patterns also effect to html_static_path and html_extra_path
-exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
+exclude_patterns = ['_build', 'venv', 'Thumbs.db', '.DS_Store']
 
 
 # The reST default role (used for this markup: `text`) to use for all
@@ -124,7 +124,7 @@ html_short_title = 'Very Slow Jython'
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static']
+# html_static_path = ['_static']
 
 # Add any extra paths that contain custom files (such as robots.txt or
 # .htaccess) here, relative to this directory. These files are copied

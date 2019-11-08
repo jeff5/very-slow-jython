@@ -5,7 +5,10 @@ REM Command file for Sphinx documentation
 if "%SPHINXBUILD%" == "" (
 	set SPHINXBUILD=sphinx-build
 )
-set BUILDDIR=_build
+
+rem Target same as Gradle build
+set BUILDDIR=..\..\..\build
+
 set ALLSPHINXOPTS=-d %BUILDDIR%/doctrees %SPHINXOPTS% .
 set I18NSPHINXOPTS=%SPHINXOPTS% .
 if NOT "%PAPER%" == "" (
@@ -75,10 +78,12 @@ if errorlevel 9009 (
 
 
 if "%1" == "html" (
-	%SPHINXBUILD% -b html %ALLSPHINXOPTS% %BUILDDIR%/html
+    rem Compatible with Gradle build
+    rem %SPHINXBUILD% -b html %ALLSPHINXOPTS% %BUILDDIR%/html
+    %SPHINXBUILD% -b html %ALLSPHINXOPTS% %BUILDDIR%\site
 	if errorlevel 1 exit /b 1
 	echo.
-	echo.Build finished. The HTML pages are in %BUILDDIR%/html.
+	echo.Build finished. The HTML pages are in %BUILDDIR%\site.
 	goto end
 )
 

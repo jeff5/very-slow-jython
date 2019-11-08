@@ -8,6 +8,8 @@
 # Generated during build
 **/build/
 **/_build/
+**/_static/
+**/_tempolates/
 
 # Places and extensions I use for non-SCM-able scraps
 /scraps/
