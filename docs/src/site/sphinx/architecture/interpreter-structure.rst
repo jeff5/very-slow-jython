@@ -1,4 +1,4 @@
-..  architecture/interpreter.rst
+..  architecture/interpreter-structure.rst
 
 
 Interpreter Structure

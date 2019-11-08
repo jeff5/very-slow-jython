@@ -19,6 +19,7 @@ Contents
 
     background/background
     treepython/treepython
+    generated-code/generated-code
     architecture/architecture
 
 

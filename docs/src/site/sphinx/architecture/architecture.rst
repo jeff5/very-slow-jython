@@ -6,7 +6,7 @@ Architecture
 
 ..  toctree::
 
-    interpreter
+    interpreter-structure
 
 
 

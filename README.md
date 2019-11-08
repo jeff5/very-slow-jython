@@ -11,14 +11,17 @@ The narrative of the development is in reStructuredText using Sphinx.
 Without building the project, GitHub does a reasonable job of rendering it, except for the [contents](src/site/sphinx/index.rst).
 The main sections are these:
 
-1. [Background to the Very Slow Jython Project](src/site/sphinx/background/background.rst)
-1. [A Tree-Python Interpreter](src/site/sphinx/treepython/treepython.rst)
-   1. [Some Help from the Reference Interpreter](src/site/sphinx/treepython/ref_interp_help.rst)
-   2. [An Interpreter in Java for the Python AST](src/site/sphinx/treepython/ast_java.rst)
-   3. [Type and Operation Dispatch](src/site/sphinx/treepython/type+dispatch.rst)
-   4. [Interpretation of Simple Statements](src/site/sphinx/treepython/simple_statements.rst) 
-1. [Architecture](src/site/sphinx/architecture/architecture.rst)
-   1. [Interpreter Structure](src/site/sphinx/architecture/interpreter.rst)
+1. [Background to the Very Slow Jython Project](docs/src/site/sphinx/background/background.rst)
+1. [A Tree-Python Interpreter](docs/src/site/sphinx/treepython/treepython.rst)
+   1. [Some Help from the Reference Interpreter](docs/src/site/sphinx/treepython/ref_interp_help.rst)
+   2. [An Interpreter in Java for the Python AST](docs/src/site/sphinx/treepython/ast_java.rst)
+   3. [Type and Operation Dispatch](docs/src/site/sphinx/treepython/type+dispatch.rst)
+   4. [Interpretation of Simple Statements](docs/src/site/sphinx/treepython/simple_statements.rst) 
+1. [A Generated Code Interpreter](docs/src/site/sphinx/generated-code/generated-code.rst)
+   1. [The Data Model](docs/src/site/sphinx/generated-code/data-model.rst)
+   2. [The `frame` as an Interpreter](docs/src/site/sphinx/generated-code/frame-as-interpreter.rst)
+1. [Architecture](docs/src/site/sphinx/architecture/architecture.rst)
+   1. [Interpreter Structure](docs/src/site/sphinx/architecture/interpreter-structure.rst)
 
 ## Building the Project
 
