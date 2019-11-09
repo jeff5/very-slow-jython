@@ -9,7 +9,7 @@
 **/build/
 **/_build/
 **/_static/
-**/_tempolates/
+**/_templates/
 
 # Places and extensions I use for non-SCM-able scraps
 /scraps/
@@ -22,6 +22,7 @@
 /.project
 /.settings/
 /.pydevproject
+/.idea/
 
 # Droppings of various tools, not for the record
 *.class
