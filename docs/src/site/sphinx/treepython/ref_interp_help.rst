@@ -68,33 +68,44 @@ Then we may compile it to an AST like so::
     """
     >>> tree = ast.parse(prog)
     >>> ast.dump(tree)
-    "Module(body=[Assign(targets=[Name(id='x', ctx=Store())], value=Num(n=41)), 
-    Assign(targets=[Name(id='y', ctx=Store())], value=BinOp(left=Name(id='x', c
-    tx=Load()), op=Add(), right=Num(n=1))), Expr(value=Call(func=Name(id='print
-    ', ctx=Load()), args=[Name(id='y', ctx=Load())], keywords=[]))])"
-    >>> 
+    "Module(body=[Assign(targets=[Name(id='x', ctx=Store())], value=Constant(v
+    alue=41, kind=None), type_comment=None), Assign(targets=[Name(id='y', ctx=
+    Store())], value=BinOp(left=Name(id='x', ctx=Load()), op=Add(), right=Cons
+    tant(value=1, kind=None)), type_comment=None), Expr(value=Call(func=Name(i
+    d='print', ctx=Load()), args=[Name(id='y', ctx=Load())], keywords=[]))], t
+    ype_ignores=[])"
+    >>>
 
 Now that last line is not very pretty,
 so the first thing to put in the tool box
-(at ``src/main/python/astutil.py`` relative to the project root)
+(at ``runtime/src/main/python/astutil.py`` relative to the project root)
 is a pretty-printer::
 
     >>> import sys, os
-    >>> lib = os.path.join('src', 'main', 'python')
+    >>> lib = os.path.join('runtime', 'src', 'main', 'python')
     >>> sys.path.insert(0, lib)
     >>> import astutil
     >>> astutil.pretty(tree)
     Module(
-     body=[
-       Assign(targets=[Name(id='x', ctx=Store())], value=Num(n=41)),
-       Assign(
-         targets=[Name(id='y', ctx=Store())],
-         value=BinOp(left=Name(id='x', ctx=Load()), op=Add(), right=Num(n=1))),
-       Expr(
-         value=Call(
-           func=Name(id='print', ctx=Load()),
-           args=[Name(id='y', ctx=Load())],
-           keywords=[]))])
+        body=[
+            Assign(
+                targets=[Name(id='x', ctx=Store())],
+                value=Constant(value=41, kind=None),
+                type_comment=None),
+            Assign(
+                targets=[Name(id='y', ctx=Store())],
+                value=BinOp(
+                    left=Name(id='x', ctx=Load()),
+                    op=Add(),
+                    right=Constant(value=1, kind=None)),
+                type_comment=None),
+            Expr(
+                value=Call(
+                    func=Name(id='print', ctx=Load()),
+                    args=[Name(id='y', ctx=Load())],
+                    keywords=[]))],
+        type_ignores=[])
+               keywords=[]))])
     >>>
 
 The objects in this structure
@@ -108,20 +119,20 @@ bytecode like so::
 
     >>> code = compile(tree, '<prog>', 'exec')
     >>> dis.dis(code)
-     2           0 LOAD_CONST               0 (41)
-                 3 STORE_NAME               0 (x)
+      1           0 LOAD_CONST               0 (41)
+                  2 STORE_NAME               0 (x)
 
-     3           6 LOAD_NAME                0 (x)
-                 9 LOAD_CONST               1 (1)
-                12 BINARY_ADD
-                13 STORE_NAME               1 (y)
+      2           4 LOAD_NAME                0 (x)
+                  6 LOAD_CONST               1 (1)
+                  8 BINARY_ADD
+                 10 STORE_NAME               1 (y)
 
-     4          16 LOAD_NAME                2 (print)
-                19 LOAD_NAME                1 (y)
-                22 CALL_FUNCTION            1 (1 positional, 0 keyword pair)
-                25 POP_TOP
-                26 LOAD_CONST               2 (None)
-                29 RETURN_VALUE
+      3          12 LOAD_NAME                2 (print)
+                 14 LOAD_NAME                1 (y)
+                 16 CALL_FUNCTION            1
+                 18 POP_TOP
+                 20 LOAD_CONST               2 (None)
+                 22 RETURN_VALUE
     >>> exec(code)
     42
     >>>

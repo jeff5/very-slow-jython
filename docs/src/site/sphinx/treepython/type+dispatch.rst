@@ -4,6 +4,8 @@
 Type and Operation Dispatch
 ###########################
 
+.. _operation_dispatch_cpython:
+
 Operation Dispatch in CPython
 *****************************
 
@@ -51,6 +53,8 @@ For these reasons something more than Java overloaded methods is neeeded
 to implement Python semantics,
 although we'll try that shortly to see where we get to.
 
+.. _operation_dispatch_jython:
+
 Operation Dispatch in Jython 2.7.1
 **********************************
 
@@ -90,6 +94,7 @@ Expressions that have simple Java types are converted to and from Jython built-i
 at the boundary between Python and Java,
 for example when passing arguments to a method.
 
+.. _java_object_approach:
 
 A Java Object Approach
 **********************
@@ -119,11 +124,13 @@ how to locate the operations the interpreter needs.
 These correspond to the function slots in a CPython type object,
 and there is a finite repertoire of them.
 
+.. _dispatch_via_overloading:
+
 Dispatch via overloading in Java
 ********************************
 
     Code fragments in this section are taken from
-    ``~/src/test/java/.../vsj1/example/treepython/TestEx2.java``
+    ``runtime/src/test/java/.../vsj1/example/treepython/TestEx2.java``
     in the project source.
 
 Suppose we want to support the ``Add`` and ``Mult`` binary operations.
@@ -321,11 +328,13 @@ is to give objects defined in Python a special handler
 in which each operation checks for the corresponding definition
 in the dictionary of the Python class.
 
+.. _dispatch_via_method_handle:
+
 Dispatch via a Java ``MethodHandle``
 ************************************
 
     Code fragments in this section are taken from
-    ``~/src/test/java/.../vsj1/example/treepython/TestEx3.java``
+    ``runtime/src/test/java/.../vsj1/example/treepython/TestEx3.java``
     in the project source.
 
 In CPython, operator dispatch uses several arrays of pointers to functions,
@@ -499,6 +508,8 @@ and there is only one copy of the delegation logic,
 which begins to resemble that in CPython
 (in ``abstract.c`` at ``binary_op1()``).
 
+.. _caching_type_decisions:
+
 Caching Type Decisions
 **********************
 
@@ -575,7 +586,7 @@ Mapping to a Specialised Implementation
 =======================================
 
     Code fragments in this section are taken from
-    ``~/src/test/java/.../vsj1/example/treepython/TestEx4.java``
+    ``runtime/src/test/java/.../vsj1/example/treepython/TestEx4.java``
     in the project source.
 
 We'll avoid an explicit ``CallSite`` object to begin with.
@@ -814,7 +825,7 @@ Bootstrapping a Call Site
 =========================
 
     Code fragments in this section are taken from
-    ``~/src/test/java/.../vsj1/example/treepython/TestEx5.java``
+    ``runtime/src/test/java/.../vsj1/example/treepython/TestEx5.java``
     in the project source.
 
 It remains for us to introduce a ``CallSite`` object into the AST node
@@ -995,7 +1006,7 @@ but one type that ought to be easier is the unary operation.
 We'll go there next.
 
     Code fragments in this section are taken from
-    ``~/src/test/java/.../vsj1/example/treepython/TestEx6.java``
+    ``runtime/src/test/java/.../vsj1/example/treepython/TestEx6.java``
     in the project source.
 
 The first job is to implement a little more of the Python AST for expressions,
@@ -1157,6 +1168,8 @@ However, there is only one class to test in the guarded method handle:
 
 And that's the pattern for unary operations.
 
+.. _dispatch_with_multiple_implementations:
+
 Dispatch with Multiple Implementations
 **************************************
 
@@ -1279,7 +1292,7 @@ A ``TypeHandler`` for  ``Number`` operands
 ==========================================
 
     Code fragments in this section and the next are taken from
-    ``~/src/test/java/.../vsj1/example/treepython/TestEx7.java``
+    ``runtime/src/test/java/.../vsj1/example/treepython/TestEx7.java``
     in the project source.
 
 Consider making ``BigIntegerHandler`` accept
@@ -1509,7 +1522,7 @@ Specimen Optimisation for ``Integer``
 =====================================
 
     Code fragments in this section are taken from
-    ``~/src/test/java/.../vsj1/example/treepython/TestEx8.java``
+    ``runtime/src/test/java/.../vsj1/example/treepython/TestEx8.java``
     in the project source.
 
 In the implementation so far,
@@ -1607,10 +1620,10 @@ Refactoring
 At this point,
 the classes developed in test programs
 are solid enough to place in the core support library at
-``~/src/main/java/.../vsj1``
+``runtime/src/main/java/.../vsj1``
 in the source of the project (not under ``test``).
 What's left of the test program after this refactoring is at
-``~/src/test/java/.../vsj1/example/treepython/TestEx9.java``
+``runtime/src/test/java/.../vsj1/example/treepython/TestEx9.java``
 in the project source.
 
 We take this opportunity to adjust the supporting methods to simplify
