@@ -1,0 +1,16 @@
+/*
+ * Templates to test generation from the ASDL code tree.
+ */
+
+// Dump out some characteristics of the module
+main(command, asdlCodeRoot) ::= <<
+Tool=<command.tool>
+File=<command.file>
+name=<asdlCodeRoot.name>
+>>
+
+// Check that a named template is correctly chosen
+test(command, asdlCodeRoot) ::= <<
+[test]
+name=<asdlCodeRoot.name>
+>>

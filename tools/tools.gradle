@@ -4,23 +4,17 @@
  */
 
 plugins {
-    id 'java'
-}
-
-repositories {
-    mavenLocal()
-    maven {
-        url = 'http://repo.maven.apache.org/maven2'
-    }
+    id 'antlr'
 }
 
 dependencies {
+    antlr "org.antlr:antlr4:4.7" // use ANTLR version 4
     testCompile 'junit:junit:4.12'
 }
 
 
-tasks.withType(JavaCompile) {
-    options.encoding = 'UTF-8'
-}
 
+generateGrammarSource {
+    arguments += ["-visitor"]
+}
 

@@ -1,0 +1,7 @@
+module syntaxError {
+    typea   = (int x int* y) attributes (string*dummy)
+    typeb   = A | B |
+    ccc     = Test1(typea x, typeb y)
+            | (typea z)
+            attributes(string w)
+}

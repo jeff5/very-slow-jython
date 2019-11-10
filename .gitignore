@@ -1,7 +1,7 @@
 # .gitignore: things not to put under source control
 
 # Project specific structure
-/bin/
+**/bin/
 /local/
 **/venv/
 
@@ -17,10 +17,10 @@
 *.saved
 
 # IDE Files (I don't check mine in: get your own!)
-/.classpath
+**/.classpath
 /.externalToolBuilders/
-/.project
-/.settings/
+**/.project
+**/.settings/
 /.pydevproject
 /.idea/
 

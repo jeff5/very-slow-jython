@@ -1,0 +1,19 @@
+module repeatDefinition {
+    typea   = (int x, int* y) attributes (string*dummy)
+    typeb   = A | B
+    typea   = Test1(typea x, typeb x)
+            | Test2(typea z)
+            attributes(string w)
+    s1      = S1 | S2 | S3 | S1 | S5
+    p1      = (s3* aa, int bb, s2 aa)
+    s2      = Test1(int* a, int b, identifier a)
+            | Test2(typea* a, typeb? b, typeb b, typea a)
+            | Test1
+    p2      = (typea cc, typeb dd, s3? ee)
+            attributes(int* ff, int gg, s3? ff)
+    s3      = T1(int f, int* g, string h)
+            | T2(int h)
+            attributes(typea i, typeb g, int j)
+    p3      = (typea hh, typeb ii, s3? jj)
+            attributes(int* kk, int ll, s3? ii)
+}

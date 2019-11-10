@@ -1,0 +1,7 @@
+module simple {
+    typea = (int x, int* y) attributes (string*dummy)
+    typeb = A | B
+    ccc = Test1(typea x, typeb y)
+      | Test2(typea z)
+      attributes(string w)
+}

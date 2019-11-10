@@ -1,0 +1,62 @@
+/*
+ * Templates for the (re)generation of source ASDL from the ASDL AST.
+ */
+
+// Emit the source corresponding to any Node type in the AsdlTree
+emit(node) ::= "<(_emit(node))(node)>"
+_emit(node) ::= "emit<node.class.simpleName>"
+
+// Called to emit source for a Module module
+emitModule(module) ::= <<
+module <module.name> {
+    <module.defs: emit(); separator="\n">
+>>
+
+// Called to emit source for a Sum sum
+emitSum(sum) ::= <<
+<sum.name> = <_sum(sum); anchor>
+>>
+
+_sum(sum) ::= <%
+    <if(sum.simple)>
+        <_sumSimple(sum)>
+    <else>
+        <_sumComplex(sum)>
+    <endif>
+%>
+
+_sumSimple(sum) ::= <<
+<sum.constructors: {s|<s.name>}; wrap, separator=" | ">
+>>
+
+_sumComplex(sum) ::= <%
+<"  "><sum.constructors: emitConstructor(); separator="\n| ">
+<_attributes(sum)>
+%>
+
+_attributes(def) ::= <%
+<if(def.attributes)><"\n">attributes(<_fields(def.attributes)>)<endif>
+%>
+
+// Called to emit source for a Product product
+emitProduct(product) ::= <<
+<product.name> = <_product(product); anchor>
+>>
+
+_product(prod) ::= <%
+<"  ">(<_fields(prod.members)>)
+<_attributes(prod)>
+%>
+
+_fields(fs) ::= <%
+    <{<fs: emitField(); wrap, separator=", ">}; anchor>
+%>
+
+// Called to emit source for a Constructor constructor
+emitConstructor(constructor) ::= <<
+<constructor.name>(<_fields(constructor.members)>)
+>>
+
+// Called to emit source for a Field field
+emitField(field) ::= "<field>"
+

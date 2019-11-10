@@ -1,0 +1,17 @@
+-- ASDL specification in ASDL
+-- * = repetition, ? = optional, there is no + for one or more
+
+module Asdl {
+
+    asdl_module = (identifier name, identifier* imports, asdl_type* defs)
+
+    asdl_type =   SumType(field*, constructor, constructor*)
+                | ProductType(field, field*)
+        attributes (identifier)
+
+    constructor = Con(identifier, field*)
+
+    field = Id | Option | Sequence 
+        attributes (identifier*, identifier?) 
+
+}
