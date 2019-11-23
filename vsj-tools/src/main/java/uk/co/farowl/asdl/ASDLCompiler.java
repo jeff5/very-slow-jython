@@ -44,7 +44,7 @@ public class ASDLCompiler {
     public static final String DEFAULT_OUTPUT_NAME_FORMAT = "%s.java";
 
     // 0 for no output.
-    private int debug = 2;
+    private int debug = 1;
 
     private Path sourceRoot = Paths.get("");
     private Path outputDirectory = sourceRoot;
@@ -329,7 +329,7 @@ public class ASDLCompiler {
 
     /** Types pre-defined for the ASDL. (Unfortunately, this seems to evolve with use.) */
     private static final List<String> asdlTypes =
-            Arrays.asList("identifier", "string", "bytes", "int", "object", "singleton");
+            Arrays.asList("identifier", "int", "string", "object", "constant");
 
     /**
      * Emit the data model using a StringTemplate group and the template named in the configuration.
@@ -349,7 +349,7 @@ public class ASDLCompiler {
             String name = groupName + ".stg";
             URL url = AsdlTree.class.getResource(name);
             if (url == null) {
-                throw new java.io.FileNotFoundException(name);
+                throw new IllegalArgumentException("'" + name + "' is not a built-in group file.");
             }
             stg = new STGroupFile(url, "UTF-8", '<', '>');
         } else if (groupFile != null) {
@@ -374,9 +374,9 @@ public class ASDLCompiler {
 
         // Add the metadata as a template variable.
         String toolName = getClass().getSimpleName();
-        String group = groupFile == null ? groupName : groupFile.toString();
-        st.addAggr("command.{tool, file, groupfile, template}", toolName, asdlSource.toString(),
-                group, templateName);
+        String group = groupFile == null ? groupName : uri(groupFile);
+        st.addAggr("command.{tool, file, groupfile, template}", toolName, uri(asdlSource), group,
+                templateName);
 
         // Render the tree onto the output file
         Files.createDirectories(outputFile.getParent());
@@ -385,6 +385,18 @@ public class ASDLCompiler {
             wr.setLineWidth(70);
             st.write(wr, Locale.getDefault());
         }
+    }
+
+    /**
+     * Represent a file path as a string URI. This is mostly motivated by the problem that, when
+     * generating Java output, backslashes are treated as introducing escapes (or backslash-u at
+     * least).
+     *
+     * @param path to represent
+     * @return string URI
+     */
+    private static String uri(Path path) {
+        return path.toUri().toString();
     }
 
     /** Return string of reconstructed ASDL from arbitrary sub-tree. */

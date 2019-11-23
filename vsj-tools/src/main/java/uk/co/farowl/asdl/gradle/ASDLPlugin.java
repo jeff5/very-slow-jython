@@ -11,11 +11,12 @@ public class ASDLPlugin implements Plugin<Project> {
 
     @Override
     public void apply(Project project) {
-        // System.out.printf("ASDLPlugin.apply(%s)\n", project.toString());
+
+        System.out.printf("ASDLPlugin.apply(%s)\n", project.toString());
+
+        // Create the one default task
         project.getTasks().create("generateDataModel", ASDLTask.class, (task) -> {
-            Path root = project.getProjectDir().toPath().resolve("src/main/asdl");
-            task.setSourceRoot(root);
-            task.setSource(root);
+            task.setSource("src/main/asdl");
             task.include("**/*.asdl");
             Path outputDirectory =
                     project.getBuildDir().toPath().resolve("generated-src/asdl/main");

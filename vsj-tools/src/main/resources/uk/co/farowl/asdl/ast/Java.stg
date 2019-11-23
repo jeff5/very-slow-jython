@@ -1,25 +1,23 @@
 /*
- * Templates for the generation of Java source from the ASDL AST.
+ * Templates for the generation of Java source from ASDL.
  */
 
 // Java type to use in place of ASDL type (single id)
 asdlTypeToJava ::= [
     "identifier" : "String",
     "string" : "String",
-    "bytes" : "byte[]",
     "object" : "Object",
-    "singleton" : "Object",
+    "constant" : "Object",
     default: key
 ]
 
 // Java type to use in place of ASDL type (optional or sequence)
 asdlTypeToJavaObjectType ::= [
     "identifier" : "String",
-    "string" : "String",
-    "bytes" : "byte[]",
     "int" : "Integer",
+    "string" : "String",
     "object" : "Object",
-    "singleton" : "Object",
+    "constant" : "Object",
     default: key
 ]
 
@@ -30,13 +28,13 @@ main(command, asdlCodeRoot, asdlPackagePath) ::= <<
 // using template "<command.template>" in group file
 // <command.groupfile>
 //
-<if(asdlPackagePath)>package <asdlPackagePath;separator="."><endif>
+<if(asdlPackagePath)>package <asdlPackagePath;separator=".">;<endif>
 
 /**
- * Outer class scoping the types defined in the ASDL file
- * \<code><command.file>\</code>, module \<code><asdlCodeRoot.name>\</code>.
+ * Outer class scoping the types defined in the ASDL module
+ * \<code><asdlCodeRoot.name>\</code>.
  */
-public abstract class <asdlCodeRoot.name>AST {
+public abstract class <asdlCodeRoot.name> {
 
     /**
      * All definitions in this module implement this interface to

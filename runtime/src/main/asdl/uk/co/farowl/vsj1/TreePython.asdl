@@ -39,4 +39,6 @@ module TreePython
 
     arg = (identifier arg, expr? annotation, string? type_comment)
     keyword = (identifier? arg, expr value)
+
+    type_ignore = TypeIgnore(int lineno, string tag)
 }

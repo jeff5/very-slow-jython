@@ -4,6 +4,9 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
 
+import org.gradle.api.file.ConfigurableFileCollection;
+import org.gradle.api.file.ConfigurableFileTree;
+import org.gradle.api.file.FileTree;
 import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.InputFile;
 import org.gradle.api.tasks.InputFiles;
@@ -31,24 +34,35 @@ public class ASDLTask extends SourceTask {
         Path groupFile = getGroupFile();
         System.out.printf("  * using template \"%s\" from group %s\n", getTemplateName(),
                 groupFile != null ? groupFile : compiler.getGroupName());
+        compiler.setSourceRoot(sourceRoot.getDir().toPath());
         for (File f : getSource()) {
             System.out.printf("\n ** %s\n", f);
             compiler.compile(f.toPath(), getOutputDirectory());
         }
     }
 
-    @InputFiles
-    public Path getSourceRoot() {
-        return compiler.getSourceRoot();
+    private ConfigurableFileTree sourceRoot;
+
+    @Override
+    public void setSource(Object source) {
+        // Ensure we have a single tree as the source collection
+        sourceRoot = getProject().fileTree(source);
+        super.setSource((Object)sourceRoot);
     }
 
-    /** @param sourceRoot directory beneath whic to find the ASDL source. */
-    public void setSourceRoot(Path sourceRoot) {
-        //setSource(sourceRoot);
-        compiler.setSourceRoot(sourceRoot);
+    /**
+     * An ASDL task works off a single source tree, so it is not possible to add source to this type
+     * of task.
+     *
+     * @param sources
+     * @return (throws)
+     */
+    @Override
+    @Deprecated
+    public SourceTask source(Object... sources) {
+        throw new UnsupportedOperationException(
+                "It is not possible to add source to this type of task");
     }
-
-
 
     @Input
     public String getTemplateName() {
@@ -59,6 +73,15 @@ public class ASDLTask extends SourceTask {
         compiler.setTemplateName(templateName);
     }
 
+    @Input
+    public String getGroupName() {
+        return compiler.getGroupName();
+    }
+
+    public void setGroupName(String groupName) {
+        compiler.setGroupName(groupName);
+    }
+
     @InputFile
     @Optional
     public Path getGroupFile() {
@@ -67,7 +90,7 @@ public class ASDLTask extends SourceTask {
 
     /** @param groupFile a StringTemplate group file defining the templates. */
     public void setGroupFile(Path groupFile) {
-        compiler.setGroupFile(groupFile);
+        compiler.setGroupFile(getProject().file(groupFile).toPath());
     }
 
     /** @return the directory to receive data structure source files. */
@@ -77,8 +100,8 @@ public class ASDLTask extends SourceTask {
     }
 
     /** @param outputDirectory to receive data structure source files. */
-    public void setOutputDirectory(Path outputDirectory) {
-        compiler.setOutputDirectory(outputDirectory);
+    public void setOutputDirectory(Object outputDirectory) {
+        compiler.setOutputDirectory(getProject().file(outputDirectory).toPath());
     }
 
 }

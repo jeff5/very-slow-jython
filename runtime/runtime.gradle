@@ -13,18 +13,36 @@ dependencies {
     testCompile 'junit:junit:4.12'
 }
 
+// Import the plug-in task so we can use it as a task type.
+import uk.co.farowl.asdl.gradle.ASDLTask
+
+
+def generatedAsdl = "$buildDir/generated-src/asdl"
+
+sourceSets {
+    main {
+        java {
+            srcDir "$generatedAsdl/main"
+        }
+    }
+    test {
+        java {
+            srcDir "$generatedAsdl/test"
+        }
+    }
+}
 
 generateGrammarSource {
     arguments += ["-visitor"]
-    doLast {
-        task -> println "*** $task ran in $task.project.name"
-        //task -> println "*** $task: EOF = $IntStream.EOF"
-    }
 }
 
-generateDataModel {
-    doLast {
-        //task -> println "*** $task ran in $task.project.name"
-    }
+// Manually create a task of type ASDLTask for ASDL in the test corpus
+task('generateTestDataModel', type: ASDLTask) {
+    source = "src/test/asdl"
+    include "**/*.asdl"
+    outputDirectory = "$generatedAsdl/test"
 }
 
+// Manually insert the dependeny of compilation on generation
+compileJava { dependsOn generateDataModel }
+compileTestJava { dependsOn generateTestDataModel }
