@@ -3,7 +3,28 @@
  *
  */
 
+plugins {
+    id 'antlr'
+    id 'uk.co.farowl.asdl.compiler'
+}
+
 dependencies {
+    antlr "org.antlr:antlr4:4.7" // use ANTLR version 4
     testCompile 'junit:junit:4.12'
+}
+
+
+generateGrammarSource {
+    arguments += ["-visitor"]
+    doLast {
+        task -> println "*** $task ran in $task.project.name"
+        //task -> println "*** $task: EOF = $IntStream.EOF"
+    }
+}
+
+generateDataModel {
+    doLast {
+        //task -> println "*** $task ran in $task.project.name"
+    }
 }
 

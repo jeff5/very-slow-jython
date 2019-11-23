@@ -1,0 +1,9 @@
+/*
+ * vsj-tools/settings.gradle
+ *
+ * Settings for an included build of very-slow-jython.
+ */
+
+rootProject.name = 'vsj-tools'
+
+rootProject.buildFileName = rootProject.name + '.gradle'

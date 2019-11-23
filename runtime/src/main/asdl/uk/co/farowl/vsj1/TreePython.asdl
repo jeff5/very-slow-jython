@@ -1,0 +1,42 @@
+-- TreePython.asdl
+--
+-- Based on the Python AST defined in the python.org documentation for
+-- Python 3.8, but adapted to the idea of executing this tree as code.
+
+-- ASDL's 5 builtin types are:
+-- identifier, int, string, object, constant
+
+module TreePython
+{
+    mod = Module(stmt* body, type_ignore *type_ignores)
+
+    stmt = FunctionDef(identifier name, arguments args,
+                       stmt* body, expr* decorator_list, expr? returns,
+                       string? type_comment)
+         | Return(expr? value)
+         | Delete(expr* targets)
+         | Assign(expr* targets, expr value, string? type_comment)
+         | Global(identifier* names)
+         | Nonlocal(identifier* names)
+         | Expr(expr value)
+         | Pass
+
+    expr = 
+           BinOp(expr left, operator op, expr right)
+         | UnaryOp(unaryop op, expr operand)
+         | Call(expr func, expr* args, keyword* keywords)
+         | Constant(constant value, string? kind)
+
+         -- the following expression can appear in assignment context
+         | Name(identifier id, expr_context ctx)
+
+    operator = Add | Sub | Mult | Div
+    unaryop = UAdd | USub
+    expr_context = Load | Store | Del
+
+    arguments = (arg* posonlyargs, arg* args, arg? vararg, arg* kwonlyargs,
+                 expr* kw_defaults, arg? kwarg, expr* defaults)
+
+    arg = (identifier arg, expr? annotation, string? type_comment)
+    keyword = (identifier? arg, expr value)
+}

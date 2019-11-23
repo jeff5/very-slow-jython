@@ -4,11 +4,31 @@
  * This is a multi-project build.
  */
 
+/*
+buildscript {
+    repositories {
+        mavenLocal()
+        mavenCentral()
+    }
+    dependencies {
+        classpath "org.antlr:antlr4:4.7" // For ASDL plug-in
+    }
+}
+*/
+
 plugins {
     id 'maven-publish'
 }
+
+
+
+//import org.antlr.v4.runtime.IntStream
+//println "*** $project.name (main): EOF = $IntStream.EOF"
+
+
+
 description = 'Very Slow Jython'
-group = 'uk.co.farowl.vsj'
+group = 'uk.co.farowl'
 version = '0.3.0-SNAPSHOT'
 
 
@@ -21,9 +41,7 @@ allprojects {
 
     repositories {
         mavenLocal()
-        maven {
-            url = 'http://repo.maven.apache.org/maven2'
-        }
+        mavenCentral()
     }
 }
 

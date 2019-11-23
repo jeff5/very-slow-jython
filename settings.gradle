@@ -4,14 +4,18 @@
 
 rootProject.name = 'very-slow-jython'
 
+
 include 'docs'      // narrative of the project
 include 'runtime'   // model interpreter components to test our ideas
-include 'tools'     // tools used to generate or evaluate the runtime
 
-/*
- * Sub-project build files are named after the sub-project.
- * 
- */
+// Sub-project build files are named after the sub-project.
+
 rootProject.children.each {
+    println it
     it.buildFileName = it.name + '.gradle'
 }
+
+
+// Tools used to generate or evaluate the runtime
+includeBuild 'vsj-tools' 
+

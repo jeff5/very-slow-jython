@@ -1,0 +1,47 @@
+/*
+ * vsj-tools build file
+ *
+ * These are tools on which the Very Slow Jython Project depends at *build*
+ * time, so this is structured as an independent build. It is included in the
+ * main VSJ build through its settings file.
+ */
+
+plugins {
+    id 'java'
+    id 'antlr'
+    id 'java-gradle-plugin'
+}
+
+description = 'Tools for Very Slow Jython'
+group = 'uk.co.farowl'
+version = '0.1.0-SNAPSHOT'
+
+
+repositories {
+    mavenLocal()
+    mavenCentral()
+}
+
+dependencies {
+    antlr "org.antlr:antlr4:4.7" // use ANTLR version 4
+    testCompile 'junit:junit:4.12'
+}
+
+
+generateGrammarSource {
+    arguments += ["-visitor"]
+}
+
+
+
+gradlePlugin {
+    plugins {
+        asdlCompilerPlugin {
+            id = 'uk.co.farowl.asdl.compiler'
+            implementationClass = 'uk.co.farowl.asdl.gradle.ASDLPlugin'
+            displayName = 'ASDL Compiler Plugin'
+            description = 'Compile Abstract Syntax Description Language to Java'
+        }
+    }
+}
+
