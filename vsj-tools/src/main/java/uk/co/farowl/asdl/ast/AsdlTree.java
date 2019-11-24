@@ -281,10 +281,6 @@ public abstract class AsdlTree {
         }
     };
 
-    // According to CPython, built-in types are:
-    private static final Set<String> BUILTIN = new HashSet<>(
-            Arrays.asList("identifier", "string", "bytes", "int", "object", "singleton"));
-
     public static class Field extends AsdlTree {
 
         public final String typeName;
@@ -298,18 +294,6 @@ public abstract class AsdlTree {
             // A field may be declared without a name
             IdContext id = ctx.id();
             this.name = (id == null) ? null : id.getText();
-        }
-
-        public final boolean isOptional() {
-            return cardinality == Cardinality.OPTIONAL;
-        }
-
-        public final boolean isSequence() {
-            return cardinality == Cardinality.SEQUENCE;
-        }
-
-        public final boolean isNodeType() {
-            return !BUILTIN.contains(typeName);
         }
 
         @Override

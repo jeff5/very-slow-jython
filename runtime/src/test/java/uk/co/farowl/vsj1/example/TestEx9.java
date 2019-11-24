@@ -1,4 +1,4 @@
-package uk.co.farowl.vsj1.example.treepython;
+package uk.co.farowl.vsj1.example;
 
 import static java.lang.invoke.MethodHandles.lookup;
 import static org.hamcrest.CoreMatchers.instanceOf;

@@ -21,8 +21,7 @@ module TreePython
          | Expr(expr value)
          | Pass
 
-    expr = 
-           BinOp(expr left, operator op, expr right)
+    expr = BinOp(expr left, operator op, expr right)
          | UnaryOp(unaryop op, expr operand)
          | Call(expr func, expr* args, keyword* keywords)
          | Constant(constant value, string? kind)
@@ -39,6 +38,5 @@ module TreePython
 
     arg = (identifier arg, expr? annotation, string? type_comment)
     keyword = (identifier? arg, expr value)
-
     type_ignore = TypeIgnore(int lineno, string tag)
 }

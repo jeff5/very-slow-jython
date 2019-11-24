@@ -1,17 +1,11 @@
-package uk.co.farowl.vsj1.example.treepython;
+package uk.co.farowl.vsj1.example;
 
-import static java.lang.invoke.MethodHandles.arrayElementGetter;
-import static java.lang.invoke.MethodHandles.arrayElementSetter;
-import static java.lang.invoke.MethodHandles.collectArguments;
-import static java.lang.invoke.MethodHandles.insertArguments;
 import static java.lang.invoke.MethodHandles.lookup;
 import static org.hamcrest.CoreMatchers.is;
 import static org.junit.Assert.assertThat;
 
-import java.lang.invoke.ConstantCallSite;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles.Lookup;
-import java.lang.invoke.MethodType;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -59,11 +53,12 @@ import uk.co.farowl.vsj1.TreePython.unaryop;
 import uk.co.farowl.vsj1.UnaryOpCallSite;
 
 /**
- * This test program demonstrates the use of CallSite and MethodHandle to
- * accelerate several styles of assignment and simple function calling, in
- * an AST-based interpreter.
+ * This test program demonstrates several styles of assignment and trivial
+ * function calling, in an AST-based interpreter. This program builds on
+ * the previous demonstrations of generating symbol tables and code
+ * objects.
  */
-public class TestInterp4 {
+public class TestInterp3 {
 
     @BeforeClass
     public static void setUpClass() {
@@ -125,68 +120,27 @@ public class TestInterp4 {
         Object call(Frame back, Object[] args);
     }
 
-    /** Interface presented by call-optimised objects. */
-    interface PyGetFrame {
-
-        ExecutionFrame getFrame(Frame back);
-    }
-
     /**
      * Function object as created by a function definition and subsequently
      * called.
      */
-    private static class Function implements PyGetFrame {
+    private static class Function implements PyCallable {
 
         final String name;
         final Code code;
         final Map<String, Object> globals;
         final List<Cell> closure;
+
+        /** Create a function from code and the globals in context. */
+        Function(Code code, Map<String, Object> globals, String name) {
+            this(code, globals, name, null);
+        }
 
         /**
          * Create a function from code and the globals in context, with a
          * closure.
          */
         Function(Code code, Map<String, Object> globals, String name,
-                List<Cell> closure) {
-            this.code = code;
-            this.globals = globals;
-            this.name = name;
-            this.closure = closure;
-        }
-
-        /**
-         * Create the frame for executing this function, without arguments
-         * filled in, but do not begin execution.
-         */
-        @Override
-        public ExecutionFrame getFrame(Frame back) {
-            // Execution occurs in a new frame
-            return new ExecutionFrame(back, code, globals, closure);
-        }
-
-        @Override
-        public String toString() {
-            return String.format("<function %s>", name);
-        }
-
-    }
-
-    /**
-     * An older implementation of the Function object, without the
-     * {@link Function#getFrame(Frame)} optimisation.
-     */
-    private static class OtherCallable implements PyCallable {
-
-        final String name;
-        final Code code;
-        final Map<String, Object> globals;
-        final List<Cell> closure;
-
-        /**
-         * Create a function-like object from code and the globals in
-         * context, with a closure.
-         */
-        OtherCallable(Code code, Map<String, Object> globals, String name,
                 List<Cell> closure) {
             this.code = code;
             this.globals = globals;
@@ -206,7 +160,19 @@ public class TestInterp4 {
 
         @Override
         public String toString() {
-            return String.format("<callable %s>", name);
+            return String.format("<function %s>", name);
+        }
+
+        /** Get a safe number of arguments. */
+        private int argCount(List<Object> args) {
+            // Only fixed number of positional arguments supported so far
+            int n = args.size();
+            if (n != code.argcount) {
+                String fmt = "%s takes %d arguments (%d given)";
+                throw new IllegalArgumentException(String.format(fmt, name,
+                        code.argcount, args.size()));
+            }
+            return n;
         }
     }
 
@@ -427,6 +393,32 @@ public class TestInterp4 {
         }
 
         /**
+         * Post the arguments into their correct positions in the frame.
+         *
+         * @param args positional arguments
+         */
+        void setArguments(Object[] args) {
+
+            // Only fixed number of positional arguments supported so far
+            assert args.length == f_code.argcount;
+
+            /*
+             * Arguments are placed in the start of plain local variables,
+             * but sometimes they have to be cell variables. The
+             * information is in the symbol table.
+             */
+            SymbolTable table = f_code.ast.symbolTable;
+            for (int i = 0; i < args.length; i++) {
+                fastlocals[i] = args[i];
+                String name = f_code.co_varnames[i];
+                SymbolTable.Symbol symbol = table.lookup(name);
+                if (symbol.scope == SymbolTable.ScopeType.CELL) {
+                    cellvars[symbol.cellIndex].obj = fastlocals[i];
+                }
+            }
+        }
+
+        /**
          * Execute the code in this frame. In the AST-based implementation,
          * we execute a list of {@link stmt} ASTs and return the final
          * value of {@link #returnValue}.
@@ -442,332 +434,70 @@ public class TestInterp4 {
 
         @Override
         public Object visit_Name(expr.Name name) {
-            if (name.site == null) {
-                // This must be a first visit
-                try {
-                    name.site = new ConstantCallSite(loadMH(name.id));
-                } catch (ReflectiveOperationException e) {
-                    throw linkageFailure(name.id, name, e);
-                }
-            }
 
-            MethodHandle mh = name.site.dynamicInvoker();
+            SymbolTable.Symbol symbol =
+                    f_code.ast.symbolTable.lookup(name.id);
 
-            try {
-                return mh.invokeExact(this);
-            } catch (Throwable e) {
-                throw invocationFailure("=" + name.id, name, e);
-            }
-        }
-
-        /** Search locals, globals and built-ins, in that order. */
-        @SuppressWarnings("unused")
-        private Object loadNameLGB(String id) {
-            Object v = f_locals.get(id);
-            if (v == null) {
-                v = f_globals.get(id);
-            }
-            if (v == null) {
-                v = f_builtins.get(id);
-            }
-            return v;
-        }
-
-        /** Search globals and built-ins, in that order. */
-        @SuppressWarnings("unused")
-        private Object loadNameGB(String id) {
-            Object v = f_globals.get(id);
-            if (v == null) {
-                v = f_builtins.get(id);
-            }
-            return v;
-        }
-
-        /**
-         * Method handle to bootstrap a simulated
-         * <code>invokedynamic</code> call site for an identifier in
-         * context of this frame's code object.
-         *
-         * @param id identifier to resolve
-         * @return method handle to load the value
-         * @throws ReflectiveOperationException
-         * @throws IllegalAccessException
-         */
-        private MethodHandle loadMH(String id)
-                throws ReflectiveOperationException,
-                IllegalAccessException {
-
-            // How is the id used?
-            SymbolTable.Symbol symbol = f_code.ast.symbolTable.lookup(id);
-
-            // Mechanism depends on scope & OPTIMIZED trait
+            // Storage mechanism depends on scope of name & OPTIMIZED trait
             switch (symbol.scope) {
                 case LOCAL:
                     if (f_code.traits.contains(Code.Trait.OPTIMIZED)) {
-                        return loadFastMH(symbol.index);
-                    } else if (f_locals == f_globals) {
-                        return loadNameMH(id, "loadNameGB");
-                    } else {
-                        return loadNameMH(id, "loadNameLGB");
+                        return fastlocals[symbol.index];
+                    } else { // compare CPython LOAD_NAME opcode
+                        Object v = f_locals.get(name.id);
+                        if (v == null && f_globals != f_locals) {
+                            v = f_globals.get(name.id);
+                        }
+                        if (v == null) {
+                            v = f_builtins.get(name.id);
+                        }
+                        return v;
                     }
                 case CELL:
                 case FREE:
-                    return loadCellMH(symbol.cellIndex);
+                    return cellvars[symbol.cellIndex].obj;
                 default: // GLOBAL_*
-                    return loadNameMH(id, "loadNameGB");
+                    return f_globals.get(name.id);
             }
-        }
-
-        /**
-         * A method handle that may be invoked with an ExecutionFrame to
-         * return a particular local variable from
-         * {@link Frame#fastlocals}.
-         *
-         * @param index of local variable
-         * @return method handle to load the value
-         * @throws ReflectiveOperationException
-         * @throws IllegalAccessException
-         */
-        MethodHandle loadFastMH(int index)
-                throws ReflectiveOperationException,
-                IllegalAccessException {
-
-            Class<Object[]> OA = Object[].class;
-            Class<ExecutionFrame> EF = ExecutionFrame.class;
-
-            // fast = λ(f) : f.fastlocals
-            MethodHandle fast = lookup.findGetter(EF, "fastlocals", OA);
-            // get = λ(a,i) : a[i]
-            MethodHandle get = arrayElementGetter(OA);
-            // atIndex = λ(a) : a[index]
-            MethodHandle atIndex = insertArguments(get, 1, index);
-            // λ(f) : f.fastlocals[index]
-            return collectArguments(atIndex, 0, fast);
-        }
-
-        /**
-         * A method handle that may be invoked with an ExecutionFrame to
-         * return a particular cell variable {@link Frame#cellvars}.
-         *
-         * @param index of cell variable
-         * @return method handle to load the value
-         * @throws ReflectiveOperationException
-         * @throws IllegalAccessException
-         */
-        MethodHandle loadCellMH(int index)
-                throws ReflectiveOperationException,
-                IllegalAccessException {
-
-            Class<Object> O = Object.class;
-            Class<Cell[]> CA = Cell[].class;
-            Class<ExecutionFrame> EF = ExecutionFrame.class;
-
-            // fast = λ(f) : f.cellvars
-            MethodHandle cells = lookup.findGetter(EF, "cellvars", CA);
-            // get = λ(a,i) : a[i]
-            MethodHandle get = arrayElementGetter(CA);
-            // atIndex = λ(a) : a[index]
-            MethodHandle atIndex = insertArguments(get, 1, index);
-            // cell = λ(f) : f.cellvars[index]
-            MethodHandle cell = collectArguments(atIndex, 0, cells);
-
-            // obj = λ(c) : c.obj
-            MethodHandle obj = lookup.findGetter(Cell.class, "obj", O);
-            // λ(f) : f.cellvars[index].obj
-            return collectArguments(obj, 0, cell);
-        }
-
-
-
-        /**
-         * A method handle that may be invoked with an
-         * <code>ExecutionFrame</code> to return a particular variable by
-         * name from (optionally) {@link Frame#f_locals},
-         * {@link Frame#f_globals} or {@link Frame#f_builtins}. Whether or
-         * not {@link Frame#f_locals} is in the search list is determined
-         * by the method name: "loadNameLGB" to include the locals.
-         *
-         * @param name of variable to look up
-         * @param mapName either "loadNameLGB" or "loadNameGB"
-         * @return method handle to look up the name
-         *
-         * @throws ReflectiveOperationException
-         * @throws IllegalAccessException
-         */
-        MethodHandle loadNameMH(String name, String method)
-                throws ReflectiveOperationException,
-                IllegalAccessException {
-
-            Class<Object> O = Object.class;
-            Class<ExecutionFrame> EF = ExecutionFrame.class;
-            MethodType LOAD = MethodType.methodType(O, String.class);
-
-            // λ(f) : f.loadNameGB(k)
-            MethodHandle load = lookup.findVirtual(EF, method, LOAD);
-            // λ(f) : f.loadNameGB(name)
-            return insertArguments(load, 1, name);
         }
 
         @Override
         public Object visit_Assign(Assign assign) {
 
             Object value = assign.value.accept(this);
-
-            if (assign.site == null) {
-                // This must be a first visit
-                if (assign.targets.size() != 1) {
-                    throw notSupported("unpacking", assign);
-                }
-                expr target = assign.targets.get(0);
-                String id = ((expr.Name)target).id;
-                if (!(target instanceof expr.Name)) {
-                    throw notSupported("assignment to complex lvalue",
-                            assign);
-                }
-                try {
-                    assign.site = new ConstantCallSite(storeMH(id));
-                } catch (ReflectiveOperationException e) {
-                    throw linkageFailure(id, assign, e);
-                }
+            if (assign.targets.size() != 1) {
+                throw notSupported("unpacking", assign);
+            }
+            expr target = assign.targets.get(0);
+            if (!(target instanceof expr.Name)) {
+                throw notSupported("assignment to complex lvalue", assign);
             }
 
-            MethodHandle mh = assign.site.dynamicInvoker();
-
-            try {
-                mh.invokeExact(this, value);
-                return null;
-            } catch (Throwable e) {
-                expr target = assign.targets.get(0);
-                String id = ((expr.Name)target).id;
-                throw invocationFailure(id + "=", assign, e);
-            }
+            assign(((expr.Name)target).id, value);
+            return null;
         }
 
-        /**
-         * Method handle to bootstrap a simulated
-         * <code>invokedynamic</code> call site for assignment to an
-         * identifier in context of this frame's code object.
-         *
-         * @param id identifier to resolve
-         * @return method handle to assign the value
-         * @throws ReflectiveOperationException
-         * @throws IllegalAccessException
-         */
-        private MethodHandle storeMH(String id)
-                throws ReflectiveOperationException,
-                IllegalAccessException {
-
-            // How is the id used?
-            SymbolTable.Symbol symbol = f_code.ast.symbolTable.lookup(id);
-
-            // Mechanism depends on scope & OPTIMIZED trait
+        /** Assign value to name according to its storage type */
+        private void assign(String name, Object value) {
+            SymbolTable.Symbol symbol =
+                    f_code.ast.symbolTable.lookup(name);
+            // Storage mechanism depends on scope of name & OPTIMIZED trait
             switch (symbol.scope) {
                 case LOCAL:
                     if (f_code.traits.contains(Code.Trait.OPTIMIZED)) {
-                        return storeFastMH(symbol.index);
+                        fastlocals[symbol.index] = value;
                     } else {
-                        return storeNameMH(id, "f_locals");
+                        f_locals.put(name, value);
                     }
+                    break;
                 case CELL:
                 case FREE:
-                    return storeCellMH(symbol.cellIndex);
-                default: // GLOBAL_*
-                    return storeNameMH(id, "f_globals");
+                    cellvars[symbol.cellIndex].obj = value;
+                    break;
+                default: // GLOBAL_EXPLICIT, GLOBAL_IMPLICIT:
+                    f_globals.put(name, value);
+                    break;
             }
-        }
-
-        /**
-         * A method handle that may be invoked with an ExecutionFrame and a
-         * value to assign a particular local variable from
-         * {@link Frame#fastlocals}.
-         *
-         * @param index of local variable
-         * @return method handle to store the value
-         * @throws ReflectiveOperationException
-         * @throws IllegalAccessException
-         */
-        MethodHandle storeFastMH(int index)
-                throws ReflectiveOperationException,
-                IllegalAccessException {
-
-            Class<Object[]> OA = Object[].class;
-            Class<ExecutionFrame> EF = ExecutionFrame.class;
-
-            // fast = λ(f) : f.fastlocals
-            MethodHandle fast = lookup.findGetter(EF, "fastlocals", OA);
-            // store = λ(a,k,v) : a[k] = v
-            MethodHandle store = arrayElementSetter(OA);
-            // storeFast = λ(f,k,v) : (f.fastlocals[k] = v)
-            MethodHandle storeFast = collectArguments(store, 0, fast);
-            // mh = λ(f,v) : (f.fastlocals[index] = v)
-            return insertArguments(storeFast, 1, index);
-        }
-
-        /**
-         * A method handle that may be invoked with an ExecutionFrame to
-         * assign a particular cell variable {@link Frame#cellvars}.
-         *
-         * @param index of cell variable
-         * @return method handle to assign the value
-         * @throws ReflectiveOperationException
-         * @throws IllegalAccessException
-         */
-        MethodHandle storeCellMH(int index)
-                throws ReflectiveOperationException,
-                IllegalAccessException {
-
-            Class<Object> O = Object.class;
-            Class<Cell[]> CA = Cell[].class;
-            Class<ExecutionFrame> EF = ExecutionFrame.class;
-
-            // get = λ(a,i) : a[i]
-            MethodHandle get = arrayElementGetter(CA);
-            // cells = λ(f) : f.cellvars
-            MethodHandle cells = lookup.findGetter(EF, "cellvars", CA);
-            // getCell = λ(f,i) : f.cellvars[i]
-            MethodHandle getCell = collectArguments(get, 0, cells);
-
-            // setObj = λ(c,v) : (c.obj = v)
-            MethodHandle setObj = lookup.findSetter(Cell.class, "obj", O);
-            // setCellObj = λ(f,i,v) : (f.cellvars[i] = v)
-            MethodHandle putCell = collectArguments(setObj, 0, getCell);
-            // λ(f,v) : (f.cellvars[index].obj = v)
-            return insertArguments(putCell, 1, index);
-        }
-
-        /**
-         * A method handle that may be invoked with an ExecutionFrame to
-         * assign a particular variable from a field that is a
-         * <code>Map</code>, either {@link Frame#f_locals} or
-         * {@link Frame#f_globals}.
-         *
-         * @param name of variable to look up
-         * @param mapName either "f_locals" or "f_globals"
-         * @return method handle to assign the value
-         * @throws ReflectiveOperationException
-         * @throws IllegalAccessException
-         */
-        MethodHandle storeNameMH(String name, String mapName)
-                throws ReflectiveOperationException,
-                IllegalAccessException {
-
-            Class<Object> O = Object.class;
-            @SuppressWarnings("rawtypes")
-            Class<Map> MAP = Map.class;
-            Class<ExecutionFrame> EF = ExecutionFrame.class;
-            MethodType BINOP = MethodType.methodType(O, O, O);
-
-            // put = λ(m,k,v) : m.put(k,v)
-            MethodHandle put = lookup.findVirtual(MAP, "put", BINOP);
-
-            // map = λ(f) : f.(mapName)
-            MethodHandle map = lookup.findGetter(getClass(), mapName, MAP);
-            // putMap = λ(f,k,v) : f.(mapName).put(k,v)
-            MethodHandle putMap = collectArguments(put, 0, map);
-            // λ(f,v) : f.(mapName).put(name,v)
-            return insertArguments(putMap, 1, name)
-                    // Discard the return from Map.put
-                    .asType(MethodType.methodType(void.class, EF, O));
         }
 
         @Override
@@ -785,27 +515,8 @@ public class TestInterp4 {
             List<Cell> closure = closure(targetCode);
             Function func = new Function(targetCode, f_globals,
                     targetCode.co_name, closure);
-            // OtherCallable func = new OtherCallable(targetCode,
-            // f_globals,
-            // targetCode.co_name, closure);
-
-            if (def.site == null) {
-                // This must be a first visit
-                try {
-                    def.site = new ConstantCallSite(storeMH(def.name));
-                } catch (ReflectiveOperationException e) {
-                    throw linkageFailure(def.name, def, e);
-                }
-            }
-
-            MethodHandle mh = def.site.dynamicInvoker();
-
-            try {
-                mh.invokeExact(this, (Object)func);
-                return null;
-            } catch (Throwable e) {
-                throw invocationFailure("def " + def.name, def, e);
-            }
+            assign(def.name, func);
+            return null;
         }
 
         /**
@@ -834,73 +545,18 @@ public class TestInterp4 {
         public Object visit_Call(Call call) {
             // Evaluating the expression should return a callable object
             Object funcObj = call.func.accept(this);
-
-            if (funcObj instanceof PyGetFrame) {
-                return functionCall((PyGetFrame)funcObj, call.args);
-            } else if (funcObj instanceof PyCallable) {
-                return generalCall((PyCallable)funcObj, call.args);
+            if (funcObj instanceof PyCallable) {
+                PyCallable callable = (PyCallable)funcObj;
+                // Only fixed number of positional arguments supported
+                int n = call.args.size();
+                Object[] argValues = new Object[n];
+                // Visit the values of positional args
+                for (int i = 0; i < n; i++) {
+                    argValues[i] = call.args.get(i).accept(this);
+                }
+                return callable.call(this, argValues);
             } else {
                 throw notSupported("target not callable", call);
-            }
-        }
-
-        /** Call to {@link PyGetFrame} style of function. */
-        private Object functionCall(PyGetFrame func, List<expr> args) {
-
-            // Create the destination frame
-            ExecutionFrame targetFrame = func.getFrame(this);
-
-            // Only fixed number of positional arguments supported
-            int n = args.size();
-            assert n == targetFrame.f_code.argcount;
-
-            // Visit the values of positional args
-            for (int i = 0; i < n; i++) {
-                targetFrame.setArgument(i, args.get(i).accept(this));
-            }
-
-            // Execute with the prepared frame
-            return targetFrame.eval();
-        }
-
-        /** Call to {@link PyCallable} style of function. */
-        private Object generalCall(PyCallable callable, List<expr> args) {
-
-            // Only fixed number of positional arguments supported so far
-            int n = args.size();
-            Object[] argValues = new Object[n];
-
-            // Visit the values of positional args
-            for (int i = 0; i < n; i++) {
-                argValues[i] = args.get(i).accept(this);
-            }
-
-            return callable.call(this, argValues);
-        }
-
-        /** Post one positional argument into the frame. */
-        private void setArgument(int position, Object value) {
-
-            fastlocals[position] = value;
-
-            // Sometimes an argument is also a cell variable.
-            SymbolTable table = f_code.ast.symbolTable;
-            String name = f_code.co_varnames[position];
-            SymbolTable.Symbol symbol = table.lookup(name);
-            if (symbol.scope == SymbolTable.ScopeType.CELL) {
-                cellvars[symbol.cellIndex].obj = value;
-            }
-        }
-
-        /**
-         * Post the arguments into their correct positions in the frame.
-         *
-         * @param args positional arguments
-         */
-        void setArguments(Object[] args) {
-            // Only fixed number of positional arguments supported so far
-            for (int i = 0; i < f_code.argcount; i++) {
-                setArgument(i, args[i]);
             }
         }
 
@@ -989,25 +645,6 @@ public class TestInterp4 {
             return new UnsupportedOperationException(
                     String.format(msg, op, nodeType));
         }
-
-        /** Create a RuntimeException reflecting indy failure. */
-        private static RuntimeException linkageFailure(String name,
-                Node node, Throwable t) {
-            String fmt = "linking '%s' in '%s' node";
-            String msg = String.format(fmt, name, node == null ? "null"
-                    : node.getClass().getSimpleName());
-            return new RuntimeException(msg, t);
-        }
-
-        /** Create a RuntimeException reflecting indy failure. */
-        private static RuntimeException invocationFailure(String name,
-                Node node, Throwable t) {
-            String fmt = "invoking '%s' in '%s' node";
-            String msg = String.format(fmt, name, node == null ? "null"
-                    : node.getClass().getSimpleName());
-            return new RuntimeException(msg, t);
-        }
-
     }
 
     /** Our equivalent to the Python code object. */
@@ -1175,6 +812,14 @@ public class TestInterp4 {
                 s.flags |= flags;
             }
             return s;
+        }
+
+        /**
+         * Decide the location in storage of the variable named. We don't
+         * do this until code generation.
+         */
+        void setIndex(String name, int index) {
+            symbols.get(name).index = index;
         }
 
         /**

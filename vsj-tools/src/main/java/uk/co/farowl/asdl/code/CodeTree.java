@@ -150,6 +150,11 @@ public class CodeTree {
         public boolean isSum() {
             return this instanceof Sum;
         }
+
+        /** A definition is simple if it is a simple sum. */
+        public boolean isSimple() {
+            return false;
+        }
     }
 
     /** Class representing one sum-type definition. */
@@ -175,7 +180,8 @@ public class CodeTree {
             return visitor.visitSum(this);
         }
 
-        /** A sum is simple if it has no members or attributes. */
+        /** A sum is simple if it has no attributes and its constructors have no members. */
+        @Override
         public boolean isSimple() {
             if (attributes.size() > 0) {
                 return false;
@@ -268,18 +274,11 @@ public class CodeTree {
         }
 
         public final boolean isOptional() {
-            // XXX makes it superfluous to implement this in AsdlTree.Field?
             return cardinality == Cardinality.OPTIONAL;
         }
 
         public final boolean isSequence() {
-            // XXX makes it superfluous to implement this in AsdlTree.Field?
             return cardinality == Cardinality.SEQUENCE;
-        }
-
-        public final boolean isNodeType() {
-            // It's a Node type if it's defined here (not global).
-            return !"".equals(type.module.name.asdl);
         }
 
         @Override

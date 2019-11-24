@@ -1,4 +1,4 @@
-package uk.co.farowl.vsj1.example.treepython;
+package uk.co.farowl.vsj1.example;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;

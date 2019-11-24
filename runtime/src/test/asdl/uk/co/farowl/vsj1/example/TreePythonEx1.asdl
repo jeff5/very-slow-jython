@@ -1,0 +1,12 @@
+-- TreePythonEx1.asdl
+-- Used by TestEx1
+
+module TreePythonEx1
+{
+    expr = BinOp(expr left, operator op, expr right)
+         | Constant(constant value, string? kind)
+         | Name(identifier id, expr_context ctx)
+
+    operator = Add | Sub | Mult | Div
+    expr_context = Load | Store | Del
+}

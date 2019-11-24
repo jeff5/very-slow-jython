@@ -26,7 +26,6 @@ import uk.co.farowl.asdl.ast.AsdlTree;
 import uk.co.farowl.asdl.ast.DefaultErrorHandler;
 import uk.co.farowl.asdl.ast.ErrorHandler;
 import uk.co.farowl.asdl.code.CodeTree;
-import uk.co.farowl.asdl.code.CodeTree.Product;
 import uk.co.farowl.asdl.code.Scope;
 
 /**
@@ -309,7 +308,9 @@ public class ASDLCompiler {
 
         // Name the built-in types (without a particular language binding)
         for (String typeName : asdlTypes) {
-            CodeTree.Definition def = new Product(typeName, globalModule, 0, 0);
+            // Treat them as Sum types with zero members
+            CodeTree.Definition def = new CodeTree.Sum(typeName, globalModule, 0, 0);
+            assert def.isSimple();
             globalModule.scope.defineOrNull(typeName, def);
         }
 

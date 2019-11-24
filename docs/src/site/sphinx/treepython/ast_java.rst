@@ -12,6 +12,10 @@ We'll focus on just this part of the AST::
 corresponding to a single binary operation ``x + 1`` in the source.
 In this section we consider how to create and traverse the same tree inside a Java program.
 
+    Code fragments in this section are taken from
+    ``runtime/src/test/java/.../vsj1/example/TestEx1.java``
+    in the project source.
+
 Representing the AST in Java
 ****************************
 
@@ -27,25 +31,26 @@ but all we need right now is this small part of the AST for expressions:
 
 ..  code-block:: none
 
-    module TreePython
+    module TreePythonEx1
     {
         expr = BinOp(expr left, operator op, expr right)
-             | Num(object n)
+             | Constant(constant value, string? kind)
              | Name(identifier id, expr_context ctx)
 
         operator = Add | Sub | Mult | Div
         expr_context = Load | Store | Del
     }
 
-This is easily turned into a system of nested classes (for ``expr``)
-and enumerated types for ``operator`` and ``expr_context``.
-The skeletal structure is like this:
+This is turned into a system of nested classes (for ``expr``)
+and enumerated types for ``operator`` and ``expr_context``,
+when the ``runtime`` sub-project is built by Gradle.
+The skeleton is like this:
 
 ..  code-block:: java
 
-    package uk.co.farowl.vsj1;
+    package uk.co.farowl.vsj1.example;
 
-    public abstract class TreePython {
+    public abstract class TreePythonEx1 {
 
         public interface Node { //...
 
@@ -55,23 +60,24 @@ The skeletal structure is like this:
                 public expr left;
                 public operator op;
                 public expr right;
-                public BinOp(expr left, operator op, expr right) { //...
+                public BinOp(expr left, operator op, expr right){ //...
             }
 
-            public static class Num extends expr {
-                public Object n;
-                public Num(Object n) { //...
+            public static class Constant extends expr {
+                public Object value;
+                public String kind;
+                public Constant(Object value, String kind){ //...
             }
 
             public static class Name extends expr {
                 public String id;
                 public expr_context ctx;
-                public Name(String id, expr_context ctx) { //...
+                public Name(String id, expr_context ctx){ //...
             }
         }
 
-        public enum operator implements Node {Add, Sub, Mult, Div}
-        public enum expr_context implements Node {Load, Store, Del}
+        public enum operator {Add, Sub, Mult, Div}
+        public enum expr_context {Load, Store, Del}
     }
 
 Each class has the members named in the ASDL source and a constructor to match.
@@ -88,14 +94,14 @@ it is possible to write an expression whose value is an AST:
     Node tree = new expr.BinOp(
         new expr.Name("x", expr_context.Load),
         operator.Add,
-        new expr.Num(1));
+        new expr.Constant(1, null));
 
 However, we can make this a little slicker (and more Pythonic)
 by defining functions and constants so that we may write:
 
 ..  code-block:: java
 
-    Node tree = BinOp(Name("x", Load), Add, Num(1));
+    Node tree = BinOp(Name("x", Load), Add, Constant(1, null));
 
 While it is feasible to write this by hand,
 it would be nicer if Python could generate it from the source.
@@ -108,30 +114,34 @@ turns the AST of the sample program into:
 
     Module(
         list(
-            Assign(list(Name("x", Store)), Num(41)),
+            Assign(list(Name("x", Store)), Constant(41, null), null),
             Assign(
                 list(Name("y", Store)),
-                BinOp(Name("x", Load), Add, Num(1))),
+                BinOp(Name("x", Load), Add, Constant(1, null)),
+                null),
             Expr(
-                Call(Name("print", Load), list(Name("y", Load)), list()))))
+                Call(Name("print", Load), list(Name("y", Load)), list()))),
+        list())
 
 All the node types now look like function calls with positional arguments,
 and without ``new`` and class name prefixes.
 The unusual new feature is ``list()``,
 a function that replaces the square brackets notation Python has for lists.
-(We don't need ``list`` just yet.)
+(We don't need ``list`` just yet, or several other node types shown here.)
 The definitions that make it possible to write simply
-``BinOp(Name("x", Load), Add, Num(1))`` are:
+``BinOp(Name("x", Load), Add, Constant(1, null))`` are:
 
 ..  code-block:: java
 
     public static final operator Add = operator.Add;
+    public static final operator Mult = operator.Mult;
     public static final expr_context Load = expr_context.Load;
     public static final expr Name(String id, expr_context ctx)
-        {return new expr.Name(id, ctx); }
-    public static final expr Num(Object n) {return new expr.Num(n); }
+        { return new expr.Name(id, ctx); }
+    public static final expr Constant(Object value, String kind)
+        { return new expr.Constant(value, kind); }
     public static final expr BinOp(expr left, operator op, expr right)
-        {return new expr.BinOp(left, op, right); }
+        { return new expr.BinOp(left, op, right); }
 
 
 A Visit from the Evaluator
@@ -142,12 +152,12 @@ do not evaluate the Python expression:
 they merely construct an AST that represents it.
 In order to evaluate the expression we must walk the tree,
 which we accomplish using a Visitor design pattern.
-Parts of the definition of the ``TreePython`` class, that we missed out above,
+Parts of the definition of the ``TreePythonEx1`` class, that we missed out above,
 provide a ``Visitor`` interface and give ``Node`` an ``accept`` method:
 
 ..  code-block:: java
 
-    public abstract class TreePython {
+    public abstract class TreePythonEx1 {
 
         public interface Node {
             default <T> T accept(Visitor<T> visitor) { return null; }
@@ -166,14 +176,14 @@ provide a ``Visitor`` interface and give ``Node`` an ``accept`` method:
 
         public interface Visitor<T> {
             T visit_BinOp(expr.BinOp _BinOp);
-            T visit_Num(expr.Num _Num);
+            T visit_Constant(expr.Constant _Constant);
             T visit_Name(expr.Name _Name);
         }
         // ...
     }
 
 We also have to provide an ``Evaluator`` class
-that implements ``TreePython.Visitor``,
+that implements ``TreePythonEx1.Visitor``,
 in which ``visit_BinOp`` performs the arithmetic we need.
 As our expression involves a variable ``x``,
 we give it a simple ``Map`` store for the values of variables.
@@ -182,7 +192,7 @@ We can now demonstrate execution of the tree code to evaluate the expression:
 
 ..  code-block:: java
 
-    package uk.co.farowl.vsj1.example.treepython;
+    package uk.co.farowl.vsj1.example;
     // ... imports
     /** Demonstrate a Python interpreter for the AST. */
     public class TestEx1 {
@@ -200,7 +210,7 @@ We can now demonstrate execution of the tree code to evaluate the expression:
         @Test
         public void astExecShorthand() {
             // x + 1
-            Node tree = BinOp(Name("x", Load), Add, Num(1));
+            Node tree = BinOp(Name("x", Load), Add, Constant(1, null));
             // Execute the code for x = 41
             evaluator.variables.put("x", 41);
             Object result = tree.accept(evaluator);
@@ -227,8 +237,8 @@ We can now demonstrate execution of the tree code to evaluate the expression:
             }
 
             @Override
-            public Object visit_Num(expr.Num num) {
-                return num.n;
+            public Object visit_Constant(expr.Constant constant) {
+                return constant.value;
             }
 
             @Override
@@ -241,10 +251,11 @@ We can now demonstrate execution of the tree code to evaluate the expression:
         public static final operator Mult = operator.Mult;
         public static final expr_context Load = expr_context.Load;
         public static final expr Name(String id, expr_context ctx)
-            {return new expr.Name(id, ctx); }
-        public static final expr Num(Object n) {return new expr.Num(n); }
+            { return new expr.Name(id, ctx); }
+        public static final expr Constant(Object value, String kind)
+            { return new expr.Constant(value, kind); }
         public static final expr BinOp(expr left, operator op, expr right)
-            {return new expr.BinOp(left, op, right); }
+            { return new expr.BinOp(left, op, right); }
     }
 
 This works.
@@ -253,7 +264,7 @@ but it has at least one unsatisfactory aspect:
 the use of casts to force the type of ``u`` and ``v`` in ``visit_BinOp``.
 Without the casts, the addition cannot be carried out,
 but clearly this is not a generally useful definition of addition.
-In fact, it is only necessary to change ``Num(1))`` to ``Num(1.0))`` in the tree
+In fact, it is only necessary to change ``1`` to ``1.0`` in the tree
 in order to expose the issue:
 we get a ``ClassCastException``
 "java.lang.Double cannot be cast to java.lang.Integer",

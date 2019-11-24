@@ -100,7 +100,7 @@ constructor(name, args) ::=<<
 memberInitStmt(m) ::= "this.<m.name> = <m.name>;"
 
 memberDeclaration(field) ::= <%
-    <declaredType(field)><" ">
+    public <declaredType(field)><" ">
     <field.name>;
 %>
 
@@ -118,6 +118,7 @@ declaredType(field) ::= <%
 // Emit the implementation of Node::children()
 children(members) ::= <<
 <if(members)>
+@Override
 public java.util.Collection\<Node> children() {
     java.util.List\<Node> list = new java.util.LinkedList\<>();
     <members: childrenAdd(); separator="\n">
@@ -127,7 +128,7 @@ public java.util.Collection\<Node> children() {
 >>
 
 childrenAdd(field) ::= <%
-<if(!field.nodeType)>
+<if(field.type.simple)>
     // <field.name> has non-Node type <field.type.name>
 <elseif(field.optional)>
     if (<field.name>!=null) list.add(<field.name>);
@@ -140,7 +141,7 @@ childrenAdd(field) ::= <%
 
 // Declaration of Node class when definition is a simple sum.
 simpleSumDef(sum) ::= <%
-public enum <sum.name> implements Node {
+public enum <sum.name><if(!sum.simple)> implements Node<endif> {
     <sum.constructors: {c|<c.name>}; separator=", ">
 }
 %>
@@ -152,8 +153,10 @@ public static abstract class <sum.name> implements Node {
     <sum.constructors: constructorType(sum); separator="\n\n">
 
     <sum.attributes: memberDeclaration(); separator="\n">
+    <if(sum.attributes)>
 
     <constructor(sum.name, sum.attributes)>
+    <endif>
 }
 >>
 
@@ -167,7 +170,7 @@ public static class <con.name> extends <def.name> {
     }
 
     <children([con.members, def.attributes])>
-
+    @Override
     public \<T> T accept(Visitor\<T> visitor) {
         return visitor.visit_<con.name>(this);
     }
@@ -186,7 +189,7 @@ argDecl(field) ::= "<declaredType(field)> <field.name>"
 // Generate visit method(s) for a Definition
 definitionVisit(def) ::= <<
 <if(def.sum)>
-<if(def.simple)><simpleSumDefVisit(def)>
+<if(def.simple)>// Not a Node, omit: <simpleSumDefVisit(def)>
 <else><sumDefVisit(def)>
 <endif>
 <else><productDefVisit(def)>

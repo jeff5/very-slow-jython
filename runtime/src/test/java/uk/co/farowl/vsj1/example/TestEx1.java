@@ -1,4 +1,4 @@
-package uk.co.farowl.vsj1.example.treepython;
+package uk.co.farowl.vsj1.example;
 
 import static org.junit.Assert.assertEquals;
 
@@ -8,11 +8,11 @@ import java.util.Map;
 import org.junit.Before;
 import org.junit.Test;
 
-import uk.co.farowl.vsj1.TreePython.Node;
-import uk.co.farowl.vsj1.TreePython.Visitor;
-import uk.co.farowl.vsj1.TreePython.expr;
-import uk.co.farowl.vsj1.TreePython.expr_context;
-import uk.co.farowl.vsj1.TreePython.operator;
+import uk.co.farowl.vsj1.example.TreePythonEx1.Node;
+import uk.co.farowl.vsj1.example.TreePythonEx1.Visitor;
+import uk.co.farowl.vsj1.example.TreePythonEx1.expr;
+import uk.co.farowl.vsj1.example.TreePythonEx1.expr_context;
+import uk.co.farowl.vsj1.example.TreePythonEx1.operator;
 
 /** Demonstrate a Python interpreter for the AST. */
 public class TestEx1 {
@@ -33,7 +33,7 @@ public class TestEx1 {
         Node tree = new expr.BinOp(
                 new expr.Name("x", expr_context.Load),
                 operator.Add,
-                new expr.Num(1));
+                new expr.Constant(1, null));
         // @formatter:on
 
         // Execute the code for x = 41
@@ -45,7 +45,7 @@ public class TestEx1 {
     @Test
     public void astExecShorthand() {
         // x + 1
-        Node tree = BinOp(Name("x", Load), Add, Num(1));
+        Node tree = BinOp(Name("x", Load), Add, Constant(1, null));
 
         // Execute the code for x = 41
         evaluator.variables.put("x", 41);
@@ -71,8 +71,8 @@ public class TestEx1 {
         }
 
         @Override
-        public Object visit_Num(expr.Num num) {
-            return num.n;
+        public Object visit_Constant(expr.Constant constant) {
+            return constant.value;
         }
 
         @Override
@@ -86,9 +86,10 @@ public class TestEx1 {
     public static final operator Mult = operator.Mult;
     public static final expr_context Load = expr_context.Load;
     public static final expr Name(String id, expr_context ctx)
-        {return new expr.Name(id, ctx); }
-    public static final expr Num(Object n) {return new expr.Num(n); }
+        { return new expr.Name(id, ctx); }
+    public static final expr Constant(Object value, String kind)
+        { return new expr.Constant(value, kind); }
     public static final expr BinOp(expr left, operator op, expr right)
-        {return new expr.BinOp(left, op, right); }
+        { return new expr.BinOp(left, op, right); }
     // @formatter:on
 }

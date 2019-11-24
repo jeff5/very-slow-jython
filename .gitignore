@@ -17,12 +17,12 @@
 *.saved
 
 # IDE Files (I don't check mine in: get your own!)
-**/.classpath
-/.externalToolBuilders/
-**/.project
-**/.settings/
-/.pydevproject
-/.idea/
+.classpath
+.externalToolBuilders/
+.project
+.settings/
+.pydevproject
+.idea/
 
 # Droppings of various tools, not for the record
 *.class
