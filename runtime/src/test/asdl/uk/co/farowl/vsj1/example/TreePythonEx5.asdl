@@ -1,7 +1,9 @@
--- TreePythonEx1.asdl
--- Used by TestEx1 ... TestEx4
+-- TreePythonEx5.asdl
+-- Used by TestEx5
+-- Identical to TreePythonEx5.asdl apart from the module name.
+-- Used with StringTemplate group file ExecNodeEx5.java.stg
 
-module TreePythonEx1
+module TreePythonEx5
 {
     expr = BinOp(expr left, operator op, expr right)
          | Constant(constant value, string? kind)

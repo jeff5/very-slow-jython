@@ -74,6 +74,7 @@ public class ASDLTask extends SourceTask {
     }
 
     @Input
+    @Optional
     public String getGroupName() {
         return compiler.getGroupName();
     }
@@ -89,7 +90,7 @@ public class ASDLTask extends SourceTask {
     }
 
     /** @param groupFile a StringTemplate group file defining the templates. */
-    public void setGroupFile(Path groupFile) {
+    public void setGroupFile(Object groupFile) {
         compiler.setGroupFile(getProject().file(groupFile).toPath());
     }
 

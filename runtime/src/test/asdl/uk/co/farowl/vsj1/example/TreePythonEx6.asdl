@@ -1,12 +1,15 @@
--- TreePythonEx1.asdl
--- Used by TestEx1 ... TestEx4
+-- TreePythonEx6.asdl
+-- Used by TestEx6 ... TestEx9
+-- Used with StringTemplate group file ExecNodeEx5.java.stg
 
-module TreePythonEx1
+module TreePythonEx6
 {
     expr = BinOp(expr left, operator op, expr right)
+         | UnaryOp(unaryop op, expr operand)
          | Constant(constant value, string? kind)
          | Name(identifier id, expr_context ctx)
 
     operator = Add | Sub | Mult | Div
+    unaryop = UAdd | USub
     expr_context = Load | Store | Del
 }

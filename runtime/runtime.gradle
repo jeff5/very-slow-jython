@@ -28,6 +28,7 @@ sourceSets {
     test {
         java {
             srcDir "$generatedAsdl/test"
+            srcDir "$generatedAsdl/test-ex"
         }
     }
 }
@@ -36,13 +37,39 @@ generateGrammarSource {
     arguments += ["-visitor"]
 }
 
-// Manually create a task of type ASDLTask for ASDL in the test corpus
-task('generateTestDataModel', type: ASDLTask) {
-    source = "src/test/asdl"
-    include "**/*.asdl"
-    outputDirectory = "$generatedAsdl/test"
+// Generate TreePython.java from TreePython.asdl via specialised group file.
+generateDataModel {
+    /*
+     * All nodes extend ExecNode, which contains the 'site' member in support of
+     * using a per-node CallSite.
+     */
+    def models = "src/main/asdl/uk/co/farowl/vsj1"
+    groupFile = "$models/ExecNode.java.stg"
 }
 
-// Manually insert the dependeny of compilation on generation
-compileJava { dependsOn generateDataModel }
-compileTestJava { dependsOn generateTestDataModel }
+// Data model used in TestEx1 to TestEx4 in test corpus (default template)
+task('generateTestEx1DataModel', type: ASDLTask) {
+    source = "src/test/asdl"
+    include "**/TreePythonEx1.asdl"
+    outputDirectory = "$generatedAsdl/test-ex"
+}
+
+// Data model used in TestEx5 to TestEx8 in test corpus (ExecNodeEx5 template)
+task('generateTestEx5DataModel', type: ASDLTask) {
+    def models = "src/test/asdl/uk/co/farowl/vsj1"
+    source = "src/test/asdl"
+    include "**/TreePythonEx5.asdl"
+    include "**/TreePythonEx6.asdl"
+    groupFile = "$models/example/ExecNodeEx5.java.stg"
+    outputDirectory = "$generatedAsdl/test-ex"
+}
+
+// Manually insert the dependency of compilation on generation
+compileJava {
+    dependsOn generateDataModel
+}
+
+compileTestJava {
+    dependsOn generateTestEx1DataModel
+    dependsOn generateTestEx5DataModel
+}

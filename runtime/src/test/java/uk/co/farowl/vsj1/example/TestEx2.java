@@ -10,11 +10,11 @@ import java.util.Map;
 import org.junit.Before;
 import org.junit.Test;
 
-import uk.co.farowl.vsj1.TreePython.Node;
-import uk.co.farowl.vsj1.TreePython.Visitor;
-import uk.co.farowl.vsj1.TreePython.expr;
-import uk.co.farowl.vsj1.TreePython.expr_context;
-import uk.co.farowl.vsj1.TreePython.operator;
+import uk.co.farowl.vsj1.example.TreePythonEx1.Node;
+import uk.co.farowl.vsj1.example.TreePythonEx1.Visitor;
+import uk.co.farowl.vsj1.example.TreePythonEx1.expr;
+import uk.co.farowl.vsj1.example.TreePythonEx1.expr_context;
+import uk.co.farowl.vsj1.example.TreePythonEx1.operator;
 
 /**
  * Demonstrate the handling of mixed types (int and float) in the
@@ -36,8 +36,8 @@ public class TestEx2 {
     @Test
     public void testInt() {
         // 9 + x*11
-        Node tree =
-                BinOp(Num(9), Add, BinOp(Name("x", Load), Mult, Num(11)));
+        Node tree = BinOp(Constant(9, null), Add,
+                BinOp(Name("x", Load), Mult, Constant(11, null)));
         // x = 3
         evaluator.variables.put("x", 3);
         // Execute the code.
@@ -48,8 +48,8 @@ public class TestEx2 {
     @Test
     public void testFloat() {
         // 9. + x*11.
-        Node tree =
-                BinOp(Num(9), Add, BinOp(Name("x", Load), Mult, Num(11)));
+        Node tree = BinOp(Constant(9, null), Add,
+                BinOp(Name("x", Load), Mult, Constant(11, null)));
         // x = 3.
         evaluator.variables.put("x", 3.);
         // Execute the code.
@@ -60,8 +60,8 @@ public class TestEx2 {
     @Test
     public void testFloatNum() {
         // 9. + x*11
-        Node tree =
-                BinOp(Num(9.), Add, BinOp(Name("x", Load), Mult, Num(11)));
+        Node tree = BinOp(Constant(9., null), Add,
+                BinOp(Name("x", Load), Mult, Constant(11, null)));
         // x = 3
         evaluator.variables.put("x", 3);
         // Execute the code.
@@ -72,8 +72,8 @@ public class TestEx2 {
     @Test
     public void testFloatVar() {
         // 9 + x*11
-        Node tree =
-                BinOp(Num(9), Add, BinOp(Name("x", Load), Mult, Num(11)));
+        Node tree = BinOp(Constant(9, null), Add,
+                BinOp(Name("x", Load), Mult, Constant(11, null)));
         // x = 3.
         evaluator.variables.put("x", 3.);
         // Execute the code.
@@ -126,8 +126,8 @@ public class TestEx2 {
         }
 
         @Override
-        public Object visit_Num(expr.Num num) {
-            return num.n;
+        public Object visit_Constant(expr.Constant constant) {
+            return constant.value;
         }
 
         @Override
@@ -184,7 +184,7 @@ public class TestEx2 {
             Class<?> cv = vobj.getClass();
             Class<?> cw = wobj.getClass();
             if (cv == Integer.class && cw == Integer.class) {
-                return (Integer)vobj + (Integer)wobj;
+                return (Integer) vobj + (Integer) wobj;
             } else {
                 return null;
             }
@@ -195,7 +195,7 @@ public class TestEx2 {
             Class<?> cv = vobj.getClass();
             Class<?> cw = wobj.getClass();
             if (cv == Integer.class && cw == Integer.class) {
-                return (Integer)vobj * (Integer)wobj;
+                return (Integer) vobj * (Integer) wobj;
             } else {
                 return null;
             }
@@ -211,9 +211,9 @@ public class TestEx2 {
         private static double convertToDouble(Object o) {
             Class<?> c = o.getClass();
             if (c == Double.class) {
-                return ((Double)o).doubleValue();
+                return ((Double) o).doubleValue();
             } else if (c == Integer.class) {
-                return (Integer)o;
+                return (Integer) o;
             } else {
                 throw new IllegalArgumentException();
             }
@@ -247,9 +247,10 @@ public class TestEx2 {
     public static final operator Mult = operator.Mult;
     public static final expr_context Load = expr_context.Load;
     public static final expr Name(String id, expr_context ctx)
-        {return new expr.Name(id, ctx); }
-    public static final expr Num(Object n) {return new expr.Num(n); }
+        { return new expr.Name(id, ctx); }
+    public static final expr Constant(Object value, String kind)
+        { return new expr.Constant(value, kind); }
     public static final expr BinOp(expr left, operator op, expr right)
-        {return new expr.BinOp(left, op, right); }
+        { return new expr.BinOp(left, op, right); }
     // @formatter:on
 }

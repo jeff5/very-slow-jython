@@ -88,7 +88,7 @@ public class TestEx9 {
                 BinOp(
                     BinOp(Name("x", Load), Mult, Name("x", Load)),
                     Sub,
-                    Num(2)),
+                    Constant(2, null)),
                 Mult,
                 BinOp(Name("x", Load), Add, Name("y", Load)));
         // @formatter:on
@@ -104,7 +104,7 @@ public class TestEx9 {
                     BinOp(
                         BinOp(Name("x", Load), Mult, Name("x", Load)),
                         Sub,
-                        Num(2)),
+                        Constant(2, null)),
                     Mult,
                     UnaryOp(
                         USub,
@@ -485,8 +485,8 @@ public class TestEx9 {
         }
 
         @Override
-        public Object visit_Num(expr.Num num) {
-            return num.n;
+        public Object visit_Constant(expr.Constant constant) {
+            return constant.value;
         }
 
         @Override
@@ -565,7 +565,8 @@ public class TestEx9 {
     public static final expr_context Load = expr_context.Load;
     public static final expr Name(String id, expr_context ctx)
         { return new expr.Name(id, ctx); }
-    public static final expr Num(Object n) { return new expr.Num(n); }
+    public static final expr Constant(Object value, String kind)
+        { return new expr.Constant(value, kind); }
     public static final expr BinOp(expr left, operator op, expr right)
         { return new expr.BinOp(left, op, right); }
     public static final expr UnaryOp(unaryop op, expr operand)

@@ -13,11 +13,11 @@ import java.util.Map;
 import org.junit.Before;
 import org.junit.Test;
 
-import uk.co.farowl.vsj1.TreePython.Node;
-import uk.co.farowl.vsj1.TreePython.Visitor;
-import uk.co.farowl.vsj1.TreePython.expr;
-import uk.co.farowl.vsj1.TreePython.expr_context;
-import uk.co.farowl.vsj1.TreePython.operator;
+import uk.co.farowl.vsj1.example.TreePythonEx1.Node;
+import uk.co.farowl.vsj1.example.TreePythonEx1.Visitor;
+import uk.co.farowl.vsj1.example.TreePythonEx1.expr;
+import uk.co.farowl.vsj1.example.TreePythonEx1.expr_context;
+import uk.co.farowl.vsj1.example.TreePythonEx1.operator;
 
 /**
  * Demonstrate the handling of mixed types (int and float) in the
@@ -42,9 +42,9 @@ public class TestEx3 {
         // 24*x - x*10
         Node tree =
                 BinOp(
-                    BinOp(Num(24), Mult, Name("x", Load)),
+                    BinOp(Constant(24, null), Mult, Name("x", Load)),
                     Sub,
-                    BinOp(Name("x", Load), Mult, Num(10)));
+                    BinOp(Name("x", Load), Mult, Constant(10, null)));
         // @formatter:on
         evaluator.variables.put("x", 3);
         // Execute the code.
@@ -58,9 +58,9 @@ public class TestEx3 {
         // 24.*x - 90./x
         Node tree =
                 BinOp(
-                    BinOp(Num(24.), Mult, Name("x", Load)),
+                    BinOp(Constant(24., null), Mult, Name("x", Load)),
                     Sub,
-                    BinOp(Num(90.), Div, Name("x", Load)));
+                    BinOp(Constant(90., null), Div, Name("x", Load)));
         // @formatter:on
         evaluator.variables.put("x", 3.);
         // Execute the code.
@@ -74,9 +74,9 @@ public class TestEx3 {
         // 24.*x - 90/x
         Node tree =
                 BinOp(
-                    BinOp(Num(24.), Mult, Name("x", Load)),
+                    BinOp(Constant(24., null), Mult, Name("x", Load)),
                     Sub,
-                    BinOp(Num(90), Div, Name("x", Load)));
+                    BinOp(Constant(90, null), Div, Name("x", Load)));
         // @formatter:on
         evaluator.variables.put("x", 3);
         // Execute the code.
@@ -90,9 +90,9 @@ public class TestEx3 {
         // 24*x - 90/x
         Node tree =
                 BinOp(
-                    BinOp(Num(24), Mult, Name("x", Load)),
+                    BinOp(Constant(24, null), Mult, Name("x", Load)),
                     Sub,
-                    BinOp(Num(90), Div, Name("x", Load)));
+                    BinOp(Constant(90, null), Div, Name("x", Load)));
         // @formatter:on
         evaluator.variables.put("x", 3.);
         // Execute the code.
@@ -145,8 +145,8 @@ public class TestEx3 {
         }
 
         @Override
-        public Object visit_Num(expr.Num num) {
-            return num.n;
+        public Object visit_Constant(expr.Constant constant) {
+            return constant.value;
         }
 
         @Override
@@ -381,10 +381,11 @@ public class TestEx3 {
     public static final operator Div = operator.Div;
     public static final expr_context Load = expr_context.Load;
     public static final expr Name(String id, expr_context ctx)
-        {return new expr.Name(id, ctx); }
-    public static final expr Num(Object n) {return new expr.Num(n); }
+        { return new expr.Name(id, ctx); }
+    public static final expr Constant(Object value, String kind)
+        { return new expr.Constant(value, kind); }
     public static final expr BinOp(expr left, operator op, expr right)
-        {return new expr.BinOp(left, op, right); }
+        { return new expr.BinOp(left, op, right); }
     // @formatter:on
 
 }
