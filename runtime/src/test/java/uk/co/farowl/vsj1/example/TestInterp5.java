@@ -51,6 +51,7 @@ import uk.co.farowl.vsj1.TreePython.keyword;
 import uk.co.farowl.vsj1.TreePython.mod;
 import uk.co.farowl.vsj1.TreePython.operator;
 import uk.co.farowl.vsj1.TreePython.stmt;
+import uk.co.farowl.vsj1.TreePython.type_ignore;
 import uk.co.farowl.vsj1.TreePython.stmt.Assign;
 import uk.co.farowl.vsj1.TreePython.stmt.Expr;
 import uk.co.farowl.vsj1.TreePython.stmt.FunctionDef;
@@ -346,7 +347,7 @@ public class TestInterp5 {
          */
         ExecutionFrame(Frame back, Code code,
                 Map<String, Object> globals) {
-            this(back, code, globals, (Map<String, Object>)null);
+            this(back, code, globals, (Map<String, Object>) null);
         }
 
         /**
@@ -640,7 +641,7 @@ public class TestInterp5 {
                     throw notSupported("unpacking", assign);
                 }
                 expr target = assign.targets.get(0);
-                String id = ((expr.Name)target).id;
+                String id = ((expr.Name) target).id;
                 if (!(target instanceof expr.Name)) {
                     throw notSupported("assignment to complex lvalue",
                             assign);
@@ -659,7 +660,7 @@ public class TestInterp5 {
                 return null;
             } catch (Throwable e) {
                 expr target = assign.targets.get(0);
-                String id = ((expr.Name)target).id;
+                String id = ((expr.Name) target).id;
                 throw invocationFailure(id + "=", assign, e);
             }
         }
@@ -820,7 +821,7 @@ public class TestInterp5 {
             MethodHandle mh = def.site.dynamicInvoker();
 
             try {
-                mh.invokeExact(this, (Object)func);
+                mh.invokeExact(this, (Object) func);
                 return null;
             } catch (Throwable e) {
                 throw invocationFailure("def " + def.name, def, e);
@@ -857,9 +858,9 @@ public class TestInterp5 {
             Object funcObj = call.func.accept(this);
 
             if (funcObj instanceof PyGetFrame) {
-                return functionCall((PyGetFrame)funcObj, call.args);
+                return functionCall((PyGetFrame) funcObj, call.args);
             } else if (funcObj instanceof PyCallable) {
-                return generalCall((PyCallable)funcObj, call.args);
+                return generalCall((PyCallable) funcObj, call.args);
             } else {
                 throw notSupported("target not callable", call);
             }
@@ -934,8 +935,8 @@ public class TestInterp5 {
         }
 
         @Override
-        public Object visit_Num(expr.Num num) {
-            return num.n;
+        public Object visit_Constant(expr.Constant constant) {
+            return constant.value;
         }
 
         @Override
@@ -2146,19 +2147,23 @@ public class TestInterp5 {
     private static final expr_context Load = expr_context.Load;
     private static final expr_context Store = expr_context.Store;
 
-    private static mod Module(List<?> body)
-        { return new mod.Module(cast(body, stmt.class)); }
+    private static mod Module(List<?> body, List<?> ti) {
+        return new mod.Module(cast(body, stmt.class),
+                cast(ti, type_ignore.class)); }
 
     private static stmt FunctionDef(String name, arguments args,
-            List<?> body, List<?> decorator_list, expr returns) {
+            List<?> body, List<?> decorator_list, expr returns,
+            String type_comment) {
         return new stmt.FunctionDef(name, args, cast(body, stmt.class),
-                cast(decorator_list, expr.class), returns);}
+                cast(decorator_list, expr.class), returns, type_comment);}
     private static stmt Return(expr value)
         { return new stmt.Return(value); }
     private static stmt Delete(List<?> targets)
         { return new stmt.Delete(cast(targets, expr.class)); }
-    private static stmt Assign(List<?> targets, expr value)
-        { return new stmt.Assign(cast(targets, expr.class), value); }
+    private static stmt Assign(List<?> targets, expr value,
+            String type_comment) {
+        return new stmt.Assign(cast(targets, expr.class), value,
+                type_comment); }
     private static stmt Global(List<?> names)
         { return new stmt.Global(cast(names, String.class)); }
     private static stmt Nonlocal(List<?> names)
@@ -2173,31 +2178,36 @@ public class TestInterp5 {
     private static expr Call(expr func, List<?> args, List<?> keywords){
         return new expr.Call(func, cast(args, expr.class),
                 cast(keywords, keyword.class)); }
-    private static expr Num(Object n)
-        { return new expr.Num(n); }
-    private static expr Str(String s)
-        { return new expr.Str(s); }
+    public static final expr Constant(Object value, String kind)
+        { return new expr.Constant(value, kind); }
     private static expr Name(String id, expr_context ctx)
         { return new expr.Name(id, ctx); }
 
-    private static arguments arguments(List<?> args, arg vararg,
-            List<?> kwonlyargs, List<?> kw_defaults, arg kwarg,
-            List<?> defaults) {
-        return new arguments(cast(args, arg.class), vararg,
+    private static arguments arguments(List<?> posonlyargs, List<?> args,
+            arg vararg, List<?> kwonlyargs, List<?> kw_defaults,
+            arg kwarg, List<?> defaults) {
+        return new arguments(cast(posonlyargs, arg.class),
+                cast(args, arg.class), vararg,
                 cast(kwonlyargs, arg.class), cast(kw_defaults, expr.class),
                 kwarg, cast(defaults, expr.class));
         }
 
-    private static arg arg(String arg, expr annotation)
-        { return new arg(arg, annotation); }
+    private static arg arg(String arg, expr annotation,
+            String type_comment) {
+        return new arg(arg, annotation, type_comment); }
 
     private static keyword keyword(String arg, expr value)
         { return new keyword(arg, value); }
 
+
     // @formatter:on
 
     // ======= Generated examples ==========
-    // See variable_access_testgen.py
+    /*
+     * Generated by variable_access_testgen.py with worklist: globprog1,
+     * globprog2, globprog3, builtin, argprog1, closprog1, closprog2,
+     * closprog3, kwargprog, kwargcell
+     */
 
 // globprog1
 
@@ -2221,34 +2231,37 @@ public class TestInterp5 {
         // p()
         mod module = Module(
     list(
-        Assign(list(Name("b", Store)), Num(1)),
-        Assign(list(Name("a", Store)), Num(6)),
-        Assign(list(Name("result", Store)), Num(0)),
+        Assign(list(Name("b", Store)), Constant(1, null), null),
+        Assign(list(Name("a", Store)), Constant(6, null), null),
+        Assign(list(Name("result", Store)), Constant(0, null), null),
         FunctionDef(
             "p",
-            arguments(list(), null, list(), list(), null, list()),
+            arguments(list(), list(), null, list(), list(), null, list()),
             list(
                 Global(list("result")),
                 FunctionDef(
                     "q",
-                    arguments(list(), null, list(), list(), null, list()),
+                    arguments(list(), list(), null, list(), list(), null, list()),
                     list(
                         Global(list("d")),
-                        Assign(list(Name("d", Store)), BinOp(Name("a", Load), Add, Name("b", Load)))),
+                        Assign(list(Name("d", Store)), BinOp(Name("a", Load), Add, Name("b", Load)), null)),
                     list(),
+                    null,
                     null),
                 Expr(Call(Name("q", Load), list(), list())),
-                Assign(list(Name("result", Store)), BinOp(Name("a", Load), Mult, Name("d", Load)))),
+                Assign(list(Name("result", Store)), BinOp(Name("a", Load), Mult, Name("d", Load)), null)),
             list(),
+            null,
             null),
-        Expr(Call(Name("p", Load), list(), list()))))
+        Expr(Call(Name("p", Load), list(), list()))),
+    list())
         ;
         // @formatter:on
         Map<String, Object> state = new HashMap<>();
-        state.put("result", 42);
         state.put("b", 1);
-        state.put("d", 7);
         state.put("a", 6);
+        state.put("result", 42);
+        state.put("d", 7);
         executeTest(module, state); // globprog1
     }
 
@@ -2275,35 +2288,38 @@ public class TestInterp5 {
         // p()
         mod module = Module(
     list(
-        Assign(list(Name("b", Store)), Num(1)),
-        Assign(list(Name("a", Store)), Num(6)),
-        Assign(list(Name("result", Store)), Num(0)),
+        Assign(list(Name("b", Store)), Constant(1, null), null),
+        Assign(list(Name("a", Store)), Constant(6, null), null),
+        Assign(list(Name("result", Store)), Constant(0, null), null),
         FunctionDef(
             "p",
-            arguments(list(), null, list(), list(), null, list()),
+            arguments(list(), list(), null, list(), list(), null, list()),
             list(
                 Global(list("result")),
                 FunctionDef(
                     "q",
-                    arguments(list(), null, list(), list(), null, list()),
+                    arguments(list(), list(), null, list(), list(), null, list()),
                     list(
                         Global(list("d")),
-                        Assign(list(Name("d", Store)), BinOp(Name("a", Load), Add, Name("b", Load)))),
+                        Assign(list(Name("d", Store)), BinOp(Name("a", Load), Add, Name("b", Load)), null)),
                     list(),
+                    null,
                     null),
                 Expr(Call(Name("q", Load), list(), list())),
-                Assign(list(Name("result", Store)), BinOp(Name("a", Load), Mult, Name("d", Load)))),
+                Assign(list(Name("result", Store)), BinOp(Name("a", Load), Mult, Name("d", Load)), null)),
             list(),
+            null,
             null),
-        Assign(list(Name("d", Store)), Num(41)),
-        Expr(Call(Name("p", Load), list(), list()))))
+        Assign(list(Name("d", Store)), Constant(41, null), null),
+        Expr(Call(Name("p", Load), list(), list()))),
+    list())
         ;
         // @formatter:on
         Map<String, Object> state = new HashMap<>();
-        state.put("result", 42);
         state.put("b", 1);
-        state.put("d", 7);
         state.put("a", 6);
+        state.put("result", 42);
+        state.put("d", 7);
         executeTest(module, state); // globprog2
     }
 
@@ -2331,34 +2347,37 @@ public class TestInterp5 {
         mod module = Module(
     list(
         Global(list("a", "b", "d")),
-        Assign(list(Name("b", Store)), Num(1)),
-        Assign(list(Name("a", Store)), Num(6)),
-        Assign(list(Name("result", Store)), Num(0)),
+        Assign(list(Name("b", Store)), Constant(1, null), null),
+        Assign(list(Name("a", Store)), Constant(6, null), null),
+        Assign(list(Name("result", Store)), Constant(0, null), null),
         FunctionDef(
             "p",
-            arguments(list(), null, list(), list(), null, list()),
+            arguments(list(), list(), null, list(), list(), null, list()),
             list(
                 Global(list("result")),
                 FunctionDef(
                     "q",
-                    arguments(list(), null, list(), list(), null, list()),
+                    arguments(list(), list(), null, list(), list(), null, list()),
                     list(
                         Global(list("d")),
-                        Assign(list(Name("d", Store)), BinOp(Name("a", Load), Add, Name("b", Load)))),
+                        Assign(list(Name("d", Store)), BinOp(Name("a", Load), Add, Name("b", Load)), null)),
                     list(),
+                    null,
                     null),
                 Expr(Call(Name("q", Load), list(), list())),
-                Assign(list(Name("result", Store)), BinOp(Name("a", Load), Mult, Name("d", Load)))),
+                Assign(list(Name("result", Store)), BinOp(Name("a", Load), Mult, Name("d", Load)), null)),
             list(),
+            null,
             null),
-        Expr(Call(Name("p", Load), list(), list()))))
+        Expr(Call(Name("p", Load), list(), list()))),
+    list())
         ;
         // @formatter:on
         Map<String, Object> state = new HashMap<>();
-        state.put("result", 42);
         state.put("b", 1);
-        state.put("d", 7);
         state.put("a", 6);
+        state.put("result", 42);
+        state.put("d", 7);
         executeTest(module, state); // globprog3
     }
 
@@ -2385,12 +2404,20 @@ public class TestInterp5 {
     list(
         FunctionDef(
             "p",
-            arguments(list(arg("eins", null), arg("zwei", null)), null, list(), list(), null, list()),
+            arguments(
+                list(),
+                list(arg("eins", null, null), arg("zwei", null, null)),
+                null,
+                list(),
+                list(),
+                null,
+                list()),
             list(
                 FunctionDef(
                     "sum",
                     arguments(
-                        list(arg("un", null), arg("deux", null), arg("trois", null)),
+                        list(),
+                        list(arg("un", null, null), arg("deux", null, null), arg("trois", null, null)),
                         null,
                         list(),
                         list(),
@@ -2398,38 +2425,62 @@ public class TestInterp5 {
                         list()),
                     list(Return(BinOp(BinOp(Name("un", Load), Add, Name("deux", Load)), Add, Name("trois", Load)))),
                     list(),
+                    null,
                     null),
                 FunctionDef(
                     "diff",
-                    arguments(list(arg("tolv", null), arg("fem", null)), null, list(), list(), null, list()),
+                    arguments(
+                        list(),
+                        list(arg("tolv", null, null), arg("fem", null, null)),
+                        null,
+                        list(),
+                        list(),
+                        null,
+                        list()),
                     list(Return(BinOp(Name("tolv", Load), Sub, Name("fem", Load)))),
                     list(),
+                    null,
                     null),
                 FunctionDef(
                     "prod",
-                    arguments(list(arg("sex", null), arg("sju", null)), null, list(), list(), null, list()),
+                    arguments(
+                        list(),
+                        list(arg("sex", null, null), arg("sju", null, null)),
+                        null,
+                        list(),
+                        list(),
+                        null,
+                        list()),
                     list(Return(BinOp(Name("sex", Load), Mult, Name("sju", Load)))),
                     list(),
+                    null,
                     null),
-                Assign(list(Name("drei", Store)), Num(3)),
+                Assign(list(Name("drei", Store)), Constant(3, null), null),
                 Assign(
                     list(Name("six", Store)),
                     Call(
                         Name("sum", Load),
                         list(Name("eins", Load), Name("zwei", Load), Name("drei", Load)),
-                        list())),
+                        list()),
+                    null),
                 Assign(
                     list(Name("seven", Store)),
                     Call(
                         Name("diff", Load),
                         list(
-                            BinOp(Num(2), Mult, Name("six", Load)),
+                            BinOp(Constant(2, null), Mult, Name("six", Load)),
                             BinOp(Name("drei", Load), Add, Name("zwei", Load))),
-                        list())),
+                        list()),
+                    null),
                 Return(Call(Name("prod", Load), list(Name("six", Load), Name("seven", Load)), list()))),
             list(),
+            null,
             null),
-        Assign(list(Name("result", Store)), Call(Name("p", Load), list(Num(1), Num(2)), list()))))
+        Assign(
+            list(Name("result", Store)),
+            Call(Name("p", Load), list(Constant(1, null), Constant(2, null)), list()),
+            null)),
+    list())
         ;
         // @formatter:on
         Map<String, Object> state = new HashMap<>();
@@ -2460,22 +2511,29 @@ public class TestInterp5 {
     list(
         FunctionDef(
             "p",
-            arguments(list(arg("a", null), arg("b", null)), null, list(), list(), null, list()),
+            arguments(list(), list(arg("a", null, null), arg("b", null, null)), null, list(), list(), null, list()),
             list(
-                Assign(list(Name("x", Store)), BinOp(Name("a", Load), Add, Num(1))),
+                Assign(list(Name("x", Store)), BinOp(Name("a", Load), Add, Constant(1, null)), null),
                 FunctionDef(
                     "q",
-                    arguments(list(arg("c", null)), null, list(), list(), null, list()),
+                    arguments(list(), list(arg("c", null, null)), null, list(), list(), null, list()),
                     list(
-                        Assign(list(Name("y", Store)), BinOp(Name("x", Load), Add, Name("c", Load))),
+                        Assign(list(Name("y", Store)), BinOp(Name("x", Load), Add, Name("c", Load)), null),
                         FunctionDef(
                             "r",
-                            arguments(list(arg("d", null)), null, list(), list(), null, list()),
+                            arguments(list(), list(arg("d", null, null)), null, list(), list(), null, list()),
                             list(
-                                Assign(list(Name("z", Store)), BinOp(Name("y", Load), Add, Name("d", Load))),
+                                Assign(list(Name("z", Store)), BinOp(Name("y", Load), Add, Name("d", Load)), null),
                                 FunctionDef(
                                     "s",
-                                    arguments(list(arg("e", null)), null, list(), list(), null, list()),
+                                    arguments(
+                                        list(),
+                                        list(arg("e", null, null)),
+                                        null,
+                                        list(),
+                                        list(),
+                                        null,
+                                        list()),
                                     list(
                                         Return(
                                             BinOp(
@@ -2485,21 +2543,29 @@ public class TestInterp5 {
                                                         Add,
                                                         Name("y", Load)),
                                                     Sub,
-                                                    Num(1)),
+                                                    Constant(1, null)),
                                                 Mult,
                                                 Name("z", Load)))),
                                     list(),
+                                    null,
                                     null),
                                 Return(Call(Name("s", Load), list(Name("d", Load)), list()))),
                             list(),
+                            null,
                             null),
                         Return(Call(Name("r", Load), list(Name("c", Load)), list()))),
                     list(),
+                    null,
                     null),
                 Return(Call(Name("q", Load), list(Name("b", Load)), list()))),
             list(),
+            null,
             null),
-        Assign(list(Name("result", Store)), Call(Name("p", Load), list(Num(1), Num(2)), list()))))
+        Assign(
+            list(Name("result", Store)),
+            Call(Name("p", Load), list(Constant(1, null), Constant(2, null)), list()),
+            null)),
+    list())
         ;
         // @formatter:on
         Map<String, Object> state = new HashMap<>();
@@ -2529,32 +2595,36 @@ public class TestInterp5 {
     list(
         FunctionDef(
             "p",
-            arguments(list(arg("r", null), arg("i", null)), null, list(), list(), null, list()),
+            arguments(list(), list(arg("r", null, null), arg("i", null, null)), null, list(), list(), null, list()),
             list(
                 FunctionDef(
                     "sum",
-                    arguments(list(), null, list(), list(), null, list()),
+                    arguments(list(), list(), null, list(), list(), null, list()),
                     list(Return(BinOp(Name("r", Load), Add, Name("i", Load)))),
                     list(),
+                    null,
                     null),
                 FunctionDef(
                     "diff",
-                    arguments(list(), null, list(), list(), null, list()),
+                    arguments(list(), list(), null, list(), list(), null, list()),
                     list(
                         FunctionDef(
                             "q",
-                            arguments(list(), null, list(), list(), null, list()),
+                            arguments(list(), list(), null, list(), list(), null, list()),
                             list(Return(BinOp(Name("r", Load), Sub, Name("i", Load)))),
                             list(),
+                            null,
                             null),
                         Return(Call(Name("q", Load), list(), list()))),
                     list(),
+                    null,
                     null),
                 FunctionDef(
                     "prod",
-                    arguments(list(), null, list(), list(), null, list()),
+                    arguments(list(), list(), null, list(), list(), null, list()),
                     list(Return(BinOp(Name("r", Load), Mult, Name("i", Load)))),
                     list(),
+                    null,
                     null),
                 Return(
                     BinOp(
@@ -2565,8 +2635,13 @@ public class TestInterp5 {
                         Add,
                         Call(Name("diff", Load), list(), list())))),
             list(),
+            null,
             null),
-        Assign(list(Name("result", Store)), Call(Name("p", Load), list(Num(7), Num(4)), list()))))
+        Assign(
+            list(Name("result", Store)),
+            Call(Name("p", Load), list(Constant(7, null), Constant(4, null)), list()),
+            null)),
+    list())
         ;
         // @formatter:on
         Map<String, Object> state = new HashMap<>();
@@ -2596,19 +2671,34 @@ public class TestInterp5 {
     list(
         FunctionDef(
             "p",
-            arguments(list(arg("ua", null), arg("b", null)), null, list(), list(), null, list()),
+            arguments(list(), list(arg("ua", null, null), arg("b", null, null)), null, list(), list(), null, list()),
             list(
-                Assign(list(Name("z", Store)), BinOp(Name("ua", Load), Add, Name("b", Load))),
+                Assign(list(Name("z", Store)), BinOp(Name("ua", Load), Add, Name("b", Load)), null),
                 FunctionDef(
                     "q",
-                    arguments(list(arg("uc", null), arg("d", null)), null, list(), list(), null, list()),
+                    arguments(
+                        list(),
+                        list(arg("uc", null, null), arg("d", null, null)),
+                        null,
+                        list(),
+                        list(),
+                        null,
+                        list()),
                     list(
                         Assign(
                             list(Name("y", Store)),
-                            BinOp(BinOp(Name("ua", Load), Add, Name("uc", Load)), Add, Name("z", Load))),
+                            BinOp(BinOp(Name("ua", Load), Add, Name("uc", Load)), Add, Name("z", Load)),
+                            null),
                         FunctionDef(
                             "r",
-                            arguments(list(arg("ue", null), arg("f", null)), null, list(), list(), null, list()),
+                            arguments(
+                                list(),
+                                list(arg("ue", null, null), arg("f", null, null)),
+                                null,
+                                list(),
+                                list(),
+                                null,
+                                list()),
                             list(
                                 Assign(
                                     list(Name("x", Store)),
@@ -2618,11 +2708,13 @@ public class TestInterp5 {
                                             Add,
                                             BinOp(Name("ue", Load), Add, Name("f", Load))),
                                         Add,
-                                        BinOp(Name("y", Load), Add, Name("z", Load)))),
+                                        BinOp(Name("y", Load), Add, Name("z", Load))),
+                                    null),
                                 FunctionDef(
                                     "s",
                                     arguments(
-                                        list(arg("uf", null), arg("g", null)),
+                                        list(),
+                                        list(arg("uf", null, null), arg("g", null, null)),
                                         null,
                                         list(),
                                         list(),
@@ -2644,17 +2736,25 @@ public class TestInterp5 {
                                                     Add,
                                                     Name("z", Load))))),
                                     list(),
+                                    null,
                                     null),
                                 Return(Call(Name("s", Load), list(Name("ue", Load), Name("x", Load)), list()))),
                             list(),
+                            null,
                             null),
                         Return(Call(Name("r", Load), list(Name("uc", Load), Name("y", Load)), list()))),
                     list(),
+                    null,
                     null),
                 Return(Call(Name("q", Load), list(Name("ua", Load), Name("z", Load)), list()))),
             list(),
+            null,
             null),
-        Assign(list(Name("result", Store)), Call(Name("p", Load), list(Num(1), Num(2)), list()))))
+        Assign(
+            list(Name("result", Store)),
+            Call(Name("p", Load), list(Constant(1, null), Constant(2, null)), list()),
+            null)),
+    list())
         ;
         // @formatter:on
         Map<String, Object> state = new HashMap<>();
