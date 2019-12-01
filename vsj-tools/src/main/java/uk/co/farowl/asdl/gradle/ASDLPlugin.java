@@ -11,9 +11,6 @@ public class ASDLPlugin implements Plugin<Project> {
 
     @Override
     public void apply(Project project) {
-
-        System.out.printf("ASDLPlugin.apply(%s)\n", project.toString());
-
         // Create the one default task
         project.getTasks().create("generateDataModel", ASDLTask.class, (task) -> {
             task.setSource("src/main/asdl");

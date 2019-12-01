@@ -3,13 +3,12 @@ package uk.co.farowl.asdl.gradle;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
 
-import org.gradle.api.file.ConfigurableFileCollection;
 import org.gradle.api.file.ConfigurableFileTree;
-import org.gradle.api.file.FileTree;
 import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.InputFile;
-import org.gradle.api.tasks.InputFiles;
 import org.gradle.api.tasks.Optional;
 import org.gradle.api.tasks.OutputDirectory;
 import org.gradle.api.tasks.SourceTask;
@@ -30,13 +29,10 @@ public class ASDLTask extends SourceTask {
 
     @TaskAction
     void generateFromASDL() throws IOException, ASDLErrors {
-        System.out.printf("*** ASDL generate into %s\n", getOutputDirectory());
         Path groupFile = getGroupFile();
-        System.out.printf("  * using template \"%s\" from group %s\n", getTemplateName(),
-                groupFile != null ? groupFile : compiler.getGroupName());
+        compiler.setProjectRoot(getProject().getProjectDir().toPath());
         compiler.setSourceRoot(sourceRoot.getDir().toPath());
         for (File f : getSource()) {
-            System.out.printf("\n ** %s\n", f);
             compiler.compile(f.toPath(), getOutputDirectory());
         }
     }
@@ -92,6 +88,17 @@ public class ASDLTask extends SourceTask {
     /** @param groupFile a StringTemplate group file defining the templates. */
     public void setGroupFile(Object groupFile) {
         compiler.setGroupFile(getProject().file(groupFile).toPath());
+    }
+
+    @Input
+    @Optional
+    public Map<String, Object> getParams() {
+        return compiler.getParams();
+    }
+
+    /** @param params a map received by the template as the "params" argument. */
+    public void setParams(Map<String, Object> params) {
+        compiler.setParams(params);
     }
 
     /** @return the directory to receive data structure source files. */

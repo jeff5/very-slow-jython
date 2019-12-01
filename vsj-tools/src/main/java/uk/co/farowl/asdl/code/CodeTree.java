@@ -1,6 +1,7 @@
 package uk.co.farowl.asdl.code;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 
 import uk.co.farowl.asdl.ast.AsdlTree;
@@ -112,6 +113,11 @@ public class CodeTree {
             this.defs = new ArrayList<>();
         }
 
+        /** Module is the container for built-in types if it is the nameless module. */
+        public boolean isBuiltin() {
+            return "".equals(name.toString());
+        }
+
         @Override
         public <T> T accept(Visitor<T> visitor) {
             return visitor.visitModule(this);
@@ -151,10 +157,30 @@ public class CodeTree {
             return this instanceof Sum;
         }
 
-        /** A definition is simple if it is a simple sum. */
-        public boolean isSimple() {
-            return false;
+        /** A definition that is simple allows for certain simplifications in the generated code. */
+        public abstract boolean isSimple();
+
+        /** A definition is a built-in if it is in the nameless module. */
+        public boolean isBuiltin() {
+            return module.isBuiltin();
         }
+
+        /**
+         * The attributes are all of
+         * built-in type (and therefore has no child nodes).
+         *
+         * @return whether this type contains only built-ins
+         */
+        public abstract boolean hasOnlyBuiltin();
+
+        /**
+         * The attributes are all either
+         * of simple type or of built-in type. If simple types are not represented by nodes (an option in
+         * the generation of code) such a definition has no child nodes.
+         *
+         * @return whether this type contains only simple types or built-ins
+         */
+        public abstract boolean hasOnlySimple();
     }
 
     /** Class representing one sum-type definition. */
@@ -180,18 +206,31 @@ public class CodeTree {
             return visitor.visitSum(this);
         }
 
-        /** A sum is simple if it has no attributes and its constructors have no members. */
+        /** A sum is simple if it has no attributes and no constructor has any members. */
         @Override
         public boolean isSimple() {
-            if (attributes.size() > 0) {
+            if (isBuiltin()) {
+                return true;
+            } else if (attributes.size() > 0) {
                 return false;
-            }
-            for (Constructor c : constructors) {
-                if (c.members.size() > 0) {
-                    return false;
+            } else {
+                for (Constructor c : constructors) {
+                    if (c.members.size() > 0) {
+                        return false;
+                    }
                 }
+                return true;
             }
-            return true;
+        }
+
+        @Override
+        public boolean hasOnlyBuiltin() {
+            return allBuiltin(attributes);
+        }
+
+        @Override
+        public boolean hasOnlySimple() {
+            return allSimple(attributes);
         }
 
         @Override
@@ -227,6 +266,30 @@ public class CodeTree {
             return visitor.visitProduct(this);
         }
 
+        /** A product is simple if it is a built-in or has no attributes or members. */
+        @Override
+        public boolean isSimple() {
+            return isBuiltin() || (attributes.size() == 0 && members.size() == 0);
+        }
+
+        /**
+         * {@inheritDoc}
+         * For a product, this must also be true of the members.
+         */
+        @Override
+        public boolean hasOnlyBuiltin() {
+            return allBuiltin(attributes) && allBuiltin(members);
+        }
+
+        /**
+         * {@inheritDoc}
+         * For a product, this must also be true of the members.
+         */
+        @Override
+        public boolean hasOnlySimple() {
+            return allSimple(attributes) && allSimple(members);
+        }
+
         @Override
         public String toString() {
             String fmt = "%s(%s, attr=%s)";
@@ -248,6 +311,27 @@ public class CodeTree {
         public Constructor(String name, int memberCount) {
             this.name = new Name(name);
             this.members = new ArrayList<>(memberCount);
+        }
+
+        /**
+         * The constructor-type is of a type whose members are all of built-in type (and therefore
+         * has no child nodes).
+         *
+         * @return whether this constructor-type contains only built-ins
+         */
+        public boolean hasOnlyBuiltin() {
+            return allBuiltin(members);
+        }
+
+        /**
+         * The constructor-type is of a type whose members are all of either simple type or built-in
+         * type. If simple types are not represented by nodes (an option in the generation of code)
+         * such a definition has no child nodes.
+         *
+         * @return whether this constructor-type contains only simple types or built-ins
+         */
+        public boolean hasOnlySimple() {
+            return allSimple(members);
         }
 
         @Override
@@ -313,5 +397,25 @@ public class CodeTree {
         T visitConstructor(Constructor constructor);
 
         T visitField(Field field);
+    }
+
+    /** True iff all the Fields in a collection are built-in types. */
+    private static boolean allBuiltin(Collection<Field> fields) {
+        for (Field f : fields) {
+            if (!f.type.isBuiltin()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** True iff all the Fields in a collection are built-in types. */
+    private static boolean allSimple(Collection<Field> fields) {
+        for (Field f : fields) {
+            if (!f.type.isSimple()) {
+                return false;
+            }
+        }
+        return true;
     }
 }

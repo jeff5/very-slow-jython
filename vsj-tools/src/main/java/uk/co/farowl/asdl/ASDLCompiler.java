@@ -1,5 +1,6 @@
 package uk.co.farowl.asdl;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.Writer;
 import java.net.URL;
@@ -8,9 +9,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 import org.antlr.v4.runtime.CharStream;
 import org.antlr.v4.runtime.CharStreams;
@@ -45,12 +48,19 @@ public class ASDLCompiler {
     // 0 for no output.
     private int debug = 1;
 
-    private Path sourceRoot = Paths.get("");
+    private Path projectRoot = Paths.get("");
+    private Path sourceRoot = projectRoot;
     private Path outputDirectory = sourceRoot;
     private Path groupFile = null;
     private String groupName = DEFAULT_GROUP_NAME;
     private String templateName = DEFAULT_TEMPLATE_NAME;
     private String outputNameFormat = DEFAULT_OUTPUT_NAME_FORMAT;
+    private Map<String, Object> params = new HashMap<>();
+
+    /** Specify the project root, relative to which file names will be represented in comments. */
+    public void setProjectRoot(Path projectRoot) {
+        this.projectRoot = projectRoot;
+    }
 
     /** Specify the root relative to which the package name of the source is interpreted. */
     public void setSourceRoot(Path sourceRoot) {
@@ -116,9 +126,46 @@ public class ASDLCompiler {
         this.templateName = templateName;
     }
 
-    /** Specify the template to begin at (rendering the ASDL "module"). */
+    /** The template this compiler will begin at (rendering the ASDL "module"). */
     public String getTemplateName() {
         return templateName;
+    }
+
+    /**
+     * Parameters (of any kind), accessible to the templates as {@code params}. Particular template
+     * group files may give these a particular meaning (or ignore ones they don't support). The Java
+     * template supports the following:
+     * <table>
+     * <tr>
+     * <td>useEnum</td>
+     * <td>Boolean</td>
+     * <td>use enum to represent simple "sum" types</td>
+     * </tr>
+     * <tr>
+     * <td>enumIsNode</td>
+     * <td>Boolean</td>
+     * <td>generated enums implement the Node class</td>
+     * </tr>
+     * <tr>
+     * <td>base</td>
+     * <td>String</td>
+     * <td>if defined, generated nodes all extend this class</td>
+     * </tr>
+     * </table>
+     *
+     * @param params to copy into the stored parameters
+     */
+    public void setParams(Map<String, Object> params) {
+        this.params.putAll(params);
+    }
+
+    /**
+     * Parameters accessible to the templates as {@code params}.
+     *
+     * @return table being used to store these parameters
+     */
+    public Map<String, Object> getParams() {
+        return params;
     }
 
     /**
@@ -136,8 +183,9 @@ public class ASDLCompiler {
         Path outputFile = getOutputFile(packagePath, asdlSource, outputDirectory);
 
         if (debug >= 1) {
-            System.out.printf("  * ASDLCompiler in:  %s\n", asdlSource);
-            System.out.printf("  * ASDLCompiler out: %s\n", outputFile);
+            System.out.printf("  * ASDLCompiler in:     %s\n", rel(asdlSource));
+            System.out.printf("  * ASDLCompiler out:    %s\n", rel(outputFile));
+            System.out.printf("  * ASDLCompiler params: %s\n", params);
         }
 
         // From the ASDL source, build a parse tree.
@@ -182,8 +230,8 @@ public class ASDLCompiler {
         Path relativeOutputFile;
         Path sourceRoot = getSourceRoot();
         if (debug >= 2) {
-            System.out.printf("  * sourceRoot:         %s\n", sourceRoot);
-            System.out.printf("  * asdlSource:         %s\n", asdlSource);
+            System.out.printf("  * sourceRoot:         %s\n", rel(sourceRoot));
+            System.out.printf("  * asdlSource:         %s\n", rel(asdlSource));
         }
 
         if (asdlSource.startsWith(sourceRoot)) {
@@ -308,8 +356,8 @@ public class ASDLCompiler {
 
         // Name the built-in types (without a particular language binding)
         for (String typeName : asdlTypes) {
-            // Treat them as Sum types with zero members
-            CodeTree.Definition def = new CodeTree.Sum(typeName, globalModule, 0, 0);
+            // Treat them as Product types with zero members and attributes
+            CodeTree.Definition def = new CodeTree.Product(typeName, globalModule, 0, 0);
             assert def.isSimple();
             globalModule.scope.defineOrNull(typeName, def);
         }
@@ -373,10 +421,13 @@ public class ASDLCompiler {
         // Supply the package as the list of enclosing directory names down from the source root.
         st.add("asdlPackagePath", asdlPackagePath);
 
+        // Supply the user-defined parameters.
+        st.add("params", params);
+
         // Add the metadata as a template variable.
         String toolName = getClass().getSimpleName();
-        String group = groupFile == null ? groupName : uri(groupFile);
-        st.addAggr("command.{tool, file, groupfile, template}", toolName, uri(asdlSource), group,
+        String group = groupFile == null ? groupName : rel(groupFile);
+        st.addAggr("command.{tool, file, groupfile, template}", toolName, rel(asdlSource), group,
                 templateName);
 
         // Render the tree onto the output file
@@ -389,15 +440,27 @@ public class ASDLCompiler {
     }
 
     /**
-     * Represent a file path as a string URI. This is mostly motivated by the problem that, when
-     * generating Java output, backslashes are treated as introducing escapes (or backslash-u at
-     * least).
+     * Represent a file path as a string, relative to the project root if possible. This is mostly
+     * motivated by the problem that, when generating Java output, backslashes are treated as
+     * introducing escapes (or backslash-u at least). The mangled result is nice for human
+     * consumption, but not for use as a file specification.
      *
      * @param path to represent
-     * @return string URI
+     * @return string form of path
      */
-    private static String uri(Path path) {
-        return path.toUri().toString();
+    private String rel(Path path) {
+        Path relpath = projectRoot.relativize(path);
+        if (relpath.getNameCount() >= path.getNameCount()) {
+            // That seemed to make it worse: fall back on a URI (absolute)
+            return path.toUri().toString();
+        } else {
+            // Relative path is shorter: swap pesky backslashes.
+            String p = relpath.toString();
+            if (File.separatorChar == '\\') {
+                p = p.replace(File.separatorChar, '/');
+            }
+            return p;
+        }
     }
 
     /** Return string of reconstructed ASDL from arbitrary sub-tree. */
