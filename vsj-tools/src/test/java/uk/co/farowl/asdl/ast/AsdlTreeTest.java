@@ -7,7 +7,8 @@ import static org.junit.Assert.assertThat;
 import java.util.List;
 import java.util.function.Function;
 
-import org.antlr.v4.runtime.ANTLRInputStream;
+import org.antlr.v4.runtime.CharStream;
+import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.junit.Test;
 
@@ -133,8 +134,7 @@ public class AsdlTreeTest {
 
     private ASDLParser getParser(String src) {
         // Wrap the source string in a stream
-        ANTLRInputStream input = new ANTLRInputStream(src);
-        input.name = "<test>";
+        CharStream input = CharStreams.fromString(src, "<test>");
         // Wrap the input in a Lexer
         ASDLLexer lexer = new ASDLLexer(input);
         // Get ready to parse the token stream

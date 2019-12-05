@@ -14,7 +14,7 @@ plugins {
 
 description = 'Tools for Very Slow Jython'
 group = 'uk.co.farowl'
-version = '0.1.0-SNAPSHOT'
+version = '0.2.0-SNAPSHOT'
 
 
 repositories {

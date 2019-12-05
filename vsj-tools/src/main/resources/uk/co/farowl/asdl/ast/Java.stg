@@ -6,14 +6,6 @@
  * visitor pattern.
  */
 
-/*
-params ::= [
-    "base" : "ExecNode",
-    "useEnum" : false,
-    "enumIsNode" : true
-]
-*/
-
 // Java type to use in place of ASDL type (single id)
 asdlTypeToJava ::= [
     "identifier" : "String",
@@ -46,7 +38,7 @@ main(command, asdlCodeRoot, asdlPackagePath, params) ::= <<
 
 /**
  * Outer class scoping the types defined in the ASDL module
- * \<code><asdlCodeRoot.name>\</code>.
+ * {@code <asdlCodeRoot.name>}.
  */
 public abstract class <asdlCodeRoot.name> {
     /**

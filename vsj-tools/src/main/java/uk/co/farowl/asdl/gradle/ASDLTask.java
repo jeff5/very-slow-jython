@@ -3,7 +3,6 @@ package uk.co.farowl.asdl.gradle;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Path;
-import java.util.HashMap;
 import java.util.Map;
 
 import org.gradle.api.file.ConfigurableFileTree;
@@ -29,7 +28,6 @@ public class ASDLTask extends SourceTask {
 
     @TaskAction
     void generateFromASDL() throws IOException, ASDLErrors {
-        Path groupFile = getGroupFile();
         compiler.setProjectRoot(getProject().getProjectDir().toPath());
         compiler.setSourceRoot(sourceRoot.getDir().toPath());
         for (File f : getSource()) {

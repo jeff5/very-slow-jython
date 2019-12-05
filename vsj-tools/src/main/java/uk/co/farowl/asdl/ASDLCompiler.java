@@ -46,7 +46,7 @@ public class ASDLCompiler {
     public static final String DEFAULT_OUTPUT_NAME_FORMAT = "%s.java";
 
     // 0 for no output.
-    private int debug = 1;
+    private int debug = 0;
 
     private Path projectRoot = Paths.get("");
     private Path sourceRoot = projectRoot;
@@ -59,12 +59,12 @@ public class ASDLCompiler {
 
     /** Specify the project root, relative to which file names will be represented in comments. */
     public void setProjectRoot(Path projectRoot) {
-        this.projectRoot = projectRoot;
+        this.projectRoot = projectRoot.normalize();
     }
 
     /** Specify the root relative to which the package name of the source is interpreted. */
     public void setSourceRoot(Path sourceRoot) {
-        this.sourceRoot = sourceRoot;
+        this.sourceRoot = sourceRoot.normalize();
     }
 
     /** The root relative to which the package name of the source is interpreted. */
@@ -74,7 +74,7 @@ public class ASDLCompiler {
 
     /** Specify the root relative to which the output is generated using the package name. */
     public void setOutputDirectory(Path outputDirectory) {
-        this.outputDirectory = outputDirectory;
+        this.outputDirectory = outputDirectory.normalize();
     }
 
     /** The root relative to which the output is generated using the package name. */
@@ -112,7 +112,7 @@ public class ASDLCompiler {
      * ignored.
      */
     public void setGroupFile(Path groupFile) {
-        this.groupFile = groupFile;
+        this.groupFile = groupFile.normalize();
         groupName = null;
     }
 
@@ -178,6 +178,10 @@ public class ASDLCompiler {
      */
     public void compile(Path asdlSource, Path outputDirectory) throws IOException, ASDLErrors {
 
+        // Defensive normalisation to defend our reasoning about paths
+        asdlSource = asdlSource.normalize();
+        outputDirectory = outputDirectory.normalize();
+
         // Manipulate the source file name to deduce the package names and output file location.
         List<String> packagePath = new LinkedList<>();
         Path outputFile = getOutputFile(packagePath, asdlSource, outputDirectory);
@@ -234,7 +238,7 @@ public class ASDLCompiler {
             System.out.printf("  * asdlSource:         %s\n", rel(asdlSource));
         }
 
-        if (asdlSource.startsWith(sourceRoot)) {
+        if (sourceRoot.getParent() == null || asdlSource.startsWith(sourceRoot)) {
             // The source file is below the source root. Compile to package in output directory.
             Path relativeSource = sourceRoot.relativize(asdlSource);
             int pkgCount = relativeSource.getNameCount() - 1;
@@ -430,8 +434,13 @@ public class ASDLCompiler {
         st.addAggr("command.{tool, file, groupfile, template}", toolName, rel(asdlSource), group,
                 templateName);
 
+        // Ensure the output directory exists. (Swerve in the case there is no parent.)
+        Path parent = outputFile.getParent();
+        if (parent != null) {
+            Files.createDirectories(parent);
+        }
+
         // Render the tree onto the output file
-        Files.createDirectories(outputFile.getParent());
         try (Writer out = Files.newBufferedWriter(outputFile, Charset.forName("UTF-8"))) {
             STWriter wr = new AutoIndentWriter(out);
             wr.setLineWidth(70);
@@ -450,7 +459,7 @@ public class ASDLCompiler {
      */
     private String rel(Path path) {
         Path relpath = projectRoot.relativize(path);
-        if (relpath.getNameCount() >= path.getNameCount()) {
+        if (relpath.getNameCount() > path.getNameCount()) {
             // That seemed to make it worse: fall back on a URI (absolute)
             return path.toUri().toString();
         } else {
