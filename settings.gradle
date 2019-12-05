@@ -6,7 +6,7 @@ rootProject.name = 'very-slow-jython'
 
 
 include 'docs'      // narrative of the project
-include 'runtime'   // model interpreter components to test our ideas
+include 'vsj1'      // model interpreter runtime to test our ideas (phase 1)
 
 // Sub-project build files are named after the sub-project.
 

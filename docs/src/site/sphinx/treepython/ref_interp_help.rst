@@ -78,11 +78,11 @@ Then we may compile it to an AST like so::
 
 Now that last line is not very pretty,
 so the first thing to put in the tool box
-(at ``runtime/src/main/python/astutil.py`` relative to the project root)
+(at ``vsj1/src/main/python/astutil.py`` relative to the project root)
 is a pretty-printer::
 
     >>> import sys, os
-    >>> lib = os.path.join('runtime', 'src', 'main', 'python')
+    >>> lib = os.path.join('vsj1', 'src', 'main', 'python')
     >>> sys.path.insert(0, lib)
     >>> import astutil
     >>> astutil.pretty(tree)
