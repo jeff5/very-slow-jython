@@ -78,6 +78,7 @@ The skeleton is like this:
 
         public enum operator {Add, Sub, Mult, Div}
         public enum expr_context {Load, Store, Del}
+        //...
     }
 
 Each class has the members named in the ASDL source and a constructor to match.

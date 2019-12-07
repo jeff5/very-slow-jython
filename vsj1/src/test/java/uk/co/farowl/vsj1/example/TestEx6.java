@@ -1,6 +1,7 @@
 package uk.co.farowl.vsj1.example;
 
 import static java.lang.invoke.MethodHandles.dropArguments;
+import static java.lang.invoke.MethodHandles.filterReturnValue;
 import static java.lang.invoke.MethodHandles.foldArguments;
 import static java.lang.invoke.MethodHandles.guardWithTest;
 import static java.lang.invoke.MethodHandles.identity;
@@ -10,7 +11,6 @@ import static org.junit.Assert.assertThat;
 
 import java.lang.invoke.CallSite;
 import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.invoke.MethodType;
 import java.lang.invoke.MutableCallSite;
@@ -626,7 +626,7 @@ public class TestEx6 {
         private static MethodHandle firstImplementer(MethodHandle a,
                 MethodHandle b) {
             // apply_b = λ(x,y,z): b(y,z)
-            MethodHandle apply_b = MethodHandles.filterReturnValue(
+            MethodHandle apply_b = filterReturnValue(
                     dropArguments(b, 0, O), THROW_IF_NOT_IMPLEMENTED);
             // keep_a = λ(x,y,z): x
             MethodHandle keep_a = dropArguments(identity(O), 1, O, O);

@@ -1,6 +1,7 @@
 -- TreePythonEx6.asdl
 -- Used by TestEx6 ... TestEx9
--- Used with StringTemplate group file ExecNodeEx5.java.stg
+-- Extends TreePythonEx1.asdl with unary operations, and compiled
+-- with parameter base = ExecNodeEx5 to provide a "site" member on each Node.
 
 module TreePythonEx6
 {

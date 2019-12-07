@@ -43,14 +43,14 @@ generateDataModel {
      * All nodes extend ExecNode, which contains the 'site' member in support of
      * using a per-node CallSite.
      */
-    params = ["useEnum" : true, "enumIsNode" : true, "base" : "ExecNode"]
+    params = ["useEnum" : true, "enumIsNode" : false, "base" : "ExecNode"]
 }
 
 // Data model used in TestEx1 to TestEx4 in test corpus (default template)
 task('generateTestEx1DataModel', type: ASDLTask) {
     source = "src/test/asdl"
     include "**/TreePythonEx1.asdl"
-    params = ["useEnum" : true, "enumIsNode" : true]
+    params = ["useEnum" : true, "enumIsNode" : false]
     outputDirectory = "$generatedAsdl/test-ex"
 }
 
@@ -59,7 +59,7 @@ task('generateTestEx5DataModel', type: ASDLTask) {
     source = "src/test/asdl"
     include "**/TreePythonEx5.asdl"
     include "**/TreePythonEx6.asdl"
-    params = ["useEnum" : true, "enumIsNode" : true, "base" : "ExecNodeEx5"]
+    params = ["useEnum" : true, "enumIsNode" : false, "base" : "ExecNodeEx5"]
     outputDirectory = "$generatedAsdl/test-ex"
 }
 

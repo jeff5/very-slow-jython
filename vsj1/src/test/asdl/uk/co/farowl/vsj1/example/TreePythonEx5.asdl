@@ -1,7 +1,7 @@
 -- TreePythonEx5.asdl
 -- Used by TestEx5
--- Identical to TreePythonEx5.asdl apart from the module name.
--- Used with StringTemplate group file ExecNodeEx5.java.stg
+-- Identical to TreePythonEx1.asdl apart from the module name, but compiled
+-- with parameter base = ExecNodeEx5 to provide a "site" member on each Node.
 
 module TreePythonEx5
 {

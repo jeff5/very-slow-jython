@@ -67,11 +67,16 @@ or rather by the Java bytecode compiled from Python source.
 ``PyObject._add(PyObject)`` is ``final``,
 but dispatches to ``__add__`` or ``__radd__``,
 which may be overridden by built-in types (defined in Java).
-If the type is defined in Python,
-by means of a class declaration, say,
-``__add__`` and ``__radd__`` are both overidden,
-to check for the existence of ``__add__`` and ``__radd__`` respectively,
-defined in Python, in the type's dictionary.
+Suppose that a type is defined in Python,
+by means of a class declaration.
+In that case,
+``__add__`` and ``__radd__`` are both overridden in a sub-class,
+with methods that check the type's dictionary
+for methods ``__add__`` and ``__radd__`` (respectively),
+defined in Python.
+If either is not found,
+the corresponding Java (``super``) method is still called.
+
 As well as being the base type of all objects,
 ``PyObject`` contains much of the runtime support for generated code.
 
@@ -206,8 +211,8 @@ Our attempt at implementing the operations for ``int`` then looks like this:
         public Object add(Object vobj, Object wobj) {
             Class<?> cv = vobj.getClass();
             Class<?> cw = wobj.getClass();
-            if (cv == Integer.class&&cw == Integer.class) {
-                return (Integer)vobj + (Integer)wobj;
+            if (cv == Integer.class && cw == Integer.class) {
+                return (Integer) vobj + (Integer) wobj;
             } else {
                 return null;
             }
@@ -217,8 +222,8 @@ Our attempt at implementing the operations for ``int`` then looks like this:
         public Object multiply(Object vobj, Object wobj) {
             Class<?> cv = vobj.getClass();
             Class<?> cw = wobj.getClass();
-            if (cv == Integer.class&&cw == Integer.class) {
-                return (Integer)vobj * (Integer)wobj;
+            if (cv == Integer.class && cw == Integer.class) {
+                return (Integer) vobj * (Integer) wobj;
             } else {
                 return null;
             }
@@ -560,12 +565,16 @@ We need the following elements to pull this off (for a binary operation):
 *   A structure to hold the last decision
     and the types for which the site is currently specialised
     (the call site).
-*   A test (called a guard) that the types this time match those last time.
+*   A test (called a guard)
+    that the types this time match the current specialisation.
 
 It is possible to create call sites in which several specialisations
 are cached for re-use,
 according to any strategy the language implementer favours,
 but we'll demonstrate it with a cache size of one.
+
+A false Assumption?
+===================
 
 We'll point out in passing that
 we've slipped a false assumption into this argument:
@@ -699,7 +708,15 @@ For types implemented in Java, this can work by reflection:
         /** Shorthand for <code>Object.class</code>. */
         static final Class<Object> O = Object.class;
 
-        // ...
+        private MethodHandle findStaticOrNull(Class<?> refc, String name,
+                MethodType type) {
+            try {
+                MethodHandle mh = lookup.findStatic(refc, name, type);
+                return mh;
+            } catch (NoSuchMethodException | IllegalAccessException e) {
+                return null;
+            }
+        }
 
         /**
          * Return the method handle of the implementation of
@@ -723,16 +740,6 @@ For types implemented in Java, this can work by reflection:
                 return Runtime.BINOP_NOT_IMPLEMENTED;
             } else {
                 return mh.asType(BINOP);
-            }
-        }
-
-        private MethodHandle findStaticOrNull(Class<?> refc, String name,
-                MethodType type) {
-            try {
-                MethodHandle mh = lookup.findStatic(refc, name, type);
-                return mh.asType(BINOP);
-            } catch (NoSuchMethodException | IllegalAccessException e) {
-                return null;
             }
         }
 
@@ -1012,11 +1019,11 @@ We'll go there next.
 The first job is to implement a little more of the Python AST for expressions,
 represented here in ASDL::
 
-    module TreePython
+    module TreePythonEx6
     {
         expr = BinOp(expr left, operator op, expr right)
              | UnaryOp(unaryop op, expr operand)
-             | Num(object n)
+             | Constant(constant value, string? kind)
              | Name(identifier id, expr_context ctx)
 
         operator = Add | Sub | Mult | Div
@@ -1024,7 +1031,7 @@ represented here in ASDL::
         expr_context = Load | Store | Del
     }
 
-When we regenerate the ``TreePython`` AST class from this,
+When we generate the ``TreePythonEx6`` AST class from this,
 we shall have the necessary data structures to represent unary ``+`` and ``-``.
 In order that we can easily write expressions in Java,
 representing expression ASTs,
@@ -1037,23 +1044,20 @@ we add the corresponding wrapper functions and constants:
     public static final expr UnaryOp(unaryop op, expr operand)
         { return new expr.UnaryOp(op, operand); }
 
-The ``UnaryOp`` node has to be added to the ``Visitor`` interface:
+The ``UnaryOp`` node gets added to the ``Visitor`` interface:
 
 ..  code-block:: java
 
-    public abstract class TreePython { //...
+    public abstract class TreePythonEx6 { //...
 
         public interface Visitor<T> {
-            default T visit_BinOp(expr.BinOp _BinOp){ return null; }
-            default T visit_UnaryOp(expr.UnaryOp _UnaryOp){ return null; }
-            default T visit_Num(expr.Num _Num){ return null; }
-            default T visit_Name(expr.Name _Name){ return null; }
+            default T visit_BinOp(expr.BinOp _BinOp) { return null; }
+            default T visit_UnaryOp(expr.UnaryOp _UnaryOp) { return null; }
+            default T visit_Constant(expr.Constant _Constant) { return null; }
+            default T visit_Name(expr.Name _Name) { return null; }
         }
     }
 
-Use of the ``default`` keyword allows our old examples to work,
-even though their version of the visitor ``Evaluator`` was
-written before we added this node type.
 We must add a specific visit method to our ``Evaluator``,
 but it's just a simplified version of ``visit_BinOp``:
 
@@ -1638,7 +1642,8 @@ Changes include:
   and used uniformly
   (where previously ``null`` indicated a method was not found).
 * ``Operations.findBinOp`` does not call ``asType``
-  to ensure the return type can be invoked exactly as ``(Object,Object)``.
+  to ensure the returned handle can be invoked exactly as
+  ``(Object,Object)Object``.
   Instead, ``Py.findBinOp`` takes care of the conversion.
 
 With these changes, the finders within the ``Operations`` class
