@@ -70,10 +70,10 @@ public abstract class <asdlCodeRoot.name> {
 
     /**
      * Base class Visitor on the AST, where each method traverses the nodes
-     * using {@link Node#accept(Visitor)}, returning the last non-{@code null}
-     * result of any child node. Generated leaf nodes all return {@code null},
-     * so the return from any visit is that from the last "user-defined" visit
-     * method.
+     * using {@link Node#accept(Visitor)}, returning the last
+     * non-{@code null} result of any child node. Generated leaf nodes all
+     * return {@code null}, so the return from any visit is that from the
+     * last "user-defined" visit method.
      */
     public static class AbstractVisitor\<T> implements Visitor\<T> {
 
@@ -81,15 +81,16 @@ public abstract class <asdlCodeRoot.name> {
         private T top = null;
 
         /** A stack where the top element is the last non-null result. */
-        private java.util.LinkedList\<T> stack = new java.util.LinkedList\<>();
+        private java.util.LinkedList\<T> stack =
+                new java.util.LinkedList\<>();
 
-        /** If argument not null, overwrite the top of the stack (no push). */
+        /** If argument not null, overwrite the top of stack (no push). */
         protected final void setTop(T t) { if (t != null) { top = t; } };
 
         /** Get the value at the top of the stack (no pop). */
         protected final T getTop() { return top; }
 
-        /** Call at start of each visit method where {@link #exit()} used. */
+        /** Call at start of each method where {@link #exit()} is used. */
         protected void enter() { stack.push(top); top = null; }
 
         /**
@@ -104,8 +105,8 @@ public abstract class <asdlCodeRoot.name> {
         }
 
         /**
-         * Visit node if not null. Use only with ({@link #enter()} and
-         * {@link #exit()}.
+         * Visit node if not null. Use only with {@link #enter()} and
+         * {@link #exit()} unless the type parameter is {@code Void}.
          */
         protected void visitIfNotNull(Node node) {
             if (node != null) { setTop(node.accept(this)); }
@@ -113,9 +114,11 @@ public abstract class <asdlCodeRoot.name> {
 
         /**
          * Visit all non-null nodes in some collection. Use only with
-         * ({@link #enter()}.
+         * {@link #enter()} and {@link #exit()} unless the type parameter
+         * is {@code Void}.
          */
-        protected void visitAll(java.util.Collection\<? extends Node> nodes) {
+        protected void
+                visitAll(java.util.Collection\<? extends Node> nodes) {
             for (Node node : nodes) { visitIfNotNull(node); }
         }
 

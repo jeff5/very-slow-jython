@@ -666,6 +666,7 @@ public class TestInterp1 {
             // Process the statements in the block
             current = child;
             try {
+                // Visit children (body may have further FunctionDefs)
                 return super.visit_FunctionDef(functionDef);
             } finally {
                 // Restore context

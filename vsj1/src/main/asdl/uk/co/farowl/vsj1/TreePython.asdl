@@ -33,8 +33,9 @@ module TreePython
     unaryop = UAdd | USub
     expr_context = Load | Store | Del
 
-    arguments = (arg* posonlyargs, arg* args, arg? vararg, arg* kwonlyargs,
-                 expr* kw_defaults, arg? kwarg, expr* defaults)
+    arguments = (arg* posonlyargs, arg* args, arg? vararg,
+                 arg* kwonlyargs, expr* kw_defaults, arg? kwarg,
+                 expr* defaults)
 
     arg = (identifier arg, expr? annotation, string? type_comment)
     keyword = (identifier? arg, expr value)

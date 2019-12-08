@@ -10,8 +10,8 @@ Aims of this Section
 In this section we'll find a way to implement sequences of statements,
 representing module or function bodies.
 We'll concentrate on assignment to local, non-local and global variables.
-Previous work provides the "right hand side" for our assignments and
-we shall have a simple subset of function calls.
+Previous work provides most of the "right hand side" for our assignments and
+we shall add a subset of the function calls.
 
 Like most languages,
 Python code finds its local variables in a ``frame`` object,
@@ -39,24 +39,23 @@ we advance the ASDL of TreePython to this:
 
     module TreePython
     {
-        mod = Module(stmt* body)
+        mod = Module(stmt* body, type_ignore *type_ignores)
 
         stmt = FunctionDef(identifier name, arguments args,
-                             stmt* body, expr* decorator_list, expr? returns)
+                           stmt* body, expr* decorator_list, expr? returns,
+                           string? type_comment)
              | Return(expr? value)
              | Delete(expr* targets)
-             | Assign(expr* targets, expr value)
+             | Assign(expr* targets, expr value, string? type_comment)
              | Global(identifier* names)
              | Nonlocal(identifier* names)
              | Expr(expr value)
              | Pass
 
-        expr = 
-               BinOp(expr left, operator op, expr right)
+        expr = BinOp(expr left, operator op, expr right)
              | UnaryOp(unaryop op, expr operand)
              | Call(expr func, expr* args, keyword* keywords)
-             | Num(object n)
-             | Str(string s)
+             | Constant(constant value, string? kind)
 
              -- the following expression can appear in assignment context
              | Name(identifier id, expr_context ctx)
@@ -65,11 +64,13 @@ we advance the ASDL of TreePython to this:
         unaryop = UAdd | USub
         expr_context = Load | Store | Del
 
-        arguments = (arg* args, arg? vararg, arg* kwonlyargs,
-                     expr* kw_defaults, arg? kwarg, expr* defaults)
+        arguments = (arg* posonlyargs, arg* args, arg? vararg,
+                     arg* kwonlyargs, expr* kw_defaults, arg? kwarg,
+                     expr* defaults)
 
-        arg = (identifier arg, expr? annotation)
+        arg = (identifier arg, expr? annotation, string? type_comment)
         keyword = (identifier? arg, expr value)
+        type_ignore = TypeIgnore(int lineno, string tag)
     }
 
 We can see that modules and function definitions have a body attribute
@@ -93,24 +94,26 @@ and the following visitor interface:
 ..  code-block:: java
 
     public interface Visitor<T> {
-        default T visit_Module(mod.Module _Module){ return null; }
-        default T visit_FunctionDef(stmt.FunctionDef _FunctionDef){ return null; }
-        default T visit_Return(stmt.Return _Return){ return null; }
-        default T visit_Delete(stmt.Delete _Delete){ return null; }
-        default T visit_Assign(stmt.Assign _Assign){ return null; }
-        default T visit_Global(stmt.Global _Global){ return null; }
-        default T visit_Nonlocal(stmt.Nonlocal _Nonlocal){ return null; }
-        default T visit_Expr(stmt.Expr _Expr){ return null; }
-        default T visit_Pass(stmt.Pass _Pass){ return null; }
-        default T visit_BinOp(expr.BinOp _BinOp){ return null; }
-        default T visit_UnaryOp(expr.UnaryOp _UnaryOp){ return null; }
-        default T visit_Call(expr.Call _Call){ return null; }
-        default T visit_Num(expr.Num _Num){ return null; }
-        default T visit_Str(expr.Str _Str){ return null; }
-        default T visit_Name(expr.Name _Name){ return null; }
-        default T visit_arguments(arguments _arguments){ return null; }
-        default T visit_arg(arg _arg){ return null; }
-        default T visit_keyword(keyword _keyword){ return null; }
+        default T visit_Module(mod.Module _Module) { return null; }
+        default T visit_FunctionDef(stmt.FunctionDef _FunctionDef)
+                { return null; }
+        default T visit_Return(stmt.Return _Return) { return null; }
+        default T visit_Delete(stmt.Delete _Delete) { return null; }
+        default T visit_Assign(stmt.Assign _Assign) { return null; }
+        default T visit_Global(stmt.Global _Global) { return null; }
+        default T visit_Nonlocal(stmt.Nonlocal _Nonlocal) { return null; }
+        default T visit_Expr(stmt.Expr _Expr) { return null; }
+        default T visit_Pass(stmt.Pass _Pass) { return null; }
+        default T visit_BinOp(expr.BinOp _BinOp) { return null; }
+        default T visit_UnaryOp(expr.UnaryOp _UnaryOp) { return null; }
+        default T visit_Call(expr.Call _Call) { return null; }
+        default T visit_Constant(expr.Constant _Constant) { return null; }
+        default T visit_Name(expr.Name _Name) { return null; }
+        default T visit_arguments(arguments _arguments) { return null; }
+        default T visit_arg(arg _arg) { return null; }
+        default T visit_keyword(keyword _keyword) { return null; }
+        default T visit_TypeIgnore(type_ignore.TypeIgnore _TypeIgnore)
+                { return null; }
     }
 
 Previously we evaluated expressions using a class ``Evaluator``
@@ -142,12 +145,13 @@ according to the context of the source code.
 It may be a mapping of names to values,
 or be stored as an array directly within the ``frame`` object.
 In CPython byte code,
-different instructions are used to access local variables,
+different instructions are generated to access local variables,
 according to the realisation chosen.
 In general, at *module* level,
-the Python will choose a mapping for its locals,
+the Python compiler will choose a mapping for its locals,
 and that mapping will be the same dictionary that holds the globals.
-A *function* will compile to use the efficient, frame-based array.
+In contrast, a *function* body will be compiled to use
+the efficient, frame-based array.
 
 When executing any code using the :py:func:`eval` function,
 one can supply separate local and global dictionaries explicitly.
@@ -166,10 +170,10 @@ and within each, load, store and delete operations:
 +========+=============================+==============================+
 | name   | search of local, global or  | Load/delete where found      |
 |        | the ``__builtins__`` module | (store is always local).     |
-|        |                             | Used in compiled module.     |
+|        |                             | Used in a compiled module.   |
 +--------+-----------------------------+------------------------------+
 | fast   | in the ``frame``            | Access locally.              |
-|        |                             | Used in compiled function.   |
+|        |                             | Used in a compiled function. |
 +--------+-----------------------------+------------------------------+
 | cell   | shared between frames       | Access indirectly through    |
 |        |                             | ``PyCell``                   |
@@ -211,7 +215,7 @@ Generating the Layout
 
    In order to access the project-specific tools
    used in the Python examples in this section,
-   put the directory ``vsj1/src/test/python`` on the ``sys.path``,
+   put the directory ``vsj1/src/main/python`` on the ``sys.path``,
    for example via the environment variable ``PYTHONPATH``.
 
 Symbol Tables
@@ -250,7 +254,7 @@ the name ``x`` in the scope defined by ``h``
 refers to the same variable called ``x`` in the scope defined by ``f``,
 but this is distinct from the ``x`` at the outermost (module) level.
 
-The module that helps us out here is ``symtable``.
+The standard library module that helps us out here is ``symtable``.
 It will compile this source for us and return the symbol tables.
 There is a symbol table for each scope,
 and these tables nest in the same pattern as the scopes in the source::
@@ -263,8 +267,10 @@ and these tables nest in the same pattern as the scopes in the source::
     <symbol 'x'>
     >>> mst.lookup('x').is_global()
     False
-    >>> mst.get_children()[0].lookup('x')
-    <symbol 'x'>
+    >>> mst.get_children()[0]
+    <Function SymbolTable for f in <module>>
+    >>> mst.get_children()[0].get_children()[0]
+    <Function SymbolTable for g in <module>>
 
 It may be surprising that ``x`` at the top level is not global.
 If we take the trouble to supply local and global name spaces separately,
@@ -281,19 +287,19 @@ that load from local, global or built-in name spaces,
 but store only into the local one::
 
     >>> import dis
-    >>> dis.dis(compile(prog, '<module>', 'exec'))
-      1           0 LOAD_CONST               0 (<code object f ... >)
-                  3 LOAD_CONST               1 ('f')
-                  6 MAKE_FUNCTION            0
-                  9 STORE_NAME               0 (f)
+    >>> dis.dis(compile(prog, '<module>', 'exec'), depth=0)
+      1           0 LOAD_CONST               0 (<code object f at 0x00000273D04B03A0, file "<module>", line 1>)
+                  2 LOAD_CONST               1 ('f')
+                  4 MAKE_FUNCTION            0
+                  6 STORE_NAME               0 (f)
 
-      8          12 LOAD_CONST               2 (42)
-                 15 STORE_NAME               1 (x)
-                 18 LOAD_CONST               3 (None)
-                 21 RETURN_VALUE
+      8           8 LOAD_CONST               2 (42)
+                 10 STORE_NAME               1 (x)
+                 12 LOAD_CONST               3 (None)
+                 14 RETURN_VALUE
 
 Navigating the symbol tables by hand is tedious,
-but there is a module at ``vsj1/src/test/python/symbolutil.py``
+but there is a module at ``vsj1/src/main/python/symbolutil.py``
 that will help::
 
     >>> import symbolutil as su
@@ -302,27 +308,27 @@ that will help::
       "f" : LOCAL, assigned, local, namespace
       "x" : LOCAL, assigned, local
     <Function SymbolTable for f in <module>>
-      locals : ('x', 'g')
-      "x" : CELL, assigned, local
+      locals : ('g', 'x')
       "g" : LOCAL, assigned, local, namespace
+      "x" : CELL, assigned, local
     <Function SymbolTable for g in <module>>
       locals : ('h',)
       frees : ('x',)
-      "x" : FREE, free
       "h" : LOCAL, assigned, local, namespace
+      "x" : FREE, free
     <Function SymbolTable for h in <module>>
       frees : ('x',)
       "x" : FREE, assigned, free, local
 
-For each name, in each scope, we can see the conclusion (in capitals)
+For each name, in each scope, we can see the *conclusion* (in capitals)
 reached by the CPython compiler about the scope of that name.
 The five possibilities are:
 ``FREE``, ``LOCAL``, ``GLOBAL_IMPLICIT``, ``GLOBAL_EXPLICIT``, ``CELL``.
 The other information (lowercase)
 is the result of calling the informational methods e.g. ``is_assigned()``
-on the symbol, and recording which return ``True``.
+on the symbol, and recording the ones that return ``True``.
 These access the observations made by the compiler
-of how the name is used in that lexical scope.
+of how the name is *used* in that lexical scope.
 An interesting feature of this example is that,
 although ``x`` is not mentioned at all in the scope of ``g``,
 ``x`` ends up a free variable in its symbol table,
@@ -334,7 +340,8 @@ Symbol Tables in Java
 
 We can easily reproduce in Java the sort of data structures exposed by
 ``symtable``.
-But we have to fill them in using the correct logic on the AST.
+But we have to fill them in using the correct logic on the AST,
+which is a little delicate.
 
 We take two passes over the source to resolve the scope of each name,
 since we have to see all the uses of a name in order to decide.
@@ -363,6 +370,7 @@ An example of the processing is:
             // Process the statements in the block
             current = child;
             try {
+                // Visit children (body may have further FunctionDefs)
                 return super.visit_FunctionDef(functionDef);
             } finally {
                 // Restore context
@@ -391,7 +399,7 @@ It is a non-intrusive way of extending the data available at each node.
 ``SymbolTable.add()`` makes a new entry if necessary,
 but importantly it keeps track of how the name has been used.
 
-The second pass is actually a walk of the symbol table tree itself,
+The second pass walks the symbol table tree itself,
 and it picks up the observations made in the first pass.
 Some observations are decisive, by just looking at the symbol table entry:
 
@@ -460,7 +468,6 @@ This happens in the ``SymbolTable`` class itself:
                 st.resolveSymbolsRecursively();
             }
         }
-
     }
 
 ``SymbolTable`` has different subclasses for a module and a function definition
@@ -528,7 +535,7 @@ There is a program in the test source tree that does this
 at ``vsj1/src/test/python/symtable_testgen.py``,
 and it generates the test material for
 ``vsj1/src/test/.../treepython/TestInterp1.java``,
-from which the Java code snippets were taken.
+from which the Java code snippets in this section were taken.
 
 
 Code Objects
@@ -561,16 +568,16 @@ it only shows instructions for the module level::
     x = 42
     """
     >>> progcode = compile(prog, '<module>', 'exec')
-    >>> dis.dis(progcode)
-      1           0 LOAD_CONST               0 (<code object f ... >)
-                  3 LOAD_CONST               1 ('f')
-                  6 MAKE_FUNCTION            0
-                  9 STORE_NAME               0 (f)
+    >>> dis.dis(progcode, depth=0)
+      1           0 LOAD_CONST               0 (<code object f at 0x00000273D04AC500, file "<module>", line 1>)
+                  2 LOAD_CONST               1 ('f')
+                  4 MAKE_FUNCTION            0
+                  6 STORE_NAME               0 (f)
 
-      8          12 LOAD_CONST               2 (42)
-                 15 STORE_NAME               1 (x)
-                 18 LOAD_CONST               3 (None)
-                 21 RETURN_VALUE
+      8           8 LOAD_CONST               2 (42)
+                 10 STORE_NAME               1 (x)
+                 12 LOAD_CONST               3 (None)
+                 14 RETURN_VALUE
 
 Where are the code objects for the nested functions?
 
@@ -583,22 +590,22 @@ in which the suite (body) is a sort of argument,
 a structured constant created in the compiler.
 In our example ``co_consts[0]`` contains the code for ``f``::
 
-   >>> progcode.co_consts[0]
-   <code object f at 0x000001941F6001E0, file "<module>", line 1>
-   >>> dis.dis(progcode.co_consts[0])
-     2           0 LOAD_CLOSURE             0 (x)
-                 3 BUILD_TUPLE              1
-                 6 LOAD_CONST               1 (<code object g ... >)
-                 9 LOAD_CONST               2 ('f.<locals>.g')
-                12 MAKE_CLOSURE             0
-                15 STORE_FAST               0 (g)
+    >>> progcode.co_consts[0]
+    <code object f at 0x00000273D04AC500, file "<module>", line 1>
+    >>> dis.dis(progcode.co_consts[0], depth=0)
+      2           0 LOAD_CLOSURE             0 (x)
+                  2 BUILD_TUPLE              1
+                  4 LOAD_CONST               1 (<code object g at 0x00000273D04B03A0, file "<module>", line 2>)
+                  6 LOAD_CONST               2 ('f.<locals>.g')
+                  8 MAKE_FUNCTION            8 (closure)
+                 10 STORE_FAST               0 (g)
 
-     7          18 LOAD_CONST               3 (420)
-                21 STORE_DEREF              0 (x)
-                24 LOAD_CONST               0 (None)
-                27 RETURN_VALUE
+      7          12 LOAD_CONST               3 (420)
+                 14 STORE_DEREF              0 (x)
+                 16 LOAD_CONST               0 (None)
+                 18 RETURN_VALUE
 
-There is a project-specific tool in ``vsj1/src/test/python/codeutil.py``
+There is a project-specific tool in ``vsj1/src/main/python/codeutil.py``
 (put the directory on ``sys.path``)
 that will dump out the tree of ``code`` objects and the attributes
 that define the ``frame`` each creates::
@@ -650,41 +657,46 @@ The tuples of names
 are created from the symbol table to describe the allocation of variables
 in the frame.
 In CPython byte code,
-local variable access uses numerical indexes directly into arrays in the frame.
-Only occasionally are the names contained in
-``co_varnames``, ``co_cellvars`` and ``co_freevars`` actually consulted.
+local variable access uses numerical indexes
+directly into arrays in the frame,
+to which the interpreter keeps some pointers locally.
+The names of the variables are in tuples of strings
+(``co_varnames``, ``co_cellvars`` and ``co_freevars``),
+but the interpreter does not need the names
+except for debugging or to return ``locals()`` as a mapping.
 The names in ``co_names``, in contrast,
-*are* used as constants to access globals and built-ins.
+*are* used as constants to look up globals and built-ins.
 
-In CPython, storage is allocated contiguously
-(as a block of ``PyObject *`` pointers)
-and the interpreter in ``ceval.c`` defines pointers into it like this:
+In CPython, storage for variables is allocated contiguously
+(as a block of ``PyObject *`` pointers).
+The interpreter in ``ceval.c`` defines pointers (local variables in C)
+like this:
 
-+-----------------------+-----------------+---------------------------+----------------+
-| pointer name          | variables       | use                       | type           |
-+=======================+=================+===========================+================+
-| ``fastlocals``        | ``co_varnames`` | * positional arguments    | ``PyObject *`` |
-|                       |                 | * keyword only arguments  |                |
-|                       |                 | * varargs tuple           |                |
-|                       |                 | * keyword dictionary      |                |
-|                       |                 | * local variables         |                |
-+-----------------------+-----------------+---------------------------+----------------+
-| ``freevars``          | ``co_cellvars`` | names referred to in a    | ``PyCell *``   |
-| (we call this         |                 | nested scope, for which   |                |
-| ``cellvars``)         |                 | this one is outermost     |                |
-+-----------------------+-----------------+---------------------------+----------------+
-| (from ``TestInterp5`` | ``co_freevars`` | names that refer to       | ``PyCell *``   |
-| we will call this     |                 | variables in an enclosing |                |
-| ``freevars``          |                 | scope, used here or or    |                |
-|                       |                 | in an enclosed scope      |                |
-+-----------------------+-----------------+---------------------------+----------------+
-| ``stack_pointer``     |                 | value stack               | ``PyObject *`` |
-+-----------------------+-----------------+---------------------------+----------------+
++-----------------+-----------------------+---------------------------+----------------+
+| name tuple      | local variable        | use                       | type           |
++=================+=======================+===========================+================+
+| ``co_varnames`` | ``fastlocals``        | * positional arguments    | ``PyObject *`` |
+|                 |                       | * keyword only arguments  |                |
+|                 |                       | * varargs tuple           |                |
+|                 |                       | * keyword dictionary      |                |
+|                 |                       | * local variables         |                |
++-----------------+-----------------------+---------------------------+----------------+
+| ``co_cellvars`` | ``freevars``          | names referred to in a    | ``PyCell *``   |
+|                 | (we will call this    | nested scope, for which   |                |
+|                 | ``cellvars``)         | this one is outermost     |                |
++-----------------+-----------------------+---------------------------+----------------+
+| ``co_freevars`` | (from ``TestInterp5`` | names that refer to       | ``PyCell *``   |
+|                 | we will call this     | variables in an enclosing |                |
+|                 | ``freevars``)         | scope, used here or in an |                |
+|                 |                       | enclosed scope            |                |
++-----------------+-----------------------+---------------------------+----------------+
+|                 | ``stack_pointer``     | value stack               | ``PyObject *`` |
++-----------------+-----------------------+---------------------------+----------------+
 
 We'll do something similar in Java, except
 we do not need a value stack (in the frame), and
 it suits Java better to have distinct arrays of ``Object``\ s and ``Cell``\ s.
-Note that the names (first column) are local variables in the CPython
+Note that the local variables (second column) are names in the CPython
 interpreter,
 not names visible to Python.
 (We make them interpreter state variables.)
@@ -733,9 +745,8 @@ since many of its attributes are visible at the Python level.
 
 The significant difference from CPython is that,
 where that has an array of byte code,
-we store instead a bundle containing a list of AST statement nodes,
-the symbol table, and a mapping (``ASTCode``).
-
+we store instead a bundle (``ASTCode``)
+containing a list of AST statement nodes, the symbol table, and a mapping.
 The mapping is from AST nodes to ``code`` objects,
 applicable to modules and function definitions.
 
@@ -768,7 +779,8 @@ with an initial implementation of ``Code`` and a ``CodeGenerator``,
 ``vsj1/src/test/.../treepython/TestInterp2.java``,
 from which the next few Java code snippets were taken.
 The program ``vsj1/src/test/python/symtable_testgen.py``
-generates the test material found at the end of it.
+generates the test material found at the end of it
+(manual process).
 
 The code generator is a visitor on the AST,
 but it does not generate executable instructions as it might in a real compiler.
@@ -1003,7 +1015,7 @@ Now let's step that a couple of times::
    >>> next(x)
    11
    >>> x.gi_frame.f_locals
-   {'a': 10, 'n': 11, 'b': 20}
+   {'a': 10, 'b': 20, 'n': 11}
 
 The generator is now poised at the end of the second execution of ``yield``,
 where ``n`` has the value just yielded through ``next()``.
@@ -1047,7 +1059,7 @@ for :py:func:`eval`, or :py:func:`exec`, or in support of function calls.
 These populate the parameters from argument lists
 and prepare the frame for execution.
 
-In Java we try to combine state and behaviour one object.
+In Java we try to combine related state and behaviour in one object.
 As evaluation is so intimately involved with the frame,
 we shall make the interpreter the *behaviour* of a ``Frame``.
 In aid of this, we will make ``Frame`` abstract
@@ -1070,7 +1082,7 @@ and add a constructor and an abstract method:
 
 The additional constructor takes on some of the job of preparing the frame,
 according to Python rules for several scenarios
-(run a module, ``eval(code,globals,locals)``, call a function).
+(run a module, ``eval(code, globals, locals)``, call a function).
 In order to keep the specific implementation private,
 from code that handles frames as Python objects,
 and to allow alternative implementations to mix,
@@ -1491,7 +1503,9 @@ For example we specify (as a string)::
    result = p(1, 2)
    """
 
-In the Python program we effectively compute::
+In the Python program we compute the reference result by executing the code
+and preserving the module-level dictionary,
+stripped of ``__builtins__`` noise, effectively by::
 
    >>> glob={}
    >>> exec(closprog1, glob)
