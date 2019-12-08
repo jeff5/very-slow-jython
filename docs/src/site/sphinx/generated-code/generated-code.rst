@@ -10,12 +10,13 @@ A Generated Code Interpreter
     frame-as-interpreter
 
 
-In this chapter we start afresh on a second mopdel interpreter
-in package ``vsj2``.
-We use the knowledge gained writing the code in ``vsj1``
+In this chapter we start afresh on a second model run-time system
+in sub-project ``rt2``.
+We use the knowledge gained writing the code in sub-project ``rt1``
 to set out a compelling,
 and hopefully effective,
 set of architectural concepts for:
 
-* an implementation of the Python object model, and
+* an implementation of the Python object model,
+* use of Java's dynamic language support features, and 
 * interpreting code within a ``frame``.

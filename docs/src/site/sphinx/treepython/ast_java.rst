@@ -13,7 +13,7 @@ corresponding to a single binary operation ``x + 1`` in the source.
 In this section we consider how to create and traverse the same tree inside a Java program.
 
     Code fragments in this section are taken from
-    ``vsj1/src/test/java/.../vsj1/example/TestEx1.java``
+    ``rt1/src/test/java/.../vsj1/example/TestEx1.java``
     in the project source.
 
 Representing the AST in Java
@@ -43,7 +43,7 @@ but all we need right now is this small part of the AST for expressions:
 
 This is turned into a system of nested classes (for ``expr``)
 and enumerated types for ``operator`` and ``expr_context``,
-when the ``vsj1`` sub-project is built by Gradle.
+when the ``rt1`` sub-project is built by Gradle.
 The skeleton is like this:
 
 ..  code-block:: java

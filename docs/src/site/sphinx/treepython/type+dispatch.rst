@@ -135,7 +135,7 @@ Dispatch via overloading in Java
 ********************************
 
     Code fragments in this section are taken from
-    ``vsj1/src/test/java/.../vsj1/example/treepython/TestEx2.java``
+    ``rt1/src/test/java/.../vsj1/example/treepython/TestEx2.java``
     in the project source.
 
 Suppose we want to support the ``Add`` and ``Mult`` binary operations.
@@ -339,7 +339,7 @@ Dispatch via a Java ``MethodHandle``
 ************************************
 
     Code fragments in this section are taken from
-    ``vsj1/src/test/java/.../vsj1/example/treepython/TestEx3.java``
+    ``rt1/src/test/java/.../vsj1/example/treepython/TestEx3.java``
     in the project source.
 
 In CPython, operator dispatch uses several arrays of pointers to functions,
@@ -595,7 +595,7 @@ Mapping to a Specialised Implementation
 =======================================
 
     Code fragments in this section are taken from
-    ``vsj1/src/test/java/.../vsj1/example/treepython/TestEx4.java``
+    ``rt1/src/test/java/.../vsj1/example/treepython/TestEx4.java``
     in the project source.
 
 We'll avoid an explicit ``CallSite`` object to begin with.
@@ -832,7 +832,7 @@ Bootstrapping a Call Site
 =========================
 
     Code fragments in this section are taken from
-    ``vsj1/src/test/java/.../vsj1/example/treepython/TestEx5.java``
+    ``rt1/src/test/java/.../vsj1/example/treepython/TestEx5.java``
     in the project source.
 
 It remains for us to introduce a ``CallSite`` object into the AST node
@@ -1013,7 +1013,7 @@ but one type that ought to be easier is the unary operation.
 We'll go there next.
 
     Code fragments in this section are taken from
-    ``vsj1/src/test/java/.../vsj1/example/treepython/TestEx6.java``
+    ``rt1/src/test/java/.../vsj1/example/treepython/TestEx6.java``
     in the project source.
 
 The first job is to implement a little more of the Python AST for expressions,
@@ -1296,7 +1296,7 @@ A ``TypeHandler`` for  ``Number`` operands
 ==========================================
 
     Code fragments in this section and the next are taken from
-    ``vsj1/src/test/java/.../vsj1/example/treepython/TestEx7.java``
+    ``rt1/src/test/java/.../vsj1/example/treepython/TestEx7.java``
     in the project source.
 
 Consider making ``BigIntegerHandler`` accept
@@ -1526,7 +1526,7 @@ Specimen Optimisation for ``Integer``
 =====================================
 
     Code fragments in this section are taken from
-    ``vsj1/src/test/java/.../vsj1/example/treepython/TestEx8.java``
+    ``rt1/src/test/java/.../vsj1/example/treepython/TestEx8.java``
     in the project source.
 
 In the implementation so far,
@@ -1624,10 +1624,10 @@ Refactoring
 At this point,
 the classes developed in test programs
 are solid enough to place in the core support library at
-``vsj1/src/main/java/.../vsj1``
+``rt1/src/main/java/.../vsj1``
 in the source of the project (not under ``test``).
 What's left of the test program after this refactoring is at
-``vsj1/src/test/java/.../vsj1/example/treepython/TestEx9.java``
+``rt1/src/test/java/.../vsj1/example/treepython/TestEx9.java``
 in the project source.
 
 We take this opportunity to adjust the supporting methods to simplify
