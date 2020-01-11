@@ -1,0 +1,27 @@
+/*
+ * rt2 subproject (model interpreter runtime to test our ideas).
+ *
+ */
+
+plugins {
+    //id 'antlr'
+}
+
+dependencies {
+    //implementation 'org.ow2.asm:asm:7.2'
+
+    // JUnit 5 dependencies
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.1.0'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.1.0'
+
+    // Support legacy JUnit4 tests under JUnit5 engine
+    testImplementation 'junit:junit:4.12'
+    testRuntimeOnly 'org.junit.vintage:junit-vintage-engine:5.1.0'
+}
+
+test {
+    useJUnitPlatform {  // JUnit5 as standard
+        includeEngines 'junit-jupiter'
+    }
+}
+

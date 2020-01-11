@@ -4,19 +4,29 @@
 A Generated Code Interpreter
 ############################
 
-..  toctree::
-
-    data-model
-    frame-as-interpreter
-
-
 In this chapter we start afresh on a second model run-time system
 in sub-project ``rt2``.
 We use the knowledge gained writing the code in sub-project ``rt1``
-to set out a compelling,
-and hopefully effective,
-set of architectural concepts for:
+to bank some architectural concepts
+(that will hopefully prove enduring)
+but take a different approach to implementation.
 
-* an implementation of the Python object model,
-* use of Java's dynamic language support features, and 
-* interpreting code within a ``frame``.
+..  toctree::
+
+    introduction
+    interpreter-cpython-byte-code
+
+..  I think the chapters might go like this,
+    but I'm not certain enough to create the files:
+    basic-type-system
+    attribute-access
+    mutable-types (object base and a hint of inheritance)
+    arithmetic-operations
+    test-branch-jump
+    function-definition-and-call
+    exceptions
+    class-definition-and-instantiation
+    inheritance
+    adopted-java-types
+    found-java-types
+    code-objects-in-java-bytecode
