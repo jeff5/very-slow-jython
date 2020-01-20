@@ -11,7 +11,7 @@ import sys
 # -- General information about the project --------------------------------
 
 project = u'The Very Slow Jython Project'
-copyright = u'2019, Jeff Allen'
+copyright = u'2020, Jeff Allen'
 author = u'Jeff Allen'
 #language = None
 
