@@ -26,12 +26,3 @@ sum = a + b
 diff = a - b
 prod = a * b
 
-# dot_product:
-a, b, n = (2, 3, 4), (3, 4, 6), 3
-a, b, n = (1., 2., 3., 4.), (4., 3., 4., 5.), 4
-# ? sum
-sum = a[0] * b[0]
-i = 1
-while i < n:
-    sum = sum + a[i] * b[i]
-    i = i + 1

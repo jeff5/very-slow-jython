@@ -86,13 +86,13 @@ class PyObjectTestEmitter(PyObjectEmitter):
             self.emit_line("frame.eval();")
             # Compare named results against the values this Python got
             for k, v in after.items():
-                self.emit_line("// {} == {}".format(k, repr(v)))
+                msg = "{} == {}".format(k, repr(v))
                 self.emit_line("assertEquals(")
                 with self.indentation():
-                    self.java_string(k, ", ")
                     self.python(v, ", ")
                     self.emit("globals.get(")
-                    self.python(k, "));")
+                    self.python(k, "), ")
+                    self.java_string(msg, ");")
         self.emit_line("}")
         return self.emit_line()
 

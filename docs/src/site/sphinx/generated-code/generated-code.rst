@@ -15,13 +15,13 @@ but take a different approach to implementation.
 
     introduction
     interpreter-cpython-byte-code
+    type-and-arithmetic
 
 ..  I think the chapters might go like this,
     but I'm not certain enough to create the files:
     basic-type-system
     attribute-access
     mutable-types (object base and a hint of inheritance)
-    arithmetic-operations
     test-branch-jump
     function-definition-and-call
     exceptions
