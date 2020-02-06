@@ -1,6 +1,7 @@
 package uk.co.farowl.vsj2;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.math.BigInteger;
 import java.util.ArrayList;
@@ -616,6 +617,7 @@ class PyByteCode1 {
 
     @Test
     void test_load_store_name1() {
+        //@formatter:off
         PyDictionary globals = new PyDictionary();
         globals.put(new PyUnicode("a"), new PyLong(1));
         globals.put(new PyUnicode("b"), new PyLong(2));
@@ -623,12 +625,13 @@ class PyByteCode1 {
         ThreadState tstate = new ThreadState();
         PyFrame frame = code.createFrame(tstate, globals, globals);
         frame.eval();
-        // a == 2
-        assertEquals("a", new PyLong(2), globals.get(new PyUnicode("a")));
-        // b == 4
-        assertEquals("b", new PyLong(4), globals.get(new PyUnicode("b")));
-        // c == 6
-        assertEquals("c", new PyLong(6), globals.get(new PyUnicode("c")));
+        assertEquals(new PyLong(2), globals.get(new PyUnicode("a")),
+            "a == 2");
+        assertEquals(new PyLong(4), globals.get(new PyUnicode("b")),
+            "b == 4");
+        assertEquals(new PyLong(6), globals.get(new PyUnicode("c")),
+            "c == 6");
+        //@formatter:on
     }
 
     /**
@@ -669,6 +672,7 @@ class PyByteCode1 {
 
     @Test
     void test_load_store_name_ex1() {
+        //@formatter:off
         PyDictionary globals = new PyDictionary();
         globals.put(new PyUnicode("a"), new PyUnicode("Hello"));
         globals.put(new PyUnicode("b"), new PyUnicode("World"));
@@ -676,15 +680,13 @@ class PyByteCode1 {
         ThreadState tstate = new ThreadState();
         PyFrame frame = code.createFrame(tstate, globals, globals);
         frame.eval();
-        // a == 'World'
-        assertEquals("a", new PyUnicode("World"),
-                globals.get(new PyUnicode("a")));
-        // b == 2.0
-        assertEquals("b", new PyFloat(2.0),
-                globals.get(new PyUnicode("b")));
-        // c == 'begins!'
-        assertEquals("c", new PyUnicode("begins!"),
-                globals.get(new PyUnicode("c")));
+        assertEquals(new PyUnicode("World"), globals.get(
+            new PyUnicode("a")), "a == 'World'");
+        assertEquals(new PyFloat(2.0), globals.get(
+            new PyUnicode("b")), "b == 2.0");
+        assertEquals(new PyUnicode("begins!"), globals.get(
+            new PyUnicode("c")), "c == 'begins!'");
+        //@formatter:on
     }
 
 }
