@@ -72,6 +72,7 @@ class PyObjectTestEmitter(PyObjectEmitter):
         self.emit_line("@Test")
         self.emit_line("void " + name + "() {")
         with self.indentation():
+            self.emit_line("//@formatter:off")
             # Load the global name space with the test case values
             self.emit_line("PyDictionary globals = new PyDictionary();")
             for k, v in before.items():
@@ -93,6 +94,7 @@ class PyObjectTestEmitter(PyObjectEmitter):
                     self.emit("globals.get(")
                     self.python(k, "), ")
                     self.java_string(msg, ");")
+            self.emit_line("//@formatter:on")
         self.emit_line("}")
         return self.emit_line()
 

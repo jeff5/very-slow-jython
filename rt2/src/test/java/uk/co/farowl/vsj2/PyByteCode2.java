@@ -50,31 +50,34 @@ class PyByteCode2 {
         public PyType getType() { return TYPE; }
         final String name;
         private final Class<? extends PyObject> implClass;
-        final BasicMethods basic;
+
+        // Method suites for standard abstract types.
         final NumberMethods number;
         final SequenceMethods sequence;
+
+        // Methods to implement standard operations.
+        MethodHandle hash;
+        MethodHandle repr;
+        MethodHandle str;
 
         PyType(String name, Class<? extends PyObject> implClass) {
             this.name = name;
             this.implClass = implClass;
-            basic = new BasicMethods();
-            number = new NumberMethods();
-            sequence = new SequenceMethods();
 
-            // Avoid making unwanted instances of NumberMethods etc.?
-            // No slots added is not the same as no slots added ever.
-            // But sometimes the rule is no slots added ever.
+            // Initialise slots to implement standard operations.
+            hash = TPSlot.hash.findInClass(implClass);
+            repr = TPSlot.repr.findInClass(implClass);
+            str = TPSlot.str.findInClass(implClass);
 
-            for (SlotEnum s : SlotMethods.ALL) {
-                MethodHandle mh = s.findInClass(implClass);
-                s.setSlot(this, mh);
-            }
+            // If immutable, could use NumberMethods.EMPTY, etc.
+            (number = new NumberMethods()).fillFromClass(implClass);
+            (sequence = new SequenceMethods()).fillFromClass(implClass);
 
             TYPE_REGISTRY.put(name, this);
         }
 
         @Override
-        public String toString() { return "<class '" + name + "')"; }
+        public String toString() { return "<class '" + name + "'>"; }
 
         public String getName() { return name; }
 
@@ -180,8 +183,8 @@ class PyByteCode2 {
         }
 
         /**
-         * Check the argument is a {@code PyLong} and return its value,
-         * or raise internal error. Differs from {@link #valueOf(PyObject)}
+         * Check the argument is a {@code PyLong} and return its value, or
+         * raise internal error. Differs from {@link #valueOf(PyObject)}
          * only in type of exception thrown.
          *
          * @param v ought to be a {@code PyLong} (or sub-class)
@@ -191,7 +194,7 @@ class PyByteCode2 {
         private static BigInteger valueOrError(PyObject v)
                 throws InterpreterError {
             try {
-            return ((PyLong) v).value;
+                return ((PyLong) v).value;
             } catch (ClassCastException cce) {
                 throw PyObjectUtil.typeMismatch(v, TYPE);
             }
@@ -268,8 +271,7 @@ class PyByteCode2 {
 
     /** The Python {@code str} object. */
     static class PyUnicode implements PyObject {
-        static final PyType TYPE =
-                new PyType("unicode", PyUnicode.class);
+        static final PyType TYPE = new PyType("unicode", PyUnicode.class);
         @Override
         public PyType getType() { return TYPE; }
         final String value; // only supporting BMP for now
@@ -318,8 +320,7 @@ class PyByteCode2 {
      */
     static class PyDictionary extends HashMap<PyObject, PyObject>
             implements PyObject {
-        static final PyType TYPE =
-                new PyType("dict", PyDictionary.class);
+        static final PyType TYPE = new PyType("dict", PyDictionary.class);
         @Override
         public PyType getType() { return TYPE; }
     }
@@ -334,7 +335,8 @@ class PyByteCode2 {
         protected InterpreterError(String msg, Object... args) {
             super(String.format(msg, args));
         }
-        protected InterpreterError(String msg, Throwable cause, Object... args) {
+        protected InterpreterError(Throwable cause, String msg,
+                Object... args) {
             super(String.format(msg, args), cause);
         }
     }
@@ -885,7 +887,9 @@ class PyByteCode2 {
         }
 
         /** Whether the opcode has an argument. */
-        static final boolean hasArg(int op) { return op >= HAVE_ARGUMENT; }
+        static final boolean hasArg(int op) {
+            return op >= HAVE_ARGUMENT;
+        }
     }
 
     /** Compare CPython {@code abstract.h}: {@code Py_Number_*}. */
@@ -903,9 +907,8 @@ class PyByteCode2 {
 
         /** Create a {@code TypeError} for the named unary op. */
         static PyException typeError(String op, PyObject v) {
-            return new TypeError(
-                    "bad operand type for unary %s: '%.200s'", op,
-                    v.getType().getName());
+            return new TypeError("bad operand type for unary %s: '%.200s'",
+                    op, v.getType().getName());
         }
 
         /** Python {@code v+w} */
@@ -959,8 +962,7 @@ class PyByteCode2 {
             MethodHandle slotv = binop.getSlot(vtype);
             MethodHandle slotw;
 
-            if (wtype == vtype
-                    || (slotw = binop.getSlot(wtype)) == slotv)
+            if (wtype == vtype || (slotw = binop.getSlot(wtype)) == slotv)
                 // Both types give the same result
                 return (PyObject) slotv.invokeExact(v, w);
 
@@ -987,7 +989,8 @@ class PyByteCode2 {
         /** Create a {@code TypeError} for the named binary op. */
         static PyException typeError(String op, PyObject v, PyObject w) {
             return new TypeError(
-                    "unsupported operand type(s) for %.100s: "+"'%.100s' and '%.100s'",
+                    "unsupported operand type(s) for %.100s: "
+                            + "'%.100s' and '%.100s'",
                     op, v.getType().getName(), w.getType().getName());
         }
     }
@@ -1082,8 +1085,18 @@ class PyByteCode2 {
             this.type = type;
             this.empty = empty;
         }
-    }
 
+        private static final Map<MethodType, SlotSignature> sigMap;
+        static {
+            sigMap = new HashMap<>();
+            for (SlotSignature sig : SlotSignature.values()) {
+                sigMap.put(sig.empty.type(), sig);
+            }
+        }
+        static SlotSignature matching(MethodType t) {
+            return sigMap.get(t);
+        }
+    }
 
     /**
      * Constants for the {@code *Methods} compartments of a {@link PyType}
@@ -1095,7 +1108,7 @@ class PyByteCode2 {
          * {@code tp_}, that are found in the base {@code PyTypeObject}, in
          * CPython.
          */
-        TP(BasicMethods.class),
+        TP(PyType.class),
         /**
          * Representing the "number" group: slots where the name begins
          * {@code nb_}, that are found in an optional
@@ -1124,8 +1137,8 @@ class PyByteCode2 {
      * "slots" that a {@code PyType} contains. These groups are the
      * {@code NumberMethods}, the {@code SequenceMethods}, the
      * {@code MappingMethods}, the {@code BufferMethods}, and the
-     * {@code BasicMethods} that (in CPython) are members of the
-     * {@code PyType} object itself.
+     * {@code PyType} that (in CPython) are members of the {@code PyType}
+     * object itself.
      * <p>
      * These {@code enum}s provide constants that can be are used to refer
      * to these slots. Each constant in each {@code enum} creates a
@@ -1157,16 +1170,20 @@ class PyByteCode2 {
          */
         SlotSignature getSignature();
         /**
-         * Create the method handle for this operation, by reflection on
-         * the given class. If the class has a {@code static} method
-         * matching the proper name {@link #getMethodName()} and method
-         * type {@link #getSignature()}{@code .type}, return a handle to
-         * it. If there is no such method, return the default for the slot
-         * ({@link #getSignature()}{@code .empty}), that will throw
-         * {@code EmptyException}.
+         * Create the method handle for this operation, if possible, by
+         * reflection on the given class. If the class has a {@code static}
+         * method matching the proper name {@link #getMethodName()} and
+         * method type {@link #getSignature()}{@code .type}, return that.
          *
+         *
+         * Return for a slot, a handle to the method in a given class that
+         * implements it, of the default handle (of the correct signature)
+         * that throws {@link EmptyException}.
+         *
+         * @param s slot
          * @param c target class
-         * @return handle to method or "empty" if not resolved
+         * @return handle to method in {@code c} implementing thios slot,
+         *         or appropriate "empty" if no such method is accessible.
          */
         MethodHandle findInClass(Class<?> c);
         /**
@@ -1195,9 +1212,9 @@ class PyByteCode2 {
          * {@link SlotEnum#setSlot(PyType, MethodHandle)}, when a bad
          * handle is presented.
          *
-         * @param s
-         * @param mh
-         * @return
+         * @param s slot client attempted to set
+         * @param mh offered value found unsuitable
+         * @return exception with message filled in
          */
         static InterpreterError slotTypeError(SlotEnum s,
                 MethodHandle mh) {
@@ -1213,18 +1230,26 @@ class PyByteCode2 {
          * class.
          */
         static VarHandle slotHandle(SlotEnum slot) {
-            SlotSignature sig = slot.getSignature();
-            Group group = slot.group();
-            Class<?> methodsClass = group.methodsClass;
+            Class<?> methodsClass = slot.group().methodsClass;
             try {
-                return LOOKUP.findVarHandle(slot.group().methodsClass,
-                        slot.name(), MethodHandle.class);
+                return LOOKUP.findVarHandle(methodsClass, slot.name(),
+                        MethodHandle.class);
             } catch (NoSuchFieldException | IllegalAccessException e) {
-                throw new InterpreterError("creating enum for %s", e,
+                throw new InterpreterError(e, "creating enum for %s",
                         methodsClass.getSimpleName());
             }
         }
 
+        /**
+         * Return for a slot, a handle to the method in a given class that
+         * implements it, of the default handle (of the correct signature)
+         * that throws {@link EmptyException}.
+         *
+         * @param s slot
+         * @param c class
+         * @return handle to method in {@code c} implementing {@code s}, or
+         *         appropriate "empty" if no such method is accessible.
+         */
         static MethodHandle findInClass(SlotEnum s, Class<?> c) {
             SlotSignature sig = s.getSignature();
             try {
@@ -1256,34 +1281,16 @@ class PyByteCode2 {
             this.slotHandle = SlotEnumCommon.slotHandle(this);
         }
 
-        /**
-         * Lookup this slot in the given object.
-         *
-         * @param m the {@code *Methods} object to consult
-         * @return the {@code MethodHandle} from it
-         */
-        MethodHandle getSlot(BasicMethods m) {
-            return (MethodHandle) slotHandle.get(m);
-        }
-
-        /**
-         * Set this slot in the given object (if type-compatible).
-         *
-         * @param m the {@code *Methods} object to consult
-         * @param mh the {@code MethodHandle} to set there
-         */
-        void setSlot(BasicMethods m, MethodHandle mh) {
-            if (mh == null || !mh.type().equals(signature.type))
-                throw SlotEnumCommon.slotTypeError(this, mh);
-            slotHandle.set(m, mh);
-        }
-
         @Override
-        public MethodHandle getSlot(PyType t) { return getSlot(t.basic); }
+        public MethodHandle getSlot(PyType t) {
+            return (MethodHandle) slotHandle.get(t);
+        }
 
         @Override
         public void setSlot(PyType t, MethodHandle mh) {
-            setSlot(t.basic, mh);
+            if (mh == null || !mh.type().equals(signature.type))
+                throw SlotEnumCommon.slotTypeError(this, mh);
+            slotHandle.set(t, mh);
         }
 
         @Override
@@ -1304,8 +1311,8 @@ class PyByteCode2 {
 
     /**
      * An enumeration of the "number" group: slots where the name begins
-     * {@code nb_}, that are found in an optional
-     * {@code PyNumberMethods} in CPython.
+     * {@code nb_}, that are found in an optional {@code PyNumberMethods}
+     * in CPython.
      */
     enum NBSlot implements SlotEnum {
 
@@ -1351,6 +1358,7 @@ class PyByteCode2 {
 
         @Override
         public void setSlot(PyType t, MethodHandle mh) {
+            assert t.number != NumberMethods.EMPTY;
             setSlot(t.number, mh);
         }
 
@@ -1371,8 +1379,8 @@ class PyByteCode2 {
 
     /**
      * An enumeration of the "sequence" group: slots where the name begins
-     * {@code sq_}, that are found in an optional
-     * {@code PySequenceMethods} in CPython.
+     * {@code sq_}, that are found in an optional {@code PySequenceMethods}
+     * in CPython.
      */
     enum SQSlot implements SlotEnum {
 
@@ -1417,6 +1425,7 @@ class PyByteCode2 {
 
         @Override
         public void setSlot(PyType t, MethodHandle mh) {
+            assert t.sequence != SequenceMethods.EMPTY;
             setSlot(t.sequence, mh);
         }
 
@@ -1463,100 +1472,58 @@ class PyByteCode2 {
         }
     }
 
-    /** Tabulates the base methods (slots) of a particular type. */
-    static class BasicMethods {
-
-        MethodHandle hash;
-        MethodHandle repr;
-        MethodHandle str;
-
-        /**
-         * Create a new {@code BasicMethods} in which all the slots have
-         * their default method handle (which throws if invoked).
-         */
-        BasicMethods() {
-            for (TPSlot s : TPSlot.values()) {
-                s.setSlot(this, s.signature.empty);
-            }
-        }
-
-        /**
-         * Create a new {@code BasicMethods} in which the entries are method handles
-         * to the correspondingly named static methods in a given target class,
-         * or if no such method is defined by the class,
-         *  a default method handle (which throws if invoked).
-         *
-         * @param c target class
-         */
-        BasicMethods(Class<? extends PyObject> c) {
-            for (TPSlot s : TPSlot.values()) {
-                MethodHandle mh = s.findInClass(c);
-                s.setSlot(this, mh);
-            }
-        }
-    }
-
-    /** Tabulates the number methods (slots) of a particular type. */
+    /** Tabulate the number methods (slots) of a particular type. */
     static class NumberMethods {
 
-        MethodHandle negative;
-        MethodHandle add;
-        MethodHandle subtract;
-        MethodHandle multiply;
+        MethodHandle negative = Slot.UNARY_EMPTY;
+        MethodHandle add = Slot.BINARY_EMPTY;
+        MethodHandle subtract = Slot.BINARY_EMPTY;
+        MethodHandle multiply = Slot.BINARY_EMPTY;
+
+        /** An instance in which every slot has its default value. */
+        static final NumberMethods EMPTY = new NumberMethods();
 
         /**
-         * Create a new {@code NumberMethods} in which all the slots have
-         * their default method handle (which throws if invoked).
+         * Fill the slots in this {@code NumberMethods} with entries that
+         * are method handles to the correspondingly named static methods
+         * in a given target class, or if no such method is defined by the
+         * class, leave the slot as it is (normally the default).
+         *
+         * @param c class to reflect
          */
-        NumberMethods() {
-            for (NBSlot s : NBSlot.values()) {
-                s.setSlot(this, s.signature.empty);
-            }
-        }
-
-        /**
-         * Create a new {@code NumberMethods} in which the entries are method handles
-         * to the correspondingly named static methods in a given target class,
-         * or if no such method is defined by the class,
-         *  a default method handle (which throws if invoked).
-         */
-        NumberMethods(Class<? extends PyObject> c) {
+        void fillFromClass(Class<? extends PyObject> c) {
+            assert this != EMPTY;
             for (NBSlot s : NBSlot.values()) {
                 MethodHandle mh = s.findInClass(c);
-                s.setSlot(this, mh);
+                if (mh != s.signature.empty) { s.setSlot(this, mh); }
             }
         }
     }
 
-    /** Tabulates the sequence methods (slots) of a particular type. */
+    /** Tabulate the sequence methods (slots) of a particular type. */
     static class SequenceMethods {
 
-        MethodHandle length;
+        MethodHandle length = Slot.UNARY_EMPTY;
+
+        /** An instance in which every slot has its default value. */
+        static final SequenceMethods EMPTY = new SequenceMethods();
 
         /**
-         * Create a new {@code SequenceMethods} in which all the slots have
-         * their default method handle (which throws if invoked).
+         * Fill the slots in this {@code NumberMethods} with entries that
+         * are method handles to the correspondingly named static methods
+         * in a given target class, or if no such method is defined by the
+         * class, leave the slot as it is (normally the default).
+         *
+         * @param c class to reflect
          */
-        SequenceMethods() {
-            for (SQSlot s : SQSlot.values()) {
-                s.setSlot(this, s.signature.empty);
-            }
-        }
-
-        /**
-         * Create a new {@code SequenceMethods} in which the entries are method handles
-         * to the correspondingly named static methods in a given target class,
-         * or if no such method is defined by the class,
-         *  a default method handle (which throws if invoked).
-         */
-        SequenceMethods(Class<? extends PyObject> c) {
+        void fillFromClass(Class<? extends PyObject> c) {
+            assert this != EMPTY;
             for (SQSlot s : SQSlot.values()) {
                 MethodHandle mh = s.findInClass(c);
-                s.setSlot(this, mh);
+                if (mh != s.signature.empty) { s.setSlot(this, mh); }
             }
         }
     }
-
 
     /** A {@link PyFrame} for executing CPython 3.8 byte code. */
     private static class CPythonFrame extends PyFrame {
@@ -1741,8 +1708,8 @@ class PyByteCode2 {
     }
 
     /**
-     * A test that the method handles we place in nominally empty slots,
-     * do in fact raise the exception used internally to detect them.
+     * A test that the method handles we place in nominally empty slots, do
+     * in fact raise the exception used internally to detect them.
      */
     @Test
     void testSlotsEmptyException() {
@@ -1777,8 +1744,8 @@ class PyByteCode2 {
     /** Test that TP slots accept only the right type of method handles. */
     @Test
     void testTPSlot() {
-        // Create an empty methods holder
-        final BasicMethods basic = new BasicMethods();
+        // Create a type defining none of the reserved names
+        final PyType basic = new PyType("0Test", PyObject.class);
         assertEquals(Slot.UNARY_EMPTY, basic.repr, "not EMPTY");
 
         // Make method handles to try
@@ -1821,7 +1788,8 @@ class PyByteCode2 {
     void testNBSlot() {
         // Create an empty methods holder
         NumberMethods number = new NumberMethods();
-        assertEquals(Slot.UNARY_EMPTY, number.negative, NBSlot.negative.name());
+        assertEquals(Slot.UNARY_EMPTY, number.negative,
+                NBSlot.negative.name());
         assertEquals(Slot.BINARY_EMPTY, number.add, NBSlot.add.name());
 
         // Make method handles to try
@@ -1961,6 +1929,7 @@ class PyByteCode2 {
 
     @Test
     void test_load_store_name1() {
+        //@formatter:off
         PyDictionary globals = new PyDictionary();
         globals.put(new PyUnicode("a"), new PyLong(1));
         globals.put(new PyUnicode("b"), new PyLong(2));
@@ -1974,6 +1943,7 @@ class PyByteCode2 {
             "b == 4");
         assertEquals(new PyLong(6), globals.get(new PyUnicode("c")),
             "c == 6");
+        //@formatter:on
     }
 
     /**
@@ -2009,6 +1979,7 @@ class PyByteCode2 {
 
     @Test
     void test_negate1() {
+        //@formatter:off
         PyDictionary globals = new PyDictionary();
         globals.put(new PyUnicode("a"), new PyLong(6));
         globals.put(new PyUnicode("b"), new PyLong(-7));
@@ -2020,10 +1991,12 @@ class PyByteCode2 {
             "a == -6");
         assertEquals(new PyLong(7), globals.get(new PyUnicode("b")),
             "b == 7");
+        //@formatter:on
     }
 
     @Test
     void test_negate2() {
+        //@formatter:off
         PyDictionary globals = new PyDictionary();
         globals.put(new PyUnicode("a"), new PyFloat(6.0));
         globals.put(new PyUnicode("b"), new PyFloat(-7.0));
@@ -2035,6 +2008,7 @@ class PyByteCode2 {
             new PyUnicode("a")), "a == -6.0");
         assertEquals(new PyFloat(7.0), globals.get(
             new PyUnicode("b")), "b == 7.0");
+        //@formatter:on
     }
 
     /**
@@ -2081,6 +2055,7 @@ class PyByteCode2 {
 
     @Test
     void test_binary1() {
+        //@formatter:off
         PyDictionary globals = new PyDictionary();
         globals.put(new PyUnicode("a"), new PyLong(7));
         globals.put(new PyUnicode("b"), new PyLong(6));
@@ -2094,10 +2069,12 @@ class PyByteCode2 {
             new PyUnicode("diff")), "diff == 1");
         assertEquals(new PyLong(42), globals.get(
             new PyUnicode("prod")), "prod == 42");
+        //@formatter:on
     }
 
     @Test
     void test_binary2() {
+        //@formatter:off
         PyDictionary globals = new PyDictionary();
         globals.put(new PyUnicode("a"), new PyFloat(7.0));
         globals.put(new PyUnicode("b"), new PyFloat(6.0));
@@ -2111,10 +2088,12 @@ class PyByteCode2 {
             new PyUnicode("diff")), "diff == 1.0");
         assertEquals(new PyFloat(42.0), globals.get(
             new PyUnicode("prod")), "prod == 42.0");
+        //@formatter:on
     }
 
     @Test
     void test_binary3() {
+        //@formatter:off
         PyDictionary globals = new PyDictionary();
         globals.put(new PyUnicode("a"), new PyFloat(7.0));
         globals.put(new PyUnicode("b"), new PyLong(6));
@@ -2128,10 +2107,12 @@ class PyByteCode2 {
             new PyUnicode("diff")), "diff == 1.0");
         assertEquals(new PyFloat(42.0), globals.get(
             new PyUnicode("prod")), "prod == 42.0");
+        //@formatter:on
     }
 
     @Test
     void test_binary4() {
+        //@formatter:off
         PyDictionary globals = new PyDictionary();
         globals.put(new PyUnicode("a"), new PyLong(7));
         globals.put(new PyUnicode("b"), new PyFloat(6.0));
@@ -2145,6 +2126,7 @@ class PyByteCode2 {
             new PyUnicode("diff")), "diff == 1.0");
         assertEquals(new PyFloat(42.0), globals.get(
             new PyUnicode("prod")), "prod == 42.0");
+        //@formatter:on
     }
 
 }
