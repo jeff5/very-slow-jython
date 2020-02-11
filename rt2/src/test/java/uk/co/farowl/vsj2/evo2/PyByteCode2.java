@@ -5,9 +5,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
-import java.lang.invoke.MethodType;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 
 /**
  * A test illustrating a naive emulation using {@code MethodHandle} of
@@ -17,136 +17,151 @@ import org.junit.jupiter.api.Test;
  * CPython's, but for just the opcodes we need.
  */
 class PyByteCode2 {
+
     /**
-     * A test that the method handles we place in nominally empty slots, do
-     * in fact raise the exception used internally to detect them.
+     * A test that the method handles we place in nominally empty slots,
+     * do in fact raise the exception used internally to detect them.
      */
     @Test
     void testSlotsEmptyException() {
-        // Zero argument call to "empty" slot.
-        assertThrows(Slot.EmptyException.class, () -> { //
-            PyObject r = (PyObject) Slot.EMPTY.invokeExact();
-        });
-        // Single PyObject argument call to "empty" slot.
+
+        // Call to handle that fills "empty" UNARY slot.
         PyObject v = new PyLong(100);
         assertThrows(Slot.EmptyException.class, () -> { //
-            PyObject r = (PyObject) Slot.UNARY_EMPTY.invokeExact(v);
+            PyObject r = (PyObject) Slot.Signature.UNARY.empty
+                    .invokeExact(v);
         });
-        // Two PyObject argument call to "empty" slot.
+
+        // Call to handle that fills "empty" LEN slot.
+        assertThrows(Slot.EmptyException.class, () -> { //
+            int r = (int) Slot.Signature.LEN.empty.invokeExact(v);
+        });
+
+        // Call to handle that fills "empty" PREDICATE slot.
+        assertThrows(Slot.EmptyException.class, () -> { //
+            boolean r = (boolean) Slot.Signature.PREDICATE.empty
+                    .invokeExact(v);
+        });
+
+        // Call to handle that fills "empty" BINARY slot.
         PyObject w = new PyLong(200);
         assertThrows(Slot.EmptyException.class, () -> { //
-            PyObject r = (PyObject) Slot.BINARY_EMPTY.invokeExact(v, w);
+            PyObject r = (PyObject) Slot.Signature.BINARY.empty
+                    .invokeExact(v, w);
         });
-        // Three PyObject argument call to "empty" slot.
-        PyObject u = new PyLong(1);
-        assertThrows(Slot.EmptyException.class, () -> { //
-            PyObject r =
-                    (PyObject) Slot.TERNARY_EMPTY.invokeExact(u, v, w);
+
+        // Call to handle that fills "empty" SQ_ASSIGN slot.
+        PyObject u = new PyTuple(v, w);
+        assertThrows(Slot.EmptyException.class, new Executable() { //
+
+            @Override
+            public void execute() throws Throwable {
+                Slot.Signature.SQ_ASSIGN.empty.invokeExact(u, 1, w);
+            }
         });
+
+        // Call to handle that fills "empty" RICHCMP slot.
         // Two PyObject argument call to "empty" slot.
         Opcode.PyCmp op = Opcode.PyCmp.LT;
         assertThrows(Slot.EmptyException.class, () -> { //
-            PyObject r =
-                    (PyObject) Slot.RICHCMP_EMPTY.invokeExact(v, w, op);
+            PyObject r = (PyObject) Slot.Signature.RICHCMP.empty
+                    .invokeExact(v, w, op);
         });
     }
 
-    /** Test that TP slots accept only the right type of method handles. */
+    /**
+     * Test that TP slots accept only the right type of method handles.
+     */
     @Test
     void testSlotTP() {
         // Create a type defining none of the reserved names
         final PyType basic = new PyType("0Test", PyObject.class);
-        assertEquals(Slot.UNARY_EMPTY, basic.repr, "not EMPTY");
+        assertEquals(Slot.Signature.UNARY.empty, basic.repr,
+                "not EMPTY");
 
         // Make method handles to try
-        MethodHandle unary = MethodHandles.empty(Slot.UNARY);
-        MethodHandle binary = MethodHandles.empty(Slot.BINARY);
-        MethodHandle ternary = MethodHandles.empty(Slot.TERNARY);
+        final MethodHandle length =
+                MethodHandles.empty(Slot.Signature.LEN.type);
+        final MethodHandle unary =
+                MethodHandles.empty(Slot.Signature.UNARY.type);
+        final MethodHandle binary =
+                MethodHandles.empty(Slot.Signature.BINARY.type);
+        final MethodHandle ternary =
+                MethodHandles.empty(Slot.Signature.TERNARY.type);
 
         // These go quietly
-        Slot.TP.hash.setSlot(basic, unary);
+        Slot.TP.hash.setSlot(basic, length);
         Slot.TP.str.setSlot(basic, unary);
-        // Re-type the good method handles as unacceptable types
-        final MethodHandle unary2 = unary
-                .asType(MethodType.methodType(Float.class, Integer.class));
-        final MethodHandle binary2 = binary.asType(MethodType
-                .methodType(Float.class, String.class, Byte.class));
-        final MethodHandle ternary2 =
-                ternary.asType(MethodType.methodType(PyObject.class,
-                        Float.class, String.class, Byte.class));
 
         // These should be prevented
         assertThrows(InterpreterError.class, () -> { //
-            Slot.TP.hash.setSlot(basic, unary2);
+            Slot.TP.str.setSlot(basic, length);
         });
         assertThrows(InterpreterError.class, () -> { //
-            Slot.TP.hash.setSlot(basic, binary2);
+            Slot.TP.hash.setSlot(basic, unary);
         });
         assertThrows(InterpreterError.class, () -> { //
-            Slot.TP.hash.setSlot(basic, ternary2);
+            Slot.TP.hash.setSlot(basic, binary);
+        });
+        assertThrows(InterpreterError.class, () -> { //
+            Slot.TP.hash.setSlot(basic, ternary);
         });
         assertThrows(InterpreterError.class, () -> { //
             Slot.TP.hash.setSlot(basic, null);
         });
 
-        // And the slot should be unaffected
-        assertEquals(unary, basic.hash, "slot modified");
+        // And the slots should be unaffected
+        assertEquals(length, basic.hash, "slot modified");
+        assertEquals(unary, basic.str, "slot modified");
     }
 
-    /** Test that NB slots accept only the right type of method handles. */
+    /**
+     * Test that NB slots accept only the right type of method handles.
+     */
     @Test
     void testSlotNB() {
         // Create an empty methods holder
         PyType.NumberMethods number = new PyType.NumberMethods();
-        assertEquals(Slot.UNARY_EMPTY, number.negative,
+        assertEquals(Slot.Signature.UNARY.empty, number.negative,
                 Slot.NB.negative.name());
-        assertEquals(Slot.BINARY_EMPTY, number.add, Slot.NB.add.name());
+        assertEquals(Slot.Signature.BINARY.empty, number.add,
+                Slot.NB.add.name());
 
         // Make method handles to try
-        final MethodHandle unary = MethodHandles.empty(Slot.UNARY);
-        final MethodHandle binary = MethodHandles.empty(Slot.BINARY);
-        final MethodHandle ternary = MethodHandles.empty(Slot.TERNARY);
+        final MethodHandle length =
+                MethodHandles.empty(Slot.Signature.LEN.type);
+        final MethodHandle unary =
+                MethodHandles.empty(Slot.Signature.UNARY.type);
+        final MethodHandle binary =
+                MethodHandles.empty(Slot.Signature.BINARY.type);
+        final MethodHandle ternary =
+                MethodHandles.empty(Slot.Signature.TERNARY.type);
         // These go quietly
         Slot.NB.negative.setSlot(number, unary);
         Slot.NB.add.setSlot(number, binary);
 
-        // Re-type the good method handles as unacceptable types
-        final MethodHandle unary2 = unary
-                .asType(MethodType.methodType(Float.class, Integer.class));
-        final MethodHandle binary2 = binary.asType(MethodType
-                .methodType(Float.class, String.class, Byte.class));
-        final MethodHandle ternary2 =
-                ternary.asType(MethodType.methodType(PyObject.class,
-                        Float.class, String.class, Byte.class));
-
         // These should be prevented
         assertThrows(InterpreterError.class, () -> { //
-            Slot.NB.negative.setSlot(number, unary2);
-        });
-        assertThrows(InterpreterError.class, () -> { //
-            Slot.NB.negative.setSlot(number, binary2);
-        });
-        assertThrows(InterpreterError.class, () -> { //
-            Slot.NB.negative.setSlot(number, ternary2);
+            Slot.NB.negative.setSlot(number, length);
         });
         assertThrows(InterpreterError.class, () -> { //
             Slot.NB.negative.setSlot(number, binary);
+        });
+        assertThrows(InterpreterError.class, () -> { //
+            Slot.NB.negative.setSlot(number, ternary);
         });
         assertThrows(InterpreterError.class, () -> { //
             Slot.NB.negative.setSlot(number, null);
         });
 
         assertThrows(InterpreterError.class, () -> { //
-            Slot.NB.add.setSlot(number, unary2);
-        });
-        assertThrows(InterpreterError.class, () -> { //
-            Slot.NB.add.setSlot(number, binary2);
-        });
-        assertThrows(InterpreterError.class, () -> { //
-            Slot.NB.add.setSlot(number, ternary2);
+            Slot.NB.add.setSlot(number, length);
         });
         assertThrows(InterpreterError.class, () -> { //
             Slot.NB.add.setSlot(number, unary);
+        });
+        assertThrows(InterpreterError.class, () -> { //
+            Slot.NB.add.setSlot(number, ternary);
         });
         assertThrows(InterpreterError.class, () -> { //
             Slot.NB.add.setSlot(number, null);
@@ -157,46 +172,88 @@ class PyByteCode2 {
         assertEquals(binary, number.add, "slot modified");
     }
 
-    /** Test that SQ slots accept only the right type of method handles. */
+    /**
+     * Test that SQ slots accept only the right type of method handles.
+     */
     @Test
     void testSlotSQ() {
         // Create an empty methods holder
         final PyType.SequenceMethods sequence =
                 new PyType.SequenceMethods();
-        assertEquals(Slot.UNARY_EMPTY, sequence.length, "not EMPTY");
+        assertEquals(Slot.Signature.LEN.empty, sequence.length,
+                "not empty");
 
         // Make method handles to try
-        MethodHandle unary = MethodHandles.empty(Slot.UNARY);
-        MethodHandle binary = MethodHandles.empty(Slot.BINARY);
-        MethodHandle ternary = MethodHandles.empty(Slot.TERNARY);
+        final MethodHandle length =
+                MethodHandles.empty(Slot.Signature.LEN.type);
+        final MethodHandle unary =
+                MethodHandles.empty(Slot.Signature.UNARY.type);
+        final MethodHandle binary =
+                MethodHandles.empty(Slot.Signature.BINARY.type);
+        final MethodHandle ternary =
+                MethodHandles.empty(Slot.Signature.TERNARY.type);
 
-        // These go quietly
-        Slot.SQ.length.setSlot(sequence, unary);
-        // Re-type the good method handles as unacceptable types
-        final MethodHandle unary2 = unary
-                .asType(MethodType.methodType(Float.class, Integer.class));
-        final MethodHandle binary2 = binary.asType(MethodType
-                .methodType(Float.class, String.class, Byte.class));
-        final MethodHandle ternary2 =
-                ternary.asType(MethodType.methodType(PyObject.class,
-                        Float.class, String.class, Byte.class));
+        // This goes quietly
+        Slot.SQ.length.setSlot(sequence, length);
 
         // These should be prevented
         assertThrows(InterpreterError.class, () -> { //
-            Slot.SQ.length.setSlot(sequence, unary2);
+            Slot.SQ.length.setSlot(sequence, unary);
         });
         assertThrows(InterpreterError.class, () -> { //
-            Slot.SQ.length.setSlot(sequence, binary2);
+            Slot.SQ.length.setSlot(sequence, binary);
         });
         assertThrows(InterpreterError.class, () -> { //
-            Slot.SQ.length.setSlot(sequence, ternary2);
+            Slot.SQ.length.setSlot(sequence, ternary);
         });
         assertThrows(InterpreterError.class, () -> { //
             Slot.SQ.length.setSlot(sequence, null);
         });
 
         // And the slot should be unaffected
-        assertEquals(unary, sequence.length, "slot modified");
+        assertEquals(length, sequence.length, "slot modified");
+    }
+
+    /**
+     * Test that MP slots accept only the right type of method handles.
+     */
+    @Test
+    void testSlotMP() {
+        // Create an empty methods holder
+        final PyType.MappingMethods sequence =
+                new PyType.MappingMethods();
+        assertEquals(Slot.Signature.LEN.empty, sequence.length,
+                "not empty");
+
+        // Make method handles to try
+        MethodHandle length =
+                MethodHandles.empty(Slot.Signature.LEN.type);
+        MethodHandle unary =
+                MethodHandles.empty(Slot.Signature.UNARY.type);
+        MethodHandle binary =
+                MethodHandles.empty(Slot.Signature.BINARY.type);
+        MethodHandle ternary =
+                MethodHandles.empty(Slot.Signature.TERNARY.type);
+
+        // This goes quietly
+        Slot.MP.length.setSlot(sequence, length);
+
+        // These should be prevented
+        assertThrows(InterpreterError.class, () -> { //
+            Slot.MP.length.setSlot(sequence, unary);
+        });
+        assertThrows(InterpreterError.class, () -> { //
+            Slot.MP.length.setSlot(sequence, binary);
+        });
+        assertThrows(InterpreterError.class, () -> { //
+            Slot.MP.length.setSlot(sequence, ternary);
+        });
+        assertThrows(InterpreterError.class, () -> { //
+            Slot.MP.length.setSlot(sequence, null);
+        });
+
+        // And the slot should be unaffected
+        assertEquals(length, sequence.length, "slot modified");
     }
 
     // --------------------- Generated Tests -----------------------

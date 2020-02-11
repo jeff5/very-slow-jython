@@ -10,6 +10,7 @@ import java.util.EnumSet;
 class PyCode implements PyObject {
 
     static final PyType TYPE = new PyType("code", PyCode.class);
+
     @Override
     public PyType getType() { return TYPE; }
 
@@ -67,15 +68,15 @@ class PyCode implements PyObject {
     public static final int CO_GENERATOR = 0x0020;
     /*
      * The CO_NOFREE flag is set if there are no free or cell variables.
-     * This information is redundant, but it allows a single flag test to
-     * determine whether there is any extra work to be done when the call
-     * frame it setup.
+     * This information is redundant, but it allows a single flag test
+     * to determine whether there is any extra work to be done when the
+     * call frame it setup.
      */
     public static final int CO_NOFREE = 0x0040;
 
     /*
-     * The CO_COROUTINE flag is set for coroutine functions (defined with
-     * ``async def`` keywords)
+     * The CO_COROUTINE flag is set for coroutine functions (defined
+     * with ``async def`` keywords)
      */
     public static final int CO_COROUTINE = 0x0080;
     public static final int CO_ITERABLE_COROUTINE = 0x0100;
@@ -157,7 +158,8 @@ class PyCode implements PyObject {
     }
 
     /**
-     * Convert a CPython-style {@link #flags} specifier to {@link #traits}.
+     * Convert a CPython-style {@link #flags} specifier to
+     * {@link #traits}.
      */
     private static EnumSet<Trait> traitsFrom(int flags) {
         ArrayList<Trait> traits = new ArrayList<>();

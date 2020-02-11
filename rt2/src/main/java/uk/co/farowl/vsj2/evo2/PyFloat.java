@@ -2,13 +2,18 @@ package uk.co.farowl.vsj2.evo2;
 
 /** The Python {@code float} object. */
 class PyFloat implements PyObject {
+
     static final PyType TYPE = new PyType("float", PyFloat.class);
+
     @Override
     public PyType getType() { return TYPE; }
     final double value;
+
     PyFloat(double value) { this.value = value; }
+
     @Override
     public String toString() { return Double.toString(value); }
+
     @Override
 
     public boolean equals(Object obj) {

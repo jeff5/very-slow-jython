@@ -16,6 +16,8 @@ but take a different approach to implementation.
     introduction
     interpreter-cpython-byte-code
     type-and-arithmetic
+    sequences-and-indexing
+    comparison-and-loops
 
 ..  I think the chapters might go like this,
     but I'm not certain enough to create the files:

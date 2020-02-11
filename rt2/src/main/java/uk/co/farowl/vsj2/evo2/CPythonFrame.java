@@ -2,7 +2,9 @@ package uk.co.farowl.vsj2.evo2;
 
 /** A {@link PyFrame} for executing CPython 3.8 byte code. */
 class CPythonFrame extends PyFrame {
+
     static final PyType TYPE = new PyType("frame", PyCode.class);
+
     @Override
     public PyType getType() { return TYPE; }
 
@@ -20,17 +22,18 @@ class CPythonFrame extends PyFrame {
     /** Assigned eventually by return statement (or stays None). */
     PyObject returnValue = Py.None;
 
-    private static String NAME_ERROR_MSG = "name '%.200s' is not defined";
+    private static String NAME_ERROR_MSG =
+            "name '%.200s' is not defined";
 
     /**
-     * Create a {@code CPythonFrame}, which is a {@code PyFrame} with the
-     * storage and mechanism to execute code. The constructor specifies the
-     * back-reference to the current frame (which is {@code null} when this
-     * frame is first in the stack) via the {@code ThreadState}. No other
-     * argument may be {@code null}.
+     * Create a {@code CPythonFrame}, which is a {@code PyFrame} with
+     * the storage and mechanism to execute code. The constructor
+     * specifies the back-reference to the current frame (which is
+     * {@code null} when this frame is first in the stack) via the
+     * {@code ThreadState}. No other argument may be {@code null}.
      *
-     * The caller specifies the local variables dictionary explicitly: it
-     * may be the same as the {@code globals}.
+     * The caller specifies the local variables dictionary explicitly:
+     * it may be the same as the {@code globals}.
      *
      * @param tstate thread state (supplies back)
      * @param code that this frame executes
@@ -61,7 +64,8 @@ class CPythonFrame extends PyFrame {
         int oparg = inst[1] & 0xff;
         int ip = 2;
         // Local variables used repeatedly in the loop
-        PyObject name, res, v, w;
+        PyObject name, res, u, v, w;
+        int sp0;
 
         loop : for (;;) {
             try {
@@ -102,6 +106,21 @@ class CPythonFrame extends PyFrame {
                         valuestack[sp - 1] = res; // SET_TOP
                         break;
 
+                    case Opcode.BINARY_SUBSCR: // w[u]
+                        w = valuestack[--sp]; // POP
+                        u = valuestack[sp - 1]; // TOP
+                        res = Abstract.getItem(u, w);
+                        valuestack[sp - 1] = res; // SET_TOP
+                        break;
+
+                    case Opcode.STORE_SUBSCR: // w[u] = v
+                        u = valuestack[sp - 1]; // TOP
+                        w = valuestack[sp - 2]; // SECOND
+                        v = valuestack[sp - 3]; // THIRD
+                        sp -= 3; // STACK_SHRINK(3);
+                        Abstract.setItem(w, u, v);
+                        break;
+
                     case Opcode.RETURN_VALUE:
                         returnValue = valuestack[--sp]; // POP
                         break loop;
@@ -134,16 +153,30 @@ class CPythonFrame extends PyFrame {
                             if (v == null) {
                                 v = builtins.get(name);
                                 if (v == null)
-                                    throw new PyException(NAME_ERROR_MSG,
-                                            name);
+                                    throw new PyException(
+                                            NAME_ERROR_MSG, name);
                             }
                         }
                         valuestack[sp++] = v; // PUSH
                         break;
 
+                    case Opcode.BUILD_TUPLE:
+                        sp0 = sp - oparg;
+                        w = new PyTuple(valuestack, sp0, sp);
+                        sp = sp0; // STACK_SHRINK(oparg)
+                        valuestack[sp++] = w; // PUSH
+                        break;
+
+                    case Opcode.BUILD_LIST:
+                        sp0 = sp - oparg;
+                        w = new PyList(valuestack, sp0, sp);
+                        sp = sp0; // STACK_SHRINK(oparg)
+                        valuestack[sp++] = w; // PUSH
+                        break;
+
                     default:
-                        throw new SystemError("ip: %d, opcode: %d", ip - 2,
-                                opcode);
+                        throw new SystemError("ip: %d, opcode: %d",
+                                ip - 2, opcode);
                 } // switch
 
                 // Pick up the next instruction
@@ -152,10 +185,10 @@ class CPythonFrame extends PyFrame {
                 ip += 2;
             } catch (PyException pye) {
                 /*
-                 * We ought here to check for exception handlers (defined
-                 * in Python and reflected in the byte code) potentially
-                 * resuming the loop with ip at the handler code, or in a
-                 * Python finally clause.
+                 * We ought here to check for exception handlers
+                 * (defined in Python and reflected in the byte code)
+                 * potentially resuming the loop with ip at the handler
+                 * code, or in a Python finally clause.
                  */
                 // Should handle within Python, but for now, stop.
                 throw pye;
@@ -167,12 +200,13 @@ class CPythonFrame extends PyFrame {
                 throw ie;
             } catch (Throwable t) {
                 /*
-                 * A non-Python exception signals an internal error, in our
-                 * implementation, in user-supplied Java, or from a Java
-                 * library misused from Python.
+                 * A non-Python exception signals an internal error, in
+                 * our implementation, in user-supplied Java, or from a
+                 * Java library misused from Python.
                  */
                 // Should handle within Python, but for now, stop.
-                throw new InterpreterError("PyException", t);
+                t.printStackTrace();
+                throw new InterpreterError("Non-PyException", t);
             }
         } // loop
 

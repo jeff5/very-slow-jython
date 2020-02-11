@@ -4,14 +4,31 @@ import java.math.BigInteger;
 
 /** The Python {@code int} object. */
 class PyLong implements PyObject {
+
     static PyType TYPE = new PyType("int", PyLong.class);
+
     @Override
     public PyType getType() { return TYPE; }
     final BigInteger value;
+
     PyLong(BigInteger value) { this.value = value; }
+
     PyLong(long value) { this.value = BigInteger.valueOf(value); }
+
     @Override
     public String toString() { return value.toString(); }
+
+    int asSize() {
+        try {
+            return value.intValueExact();
+        } catch (ArithmeticException ae) {
+            throw new OverflowError(INT_TOO_LARGE);
+        }
+    }
+    private static String INT_TOO_LARGE =
+            "Python int too large to convert to 'size'";
+
+    int signum() { return value.signum(); }
 
     @Override
     public boolean equals(Object obj) {
@@ -76,8 +93,8 @@ class PyLong implements PyObject {
 
     /**
      * Check the argument is a {@code PyLong} and return its value, or
-     * raise internal error. Differs from {@link #valueOf(PyObject)} only
-     * in type of exception thrown.
+     * raise internal error. Differs from {@link #valueOf(PyObject)}
+     * only in type of exception thrown.
      *
      * @param v ought to be a {@code PyLong} (or sub-class)
      * @return the {@link #value} field of {@code v}

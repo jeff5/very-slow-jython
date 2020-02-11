@@ -131,7 +131,7 @@ but in other ways our Java version can be more succinct:
 
 ..  code-block:: java
 
-    class Number {
+    class Number extends Abstract {
 
         /** Python {@code -v} */
         static PyObject negative(PyObject v) throws Throwable {
@@ -139,15 +139,14 @@ but in other ways our Java version can be more succinct:
                 MethodHandle mh = v.getType().number.negative;
                 return (PyObject) mh.invokeExact(v);
             } catch (Slot.EmptyException e) {
-                throw typeError("-", v);
+                throw operandError("-", v);
             }
         }
 
         /** Create a {@code TypeError} for the named unary op. */
-        static PyException typeError(String op, PyObject v) {
-            return new TypeError(
-                    "bad operand type for unary %s: '%.200s'", op,
-                    v.getType().getName());
+        static PyException operandError(String op, PyObject v) {
+            return new TypeError("bad operand type for unary %s: '%.200s'",
+                    op, v.getType().getName());
         }
         // ...
     }
@@ -227,7 +226,7 @@ the wrapper is also like that in CPython:
                 if (r != Py.NotImplemented)
                     return r;
             } catch (Slot.EmptyException e) {}
-            throw typeError("+", v, w);
+            throw operandError("+", v, w);
         }
         // ...
     }
@@ -264,14 +263,13 @@ is made somewhat simpler by this strategy and an absence of ``null`` tests:
             MethodHandle slotv = binop.getSlot(vtype);
             MethodHandle slotw;
 
-            if (wtype == vtype
-                    || (slotw = binop.getSlot(wtype)) == slotv)
+            if (wtype == vtype || (slotw = binop.getSlot(wtype)) == slotv)
                 // Both types give the same result
                 return (PyObject) slotv.invokeExact(v, w);
 
             else if (!wtype.isSubTypeOf(vtype)) {
                 // Ask left (if not empty) then right.
-                if (slotv != Slot.BINARY_EMPTY) {
+                if (slotv != BINARY_EMPTY) {
                     PyObject r = (PyObject) slotv.invokeExact(v, w);
                     if (r != Py.NotImplemented)
                         return r;
@@ -280,7 +278,7 @@ is made somewhat simpler by this strategy and an absence of ``null`` tests:
 
             } else {
                 // Right is sub-class: ask first (if not empty).
-                if (slotw != Slot.BINARY_EMPTY) {
+                if (slotw != BINARY_EMPTY) {
                     PyObject r = (PyObject) slotw.invokeExact(v, w);
                     if (r != Py.NotImplemented)
                         return r;
@@ -288,6 +286,9 @@ is made somewhat simpler by this strategy and an absence of ``null`` tests:
                 return (PyObject) slotv.invokeExact(v, w);
             }
         }
+
+        private static final MethodHandle BINARY_EMPTY =
+                Slot.Signature.BINARY.empty;
         // ...
     }
 
@@ -327,10 +328,10 @@ Our equivalent of the CPython ``PyNumberMethods`` is within ``PyType``:
         // ...
         /** Tabulates the number methods (slots) of a particular type. */
         static class NumberMethods {
-            MethodHandle negative = Slot.UNARY_EMPTY;
-            MethodHandle add = Slot.BINARY_EMPTY;
-            MethodHandle subtract = Slot.BINARY_EMPTY;
-            MethodHandle multiply = Slot.BINARY_EMPTY;
+            MethodHandle negative = Slot.NB.negative.empty;
+            MethodHandle add = Slot.NB.add.empty;
+            MethodHandle subtract = Slot.NB.subtract.empty;
+            MethodHandle multiply = Slot.NB.multiply.empty;
             //...
         }
     }
@@ -341,57 +342,124 @@ There will be such a class for each ``tp_as_*`` sub-table
 in a CPython ``PyTypeObject``.
 The field names are identical to CPython's without the prefix ``nb_``,
 but if we follow CPython,
-the method names to which they map are not the same.
+the method names to which they map are (sometimes) not the same.
 
 We need succinct ways to refer to the slots,
 to define their signatures,
 and to specify the methods that they call.
-For this, we can use a Java ``enum`` with appropriate behaviour.
-In abridged form, the enumeration for the number methods is:
+We do this through some specially-crafted Java ``enum``\s,
+with appropriate behaviour.
+We have already seen ``Slot.NB`` in action,
+but the way we create the whole family interesting.
+
+We begin by defining the allowable signatures for methods that fill slots.
+(Compare these with the ``typedef``\s in CPython ``Include/object.h``:
+``UNARY`` is ``unaryfunc``, ``SQ_ASSIGN`` is ``ssizeobjargproc``, etc..
+The constructor arguments are the same as in a call to Java
+``MethodType.methodType()``,
+and from them we create both a ``MethodType`` ``type``,
+and a ``MethodHandle`` ``empty`` conforming to that type,
+that throws ``EmptyException``.
 
 ..  code-block:: java
 
     class Slot {
 
+        private static final MethodHandles.Lookup LOOKUP =
+                MethodHandles.lookup();
+
+        static class EmptyException extends Exception {}
+
+        private static final Class<PyObject> O = PyObject.class;
+        private static final Class<?> I = int.class;
+        private static final Class<?> B = boolean.class;
+        private static final Class<?> V = void.class;
+        private static final Class<Opcode.PyCmp> CMP = Opcode.PyCmp.class;
+        // ...
+
+        /**
+         * An enumeration of the acceptable signatures for slots in
+         * {@code PyType.*Methods} tables.
+         */
+        enum Signature {
+            UNARY(O, O),
+            BINARY(O, O, O),
+            TERNARY(O, O, O, O),
+            PREDICATE(B, O),
+            LEN(I, O),
+            RICHCMP(O, O, O, CMP),
+            SQ_INDEX(O, O, I),
+            SQ_ASSIGN(V, O, I, O),
+            MP_ASSIGN(V, O, O, O);
+
+            final MethodType type;
+            final MethodHandle empty;
+
+            Signature(Class<?> returnType, Class<?>... ptype) { /* ... */ }
+        }
+        // ...
+    }
+
+The next stage is to create an ``enum`` for each sub-table of slots,
+and the slots in the ``PyType`` itself,
+using these ``Signature`` constants to type the slots:
+
+..  code-block:: java
+
+    class Slot {
+        // ...
         enum NB implements Any {
 
-            negative("neg", Signature.UNARY), //
-            add("add", Signature.BINARY), //
-            subtract("sub", Signature.BINARY), //
-            multiply("mul", Signature.BINARY);
+            negative(Signature.UNARY, "neg"),
+            add(Signature.BINARY),
+            subtract(Signature.BINARY, "sub"),
+            multiply(Signature.BINARY, "mul"),
 
             final String methodName;
-            final Signature signature;
+            final MethodType type;
+            final MethodHandle empty;
             final VarHandle slotHandle;
 
-            NB(String methodName, Signature signature) {
-                this.methodName = methodName;
-                this.signature = signature;
+            NB(Signature signature, String methodName) {
+                this.methodName = methodName == null ? name() : methodName;
+                this.type = signature.type;
+                this.empty = signature.empty;
                 this.slotHandle = EnumUtil.slotHandle(this);
             }
-            // implementation of Any ...
+
+            NB(Signature signature) { this(signature, null); }
+
+            // ...
+
+            @Override
+            public boolean isDefinedFor(PyType t) {
+                return (MethodHandle) slotHandle.get(t.number) != empty;
+            }
+
+            @Override
+            public MethodHandle findInClass(Class<?> c) {
+                return EnumUtil.findInClass(this, c);
+            }
         }
 
         interface Any {
             Group group();
             String name();
             String getMethodName();
-            Signature getSignature();
+            MethodType getType();
+            MethodHandle getEmpty();
+            boolean isDefinedFor(PyType t);
             MethodHandle findInClass(Class<?> c);
             MethodHandle getSlot(PyType t);
             void setSlot(PyType t, MethodHandle mh);
         }
 
-        enum Group {
-            TP(PyType.class), NB(NumberMethods.class), SQ(SequenceMethods.class);
-            final Class<?> methodsClass;
-            Group(Class<?> methodsClass) { this.methodsClass = methodsClass; }
-        }
+        private static class EnumUtil {
 
-        static class EnumUtil {
             static VarHandle slotHandle(Any slot) {
                 Class<?> methodsClass = slot.group().methodsClass;
                 try {
+                    // The field *Methods has the same name as the enum
                     return LOOKUP.findVarHandle(methodsClass, slot.name(),
                             MethodHandle.class);
                 } catch (NoSuchFieldException | IllegalAccessException e) {
@@ -399,21 +467,23 @@ In abridged form, the enumeration for the number methods is:
                 }
             }
 
-            static MethodHandle findInClass(Any s, Class<?> c) {
-                Signature sig = s.getSignature();
+            static MethodHandle findInClass(Any slot, Class<?> c) {
                 try {
-                    return LOOKUP.findStatic(c, s.getMethodName(), sig.type);
+                    // The method has the same name in every implementation
+                    return LOOKUP.findStatic(c, slot.getMethodName(),
+                            slot.getType());
                 } catch (NoSuchMethodException | IllegalAccessException e) {
-                    return sig.empty;
+                    return slot.getEmpty();
                 }
             }
         }
+        // ...
     }
 
 Notice that ``enum NB`` implements an interface ``Any``
 that specifies its behaviour.
-It also makes use of a helper class to supply behaviour expected to be common
-between the enumerations ``NB``, ``SQ``, etc..
+It also makes use of a helper class to supply behaviour
+common between the enumerations ``NB``, ``SQ``, etc..
 
 The ``enum NB`` does much more than designate a slot as it would in C.
 The object is a getter/setter for slots in types,
@@ -431,12 +501,18 @@ that will be placed in the slot,
 and the signature that method should have.
 ``findInClass`` is the method that will go looking for it,
 supported by ``EnumUtil.findInClass``.
-The ``Signature`` (another ``enum``)
+The ``Signature``
 implies both the ``MethodType`` of the required implementation
 and the particular "empty" handle that should fill the slot otherwise.
 
+Since the ``enum NB`` knows what "empty" looks like for this slot,
+we can ask it to test for that in ``isDefinedFor(PyType t)``.
+We can test a retrieved ``MethodHandle`` directly,
+as in ``binary_op1`` above,
+but the constant we use has to be the right kind of "empty" for the slot.
+
 Finally,
-since the several ``Slot.XX`` enumerations all implement the same interface,
+since the several ``Slot.XX`` enumerations all implement ``Any``,
 it is practicable to use one,
 or work through lists of them,
 without caring which sub-table any particular slot is in.
@@ -447,7 +523,9 @@ We can use this apparatus in the construction of a ``PyType`` like so:
 ..  code-block:: java
 
     class PyType implements PyObject {
+
         static final PyType TYPE = new PyType("type", PyType.class);
+
         @Override
         public PyType getType() { return TYPE; }
         final String name;
@@ -456,6 +534,7 @@ We can use this apparatus in the construction of a ``PyType`` like so:
         // Method suites for standard abstract types.
         final NumberMethods number;
         final SequenceMethods sequence;
+        final MappingMethods mapping;
 
         // Methods to implement standard operations.
         MethodHandle hash;
@@ -474,23 +553,30 @@ We can use this apparatus in the construction of a ``PyType`` like so:
             // If immutable, could use NumberMethods.EMPTY, etc.
             (number = new NumberMethods()).fillFromClass(implClass);
             (sequence = new SequenceMethods()).fillFromClass(implClass);
-        }
+            (mapping = new MappingMethods()).fillFromClass(implClass);
+         }
         // ...
     }
 
-The method ``NumberMethods.fillFromClass``
-(``SequenceMethods.fillFromClass`` is essentially the same)
-provides an example of using the features of the ``Slot.Any`` interface:
+The method ``PyType.NumberMethods.fillFromClass``
+(``SequenceMethods`` and ``MappingMethods`` are essentially the same):
 
 ..  code-block:: java
 
-    class NumberMethods {
+    class PyType implements PyObject {
         // ...
-        void fillFromClass(Class<? extends PyObject> c) {
-            for (Slot.NB s : Slot.NB.values()) {
-                MethodHandle mh = s.findInClass(c);
-                if (mh != s.signature.empty) {
-                    s.setSlot(this, mh);
+        static class NumberMethods {
+
+            MethodHandle negative = Slot.NB.negative.empty;
+            MethodHandle add = Slot.NB.add.empty;
+            MethodHandle subtract = Slot.NB.subtract.empty;
+            MethodHandle multiply = Slot.NB.multiply.empty;
+            // ...
+
+            void fillFromClass(Class<? extends PyObject> c) {
+                for (Slot.NB s : Slot.NB.values()) {
+                    MethodHandle mh = s.findInClass(c);
+                    if (mh != s.empty) { s.setSlot(this, mh); }
                 }
             }
         }
@@ -501,9 +587,9 @@ This sets all the slots by reflection on the implementation class ``c``.
 There are opportunities for optimisation,
 spotting when a type does not define any slots in a particular sub-table,
 and using a shared constant.
-Some care will also required over whether and when
+Some care will be required over whether and when
 a type actually allows slots to be redefined.
-CPython recognises this distinction between built-in types and "heap types",
+CPython makes this distinction between built-in types and "heap types",
 but where a type is allocated is not really the issue.
 Appropriate visibility of mutators and validity checks will be needed.
 For now, all our types admit modification of their slots.

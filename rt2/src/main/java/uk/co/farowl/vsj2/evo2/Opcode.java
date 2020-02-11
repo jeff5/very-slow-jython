@@ -1,8 +1,8 @@
 package uk.co.farowl.vsj2.evo2;
 
 /** Constants for opcodes taken from CPython {@code opcode.h} */
-@SuppressWarnings("unused")
 class Opcode {
+
     static final int POP_TOP = 1;
     static final int ROT_TWO = 2;
     static final int ROT_THREE = 3;

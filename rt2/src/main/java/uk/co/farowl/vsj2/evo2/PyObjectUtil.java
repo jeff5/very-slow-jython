@@ -6,6 +6,7 @@ class PyObjectUtil {
     /** Helper to create an exception for internal type error. */
     static InterpreterError typeMismatch(PyObject v, PyType expected) {
         String fmt = "'%s; argument to slot where '%s' expected";
-        return new InterpreterError(fmt, v.getType().name, expected.name);
+        return new InterpreterError(fmt, v.getType().name,
+                expected.name);
     }
 }

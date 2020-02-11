@@ -21,8 +21,8 @@ abstract class PyFrame implements PyObject {
 
     /**
      * Partial constructor, leaves {@link #locals} {@code null}.
-     * Establishes the back-link to the current stack top but does not make
-     * this frame the stack top. ({@link #eval()} should do that.)
+     * Establishes the back-link to the current stack top but does not
+     * make this frame the stack top. ({@link #eval()} should do that.)
      *
      * @param tstate thread state (supplies link to previous frame)
      * @param code that this frame executes
@@ -43,14 +43,14 @@ abstract class PyFrame implements PyObject {
      * <ul>
      * <li>If the code has the trait {@link PyCode.Trait#NEWLOCALS} the
      * {@code locals} argument is ignored.</li>
-     * <li>If the code has the trait {@link PyCode.Trait#NEWLOCALS} but not
-     * {@link PyCode.Trait#OPTIMIZED}, a new empty ``dict`` will be
+     * <li>If the code has the trait {@link PyCode.Trait#NEWLOCALS} but
+     * not {@link PyCode.Trait#OPTIMIZED}, a new empty ``dict`` will be
      * provided as locals.</li>
      * <li>If the code has the traits {@link PyCode.Trait#NEWLOCALS} and
      * {@link PyCode.Trait#OPTIMIZED}, {@code this.locals} will be
      * {@code null} until set by the sub-class.</li>
-     * <li>Otherwise, if the argument {@link #locals} is not {@code null}
-     * it specifies {@code this.locals}, and</li>
+     * <li>Otherwise, if the argument {@link #locals} is not
+     * {@code null} it specifies {@code this.locals}, and</li>
      * <li>if the argument {@link #locals} is {@code null}
      * {@code this.locals} will be the same as {@code globals}.</li>
      * </ul>
