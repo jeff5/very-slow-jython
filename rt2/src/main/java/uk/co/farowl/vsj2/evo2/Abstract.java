@@ -16,7 +16,7 @@ import uk.co.farowl.vsj2.evo2.Slot.EmptyException;
  * CPython, the methods of all these classes are found in
  * {@code Objects/abstract.c}
  */
-public class Abstract {
+class Abstract {
 
     /** Python size of {@code o} */
     static PyObject size(PyObject o) throws Throwable {
@@ -38,20 +38,18 @@ public class Abstract {
         // Decisions are based on types of o and key
         PyType oType = o.getType();
 
-        // Prefer the mapping slot over the sequence one.
-        if (Slot.MP.subscript.isDefinedFor(oType))
-            return (PyObject) oType.mapping.subscript.invokeExact(o,
-                    key);
+        try {
+            MethodHandle mh = oType.mapping.subscript;
+            return (PyObject) mh.invokeExact(o, key);
+        } catch (EmptyException e) {}
 
-        else if (Slot.SQ.item.isDefinedFor(oType)) {
+        if (Slot.SQ.item.isDefinedFor(oType)) {
             // For a sequence (only), key must have index-like type
-            try {
+            if (Slot.NB.index.isDefinedFor(key.getType())) {
                 int k = Number.asSize(key, IndexError::new);
                 return Sequence.getItem(o, k);
-            } catch (EmptyException e) {
+            } else
                 throw typeError(MUST_BE_INT_NOT, key);
-            }
-
         } else
             throw typeError(NOT_SUBSCRIPTABLE, o);
     }
@@ -102,7 +100,25 @@ public class Abstract {
 
     /**
      * Convenience function to create a {@link TypeError} with a message
-     * along the lines "F returned non-T (type X)" involving function
+     * along the lines "T indices must be integers or slices, not X"
+     * involving the type name T of a target and the type X of {@code o}
+     * presented as an index, e.g. "list indices must be integers or
+     * slices, not str".
+     *
+     * @param t target of function or operation
+     * @param o actual object presented as an index
+     * @return exception to throw
+     */
+    static TypeError indexTypeError(PyObject t, PyObject o) {
+        String fmt =
+                "%.200s indices must be integers or slices, not %.200s";
+        return new TypeError(fmt, t.getType().getName(),
+                o.getType().getName());
+    }
+
+    /**
+     * Convenience function to create a {@link TypeError} with a message
+     * along the lines "F returned non-T (type X)" involving a function
      * name, an expected type T and the type X of {@code o}, e.g.
      * "__int__ returned non-int (type str)".
      *
@@ -112,7 +128,7 @@ public class Abstract {
      * @return exception to throw
      */
     static TypeError returnTypeError(String f, String t, PyObject o) {
-        String fmt = "%.200s_ returned non-%.200s (type %.200s)";
+        String fmt = "%.200s returned non-%.200s (type %.200s)";
         return new TypeError(fmt, f, t, o.getType().getName());
     }
 
@@ -123,7 +139,7 @@ public class Abstract {
      * @return whether {@code obj} has non-empty {@link Slot.NB#index}
      */
     static boolean indexCheck(PyObject obj) {
-        return obj.getType().number.index != Slot.NB.index.empty;
+        return Slot.NB.index.isDefinedFor(obj.getType());
     }
 
 }

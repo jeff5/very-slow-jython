@@ -65,7 +65,6 @@ class CPythonFrame extends PyFrame {
         int ip = 2;
         // Local variables used repeatedly in the loop
         PyObject name, res, u, v, w;
-        int sp0;
 
         loop : for (;;) {
             try {
@@ -161,16 +160,14 @@ class CPythonFrame extends PyFrame {
                         break;
 
                     case Opcode.BUILD_TUPLE:
-                        sp0 = sp - oparg;
-                        w = new PyTuple(valuestack, sp0, sp);
-                        sp = sp0; // STACK_SHRINK(oparg)
+                        sp -= oparg; // STACK_SHRINK(oparg)
+                        w = new PyTuple(valuestack, sp, oparg);
                         valuestack[sp++] = w; // PUSH
                         break;
 
                     case Opcode.BUILD_LIST:
-                        sp0 = sp - oparg;
-                        w = new PyList(valuestack, sp0, sp);
-                        sp = sp0; // STACK_SHRINK(oparg)
+                        sp -= oparg; // STACK_SHRINK(oparg)
+                        w = new PyList(valuestack, sp, oparg);
                         valuestack[sp++] = w; // PUSH
                         break;
 

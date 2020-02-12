@@ -39,6 +39,8 @@ class PyLong implements PyObject {
             return false;
     }
 
+    // slot functions -------------------------------------------------
+
     static PyObject neg(PyObject v) {
         try {
             BigInteger a = valueOf(v);
@@ -75,6 +77,18 @@ class PyLong implements PyObject {
             BigInteger b = valueOf(w);
             return new PyLong(a.multiply(b));
         } catch (ClassCastException cce) {
+            return Py.NotImplemented;
+        }
+    }
+
+    static PyObject index(PyObject v) {
+        try {
+            if (v.getType() == TYPE)
+                return v;
+            else
+                return new PyLong(valueOf(v));
+        } catch (ClassCastException cce) {
+            // Impossible: throw InterpreterError or EmptyException?
             return Py.NotImplemented;
         }
     }

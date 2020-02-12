@@ -186,8 +186,7 @@ class Number extends Abstract {
                     return Integer.MAX_VALUE;
             } else {
                 // Throw an exception of the caller's preferred type.
-                String msg = String.format(
-                        "cannot fit '%.200s' into an index-sized integer",
+                String msg = String.format(CANNOT_FIT,
                         o.getType().getName());
                 throw exc.apply(msg);
             }
@@ -196,6 +195,9 @@ class Number extends Abstract {
 
     private static final String CANNOT_INTERPRET_AS_INT =
             "'%.200s' object cannot be interpreted as an integer";
+    private static final String CANNOT_FIT =
+            "cannot fit '%.200s' into an index-sized integer";
+
 
     /** Create a {@code TypeError} for the named binary op. */
     static PyException operandError(String op, PyObject v, PyObject w) {
