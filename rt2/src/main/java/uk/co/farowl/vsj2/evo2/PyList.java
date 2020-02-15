@@ -39,6 +39,16 @@ class PyList extends ArrayList<PyObject> implements PyObject {
         }
     }
 
+    static void ass_item(PyObject s, int i, PyObject o) {
+        try {
+            ((PyList) s).set(i, o);
+        } catch (IndexOutOfBoundsException e) {
+            throw new IndexError("list index out of range");
+        } catch (ClassCastException e) {
+            throw PyObjectUtil.typeMismatch(s, TYPE);
+        }
+    }
+
     static PyObject subscript(PyObject s, PyObject item)
             throws Throwable {
         try {
@@ -57,13 +67,22 @@ class PyList extends ArrayList<PyObject> implements PyObject {
         }
     }
 
-    static void ass_item(PyObject s, int i, PyObject o) {
+    static void ass_subscript(PyObject s, PyObject item, PyObject value)
+            throws Throwable {
         try {
-            ((PyList) s).set(i, o);
-        } catch (IndexOutOfBoundsException e) {
-            throw new IndexError("list index out of range");
+            PyList self = (PyList) s;
+            PyType itemType = item.getType();
+            if (Slot.NB.index.isDefinedFor(itemType)) {
+                int i = Number.asSize(item, IndexError::new);
+                if (i < 0) { i += self.size(); }
+                ass_item(self, i, value);
+            }
+            // else if item is a PySlice { ... }
+            else
+                throw Abstract.indexTypeError(self, item);
         } catch (ClassCastException e) {
             throw PyObjectUtil.typeMismatch(s, TYPE);
         }
     }
+
 }

@@ -60,19 +60,19 @@ class Abstract {
         // Decisions are based on types of o and key
         PyType oType = o.getType();
 
-        // Prefer the mapping slot over the sequence one.
-        if (Slot.MP.ass_subscript.isDefinedFor(oType)) {
-            oType.mapping.ass_subscript.invokeExact(o, key, value);
+        try {
+            MethodHandle mh = oType.mapping.ass_subscript;
+            mh.invokeExact(o, key, value);
+            return;
+        } catch (EmptyException e) {}
 
-        } else if (Slot.SQ.ass_item.isDefinedFor(oType)) {
+        if (Slot.SQ.ass_item.isDefinedFor(oType)) {
             // For a sequence (only), key must have index-like type
-            try {
-                int k = Number.asSize(key, s -> new IndexError(s));
+            if (Slot.NB.index.isDefinedFor(key.getType())) {
+                int k = Number.asSize(key, IndexError::new);
                 Sequence.setItem(o, k, value);
-            } catch (EmptyException e) {
+            } else
                 throw typeError(MUST_BE_INT_NOT, key);
-            }
-
         } else
             throw typeError(NOT_ITEM_ASSIGNMENT, o);
     }

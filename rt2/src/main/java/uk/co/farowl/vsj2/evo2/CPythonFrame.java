@@ -105,19 +105,19 @@ class CPythonFrame extends PyFrame {
                         valuestack[sp - 1] = res; // SET_TOP
                         break;
 
-                    case Opcode.BINARY_SUBSCR: // w[u]
-                        w = valuestack[--sp]; // POP
-                        u = valuestack[sp - 1]; // TOP
-                        res = Abstract.getItem(u, w);
+                    case Opcode.BINARY_SUBSCR: // w[v]
+                        v = valuestack[--sp]; // POP
+                        w = valuestack[sp - 1]; // TOP
+                        res = Abstract.getItem(w, v);
                         valuestack[sp - 1] = res; // SET_TOP
                         break;
 
-                    case Opcode.STORE_SUBSCR: // w[u] = v
-                        u = valuestack[sp - 1]; // TOP
+                    case Opcode.STORE_SUBSCR: // w[v] = u
+                        v = valuestack[sp - 1]; // TOP
                         w = valuestack[sp - 2]; // SECOND
-                        v = valuestack[sp - 3]; // THIRD
+                        u = valuestack[sp - 3]; // THIRD
                         sp -= 3; // STACK_SHRINK(3);
-                        Abstract.setItem(w, u, v);
+                        Abstract.setItem(w, v, u);
                         break;
 
                     case Opcode.RETURN_VALUE:

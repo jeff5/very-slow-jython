@@ -512,7 +512,7 @@ class Slot {
     enum MP implements Any {
 
         length(Signature.LEN), subscript(Signature.BINARY),
-        ass_subscript(Signature.TERNARY);
+        ass_subscript(Signature.MP_ASSIGN);
 
         final MethodType type;
         final MethodHandle empty;
