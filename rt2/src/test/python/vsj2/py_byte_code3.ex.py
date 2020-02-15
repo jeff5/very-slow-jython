@@ -52,6 +52,62 @@ b = d[1]
 d[2] = a + c
 c = d[2]
 
+# boolean_arithmetic:
+u, t, f = 42, True, False
+u, t, f = 42., True, False
+# ? a, b, c
+a = u + t
+b = u * t
+c = u * f
+
+# simple_if:
+b = True
+b = False
+b = 0
+b = 1
+b = ""
+b = "something"
+b = None
+# ? r
+if b:
+    r = 1
+else:
+    r = 0
+
+# multi_if:
+a, b = False, False
+a, b = False, True
+a, b = True, False
+a, b = True, True
+# ? r
+if a and b:
+    r = 2
+elif a or b:
+    r = 1
+else:
+    r = 0
+
+# comparison:
+a, b= 2, 4
+a, b= 4, 2
+a, b= 2, 2
+# ? lt, le, eq, ne, ge, gt
+lt = a < b
+le = a <= b
+eq = a == b
+ne = a != b
+ge = a >= b
+gt = a > b
+
+# simple_loop:
+n = 6
+# ? n, sum
+sum = 0
+while n > 0:
+    sum = sum + n
+    n = n - 1
+
+
 # list_dot_product:
 n = 2
 # ? n, sum

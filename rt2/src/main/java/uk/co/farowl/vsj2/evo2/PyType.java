@@ -11,11 +11,15 @@ class PyType implements PyObject {
     static final TypeRegistry TYPE_REGISTRY = new TypeRegistry();
 
     static final PyType TYPE = new PyType("type", PyType.class);
+    static final PyType OBJECT_TYPE = new PyType("object", PyBaseObject.class);
 
     @Override
     public PyType getType() { return TYPE; }
     final String name;
     private final Class<? extends PyObject> implClass;
+
+    // Support for class hierarchy
+    private PyType base = OBJECT_TYPE;
 
     // Method suites for standard abstract types.
     final NumberMethods number;
@@ -27,6 +31,7 @@ class PyType implements PyObject {
     MethodHandle repr;
     MethodHandle str;
 
+    /** Construct a type object with given name and implementation. */
     PyType(String name, Class<? extends PyObject> implClass) {
         this.name = name;
         this.implClass = implClass;
@@ -44,6 +49,16 @@ class PyType implements PyObject {
         TYPE_REGISTRY.put(name, this);
     }
 
+    /**
+     * Construct a type object with given name, base and
+     * implementation.
+     */
+    PyType(String name, PyType base,
+            Class<? extends PyObject> implClass) {
+        this(name, implClass);
+        this.base = base;
+    }
+
     @Override
     public String toString() { return "<class '" + name + "'>"; }
 
@@ -55,11 +70,14 @@ class PyType implements PyObject {
 
     /** True iff b is a sub-type (on the MRO of) this type. */
     boolean isSubTypeOf(PyType b) {
-        /*
-         * Not supported yet. Later, search the MRO (or base-chain) of
-         * this for b, and if it is found, then this is a sub-type.
-         */
-        return this == b;
+        // Only crudely supported. Later, search the MRO of this for b.
+        // Awaits PyType.forClass() factory method.
+        PyType t = this;
+        while (t != b) {
+            t = t.base;
+            if (t == null) { return false; }
+        }
+        return true;
     }
 
     /** Holds each type as it is defined. (Not used in this version.) */

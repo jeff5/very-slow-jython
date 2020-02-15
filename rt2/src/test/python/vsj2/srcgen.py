@@ -148,6 +148,7 @@ class PythonEmitter(JavaConstantEmitter):
     # Override the following at least
     def python_str(self, value, suffix=""): return self
     def python_int(self, value, suffix=""): return self
+    def python_bool(self, value, suffix=""): return self
     def python_float(self, value, suffix=""): return self
     def python_NoneType(self, value, suffix=""): return self
     def python_bytes(self, value, suffix=""): return self
@@ -177,6 +178,11 @@ class PyObjectEmitter(PythonEmitter):
         if value > self.MAX_INT or value < self.MIN_INT:
             value = '"{:d}"'.format(value)
         text = f"new PyLong({value})"
+        return self.emit(text, suffix)
+
+    def python_bool(self, value, suffix=""):
+        """Emit Java to construct a Python bool."""
+        text = "PyBool.True" if value else "PyBool.False"
         return self.emit(text, suffix)
 
     def python_float(self, value, suffix=""):

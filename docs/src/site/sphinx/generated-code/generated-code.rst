@@ -17,6 +17,7 @@ but take a different approach to implementation.
     interpreter-cpython-byte-code
     type-and-arithmetic
     sequences-and-indexing
+    built-in-inheritance
     comparison-and-loops
 
 ..  I think the chapters might go like this,

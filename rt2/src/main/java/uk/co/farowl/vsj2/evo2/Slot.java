@@ -581,12 +581,12 @@ class Slot {
     }
 
     /** Help with the use of {@code *Methods} objects. */
-    static class SlotMethods {
+    static class Util {
 
         /**
          * A list of all the slots a {@link PyType} object might
          * contain. This is a convenience function allowing client code
-         * to iterate over al lthe slots in one loop, such as:<pre>
+         * to iterate over all the slots in one loop, such as:<pre>
          * for (Any s : SlotMethods.ALL) {
          *     // Do something with s ...
          *  }

@@ -208,6 +208,7 @@ Since it never happens
 perhaps we should raise an internal error,
 or simply let the NPE propagate (with no ``try...catch`` at all).
 
+.. _binary_operation:
 
 A Binary Operation ``BINARY_ADD``
 *********************************

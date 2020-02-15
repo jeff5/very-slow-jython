@@ -386,7 +386,7 @@ class PyByteCode3 {
         new PyBytes(new byte[] { 16, 1, 4, 1, 8, 1, 20, 1 }));
     //@formatter:on
 
-    // @Test
+    //@Test
     void test_tuple_dot_product1() {
         //@formatter:off
         PyDictionary globals = new PyDictionary();
@@ -406,7 +406,7 @@ class PyByteCode3 {
         //@formatter:on
     }
 
-    // @Test
+    //@Test
     void test_tuple_dot_product2() {
         //@formatter:off
         PyDictionary globals = new PyDictionary();
@@ -507,6 +507,539 @@ class PyByteCode3 {
     }
 
     /**
+     * Example 'boolean_arithmetic': <pre>
+     * a = u + t
+     * b = u * t
+     * c = u * f
+     * </pre>
+     */
+    //@formatter:off
+    static final PyCode BOOLEAN_ARITHMETIC =
+    /*
+     *   1           0 LOAD_NAME                0 (u)
+     *               2 LOAD_NAME                1 (t)
+     *               4 BINARY_ADD
+     *               6 STORE_NAME               2 (a)
+     *
+     *   2           8 LOAD_NAME                0 (u)
+     *              10 LOAD_NAME                1 (t)
+     *              12 BINARY_MULTIPLY
+     *              14 STORE_NAME               3 (b)
+     *
+     *   3          16 LOAD_NAME                0 (u)
+     *              18 LOAD_NAME                4 (f)
+     *              20 BINARY_MULTIPLY
+     *              22 STORE_NAME               5 (c)
+     *              24 LOAD_CONST               0 (None)
+     *              26 RETURN_VALUE
+     */
+    new PyCode(0, 0, 0, 0, 2, 64,
+        new PyBytes(new byte[] { 101, 0, 101, 1, 23, 0, 90, 2, 101,
+                0, 101, 1, 20, 0, 90, 3, 101, 0, 101, 4, 20, 0, 90,
+                5, 100, 0, 83, 0 }),
+        new PyTuple(new PyObject[] { Py.None }),
+        new PyTuple(new PyObject[] { new PyUnicode("u"),
+                new PyUnicode("t"), new PyUnicode("a"),
+                new PyUnicode("b"), new PyUnicode("f"),
+                new PyUnicode("c") }),
+        new PyTuple(new PyObject[] {}),
+        new PyTuple(new PyObject[] {}),
+        new PyTuple(new PyObject[] {}),
+        new PyUnicode("boolean_arithmetic"),
+        new PyUnicode("<module>"), 1,
+        new PyBytes(new byte[] { 8, 1, 8, 1 }));
+    //@formatter:on
+
+    @Test
+    void test_boolean_arithmetic1() {
+        //@formatter:off
+        PyDictionary globals = new PyDictionary();
+        globals.put(new PyUnicode("u"), new PyLong(42));
+        globals.put(new PyUnicode("t"), PyBool.True);
+        globals.put(new PyUnicode("f"), PyBool.False);
+        PyCode code = BOOLEAN_ARITHMETIC;
+        ThreadState tstate = new ThreadState();
+        PyFrame frame = code.createFrame(tstate, globals, globals);
+        frame.eval();
+        assertEquals(new PyLong(43), globals.get(new PyUnicode("a")),
+            "a == 43");
+        assertEquals(new PyLong(42), globals.get(new PyUnicode("b")),
+            "b == 42");
+        assertEquals(new PyLong(0), globals.get(new PyUnicode("c")),
+            "c == 0");
+        //@formatter:on
+    }
+
+    @Test
+    void test_boolean_arithmetic2() {
+        //@formatter:off
+        PyDictionary globals = new PyDictionary();
+        globals.put(new PyUnicode("u"), new PyFloat(42.0));
+        globals.put(new PyUnicode("t"), PyBool.True);
+        globals.put(new PyUnicode("f"), PyBool.False);
+        PyCode code = BOOLEAN_ARITHMETIC;
+        ThreadState tstate = new ThreadState();
+        PyFrame frame = code.createFrame(tstate, globals, globals);
+        frame.eval();
+        assertEquals(new PyFloat(43.0), globals.get(
+            new PyUnicode("a")), "a == 43.0");
+        assertEquals(new PyFloat(42.0), globals.get(
+            new PyUnicode("b")), "b == 42.0");
+        assertEquals(new PyFloat(0.0), globals.get(
+            new PyUnicode("c")), "c == 0.0");
+        //@formatter:on
+    }
+
+    /**
+     * Example 'simple_if': <pre>
+     * if b:
+     *     r = 1
+     * else:
+     *     r = 0
+     * </pre>
+     */
+    //@formatter:off
+    static final PyCode SIMPLE_IF =
+    /*
+     *   1           0 LOAD_NAME                0 (b)
+     *               2 POP_JUMP_IF_FALSE       10
+     *
+     *   2           4 LOAD_CONST               0 (1)
+     *               6 STORE_NAME               1 (r)
+     *               8 JUMP_FORWARD             4 (to 14)
+     *
+     *   4     >>   10 LOAD_CONST               1 (0)
+     *              12 STORE_NAME               1 (r)
+     *         >>   14 LOAD_CONST               2 (None)
+     *              16 RETURN_VALUE
+     */
+    new PyCode(0, 0, 0, 0, 1, 64,
+        new PyBytes(new byte[] { 101, 0, 114, 10, 100, 0, 90, 1, 110,
+                4, 100, 1, 90, 1, 100, 2, 83, 0 }),
+        new PyTuple(new PyObject[] { new PyLong(1), new PyLong(0),
+                Py.None }),
+        new PyTuple(new PyObject[] { new PyUnicode("b"),
+                new PyUnicode("r") }),
+        new PyTuple(new PyObject[] {}),
+        new PyTuple(new PyObject[] {}),
+        new PyTuple(new PyObject[] {}), new PyUnicode("simple_if"),
+        new PyUnicode("<module>"), 1,
+        new PyBytes(new byte[] { 4, 1, 6, 2 }));
+    //@formatter:on
+
+    //@Test
+    void test_simple_if1() {
+        //@formatter:off
+        PyDictionary globals = new PyDictionary();
+        globals.put(new PyUnicode("b"), PyBool.True);
+        PyCode code = SIMPLE_IF;
+        ThreadState tstate = new ThreadState();
+        PyFrame frame = code.createFrame(tstate, globals, globals);
+        frame.eval();
+        assertEquals(new PyLong(1), globals.get(new PyUnicode("r")),
+            "r == 1");
+        //@formatter:on
+    }
+
+    //@Test
+    void test_simple_if2() {
+        //@formatter:off
+        PyDictionary globals = new PyDictionary();
+        globals.put(new PyUnicode("b"), PyBool.False);
+        PyCode code = SIMPLE_IF;
+        ThreadState tstate = new ThreadState();
+        PyFrame frame = code.createFrame(tstate, globals, globals);
+        frame.eval();
+        assertEquals(new PyLong(0), globals.get(new PyUnicode("r")),
+            "r == 0");
+        //@formatter:on
+    }
+
+    //@Test
+    void test_simple_if3() {
+        //@formatter:off
+        PyDictionary globals = new PyDictionary();
+        globals.put(new PyUnicode("b"), new PyLong(0));
+        PyCode code = SIMPLE_IF;
+        ThreadState tstate = new ThreadState();
+        PyFrame frame = code.createFrame(tstate, globals, globals);
+        frame.eval();
+        assertEquals(new PyLong(0), globals.get(new PyUnicode("r")),
+            "r == 0");
+        //@formatter:on
+    }
+
+    //@Test
+    void test_simple_if4() {
+        //@formatter:off
+        PyDictionary globals = new PyDictionary();
+        globals.put(new PyUnicode("b"), new PyLong(1));
+        PyCode code = SIMPLE_IF;
+        ThreadState tstate = new ThreadState();
+        PyFrame frame = code.createFrame(tstate, globals, globals);
+        frame.eval();
+        assertEquals(new PyLong(1), globals.get(new PyUnicode("r")),
+            "r == 1");
+        //@formatter:on
+    }
+
+    //@Test
+    void test_simple_if5() {
+        //@formatter:off
+        PyDictionary globals = new PyDictionary();
+        globals.put(new PyUnicode("b"), new PyUnicode(""));
+        PyCode code = SIMPLE_IF;
+        ThreadState tstate = new ThreadState();
+        PyFrame frame = code.createFrame(tstate, globals, globals);
+        frame.eval();
+        assertEquals(new PyLong(0), globals.get(new PyUnicode("r")),
+            "r == 0");
+        //@formatter:on
+    }
+
+    //@Test
+    void test_simple_if6() {
+        //@formatter:off
+        PyDictionary globals = new PyDictionary();
+        globals.put(new PyUnicode("b"), new PyUnicode("something"));
+        PyCode code = SIMPLE_IF;
+        ThreadState tstate = new ThreadState();
+        PyFrame frame = code.createFrame(tstate, globals, globals);
+        frame.eval();
+        assertEquals(new PyLong(1), globals.get(new PyUnicode("r")),
+            "r == 1");
+        //@formatter:on
+    }
+
+    //@Test
+    void test_simple_if7() {
+        //@formatter:off
+        PyDictionary globals = new PyDictionary();
+        globals.put(new PyUnicode("b"), Py.None);
+        PyCode code = SIMPLE_IF;
+        ThreadState tstate = new ThreadState();
+        PyFrame frame = code.createFrame(tstate, globals, globals);
+        frame.eval();
+        assertEquals(new PyLong(0), globals.get(new PyUnicode("r")),
+            "r == 0");
+        //@formatter:on
+    }
+
+    /**
+     * Example 'multi_if': <pre>
+     * if a and b:
+     *     r = 2
+     * elif a or b:
+     *     r = 1
+     * else:
+     *     r = 0
+     * </pre>
+     */
+    //@formatter:off
+    static final PyCode MULTI_IF =
+    /*
+     *   1           0 LOAD_NAME                0 (a)
+     *               2 POP_JUMP_IF_FALSE       14
+     *               4 LOAD_NAME                1 (b)
+     *               6 POP_JUMP_IF_FALSE       14
+     *
+     *   2           8 LOAD_CONST               0 (2)
+     *              10 STORE_NAME               2 (r)
+     *              12 JUMP_FORWARD            18 (to 32)
+     *
+     *   3     >>   14 LOAD_NAME                0 (a)
+     *              16 POP_JUMP_IF_TRUE        22
+     *              18 LOAD_NAME                1 (b)
+     *              20 POP_JUMP_IF_FALSE       28
+     *
+     *   4     >>   22 LOAD_CONST               1 (1)
+     *              24 STORE_NAME               2 (r)
+     *              26 JUMP_FORWARD             4 (to 32)
+     *
+     *   6     >>   28 LOAD_CONST               2 (0)
+     *              30 STORE_NAME               2 (r)
+     *         >>   32 LOAD_CONST               3 (None)
+     *              34 RETURN_VALUE
+     */
+    new PyCode(0, 0, 0, 0, 1, 64,
+        new PyBytes(new byte[] { 101, 0, 114, 14, 101, 1, 114, 14,
+                100, 0, 90, 2, 110, 18, 101, 0, 115, 22, 101, 1, 114,
+                28, 100, 1, 90, 2, 110, 4, 100, 2, 90, 2, 100, 3, 83,
+                0 }),
+        new PyTuple(new PyObject[] { new PyLong(2), new PyLong(1),
+                new PyLong(0), Py.None }),
+        new PyTuple(new PyObject[] { new PyUnicode("a"),
+                new PyUnicode("b"), new PyUnicode("r") }),
+        new PyTuple(new PyObject[] {}),
+        new PyTuple(new PyObject[] {}),
+        new PyTuple(new PyObject[] {}), new PyUnicode("multi_if"),
+        new PyUnicode("<module>"), 1,
+        new PyBytes(new byte[] { 8, 1, 6, 1, 8, 1, 6, 2 }));
+    //@formatter:on
+
+    //@Test
+    void test_multi_if1() {
+        //@formatter:off
+        PyDictionary globals = new PyDictionary();
+        globals.put(new PyUnicode("a"), PyBool.False);
+        globals.put(new PyUnicode("b"), PyBool.False);
+        PyCode code = MULTI_IF;
+        ThreadState tstate = new ThreadState();
+        PyFrame frame = code.createFrame(tstate, globals, globals);
+        frame.eval();
+        assertEquals(new PyLong(0), globals.get(new PyUnicode("r")),
+            "r == 0");
+        //@formatter:on
+    }
+
+    //@Test
+    void test_multi_if2() {
+        //@formatter:off
+        PyDictionary globals = new PyDictionary();
+        globals.put(new PyUnicode("a"), PyBool.False);
+        globals.put(new PyUnicode("b"), PyBool.True);
+        PyCode code = MULTI_IF;
+        ThreadState tstate = new ThreadState();
+        PyFrame frame = code.createFrame(tstate, globals, globals);
+        frame.eval();
+        assertEquals(new PyLong(1), globals.get(new PyUnicode("r")),
+            "r == 1");
+        //@formatter:on
+    }
+
+    //@Test
+    void test_multi_if3() {
+        //@formatter:off
+        PyDictionary globals = new PyDictionary();
+        globals.put(new PyUnicode("a"), PyBool.True);
+        globals.put(new PyUnicode("b"), PyBool.False);
+        PyCode code = MULTI_IF;
+        ThreadState tstate = new ThreadState();
+        PyFrame frame = code.createFrame(tstate, globals, globals);
+        frame.eval();
+        assertEquals(new PyLong(1), globals.get(new PyUnicode("r")),
+            "r == 1");
+        //@formatter:on
+    }
+
+    //@Test
+    void test_multi_if4() {
+        //@formatter:off
+        PyDictionary globals = new PyDictionary();
+        globals.put(new PyUnicode("a"), PyBool.True);
+        globals.put(new PyUnicode("b"), PyBool.True);
+        PyCode code = MULTI_IF;
+        ThreadState tstate = new ThreadState();
+        PyFrame frame = code.createFrame(tstate, globals, globals);
+        frame.eval();
+        assertEquals(new PyLong(2), globals.get(new PyUnicode("r")),
+            "r == 2");
+        //@formatter:on
+    }
+
+    /**
+     * Example 'comparison': <pre>
+     * lt = a < b
+     * le = a <= b
+     * eq = a == b
+     * ne = a != b
+     * ge = a >= b
+     * gt = a > b
+     * </pre>
+     */
+    //@formatter:off
+    static final PyCode COMPARISON =
+    /*
+     *   1           0 LOAD_NAME                0 (a)
+     *               2 LOAD_NAME                1 (b)
+     *               4 COMPARE_OP               0 (<)
+     *               6 STORE_NAME               2 (lt)
+     *
+     *   2           8 LOAD_NAME                0 (a)
+     *              10 LOAD_NAME                1 (b)
+     *              12 COMPARE_OP               1 (<=)
+     *              14 STORE_NAME               3 (le)
+     *
+     *   3          16 LOAD_NAME                0 (a)
+     *              18 LOAD_NAME                1 (b)
+     *              20 COMPARE_OP               2 (==)
+     *              22 STORE_NAME               4 (eq)
+     *
+     *   4          24 LOAD_NAME                0 (a)
+     *              26 LOAD_NAME                1 (b)
+     *              28 COMPARE_OP               3 (!=)
+     *              30 STORE_NAME               5 (ne)
+     *
+     *   5          32 LOAD_NAME                0 (a)
+     *              34 LOAD_NAME                1 (b)
+     *              36 COMPARE_OP               5 (>=)
+     *              38 STORE_NAME               6 (ge)
+     *
+     *   6          40 LOAD_NAME                0 (a)
+     *              42 LOAD_NAME                1 (b)
+     *              44 COMPARE_OP               4 (>)
+     *              46 STORE_NAME               7 (gt)
+     *              48 LOAD_CONST               0 (None)
+     *              50 RETURN_VALUE
+     */
+    new PyCode(0, 0, 0, 0, 2, 64,
+        new PyBytes(new byte[] { 101, 0, 101, 1, 107, 0, 90, 2, 101,
+                0, 101, 1, 107, 1, 90, 3, 101, 0, 101, 1, 107, 2, 90,
+                4, 101, 0, 101, 1, 107, 3, 90, 5, 101, 0, 101, 1,
+                107, 5, 90, 6, 101, 0, 101, 1, 107, 4, 90, 7, 100, 0,
+                83, 0 }),
+        new PyTuple(new PyObject[] { Py.None }),
+        new PyTuple(new PyObject[] { new PyUnicode("a"),
+                new PyUnicode("b"), new PyUnicode("lt"),
+                new PyUnicode("le"), new PyUnicode("eq"),
+                new PyUnicode("ne"), new PyUnicode("ge"),
+                new PyUnicode("gt") }),
+        new PyTuple(new PyObject[] {}),
+        new PyTuple(new PyObject[] {}),
+        new PyTuple(new PyObject[] {}), new PyUnicode("comparison"),
+        new PyUnicode("<module>"), 1,
+        new PyBytes(new byte[] { 8, 1, 8, 1, 8, 1, 8, 1, 8, 1 }));
+    //@formatter:on
+
+    //@Test
+    void test_comparison1() {
+        //@formatter:off
+        PyDictionary globals = new PyDictionary();
+        globals.put(new PyUnicode("a"), new PyLong(2));
+        globals.put(new PyUnicode("b"), new PyLong(4));
+        PyCode code = COMPARISON;
+        ThreadState tstate = new ThreadState();
+        PyFrame frame = code.createFrame(tstate, globals, globals);
+        frame.eval();
+        assertEquals(PyBool.True, globals.get(new PyUnicode("lt")),
+            "lt == True");
+        assertEquals(PyBool.True, globals.get(new PyUnicode("le")),
+            "le == True");
+        assertEquals(PyBool.False, globals.get(new PyUnicode("eq")),
+            "eq == False");
+        assertEquals(PyBool.True, globals.get(new PyUnicode("ne")),
+            "ne == True");
+        assertEquals(PyBool.False, globals.get(new PyUnicode("ge")),
+            "ge == False");
+        assertEquals(PyBool.False, globals.get(new PyUnicode("gt")),
+            "gt == False");
+        //@formatter:on
+    }
+
+    //@Test
+    void test_comparison2() {
+        //@formatter:off
+        PyDictionary globals = new PyDictionary();
+        globals.put(new PyUnicode("a"), new PyLong(4));
+        globals.put(new PyUnicode("b"), new PyLong(2));
+        PyCode code = COMPARISON;
+        ThreadState tstate = new ThreadState();
+        PyFrame frame = code.createFrame(tstate, globals, globals);
+        frame.eval();
+        assertEquals(PyBool.False, globals.get(new PyUnicode("lt")),
+            "lt == False");
+        assertEquals(PyBool.False, globals.get(new PyUnicode("le")),
+            "le == False");
+        assertEquals(PyBool.False, globals.get(new PyUnicode("eq")),
+            "eq == False");
+        assertEquals(PyBool.True, globals.get(new PyUnicode("ne")),
+            "ne == True");
+        assertEquals(PyBool.True, globals.get(new PyUnicode("ge")),
+            "ge == True");
+        assertEquals(PyBool.True, globals.get(new PyUnicode("gt")),
+            "gt == True");
+        //@formatter:on
+    }
+
+    //@Test
+    void test_comparison3() {
+        //@formatter:off
+        PyDictionary globals = new PyDictionary();
+        globals.put(new PyUnicode("a"), new PyLong(2));
+        globals.put(new PyUnicode("b"), new PyLong(2));
+        PyCode code = COMPARISON;
+        ThreadState tstate = new ThreadState();
+        PyFrame frame = code.createFrame(tstate, globals, globals);
+        frame.eval();
+        assertEquals(PyBool.False, globals.get(new PyUnicode("lt")),
+            "lt == False");
+        assertEquals(PyBool.True, globals.get(new PyUnicode("le")),
+            "le == True");
+        assertEquals(PyBool.True, globals.get(new PyUnicode("eq")),
+            "eq == True");
+        assertEquals(PyBool.False, globals.get(new PyUnicode("ne")),
+            "ne == False");
+        assertEquals(PyBool.True, globals.get(new PyUnicode("ge")),
+            "ge == True");
+        assertEquals(PyBool.False, globals.get(new PyUnicode("gt")),
+            "gt == False");
+        //@formatter:on
+    }
+
+    /**
+     * Example 'simple_loop': <pre>
+     * sum = 0
+     * while n > 0:
+     *     sum = sum + n
+     *     n = n - 1
+     * </pre>
+     */
+    //@formatter:off
+    static final PyCode SIMPLE_LOOP =
+    /*
+     *   1           0 LOAD_CONST               0 (0)
+     *               2 STORE_NAME               0 (sum)
+     *
+     *   2     >>    4 LOAD_NAME                1 (n)
+     *               6 LOAD_CONST               0 (0)
+     *               8 COMPARE_OP               4 (>)
+     *              10 POP_JUMP_IF_FALSE       30
+     *
+     *   3          12 LOAD_NAME                0 (sum)
+     *              14 LOAD_NAME                1 (n)
+     *              16 BINARY_ADD
+     *              18 STORE_NAME               0 (sum)
+     *
+     *   4          20 LOAD_NAME                1 (n)
+     *              22 LOAD_CONST               1 (1)
+     *              24 BINARY_SUBTRACT
+     *              26 STORE_NAME               1 (n)
+     *              28 JUMP_ABSOLUTE            4
+     *         >>   30 LOAD_CONST               2 (None)
+     *              32 RETURN_VALUE
+     */
+    new PyCode(0, 0, 0, 0, 2, 64,
+        new PyBytes(new byte[] { 100, 0, 90, 0, 101, 1, 100, 0, 107,
+                4, 114, 30, 101, 0, 101, 1, 23, 0, 90, 0, 101, 1,
+                100, 1, 24, 0, 90, 1, 113, 4, 100, 2, 83, 0 }),
+        new PyTuple(new PyObject[] { new PyLong(0), new PyLong(1),
+                Py.None }),
+        new PyTuple(new PyObject[] { new PyUnicode("sum"),
+                new PyUnicode("n") }),
+        new PyTuple(new PyObject[] {}),
+        new PyTuple(new PyObject[] {}),
+        new PyTuple(new PyObject[] {}), new PyUnicode("simple_loop"),
+        new PyUnicode("<module>"), 1,
+        new PyBytes(new byte[] { 4, 1, 8, 1, 8, 1 }));
+    //@formatter:on
+
+    //@Test
+    void test_simple_loop1() {
+        //@formatter:off
+        PyDictionary globals = new PyDictionary();
+        globals.put(new PyUnicode("n"), new PyLong(6));
+        PyCode code = SIMPLE_LOOP;
+        ThreadState tstate = new ThreadState();
+        PyFrame frame = code.createFrame(tstate, globals, globals);
+        frame.eval();
+        assertEquals(new PyLong(0), globals.get(new PyUnicode("n")),
+            "n == 0");
+        assertEquals(new PyLong(21), globals.get(
+            new PyUnicode("sum")), "sum == 21");
+        //@formatter:on
+    }
+
+    /**
      * Example 'list_dot_product': <pre>
      * a = [1.2, 3.4, 5.6, 7.8] * (3 * n)
      * b = (4 * n) * [1.2, 4.5, 7.8]
@@ -603,7 +1136,7 @@ class PyByteCode3 {
                 1, 20, 1 }));
     //@formatter:on
 
-    // @Test
+    //@Test
     void test_list_dot_product1() {
         //@formatter:off
         PyDictionary globals = new PyDictionary();

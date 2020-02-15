@@ -22,6 +22,7 @@ class Py {
 
     /** Python {@code None} object. */
     static final PyObject None = new Singleton("None") {};
+
     /** Python {@code NotImplemented} object. */
     static final PyObject NotImplemented =
             new Singleton("NotImplemented") {};
