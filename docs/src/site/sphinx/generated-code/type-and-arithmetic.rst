@@ -496,6 +496,18 @@ So where ``t`` is the ``PyType`` target,
 ``Slot.NB.negative.setSlot`` sets ``t.number.negative``,
 while ``Slot.TP.str.setSlot`` sets ``t.str``.
 
+..  note::
+    The use of slot names as method names has the side effect that
+    the same method may satisfy two slots.
+    This happens in the case of ``MP.length`` and ``SQ.length``.
+    If a type defines ``static int length(PyObject)``
+    it will fill both ``t.mapping.length`` and ``t.sequence.length``.
+    In the CPython code base,
+    there are several types that define one but not the other slot.
+    Every type that defines both, defines them withthe same function.
+    If necessary, we can give the slots distinct names (universally).
+
+
 In the member declarations we get to specify the name of the method
 (in some class implementing the type)
 that will be placed in the slot,

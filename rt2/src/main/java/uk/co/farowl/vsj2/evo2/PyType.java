@@ -11,7 +11,8 @@ class PyType implements PyObject {
     static final TypeRegistry TYPE_REGISTRY = new TypeRegistry();
 
     static final PyType TYPE = new PyType("type", PyType.class);
-    static final PyType OBJECT_TYPE = new PyType("object", PyBaseObject.class);
+    static final PyType OBJECT_TYPE =
+            new PyType("object", PyBaseObject.class);
 
     @Override
     public PyType getType() { return TYPE; }
@@ -50,8 +51,7 @@ class PyType implements PyObject {
     }
 
     /**
-     * Construct a type object with given name, base and
-     * implementation.
+     * Construct a type object with given name, base and implementation.
      */
     PyType(String name, PyType base,
             Class<? extends PyObject> implClass) {
@@ -95,6 +95,8 @@ class PyType implements PyObject {
         MethodHandle add = Slot.NB.add.empty;
         MethodHandle subtract = Slot.NB.subtract.empty;
         MethodHandle multiply = Slot.NB.multiply.empty;
+
+        MethodHandle bool = Slot.NB.bool.empty;
 
         MethodHandle index = Slot.NB.index.empty;
 

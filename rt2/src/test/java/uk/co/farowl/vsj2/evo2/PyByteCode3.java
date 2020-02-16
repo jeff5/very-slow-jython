@@ -386,7 +386,7 @@ class PyByteCode3 {
         new PyBytes(new byte[] { 16, 1, 4, 1, 8, 1, 20, 1 }));
     //@formatter:on
 
-    //@Test
+    // @Test
     void test_tuple_dot_product1() {
         //@formatter:off
         PyDictionary globals = new PyDictionary();
@@ -406,7 +406,7 @@ class PyByteCode3 {
         //@formatter:on
     }
 
-    //@Test
+    // @Test
     void test_tuple_dot_product2() {
         //@formatter:off
         PyDictionary globals = new PyDictionary();
@@ -627,7 +627,7 @@ class PyByteCode3 {
         new PyBytes(new byte[] { 4, 1, 6, 2 }));
     //@formatter:on
 
-    //@Test
+    @Test
     void test_simple_if1() {
         //@formatter:off
         PyDictionary globals = new PyDictionary();
@@ -641,7 +641,7 @@ class PyByteCode3 {
         //@formatter:on
     }
 
-    //@Test
+    @Test
     void test_simple_if2() {
         //@formatter:off
         PyDictionary globals = new PyDictionary();
@@ -655,7 +655,7 @@ class PyByteCode3 {
         //@formatter:on
     }
 
-    //@Test
+    @Test
     void test_simple_if3() {
         //@formatter:off
         PyDictionary globals = new PyDictionary();
@@ -669,7 +669,7 @@ class PyByteCode3 {
         //@formatter:on
     }
 
-    //@Test
+    @Test
     void test_simple_if4() {
         //@formatter:off
         PyDictionary globals = new PyDictionary();
@@ -683,7 +683,7 @@ class PyByteCode3 {
         //@formatter:on
     }
 
-    //@Test
+    @Test
     void test_simple_if5() {
         //@formatter:off
         PyDictionary globals = new PyDictionary();
@@ -697,7 +697,7 @@ class PyByteCode3 {
         //@formatter:on
     }
 
-    //@Test
+    @Test
     void test_simple_if6() {
         //@formatter:off
         PyDictionary globals = new PyDictionary();
@@ -711,7 +711,7 @@ class PyByteCode3 {
         //@formatter:on
     }
 
-    //@Test
+    @Test
     void test_simple_if7() {
         //@formatter:off
         PyDictionary globals = new PyDictionary();
@@ -777,7 +777,7 @@ class PyByteCode3 {
         new PyBytes(new byte[] { 8, 1, 6, 1, 8, 1, 6, 2 }));
     //@formatter:on
 
-    //@Test
+    @Test
     void test_multi_if1() {
         //@formatter:off
         PyDictionary globals = new PyDictionary();
@@ -792,7 +792,7 @@ class PyByteCode3 {
         //@formatter:on
     }
 
-    //@Test
+    @Test
     void test_multi_if2() {
         //@formatter:off
         PyDictionary globals = new PyDictionary();
@@ -807,7 +807,7 @@ class PyByteCode3 {
         //@formatter:on
     }
 
-    //@Test
+    @Test
     void test_multi_if3() {
         //@formatter:off
         PyDictionary globals = new PyDictionary();
@@ -822,7 +822,7 @@ class PyByteCode3 {
         //@formatter:on
     }
 
-    //@Test
+    @Test
     void test_multi_if4() {
         //@formatter:off
         PyDictionary globals = new PyDictionary();
@@ -901,7 +901,7 @@ class PyByteCode3 {
         new PyBytes(new byte[] { 8, 1, 8, 1, 8, 1, 8, 1, 8, 1 }));
     //@formatter:on
 
-    //@Test
+    // @Test
     void test_comparison1() {
         //@formatter:off
         PyDictionary globals = new PyDictionary();
@@ -926,7 +926,7 @@ class PyByteCode3 {
         //@formatter:on
     }
 
-    //@Test
+    // @Test
     void test_comparison2() {
         //@formatter:off
         PyDictionary globals = new PyDictionary();
@@ -951,7 +951,7 @@ class PyByteCode3 {
         //@formatter:on
     }
 
-    //@Test
+    // @Test
     void test_comparison3() {
         //@formatter:off
         PyDictionary globals = new PyDictionary();
@@ -1023,7 +1023,7 @@ class PyByteCode3 {
         new PyBytes(new byte[] { 4, 1, 8, 1, 8, 1 }));
     //@formatter:on
 
-    //@Test
+    // @Test
     void test_simple_loop1() {
         //@formatter:off
         PyDictionary globals = new PyDictionary();
@@ -1136,7 +1136,7 @@ class PyByteCode3 {
                 1, 20, 1 }));
     //@formatter:on
 
-    //@Test
+    // @Test
     void test_list_dot_product1() {
         //@formatter:off
         PyDictionary globals = new PyDictionary();

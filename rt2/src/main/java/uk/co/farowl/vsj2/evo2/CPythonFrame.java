@@ -65,6 +65,7 @@ class CPythonFrame extends PyFrame {
         int ip = 2;
         // Local variables used repeatedly in the loop
         PyObject name, res, u, v, w;
+        boolean bool;
 
         loop : for (;;) {
             try {
@@ -157,6 +158,42 @@ class CPythonFrame extends PyFrame {
                             }
                         }
                         valuestack[sp++] = v; // PUSH
+                        break;
+
+                    case Opcode.JUMP_FORWARD:
+                        ip += oparg; // JUMPBY
+                        break;
+
+                    case Opcode.JUMP_IF_FALSE_OR_POP:
+                        v = valuestack[--sp]; // POP
+                        if (!Abstract.isTrue(v)) {
+                            sp += 1;    // UNPOP
+                            ip = oparg; // JUMPTO
+                        }
+                        break;
+
+                    case Opcode.JUMP_IF_TRUE_OR_POP:
+                        v = valuestack[--sp]; // POP
+                        if (Abstract.isTrue(v)) {
+                            sp += 1;    // UNPOP
+                            ip = oparg; // JUMPTO
+                        }
+                        break;
+
+                    case Opcode.JUMP_ABSOLUTE:
+                        ip = oparg; // JUMPTO
+                        break;
+
+                    case Opcode.POP_JUMP_IF_FALSE:
+                        v = valuestack[--sp]; // POP
+                        if (!Abstract.isTrue(v))
+                            ip = oparg; // JUMPTO
+                        break;
+
+                    case Opcode.POP_JUMP_IF_TRUE:
+                        v = valuestack[--sp]; // POP
+                        if (Abstract.isTrue(v))
+                            ip = oparg; // JUMPTO
                         break;
 
                     case Opcode.BUILD_TUPLE:

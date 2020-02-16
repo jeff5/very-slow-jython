@@ -354,6 +354,7 @@ class Slot {
         add(Signature.BINARY), //
         subtract(Signature.BINARY, "sub"), //
         multiply(Signature.BINARY, "mul"), //
+        bool(Signature.PREDICATE), //
         index(Signature.UNARY); //
 
         final String methodName;

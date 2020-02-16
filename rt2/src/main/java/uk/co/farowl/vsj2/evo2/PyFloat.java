@@ -1,5 +1,7 @@
 package uk.co.farowl.vsj2.evo2;
 
+import java.math.BigInteger;
+
 /** The Python {@code float} object. */
 class PyFloat implements PyObject {
 
@@ -23,6 +25,8 @@ class PyFloat implements PyObject {
         } else
             return false;
     }
+
+    // slot functions -------------------------------------------------
 
     static PyObject neg(PyObject v) {
         try {
@@ -64,11 +68,33 @@ class PyFloat implements PyObject {
         }
     }
 
+    static boolean bool(PyObject v) {
+        double a = valueOrError(v);
+        return a != 0.0;
+    }
+
     /** Convert to {@code double} */
     static double valueOf(PyObject v) {
         if (v instanceof PyFloat)
             return ((PyFloat) v).value;
         else
             return ((PyLong) v).value.doubleValue();
+    }
+
+    /**
+     * Check the argument is a {@code PyFloat} and return its value, or
+     * raise internal error.
+     *
+     * @param v ought to be a {@code PyFloat} (or sub-class)
+     * @return the {@link #value} field of {@code v}
+     * @throws InterpreterError if {@code v} is not compatible
+     */
+    private static double valueOrError(PyObject v)
+            throws InterpreterError {
+        try {
+            return ((PyFloat) v).value;
+        } catch (ClassCastException cce) {
+            throw PyObjectUtil.typeMismatch(v, TYPE);
+        }
     }
 }

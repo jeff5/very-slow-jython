@@ -18,6 +18,31 @@ import uk.co.farowl.vsj2.evo2.Slot.EmptyException;
  */
 class Abstract {
 
+    /**
+     * Test a value used as condition in a {@code for} or {@code if}
+     * statement.
+     */
+    static boolean isTrue(PyObject v) throws Throwable {
+        // Begin with common special cases
+        if (v == PyBool.True)
+            return true;
+        else if (v == PyBool.False || v == Py.None)
+            return false;
+        else {
+            // Ask the object type through the bool or length slots
+            PyType t = v.getType();
+            if (Slot.NB.bool.isDefinedFor(t))
+                return (boolean) t.number.bool.invokeExact(v);
+            else if (Slot.MP.length.isDefinedFor(t))
+                return 0 != (int) t.mapping.length.invokeExact(v);
+            else if (Slot.SQ.length.isDefinedFor(t))
+                return 0 != (int) t.mapping.length.invokeExact(v);
+            else
+                // No bool and no length: claim everything is True.
+                return true;
+        }
+    }
+
     /** Python size of {@code o} */
     static PyObject size(PyObject o) throws Throwable {
         // Note that the slot is called length but this method, size.
