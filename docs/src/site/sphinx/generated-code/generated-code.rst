@@ -19,6 +19,7 @@ but take a different approach to implementation.
     sequences-and-indexing
     built-in-inheritance
     comparison-and-loops
+    refactor-to-evo3
 
 ..  I think the chapters might go like this,
     but I'm not certain enough to create the files:

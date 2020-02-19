@@ -76,6 +76,15 @@ class PyLong implements PyObject {
         }
     }
 
+    static PyObject richcompare(PyObject v, PyObject w, Comparison op) {
+        if (v instanceof PyLong && w instanceof PyLong) {
+            int u = ((PyLong) v).value.compareTo(((PyLong) w).value);
+            return PyObjectUtil.richCompareHelper(u, op);
+        } else {
+            return Py.NotImplemented;
+        }
+    }
+
     static boolean bool(PyObject v) {
         BigInteger a = valueOrError(v);
         return !BigInteger.ZERO.equals(a);

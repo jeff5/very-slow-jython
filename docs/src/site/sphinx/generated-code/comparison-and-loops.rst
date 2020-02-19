@@ -68,9 +68,9 @@ and the conditional branch consumes one.
 Branch instructions
 *******************
 
-CPython byte code provides a cluster of opcodes for conditional,
-and unconditional,
-branching, which we implement in a straightforward way:
+CPython byte code provides a cluster of opcodes for conditional
+and unconditional branching,
+which we implement in a straightforward way:
 
 ..  code-block:: java
 
@@ -157,10 +157,137 @@ as none of the paths is an error.
 Rich Comparison
 ***************
 
-
+The CPython comparison opcode ``COMPARE_OP`` acts on two stacked objects.
+It takes the type of comparison required from its argument,
+interpreted as one of 11 possible types.
+The implementation of the opcode is:
 
 ..  code-block:: java
 
+                    case Opcode.COMPARE_OP:
+                        w = valuestack[--sp]; // POP
+                        v = valuestack[sp - 1]; // TOP
+                        Comparison cmpOp = Comparison.from(oparg);
+                        switch (cmpOp) {
+                            case IS_NOT:
+                                res = v != w ? PyBool.True
+                                        : PyBool.False;
+                                break;
+                            case IS:
+                                res = v == w ? PyBool.True
+                                        : PyBool.False;
+                                break;
+                            case NOT_IN:
+                            case IN:
+                            case EXC_MATCH:
+                                throw cmpError(cmpOp);
+                            default:
+                                res = Abstract.richCompare(v, w, cmpOp);
+                        }
+                        valuestack[sp - 1] = res; // SET_TOP
+                        break;
+
+The function call ``Comparison.from(oparg)``
+converts the opcode argument to an ``enum``.
+We define the ``enum Comparison`` so that we may conveniently express
+alternate paths.
+
+The cases not handled explicitly
+(``LT``, ``LE``, ``EQ``, ``NE``, ``GT`` and ``GE``)
+are handed off to ``Abstract.richCompare``.
+This wraps the slot function ``richcmp``,
+in a way similar to that in which binary operations are invoked,
+allowing left then right arguments to answer,
+or right then left if the right-hand one is a sub-type of the left.
 
 ..  code-block:: java
 
+    class Abstract {
+        // ...
+        static PyObject do_richcompare(PyObject v, PyObject w,
+                Comparison op) throws Throwable {
+            PyType vType = v.getType();
+            PyType wType = w.getType();
+
+            boolean checkedReverse = false;
+            MethodHandle f;
+
+            if (vType != wType && wType.isSubTypeOf(vType)
+                    && (f = wType.richcompare) != RICH_EMPTY) {
+                checkedReverse = true;
+                PyObject r = (PyObject) f.invokeExact(w, v, op.swapped());
+                if (r != Py.NotImplemented) { return r; }
+            }
+
+            if ((f = vType.richcompare) != RICH_EMPTY) {
+                PyObject r = (PyObject) f.invokeExact(v, w, op);
+                if (r != Py.NotImplemented) { return r; }
+            }
+
+            if (!checkedReverse && (f = wType.richcompare) != RICH_EMPTY) {
+                PyObject r = (PyObject) f.invokeExact(w, v, op.swapped());
+                if (r != Py.NotImplemented) { return r; }
+            }
+
+            /// Neither object implements op: base == and != on identity.
+            switch (op) {
+                case EQ:
+                    return (v == w) ? PyBool.True : PyBool.False;
+                case NE:
+                    return (v != w) ? PyBool.True : PyBool.False;
+                default:
+                    throw comparisonTypeError(v, w, op);
+            }
+        }
+        // ...
+    }
+
+The implementation of that slot for ``PyLong`` is:
+
+..  code-block:: java
+
+    class PyLong implements PyObject {
+        // ...
+        static PyObject richcompare(PyObject v, PyObject w, Comparison op) {
+            if (v instanceof PyLong && w instanceof PyLong) {
+                int u = ((PyLong) v).value.compareTo(((PyLong) w).value);
+                return PyObjectUtil.richCompareHelper(u, op);
+            } else {
+                return Py.NotImplemented;
+            }
+        }
+    }
+
+
+The helper method converts the result of ``a.compareTo(b)``
+to a ``bool``, respecting the operation type:
+
+..  code-block:: java
+
+    class PyObjectUtil {
+        // ...
+    static PyObject richCompareHelper(int u, Comparison op) {
+        boolean r = false;
+        switch (op) {
+            case LE: r = u <= 0; break;
+            case LT: r = u < 0; break;
+            case EQ: r = u == 0; break;
+            case NE: r = u != 0; break;
+            case GE: r = u >= 0; break;
+            case GT: r = u > 0; break;
+            default: // pass
+        }
+        return r ? PyBool.True : PyBool.False;
+    }
+
+We'll be content for now with simple comparison of ``int``\s.
+The logic for other types is complex,
+without exposing any new issues of interpreter design.
+
+It is perhaps interesting to observe that throughout this logic,
+we continually branch on the type of operation,
+and that for any given occurrence of the ``COMPARISON_OP`` opcode,
+this is a constant.
+It would presumably be beneficial to unravel this to a single switch
+at opcode level (as we have partly done),
+or to have defined 11 opcodes.

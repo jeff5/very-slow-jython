@@ -62,7 +62,7 @@ class PyByteCode2 {
 
         // Call to handle that fills "empty" RICHCMP slot.
         // Two PyObject argument call to "empty" slot.
-        Opcode.PyCmp op = Opcode.PyCmp.LT;
+        Comparison op = Comparison.LT;
         assertThrows(Slot.EmptyException.class, () -> { //
             PyObject r = (PyObject) Slot.Signature.RICHCMP.empty
                     .invokeExact(v, w, op);

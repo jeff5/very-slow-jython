@@ -13,6 +13,9 @@ class PyList extends ArrayList<PyObject> implements PyObject {
     /** Construct empty. */
     PyList() { super(); }
 
+    /** Construct empty, with specified capacity. */
+    PyList(int capacity) { super(capacity); }
+
     /** Construct from an array slice. */
     PyList(PyObject a[], int start, int count) {
         super(count);
@@ -20,6 +23,18 @@ class PyList extends ArrayList<PyObject> implements PyObject {
     }
 
     // slot functions -------------------------------------------------
+
+    static PyObject repeat(PyObject s, int n) {
+        try {
+            PyList self = (PyList) s;
+            PyList r = new PyList(n*self.size());
+            for (int i=0; i<n; i++) r.addAll(self);
+            return r;
+        } catch (ClassCastException e) {
+            throw PyObjectUtil.typeMismatch(s, TYPE);
+        }
+    }
+
 
     static int length(PyObject s) {
         try {

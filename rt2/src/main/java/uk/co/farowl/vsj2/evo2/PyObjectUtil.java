@@ -9,4 +9,18 @@ class PyObjectUtil {
         return new InterpreterError(fmt, v.getType().name,
                 expected.name);
     }
+
+    static PyObject richCompareHelper(int u, Comparison op) {
+        boolean r = false;
+        switch (op) {
+            case LE: r = u <= 0; break;
+            case LT: r = u < 0; break;
+            case EQ: r = u == 0; break;
+            case NE: r = u != 0; break;
+            case GE: r = u >= 0; break;
+            case GT: r = u > 0; break;
+            default: // pass
+        }
+        return r ? PyBool.True : PyBool.False;
+    }
 }

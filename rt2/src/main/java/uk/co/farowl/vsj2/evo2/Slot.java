@@ -22,7 +22,7 @@ class Slot {
     private static final Class<?> I = int.class;
     private static final Class<?> B = boolean.class;
     private static final Class<?> V = void.class;
-    private static final Class<Opcode.PyCmp> CMP = Opcode.PyCmp.class;
+    private static final Class<Comparison> CMP = Comparison.class;
 
     private static final MethodType VOID = MethodType.methodType(V);
 
@@ -292,21 +292,24 @@ class Slot {
      */
     enum TP implements Any {
 
-        hash("hash", Signature.LEN), //
-        repr("repr", Signature.UNARY), //
-        str("str", Signature.UNARY);
+        hash(Signature.LEN), //
+        repr(Signature.UNARY), //
+        str(Signature.UNARY), //
+        richcompare(Signature.RICHCMP);
 
         final String methodName;
         final MethodType type;
         final MethodHandle empty;
         final VarHandle slotHandle;
 
-        TP(String methodName, Signature signature) {
-            this.methodName = methodName;
+        TP(Signature signature, String methodName) {
+            this.methodName = methodName == null ? name() : methodName;
             this.type = signature.type;
             this.empty = signature.empty;
             this.slotHandle = EnumUtil.slotHandle(this);
         }
+
+        TP(Signature signature) { this(signature, null); }
 
         @Override
         public MethodHandle getSlot(PyType t) {
@@ -435,7 +438,7 @@ class Slot {
     enum SQ implements Any {
 
         length(Signature.LEN), //
-        repeat(Signature.BINARY), //
+        repeat(Signature.SQ_INDEX), //
         item(Signature.SQ_INDEX), //
         ass_item(Signature.SQ_ASSIGN);
 

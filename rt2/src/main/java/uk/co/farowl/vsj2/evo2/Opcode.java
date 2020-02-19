@@ -63,7 +63,7 @@ class Opcode {
     static final int POP_BLOCK = 87;
     static final int END_FINALLY = 88;
     static final int POP_EXCEPT = 89;
-    static final int HAVE_ARGUMENT = 90;
+    static final int HAVE_ARGUMENT = 90; // not an opcode
     static final int STORE_NAME = 90;
     static final int DELETE_NAME = 91;
     static final int UNPACK_SEQUENCE = 92;
@@ -131,12 +131,9 @@ class Opcode {
      */
     static final int EXCEPT_HANDLER = 257;
 
-    enum PyCmp {
-        LT, LE, EQ, NE, GT, GE, IN, NOT_IN, IS, IS_NOT, EXC_MATCH, BAD
-    }
-
     /** Whether the opcode has an argument. */
     static final boolean hasArg(int op) {
         return op >= HAVE_ARGUMENT;
     }
+
 }

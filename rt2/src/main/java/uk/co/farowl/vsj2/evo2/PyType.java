@@ -31,6 +31,7 @@ class PyType implements PyObject {
     MethodHandle hash;
     MethodHandle repr;
     MethodHandle str;
+    MethodHandle richcompare;
 
     /** Construct a type object with given name and implementation. */
     PyType(String name, Class<? extends PyObject> implClass) {
@@ -41,6 +42,7 @@ class PyType implements PyObject {
         hash = Slot.TP.hash.findInClass(implClass);
         repr = Slot.TP.repr.findInClass(implClass);
         str = Slot.TP.str.findInClass(implClass);
+        richcompare = Slot.TP.richcompare.findInClass(implClass);
 
         // If immutable, could use NumberMethods.EMPTY, etc.
         (number = new NumberMethods()).fillFromClass(implClass);

@@ -49,11 +49,21 @@ class Number extends Abstract {
     static PyObject multiply(PyObject v, PyObject w) throws Throwable {
         try {
             PyObject r = binary_op1(v, w, Slot.NB.multiply);
-            if (r != Py.NotImplemented)
-                return r;
+            if (r != Py.NotImplemented) { return r; }
         } catch (Slot.EmptyException e) {}
+
+        // Try the sequence interpretations ...
+        MethodHandle mh = v.getType().sequence.repeat;
+        if (mh != SQ_INDEX_EMPTY) { return sequence_repeat(mh, v, w); }
+        mh = w.getType().sequence.repeat;
+        if (mh != SQ_INDEX_EMPTY) { return sequence_repeat(mh, w, v); }
+
+        // Nothing worked
         throw operandError("*", v, w);
     }
+
+    private static final MethodHandle SQ_INDEX_EMPTY =
+            Slot.Signature.SQ_INDEX.empty;
 
     /**
      * Helper for implementing binary operation. If neither the left
@@ -62,7 +72,7 @@ class Number extends Abstract {
      * Both mean the same thing.
      *
      * @param v left operand
-     * @param w right oprand
+     * @param w right operand
      * @param binop operation to apply
      * @return result or {@code Py.NotImplemented}
      * @throws Slot.EmptyException when an empty slot is invoked
@@ -97,6 +107,16 @@ class Number extends Abstract {
                     return r;
             }
             return (PyObject) slotv.invokeExact(v, w);
+        }
+    }
+
+    private static PyObject sequence_repeat(MethodHandle repeat,
+            PyObject seq, PyObject n) throws TypeError, Throwable {
+        if (indexCheck(n)) {
+            int count = asSize(n, IndexError::new);
+            return (PyObject) repeat.invokeExact(seq, count);
+        } else {
+            throw typeError(CANT_MULTIPLY, n);
         }
     }
 
@@ -193,11 +213,12 @@ class Number extends Abstract {
         }
     }
 
+    private static final String CANT_MULTIPLY =
+            "can't multiply sequence by non-int of type '%.200s'";
     private static final String CANNOT_INTERPRET_AS_INT =
             "'%.200s' object cannot be interpreted as an integer";
     private static final String CANNOT_FIT =
             "cannot fit '%.200s' into an index-sized integer";
-
 
     /** Create a {@code TypeError} for the named binary op. */
     static PyException operandError(String op, PyObject v, PyObject w) {

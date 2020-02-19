@@ -43,6 +43,84 @@ class Abstract {
         }
     }
 
+    /**
+     * Perform a rich comparison, raising {@code TypeError} when the
+     * requested comparison operator is not supported.
+     */
+    static PyObject do_richcompare(PyObject v, PyObject w,
+            Comparison op) throws Throwable {
+        PyType vType = v.getType();
+        PyType wType = w.getType();
+
+        boolean checkedReverse = false;
+        MethodHandle f;
+
+        if (vType != wType && wType.isSubTypeOf(vType)
+                && (f = wType.richcompare) != RICH_EMPTY) {
+            checkedReverse = true;
+            PyObject r = (PyObject) f.invokeExact(w, v, op.swapped());
+            if (r != Py.NotImplemented) { return r; }
+        }
+
+        if ((f = vType.richcompare) != RICH_EMPTY) {
+            PyObject r = (PyObject) f.invokeExact(v, w, op);
+            if (r != Py.NotImplemented) { return r; }
+        }
+
+        if (!checkedReverse && (f = wType.richcompare) != RICH_EMPTY) {
+            PyObject r = (PyObject) f.invokeExact(w, v, op.swapped());
+            if (r != Py.NotImplemented) { return r; }
+        }
+
+        /// Neither object implements op: base == and != on identity.
+        switch (op) {
+            case EQ:
+                return (v == w) ? PyBool.True : PyBool.False;
+            case NE:
+                return (v != w) ? PyBool.True : PyBool.False;
+            default:
+                throw comparisonTypeError(v, w, op);
+        }
+    }
+
+    private static final MethodHandle RICH_EMPTY =
+            Slot.TP.richcompare.empty;
+
+    static PyException comparisonTypeError(PyObject v, PyObject w,
+            Comparison op) {
+        String fmt =
+                "'%s' not supported between instances of '%.100s' and '%.100s'";
+        return new TypeError(fmt, op, v.getType().getName(),
+                w.getType().getName());
+    }
+
+    static PyObject richCompare(PyObject v, PyObject w, Comparison op)
+            throws Throwable {
+        PyObject res;
+        res = do_richcompare(v, w, op);
+        return res;
+    }
+
+    /*
+     * Perform a rich comparison with integer result. This wraps
+     * PyObject_RichCompare(), returning -1 for error, 0 for false, 1
+     * for true.
+     */
+    static boolean richCompareBool(PyObject v, PyObject w,
+            Comparison op) throws Throwable {
+        /*
+         * Quick result when objects are the same. Guarantees that
+         * identity implies equality.
+         */
+        if (v == w) {
+            if (op == Comparison.EQ)
+                return true;
+            else if (op == Comparison.NE)
+                return false;
+        }
+        return isTrue(richCompare(v, w, op));
+    }
+
     /** Python size of {@code o} */
     static PyObject size(PyObject o) throws Throwable {
         // Note that the slot is called length but this method, size.

@@ -160,6 +160,29 @@ class CPythonFrame extends PyFrame {
                         valuestack[sp++] = v; // PUSH
                         break;
 
+                    case Opcode.COMPARE_OP:
+                        w = valuestack[--sp]; // POP
+                        v = valuestack[sp - 1]; // TOP
+                        Comparison cmpOp = Comparison.from(oparg);
+                        switch (cmpOp) {
+                            case IS_NOT:
+                                res = v != w ? PyBool.True
+                                        : PyBool.False;
+                                break;
+                            case IS:
+                                res = v == w ? PyBool.True
+                                        : PyBool.False;
+                                break;
+                            case NOT_IN:
+                            case IN:
+                            case EXC_MATCH:
+                                throw cmpError(cmpOp);
+                            default:
+                                res = Abstract.richCompare(v, w, cmpOp);
+                        }
+                        valuestack[sp - 1] = res; // SET_TOP
+                        break;
+
                     case Opcode.JUMP_FORWARD:
                         ip += oparg; // JUMPBY
                         break;
@@ -247,4 +270,10 @@ class CPythonFrame extends PyFrame {
         tstate.swap(back);
         return returnValue;
     }
+
+    private InterpreterError cmpError(Comparison cmpOp) {
+        return new InterpreterError("Comparison '%s' not implemented",
+                cmpOp);
+    }
+
 }
