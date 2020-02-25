@@ -403,8 +403,7 @@ class PyObjectEmitter4(PyObjectEmitter):
         else:
             self.emit_line("Py.bytes(")
             with self.indentation():
-                self.emit("new byte[] ")
-                self.java_array(self.java_byte, value, ")" + suffix)
+                self.java_arglist(self.java_byte, value, ")" + suffix)
             return self
 
     def python_tuple(self, value, suffix=""):
