@@ -3,7 +3,7 @@
 import os
 from contextlib import closing
 from vsj2.exparser import LineToken, Lines
-from vsj2.srcgen import PyObjectTestEmitter, PyObjectEmitter
+from vsj2.srcgen import PyObjectTestEmitter, PyObjectEmitter4
 
 
 # ------------------------- Main Program -------------------------
@@ -31,7 +31,7 @@ def main(examples):
         # Each test in the file produces a code object and one or more tests
         while lines.kind() != LineToken.EOF:
             test = lines.parse_test()
-            generate(test, PyObjectEmitter())
+            generate(test, PyObjectEmitter4())
 
 
 if __name__ == "__main__":
