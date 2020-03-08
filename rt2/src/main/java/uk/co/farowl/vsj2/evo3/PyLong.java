@@ -5,7 +5,9 @@ import java.math.BigInteger;
 /** The Python {@code int} object. */
 class PyLong implements PyObject {
 
-    static PyType TYPE = new PyType("int", PyLong.class);
+    static PyType TYPE = PyType.fromSpec( //
+            new PyType.Spec("int", PyLong.class)
+            );
 
     @Override
     public PyType getType() { return TYPE; }

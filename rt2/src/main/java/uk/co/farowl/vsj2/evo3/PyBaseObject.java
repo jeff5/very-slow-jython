@@ -3,17 +3,16 @@ package uk.co.farowl.vsj2.evo3;
 /** The Python {@code object} object. */
 class PyBaseObject implements PyObject {
 
-    static PyType TYPE = new PyType("object", null, PyBaseObject.class);
+    static final PyType TYPE = PyType.OBJECT_TYPE;
 
     @Override
     public PyType getType() { return TYPE; }
 
-    PyBaseObject() { }
+    PyBaseObject() {}
 
     @Override
-    public String toString() { return "<'"+TYPE.name + "' object>"; }
+    public String toString() { return "<'" + TYPE.name + "' object>"; }
 
     // slot functions -------------------------------------------------
-
 
 }

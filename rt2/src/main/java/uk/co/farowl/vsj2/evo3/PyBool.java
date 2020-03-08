@@ -3,8 +3,10 @@ package uk.co.farowl.vsj2.evo3;
 /** The Python {@code bool} object. */
 class PyBool extends PyLong {
 
-    static final PyType TYPE =
-            new PyType("bool", PyLong.TYPE, PyBool.class);
+    static final PyType TYPE = PyType.fromSpec( //
+            new PyType.Spec("bool", PyBool.class) //
+                    .base(PyLong.TYPE) //
+                    .flagNot(PyType.Flag.BASETYPE));
 
     @Override
     public PyType getType() { return TYPE; }
@@ -20,6 +22,6 @@ class PyBool extends PyLong {
 
     @Override
     public String toString() {
-        return asSize() == 0 ? "Float" : "True";
+        return asSize() == 0 ? "False" : "True";
     }
 }

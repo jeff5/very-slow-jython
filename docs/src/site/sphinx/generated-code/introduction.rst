@@ -63,8 +63,8 @@ We will examine a number of ideas under ``rt2``:
 
 * An interpreter for CPython byte code.
 * ``MethodHandle``\s as type slots.
-* Attribute access.
 * Function definition and call.
+* Attribute access.
 * Classes defined in Python.
 * Sub-classes defined in Python.
 * Mutable and immutable types.

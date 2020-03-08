@@ -13,7 +13,9 @@ class Py {
 
         Singleton(String name) {
             this.name = name;
-            type = new PyType(name, getClass());
+            PyType.Spec spec = new PyType.Spec(name, getClass());
+            spec.flagNot(PyType.Flag.BASETYPE);
+            type = PyType.fromSpec(spec);
         }
 
         @Override
@@ -46,6 +48,11 @@ class Py {
 
     /** Python {@code True} object. */
     static final PyBool True = PyBool.True;
+
+    /** Return a Python {@code object}. */
+    static PyBaseObject object() {
+        return new PyBaseObject();
+    }
 
     /** Return Python {@code str} for Java {@code String}. */
     static PyUnicode str(String value) {

@@ -160,7 +160,6 @@ class Slot {
      * method, if it offers one.
      */
     interface Any {
-
         /**
          * The group to which this slot belongs (implying a
          * {@code *Method} class that has a members with the same name
@@ -188,21 +187,14 @@ class Slot {
         boolean isDefinedFor(PyType t);
 
         /**
-         * Create the method handle for this operation, if possible, by
-         * reflection on the given class. If the class has a
-         * {@code static} method matching the proper name
-         * {@link #getMethodName()} and method type
-         * {@link #getSignature()}{@code .type}, return that.
-         *
-         *
          * Return for a slot, a handle to the method in a given class
-         * that implements it, of the default handle (of the correct
+         * that implements it, or the default handle (of the correct
          * signature) that throws {@link EmptyException}.
          *
          * @param s slot
          * @param c target class
-         * @return handle to method in {@code c} implementing thios
-         *         slot, or appropriate "empty" if no such method is
+         * @return handle to method in {@code c} implementing this slot,
+         *         or appropriate "empty" if no such method is
          *         accessible.
          */
         MethodHandle findInClass(Class<?> c);

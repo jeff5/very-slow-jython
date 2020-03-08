@@ -55,6 +55,7 @@ c = d[2]
 # boolean_arithmetic:
 u, t, f = 42, True, False
 u, t, f = 42., True, False
+u, t, f = True, True, False
 # ? a, b, c
 a = u + t
 b = u * t

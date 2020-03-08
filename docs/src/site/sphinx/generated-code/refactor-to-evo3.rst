@@ -46,9 +46,77 @@ from the same examples used previously.
 Static Factories for ``PyType``
 *******************************
 
-*   Re-work type object construction to use static factory methods.
+*   Re-work type object construction to use static factory methods
+    for better control over the sequence of ``PyType`` creation.
     Identify and support necessary patterns of immutability,
     re-using ``NumberMethods.EMPTY`` etc. where possible.
+    Implement slot inheritance by copying handles from the base(s).
+
+Untangling the Type Initialisation
+==================================
+
+In ``evo2``,
+the implementation class of each Python object
+created an instance of concrete class ``PyType`` by calling a constructor
+from the static initialisation of the class.
+This has been ok so far,
+but results in a bit of a recursive scramble
+with the risk that we call methods on fundamental types
+before they are ready.
+(The Jython 2.7 type registry is also delicate on this way.)
+
+We should like the option to create variants of ``PyType``,
+according (for example) to different mutability patterns,
+and whether the type has numerical or sequence nature.
+This might extend to sub-classing ``PyType`` if necessary.
+Constraints on the coding of constructors
+(when ``super`` and ``this`` or instance methods may be called)
+limit the possibilities for expression.
+A series of static factory methods and helpers is more flexible.
+We might even use (private) sub-classes of ``PyType``
+to express different behaviours and information content,
+which is not possible if the client must call a constructor.
+
+
+Immutability and ``*Methods.EMPTY``
+===================================
+
+CPython type objects contain a ``tp_flags`` (a bit set)
+that records some functionally important information,
+and also caches frequently-used, derivable characteristics,
+such as whether the type is a subclass of ``int``.
+One that we need now is whether slots may be re-written.
+In CPython,
+this is conflated with whether the type is a "heap type".
+This is really about where the type object is allocated.
+Built-in types like ``int`` are not "heap-types",
+in the sense of mutable,
+while user-defined classes are.
+When reading CPython source,
+one must be alert to which sense of ``Py_TPFLAGS_HEAPTYPE`` is being used.
+
+
+
+Inheritance of Slot Functions
+=============================
+
+We noted in bool-implementation_ that
+``bool`` inherited the slot functions of ``int``,
+because the look-up of (say) ``add`` on ``PyBool`` found ``PyLong.add``.
+This made the test pass,
+but resulted in taking the slow path in ``Number.binary_op1``.
+
+In the refactoring,
+we overhaul the way inheritance is handled.
+Ambitiously, we aim to:
+
+*   Allow multiple bases.
+
+*   Compute an MRO by Python rules (or approximation).
+
+*   Choose the unique ``__base__`` by Python rules.
+
+
 
 Lightweight ``EmptyException``
 ******************************

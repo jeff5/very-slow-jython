@@ -24,6 +24,6 @@ class PyBool extends PyLong {
 
     @Override
     public String toString() {
-        return asSize() == 0 ? "Float" : "True";
+        return asSize() == 0 ? "False" : "True";
     }
 }

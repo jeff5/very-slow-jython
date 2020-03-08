@@ -30,63 +30,170 @@ which gives us the chance to address Python inheritance fairly simply.
     >>> isinstance(True, bool)
     True
 
-The type has only two instances, True and False,
+The type has only two instances, ``True`` and ``False``,
 but since they have arithmetic value,
 we will have to explore, for the first time,
 that path through the implementation of binary operations
 that involves delegation to the derived type first.
 
-Choices in the Implementation of Inheritance
-********************************************
+This leads us on a short digression on the subject of inheritance.
+
+Inheritance will not be Free
+****************************
 
 When two types are related by inheritance in Python,
-it is not automatically required that
+it does not necessarily follow that
 the Java classes that implement them should be related by Java inheritance.
-Java inheritance will not be able to represent Python inheritance fully,
-since Python allows multiple inheritance of types,
-and Java does not support multiple inheritance of classes.
-We must manage Python inheritance through relationships amongst
-``PyType`` objects.
-
+Java inheritance is available to help us write the interpreter;
+Python inheritance is something we have to represent
+through relationships we build amongst ``PyType`` objects.
 When complete,
 these relationships include an MRO (method resolution order)
 computed according to Python rules.
-Our study of the slot functions gives us one set of criteria,
+
+Java inheritance will not do the job for us automatically,
+since Java does not support multiple inheritance of classes,
+while any implementation of Python must.
+
+Our study of the slot functions gives us one set of criteria
 by which to judge implementation ideas:
 we must be able to produce the required sub-class behaviour
 where it involves invoking slots.
 However, there are other relevant language features we have not yet reached,
 so it is possible that what we choose here will be overturned later.
 
-Where a Python type ``A`` is an immediate super-class of ``B``,
-implementation options we might consider include:
 
-#.  ``PyB`` Java-extends ``PyA``.
+Python gives us a Break
+=======================
+
+We know that CPython implements objects as a sort of ``struct``,
+in which the value data is laid out after a standard object header,
+that deals with type and reference counting.
+(There is an extended standard header for variable-size objects.)
+
+Instances of a class have data laid out in a way characteristic of the class.
+Here are ``float`` and ``complex`` (not actually in the same file)
+from the source of CPython:
+
+..  code-block:: C
+
+    typedef struct {
+        PyObject_HEAD
+        double ob_fval;
+    } PyFloatObject;
+
+    typedef struct {
+        double real;
+        double imag;
+    } Py_complex;
+
+    typedef struct {
+        PyObject_HEAD
+        Py_complex cval;
+    } PyComplexObject;
+
+For an instance to belong to a class that inherits more than one base,
+the layout in memory has to be compatible with each base type
+that contributes a method or slot function.
+
+In Python, this is fine:
+
+..  code-block:: python
+
+    class A: pass
+    class B: pass
+    class C(A, B): pass
+
+But this (in CPython):
+
+..  code-block:: python
+
+    class D(float, complex): pass
+
+leads to a ``TypeError`` "multiple bases have instance lay-out conflict".
+
+Both ``A`` and ``B`` consist in memory of just the header
+and (a pointer to) a dictionary for the instance attributes.
+The same layout will do for instances of ``C``,
+since it needs one common dictionary.
+The methods (or other attributes) of their classes,
+will happily co-exist in the dictionary of ``C`` (the type).
+
+Classes with just one built-in base class in their hierarchy,
+which may be ``object``, as with ``A`` and ``B``,
+will generally combine without an issue.
+(``class E(float, C): pass`` would also be fine.)
+
+Python classes that define ``__slots__``,
+effectively extend the ``struct`` of their instances.
+These will run into the same ``TypeError``
+if they do not name and order their members compatibly.
+
+All of this may sound as if the C implementation "tail"
+is wagging the language design "dog".
+Let us simply say that the design of the language
+makes concessions to what may be efficiently implemented.
+
+..  note::
+    It is not clear whether the incompatibility of particular types
+    is a language rule or a limitation of the CPython implementation.
+    However,
+    users will expect a Java implementation to be no more restrictive
+    than CPython.
+
+
+Choices in the Implementation of Inheritance
+============================================
+
+Suppose we have a Python type ``C``,
+with immediate super-classes of ``A`` and ``B``,
+and suppose these are implemented by Java classes
+``PyC``, ``PyA`` and ``PyB``.
+Implementation options we might consider include:
+
+#.  ``PyC`` Java-extends ``PyA`` and ``PyB``.
     This approach is seemingly ruled out because it cannot fully implement
     multiple inheritance.
-    In the implementation of CPython ``PyB`` would be a ``struct`` that
-    can be successfully cast to a ``struct PyA``.
-    (Other bases of ``B`` have to be compatible with that,
-    or one receives a "layout error".)
-    The need to allow this implementation gives rise to a language-level
-    limitation on inheritance involving common types.
-    As long as every cast Python needs has a Java "image",
-    the slot functions will be compatible with the derived type.
 #.  ``PyB`` includes a ``PyA`` field and delegates to it.
     This places no constraints on inheritance hierarchy.
     Slots could be filled by wrapping the inherited ``MethodHandle``
     with a function that delegates to the field.
+    This is complex and gains one indirection per inheritance level.
 #.  ``PyB`` has an implementation independent of ``PyA``.
     This makes it necessary to reproduce inherited behaviour
     by writing the slot functions again from scratch.
     It will not normally be possible to do this automatically,
     so we consider this a dead-end.
 
+This is somewhat discouraging.
+But perhaps we ruled out Java inheritance too quickly:
+bear in mind the limitations imposed by "layout" compatibility.
+The layout is only inherited from one ancestor (base),
+chosen so that all ancestral lines can agree on this layout.
+(If that is not possible, class creation is forbidden.)
+Other attributes may co-exist in the instance dictionary,
+and methods that manipulate those may come from any ancestor,
+all lines converging in ``object`` or the same built-in type,
+which ``PyC`` can inherit.
+
+The upshot of this is (we may hope)
+that Python inheritance extending the footprint in memory,
+or overriding slot functions,
+can be modelled successfully by Java inheritance.
+Inherited slot functions will find a compatible (Java) type.
+Python inheritance not extending the footprint,
+does not require a new Java class:
+all Python types with the same layout can be (must be)
+represented by the same Java class.
+Instances would have to contain a field telling us their Python class,
+since the Java class would not be enough to identify that.
+
 Here we will take the first (Java-inheritance) approach,
 and hope that nothing emerges that it cannot handle.
 The delegation model is in reserve,
 either to become the general solution,
 or to address specific hard cases.
+
 
 A Simplified MRO
 ****************
@@ -164,8 +271,9 @@ All objects in the CPython interpreter are (can be successfully cast to)
 ``PyObject``, because they are ``struct``\s that "start in the right way".
 The type object of ``object`` in C Python is called ``PyBaseObject_Type``.
 There is no ``PyObject_Type``.
-(Actually, there is, but it is the abstact C-API ``type()`` function.)
+(Actually, there is, but it is the abstract C-API ``type()`` function.)
 
+.. _bool-implementation:
 
 A ``bool`` Implementation
 *************************
