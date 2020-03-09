@@ -100,7 +100,7 @@ one must be alert to which sense of ``Py_TPFLAGS_HEAPTYPE`` is being used.
 Inheritance of Slot Functions
 =============================
 
-We noted in bool-implementation_ that
+We noted in :ref:`bool-implementation` that
 ``bool`` inherited the slot functions of ``int``,
 because the look-up of (say) ``add`` on ``PyBool`` found ``PyLong.add``.
 This made the test pass,
@@ -123,7 +123,7 @@ Lightweight ``EmptyException``
 
 *   ``EmptyException`` to be lightweight and static,
     following "The Exceptional Performance of Lil' Exception"
-    (`Shipilev 2014`_).
+    [`Shipilev 2014`_].
     Add discussion suggesting correct balance.
 
 ..  _Shipilev 2014: https://shipilev.net/blog/2014/exceptional-performance/

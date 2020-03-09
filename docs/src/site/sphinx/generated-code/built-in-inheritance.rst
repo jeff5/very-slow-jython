@@ -7,6 +7,8 @@ Built-in Inheritance
     ``rt2/src/main/java/.../vsj2/evo2``
     and ``rt2/src/test/java/.../vsj2/evo2/PyByteCode3.java``
     in the project source.
+    However, the inheritance pattern developed in the discussion
+    is a speculation not implemented until a later evolution of the code.
 
 
 The Example of ``bool``
@@ -141,6 +143,7 @@ makes concessions to what may be efficiently implemented.
     users will expect a Java implementation to be no more restrictive
     than CPython.
 
+.. _choices-implementation-inheritance:
 
 Choices in the Implementation of Inheritance
 ============================================
@@ -171,10 +174,15 @@ bear in mind the limitations imposed by "layout" compatibility.
 The layout is only inherited from one ancestor (base),
 chosen so that all ancestral lines can agree on this layout.
 (If that is not possible, class creation is forbidden.)
-Other attributes may co-exist in the instance dictionary,
+
+This layout compatibility means that,
+amongst the bases that contribute to the layout in memory,
+there must be a strictly linear hierarchy,
+such that each extends the layout of its base.
+Attributes may be contributed to the instance dictionary in any order,
 and methods that manipulate those may come from any ancestor,
-all lines converging in ``object`` or the same built-in type,
-which ``PyC`` can inherit.
+but all lines must converge in in ``object`` or some built-in type
+on this linear spine that determines the layout of ``PyC``.
 
 The upshot of this is (we may hope)
 that Python inheritance extending the footprint in memory,
@@ -366,3 +374,61 @@ These remedies require an evolution of the existing code base,
 and so we'll leave that for a couple of sections later.
 ``bool`` works correctly,
 and this is enough for us to explore conditional branching next.
+
+
+Exceptions and Inheritance
+**************************
+
+The other place where inheritance has cropped up in our work so far
+is the hierarchy of exceptions.
+We have created this conventionally in Java,
+taking advantage of the fact that ``PyObject`` is an interface,
+to define a ``BaseException`` that is a real Java ``RuntimeException``,
+and a ``PyObject``.
+Further,
+each Python exception that we have needed has a Java counterpart,
+with a hierarchy in Java corresponding exactly to that in Python.
+
+This choice is contrary to the conclusion in
+:ref:`choices-implementation-inheritance`
+that we should introduce a Java sub-class only when the layout changes
+(that is, when we must add fields in the Java implementation),
+and that we should otherwise use the same Java class for the Python sub-class.
+To violate this means that creating another exception,
+by multiple inheritance of existing exceptions,
+will be impossible in cases where it would be possible in CPython.
+There are no examples of this in the standard exceptions hierarchy,
+but ``io.UnsupportedOperation`` inherits both ``OSError`` and ``ValueError``,
+so the problem is a real one.
+
+The drawback is that we can no longer catch (in Java)
+specific types of Python exception,
+unless they happen also το βε different in layout.
+The Java class representing ``TypeError``, ``OverflowError`` and many others
+is just ``BaseException``.
+
+Exceptions give us a ready-made example of the way the "best base" is chosen,
+that is, the value that becomes ``__base__`` in the new type:
+
+..  code-block:: python
+
+    >>> class E(TypeError, A, ImportError) : pass
+    ...
+    >>> E.__mro__
+    (<class '__main__.E'>, <class 'TypeError'>, <class '__main__.A'>,
+    <class 'ImportError'>, <class 'Exception'>, <class 'BaseException'>,
+    <class 'object'>)
+    >>> E.__base__
+    <class 'ImportError'>
+
+Although ``ImportError`` is last in the bases,
+and contributes the last part of the MRO,
+it is chosen as the "best base" for ``E``,
+since it extends the layout of ``Exception``,
+while ``TypeError`` does not.
+A Java implementation of ``E``
+would have to have the same Java class as ``ImportError``.
+It is compatible with ``TypeError``,
+which requires only the standard members of ``BaseException``,
+and compatible with ``A`` by offering an instance dictionary.
+
