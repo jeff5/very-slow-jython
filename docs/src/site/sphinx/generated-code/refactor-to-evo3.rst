@@ -52,6 +52,15 @@ Static Factories for ``PyType``
     re-using ``NumberMethods.EMPTY`` etc. where possible.
     Implement slot inheritance by copying handles from the base(s).
 
+*   Consider flattening the slot function tables
+    to a single structure (an ``EnumMap``?).
+    Some properties of a type do not belong in this structure,
+    even if they have ``tp_*`` names in CPython.
+    (See C-API ``PyType_Slot.slot`` fields that cannot be set,
+    and note on ``tp_bases``.)
+    We don't need an ``EMPTY`` table in this case (I think).
+
+
 Untangling the Type Initialisation
 ==================================
 
@@ -125,6 +134,12 @@ Lightweight ``EmptyException``
     following "The Exceptional Performance of Lil' Exception"
     [`Shipilev 2014`_].
     Add discussion suggesting correct balance.
+
+
+
+
+
+
 
 ..  _Shipilev 2014: https://shipilev.net/blog/2014/exceptional-performance/
 

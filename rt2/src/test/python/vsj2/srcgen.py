@@ -255,7 +255,7 @@ class PyObjectTestEmitter:
     """Class to emit a test PyCode and a JUnit test method for each case.
 
     The generated code assumes a particular representation for Python in Java,
-    which is that first exhibited in PyByteCode1.java.
+    which is introduced in PyByteCode1.java and pursued in Java package evo2.
     """
 
     def __init__(self, test, writer=None):
@@ -364,12 +364,12 @@ class PyObjectTestEmitter:
         self.writer.python_code(code, suffix)
         return self
 
-class PyObjectEmitter4(PyObjectEmitter):
+class PyObjectEmitterEvo3(PyObjectEmitter):
     """A class capable of emitting Python values as PyObjects (short variant).
 
     This class extends PyObjectEmitter, replacing the methods that emit
     constructors with equivalent calls to static runtime methods. This
-    matches the run-time environment explored in Java test PyByteCode4.
+    matches the run-time environment explored in Java package evo3.
     """
     def python_str(self, value, suffix=""):
         """Emit Java to construct a Python str."""
