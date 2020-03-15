@@ -78,7 +78,7 @@ class PyLong implements PyObject {
         }
     }
 
-    static PyObject richcompare(PyObject v, PyObject w, Comparison op) {
+    static PyObject tp_richcompare(PyObject v, PyObject w, Comparison op) {
         if (v instanceof PyLong && w instanceof PyLong) {
             int u = ((PyLong) v).value.compareTo(((PyLong) w).value);
             return PyObjectUtil.richCompareHelper(u, op);
@@ -87,12 +87,12 @@ class PyLong implements PyObject {
         }
     }
 
-    static boolean bool(PyObject v) {
+    static boolean nb_bool(PyObject v) {
         BigInteger a = valueOrError(v);
         return !BigInteger.ZERO.equals(a);
     }
 
-    static PyObject index(PyObject v) {
+    static PyObject nb_index(PyObject v) {
         if (v.getType() == TYPE)
             return v;
         else

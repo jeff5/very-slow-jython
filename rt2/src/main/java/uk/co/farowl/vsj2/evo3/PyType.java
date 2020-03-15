@@ -34,16 +34,41 @@ class PyType implements PyObject {
     private PyType[] bases;
     private PyType[] mro;
 
-    // Method suites for standard abstract types.
-    final NumberMethods number;
-    final SequenceMethods sequence;
-    final MappingMethods mapping;
+    // Standard type slots table see CPython PyTypeObject
 
-    // Methods to implement standard operations.
-    MethodHandle hash;
-    MethodHandle repr;
-    MethodHandle str;
-    MethodHandle richcompare;
+    MethodHandle tp_hash;
+    MethodHandle tp_repr;
+    MethodHandle tp_str;
+    MethodHandle tp_richcompare;
+
+    // Number slots table see CPython PyNumberMethods
+
+    MethodHandle nb_negative;
+    MethodHandle nb_add;
+    MethodHandle nb_subtract;
+    MethodHandle nb_multiply;
+
+    MethodHandle nb_bool;
+
+    MethodHandle nb_index;
+
+    // Sequence slots table see CPython PySequenceMethods
+
+    MethodHandle sq_length;
+    // MethodHandle concat;
+    MethodHandle sq_repeat;
+    MethodHandle sq_item;
+    MethodHandle sq_ass_item;
+    // MethodHandle contains;
+
+    // MethodHandle inplace_concat;
+    // MethodHandle inplace_repeat;
+
+    // Mapping slots table see CPython PyMappingMethods
+
+    MethodHandle mp_length;
+    MethodHandle mp_subscript;
+    MethodHandle mp_ass_subscript;
 
     /** Construct a type with given name and {@code object} as base. */
     PyType(String name, Class<? extends PyObject> implClass) {
@@ -68,27 +93,19 @@ class PyType implements PyObject {
      * This constructor is a helper to factory methods.
      */
     private PyType(String name, Class<? extends PyObject> implClass,
-            PyType[] bases, EnumSet<Flag> flags) {
+            PyType[] declaredBases, EnumSet<Flag> flags) {
         this.name = name;
         this.implClass = implClass;
         this.flags = flags;
 
         // Fix-up base and MRO from bases array
-        setMROfromBases(bases);
+        setMROfromBases(declaredBases);
 
-        // Initialise slots to implement standard operations.
-        hash = Slot.TP.hash.findInClass(implClass);
-        repr = Slot.TP.repr.findInClass(implClass);
-        str = Slot.TP.str.findInClass(implClass);
-        richcompare = Slot.TP.richcompare.findInClass(implClass);
-
-        // If immutable, could use NumberMethods.EMPTY, etc.
-        number = NumberMethods.forType(this);
-        sequence = SequenceMethods.forType(this);
-        mapping = MappingMethods.forType(this);
+        // Fill slots from implClass or bases
+        setAllSlots();
     }
 
-    /** Set the MRO, but at present only single base. */
+    /** Set the MRO, but at present only single base. */// XXX note may retain a reference to declaredBases
     private void setMROfromBases(PyType[] declaredBases) {
         int n;
 
@@ -124,13 +141,31 @@ class PyType implements PyObject {
         }
     }
 
+    /**
+     * Set all the slots ({@code tp_*}, {@code nb_*}, etc.) from the
+     * {@link #implClass} and {@link #bases}.
+     */
+    private void setAllSlots() {
+        for (Slot s : Slot.values()) {
+            final MethodHandle empty = s.getEmpty();
+            MethodHandle mh = s.findInClass(implClass);
+            for (int i = 0; mh == empty && i < bases.length; i++) {
+                mh = s.getSlot(bases[i]);
+            }
+            s.setSlot(this, mh);
+        }
+    }
+
     @Override
     public String toString() { return "<class '" + name + "'>"; }
 
     public String getName() { return name; }
 
-    void setSlot(Slot.Any slot, MethodHandle mh) {
-        slot.setSlot(this, mh);
+    void setSlot(Slot slot, MethodHandle mh) {
+        if (isMutable())
+            slot.setSlot(this, mh);
+        else
+            throw new TypeError("cannot update slots of %s", name);
     }
 
     /** True iff b is a sub-type (on the MRO of) this type. */
@@ -225,7 +260,7 @@ class PyType implements PyObject {
 
         /** Return the cumulative bases as an array. */
         PyType[] getBases() {
-            if (bases.isEmpty())
+            if (bases.isEmpty()) // XXX return empty array (see uses)?
                 return ONLY_OBJECT; // None specified: default
             else
                 return bases.toArray(new PyType[bases.size()]);
@@ -238,241 +273,6 @@ class PyType implements PyObject {
                     implClass.getSimpleName());
         }
 
-    }
-
-    /** Tabulate the number methods (slots) of a particular type. */
-    static class NumberMethods {
-
-        MethodHandle negative = Slot.NB.negative.empty;
-        MethodHandle add = Slot.NB.add.empty;
-        MethodHandle subtract = Slot.NB.subtract.empty;
-        MethodHandle multiply = Slot.NB.multiply.empty;
-
-        MethodHandle bool = Slot.NB.bool.empty;
-
-        MethodHandle index = Slot.NB.index.empty;
-
-        /** An instance in which every slot has its default value. */
-        static final NumberMethods EMPTY = new NumberMethods();
-
-        /**
-         * Return a {@code NumberMethods} with entries that are method
-         * handles to the correspondingly named static methods in a
-         * given target class. If no such methods are is defined by the
-         * class, return {@link #EMPTY}.
-         *
-         * @param c class to reflect
-         * @return a new {@code NumberMethods} or {@link #EMPTY}
-         */
-        static NumberMethods fromClass(Class<? extends PyObject> c) {
-            NumberMethods methods = null;
-            for (Slot.NB s : Slot.NB.values()) {
-                MethodHandle mh = s.findInClass(c);
-                if (mh != s.empty) {
-                    // This slot is defined by class c
-                    if (methods == null) {
-                        methods = new NumberMethods();
-                    }
-                    s.setSlot(methods, mh);
-                }
-            }
-            // If no slots defined, re-use EMPTY
-            return methods == null ? EMPTY : methods;
-        }
-
-        static NumberMethods fromClass(Class<? extends PyObject> c,
-                PyType base) {
-            NumberMethods methods = null;
-            for (Slot.NB s : Slot.NB.values()) {
-                MethodHandle mh = s.findInClass(c);
-                if (mh == s.empty) { mh = s.getSlot(base); }
-                if (mh != s.empty) {
-                    // This slot is defined by class c
-                    if (methods == null) {
-                        methods = new NumberMethods();
-                    }
-                    s.setSlot(methods, mh);
-                }
-            }
-            // If no slots defined, re-use EMPTY
-            return methods == null ? EMPTY : methods;
-        }
-
-        /**
-         * Return a {@code NumberMethods} with entries that are method
-         * handles to the correspondingly named static methods in the
-         * implementation class of the given type, or inherited from any
-         * base. If no such methods are is defined for the type, return
-         * {@link #EMPTY}.
-         *
-         * @param t type to reflect
-         * @return a new {@code NumberMethods} or {@link #EMPTY}
-         */
-        static NumberMethods forType(PyType t) {
-            NumberMethods methods =
-                    t.isMutable() ? new NumberMethods() : null;
-            for (Slot.NB s : Slot.NB.values()) {
-                MethodHandle mh = t.findSlotInBases(s);
-                if (mh != s.empty) {
-                    // This slot is defined by t.implClass or a base
-                    if (methods == null) {
-                        methods = new NumberMethods();
-                    }
-                    s.setSlot(methods, mh);
-                }
-            }
-            // If no slots defined (and immutable), re-use EMPTY
-            return methods == null ? EMPTY : methods;
-        }
-    }
-
-    /**
-     * Return the {@code MethodHandle} for the slot {@code s}, looking
-     * in the implementation class for the corresponding method and in
-     * the slot tables of the bases.
-     *
-     * @param s slot to interrogate
-     * @return method handle found or {@code s.getEmpty()}
-     */
-    private MethodHandle findSlotInBases(Slot.Any s) {
-        final MethodHandle empty = s.getEmpty();
-        MethodHandle mh = s.findInClass(implClass);
-        for (int i = 0; mh == empty && i < bases.length; i++) {
-            mh = s.getSlot(bases[i]);
-        }
-        return mh;
-    }
-
-    /** Tabulate the sequence methods (slots) of a particular type. */
-    static class SequenceMethods {
-
-        MethodHandle length = Slot.SQ.length.empty;
-        // MethodHandle concat = Slot.SQ.concat.empty;
-        MethodHandle repeat = Slot.SQ.repeat.empty;
-        MethodHandle item = Slot.SQ.item.empty;
-        MethodHandle ass_item = Slot.SQ.ass_item.empty;
-        // MethodHandle contains = Slot.SQ.contains.empty;
-
-        // MethodHandle inplace_concat = Slot.SQ.inplace_concat.empty;
-        // MethodHandle inplace_repeat = Slot.SQ.inplace_repeat.empty;
-
-        /** An instance in which every slot has its default value. */
-        static final SequenceMethods EMPTY = new SequenceMethods();
-
-        /**
-         * Return a {@code SequenceMethods} with entries that are method
-         * handles to the correspondingly named static methods in a
-         * given target class. If no such methods are is defined by the
-         * class, return {@link #EMPTY}.
-         *
-         * @return a new {@code SequenceMethods} or {@link #EMPTY}
-         * @param c class to reflect
-         */
-        static SequenceMethods fromClass(Class<? extends PyObject> c) {
-            SequenceMethods methods = null;
-            for (Slot.SQ s : Slot.SQ.values()) {
-                MethodHandle mh = s.findInClass(c);
-                if (mh != s.empty) {
-                    // This slot is defined by class c
-                    if (methods == null) {
-                        methods = new SequenceMethods();
-                    }
-                    s.setSlot(methods, mh);
-                }
-            }
-            // If no slots defined, re-use EMPTY
-            return methods == null ? EMPTY : methods;
-        }
-
-        /**
-         * Return a {@code SequenceMethods} with entries that are method
-         * handles to the correspondingly named static methods in the
-         * implementation class of the given type, or inherited from any
-         * base. If no such methods are is defined for the type, return
-         * {@link #EMPTY}.
-         *
-         * @param t type to reflect
-         * @return a new {@code SequenceMethods} or {@link #EMPTY}
-         */
-        static SequenceMethods forType(PyType t) {
-            SequenceMethods methods =
-                    t.isMutable() ? new SequenceMethods() : null;
-            for (Slot.SQ s : Slot.SQ.values()) {
-                MethodHandle mh = t.findSlotInBases(s);
-                if (mh != s.empty) {
-                    // This slot is defined by t.implClass or a base
-                    if (methods == null) {
-                        methods = new SequenceMethods();
-                    }
-                    s.setSlot(methods, mh);
-                }
-            }
-            // If no slots defined (and immutable), re-use EMPTY
-            return methods == null ? EMPTY : methods;
-        }
-    }
-
-    /** Tabulate the sequence methods (slots) of a particular type. */
-    static class MappingMethods {
-
-        MethodHandle length = Slot.MP.length.empty;
-        MethodHandle subscript = Slot.MP.subscript.empty;
-        MethodHandle ass_subscript = Slot.MP.ass_subscript.empty;
-
-        /** An instance in which every slot has its default value. */
-        static final MappingMethods EMPTY = new MappingMethods();
-
-        /**
-         * Return a {@code MappingMethods} with entries that are method
-         * handles to the correspondingly named static methods in a
-         * given target class. If no such methods are is defined by the
-         * class, return {@link #EMPTY}.
-         *
-         * @param c class to reflect
-         * @return a new {@code MappingMethods} or {@link #EMPTY}
-         */
-        static MappingMethods fromClass(Class<? extends PyObject> c) {
-            MappingMethods methods = null;
-            for (Slot.MP s : Slot.MP.values()) {
-                MethodHandle mh = s.findInClass(c);
-                if (mh != s.empty) {
-                    // This slot is defined by class c
-                    if (methods == null) {
-                        methods = new MappingMethods();
-                    }
-                    s.setSlot(methods, mh);
-                }
-            }
-            // If no slots defined, re-use EMPTY
-            return methods == null ? EMPTY : methods;
-        }
-
-        /**
-         * Return a {@code MappingMethods} with entries that are method
-         * handles to the correspondingly named static methods in the
-         * implementation class of the given type, or inherited from any
-         * base. If no such methods are is defined for the type, return
-         * {@link #EMPTY}.
-         *
-         * @param t type to reflect
-         * @return a new {@code MappingMethods} or {@link #EMPTY}
-         */
-        static MappingMethods forType(PyType t) {
-            MappingMethods methods =
-                    t.isMutable() ? new MappingMethods() : null;
-            for (Slot.MP s : Slot.MP.values()) {
-                MethodHandle mh = t.findSlotInBases(s);
-                if (mh != s.empty) {
-                    // This slot is defined by t.implClass or a base
-                    if (methods == null) {
-                        methods = new MappingMethods();
-                    }
-                    s.setSlot(methods, mh);
-                }
-            }
-            // If no slots defined (and immutable), re-use EMPTY
-            return methods == null ? EMPTY : methods;
-        }
     }
 
 }

@@ -66,7 +66,7 @@ class PyFloat implements PyObject {
         }
     }
 
-    static boolean bool(PyObject v) {
+    static boolean nb_bool(PyObject v) {
         double a = valueOrError(v);
         return a != 0.0;
     }

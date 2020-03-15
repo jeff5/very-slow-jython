@@ -29,16 +29,16 @@ class Abstract {
         else if (v == Py.False || v == Py.None)
             return false;
         else {
-            // Ask the object type through the bool or length slots
+            // Ask the object type through the nb_bool or sq_length slots
             PyType t = v.getType();
-            if (Slot.NB.bool.isDefinedFor(t))
-                return (boolean) t.number.bool.invokeExact(v);
-            else if (Slot.MP.length.isDefinedFor(t))
-                return 0 != (int) t.mapping.length.invokeExact(v);
-            else if (Slot.SQ.length.isDefinedFor(t))
-                return 0 != (int) t.mapping.length.invokeExact(v);
+            if (Slot.nb_bool.isDefinedFor(t))
+                return (boolean) t.nb_bool.invokeExact(v);
+            else if (Slot.mp_length.isDefinedFor(t))
+                return 0 != (int) t.mp_length.invokeExact(v);
+            else if (Slot.sq_length.isDefinedFor(t))
+                return 0 != (int) t.sq_length.invokeExact(v);
             else
-                // No bool and no length: claim everything is True.
+                // No nb_bool and no sq_length: claim everything is True.
                 return true;
         }
     }
@@ -56,18 +56,18 @@ class Abstract {
         MethodHandle f;
 
         if (vType != wType && wType.isSubTypeOf(vType)
-                && (f = wType.richcompare) != RICH_EMPTY) {
+                && (f = wType.tp_richcompare) != RICH_EMPTY) {
             checkedReverse = true;
             PyObject r = (PyObject) f.invokeExact(w, v, op.swapped());
             if (r != Py.NotImplemented) { return r; }
         }
 
-        if ((f = vType.richcompare) != RICH_EMPTY) {
+        if ((f = vType.tp_richcompare) != RICH_EMPTY) {
             PyObject r = (PyObject) f.invokeExact(v, w, op);
             if (r != Py.NotImplemented) { return r; }
         }
 
-        if (!checkedReverse && (f = wType.richcompare) != RICH_EMPTY) {
+        if (!checkedReverse && (f = wType.tp_richcompare) != RICH_EMPTY) {
             PyObject r = (PyObject) f.invokeExact(w, v, op.swapped());
             if (r != Py.NotImplemented) { return r; }
         }
@@ -84,7 +84,7 @@ class Abstract {
     }
 
     private static final MethodHandle RICH_EMPTY =
-            Slot.TP.richcompare.empty;
+            Slot.tp_richcompare.empty;
 
     static PyException comparisonTypeError(PyObject v, PyObject w,
             Comparison op) {
@@ -123,9 +123,9 @@ class Abstract {
 
     /** Python size of {@code o} */
     static PyObject size(PyObject o) throws Throwable {
-        // Note that the slot is called length but this method, size.
+        // Note that the slot is called sq_length but this method, size.
         try {
-            MethodHandle mh = o.getType().sequence.length;
+            MethodHandle mh = o.getType().sq_length;
             return (PyObject) mh.invokeExact(o);
         } catch (Slot.EmptyException e) {}
 
@@ -142,13 +142,12 @@ class Abstract {
         PyType oType = o.getType();
 
         try {
-            MethodHandle mh = oType.mapping.subscript;
-            return (PyObject) mh.invokeExact(o, key);
+            return (PyObject) oType.mp_subscript.invokeExact(o, key);
         } catch (EmptyException e) {}
 
-        if (Slot.SQ.item.isDefinedFor(oType)) {
+        if (Slot.sq_item.isDefinedFor(oType)) {
             // For a sequence (only), key must have index-like type
-            if (Slot.NB.index.isDefinedFor(key.getType())) {
+            if (Slot.nb_index.isDefinedFor(key.getType())) {
                 int k = Number.asSize(key, IndexError::new);
                 return Sequence.getItem(o, k);
             } else
@@ -164,14 +163,13 @@ class Abstract {
         PyType oType = o.getType();
 
         try {
-            MethodHandle mh = oType.mapping.ass_subscript;
-            mh.invokeExact(o, key, value);
+            oType.mp_ass_subscript.invokeExact(o, key, value);
             return;
         } catch (EmptyException e) {}
 
-        if (Slot.SQ.ass_item.isDefinedFor(oType)) {
+        if (Slot.sq_ass_item.isDefinedFor(oType)) {
             // For a sequence (only), key must have index-like type
-            if (Slot.NB.index.isDefinedFor(key.getType())) {
+            if (Slot.nb_index.isDefinedFor(key.getType())) {
                 int k = Number.asSize(key, IndexError::new);
                 Sequence.setItem(o, k, value);
             } else
@@ -239,10 +237,10 @@ class Abstract {
      * True iff the object has a slot for conversion to the index type.
      *
      * @param obj to test
-     * @return whether {@code obj} has non-empty {@link Slot.NB#index}
+     * @return whether {@code obj} has non-empty {@link Slot#nb_index}
      */
     static boolean indexCheck(PyObject obj) {
-        return Slot.NB.index.isDefinedFor(obj.getType());
+        return Slot.nb_index.isDefinedFor(obj.getType());
     }
 
 }

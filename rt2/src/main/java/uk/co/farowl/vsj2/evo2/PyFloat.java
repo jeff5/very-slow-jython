@@ -1,7 +1,5 @@
 package uk.co.farowl.vsj2.evo2;
 
-import java.math.BigInteger;
-
 /** The Python {@code float} object. */
 class PyFloat implements PyObject {
 

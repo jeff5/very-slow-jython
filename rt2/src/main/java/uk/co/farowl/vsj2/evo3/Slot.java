@@ -4,58 +4,148 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.lang.invoke.VarHandle;
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
 import java.util.Map;
 
-/** Utilities to help construct slot functions. */
-class Slot {
+/**
+ * This {@code enum} provide constants that can be are used to refer to
+ * the "slots" within a {@code PyType}. These slots define the behaviour
+ * of instances of the Python type it represents.
+ * <p>
+ * Each constant creates a correspondence between its name, the (slot)
+ * name in the {@code PyType} object (because it is the same), the type
+ * of the {@code MethodHandle} every occurrence of that slot must
+ * contain, and the conventional name by which the implementing class of
+ * a type will refer to that method, if it offers an implementation.
+ */
+enum Slot {
 
-    private static final MethodHandles.Lookup LOOKUP =
-            MethodHandles.lookup();
+    tp_hash(Signature.LEN), //
+    tp_repr(Signature.UNARY), //
+    tp_str(Signature.UNARY), //
+    tp_richcompare(Signature.RICHCMP), //
 
-    static class EmptyException extends Exception {}
+    nb_negative(Signature.UNARY, "neg"), //
+    nb_add(Signature.BINARY, "add"), //
+    nb_subtract(Signature.BINARY, "sub"), //
+    nb_multiply(Signature.BINARY, "mul"), //
+    nb_bool(Signature.PREDICATE), //
+    nb_index(Signature.UNARY), //
 
-    private static final Class<PyObject> O = PyObject.class;
-    private static final Class<?> I = int.class;
-    private static final Class<?> B = boolean.class;
-    private static final Class<?> V = void.class;
-    private static final Class<Comparison> CMP = Comparison.class;
+    sq_length(Signature.LEN, "length"), //
+    sq_repeat(Signature.SQ_INDEX), //
+    sq_item(Signature.SQ_INDEX), //
+    sq_ass_item(Signature.SQ_ASSIGN), //
 
-    private static final MethodType VOID = MethodType.methodType(V);
+    mp_length(Signature.LEN, "length"), //
+    mp_subscript(Signature.BINARY), //
+    mp_ass_subscript(Signature.MP_ASSIGN);
 
-    private static MethodHandle NEWEX;
+    final String methodName;
+    final MethodType type;
+    final MethodHandle empty;
+    final VarHandle slotHandle;
 
-    static {
-        try {
-            // NEWEX = λ : new EmptyException
-            NEWEX = LOOKUP.findConstructor(EmptyException.class, VOID);
-        } catch (NoSuchMethodException | IllegalAccessException e) {
-            SystemError se = new SystemError("initialising type slots");
-            se.initCause(e);
-            throw se;
-        }
+    Slot(Signature signature, String methodName) {
+        this.methodName = methodName == null ? name() : methodName;
+        this.type = signature.type;
+        this.empty = signature.empty;
+        this.slotHandle = Util.slotHandle(this);
+    }
+
+    Slot(Signature signature) { this(signature, null); }
+
+    /**
+     * Get the name of the method that, by convention, identifies the
+     * corresponding operation in the implementing class. This is not
+     * the same as the slot name.
+     */
+    String getMethodName() { return methodName; }
+
+    /** The type required for slots of this name. */
+    MethodType getType() {
+        return type;
+    }
+
+    /** Get the default that fills the slot when it is "empty". */
+    MethodHandle getEmpty() {
+        return empty;
+    }
+
+    /** Test whether this slot is non-empty in the given type. */
+    boolean isDefinedFor(PyType t) {
+        return (MethodHandle) slotHandle.get(t) != empty;
     }
 
     /**
-     * An enumeration of the acceptable signatures for slots in
-     * {@code PyType.*Methods} tables. For each {@code MethodHandle} we
-     * may place in a slot, we must know in advance the acceptable
-     * signature ({@code MethodType}), and the slot when empty must
-     * contain a handle to a method that will raise
-     * {@link EmptyException}, which has the requisite signature. Each
-     * {@code enum} constant here gives a symbolic name to that
-     * {@code MethodType}, and provides an {@code empty} handle.
+     * Return for a slot, a handle to the method in a given class that
+     * implements it, or the default handle (of the correct signature)
+     * that throws {@link EmptyException}.
+     *
+     * @param s slot
+     * @param c target class
+     * @return handle to method in {@code c} implementing this slot, or
+     *         appropriate "empty" if no such method is accessible.
+     */
+    MethodHandle findInClass(Class<?> c) {
+        return Util.findInClass(this, c);
+    }
+
+    /**
+     * Get the contents of this slot in the given type. Each member of
+     * this {@code enum} corresponds to the name of a static method
+     * which must also have the correct signature.
+     *
+     * @param t target type
+     * @return current contents of this slot in {@code t}
+     */
+    MethodHandle getSlot(PyType t) {
+        return (MethodHandle) slotHandle.get(t);
+    }
+
+    /**
+     * Set the contents of this slot in the given type to the
+     * {@code MethodHandle} provided.
+     *
+     * @param t target type object
+     * @param mh handle value to assign
+     */
+    void setSlot(PyType t, MethodHandle mh) {
+        if (mh == null || !mh.type().equals(type))
+            throw slotTypeError(this, mh);
+        slotHandle.set(t, mh);
+    }
+
+    /** The type of exception thrown by invoking an empty slot. */
+    static class EmptyException extends Exception {}
+
+    /** Some shorthands used to construct method signatures, etc.. */
+    private interface ClassShorthand {
+
+        static final Class<PyObject> O = PyObject.class;
+        static final Class<?> I = int.class;
+        static final Class<?> B = boolean.class;
+        static final Class<?> V = void.class;
+        static final Class<Comparison> CMP = Comparison.class;
+    }
+
+    /**
+     * An enumeration of the acceptable signatures for slots in a
+     * {@code PyType}. For each {@code MethodHandle} we may place in a
+     * slot, we must know in advance the acceptable signature
+     * ({@code MethodType}), and the slot when empty must contain a
+     * handle with this signature to a method that will raise
+     * {@link EmptyException}, Each {@code enum} constant here gives a
+     * symbolic name to that {@code MethodType}, and provides an
+     * {@code empty} handle.
      * <p>
      * Names are equivalent to {@code typedef}s provided in CPython
      * {@code Include/object.h}, but not the same. We do not need quite
      * the same signatures as CPython: we do not return integer status,
      * for example. Also, C-specifics like {@code Py_ssize_t} are echoed
-     * in the C-API names.
+     * in the C-API names but not here.
      */
-    enum Signature {
+    enum Signature implements ClassShorthand {
         UNARY(O, O), // NB.negative, NB.invert
         BINARY(O, O, O), // +, -, u[v]
         TERNARY(O, O, O, O), // **
@@ -83,7 +173,8 @@ class Slot {
             MethodHandle th = MethodHandles.throwException(returnType,
                     EmptyException.class);
             // em = λ : throw new EmptyException
-            MethodHandle em = MethodHandles.foldArguments(th, NEWEX);
+            MethodHandle em =
+                    MethodHandles.foldArguments(th, Util.NEWEX);
             // empty = λ u v ... : throw new EmptyException
             this.empty = MethodHandles.dropArguments(em, 0, ptype);
             // All handles in the slot must have the same type as empty
@@ -104,147 +195,59 @@ class Slot {
     }
 
     /**
-     * Constants for the {@code *Methods} compartments of a
-     * {@link PyType} object. There should be a {@code *Slot enum} for
-     * each {@code Group}.
+     * Helper for {@link Slot#setSlot(PyType, MethodHandle)}, when a bad
+     * handle is presented.
+     *
+     * @param slot that the client attempted to set
+     * @param mh offered value found unsuitable
+     * @return exception with message filled in
      */
-    enum Group {
-        /**
-         * Representing the "basic" group: slots where the name begins
-         * {@code tp_}, that are found in the base {@code PyTypeObject},
-         * in CPython.
-         */
-        TP(PyType.class),
-        /**
-         * Representing the "number" group: slots where the name begins
-         * {@code nb_}, that are found in an optional
-         * {@code PyNumberMethods} in CPython.
-         */
-        NB(PyType.NumberMethods.class),
-        /**
-         * Representing the "sequence" group: slots where the name
-         * begins {@code sq_}, that are found in an optional
-         * {@code PySequenceMethods} in CPython.
-         */
-        SQ(PyType.SequenceMethods.class),
-        /**
-         * Representing the "mapping" group: slots where the name begins
-         * {@code mp_}, that are found in an optional
-         * {@code PyMappingMethods} in CPython.
-         */
-        MP(PyType.MappingMethods.class),
-        // For later use: replace Void with a PyType.*Methods class
-        BF(Void.class), AM(Void.class);
-
-        /** The {@code *Method} class corresponding. */
-        final Class<?> methodsClass;
-
-        Group(Class<?> methodsClass) {
-            this.methodsClass = methodsClass;
-        }
+    private static InterpreterError slotTypeError(Slot slot,
+            MethodHandle mh) {
+        String fmt = "%s not of required type %s for slot %s";
+        return new InterpreterError(fmt, mh, slot.getType(), slot);
     }
 
     /**
-     * This interface is implemented by the {@code enum} for each group
-     * of "slots" that a {@code PyType} contains. These groups are the
-     * {@code PyType.NumberMethods}, the {@code PyType.SequenceMethods},
-     * the {@code MappingMethods}, the {@code BufferMethods}, and the
-     * slots that are members of the {@code PyType} object itself.
-     * <p>
-     * These {@code enum}s provide constants that can be are used to
-     * refer to these slots. Each constant in each {@code enum} creates
-     * a correspondence between its name, the (slot) name in the
-     * {@code *Methods} object (because it is the same), the type of the
-     * {@code MethodHandle} that slot must contain, and the conventional
-     * name by which the implementing class of a type will refer to that
-     * method, if it offers one.
+     * Helpers for {@link Slot} and {@link Signature} that can be used
+     * in the constructors.
      */
-    interface Any {
-        /**
-         * The group to which this slot belongs (implying a
-         * {@code *Method} class that has a members with the same name
-         * as this {@code enum} constant.
+    private static class Util {
+
+        /*
+         * This is a class separate from Slot to solve problems with the
+         * order of static initialisation. The enum constants have to
+         * come first, and their constructors are called as they are
+         * encountered. This means that other constants in Slot are not
+         * initialised by the time the constructors need them.
          */
-        Group group();
+        private static final MethodHandles.Lookup LOOKUP =
+                MethodHandles.lookup();
 
-        /** Name of the slot (supplied by Java for the {@code enum}). */
-        String name();
+        private static final MethodType VOID =
+                MethodType.methodType(void.class);
 
-        /**
-         * Get the name of the method that, by convention, identifies
-         * the corresponding operation in the implementing class. This
-         * is not the same as the slot name.
-         */
-        String getMethodName();
+        static MethodHandle NEWEX;
 
-        /** The type required for slots of this name. */
-        MethodType getType();
-
-        /** Get the default that fills the slot when it is "empty". */
-        MethodHandle getEmpty();
-
-        /** Test whether this slot is non-empty in the given type. */
-        boolean isDefinedFor(PyType t);
-
-        /**
-         * Return for a slot, a handle to the method in a given class
-         * that implements it, or the default handle (of the correct
-         * signature) that throws {@link EmptyException}.
-         *
-         * @param s slot
-         * @param c target class
-         * @return handle to method in {@code c} implementing this slot,
-         *         or appropriate "empty" if no such method is
-         *         accessible.
-         */
-        MethodHandle findInClass(Class<?> c);
-
-        /**
-         * Get the contents of this slot in the given type. Each member
-         * of this {@code enum} corresponds to the name of a static
-         * method which must also have the correct signature.
-         *
-         * @param t target type
-         * @return current contents of this slot in {@code t}
-         */
-        MethodHandle getSlot(PyType t);
-
-        /**
-         * Set the contents of this slot in the given type to the
-         * {@code MethodHandle} provided.
-         *
-         * @param t target type object
-         * @param mh handle value to assign
-         */
-        void setSlot(PyType t, MethodHandle mh);
-    }
-
-    /** Common code supporting the {@code *Slot enum}s. */
-    private static class EnumUtil {
-
-        /**
-         * Helper for implementations of
-         * {@link Any#setSlot(PyType, MethodHandle)}, when a bad handle
-         * is presented.
-         *
-         * @param slot that the client attempted to set
-         * @param mh offered value found unsuitable
-         * @return exception with message filled in
-         */
-        static InterpreterError slotTypeError(Any slot,
-                MethodHandle mh) {
-            String fmt = "%s not of required type %s for slot %s.%s";
-            return new InterpreterError(fmt, mh, slot.getType(),
-                    slot.group(), slot.toString());
+        static {
+            try {
+                // NEWEX = λ : new EmptyException
+                NEWEX = LOOKUP.findConstructor(EmptyException.class,
+                        VOID);
+            } catch (NoSuchMethodException | IllegalAccessException e) {
+                SystemError se =
+                        new SystemError("initialising type slots");
+                se.initCause(e);
+                throw se;
+            }
         }
 
         /**
-         * Helper for constructors of {@code *Slot enum}s at the point
-         * they need a handle for their named field within a
-         * {@code *Methods}s class.
+         * Helper for constructors at the point they need a handle for
+         * their named field within a {@code PyType} class.
          */
-        static VarHandle slotHandle(Any slot) {
-            Class<?> methodsClass = slot.group().methodsClass;
+        static VarHandle slotHandle(Slot slot) {
+            Class<?> methodsClass = PyType.class;
             try {
                 // The field has the same name as the enum
                 return LOOKUP.findVarHandle(methodsClass, slot.name(),
@@ -266,7 +269,7 @@ class Slot {
          *         or appropriate "empty" if no such method is
          *         accessible.
          */
-        static MethodHandle findInClass(Any slot, Class<?> c) {
+        static MethodHandle findInClass(Slot slot, Class<?> c) {
             try {
                 // The method has the same name in every implementation
                 return LOOKUP.findStatic(c, slot.getMethodName(),
@@ -275,334 +278,6 @@ class Slot {
                 return slot.getEmpty();
             }
         }
+
     }
-
-    /**
-     * An enumeration of the "basic" group: slots where the name begins
-     * {@code tp_}, that are found in the base {@code PyTypeObject}, in
-     * CPython.
-     */
-    enum TP implements Any {
-
-        hash(Signature.LEN), //
-        repr(Signature.UNARY), //
-        str(Signature.UNARY), //
-        richcompare(Signature.RICHCMP);
-
-        final String methodName;
-        final MethodType type;
-        final MethodHandle empty;
-        final VarHandle slotHandle;
-
-        TP(Signature signature, String methodName) {
-            this.methodName = methodName == null ? name() : methodName;
-            this.type = signature.type;
-            this.empty = signature.empty;
-            this.slotHandle = EnumUtil.slotHandle(this);
-        }
-
-        TP(Signature signature) { this(signature, null); }
-
-        @Override
-        public MethodHandle getSlot(PyType t) {
-            return (MethodHandle) slotHandle.get(t);
-        }
-
-        @Override
-        public void setSlot(PyType t, MethodHandle mh) {
-            if (mh == null || !mh.type().equals(type))
-                throw EnumUtil.slotTypeError(this, mh);
-            slotHandle.set(t, mh);
-        }
-
-        @Override
-        public Group group() { return Group.TP; }
-
-        @Override
-        public String getMethodName() { return methodName; }
-
-        @Override
-        public MethodType getType() { return type; }
-
-        @Override
-        public MethodHandle getEmpty() { return empty; }
-
-        @Override
-        public boolean isDefinedFor(PyType t) {
-            return (MethodHandle) slotHandle.get(t) != empty;
-        }
-
-        @Override
-        public MethodHandle findInClass(Class<?> c) {
-            return EnumUtil.findInClass(this, c);
-        }
-    }
-
-    /**
-     * An enumeration of the "number" group: slots where the name begins
-     * {@code nb_}, that are found in an optional
-     * {@code PyNumberMethods} in CPython.
-     */
-    enum NB implements Any {
-
-        negative(Signature.UNARY, "neg"), //
-        add(Signature.BINARY), //
-        subtract(Signature.BINARY, "sub"), //
-        multiply(Signature.BINARY, "mul"), //
-        bool(Signature.PREDICATE), //
-        index(Signature.UNARY); //
-
-        final String methodName;
-        final MethodType type;
-        final MethodHandle empty;
-        final VarHandle slotHandle;
-
-        NB(Signature signature, String methodName) {
-            this.methodName = methodName == null ? name() : methodName;
-            this.type = signature.type;
-            this.empty = signature.empty;
-            this.slotHandle = EnumUtil.slotHandle(this);
-        }
-
-        NB(Signature signature) { this(signature, null); }
-
-        /**
-         * Lookup this slot in the given object.
-         *
-         * @param m the {@code *Methods} object to consult
-         * @return the {@code MethodHandle} from it
-         */
-        MethodHandle getSlot(PyType.NumberMethods m) {
-            return (MethodHandle) slotHandle.get(m);
-        }
-
-        /**
-         * Set this slot in the given object (if type-compatible).
-         *
-         * @param m the {@code *Methods} object to consult
-         * @param mh the {@code MethodHandle} to set there
-         */
-        void setSlot(PyType.NumberMethods m, MethodHandle mh) {
-            if (mh == null || !mh.type().equals(type))
-                throw EnumUtil.slotTypeError(this, mh);
-            slotHandle.set(m, mh);
-        }
-
-        @Override
-        public MethodHandle getSlot(PyType t) {
-            return getSlot(t.number);
-        }
-
-        @Override
-        public void setSlot(PyType t, MethodHandle mh) {
-            assert t.number != PyType.NumberMethods.EMPTY;
-            setSlot(t.number, mh);
-        }
-
-        @Override
-        public Group group() { return Group.NB; }
-
-        @Override
-        public String getMethodName() { return this.methodName; }
-
-        @Override
-        public MethodType getType() { return this.type; }
-
-        @Override
-        public MethodHandle getEmpty() { return this.empty; }
-
-        @Override
-        public boolean isDefinedFor(PyType t) {
-            return (MethodHandle) slotHandle.get(t.number) != empty;
-        }
-
-        @Override
-        public MethodHandle findInClass(Class<?> c) {
-            return EnumUtil.findInClass(this, c);
-        }
-    }
-
-    /**
-     * An enumeration of the "sequence" group: slots where the name
-     * begins {@code sq_}, that are found in an optional
-     * {@code PySequenceMethods} in CPython.
-     */
-    enum SQ implements Any {
-
-        length(Signature.LEN), //
-        repeat(Signature.SQ_INDEX), //
-        item(Signature.SQ_INDEX), //
-        ass_item(Signature.SQ_ASSIGN);
-
-        final MethodType type;
-        final MethodHandle empty;
-        final VarHandle slotHandle;
-
-        SQ(Signature signature) {
-            this.type = signature.type;
-            this.empty = signature.empty;
-            this.slotHandle = EnumUtil.slotHandle(this);
-        }
-
-        /**
-         * Lookup this slot in the given object.
-         *
-         * @param m the {@code *Methods} object to consult
-         * @return the {@code MethodHandle} from it
-         */
-        MethodHandle getSlot(PyType.SequenceMethods m) {
-            return (MethodHandle) slotHandle.get(m);
-        }
-
-        /**
-         * Set this slot in the given object (if type-compatible).
-         *
-         * @param m the {@code *Methods} object to consult
-         * @param mh the {@code MethodHandle} to set there
-         */
-        void setSlot(PyType.SequenceMethods m, MethodHandle mh) {
-            if (mh == null || !mh.type().equals(type))
-                throw EnumUtil.slotTypeError(this, mh);
-            slotHandle.set(m, mh);
-        }
-
-        @Override
-        public MethodHandle getSlot(PyType t) {
-            return getSlot(t.sequence);
-        }
-
-        @Override
-        public void setSlot(PyType t, MethodHandle mh) {
-            assert t.sequence != PyType.SequenceMethods.EMPTY;
-            setSlot(t.sequence, mh);
-        }
-
-        @Override
-        public Group group() { return Group.SQ; }
-
-        @Override
-        public String getMethodName() { return this.name(); }
-
-        @Override
-        public MethodType getType() { return this.type; }
-
-        @Override
-        public MethodHandle getEmpty() { return this.empty; }
-
-        @Override
-        public boolean isDefinedFor(PyType t) {
-            return (MethodHandle) slotHandle.get(t.sequence) != empty;
-        }
-
-        @Override
-        public MethodHandle findInClass(Class<?> c) {
-            return EnumUtil.findInClass(this, c);
-        }
-    }
-
-    /**
-     * An enumeration of the "mapping" group: slots where the name
-     * begins {@code mp_}, that are found in an optional
-     * {@code PyMappingMethods} in CPython.
-     */
-    enum MP implements Any {
-
-        length(Signature.LEN), subscript(Signature.BINARY),
-        ass_subscript(Signature.MP_ASSIGN);
-
-        final MethodType type;
-        final MethodHandle empty;
-        final VarHandle slotHandle;
-
-        MP(Signature signature) {
-            this.type = signature.type;
-            this.empty = signature.empty;
-            this.slotHandle = EnumUtil.slotHandle(this);
-        }
-
-        /**
-         * Lookup this slot in the given object.
-         *
-         * @param m the {@code *Methods} object to consult
-         * @return the {@code MethodHandle} from it
-         */
-        MethodHandle getSlot(PyType.MappingMethods m) {
-            return (MethodHandle) slotHandle.get(m);
-        }
-
-        /**
-         * Set this slot in the given object (if type-compatible).
-         *
-         * @param m the {@code *Methods} object to consult
-         * @param mh the {@code MethodHandle} to set there
-         */
-        void setSlot(PyType.MappingMethods m, MethodHandle mh) {
-            if (mh == null || !mh.type().equals(type))
-                throw EnumUtil.slotTypeError(this, mh);
-            slotHandle.set(m, mh);
-        }
-
-        @Override
-        public MethodHandle getSlot(PyType t) {
-            return getSlot(t.mapping);
-        }
-
-        @Override
-        public void setSlot(PyType t, MethodHandle mh) {
-            assert t.mapping != PyType.MappingMethods.EMPTY;
-            setSlot(t.mapping, mh);
-        }
-
-        @Override
-        public Group group() { return Group.MP; }
-
-        @Override
-        public String getMethodName() { return this.name(); }
-
-        @Override
-        public MethodType getType() { return this.type; }
-
-        @Override
-        public MethodHandle getEmpty() { return this.empty; }
-
-        @Override
-        public boolean isDefinedFor(PyType t) {
-            return (MethodHandle) slotHandle.get(t.mapping) != empty;
-        }
-
-        @Override
-        public MethodHandle findInClass(Class<?> c) {
-            return EnumUtil.findInClass(this, c);
-        }
-    }
-
-    /** Help with the use of {@code *Methods} objects. */
-    static class Util {
-
-        /**
-         * A list of all the slots a {@link PyType} object might
-         * contain. This is a convenience function allowing client code
-         * to iterate over all the slots in one loop, such as:<pre>
-         * for (Any s : SlotMethods.ALL) {
-         *     // Do something with s ...
-         *  }
-         * </pre>
-         */
-        static List<Any> ALL = allSlots();
-
-        private static List<Any> allSlots() {
-            // Make a stream of the separately-defined enum values
-            Any[] tp, nb, sq;
-            tp = TP.values();
-            nb = NB.values();
-            sq = SQ.values();
-            // XXX and the rest in due course
-            List<Any> all = new LinkedList<>();
-            Collections.addAll(all, tp);
-            Collections.addAll(all, nb);
-            Collections.addAll(all, sq);
-            return List.copyOf(all);
-        }
-    }
-
 }

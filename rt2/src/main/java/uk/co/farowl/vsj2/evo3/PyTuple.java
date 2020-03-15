@@ -30,7 +30,7 @@ class PyTuple implements PyObject {
 
     // slot functions -------------------------------------------------
 
-    static int length(PyObject s) {
+    static int length(PyObject s) { // XXX sq_/mp_length?
         try {
             return ((PyTuple) s).value.length;
         } catch (ClassCastException e) {
@@ -38,7 +38,7 @@ class PyTuple implements PyObject {
         }
     }
 
-    static PyObject item(PyObject s, int i) {
+    static PyObject sq_item(PyObject s, int i) {
         try {
             return ((PyTuple) s).value[i];
         } catch (IndexOutOfBoundsException e) {
@@ -48,15 +48,15 @@ class PyTuple implements PyObject {
         }
     }
 
-    static PyObject subscript(PyObject s, PyObject item)
+    static PyObject mp_subscript(PyObject s, PyObject item)
             throws Throwable {
         try {
             PyTuple self = (PyTuple) s;
             PyType itemType = item.getType();
-            if (Slot.NB.index.isDefinedFor(itemType)) {
+            if (Slot.nb_index.isDefinedFor(itemType)) {
                 int i = Number.asSize(item, IndexError::new);
                 if (i < 0) { i += self.value.length; }
-                return item(self, i);
+                return sq_item(self, i);
             }
             // else if item is a PySlice { ... }
             else

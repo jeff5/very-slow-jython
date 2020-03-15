@@ -7,15 +7,15 @@ class Mapping extends Abstract {
 
     /** Python size of {@code o} */
     static PyObject size(PyObject o) throws Throwable {
-        // Note that the slot is called length but this method, size.
+        // Note that the slot is called sq_length but this method, size.
         PyType oType = o.getType();
 
         try {
-            MethodHandle mh = oType.mapping.length;
+            MethodHandle mh = oType.mp_length;
             return (PyObject) mh.invokeExact(o);
         } catch (Slot.EmptyException e) {}
 
-        if (Slot.MP.length.isDefinedFor(oType))
+        if (Slot.mp_length.isDefinedFor(oType)) // XXX sq_ or mp_?
             // Caller should have tried Abstract.size
             throw typeError(NOT_MAPPING, o);
         throw typeError(HAS_NO_LEN, o);

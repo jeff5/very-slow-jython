@@ -24,7 +24,7 @@ class PyList extends ArrayList<PyObject> implements PyObject {
 
     // slot functions -------------------------------------------------
 
-    static PyObject repeat(PyObject s, int n) {
+    static PyObject sq_repeat(PyObject s, int n) {
         try {
             PyList self = (PyList) s;
             PyList r = new PyList(n*self.size());
@@ -36,7 +36,7 @@ class PyList extends ArrayList<PyObject> implements PyObject {
     }
 
 
-    static int length(PyObject s) {
+    static int length(PyObject s) { // XXX sq_/mp_length?
         try {
             return ((PyList) s).size();
         } catch (ClassCastException e) {
@@ -44,7 +44,7 @@ class PyList extends ArrayList<PyObject> implements PyObject {
         }
     }
 
-    static PyObject item(PyObject s, int i) {
+    static PyObject sq_item(PyObject s, int i) {
         try {
             return ((PyList) s).get(i);
         } catch (IndexOutOfBoundsException e) {
@@ -54,7 +54,7 @@ class PyList extends ArrayList<PyObject> implements PyObject {
         }
     }
 
-    static void ass_item(PyObject s, int i, PyObject o) {
+    static void sq_ass_item(PyObject s, int i, PyObject o) {
         try {
             ((PyList) s).set(i, o);
         } catch (IndexOutOfBoundsException e) {
@@ -64,15 +64,15 @@ class PyList extends ArrayList<PyObject> implements PyObject {
         }
     }
 
-    static PyObject subscript(PyObject s, PyObject item)
+    static PyObject mp_subscript(PyObject s, PyObject item)
             throws Throwable {
         try {
             PyList self = (PyList) s;
             PyType itemType = item.getType();
-            if (Slot.NB.index.isDefinedFor(itemType)) {
+            if (Slot.nb_index.isDefinedFor(itemType)) {
                 int i = Number.asSize(item, IndexError::new);
                 if (i < 0) { i += self.size(); }
-                return item(self, i);
+                return sq_item(self, i);
             }
             // else if item is a PySlice { ... }
             else
@@ -87,10 +87,10 @@ class PyList extends ArrayList<PyObject> implements PyObject {
         try {
             PyList self = (PyList) s;
             PyType itemType = item.getType();
-            if (Slot.NB.index.isDefinedFor(itemType)) {
+            if (Slot.nb_index.isDefinedFor(itemType)) {
                 int i = Number.asSize(item, IndexError::new);
                 if (i < 0) { i += self.size(); }
-                ass_item(self, i, value);
+                sq_ass_item(self, i, value);
             }
             // else if item is a PySlice { ... }
             else

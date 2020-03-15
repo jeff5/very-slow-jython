@@ -19,6 +19,7 @@ We shall follow this design closely to obtain the same semantics,
 in particular,
 using Java ``MethodHandle``\s as an equivalent to C pointer to function.
 
+.. _representing-python-class:
 
 Representing a Python Class
 ***************************
@@ -310,6 +311,7 @@ It is actually a specially-crafted Java ``enum``
 that is able to look up a method handle in a ``PyType``.
 More on this next.
 
+..  _how-we-fill-slots:
 
 How we Fill the Slots
 *********************

@@ -4,7 +4,6 @@ import java.lang.invoke.MethodHandle;
 import java.util.function.Function;
 
 import uk.co.farowl.vsj2.evo3.Slot.EmptyException;
-import uk.co.farowl.vsj2.evo3.Slot.NB;
 
 /** Compare CPython {@code abstract.h}: {@code Py_Number_*}. */
 class Number extends Abstract {
@@ -12,8 +11,7 @@ class Number extends Abstract {
     /** Python {@code -v} */
     static PyObject negative(PyObject v) throws Throwable {
         try {
-            MethodHandle mh = v.getType().number.negative;
-            return (PyObject) mh.invokeExact(v);
+            return (PyObject) v.getType().nb_negative.invokeExact(v);
         } catch (Slot.EmptyException e) {
             throw operandError("-", v);
         }
@@ -28,7 +26,7 @@ class Number extends Abstract {
     /** Python {@code v+w} */
     static PyObject add(PyObject v, PyObject w) throws Throwable {
         try {
-            PyObject r = binary_op1(v, w, Slot.NB.add);
+            PyObject r = binary_op1(v, w, Slot.nb_add);
             if (r != Py.NotImplemented)
                 return r;
         } catch (Slot.EmptyException e) {}
@@ -38,7 +36,7 @@ class Number extends Abstract {
     /** Python {@code v-w} */
     static PyObject subtract(PyObject v, PyObject w) throws Throwable {
         try {
-            PyObject r = binary_op1(v, w, Slot.NB.subtract);
+            PyObject r = binary_op1(v, w, Slot.nb_subtract);
             if (r != Py.NotImplemented)
                 return r;
         } catch (Slot.EmptyException e) {}
@@ -48,14 +46,14 @@ class Number extends Abstract {
     /** Python {@code v*w} */
     static PyObject multiply(PyObject v, PyObject w) throws Throwable {
         try {
-            PyObject r = binary_op1(v, w, Slot.NB.multiply);
+            PyObject r = binary_op1(v, w, Slot.nb_multiply);
             if (r != Py.NotImplemented) { return r; }
         } catch (Slot.EmptyException e) {}
 
         // Try the sequence interpretations ...
-        MethodHandle mh = v.getType().sequence.repeat;
+        MethodHandle mh = v.getType().sq_repeat;
         if (mh != SQ_INDEX_EMPTY) { return sequence_repeat(mh, v, w); }
-        mh = w.getType().sequence.repeat;
+        mh = w.getType().sq_repeat;
         if (mh != SQ_INDEX_EMPTY) { return sequence_repeat(mh, w, v); }
 
         // Nothing worked
@@ -79,7 +77,7 @@ class Number extends Abstract {
      * @throws Throwable from the implementation of the operation
      */
     private static PyObject binary_op1(PyObject v, PyObject w,
-            Slot.NB binop) throws Slot.EmptyException, Throwable {
+            Slot binop) throws Slot.EmptyException, Throwable {
         PyType vtype = v.getType();
         PyType wtype = w.getType();
 
@@ -139,8 +137,7 @@ class Number extends Abstract {
             return o;
         else {
             try {
-                result = (PyObject) itemType.number.index
-                        .invokeExact(o);
+                result = (PyObject) itemType.nb_index.invokeExact(o);
                 // Enforce expectations on the return type
                 PyType resultType = result.getType();
                 if (resultType == PyLong.TYPE)

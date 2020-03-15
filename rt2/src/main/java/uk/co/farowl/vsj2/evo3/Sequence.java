@@ -9,15 +9,14 @@ class Sequence extends Abstract {
 
     /** Python size of {@code s} */
     static PyObject size(PyObject s) throws Throwable {
-        // Note that the slot is called length but this method, size.
+        // Note that the slot is called sq_length but this method, size.
         PyType sType = s.getType();
 
         try {
-            MethodHandle mh = sType.sequence.length;
-            return (PyObject) mh.invokeExact(s);
+            return (PyObject) sType.sq_length.invokeExact(s);
         } catch (Slot.EmptyException e) {}
 
-        if (Slot.MP.length.isDefinedFor(sType))
+        if (Slot.mp_length.isDefinedFor(sType))
             // Caller should have tried Abstract.size
             throw typeError(NOT_SEQUENCE, s);
         throw typeError(HAS_NO_LEN, s);
@@ -26,20 +25,19 @@ class Sequence extends Abstract {
     /** Python {@code s[i]} */
     static PyObject getItem(PyObject s, int i) throws Throwable {
         PyType sType = s.getType();
-        PyType.SequenceMethods sq = sType.sequence;
 
         if (i < 0) {
             // Index from the end of the sequence (if it has one)
             try {
-                i += (int) sq.length.invokeExact(s);
+                i += (int) sType.sq_length.invokeExact(s);
             } catch (EmptyException e) {}
         }
 
         try {
-            return (PyObject) sq.item.invokeExact(s, i);
+            return (PyObject) sType.sq_item.invokeExact(s, i);
         } catch (EmptyException e) {}
 
-        if (Slot.MP.subscript.isDefinedFor(sType))
+        if (Slot.mp_subscript.isDefinedFor(sType))
             // Caller should have tried Abstract.getItem
             throw typeError(NOT_SEQUENCE, s);
         throw typeError(NOT_INDEXING, s);
@@ -48,21 +46,20 @@ class Sequence extends Abstract {
     static void setItem(PyObject s, int i, PyObject o)
             throws Throwable {
         PyType sType = s.getType();
-        PyType.SequenceMethods sq = sType.sequence;
 
         if (i < 0) {
             // Index from the end of the sequence (if it has one)
             try {
-                i += (int) sq.length.invokeExact(s);
+                i += (int) sType.sq_length.invokeExact(s);
             } catch (EmptyException e) {}
         }
 
         try {
-            sq.ass_item.invokeExact(s, i, o);
+            sType.sq_ass_item.invokeExact(s, i, o);
             return;
         } catch (EmptyException e) {}
 
-        if (Slot.MP.ass_subscript.isDefinedFor(sType))
+        if (Slot.mp_ass_subscript.isDefinedFor(sType))
             // Caller should have tried Abstract.setItem
             throw typeError(NOT_SEQUENCE, s);
         throw typeError(NOT_ITEM_ASSIGNMENT, s);
