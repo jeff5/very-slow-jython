@@ -46,29 +46,15 @@ from the same examples used previously.
 Re-working ``PyType``
 *********************
 
-*   Re-work type object construction to use static factory methods
-    for better control over the sequence of ``PyType`` creation.
-    Identify and support necessary patterns of immutability,
-    re-using ``NumberMethods.EMPTY`` etc. where possible.
-    Implement slot inheritance by copying handles from the base(s).
-
-*   Consider flattening the slot function tables
-    to a single structure (an ``EnumMap``?).
-    Some properties of a type do not belong in this structure,
-    even if they have ``tp_*`` names in CPython.
-    (See C-API ``PyType_Slot.slot`` fields that cannot be set,
-    and note on ``tp_bases``.)
-    We don't need an ``EMPTY`` table in this case (I think).
-
 Untangling the Type Initialisation
 ==================================
 
 In ``evo2``,
 the implementation class of each Python object
-created an instance of concrete class ``PyType`` by calling a constructor
+created an instance of concrete class ``PyType`` by calling a *constructor*
 from the static initialisation of the class.
 This has been ok so far,
-but results in a bit of a recursive scramble
+but it results in a bit of a recursive scramble,
 with the risk that we call methods on fundamental types
 before they are ready.
 (The Jython 2.7 type registry is also delicate on this way.)
@@ -78,12 +64,99 @@ according (for example) to different mutability patterns,
 and whether the type has numerical or sequence nature.
 This might extend to sub-classing ``PyType`` if necessary.
 Constraints on the coding of constructors
-(when ``super`` and ``this`` or instance methods may be called)
+(on when ``super`` and ``this`` or instance methods may be called)
 limit the possibilities for expression.
-A series of static factory methods and helpers is more flexible.
-We might even use (private) sub-classes of ``PyType``
-to express different behaviours and information content,
-which is not possible if the client must call a constructor.
+
+A series of static factory methods and helpers is more flexible,
+but it is complicated to express different desired behaviours
+even to static calls,
+and undesirable that a type once created be mutated freely.
+We therefore introduce a "specification" object:
+
+..  code-block:: java
+
+    class PyType implements PyObject {
+
+        // ...
+
+        /** Specification for a type. A data structure with mutators. */
+        static class Spec {
+
+            final static EnumSet<Flag> DEFAULT_FLAGS =
+                    EnumSet.of(Flag.BASETYPE);
+            final String name;
+            final Class<? extends PyObject> implClass;
+            final List<PyType> bases = new LinkedList<>();
+            EnumSet<Flag> flags = EnumSet.copyOf(DEFAULT_FLAGS);
+
+            /** Create (begin) a specification for a {@link PyType}. */
+            Spec(String name, Class<? extends PyObject> implClass) {
+                this.name = name;
+                this.implClass = implClass;
+            }
+
+            Spec base(PyType b) { ... }
+            Spec flag(Flag f) { ... }
+            Spec flagNot(Flag f) { ... }
+            PyType[] getBases() { ... }
+            // ...
+        }
+    }
+
+One may observe in this the beginnings of support for new features,
+including an attempt to support Python inheritance, and
+a field called ``flags`` (an ``EnumSet``),
+with the same general purpose as ``tp_flags`` (a bit set) in CPython.
+
+..  note::
+    As things develop, we expect this code to evolve
+    (so it may not be the same in the code base as in the text).
+
+CPython also has a ``PyType_Spec`` structure (for a ``PyHeapTypeObject``\s),
+which shares ``name`` and ``flags`` with ours,
+but it otherwise runs mainly to a description of the slots,
+which we seem to be doing adequately by a naming convention.
+Following CPython,
+we introduce a static factory method to interpret the ``PyType.Spec``:
+
+..  code-block:: java
+
+    class PyType implements PyObject {
+        // ...
+
+        /** Construct a type from the given specification. */
+        static PyType fromSpec(Spec spec) {
+            return new PyType(spec.name, spec.implClass, spec.getBases(),
+                    spec.flags);
+        }
+
+        private PyType(String name, Class<? extends PyObject> implClass,
+                PyType[] declaredBases, EnumSet<Flag> flags) {
+            this.name = name;
+            this.implClass = implClass;
+            this.flags = flags;
+            // Fix-up base and MRO from bases array
+            setMROfromBases(declaredBases);
+            // Fill slots from implClass or bases
+            setAllSlots();
+        }
+        // ...
+    }
+
+As an example of its use, consider PyBool:
+
+..  code-block:: java
+
+    class PyBool extends PyLong {
+
+        static final PyType TYPE = PyType.fromSpec( //
+                new PyType.Spec("bool", PyBool.class) //
+                        .base(PyLong.TYPE) //
+                        .flagNot(PyType.Flag.BASETYPE));
+        // ...
+
+Here we are saying that ``bool`` has ``int`` as a base (in Python)
+and may not itself be a base for further derivation (in Python).
 
 
 Flattening the Slot-function Table
@@ -93,7 +166,7 @@ In the section :ref:`representing-python-class`,
 we noted that in the CPython ``PyTypeObject``,
 some slots were directly in the type object (e.g. ``tp_repr``),
 while most were arranged in sub-tables,
-pointed to by fields in the type object that may be ``NULL``.
+pointed to by fields (that may be ``NULL``) in the type object.
 The motivation is surely to save space on type objects that do not need
 the full set of slots.
 The cost is some testing and indirection where these slots are used.
@@ -262,25 +335,36 @@ to initialise all the slots:
 
 The version here includes code that deals with simple inheritance.
 
+Manipulation of Slots and ``PyType.flags``
+==========================================
 
+We have made the slots package-accessible
+so that we may use them directly in the implementation of
+methods in the abstract object API (in ``Abstract.java``, for example).
+It is not intended that they be accessible to user-written Java,
+or be updated directly, even by the runtime.
+Rather, we must allow the type to police updates:
+in some cases, it is necessary for the ``PyType``
+to co-ordinate additional changes.
 
-Immutability and ``PyType.flags``
-=================================
+Certain Python types allow setting the slots in a controlled way.
+In others they are immutable.
+In CPython this is controlled by a bit in an ``int tp_flags`` field,
+and in our implementation by an element of ``EnumSet flags``.
 
-CPython type objects contain a ``tp_flags`` (a bit set)
-that records some functionally important information,
-and also caches frequently-used, derivable characteristics,
-such as whether the type is a subclass of ``int``.
-One that we need now is whether slots may be re-written.
-In CPython,
-this is conflated with whether the type is a "heap type".
-This is really about where the type object is allocated.
-Built-in types like ``int`` are not "heap-types",
-in the sense of mutable,
-while user-defined classes are.
-When reading CPython source,
-one must be alert to which sense of ``Py_TPFLAGS_HEAPTYPE`` is being used.
+In CPython, the question of mutability is conflated with
+whether the type is a "heap type" (that is, allocated dynamically).
+This second issue concerns where the type object is allocated.
+Built-in types like ``int`` are not heap types,
+and are not mutable,
+while user-defined classes are heap types and are mutable.
+All objects in Java are allocated by its runtime,
+so we do not need the second, literal sense idea of "heap type".
+When reading CPython source to emulate it,
+we must be alert to which sense of ``Py_TPFLAGS_HEAPTYPE`` is being used.
 
+We will use ``PyType.Flag.MUTABLE`` to signify that slots may be written,
+or conversely, may be depended upon never to change.
 
 
 Inheritance of Slot Functions
