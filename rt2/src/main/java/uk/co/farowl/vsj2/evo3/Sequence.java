@@ -1,7 +1,5 @@
 package uk.co.farowl.vsj2.evo3;
 
-import java.lang.invoke.MethodHandle;
-
 import uk.co.farowl.vsj2.evo3.Slot.EmptyException;
 
 /** Compare CPython {@code abstract.h}: {@code Py_Sequence_*}. */

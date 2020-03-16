@@ -604,7 +604,7 @@ class Slot {
             tp = TP.values();
             nb = NB.values();
             sq = SQ.values();
-            // XXX and the rest in due course
+            // ... and the rest in due course
             List<Any> all = new LinkedList<>();
             Collections.addAll(all, tp);
             Collections.addAll(all, nb);

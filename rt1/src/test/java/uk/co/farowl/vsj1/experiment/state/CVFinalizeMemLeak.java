@@ -12,7 +12,7 @@ package uk.co.farowl.vsj1.experiment.state;
  * Tomcat).
  *
  * The problem arises when a ClassValue has as key a class that is
- * permanent in the JVM, such where we provide behaviour to Java type
+ * permanent in the JVM, such as where we provide behaviour to Java type
  * Integer. ClassValue stores a map on the class on the target class
  * (Integer, say) from ClassValue instance to the stored value. The map
  * references the ClassValue object weakly but the stored value strongly.
@@ -21,7 +21,7 @@ package uk.co.farowl.vsj1.experiment.state;
  * reference to it, keeps alive the value's class, its loader, and all the
  * classes and static data of the runtime. Where the key is a class from
  * the moribund runtime, the problem does not arise, since the map resides
- * on that class and the ClassValue object is within the runtime..
+ * on that class and the ClassValue object is within the runtime.
  *
  * Good practice is to store the value by WeakReference, so that when the
  * runtime state is no longer referenced from elsewhere, this reference
@@ -41,8 +41,6 @@ package uk.co.farowl.vsj1.experiment.state;
 
 import java.io.File;
 import java.io.UncheckedIOException;
-import java.lang.ref.Reference;
-import java.lang.ref.WeakReference;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
@@ -173,7 +171,7 @@ public class CVFinalizeMemLeak {
              */
             Object runtime =
                     classLoader.loadClass(OUTERCLASS + "$MyRuntimeImpl")
-                            .newInstance();
+                            .getDeclaredConstructor().newInstance();
             System.out.println("\n" + i + " classloader = " + classLoader);
 
             ((Runnable)runtime).run();

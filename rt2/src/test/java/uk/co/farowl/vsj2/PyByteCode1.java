@@ -1,13 +1,11 @@
 package uk.co.farowl.vsj2;
 
-import static org.junit.Assert.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.HashMap;
-import java.util.IllegalFormatException;
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
@@ -415,6 +413,7 @@ class PyByteCode1 {
          * @param globals global name space
          * @param locals local name space (or it may be {@code globals})
          */
+        @SuppressWarnings("unchecked")
         protected PyFrame(ThreadState tstate, PyCode code,
                 PyDictionary globals, PyObject locals) {
 
@@ -459,11 +458,11 @@ class PyByteCode1 {
     private static class CPythonFrame extends PyFrame {
 
         /** Cells for free variables (used not created in this code). */
-        final Cell[] freevars;
+        //final Cell[] freevars;
         /** Cells for local cell variables (created in this code). */
-        final Cell[] cellvars;
+        //final Cell[] cellvars;
         /** Local simple variables (corresponds to "varnames"). */
-        final PyObject[] fastlocals;
+        //final PyObject[] fastlocals;
         /** Value stack. */
         final PyObject[] valuestack;
         /** Index of first empty space on the value stack. */
@@ -494,9 +493,9 @@ class PyByteCode1 {
                 PyObject locals) {
             super(tstate, code, globals, locals);
             this.valuestack = new PyObject[code.stacksize];
-            this.fastlocals = null;
-            this.freevars = null;
-            this.cellvars = null;
+            //this.fastlocals = null;
+            //this.freevars = null;
+            //this.cellvars = null;
         }
 
         @Override

@@ -22,6 +22,7 @@ class PyByteCode2 {
      * A test that the method handles we place in nominally empty slots,
      * do in fact raise the exception used internally to detect them.
      */
+    @SuppressWarnings("unused")
     @Test
     void testSlotsEmptyException() {
 

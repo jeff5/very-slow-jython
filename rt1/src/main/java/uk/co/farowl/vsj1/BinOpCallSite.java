@@ -19,7 +19,8 @@ import uk.co.farowl.vsj1.TreePython.operator;
 public class BinOpCallSite extends MutableCallSite {
 
     private final operator op;
-    private final Lookup lookup; // XXX not used: what am I doing wrong?
+    @SuppressWarnings("unused") // not used: what am I doing wrong?
+    private final Lookup lookup;
     private final MethodHandle fallbackMH;
 
     public static int fallbackCalls = 0;

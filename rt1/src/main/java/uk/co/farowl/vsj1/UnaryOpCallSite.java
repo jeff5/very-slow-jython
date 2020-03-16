@@ -18,6 +18,7 @@ import uk.co.farowl.vsj1.TreePython.unaryop;
 public class UnaryOpCallSite extends MutableCallSite {
 
     private final unaryop op;
+    @SuppressWarnings("unused") // why do I not need this from the client?
     private final Lookup lookup;
     private final MethodHandle fallbackMH;
 

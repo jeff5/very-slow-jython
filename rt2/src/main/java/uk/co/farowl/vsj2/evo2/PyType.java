@@ -34,9 +34,9 @@ class PyType implements PyObject {
     MethodHandle richcompare;
 
     /** Construct a type object with given name and implementation. */
-    PyType(String name, Class<? extends PyObject> implClass) {
+    PyType(String name, Class<? extends PyObject> impl) {
         this.name = name;
-        this.implClass = implClass;
+        this.implClass = impl;
 
         // Initialise slots to implement standard operations.
         hash = Slot.TP.hash.findInClass(implClass);

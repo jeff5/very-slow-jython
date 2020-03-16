@@ -225,6 +225,7 @@ public class TestInterp2 {
     }
 
     /** Our equivalent to the Python code object. */
+    @SuppressWarnings("unused")
     private static class Code {
 
         /**
@@ -329,6 +330,7 @@ public class TestInterp2 {
      * We have no need for a separately compiled <code>_symtable</code>
      * module and raw <code>_table</code> member.
      */
+    @SuppressWarnings("unused")
     private static abstract class SymbolTable {
 
         /** Scopes have a name (the name of the function, class, etc.. */
@@ -720,6 +722,7 @@ public class TestInterp2 {
      * Symbol table representing the scope of a module, that is, the top
      * level of the scope tree.
      */
+    @SuppressWarnings("unused")
     private static class ModuleSymbolTable extends SymbolTable {
 
         private String filename;
@@ -750,6 +753,7 @@ public class TestInterp2 {
      * Symbol table representing the scope of a function body, which cannot
      * therefore be the top level of the scope tree.
      */
+    @SuppressWarnings("unused")
     private static class FunctionSymbolTable extends SymbolTable {
 
         private final ModuleSymbolTable top;
@@ -1350,7 +1354,9 @@ public class TestInterp2 {
     private static final operator Add = operator.Add;
     private static final operator Sub = operator.Sub;
     private static final operator Mult = operator.Mult;
+    @SuppressWarnings("unused")
     private static final operator Div = operator.Div;
+    @SuppressWarnings("unused")
     private static final unaryop UAdd = unaryop.UAdd;
     private static final unaryop USub = unaryop.USub;
     private static final expr_context Load = expr_context.Load;
@@ -1367,6 +1373,7 @@ public class TestInterp2 {
                 cast(decorator_list, expr.class), returns, type_comment);}
     private static stmt Return(expr value)
         { return new stmt.Return(value); }
+    @SuppressWarnings("unused")
     private static stmt Delete(List<?> targets)
         { return new stmt.Delete(cast(targets, expr.class)); }
     private static stmt Assign(List<?> targets, expr value,
@@ -1375,10 +1382,12 @@ public class TestInterp2 {
                 type_comment); }
     private static stmt Global(List<?> names)
         { return new stmt.Global(cast(names, String.class)); }
+    @SuppressWarnings("unused")
     private static stmt Nonlocal(List<?> names)
         { return new stmt.Nonlocal(cast(names, String.class)); }
     private static stmt Expr(expr value)
         { return new stmt.Expr(value); }
+    @SuppressWarnings("unused")
     private static stmt Pass()
         { return new stmt.Pass(); }
 

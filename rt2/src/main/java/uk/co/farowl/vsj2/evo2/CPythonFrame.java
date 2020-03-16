@@ -65,7 +65,6 @@ class CPythonFrame extends PyFrame {
         int ip = 2;
         // Local variables used repeatedly in the loop
         PyObject name, res, u, v, w;
-        boolean bool;
 
         loop : for (;;) {
             try {

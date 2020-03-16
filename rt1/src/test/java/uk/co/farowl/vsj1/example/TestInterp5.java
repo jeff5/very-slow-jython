@@ -89,15 +89,18 @@ public class TestInterp5 {
         // evaluator = new Evaluator();
     }
 
+    @SuppressWarnings("unused")
     private static void resetFallbackCalls() {
         BinOpCallSite.fallbackCalls = 0;
         UnaryOpCallSite.fallbackCalls = 0;
     }
 
+    @SuppressWarnings("unused")
     private static int unaryFallbackCalls() {
         return UnaryOpCallSite.fallbackCalls;
     }
 
+    @SuppressWarnings("unused")
     private static int binaryFallbackCalls() {
         return BinOpCallSite.fallbackCalls;
     }
@@ -178,6 +181,7 @@ public class TestInterp5 {
      * An older implementation of the Function object, without the
      * {@link Function#getFrame(Frame)} optimisation.
      */
+    @SuppressWarnings("unused")
     private static class OtherCallable implements PyCallable {
 
         final String name;
@@ -237,6 +241,7 @@ public class TestInterp5 {
     private static abstract class Frame {
 
         /** Frames form a stack by chaining through the back pointer. */
+        @SuppressWarnings("unused")
         final Frame f_back;
         /** Code this frame is to execute. */
         final Code f_code;
@@ -345,6 +350,7 @@ public class TestInterp5 {
          * @param code that this frame executes
          * @param globals global name space
          */
+        @SuppressWarnings("unused")
         ExecutionFrame(Frame back, Code code,
                 Map<String, Object> globals) {
             this(back, code, globals, (Map<String, Object>) null);
@@ -407,7 +413,7 @@ public class TestInterp5 {
              * We only need the fast locals array if the code uses
              * optimised load and store mechanisms.
              */
-            // XXX How do we store/load local variables when there is both
+            // How do we store/load local variables when there is both
             // a dictionary realisation of them and a fastlocals and/or
             // cellvars array?
             if (code.traits.contains(Code.Trait.OPTIMIZED)) {
@@ -1012,6 +1018,7 @@ public class TestInterp5 {
     }
 
     /** Our equivalent to the Python code object. */
+    @SuppressWarnings("unused")
     private static class Code {
 
         /**
@@ -1059,7 +1066,7 @@ public class TestInterp5 {
 
         final Object[] co_consts;   // constant objects needed by the code
 
-        // XXX: Not needed (?) but implement for test against CPython
+        // Not needed (?) but implement for test against CPython
         final String[] co_names;    // names referenced in the code
         final String[] co_varnames; // args and non-cell locals
         final String[] co_freevars; // names ref'd but not defined here
@@ -1120,6 +1127,7 @@ public class TestInterp5 {
      * We have no need for a separately compiled <code>_symtable</code>
      * module and raw <code>_table</code> member.
      */
+    @SuppressWarnings("unused")
     private static abstract class SymbolTable {
 
         /** Scopes have a name (the name of the function, class, etc.. */
@@ -1440,7 +1448,7 @@ public class TestInterp5 {
              * scope.
              */
             boolean is_local() {
-                // XXX This is what CPython defines. Bug?
+                // This is what CPython defines. Bug?
                 return (flags & BOUND) != 0;
                 // Why not:
                 // return scope == ScopeType.LOCAL;
@@ -1507,6 +1515,7 @@ public class TestInterp5 {
      * Symbol table representing the scope of a module, that is, the top
      * level of the scope tree.
      */
+    @SuppressWarnings("unused")
     private static class ModuleSymbolTable extends SymbolTable {
 
         private String filename;
@@ -1537,6 +1546,7 @@ public class TestInterp5 {
      * Symbol table representing the scope of a function body, which cannot
      * therefore be the top level of the scope tree.
      */
+    @SuppressWarnings("unused")
     private static class FunctionSymbolTable extends SymbolTable {
 
         private final ModuleSymbolTable top;
@@ -2141,8 +2151,11 @@ public class TestInterp5 {
     private static final operator Add = operator.Add;
     private static final operator Sub = operator.Sub;
     private static final operator Mult = operator.Mult;
+    @SuppressWarnings("unused")
     private static final operator Div = operator.Div;
+    @SuppressWarnings("unused")
     private static final unaryop UAdd = unaryop.UAdd;
+    @SuppressWarnings("unused")
     private static final unaryop USub = unaryop.USub;
     private static final expr_context Load = expr_context.Load;
     private static final expr_context Store = expr_context.Store;
@@ -2158,6 +2171,7 @@ public class TestInterp5 {
                 cast(decorator_list, expr.class), returns, type_comment);}
     private static stmt Return(expr value)
         { return new stmt.Return(value); }
+    @SuppressWarnings("unused")
     private static stmt Delete(List<?> targets)
         { return new stmt.Delete(cast(targets, expr.class)); }
     private static stmt Assign(List<?> targets, expr value,
@@ -2166,6 +2180,7 @@ public class TestInterp5 {
                 type_comment); }
     private static stmt Global(List<?> names)
         { return new stmt.Global(cast(names, String.class)); }
+    @SuppressWarnings("unused")
     private static stmt Nonlocal(List<?> names)
         { return new stmt.Nonlocal(cast(names, String.class)); }
     private static stmt Expr(expr value)
@@ -2173,6 +2188,7 @@ public class TestInterp5 {
 
     private static expr BinOp(expr left, operator op, expr right)
         { return new expr.BinOp(left, op, right); }
+    @SuppressWarnings("unused")
     private static expr UnaryOp(unaryop op, expr operand)
         { return new expr.UnaryOp(op, operand); }
     private static expr Call(expr func, List<?> args, List<?> keywords){
@@ -2196,6 +2212,7 @@ public class TestInterp5 {
             String type_comment) {
         return new arg(arg, annotation, type_comment); }
 
+    @SuppressWarnings("unused")
     private static keyword keyword(String arg, expr value)
         { return new keyword(arg, value); }
 

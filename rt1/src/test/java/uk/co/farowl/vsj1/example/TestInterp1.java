@@ -243,6 +243,7 @@ public class TestInterp1 {
          * Retrieve the named symbol from this table (or return null if not
          * found).
          */
+        @SuppressWarnings("unused")
         Symbol lookup(String name) {
             return symbols.get(name);
         }
@@ -478,10 +479,12 @@ public class TestInterp1 {
             }
 
             /** Return a list of namespaces bound to this name */
+            @SuppressWarnings("unused")
             List<SymbolTable> getNamespaces() {
                 return namespaces;
             }
 
+            @SuppressWarnings("unused")
             SymbolTable getNamespace() {
                 /*
                  * Returns the single namespace bound to this name.
@@ -508,6 +511,7 @@ public class TestInterp1 {
      */
     private static class ModuleSymbolTable extends SymbolTable {
 
+        @SuppressWarnings("unused")
         private String filename;
 
         ModuleSymbolTable(mod module, String filename) {
@@ -754,10 +758,15 @@ public class TestInterp1 {
     // @formatter:off
 
     private static final operator Add = operator.Add;
+    @SuppressWarnings("unused")
     private static final operator Sub = operator.Sub;
+    @SuppressWarnings("unused")
     private static final operator Mult = operator.Mult;
+    @SuppressWarnings("unused")
     private static final operator Div = operator.Div;
+    @SuppressWarnings("unused")
     private static final unaryop UAdd = unaryop.UAdd;
+    @SuppressWarnings("unused")
     private static final unaryop USub = unaryop.USub;
     private static final expr_context Load = expr_context.Load;
     private static final expr_context Store = expr_context.Store;
@@ -771,8 +780,10 @@ public class TestInterp1 {
             String type_comment) {
         return new stmt.FunctionDef(name, args, cast(body, stmt.class),
                 cast(decorator_list, expr.class), returns, type_comment);}
+    @SuppressWarnings("unused")
     private static stmt Return(expr value)
         { return new stmt.Return(value); }
+    @SuppressWarnings("unused")
     private static stmt Delete(List<?> targets)
         { return new stmt.Delete(cast(targets, expr.class)); }
     private static stmt Assign(List<?> targets, expr value,
@@ -783,6 +794,7 @@ public class TestInterp1 {
         { return new stmt.Global(cast(names, String.class)); }
     private static stmt Nonlocal(List<?> names)
         { return new stmt.Nonlocal(cast(names, String.class)); }
+    @SuppressWarnings("unused")
     private static stmt Expr(expr value)
         { return new stmt.Expr(value); }
     private static stmt Pass()
@@ -790,8 +802,10 @@ public class TestInterp1 {
 
     private static expr BinOp(expr left, operator op, expr right)
         { return new expr.BinOp(left, op, right); }
+    @SuppressWarnings("unused")
     private static expr UnaryOp(unaryop op, expr operand)
         { return new expr.UnaryOp(op, operand); }
+    @SuppressWarnings("unused")
     private static expr Call(expr func, List<?> args, List<?> keywords) {
         return new expr.Call(func, cast(args, expr.class),
                 cast(keywords, keyword.class)); }

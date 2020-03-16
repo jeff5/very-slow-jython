@@ -146,7 +146,7 @@ class Number extends Abstract {
                 if (resultType == PyLong.TYPE)
                     return result;
                 else if (resultType.isSubTypeOf(PyLong.TYPE))
-                    // XXX Sub-types not implemented yet
+                    // Sub-types not implemented yet
                     // CPython issues DeprecationWarning on sub-type.
                     return result;
                 else
@@ -190,7 +190,7 @@ class Number extends Abstract {
             if (valueType == PyLong.TYPE)
                 return ((PyLong) value).asSize();
             else if (valueType.isSubTypeOf(PyLong.TYPE))
-                // XXX Sub-types not implemented: maybe can't cast
+                // Sub-types not implemented: maybe can't cast
                 return ((PyLong) value).asSize();
             else
                 return 0;   // Number.index guarantees we never reach
