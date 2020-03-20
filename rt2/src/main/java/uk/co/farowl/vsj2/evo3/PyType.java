@@ -47,6 +47,9 @@ class PyType implements PyObject {
     MethodHandle nb_add;
     MethodHandle nb_subtract;
     MethodHandle nb_multiply;
+    MethodHandle nb_and;
+    MethodHandle nb_or;
+    MethodHandle nb_xor;
 
     MethodHandle nb_bool;
 

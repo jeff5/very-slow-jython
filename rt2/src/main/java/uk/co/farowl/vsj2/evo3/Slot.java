@@ -25,35 +25,55 @@ enum Slot {
     tp_str(Signature.UNARY), //
     tp_richcompare(Signature.RICHCMP), //
 
-    nb_negative(Signature.UNARY, "neg"), //
-    nb_add(Signature.BINARY, "add"), //
-    nb_subtract(Signature.BINARY, "sub"), //
-    nb_multiply(Signature.BINARY, "mul"), //
+    nb_negative(Signature.UNARY, "-", "neg"), //
+    nb_add(Signature.BINARY, "+", "add"), //
+    nb_subtract(Signature.BINARY, "-", "sub"), //
+    nb_multiply(Signature.BINARY, "*", "mul"), //
+    nb_and(Signature.BINARY, "&", "and"), //
+    nb_or(Signature.BINARY, "|", "or"), //
+    nb_xor(Signature.BINARY, "^", "xor"), //
     nb_bool(Signature.PREDICATE), //
     nb_index(Signature.UNARY), //
 
-    sq_length(Signature.LEN, "length"), //
+    sq_length(Signature.LEN, null, "length"), //
     sq_repeat(Signature.SQ_INDEX), //
     sq_item(Signature.SQ_INDEX), //
     sq_ass_item(Signature.SQ_ASSIGN), //
 
-    mp_length(Signature.LEN, "length"), //
+    mp_length(Signature.LEN, null, "length"), //
     mp_subscript(Signature.BINARY), //
     mp_ass_subscript(Signature.MP_ASSIGN);
 
-    final String methodName;
+    /** Method signature required in this slot. */
     final MethodType type;
+    /** Name of implementation method to bind to this slot. */
+    final String methodName;
+    /** Name to use in error messages */
+    final String opName;
+    /** Throws {@link EmptyException} (default slot content). */
     final MethodHandle empty;
+    /** Reference to field holding this slot in a {@link PyType} */
     final VarHandle slotHandle;
 
-    Slot(Signature signature, String methodName) {
+    /**
+     * Constructor for enum constants.
+     * @param signature of the function to be called
+     * @param opName symbol (such as "+")
+     * @param methodName implementation method (e.g. "add")
+     */
+    Slot(Signature signature, String opName, String methodName) {
+        this.opName = opName == null ? name() : opName;
         this.methodName = methodName == null ? name() : methodName;
         this.type = signature.type;
         this.empty = signature.empty;
         this.slotHandle = Util.slotHandle(this);
     }
 
-    Slot(Signature signature) { this(signature, null); }
+    Slot(Signature signature) { this(signature, null, null); }
+
+    Slot(Signature signature, String opName) {
+        this(signature, opName, null);
+    }
 
     /**
      * Get the name of the method that, by convention, identifies the

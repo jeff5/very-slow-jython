@@ -1,5 +1,7 @@
 package uk.co.farowl.vsj2.evo3;
 
+import java.math.BigInteger;
+
 /** The Python {@code bool} object. */
 class PyBool extends PyLong {
 
@@ -24,4 +26,32 @@ class PyBool extends PyLong {
     public String toString() {
         return asSize() == 0 ? "False" : "True";
     }
+
+
+    // slot functions -------------------------------------------------
+
+    static PyObject and(PyObject v, PyObject w) {
+        if (v instanceof PyBool && w instanceof PyBool)
+            return Py.val(v == True && w == True);
+        else
+            // v is not a bool, or w is not.
+            return PyLong.and(v, w);
+    }
+
+    static PyObject or(PyObject v, PyObject w) {
+        if (v instanceof PyBool && w instanceof PyBool)
+            return Py.val(v == True || w == True);
+        else
+            // v is not a bool, or w is not.
+            return PyLong.or(v, w);
+    }
+
+    static PyObject xor(PyObject v, PyObject w) {
+        if (v instanceof PyBool && w instanceof PyBool)
+            return Py.val(v != w);
+        else
+            // v is not a bool, or w is not.
+            return PyLong.xor(v, w);
+    }
+
 }

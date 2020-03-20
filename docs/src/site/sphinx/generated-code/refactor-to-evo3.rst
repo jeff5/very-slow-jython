@@ -249,38 +249,43 @@ now defines an enum with constants for each slot:
         tp_repr(Signature.UNARY), //
         //...
 
-        nb_negative(Signature.UNARY, "neg"), //
-        nb_add(Signature.BINARY, "add"), //
+        nb_negative(Signature.UNARY, "-", "neg"), //
+        nb_add(Signature.BINARY, "+", "add"), //
         //...
 
-        sq_length(Signature.LEN, "length"), //
+        sq_length(Signature.LEN, null, "length"), //
         sq_repeat(Signature.SQ_INDEX), //
         sq_item(Signature.SQ_INDEX), //
-        //...
+        sq_ass_item(Signature.SQ_ASSIGN), //
 
-        mp_length(Signature.LEN, "length"), //
+        mp_length(Signature.LEN, null, "length"), //
         mp_subscript(Signature.BINARY), //
-        //...
+        mp_ass_subscript(Signature.MP_ASSIGN);
 
-        final String methodName;
         final MethodType type;
+        final String methodName;
+        final String opName;
         final MethodHandle empty;
         final VarHandle slotHandle;
 
-        Slot(Signature signature, String methodName) {
+        Slot(Signature signature, String opName, String methodName) {
+            this.opName = opName == null ? name() : opName;
             this.methodName = methodName == null ? name() : methodName;
             this.type = signature.type;
             this.empty = signature.empty;
             this.slotHandle = Util.slotHandle(this);
         }
 
-        Slot(Signature signature) { this(signature, null); }
-        //...
+        Slot(Signature signature) { this(signature, null, null); }
+
+        Slot(Signature signature, String opName) {
+            this(signature, opName, null);
+        }
+        // ...
     }
 
 As with the previous ``Slot.TP``, ``Slot.NB``, and so on,
-the ``enum`` encapsulates a lot of behaviour,
-here elided,
+the ``enum`` encapsulates a lot of behaviour (not shown),
 supporting its use.
 The design is the same one outlined in :ref:`how-we-fill-slots`,
 but we no longer have to repeat the logic for ``Slot.NB``, ``Slot.SQ``, etc..
@@ -318,22 +323,9 @@ one method serves both slots,
 but they are not always both defined.
 
 The initialisation of the ``PyType`` now uses a single loop
-to initialise all the slots:
+to initialise all the slots,
+as may be seen in :ref:`inheritance-of-slot-functions`.
 
-..  code-block:: java
-
-        private void setAllSlots() {
-            for (Slot s : Slot.values()) {
-                final MethodHandle empty = s.getEmpty();
-                MethodHandle mh = s.findInClass(implClass);
-                for (int i = 0; mh == empty && i < bases.length; i++) {
-                    mh = s.getSlot(bases[i]);
-                }
-                s.setSlot(this, mh);
-            }
-        }
-
-The version here includes code that deals with simple inheritance.
 
 Manipulation of Slots and ``PyType.flags``
 ==========================================
@@ -366,6 +358,7 @@ we must be alert to which sense of ``Py_TPFLAGS_HEAPTYPE`` is being used.
 We will use ``PyType.Flag.MUTABLE`` to signify that slots may be written,
 or conversely, may be depended upon never to change.
 
+.. _inheritance-of-slot-functions:
 
 Inheritance of Slot Functions
 =============================
@@ -375,17 +368,56 @@ We noted in :ref:`bool-implementation` that
 because the look-up of (say) ``add`` on ``PyBool`` found ``PyLong.add``.
 This made the test pass,
 but resulted in taking the slow path in ``Number.binary_op1``.
+We actually need to copy the ``add`` slot from the type of ``PyLong``
+to the type of ``PyBool``,
+and not to create a new ``MethodHandle`` for the same method.
 
-In the refactoring,
-we overhaul the way inheritance is handled.
-Ambitiously, we aim to:
+Secondly,
+we should ensure that when ``PyBool`` gives a different meaning to a slot,
+this is the one that applies to a Python ``bool``.
+An example of this is the boolean binary operations ``&``, ``|`` and ``^``,
+which are bit-wise operations in ``int``,
+but when both operands are ``bool``, yield ``True`` or ``False``.
 
-*   Allow multiple bases.
+We address this in the refactoring by copying the slots in a new type
+from the base.
+In fact we allow for multiple bases,
+as we shall have to eventually.
+The first one to supply the slot wins:
+
+..  code-block:: java
+
+    class PyType implements PyObject {
+        // ...
+        private void setAllSlots() {
+            for (Slot s : Slot.values()) {
+                final MethodHandle empty = s.getEmpty();
+                MethodHandle mh = s.findInClass(implClass);
+                for (int i = 0; mh == empty && i < bases.length; i++) {
+                    mh = s.getSlot(bases[i]);
+                }
+                s.setSlot(this, mh);
+            }
+        }
+        // ...
+
+The equivalent code in CPython is ``typeobject.c::inherit_slots()``.
+The logic there is more complex
+as it has to deal with the sub-table structure.
+
+..  note:: At the time of writing,
+    the author has not worked out why in CPython the "base of the base"
+    is involved in the ``SLOTDEFINED``,
+    so that seems only to copy slots originating in the immediate base.
+
+Eventually, we aim to:
 
 *   Compute an MRO by Python rules (or approximation).
 
 *   Choose the unique ``__base__`` by Python rules.
 
+These can wait until we introduce class definitions in Python,
+through generated tests.
 
 
 Lightweight ``EmptyException``

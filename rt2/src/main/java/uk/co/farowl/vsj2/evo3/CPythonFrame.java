@@ -120,6 +120,27 @@ class CPythonFrame extends PyFrame {
                         Abstract.setItem(w, v, u);
                         break;
 
+                    case Opcode.BINARY_AND:
+                        w = valuestack[--sp]; // POP
+                        v = valuestack[sp - 1]; // TOP
+                        res = Number.and(v, w);
+                        valuestack[sp - 1] = res; // SET_TOP
+                        break;
+
+                    case Opcode.BINARY_OR:
+                        w = valuestack[--sp]; // POP
+                        v = valuestack[sp - 1]; // TOP
+                        res = Number.or(v, w);
+                        valuestack[sp - 1] = res; // SET_TOP
+                        break;
+
+                    case Opcode.BINARY_XOR:
+                        w = valuestack[--sp]; // POP
+                        v = valuestack[sp - 1]; // TOP
+                        res = Number.xor(v, w);
+                        valuestack[sp - 1] = res; // SET_TOP
+                        break;
+
                     case Opcode.RETURN_VALUE:
                         returnValue = valuestack[--sp]; // POP
                         break loop;

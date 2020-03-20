@@ -78,6 +78,36 @@ class PyLong implements PyObject {
         }
     }
 
+    static PyObject and(PyObject v, PyObject w) {
+        try {
+            BigInteger a = valueOf(v);
+            BigInteger b = valueOf(w);
+            return new PyLong(a.and(b));
+        } catch (ClassCastException cce) {
+            return Py.NotImplemented;
+        }
+    }
+
+    static PyObject or(PyObject v, PyObject w) {
+        try {
+            BigInteger a = valueOf(v);
+            BigInteger b = valueOf(w);
+            return new PyLong(a.or(b));
+        } catch (ClassCastException cce) {
+            return Py.NotImplemented;
+        }
+    }
+
+    static PyObject xor(PyObject v, PyObject w) {
+        try {
+            BigInteger a = valueOf(v);
+            BigInteger b = valueOf(w);
+            return new PyLong(a.xor(b));
+        } catch (ClassCastException cce) {
+            return Py.NotImplemented;
+        }
+    }
+
     static PyObject tp_richcompare(PyObject v, PyObject w, Comparison op) {
         if (v instanceof PyLong && w instanceof PyLong) {
             int u = ((PyLong) v).value.compareTo(((PyLong) w).value);

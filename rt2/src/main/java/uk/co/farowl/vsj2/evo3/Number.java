@@ -60,8 +60,44 @@ class Number extends Abstract {
         throw operandError("*", v, w);
     }
 
+    /** Python {@code v | w} */
+    static final PyObject or(PyObject v, PyObject w) throws Throwable {
+        return binary_op(v, w, Slot.nb_or);
+    }
+
+    /** Python {@code v & w} */
+    static final PyObject and(PyObject v, PyObject w) throws Throwable {
+        return binary_op(v, w, Slot.nb_and);
+    }
+
+    /** Python {@code v ^ w} */
+    static final PyObject xor(PyObject v, PyObject w) throws Throwable {
+        return binary_op(v, w, Slot.nb_xor);
+    }
+
     private static final MethodHandle SQ_INDEX_EMPTY =
             Slot.Signature.SQ_INDEX.empty;
+
+    /**
+     * Helper for implementing a binary operation that has one,
+     * slot-based interpretation.
+     *
+     * @param v left operand
+     * @param w right operand
+     * @param binop operation to apply
+     * @return result of operation
+     * @throws TypeError if neither operand implements the operation
+     * @throws Throwable from the implementation of the operation
+     */
+    private static PyObject binary_op(PyObject v, PyObject w,
+            Slot binop) throws TypeError, Throwable {
+        try {
+            PyObject r = binary_op1(v, w, binop);
+            if (r != Py.NotImplemented)
+                return r;
+        } catch (Slot.EmptyException e) {}
+        throw operandError(binop.opName, v, w);
+    }
 
     /**
      * Helper for implementing binary operation. If neither the left
