@@ -8,6 +8,9 @@ Sequences and Indexing
     and ``rt2/src/test/java/.../vsj2/evo2/PyByteCode3.java``
     in the project source.
 
+
+..  _tuple-creation-indexing:
+
 Tuple Creation and Indexing
 ***************************
 
@@ -219,6 +222,8 @@ while the ``subscript`` slot takes an object
 that it then interprets using slice or end-relative semantics.
 We haven't implemented slices yet.
 
+
+..  _list-creation-indexing:
 
 List Creation and Indexing
 **************************

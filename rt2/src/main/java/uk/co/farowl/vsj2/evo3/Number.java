@@ -23,7 +23,7 @@ class Number extends Abstract {
                 op, v.getType().getName());
     }
 
-    /** Python {@code v+w} */
+    /** Python {@code v + w} */
     static PyObject add(PyObject v, PyObject w) throws Throwable {
         try {
             PyObject r = binary_op1(v, w, Slot.nb_add);
@@ -31,19 +31,15 @@ class Number extends Abstract {
                 return r;
         } catch (Slot.EmptyException e) {}
         throw operandError("+", v, w);
+        // XXX Try the sequence concatenate interpretation
     }
 
-    /** Python {@code v-w} */
+    /** Python {@code v - w} */
     static PyObject subtract(PyObject v, PyObject w) throws Throwable {
-        try {
-            PyObject r = binary_op1(v, w, Slot.nb_subtract);
-            if (r != Py.NotImplemented)
-                return r;
-        } catch (Slot.EmptyException e) {}
-        throw operandError("-", v, w);
+        return binary_op(v, w, Slot.nb_subtract);
     }
 
-    /** Python {@code v*w} */
+    /** Python {@code v * w} */
     static PyObject multiply(PyObject v, PyObject w) throws Throwable {
         try {
             PyObject r = binary_op1(v, w, Slot.nb_multiply);

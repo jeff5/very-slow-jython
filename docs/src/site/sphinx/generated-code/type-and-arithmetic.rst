@@ -76,6 +76,7 @@ or a sequence, respectively.
 
 Let's take a look at how this is used.
 
+..  _unary-operation:
 
 A Unary Operation ``UNARY_NEGATIVE``
 ************************************

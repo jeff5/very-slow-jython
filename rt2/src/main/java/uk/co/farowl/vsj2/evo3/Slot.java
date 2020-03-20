@@ -189,28 +189,14 @@ enum Slot {
          * @param ptype types of parameters the slot function takes
          */
         Signature(Class<?> returnType, Class<?>... ptype) {
-            // th = λ e : throw e (with nominally-correct return type)
-            MethodHandle th = MethodHandles.throwException(returnType,
-                    EmptyException.class);
-            // em = λ : throw new EmptyException
-            MethodHandle em =
-                    MethodHandles.foldArguments(th, Util.NEWEX);
-            // empty = λ u v ... : throw new EmptyException
+            // em = λ : throw Util.EMPTY
+            // (with nominally-correct return type)
+            MethodHandle em = MethodHandles.throwException(returnType,
+                    EmptyException.class).bindTo(Util.EMPTY);
+            // empty = λ u v ... : throw Util.EMPTY
             this.empty = MethodHandles.dropArguments(em, 0, ptype);
             // All handles in the slot must have the same type as empty
             this.type = this.empty.type(); // = (ptype...)returnType
-        }
-
-        private static final Map<MethodType, Signature> sigMap;
-        static {
-            sigMap = new HashMap<>();
-            for (Signature sig : Signature.values()) {
-                sigMap.put(sig.empty.type(), sig);
-            }
-        }
-
-        static Signature matching(MethodType t) {
-            return sigMap.get(t);
         }
     }
 
@@ -244,23 +230,8 @@ enum Slot {
         private static final MethodHandles.Lookup LOOKUP =
                 MethodHandles.lookup();
 
-        private static final MethodType VOID =
-                MethodType.methodType(void.class);
-
-        static MethodHandle NEWEX;
-
-        static {
-            try {
-                // NEWEX = λ : new EmptyException
-                NEWEX = LOOKUP.findConstructor(EmptyException.class,
-                        VOID);
-            } catch (NoSuchMethodException | IllegalAccessException e) {
-                SystemError se =
-                        new SystemError("initialising type slots");
-                se.initCause(e);
-                throw se;
-            }
-        }
+        /** Single re-used instance of {@code Slot.EmptyException} */
+        static final EmptyException EMPTY = new EmptyException();
 
         /**
          * Helper for constructors at the point they need a handle for

@@ -423,18 +423,144 @@ through generated tests.
 Lightweight ``EmptyException``
 ******************************
 
-*   ``EmptyException`` to be lightweight and static,
-    following "The Exceptional Performance of Lil' Exception"
-    [`Shipilev 2014`_].
-    Add discussion suggesting correct balance.
+In the section :ref:`unary-operation`,
+we introduced the idea that empty slots would not be ``null``,
+as in CPython,
+but would throw an ``EmptyException`` when invoked.
+Code in the run-time would catch this exception,
+and this would save us a test for ``null``.
 
+It is normally advised that, in Java,
+the run-time cost of exceptions precludes
+using them for normal transfers of control.
+As a result,
+the logic for binary operations (see :ref:`binary_operation`)
+reserves this technique for use only where
+an empty slot would lead to an exception anyway (often a ``TypeError``).
+At the point where finding an empty slot is a normal occurrence,
+the attempt is preceded by a test for ``BINARY_EMPTY``:
 
+..  code-block:: java
+    :emphasize-lines: 17,26
 
+    class Number extends Abstract {
+        // ...
+        private static PyObject binary_op1(PyObject v, PyObject w,
+                Slot binop) throws Slot.EmptyException, Throwable {
+            PyType vtype = v.getType();
+            PyType wtype = w.getType();
 
+            MethodHandle slotv = binop.getSlot(vtype);
+            MethodHandle slotw;
 
+            if (wtype == vtype || (slotw = binop.getSlot(wtype)) == slotv)
+                // Both types give the same result
+                return (PyObject) slotv.invokeExact(v, w);
 
+            else if (!wtype.isSubTypeOf(vtype)) {
+                // Ask left (if not empty) then right.
+                if (slotv != BINARY_EMPTY) {
+                    PyObject r = (PyObject) slotv.invokeExact(v, w);
+                    if (r != Py.NotImplemented)
+                        return r;
+                }
+                return (PyObject) slotw.invokeExact(v, w);
+
+            } else {
+                // Right is sub-class: ask first (if not empty).
+                if (slotw != BINARY_EMPTY) {
+                    PyObject r = (PyObject) slotw.invokeExact(v, w);
+                    if (r != Py.NotImplemented)
+                        return r;
+                }
+                return (PyObject) slotv.invokeExact(v, w);
+            }
+        }
+
+In ``Abstract.getItem`` and ``Abstract.setItem``
+(see :ref:`tuple-creation-indexing` and :ref:`list-creation-indexing`)
+we try the mapping slot first and do not guard it with a test,
+choosing instead to catch the exception.
+In almost all built-in types,
+``mp_subscript`` is defined if ``sq_item`` is,
+so the exception is rare.
+
+The alternative is a call to ``Slot.isDefinedFor()``.
+The cost of the test is paid every time,
+while the cost of the exception only arises if it is thrown.
+This may be a good trade if exceptions are cheap enough,
+but how cheap do they have to be?
+
+It has been shown
+(see "The Exceptional Performance of Lil' Exception" [`Shipilev 2014`_])
+that the cost of throwing an exception is very high, and consists of:
+
+* the creation of a stack-trace, and
+
+* the subsequent unwinding to the catch point.
+
+The first cost may be eliminated by creating one instance statically and
+throwing it every time.
+Obviously the trace is then misleading, but we don't ever use it,
+and we could suppress it altogether.
+We can make that change in a refactoring of ``Slot``:
+
+..  code-block:: java
+
+    enum Slot {
+
+        tp_hash(Signature.LEN), //
+        tp_repr(Signature.UNARY), //
+        // ...
+
+        enum Signature implements ClassShorthand {
+            UNARY(O, O), // NB.negative, NB.invert
+            // ...
+
+            Signature(Class<?> returnType, Class<?>... ptype) {
+                // em = λ : throw Util.EMPTY
+                // (with nominally-correct return type)
+                MethodHandle em = MethodHandles.throwException(returnType,
+                        EmptyException.class).bindTo(Util.EMPTY);
+                // empty = λ u v ... : throw Util.EMPTY
+                this.empty = MethodHandles.dropArguments(em, 0, ptype);
+                // All handles in the slot must have the same type as empty
+                this.type = this.empty.type(); // = (ptype...)returnType
+            }
+        }
+
+        static class Util {
+            static final EmptyException EMPTY = new EmptyException();
+            // ...
+        }
+    }
+
+The unwinding cost will be greatly reduced,
+to no more than the cost of a jump,
+if the compiler has in-lined the intervening calls.
+Shipilev suggests that
+if the exception is thrown more than one time in 10\ :sup:`4`,
+a test is to be preferred,
+although for a compiler that in-lines successfully,
+his figures suggest the break-even is more like one time in 100.
+
+Shipilev warns against relying on the in-lining,
+but in our case (Java 11 and 6 years on) it may now be reliable.
+The modern compiler is said to in-line method handle graphs well.
+
+It is difficult to decide the issue without performance tests
+that would deflect from our architectural investigation.
+The benefit of the static exception trick
+is to make it matter less which we choose in any given piece of code.
+
+..  note:: Exceptions in Python *are* recommended
+    as a normal form of flow control.
+    It may be necessary to revisit ours with this technique in mind,
+    if our ``PyException``\s are to have adequate performance.
 
 ..  _Shipilev 2014: https://shipilev.net/blog/2014/exceptional-performance/
+
+
 
 Utility Methods
 ***************
