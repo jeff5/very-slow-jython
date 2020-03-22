@@ -71,7 +71,7 @@ class PyByteCode2 {
     }
 
     /**
-     * Test that TP slots accept only the right type of method handles.
+     * Test that tp_ slots accept only the right type of method handles.
      */
     @Test
     void testSlotTP() {
@@ -82,13 +82,13 @@ class PyByteCode2 {
 
         // Make method handles to try
         final MethodHandle length =
-                MethodHandles.empty(Slot.Signature.LEN.type);
+                MethodHandles.empty(Slot.Signature.LEN.empty.type());
         final MethodHandle unary =
-                MethodHandles.empty(Slot.Signature.UNARY.type);
+                MethodHandles.empty(Slot.Signature.UNARY.empty.type());
         final MethodHandle binary =
-                MethodHandles.empty(Slot.Signature.BINARY.type);
-        final MethodHandle ternary =
-                MethodHandles.empty(Slot.Signature.TERNARY.type);
+                MethodHandles.empty(Slot.Signature.BINARY.empty.type());
+        final MethodHandle ternary = MethodHandles
+                .empty(Slot.Signature.TERNARY.empty.type());
 
         // These go quietly
         Slot.tp_hash.setSlot(basic, length);
@@ -117,7 +117,7 @@ class PyByteCode2 {
     }
 
     /**
-     * Test that NB slots accept only the right type of method handles.
+     * Test that nb_ slots accept only the right type of method handles.
      */
     @Test
     void testSlotNB() {
@@ -130,13 +130,13 @@ class PyByteCode2 {
 
         // Make method handles to try
         final MethodHandle length =
-                MethodHandles.empty(Slot.Signature.LEN.type);
+                MethodHandles.empty(Slot.Signature.LEN.empty.type());
         final MethodHandle unary =
-                MethodHandles.empty(Slot.Signature.UNARY.type);
+                MethodHandles.empty(Slot.Signature.UNARY.empty.type());
         final MethodHandle binary =
-                MethodHandles.empty(Slot.Signature.BINARY.type);
-        final MethodHandle ternary =
-                MethodHandles.empty(Slot.Signature.TERNARY.type);
+                MethodHandles.empty(Slot.Signature.BINARY.empty.type());
+        final MethodHandle ternary = MethodHandles
+                .empty(Slot.Signature.TERNARY.empty.type());
         // These go quietly
         Slot.nb_negative.setSlot(number, unary);
         Slot.nb_add.setSlot(number, binary);
@@ -174,7 +174,7 @@ class PyByteCode2 {
     }
 
     /**
-     * Test that SQ slots accept only the right type of method handles.
+     * Test that sq_ slots accept only the right type of method handles.
      */
     @Test
     void testSlotSQ() {
@@ -185,13 +185,13 @@ class PyByteCode2 {
 
         // Make method handles to try
         final MethodHandle length =
-                MethodHandles.empty(Slot.Signature.LEN.type);
+                MethodHandles.empty(Slot.Signature.LEN.empty.type());
         final MethodHandle unary =
-                MethodHandles.empty(Slot.Signature.UNARY.type);
+                MethodHandles.empty(Slot.Signature.UNARY.empty.type());
         final MethodHandle binary =
-                MethodHandles.empty(Slot.Signature.BINARY.type);
-        final MethodHandle ternary =
-                MethodHandles.empty(Slot.Signature.TERNARY.type);
+                MethodHandles.empty(Slot.Signature.BINARY.empty.type());
+        final MethodHandle ternary = MethodHandles
+                .empty(Slot.Signature.TERNARY.empty.type());
 
         // This goes quietly
         Slot.sq_length.setSlot(sequence, length);
@@ -215,7 +215,7 @@ class PyByteCode2 {
     }
 
     /**
-     * Test that MP slots accept only the right type of method handles.
+     * Test that mp_ slots accept only the right type of method handles.
      */
     @Test
     void testSlotMP() {
@@ -226,13 +226,13 @@ class PyByteCode2 {
 
         // Make method handles to try
         MethodHandle length =
-                MethodHandles.empty(Slot.Signature.LEN.type);
+                MethodHandles.empty(Slot.Signature.LEN.empty.type());
         MethodHandle unary =
-                MethodHandles.empty(Slot.Signature.UNARY.type);
+                MethodHandles.empty(Slot.Signature.UNARY.empty.type());
         MethodHandle binary =
-                MethodHandles.empty(Slot.Signature.BINARY.type);
-        MethodHandle ternary =
-                MethodHandles.empty(Slot.Signature.TERNARY.type);
+                MethodHandles.empty(Slot.Signature.BINARY.empty.type());
+        MethodHandle ternary = MethodHandles
+                .empty(Slot.Signature.TERNARY.empty.type());
 
         // This goes quietly
         Slot.mp_length.setSlot(mapping, length);

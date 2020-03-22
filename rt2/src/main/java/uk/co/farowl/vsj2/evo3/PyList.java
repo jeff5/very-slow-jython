@@ -14,7 +14,9 @@ class PyList extends ArrayList<PyObject> implements PyObject {
     PyList() { super(); }
 
     /** Construct empty, with specified capacity. */
-    PyList(int capacity) { super(capacity); }
+    PyList(int capacity) {
+        super(capacity);
+    }
 
     /** Construct from an array slice. */
     PyList(PyObject a[], int start, int count) {
@@ -27,22 +29,16 @@ class PyList extends ArrayList<PyObject> implements PyObject {
     static PyObject sq_repeat(PyObject s, int n) {
         try {
             PyList self = (PyList) s;
-            PyList r = new PyList(n*self.size());
-            for (int i=0; i<n; i++) r.addAll(self);
+            PyList r = new PyList(n * self.size());
+            for (int i = 0; i < n; i++)
+                r.addAll(self);
             return r;
         } catch (ClassCastException e) {
             throw PyObjectUtil.typeMismatch(s, TYPE);
         }
     }
 
-
-    static int length(PyObject s) { // XXX sq_/mp_length?
-        try {
-            return ((PyList) s).size();
-        } catch (ClassCastException e) {
-            throw PyObjectUtil.typeMismatch(s, TYPE);
-        }
-    }
+    static int length(PyList s) { return s.size(); }
 
     static PyObject sq_item(PyObject s, int i) {
         try {

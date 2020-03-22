@@ -252,14 +252,15 @@ class PyByteCode3 {
     }
 
     /**
-     * Example 'boolean_arithmetic': <pre>
+     * Example 'bool_arith_a': <pre>
      * a = u + t
      * b = u * t
      * c = u * f
+     * d = -t
      * </pre>
      */
     //@formatter:off
-    static final PyCode BOOLEAN_ARITHMETIC =
+    static final PyCode BOOL_ARITH_A =
     /*
      *   1           0 LOAD_NAME                0 (u)
      *               2 LOAD_NAME                1 (t)
@@ -275,47 +276,52 @@ class PyByteCode3 {
      *              18 LOAD_NAME                4 (f)
      *              20 BINARY_MULTIPLY
      *              22 STORE_NAME               5 (c)
-     *              24 LOAD_CONST               0 (None)
-     *              26 RETURN_VALUE
+     *
+     *   4          24 LOAD_NAME                1 (t)
+     *              26 UNARY_NEGATIVE
+     *              28 STORE_NAME               6 (d)
+     *              30 LOAD_CONST               0 (None)
+     *              32 RETURN_VALUE
      */
     new PyCode(0, 0, 0, 0, 2, 64,
         Py.bytes(101, 0, 101, 1, 23, 0, 90, 2, 101, 0, 101, 1, 20, 0,
-                90, 3, 101, 0, 101, 4, 20, 0, 90, 5, 100, 0, 83, 0),
+                90, 3, 101, 0, 101, 4, 20, 0, 90, 5, 101, 1, 11, 0,
+                90, 6, 100, 0, 83, 0),
         Py.tuple(Py.None),
         Py.tuple(Py.str("u"), Py.str("t"), Py.str("a"), Py.str("b"),
-                Py.str("f"), Py.str("c")),
+                Py.str("f"), Py.str("c"), Py.str("d")),
         Py.tuple(),
         Py.tuple(),
-        Py.tuple(), Py.str("boolean_arithmetic"), Py.str("<module>"),
-        1,
-        Py.bytes(8, 1, 8, 1));
+        Py.tuple(), Py.str("bool_arith_a"), Py.str("<module>"), 1,
+        Py.bytes(8, 1, 8, 1, 8, 1));
     //@formatter:on
 
     @Test
-    void test_boolean_arithmetic1() {
+    void test_bool_arith_a1() {
         //@formatter:off
         PyDictionary globals = new PyDictionary();
         globals.put(Py.str("u"), Py.val(42));
         globals.put(Py.str("t"), Py.True);
         globals.put(Py.str("f"), Py.False);
-        PyCode code = BOOLEAN_ARITHMETIC;
+        PyCode code = BOOL_ARITH_A;
         ThreadState tstate = new ThreadState();
         PyFrame frame = code.createFrame(tstate, globals, globals);
         frame.eval();
         assertEquals(Py.val(43), globals.get(Py.str("a")), "a == 43");
         assertEquals(Py.val(42), globals.get(Py.str("b")), "b == 42");
         assertEquals(Py.val(0), globals.get(Py.str("c")), "c == 0");
+        assertEquals(Py.val(-1), globals.get(Py.str("d")), "d == -1");
         //@formatter:on
     }
 
     @Test
-    void test_boolean_arithmetic2() {
+    void test_bool_arith_a2() {
         //@formatter:off
         PyDictionary globals = new PyDictionary();
         globals.put(Py.str("u"), Py.val(42.0));
         globals.put(Py.str("t"), Py.True);
         globals.put(Py.str("f"), Py.False);
-        PyCode code = BOOLEAN_ARITHMETIC;
+        PyCode code = BOOL_ARITH_A;
         ThreadState tstate = new ThreadState();
         PyFrame frame = code.createFrame(tstate, globals, globals);
         frame.eval();
@@ -325,6 +331,91 @@ class PyByteCode3 {
             "b == 42.0");
         assertEquals(Py.val(0.0), globals.get(Py.str("c")),
             "c == 0.0");
+        assertEquals(Py.val(-1), globals.get(Py.str("d")), "d == -1");
+        //@formatter:on
+    }
+
+    /**
+     * Example 'bool_arith_b': <pre>
+     * a = t + u
+     * b = t * u
+     * c = f * u
+     * d = -f
+     * </pre>
+     */
+    //@formatter:off
+    static final PyCode BOOL_ARITH_B =
+    /*
+     *   1           0 LOAD_NAME                0 (t)
+     *               2 LOAD_NAME                1 (u)
+     *               4 BINARY_ADD
+     *               6 STORE_NAME               2 (a)
+     *
+     *   2           8 LOAD_NAME                0 (t)
+     *              10 LOAD_NAME                1 (u)
+     *              12 BINARY_MULTIPLY
+     *              14 STORE_NAME               3 (b)
+     *
+     *   3          16 LOAD_NAME                4 (f)
+     *              18 LOAD_NAME                1 (u)
+     *              20 BINARY_MULTIPLY
+     *              22 STORE_NAME               5 (c)
+     *
+     *   4          24 LOAD_NAME                4 (f)
+     *              26 UNARY_NEGATIVE
+     *              28 STORE_NAME               6 (d)
+     *              30 LOAD_CONST               0 (None)
+     *              32 RETURN_VALUE
+     */
+    new PyCode(0, 0, 0, 0, 2, 64,
+        Py.bytes(101, 0, 101, 1, 23, 0, 90, 2, 101, 0, 101, 1, 20, 0,
+                90, 3, 101, 4, 101, 1, 20, 0, 90, 5, 101, 4, 11, 0,
+                90, 6, 100, 0, 83, 0),
+        Py.tuple(Py.None),
+        Py.tuple(Py.str("t"), Py.str("u"), Py.str("a"), Py.str("b"),
+                Py.str("f"), Py.str("c"), Py.str("d")),
+        Py.tuple(),
+        Py.tuple(),
+        Py.tuple(), Py.str("bool_arith_b"), Py.str("<module>"), 1,
+        Py.bytes(8, 1, 8, 1, 8, 1));
+    //@formatter:on
+
+    @Test
+    void test_bool_arith_b1() {
+        //@formatter:off
+        PyDictionary globals = new PyDictionary();
+        globals.put(Py.str("u"), Py.val(42));
+        globals.put(Py.str("t"), Py.True);
+        globals.put(Py.str("f"), Py.False);
+        PyCode code = BOOL_ARITH_B;
+        ThreadState tstate = new ThreadState();
+        PyFrame frame = code.createFrame(tstate, globals, globals);
+        frame.eval();
+        assertEquals(Py.val(43), globals.get(Py.str("a")), "a == 43");
+        assertEquals(Py.val(42), globals.get(Py.str("b")), "b == 42");
+        assertEquals(Py.val(0), globals.get(Py.str("c")), "c == 0");
+        assertEquals(Py.val(0), globals.get(Py.str("d")), "d == 0");
+        //@formatter:on
+    }
+
+    @Test
+    void test_bool_arith_b2() {
+        //@formatter:off
+        PyDictionary globals = new PyDictionary();
+        globals.put(Py.str("u"), Py.val(42.0));
+        globals.put(Py.str("t"), Py.True);
+        globals.put(Py.str("f"), Py.False);
+        PyCode code = BOOL_ARITH_B;
+        ThreadState tstate = new ThreadState();
+        PyFrame frame = code.createFrame(tstate, globals, globals);
+        frame.eval();
+        assertEquals(Py.val(43.0), globals.get(Py.str("a")),
+            "a == 43.0");
+        assertEquals(Py.val(42.0), globals.get(Py.str("b")),
+            "b == 42.0");
+        assertEquals(Py.val(0.0), globals.get(Py.str("c")),
+            "c == 0.0");
+        assertEquals(Py.val(0), globals.get(Py.str("d")), "d == 0");
         //@formatter:on
     }
 

@@ -43,9 +43,8 @@ class PyLong implements PyObject {
 
     // slot functions -------------------------------------------------
 
-    static PyObject neg(PyObject v) {
-        BigInteger a = valueOrError(v);
-        return new PyLong(a.negate());
+    static PyObject neg(PyLong v) {
+        return new PyLong(v.value.negate());
     }
 
     static PyObject add(PyObject v, PyObject w) {
@@ -122,11 +121,11 @@ class PyLong implements PyObject {
         return !BigInteger.ZERO.equals(a);
     }
 
-    static PyObject nb_index(PyObject v) {
+    static PyObject nb_index(PyLong v) {
         if (v.getType() == TYPE)
             return v;
         else
-            return new PyLong(valueOrError(v));
+            return new PyLong(v.value);
     }
 
     /**

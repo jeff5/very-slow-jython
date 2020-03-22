@@ -4,8 +4,6 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.lang.invoke.VarHandle;
-import java.util.HashMap;
-import java.util.Map;
 
 /**
  * This {@code enum} provide constants that can be are used to refer to
@@ -57,6 +55,7 @@ enum Slot {
 
     /**
      * Constructor for enum constants.
+     *
      * @param signature of the function to be called
      * @param opName symbol (such as "+")
      * @param methodName implementation method (e.g. "add")
@@ -84,7 +83,7 @@ enum Slot {
 
     /** The type required for slots of this name. */
     MethodType getType() {
-        return type;
+        return empty.type();
     }
 
     /** Get the default that fills the slot when it is "empty". */
@@ -131,7 +130,7 @@ enum Slot {
      * @param mh handle value to assign
      */
     void setSlot(PyType t, MethodHandle mh) {
-        if (mh == null || !mh.type().equals(type))
+        if (mh == null || !mh.type().equals(getType()))
             throw slotTypeError(this, mh);
         slotHandle.set(t, mh);
     }
@@ -139,10 +138,23 @@ enum Slot {
     /** The type of exception thrown by invoking an empty slot. */
     static class EmptyException extends Exception {}
 
+    /**
+     * Placeholder type, exclusively for use in slot signatures,
+     * denoting the class defining the slot function actually bound into
+     * the slot. Wherever the {@code Self} type appears in the slot
+     * signature, the signature of the method looked up in the
+     * implementation will have the defining type, and the method handle
+     * produced will have {@code PyObject}, and a checked cast. The
+     * result is that the defining methods need not include a cast to
+     * their type on the corresponding argument.
+     */
+    interface Self extends PyObject {}
+
     /** Some shorthands used to construct method signatures, etc.. */
     private interface ClassShorthand {
 
         static final Class<PyObject> O = PyObject.class;
+        static final Class<?> S = Self.class;
         static final Class<?> I = int.class;
         static final Class<?> B = boolean.class;
         static final Class<?> V = void.class;
@@ -166,17 +178,20 @@ enum Slot {
      * in the C-API names but not here.
      */
     enum Signature implements ClassShorthand {
-        UNARY(O, O), // NB.negative, NB.invert
+        UNARY(O, S), // nb_negative, nb_invert
         BINARY(O, O, O), // +, -, u[v]
         TERNARY(O, O, O, O), // **
-        PREDICATE(B, O), // NB.bool
-        LEN(I, O), // SQ.length
-        RICHCMP(O, O, O, CMP), // (richcmpfunc) TP.richcompare only
-        SQ_INDEX(O, O, I), // (ssizeargfunc) SQ.item, SQ.repeat only
-        SQ_ASSIGN(V, O, I, O), // (ssizeobjargproc) SQ.ass_item only
-        MP_ASSIGN(V, O, O, O); // (objobjargproc) MP.ass_subscript only
+        PREDICATE(B, O), // nb_bool
+        LEN(I, S), // sq_length
+        RICHCMP(O, O, O, CMP), // (richcmpfunc) tp_richcompare only
+        SQ_INDEX(O, O, I), // (ssizeargfunc) sq_item, sq_repeat only
+        SQ_ASSIGN(V, O, I, O), // (ssizeobjargproc) sq_ass_item only
+        MP_ASSIGN(V, O, O, O); // (objobjargproc) mp_ass_subscript only
 
-        /** A method handle in this slot must have this type. */
+        /**
+         * A method handle offered to this slot must be based on this
+         * type, with Self parameters.
+         */
         final MethodType type;
         /** When empty, the slot should hold this handle. */
         final MethodHandle empty;
@@ -184,19 +199,26 @@ enum Slot {
         /**
          * Constructor to which we specify the signature of the slot,
          * with the same semantics as {@code MethodType.methodType()}.
+         * Every {@code MethodHandle} stored in the slot (including
+         * {@link Signature#empty}) must be of this method type.
          *
          * @param returnType that the slot functions all return
-         * @param ptype types of parameters the slot function takes
+         * @param ptypes types of parameters the slot function takes
          */
-        Signature(Class<?> returnType, Class<?>... ptype) {
+        Signature(Class<?> returnType, Class<?>... ptypes) {
+            // The signature is recorded exactly as given
+            this.type = MethodType.methodType(returnType, ptypes);
+            // In the type of this.empty, replace Self with PyObject.
+            MethodType slotType = Util.replaceSelf(this.type, O);
             // em = λ : throw Util.EMPTY
-            // (with nominally-correct return type)
-            MethodHandle em = MethodHandles.throwException(returnType,
-                    EmptyException.class).bindTo(Util.EMPTY);
+            // (with correct nominal return type for slot)
+            MethodHandle em = MethodHandles
+                    .throwException(returnType, EmptyException.class)
+                    .bindTo(Util.EMPTY);
             // empty = λ u v ... : throw Util.EMPTY
-            this.empty = MethodHandles.dropArguments(em, 0, ptype);
-            // All handles in the slot must have the same type as empty
-            this.type = this.empty.type(); // = (ptype...)returnType
+            // (with correct parameter types for slot)
+            this.empty = MethodHandles.dropArguments(em, 0,
+                    slotType.parameterArray());
         }
     }
 
@@ -250,9 +272,9 @@ enum Slot {
         }
 
         /**
-         * Return for a slot, a handle to the method in a given class
-         * that implements it, of the default handle (of the correct
-         * signature) that throws {@link EmptyException}.
+         * For a given slot, return a handle to the method in a given
+         * class that implements it, or the default handle (of the
+         * correct signature) that throws {@link EmptyException}.
          *
          * @param slot slot
          * @param c class
@@ -263,11 +285,29 @@ enum Slot {
         static MethodHandle findInClass(Slot slot, Class<?> c) {
             try {
                 // The method has the same name in every implementation
-                return LOOKUP.findStatic(c, slot.getMethodName(),
-                        slot.getType());
+                String name = slot.getMethodName();
+                // The implementation has c where slot.type has Self
+                MethodType mtype = replaceSelf(slot.type, c);
+                MethodHandle impl = LOOKUP.findStatic(c, name, mtype);
+                // The invocation type remains that of slot.empty
+                return impl.asType(slot.getType());
             } catch (NoSuchMethodException | IllegalAccessException e) {
-                return slot.getEmpty();
+                return slot.empty;
             }
+        }
+
+        /**
+         * Generate a method type in which occurrences of the
+         * {@link Self} class are replaced by the given class {@code c}.
+         */
+        static MethodType replaceSelf(MethodType type, Class<?> c) {
+            int n = type.parameterCount();
+            for (int i = 0; i < n; i++) {
+                if (type.parameterType(i) == Self.class) {
+                    type = type.changeParameterType(i, c);
+                }
+            }
+            return type;
         }
 
     }

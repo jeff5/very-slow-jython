@@ -26,15 +26,7 @@ class PyFloat implements PyObject {
 
     // slot functions -------------------------------------------------
 
-    static PyObject neg(PyObject v) {
-        try {
-            double a = ((PyFloat) v).value;
-            return new PyFloat(-a);
-        } catch (ClassCastException cce) {
-            // Impossible: throw InterpreterError or EmptyException?
-            return Py.NotImplemented;
-        }
-    }
+    static PyObject neg(PyFloat v) { return new PyFloat(-v.value); }
 
     static PyObject add(PyObject v, PyObject w) {
         try {

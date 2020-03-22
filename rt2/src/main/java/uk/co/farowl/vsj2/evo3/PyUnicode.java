@@ -30,13 +30,7 @@ class PyUnicode implements PyObject {
 
     // slot functions -------------------------------------------------
 
-    static int length(PyObject s) {
-        try {
-            return ((PyUnicode) s).value.length();
-        } catch (ClassCastException e) {
-            throw PyObjectUtil.typeMismatch(s, TYPE);
-        }
-    }
+    static int length(PyUnicode s) { return s.value.length(); }
 
     static PyObject sq_item(PyObject s, int i) {
         try {

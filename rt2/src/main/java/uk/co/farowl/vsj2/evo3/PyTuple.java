@@ -30,13 +30,7 @@ class PyTuple implements PyObject {
 
     // slot functions -------------------------------------------------
 
-    static int length(PyObject s) { // XXX sq_/mp_length?
-        try {
-            return ((PyTuple) s).value.length;
-        } catch (ClassCastException e) {
-            throw PyObjectUtil.typeMismatch(s, TYPE);
-        }
-    }
+    static int length(PyTuple s) { return s.value.length; }
 
     static PyObject sq_item(PyObject s, int i) {
         try {

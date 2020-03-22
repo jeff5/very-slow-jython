@@ -561,13 +561,177 @@ is to make it matter less which we choose in any given piece of code.
 ..  _Shipilev 2014: https://shipilev.net/blog/2014/exceptional-performance/
 
 
+..  _type-cast-in-method-handle:
 
 Type Cast in the Method Handle
 ******************************
 
-*   Try to wrap the cast into the slot function handle graph,
-    so that "self" parameters to slot functions may be declared
-    with their natural type.
+The implementation of the ``neg`` method of ``PyLong``
+provides a simple example of this change.
+The slot ``nb_negative`` may be invoked on any object.
+As far as ``MethodHandle.invoke()`` is concerned
+it must have the signature ``(PyObject)PyObject``,
+but this leads to ugly implementations of ``neg`` and many other methods.
+
+Previously,
+the implementation method ``neg`` looked like this:
+
+..  code-block:: java
+
+    /** The Python {@code int} object. */
+    class PyLong implements PyObject {
+        // ...
+        static PyObject neg(PyObject v) {
+            BigInteger a = valueOrError(v);
+            return new PyLong(a.negate());
+        }
+        // ...
+        private static BigInteger valueOrError(PyObject v)
+                throws InterpreterError {
+            try {
+                return ((PyLong) v).value;
+            } catch (ClassCastException cce) {
+                throw PyObjectUtil.typeMismatch(v, TYPE);
+            }
+        }
+    }
+
+We had to cast ``v`` to the correct type before working on it.
+The ``ClassCastException`` should never be thrown in practice,
+since only operations on a ``PyLong`` instance
+should ever lead the interpreter to the ``PyType`` for ``int``,
+and in no other type (except sub-classes) is a slot bound to this method.
+
+Of course, it will happen that sometimes we end up here incorrectly,
+but that would signify a bug in the interpreter.
+We should perhaps let the cast fail,
+catch it outside the interpreter loop,
+and let the Java stack trace lead us to the problem.
+
+In ``evo3`` we introduce a new type ``Slot.Self``,
+exclusively for use as a placeholder in method signatures.
+When looking for an implementation method with ``Slot.findInClass()``,
+``Self`` gets replaced with with the class being searched.
+Therefore the new implementation will be found that looks like this:
+
+..  code-block:: java
+
+        static PyObject neg(PyLong v) {
+            return new PyLong(v.value.negate());
+        }
+
+This is much clearer to read,
+here and in many other types and methods,
+than what preceded it.
+The same effect appears in CPython,
+but because C is not type-safe,
+it is just a matter of casting the implementation function pointer
+to the required type for the slot.
+``Objects/longobject.c`` provides an example:
+
+..  code-block:: c
+
+    static PyObject *
+    long_neg(PyLongObject *v)
+    {
+        PyLongObject *z;
+        if (Py_ABS(Py_SIZE(v)) <= 1)
+            return PyLong_FromLong(-MEDIUM_VALUE(v));
+        z = (PyLongObject *)_PyLong_Copy(v);
+        if (z != NULL)
+            Py_SIZE(z) = -(Py_SIZE(v));
+        return (PyObject *)z;
+    }
+
+    static PyNumberMethods long_as_number = {
+        /* ... */
+        (unaryfunc)long_neg,        /*nb_negative*/
+
+The support for this is to revise the signatures,
+and to re-work ``Util.findInClass()`` as follows:
+
+..  code-block:: java
+    :emphasize-lines: 4,8,13,28,45,48
+
+    enum Slot {
+        // ...
+
+        interface Self extends PyObject {}
+
+        private interface ClassShorthand {
+            static final Class<PyObject> O = PyObject.class;
+            static final Class<?> S = Self.class;
+            // ...
+        }
+
+        enum Signature implements ClassShorthand {
+            UNARY(O, S), // nb_negative, nb_invert
+            BINARY(O, O, O), // +, -, u[v]
+            TERNARY(O, O, O, O), // **
+            PREDICATE(B, O), // nb_bool
+            LEN(I, S), // sq_length
+            RICHCMP(O, O, O, CMP), // (richcmpfunc) tp_richcompare only
+            SQ_INDEX(O, O, I), // (ssizeargfunc) sq_item, sq_repeat only
+            SQ_ASSIGN(V, O, I, O), // (ssizeobjargproc) sq_ass_item only
+            MP_ASSIGN(V, O, O, O); // (objobjargproc) mp_ass_subscript only
+
+            // ...
+            Signature(Class<?> returnType, Class<?>... ptypes) {
+                // The signature is recorded exactly as given
+                this.type = MethodType.methodType(returnType, ptypes);
+                // In the type of this.empty, replace Self with PyObject.
+                MethodType slotType = Util.replaceSelf(this.type, O);
+                // em = λ : throw Util.EMPTY
+                MethodHandle em = MethodHandles
+                        .throwException(returnType, EmptyException.class)
+                        .bindTo(Util.EMPTY);
+                // empty = λ u v ... : throw Util.EMPTY
+                this.empty = MethodHandles.dropArguments(em, 0,
+                        slotType.parameterArray());
+            }
+        }
+        // ...
+        private static class Util {
+            static MethodHandle findInClass(Slot slot, Class<?> c) {
+                try {
+                    // The method has the same name in every implementation
+                    String name = slot.getMethodName();
+                    // The implementation has c where slot.type has Self
+                    MethodType mtype = replaceSelf(slot.type, c);
+                    MethodHandle impl = LOOKUP.findStatic(c, name, mtype);
+                    // The invocation type remains that of slot.empty
+                    return impl.asType(slot.empty.type());
+                } catch (NoSuchMethodException | IllegalAccessException e) {
+                    return slot.empty;
+                }
+            }
+
+            static MethodType replaceSelf(MethodType type, Class<?> c) {
+                int n = type.parameterCount();
+                for (int i = 0; i < n; i++) {
+                    if (type.parameterType(i) == Self.class) {
+                        type = type.changeParameterType(i, c);
+                    }
+                }
+                return type;
+            }
+        }
+    }
+
+The cast that cluttered the implementation code is not avoided at runtime,
+but is bound into the ``MethodHandle`` we create for the slot,
+by the call to ``MethodHandle.asType()``.
+If we ever need the invocation ``MethodType`` of a slot ``s``,
+it is simply ``s.empty.type()``.
+
+We make a final observation concerning inheritance.
+``bool`` should inherit ``int``'\s definition of ``nb_negative``.
+``PyBool`` is an acceptable argument to ``PyLong.neg``
+because ``PyBool`` extends ``PyLong``.
+The function definition is no longer a match in ``findInClass``,
+because it does not match ``(PyBool)PyObject``,
+but inheritance occurs as we require it
+by slot copy in ``PyType.setAllSlots()``.
 
 
 Standardised Type-checking

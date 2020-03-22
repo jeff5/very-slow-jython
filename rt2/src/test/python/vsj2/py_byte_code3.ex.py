@@ -29,13 +29,23 @@ b = d[1]
 d[2] = a + c
 c = d[2]
 
-# boolean_arithmetic:
+# bool_arith_a:
 u, t, f = 42, True, False
 u, t, f = 42., True, False
-# ? a, b, c
+# ? a, b, c, d
 a = u + t
 b = u * t
 c = u * f
+d = -t
+
+# bool_arith_b:
+u, t, f = 42, True, False
+u, t, f = 42., True, False
+# ? a, b, c, d
+a = t + u
+b = t * u
+c = f * u
+d = -f
 
 # simple_if:
 b = True
