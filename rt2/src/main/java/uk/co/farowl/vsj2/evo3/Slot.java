@@ -42,14 +42,12 @@ enum Slot {
     mp_subscript(Signature.BINARY), //
     mp_ass_subscript(Signature.MP_ASSIGN);
 
-    /** Method signature required in this slot. */
-    final MethodType type;
+    /** Method signature to match when filling this slot. */
+    final Signature signature;
     /** Name of implementation method to bind to this slot. */
     final String methodName;
     /** Name to use in error messages */
     final String opName;
-    /** Throws {@link EmptyException} (default slot content). */
-    final MethodHandle empty;
     /** Reference to field holding this slot in a {@link PyType} */
     final VarHandle slotHandle;
 
@@ -63,8 +61,7 @@ enum Slot {
     Slot(Signature signature, String opName, String methodName) {
         this.opName = opName == null ? name() : opName;
         this.methodName = methodName == null ? name() : methodName;
-        this.type = signature.type;
-        this.empty = signature.empty;
+        this.signature = signature;
         this.slotHandle = Util.slotHandle(this);
     }
 
@@ -81,19 +78,19 @@ enum Slot {
      */
     String getMethodName() { return methodName; }
 
-    /** The type required for slots of this name. */
+    /** The invocation type of slots of this name. */
     MethodType getType() {
-        return empty.type();
+        return signature.empty.type();
     }
 
     /** Get the default that fills the slot when it is "empty". */
     MethodHandle getEmpty() {
-        return empty;
+        return signature.empty;
     }
 
     /** Test whether this slot is non-empty in the given type. */
     boolean isDefinedFor(PyType t) {
-        return (MethodHandle) slotHandle.get(t) != empty;
+        return (MethodHandle) slotHandle.get(t) != signature.empty;
     }
 
     /**
@@ -209,7 +206,7 @@ enum Slot {
             // The signature is recorded exactly as given
             this.type = MethodType.methodType(returnType, ptypes);
             // In the type of this.empty, replace Self with PyObject.
-            MethodType slotType = Util.replaceSelf(this.type, O);
+            MethodType invocationType = Util.replaceSelf(this.type, O);
             // em = λ : throw Util.EMPTY
             // (with correct nominal return type for slot)
             MethodHandle em = MethodHandles
@@ -218,7 +215,7 @@ enum Slot {
             // empty = λ u v ... : throw Util.EMPTY
             // (with correct parameter types for slot)
             this.empty = MethodHandles.dropArguments(em, 0,
-                    slotType.parameterArray());
+                    invocationType.parameterArray());
         }
     }
 
@@ -287,12 +284,12 @@ enum Slot {
                 // The method has the same name in every implementation
                 String name = slot.getMethodName();
                 // The implementation has c where slot.type has Self
-                MethodType mtype = replaceSelf(slot.type, c);
+                MethodType mtype = replaceSelf(slot.signature.type, c);
                 MethodHandle impl = LOOKUP.findStatic(c, name, mtype);
                 // The invocation type remains that of slot.empty
                 return impl.asType(slot.getType());
             } catch (NoSuchMethodException | IllegalAccessException e) {
-                return slot.empty;
+                return slot.getEmpty();
             }
         }
 

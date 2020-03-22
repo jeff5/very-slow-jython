@@ -84,7 +84,7 @@ class Abstract {
     }
 
     private static final MethodHandle RICH_EMPTY =
-            Slot.tp_richcompare.empty;
+            Slot.Signature.RICHCMP.empty;
 
     static PyException comparisonTypeError(PyObject v, PyObject w,
             Comparison op) {
