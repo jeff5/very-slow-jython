@@ -29,7 +29,7 @@ class Py {
     static final PyObject NotImplemented =
             new Singleton("NotImplemented") {};
 
-    /** Return Python {@code int} for Java {@code int}. */
+    /** Return Python {@code int} for Java {@code long}. */
     static PyLong val(long value) {
         return new PyLong(value);
     }

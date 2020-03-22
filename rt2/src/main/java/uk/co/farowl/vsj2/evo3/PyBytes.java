@@ -3,7 +3,7 @@ package uk.co.farowl.vsj2.evo3;
 /** The Python {@code bytes} object. */
 class PyBytes implements PyObject {
 
-    static final PyType TYPE = new PyType("bytes", PyType.class);
+    static final PyType TYPE = new PyType("bytes", PyBytes.class);
     private static final byte[] EMPTY_BYTE_ARRAY = new byte[] {};
     static final PyBytes EMPTY = new PyBytes(EMPTY_BYTE_ARRAY);
 
