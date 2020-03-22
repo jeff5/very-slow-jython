@@ -18,7 +18,7 @@ will allow us to concentrate on the implementation of
 a much wider variety of objects than was encountered in ``rt1``.
 
 Our initial approach will be to emulate CPython closely
-in the implementation its opcodes,
+in the implementation of its opcodes,
 prioritising the numerical operations.
 This does not imply that for the long term,
 we have abandoned an implementation where code is compiled to Java byte code.
@@ -36,7 +36,7 @@ We will rely on the following ideas from ``rt1``:
   (Different Java sub-classes exist for different types of code.)
 * The ``code`` object is the factory for ``frame`` objects.
   This factory is attached to function and other objects,
-  and used by ``exec()`` and so on to create their frames.
+  and used by ``exec()`` etc. to create their frames.
   (Different Java sub-classes exist for different types of code,
   to create the corresponding sub-class of frame.)
 * We can avoid the ``PyObject`` universal base class,

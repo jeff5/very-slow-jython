@@ -562,12 +562,6 @@ is to make it matter less which we choose in any given piece of code.
 
 
 
-Utility Methods
-***************
-
-*   Reconsider the placement of utility methods,
-    such as those for exception construction.
-
 Type Cast in the Method Handle
 ******************************
 
@@ -575,9 +569,17 @@ Type Cast in the Method Handle
     so that "self" parameters to slot functions may be declared
     with their natural type.
 
+
 Standardised Type-checking
 **************************
 
 *   Work out an approach for type-checking ``PyObject`` arguments,
     where still necessary.
+
+
+Utility Methods
+***************
+
+*   Reconsider the placement of utility methods,
+    such as those for exception construction.
 

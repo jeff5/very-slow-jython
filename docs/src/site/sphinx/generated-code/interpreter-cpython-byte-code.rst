@@ -184,16 +184,18 @@ Then we should have had to implement the ``Map`` interface,
 as a number of methods delegating to that field.
 We see this again in ``exception``.
 
+..  _python-exception-throwable:
 
-Making Python ``exception`` a Java ``Throwable``
-************************************************
+A Python ``exception`` as a Java ``Throwable``
+**********************************************
 
 In Jython 2, exceptions are somewhat awkward in their Java API:
 a ``PyException`` is a Java exception,
 but not a ``PyObject``.
 Rather, it wraps the actual Python exception object as a value.
 
-It is more natural if we throw in Java the same object we raise in Python.
+Our Java code may be more natural
+if we can throw in Java the same object we raise in Python.
 We are prevented from this in Jython 2 because that object class cannot
 inherit both from ``PyObject`` and ``Throwable``.
 With ``PyObject`` an interface we may write:
@@ -213,10 +215,10 @@ providing for a (Python) traceback and
 arguments used other than by string formatting.
 
 
-Runtime Suport: ``Py``
-**********************
+Runtime Support: ``Py``
+***********************
 
-We can expect to need a number of run-time support methods,
+We may expect to need a number of run-time support methods,
 and so we define a class ``Py`` to contain them.
 For now, it just holds the singleton object ``None``.
 
