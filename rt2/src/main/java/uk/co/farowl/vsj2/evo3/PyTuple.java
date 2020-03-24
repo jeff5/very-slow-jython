@@ -4,7 +4,8 @@ package uk.co.farowl.vsj2.evo3;
 class PyTuple implements PyObject {
 
     static final PyType TYPE = new PyType("tuple", PyTuple.class);
-    private static final PyObject[] EMPTY_PYOBJECT_ARRAY = new PyObject[] {};
+    private static final PyObject[] EMPTY_PYOBJECT_ARRAY =
+            new PyObject[] {};
     static final PyTuple EMPTY = new PyTuple(EMPTY_PYOBJECT_ARRAY);
 
     @Override
@@ -30,33 +31,26 @@ class PyTuple implements PyObject {
 
     // slot functions -------------------------------------------------
 
-    static int length(PyTuple s) { return s.value.length; }
+    static int length(PyTuple self) { return self.value.length; }
 
-    static PyObject sq_item(PyObject s, int i) {
+    static PyObject sq_item(PyTuple self, int i) {
         try {
-            return ((PyTuple) s).value[i];
+            return self.value[i];
         } catch (IndexOutOfBoundsException e) {
             throw new IndexError("tuple index out of range");
-        } catch (ClassCastException e) {
-            throw PyObjectUtil.typeMismatch(s, TYPE);
         }
     }
 
-    static PyObject mp_subscript(PyObject s, PyObject item)
+    static PyObject mp_subscript(PyTuple self, PyObject item)
             throws Throwable {
-        try {
-            PyTuple self = (PyTuple) s;
-            PyType itemType = item.getType();
-            if (Slot.nb_index.isDefinedFor(itemType)) {
-                int i = Number.asSize(item, IndexError::new);
-                if (i < 0) { i += self.value.length; }
-                return sq_item(self, i);
-            }
-            // else if item is a PySlice { ... }
-            else
-                throw Abstract.indexTypeError(self, item);
-        } catch (ClassCastException e) {
-            throw PyObjectUtil.typeMismatch(s, TYPE);
+        PyType itemType = item.getType();
+        if (Slot.nb_index.isDefinedFor(itemType)) {
+            int i = Number.asSize(item, IndexError::new);
+            if (i < 0) { i += self.value.length; }
+            return sq_item(self, i);
         }
+        // else if item is a PySlice { ... }
+        else
+            throw Abstract.indexTypeError(self, item);
     }
 }

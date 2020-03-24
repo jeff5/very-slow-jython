@@ -107,18 +107,17 @@ class PyLong implements PyObject {
         }
     }
 
-    static PyObject tp_richcompare(PyObject v, PyObject w, Comparison op) {
-        if (v instanceof PyLong && w instanceof PyLong) {
-            int u = ((PyLong) v).value.compareTo(((PyLong) w).value);
+    static PyObject tp_richcompare(PyLong v, PyObject w, Comparison op) {
+        if (w instanceof PyLong) {
+            int u = v.value.compareTo(((PyLong) w).value);
             return PyObjectUtil.richCompareHelper(u, op);
         } else {
             return Py.NotImplemented;
         }
     }
 
-    static boolean nb_bool(PyObject v) {
-        BigInteger a = valueOrError(v);
-        return !BigInteger.ZERO.equals(a);
+    static boolean nb_bool(PyLong v) {
+        return !BigInteger.ZERO.equals(v.value);
     }
 
     static PyObject nb_index(PyLong v) {
@@ -138,23 +137,5 @@ class PyLong implements PyObject {
     private static BigInteger valueOf(PyObject v)
             throws ClassCastException {
         return ((PyLong) v).value;
-    }
-
-    /**
-     * Check the argument is a {@code PyLong} and return its value, or
-     * raise internal error. Differs from {@link #valueOf(PyObject)}
-     * only in type of exception thrown.
-     *
-     * @param v ought to be a {@code PyLong} (or sub-class)
-     * @return the {@link #value} field of {@code v}
-     * @throws InterpreterError if {@code v} is not compatible
-     */
-    private static BigInteger valueOrError(PyObject v)
-            throws InterpreterError {
-        try {
-            return ((PyLong) v).value;
-        } catch (ClassCastException cce) {
-            throw PyObjectUtil.typeMismatch(v, TYPE);
-        }
     }
 }

@@ -667,13 +667,13 @@ and to re-work ``Util.findInClass()`` as follows:
         enum Signature implements ClassShorthand {
             UNARY(O, S), // nb_negative, nb_invert
             BINARY(O, O, O), // +, -, u[v]
-            TERNARY(O, O, O, O), // **
-            PREDICATE(B, O), // nb_bool
+            TERNARY(O, S, O, O), // **
+            PREDICATE(B, S), // nb_bool
             LEN(I, S), // sq_length
-            RICHCMP(O, O, O, CMP), // (richcmpfunc) tp_richcompare only
-            SQ_INDEX(O, O, I), // (ssizeargfunc) sq_item, sq_repeat only
-            SQ_ASSIGN(V, O, I, O), // (ssizeobjargproc) sq_ass_item only
-            MP_ASSIGN(V, O, O, O); // (objobjargproc) mp_ass_subscript only
+            RICHCMP(O, S, O, CMP), // (richcmpfunc) tp_richcompare only
+            SQ_INDEX(O, S, I), // (ssizeargfunc) sq_item, sq_repeat only
+            SQ_ASSIGN(V, S, I, O), // (ssizeobjargproc) sq_ass_item only
+            MP_ASSIGN(V, S, O, O); // (objobjargproc) mp_ass_subscript only
 
             // ...
             Signature(Class<?> returnType, Class<?>... ptypes) {
@@ -723,6 +723,21 @@ but is bound into the ``MethodHandle`` we create for the slot,
 by the call to ``MethodHandle.asType()``.
 If we ever need the invocation ``MethodType`` of a slot ``s``,
 it is simply ``s.empty.type()``.
+
+It is interesting to inspect which arguments can be ``Slot`` type.
+``UNARY(O, S)`` facilitates the simplification we have discussed.
+``BINARY(O, O, O)`` cannot take slot types because the same method must
+compute the operation and its reflected version.
+For example, following CPython exactly, ``PyFloat.add`` handles
+``float+float``, ``int+float`` and ``float+int``.
+(Jython 2 effectively has ``add`` and ``radd`` slot functions,
+and it is worth asking whether this is not better.)
+In contrast, we *can* write ``RICHCMP(O, S, O, CMP)``,
+because reversed operations reverse the operands and comparison type,
+and so the target type is always the first argument.
+
+Return types are never Slot types, because they may be any Python type,
+especially when an operation wraps a dunder method implemented in Python.
 
 We make a final observation concerning inheritance.
 ``bool`` should inherit ``int``'\s definition of ``nb_negative``.

@@ -177,13 +177,13 @@ enum Slot {
     enum Signature implements ClassShorthand {
         UNARY(O, S), // nb_negative, nb_invert
         BINARY(O, O, O), // +, -, u[v]
-        TERNARY(O, O, O, O), // **
-        PREDICATE(B, O), // nb_bool
+        TERNARY(O, S, O, O), // **
+        PREDICATE(B, S), // nb_bool
         LEN(I, S), // sq_length
-        RICHCMP(O, O, O, CMP), // (richcmpfunc) tp_richcompare only
-        SQ_INDEX(O, O, I), // (ssizeargfunc) sq_item, sq_repeat only
-        SQ_ASSIGN(V, O, I, O), // (ssizeobjargproc) sq_ass_item only
-        MP_ASSIGN(V, O, O, O); // (objobjargproc) mp_ass_subscript only
+        RICHCMP(O, S, O, CMP), // (richcmpfunc) tp_richcompare only
+        SQ_INDEX(O, S, I), // (ssizeargfunc) sq_item, sq_repeat only
+        SQ_ASSIGN(V, S, I, O), // (ssizeobjargproc) sq_ass_item only
+        MP_ASSIGN(V, S, O, O); // (objobjargproc) mp_ass_subscript only
 
         /**
          * A method handle offered to this slot must be based on this
