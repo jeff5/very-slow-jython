@@ -32,31 +32,24 @@ class PyUnicode implements PyObject {
 
     static int length(PyUnicode s) { return s.value.length(); }
 
-    static PyObject sq_item(PyObject s, int i) {
+    static PyObject sq_item(PyUnicode self, int i) {
         try {
-            return new PyUnicode(((PyUnicode) s).value.charAt(i));
+            return new PyUnicode(self.value.charAt(i));
         } catch (IndexOutOfBoundsException e) {
             throw new IndexError("str index out of range");
-        } catch (ClassCastException e) {
-            throw PyObjectUtil.typeMismatch(s, TYPE);
         }
     }
 
-    static PyObject mp_subscript(PyObject s, PyObject item)
+    static PyObject mp_subscript(PyUnicode self, PyObject item)
             throws Throwable {
-        try {
-            PyUnicode self = (PyUnicode) s;
-            PyType itemType = item.getType();
-            if (Slot.nb_index.isDefinedFor(itemType)) {
-                int i = Number.asSize(item, IndexError::new);
-                if (i < 0) { i += self.value.length(); }
-                return sq_item(self, i);
-            }
-            // else if item is a PySlice { ... }
-            else
-                throw Abstract.indexTypeError(self, item);
-        } catch (ClassCastException e) {
-            throw PyObjectUtil.typeMismatch(s, TYPE);
+        PyType itemType = item.getType();
+        if (Slot.nb_index.isDefinedFor(itemType)) {
+            int i = Number.asSize(item, IndexError::new);
+            if (i < 0) { i += self.value.length(); }
+            return sq_item(self, i);
         }
+        // else if item is a PySlice { ... }
+        else
+            throw Abstract.indexTypeError(self, item);
     }
 }
