@@ -32,9 +32,9 @@ def main(filename):
 
     # Choose the writer evo
     if evo <= 2:
-        writer = PyObjectEmitter()
+        writer = PyObjectEmitter(code_comment=True)
     elif evo == 3:
-        writer = PyObjectEmitterEvo3()
+        writer = PyObjectEmitterEvo3(code_comment=True)
 
     # Open the input and wrap in a parser
     examples = os.path.join(dirname, name)

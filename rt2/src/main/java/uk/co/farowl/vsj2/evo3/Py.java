@@ -79,6 +79,11 @@ class Py {
         return new PyList();
     }
 
+    /** Return Python {@code list} for array of {@code PyObject}. */
+    static PyList list(PyObject... value) {
+        return new PyList(value, 0, value.length);
+    }
+
     /** Return empty Python {@code dict}. */
     static PyDictionary dict() {
         return new PyDictionary();

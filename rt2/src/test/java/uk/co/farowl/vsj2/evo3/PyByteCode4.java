@@ -9,10 +9,9 @@ import org.junit.jupiter.api.Test;
 
 /**
  * Continues the test illustrating a naive emulation using
- * {@code MethodHandle} of CPython's approach to type objects. In
- * {@link PyByteCode2} we demonstrated a type system capable of
- * co-ordinating unary and binary operations. We now extend this (using
- * the same classes) to a simple loops over a sequence.
+ * {@code MethodHandle} of CPython's approach to type objects. The
+ * present tests focus on the {@link PyBool} object, which is the first
+ * numeric to provide some challenges concerning inheritance.
  */
 class PyByteCode4 {
 
@@ -51,7 +50,7 @@ class PyByteCode4 {
     }
 
     /** Test bases and MRO in certain exception types. */
-    //@Test // FIXME not working yet
+    // @Test // FIXME not working yet
     void testExceptionsMRO() {
 
         PyType OBJECT = PyBaseObject.TYPE;

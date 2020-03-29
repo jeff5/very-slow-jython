@@ -166,6 +166,7 @@ class PythonEmitter(JavaConstantEmitter):
     def python_NoneType(self, value, suffix=""): return self
     def python_bytes(self, value, suffix=""): return self
     def python_tuple(self, value, suffix=""): return self
+    def python_list(self, value, suffix=""): return self
     def python_code(self, code, suffix=""): return self
 
 
@@ -177,6 +178,9 @@ class PyObjectEmitter(PythonEmitter):
     equivalent to them, on the assumption of the particular run-time
     environment explored in Java test PyByteCode1.
     """
+    def __init__(self, code_comment=False, **kwds):
+        self.code_comment = code_comment
+        super().__init__(**kwds)
 
     def python_str(self, value, suffix=""):
         """Emit Java to construct a Python str."""
@@ -223,6 +227,14 @@ class PyObjectEmitter(PythonEmitter):
             self.java_array(self.python, value, ")" + suffix)
         return self
 
+    def python_list(self, value, suffix=""):
+        """Emit Java to construct a Python list."""
+        self.emit_line("new PyList(")
+        with self.indentation():
+            self.emit("new PyObject[] ")
+            self.java_array(self.python, value, ")" + suffix)
+        return self
+
     def python_code(self, code, suffix=""):
         """Emit Java to construct a Python code object.
 
@@ -230,6 +242,15 @@ class PyObjectEmitter(PythonEmitter):
         PyCode_NewWithPosOnlyArgs, in turn assuming there are constructors
         for Java implementations of the types depended upon.
         """
+        if self.code_comment:
+            # Emit disassembly as comment
+            self.emit_line("/*")
+            lines = dis.Bytecode(code).dis().splitlines()
+            for line in lines:
+                self.emit_line(" * " + line)
+            self.emit_line(" */")
+            self.emit_line("")
+
         self.emit("new PyCode(")
         with self.indentation():
             self.java_int(code.co_argcount, ", ")
@@ -303,7 +324,7 @@ class PyObjectTestEmitter:
         self.writer.emit_line("//@formatter:off")
         self.writer.emit_line("static final PyCode ")
         self.writer.emit(self.test.name.upper(), " = ")
-        self.python_code(self.bytecode.codeobj, ";")
+        self.writer.python_code(self.bytecode.codeobj, ";")
         self.writer.emit_line("//@formatter:on")
         return self.writer.emit_line()
 
@@ -350,19 +371,6 @@ class PyObjectTestEmitter:
         self.writer.emit_line("}")
         return self.writer.emit_line()
 
-    def python_code(self, code, suffix=""):
-        """Emit Java to construct a Python code object."""
-        # Emit disassembly as comment
-        self.writer.emit_line("/*")
-        lines = dis.Bytecode(code).dis().splitlines()
-        for line in lines:
-            self.writer.emit_line(" * " + line)
-        self.writer.emit_line(" */")
-        self.writer.emit_line("")
-
-        # Then the object itself
-        self.writer.python_code(code, suffix)
-        return self
 
 class PyObjectEmitterEvo3(PyObjectEmitter):
     """A class capable of emitting Python values as PyObjects (short variant).
@@ -402,14 +410,18 @@ class PyObjectEmitterEvo3(PyObjectEmitter):
             self.emit("Py.bytes()", suffix)
         else:
             self.emit_line("Py.bytes(")
-            with self.indentation():
-                self.java_arglist(self.java_byte, value, ")" + suffix)
+            self.java_arglist(self.java_byte, value, ")" + suffix)
             return self
 
     def python_tuple(self, value, suffix=""):
         """Emit Java to construct a Python tuple."""
         self.emit_line("Py.tuple(")
-        with self.indentation():
-            self.java_arglist(self.python, value, ")" + suffix)
+        self.java_arglist(self.python, value, ")" + suffix)
+        return self
+
+    def python_list(self, value, suffix=""):
+        """Emit Java to construct a Python list."""
+        self.emit_line("Py.list(")
+        self.java_arglist(self.python, value, ")" + suffix)
         return self
 
