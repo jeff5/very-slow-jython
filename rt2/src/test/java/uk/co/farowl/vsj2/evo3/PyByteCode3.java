@@ -51,10 +51,10 @@ class PyByteCode3 {
      */
     new PyCode(0, 0, 0, 0, 3, 64,
         Py.bytes(100, 0, 100, 1, 101, 0, 102, 3, 90, 1, 101, 1, 100,
-                2, 25, 0, 90, 2, 101, 1, 100, 3, 25, 0, 101, 1, 100,
-                4, 25, 0, 23, 0, 90, 0, 100, 5, 83, 0),
+            2, 25, 0, 90, 2, 101, 1, 100, 3, 25, 0, 101, 1, 100, 4,
+            25, 0, 23, 0, 90, 0, 100, 5, 83, 0),
         Py.tuple(Py.val(20), Py.str("hello"), Py.val(1), Py.val(2),
-                Py.val(0), Py.None),
+            Py.val(0), Py.None),
         Py.tuple(Py.str("c"), Py.str("d"), Py.str("b")),
         Py.tuple(),
         Py.tuple(),
@@ -66,15 +66,12 @@ class PyByteCode3 {
     void test_tuple_index1() {
         //@formatter:off
         PyDictionary globals = new PyDictionary();
-        globals.put(Py.str("c"), Py.val(22.0));
-        PyCode code = TUPLE_INDEX;
-        ThreadState tstate = new ThreadState();
-        PyFrame frame = code.createFrame(tstate, globals, globals);
-        frame.eval();
-        assertEquals(Py.str("hello"), globals.get(Py.str("b")),
+        globals.put("c", Py.val(22.0));
+        Interpreter interp = Py.createInterpreter();
+        interp.evalCode(TUPLE_INDEX, globals, globals);
+        assertEquals(Py.str("hello"), globals.get("b"),
             "b == 'hello'");
-        assertEquals(Py.val(42.0), globals.get(Py.str("c")),
-            "c == 42.0");
+        assertEquals(Py.val(42.0), globals.get("c"), "c == 42.0");
         //@formatter:on
     }
 
@@ -128,13 +125,13 @@ class PyByteCode3 {
      */
     new PyCode(0, 0, 0, 0, 4, 64,
         Py.bytes(101, 0, 100, 0, 25, 0, 101, 1, 100, 0, 25, 0, 20, 0,
-                90, 2, 100, 1, 90, 3, 101, 3, 101, 4, 107, 0, 114,
-                58, 101, 2, 101, 0, 101, 3, 25, 0, 101, 1, 101, 3,
-                25, 0, 20, 0, 23, 0, 90, 2, 101, 3, 100, 1, 23, 0,
-                90, 3, 113, 20, 100, 2, 83, 0),
+            90, 2, 100, 1, 90, 3, 101, 3, 101, 4, 107, 0, 114, 58,
+            101, 2, 101, 0, 101, 3, 25, 0, 101, 1, 101, 3, 25, 0, 20,
+            0, 23, 0, 90, 2, 101, 3, 100, 1, 23, 0, 90, 3, 113, 20,
+            100, 2, 83, 0),
         Py.tuple(Py.val(0), Py.val(1), Py.None),
         Py.tuple(Py.str("a"), Py.str("b"), Py.str("sum"),
-                Py.str("i"), Py.str("n")),
+            Py.str("i"), Py.str("n")),
         Py.tuple(),
         Py.tuple(),
         Py.tuple(), Py.str("tuple_dot_product"), Py.str("<module>"),
@@ -146,17 +143,14 @@ class PyByteCode3 {
     void test_tuple_dot_product1() {
         //@formatter:off
         PyDictionary globals = new PyDictionary();
-        globals.put(Py.str("a"),
-        Py.tuple(Py.val(2), Py.val(3), Py.val(4)));
-        globals.put(Py.str("b"),
-        Py.tuple(Py.val(3), Py.val(4), Py.val(6)));
-        globals.put(Py.str("n"), Py.val(3));
-        PyCode code = TUPLE_DOT_PRODUCT;
-        ThreadState tstate = new ThreadState();
-        PyFrame frame = code.createFrame(tstate, globals, globals);
-        frame.eval();
-        assertEquals(Py.val(42), globals.get(Py.str("sum")),
-            "sum == 42");
+        globals.put("a",
+            Py.tuple(Py.val(2), Py.val(3), Py.val(4)));
+        globals.put("b",
+            Py.tuple(Py.val(3), Py.val(4), Py.val(6)));
+        globals.put("n", Py.val(3));
+        Interpreter interp = Py.createInterpreter();
+        interp.evalCode(TUPLE_DOT_PRODUCT, globals, globals);
+        assertEquals(Py.val(42), globals.get("sum"), "sum == 42");
         //@formatter:on
     }
 
@@ -164,17 +158,16 @@ class PyByteCode3 {
     void test_tuple_dot_product2() {
         //@formatter:off
         PyDictionary globals = new PyDictionary();
-        globals.put(Py.str("a"),
-        Py.tuple(Py.val(1.0), Py.val(2.0), Py.val(3.0), Py.val(4.0)));
-        globals.put(Py.str("b"),
-        Py.tuple(Py.val(4.0), Py.val(3.0), Py.val(4.0), Py.val(5.0)));
-        globals.put(Py.str("n"), Py.val(4));
-        PyCode code = TUPLE_DOT_PRODUCT;
-        ThreadState tstate = new ThreadState();
-        PyFrame frame = code.createFrame(tstate, globals, globals);
-        frame.eval();
-        assertEquals(Py.val(42.0), globals.get(Py.str("sum")),
-            "sum == 42.0");
+        globals.put("a",
+            Py.tuple(Py.val(1.0), Py.val(2.0), Py.val(3.0),
+                Py.val(4.0)));
+        globals.put("b",
+            Py.tuple(Py.val(4.0), Py.val(3.0), Py.val(4.0),
+                Py.val(5.0)));
+        globals.put("n", Py.val(4));
+        Interpreter interp = Py.createInterpreter();
+        interp.evalCode(TUPLE_DOT_PRODUCT, globals, globals);
+        assertEquals(Py.val(42.0), globals.get("sum"), "sum == 42.0");
         //@formatter:on
     }
 
@@ -222,11 +215,11 @@ class PyByteCode3 {
      */
     new PyCode(0, 0, 0, 0, 3, 64,
         Py.bytes(100, 0, 100, 1, 101, 0, 103, 3, 90, 1, 101, 1, 100,
-                2, 25, 0, 90, 2, 101, 1, 100, 3, 25, 0, 90, 3, 101,
-                2, 101, 0, 23, 0, 101, 1, 100, 4, 60, 0, 101, 1, 100,
-                4, 25, 0, 90, 0, 100, 5, 83, 0),
+            2, 25, 0, 90, 2, 101, 1, 100, 3, 25, 0, 90, 3, 101, 2,
+            101, 0, 23, 0, 101, 1, 100, 4, 60, 0, 101, 1, 100, 4, 25,
+            0, 90, 0, 100, 5, 83, 0),
         Py.tuple(Py.val(20), Py.str("hello"), Py.val(0), Py.val(1),
-                Py.val(2), Py.None),
+            Py.val(2), Py.None),
         Py.tuple(Py.str("c"), Py.str("d"), Py.str("a"), Py.str("b")),
         Py.tuple(),
         Py.tuple(),
@@ -238,16 +231,13 @@ class PyByteCode3 {
     void test_list_index1() {
         //@formatter:off
         PyDictionary globals = new PyDictionary();
-        globals.put(Py.str("c"), Py.val(22.0));
-        PyCode code = LIST_INDEX;
-        ThreadState tstate = new ThreadState();
-        PyFrame frame = code.createFrame(tstate, globals, globals);
-        frame.eval();
-        assertEquals(Py.val(20), globals.get(Py.str("a")), "a == 20");
-        assertEquals(Py.str("hello"), globals.get(Py.str("b")),
+        globals.put("c", Py.val(22.0));
+        Interpreter interp = Py.createInterpreter();
+        interp.evalCode(LIST_INDEX, globals, globals);
+        assertEquals(Py.val(20), globals.get("a"), "a == 20");
+        assertEquals(Py.str("hello"), globals.get("b"),
             "b == 'hello'");
-        assertEquals(Py.val(42.0), globals.get(Py.str("c")),
-            "c == 42.0");
+        assertEquals(Py.val(42.0), globals.get("c"), "c == 42.0");
         //@formatter:on
     }
 
@@ -285,11 +275,11 @@ class PyByteCode3 {
      */
     new PyCode(0, 0, 0, 0, 2, 64,
         Py.bytes(101, 0, 101, 1, 23, 0, 90, 2, 101, 0, 101, 1, 20, 0,
-                90, 3, 101, 0, 101, 4, 20, 0, 90, 5, 101, 1, 11, 0,
-                90, 6, 100, 0, 83, 0),
+            90, 3, 101, 0, 101, 4, 20, 0, 90, 5, 101, 1, 11, 0, 90,
+            6, 100, 0, 83, 0),
         Py.tuple(Py.None),
         Py.tuple(Py.str("u"), Py.str("t"), Py.str("a"), Py.str("b"),
-                Py.str("f"), Py.str("c"), Py.str("d")),
+            Py.str("f"), Py.str("c"), Py.str("d")),
         Py.tuple(),
         Py.tuple(),
         Py.tuple(), Py.str("bool_arith_a"), Py.str("<module>"), 1,
@@ -300,17 +290,15 @@ class PyByteCode3 {
     void test_bool_arith_a1() {
         //@formatter:off
         PyDictionary globals = new PyDictionary();
-        globals.put(Py.str("u"), Py.val(42));
-        globals.put(Py.str("t"), Py.True);
-        globals.put(Py.str("f"), Py.False);
-        PyCode code = BOOL_ARITH_A;
-        ThreadState tstate = new ThreadState();
-        PyFrame frame = code.createFrame(tstate, globals, globals);
-        frame.eval();
-        assertEquals(Py.val(43), globals.get(Py.str("a")), "a == 43");
-        assertEquals(Py.val(42), globals.get(Py.str("b")), "b == 42");
-        assertEquals(Py.val(0), globals.get(Py.str("c")), "c == 0");
-        assertEquals(Py.val(-1), globals.get(Py.str("d")), "d == -1");
+        globals.put("u", Py.val(42));
+        globals.put("t", Py.True);
+        globals.put("f", Py.False);
+        Interpreter interp = Py.createInterpreter();
+        interp.evalCode(BOOL_ARITH_A, globals, globals);
+        assertEquals(Py.val(43), globals.get("a"), "a == 43");
+        assertEquals(Py.val(42), globals.get("b"), "b == 42");
+        assertEquals(Py.val(0), globals.get("c"), "c == 0");
+        assertEquals(Py.val(-1), globals.get("d"), "d == -1");
         //@formatter:on
     }
 
@@ -318,20 +306,15 @@ class PyByteCode3 {
     void test_bool_arith_a2() {
         //@formatter:off
         PyDictionary globals = new PyDictionary();
-        globals.put(Py.str("u"), Py.val(42.0));
-        globals.put(Py.str("t"), Py.True);
-        globals.put(Py.str("f"), Py.False);
-        PyCode code = BOOL_ARITH_A;
-        ThreadState tstate = new ThreadState();
-        PyFrame frame = code.createFrame(tstate, globals, globals);
-        frame.eval();
-        assertEquals(Py.val(43.0), globals.get(Py.str("a")),
-            "a == 43.0");
-        assertEquals(Py.val(42.0), globals.get(Py.str("b")),
-            "b == 42.0");
-        assertEquals(Py.val(0.0), globals.get(Py.str("c")),
-            "c == 0.0");
-        assertEquals(Py.val(-1), globals.get(Py.str("d")), "d == -1");
+        globals.put("u", Py.val(42.0));
+        globals.put("t", Py.True);
+        globals.put("f", Py.False);
+        Interpreter interp = Py.createInterpreter();
+        interp.evalCode(BOOL_ARITH_A, globals, globals);
+        assertEquals(Py.val(43.0), globals.get("a"), "a == 43.0");
+        assertEquals(Py.val(42.0), globals.get("b"), "b == 42.0");
+        assertEquals(Py.val(0.0), globals.get("c"), "c == 0.0");
+        assertEquals(Py.val(-1), globals.get("d"), "d == -1");
         //@formatter:on
     }
 
@@ -369,11 +352,11 @@ class PyByteCode3 {
      */
     new PyCode(0, 0, 0, 0, 2, 64,
         Py.bytes(101, 0, 101, 1, 23, 0, 90, 2, 101, 0, 101, 1, 20, 0,
-                90, 3, 101, 4, 101, 1, 20, 0, 90, 5, 101, 4, 11, 0,
-                90, 6, 100, 0, 83, 0),
+            90, 3, 101, 4, 101, 1, 20, 0, 90, 5, 101, 4, 11, 0, 90,
+            6, 100, 0, 83, 0),
         Py.tuple(Py.None),
         Py.tuple(Py.str("t"), Py.str("u"), Py.str("a"), Py.str("b"),
-                Py.str("f"), Py.str("c"), Py.str("d")),
+            Py.str("f"), Py.str("c"), Py.str("d")),
         Py.tuple(),
         Py.tuple(),
         Py.tuple(), Py.str("bool_arith_b"), Py.str("<module>"), 1,
@@ -384,17 +367,15 @@ class PyByteCode3 {
     void test_bool_arith_b1() {
         //@formatter:off
         PyDictionary globals = new PyDictionary();
-        globals.put(Py.str("u"), Py.val(42));
-        globals.put(Py.str("t"), Py.True);
-        globals.put(Py.str("f"), Py.False);
-        PyCode code = BOOL_ARITH_B;
-        ThreadState tstate = new ThreadState();
-        PyFrame frame = code.createFrame(tstate, globals, globals);
-        frame.eval();
-        assertEquals(Py.val(43), globals.get(Py.str("a")), "a == 43");
-        assertEquals(Py.val(42), globals.get(Py.str("b")), "b == 42");
-        assertEquals(Py.val(0), globals.get(Py.str("c")), "c == 0");
-        assertEquals(Py.val(0), globals.get(Py.str("d")), "d == 0");
+        globals.put("u", Py.val(42));
+        globals.put("t", Py.True);
+        globals.put("f", Py.False);
+        Interpreter interp = Py.createInterpreter();
+        interp.evalCode(BOOL_ARITH_B, globals, globals);
+        assertEquals(Py.val(43), globals.get("a"), "a == 43");
+        assertEquals(Py.val(42), globals.get("b"), "b == 42");
+        assertEquals(Py.val(0), globals.get("c"), "c == 0");
+        assertEquals(Py.val(0), globals.get("d"), "d == 0");
         //@formatter:on
     }
 
@@ -402,20 +383,15 @@ class PyByteCode3 {
     void test_bool_arith_b2() {
         //@formatter:off
         PyDictionary globals = new PyDictionary();
-        globals.put(Py.str("u"), Py.val(42.0));
-        globals.put(Py.str("t"), Py.True);
-        globals.put(Py.str("f"), Py.False);
-        PyCode code = BOOL_ARITH_B;
-        ThreadState tstate = new ThreadState();
-        PyFrame frame = code.createFrame(tstate, globals, globals);
-        frame.eval();
-        assertEquals(Py.val(43.0), globals.get(Py.str("a")),
-            "a == 43.0");
-        assertEquals(Py.val(42.0), globals.get(Py.str("b")),
-            "b == 42.0");
-        assertEquals(Py.val(0.0), globals.get(Py.str("c")),
-            "c == 0.0");
-        assertEquals(Py.val(0), globals.get(Py.str("d")), "d == 0");
+        globals.put("u", Py.val(42.0));
+        globals.put("t", Py.True);
+        globals.put("f", Py.False);
+        Interpreter interp = Py.createInterpreter();
+        interp.evalCode(BOOL_ARITH_B, globals, globals);
+        assertEquals(Py.val(43.0), globals.get("a"), "a == 43.0");
+        assertEquals(Py.val(42.0), globals.get("b"), "b == 42.0");
+        assertEquals(Py.val(0.0), globals.get("c"), "c == 0.0");
+        assertEquals(Py.val(0), globals.get("d"), "d == 0");
         //@formatter:on
     }
 
@@ -444,7 +420,7 @@ class PyByteCode3 {
      */
     new PyCode(0, 0, 0, 0, 1, 64,
         Py.bytes(101, 0, 114, 10, 100, 0, 90, 1, 110, 4, 100, 1, 90,
-                1, 100, 2, 83, 0),
+            1, 100, 2, 83, 0),
         Py.tuple(Py.val(1), Py.val(0), Py.None),
         Py.tuple(Py.str("b"), Py.str("r")),
         Py.tuple(),
@@ -457,12 +433,10 @@ class PyByteCode3 {
     void test_simple_if1() {
         //@formatter:off
         PyDictionary globals = new PyDictionary();
-        globals.put(Py.str("b"), Py.True);
-        PyCode code = SIMPLE_IF;
-        ThreadState tstate = new ThreadState();
-        PyFrame frame = code.createFrame(tstate, globals, globals);
-        frame.eval();
-        assertEquals(Py.val(1), globals.get(Py.str("r")), "r == 1");
+        globals.put("b", Py.True);
+        Interpreter interp = Py.createInterpreter();
+        interp.evalCode(SIMPLE_IF, globals, globals);
+        assertEquals(Py.val(1), globals.get("r"), "r == 1");
         //@formatter:on
     }
 
@@ -470,12 +444,10 @@ class PyByteCode3 {
     void test_simple_if2() {
         //@formatter:off
         PyDictionary globals = new PyDictionary();
-        globals.put(Py.str("b"), Py.False);
-        PyCode code = SIMPLE_IF;
-        ThreadState tstate = new ThreadState();
-        PyFrame frame = code.createFrame(tstate, globals, globals);
-        frame.eval();
-        assertEquals(Py.val(0), globals.get(Py.str("r")), "r == 0");
+        globals.put("b", Py.False);
+        Interpreter interp = Py.createInterpreter();
+        interp.evalCode(SIMPLE_IF, globals, globals);
+        assertEquals(Py.val(0), globals.get("r"), "r == 0");
         //@formatter:on
     }
 
@@ -483,12 +455,10 @@ class PyByteCode3 {
     void test_simple_if3() {
         //@formatter:off
         PyDictionary globals = new PyDictionary();
-        globals.put(Py.str("b"), Py.val(0));
-        PyCode code = SIMPLE_IF;
-        ThreadState tstate = new ThreadState();
-        PyFrame frame = code.createFrame(tstate, globals, globals);
-        frame.eval();
-        assertEquals(Py.val(0), globals.get(Py.str("r")), "r == 0");
+        globals.put("b", Py.val(0));
+        Interpreter interp = Py.createInterpreter();
+        interp.evalCode(SIMPLE_IF, globals, globals);
+        assertEquals(Py.val(0), globals.get("r"), "r == 0");
         //@formatter:on
     }
 
@@ -496,12 +466,10 @@ class PyByteCode3 {
     void test_simple_if4() {
         //@formatter:off
         PyDictionary globals = new PyDictionary();
-        globals.put(Py.str("b"), Py.val(1));
-        PyCode code = SIMPLE_IF;
-        ThreadState tstate = new ThreadState();
-        PyFrame frame = code.createFrame(tstate, globals, globals);
-        frame.eval();
-        assertEquals(Py.val(1), globals.get(Py.str("r")), "r == 1");
+        globals.put("b", Py.val(1));
+        Interpreter interp = Py.createInterpreter();
+        interp.evalCode(SIMPLE_IF, globals, globals);
+        assertEquals(Py.val(1), globals.get("r"), "r == 1");
         //@formatter:on
     }
 
@@ -509,12 +477,10 @@ class PyByteCode3 {
     void test_simple_if5() {
         //@formatter:off
         PyDictionary globals = new PyDictionary();
-        globals.put(Py.str("b"), Py.str(""));
-        PyCode code = SIMPLE_IF;
-        ThreadState tstate = new ThreadState();
-        PyFrame frame = code.createFrame(tstate, globals, globals);
-        frame.eval();
-        assertEquals(Py.val(0), globals.get(Py.str("r")), "r == 0");
+        globals.put("b", Py.str(""));
+        Interpreter interp = Py.createInterpreter();
+        interp.evalCode(SIMPLE_IF, globals, globals);
+        assertEquals(Py.val(0), globals.get("r"), "r == 0");
         //@formatter:on
     }
 
@@ -522,12 +488,10 @@ class PyByteCode3 {
     void test_simple_if6() {
         //@formatter:off
         PyDictionary globals = new PyDictionary();
-        globals.put(Py.str("b"), Py.str("something"));
-        PyCode code = SIMPLE_IF;
-        ThreadState tstate = new ThreadState();
-        PyFrame frame = code.createFrame(tstate, globals, globals);
-        frame.eval();
-        assertEquals(Py.val(1), globals.get(Py.str("r")), "r == 1");
+        globals.put("b", Py.str("something"));
+        Interpreter interp = Py.createInterpreter();
+        interp.evalCode(SIMPLE_IF, globals, globals);
+        assertEquals(Py.val(1), globals.get("r"), "r == 1");
         //@formatter:on
     }
 
@@ -535,12 +499,10 @@ class PyByteCode3 {
     void test_simple_if7() {
         //@formatter:off
         PyDictionary globals = new PyDictionary();
-        globals.put(Py.str("b"), Py.None);
-        PyCode code = SIMPLE_IF;
-        ThreadState tstate = new ThreadState();
-        PyFrame frame = code.createFrame(tstate, globals, globals);
-        frame.eval();
-        assertEquals(Py.val(0), globals.get(Py.str("r")), "r == 0");
+        globals.put("b", Py.None);
+        Interpreter interp = Py.createInterpreter();
+        interp.evalCode(SIMPLE_IF, globals, globals);
+        assertEquals(Py.val(0), globals.get("r"), "r == 0");
         //@formatter:on
     }
 
@@ -582,8 +544,8 @@ class PyByteCode3 {
      */
     new PyCode(0, 0, 0, 0, 1, 64,
         Py.bytes(101, 0, 114, 14, 101, 1, 114, 14, 100, 0, 90, 2,
-                110, 18, 101, 0, 115, 22, 101, 1, 114, 28, 100, 1,
-                90, 2, 110, 4, 100, 2, 90, 2, 100, 3, 83, 0),
+            110, 18, 101, 0, 115, 22, 101, 1, 114, 28, 100, 1, 90, 2,
+            110, 4, 100, 2, 90, 2, 100, 3, 83, 0),
         Py.tuple(Py.val(2), Py.val(1), Py.val(0), Py.None),
         Py.tuple(Py.str("a"), Py.str("b"), Py.str("r")),
         Py.tuple(),
@@ -596,13 +558,11 @@ class PyByteCode3 {
     void test_multi_if1() {
         //@formatter:off
         PyDictionary globals = new PyDictionary();
-        globals.put(Py.str("a"), Py.False);
-        globals.put(Py.str("b"), Py.False);
-        PyCode code = MULTI_IF;
-        ThreadState tstate = new ThreadState();
-        PyFrame frame = code.createFrame(tstate, globals, globals);
-        frame.eval();
-        assertEquals(Py.val(0), globals.get(Py.str("r")), "r == 0");
+        globals.put("a", Py.False);
+        globals.put("b", Py.False);
+        Interpreter interp = Py.createInterpreter();
+        interp.evalCode(MULTI_IF, globals, globals);
+        assertEquals(Py.val(0), globals.get("r"), "r == 0");
         //@formatter:on
     }
 
@@ -610,13 +570,11 @@ class PyByteCode3 {
     void test_multi_if2() {
         //@formatter:off
         PyDictionary globals = new PyDictionary();
-        globals.put(Py.str("a"), Py.False);
-        globals.put(Py.str("b"), Py.True);
-        PyCode code = MULTI_IF;
-        ThreadState tstate = new ThreadState();
-        PyFrame frame = code.createFrame(tstate, globals, globals);
-        frame.eval();
-        assertEquals(Py.val(1), globals.get(Py.str("r")), "r == 1");
+        globals.put("a", Py.False);
+        globals.put("b", Py.True);
+        Interpreter interp = Py.createInterpreter();
+        interp.evalCode(MULTI_IF, globals, globals);
+        assertEquals(Py.val(1), globals.get("r"), "r == 1");
         //@formatter:on
     }
 
@@ -624,13 +582,11 @@ class PyByteCode3 {
     void test_multi_if3() {
         //@formatter:off
         PyDictionary globals = new PyDictionary();
-        globals.put(Py.str("a"), Py.True);
-        globals.put(Py.str("b"), Py.False);
-        PyCode code = MULTI_IF;
-        ThreadState tstate = new ThreadState();
-        PyFrame frame = code.createFrame(tstate, globals, globals);
-        frame.eval();
-        assertEquals(Py.val(1), globals.get(Py.str("r")), "r == 1");
+        globals.put("a", Py.True);
+        globals.put("b", Py.False);
+        Interpreter interp = Py.createInterpreter();
+        interp.evalCode(MULTI_IF, globals, globals);
+        assertEquals(Py.val(1), globals.get("r"), "r == 1");
         //@formatter:on
     }
 
@@ -638,13 +594,11 @@ class PyByteCode3 {
     void test_multi_if4() {
         //@formatter:off
         PyDictionary globals = new PyDictionary();
-        globals.put(Py.str("a"), Py.True);
-        globals.put(Py.str("b"), Py.True);
-        PyCode code = MULTI_IF;
-        ThreadState tstate = new ThreadState();
-        PyFrame frame = code.createFrame(tstate, globals, globals);
-        frame.eval();
-        assertEquals(Py.val(2), globals.get(Py.str("r")), "r == 2");
+        globals.put("a", Py.True);
+        globals.put("b", Py.True);
+        Interpreter interp = Py.createInterpreter();
+        interp.evalCode(MULTI_IF, globals, globals);
+        assertEquals(Py.val(2), globals.get("r"), "r == 2");
         //@formatter:on
     }
 
@@ -695,13 +649,13 @@ class PyByteCode3 {
      */
     new PyCode(0, 0, 0, 0, 2, 64,
         Py.bytes(101, 0, 101, 1, 107, 0, 90, 2, 101, 0, 101, 1, 107,
-                1, 90, 3, 101, 0, 101, 1, 107, 2, 90, 4, 101, 0, 101,
-                1, 107, 3, 90, 5, 101, 0, 101, 1, 107, 5, 90, 6, 101,
-                0, 101, 1, 107, 4, 90, 7, 100, 0, 83, 0),
+            1, 90, 3, 101, 0, 101, 1, 107, 2, 90, 4, 101, 0, 101, 1,
+            107, 3, 90, 5, 101, 0, 101, 1, 107, 5, 90, 6, 101, 0,
+            101, 1, 107, 4, 90, 7, 100, 0, 83, 0),
         Py.tuple(Py.None),
         Py.tuple(Py.str("a"), Py.str("b"), Py.str("lt"),
-                Py.str("le"), Py.str("eq"), Py.str("ne"),
-                Py.str("ge"), Py.str("gt")),
+            Py.str("le"), Py.str("eq"), Py.str("ne"), Py.str("ge"),
+            Py.str("gt")),
         Py.tuple(),
         Py.tuple(),
         Py.tuple(), Py.str("comparison"), Py.str("<module>"), 1,
@@ -712,24 +666,16 @@ class PyByteCode3 {
     void test_comparison1() {
         //@formatter:off
         PyDictionary globals = new PyDictionary();
-        globals.put(Py.str("a"), Py.val(2));
-        globals.put(Py.str("b"), Py.val(4));
-        PyCode code = COMPARISON;
-        ThreadState tstate = new ThreadState();
-        PyFrame frame = code.createFrame(tstate, globals, globals);
-        frame.eval();
-        assertEquals(Py.True, globals.get(Py.str("lt")),
-            "lt == True");
-        assertEquals(Py.True, globals.get(Py.str("le")),
-            "le == True");
-        assertEquals(Py.False, globals.get(Py.str("eq")),
-            "eq == False");
-        assertEquals(Py.True, globals.get(Py.str("ne")),
-            "ne == True");
-        assertEquals(Py.False, globals.get(Py.str("ge")),
-            "ge == False");
-        assertEquals(Py.False, globals.get(Py.str("gt")),
-            "gt == False");
+        globals.put("a", Py.val(2));
+        globals.put("b", Py.val(4));
+        Interpreter interp = Py.createInterpreter();
+        interp.evalCode(COMPARISON, globals, globals);
+        assertEquals(Py.True, globals.get("lt"), "lt == True");
+        assertEquals(Py.True, globals.get("le"), "le == True");
+        assertEquals(Py.False, globals.get("eq"), "eq == False");
+        assertEquals(Py.True, globals.get("ne"), "ne == True");
+        assertEquals(Py.False, globals.get("ge"), "ge == False");
+        assertEquals(Py.False, globals.get("gt"), "gt == False");
         //@formatter:on
     }
 
@@ -737,24 +683,16 @@ class PyByteCode3 {
     void test_comparison2() {
         //@formatter:off
         PyDictionary globals = new PyDictionary();
-        globals.put(Py.str("a"), Py.val(4));
-        globals.put(Py.str("b"), Py.val(2));
-        PyCode code = COMPARISON;
-        ThreadState tstate = new ThreadState();
-        PyFrame frame = code.createFrame(tstate, globals, globals);
-        frame.eval();
-        assertEquals(Py.False, globals.get(Py.str("lt")),
-            "lt == False");
-        assertEquals(Py.False, globals.get(Py.str("le")),
-            "le == False");
-        assertEquals(Py.False, globals.get(Py.str("eq")),
-            "eq == False");
-        assertEquals(Py.True, globals.get(Py.str("ne")),
-            "ne == True");
-        assertEquals(Py.True, globals.get(Py.str("ge")),
-            "ge == True");
-        assertEquals(Py.True, globals.get(Py.str("gt")),
-            "gt == True");
+        globals.put("a", Py.val(4));
+        globals.put("b", Py.val(2));
+        Interpreter interp = Py.createInterpreter();
+        interp.evalCode(COMPARISON, globals, globals);
+        assertEquals(Py.False, globals.get("lt"), "lt == False");
+        assertEquals(Py.False, globals.get("le"), "le == False");
+        assertEquals(Py.False, globals.get("eq"), "eq == False");
+        assertEquals(Py.True, globals.get("ne"), "ne == True");
+        assertEquals(Py.True, globals.get("ge"), "ge == True");
+        assertEquals(Py.True, globals.get("gt"), "gt == True");
         //@formatter:on
     }
 
@@ -762,24 +700,16 @@ class PyByteCode3 {
     void test_comparison3() {
         //@formatter:off
         PyDictionary globals = new PyDictionary();
-        globals.put(Py.str("a"), Py.val(2));
-        globals.put(Py.str("b"), Py.val(2));
-        PyCode code = COMPARISON;
-        ThreadState tstate = new ThreadState();
-        PyFrame frame = code.createFrame(tstate, globals, globals);
-        frame.eval();
-        assertEquals(Py.False, globals.get(Py.str("lt")),
-            "lt == False");
-        assertEquals(Py.True, globals.get(Py.str("le")),
-            "le == True");
-        assertEquals(Py.True, globals.get(Py.str("eq")),
-            "eq == True");
-        assertEquals(Py.False, globals.get(Py.str("ne")),
-            "ne == False");
-        assertEquals(Py.True, globals.get(Py.str("ge")),
-            "ge == True");
-        assertEquals(Py.False, globals.get(Py.str("gt")),
-            "gt == False");
+        globals.put("a", Py.val(2));
+        globals.put("b", Py.val(2));
+        Interpreter interp = Py.createInterpreter();
+        interp.evalCode(COMPARISON, globals, globals);
+        assertEquals(Py.False, globals.get("lt"), "lt == False");
+        assertEquals(Py.True, globals.get("le"), "le == True");
+        assertEquals(Py.True, globals.get("eq"), "eq == True");
+        assertEquals(Py.False, globals.get("ne"), "ne == False");
+        assertEquals(Py.True, globals.get("ge"), "ge == True");
+        assertEquals(Py.False, globals.get("gt"), "gt == False");
         //@formatter:on
     }
 
@@ -817,8 +747,8 @@ class PyByteCode3 {
      */
     new PyCode(0, 0, 0, 0, 2, 64,
         Py.bytes(100, 0, 90, 0, 101, 1, 100, 0, 107, 4, 114, 30, 101,
-                0, 101, 1, 23, 0, 90, 0, 101, 1, 100, 1, 24, 0, 90,
-                1, 113, 4, 100, 2, 83, 0),
+            0, 101, 1, 23, 0, 90, 0, 101, 1, 100, 1, 24, 0, 90, 1,
+            113, 4, 100, 2, 83, 0),
         Py.tuple(Py.val(0), Py.val(1), Py.None),
         Py.tuple(Py.str("sum"), Py.str("n")),
         Py.tuple(),
@@ -831,14 +761,11 @@ class PyByteCode3 {
     void test_simple_loop1() {
         //@formatter:off
         PyDictionary globals = new PyDictionary();
-        globals.put(Py.str("n"), Py.val(6));
-        PyCode code = SIMPLE_LOOP;
-        ThreadState tstate = new ThreadState();
-        PyFrame frame = code.createFrame(tstate, globals, globals);
-        frame.eval();
-        assertEquals(Py.val(0), globals.get(Py.str("n")), "n == 0");
-        assertEquals(Py.val(21), globals.get(Py.str("sum")),
-            "sum == 21");
+        globals.put("n", Py.val(6));
+        Interpreter interp = Py.createInterpreter();
+        interp.evalCode(SIMPLE_LOOP, globals, globals);
+        assertEquals(Py.val(0), globals.get("n"), "n == 0");
+        assertEquals(Py.val(21), globals.get("sum"), "sum == 21");
         //@formatter:on
     }
 
@@ -915,18 +842,17 @@ class PyByteCode3 {
      */
     new PyCode(0, 0, 0, 0, 4, 64,
         Py.bytes(100, 0, 100, 1, 100, 2, 100, 3, 103, 4, 100, 4, 101,
-                0, 20, 0, 20, 0, 90, 1, 100, 5, 101, 0, 20, 0, 100,
-                0, 100, 6, 100, 3, 103, 3, 20, 0, 90, 2, 100, 7, 101,
-                0, 20, 0, 90, 0, 100, 8, 90, 3, 100, 9, 90, 4, 101,
-                3, 101, 0, 107, 0, 114, 92, 101, 4, 101, 1, 101, 3,
-                25, 0, 101, 2, 101, 3, 25, 0, 20, 0, 23, 0, 90, 4,
-                101, 3, 100, 10, 23, 0, 90, 3, 113, 54, 100, 11, 83,
-                0),
+            0, 20, 0, 20, 0, 90, 1, 100, 5, 101, 0, 20, 0, 100, 0,
+            100, 6, 100, 3, 103, 3, 20, 0, 90, 2, 100, 7, 101, 0, 20,
+            0, 90, 0, 100, 8, 90, 3, 100, 9, 90, 4, 101, 3, 101, 0,
+            107, 0, 114, 92, 101, 4, 101, 1, 101, 3, 25, 0, 101, 2,
+            101, 3, 25, 0, 20, 0, 23, 0, 90, 4, 101, 3, 100, 10, 23,
+            0, 90, 3, 113, 54, 100, 11, 83, 0),
         Py.tuple(Py.val(1.2), Py.val(3.4), Py.val(5.6), Py.val(7.8),
-                Py.val(3), Py.val(4), Py.val(4.5), Py.val(12),
-                Py.val(0), Py.val(0.0), Py.val(1), Py.None),
+            Py.val(3), Py.val(4), Py.val(4.5), Py.val(12), Py.val(0),
+            Py.val(0.0), Py.val(1), Py.None),
         Py.tuple(Py.str("n"), Py.str("a"), Py.str("b"), Py.str("i"),
-                Py.str("sum")),
+            Py.str("sum")),
         Py.tuple(),
         Py.tuple(),
         Py.tuple(), Py.str("list_dot_product"), Py.str("<module>"),
@@ -938,13 +864,11 @@ class PyByteCode3 {
     void test_list_dot_product1() {
         //@formatter:off
         PyDictionary globals = new PyDictionary();
-        globals.put(Py.str("n"), Py.val(2));
-        PyCode code = LIST_DOT_PRODUCT;
-        ThreadState tstate = new ThreadState();
-        PyFrame frame = code.createFrame(tstate, globals, globals);
-        frame.eval();
-        assertEquals(Py.val(24), globals.get(Py.str("n")), "n == 24");
-        assertEquals(Py.val(486.0), globals.get(Py.str("sum")),
+        globals.put("n", Py.val(2));
+        Interpreter interp = Py.createInterpreter();
+        interp.evalCode(LIST_DOT_PRODUCT, globals, globals);
+        assertEquals(Py.val(24), globals.get("n"), "n == 24");
+        assertEquals(Py.val(486.0), globals.get("sum"),
             "sum == 486.0");
         //@formatter:on
     }

@@ -8,6 +8,8 @@ import java.util.EnumSet;
  * CPython's C API).
  */
 class PyCode implements PyObject {
+    // XXX Present version is specific to CPythonFrame
+    // We should have a CPythonCode object extend base PyCode
 
     static final PyType TYPE = new PyType("code", PyCode.class);
 
@@ -137,14 +139,16 @@ class PyCode implements PyObject {
      * Create a {@code PyFrame} suitable to execute this {@code PyCode}
      * (adequate for module-level code).
      *
-     * @param tstate thread context (supplied the call stack)
+     * @param tstate thread context (supplies the call stack)
+     * @param interpreter providing the module context
      * @param globals name space top treat as global variables
-     * @param locals name space top treat as local variables
+     * @param locals name space to treat as local variables
      * @return the frame
      */
-    PyFrame createFrame(ThreadState tstate, PyDictionary globals,
-            PyObject locals) {
-        return new CPythonFrame(tstate, this, globals, locals);
+    PyFrame createFrame(ThreadState tstate, Interpreter interpreter,
+            PyDictionary globals, PyObject locals) {
+        return new CPythonFrame(tstate, this, interpreter, globals,
+                locals);
     }
 
     /** Check that all the objects in the tuple are {@code str}. */

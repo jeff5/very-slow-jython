@@ -22,8 +22,7 @@ class PyUnicode implements PyObject {
     @Override
     public boolean equals(Object obj) {
         if (obj instanceof PyUnicode) {
-            PyUnicode other = (PyUnicode) obj;
-            return other.value.equals(this.value);
+            return this.value.equals(((PyUnicode) obj).value);
         } else
             return false;
     }

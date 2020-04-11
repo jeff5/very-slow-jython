@@ -748,17 +748,3 @@ because it does not match ``(PyBool)PyObject``,
 but inheritance occurs as we require it
 by slot copy in ``PyType.setAllSlots()``.
 
-
-Standardised Type-checking
-**************************
-
-*   Work out an approach for type-checking ``PyObject`` arguments,
-    where still necessary.
-
-
-Utility Methods
-***************
-
-*   Reconsider the placement of utility methods,
-    such as those for exception construction.
-

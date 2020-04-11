@@ -4,18 +4,16 @@ import os
 import re
 from contextlib import closing
 from vsj2.exparser import LineToken, Lines
-from vsj2.srcgen import PyObjectTestEmitter, PyObjectEmitter,\
-    PyObjectEmitterEvo3
+from vsj2.srcgen import PyObjectTestEmitter, PyObjectEmitter, \
+    PyObjectEmitterEvo3, PyObjectTestEmitterEvo3
 
 
-def generate(test, writer=None):
+def generate(test, testType=None, writer=None):
     """Generate Java code to test one program example"""
-    # Strip blank lines from end of example
-    body = test.body
-    while len(body[-1]) == 0:
-        body.pop(-1)
+    if testType is None:
+        testType = PyObjectTestEmitter
     # Generate the text of a test based on this example
-    with closing(PyObjectTestEmitter(test, writer)) as e:
+    with closing(testType(test, writer)) as e:
         e.emit_test_material()
         e.emit_test_cases()
         e.emit_line("")
@@ -33,8 +31,10 @@ def main(filename):
     # Choose the writer evo
     if evo <= 2:
         writer = PyObjectEmitter(code_comment=True)
+        testType = PyObjectTestEmitter
     elif evo == 3:
         writer = PyObjectEmitterEvo3(code_comment=True)
+        testType = PyObjectTestEmitterEvo3
 
     # Open the input and wrap in a parser
     examples = os.path.join(dirname, name)
@@ -44,4 +44,9 @@ def main(filename):
         # Each test in the file produces a code object and one or more tests
         while lines.kind() != LineToken.EOF:
             test = lines.parse_test()
-            generate(test, writer)
+            # Strip blank lines from end of example
+            body = test.body
+            while len(body[-1]) == 0:
+                body.pop(-1)
+            # Emit the text of the test
+            generate(test, testType, writer)

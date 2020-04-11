@@ -30,19 +30,21 @@ class CPythonFrame extends PyFrame {
      * the storage and mechanism to execute code. The constructor
      * specifies the back-reference to the current frame (which is
      * {@code null} when this frame is first in the stack) via the
-     * {@code ThreadState}. No other argument may be {@code null}.
+     * {@code ThreadState}.
      *
      * The caller specifies the local variables dictionary explicitly:
      * it may be the same as the {@code globals}.
      *
      * @param tstate thread state (supplies back)
      * @param code that this frame executes
+     * @param interpreter providing the module context
      * @param globals global name space
      * @param locals local name space
      */
-    CPythonFrame(ThreadState tstate, PyCode code, PyDictionary globals,
+    CPythonFrame(ThreadState tstate, PyCode code,
+            Interpreter interpreter, PyDictionary globals,
             PyObject locals) {
-        super(tstate, code, globals, locals);
+        super(tstate, code, interpreter, globals, locals);
         this.valuestack = new PyObject[code.stacksize];
         this.fastlocals = null;
         this.freevars = null;
@@ -65,6 +67,7 @@ class CPythonFrame extends PyFrame {
         int ip = 2;
         // Local variables used repeatedly in the loop
         PyObject name, res, u, v, w;
+        PyObject func, args, kwargs;
 
         loop : for (;;) {
             try {
@@ -251,6 +254,31 @@ class CPythonFrame extends PyFrame {
                         valuestack[sp++] = w; // PUSH
                         break;
 
+                    case Opcode.CALL_FUNCTION:
+                        // func | args[n] |
+                        // ----------------^sp
+                        // oparg = n
+                        sp -= oparg + 1; // STACK_SHRINK(oparg+1)
+                        func = valuestack[sp];
+                        // res = Abstract.vectorcall(func, valuestack,
+                        // sp, oparg, null);
+                        // valuestack[sp] = res; // SET_TOP
+                        break;
+
+                    case Opcode.CALL_FUNCTION_KW:
+                        // func | args[n] | kwargs[m] | kwnames |
+                        // --------------------------------------^sp
+                        // oparg = n + m and knames has m names
+                        break;
+
+                    case Opcode.CALL_FUNCTION_EX:
+                        kwargs = oparg == 0 ? null : valuestack[--sp];
+                        args = valuestack[--sp]; // POP
+                        func = valuestack[sp - 1]; // TOP
+                        res = callFunction(func, args, kwargs);
+                        valuestack[sp - 1] = res; // SET_TOP
+                        break;
+
                     default:
                         throw new SystemError("ip: %d, opcode: %d",
                                 ip - 2, opcode);
@@ -294,6 +322,47 @@ class CPythonFrame extends PyFrame {
     private InterpreterError cmpError(Comparison cmpOp) {
         return new InterpreterError("Comparison '%s' not implemented",
                 cmpOp);
+    }
+
+    /**
+     * Implement the opcode {@code CALL_FUNCTION_EX}. Condition the
+     * arguments to ensure they are respectively a tuple and a dict
+     * before passing the call to
+     * {@link Callables#call(PyObject, PyObject, PyObject)}.
+     *
+     * @param func callable Python object
+     * @param args {@code tuple} or iterable of Python objects
+     * @param kwargs {@code dict} or iterable of key-value pairs
+     * @return result of calling {@code func}
+     * @throws Throwable
+     * @throws TypeError
+     */
+    private PyObject callFunction(PyObject func, PyObject args,
+            PyObject kwargs) throws TypeError, Throwable {
+
+        // Represent kwargs as a PyDictionary (if not already or null)
+        if (kwargs != null && kwargs.getType() != PyDictionary.TYPE) {
+            // TODO: Treat kwargs as an iterable of (key,value) pairs
+            PyDictionary kwDict = Py.dict();
+            // Check kwargs iterable, and correctly typed
+            // kwDict.update(Mapping.items(kwargs));
+            kwargs = kwDict;
+        }
+
+        // Represent args as a PyTuple (if not already)
+        if (args.getType() != PyTuple.TYPE) {
+            // TODO: Treat args as an iterable of objects
+            // Construct PyTuple with whatever checks on values
+            // args = Sequence.tuple(args);
+        }
+
+        // XXX in CPython, other types of function exist
+        // no doubt in Jython too
+        // if (PyCFunction_Check(func)) {
+        // return PyCFunction_Call(func, args, kwargs);
+        // }
+        // else
+        return Callables.call(func, args, kwargs);
     }
 
 }

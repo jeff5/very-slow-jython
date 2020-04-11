@@ -20,14 +20,15 @@ but take a different approach to implementation.
     built-in-inheritance
     comparison-and-loops
     refactor-to-evo3
+    function-definition-and-call
 
 ..  I think the chapters might go like this,
     but I'm not certain enough to create the files:
     basic-type-system
-    attribute-access
     mutable-types (object base and a hint of inheritance)
     test-branch-jump
     function-definition-and-call
+    attribute-access
     exceptions
     class-definition-and-instantiation
     inheritance

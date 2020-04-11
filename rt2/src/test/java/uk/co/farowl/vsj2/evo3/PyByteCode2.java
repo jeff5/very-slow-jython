@@ -282,7 +282,7 @@ class PyByteCode2 {
      */
     new PyCode(0, 0, 0, 0, 1, 64,
         Py.bytes(101, 0, 90, 1, 100, 0, 90, 0, 100, 1, 90, 2, 100, 2,
-                83, 0),
+            83, 0),
         Py.tuple(Py.val(4), Py.val(6), Py.None),
         Py.tuple(Py.str("b"), Py.str("a"), Py.str("c")),
         Py.tuple(),
@@ -295,15 +295,13 @@ class PyByteCode2 {
     void test_load_store_name1() {
         //@formatter:off
         PyDictionary globals = new PyDictionary();
-        globals.put(Py.str("a"), Py.val(1));
-        globals.put(Py.str("b"), Py.val(2));
-        PyCode code = LOAD_STORE_NAME;
-        ThreadState tstate = new ThreadState();
-        PyFrame frame = code.createFrame(tstate, globals, globals);
-        frame.eval();
-        assertEquals(Py.val(2), globals.get(Py.str("a")), "a == 2");
-        assertEquals(Py.val(4), globals.get(Py.str("b")), "b == 4");
-        assertEquals(Py.val(6), globals.get(Py.str("c")), "c == 6");
+        globals.put("a", Py.val(1));
+        globals.put("b", Py.val(2));
+        Interpreter interp = Py.createInterpreter();
+        interp.evalCode(LOAD_STORE_NAME, globals, globals);
+        assertEquals(Py.val(2), globals.get("a"), "a == 2");
+        assertEquals(Py.val(4), globals.get("b"), "b == 4");
+        assertEquals(Py.val(6), globals.get("c"), "c == 6");
         //@formatter:on
     }
 
@@ -327,7 +325,7 @@ class PyByteCode2 {
      */
     new PyCode(0, 0, 0, 0, 2, 64,
         Py.bytes(101, 0, 11, 0, 101, 1, 11, 0, 2, 0, 90, 0, 90, 1,
-                100, 0, 83, 0),
+            100, 0, 83, 0),
         Py.tuple(Py.None),
         Py.tuple(Py.str("a"), Py.str("b")),
         Py.tuple(),
@@ -340,14 +338,12 @@ class PyByteCode2 {
     void test_negate1() {
         //@formatter:off
         PyDictionary globals = new PyDictionary();
-        globals.put(Py.str("a"), Py.val(6));
-        globals.put(Py.str("b"), Py.val(-7));
-        PyCode code = NEGATE;
-        ThreadState tstate = new ThreadState();
-        PyFrame frame = code.createFrame(tstate, globals, globals);
-        frame.eval();
-        assertEquals(Py.val(-6), globals.get(Py.str("a")), "a == -6");
-        assertEquals(Py.val(7), globals.get(Py.str("b")), "b == 7");
+        globals.put("a", Py.val(6));
+        globals.put("b", Py.val(-7));
+        Interpreter interp = Py.createInterpreter();
+        interp.evalCode(NEGATE, globals, globals);
+        assertEquals(Py.val(-6), globals.get("a"), "a == -6");
+        assertEquals(Py.val(7), globals.get("b"), "b == 7");
         //@formatter:on
     }
 
@@ -355,16 +351,12 @@ class PyByteCode2 {
     void test_negate2() {
         //@formatter:off
         PyDictionary globals = new PyDictionary();
-        globals.put(Py.str("a"), Py.val(6.0));
-        globals.put(Py.str("b"), Py.val(-7.0));
-        PyCode code = NEGATE;
-        ThreadState tstate = new ThreadState();
-        PyFrame frame = code.createFrame(tstate, globals, globals);
-        frame.eval();
-        assertEquals(Py.val(-6.0), globals.get(Py.str("a")),
-            "a == -6.0");
-        assertEquals(Py.val(7.0), globals.get(Py.str("b")),
-            "b == 7.0");
+        globals.put("a", Py.val(6.0));
+        globals.put("b", Py.val(-7.0));
+        Interpreter interp = Py.createInterpreter();
+        interp.evalCode(NEGATE, globals, globals);
+        assertEquals(Py.val(-6.0), globals.get("a"), "a == -6.0");
+        assertEquals(Py.val(7.0), globals.get("b"), "b == 7.0");
         //@formatter:on
     }
 
@@ -397,10 +389,10 @@ class PyByteCode2 {
      */
     new PyCode(0, 0, 0, 0, 2, 64,
         Py.bytes(101, 0, 101, 1, 23, 0, 90, 2, 101, 0, 101, 1, 24, 0,
-                90, 3, 101, 0, 101, 1, 20, 0, 90, 4, 100, 0, 83, 0),
+            90, 3, 101, 0, 101, 1, 20, 0, 90, 4, 100, 0, 83, 0),
         Py.tuple(Py.None),
         Py.tuple(Py.str("a"), Py.str("b"), Py.str("sum"),
-                Py.str("diff"), Py.str("prod")),
+            Py.str("diff"), Py.str("prod")),
         Py.tuple(),
         Py.tuple(),
         Py.tuple(), Py.str("binary"), Py.str("<module>"), 1,
@@ -411,18 +403,13 @@ class PyByteCode2 {
     void test_binary1() {
         //@formatter:off
         PyDictionary globals = new PyDictionary();
-        globals.put(Py.str("a"), Py.val(7));
-        globals.put(Py.str("b"), Py.val(6));
-        PyCode code = BINARY;
-        ThreadState tstate = new ThreadState();
-        PyFrame frame = code.createFrame(tstate, globals, globals);
-        frame.eval();
-        assertEquals(Py.val(13), globals.get(Py.str("sum")),
-            "sum == 13");
-        assertEquals(Py.val(1), globals.get(Py.str("diff")),
-            "diff == 1");
-        assertEquals(Py.val(42), globals.get(Py.str("prod")),
-            "prod == 42");
+        globals.put("a", Py.val(7));
+        globals.put("b", Py.val(6));
+        Interpreter interp = Py.createInterpreter();
+        interp.evalCode(BINARY, globals, globals);
+        assertEquals(Py.val(13), globals.get("sum"), "sum == 13");
+        assertEquals(Py.val(1), globals.get("diff"), "diff == 1");
+        assertEquals(Py.val(42), globals.get("prod"), "prod == 42");
         //@formatter:on
     }
 
@@ -430,17 +417,13 @@ class PyByteCode2 {
     void test_binary2() {
         //@formatter:off
         PyDictionary globals = new PyDictionary();
-        globals.put(Py.str("a"), Py.val(7.0));
-        globals.put(Py.str("b"), Py.val(6.0));
-        PyCode code = BINARY;
-        ThreadState tstate = new ThreadState();
-        PyFrame frame = code.createFrame(tstate, globals, globals);
-        frame.eval();
-        assertEquals(Py.val(13.0), globals.get(Py.str("sum")),
-            "sum == 13.0");
-        assertEquals(Py.val(1.0), globals.get(Py.str("diff")),
-            "diff == 1.0");
-        assertEquals(Py.val(42.0), globals.get(Py.str("prod")),
+        globals.put("a", Py.val(7.0));
+        globals.put("b", Py.val(6.0));
+        Interpreter interp = Py.createInterpreter();
+        interp.evalCode(BINARY, globals, globals);
+        assertEquals(Py.val(13.0), globals.get("sum"), "sum == 13.0");
+        assertEquals(Py.val(1.0), globals.get("diff"), "diff == 1.0");
+        assertEquals(Py.val(42.0), globals.get("prod"),
             "prod == 42.0");
         //@formatter:on
     }
@@ -449,17 +432,13 @@ class PyByteCode2 {
     void test_binary3() {
         //@formatter:off
         PyDictionary globals = new PyDictionary();
-        globals.put(Py.str("a"), Py.val(7.0));
-        globals.put(Py.str("b"), Py.val(6));
-        PyCode code = BINARY;
-        ThreadState tstate = new ThreadState();
-        PyFrame frame = code.createFrame(tstate, globals, globals);
-        frame.eval();
-        assertEquals(Py.val(13.0), globals.get(Py.str("sum")),
-            "sum == 13.0");
-        assertEquals(Py.val(1.0), globals.get(Py.str("diff")),
-            "diff == 1.0");
-        assertEquals(Py.val(42.0), globals.get(Py.str("prod")),
+        globals.put("a", Py.val(7.0));
+        globals.put("b", Py.val(6));
+        Interpreter interp = Py.createInterpreter();
+        interp.evalCode(BINARY, globals, globals);
+        assertEquals(Py.val(13.0), globals.get("sum"), "sum == 13.0");
+        assertEquals(Py.val(1.0), globals.get("diff"), "diff == 1.0");
+        assertEquals(Py.val(42.0), globals.get("prod"),
             "prod == 42.0");
         //@formatter:on
     }
@@ -468,17 +447,13 @@ class PyByteCode2 {
     void test_binary4() {
         //@formatter:off
         PyDictionary globals = new PyDictionary();
-        globals.put(Py.str("a"), Py.val(7));
-        globals.put(Py.str("b"), Py.val(6.0));
-        PyCode code = BINARY;
-        ThreadState tstate = new ThreadState();
-        PyFrame frame = code.createFrame(tstate, globals, globals);
-        frame.eval();
-        assertEquals(Py.val(13.0), globals.get(Py.str("sum")),
-            "sum == 13.0");
-        assertEquals(Py.val(1.0), globals.get(Py.str("diff")),
-            "diff == 1.0");
-        assertEquals(Py.val(42.0), globals.get(Py.str("prod")),
+        globals.put("a", Py.val(7));
+        globals.put("b", Py.val(6.0));
+        Interpreter interp = Py.createInterpreter();
+        interp.evalCode(BINARY, globals, globals);
+        assertEquals(Py.val(13.0), globals.get("sum"), "sum == 13.0");
+        assertEquals(Py.val(1.0), globals.get("diff"), "diff == 1.0");
+        assertEquals(Py.val(42.0), globals.get("prod"),
             "prod == 42.0");
         //@formatter:on
     }

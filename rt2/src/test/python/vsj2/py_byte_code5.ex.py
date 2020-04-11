@@ -3,12 +3,20 @@
 # This looks like a Python module but it isn't. These are code fragments that
 # the module vsj2.exparser will break apart to generate test material.
 
+# classic_call:
+
+# ? n, m
+n = len(*("hello",))
+m = len(*("hello",), **{})
+
+
 # builtin_call:
 x = "hello"
 x = [1,2,3]
 x = ("horse", 42, None)
 # ? n
 n = len(x)
+
 
 # def_func:
 x = 14
@@ -18,14 +26,49 @@ def f():
     return x * 3
 y = f()
 
+
 # def_func_args:
 u, v = 6, 7
-u, v = 3, "ha"
 # ? y
 def f(x, y):
     return x * y
 y = f(u, v)
 
+
+# def_func_kw:
+u, v = 3, 4
+# ? y, z
+def f(x, y, a=5, b=6):
+    return x * y + a * b
+y = f(3, 10, b=u, a=v)
+z = f(9, 2, a=v)
+
+
+# def_func_tuple:
+u, v, args = 3, 4, (5, 6)
+# ? y
+def f(x, y, *args):
+    return x * y + args[0] * args[1]
+y = f(u+1, v-1, *args)
+
+
+# def_func_dict:
+u, v = 3, 10
+# ? y
+def f(x, y, a=500, b=600):
+    return x * y + a * b
+kw = {'a': u, 'b': v-6}
+y = f(u, v, **kw)
+
+# def_func_tuple_dict:
+s, t, u, v, ar = 7, 6, 5, 4, (3, 2, 1)
+# ? x, y, z
+def f(x, y, *args, a=400, b=600, **kwargs):
+    return (x + y - a) * (args[0] + b + kwargs['c'])
+kw = {'a': u-1, 'c': 1}
+x = f(s, *ar, b=v, **kw)
+y = f(s, t, *ar, b=v, **kw)
+z = f(*ar, **kw)
 
 # faqprog:
 

@@ -12,6 +12,8 @@ abstract class PyFrame implements PyObject {
     PyFrame back;
     /** Code this frame is to execute. */
     final PyCode code;
+    /** ThreadState owning this frame. */
+    protected final Interpreter interpreter;
     /** Built-in objects */
     final PyDictionary builtins;
     /** Global context (name space) of execution. */
@@ -26,15 +28,45 @@ abstract class PyFrame implements PyObject {
      *
      * @param tstate thread state (supplies link to previous frame)
      * @param code that this frame executes
+     * @param interpreter providing the module context
      * @param globals global name space
      */
-    PyFrame(ThreadState tstate, PyCode code, PyDictionary globals) {
+    PyFrame(ThreadState tstate, PyCode code, Interpreter interpreter,
+            PyDictionary globals) {
         this.tstate = tstate;
         this.code = code;
+        this.interpreter = interpreter;
         this.back = tstate.frame; // NB not pushed until eval()
         this.globals = globals;
-        // globals.get("__builtins__") ought to be a module with dict:
-        this.builtins = new PyDictionary();
+        // Infer builtins (a PyDictionary or subclass)
+        if (back != null && back.globals == globals)
+            // Same globals, so same builtins
+            this.builtins = back.builtins;
+        else
+            this.builtins = inferBuiltins();
+    }
+
+    /**
+     * Find or create a {@code dict} to be the built-ins of this frame.
+     * Either the __builtins__ element of the globals provides it, or we
+     * supply a minimal dictionary.
+     */
+    private PyDictionary inferBuiltins() {
+        // Normally, __builtins__ is a module
+        PyObject b = globals.get(Py.BUILTINS);
+        if (b != null) {
+            if (b instanceof PyModule)
+                return ((PyModule) b).dict;
+            else if (b instanceof PyDictionary)
+                return (PyDictionary) b;
+            throw new TypeError("%s should be module not %s",
+                    Py.BUILTINS, b);
+        } else {
+            // Substitute minimal builtins
+            PyDictionary builtins = new PyDictionary();
+            builtins.put("None", Py.None);
+            return builtins;
+        }
     }
 
     /**
@@ -57,14 +89,16 @@ abstract class PyFrame implements PyObject {
      *
      * @param tstate thread state (supplies back)
      * @param code that this frame executes
+     * @param interpreter providing the module context
      * @param globals global name space
      * @param locals local name space (or it may be {@code globals})
      */
     protected PyFrame(ThreadState tstate, PyCode code,
-            PyDictionary globals, PyObject locals) {
+            Interpreter interpreter, PyDictionary globals,
+            PyObject locals) {
 
         // Initialise the basics.
-        this(tstate, code, globals);
+        this(tstate, code, interpreter, globals);
 
         // The need for a dictionary of locals depends on the code
         EnumSet<PyCode.Trait> traits = code.traits;

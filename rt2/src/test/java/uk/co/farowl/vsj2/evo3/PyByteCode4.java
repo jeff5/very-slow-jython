@@ -142,11 +142,11 @@ class PyByteCode4 {
      */
     new PyCode(0, 0, 0, 0, 2, 64,
         Py.bytes(101, 0, 100, 0, 64, 0, 90, 1, 101, 0, 100, 1, 64, 0,
-                90, 2, 100, 2, 101, 0, 64, 0, 90, 3, 100, 3, 101, 0,
-                64, 0, 90, 4, 100, 4, 83, 0),
+            90, 2, 100, 2, 101, 0, 64, 0, 90, 3, 100, 3, 101, 0, 64,
+            0, 90, 4, 100, 4, 83, 0),
         Py.tuple(Py.False, Py.True, Py.val(42), Py.val(43), Py.None),
         Py.tuple(Py.str("u"), Py.str("a"), Py.str("b"), Py.str("c"),
-                Py.str("d")),
+            Py.str("d")),
         Py.tuple(),
         Py.tuple(),
         Py.tuple(), Py.str("boolean_and"), Py.str("<module>"), 1,
@@ -157,17 +157,13 @@ class PyByteCode4 {
     void test_boolean_and1() {
         //@formatter:off
         PyDictionary globals = new PyDictionary();
-        globals.put(Py.str("u"), Py.False);
-        PyCode code = BOOLEAN_AND;
-        ThreadState tstate = new ThreadState();
-        PyFrame frame = code.createFrame(tstate, globals, globals);
-        frame.eval();
-        assertEquals(Py.False, globals.get(Py.str("a")),
-            "a == False");
-        assertEquals(Py.False, globals.get(Py.str("b")),
-            "b == False");
-        assertEquals(Py.val(0), globals.get(Py.str("c")), "c == 0");
-        assertEquals(Py.val(0), globals.get(Py.str("d")), "d == 0");
+        globals.put("u", Py.False);
+        Interpreter interp = Py.createInterpreter();
+        interp.evalCode(BOOLEAN_AND, globals, globals);
+        assertEquals(Py.False, globals.get("a"), "a == False");
+        assertEquals(Py.False, globals.get("b"), "b == False");
+        assertEquals(Py.val(0), globals.get("c"), "c == 0");
+        assertEquals(Py.val(0), globals.get("d"), "d == 0");
         //@formatter:on
     }
 
@@ -175,16 +171,13 @@ class PyByteCode4 {
     void test_boolean_and2() {
         //@formatter:off
         PyDictionary globals = new PyDictionary();
-        globals.put(Py.str("u"), Py.True);
-        PyCode code = BOOLEAN_AND;
-        ThreadState tstate = new ThreadState();
-        PyFrame frame = code.createFrame(tstate, globals, globals);
-        frame.eval();
-        assertEquals(Py.False, globals.get(Py.str("a")),
-            "a == False");
-        assertEquals(Py.True, globals.get(Py.str("b")), "b == True");
-        assertEquals(Py.val(0), globals.get(Py.str("c")), "c == 0");
-        assertEquals(Py.val(1), globals.get(Py.str("d")), "d == 1");
+        globals.put("u", Py.True);
+        Interpreter interp = Py.createInterpreter();
+        interp.evalCode(BOOLEAN_AND, globals, globals);
+        assertEquals(Py.False, globals.get("a"), "a == False");
+        assertEquals(Py.True, globals.get("b"), "b == True");
+        assertEquals(Py.val(0), globals.get("c"), "c == 0");
+        assertEquals(Py.val(1), globals.get("d"), "d == 1");
         //@formatter:on
     }
 
@@ -192,15 +185,13 @@ class PyByteCode4 {
     void test_boolean_and3() {
         //@formatter:off
         PyDictionary globals = new PyDictionary();
-        globals.put(Py.str("u"), Py.val(15));
-        PyCode code = BOOLEAN_AND;
-        ThreadState tstate = new ThreadState();
-        PyFrame frame = code.createFrame(tstate, globals, globals);
-        frame.eval();
-        assertEquals(Py.val(0), globals.get(Py.str("a")), "a == 0");
-        assertEquals(Py.val(1), globals.get(Py.str("b")), "b == 1");
-        assertEquals(Py.val(10), globals.get(Py.str("c")), "c == 10");
-        assertEquals(Py.val(11), globals.get(Py.str("d")), "d == 11");
+        globals.put("u", Py.val(15));
+        Interpreter interp = Py.createInterpreter();
+        interp.evalCode(BOOLEAN_AND, globals, globals);
+        assertEquals(Py.val(0), globals.get("a"), "a == 0");
+        assertEquals(Py.val(1), globals.get("b"), "b == 1");
+        assertEquals(Py.val(10), globals.get("c"), "c == 10");
+        assertEquals(Py.val(11), globals.get("d"), "d == 11");
         //@formatter:on
     }
 
@@ -239,11 +230,11 @@ class PyByteCode4 {
      */
     new PyCode(0, 0, 0, 0, 2, 64,
         Py.bytes(101, 0, 100, 0, 66, 0, 90, 1, 101, 0, 100, 1, 66, 0,
-                90, 2, 100, 2, 101, 0, 66, 0, 90, 3, 100, 3, 101, 0,
-                66, 0, 90, 4, 100, 4, 83, 0),
+            90, 2, 100, 2, 101, 0, 66, 0, 90, 3, 100, 3, 101, 0, 66,
+            0, 90, 4, 100, 4, 83, 0),
         Py.tuple(Py.False, Py.True, Py.val(42), Py.val(43), Py.None),
         Py.tuple(Py.str("u"), Py.str("a"), Py.str("b"), Py.str("c"),
-                Py.str("d")),
+            Py.str("d")),
         Py.tuple(),
         Py.tuple(),
         Py.tuple(), Py.str("boolean_or"), Py.str("<module>"), 1,
@@ -254,16 +245,13 @@ class PyByteCode4 {
     void test_boolean_or1() {
         //@formatter:off
         PyDictionary globals = new PyDictionary();
-        globals.put(Py.str("u"), Py.False);
-        PyCode code = BOOLEAN_OR;
-        ThreadState tstate = new ThreadState();
-        PyFrame frame = code.createFrame(tstate, globals, globals);
-        frame.eval();
-        assertEquals(Py.False, globals.get(Py.str("a")),
-            "a == False");
-        assertEquals(Py.True, globals.get(Py.str("b")), "b == True");
-        assertEquals(Py.val(42), globals.get(Py.str("c")), "c == 42");
-        assertEquals(Py.val(43), globals.get(Py.str("d")), "d == 43");
+        globals.put("u", Py.False);
+        Interpreter interp = Py.createInterpreter();
+        interp.evalCode(BOOLEAN_OR, globals, globals);
+        assertEquals(Py.False, globals.get("a"), "a == False");
+        assertEquals(Py.True, globals.get("b"), "b == True");
+        assertEquals(Py.val(42), globals.get("c"), "c == 42");
+        assertEquals(Py.val(43), globals.get("d"), "d == 43");
         //@formatter:on
     }
 
@@ -271,15 +259,13 @@ class PyByteCode4 {
     void test_boolean_or2() {
         //@formatter:off
         PyDictionary globals = new PyDictionary();
-        globals.put(Py.str("u"), Py.True);
-        PyCode code = BOOLEAN_OR;
-        ThreadState tstate = new ThreadState();
-        PyFrame frame = code.createFrame(tstate, globals, globals);
-        frame.eval();
-        assertEquals(Py.True, globals.get(Py.str("a")), "a == True");
-        assertEquals(Py.True, globals.get(Py.str("b")), "b == True");
-        assertEquals(Py.val(43), globals.get(Py.str("c")), "c == 43");
-        assertEquals(Py.val(43), globals.get(Py.str("d")), "d == 43");
+        globals.put("u", Py.True);
+        Interpreter interp = Py.createInterpreter();
+        interp.evalCode(BOOLEAN_OR, globals, globals);
+        assertEquals(Py.True, globals.get("a"), "a == True");
+        assertEquals(Py.True, globals.get("b"), "b == True");
+        assertEquals(Py.val(43), globals.get("c"), "c == 43");
+        assertEquals(Py.val(43), globals.get("d"), "d == 43");
         //@formatter:on
     }
 
@@ -287,15 +273,13 @@ class PyByteCode4 {
     void test_boolean_or3() {
         //@formatter:off
         PyDictionary globals = new PyDictionary();
-        globals.put(Py.str("u"), Py.val(15));
-        PyCode code = BOOLEAN_OR;
-        ThreadState tstate = new ThreadState();
-        PyFrame frame = code.createFrame(tstate, globals, globals);
-        frame.eval();
-        assertEquals(Py.val(15), globals.get(Py.str("a")), "a == 15");
-        assertEquals(Py.val(15), globals.get(Py.str("b")), "b == 15");
-        assertEquals(Py.val(47), globals.get(Py.str("c")), "c == 47");
-        assertEquals(Py.val(47), globals.get(Py.str("d")), "d == 47");
+        globals.put("u", Py.val(15));
+        Interpreter interp = Py.createInterpreter();
+        interp.evalCode(BOOLEAN_OR, globals, globals);
+        assertEquals(Py.val(15), globals.get("a"), "a == 15");
+        assertEquals(Py.val(15), globals.get("b"), "b == 15");
+        assertEquals(Py.val(47), globals.get("c"), "c == 47");
+        assertEquals(Py.val(47), globals.get("d"), "d == 47");
         //@formatter:on
     }
 
@@ -334,11 +318,11 @@ class PyByteCode4 {
      */
     new PyCode(0, 0, 0, 0, 2, 64,
         Py.bytes(101, 0, 100, 0, 65, 0, 90, 1, 101, 0, 100, 1, 65, 0,
-                90, 2, 100, 2, 101, 0, 65, 0, 90, 3, 100, 3, 101, 0,
-                65, 0, 90, 4, 100, 4, 83, 0),
+            90, 2, 100, 2, 101, 0, 65, 0, 90, 3, 100, 3, 101, 0, 65,
+            0, 90, 4, 100, 4, 83, 0),
         Py.tuple(Py.False, Py.True, Py.val(42), Py.val(43), Py.None),
         Py.tuple(Py.str("u"), Py.str("a"), Py.str("b"), Py.str("c"),
-                Py.str("d")),
+            Py.str("d")),
         Py.tuple(),
         Py.tuple(),
         Py.tuple(), Py.str("boolean_xor"), Py.str("<module>"), 1,
@@ -349,16 +333,13 @@ class PyByteCode4 {
     void test_boolean_xor1() {
         //@formatter:off
         PyDictionary globals = new PyDictionary();
-        globals.put(Py.str("u"), Py.False);
-        PyCode code = BOOLEAN_XOR;
-        ThreadState tstate = new ThreadState();
-        PyFrame frame = code.createFrame(tstate, globals, globals);
-        frame.eval();
-        assertEquals(Py.False, globals.get(Py.str("a")),
-            "a == False");
-        assertEquals(Py.True, globals.get(Py.str("b")), "b == True");
-        assertEquals(Py.val(42), globals.get(Py.str("c")), "c == 42");
-        assertEquals(Py.val(43), globals.get(Py.str("d")), "d == 43");
+        globals.put("u", Py.False);
+        Interpreter interp = Py.createInterpreter();
+        interp.evalCode(BOOLEAN_XOR, globals, globals);
+        assertEquals(Py.False, globals.get("a"), "a == False");
+        assertEquals(Py.True, globals.get("b"), "b == True");
+        assertEquals(Py.val(42), globals.get("c"), "c == 42");
+        assertEquals(Py.val(43), globals.get("d"), "d == 43");
         //@formatter:on
     }
 
@@ -366,16 +347,13 @@ class PyByteCode4 {
     void test_boolean_xor2() {
         //@formatter:off
         PyDictionary globals = new PyDictionary();
-        globals.put(Py.str("u"), Py.True);
-        PyCode code = BOOLEAN_XOR;
-        ThreadState tstate = new ThreadState();
-        PyFrame frame = code.createFrame(tstate, globals, globals);
-        frame.eval();
-        assertEquals(Py.True, globals.get(Py.str("a")), "a == True");
-        assertEquals(Py.False, globals.get(Py.str("b")),
-            "b == False");
-        assertEquals(Py.val(43), globals.get(Py.str("c")), "c == 43");
-        assertEquals(Py.val(42), globals.get(Py.str("d")), "d == 42");
+        globals.put("u", Py.True);
+        Interpreter interp = Py.createInterpreter();
+        interp.evalCode(BOOLEAN_XOR, globals, globals);
+        assertEquals(Py.True, globals.get("a"), "a == True");
+        assertEquals(Py.False, globals.get("b"), "b == False");
+        assertEquals(Py.val(43), globals.get("c"), "c == 43");
+        assertEquals(Py.val(42), globals.get("d"), "d == 42");
         //@formatter:on
     }
 
@@ -383,15 +361,13 @@ class PyByteCode4 {
     void test_boolean_xor3() {
         //@formatter:off
         PyDictionary globals = new PyDictionary();
-        globals.put(Py.str("u"), Py.val(15));
-        PyCode code = BOOLEAN_XOR;
-        ThreadState tstate = new ThreadState();
-        PyFrame frame = code.createFrame(tstate, globals, globals);
-        frame.eval();
-        assertEquals(Py.val(15), globals.get(Py.str("a")), "a == 15");
-        assertEquals(Py.val(14), globals.get(Py.str("b")), "b == 14");
-        assertEquals(Py.val(37), globals.get(Py.str("c")), "c == 37");
-        assertEquals(Py.val(36), globals.get(Py.str("d")), "d == 36");
+        globals.put("u", Py.val(15));
+        Interpreter interp = Py.createInterpreter();
+        interp.evalCode(BOOLEAN_XOR, globals, globals);
+        assertEquals(Py.val(15), globals.get("a"), "a == 15");
+        assertEquals(Py.val(14), globals.get("b"), "b == 14");
+        assertEquals(Py.val(37), globals.get("c"), "c == 37");
+        assertEquals(Py.val(36), globals.get("d"), "d == 36");
         //@formatter:on
     }
 

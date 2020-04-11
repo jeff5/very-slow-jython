@@ -14,4 +14,26 @@ class PyDictionary extends HashMap<PyObject, PyObject>
 
     @Override
     public PyType getType() { return TYPE; }
+
+    /**
+     * Specialisation of {@code Map.get} allowing Java {@code String}
+     * keys.
+     */
+    PyObject get(String key) { return this.get(Py.str(key)); }
+
+    /**
+     * Specialisation of {@code Map.put()} allowing Java {@code String}
+     * keys.
+     */
+    PyObject put(String key, PyObject value) {
+        return this.put(Py.str(key), value);
+    }
+
+    /**
+     * Specialisation of {@code Map.putIfAbsent()} allowing Java
+     * {@code String} keys.
+     */
+    PyObject putIfAbsent(String key, PyObject value) {
+        return this.putIfAbsent(Py.str(key), value);
+    }
 }

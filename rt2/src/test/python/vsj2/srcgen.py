@@ -425,3 +425,61 @@ class PyObjectEmitterEvo3(PyObjectEmitter):
         self.java_arglist(self.python, value, ")" + suffix)
         return self
 
+
+class PyObjectTestEmitterEvo3(PyObjectTestEmitter):
+    """Class to emit a test PyCode and a JUnit test method for each case.
+
+    The generated code assumes a particular representation for Python in Java,
+    which is introduced in PyByteCode1.java and pursued in Java package evo2.
+    """
+
+    def __init__(self, test, writer=None):
+        self.writer = PyObjectEmitterEvo3() if writer is None else writer
+        self.test = test
+        # Compile the lines to byte code
+        prog = '\n'.join(test.body)
+        code = compile(prog, self.test.name, 'exec')
+        self.bytecode = dis.Bytecode(code)
+
+    def emit_test_method(self, name, c):
+        """Emit one JUnit test method with the given name"""
+        # Prepare the "before" name space by executing the "case" code
+        before = dict()
+        exec(c, {}, before)
+        # Execute the example code against a copy of that name space
+        globals = dict(before)
+        exec(self.bytecode.codeobj, globals)
+        # Extract those variables names as results to test
+        after = {k: globals[k] for k in self.test.test}
+        # Check
+        #print("before = {!r}".format(before))
+        #print("after = {!r}".format(after))
+        # Emit the code for the test method
+        self.writer.emit_line("@Test")
+        self.writer.emit_line("void " + name + "() {")
+        with self.writer.indentation():
+            self.writer.emit_line("//@formatter:off")
+            # Load the global name space with the test case values
+            self.writer.emit_line("PyDictionary globals = new PyDictionary();")
+            for k, v in before.items():
+                self.writer.emit_line("globals.put(")
+                with self.writer.indentation():
+                    self.writer.java_string(k, ", ")
+                    self.writer.python(v, ");")
+            # Execute the code in the Java implementation
+            self.writer.emit_line("Interpreter interp = Py.createInterpreter();")
+            self.writer.emit_line("interp.evalCode(")
+            self.writer.emit(self.test.name.upper())
+            self.writer.emit(", globals, globals);")
+            # Compare named results against the values this Python got
+            for k, v in after.items():
+                msg = "{} == {}".format(k, repr(v))
+                self.writer.emit_line("assertEquals(")
+                with self.writer.indentation():
+                    self.writer.python(v, ", ")
+                    self.writer.emit("globals.get(")
+                    self.writer.java_string(k, "), ")
+                    self.writer.java_string(msg, ");")
+            self.writer.emit_line("//@formatter:on")
+        self.writer.emit_line("}")
+        return self.writer.emit_line()

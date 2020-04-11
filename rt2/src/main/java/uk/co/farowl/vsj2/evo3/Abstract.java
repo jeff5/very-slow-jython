@@ -11,10 +11,10 @@ import uk.co.farowl.vsj2.evo3.Slot.EmptyException;
  * interpreter. (Methods here often correspond closely to a CPython
  * opcode.)
  * <p>
- * See also {@link Number}, {@link Sequence} and {@link Mapping} which
- * contain the abstract interface to the corresponding type families. In
- * CPython, the methods of all these classes are found in
- * {@code Objects/abstract.c}
+ * See also {@link Number}, {@link Sequence}, {@link Mapping} and
+ * {@link Callable} which contain the abstract interface to the
+ * corresponding type families. In CPython, the methods of all these
+ * classes are found in {@code Objects/abstract.c}
  */
 class Abstract {
 

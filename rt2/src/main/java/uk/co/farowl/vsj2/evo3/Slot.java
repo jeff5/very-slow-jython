@@ -18,8 +18,9 @@ import java.lang.invoke.VarHandle;
  */
 enum Slot {
 
-    tp_hash(Signature.LEN), //
     tp_repr(Signature.UNARY), //
+    tp_hash(Signature.LEN), //
+    tp_call(Signature.TERNARY), //
     tp_str(Signature.UNARY), //
     tp_richcompare(Signature.RICHCMP), //
 
