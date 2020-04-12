@@ -12,27 +12,28 @@ import org.junit.jupiter.api.Test;
 class PyByteCode5 {
 
     @SuppressWarnings("unused")
-    private static class TestCallable implements PyObject {
+    private static class LenCallable implements PyObject {
 
         static final PyType TYPE = PyType.fromSpec(
-                new PyType.Spec("0TestCallable", TestCallable.class));
+                new PyType.Spec("00LenCallable", LenCallable.class));
 
         @Override
         public PyType getType() { return TYPE; }
 
-        static PyObject tp_call(TestCallable self, PyObject args,
-                PyObject kwargs) {
-            return Py.val(42);
+        static PyObject tp_call(LenCallable self, PyObject args,
+                PyObject kwargs) throws Throwable {
+            PyObject v = Sequence.getItem(args, 0);
+            return Py.val(Abstract.size(v));
         }
     }
 
     @Test
     void abstract_call() throws TypeError, Throwable {
-        PyObject callable = new TestCallable();
-        PyObject args = Py.tuple();
+        PyObject callable = new LenCallable();
+        PyObject args = Py.tuple(Py.str("hello"));
         PyObject kwargs = Py.dict();
         PyObject result = Callables.call(callable, args, kwargs);
-        assertEquals(Py.val(42), result);
+        assertEquals(Py.val(5), result);
     }
 
     // --------------------- Generated Tests -----------------------
