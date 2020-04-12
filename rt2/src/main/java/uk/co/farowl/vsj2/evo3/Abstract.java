@@ -122,11 +122,11 @@ class Abstract {
     }
 
     /** Python size of {@code o} */
-    static PyObject size(PyObject o) throws Throwable {
+    static int size(PyObject o) throws Throwable {
         // Note that the slot is called sq_length but this method, size.
         try {
             MethodHandle mh = o.getType().sq_length;
-            return (PyObject) mh.invokeExact(o);
+            return (int) mh.invokeExact(o);
         } catch (Slot.EmptyException e) {}
 
         return Mapping.size(o);

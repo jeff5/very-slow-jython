@@ -6,12 +6,12 @@ import uk.co.farowl.vsj2.evo3.Slot.EmptyException;
 class Sequence extends Abstract {
 
     /** Python size of {@code s} */
-    static PyObject size(PyObject s) throws Throwable {
+    static int size(PyObject s) throws Throwable {
         // Note that the slot is called sq_length but this method, size.
         PyType sType = s.getType();
 
         try {
-            return (PyObject) sType.sq_length.invokeExact(s);
+            return (int) sType.sq_length.invokeExact(s);
         } catch (Slot.EmptyException e) {}
 
         if (Slot.mp_length.isDefinedFor(sType))
