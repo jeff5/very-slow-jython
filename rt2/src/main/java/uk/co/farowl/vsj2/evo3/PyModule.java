@@ -1,7 +1,7 @@
 package uk.co.farowl.vsj2.evo3;
 
 /** The Python {@code module} object. */
-abstract class PyModule implements PyObject {
+class PyModule implements PyObject {
 
     static final PyType TYPE = new PyType("module", PyModule.class);
 
@@ -27,5 +27,5 @@ abstract class PyModule implements PyObject {
      * the module body. The main action will be to add entries to
      * {@link #dict}. These become the members (globals) of the module.
      */
-    abstract void init();
+    void init() {}
 }

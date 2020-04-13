@@ -197,8 +197,235 @@ But we need to make this slicker and more general,
 and it ought to check the arguments for us.
 
 
-Function and Method Definition
-==============================
+A Function in a Module
+======================
+
+The ``len()`` function belongs to the ``builtins`` module.
+This means that the object that represents it
+must be entered in the dictionary of that module as the definition of "len".
+We have not needed the Python module type before so we quickly define it:
+
+..  code-block:: java
+
+    /** The Python {@code module} object. */
+    class PyModule implements PyObject {
+
+        static final PyType TYPE = new PyType("module", PyModule.class);
+
+        @Override
+        public PyType getType() { return TYPE; }
+
+        /** Name of this module. **/
+        final String name;
+
+        /** Dictionary (globals) of this module. **/
+        final PyDictionary dict = new PyDictionary();
+
+        /** The interpreter that created this module. **/
+        final Interpreter interpreter;
+
+        PyModule(Interpreter interpreter, String name) {
+            this.interpreter = interpreter;
+            this.name = name;
+        }
+
+        /** Initialise the module instance {@link #dict}. */
+        void init() {}
+    }
+
+We intend each actual module to extend this class and define init().
+Note that each class defining a kind of module may have multiple instances,
+since each Interpreter that imports it will create its own.
+
+..  note::
+
+    The member ``interpreter``, recording the owning ``Interpreter``,
+    is an innovation relative to CPython that may be ignored for now.
+
+We would like to define the built-in module like this,
+imagining some mechanism ``register``,
+currently missing from ``PyModule``,
+that will put a Python function object wrapping ``len()``
+in the module dictionary:
+
+..  code-block:: java
+    :emphasize-lines: 10-12, 17
+
+    package uk.co.farowl.vsj2.evo3;
+
+    /** The {@code builtin} module. */
+    class BuiltinModule extends PyModule {
+
+        BuiltinModule(Interpreter interpreter) {
+            super(interpreter, "builtins");
+        }
+
+        static PyObject len(PyObject v) throws Throwable {
+            return Py.val(Abstract.size(v));
+        }
+
+        @Override
+        void init() {
+            // Register each method as an exported object
+            register("len");
+        }
+    }
+
+CPython ``PyMethodDef`` and ``PyCFunctionObject``
+=================================================
+
+How can we devise the mechanism we need to wrap ``len()``?
+As usual, we'll look at CPython for ideas.
+Here is the definition from CPython (from ``~/Python/bltinmodule.c``):
+
+..  code-block:: c
+    :emphasize-lines: 10-22, 24-26
+
+    /*[clinic input]
+    len as builtin_len
+
+        obj: object
+        /
+
+    Return the number of items in a container.
+    [clinic start generated code]*/
+
+    static PyObject *
+    builtin_len(PyObject *module, PyObject *obj)
+    /*[clinic end generated code: output=fa7a270d314dfb6c input=bc55598da9e9c9b5]*/
+    {
+        Py_ssize_t res;
+
+        res = PyObject_Size(obj);
+        if (res < 0) {
+            assert(PyErr_Occurred());
+            return NULL;
+        }
+        return PyLong_FromSsize_t(res);
+    }
+    ...
+    static PyMethodDef builtin_methods[] = {
+        ...
+        BUILTIN_LEN_METHODDEF
+        ...
+        {NULL,              NULL},
+    };
+
+Our code is shorter only because we do not need to check for errors:
+our strategy is to throw an exception.
+
+A small difference is that in CPython,
+the first argument of a module-level function is the module itself,
+as if the module were a class and the function a method of it.
+In all functions of almost every module of CPython, this is ignored.
+In Java, we could make ``len()`` an instance method for the same effect.
+However, let's see if we can do without the extra argument.
+
+A large part of the volume in C
+is the header that defines the function to `Argument Clinic`_.
+This is the gadget that turns a complex comment into code for processing
+the arguments and built-in documentation.
+In this case, the results are simple.
+(There is no intermediate ``builtin_len_impl``.)
+The generated code is in ``~/Python/clinic/bltinmodule.c.h``,
+and provides a modified version of the special comment as a doc-string,
+and a macro that can form one line of the method definition table.
+
+..  code-block:: c
+    :emphasize-lines: 8
+
+    PyDoc_STRVAR(builtin_len__doc__,
+    "len($module, obj, /)\n"
+    "--\n"
+    "\n"
+    "Return the number of items in a container.");
+
+    #define BUILTIN_LEN_METHODDEF    \
+        {"len", (PyCFunction)builtin_len, METH_O, builtin_len__doc__},
+
+The important part of this for us at present is the use of ``PyMethodDef``
+to describe the function,
+and particularly ``METH_O``, which is a setting of the ``flags`` field.
+The handling of a call by a ``PyCFunctionObject``,
+which represents function or method defined in C,
+and stored in field ``meth``,
+is steered by these flags.
+
+Only a few combinations of flags are valid,
+and each corresponds to a supported signature in C.
+
+.. csv-table:: CPython ``PyMethodDef`` signatures
+   :header: "Flags", "Type of ``meth``", "Call made"
+   :widths: 10, 20, 30
+
+    "``METH_NOARGS``", "``PyCFunction``", "``(*meth) (self, NULL)``"
+    "``METH_O``", "``PyCFunction``", "``(*meth) (self, args[0])``"
+    "``METH_VARARGS``", "``PyCFunction``", "``(*meth) (self, argtuple)``"
+    "``METH_VARARGS | METH_KEYWORDS``", "``PyCFunctionWithKeywords``", "``(*meth) (self, argtuple, kwdict)``"
+    "``METH_FASTCALL``", "``_PyCFunctionFast``", "``(*meth) (self, args, nargs)``"
+    "``METH_FASTCALL | METH_KEYWORDS``", "``_PyCFunctionFastWithKeywords``", "``(*meth) (self, args, nargs, kwnames)``"
+
+Here ``self`` is the module or target object,
+``argtuple`` is a ``tuple`` of positional arguments,
+``kwdict`` is a keyword ``dict`` (all these are as in the classic call),
+``args`` is an array of positional arguments followed by keyword ones,
+``kwnames`` is a tuple of the names of the keyword arguments in that array,
+and ``nargs`` is the number of positional arguments.
+``args`` may actually be a pointer into the stack,
+where we can find the ``nargs + len(kwnames)`` arguments,
+placed there by the ``CALL_FUNCTION`` opcode.
+
+Although the table shows the same type ``PyCFunction``
+for three of the flag configurations,
+this is not ambiguous.
+The flags control how the arguments will be presented,
+not the actual arguments to the call.
+The built-in functions ``locals()`` (takes no arguments),
+``len()`` (takes one argument), and
+``vars()`` (takes zero arguments or one),
+have the same C signatures but are defined as
+``METH_NOARGS``, ``METH_O`` and ``METH_VARARGS`` respectively.
+
+The allowable types of ``meth``
+are defined in the C header ``methodobject.h``,
+and ``meth`` may need to be cast to one of them to make the call correct:
+
+..  code-block:: c
+
+    typedef PyObject *(*PyCFunction)(PyObject *, PyObject *);
+    typedef PyObject *(*_PyCFunctionFast)
+                (PyObject *, PyObject *const *, Py_ssize_t);
+    typedef PyObject *(*PyCFunctionWithKeywords)
+                (PyObject *, PyObject *, PyObject *);
+    typedef PyObject *(*_PyCFunctionFastWithKeywords)
+                (PyObject *, PyObject *const *, Py_ssize_t,  PyObject *);
+    typedef PyObject *(*PyNoArgsFunction)(PyObject *);
+
+As we have seen,
+`Argument Clinic`_ generates the PyMethodDef for a function,
+assigning the flags based on the text signature in its input.
+The signature of the implementation function
+would not be enough to determine the flags.
+
+.. _Argument Clinic: https://docs.python.org/3/howto/clinic.html
+
+
+Java ``MethodDef`` and ``JavaFunction``
+=======================================
+
+..  We try not to put Py as a prefix unless it's a PyObject
+    and Object as a suffix seems unnecessary.
+
+We now look for a way to describe functions
+that is satisfactory for a Java implementation of Python.
+The ``builtin_function_or_method`` class is a visible feature
+(a.k.a. ``PyCFunction``),
+so we define a corresponding ``JavaFunction`` class,
+which will represent built-in functions and methods.
+
+.. For a while I toyed with distinct JavaFunction and JavaMethod.
+
+We take more liberties in defining ``MethodDef`` behind the scenes.
 
 
 
