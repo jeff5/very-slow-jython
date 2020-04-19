@@ -28,4 +28,9 @@ class PyModule implements PyObject {
      * {@link #dict}. These become the members (globals) of the module.
      */
     void init() {}
+
+    @Override
+    public String toString() {
+        return String.format("<module '%s'>", name);
+    }
 }

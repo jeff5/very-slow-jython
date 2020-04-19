@@ -68,6 +68,7 @@ class CPythonFrame extends PyFrame {
         // Local variables used repeatedly in the loop
         PyObject name, res, u, v, w;
         PyObject func, args, kwargs;
+        PyDictionary map;
 
         loop : for (;;) {
             try {
@@ -254,6 +255,16 @@ class CPythonFrame extends PyFrame {
                         valuestack[sp++] = w; // PUSH
                         break;
 
+                    case Opcode.BUILD_MAP:
+                        map = Py.dict();
+                        while (--oparg> 0) {
+                            v = valuestack[--sp]; // POP
+                            name = valuestack[--sp]; // POP
+                            map.put(name, v);
+                        }
+                        valuestack[sp++] = map; // PUSH
+                        break;
+
                     case Opcode.CALL_FUNCTION:
                         // func | args[n] |
                         // ----------------^sp
@@ -275,7 +286,7 @@ class CPythonFrame extends PyFrame {
                         kwargs = oparg == 0 ? null : valuestack[--sp];
                         args = valuestack[--sp]; // POP
                         func = valuestack[sp - 1]; // TOP
-                        res = callFunction(func, args, kwargs);
+                        res = Callables.call(func, args, kwargs);
                         valuestack[sp - 1] = res; // SET_TOP
                         break;
 
@@ -323,46 +334,4 @@ class CPythonFrame extends PyFrame {
         return new InterpreterError("Comparison '%s' not implemented",
                 cmpOp);
     }
-
-    /**
-     * Implement the opcode {@code CALL_FUNCTION_EX}. Condition the
-     * arguments to ensure they are respectively a tuple and a dict
-     * before passing the call to
-     * {@link Callables#call(PyObject, PyObject, PyObject)}.
-     *
-     * @param func callable Python object
-     * @param args {@code tuple} or iterable of Python objects
-     * @param kwargs {@code dict} or iterable of key-value pairs
-     * @return result of calling {@code func}
-     * @throws Throwable
-     * @throws TypeError
-     */
-    private PyObject callFunction(PyObject func, PyObject args,
-            PyObject kwargs) throws TypeError, Throwable {
-
-        // Represent kwargs as a PyDictionary (if not already or null)
-        if (kwargs != null && kwargs.getType() != PyDictionary.TYPE) {
-            // TODO: Treat kwargs as an iterable of (key,value) pairs
-            PyDictionary kwDict = Py.dict();
-            // Check kwargs iterable, and correctly typed
-            // kwDict.update(Mapping.items(kwargs));
-            kwargs = kwDict;
-        }
-
-        // Represent args as a PyTuple (if not already)
-        if (args.getType() != PyTuple.TYPE) {
-            // TODO: Treat args as an iterable of objects
-            // Construct PyTuple with whatever checks on values
-            // args = Sequence.tuple(args);
-        }
-
-        // XXX in CPython, other types of function exist
-        // no doubt in Jython too
-        // if (PyCFunction_Check(func)) {
-        // return PyCFunction_Call(func, args, kwargs);
-        // }
-        // else
-        return Callables.call(func, args, kwargs);
-    }
-
 }

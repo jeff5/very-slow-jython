@@ -20,7 +20,7 @@ enum Slot {
 
     tp_repr(Signature.UNARY), //
     tp_hash(Signature.LEN), //
-    tp_call(Signature.TERNARY), //
+    tp_call(Signature.CALL), //
     tp_str(Signature.UNARY), //
     tp_richcompare(Signature.RICHCMP), //
 
@@ -148,17 +148,6 @@ enum Slot {
      */
     interface Self extends PyObject {}
 
-    /** Some shorthands used to construct method signatures, etc.. */
-    private interface ClassShorthand {
-
-        static final Class<PyObject> O = PyObject.class;
-        static final Class<?> S = Self.class;
-        static final Class<?> I = int.class;
-        static final Class<?> B = boolean.class;
-        static final Class<?> V = void.class;
-        static final Class<Comparison> CMP = Comparison.class;
-    }
-
     /**
      * An enumeration of the acceptable signatures for slots in a
      * {@code PyType}. For each {@code MethodHandle} we may place in a
@@ -179,6 +168,7 @@ enum Slot {
         UNARY(O, S), // nb_negative, nb_invert
         BINARY(O, O, O), // +, -, u[v]
         TERNARY(O, S, O, O), // **
+        CALL(O, S, TUPLE, DICT), // **
         PREDICATE(B, S), // nb_bool
         LEN(I, S), // sq_length
         RICHCMP(O, S, O, CMP), // (richcmpfunc) tp_richcompare only

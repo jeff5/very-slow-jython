@@ -419,13 +419,20 @@ Java ``MethodDef`` and ``JavaFunction``
 We now look for a way to describe functions
 that is satisfactory for a Java implementation of Python.
 The ``builtin_function_or_method`` class is a visible feature
-(a.k.a. ``PyCFunction``),
+(a.k.a. ``PyCFunctionObject``),
 so we define a corresponding ``JavaFunction`` class,
 which will represent built-in functions and methods.
 
 .. For a while I toyed with distinct JavaFunction and JavaMethod.
 
 We take more liberties in defining ``MethodDef`` behind the scenes.
+The allowable flag configurations and signatures,
+apart from the equivalent of ``f([self,] *args, **kwargs)``,
+are an implementation choice.
+Even efficient support for ``CALL_FUNCTION``
+(the "stack slice" protocol, or fast call)
+is advantageous for CPython byte code but not particularly for a JVM.
+
 
 
 

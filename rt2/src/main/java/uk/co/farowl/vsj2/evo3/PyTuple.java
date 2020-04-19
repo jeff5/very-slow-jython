@@ -27,7 +27,7 @@ class PyTuple implements PyObject {
         System.arraycopy(a, start, this.value, 0, count);
     }
 
-    public PyObject getItem(int i) { return value[i]; }
+    PyObject getItem(int i) { return value[i]; }
 
     // slot functions -------------------------------------------------
 

@@ -20,8 +20,8 @@ class PyByteCode5 {
         @Override
         public PyType getType() { return TYPE; }
 
-        static PyObject tp_call(LenCallable self, PyObject args,
-                PyObject kwargs) throws Throwable {
+        static PyObject tp_call(LenCallable self, PyTuple args,
+                PyDictionary kwargs) throws Throwable {
             PyObject v = Sequence.getItem(args, 0);
             return Py.val(Abstract.size(v));
         }
@@ -74,7 +74,7 @@ class PyByteCode5 {
         Py.bytes(8, 1));
     //@formatter:on
 
-    // @Test
+    @Test
     void test_classic_call1() {
         //@formatter:off
         PyDictionary globals = new PyDictionary();
