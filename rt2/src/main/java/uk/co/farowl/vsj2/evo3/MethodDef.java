@@ -173,7 +173,7 @@ class MethodDef {
          * flagged) are in the same array, identified through a keyword
          * names tuple.
          */
-        FASTCALL, //
+        FASTCALL //
     }
 
     /** Construct a method definition. */

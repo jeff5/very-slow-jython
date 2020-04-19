@@ -27,6 +27,7 @@ class Callables extends Abstract {
             kw = (PyDictionary) kwargs;
         else {
             // TODO: Treat kwargs as an iterable of (key,value) pairs
+            // Throw TypeError if not convertible
             kw = Py.dict();
             // Check kwargs iterable, and correctly typed
             // kwDict.update(Mapping.items(kwargs));
@@ -38,6 +39,7 @@ class Callables extends Abstract {
             ar = (PyTuple) args;
         else {
             // TODO: Treat args as an iterable of objects
+            // Throw TypeError if not convertible
             ar = Py.tuple();
             // Construct PyTuple with whatever checks on values
             // argTuple = Sequence.tuple(args);
