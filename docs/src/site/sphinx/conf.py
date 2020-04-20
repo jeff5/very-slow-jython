@@ -41,16 +41,13 @@ extensions = [
     #'sphinx.ext.githubpages', # ?
 ]
 # PlantUML options (if extension used)
-plantuml = os.getenv('plantuml')
-# This fall back only works on Jeff's machine!
-plantuml_fallback = 'java -Djava.awt.headless=true -jar C:\Local\ext\plantuml.jar'
-
-if not plantuml:
-    print("""
-        Did you forget to set the plantuml environment vasriable?
-        Falling back to:
-        """, plantuml_fallback)
-    plantuml = plantuml_fallback
+java_cmd = "java -Djava.awt.headless=true"
+if os.name.startswith('nt'):
+    plantuml_jar = r"-jar C:\Local\ext\plantuml.jar" # Jeff's machine :)
+else:
+    plantuml_jar = "/usr/share/plantuml/plantuml.jar" # Ubuntu
+plantuml = os.getenv('plantuml', ' '.join([java_cmd, '-jar', plantuml_jar]))
+print("plantuml =", plantuml)
 
 master_doc = 'index' # The master toctree document.
 
