@@ -62,6 +62,21 @@ in the vicinity of the core interpreter:
 * :c:type:`PyInterpreterState` holds state shared between threads,
   including the module list and built-in objects.
 
+Relationships in CPython:
+
+.. uml::
+
+   PyInterpreterState "1" --* "*" PyThreadState
+   PyInterpreterState -> "*" PyModule
+   
+   PyThreadState -left- Thread
+
+   PyThreadState "frame" --> "0..1" PyFrameObject
+
+   PyFrameObject "back" -> PyFrameObject
+   PyFrameObject --> PyCodeObject
+
+
 The choice of data structures in this part of CPython and Jython
 is shot through with the idea of multiple threads.
 Also, in exploration of the CPython code, one quickly encounters,

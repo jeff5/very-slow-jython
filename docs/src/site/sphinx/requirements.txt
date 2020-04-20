@@ -1,3 +1,4 @@
 # requirements to build the documentation
 
 Sphinx>=2.2
+sphinxcontrib-plantuml

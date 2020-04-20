@@ -37,11 +37,20 @@ needs_sphinx = '2.0'
 extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.intersphinx',
-    #'sphinxcontrib.plantuml', # UML diagrams
+    'sphinxcontrib.plantuml', # UML diagrams
     #'sphinx.ext.githubpages', # ?
 ]
 # PlantUML options (if extension used)
-#plantuml = os.getenv('plantuml')
+plantuml = os.getenv('plantuml')
+# This fall back only works on Jeff's machine!
+plantuml_fallback = 'java -Djava.awt.headless=true -jar C:\Local\ext\plantuml.jar'
+
+if not plantuml:
+    print("""
+        Did you forget to set the plantuml environment vasriable?
+        Falling back to:
+        """, plantuml_fallback)
+    plantuml = plantuml_fallback
 
 master_doc = 'index' # The master toctree document.
 
