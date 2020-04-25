@@ -336,83 +336,207 @@ despite the inherent multiplicity of objects.
 Use cases
 *********
 
-Using Python once
-=================
-An application runs a Python script
-(however complex)
-possibly yielding change to the environment (files, etc.)
-but the interface with the application uses only Java objects.
-The Jython interpreter is a particular case.
-The use may be buried in a library of which the application is not conscious.
+We will catalogue several patterns
+in which interpreters and threads might be used.
+The idea is to test our architectural ideas in theory first,
+in a series of use cases.
+We may then prove the implementation by constructing test cases around them.
+The first are somewhat trivial, for completeness only.
 
-Issues:
+.. _uc-using-python-directly:
 
-* Ensure invocation is trivially easy (or invisible).
-* Try to ensure well-known examples (Jython Book) still work.
-* We may not want a global, static interpreter instance,
-  hanging around indefinitely.
+Using Python Directly
+=====================
+An application obtains an interpreter and gives it work to do.
+It may be called to run a script (Python file)
+or fed commands like a REPL.
+Objects the application obtains as return values,
+or from the namespace against which commands execute,
+will generally by Python objects,
+with behaviours defined in Python code.
 
-
-Object Behaviour defined in Python
-==================================
-An application implements some of its functionality in Python,
-creating objects whose implementation is in Python modules,
-so that method calls on them invoke code defined in Python.
-An example is an application calling many small functions,
-defined by executing Python modules.
-
-Issues:
-
-* An interpreter must be found each time a function is called.
-  We don't want to create one from scratch each time.
-* We don't want a global, static interpreter instance,
-  hanging around indefinitely.
-* From the application's perspective,
-  it may simply create an object and use it,
-  without consciously initialising Python.
+The Jython 2 main program is a particular case,
+and we'll need that or something similar in an implementation of Python 3.
 
 ..  uml::
-    :caption: Object Behaviour defined in Python
+    :caption: Using Python Directly
 
-    ": Application" -> ": Py" : interp = get Interpreter
-    ": Application" -> ": Py" : globals = dict()
+    myApp -> interp ** : new PythonInterpreter()
+
+    myApp -> interp ++ : exec("def f(x) : return 6*x")
+        interp -> f ** : new
+        return
+
+    myApp -> interp ++ : f = get("f")
+        return f
+
+    myApp -> f ++ : call(7)
+        return 42
+
+Considerations
+--------------
+
+* Ensure invocation is trivially easy.
+* Try to ensure well-known examples (Jython Book) still work.
+* Is automatic initialisation of the runtime a bad idea?
+* We may not want a global, static interpreter instance,
+  hanging around indefinitely.
+* But the interpreter must exist as long as the objects it created.
+* We do not (we think) want ``PyObject`` to have its Jython 2 interface in Java. 
+
+
+.. _uc-using-python-jsr-223:
+
+Using Python under JSR-223
+==========================
+As previously,
+an application obtains an interpreter and gives it work to do.
+Possibilities are mostly as in :ref:`uc-using-python-directly`,
+except that the usage is defined by JSR-223.
+
+..  uml::
+    :caption: Using Python under JSR-223
+
+    myApp -> manager ** : new ScriptEngineManager()
+    myApp -> manager : engine = getEngineByName("python")
+    manager -> engine ** : new
+
+    myApp -> engine ++ : eval("def f(x) : return 6*x")
+        engine -> f ** : new
+        return
+
+    myApp -> engine ++ : f = get("f")
+        return f
+
+    myApp -> f ++ : call(7)
+        return 42
+
+
+The use of an interpreter via JSR-223 is not really different
+once the application begins making direct use of the objects it gets back.
+
+Considerations
+--------------
+
+* Invocation and API are as defined by JSR-223 and the JDK.
+* The Jython 2 interpretation is a little weird:
+  let's think again, especially that thing about thread-local globals.
+* Other considerations as in :ref:`uc-using-python-directly`.
+
+
+.. _uc-python-twice-directly:
+
+Using Python Twice Directly
+===========================
+
+An application obtains two interpreters
+using the mecahanisms in :ref:`uc-using-python-directly`,
+or by JSR-223.
+It takes an object defined in one
+and gives it as an argument to a function in the second.
+For variety,
+suppose the application gets to the objects from the first interpreter
+by creating a dictionary as the namespace.
+
+..  uml::
+    :caption: Using Python Twice Directly
+
+    myApp -> Py : globals = dict
     note right
         Does this dict need
         module context?
     end note
 
-    ": Application" -> interp : run(module, globals)
-    ": Application" -> globals : foo = get("foo")
-    ": Application" -> foo : bar()
-    note right
-        How does foo.bar get
-        module context?
-    end note
+    myApp -> i1 ** : new PythonInterpreter(globals)
+    myApp -> i2 ** : new PythonInterpreter(globals)
+
+    myApp -> i1 ++ : exec("class C :\n    def foo(self, ...")
+        i1 -> "C : PyType" **
+        return
+    myApp -> i1 ++ : exec("c = C()")
+        i1 -> "C : PyType" ++ : call()
+            "C : PyType" -> c ** : new
+            return            
+        return
+
+    myApp -> i2 ++ : exec("c.foo()")
+        i2 -> c ++ : foo()
+            note right
+                It is essential that i1,
+                having defined foo, supply
+                the module context.
+            end note
+            c -> i1 ++ : import bar
+                note left
+                    What is the Python
+                    stack at this point?
+                    Are there two?
+                end note
+                return
+            return
+        return
+
+Considerations
+--------------
+
+* A single thread is valid in two interpreters simultaneously.
+* A dictionary object is created before any interpreter.
+  Does it have a current interpreter?
+  (Some built-ins like ``dict`` may be guaranteed not to need module context.)
+* At the point foo is used in the second interpreter,
+  the current interpreter must be ``i1``.
+* If the (platform) thread has a thread state in each interpreter,
+  there will be two (disconnected) stacks.
+* Other considerations as in :ref:`uc-using-python-directly`.
 
 
+.. _uc-python-behind-library:
 
-An Extension Module with a Private Interpreter
-==============================================
+Python behind the Library
+=========================
+.. Possibly lurking in the bike shed?
 
-An application runs Python in its own right,
-and uses a an extension module,
-that (directly or indirectly) runs Python.
-This case is challenging because a single platform thread
-is current in two distinct interpreters.
+A Java application uses a Java library.
+The implementor of that library chose to use Python.
+This is not visible in the API,
+but objects handled through their Java API are defined in Python.
 
-Issues:
+A second interpreter is also in use somehow,
+and is going to manipulate objects from the library.
+(For definiteness, assume the application uses this one directly.)
+The Python implementation of the objects from the library
+will not be apparent to the second Python interpreter.
 
-* Invocation should remain easy from the application's perspective.
-* The library should have its own instance of the Python interpreter,
-  since it may disagree with the application about configuration,
-  for example,
-  either may manipulate ``sys.modules`` or ``builtins.__import__``.
 
 ..  uml::
-    :caption: An Extension Modle with a Private Interpreter
+    :caption: Python behind the Library
 
-    ": Application" -> ": Py" : get Interpreter
+    myApp -> lib ++ : thing = makeThing()
+        lib -> i1 ++
+            i1 -> pyThing **
+            return pyThing
+        lib -> thing ** : new Thing(pyThing)    
+        return thing
 
+..  note:: more needed: use the thing from Python/Jython.
+
+
+Considerations
+--------------
+
+* A single thread is valid in two interpreters simultaneously.
+* The library is hiding the Python nature.
+  An exception raised in ``pyThing`` should be caught in ``thing``
+  and a library-specific exception raised,
+  optionally with the Python one as cause.
+
+
+Concurrency between Interpreters
+================================
+
+..  note::
+    Not yet elaborated. Start a second thread in ``i1``
+    accessing the same objects. Whose fault when it breaks?
 
 
 
@@ -424,7 +548,17 @@ The user application runs in a Java application server
 in which user applications are not processes but segregated by class loader,
 and threads are re-used.
 
-Issues:
+..  uml::
+    :caption: Application Server
+
+    myApp -> ": Py" : get Interpreter
+
+
+..  note:: Not yet elaborated.
+
+
+Considerations
+--------------
 
 * Thread local data and class values created in one application
   may still present for other applications.
@@ -432,12 +566,6 @@ Issues:
 * Approaches designed to ensure objects are not retained
   (e.g. use of weak references)
   may result in discarding state when it is still wanted.
-
-..  uml::
-    :caption: Application Server
-
-    ": Application" -> ": Py" : get Interpreter
-
 
 
 
