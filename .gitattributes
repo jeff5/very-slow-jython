@@ -5,10 +5,17 @@
 # to native line endings on checkout.
 #*.asdl text
 
+#
 # Declare files that will always have CRLF line endings on checkout.
+#
 #*.<ext> text eol=crlf
 
+#
 # Denote all files that are truly binary and should not be modified.
+#
 *.png binary
 *.jpg binary
 *.jar binary
+
+# Intersphinx inventory
+*.inv binary
