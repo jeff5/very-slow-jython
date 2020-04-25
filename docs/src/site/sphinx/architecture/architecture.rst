@@ -24,6 +24,7 @@ and then tested ideas that address them.
 ..  toctree::
 
     interpreter-structure
+    code-and-frame
 
 
 This chapter has diagrams generated with PlantUML
