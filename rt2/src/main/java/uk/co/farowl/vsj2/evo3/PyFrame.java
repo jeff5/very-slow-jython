@@ -12,7 +12,7 @@ abstract class PyFrame implements PyObject {
     PyFrame back;
     /** Code this frame is to execute. */
     final PyCode code;
-    /** ThreadState owning this frame. */
+    /** Interpreter owning this frame. */
     protected final Interpreter interpreter;
     /** Built-in objects */
     final PyDictionary builtins;

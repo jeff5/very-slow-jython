@@ -21,16 +21,16 @@ class Interpreter {
     final PyDictionary modules = new PyDictionary();
 
     /**
-     * The builtin module. An instance is created with each
+     * The builtins module. An instance is created with each
      * {@code Interpreter}. Not {@code null}.
      */
-    final PyModule builtinModule;
+    final PyModule builtinsModule;
 
     /** Create a new {@code Interpreter}. */
     Interpreter() {
-        builtinModule = new BuiltinsModule(this);
-        builtinModule.init();
-        addModule(builtinModule);
+        builtinsModule = new BuiltinsModule(this);
+        builtinsModule.init();
+        addModule(builtinsModule);
     }
 
     void addModule(PyModule m) {
@@ -50,7 +50,7 @@ class Interpreter {
     PyObject evalCode(PyCode code, PyDictionary globals,
             PyObject locals) {
         ThreadState tstate = ThreadState.get();
-        globals.putIfAbsent(Py.BUILTINS, builtinModule);
+        globals.putIfAbsent(Py.BUILTINS, builtinsModule);
         PyFrame f = code.createFrame(tstate, this, globals, locals);
         return f.eval();
     }
