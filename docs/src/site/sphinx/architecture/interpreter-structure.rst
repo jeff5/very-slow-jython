@@ -197,13 +197,13 @@ mixing sub-interpreters with the sort of manipulation of the GIL
 necessary to deal with `Non-Python created threads`_.
 
 The direction of development in this part of CPython is towards
-one GIL per interpreter (``PyInterpreterState``),
+one GIL per interpreter (in ``PyInterpreterState``),
 so that interpreters are able to execute concurrently.
 Interpreters do not share objects: each has their own memory pool
 from which that interpreter's objects are allocated.
 As a result, threads in different interpreters
 may safely increment and decrement reference counts
-protected by that interpreter's GIL from errors of concurrent modification.
+protected by that interpreter's lock from errors of concurrent modification.
 
 In fact, interpreters do not share objects *by design*,
 but it is not possible to prevent an application or extension from doing so.
@@ -222,7 +222,7 @@ Two problems now arise:
     (suppose *r* contained a list and *i2* were to delete an item),
     the wrong memory allocator might be called,
     or reference counts updated in a race with a thread in *i1*.
-    The current thread only holds the GIL in *i2*.
+    The current thread only holds the lock in *i2*.
 
 Notice that the first of these
 is a question on the meaning of the Python language,
@@ -239,16 +239,15 @@ In the perception of many, however,
 the value of the PEP is in exposing for use an API that subsequently
 *will* support concurrency through sub-interpreters.
 
-The proposal is to have one GIL per interpreter.
+The proposal is to have one LIL (Local Interpreter Lock) per interpreter.
 It would serialise threads competing in a single interprter,
-except in the special cases where the GIL is explicitly released
-(e.g. during slow I/O),
-just as now.
+except in the special cases where the LIL is explicitly released,
+just as now (e.g. during slow I/O).
 How might the runtime structures change to accommodate concurrent interpreters?
 It is possible to speculate as follows.
 
 ..  uml::
-    :caption: Conjectured Runtime Structures in CPython GIL-per-interpreter
+    :caption: Conjecture: Structures in CPython with a Local Interpreter Lock
 
     class _PyRuntimeState << singleton >> {
         main : PyInterpreterState
@@ -261,12 +260,12 @@ It is possible to speculate as follows.
     }
 
     'CPython calls this _gilstate_runtime_state
-    class GIL {
+    class LIL {
         tstate_current : PyThreadState
     }
 
     _PyRuntimeState --> "1.." PyInterpreterState
-    PyInterpreterState *-> GIL
+    PyInterpreterState *-> LIL
     
     PyInterpreterState "1" *-- "*" PyThreadState
 
@@ -278,7 +277,7 @@ in each interpreter where it handles objects (we think).
 Unless a platform thread is confined to one interpreter,
 there is a problem here:
 a platform thread in need of a reference to its current thread state,
-must find it in the GIL of the current interpreter.
+must find it in the LIL of the current interpreter.
 Previously the interpreter was found through the thread state,
 using the universal GIL.
 How does a platform thread first establish the current interpreter?
@@ -293,7 +292,7 @@ it does not alter the fundamental problem of finding the right one.
 This is a question about Python, unrelated to the GIL.
 
 ..  uml::
-    :caption: Conjectured Runtime Structures in CPython: State per Thread
+    :caption: Alternative: CPython with LIL and one state per thread
 
     class _PyRuntimeState << singleton >> {
         main : PyInterpreterState
@@ -306,12 +305,12 @@ This is a question about Python, unrelated to the GIL.
     }
 
     'CPython calls this _gilstate_runtime_state
-    class GIL {
+    class LIL {
         tstate_current : PyThreadState
     }
 
     _PyRuntimeState --> "1.." PyInterpreterState
-    PyInterpreterState *-> GIL
+    PyInterpreterState *-> LIL
     
     PyInterpreterState "*" -- "*" PyThreadState
 
@@ -430,13 +429,13 @@ Using Python Twice Directly
 ===========================
 
 An application obtains two interpreters
-using the mecahanisms in :ref:`uc-using-python-directly`,
+using the mechanisms in :ref:`uc-using-python-directly`,
 or by JSR-223.
-It takes an object defined in one
-and gives it as an argument to a function in the second.
+It takes an object defined in one interpreter
+and calls a method on it in the second.
 For variety,
-suppose the application gets to the objects from the first interpreter
-by creating a dictionary as the namespace.
+suppose the application shares the objects from the first interpreter
+by sharing a dictionary as the namespace of both.
 
 ..  uml::
     :caption: Using Python Twice Directly
@@ -444,7 +443,7 @@ by creating a dictionary as the namespace.
     myApp -> Py : globals = dict
     note right
         Does this dict need
-        module context?
+        import context?
     end note
 
     myApp -> i1 ** : new PythonInterpreter(globals)
@@ -464,7 +463,7 @@ by creating a dictionary as the namespace.
             note right
                 It is essential that i1,
                 having defined foo, supply
-                the module context.
+                the import context.
             end note
             c -> i1 ++ : import bar
                 note left
@@ -482,8 +481,8 @@ Considerations
 * A single thread is valid in two interpreters simultaneously.
 * A dictionary object is created before any interpreter.
   Does it have a current interpreter?
-  (Some built-ins like ``dict`` may be guaranteed not to need module context.)
-* At the point foo is used in the second interpreter,
+  (Some built-ins like ``dict`` may be guaranteed not to need import context.)
+* At the point ``foo`` is used in the second interpreter,
   the current interpreter must be ``i1``.
 * If the (platform) thread has a thread state in each interpreter,
   there will be two (disconnected) stacks.
@@ -499,7 +498,7 @@ Python behind the Library
 A Java application uses a Java library.
 The implementor of that library chose to use Python.
 This is not visible in the API,
-but objects handled through their Java API are defined in Python.
+but objects handled through their Java API get their behaviour in Python.
 
 A second interpreter is also in use somehow,
 and is going to manipulate objects from the library.
@@ -519,6 +518,8 @@ will not be apparent to the second Python interpreter.
         return thing
 
 ..  note:: more needed: use the thing from Python/Jython.
+    Suppose thing has a method that takes an argument that
+    was produced by a second interpreter? 
 
 
 Considerations
@@ -527,8 +528,9 @@ Considerations
 * A single thread is valid in two interpreters simultaneously.
 * The library is hiding the Python nature.
   An exception raised in ``pyThing`` should be caught in ``thing``
-  and a library-specific exception raised,
-  optionally with the Python one as cause.
+  and a library-specific exception raised.
+* Even a library-specific exception could embed
+  the ``PyException`` as cause, dragging a Python traceback.
 
 
 Concurrency between Interpreters
@@ -577,25 +579,30 @@ In this model,
 we propose a different arrangement of the critical data structures.
 In particular,
 we abandon the idea that a thread belongs to an interpreter.
-This will be controversial.
-It may solve problems latent in CPython,
+Although possibly controversial,
+this may solve problems latent in the CPython model,
 that make it unable to address some of the use cases.
 
-We have implemented this model in the ``rt2`` iteration ``evo3``,
-but not tested it with multiple threads and interpreters.
+
+Critical Structures Revisited
+=============================
+
+We have implemented this model in the ``rt2`` iteration ``evo3``.
+At the time of this writing,
+we have not tested it with multiple threads and interpreters.
 
 ..  uml::
 
     class Py << singleton >> {
     }
     
-    Py -- "*" Interpreter
+    Py -- Interpreter : main
 
-    Interpreter - "*" PyModule : modules
+    Interpreter -> "*" PyModule : modules
 
     PyModule o--> ModuleDict : dict
 
-    ThreadState -left- Thread : thread_id
+    ThreadState "1" -left- "1" Thread
 
     ThreadState *--> "0..1" PyFrame : frame
 
@@ -610,81 +617,167 @@ but not tested it with multiple threads and interpreters.
         / locals : Mapping
     }
 
+The notable differences from the CPython model are:
 
+#. The relationship of ``Thread`` (platform thread) to ``ThreadState``
+   is one-to-one and navigable both ways
+   (for ``Thread``\s known to Python).
+#. Each ``PyFrame`` references an ``Interpreter``.
+#. ``ThreadState`` is not associated with a unique "owning" ``Interpreter``.
+   A ``ThreadState`` is associated with multiple ``Interpreter``\s
+   through the frames in its stack (if the stack is not empty).
+#. The run-time system ``Py`` references a "main" ``Interpreter``.
 
 
 An ``Interpreter`` does not own objects [untested]
 ==================================================
 
-We'll call this "untested" for now,
-but it is more of an observation than a hypothesis.
-Java manages the life-cycle of our objects:
-we do not have to count references or manage memory.
+The hypothesis is that we can implement Python,
+let Java do the object lifecycle management,
+and not need either to confine objects to one ``Interpreter``,
+or label them all with an owner.
 
-We therefore have no need for a rule that
-objects may not be shared between interpreters,
-to work around CPython's approach to life-cycle.
+It is an observation, rather than a hypothesis,
+that Java manages the life-cycle of our objects:
+we do not have to count references
+and no memory allocator is therefore attached to an interpreter.
+The ``Interpreter`` is responsible only for "import context":
+the imported module list, import library, module path,
+and certain short-cuts to built-ins (all to do with modules).
+
 The Python-level API for interpreters (:pep:`554`)
-may provide no means to do it,
-and a Java extension that shares objects may never be a valid C extension.
-However, we may benefit by sharing
-immutable type objects and constant values of them.
+provides no means to share objects.
+However,
+in our use cases (for example :ref:`uc-python-twice-directly`),
+we found that sharing was difficult to avoid via the Java/C API,
+and we needed to be able to navigate from a Python object
+to the import context for which it was written.
+That would be satisfied if all objects referenced an owning interpreter.
 
-It follows that the interpreter is responsible only for "import context".
+Our hypothesis is that not all types of object require such a reference.
+We have some hypotheses about which types do require one.
 
 
-The current interpreter is known to every ``PyFrame`` [untested]
-================================================================
+A ``frame`` references a particular interpreter [untested]
+==========================================================
 
-Any code that might need to import a module,
-must belong to a particular interpreter,
+Any code that imports a module,
+must import it to a particular interpreter,
 in order that it should access the correct import mechanism
 and list of already imported modules.
+We create a Python ``frame`` for each execution of code compiled from Python.
+(Note that we don't create a new ``frame`` for Java/C functions.)
+
+We therefore hypothesise that a ``PyFrame``
+should hold a reference to one ``Interpreter``.
+It need not hold it directly,
+if we can guarantee one of the attributes it aleady has,
+can be guaranteed to hold it,
+such as the globals or built-in dictionaries.
+
+We do not need the interpreter reference to access an object in a ``module``.
 Code that already holds a reference resulting from import
-(typically a global variable of the same name as the module)
-only needs that reference.
+only needs that reference
+(typically a global variable of the same name as the module).
 
-When we write "code" in the paragraph above,
-we definitely include code compiled from CPython,
-since an ``import`` statement (or call to ``__import__``) may lurk there.
-But we include any Java code that is Python-aware,
-and might therefore consult ``sys.modules``.
-Java code written without knowing it woulkd be used in Jython is exempt.
-Perhaps surprisingly,
-Jython specific code (like the implementation of ``PyFloat.tp_add``)
-is also exempt,
-but not the same slot in another type where ``__add__`` is defined in Python.
+A ``PyFrame`` is ephemeral,
+so the next question has to be where the information comes from.
+A frame may be the result of:
 
-It may be accurate to summarise that
-the current interpreter must be known to any code that has a ``PyFrame``.
+#. Module import, when executing the module body.
+#. REPL, JSR-223 or explicit interpreter use.
+#. Generator execution.
+#. Function or method execution.
+#. Class definition.
+#. The ``exec`` or ``eval`` function.
 
-
-The function interpreter defined the current function [untested]
-================================================================
+This seems to mean that either
+a callable object involved in creating a frame 
+should designate the correct interpreter,
+or that the interpreter is the one in the current frame.
 
 
+A ``Thread`` always has a ``ThreadState`` [untested]
+====================================================
+
+From within any platform thread (``java.lang.Thread``),
+according to our model,
+we may navigate to the corresponding ``ThreadState``.
+We expect to implement this as a thread-local variable in the runtime.
+(We'd say "global" here,
+were it not for the possibility of creating instances of the "global" runtime,
+under different class loaders.)
+
+Contrary to the hypothesis,
+there is no guarantee at all that an arbitrary platform thread
+has been assigned a ``ThreadState`` by the Python run-time system.
+However,
+we mean that at the point we need it,
+the run-time system will find or make a ``ThreadState``.
+This is a standard pattern with a ``java.lang.ThreadLocal``.
+
+The hypothesis is that this is useful.
 
 
+The top frame designates the current interpreter [untested]
+===========================================================
+
+This is also more of a definition,
+that we hypothesise is a useful
+(least surprising) definition to accept.
+
+If the stack of a ``ThreadState`` is not empty,
+the ``Interpreter`` designated by the top frame is "current".
+Actions in which the interpreter is not explicit,
+should use that one if an interpreter is needed.
+
+If the stack is empty, arguably no interpreter is "current",
+or a default "main" interpreter could be considered current.
+This will be one that was invoked when creating the run-time system.
 
 
+A callable designates its defining interpreter [untested]
+=========================================================
 
-A Thread may visit multiple interpreters [untested]
-===================================================
+Our hypothesis is that,
+in order to preserve the import context prepared by an application programmer,
+the interpreter current at the point of definition of a callable object
+is the one that should provide context for running its code.
+If the callable object does not create a ``PyFrame``,
+it may be excused the responsibility.
 
-We propose that ``ThreadState``
-not be the property of on particular ``Interpreter``.
+As examples, consider ``PyFunction`` and ``PyJavaFunction``.
 
-If we allow the mixing of objects from different interpreters,
-by which we mean the mixing of functions defined by different interpreters,
-it follows that a thread will pass freely from one interpreter to the next.
+A ``PyFunction`` results from execution of a ``def`` statement.
+This creates an object into which is bound
+a reference to the globals of the defining module,
+and if it is a nested definition, a closure referencing non-local variables.
+This is true even within a class definition.
+The ``tp_call`` slot of the object created
+will produce a ``frame`` against which the compiled body (``code`` object)
+will execute.
+This frame needs a reference to the defining interpreter
+to give it the import context the programmer intended.
 
-This makes it sound like a frequent occurrence.
-It may not be, but it needs to be possible freely.
-If we share immutable objects,
-these will frequently be constants created by the first interpreter to run,
-and wgere sub-interpreters are in use,
-these objects will be frequently visited
-(although the visit may not often need module context (create a ``PyFrame``).
+A ``PyJavaFunction`` (a ``PyCFunctionObject`` in CPython)
+is a lightweight object that does not carry globals and a closure,
+and does not generally create a ``PyFrame`` when executed.
+It therefore does not need an interpreter to give it import context.
+Of course, it *could* create a ``PyFrame``: ``exec`` is a case in point,
+and for that example at least,
+the current interpreter (in the top frame of the thread) is appropriate.
 
+If somehow calling an equivalent of ``exec`` on an empty stack,
+the onus really should be on the caller to designate an interpreter.
 
+In saying that a callable (with Python body) should designate an interpreter,
+we have not insisted this be an attribute of every such object.
+For those that bind globals from the defining module,
+a satisfactory solution is for module global namespace,
+or the ``__builtins__`` guaranteed to be amongst those globals,
+to designate the defining interpreter by a reserved name.
+
+Note that a user-defined callable (defining ``__call__``)
+has thereby bound the context of that definition.
+Also, every ``type`` is a callable.
 
