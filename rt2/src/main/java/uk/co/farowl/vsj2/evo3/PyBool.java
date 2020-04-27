@@ -1,7 +1,5 @@
 package uk.co.farowl.vsj2.evo3;
 
-import java.math.BigInteger;
-
 /** The Python {@code bool} object. */
 class PyBool extends PyLong {
 

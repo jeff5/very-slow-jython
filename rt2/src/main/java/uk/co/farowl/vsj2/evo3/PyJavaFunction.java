@@ -43,12 +43,8 @@ class PyJavaFunction implements PyObject {
      */
     final MethodHandle tpCall;
 
-    /** The module in which this function was defined. */
-    final PyModule module;
-
-    PyJavaFunction(MethodDef def, PyModule module) {
+    PyJavaFunction(MethodDef def) {
         this.methodDef = def;
-        this.module = module;
         this.tpCall = getTpCallHandle(def);
     }
 

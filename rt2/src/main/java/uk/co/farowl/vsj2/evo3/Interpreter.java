@@ -28,7 +28,7 @@ class Interpreter {
 
     /** Create a new {@code Interpreter}. */
     Interpreter() {
-        builtinsModule = new BuiltinsModule(this);
+        builtinsModule = new BuiltinsModule();
         builtinsModule.init();
         addModule(builtinsModule);
     }

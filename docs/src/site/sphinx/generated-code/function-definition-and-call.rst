@@ -260,12 +260,8 @@ We have not needed the Python module type before so we quickly define it:
 
         final String name;
         final PyDictionary dict = new PyDictionary();
-        final Interpreter interpreter;
 
-        PyModule(Interpreter interpreter, String name) {
-            this.interpreter = interpreter;
-            this.name = name;
-        }
+        PyModule(String name) { this.name = name; }
 
         /** Initialise the module instance. */
         void init() {}
@@ -280,21 +276,14 @@ We intend each actual module to extend this class and define ``init()``.
 Note that each class defining a kind of module may have multiple instances,
 since each ``Interpreter`` that imports it will create its own.
 
-A member ``interpreter`` records the owning ``Interpreter``.
-This is an innovation relative to CPython
-that is part of an approach we wish to explore to multiple interpreters.
-It is not important to us just now.
-
 We would like to define the built-in module somewhat like this:
 
 ..  code-block:: java
-    :emphasize-lines: 7-9, 14
+    :emphasize-lines: 5-7, 12
 
-    class BuiltinModule extends PyModule {
+    class BuiltinsModule extends JavaModule implements Exposed {
 
-        BuiltinModule(Interpreter interpreter) {
-            super(interpreter, "builtins");
-        }
+        BuiltinsModule() { super("builtins"); }
 
         static PyObject len(PyObject v) throws Throwable {
             return Py.val(Abstract.size(v));
@@ -487,7 +476,7 @@ which will represent built-in functions.
 The essence of that class is as follows:
 
 ..  code-block:: java
-    :emphasize-lines: 7-8, 14, 21
+    :emphasize-lines: 7-8, 12, 19
 
     /** The Python {@code builtin_function_or_method} object. */
     class PyJavaFunction implements PyObject {
@@ -497,11 +486,9 @@ The essence of that class is as follows:
         //...
         final MethodDef methodDef;
         final MethodHandle tpCall;
-        final PyModule module;
 
-        PyJavaFunction(MethodDef def, PyModule module) {
+        PyJavaFunction(MethodDef def) {
             this.methodDef = def;
-            this.module = module;
             this.tpCall = getTpCallHandle(def);
         }
         //...

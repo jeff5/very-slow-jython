@@ -14,13 +14,7 @@ class PyModule implements PyObject {
     /** Dictionary (globals) of this module. **/
     final PyDictionary dict = new PyDictionary();
 
-    /** The interpreter that created this module. **/
-    final Interpreter interpreter;
-
-    PyModule(Interpreter interpreter, String name) {
-        this.interpreter = interpreter;
-        this.name = name;
-    }
+    PyModule(String name) { this.name = name; }
 
     /**
      * Initialise the module instance. This is the Java equivalent of

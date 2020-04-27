@@ -3,9 +3,7 @@ package uk.co.farowl.vsj2.evo3;
 /** The {@code builtins} module. */
 class BuiltinsModule extends JavaModule implements Exposed {
 
-    BuiltinsModule(Interpreter interpreter) {
-        super(interpreter, "builtins");
-    }
+    BuiltinsModule() { super("builtins"); }
 
     @Function
     @DocString("Return the dictionary containing the current scope's global variables.")

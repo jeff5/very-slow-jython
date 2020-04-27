@@ -61,16 +61,14 @@ public abstract class JavaModule extends PyModule {
     protected static final MethodHandles.Lookup LOOKUP =
             MethodHandles.lookup();
 
-    JavaModule(Interpreter interpreter, String name) {
-        super(interpreter, name);
-    }
+    JavaModule(String name) { super(name); }
 
     @Override
     void init() {
         // Register each method as an exported object
         MethodDef[] methods = getMethodDefs();
         for (MethodDef def : methods) {
-            PyJavaFunction f = new PyJavaFunction(def, this);
+            PyJavaFunction f = new PyJavaFunction(def);
             dict.put(def.name, f);
         }
     }

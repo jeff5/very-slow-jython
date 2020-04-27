@@ -781,3 +781,18 @@ Note that a user-defined callable (defining ``__call__``)
 has thereby bound the context of that definition.
 Also, every ``type`` is a callable.
 
+
+A ``PyModule`` designates its defining interpreter [dubious]
+============================================================
+
+It may be convenient to implement the previous idea by ensuring that
+each module instance remembers the interpreter that loaded it.
+The current interpreter would then be within easy reach of
+function implementations in Java in that module.
+
+Functions, methods and types have a ``__module__`` attribute already.
+Unfortunately, this attribute is at best just a ``str``,
+and worse, writable with an arbitrary object.
+
+
+
