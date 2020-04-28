@@ -25,6 +25,9 @@ and then tested ideas that address them.
 
     interpreter-structure
     code-and-frame
+    object-implementation
+    compiled-code
+    functions-in-java
 
 
 This chapter has diagrams generated with PlantUML
