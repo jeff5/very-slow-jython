@@ -40,4 +40,31 @@ to expect exactly ``PyUnicode``
 will have to accept ``String`` as well.
 
 
+Where to use ``null`` and where ``Py.None``?
+============================================
+
+A ``null`` should never escape as the value of a Python variable.
+In some cases, assigning ``null`` will mean "delete" or "deleted".
+A function returning a ``PyObject`` should not return ``null`` but ``Py.None``.
+A function returning a specific sub-type ``T`` of ``PyObject``,
+but which may produce no result,
+should probably return an ``Optional<T>``,
+thus forcing the client to acknowledge the possibility explicitly.
+
+It is convenient to have strongly-typed fields and arguments 
+in the implementation of Python types.
+Sometimes these fields (as Python attributes) are optional.
+admit ``None`` as their effective a value.
+For example, ``function.__defaults__`` "must be set to a tuple object",
+according to the error message,
+but ``None`` is also acceptable,
+and internally to ``PyFunction``, CPython converts it to a ``NULL``.
+
+In arguments, we cannot pass ``Py.None`` where a specific type is expected.
+We may, however, make the argument ``null``, and that might be what we store.
+
+Generally it appears we should support ``null`` on the way in
+and ``Py.None`` on the way out.
+
+
 

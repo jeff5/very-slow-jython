@@ -146,6 +146,54 @@ is that we make the signature of our ``tp_slot`` strict about type:
 This means that receiving implementations
 do not have to check and cast their arguments.
 
+The possible variety of arguments at a call site is not always appreciated.
+A special opcode supports the concatenation of positional arguments
+into a single ``tuple`` for the call::
+
+    >>> def f(*args, **kwargs): print(args, "\nkw =", kwargs)
+    ...
+    >>> f(0,1,*(2,3),None,*(4,5,6))
+    (0, 1, 2, 3, None, 4, 5, 6)
+    kw = {}
+    >>> dis.dis(compile("f(0, 1, *(2,3), None, *(4,5,6))", "<test>", "eval"))
+      1           0 LOAD_NAME                0 (f)
+                  2 LOAD_CONST               5 ((0, 1))
+                  4 LOAD_CONST               2 ((2, 3))
+                  6 LOAD_CONST               6 ((None,))
+                  8 LOAD_CONST               4 ((4, 5, 6))
+                 10 BUILD_TUPLE_UNPACK_WITH_CALL     4
+                 12 CALL_FUNCTION_EX         0
+                 14 RETURN_VALUE
+
+And similarly for keyword arguments::
+
+    >>> f(1, 2, *(3,4), a=10, b=20, **{'x':30, 'y':40})
+    (1, 2, 3, 4)
+    kw = {'a': 10, 'b': 20, 'x': 30, 'y': 40}
+    >>> source = "f(1, 2, *(3,4), a=10, b=20, **{'x':30, 'y':40})"
+    >>> dis.dis(compile(source, "<test>", "eval"))
+      1           0 LOAD_NAME                0 (f)
+                  2 LOAD_CONST               9 ((1, 2))
+                  4 LOAD_CONST               2 ((3, 4))
+                  6 BUILD_TUPLE_UNPACK_WITH_CALL     2
+                  8 LOAD_CONST               3 (10)
+                 10 LOAD_CONST               4 (20)
+                 12 LOAD_CONST               5 (('a', 'b'))
+                 14 BUILD_CONST_KEY_MAP      2
+                 16 LOAD_CONST               6 (30)
+                 18 LOAD_CONST               7 (40)
+                 20 LOAD_CONST               8 (('x', 'y'))
+                 22 BUILD_CONST_KEY_MAP      2
+                 24 BUILD_MAP_UNPACK_WITH_CALL     2
+                 26 CALL_FUNCTION_EX         1
+                 28 RETURN_VALUE
+
+The supporting opcodes are easy to implement
+although at present we may do so only incompletely,
+since we have not yet implemented iterables.
+What we have will work for the examples.
+
+
 ..  _Bendersky 2012-03-23: https://eli.thegreenplace.net/2012/03/23/python-internals-how-callables-work
 
 
