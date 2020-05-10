@@ -190,14 +190,14 @@ But in Java we may declare:
         /** __code__, the code object */
         PyCode code;
         /** __globals__, a dict (other mappings won't do) */
-        final PyDictionary globals;
+        final PyDict globals;
 
 and use them as:
 
 ..  code-block:: java
 
         PyCode co = func.code;
-        PyDictionary globals = func.globals;
+        PyDict globals = func.globals;
         
 strengthening the type safety of our implementation,
 when these are subsequently referenced in a ``PyFrame``,

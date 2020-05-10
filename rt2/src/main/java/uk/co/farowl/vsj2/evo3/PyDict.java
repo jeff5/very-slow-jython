@@ -7,10 +7,10 @@ import java.util.LinkedHashMap;
  * the base class implementing {@code Map}, while the Python API has
  * been implemented on top of the Java one.
  */
-class PyDictionary extends LinkedHashMap<PyObject, PyObject>
+class PyDict extends LinkedHashMap<PyObject, PyObject>
         implements PyObject {
 
-    static final PyType TYPE = new PyType("dict", PyDictionary.class);
+    static final PyType TYPE = new PyType("dict", PyDict.class);
 
     @Override
     public PyType getType() { return TYPE; }

@@ -12,6 +12,6 @@ interface ClassShorthand {
     static final Class<?> V = void.class;
     static final Class<Comparison> CMP = Comparison.class;
     static final Class<PyTuple> TUPLE = PyTuple.class;
-    static final Class<PyDictionary> DICT = PyDictionary.class;
+    static final Class<PyDict> DICT = PyDict.class;
     static final Class<PyObject[]> OA = PyObject[].class;
 }

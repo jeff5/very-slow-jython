@@ -65,7 +65,7 @@ class PyByteCode3 {
     @Test
     void test_tuple_index1() {
         //@formatter:off
-        PyDictionary globals = new PyDictionary();
+        PyDict globals = new PyDict();
         globals.put("c", Py.val(22.0));
         Interpreter interp = Py.createInterpreter();
         interp.evalCode(TUPLE_INDEX, globals, globals);
@@ -142,7 +142,7 @@ class PyByteCode3 {
     @Test
     void test_tuple_dot_product1() {
         //@formatter:off
-        PyDictionary globals = new PyDictionary();
+        PyDict globals = new PyDict();
         globals.put("a",
             Py.tuple(Py.val(2), Py.val(3), Py.val(4)));
         globals.put("b",
@@ -157,7 +157,7 @@ class PyByteCode3 {
     @Test
     void test_tuple_dot_product2() {
         //@formatter:off
-        PyDictionary globals = new PyDictionary();
+        PyDict globals = new PyDict();
         globals.put("a",
             Py.tuple(Py.val(1.0), Py.val(2.0), Py.val(3.0),
                 Py.val(4.0)));
@@ -230,7 +230,7 @@ class PyByteCode3 {
     @Test
     void test_list_index1() {
         //@formatter:off
-        PyDictionary globals = new PyDictionary();
+        PyDict globals = new PyDict();
         globals.put("c", Py.val(22.0));
         Interpreter interp = Py.createInterpreter();
         interp.evalCode(LIST_INDEX, globals, globals);
@@ -289,7 +289,7 @@ class PyByteCode3 {
     @Test
     void test_bool_arith_a1() {
         //@formatter:off
-        PyDictionary globals = new PyDictionary();
+        PyDict globals = new PyDict();
         globals.put("u", Py.val(42));
         globals.put("t", Py.True);
         globals.put("f", Py.False);
@@ -305,7 +305,7 @@ class PyByteCode3 {
     @Test
     void test_bool_arith_a2() {
         //@formatter:off
-        PyDictionary globals = new PyDictionary();
+        PyDict globals = new PyDict();
         globals.put("u", Py.val(42.0));
         globals.put("t", Py.True);
         globals.put("f", Py.False);
@@ -366,7 +366,7 @@ class PyByteCode3 {
     @Test
     void test_bool_arith_b1() {
         //@formatter:off
-        PyDictionary globals = new PyDictionary();
+        PyDict globals = new PyDict();
         globals.put("u", Py.val(42));
         globals.put("t", Py.True);
         globals.put("f", Py.False);
@@ -382,7 +382,7 @@ class PyByteCode3 {
     @Test
     void test_bool_arith_b2() {
         //@formatter:off
-        PyDictionary globals = new PyDictionary();
+        PyDict globals = new PyDict();
         globals.put("u", Py.val(42.0));
         globals.put("t", Py.True);
         globals.put("f", Py.False);
@@ -432,7 +432,7 @@ class PyByteCode3 {
     @Test
     void test_simple_if1() {
         //@formatter:off
-        PyDictionary globals = new PyDictionary();
+        PyDict globals = new PyDict();
         globals.put("b", Py.True);
         Interpreter interp = Py.createInterpreter();
         interp.evalCode(SIMPLE_IF, globals, globals);
@@ -443,7 +443,7 @@ class PyByteCode3 {
     @Test
     void test_simple_if2() {
         //@formatter:off
-        PyDictionary globals = new PyDictionary();
+        PyDict globals = new PyDict();
         globals.put("b", Py.False);
         Interpreter interp = Py.createInterpreter();
         interp.evalCode(SIMPLE_IF, globals, globals);
@@ -454,7 +454,7 @@ class PyByteCode3 {
     @Test
     void test_simple_if3() {
         //@formatter:off
-        PyDictionary globals = new PyDictionary();
+        PyDict globals = new PyDict();
         globals.put("b", Py.val(0));
         Interpreter interp = Py.createInterpreter();
         interp.evalCode(SIMPLE_IF, globals, globals);
@@ -465,7 +465,7 @@ class PyByteCode3 {
     @Test
     void test_simple_if4() {
         //@formatter:off
-        PyDictionary globals = new PyDictionary();
+        PyDict globals = new PyDict();
         globals.put("b", Py.val(1));
         Interpreter interp = Py.createInterpreter();
         interp.evalCode(SIMPLE_IF, globals, globals);
@@ -476,7 +476,7 @@ class PyByteCode3 {
     @Test
     void test_simple_if5() {
         //@formatter:off
-        PyDictionary globals = new PyDictionary();
+        PyDict globals = new PyDict();
         globals.put("b", Py.str(""));
         Interpreter interp = Py.createInterpreter();
         interp.evalCode(SIMPLE_IF, globals, globals);
@@ -487,7 +487,7 @@ class PyByteCode3 {
     @Test
     void test_simple_if6() {
         //@formatter:off
-        PyDictionary globals = new PyDictionary();
+        PyDict globals = new PyDict();
         globals.put("b", Py.str("something"));
         Interpreter interp = Py.createInterpreter();
         interp.evalCode(SIMPLE_IF, globals, globals);
@@ -498,7 +498,7 @@ class PyByteCode3 {
     @Test
     void test_simple_if7() {
         //@formatter:off
-        PyDictionary globals = new PyDictionary();
+        PyDict globals = new PyDict();
         globals.put("b", Py.None);
         Interpreter interp = Py.createInterpreter();
         interp.evalCode(SIMPLE_IF, globals, globals);
@@ -557,7 +557,7 @@ class PyByteCode3 {
     @Test
     void test_multi_if1() {
         //@formatter:off
-        PyDictionary globals = new PyDictionary();
+        PyDict globals = new PyDict();
         globals.put("a", Py.False);
         globals.put("b", Py.False);
         Interpreter interp = Py.createInterpreter();
@@ -569,7 +569,7 @@ class PyByteCode3 {
     @Test
     void test_multi_if2() {
         //@formatter:off
-        PyDictionary globals = new PyDictionary();
+        PyDict globals = new PyDict();
         globals.put("a", Py.False);
         globals.put("b", Py.True);
         Interpreter interp = Py.createInterpreter();
@@ -581,7 +581,7 @@ class PyByteCode3 {
     @Test
     void test_multi_if3() {
         //@formatter:off
-        PyDictionary globals = new PyDictionary();
+        PyDict globals = new PyDict();
         globals.put("a", Py.True);
         globals.put("b", Py.False);
         Interpreter interp = Py.createInterpreter();
@@ -593,7 +593,7 @@ class PyByteCode3 {
     @Test
     void test_multi_if4() {
         //@formatter:off
-        PyDictionary globals = new PyDictionary();
+        PyDict globals = new PyDict();
         globals.put("a", Py.True);
         globals.put("b", Py.True);
         Interpreter interp = Py.createInterpreter();
@@ -665,7 +665,7 @@ class PyByteCode3 {
     @Test
     void test_comparison1() {
         //@formatter:off
-        PyDictionary globals = new PyDictionary();
+        PyDict globals = new PyDict();
         globals.put("a", Py.val(2));
         globals.put("b", Py.val(4));
         Interpreter interp = Py.createInterpreter();
@@ -682,7 +682,7 @@ class PyByteCode3 {
     @Test
     void test_comparison2() {
         //@formatter:off
-        PyDictionary globals = new PyDictionary();
+        PyDict globals = new PyDict();
         globals.put("a", Py.val(4));
         globals.put("b", Py.val(2));
         Interpreter interp = Py.createInterpreter();
@@ -699,7 +699,7 @@ class PyByteCode3 {
     @Test
     void test_comparison3() {
         //@formatter:off
-        PyDictionary globals = new PyDictionary();
+        PyDict globals = new PyDict();
         globals.put("a", Py.val(2));
         globals.put("b", Py.val(2));
         Interpreter interp = Py.createInterpreter();
@@ -760,7 +760,7 @@ class PyByteCode3 {
     @Test
     void test_simple_loop1() {
         //@formatter:off
-        PyDictionary globals = new PyDictionary();
+        PyDict globals = new PyDict();
         globals.put("n", Py.val(6));
         Interpreter interp = Py.createInterpreter();
         interp.evalCode(SIMPLE_LOOP, globals, globals);
@@ -863,7 +863,7 @@ class PyByteCode3 {
     @Test
     void test_list_dot_product1() {
         //@formatter:off
-        PyDictionary globals = new PyDictionary();
+        PyDict globals = new PyDict();
         globals.put("n", Py.val(2));
         Interpreter interp = Py.createInterpreter();
         interp.evalCode(LIST_DOT_PRODUCT, globals, globals);

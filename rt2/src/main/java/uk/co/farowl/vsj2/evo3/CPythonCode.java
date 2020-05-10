@@ -40,14 +40,14 @@ class CPythonCode extends PyCode {
     }
 
     @Override
-    PyFrame createFrame(Interpreter interpreter, PyDictionary globals,
+    PyFrame createFrame(Interpreter interpreter, PyDict globals,
             PyObject locals) {
         return new CPythonFrame(interpreter, this, globals, locals);
     }
 
     @Override
-    CPythonFrame createFrame(Interpreter interpreter,
-            PyDictionary globals, PyTuple closure) {
+    CPythonFrame createFrame(Interpreter interpreter, PyDict globals,
+            PyTuple closure) {
         CPythonFrame f =
                 new CPythonFrame(interpreter, this, globals, closure);
         return f;

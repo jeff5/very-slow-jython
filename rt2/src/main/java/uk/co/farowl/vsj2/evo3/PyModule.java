@@ -12,7 +12,7 @@ class PyModule implements PyObject {
     final String name;
 
     /** Dictionary (globals) of this module. **/
-    final PyDictionary dict = new PyDictionary();
+    final PyDict dict = new PyDict();
 
     PyModule(String name) { this.name = name; }
 

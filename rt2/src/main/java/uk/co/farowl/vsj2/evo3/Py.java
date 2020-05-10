@@ -85,8 +85,8 @@ class Py {
     }
 
     /** Return empty Python {@code dict}. */
-    static PyDictionary dict() {
-        return new PyDictionary();
+    static PyDict dict() {
+        return new PyDict();
     }
 
     // -------------------- Interpreter ----------------------------

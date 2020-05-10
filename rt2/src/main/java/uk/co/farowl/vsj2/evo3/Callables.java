@@ -22,9 +22,9 @@ class Callables extends Abstract {
             PyObject kwargs) throws TypeError, Throwable {
 
         // Represent kwargs as a dict (if not already or null)
-        PyDictionary kw;
-        if (kwargs == null || kwargs instanceof PyDictionary)
-            kw = (PyDictionary) kwargs;
+        PyDict kw;
+        if (kwargs == null || kwargs instanceof PyDict)
+            kw = (PyDict) kwargs;
         else {
             // TODO: Treat kwargs as an iterable of (key,value) pairs
             // Throw TypeError if not convertible

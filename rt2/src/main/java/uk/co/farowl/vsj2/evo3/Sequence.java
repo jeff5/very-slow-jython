@@ -7,7 +7,7 @@ class Sequence extends Abstract {
 
     /** {@code true} iff {@code s} is a sequence type. */
     static boolean check(PyObject s) {
-        return !(s instanceof PyDictionary)
+        return !(s instanceof PyDict)
                 && Slot.sq_item.isDefinedFor(s.getType());
     }
 

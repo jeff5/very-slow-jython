@@ -18,7 +18,7 @@ class Interpreter {
      * The list of modules created by this interpreter, exposed as
      * {@code sys.modules} when we have a {@code sys} module
      */
-    final PyDictionary modules = new PyDictionary();
+    final PyDict modules = new PyDict();
 
     /**
      * The builtins module. An instance is created with each
@@ -47,8 +47,7 @@ class Interpreter {
      * @param locals local variables (may be same as {@code globals})
      * @return
      */
-    PyObject evalCode(PyCode code, PyDictionary globals,
-            PyObject locals) {
+    PyObject evalCode(PyCode code, PyDict globals, PyObject locals) {
         globals.putIfAbsent(Py.BUILTINS, builtinsModule);
         PyFrame f = code.createFrame(this, globals, locals);
         f.push();

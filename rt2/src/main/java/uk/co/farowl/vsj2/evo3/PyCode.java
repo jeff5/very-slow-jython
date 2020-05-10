@@ -158,7 +158,7 @@ abstract class PyCode implements PyObject {
      * @return the frame
      */
     abstract PyFrame createFrame(Interpreter interpreter,
-            PyDictionary globals, PyObject locals);
+            PyDict globals, PyObject locals);
 
     /**
      * Create a {@code PyFrame} suitable to execute this {@code PyCode},
@@ -171,7 +171,7 @@ abstract class PyCode implements PyObject {
      * @return the frame
      */
     abstract PyFrame createFrame(Interpreter interpreter,
-            PyDictionary globals, PyTuple closure);
+            PyDict globals, PyTuple closure);
 
     /** Check that all the objects in the tuple are {@code str}. */
     private static PyTuple names(PyTuple tuple) {

@@ -45,11 +45,10 @@ class CPythonFrame extends PyFrame {
 
     private static final PyCell[] EMPTY_CELL_ARRAY = new PyCell[0];
 
-
     /**
      * Create a {@code CPythonFrame}, which is a {@code PyFrame} with
-     * the storage and mechanism to execute a module or isolated
-     * code object (compiled to a {@link CPythonCode}.
+     * the storage and mechanism to execute a module or isolated code
+     * object (compiled to a {@link CPythonCode}.
      *
      * The caller specifies the local variables dictionary explicitly:
      * it may be the same as the {@code globals}.
@@ -59,8 +58,8 @@ class CPythonFrame extends PyFrame {
      * @param globals global name space
      * @param locals local name space
      */
-    CPythonFrame(Interpreter interpreter, PyCode code,
-            PyDictionary globals, PyObject locals) {
+    CPythonFrame(Interpreter interpreter, PyCode code, PyDict globals,
+            PyObject locals) {
         super(interpreter, code, globals, locals);
         this.valuestack = new PyObject[code.stacksize];
         freevars = EMPTY_CELL_ARRAY;
@@ -86,8 +85,8 @@ class CPythonFrame extends PyFrame {
      * @param globals global name space
      * @param closure closure from function
      */
-    CPythonFrame(Interpreter interpreter, PyCode code,
-            PyDictionary globals, PyTuple closure) {
+    CPythonFrame(Interpreter interpreter, PyCode code, PyDict globals,
+            PyTuple closure) {
         super(interpreter, code, globals);
         this.fastlocals = new PyObject[code.nlocals];
         this.valuestack = new PyObject[code.stacksize];
@@ -154,7 +153,7 @@ class CPythonFrame extends PyFrame {
         // Local variables used repeatedly in the loop
         PyObject name, res, u, v, w;
         PyObject func, args, kwargs;
-        PyDictionary map;
+        PyDict map;
 
         loop : for (;;) {
             try {
@@ -411,10 +410,10 @@ class CPythonFrame extends PyFrame {
                                         (PyTuple) valuestack[--sp]);
                             if ((oparg & 4) == 0)
                                 pyfunc.setAnnotations(
-                                        (PyDictionary) valuestack[--sp]);
+                                        (PyDict) valuestack[--sp]);
                             if ((oparg & 2) == 0)
                                 pyfunc.setKwdefaults(
-                                        (PyDictionary) valuestack[--sp]);
+                                        (PyDict) valuestack[--sp]);
                             if ((oparg & 1) == 0)
                                 pyfunc.setDefaults(
                                         (PyTuple) valuestack[--sp]);

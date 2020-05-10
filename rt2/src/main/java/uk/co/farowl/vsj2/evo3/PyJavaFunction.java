@@ -116,13 +116,13 @@ class PyJavaFunction implements PyObject {
         private static final MethodHandle getValue;
 
         /**
-         * {@code (PyTuple, PyDictionary)boolean} handle to check
+         * {@code (PyTuple, PyDict)boolean} handle to check
          * {@code kwargs} is not {@code null}.
          */
         private static final MethodHandle notNullGuard;
 
         /**
-         * {@code (PyTuple, PyDictionary)boolean} handle to check
+         * {@code (PyTuple, PyDict)boolean} handle to check
          * {@code kwargs} is {@code null} or empty. <pre>
          * λ a k : (k==null || k.empty())
          * </pre>
@@ -130,7 +130,7 @@ class PyJavaFunction implements PyObject {
         private static final MethodHandle nullOrEmptyGuard;
 
         /**
-         * {@code (PyObject[], PyDictionary)boolean} handle to check
+         * {@code (PyObject[], PyDict)boolean} handle to check
          * {@code kwargs} is {@code null} or empty and that an array
          * ({@code args} innards) has a specific size. <pre>
          * λ n a k : (k==null || k.empty()) && a.length==n
@@ -171,13 +171,13 @@ class PyJavaFunction implements PyObject {
                         .bindTo(BADCALL);
         /**
          * {@link #throwBadCall} wrapped as
-         * {@code (PyObject[], PyDictionary)PyObject}
+         * {@code (PyObject[], PyDict)PyObject}
          */
         private static final MethodHandle throwBadCallOA =
                 dropArguments(throwBadCall, 0, OA, DICT);
         /**
          * {@link #throwBadCall} wrapped as
-         * {@code (PyTuple, PyDictionary)PyObject}
+         * {@code (PyTuple, PyDict)PyObject}
          */
         private static final MethodHandle throwBadCallTUPLE =
                 dropArguments(throwBadCall, 0, TUPLE, DICT);
@@ -201,7 +201,7 @@ class PyJavaFunction implements PyObject {
         }
 
         @SuppressWarnings("unused") // Used reflectively
-        private static boolean notNull(PyDictionary d) {
+        private static boolean notNull(PyDict d) {
             return d != null;
         }
 
@@ -228,7 +228,7 @@ class PyJavaFunction implements PyObject {
         }
 
         @SuppressWarnings("unused") // Used reflectively
-        private static boolean nullOrEmpty(PyDictionary d) {
+        private static boolean nullOrEmpty(PyDict d) {
             return d == null || d.size() == 0;
         }
 
@@ -266,12 +266,12 @@ class PyJavaFunction implements PyObject {
         }
 
         /**
-         * Check PyDictionary argument is {@code null} or empty and that
+         * Check PyDict argument is {@code null} or empty and that
          * an array (tuple innards) has a specific size.
          */
         @SuppressWarnings("unused") // Used reflectively
         private static boolean fixedArityGuard(PyObject[] a,
-                PyDictionary d, int n) {
+                PyDict d, int n) {
             return (d == null || d.size() == 0) && a.length == n;
         }
     }
@@ -279,7 +279,7 @@ class PyJavaFunction implements PyObject {
     // slot functions -------------------------------------------------
 
     static PyObject tp_call(PyJavaFunction f, PyTuple args,
-            PyDictionary kwargs) throws Throwable {
+            PyDict kwargs) throws Throwable {
         try {
             return (PyObject) f.tpCall.invokeExact(args, kwargs);
         } catch (BadCallException bce) {

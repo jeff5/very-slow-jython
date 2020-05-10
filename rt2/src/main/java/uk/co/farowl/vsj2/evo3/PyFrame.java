@@ -19,9 +19,9 @@ abstract class PyFrame implements PyObject {
     /** Interpreter owning this frame. */
     protected final Interpreter interpreter;
     /** Built-in objects. */
-    protected PyDictionary builtins;
+    protected PyDict builtins;
     /** Global context (name space) of execution. */
-    final PyDictionary globals;
+    final PyDict globals;
     /** Local context (name space) of execution. (Assign if needed.) */
     Map<PyObject, PyObject> locals = null;
 
@@ -42,7 +42,7 @@ abstract class PyFrame implements PyObject {
      * @throws TypeError if {@code globals['__builtins__']} is invalid
      */
     protected PyFrame(Interpreter interpreter, PyCode code,
-            PyDictionary globals) throws TypeError {
+            PyDict globals) throws TypeError {
         this.code = code;
         this.interpreter = interpreter;
         this.globals = globals;
@@ -61,7 +61,7 @@ abstract class PyFrame implements PyObject {
      *
      * @return a {@code dict} suitable as the built-ins of this frame
      */
-    private PyDictionary inferBuiltins() {
+    private PyDict inferBuiltins() {
         if (back != null && back.globals == globals)
             // Same globals, same builtins.
             return back.builtins;
@@ -71,13 +71,13 @@ abstract class PyFrame implements PyObject {
                 // Normally, globals[__builtins__] is a module
                 if (b instanceof PyModule)
                     return ((PyModule) b).dict;
-                else if (b instanceof PyDictionary)
-                    return (PyDictionary) b;
+                else if (b instanceof PyDict)
+                    return (PyDict) b;
                 throw new TypeError("%s should be module not %s",
                         Py.BUILTINS, b);
             } else {
                 // Substitute minimal builtins
-                PyDictionary builtins = new PyDictionary();
+                PyDict builtins = new PyDict();
                 builtins.put("None", Py.None);
                 return builtins;
             }
@@ -108,7 +108,7 @@ abstract class PyFrame implements PyObject {
      * @param locals local name space (or it may be {@code globals})
      */
     protected PyFrame(Interpreter interpreter, PyCode code,
-            PyDictionary globals, PyObject locals) {
+            PyDict globals, PyObject locals) {
 
         // Initialise the basics.
         this(interpreter, code, globals);
@@ -121,7 +121,7 @@ abstract class PyFrame implements PyObject {
                 // We can create it later but probably won't need to
                 this.locals = null;
             } else {
-                this.locals = new PyDictionary();
+                this.locals = new PyDict();
             }
         } else if (locals == null) {
             // Default to same as globals.
@@ -211,13 +211,13 @@ abstract class PyFrame implements PyObject {
      *
      * @param kwargs keyword arguments given in call
      */
-    void setKeywordArguments(PyDictionary kwargs) {
+    void setKeywordArguments(PyDict kwargs) {
         /*
          * Create a dictionary for the excess keyword parameters, and
          * insert it in the local variables at the proper position.
          */
         int totalArgs = code.argcount + code.kwonlyargcount;
-        PyDictionary kwdict = null;
+        PyDict kwdict = null;
         if (code.traits.contains(Trait.VARKEYWORDS)) {
             kwdict = Py.dict();
             int kwargsIndex = code.traits.contains(Trait.VARARGS)
@@ -285,7 +285,7 @@ abstract class PyFrame implements PyObject {
          * insert it in the local variables at the proper position.
          */
         int total_args = code.argcount + code.kwonlyargcount;
-        PyDictionary kwdict = null;
+        PyDict kwdict = null;
         if (code.traits.contains(Trait.VARKEYWORDS)) {
             kwdict = Py.dict();
             int kwargsIndex = code.traits.contains(Trait.VARARGS)
@@ -527,7 +527,7 @@ abstract class PyFrame implements PyObject {
      * @throws TypeError if there are too many or missing arguments.
      */
     void applyDefaults(PyTuple args, PyTuple defaults,
-            PyDictionary kwdefs) throws TypeError {
+            PyDict kwdefs) throws TypeError {
 
         int nargs = args.value.length;
         int ndefs = defaults == null ? 0 : defaults.value.length;

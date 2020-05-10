@@ -610,8 +610,8 @@ we have not tested it with multiple threads and interpreters.
     
     PyFrame --> PyFrame : back
     PyFrame -left-> PyCode : code
-    PyFrame --> PyDictionary : builtins
-    PyFrame --> PyDictionary : globals
+    PyFrame --> PyDict : builtins
+    PyFrame --> PyDict : globals
 
     class PyFrame {
         / locals : Mapping

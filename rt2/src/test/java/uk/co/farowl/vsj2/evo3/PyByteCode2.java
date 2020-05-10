@@ -294,7 +294,7 @@ class PyByteCode2 {
     @Test
     void test_load_store_name1() {
         //@formatter:off
-        PyDictionary globals = new PyDictionary();
+        PyDict globals = new PyDict();
         globals.put("a", Py.val(1));
         globals.put("b", Py.val(2));
         Interpreter interp = Py.createInterpreter();
@@ -337,7 +337,7 @@ class PyByteCode2 {
     @Test
     void test_negate1() {
         //@formatter:off
-        PyDictionary globals = new PyDictionary();
+        PyDict globals = new PyDict();
         globals.put("a", Py.val(6));
         globals.put("b", Py.val(-7));
         Interpreter interp = Py.createInterpreter();
@@ -350,7 +350,7 @@ class PyByteCode2 {
     @Test
     void test_negate2() {
         //@formatter:off
-        PyDictionary globals = new PyDictionary();
+        PyDict globals = new PyDict();
         globals.put("a", Py.val(6.0));
         globals.put("b", Py.val(-7.0));
         Interpreter interp = Py.createInterpreter();
@@ -402,7 +402,7 @@ class PyByteCode2 {
     @Test
     void test_binary1() {
         //@formatter:off
-        PyDictionary globals = new PyDictionary();
+        PyDict globals = new PyDict();
         globals.put("a", Py.val(7));
         globals.put("b", Py.val(6));
         Interpreter interp = Py.createInterpreter();
@@ -416,7 +416,7 @@ class PyByteCode2 {
     @Test
     void test_binary2() {
         //@formatter:off
-        PyDictionary globals = new PyDictionary();
+        PyDict globals = new PyDict();
         globals.put("a", Py.val(7.0));
         globals.put("b", Py.val(6.0));
         Interpreter interp = Py.createInterpreter();
@@ -431,7 +431,7 @@ class PyByteCode2 {
     @Test
     void test_binary3() {
         //@formatter:off
-        PyDictionary globals = new PyDictionary();
+        PyDict globals = new PyDict();
         globals.put("a", Py.val(7.0));
         globals.put("b", Py.val(6));
         Interpreter interp = Py.createInterpreter();
@@ -446,7 +446,7 @@ class PyByteCode2 {
     @Test
     void test_binary4() {
         //@formatter:off
-        PyDictionary globals = new PyDictionary();
+        PyDict globals = new PyDict();
         globals.put("a", Py.val(7));
         globals.put("b", Py.val(6.0));
         Interpreter interp = Py.createInterpreter();

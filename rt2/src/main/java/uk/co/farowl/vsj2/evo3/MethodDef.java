@@ -63,7 +63,7 @@ import java.util.EnumSet;
  * <p>
  * By {@code object} is meant here a Java parameter declared exactly as
  * {@code PyObject}, {@code tuple} is {@code PyTuple}, and {@code dict}
- * is {@code PyDictionary}. {@code int} means the Java primitive.
+ * is {@code PyDict}. {@code int} means the Java primitive.
  *
  * <p>
  * The FAST versions replicate the convention in CPython that allows
@@ -298,7 +298,7 @@ class MethodDef {
      * @throws TypeError for a mismatch
      * @throws InterpreterError for conditions that should not arise
      */
-    void check(PyTuple args, PyDictionary kwargs)
+    void check(PyTuple args, PyDict kwargs)
             throws TypeError, InterpreterError {
         if (flags.contains(Flag.FASTCALL)) {
             if (flags.contains(Flag.KEYWORDS)) {

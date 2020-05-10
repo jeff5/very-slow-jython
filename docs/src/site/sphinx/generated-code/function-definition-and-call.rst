@@ -106,9 +106,9 @@ that could usefully be inside the API method.
                 PyObject kwargs) throws TypeError, Throwable {
 
             // Represent kwargs as a dict (if not already or null)
-            PyDictionary kw;
-            if (kwargs == null || kwargs instanceof PyDictionary)
-                kw = (PyDictionary) kwargs;
+            PyDict kw;
+            if (kwargs == null || kwargs instanceof PyDict)
+                kw = (PyDict) kwargs;
             else // ...
 
             // Represent args as a PyTuple (if not already)
@@ -261,7 +261,7 @@ specific to ``len()`` like this:
             public PyType getType() { return TYPE; }
 
             static PyObject tp_call(LenCallable self, PyTuple args,
-                    PyDictionary kwargs) throws Throwable {
+                    PyDict kwargs) throws Throwable {
                 PyObject v = Sequence.getItem(args, 0);
                 return Py.val(Abstract.size(v));
             }
@@ -307,7 +307,7 @@ We have not needed the Python module type before so we quickly define it:
         public PyType getType() { return TYPE; }
 
         final String name;
-        final PyDictionary dict = new PyDictionary();
+        final PyDict dict = new PyDict();
 
         PyModule(String name) { this.name = name; }
 
@@ -542,7 +542,7 @@ The essence of that class is as follows:
         //...
 
         static PyObject tp_call(PyJavaFunction f, PyTuple args,
-                PyDictionary kwargs) throws Throwable {
+                PyDict kwargs) throws Throwable {
             try {
                 return (PyObject) f.tpCall.invokeExact(args, kwargs);
             } catch (BadCallException bce) {
@@ -584,7 +584,7 @@ Our ``MethodDef`` (greatly simplified) looks like this:
 
         //...
 
-        void check(PyTuple args, PyDictionary kwargs) throws TypeError {
+        void check(PyTuple args, PyDict kwargs) throws TypeError {
             // Check args, kwargs for the ase defined by flags and
             // throw a properly formatted TypeError
             // ...
@@ -614,7 +614,7 @@ are an implementation choice for a Java Python:
 we do not have to mimic CPython.
 
 ``PyJavaFunction.tpCall`` wraps ``PyJavaFunction.methodDef.meth``
-to conform to the signature ``(PyTuple,PyDictionary)PyObject``.
+to conform to the signature ``(PyTuple,PyDict)PyObject``.
 This reflects the ``(*args, **kwargs)`` calling pattern that we must support.
 This handle is built by ``PyJavaFunction.getTpCallHandle``,
 when invoked from the constructor.
@@ -648,7 +648,7 @@ Here is the one for a fixed-arity function like ``len()``:
             }
 
             private static boolean fixedArityGuard(PyObject[] a,
-                    PyDictionary d, int n) {
+                    PyDict d, int n) {
                 return (d == null || d.size() == 0) && a.length == n;
             }
         }

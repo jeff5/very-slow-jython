@@ -21,7 +21,7 @@ class PyByteCode5 {
         public PyType getType() { return TYPE; }
 
         static PyObject tp_call(LenCallable self, PyTuple args,
-                PyDictionary kwargs) throws Throwable {
+                PyDict kwargs) throws Throwable {
             PyObject v = Sequence.getItem(args, 0);
             return Py.val(Abstract.size(v));
         }
@@ -77,7 +77,7 @@ class PyByteCode5 {
     @Test
     void test_classic_call1() {
         //@formatter:off
-        PyDictionary globals = Py.dict();
+        PyDict globals = Py.dict();
         Interpreter interp = Py.createInterpreter();
         interp.evalCode(CLASSIC_CALL, globals, globals);
         assertEquals(Py.val(5), globals.get("n"), "n == 5");
@@ -113,7 +113,7 @@ class PyByteCode5 {
     // @Test
     void test_builtin_call1() {
         //@formatter:off
-        PyDictionary globals = Py.dict();
+        PyDict globals = Py.dict();
         globals.put("x", Py.str("hello"));
         Interpreter interp = Py.createInterpreter();
         interp.evalCode(BUILTIN_CALL, globals, globals);
@@ -124,7 +124,7 @@ class PyByteCode5 {
     // @Test
     void test_builtin_call2() {
         //@formatter:off
-        PyDictionary globals = Py.dict();
+        PyDict globals = Py.dict();
         globals.put("x",
             Py.list(Py.val(1), Py.val(2), Py.val(3)));
         Interpreter interp = Py.createInterpreter();
@@ -136,7 +136,7 @@ class PyByteCode5 {
     // @Test
     void test_builtin_call3() {
         //@formatter:off
-        PyDictionary globals = Py.dict();
+        PyDict globals = Py.dict();
         globals.put("x",
             Py.tuple(Py.str("horse"), Py.val(42), Py.None));
         Interpreter interp = Py.createInterpreter();
@@ -194,7 +194,7 @@ class PyByteCode5 {
     // @Test
     void test_def_func1() {
         //@formatter:off
-        PyDictionary globals = Py.dict();
+        PyDict globals = Py.dict();
         globals.put("x", Py.val(14));
         Interpreter interp = Py.createInterpreter();
         interp.evalCode(DEF_FUNC, globals, globals);
@@ -205,7 +205,7 @@ class PyByteCode5 {
     // @Test
     void test_def_func2() {
         //@formatter:off
-        PyDictionary globals = Py.dict();
+        PyDict globals = Py.dict();
         globals.put("x", Py.str("ha"));
         Interpreter interp = Py.createInterpreter();
         interp.evalCode(DEF_FUNC, globals, globals);
@@ -265,7 +265,7 @@ class PyByteCode5 {
     // @Test
     void test_def_func_args1() {
         //@formatter:off
-        PyDictionary globals = Py.dict();
+        PyDict globals = Py.dict();
         globals.put("u", Py.val(6));
         globals.put("v", Py.val(7));
         Interpreter interp = Py.createInterpreter();
@@ -350,7 +350,7 @@ class PyByteCode5 {
     // @Test
     void test_def_func_kw1() {
         //@formatter:off
-        PyDictionary globals = Py.dict();
+        PyDict globals = Py.dict();
         globals.put("u", Py.val(3));
         globals.put("v", Py.val(4));
         Interpreter interp = Py.createInterpreter();
@@ -429,7 +429,7 @@ class PyByteCode5 {
     @Test
     void test_def_func_tuple1() {
         //@formatter:off
-        PyDictionary globals = Py.dict();
+        PyDict globals = Py.dict();
         globals.put("u", Py.val(3));
         globals.put("v", Py.val(4));
         globals.put("args",
@@ -513,7 +513,7 @@ class PyByteCode5 {
     // @Test
     void test_def_func_dict1() {
         //@formatter:off
-        PyDictionary globals = Py.dict();
+        PyDict globals = Py.dict();
         globals.put("u", Py.val(3));
         globals.put("v", Py.val(10));
         Interpreter interp = Py.createInterpreter();
@@ -642,7 +642,7 @@ class PyByteCode5 {
     // @Test
     void test_def_func_tuple_dict1() {
         //@formatter:off
-        PyDictionary globals = Py.dict();
+        PyDict globals = Py.dict();
         globals.put("s", Py.val(7));
         globals.put("t", Py.val(6));
         globals.put("u", Py.val(5));
@@ -744,7 +744,7 @@ class PyByteCode5 {
     // @Test
     void test_faqprog1() {
         //@formatter:off
-        PyDictionary globals = Py.dict();
+        PyDict globals = Py.dict();
         Interpreter interp = Py.createInterpreter();
         interp.evalCode(FAQPROG, globals, globals);
         assertEquals(Py.val(42), globals.get("c"), "c == 42");
@@ -849,7 +849,7 @@ class PyByteCode5 {
     // @Test
     void test_globprog_a1() {
         //@formatter:off
-        PyDictionary globals = Py.dict();
+        PyDict globals = Py.dict();
         Interpreter interp = Py.createInterpreter();
         interp.evalCode(GLOBPROG_A, globals, globals);
         assertEquals(Py.val(7), globals.get("d"), "d == 7");
@@ -961,7 +961,7 @@ class PyByteCode5 {
     // @Test
     void test_globprog_b1() {
         //@formatter:off
-        PyDictionary globals = Py.dict();
+        PyDict globals = Py.dict();
         Interpreter interp = Py.createInterpreter();
         interp.evalCode(GLOBPROG_B, globals, globals);
         assertEquals(Py.val(7), globals.get("d"), "d == 7");
@@ -1069,7 +1069,7 @@ class PyByteCode5 {
     // @Test
     void test_globprog_c1() {
         //@formatter:off
-        PyDictionary globals = Py.dict();
+        PyDict globals = Py.dict();
         Interpreter interp = Py.createInterpreter();
         interp.evalCode(GLOBPROG_C, globals, globals);
         assertEquals(Py.val(7), globals.get("d"), "d == 7");
@@ -1183,7 +1183,7 @@ class PyByteCode5 {
     // @Test
     void test_alloc_builtin1() {
         //@formatter:off
-        PyDictionary globals = Py.dict();
+        PyDict globals = Py.dict();
         Interpreter interp = Py.createInterpreter();
         interp.evalCode(ALLOC_BUILTIN, globals, globals);
         assertEquals(Py.val(42), globals.get("result"),
@@ -1347,7 +1347,7 @@ class PyByteCode5 {
     // @Test
     void test_argprog1() {
         //@formatter:off
-        PyDictionary globals = Py.dict();
+        PyDict globals = Py.dict();
         Interpreter interp = Py.createInterpreter();
         interp.evalCode(ARGPROG, globals, globals);
         assertEquals(Py.val(42), globals.get("result"),
@@ -1529,7 +1529,7 @@ class PyByteCode5 {
     // @Test
     void test_closprog_local1() {
         //@formatter:off
-        PyDictionary globals = Py.dict();
+        PyDict globals = Py.dict();
         Interpreter interp = Py.createInterpreter();
         interp.evalCode(CLOSPROG_LOCAL, globals, globals);
         assertEquals(Py.val(42), globals.get("result"),
@@ -1707,7 +1707,7 @@ class PyByteCode5 {
     // @Test
     void test_closprog_arg1() {
         //@formatter:off
-        PyDictionary globals = Py.dict();
+        PyDict globals = Py.dict();
         Interpreter interp = Py.createInterpreter();
         interp.evalCode(CLOSPROG_ARG, globals, globals);
         assertEquals(Py.val(42), globals.get("result"),
@@ -1926,7 +1926,7 @@ class PyByteCode5 {
     // @Test
     void test_closprog_mix1() {
         //@formatter:off
-        PyDictionary globals = Py.dict();
+        PyDict globals = Py.dict();
         Interpreter interp = Py.createInterpreter();
         interp.evalCode(CLOSPROG_MIX, globals, globals);
         assertEquals(Py.val(42), globals.get("result"),
@@ -2129,7 +2129,7 @@ class PyByteCode5 {
     // @Test
     void test_kwargprog_a1() {
         //@formatter:off
-        PyDictionary globals = Py.dict();
+        PyDict globals = Py.dict();
         Interpreter interp = Py.createInterpreter();
         interp.evalCode(KWARGPROG_A, globals, globals);
         assertEquals(Py.val(42), globals.get("result"),
@@ -2244,7 +2244,7 @@ class PyByteCode5 {
     // @Test
     void test_kwargcell1() {
         //@formatter:off
-        PyDictionary globals = Py.dict();
+        PyDict globals = Py.dict();
         Interpreter interp = Py.createInterpreter();
         interp.evalCode(KWARGCELL, globals, globals);
         assertEquals(Py.val(42), globals.get("result"),
@@ -2454,7 +2454,7 @@ class PyByteCode5 {
     // @Test
     void test_kwargprog_b1() {
         //@formatter:off
-        PyDictionary globals = Py.dict();
+        PyDict globals = Py.dict();
         Interpreter interp = Py.createInterpreter();
         interp.evalCode(KWARGPROG_B, globals, globals);
         assertEquals(Py.val(42), globals.get("result"),
@@ -2666,7 +2666,7 @@ class PyByteCode5 {
     // @Test
     void test_kwargprog_c1() {
         //@formatter:off
-        PyDictionary globals = Py.dict();
+        PyDict globals = Py.dict();
         Interpreter interp = Py.createInterpreter();
         interp.evalCode(KWARGPROG_C, globals, globals);
         assertEquals(Py.val(42), globals.get("result"),

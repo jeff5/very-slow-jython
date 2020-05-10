@@ -14,11 +14,11 @@ class PyFunction implements PyObject {
     /** __code__, the code object */
     PyCode code;
     /** __globals__, a dict (other mappings won't do) */
-    final PyDictionary globals;
+    final PyDict globals;
     /** A tuple or null, the __defaults__ attribute (positional). */
     PyTuple defaults;
     /** A dict or null, the __kwdefaults__ attribute. */
-    PyDictionary kwdefaults;
+    PyDict kwdefaults;
     /** A tuple of cells or null, the __closure__ attribute */
     PyTuple closure;
     /** The __doc__ attribute, can be set to anything */
@@ -27,11 +27,11 @@ class PyFunction implements PyObject {
     /** __name__ attribute, a str */
     PyUnicode name;
     /** __dict__ attribute, a dict or null */
-    PyDictionary dict;
+    PyDict dict;
     /** __module__ attribute, can be anything */
     PyObject module;
     /** __annotations__, a dict or null */
-    PyDictionary annotations;
+    PyDict annotations;
     /** __qualname__, the qualified name, a str */
     PyUnicode qualname;
 
@@ -44,8 +44,8 @@ class PyFunction implements PyObject {
     private static final PyUnicode STR__name__ = Py.str("__name__");
 
     // Compare PyFunction_NewWithQualName + explicit interpreter
-    PyFunction(Interpreter interpreter, PyCode code,
-            PyDictionary globals, PyUnicode qualname) {
+    PyFunction(Interpreter interpreter, PyCode code, PyDict globals,
+            PyUnicode qualname) {
         // The defining interpreter is the one that called this.
         this.interpreter = interpreter;
         this.code = code;
@@ -70,21 +70,20 @@ class PyFunction implements PyObject {
     }
 
     // Compare PyFunction_NewWithQualName
-    PyFunction(PyCode code, PyDictionary globals, PyUnicode qualname) {
+    PyFunction(PyCode code, PyDict globals, PyUnicode qualname) {
         // The defining interpreter is the one that called this.
         this(Interpreter.get(), code, globals, qualname);
     }
 
     // slot functions -------------------------------------------------
 
-
     static PyObject tp_call(PyFunction func, PyTuple args,
-            PyDictionary kwargs) throws Throwable {
+            PyDict kwargs) throws Throwable {
         return func.call(args, kwargs);
     }
 
     /** Implementation of function call for "classic" arguments. */
-    PyObject call(PyTuple args, PyDictionary kwargs) {
+    PyObject call(PyTuple args, PyDict kwargs) {
         // Version from considering fundamentals
 
         // Create a frame of the right type for the code
@@ -108,7 +107,7 @@ class PyFunction implements PyObject {
     // attribute access ----------------------------------------
 
     // Compare with PyFunction_New
-    PyFunction(PyCode code, PyDictionary globals) {
+    PyFunction(PyCode code, PyDict globals) {
         this(code, globals, null);
     }
 
@@ -116,9 +115,9 @@ class PyFunction implements PyObject {
 
     void setDefaults(PyTuple defaults) { this.defaults = defaults; }
 
-    PyDictionary getKwdefaults() { return kwdefaults; }
+    PyDict getKwdefaults() { return kwdefaults; }
 
-    void setKwdefaults(PyDictionary kwdefaults) {
+    void setKwdefaults(PyDict kwdefaults) {
         this.kwdefaults = kwdefaults;
     }
 
@@ -154,9 +153,9 @@ class PyFunction implements PyObject {
         this.closure = closure;
     }
 
-    PyDictionary getAnnotations() { return annotations; }
+    PyDict getAnnotations() { return annotations; }
 
-    void setAnnotations(PyDictionary annotations) {
+    void setAnnotations(PyDict annotations) {
         this.annotations = annotations;
     }
 

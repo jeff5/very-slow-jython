@@ -42,6 +42,16 @@ so we take advantage of overloading and write
 generating new tests in the new pattern,
 from the same examples used previously.
 
+Some Re-naming
+**************
+In ``evo3``
+we rename ``Cell`` to ``PyCell`` having realised it must be a ``PyObject``.
+We rename ``PyDictionary`` to ``PyDict`` to be closer to
+the names used in CPython (``PyDict_New`` and so on).
+
+We can't quite bring ourselves to rename ``PyUnicode`` to ``PyStr``,
+although it would be consistent and save space.
+
 
 Re-working ``PyType``
 *********************
