@@ -243,7 +243,7 @@ class PyJavaFunction implements PyObject {
          * @return handle for classic call
          */
         static MethodHandle wrapFixedArity(MethodDef def) {
-            // Number or arguments expected by the def target f
+            // Number of arguments expected by the def target f
             int n = def.getNargs();
 
             // f = λ u0, u1, ... u(n-1) : meth(u0, u1, ... u(n-1))
