@@ -393,18 +393,20 @@ class CPythonFrame extends PyFrame {
                              * Simple case: swap the code object on the
                              * stack for a function object.
                              */
-                            valuestack[sp - 1] = new PyFunction(
-                                    (PyCode) valuestack[sp - 1],
-                                    globals, (PyUnicode) name);
-
+                            valuestack[sp - 1] =
+                                    new PyFunction(interpreter,
+                                            (PyCode) valuestack[sp - 1],
+                                            globals, (PyUnicode) name);
+                            break;
                         } else {
                             /*
                              * Optional extras specified: make the
                              * function object and add them.
                              */
-                            PyFunction pyfunc = new PyFunction(
-                                    (PyCode) valuestack[--sp], globals,
-                                    (PyUnicode) name);
+                            PyFunction pyfunc =
+                                    new PyFunction(interpreter,
+                                            (PyCode) valuestack[--sp],
+                                            globals, (PyUnicode) name);
                             if ((oparg & 8) == 0)
                                 pyfunc.setClosure(
                                         (PyTuple) valuestack[--sp]);
@@ -418,8 +420,8 @@ class CPythonFrame extends PyFrame {
                                 pyfunc.setDefaults(
                                         (PyTuple) valuestack[--sp]);
                             valuestack[sp++] = pyfunc; // PUSH
+                            break;
                         }
-                        break;
 
                     case Opcode.CALL_FUNCTION_KW:
                         // func | args[n] | kwargs[m] | kwnames |

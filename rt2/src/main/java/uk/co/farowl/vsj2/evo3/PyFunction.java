@@ -69,12 +69,6 @@ class PyFunction implements PyObject {
         this.qualname = qualname != null ? qualname : this.name;
     }
 
-    // Compare PyFunction_NewWithQualName
-    PyFunction(PyCode code, PyDict globals, PyUnicode qualname) {
-        // The defining interpreter is the one that called this.
-        this(Interpreter.get(), code, globals, qualname);
-    }
-
     // slot functions -------------------------------------------------
 
     static PyObject tp_call(PyFunction func, PyTuple args,
@@ -84,7 +78,6 @@ class PyFunction implements PyObject {
 
     /** Implementation of function call for "classic" arguments. */
     PyObject call(PyTuple args, PyDict kwargs) {
-        // Version from considering fundamentals
 
         // Create a frame of the right type for the code
         PyFrame f = code.createFrame(interpreter, globals, closure);
@@ -105,11 +98,6 @@ class PyFunction implements PyObject {
     }
 
     // attribute access ----------------------------------------
-
-    // Compare with PyFunction_New
-    PyFunction(PyCode code, PyDict globals) {
-        this(code, globals, null);
-    }
 
     PyTuple getDefaults() { return defaults; }
 

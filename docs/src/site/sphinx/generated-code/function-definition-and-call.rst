@@ -667,3 +667,130 @@ where we cannot address the JVM stack as a memory array.
 Defining a Function in Python
 *****************************
 
+Definition site
+===============
+
+A function definition in Python is an executable statement.
+With the CPython compiler doing the hard part,
+of turning the body of a function into a code object,
+our interest is only in the execution of the byte code
+that creates the functin object at run time.
+If we write::
+
+    def f(x, y, a=5, b=6):
+        return x * y + a * b
+
+That code typically looks like this:
+
+..  code-block:: none
+
+    1       0 LOAD_CONST              11 ((5, 6))
+            2 LOAD_CONST               2 (<code object f at ...>)
+            4 LOAD_CONST               3 ('f')
+            6 MAKE_FUNCTION            1 (defaults)
+            8 STORE_NAME               0 (f)
+
+The body of the function is wrapped up in the constant,
+and all that happens at this definition site
+is to supply a name and the defaults for positional arguments.
+``MAKE_FUNCTION`` has four options:
+depending on whether positional or keyword-only defaults are given,
+annotations, or a closure.
+The implementation of the opcode is a little fiddly
+because of the need to unstack all the optional arguments,
+but it lands fairly directly in the constructor of this class:
+
+..  code-block:: java
+    :emnphasize-lines: 16
+
+    class PyFunction implements PyObject {
+        static final PyType TYPE = new PyType("function", PyFunction.class);
+        ...
+        PyCode code;
+        final PyDict globals;
+        PyTuple defaults;
+        PyDict kwdefaults;
+        PyTuple closure;
+        PyObject doc;
+        PyUnicode name;
+        PyDict dict;
+        PyObject module;
+        PyDict annotations;
+        PyUnicode qualname;
+
+        final Interpreter interpreter;
+
+        // Compare PyFunction_NewWithQualName + explicit interpreter
+        PyFunction(Interpreter interpreter, PyCode code, PyDict globals,
+                PyUnicode qualname) {
+            // The defining interpreter is the one that called this.
+            this.interpreter = interpreter;
+            this.code = code;
+            this.globals = globals;
+            this.name = code.name;
+            ...
+        }
+
+        // Compare PyFunction_NewWithQualName
+        PyFunction(PyCode code, PyDict globals, PyUnicode qualname) {
+            // The defining interpreter is the one that called this.
+            this(Interpreter.get(), code, globals, qualname);
+        }
+
+        // slot functions -------------------------------------------------
+
+        static PyObject tp_call(PyFunction func, PyTuple args,
+                PyDict kwargs) throws Throwable {
+            return func.call(args, kwargs);
+        }
+
+        /** Implementation of function call for "classic" arguments. */
+        PyObject call(PyTuple args, PyDict kwargs) {
+            ...
+            return f.eval();
+        }
+        ...
+        @Override
+        public String toString() {
+            return String.format("<function %s>", name);
+        }
+    }
+
+The CPython equivalent is ``PyFunction_NewWithQualName``.
+Different from CPython,
+we explicitly store the interpreter that is current at the time of definition.
+This is so that body code executes with the same "import context",
+wherever it is called from.
+
+Call site
+=========
+
+
+..  code-block:: java
+
+
+..  code-block:: java
+
+
+``PyFrame`` layout
+==================
+
+
+..  code-block:: java
+
+
+..  code-block:: java
+
+
+
+Processing a classic call
+========================
+
+
+
+..  code-block:: java
+
+
+..  code-block:: java
+
+
