@@ -19,12 +19,12 @@ class CPythonFrame extends PyFrame {
      * {@link PyCode#freevars}. During a call, these are provided in the
      * closure.
      */
-    final Cell[] freevars;
+    final PyCell[] freevars;
     /**
      * Non-local variables used in the current scope <b>and</b> a nested
      * scope. These are named in {@link PyCode#cellvars}.
      */
-    final Cell[] cellvars;
+    final PyCell[] cellvars;
     /** Simple local variables, named in {@link PyCode#varnames}. */
     final PyObject[] fastlocals;
     /** Value stack. */
@@ -43,7 +43,7 @@ class CPythonFrame extends PyFrame {
             "free variable '%.200s' referenced before assignment"
                     + " in enclosing scope";
 
-    private static final Cell[] EMPTY_CELL_ARRAY = new Cell[0];
+    private static final PyCell[] EMPTY_CELL_ARRAY = new PyCell[0];
 
 
     /**
@@ -92,12 +92,12 @@ class CPythonFrame extends PyFrame {
         this.fastlocals = new PyObject[code.nlocals];
         this.valuestack = new PyObject[code.stacksize];
         int n = code.cellvars.value.length;
-        this.cellvars = n > 0 ? new Cell[n] : EMPTY_CELL_ARRAY;
+        this.cellvars = n > 0 ? new PyCell[n] : EMPTY_CELL_ARRAY;
         if (closure == null)
             this.freevars = EMPTY_CELL_ARRAY;
         else
             this.freevars = Arrays.copyOf(closure.value,
-                    closure.value.length, Cell[].class);
+                    closure.value.length, PyCell[].class);
         assert (code.freevars.value.length == this.freevars.length);
 
         // Assume this supports an optimised function
@@ -112,7 +112,7 @@ class CPythonFrame extends PyFrame {
     void setLocal(int i, PyObject v) { fastlocals[i] = v; }
 
     @Override
-    void makeCell(int i, PyObject v) { cellvars[i] = new Cell(v); }
+    void makeCell(int i, PyObject v) { cellvars[i] = new PyCell(v); }
 
     /**
      * {@inheritDoc}

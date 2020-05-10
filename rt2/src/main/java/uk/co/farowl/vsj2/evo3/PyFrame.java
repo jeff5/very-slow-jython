@@ -666,8 +666,7 @@ abstract class PyFrame implements PyObject {
                 names.remove(len - 1);
                 names.remove(len - 2);
 
-                // Stitch everything up into a nice comma-separated
-                // list.
+                // Stitch everything up in a nice comma-separated list.
                 name_str = String.join(", ", names) + tail;
         }
 

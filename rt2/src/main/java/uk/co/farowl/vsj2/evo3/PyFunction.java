@@ -144,7 +144,7 @@ class PyFunction implements PyObject {
         // check that the closure is tuple of cells
         if (nclosure != 0) {
             for (PyObject o : closure.value) {
-                if (!(o instanceof Cell)) {
+                if (!(o instanceof PyCell)) {
                     throw Abstract.typeError(
                             "closure: expected cell, found %s", o);
                 }
