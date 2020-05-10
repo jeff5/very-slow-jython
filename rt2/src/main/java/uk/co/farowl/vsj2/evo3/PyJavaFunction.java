@@ -65,7 +65,7 @@ class PyJavaFunction implements PyObject {
 
         if (f.contains(Flag.FASTCALL)) {
             if (f.contains(Flag.KEYWORDS)) {
-                // FAST, VARARGS, KEYWORDS: object[], int, int, dict
+                // FAST, VARARGS, KEYWORDS: object[], int, int, tuple
                 throw new InterpreterError("Not implemented");
             } else {
                 // FAST, VARARGS: object[], int, int

@@ -49,9 +49,9 @@ class Interpreter {
      */
     PyObject evalCode(PyCode code, PyDictionary globals,
             PyObject locals) {
-        ThreadState tstate = ThreadState.get();
         globals.putIfAbsent(Py.BUILTINS, builtinsModule);
-        PyFrame f = code.createFrame(tstate, this, globals, locals);
+        PyFrame f = code.createFrame(this, globals, locals);
+        f.push();
         return f.eval();
     }
 

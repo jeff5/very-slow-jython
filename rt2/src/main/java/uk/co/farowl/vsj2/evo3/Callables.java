@@ -46,6 +46,12 @@ class Callables extends Abstract {
         }
 
         try {
+            /*
+             * In CPython, there are specific cases here that look for support for
+             * vector call and PyCFunction (would be PyJavaFunction) leading to
+             * PyVectorcall_Call or cfunction_call_varargs respectively
+             * on the args, kwargs arguments.
+             */
             MethodHandle call = callable.getType().tp_call;
             return (PyObject) call.invokeExact(callable, ar, kw);
         } catch (Slot.EmptyException e) {
@@ -55,6 +61,15 @@ class Callables extends Abstract {
 
     static final String OBJECT_NOT_CALLABLE =
             "'%.200s' object is not callable";
+    static final String OBJECT_NOT_VECTORCALLABLE =
+            "'%.200s' object does not support vectorcall";
     static final String ATTR_NOT_CALLABLE =
             "attribute of type '%.200s' is not callable";
+
+    static PyObject vectorcall(PyObject callable, PyObject[] args,
+            int start, int nargsf, PyTuple kwnames) {
+        // TODO: Stub to satisfy eval()
+        return Py.None;
+    }
+
 }

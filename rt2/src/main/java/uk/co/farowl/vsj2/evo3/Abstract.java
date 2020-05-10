@@ -1,6 +1,7 @@
 package uk.co.farowl.vsj2.evo3;
 
 import java.lang.invoke.MethodHandle;
+import java.util.function.Supplier;
 
 import uk.co.farowl.vsj2.evo3.Slot.EmptyException;
 
@@ -101,10 +102,12 @@ class Abstract {
         return res;
     }
 
-    /*
-     * Perform a rich comparison with integer result. This wraps
-     * PyObject_RichCompare(), returning -1 for error, 0 for false, 1
-     * for true.
+    /**
+     * Perform a rich comparison with boolean result. This wraps
+     * {@link #richCompare(PyObject, PyObject, Comparison)},
+     * converting the result to Java
+     * {@code false} or {@code true}, or throwing (probably
+     * {@link TypeError}), when the objects cannot be compared.
      */
     static boolean richCompareBool(PyObject v, PyObject w,
             Comparison op) throws Throwable {
@@ -119,6 +122,28 @@ class Abstract {
                 return false;
         }
         return isTrue(richCompare(v, w, op));
+    }
+
+    /**
+     * Perform a rich comparison with boolean result. This wraps
+     * {@link #richCompare(PyObject, PyObject, Comparison)}, converting
+     * the result to Java {@code false} or {@code true}.
+     * <p>
+     * When the when the objects cannot be compared, the client gets to
+     * choose the exception through the provider {@code exc}. When this
+     * is {@code null}, the return will simply be {@code false} for
+     * incomparable objects.
+     */
+    static <T extends PyException> boolean richCompareBool(PyObject v,
+            PyObject w, Comparison op, Supplier<T> exc) {
+        try {
+            return richCompareBool(v, w, op);
+        } catch (Throwable e) {
+            if (exc == null)
+                return false;
+            else
+                throw exc.get();
+        }
     }
 
     /** Python size of {@code o} */

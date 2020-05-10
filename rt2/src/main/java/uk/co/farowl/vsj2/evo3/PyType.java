@@ -41,6 +41,7 @@ class PyType implements PyObject {
     MethodHandle tp_call;
     MethodHandle tp_str;
     MethodHandle tp_richcompare;
+    MethodHandle tp_iter;
 
     // Number slots table see CPython PyNumberMethods
 

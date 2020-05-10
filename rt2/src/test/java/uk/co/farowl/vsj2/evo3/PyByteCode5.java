@@ -62,7 +62,7 @@ class PyByteCode5 {
      *              18 LOAD_CONST               1 (None)
      *              20 RETURN_VALUE
      */
-    new PyCode(0, 0, 0, 0, 3, 64,
+    new CPythonCode(0, 0, 0, 0, 3, 64,
         Py.bytes(101, 0, 100, 0, -114, 0, 90, 1, 101, 0, 100, 0, 105,
             0, -114, 1, 90, 2, 100, 1, 83, 0),
         Py.tuple(
@@ -77,7 +77,7 @@ class PyByteCode5 {
     @Test
     void test_classic_call1() {
         //@formatter:off
-        PyDictionary globals = new PyDictionary();
+        PyDictionary globals = Py.dict();
         Interpreter interp = Py.createInterpreter();
         interp.evalCode(CLASSIC_CALL, globals, globals);
         assertEquals(Py.val(5), globals.get("n"), "n == 5");
@@ -100,7 +100,7 @@ class PyByteCode5 {
      *               8 LOAD_CONST               0 (None)
      *              10 RETURN_VALUE
      */
-    new PyCode(0, 0, 0, 0, 2, 64,
+    new CPythonCode(0, 0, 0, 0, 2, 64,
         Py.bytes(101, 0, 101, 1, -125, 1, 90, 2, 100, 0, 83, 0),
         Py.tuple(Py.None),
         Py.tuple(Py.str("len"), Py.str("x"), Py.str("n")),
@@ -113,7 +113,7 @@ class PyByteCode5 {
     // @Test
     void test_builtin_call1() {
         //@formatter:off
-        PyDictionary globals = new PyDictionary();
+        PyDictionary globals = Py.dict();
         globals.put("x", Py.str("hello"));
         Interpreter interp = Py.createInterpreter();
         interp.evalCode(BUILTIN_CALL, globals, globals);
@@ -124,7 +124,7 @@ class PyByteCode5 {
     // @Test
     void test_builtin_call2() {
         //@formatter:off
-        PyDictionary globals = new PyDictionary();
+        PyDictionary globals = Py.dict();
         globals.put("x",
             Py.list(Py.val(1), Py.val(2), Py.val(3)));
         Interpreter interp = Py.createInterpreter();
@@ -136,7 +136,7 @@ class PyByteCode5 {
     // @Test
     void test_builtin_call3() {
         //@formatter:off
-        PyDictionary globals = new PyDictionary();
+        PyDictionary globals = Py.dict();
         globals.put("x",
             Py.tuple(Py.str("horse"), Py.val(42), Py.None));
         Interpreter interp = Py.createInterpreter();
@@ -155,7 +155,7 @@ class PyByteCode5 {
     //@formatter:off
     static final PyCode DEF_FUNC =
     /*
-     *   1           0 LOAD_CONST               0 (<code object f at 0x000001CED3F94030, file "def_func", line 1>)
+     *   1           0 LOAD_CONST               0 (<code object f at 0x0000025C9B1840E0, file "def_func", line 1>)
      *               2 LOAD_CONST               1 ('f')
      *               4 MAKE_FUNCTION            0
      *               6 STORE_NAME               0 (f)
@@ -166,7 +166,7 @@ class PyByteCode5 {
      *              14 LOAD_CONST               2 (None)
      *              16 RETURN_VALUE
      */
-    new PyCode(0, 0, 0, 0, 2, 64,
+    new CPythonCode(0, 0, 0, 0, 2, 64,
         Py.bytes(100, 0, 100, 1, -124, 0, 90, 0, 101, 0, -125, 0, 90,
             1, 100, 2, 83, 0),
         Py.tuple(
@@ -176,7 +176,7 @@ class PyByteCode5 {
              *               4 BINARY_MULTIPLY
              *               6 RETURN_VALUE
              */
-            new PyCode(0, 0, 0, 0, 2, 67,
+            new CPythonCode(0, 0, 0, 0, 2, 67,
                 Py.bytes(116, 0, 100, 1, 20, 0, 83, 0),
                 Py.tuple(Py.None, Py.val(3)),
                 Py.tuple(Py.str("x")),
@@ -194,7 +194,7 @@ class PyByteCode5 {
     // @Test
     void test_def_func1() {
         //@formatter:off
-        PyDictionary globals = new PyDictionary();
+        PyDictionary globals = Py.dict();
         globals.put("x", Py.val(14));
         Interpreter interp = Py.createInterpreter();
         interp.evalCode(DEF_FUNC, globals, globals);
@@ -205,7 +205,7 @@ class PyByteCode5 {
     // @Test
     void test_def_func2() {
         //@formatter:off
-        PyDictionary globals = new PyDictionary();
+        PyDictionary globals = Py.dict();
         globals.put("x", Py.str("ha"));
         Interpreter interp = Py.createInterpreter();
         interp.evalCode(DEF_FUNC, globals, globals);
@@ -224,7 +224,7 @@ class PyByteCode5 {
     //@formatter:off
     static final PyCode DEF_FUNC_ARGS =
     /*
-     *   1           0 LOAD_CONST               0 (<code object f at 0x000001CED3F84A80, file "def_func_args", line 1>)
+     *   1           0 LOAD_CONST               0 (<code object f at 0x0000025C9B173A80, file "def_func_args", line 1>)
      *               2 LOAD_CONST               1 ('f')
      *               4 MAKE_FUNCTION            0
      *               6 STORE_NAME               0 (f)
@@ -237,7 +237,7 @@ class PyByteCode5 {
      *              18 LOAD_CONST               2 (None)
      *              20 RETURN_VALUE
      */
-    new PyCode(0, 0, 0, 0, 3, 64,
+    new CPythonCode(0, 0, 0, 0, 3, 64,
         Py.bytes(100, 0, 100, 1, -124, 0, 90, 0, 101, 0, 101, 1, 101,
             2, -125, 2, 90, 3, 100, 2, 83, 0),
         Py.tuple(
@@ -247,7 +247,7 @@ class PyByteCode5 {
              *               4 BINARY_MULTIPLY
              *               6 RETURN_VALUE
              */
-            new PyCode(2, 0, 0, 2, 2, 67,
+            new CPythonCode(2, 0, 0, 2, 2, 67,
                 Py.bytes(124, 0, 124, 1, 20, 0, 83, 0),
                 Py.tuple(Py.None),
                 Py.tuple(),
@@ -265,7 +265,7 @@ class PyByteCode5 {
     // @Test
     void test_def_func_args1() {
         //@formatter:off
-        PyDictionary globals = new PyDictionary();
+        PyDictionary globals = Py.dict();
         globals.put("u", Py.val(6));
         globals.put("v", Py.val(7));
         Interpreter interp = Py.createInterpreter();
@@ -286,7 +286,7 @@ class PyByteCode5 {
     static final PyCode DEF_FUNC_KW =
     /*
      *   1           0 LOAD_CONST              11 ((5, 6))
-     *               2 LOAD_CONST               2 (<code object f at 0x000001CED3F8A450, file "def_func_kw", line 1>)
+     *               2 LOAD_CONST               2 (<code object f at 0x0000025C9B17A450, file "def_func_kw", line 1>)
      *               4 LOAD_CONST               3 ('f')
      *               6 MAKE_FUNCTION            1 (defaults)
      *               8 STORE_NAME               0 (f)
@@ -310,7 +310,7 @@ class PyByteCode5 {
      *              40 LOAD_CONST              10 (None)
      *              42 RETURN_VALUE
      */
-    new PyCode(0, 0, 0, 0, 6, 64,
+    new CPythonCode(0, 0, 0, 0, 6, 64,
         Py.bytes(100, 11, 100, 2, 100, 3, -124, 1, 90, 0, 101, 0,
             100, 4, 100, 5, 101, 1, 101, 2, 100, 6, -115, 4, 90, 3,
             101, 0, 100, 7, 100, 8, 101, 2, 100, 9, -115, 3, 90, 4,
@@ -326,7 +326,7 @@ class PyByteCode5 {
              *              12 BINARY_ADD
              *              14 RETURN_VALUE
              */
-            new PyCode(4, 0, 0, 4, 3, 67,
+            new CPythonCode(4, 0, 0, 4, 3, 67,
                 Py.bytes(124, 0, 124, 1, 20, 0, 124, 2, 124, 3, 20,
                     0, 23, 0, 83, 0),
                 Py.tuple(Py.None),
@@ -350,7 +350,7 @@ class PyByteCode5 {
     // @Test
     void test_def_func_kw1() {
         //@formatter:off
-        PyDictionary globals = new PyDictionary();
+        PyDictionary globals = Py.dict();
         globals.put("u", Py.val(3));
         globals.put("v", Py.val(4));
         Interpreter interp = Py.createInterpreter();
@@ -370,7 +370,7 @@ class PyByteCode5 {
     //@formatter:off
     static final PyCode DEF_FUNC_TUPLE =
     /*
-     *   1           0 LOAD_CONST               0 (<code object f at 0x000001CED3F8ABE0, file "def_func_tuple", line 1>)
+     *   1           0 LOAD_CONST               0 (<code object f at 0x0000025C9B17ABE0, file "def_func_tuple", line 1>)
      *               2 LOAD_CONST               1 ('f')
      *               4 MAKE_FUNCTION            0
      *               6 STORE_NAME               0 (f)
@@ -390,7 +390,7 @@ class PyByteCode5 {
      *              32 LOAD_CONST               3 (None)
      *              34 RETURN_VALUE
      */
-    new PyCode(0, 0, 0, 0, 4, 64,
+    new CPythonCode(0, 0, 0, 0, 4, 64,
         Py.bytes(100, 0, 100, 1, -124, 0, 90, 0, 101, 0, 101, 1, 100,
             2, 23, 0, 101, 2, 100, 2, 24, 0, 102, 2, 101, 3, -98, 2,
             -114, 0, 90, 4, 100, 3, 83, 0),
@@ -409,7 +409,7 @@ class PyByteCode5 {
              *              20 BINARY_ADD
              *              22 RETURN_VALUE
              */
-            new PyCode(2, 0, 0, 3, 4, 71,
+            new CPythonCode(2, 0, 0, 3, 4, 71,
                 Py.bytes(124, 0, 124, 1, 20, 0, 124, 2, 100, 1, 25,
                     0, 124, 2, 100, 2, 25, 0, 20, 0, 23, 0, 83, 0),
                 Py.tuple(Py.None, Py.val(0), Py.val(1)),
@@ -426,10 +426,10 @@ class PyByteCode5 {
         Py.bytes(8, 2));
     //@formatter:on
 
-    // @Test
+    @Test
     void test_def_func_tuple1() {
         //@formatter:off
-        PyDictionary globals = new PyDictionary();
+        PyDictionary globals = Py.dict();
         globals.put("u", Py.val(3));
         globals.put("v", Py.val(4));
         globals.put("args",
@@ -452,7 +452,7 @@ class PyByteCode5 {
     static final PyCode DEF_FUNC_DICT =
     /*
      *   1           0 LOAD_CONST               7 ((500, 600))
-     *               2 LOAD_CONST               2 (<code object f at 0x000001CED3F8D2F0, file "def_func_dict", line 1>)
+     *               2 LOAD_CONST               2 (<code object f at 0x0000025C9B17E2F0, file "def_func_dict", line 1>)
      *               4 LOAD_CONST               3 ('f')
      *               6 MAKE_FUNCTION            1 (defaults)
      *               8 STORE_NAME               0 (f)
@@ -475,7 +475,7 @@ class PyByteCode5 {
      *              38 LOAD_CONST               6 (None)
      *              40 RETURN_VALUE
      */
-    new PyCode(0, 0, 0, 0, 3, 64,
+    new CPythonCode(0, 0, 0, 0, 3, 64,
         Py.bytes(100, 7, 100, 2, 100, 3, -124, 1, 90, 0, 101, 1, 101,
             2, 100, 4, 24, 0, 100, 5, -100, 2, 90, 3, 101, 0, 101, 1,
             101, 2, 102, 2, 101, 3, -114, 1, 90, 4, 100, 6, 83, 0),
@@ -490,7 +490,7 @@ class PyByteCode5 {
              *              12 BINARY_ADD
              *              14 RETURN_VALUE
              */
-            new PyCode(4, 0, 0, 4, 3, 67,
+            new CPythonCode(4, 0, 0, 4, 3, 67,
                 Py.bytes(124, 0, 124, 1, 20, 0, 124, 2, 124, 3, 20,
                     0, 23, 0, 83, 0),
                 Py.tuple(Py.None),
@@ -513,7 +513,7 @@ class PyByteCode5 {
     // @Test
     void test_def_func_dict1() {
         //@formatter:off
-        PyDictionary globals = new PyDictionary();
+        PyDictionary globals = Py.dict();
         globals.put("u", Py.val(3));
         globals.put("v", Py.val(10));
         Interpreter interp = Py.createInterpreter();
@@ -539,7 +539,7 @@ class PyByteCode5 {
      *               2 LOAD_CONST               1 (600)
      *               4 LOAD_CONST               2 (('a', 'b'))
      *               6 BUILD_CONST_KEY_MAP      2
-     *               8 LOAD_CONST               3 (<code object f at 0x000001CED3F8D9D0, file "def_func_tuple_dict", line 1>)
+     *               8 LOAD_CONST               3 (<code object f at 0x0000025C9B17E9D0, file "def_func_tuple_dict", line 1>)
      *              10 LOAD_CONST               4 ('f')
      *              12 MAKE_FUNCTION            2 (kwdefaults)
      *              14 STORE_NAME               0 (f)
@@ -587,7 +587,7 @@ class PyByteCode5 {
      *              90 LOAD_CONST               8 (None)
      *              92 RETURN_VALUE
      */
-    new PyCode(0, 0, 0, 0, 4, 64,
+    new CPythonCode(0, 0, 0, 0, 4, 64,
         Py.bytes(100, 0, 100, 1, 100, 2, -100, 2, 100, 3, 100, 4,
             -124, 2, 90, 0, 101, 1, 100, 5, 24, 0, 100, 5, 100, 6,
             -100, 2, 90, 2, 101, 0, 101, 3, 102, 1, 101, 4, -98, 2,
@@ -615,7 +615,7 @@ class PyByteCode5 {
              *              28 BINARY_MULTIPLY
              *              30 RETURN_VALUE
              */
-            new PyCode(2, 0, 2, 6, 4, 79,
+            new CPythonCode(2, 0, 2, 6, 4, 79,
                 Py.bytes(124, 0, 124, 1, 23, 0, 124, 2, 24, 0, 124,
                     4, 100, 1, 25, 0, 124, 3, 23, 0, 124, 5, 100, 2,
                     25, 0, 23, 0, 20, 0, 83, 0),
@@ -642,7 +642,7 @@ class PyByteCode5 {
     // @Test
     void test_def_func_tuple_dict1() {
         //@formatter:off
-        PyDictionary globals = new PyDictionary();
+        PyDictionary globals = Py.dict();
         globals.put("s", Py.val(7));
         globals.put("t", Py.val(6));
         globals.put("u", Py.val(5));
@@ -679,7 +679,7 @@ class PyByteCode5 {
      *   3           4 LOAD_CONST               1 (7)
      *               6 STORE_NAME               1 (b)
      *
-     *   4           8 LOAD_CONST               2 (<code object p at 0x000001CED3F97660, file "faqprog", line 4>)
+     *   4           8 LOAD_CONST               2 (<code object p at 0x0000025C9B177710, file "faqprog", line 4>)
      *              10 LOAD_CONST               3 ('p')
      *              12 MAKE_FUNCTION            0
      *              14 STORE_NAME               2 (p)
@@ -690,12 +690,12 @@ class PyByteCode5 {
      *              22 LOAD_CONST               4 (None)
      *              24 RETURN_VALUE
      */
-    new PyCode(0, 0, 0, 0, 2, 64,
+    new CPythonCode(0, 0, 0, 0, 2, 64,
         Py.bytes(100, 0, 90, 0, 100, 1, 90, 1, 100, 2, 100, 3, -124,
             0, 90, 2, 101, 2, -125, 0, 1, 0, 100, 4, 83, 0),
         Py.tuple(Py.val(6), Py.val(7),
             /*
-             *   5           0 LOAD_CONST               1 (<code object q at 0x000001CED3F975B0, file "faqprog", line 5>)
+             *   5           0 LOAD_CONST               1 (<code object q at 0x0000025C9B177660, file "faqprog", line 5>)
              *               2 LOAD_CONST               2 ('p.<locals>.q')
              *               4 MAKE_FUNCTION            0
              *               6 STORE_FAST               0 (q)
@@ -706,7 +706,7 @@ class PyByteCode5 {
              *              14 LOAD_CONST               0 (None)
              *              16 RETURN_VALUE
              */
-            new PyCode(0, 0, 0, 1, 2, 67,
+            new CPythonCode(0, 0, 0, 1, 2, 67,
                 Py.bytes(100, 1, 100, 2, -124, 0, 125, 0, 124, 0,
                     -125, 0, 1, 0, 100, 0, 83, 0),
                 Py.tuple(Py.None,
@@ -718,7 +718,7 @@ class PyByteCode5 {
                      *               8 LOAD_CONST               0 (None)
                      *              10 RETURN_VALUE
                      */
-                    new PyCode(0, 0, 0, 0, 2, 83,
+                    new CPythonCode(0, 0, 0, 0, 2, 83,
                         Py.bytes(116, 0, 116, 1, 20, 0, 97, 2, 100,
                             0, 83, 0),
                         Py.tuple(Py.None),
@@ -744,7 +744,7 @@ class PyByteCode5 {
     // @Test
     void test_faqprog1() {
         //@formatter:off
-        PyDictionary globals = new PyDictionary();
+        PyDictionary globals = Py.dict();
         Interpreter interp = Py.createInterpreter();
         interp.evalCode(FAQPROG, globals, globals);
         assertEquals(Py.val(42), globals.get("c"), "c == 42");
@@ -778,7 +778,7 @@ class PyByteCode5 {
      *   4           4 LOAD_CONST               1 (6)
      *               6 STORE_NAME               1 (a)
      *
-     *   6           8 LOAD_CONST               2 (<code object p at 0x000001CED3F97500, file "globprog_a", line 6>)
+     *   6           8 LOAD_CONST               2 (<code object p at 0x0000025C9B1775B0, file "globprog_a", line 6>)
      *              10 LOAD_CONST               3 ('p')
      *              12 MAKE_FUNCTION            0
      *              14 STORE_NAME               2 (p)
@@ -789,12 +789,12 @@ class PyByteCode5 {
      *              22 LOAD_CONST               4 (None)
      *              24 RETURN_VALUE
      */
-    new PyCode(0, 0, 0, 0, 2, 64,
+    new CPythonCode(0, 0, 0, 0, 2, 64,
         Py.bytes(100, 0, 90, 0, 100, 1, 90, 1, 100, 2, 100, 3, -124,
             0, 90, 2, 101, 2, -125, 0, 1, 0, 100, 4, 83, 0),
         Py.tuple(Py.val(1), Py.val(6),
             /*
-             *   8           0 LOAD_CONST               1 (<code object q at 0x000001CED3F97710, file "globprog_a", line 8>)
+             *   8           0 LOAD_CONST               1 (<code object q at 0x0000025C9B1777C0, file "globprog_a", line 8>)
              *               2 LOAD_CONST               2 ('p.<locals>.q')
              *               4 MAKE_FUNCTION            0
              *               6 STORE_FAST               0 (q)
@@ -810,7 +810,7 @@ class PyByteCode5 {
              *              22 LOAD_CONST               0 (None)
              *              24 RETURN_VALUE
              */
-            new PyCode(0, 0, 0, 1, 2, 67,
+            new CPythonCode(0, 0, 0, 1, 2, 67,
                 Py.bytes(100, 1, 100, 2, -124, 0, 125, 0, 124, 0,
                     -125, 0, 1, 0, 116, 0, 116, 1, 20, 0, 97, 2, 100,
                     0, 83, 0),
@@ -823,7 +823,7 @@ class PyByteCode5 {
                      *               8 LOAD_CONST               0 (None)
                      *              10 RETURN_VALUE
                      */
-                    new PyCode(0, 0, 0, 0, 2, 83,
+                    new CPythonCode(0, 0, 0, 0, 2, 83,
                         Py.bytes(116, 0, 116, 1, 23, 0, 97, 2, 100,
                             0, 83, 0),
                         Py.tuple(Py.None),
@@ -849,7 +849,7 @@ class PyByteCode5 {
     // @Test
     void test_globprog_a1() {
         //@formatter:off
-        PyDictionary globals = new PyDictionary();
+        PyDictionary globals = Py.dict();
         Interpreter interp = Py.createInterpreter();
         interp.evalCode(GLOBPROG_A, globals, globals);
         assertEquals(Py.val(7), globals.get("d"), "d == 7");
@@ -889,7 +889,7 @@ class PyByteCode5 {
      *   5           8 LOAD_CONST               2 (41)
      *              10 STORE_GLOBAL             2 (d)
      *
-     *   7          12 LOAD_CONST               3 (<code object p at 0x000001CED3F97870, file "globprog_b", line 7>)
+     *   7          12 LOAD_CONST               3 (<code object p at 0x0000025C9B177920, file "globprog_b", line 7>)
      *              14 LOAD_CONST               4 ('p')
      *              16 MAKE_FUNCTION            0
      *              18 STORE_NAME               3 (p)
@@ -900,13 +900,13 @@ class PyByteCode5 {
      *              26 LOAD_CONST               5 (None)
      *              28 RETURN_VALUE
      */
-    new PyCode(0, 0, 0, 0, 2, 64,
+    new CPythonCode(0, 0, 0, 0, 2, 64,
         Py.bytes(100, 0, 90, 0, 100, 1, 90, 1, 100, 2, 97, 2, 100, 3,
             100, 4, -124, 0, 90, 3, 101, 3, -125, 0, 1, 0, 100, 5,
             83, 0),
         Py.tuple(Py.val(1), Py.val(6), Py.val(41),
             /*
-             *   9           0 LOAD_CONST               1 (<code object q at 0x000001CED3F977C0, file "globprog_b", line 9>)
+             *   9           0 LOAD_CONST               1 (<code object q at 0x0000025C9B177870, file "globprog_b", line 9>)
              *               2 LOAD_CONST               2 ('p.<locals>.q')
              *               4 MAKE_FUNCTION            0
              *               6 STORE_FAST               0 (q)
@@ -922,7 +922,7 @@ class PyByteCode5 {
              *              22 LOAD_CONST               0 (None)
              *              24 RETURN_VALUE
              */
-            new PyCode(0, 0, 0, 1, 2, 67,
+            new CPythonCode(0, 0, 0, 1, 2, 67,
                 Py.bytes(100, 1, 100, 2, -124, 0, 125, 0, 124, 0,
                     -125, 0, 1, 0, 116, 0, 116, 1, 20, 0, 97, 2, 100,
                     0, 83, 0),
@@ -935,7 +935,7 @@ class PyByteCode5 {
                      *               8 LOAD_CONST               0 (None)
                      *              10 RETURN_VALUE
                      */
-                    new PyCode(0, 0, 0, 0, 2, 83,
+                    new CPythonCode(0, 0, 0, 0, 2, 83,
                         Py.bytes(116, 0, 116, 1, 23, 0, 97, 2, 100,
                             0, 83, 0),
                         Py.tuple(Py.None),
@@ -961,7 +961,7 @@ class PyByteCode5 {
     // @Test
     void test_globprog_b1() {
         //@formatter:off
-        PyDictionary globals = new PyDictionary();
+        PyDictionary globals = Py.dict();
         Interpreter interp = Py.createInterpreter();
         interp.evalCode(GLOBPROG_B, globals, globals);
         assertEquals(Py.val(7), globals.get("d"), "d == 7");
@@ -998,7 +998,7 @@ class PyByteCode5 {
      *   5           4 LOAD_CONST               1 (6)
      *               6 STORE_GLOBAL             1 (a)
      *
-     *   7           8 LOAD_CONST               2 (<code object p at 0x000001CED3F979D0, file "globprog_c", line 7>)
+     *   7           8 LOAD_CONST               2 (<code object p at 0x0000025C9B177A80, file "globprog_c", line 7>)
      *              10 LOAD_CONST               3 ('p')
      *              12 MAKE_FUNCTION            0
      *              14 STORE_NAME               2 (p)
@@ -1009,12 +1009,12 @@ class PyByteCode5 {
      *              22 LOAD_CONST               4 (None)
      *              24 RETURN_VALUE
      */
-    new PyCode(0, 0, 0, 0, 2, 64,
+    new CPythonCode(0, 0, 0, 0, 2, 64,
         Py.bytes(100, 0, 97, 0, 100, 1, 97, 1, 100, 2, 100, 3, -124,
             0, 90, 2, 101, 2, -125, 0, 1, 0, 100, 4, 83, 0),
         Py.tuple(Py.val(1), Py.val(6),
             /*
-             *   9           0 LOAD_CONST               1 (<code object q at 0x000001CED3F97920, file "globprog_c", line 9>)
+             *   9           0 LOAD_CONST               1 (<code object q at 0x0000025C9B1779D0, file "globprog_c", line 9>)
              *               2 LOAD_CONST               2 ('p.<locals>.q')
              *               4 MAKE_FUNCTION            0
              *               6 STORE_FAST               0 (q)
@@ -1030,7 +1030,7 @@ class PyByteCode5 {
              *              22 LOAD_CONST               0 (None)
              *              24 RETURN_VALUE
              */
-            new PyCode(0, 0, 0, 1, 2, 67,
+            new CPythonCode(0, 0, 0, 1, 2, 67,
                 Py.bytes(100, 1, 100, 2, -124, 0, 125, 0, 124, 0,
                     -125, 0, 1, 0, 116, 0, 116, 1, 20, 0, 97, 2, 100,
                     0, 83, 0),
@@ -1043,7 +1043,7 @@ class PyByteCode5 {
                      *               8 LOAD_CONST               0 (None)
                      *              10 RETURN_VALUE
                      */
-                    new PyCode(0, 0, 0, 0, 2, 83,
+                    new CPythonCode(0, 0, 0, 0, 2, 83,
                         Py.bytes(116, 0, 116, 1, 23, 0, 97, 2, 100,
                             0, 83, 0),
                         Py.tuple(Py.None),
@@ -1069,7 +1069,7 @@ class PyByteCode5 {
     // @Test
     void test_globprog_c1() {
         //@formatter:off
-        PyDictionary globals = new PyDictionary();
+        PyDictionary globals = Py.dict();
         Interpreter interp = Py.createInterpreter();
         interp.evalCode(GLOBPROG_C, globals, globals);
         assertEquals(Py.val(7), globals.get("d"), "d == 7");
@@ -1111,7 +1111,7 @@ class PyByteCode5 {
      *              14 CALL_FUNCTION            2
      *              16 STORE_GLOBAL             3 (result)
      *
-     *   6          18 LOAD_CONST               3 (<code object p at 0x000001CED3F97B30, file "alloc_builtin", line 6>)
+     *   6          18 LOAD_CONST               3 (<code object p at 0x0000025C9B177BE0, file "alloc_builtin", line 6>)
      *              20 LOAD_CONST               4 ('p')
      *              22 MAKE_FUNCTION            0
      *              24 STORE_NAME               4 (p)
@@ -1122,13 +1122,13 @@ class PyByteCode5 {
      *              32 LOAD_CONST               5 (None)
      *              34 RETURN_VALUE
      */
-    new PyCode(0, 0, 0, 0, 3, 64,
+    new CPythonCode(0, 0, 0, 0, 3, 64,
         Py.bytes(100, 0, 97, 0, 100, 1, 90, 1, 101, 2, 100, 2, 101,
             1, -125, 2, 97, 3, 100, 3, 100, 4, -124, 0, 90, 4, 101,
             4, -125, 0, 1, 0, 100, 5, 83, 0),
         Py.tuple(Py.val(-6), Py.val(7), Py.val(0),
             /*
-             *   8           0 LOAD_CONST               1 (<code object q at 0x000001CED3F97A80, file "alloc_builtin", line 8>)
+             *   8           0 LOAD_CONST               1 (<code object q at 0x0000025C9B177B30, file "alloc_builtin", line 8>)
              *               2 LOAD_CONST               2 ('p.<locals>.q')
              *               4 MAKE_FUNCTION            0
              *               6 STORE_FAST               0 (q)
@@ -1144,7 +1144,7 @@ class PyByteCode5 {
              *              22 LOAD_CONST               0 (None)
              *              24 RETURN_VALUE
              */
-            new PyCode(0, 0, 0, 1, 2, 67,
+            new CPythonCode(0, 0, 0, 1, 2, 67,
                 Py.bytes(100, 1, 100, 2, -124, 0, 125, 0, 124, 0,
                     -125, 0, 1, 0, 116, 0, 116, 1, 20, 0, 97, 2, 100,
                     0, 83, 0),
@@ -1157,7 +1157,7 @@ class PyByteCode5 {
                      *               8 LOAD_CONST               0 (None)
                      *              10 RETURN_VALUE
                      */
-                    new PyCode(0, 0, 0, 0, 2, 83,
+                    new CPythonCode(0, 0, 0, 0, 2, 83,
                         Py.bytes(116, 0, 116, 1, -125, 1, 97, 1, 100,
                             0, 83, 0),
                         Py.tuple(Py.None),
@@ -1183,7 +1183,7 @@ class PyByteCode5 {
     // @Test
     void test_alloc_builtin1() {
         //@formatter:off
-        PyDictionary globals = new PyDictionary();
+        PyDictionary globals = Py.dict();
         Interpreter interp = Py.createInterpreter();
         interp.evalCode(ALLOC_BUILTIN, globals, globals);
         assertEquals(Py.val(42), globals.get("result"),
@@ -1212,7 +1212,7 @@ class PyByteCode5 {
     //@formatter:off
     static final PyCode ARGPROG =
     /*
-     *   2           0 LOAD_CONST               0 (<code object p at 0x000001CED3F97DF0, file "argprog", line 2>)
+     *   2           0 LOAD_CONST               0 (<code object p at 0x0000025C9B177EA0, file "argprog", line 2>)
      *               2 LOAD_CONST               1 ('p')
      *               4 MAKE_FUNCTION            0
      *               6 STORE_NAME               0 (p)
@@ -1225,22 +1225,22 @@ class PyByteCode5 {
      *              18 LOAD_CONST               4 (None)
      *              20 RETURN_VALUE
      */
-    new PyCode(0, 0, 0, 0, 3, 64,
+    new CPythonCode(0, 0, 0, 0, 3, 64,
         Py.bytes(100, 0, 100, 1, -124, 0, 90, 0, 101, 0, 100, 2, 100,
             3, -125, 2, 90, 1, 100, 4, 83, 0),
         Py.tuple(
             /*
-             *   3           0 LOAD_CONST               1 (<code object sum at 0x000001CED3F97BE0, file "argprog", line 3>)
+             *   3           0 LOAD_CONST               1 (<code object sum at 0x0000025C9B177C90, file "argprog", line 3>)
              *               2 LOAD_CONST               2 ('p.<locals>.sum')
              *               4 MAKE_FUNCTION            0
              *               6 STORE_FAST               2 (sum)
              *
-             *   5           8 LOAD_CONST               3 (<code object diff at 0x000001CED3F97C90, file "argprog", line 5>)
+             *   5           8 LOAD_CONST               3 (<code object diff at 0x0000025C9B177D40, file "argprog", line 5>)
              *              10 LOAD_CONST               4 ('p.<locals>.diff')
              *              12 MAKE_FUNCTION            0
              *              14 STORE_FAST               3 (diff)
              *
-             *   7          16 LOAD_CONST               5 (<code object prod at 0x000001CED3F97D40, file "argprog", line 7>)
+             *   7          16 LOAD_CONST               5 (<code object prod at 0x0000025C9B177DF0, file "argprog", line 7>)
              *              18 LOAD_CONST               6 ('p.<locals>.prod')
              *              20 MAKE_FUNCTION            0
              *              22 STORE_FAST               4 (prod)
@@ -1271,7 +1271,7 @@ class PyByteCode5 {
              *              64 CALL_FUNCTION            2
              *              66 RETURN_VALUE
              */
-            new PyCode(2, 0, 0, 8, 4, 67,
+            new CPythonCode(2, 0, 0, 8, 4, 67,
                 Py.bytes(100, 1, 100, 2, -124, 0, 125, 2, 100, 3,
                     100, 4, -124, 0, 125, 3, 100, 5, 100, 6, -124, 0,
                     125, 4, 100, 7, 125, 5, 124, 2, 124, 0, 124, 1,
@@ -1287,7 +1287,7 @@ class PyByteCode5 {
                      *               8 BINARY_ADD
                      *              10 RETURN_VALUE
                      */
-                    new PyCode(3, 0, 0, 3, 2, 83,
+                    new CPythonCode(3, 0, 0, 3, 2, 83,
                         Py.bytes(124, 0, 124, 1, 23, 0, 124, 2, 23,
                             0, 83, 0),
                         Py.tuple(Py.None),
@@ -1304,7 +1304,7 @@ class PyByteCode5 {
                      *               4 BINARY_SUBTRACT
                      *               6 RETURN_VALUE
                      */
-                    new PyCode(2, 0, 0, 2, 2, 83,
+                    new CPythonCode(2, 0, 0, 2, 2, 83,
                         Py.bytes(124, 0, 124, 1, 24, 0, 83, 0),
                         Py.tuple(Py.None),
                         Py.tuple(),
@@ -1319,7 +1319,7 @@ class PyByteCode5 {
                      *               4 BINARY_MULTIPLY
                      *               6 RETURN_VALUE
                      */
-                    new PyCode(2, 0, 0, 2, 2, 83,
+                    new CPythonCode(2, 0, 0, 2, 2, 83,
                         Py.bytes(124, 0, 124, 1, 20, 0, 83, 0),
                         Py.tuple(Py.None),
                         Py.tuple(),
@@ -1347,7 +1347,7 @@ class PyByteCode5 {
     // @Test
     void test_argprog1() {
         //@formatter:off
-        PyDictionary globals = new PyDictionary();
+        PyDictionary globals = Py.dict();
         Interpreter interp = Py.createInterpreter();
         interp.evalCode(ARGPROG, globals, globals);
         assertEquals(Py.val(42), globals.get("result"),
@@ -1376,7 +1376,7 @@ class PyByteCode5 {
     //@formatter:off
     static final PyCode CLOSPROG_LOCAL =
     /*
-     *   2           0 LOAD_CONST               0 (<code object p at 0x000001CED40783A0, file "closprog_local", line 2>)
+     *   2           0 LOAD_CONST               0 (<code object p at 0x0000025C9B262450, file "closprog_local", line 2>)
      *               2 LOAD_CONST               1 ('p')
      *               4 MAKE_FUNCTION            0
      *               6 STORE_NAME               0 (p)
@@ -1389,7 +1389,7 @@ class PyByteCode5 {
      *              18 LOAD_CONST               4 (None)
      *              20 RETURN_VALUE
      */
-    new PyCode(0, 0, 0, 0, 3, 64,
+    new CPythonCode(0, 0, 0, 0, 3, 64,
         Py.bytes(100, 0, 100, 1, -124, 0, 90, 0, 101, 0, 100, 2, 100,
             3, -125, 2, 90, 1, 100, 4, 83, 0),
         Py.tuple(
@@ -1401,7 +1401,7 @@ class PyByteCode5 {
              *
              *   4           8 LOAD_CLOSURE             0 (x)
              *              10 BUILD_TUPLE              1
-             *              12 LOAD_CONST               2 (<code object q at 0x000001CED40782F0, file "closprog_local", line 4>)
+             *              12 LOAD_CONST               2 (<code object q at 0x0000025C9B2623A0, file "closprog_local", line 4>)
              *              14 LOAD_CONST               3 ('p.<locals>.q')
              *              16 MAKE_FUNCTION            8 (closure)
              *              18 STORE_FAST               2 (q)
@@ -1411,7 +1411,7 @@ class PyByteCode5 {
              *              24 CALL_FUNCTION            1
              *              26 RETURN_VALUE
              */
-            new PyCode(2, 0, 0, 3, 3, 3,
+            new CPythonCode(2, 0, 0, 3, 3, 3,
                 Py.bytes(124, 0, 100, 1, 23, 0, -119, 0, -121, 0,
                     102, 1, 100, 2, 100, 3, -124, 8, 125, 2, 124, 2,
                     124, 1, -125, 1, 83, 0),
@@ -1425,7 +1425,7 @@ class PyByteCode5 {
                      *   6           8 LOAD_CLOSURE             1 (x)
                      *              10 LOAD_CLOSURE             0 (y)
                      *              12 BUILD_TUPLE              2
-                     *              14 LOAD_CONST               1 (<code object r at 0x000001CED4078240, file "closprog_local", line 6>)
+                     *              14 LOAD_CONST               1 (<code object r at 0x0000025C9B2622F0, file "closprog_local", line 6>)
                      *              16 LOAD_CONST               2 ('p.<locals>.q.<locals>.r')
                      *              18 MAKE_FUNCTION            8 (closure)
                      *              20 STORE_FAST               1 (r)
@@ -1435,7 +1435,7 @@ class PyByteCode5 {
                      *              26 CALL_FUNCTION            1
                      *              28 RETURN_VALUE
                      */
-                    new PyCode(1, 0, 0, 2, 3, 19,
+                    new CPythonCode(1, 0, 0, 2, 3, 19,
                         Py.bytes(-120, 1, 124, 0, 23, 0, -119, 0,
                             -121, 1, -121, 0, 102, 2, 100, 1, 100, 2,
                             -124, 8, 125, 1, 124, 1, 124, 0, -125, 1,
@@ -1451,7 +1451,7 @@ class PyByteCode5 {
                              *              10 LOAD_CLOSURE             2 (y)
                              *              12 LOAD_CLOSURE             0 (z)
                              *              14 BUILD_TUPLE              3
-                             *              16 LOAD_CONST               1 (<code object s at 0x000001CED4078190, file "closprog_local", line 8>)
+                             *              16 LOAD_CONST               1 (<code object s at 0x0000025C9B262240, file "closprog_local", line 8>)
                              *              18 LOAD_CONST               2 ('p.<locals>.q.<locals>.r.<locals>.s')
                              *              20 MAKE_FUNCTION            8 (closure)
                              *              22 STORE_FAST               1 (s)
@@ -1461,7 +1461,7 @@ class PyByteCode5 {
                              *              28 CALL_FUNCTION            1
                              *              30 RETURN_VALUE
                              */
-                            new PyCode(1, 0, 0, 2, 3, 19,
+                            new CPythonCode(1, 0, 0, 2, 3, 19,
                                 Py.bytes(-120, 2, 124, 0, 23, 0,
                                     -119, 0, -121, 1, -121, 2, -121,
                                     0, 102, 3, 100, 1, 100, 2, -124,
@@ -1480,7 +1480,8 @@ class PyByteCode5 {
                                      *              16 BINARY_MULTIPLY
                                      *              18 RETURN_VALUE
                                      */
-                                    new PyCode(1, 0, 0, 1, 2, 19,
+                                    new CPythonCode(1, 0, 0, 1, 2,
+                                        19,
                                         Py.bytes(124, 0, -120, 0, 23,
                                             0, -120, 1, 23, 0, 100,
                                             1, 24, 0, -120, 2, 20, 0,
@@ -1528,7 +1529,7 @@ class PyByteCode5 {
     // @Test
     void test_closprog_local1() {
         //@formatter:off
-        PyDictionary globals = new PyDictionary();
+        PyDictionary globals = Py.dict();
         Interpreter interp = Py.createInterpreter();
         interp.evalCode(CLOSPROG_LOCAL, globals, globals);
         assertEquals(Py.val(42), globals.get("result"),
@@ -1556,7 +1557,7 @@ class PyByteCode5 {
     //@formatter:off
     static final PyCode CLOSPROG_ARG =
     /*
-     *   2           0 LOAD_CONST               0 (<code object p at 0x000001CED4078710, file "closprog_arg", line 2>)
+     *   2           0 LOAD_CONST               0 (<code object p at 0x0000025C9B2627C0, file "closprog_arg", line 2>)
      *               2 LOAD_CONST               1 ('p')
      *               4 MAKE_FUNCTION            0
      *               6 STORE_NAME               0 (p)
@@ -1569,7 +1570,7 @@ class PyByteCode5 {
      *              18 LOAD_CONST               4 (None)
      *              20 RETURN_VALUE
      */
-    new PyCode(0, 0, 0, 0, 3, 64,
+    new CPythonCode(0, 0, 0, 0, 3, 64,
         Py.bytes(100, 0, 100, 1, -124, 0, 90, 0, 101, 0, 100, 2, 100,
             3, -125, 2, 90, 1, 100, 4, 83, 0),
         Py.tuple(
@@ -1577,7 +1578,7 @@ class PyByteCode5 {
              *   3           0 LOAD_CLOSURE             0 (i)
              *               2 LOAD_CLOSURE             1 (r)
              *               4 BUILD_TUPLE              2
-             *               6 LOAD_CONST               1 (<code object sum at 0x000001CED4078450, file "closprog_arg", line 3>)
+             *               6 LOAD_CONST               1 (<code object sum at 0x0000025C9B262500, file "closprog_arg", line 3>)
              *               8 LOAD_CONST               2 ('p.<locals>.sum')
              *              10 MAKE_FUNCTION            8 (closure)
              *              12 STORE_FAST               2 (sum)
@@ -1585,7 +1586,7 @@ class PyByteCode5 {
              *   5          14 LOAD_CLOSURE             0 (i)
              *              16 LOAD_CLOSURE             1 (r)
              *              18 BUILD_TUPLE              2
-             *              20 LOAD_CONST               3 (<code object diff at 0x000001CED40785B0, file "closprog_arg", line 5>)
+             *              20 LOAD_CONST               3 (<code object diff at 0x0000025C9B262660, file "closprog_arg", line 5>)
              *              22 LOAD_CONST               4 ('p.<locals>.diff')
              *              24 MAKE_FUNCTION            8 (closure)
              *              26 STORE_FAST               3 (diff)
@@ -1593,7 +1594,7 @@ class PyByteCode5 {
              *   9          28 LOAD_CLOSURE             0 (i)
              *              30 LOAD_CLOSURE             1 (r)
              *              32 BUILD_TUPLE              2
-             *              34 LOAD_CONST               5 (<code object prod at 0x000001CED4078660, file "closprog_arg", line 9>)
+             *              34 LOAD_CONST               5 (<code object prod at 0x0000025C9B262710, file "closprog_arg", line 9>)
              *              36 LOAD_CONST               6 ('p.<locals>.prod')
              *              38 MAKE_FUNCTION            8 (closure)
              *              40 STORE_FAST               4 (prod)
@@ -1608,7 +1609,7 @@ class PyByteCode5 {
              *              56 BINARY_ADD
              *              58 RETURN_VALUE
              */
-            new PyCode(2, 0, 0, 5, 3, 3,
+            new CPythonCode(2, 0, 0, 5, 3, 3,
                 Py.bytes(-121, 0, -121, 1, 102, 2, 100, 1, 100, 2,
                     -124, 8, 125, 2, -121, 0, -121, 1, 102, 2, 100,
                     3, 100, 4, -124, 8, 125, 3, -121, 0, -121, 1,
@@ -1622,7 +1623,7 @@ class PyByteCode5 {
                      *               4 BINARY_ADD
                      *               6 RETURN_VALUE
                      */
-                    new PyCode(0, 0, 0, 0, 2, 19,
+                    new CPythonCode(0, 0, 0, 0, 2, 19,
                         Py.bytes(-120, 1, -120, 0, 23, 0, 83, 0),
                         Py.tuple(Py.None),
                         Py.tuple(),
@@ -1635,7 +1636,7 @@ class PyByteCode5 {
                      *   6           0 LOAD_CLOSURE             0 (i)
                      *               2 LOAD_CLOSURE             1 (r)
                      *               4 BUILD_TUPLE              2
-                     *               6 LOAD_CONST               1 (<code object q at 0x000001CED4078500, file "closprog_arg", line 6>)
+                     *               6 LOAD_CONST               1 (<code object q at 0x0000025C9B2625B0, file "closprog_arg", line 6>)
                      *               8 LOAD_CONST               2 ('p.<locals>.diff.<locals>.q')
                      *              10 MAKE_FUNCTION            8 (closure)
                      *              12 STORE_FAST               0 (q)
@@ -1644,7 +1645,7 @@ class PyByteCode5 {
                      *              16 CALL_FUNCTION            0
                      *              18 RETURN_VALUE
                      */
-                    new PyCode(0, 0, 0, 1, 3, 19,
+                    new CPythonCode(0, 0, 0, 1, 3, 19,
                         Py.bytes(-121, 0, -121, 1, 102, 2, 100, 1,
                             100, 2, -124, 8, 125, 0, 124, 0, -125, 0,
                             83, 0),
@@ -1655,7 +1656,7 @@ class PyByteCode5 {
                              *               4 BINARY_SUBTRACT
                              *               6 RETURN_VALUE
                              */
-                            new PyCode(0, 0, 0, 0, 2, 19,
+                            new CPythonCode(0, 0, 0, 0, 2, 19,
                                 Py.bytes(-120, 1, -120, 0, 24, 0, 83,
                                     0),
                                 Py.tuple(Py.None),
@@ -1679,7 +1680,7 @@ class PyByteCode5 {
                      *               4 BINARY_MULTIPLY
                      *               6 RETURN_VALUE
                      */
-                    new PyCode(0, 0, 0, 0, 2, 19,
+                    new CPythonCode(0, 0, 0, 0, 2, 19,
                         Py.bytes(-120, 1, -120, 0, 20, 0, 83, 0),
                         Py.tuple(Py.None),
                         Py.tuple(),
@@ -1706,7 +1707,7 @@ class PyByteCode5 {
     // @Test
     void test_closprog_arg1() {
         //@formatter:off
-        PyDictionary globals = new PyDictionary();
+        PyDictionary globals = Py.dict();
         Interpreter interp = Py.createInterpreter();
         interp.evalCode(CLOSPROG_ARG, globals, globals);
         assertEquals(Py.val(42), globals.get("result"),
@@ -1735,7 +1736,7 @@ class PyByteCode5 {
     //@formatter:off
     static final PyCode CLOSPROG_MIX =
     /*
-     *   2           0 LOAD_CONST               0 (<code object p at 0x000001CED40789D0, file "closprog_mix", line 2>)
+     *   2           0 LOAD_CONST               0 (<code object p at 0x0000025C9B262A80, file "closprog_mix", line 2>)
      *               2 LOAD_CONST               1 ('p')
      *               4 MAKE_FUNCTION            0
      *               6 STORE_NAME               0 (p)
@@ -1748,7 +1749,7 @@ class PyByteCode5 {
      *              18 LOAD_CONST               4 (None)
      *              20 RETURN_VALUE
      */
-    new PyCode(0, 0, 0, 0, 3, 64,
+    new CPythonCode(0, 0, 0, 0, 3, 64,
         Py.bytes(100, 0, 100, 1, -124, 0, 90, 0, 101, 0, 100, 2, 100,
             3, -125, 2, 90, 1, 100, 4, 83, 0),
         Py.tuple(
@@ -1761,7 +1762,7 @@ class PyByteCode5 {
              *   4           8 LOAD_CLOSURE             0 (ua)
              *              10 LOAD_CLOSURE             1 (z)
              *              12 BUILD_TUPLE              2
-             *              14 LOAD_CONST               1 (<code object q at 0x000001CED4078920, file "closprog_mix", line 4>)
+             *              14 LOAD_CONST               1 (<code object q at 0x0000025C9B2629D0, file "closprog_mix", line 4>)
              *              16 LOAD_CONST               2 ('p.<locals>.q')
              *              18 MAKE_FUNCTION            8 (closure)
              *              20 STORE_FAST               2 (q)
@@ -1772,7 +1773,7 @@ class PyByteCode5 {
              *              28 CALL_FUNCTION            2
              *              30 RETURN_VALUE
              */
-            new PyCode(2, 0, 0, 3, 3, 3,
+            new CPythonCode(2, 0, 0, 3, 3, 3,
                 Py.bytes(-120, 0, 124, 1, 23, 0, -119, 1, -121, 0,
                     -121, 1, 102, 2, 100, 1, 100, 2, -124, 8, 125, 2,
                     124, 2, -120, 0, -120, 1, -125, 2, 83, 0),
@@ -1790,7 +1791,7 @@ class PyByteCode5 {
                      *              16 LOAD_CLOSURE             1 (y)
                      *              18 LOAD_CLOSURE             3 (z)
                      *              20 BUILD_TUPLE              4
-                     *              22 LOAD_CONST               1 (<code object r at 0x000001CED4078870, file "closprog_mix", line 6>)
+                     *              22 LOAD_CONST               1 (<code object r at 0x0000025C9B262920, file "closprog_mix", line 6>)
                      *              24 LOAD_CONST               2 ('p.<locals>.q.<locals>.r')
                      *              26 MAKE_FUNCTION            8 (closure)
                      *              28 STORE_FAST               2 (r)
@@ -1801,7 +1802,7 @@ class PyByteCode5 {
                      *              36 CALL_FUNCTION            2
                      *              38 RETURN_VALUE
                      */
-                    new PyCode(2, 0, 0, 3, 4, 19,
+                    new CPythonCode(2, 0, 0, 3, 4, 19,
                         Py.bytes(-120, 2, -120, 0, 23, 0, -120, 3,
                             23, 0, -119, 1, -121, 2, -121, 0, -121,
                             1, -121, 3, 102, 4, 100, 1, 100, 2, -124,
@@ -1829,7 +1830,7 @@ class PyByteCode5 {
                              *              32 LOAD_CLOSURE             4 (y)
                              *              34 LOAD_CLOSURE             5 (z)
                              *              36 BUILD_TUPLE              6
-                             *              38 LOAD_CONST               1 (<code object s at 0x000001CED40787C0, file "closprog_mix", line 8>)
+                             *              38 LOAD_CONST               1 (<code object s at 0x0000025C9B262870, file "closprog_mix", line 8>)
                              *              40 LOAD_CONST               2 ('p.<locals>.q.<locals>.r.<locals>.s')
                              *              42 MAKE_FUNCTION            8 (closure)
                              *              44 STORE_FAST               2 (s)
@@ -1840,7 +1841,7 @@ class PyByteCode5 {
                              *              52 CALL_FUNCTION            2
                              *              54 RETURN_VALUE
                              */
-                            new PyCode(2, 0, 0, 3, 6, 19,
+                            new CPythonCode(2, 0, 0, 3, 6, 19,
                                 Py.bytes(-120, 2, -120, 3, 23, 0,
                                     -120, 0, 124, 1, 23, 0, 23, 0,
                                     -120, 4, -120, 5, 23, 0, 23, 0,
@@ -1868,7 +1869,8 @@ class PyByteCode5 {
                                      *              28 BINARY_ADD
                                      *              30 RETURN_VALUE
                                      */
-                                    new PyCode(2, 0, 0, 2, 3, 19,
+                                    new CPythonCode(2, 0, 0, 2, 3,
+                                        19,
                                         Py.bytes(-120, 0, -120, 1,
                                             23, 0, -120, 2, 24, 0,
                                             124, 0, 124, 1, 23, 0,
@@ -1924,7 +1926,7 @@ class PyByteCode5 {
     // @Test
     void test_closprog_mix1() {
         //@formatter:off
-        PyDictionary globals = new PyDictionary();
+        PyDictionary globals = Py.dict();
         Interpreter interp = Py.createInterpreter();
         interp.evalCode(CLOSPROG_MIX, globals, globals);
         assertEquals(Py.val(42), globals.get("result"),
@@ -1955,7 +1957,7 @@ class PyByteCode5 {
     static final PyCode KWARGPROG_A =
     /*
      *   2           0 LOAD_CONST               5 ((4,))
-     *               2 LOAD_CONST               1 (<code object p at 0x000001CED4078D40, file "kwargprog_a", line 2>)
+     *               2 LOAD_CONST               1 (<code object p at 0x0000025C9B262DF0, file "kwargprog_a", line 2>)
      *               4 LOAD_CONST               2 ('p')
      *               6 MAKE_FUNCTION            1 (defaults)
      *               8 STORE_NAME               0 (p)
@@ -1968,12 +1970,12 @@ class PyByteCode5 {
      *              20 LOAD_CONST               4 (None)
      *              22 RETURN_VALUE
      */
-    new PyCode(0, 0, 0, 0, 3, 64,
+    new CPythonCode(0, 0, 0, 0, 3, 64,
         Py.bytes(100, 5, 100, 1, 100, 2, -124, 1, 90, 0, 101, 0, 100,
             3, 100, 0, -125, 2, 90, 1, 100, 4, 83, 0),
         Py.tuple(Py.val(4),
             /*
-             *   3           0 LOAD_CONST               1 (<code object sum at 0x000001CED4078A80, file "kwargprog_a", line 3>)
+             *   3           0 LOAD_CONST               1 (<code object sum at 0x0000025C9B262B30, file "kwargprog_a", line 3>)
              *               2 LOAD_CONST               2 ('p.<locals>.sum')
              *               4 MAKE_FUNCTION            0
              *               6 STORE_FAST               2 (sum)
@@ -1981,7 +1983,7 @@ class PyByteCode5 {
              *   6           8 LOAD_CLOSURE             0 (i)
              *              10 LOAD_CLOSURE             1 (r)
              *              12 BUILD_TUPLE              2
-             *              14 LOAD_CONST               3 (<code object diff at 0x000001CED4078BE0, file "kwargprog_a", line 6>)
+             *              14 LOAD_CONST               3 (<code object diff at 0x0000025C9B262C90, file "kwargprog_a", line 6>)
              *              16 LOAD_CONST               4 ('p.<locals>.diff')
              *              18 MAKE_FUNCTION            8 (closure)
              *              20 STORE_FAST               3 (diff)
@@ -1989,7 +1991,7 @@ class PyByteCode5 {
              *  10          22 LOAD_CLOSURE             0 (i)
              *              24 LOAD_CLOSURE             1 (r)
              *              26 BUILD_TUPLE              2
-             *              28 LOAD_CONST               5 (<code object prod at 0x000001CED4078C90, file "kwargprog_a", line 10>)
+             *              28 LOAD_CONST               5 (<code object prod at 0x0000025C9B262D40, file "kwargprog_a", line 10>)
              *              30 LOAD_CONST               6 ('p.<locals>.prod')
              *              32 MAKE_FUNCTION            8 (closure)
              *              34 STORE_FAST               4 (prod)
@@ -2016,7 +2018,7 @@ class PyByteCode5 {
              *              72 BINARY_ADD
              *              74 RETURN_VALUE
              */
-            new PyCode(2, 0, 0, 6, 10, 3,
+            new CPythonCode(2, 0, 0, 6, 10, 3,
                 Py.bytes(100, 1, 100, 2, -124, 0, 125, 2, -121, 0,
                     -121, 1, 102, 2, 100, 3, 100, 4, -124, 8, 125, 3,
                     -121, 0, -121, 1, 102, 2, 100, 5, 100, 6, -124,
@@ -2034,7 +2036,7 @@ class PyByteCode5 {
                      *   5           8 LOAD_FAST                6 (mysum)
                      *              10 RETURN_VALUE
                      */
-                    new PyCode(2, 0, 2, 7, 2, 95,
+                    new CPythonCode(2, 0, 2, 7, 2, 95,
                         Py.bytes(124, 0, 124, 3, 23, 0, 125, 6, 124,
                             6, 83, 0),
                         Py.tuple(Py.None),
@@ -2051,7 +2053,7 @@ class PyByteCode5 {
                      *   7           0 LOAD_CLOSURE             0 (i)
                      *               2 LOAD_CLOSURE             1 (r)
                      *               4 BUILD_TUPLE              2
-                     *               6 LOAD_CONST               1 (<code object q at 0x000001CED4078B30, file "kwargprog_a", line 7>)
+                     *               6 LOAD_CONST               1 (<code object q at 0x0000025C9B262BE0, file "kwargprog_a", line 7>)
                      *               8 LOAD_CONST               2 ('p.<locals>.diff.<locals>.q')
                      *              10 MAKE_FUNCTION            8 (closure)
                      *              12 STORE_FAST               0 (q)
@@ -2060,7 +2062,7 @@ class PyByteCode5 {
                      *              16 CALL_FUNCTION            0
                      *              18 RETURN_VALUE
                      */
-                    new PyCode(0, 0, 0, 1, 3, 19,
+                    new CPythonCode(0, 0, 0, 1, 3, 19,
                         Py.bytes(-121, 0, -121, 1, 102, 2, 100, 1,
                             100, 2, -124, 8, 125, 0, 124, 0, -125, 0,
                             83, 0),
@@ -2071,7 +2073,7 @@ class PyByteCode5 {
                              *               4 BINARY_SUBTRACT
                              *               6 RETURN_VALUE
                              */
-                            new PyCode(0, 0, 0, 0, 2, 19,
+                            new CPythonCode(0, 0, 0, 0, 2, 19,
                                 Py.bytes(-120, 1, -120, 0, 24, 0, 83,
                                     0),
                                 Py.tuple(Py.None),
@@ -2095,7 +2097,7 @@ class PyByteCode5 {
                      *               4 BINARY_MULTIPLY
                      *               6 RETURN_VALUE
                      */
-                    new PyCode(0, 0, 0, 0, 2, 19,
+                    new CPythonCode(0, 0, 0, 0, 2, 19,
                         Py.bytes(-120, 1, -120, 0, 20, 0, 83, 0),
                         Py.tuple(Py.None),
                         Py.tuple(),
@@ -2127,7 +2129,7 @@ class PyByteCode5 {
     // @Test
     void test_kwargprog_a1() {
         //@formatter:off
-        PyDictionary globals = new PyDictionary();
+        PyDictionary globals = Py.dict();
         Interpreter interp = Py.createInterpreter();
         interp.evalCode(KWARGPROG_A, globals, globals);
         assertEquals(Py.val(42), globals.get("result"),
@@ -2152,7 +2154,7 @@ class PyByteCode5 {
     //@formatter:off
     static final PyCode KWARGCELL =
     /*
-     *   2           0 LOAD_CONST               0 (<code object p at 0x000001CED4078F50, file "kwargcell", line 2>)
+     *   2           0 LOAD_CONST               0 (<code object p at 0x0000025C9B268030, file "kwargcell", line 2>)
      *               2 LOAD_CONST               1 ('p')
      *               4 MAKE_FUNCTION            0
      *               6 STORE_NAME               0 (p)
@@ -2164,14 +2166,14 @@ class PyByteCode5 {
      *              16 LOAD_CONST               3 (None)
      *              18 RETURN_VALUE
      */
-    new PyCode(0, 0, 0, 0, 2, 64,
+    new CPythonCode(0, 0, 0, 0, 2, 64,
         Py.bytes(100, 0, 100, 1, -124, 0, 90, 0, 101, 0, 100, 2,
             -125, 1, 90, 1, 100, 3, 83, 0),
         Py.tuple(
             /*
              *   3           0 LOAD_CLOSURE             0 (i)
              *               2 BUILD_TUPLE              1
-             *               4 LOAD_CONST               1 (<code object q at 0x000001CED4078EA0, file "kwargcell", line 3>)
+             *               4 LOAD_CONST               1 (<code object q at 0x0000025C9B262F50, file "kwargcell", line 3>)
              *               6 LOAD_CONST               2 ('p.<locals>.q')
              *               8 MAKE_FUNCTION            8 (closure)
              *              10 STORE_FAST               1 (q)
@@ -2180,14 +2182,14 @@ class PyByteCode5 {
              *              14 CALL_FUNCTION            0
              *              16 RETURN_VALUE
              */
-            new PyCode(1, 0, 0, 2, 3, 3,
+            new CPythonCode(1, 0, 0, 2, 3, 3,
                 Py.bytes(-121, 0, 102, 1, 100, 1, 100, 2, -124, 8,
                     125, 1, 124, 1, -125, 0, 83, 0),
                 Py.tuple(Py.None,
                     /*
                      *   4           0 LOAD_DEREF               0 (i)
                      *               2 BUILD_TUPLE              1
-                     *               4 LOAD_CONST               1 (<code object r at 0x000001CED4078DF0, file "kwargcell", line 4>)
+                     *               4 LOAD_CONST               1 (<code object r at 0x0000025C9B262EA0, file "kwargcell", line 4>)
                      *               6 LOAD_CONST               2 ('p.<locals>.q.<locals>.r')
                      *               8 MAKE_FUNCTION            1 (defaults)
                      *              10 STORE_FAST               0 (r)
@@ -2196,7 +2198,7 @@ class PyByteCode5 {
                      *              14 CALL_FUNCTION            0
                      *              16 RETURN_VALUE
                      */
-                    new PyCode(0, 0, 0, 1, 3, 19,
+                    new CPythonCode(0, 0, 0, 1, 3, 19,
                         Py.bytes(-120, 0, 102, 1, 100, 1, 100, 2,
                             -124, 1, 125, 0, 124, 0, -125, 0, 83, 0),
                         Py.tuple(Py.None,
@@ -2207,7 +2209,7 @@ class PyByteCode5 {
                              *   6           4 LOAD_FAST                0 (m)
                              *               6 RETURN_VALUE
                              */
-                            new PyCode(1, 0, 0, 2, 1, 83,
+                            new CPythonCode(1, 0, 0, 2, 1, 83,
                                 Py.bytes(100, 1, 125, 1, 124, 0, 83,
                                     0),
                                 Py.tuple(Py.None, Py.val(43)),
@@ -2242,7 +2244,7 @@ class PyByteCode5 {
     // @Test
     void test_kwargcell1() {
         //@formatter:off
-        PyDictionary globals = new PyDictionary();
+        PyDictionary globals = Py.dict();
         Interpreter interp = Py.createInterpreter();
         interp.evalCode(KWARGCELL, globals, globals);
         assertEquals(Py.val(42), globals.get("result"),
@@ -2274,7 +2276,7 @@ class PyByteCode5 {
     static final PyCode KWARGPROG_B =
     /*
      *   2           0 LOAD_CONST               5 ((4,))
-     *               2 LOAD_CONST               1 (<code object p at 0x000001CED406C2F0, file "kwargprog_b", line 2>)
+     *               2 LOAD_CONST               1 (<code object p at 0x0000025C9B2683A0, file "kwargprog_b", line 2>)
      *               4 LOAD_CONST               2 ('p')
      *               6 MAKE_FUNCTION            1 (defaults)
      *               8 STORE_NAME               0 (p)
@@ -2287,12 +2289,12 @@ class PyByteCode5 {
      *              20 LOAD_CONST               4 (None)
      *              22 RETURN_VALUE
      */
-    new PyCode(0, 0, 0, 0, 3, 64,
+    new CPythonCode(0, 0, 0, 0, 3, 64,
         Py.bytes(100, 5, 100, 1, 100, 2, -124, 1, 90, 0, 101, 0, 100,
             3, 100, 0, -125, 2, 90, 1, 100, 4, 83, 0),
         Py.tuple(Py.val(4),
             /*
-             *   3           0 LOAD_CONST               1 (<code object sum at 0x000001CED406C030, file "kwargprog_b", line 3>)
+             *   3           0 LOAD_CONST               1 (<code object sum at 0x0000025C9B2680E0, file "kwargprog_b", line 3>)
              *               2 LOAD_CONST               2 ('p.<locals>.sum')
              *               4 MAKE_FUNCTION            0
              *               6 STORE_FAST               2 (sum)
@@ -2300,7 +2302,7 @@ class PyByteCode5 {
              *   6           8 LOAD_CLOSURE             0 (i)
              *              10 LOAD_CLOSURE             1 (r)
              *              12 BUILD_TUPLE              2
-             *              14 LOAD_CONST               3 (<code object diff at 0x000001CED406C190, file "kwargprog_b", line 6>)
+             *              14 LOAD_CONST               3 (<code object diff at 0x0000025C9B268240, file "kwargprog_b", line 6>)
              *              16 LOAD_CONST               4 ('p.<locals>.diff')
              *              18 MAKE_FUNCTION            8 (closure)
              *              20 STORE_FAST               3 (diff)
@@ -2308,7 +2310,7 @@ class PyByteCode5 {
              *  10          22 LOAD_CLOSURE             0 (i)
              *              24 LOAD_CLOSURE             1 (r)
              *              26 BUILD_TUPLE              2
-             *              28 LOAD_CONST               5 (<code object prod at 0x000001CED406C240, file "kwargprog_b", line 10>)
+             *              28 LOAD_CONST               5 (<code object prod at 0x0000025C9B2682F0, file "kwargprog_b", line 10>)
              *              30 LOAD_CONST               6 ('p.<locals>.prod')
              *              32 MAKE_FUNCTION            8 (closure)
              *              34 STORE_FAST               4 (prod)
@@ -2339,7 +2341,7 @@ class PyByteCode5 {
              *              78 BINARY_ADD
              *              80 RETURN_VALUE
              */
-            new PyCode(2, 0, 0, 7, 7, 3,
+            new CPythonCode(2, 0, 0, 7, 7, 3,
                 Py.bytes(100, 1, 100, 2, -124, 0, 125, 2, -121, 0,
                     -121, 1, 102, 2, 100, 3, 100, 4, -124, 8, 125, 3,
                     -121, 0, -121, 1, 102, 2, 100, 5, 100, 6, -124,
@@ -2358,7 +2360,7 @@ class PyByteCode5 {
                      *   5           8 LOAD_FAST                6 (mysum)
                      *              10 RETURN_VALUE
                      */
-                    new PyCode(2, 0, 2, 7, 2, 95,
+                    new CPythonCode(2, 0, 2, 7, 2, 95,
                         Py.bytes(124, 0, 124, 3, 23, 0, 125, 6, 124,
                             6, 83, 0),
                         Py.tuple(Py.None),
@@ -2375,7 +2377,7 @@ class PyByteCode5 {
                      *   7           0 LOAD_CLOSURE             0 (i)
                      *               2 LOAD_CLOSURE             1 (r)
                      *               4 BUILD_TUPLE              2
-                     *               6 LOAD_CONST               1 (<code object q at 0x000001CED406C0E0, file "kwargprog_b", line 7>)
+                     *               6 LOAD_CONST               1 (<code object q at 0x0000025C9B268190, file "kwargprog_b", line 7>)
                      *               8 LOAD_CONST               2 ('p.<locals>.diff.<locals>.q')
                      *              10 MAKE_FUNCTION            8 (closure)
                      *              12 STORE_FAST               0 (q)
@@ -2384,7 +2386,7 @@ class PyByteCode5 {
                      *              16 CALL_FUNCTION            0
                      *              18 RETURN_VALUE
                      */
-                    new PyCode(0, 0, 0, 1, 3, 19,
+                    new CPythonCode(0, 0, 0, 1, 3, 19,
                         Py.bytes(-121, 0, -121, 1, 102, 2, 100, 1,
                             100, 2, -124, 8, 125, 0, 124, 0, -125, 0,
                             83, 0),
@@ -2395,7 +2397,7 @@ class PyByteCode5 {
                              *               4 BINARY_SUBTRACT
                              *               6 RETURN_VALUE
                              */
-                            new PyCode(0, 0, 0, 0, 2, 19,
+                            new CPythonCode(0, 0, 0, 0, 2, 19,
                                 Py.bytes(-120, 1, -120, 0, 24, 0, 83,
                                     0),
                                 Py.tuple(Py.None),
@@ -2419,7 +2421,7 @@ class PyByteCode5 {
                      *               4 BINARY_MULTIPLY
                      *               6 RETURN_VALUE
                      */
-                    new PyCode(0, 0, 0, 0, 2, 19,
+                    new CPythonCode(0, 0, 0, 0, 2, 19,
                         Py.bytes(-120, 1, -120, 0, 20, 0, 83, 0),
                         Py.tuple(Py.None),
                         Py.tuple(),
@@ -2452,7 +2454,7 @@ class PyByteCode5 {
     // @Test
     void test_kwargprog_b1() {
         //@formatter:off
-        PyDictionary globals = new PyDictionary();
+        PyDictionary globals = Py.dict();
         Interpreter interp = Py.createInterpreter();
         interp.evalCode(KWARGPROG_B, globals, globals);
         assertEquals(Py.val(42), globals.get("result"),
@@ -2484,7 +2486,7 @@ class PyByteCode5 {
     static final PyCode KWARGPROG_C =
     /*
      *   2           0 LOAD_CONST               5 ((4,))
-     *               2 LOAD_CONST               1 (<code object p at 0x000001CED406C660, file "kwargprog_c", line 2>)
+     *               2 LOAD_CONST               1 (<code object p at 0x0000025C9B268710, file "kwargprog_c", line 2>)
      *               4 LOAD_CONST               2 ('p')
      *               6 MAKE_FUNCTION            1 (defaults)
      *               8 STORE_NAME               0 (p)
@@ -2497,12 +2499,12 @@ class PyByteCode5 {
      *              20 LOAD_CONST               4 (None)
      *              22 RETURN_VALUE
      */
-    new PyCode(0, 0, 0, 0, 3, 64,
+    new CPythonCode(0, 0, 0, 0, 3, 64,
         Py.bytes(100, 5, 100, 1, 100, 2, -124, 1, 90, 0, 101, 0, 100,
             3, 100, 0, -125, 2, 90, 1, 100, 4, 83, 0),
         Py.tuple(Py.val(4),
             /*
-             *   3           0 LOAD_CONST               1 (<code object sum at 0x000001CED406C3A0, file "kwargprog_c", line 3>)
+             *   3           0 LOAD_CONST               1 (<code object sum at 0x0000025C9B268450, file "kwargprog_c", line 3>)
              *               2 LOAD_CONST               2 ('p.<locals>.sum')
              *               4 MAKE_FUNCTION            0
              *               6 STORE_FAST               2 (sum)
@@ -2510,7 +2512,7 @@ class PyByteCode5 {
              *   6           8 LOAD_CLOSURE             0 (i)
              *              10 LOAD_CLOSURE             1 (r)
              *              12 BUILD_TUPLE              2
-             *              14 LOAD_CONST               3 (<code object diff at 0x000001CED406C500, file "kwargprog_c", line 6>)
+             *              14 LOAD_CONST               3 (<code object diff at 0x0000025C9B2685B0, file "kwargprog_c", line 6>)
              *              16 LOAD_CONST               4 ('p.<locals>.diff')
              *              18 MAKE_FUNCTION            8 (closure)
              *              20 STORE_FAST               3 (diff)
@@ -2518,7 +2520,7 @@ class PyByteCode5 {
              *  10          22 LOAD_CLOSURE             0 (i)
              *              24 LOAD_CLOSURE             1 (r)
              *              26 BUILD_TUPLE              2
-             *              28 LOAD_CONST               5 (<code object prod at 0x000001CED406C5B0, file "kwargprog_c", line 10>)
+             *              28 LOAD_CONST               5 (<code object prod at 0x0000025C9B268660, file "kwargprog_c", line 10>)
              *              30 LOAD_CONST               6 ('p.<locals>.prod')
              *              32 MAKE_FUNCTION            8 (closure)
              *              34 STORE_FAST               4 (prod)
@@ -2551,7 +2553,7 @@ class PyByteCode5 {
              *              82 BINARY_ADD
              *              84 RETURN_VALUE
              */
-            new PyCode(2, 0, 0, 7, 5, 3,
+            new CPythonCode(2, 0, 0, 7, 5, 3,
                 Py.bytes(100, 1, 100, 2, -124, 0, 125, 2, -121, 0,
                     -121, 1, 102, 2, 100, 3, 100, 4, -124, 8, 125, 3,
                     -121, 0, -121, 1, 102, 2, 100, 5, 100, 6, -124,
@@ -2570,7 +2572,7 @@ class PyByteCode5 {
                      *   5           8 LOAD_FAST                6 (mysum)
                      *              10 RETURN_VALUE
                      */
-                    new PyCode(2, 0, 2, 7, 2, 95,
+                    new CPythonCode(2, 0, 2, 7, 2, 95,
                         Py.bytes(124, 0, 124, 3, 23, 0, 125, 6, 124,
                             6, 83, 0),
                         Py.tuple(Py.None),
@@ -2587,7 +2589,7 @@ class PyByteCode5 {
                      *   7           0 LOAD_CLOSURE             0 (i)
                      *               2 LOAD_CLOSURE             1 (r)
                      *               4 BUILD_TUPLE              2
-                     *               6 LOAD_CONST               1 (<code object q at 0x000001CED406C450, file "kwargprog_c", line 7>)
+                     *               6 LOAD_CONST               1 (<code object q at 0x0000025C9B268500, file "kwargprog_c", line 7>)
                      *               8 LOAD_CONST               2 ('p.<locals>.diff.<locals>.q')
                      *              10 MAKE_FUNCTION            8 (closure)
                      *              12 STORE_FAST               0 (q)
@@ -2596,7 +2598,7 @@ class PyByteCode5 {
                      *              16 CALL_FUNCTION            0
                      *              18 RETURN_VALUE
                      */
-                    new PyCode(0, 0, 0, 1, 3, 19,
+                    new CPythonCode(0, 0, 0, 1, 3, 19,
                         Py.bytes(-121, 0, -121, 1, 102, 2, 100, 1,
                             100, 2, -124, 8, 125, 0, 124, 0, -125, 0,
                             83, 0),
@@ -2607,7 +2609,7 @@ class PyByteCode5 {
                              *               4 BINARY_SUBTRACT
                              *               6 RETURN_VALUE
                              */
-                            new PyCode(0, 0, 0, 0, 2, 19,
+                            new CPythonCode(0, 0, 0, 0, 2, 19,
                                 Py.bytes(-120, 1, -120, 0, 24, 0, 83,
                                     0),
                                 Py.tuple(Py.None),
@@ -2631,7 +2633,7 @@ class PyByteCode5 {
                      *               4 BINARY_MULTIPLY
                      *               6 RETURN_VALUE
                      */
-                    new PyCode(0, 0, 0, 0, 2, 19,
+                    new CPythonCode(0, 0, 0, 0, 2, 19,
                         Py.bytes(-120, 1, -120, 0, 20, 0, 83, 0),
                         Py.tuple(Py.None),
                         Py.tuple(),
@@ -2664,7 +2666,7 @@ class PyByteCode5 {
     // @Test
     void test_kwargprog_c1() {
         //@formatter:off
-        PyDictionary globals = new PyDictionary();
+        PyDictionary globals = Py.dict();
         Interpreter interp = Py.createInterpreter();
         interp.evalCode(KWARGPROG_C, globals, globals);
         assertEquals(Py.val(42), globals.get("result"),

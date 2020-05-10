@@ -1,7 +1,12 @@
 package uk.co.farowl.vsj2.evo3;
 
 /** Holder for objects appearing in the closure of a function. */
-class Cell {
+class Cell implements PyObject {
+
+    static final PyType TYPE = new PyType("cell", Cell.class);
+
+    @Override
+    public PyType getType() { return TYPE; }
 
     PyObject obj;
 

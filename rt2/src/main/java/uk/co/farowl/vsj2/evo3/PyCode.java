@@ -7,9 +7,7 @@ import java.util.EnumSet;
  * Our equivalent to the Python code object ({@code PyCodeObject} in
  * CPython's C API).
  */
-class PyCode implements PyObject {
-    // XXX Present version is specific to CPythonFrame
-    // We should have a CPythonCode object extend base PyCode
+abstract class PyCode implements PyObject {
 
     static final PyType TYPE = new PyType("code", PyCode.class);
 
@@ -24,7 +22,7 @@ class PyCode implements PyObject {
 
     final EnumSet<Trait> traits;
 
-    /** Number of positional arguments (not counting *args). */
+    /** Number of positional arguments (not counting {@code *args}). */
     final int argcount;
     /** Number of positional-only arguments. */
     final int posonlyargcount;
@@ -38,19 +36,34 @@ class PyCode implements PyObject {
     final int flags;
     /** First source line number. */
     final int firstlineno;
-    /** Instruction opcodes */
+    /** Instruction opcodes, not {@code null}. */
     final PyBytes code;
-    /** Constant objects needed by the code */
+    /** Constant objects needed by the code, not {@code null}. */
     final PyTuple consts;
-    /** Names referenced in the code */
+    /**
+     * Names referenced in the code (elements guaranteed to be of type
+     * {@code str}), not {@code null}..
+     */
     final PyTuple names;
-    /** Args and non-cell locals */
+    /**
+     * Args and non-cell locals (elements guaranteed to be of type
+     * {@code str}), not {@code null}.
+     */
     final PyTuple varnames;
-    /** Names referenced but not defined here */
+    /**
+     * Names referenced but not defined here (elements guaranteed to be
+     * of type {@code str}), not {@code null}.
+     */
     final PyTuple freevars;
-    /** Names defined here and referenced elsewhere */
+    /**
+     * Names defined here and referenced elsewhere (elements guaranteed
+     * to be of type {@code str}), not {@code null}.
+     */
     final PyTuple cellvars;
+
     /* ---------------------- See CPython code.h ------------------ */
+    /** Constant to be stored in {@link #cell2arg} as default. */
+    static final int CELL_NOT_AN_ARG = -1;
     /** Maps cell indexes to corresponding arguments. */
     final int[] cell2arg;
     /** Where it was loaded from */
@@ -139,17 +152,26 @@ class PyCode implements PyObject {
      * Create a {@code PyFrame} suitable to execute this {@code PyCode}
      * (adequate for module-level code).
      *
-     * @param tstate thread context (supplies the call stack)
      * @param interpreter providing the module context
-     * @param globals name space top treat as global variables
+     * @param globals name space to treat as global variables
      * @param locals name space to treat as local variables
      * @return the frame
      */
-    PyFrame createFrame(ThreadState tstate, Interpreter interpreter,
-            PyDictionary globals, PyObject locals) {
-        return new CPythonFrame(tstate, this, interpreter, globals,
-                locals);
-    }
+    abstract PyFrame createFrame(Interpreter interpreter,
+            PyDictionary globals, PyObject locals);
+
+    /**
+     * Create a {@code PyFrame} suitable to execute this {@code PyCode},
+     * suitable for function invocation only after additional steps to
+     * provide the arguments.
+     *
+     * @param interpreter providing the module context
+     * @param globals name space to treat as global variables
+     * @param closure a tuple of cells (may be {@code null})
+     * @return the frame
+     */
+    abstract PyFrame createFrame(Interpreter interpreter,
+            PyDictionary globals, PyTuple closure);
 
     /** Check that all the objects in the tuple are {@code str}. */
     private static PyTuple names(PyTuple tuple) {
@@ -215,4 +237,5 @@ class PyCode implements PyObject {
     public String toString() {
         return String.format("<code %s %s>", name, traits);
     }
+
 }

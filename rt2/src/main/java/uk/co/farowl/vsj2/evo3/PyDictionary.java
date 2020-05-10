@@ -1,13 +1,13 @@
 package uk.co.farowl.vsj2.evo3;
 
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 
 /**
  * The Python {@code dict} object. The Java API is provided directly by
  * the base class implementing {@code Map}, while the Python API has
  * been implemented on top of the Java one.
  */
-class PyDictionary extends HashMap<PyObject, PyObject>
+class PyDictionary extends LinkedHashMap<PyObject, PyObject>
         implements PyObject {
 
     static final PyType TYPE = new PyType("dict", PyDictionary.class);
@@ -17,7 +17,7 @@ class PyDictionary extends HashMap<PyObject, PyObject>
 
     /**
      * Specialisation of {@code Map.get} allowing Java {@code String}
-     * keys.
+     * keys. Returns {@code null} if the key is not found.
      */
     PyObject get(String key) { return this.get(Py.str(key)); }
 

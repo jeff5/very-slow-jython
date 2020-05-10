@@ -1,6 +1,7 @@
 package uk.co.farowl.vsj2.evo3;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 
 /** The Python {@code list} object. */
 class PyList extends ArrayList<PyObject> implements PyObject {
@@ -77,4 +78,17 @@ class PyList extends ArrayList<PyObject> implements PyObject {
             throw Abstract.indexTypeError(self, item);
     }
 
+    // methods -------------------------------------------------
+
+    PyObject extend(PyObject iterable) {
+        // XXX: stop-gap implementation until iterables supported
+        if (iterable instanceof PyList)
+            addAll((PyList) iterable);
+        else if (iterable instanceof PyTuple) {
+            PyObject[] src = ((PyTuple) iterable).value;
+            addAll(Arrays.asList(src));
+        } else
+            throw Abstract.typeError("Unsupported iterable", iterable);
+        return Py.None;
+    }
 }

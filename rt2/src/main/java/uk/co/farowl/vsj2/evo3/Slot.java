@@ -23,6 +23,7 @@ enum Slot {
     tp_call(Signature.CALL), //
     tp_str(Signature.UNARY), //
     tp_richcompare(Signature.RICHCMP), //
+    tp_iter(Signature.UNARY), //
 
     nb_negative(Signature.UNARY, "-", "neg"), //
     nb_add(Signature.BINARY, "+", "add"), //

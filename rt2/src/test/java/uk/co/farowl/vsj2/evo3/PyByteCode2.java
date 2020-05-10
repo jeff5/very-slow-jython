@@ -280,7 +280,7 @@ class PyByteCode2 {
      *              12 LOAD_CONST               2 (None)
      *              14 RETURN_VALUE
      */
-    new PyCode(0, 0, 0, 0, 1, 64,
+    new CPythonCode(0, 0, 0, 0, 1, 64,
         Py.bytes(101, 0, 90, 1, 100, 0, 90, 0, 100, 1, 90, 2, 100, 2,
             83, 0),
         Py.tuple(Py.val(4), Py.val(6), Py.None),
@@ -323,7 +323,7 @@ class PyByteCode2 {
      *              14 LOAD_CONST               0 (None)
      *              16 RETURN_VALUE
      */
-    new PyCode(0, 0, 0, 0, 2, 64,
+    new CPythonCode(0, 0, 0, 0, 2, 64,
         Py.bytes(101, 0, 11, 0, 101, 1, 11, 0, 2, 0, 90, 0, 90, 1,
             100, 0, 83, 0),
         Py.tuple(Py.None),
@@ -387,7 +387,7 @@ class PyByteCode2 {
      *              24 LOAD_CONST               0 (None)
      *              26 RETURN_VALUE
      */
-    new PyCode(0, 0, 0, 0, 2, 64,
+    new CPythonCode(0, 0, 0, 0, 2, 64,
         Py.bytes(101, 0, 101, 1, 23, 0, 90, 2, 101, 0, 101, 1, 24, 0,
             90, 3, 101, 0, 101, 1, 20, 0, 90, 4, 100, 0, 83, 0),
         Py.tuple(Py.None),

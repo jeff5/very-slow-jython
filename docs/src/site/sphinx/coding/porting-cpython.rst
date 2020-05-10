@@ -206,6 +206,9 @@ Once we start doing this,
 the implications of each type deduction spread to other signatures
 and variables.
 
+A useful regex is: ``(\w+)_Check\((\w+)\)``
+replaced with ``($2 instanceof $1)``.
+
 
 Object Lifecycle
 ================
@@ -218,6 +221,8 @@ such as ``PyMem_Free`` and ``_PyObject_GC_TRACK``.
 
 ``Py_CLEAR`` should perhaps be replaced with assignment of ``null``,
 rather than being removed totally.
+
+Useful regex: ``Py_X?(IN|DE)CREF\([^)]+\);`` replaced with nothing.
 
 
 
@@ -311,5 +316,67 @@ and replaces the message with one specific to that circumstance.
 The Java solution is to catch the ``TypeError``
 and either call the "check" function (which throws) or re-throw the original,
 but this is no more ugly than the original.
+
+
+Translating Exceptions
+======================
+
+A typical idiom in CPython might be:
+
+..  code-block:: c
+
+        if (kwdict == null) {
+            _PyErr_Format(tstate, PyExc_TypeError,
+                          "%U() got an unexpected keyword argument '%S'",
+                          co.name, keyword);
+            goto fail;
+
+and the code at ``fail`` will typically clean up (``XDECREF``) objects
+and return ``NULL`` from the containing function.
+
+We should turn this into a throw statement,
+along the lines:
+
+..  code-block:: java
+
+        if (kwdict == null) {
+            throw new TypeError(
+                          "%s() got an unexpected keyword argument '%s'",
+                          co.name, keyword);
+        }
+
+
+
+Delete the ``goto``.
+The format string will need attention,
+since (as here) the formatting codes may not be available,
+but ``%s`` calls ``toString()``, which is generally right.
+
+A useful regex for this is: ``_PyErr_Format\(\w+, PyExc_(\w+),`` replaced with
+``throw new $1(``.
+
+
+Translating Container Access
+============================
+
+CPython defines a range of macros, for use in the implementation only,
+that expand to a direct field access,
+so they are efficient but somewhat unsafe.
+We'll follow suit, with direct access to fields of the corresponding types.
+
+Useful regexes
+--------------
+
+``PyTuple_GET_ITEM\(([^,]+), ([^)]+)\)``
+replaced by ``$1.value[$2]``.
+
+
+``PyTuple_GET_SIZE\(([^)]+)\)``
+replaced by ``$1.value.length``.
+
+
+``PyDict_SetItem\((\w+), ([^,]+), ([^)]+)\)``
+replaced by ``$1.put($2, $3)``.
+
 
 

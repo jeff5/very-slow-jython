@@ -1,6 +1,11 @@
 package uk.co.farowl.vsj2.evo3;
 
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.StringJoiner;
+
 /** The Python {@code tuple} object. */
+// XXX: implements AbstractList<T extends PyObject> ?
 class PyTuple implements PyObject {
 
     static final PyType TYPE = new PyType("tuple", PyTuple.class);
@@ -27,9 +32,54 @@ class PyTuple implements PyObject {
         System.arraycopy(a, start, this.value, 0, count);
     }
 
-    PyObject getItem(int i) { return value[i]; }
+    private PyTuple(Collection<PyObject> c) {
+        int n = c.size();
+        if (n == 0)
+            this.value = EMPTY_PYOBJECT_ARRAY;
+        else {
+            this.value = new PyObject[n];
+            c.toArray(this.value);
+        }
+    }
+
+    PyObject getItem(int i) { return value[i]; } // XXX: get(i)?
+
+    int size() { return value.length; }
+
+    /**
+     * Return a copy of the contents as an array of the given type, in
+     * the provided destination (if not too short) or as a new array of
+     * the destination type.
+     *
+     * @param <T> Type of array element
+     * @param a destination array
+     * @return the array copy (new or argument)
+     * @throws ArrayStoreException if an actual element of the tuple is
+     *             not assignment compatible with {@code T}.
+     */
+    @SuppressWarnings("unchecked")
+    <T> T[] asArray(T[] a) throws ArrayStoreException {
+        final int na = a.length, nv = value.length;
+        if (na < nv) {
+            // Destination too short: create an array
+            return (T[]) Arrays.copyOf(value, nv, a.getClass());
+        } else {
+            System.arraycopy(value, 0, a, 0, nv);
+        }
+        return a;
+    }
+
+    @Override
+    public String toString() {
+        StringJoiner sj = new StringJoiner(", ", "(",
+                value.length == 1 ? ",)" : ")");
+        for (PyObject v : value)
+            sj.add(v.toString());
+        return sj.toString();
+    }
 
     // slot functions -------------------------------------------------
+
 
     static int length(PyTuple self) { return self.value.length; }
 
@@ -52,5 +102,9 @@ class PyTuple implements PyObject {
         // else if item is a PySlice { ... }
         else
             throw Abstract.indexTypeError(self, item);
+    }
+
+    static PyTuple fromList(Collection<PyObject> c) {
+        return c.isEmpty() ? EMPTY : new PyTuple(c);
     }
 }

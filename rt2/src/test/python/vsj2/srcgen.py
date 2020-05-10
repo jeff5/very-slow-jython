@@ -425,6 +425,42 @@ class PyObjectEmitterEvo3(PyObjectEmitter):
         self.java_arglist(self.python, value, ")" + suffix)
         return self
 
+    def python_code(self, code, suffix=""):
+        """Emit Java to construct a Python code object.
+
+        The assumed constructor exactly emulates CPython codeobject.c
+        PyCode_NewWithPosOnlyArgs, in turn assuming there are constructors
+        for Java implementations of the types depended upon.
+        """
+        if self.code_comment:
+            # Emit disassembly as comment
+            self.emit_line("/*")
+            lines = dis.Bytecode(code).dis().splitlines()
+            for line in lines:
+                self.emit_line(" * " + line)
+            self.emit_line(" */")
+            self.emit_line("")
+
+        self.emit("new CPythonCode(")
+        with self.indentation():
+            self.java_int(code.co_argcount, ", ")
+            self.java_int(code.co_posonlyargcount, ", ")
+            self.java_int(code.co_kwonlyargcount, ", ")
+            self.java_int(code.co_nlocals, ", ")
+            self.java_int(code.co_stacksize, ", ")
+            self.java_int(code.co_flags, ", ")
+            self.python(code.co_code, ", ")
+            self.python(code.co_consts, ", ")
+            self.python(code.co_names, ", ")
+            self.python(code.co_varnames, ", ")
+            self.python(code.co_freevars, ", ")
+            self.python(code.co_cellvars, ", ")
+            self.python(code.co_filename, ", ")
+            self.python(code.co_name, ", ")
+            self.java_int(code.co_firstlineno, ", ")
+            self.python(code.co_lnotab, ")" + suffix)
+        return self
+
 
 class PyObjectTestEmitterEvo3(PyObjectTestEmitter):
     """Class to emit a test PyCode and a JUnit test method for each case.
@@ -460,7 +496,7 @@ class PyObjectTestEmitterEvo3(PyObjectTestEmitter):
         with self.writer.indentation():
             self.writer.emit_line("//@formatter:off")
             # Load the global name space with the test case values
-            self.writer.emit_line("PyDictionary globals = new PyDictionary();")
+            self.writer.emit_line("PyDictionary globals = Py.dict();")
             for k, v in before.items():
                 self.writer.emit_line("globals.put(")
                 with self.writer.indentation():
