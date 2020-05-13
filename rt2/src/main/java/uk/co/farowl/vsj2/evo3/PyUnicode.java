@@ -1,7 +1,7 @@
 package uk.co.farowl.vsj2.evo3;
 
 /** The Python {@code str} object. */
-class PyUnicode implements PyObject {
+class PyUnicode implements PyObject, Comparable<PyUnicode> {
 
     static final PyType TYPE = new PyType("unicode", PyUnicode.class);
 
@@ -19,6 +19,12 @@ class PyUnicode implements PyObject {
     @Override
     public String toString() { return value.toString(); }
 
+
+    @Override
+    public int compareTo(PyUnicode o) {
+        return value.compareTo(o.value);
+    }
+
     @Override
     public boolean equals(Object obj) {
         if (obj instanceof PyUnicode) {
@@ -30,6 +36,13 @@ class PyUnicode implements PyObject {
     // slot functions -------------------------------------------------
 
     static int length(PyUnicode s) { return s.value.length(); }
+
+    static PyObject tp_richcompare(PyUnicode self, PyObject other, Comparison op) {
+        if (other instanceof PyUnicode)
+            return  op.toBool(self.compareTo((PyUnicode)other));
+        else
+            return Py.NotImplemented;
+    }
 
     static PyObject sq_item(PyUnicode self, int i) {
         try {

@@ -4,8 +4,9 @@ import java.util.ArrayList;
 import java.util.EnumSet;
 
 /**
- * Our equivalent to the Python code object ({@code PyCodeObject} in
- * CPython's C API).
+ * The Python {@code code} object. (Compare {@code PyCodeObject} in
+ * CPython's C API.) A {@code code} object describes the layout of a
+ * {@link PyFrame}, and is a factory for frames of matching type.
  */
 abstract class PyCode implements PyObject {
 
@@ -42,7 +43,7 @@ abstract class PyCode implements PyObject {
     final PyTuple consts;
     /**
      * Names referenced in the code (elements guaranteed to be of type
-     * {@code str}), not {@code null}..
+     * {@code str}), not {@code null}.
      */
     final PyTuple names;
     /**

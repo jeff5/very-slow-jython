@@ -1,6 +1,9 @@
 package uk.co.farowl.vsj2.evo3;
 
+import java.util.Arrays;
 import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * The Python {@code dict} object. The Java API is provided directly by
@@ -35,5 +38,49 @@ class PyDict extends LinkedHashMap<PyObject, PyObject>
      */
     PyObject putIfAbsent(String key, PyObject value) {
         return this.putIfAbsent(Py.str(key), value);
+    }
+
+    enum MergeMode { PUT, IF_ABSENT, UNIQUE }
+
+    /** Merge the mapping {@code src} into this {@code dict}. */
+    PyObject merge(PyObject src, MergeMode mode) {
+        // XXX: stop-gap implementation
+        if (src instanceof PyDict) {
+            Set<Map.Entry<PyObject, PyObject>> entries =
+                    ((PyDict) src).entrySet();
+            for (Map.Entry<PyObject, PyObject> e : entries) {
+                PyObject k = e.getKey();
+                PyObject v = e.getValue();
+                if (mode == MergeMode.PUT)
+                    put(k, v);
+                else {
+                    PyObject u = putIfAbsent(k, v);
+                    if (u != null && mode == MergeMode.UNIQUE)
+                        throw new KeyError(k, "duplicate");
+                }
+            }
+        } else
+            throw new AttributeError("Unsupported mapping type %s",
+                    src.getType().getName());
+        return Py.None;
+    }
+
+    // slot functions -------------------------------------------------
+
+    static PyObject mp_subscript(PyDict self, PyObject key)
+            throws Throwable {
+        // This may be over-simplifying things but ... :)
+        return self.get(key);
+    }
+
+    // methods -------------------------------------------------
+
+    PyObject update(PyObject args) {
+        // XXX: stop-gap implementation
+        if (args instanceof PyDict)
+            merge(args, MergeMode.PUT);
+        else
+            throw new AttributeError("Unsupported mapping", args);
+        return Py.None;
     }
 }

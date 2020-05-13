@@ -9,7 +9,67 @@ import java.util.Map;
 
 import uk.co.farowl.vsj2.evo3.PyCode.Trait;
 
-/** A {@code PyFrame} is the context for the execution of code. */
+/**
+ * A {@code PyFrame} is the context for the execution of code. For
+ * example with the function definition:<pre>
+ * def func(a, b, c=3, d=4, /, e=5, f=6, *aa, g=7, h, i=9, **kk):
+ *     v, w, x = b, c, d, e
+ *     return u
+ * </pre>The layout of the local variables in a frame is as follows.
+ * <p>
+ * <style> table.lined td {border: 1px solid black; text-align: center;
+ * min-width: 2em;} table.lined {border-collapse: collapse;} table.lined
+ * td.row-label {text-align: left;} </style>
+ * <table class="lined">
+ * <tr>
+ * <td class="row-label">frame</td>
+ * <td>a</td>
+ * <td>b</td>
+ * <td>c</td>
+ * <td>d</td>
+ * <td>e</td>
+ * <td>f</td>
+ * <td>g</td>
+ * <td>h</td>
+ * <td>i</td>
+ * <td>aa</td>
+ * <td>kk</td>
+ * <td>u</td>
+ * <td>v</td>
+ * <td>w</td>
+ * <td>x</td>
+ * </tr>
+ * <tr>
+ * <td class="row-label" rowspan=2>code</td>
+ * <td colspan=6>argcount</td>
+ * <td colspan=3>kwonlyargcount</td>
+ * <td>*</td>
+ * <td>**</td>
+ * <td colspan=4></td>
+ * </tr>
+ * <tr>
+ * <td colspan=4>posonlyargcount</td>
+ * <td colspan=13></td>
+ * </tr>
+ * <tr>
+ * <td class="row-label">function</td>
+ * <td colspan=2></td>
+ * <td colspan=4>defaults</td>
+ * <td colspan=3 style="border-style: dashed;">kwdefaults</td>
+ * </tr>
+ * </table>
+ * <p>
+ * In the last row of the table, the properties are supplied by the
+ * function object during each call. {@code defaults} apply in the
+ * position show, in order, while {@code kwdefaults} (in a map) apply to
+ * keywords wherever the name matches. The names in the frame are those
+ * in the {@link PyCode#varnames} field of the associated code object
+ * <p>
+ * The frame presents an abstraction of an array of named local
+ * variables, and two more of cell and free variables, while concrete
+ * subclasses are free to implement these in whatever manner they
+ * choose.
+ */
 abstract class PyFrame implements PyObject {
 
     /** Frames form a stack by chaining through the back pointer. */
@@ -160,6 +220,102 @@ abstract class PyFrame implements PyObject {
      */
     abstract void makeCell(int i, PyObject v);
 
+    /** Prepare the frame from "classic" arguments. */
+    void prepare(PyTuple args, PyDict kwargs, PyTuple defaults,
+            PyDict kwdefaults) {
+
+        // Set parameters from the positional arguments in the call.
+        int posSet = setPositionalArguments(args);
+
+        // Set parameters from the keyword arguments in the call.
+        if (kwargs != null && !kwargs.isEmpty())
+            posSet += setKeywordArguments(kwargs);
+
+        /*
+         * Check the number of positional arguments. We do this after
+         * keywords so processing can take into account keyword
+         * assignments to positional arguments.
+         */
+        int nargs = args.value.length;
+        if (code.traits.contains(Trait.VARARGS)) {
+            // Locate the * argument
+            int varIndex = code.argcount + code.kwonlyargcount;
+            if (code.argcount < nargs)
+                // Put any excess positional args there
+                setLocal(varIndex, new PyTuple(args.value,
+                        code.argcount, nargs - code.argcount));
+            else
+                // ... or set it to an empty tuple
+                setLocal(varIndex, PyTuple.EMPTY);
+        } else if (code.argcount < nargs) {
+            // Excess positional arguments but no VARARGS for them.
+            throw tooManyPositional(nargs, defaults);
+        }
+
+        if (code.argcount > posSet) {
+            // Set remaining positional parameters from default values
+            applyDefaults(nargs, defaults);
+        }
+
+        if (code.kwonlyargcount > 0)
+            // Set keyword parameters from default values
+            applyKWDefaults(kwdefaults);
+
+        // Create cells for bound variables
+        if (code.cellvars.value.length > 0)
+            makeCells();
+    }
+
+    // Experiment: define a vector call
+
+    /** Prepare the frame from CPython vector call arguments. */
+    void prepare(PyObject[] stack, int start, int nargs,
+            PyTuple kwnames, PyTuple defaults, PyDict kwdefaults) {
+
+        // Set parameters from the positional arguments in the call.
+        int posSet = setPositionalArguments(stack, start, nargs);
+
+        // Set parameters from the keyword arguments in the call.
+        if (kwnames != null && kwnames.value.length != 0)
+            posSet += setKeywordArguments(stack, start + nargs,
+                    kwnames.value);
+
+        /*
+         * Check the number of positional arguments. We do this after
+         * keywords so processing can take into account keyword
+         * assignments to positional arguments.
+         */
+        if (code.traits.contains(Trait.VARARGS)) {
+            // Locate the * argument
+            int varIndex = code.argcount + code.kwonlyargcount;
+            int excess = nargs - code.argcount;
+            if (excess > 0)
+                // Put any excess positional args there
+                setLocal(varIndex, new PyTuple(stack,
+                        start + code.argcount, excess));
+            else
+                // ... or set it to an empty tuple
+                setLocal(varIndex, PyTuple.EMPTY);
+        } else if (nargs > code.argcount) {
+            // Excess positional arguments but no VARARGS for them.
+            throw tooManyPositional(nargs, defaults);
+        }
+
+        if (code.argcount > posSet) {
+            // Set remaining positional parameters from default values
+            applyDefaults(nargs, defaults);
+        }
+
+        // Set keyword parameters from default values
+        if (code.kwonlyargcount > 0)
+            applyKWDefaults(kwdefaults);
+
+        // Create cells for bound variables (after args all known)
+        if (code.cellvars.value.length > 0)
+            makeCells();
+    }
+
+
     /**
      * Copy positional arguments into local variables, making sure we
      * don't copy more than have been allowed for in the frame. Excess
@@ -168,7 +324,7 @@ abstract class PyFrame implements PyObject {
      * call as keyword arguments, or in the function as defaults.
      *
      * @param args positional arguments
-     * @return arguments actually copied to local variables
+     * @return number of positional arguments filled
      */
     int setPositionalArguments(PyTuple args) {
 
@@ -179,18 +335,39 @@ abstract class PyFrame implements PyObject {
         for (int i = 0; i < n; i++)
             setLocal(i, args.value[i]);
 
+        return n;
+    }
+
+    int setPositionalArguments(PyObject[] stack, int start, int nargs) {
+
+        int n = Math.min(nargs, code.argcount);
+        int j = start;
+
+        // Copy the allowed number (or fewer)
+        for (int i = 0; i < n; i++)
+            setLocal(i, stack[j++]);
+
+        return n;
+    }
+
+    void setPositionalArguments_varargs(PyObject[] stack, int start,
+            int nargs) {
+
+        int n = Math.min(nargs, code.argcount);
+        int j = start;
+
+        // Copy the allowed number (or fewer)
+        for (int i = 0; i < n; i++)
+            setLocal(i, stack[j++]);
+
         if (code.traits.contains(Trait.VARARGS)) {
             // Locate the * argument and put any excess there
             int varIndex = code.argcount + code.kwonlyargcount;
             if (nargs > n)
-                setLocal(varIndex,
-                        new PyTuple(args.value, n, nargs - n));
+                setLocal(varIndex, new PyTuple(stack, n, nargs - n));
             else
                 setLocal(varIndex, PyTuple.EMPTY);
         }
-
-        // Return number copied to locals
-        return n;
     }
 
     /**
@@ -210,18 +387,20 @@ abstract class PyFrame implements PyObject {
      * dictionary, as in the "classic" {@code (*args, **kwargs)} call.
      *
      * @param kwargs keyword arguments given in call
+     * @return the number of assignments made to positional arguments
      */
-    void setKeywordArguments(PyDict kwargs) {
+    int setKeywordArguments(PyDict kwargs) {
+        int posCount = 0;
         /*
          * Create a dictionary for the excess keyword parameters, and
          * insert it in the local variables at the proper position.
          */
-        int totalArgs = code.argcount + code.kwonlyargcount;
         PyDict kwdict = null;
         if (code.traits.contains(Trait.VARKEYWORDS)) {
             kwdict = Py.dict();
-            int kwargsIndex = code.traits.contains(Trait.VARARGS)
-                    ? totalArgs + 1 : totalArgs;
+            int kwargsIndex = code.argcount + code.kwonlyargcount;
+            if (code.traits.contains(Trait.VARARGS))
+                kwargsIndex += 1;
             setLocal(kwargsIndex, kwdict);
         }
 
@@ -245,14 +424,17 @@ abstract class PyFrame implements PyObject {
                     throw unexpectedKeyword(name, kwargs.keySet());
             } else {
                 // Keyword found to name allowable variable at index
-                if (getLocal(index) == null)
+                if (getLocal(index) == null) {
                     setLocal(index, value);
-                else
+                    if (index < code.argcount)
+                        posCount++;
+                } else
                     // Unfortunately, that seat is already taken
                     throw new TypeError(MULTIPLE_VALUES, code.name,
                             name);
             }
         }
+        return posCount;
     }
 
     /**
@@ -273,18 +455,20 @@ abstract class PyFrame implements PyObject {
      * CPython's vector convention in which the values are a slice of
      * the interpreter stack.
      *
-     * @param kwnames keywords used in the call (or {@code **kwargs})
      * @param kwvalues {@code [kwstart:kwstart+len(kwnames)]} values
      *            corresponding to {@code kwnames} in order
      * @param kwstart start position in {@code kwvalues}
+     * @param kwnames keywords used in the call (or {@code **kwargs})
+     * @return the number of assignments made to positional arguments
      */
-    void setKeywordArguments(PyObject[] kwnames, PyObject[] kwvalues,
-            int kwstart) {
+    int setKeywordArguments(PyObject[] kwvalues, int kwstart,
+            PyObject[] kwnames) {
         /*
          * Create a dictionary for the excess keyword parameters, and
          * insert it in the local variables at the proper position.
          */
         int total_args = code.argcount + code.kwonlyargcount;
+        int posCount = 0;
         PyDict kwdict = null;
         if (code.traits.contains(Trait.VARKEYWORDS)) {
             kwdict = Py.dict();
@@ -315,9 +499,11 @@ abstract class PyFrame implements PyObject {
                             Arrays.asList(kwnames));
             } else {
                 // Keyword found to name allowable variable at index
-                if (getLocal(index) == null)
+                if (getLocal(index) == null) {
                     setLocal(index, value);
-                else
+                    if (index < code.argcount)
+                        posCount++;
+                } else
                     // Unfortunately, that seat is already taken
                     throw new TypeError(MULTIPLE_VALUES, code.name,
                             name);
@@ -326,8 +512,9 @@ abstract class PyFrame implements PyObject {
             if (name == null || !(name instanceof PyUnicode)) {
                 throw new TypeError(KEYWORD_NOT_STRING, code.name);
             }
-
         }
+
+        return posCount;
     }
 
     /**
@@ -370,6 +557,348 @@ abstract class PyFrame implements PyObject {
         return -1;
     }
 
+    void checkTooManyPositionalArgs(PyTuple args, PyTuple defaults) {
+        /*
+         * Check the number of positional arguments. We do it here so
+         * that tooManyPositional(), can describe the call including
+         * keyword arguments.
+         */
+        int nargs = args.value.length;
+        if ((nargs > code.argcount)
+                && !(code.traits.contains(Trait.VARARGS))) {
+            // Excess positional arguments but no VARARGS for them.
+            throw tooManyPositional(nargs, defaults);
+        }
+    }
+
+    /**
+     * Deal with too many or too few arguments. A check is made for too
+     * many positional arguments (and no VARARGS code trait), which
+     * would be an error. In the case of too few positional arguments,
+     * or missing keyword arguments, an attempt is made to fill them
+     * from {@code defs} or {@code kwdefs}. If any parameters are
+     * unfilled after that, this is an error.
+     *
+     * The positional arguments {@code args} are provided only for their
+     * number.
+     *
+     * @param args arguments given
+     * @param defs default values by position or {@code null}
+     * @throws TypeError if there are too many or missing arguments.
+     */
+    void applyDefaults(PyTuple args, PyTuple defs) throws TypeError {
+
+        int nargs = args.value.length;
+        int ndefs = defs == null ? 0 : defs.value.length;
+
+        /*
+         * Check the number of positional arguments. We do it here so
+         * that tooManyPositional() can describe the call including
+         * keyword arguments.
+         */
+        if ((nargs > code.argcount)
+                && !(code.traits.contains(Trait.VARARGS))) {
+            // Excess positional arguments but no VARARGS for them.
+            throw tooManyPositional(nargs, defs);
+        }
+
+        /*
+         * Provide missing positional arguments (if any) from defaults
+         */
+        if (nargs < code.argcount) {
+            /*
+             * At this stage, the first nargs parameter slots have been
+             * filled and some (or all) of the remaining
+             * code.argcount-nargs positional arguments may have been
+             * assigned using keyword arguments. Meanwhile, defs is
+             * available to provide values for (only) the last
+             * defs.length positional arguments.
+             */
+            // locals[nargs:m] have no default values, where:
+            int m = code.argcount - ndefs;
+            int missing = 0;
+            for (int i = nargs; i < m; i++) {
+                if (getLocal(i) == null) { missing++; }
+            }
+            if (missing > 0) { missingArguments(missing, ndefs); }
+
+            /*
+             * Variables in locals[m:code.argcount] may take defaults
+             * from defs, but perhaps nargs > m. Begin at index nargs,
+             * but not necessarily at the start of defs.
+             */
+            for (int i = nargs, j = Math.max(nargs - m, 0); j < ndefs;
+                    i++, j++) {
+                if (getLocal(i) == null) { setLocal(i, defs.value[j]); }
+            }
+        }
+    }
+
+    void applyDefaults(int nargs, PyTuple defs) throws TypeError {
+
+        int ndefs = defs == null ? 0 : defs.value.length;
+
+        /*
+         * Provide missing positional arguments (if any) from defaults
+         */
+        if (nargs < code.argcount) {
+            /*
+             * At this stage, the first nargs parameter slots have been
+             * filled and some (or all) of the remaining
+             * code.argcount-nargs positional arguments may have been
+             * assigned using keyword arguments. Meanwhile, defs is
+             * available to provide values for (only) the last
+             * defs.length positional arguments.
+             */
+            // locals[nargs:m] have no default values, where:
+            int m = code.argcount - ndefs;
+            int missing = 0;
+            for (int i = nargs; i < m; i++) {
+                if (getLocal(i) == null) { missing++; }
+            }
+            if (missing > 0) { missingArguments(missing, ndefs); }
+
+            /*
+             * Variables in locals[m:code.argcount] may take defaults
+             * from defs, but perhaps nargs > m. Begin at index nargs,
+             * but not necessarily at the start of defs.
+             */
+            for (int i = nargs, j = Math.max(nargs - m, 0); j < ndefs;
+                    i++, j++) {
+                if (getLocal(i) == null) { setLocal(i, defs.value[j]); }
+            }
+        }
+    }
+
+    /**
+     * Deal with too many or too few arguments. A check is made for too
+     * many positional arguments (and no VARARGS code trait), which
+     * would be an error. In the case of too few positional arguments,
+     * or missing keyword arguments, an attempt is made to fill them
+     * from {@code defs} or {@code kwdefs}. If any parameters are
+     * unfilled after that, this is an error.
+     *
+     * The positional arguments {@code args} are provided only for their
+     * number.
+     *
+     * @param args arguments given
+     * @param defs default values by position or {@code null}
+     * @throws TypeError if there are too many or missing arguments.
+     */
+    void applyDefaults_Check(PyTuple args, PyTuple defs)
+            throws TypeError {
+
+        int nargs = args.value.length;
+        int ndefs = defs == null ? 0 : defs.value.length;
+
+        /*
+         * Check the number of positional arguments. We do it here so
+         * that tooManyPositional() can describe the call including
+         * keyword arguments.
+         */
+        if ((nargs > code.argcount)
+                && !(code.traits.contains(Trait.VARARGS))) {
+            // Excess positional arguments but no VARARGS for them.
+            throw tooManyPositional(nargs, defs);
+        }
+
+        /*
+         * Provide missing positional arguments (if any) from defaults
+         */
+        if (nargs < code.argcount) {
+            /*
+             * At this stage, the first nargs parameter slots have been
+             * filled and some (or all) of the remaining
+             * code.argcount-nargs positional arguments may have been
+             * assigned using keyword arguments. Meanwhile, defs is
+             * available to provide values for (only) the last
+             * defs.length positional arguments.
+             */
+            // locals[nargs:m] have no default values, where:
+            int m = code.argcount - ndefs;
+            int missing = 0;
+            for (int i = nargs; i < m; i++) {
+                if (getLocal(i) == null) { missing++; }
+            }
+            if (missing > 0) { missingArguments(missing, ndefs); }
+
+            /*
+             * Variables in locals[m:code.argcount] may take defaults
+             * from defs, but perhaps nargs > m. Begin at index nargs,
+             * but not necessarily at the start of defs.
+             */
+            for (int i = nargs, j = Math.max(nargs - m, 0); j < ndefs;
+                    i++, j++) {
+                if (getLocal(i) == null) { setLocal(i, defs.value[j]); }
+            }
+        }
+    }
+
+    void applyDefaults_Check(int nargs, PyTuple defs) throws TypeError {
+
+        // int nargs = args.value.length;
+        int ndefs = defs == null ? 0 : defs.value.length;
+
+        /*
+         * Check the number of positional arguments. We do it here so
+         * that tooManyPositional() can describe the call including
+         * keyword arguments.
+         */
+        if ((nargs > code.argcount)
+                && !(code.traits.contains(Trait.VARARGS))) {
+            // Excess positional arguments but no VARARGS for them.
+            throw tooManyPositional(nargs, defs);
+        }
+
+        /*
+         * Provide missing positional arguments (if any) from defaults
+         */
+        if (nargs < code.argcount) {
+            /*
+             * At this stage, the first nargs parameter slots have been
+             * filled and some (or all) of the remaining
+             * code.argcount-nargs positional arguments may have been
+             * assigned using keyword arguments. Meanwhile, defs is
+             * available to provide values for (only) the last
+             * defs.length positional arguments.
+             */
+            // locals[nargs:m] have no default values, where:
+            int m = code.argcount - ndefs;
+            int missing = 0;
+            for (int i = nargs; i < m; i++) {
+                if (getLocal(i) == null) { missing++; }
+            }
+            if (missing > 0) { missingArguments(missing, ndefs); }
+
+            /*
+             * Variables in locals[m:code.argcount] may take defaults
+             * from defs, but perhaps nargs > m. Begin at index nargs,
+             * but not necessarily at the start of defs.
+             */
+            for (int i = nargs, j = Math.max(nargs - m, 0); j < ndefs;
+                    i++, j++) {
+                if (getLocal(i) == null) { setLocal(i, defs.value[j]); }
+            }
+        }
+    }
+
+    /**
+     * Deal with missing keyword arguments, attempting to fill them from
+     * {@code kwdefs}. If any parameters are unfilled after that, this
+     * is an error.
+     *
+     * @param kwdefs default values by keyword or {@code null}
+     * @throws TypeError if there are too many or missing arguments.
+     */
+    void applyKWDefaults(PyDict kwdefs) throws TypeError {
+        if (code.kwonlyargcount > 0) {
+            /*
+             * Variables in locals[code.argcount:end] are keyword-only
+             * arguments. If they have not been assigned yet, they take
+             * values from dict kwdefs.
+             */
+            PyObject[] varnames = code.varnames.value;
+            int end = code.argcount + code.kwonlyargcount;
+            int missing = 0;
+            for (int i = code.argcount; i < end; i++) {
+                PyObject value = getLocal(i);
+                if (value == null && kwdefs != null)
+                    setLocal(i, value = kwdefs.get(varnames[i]));
+                if (value == null) { missing++; }
+            }
+            if (missing > 0) { missingArguments(missing, -1); }
+        }
+    }
+
+    /**
+     * Create cells for non-local variables bound to the current scope.
+     *
+     * This must come after all argument processing because of the
+     * possibility that one of the arguments binds a cell variable
+     * required in a nested scope. Its value must be present, and could
+     * have been set by any mechanism.
+     */
+    void makeCells() {
+        for (int i = 0; i < code.cellvars.value.length; ++i) {
+            int arg;
+            // Perhaps the cell variable is also an argument.
+            if (code.cell2arg != null && (arg =
+                    code.cell2arg[i]) != PyCode.CELL_NOT_AN_ARG) {
+                makeCell(i, getLocal(arg));
+                // Clear the direct reference.
+                setLocal(arg, null);
+            } else {
+                makeCell(i, null);
+            }
+        }
+    }
+
+    static final String KEYWORD_NOT_STRING =
+            "%.200s(): keywords must be strings";
+    static final String KEYWORD_NOT_COMPARABLE =
+            "Keyword names %s not comparable.";
+    static final String MULTIPLE_VALUES =
+            "%.200s(): multiple values for argument '%s'";
+    static final String POSITIONAL_ONLY =
+            "%.200s(): positional-only arguments passed by keyword: %s";
+    static final String UNEXPECTED_KEYWORD =
+            "%.200s(): unexpected keyword argument '%s'";
+
+    /*
+     * Compare CPython ceval.c::too_many_positional(). Unlike that
+     * function, on diagnosing a problem, we do not have to set a
+     * message and return status. Also, when called there is *always* a
+     * problem, and therefore an exception.
+     */
+    // XXX Do not report kw arguments given: unnatural constraint.
+    /*
+     * The caller must defer the test until after kw processing, just so
+     * the actual kw-args given can be reported accurately. Otherwise,
+     * the test could be after (or part of) positional argument
+     * processing.
+     */
+    protected TypeError tooManyPositional(int posGiven,
+            PyTuple defaults) {
+        boolean posPlural = false;
+        int kwGiven = 0;
+        String posText, givenText;
+        int argcount = code.argcount;
+        int defcount = defaults.value.length;
+        int end = argcount + code.kwonlyargcount;
+
+        assert (!code.traits.contains(Trait.VARARGS));
+
+        // Count keyword-only args given
+        for (int i = argcount; i < end; i++) {
+            if (getLocal(i) != null) { kwGiven++; }
+        }
+
+        if (defcount != 0) {
+            posPlural = true;
+            posText = String.format("from %d to %d",
+                    argcount - defcount, argcount);
+        } else {
+            posPlural = (argcount != 1);
+            posText = String.format("%d", argcount);
+        }
+
+        if (kwGiven > 0) {
+            String format = " positional argument%s"
+                    + " (and %d keyword-only argument%s)";
+            givenText = String.format(format, //
+                    posGiven != 1 ? "s" : "", kwGiven,
+                    kwGiven != 1 ? "s" : "");
+        } else {
+            givenText = "";
+        }
+
+        return new TypeError(
+                "%s() takes %s positional argument%s but %d%s %s given",
+                code.name, posText, posPlural ? "s" : "", posGiven,
+                givenText,
+                (posGiven == 1 && kwGiven == 0) ? "was" : "were");
+    }
+
     /**
      * Diagnose an unexpected keyword occurring in a call and represent
      * the problem as an exception. The particular keyword may
@@ -405,16 +934,10 @@ abstract class PyFrame implements PyObject {
         List<String> names = new ArrayList<>();
         for (int k = 0; k < code.posonlyargcount; k++) {
             PyObject varname = code.varnames.value[k];
-            for (PyObject kw : kwnames) {
-                try {
-                    if (Abstract.richCompareBool(varname, kw,
-                            Comparison.EQ))
-                        names.add(kw.toString());
-                } catch (Throwable e) {
-                    // They're both str. This really can't happen.
-                    throw new InterpreterError(KEYWORD_NOT_COMPARABLE,
-                            kw);
-                }
+            for (PyObject keyword : kwnames) {
+                if (Abstract.richCompareBool(varname, keyword,
+                        Comparison.EQ, null))
+                    names.add(keyword.toString());
             }
         }
 
@@ -425,176 +948,6 @@ abstract class PyFrame implements PyObject {
         } else {
             // No match, so it is just unexpected altogether
             return new TypeError(UNEXPECTED_KEYWORD, code.name, name);
-
-        }
-    }
-
-    static final String KEYWORD_NOT_STRING =
-            "%.200s(): keywords must be strings";
-    static final String KEYWORD_NOT_COMPARABLE =
-            "Keyword names %s not comparable.";
-    static final String MULTIPLE_VALUES =
-            "%.200s(): multiple values for argument '%s'";
-    static final String POSITIONAL_ONLY =
-            "%.200s(): positional-only arguments passed by keyword: %s";
-    static final String UNEXPECTED_KEYWORD =
-            "%.200s(): unexpected keyword argument '%s'";
-
-    void checkTooManyPositionalArgs(PyTuple args, PyTuple defaults) {
-        /*
-         * Check the number of positional arguments. We do it here so
-         * that tooManyPositional(), can describe the call including
-         * keyword arguments.
-         */
-        int nargs = args.value.length;
-        if ((nargs > code.argcount)
-                && !(code.traits.contains(Trait.VARARGS))) {
-            // Excess positional arguments but no VARARGS for them.
-            throw tooManyPositional(nargs, defaults.value.length);
-        }
-    }
-
-    /*
-     * Compare CPython ceval.c::too_many_positional(). Unlike that
-     * function, on diagnosing a problem, we do not have to set a
-     * message and return status. Also, when called there is *always* a
-     * problem, and therefore an exception.
-     */
-    // XXX Do not report kw arguments given: unnatural constraint.
-    /*
-     * The caller must defer the test until after kw processing, just so
-     * the actual kw-args given can be reported accurately. Otherwise,
-     * the test could be after (or part of) positional argument
-     * processing.
-     */
-    protected TypeError tooManyPositional(int positionalGiven,
-            int defcount) {
-        boolean plural = false;
-        int kwonlyGiven = 0;
-        String takesText, givenText;
-        int co_argcount = code.argcount;
-
-        assert (!code.traits.contains(Trait.VARARGS));
-
-        // Count missing keyword-only args.
-        for (int i = co_argcount; i < co_argcount + code.kwonlyargcount;
-                i++) {
-            if (getLocal(i) != null) { kwonlyGiven++; }
-        }
-
-        if (defcount != 0) {
-            int atleast = co_argcount - defcount;
-            plural = true;
-            takesText = String.format("from %d to %d", atleast,
-                    co_argcount);
-        } else {
-            plural = (co_argcount != 1);
-            takesText = String.format("%d", co_argcount);
-        }
-
-        if (kwonlyGiven > 0) {
-            String format =
-                    " positional argument%s (and %d keyword-only argument%s)";
-            givenText = String.format(format,
-                    positionalGiven != 1 ? "s" : "", kwonlyGiven,
-                    kwonlyGiven != 1 ? "s" : "");
-        } else {
-            givenText = "";
-        }
-
-        return new TypeError(
-                "%s() takes %s positional argument%s but %d%s %s given",
-                code.name, takesText, plural ? "s" : "",
-                positionalGiven, givenText,
-                (positionalGiven == 1 && kwonlyGiven == 0) ? "was"
-                        : "were");
-    }
-
-    /**
-     * Deal with too many or too few arguments. A check is made for too
-     * many positional arguments (and no VARARGS code trait), which
-     * would be an error. In the case of too few positional arguments,
-     * or missing keyword arguments, an attempt is made to fill them
-     * from {@code defdaults} or {@code kwdefs}. If any parameters are
-     * unfilled after that, this is an error.
-     *
-     * The positional arguments {@code args} are provided only for their
-     * number.
-     *
-     * @param args arguments given
-     * @param defaults default values by position or {@code null}
-     * @param kwdefs default values by keyword or {@code null}
-     * @throws TypeError if there are too many or missing arguments.
-     */
-    void applyDefaults(PyTuple args, PyTuple defaults,
-            PyDict kwdefs) throws TypeError {
-
-        int nargs = args.value.length;
-        int ndefs = defaults == null ? 0 : defaults.value.length;
-        int end = code.argcount + code.kwonlyargcount;
-
-        /*
-         * Check the number of positional arguments. We do it here so
-         * that tooManyPositional(), can describe the call including
-         * keyword arguments.
-         */
-        if ((nargs > code.argcount)
-                && !(code.traits.contains(Trait.VARARGS))) {
-            // Excess positional arguments but no VARARGS for them.
-            throw tooManyPositional(nargs, ndefs);
-        }
-
-        /*
-         * Provide missing positional arguments (if any) from defaults
-         */
-        if (nargs < code.argcount) {
-            /*
-             * At this stage, the first nargs parameter slots have been
-             * filled and some (or all) of the remaining
-             * code.argcount-nargs positional arguments may have been
-             * assigned using keyword arguments. Meanwhile, defs is
-             * available to provide values for (only) the last
-             * defs.length positional arguments.
-             */
-            // locals[nargs:m] have no default values, where:
-            int m = code.argcount - ndefs;
-            int missing = 0;
-            for (int i = nargs; i < m; i++) {
-                if (getLocal(i) == null) { missing++; }
-            }
-            if (missing > 0) { missing_arguments(missing, ndefs); }
-
-            /*
-             * Variables in locals[m:code.argcount] may take defaults
-             * from defs, but perhaps nargs > m. Begin at index nargs,
-             * but not necessarily at the start of defs.
-             */
-            for (int i = nargs, j = Math.max(nargs - m, 0); j < ndefs;
-                    i++, j++) {
-                if (getLocal(i) == null) {
-                    setLocal(i, defaults.value[j]);
-                }
-            }
-        }
-
-        /*
-         * Provide missing keyword arguments (if any) from defaults
-         */
-        if (code.kwonlyargcount > 0) {
-            /*
-             * Variables in locals[code.argcount:total_args] are
-             * keyword-only arguments. If they have not been assigned
-             * yet, they take values from dict kwdefs.
-             */
-            PyObject[] varnames = code.varnames.value;
-            int missing = 0;
-            for (int i = code.argcount; i < end; i++) {
-                PyObject value = getLocal(i);
-                if (value == null && kwdefs != null)
-                    setLocal(i, value = kwdefs.get(varnames[i]));
-                if (value == null) { missing++; }
-            }
-            if (missing > 0) { missing_arguments(missing, -1); }
         }
     }
 
@@ -613,89 +966,70 @@ abstract class PyFrame implements PyObject {
      * message and return status so the caller can "goto fail" and clean
      * up. We can just throw directly.
      */
-    private TypeError missing_arguments(int missing, int defcount) {
-        int i, j = 0;
+    protected TypeError missingArguments(int missing, int defcount) {
+        String kind;
         int start, end;
-        boolean positional = (defcount != -1);
-        String kind = positional ? "positional" : "keyword-only";
-        ArrayList<String> missing_names = new ArrayList<>(missing);
 
-        if (positional) {
+        // Choose the range in which to look for null arguments
+        if (defcount >= 0) {
+            kind = "positional";
             start = 0;
             end = code.argcount - defcount;
         } else {
+            kind = "keyword-only";
             start = code.argcount;
             end = start + code.kwonlyargcount;
         }
-        for (i = start; i < end; i++) {
+
+        // Make a list of names from that range where value is null
+        ArrayList<String> names = new ArrayList<>(missing);
+        for (int i = start, j = 0; i < end; i++) {
             if (getLocal(i) == null) {
-                String name = code.varnames.value[i].toString();
-                missing_names.add(j++, name);
+                names.add(j++, code.varnames.value[i].toString());
             }
         }
-        assert (j == missing);
-        return format_missing(kind, missing_names);
 
+        // Formulate an error from the list
+        return missingNamesTypeError(kind, names);
     }
 
+    /** Compose a {@link TypeError} from the missing argument names. */
     /*
      * Compare CPython ceval.c::format_missing(). Unlike that function,
      * on diagnosing a problem, we do not have to set a message and
      * return status so the caller can "goto fail" and clean up. We can
      * just throw directly.
      */
-    private TypeError format_missing(String kind,
+    private TypeError missingNamesTypeError(String kind,
             ArrayList<String> names) {
         int len = names.size();
-        String name_str, tail;
+        String joinedNames;
 
-        assert (len >= 1);
-        /* Deal with the joys of natural language. */
         switch (len) {
+            case 0:
+                // Shouldn't happen but let's avoid trouble
+                joinedNames = "";
+                break;
             case 1:
-                name_str = names.get(0);
+                joinedNames = names.get(0);
                 break;
             case 2:
-                name_str = String.format("%s and %s",
+                joinedNames = String.format("%s and %s",
                         names.get(len - 2), names.get(len - 1));
                 break;
             default:
-                tail = String.format(", %s and %s", names.get(len - 2),
-                        names.get(len - 1));
+                String tail = String.format(", %s and %s",
+                        names.get(len - 2), names.get(len - 1));
                 // Chop off the last two objects in the list.
                 names.remove(len - 1);
                 names.remove(len - 2);
-
-                // Stitch everything up in a nice comma-separated list.
-                name_str = String.join(", ", names) + tail;
+                // Stitch everything into a nice comma-separated list.
+                joinedNames = String.join(", ", names) + tail;
         }
 
         return new TypeError(
                 "%s() missing %i required %s argument%s: %s", code.name,
-                len, kind, len == 1 ? "" : "s", name_str);
-    }
-
-    /**
-     * Create cells for non-local variables bound to the current scope.
-     *
-     * This must come after all argument processing because of the
-     * possibility that one of the arguments binds a cell variable
-     * required in a nested scope. It's value must be present, and could
-     * have been set by any mechanism.
-     */
-    void makeCells() {
-        for (int i = 0; i < code.cellvars.value.length; ++i) {
-            int arg;
-            // Perhaps the cell variable is also an argument.
-            if (code.cell2arg != null && (arg =
-                    code.cell2arg[i]) != PyCode.CELL_NOT_AN_ARG) {
-                makeCell(i, getLocal(arg));
-                // Clear the direct reference.
-                setLocal(arg, null);
-            } else {
-                makeCell(i, null);
-            }
-        }
+                len, kind, len == 1 ? "" : "s", joinedNames);
     }
 
 }

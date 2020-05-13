@@ -701,16 +701,16 @@ because of the need to unstack all the optional arguments,
 but it lands fairly directly in the constructor of this class:
 
 ..  code-block:: java
-    :emnphasize-lines: 16
+    :emphasize-lines: 16, 20
 
     class PyFunction implements PyObject {
         static final PyType TYPE = new PyType("function", PyFunction.class);
         ...
         PyCode code;
         final PyDict globals;
-        PyTuple defaults;
+        PyTuple defaults = PyTuple.EMPTY;
         PyDict kwdefaults;
-        PyTuple closure;
+        PyTuple closure = PyTuple.EMPTY;
         PyObject doc;
         PyUnicode name;
         PyDict dict;
@@ -720,10 +720,8 @@ but it lands fairly directly in the constructor of this class:
 
         final Interpreter interpreter;
 
-        // Compare PyFunction_NewWithQualName + explicit interpreter
         PyFunction(Interpreter interpreter, PyCode code, PyDict globals,
                 PyUnicode qualname) {
-            // The defining interpreter is the one that called this.
             this.interpreter = interpreter;
             this.code = code;
             this.globals = globals;
@@ -731,23 +729,15 @@ but it lands fairly directly in the constructor of this class:
             ...
         }
 
-        // Compare PyFunction_NewWithQualName
-        PyFunction(PyCode code, PyDict globals, PyUnicode qualname) {
-            // The defining interpreter is the one that called this.
-            this(Interpreter.get(), code, globals, qualname);
-        }
-
         // slot functions -------------------------------------------------
 
         static PyObject tp_call(PyFunction func, PyTuple args,
                 PyDict kwargs) throws Throwable {
-            return func.call(args, kwargs);
-        }
-
-        /** Implementation of function call for "classic" arguments. */
-        PyObject call(PyTuple args, PyDict kwargs) {
-            ...
-            return f.eval();
+            PyFrame frame = func.code.createFrame(func.interpreter,
+                    func.globals, func.closure);
+            frame.prepare(args, kwargs, func.defaults, func.kwdefaults);
+            frame.push();
+            return frame.eval();
         }
         ...
         @Override
@@ -756,35 +746,73 @@ but it lands fairly directly in the constructor of this class:
         }
     }
 
-The CPython equivalent is ``PyFunction_NewWithQualName``.
-Different from CPython,
+The CPython equivalent is ``PyFunctionObject``
+and the construction of it is at ``PyFunction_NewWithQualName``.
+CPython allows most of the member fields to be ``NULL`` if they are not used,
+for example closure and defaults,
+but we find it slightly simpler if they contain a valid but empty object,
+in those cases an empty ``tuple``.
+
+In an important design difference from CPython,
 we explicitly store the interpreter that is current at the time of definition.
 This is so that body code executes with the same "import context",
 wherever it is called from.
 
-Call site
-=========
+Classic call site
+=================
 
+We shall take a fairly complicated example that leads to classic call::
 
-..  code-block:: java
+    def f(x, y, *args):
+        return x * y + args[0] * args[1]
+    y = f(u+1, v-1, *args)
 
+..  code-block:: none
 
-..  code-block:: java
+    1           0 LOAD_CONST               0 (<code object f at ... >)
+                2 LOAD_CONST               1 ('f')
+                4 MAKE_FUNCTION            0
+                6 STORE_NAME               0 (f)
 
+    3           8 LOAD_NAME                0 (f)
+               10 LOAD_NAME                1 (u)
+               12 LOAD_CONST               2 (1)
+               14 BINARY_ADD
+               16 LOAD_NAME                2 (v)
+               18 LOAD_CONST               2 (1)
+               20 BINARY_SUBTRACT
+               22 BUILD_TUPLE              2
+               24 LOAD_NAME                3 (args)
+               26 BUILD_TUPLE_UNPACK_WITH_CALL     2
+               28 CALL_FUNCTION_EX         0
+               30 STORE_NAME               4 (y)
+               32 LOAD_CONST               3 (None)
+               34 RETURN_VALUE
 
-``PyFrame`` layout
-==================
+As we have seen, the opcode ``CALL_FUNCTION_EX``
+presents the positional arguments as a single tuple to ``Callables.call()``,
+and in this case there are no keyword arguments,
+so the keyword arguments dictionary is ``null``.
+As the callable is a ``PyFunction``,
+we end up at ``PyFunction.call`` with these arguments.
 
-
-..  code-block:: java
-
-
-..  code-block:: java
-
-
+This brings us to the problem of getting these arguments,
+and the default values from the function definition,
+into the right local variables of the frame.
+There is quite some scope for the arguments not to match the definition.
+In CPython, around 500 lines of ``ceval.c`` are devoted to this,
+and to handling the errors that may arise,
+and another 100 in ``call.c`` preparing to do so.
 
 Processing a classic call
-========================
+=========================
+
+The objective of the processing in ``PyFunction.call``
+is to prepare a frame in which arguments, default values and the closure
+have initialise the local variables.
+We may then call ``eval()`` on that frame.
+
+
 
 
 

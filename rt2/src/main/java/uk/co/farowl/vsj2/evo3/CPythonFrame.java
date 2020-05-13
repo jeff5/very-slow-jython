@@ -92,7 +92,7 @@ class CPythonFrame extends PyFrame {
         this.valuestack = new PyObject[code.stacksize];
         int n = code.cellvars.value.length;
         this.cellvars = n > 0 ? new PyCell[n] : EMPTY_CELL_ARRAY;
-        if (closure == null)
+        if (closure.value.length == 0)
             this.freevars = EMPTY_CELL_ARRAY;
         else
             this.freevars = Arrays.copyOf(closure.value,
@@ -120,21 +120,26 @@ class CPythonFrame extends PyFrame {
      * {@link #fastlocals} directly.
      */
     @Override
+    int setPositionalArguments(PyObject[] stack, int start,
+            int nargs) {
+        // Copy the allowed number (or fewer)
+        int n = Math.min(nargs, code.argcount);
+        System.arraycopy(stack, start, fastlocals, 0, n);
+        return n;
+    }
+
+    /**
+     * {@inheritDoc}
+     * <p>
+     * Optimised version for {@code CPythonFrame} copying to
+     * {@link #fastlocals} directly.
+     */
+    @Override
     int setPositionalArguments(PyTuple args) {
         // Copy the allowed number (or fewer)
         int nargs = args.value.length;
         int n = Math.min(nargs, code.argcount);
         System.arraycopy(args.value, 0, fastlocals, 0, n);
-        if (code.traits.contains(Trait.VARARGS)) {
-            // Locate the * argument and put any excess there
-            int varIndex = code.argcount + code.kwonlyargcount;
-            if (nargs > n)
-                fastlocals[varIndex] =
-                        new PyTuple(args.value, n, nargs - n);
-            else
-                fastlocals[varIndex] = PyTuple.EMPTY;
-        }
-        // Return number copied to locals
         return n;
     }
 
@@ -342,7 +347,7 @@ class CPythonFrame extends PyFrame {
 
                     case Opcode.BUILD_MAP:
                         map = Py.dict();
-                        while (--oparg > 0) {
+                        while (--oparg >= 0) {
                             v = valuestack[--sp]; // POP
                             name = valuestack[--sp]; // POP
                             map.put(name, v);
@@ -407,16 +412,16 @@ class CPythonFrame extends PyFrame {
                                     new PyFunction(interpreter,
                                             (PyCode) valuestack[--sp],
                                             globals, (PyUnicode) name);
-                            if ((oparg & 8) == 0)
+                            if ((oparg & 8) != 0)
                                 pyfunc.setClosure(
                                         (PyTuple) valuestack[--sp]);
-                            if ((oparg & 4) == 0)
+                            if ((oparg & 4) != 0)
                                 pyfunc.setAnnotations(
                                         (PyDict) valuestack[--sp]);
-                            if ((oparg & 2) == 0)
+                            if ((oparg & 2) != 0)
                                 pyfunc.setKwdefaults(
                                         (PyDict) valuestack[--sp]);
-                            if ((oparg & 1) == 0)
+                            if ((oparg & 1) != 0)
                                 pyfunc.setDefaults(
                                         (PyTuple) valuestack[--sp]);
                             valuestack[sp++] = pyfunc; // PUSH
@@ -439,14 +444,14 @@ class CPythonFrame extends PyFrame {
 
                     case Opcode.BUILD_TUPLE_UNPACK_WITH_CALL:
                         // func | x[n] | --> func | z |
-                        // -------------^sp ----------^sp
+                        // -------------^sp -----------^sp
                     case Opcode.BUILD_TUPLE_UNPACK:
                     case Opcode.BUILD_LIST_UNPACK:
                         // x[n] | --> z |
-                        // ------^sp ---^sp
+                        // ------^sp ----^sp
                         // oparg = n
                         // z = sum(x) where each x[i] is iterable
-                        sp -= oparg;
+                        sp -= oparg; // STACK_SHRINK(oparg)
                         PyList sum = Py.list();
                         for (int i = 0; i < oparg; i++) {
                             v = valuestack[sp + i];
@@ -465,6 +470,69 @@ class CPythonFrame extends PyFrame {
                         valuestack[sp++] = // PUSH
                                 opcode == Opcode.BUILD_LIST_UNPACK ? sum
                                         : PyTuple.fromList(sum);
+                        break;
+
+                    case Opcode.BUILD_MAP_UNPACK:
+                        // x[n] | --> map |
+                        // ------^sp ------^sp
+                        // oparg = n
+                        // map = sum(x) where each x[i] is a mapping
+                        map = Py.dict();
+                        sp -= oparg; // STACK_SHRINK(oparg)
+                        for (int i = 0, j = sp; i < oparg; i++) {
+                            v = valuestack[j++];
+                            try {
+                                map.update(v);
+                            } catch (AttributeError e) {
+                                throw Abstract.typeError(
+                                        "'%.200s' object is not a mapping",
+                                        v);
+
+                            }
+                        }
+                        valuestack[sp++] = map; // PUSH
+                        break;
+
+                    case Opcode.BUILD_MAP_UNPACK_WITH_CALL:
+                        // func | a | x[n] | --> func | a | map |
+                        // -----------------^sp -----------------^sp
+                        // oparg = n
+                        // map = sum(x) where each x[i] is a mapping
+                        // Like BUILD_MAP_UNPACK tailored to calls
+                        map = Py.dict();
+                        sp -= oparg; // STACK_SHRINK(oparg)
+                        for (int i = 0, j = sp; i < oparg; i++) {
+                            v = valuestack[j++];
+                            try {
+                                // Duplicates are an error
+                                map.merge(v, PyDict.MergeMode.UNIQUE);
+                            } catch (PyException e) {
+                                // throw tailored error
+                                func = valuestack[sp - 2];
+                                format_kwargs_error(e, func, v);
+                            }
+                        }
+                        valuestack[sp++] = map; // PUSH
+                        break;
+
+
+                    case Opcode.BUILD_CONST_KEY_MAP:
+                        // values[n] | keys | --> map |
+                        // ------------------^sp ------^sp
+                        // oparg = n, keys is a tuple of n names
+                        map = Py.dict();
+                        v = valuestack[--sp]; // POP
+                        sp -= oparg; // STACK_SHRINK(oparg)
+                        try {
+                            PyObject[] keys = ((PyTuple) v).value;
+                            if (keys.length != oparg)
+                                throw new ValueError("length");
+                            for (int i = 0, j = sp; i < oparg; i++)
+                                map.put(keys[i], valuestack[j++]);
+                        } catch (ClassCastException | ValueError e) {
+                            throw new SystemError(BAD_MAP_KEYS);
+                        }
+                        valuestack[sp++] = map; // PUSH
                         break;
 
                     default:
@@ -521,13 +589,58 @@ class CPythonFrame extends PyFrame {
             return;
         if (Sequence.check(args))
             return;
-        throw new TypeError(ARGUMENT_AFTER_STAR, getFuncName(func),
-                getFuncDesc(func), args.getType().name);
+        throw new TypeError(ARGUMENT_AFTER_STAR,
+                getFuncName(func),
+                getFuncDesc(func),
+                args.getType().name);
+    }
+
+    /**
+     * Depending on the particular type of an exception {@code e} raised
+     * when processing the {@code kwargs} to function {@code func},
+     * throw an appropriate {@link TypeError}.
+     */
+    private void format_kwargs_error(PyException e, PyObject func,
+            PyObject kwargs) {
+        if (e instanceof AttributeError) {
+            throw new TypeError(ARGUMENT_AFTER_STARSTAR,
+                    getFuncName(func), getFuncDesc(func),
+                    kwargs.getType().name);
+        } else if (e instanceof KeyError) {
+            // In the circumstances, KeyError should signify duplicate
+            KeyError ke = (KeyError) e;
+            if (ke.key != null) {
+                if (ke.key instanceof PyUnicode) {
+                    throw new TypeError(MULTIPLE_VALUES,
+                            getFuncName(func), getFuncDesc(func),
+                            ke.key);
+                } else {
+                    throw new TypeError(MUST_BE_STRINGS,
+                            getFuncName(func), getFuncDesc(func));
+                }
+            } else
+                // Some other kind of KeyError: let it explain itself.
+                throw ke;
+        } else
+            // Something else went wrong: let it explain itself.
+            throw e;
     }
 
     private static final String ARGUMENT_AFTER_STAR =
             "%.200s%.200s argument after * "
                     + "must be an iterable, not %.200s";
+    private static final String ARGUMENT_AFTER_STARSTAR =
+            "%.200s%.200s argument after ** "
+                    + "must be a mapping, not %.200s";
+    private static final String MUST_BE_STRINGS =
+            "%.200s%.200s keywords must be strings";
+    private static final String MULTIPLE_VALUES =
+            "%.200s%.200s got multiple "+
+            "values for keyword argument '%s'";
+    private static final String BAD_MAP_KEYS =
+            "bad BUILD_CONST_KEY_MAP keys argument";
+
+    // XXX move this error reporting stuff to base PyFrame
 
     private static String getFuncName(PyObject func) {
         // if (func instanceof PyMethod) return

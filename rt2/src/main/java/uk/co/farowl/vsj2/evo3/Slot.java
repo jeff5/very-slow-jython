@@ -41,7 +41,7 @@ enum Slot {
     sq_ass_item(Signature.SQ_ASSIGN), //
 
     mp_length(Signature.LEN, null, "length"), //
-    mp_subscript(Signature.BINARY), //
+    mp_subscript(Signature.SELFBINARY), //
     mp_ass_subscript(Signature.MP_ASSIGN);
 
     /** Method signature to match when filling this slot. */
@@ -169,12 +169,13 @@ enum Slot {
         UNARY(O, S), // nb_negative, nb_invert
         BINARY(O, O, O), // +, -, u[v]
         TERNARY(O, S, O, O), // **
-        CALL(O, S, TUPLE, DICT), // **
+        CALL(O, S, TUPLE, DICT), // u(*args, **kwargs)
         PREDICATE(B, S), // nb_bool
         LEN(I, S), // sq_length
         RICHCMP(O, S, O, CMP), // (richcmpfunc) tp_richcompare only
         SQ_INDEX(O, S, I), // (ssizeargfunc) sq_item, sq_repeat only
         SQ_ASSIGN(V, S, I, O), // (ssizeobjargproc) sq_ass_item only
+        SELFBINARY(O, S, O), // (binaryfunc?) mp_subscript
         MP_ASSIGN(V, S, O, O); // (objobjargproc) mp_ass_subscript only
 
         /**

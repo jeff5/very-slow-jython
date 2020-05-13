@@ -510,7 +510,7 @@ class PyByteCode5 {
         Py.bytes(10, 2, 14, 1));
     //@formatter:on
 
-    // @Test
+    @Test
     void test_def_func_dict1() {
         //@formatter:off
         PyDict globals = Py.dict();
@@ -639,7 +639,7 @@ class PyByteCode5 {
         Py.bytes(16, 2, 14, 1, 24, 1, 26, 1));
     //@formatter:on
 
-    // @Test
+    @Test
     void test_def_func_tuple_dict1() {
         //@formatter:off
         PyDict globals = Py.dict();
