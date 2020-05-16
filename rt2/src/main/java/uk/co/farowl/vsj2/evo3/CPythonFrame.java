@@ -120,12 +120,10 @@ class CPythonFrame extends PyFrame {
      * {@link #fastlocals} directly.
      */
     @Override
-    int setPositionalArguments(PyObject[] stack, int start,
+    void setPositionalArguments(PyObject[] stack, int start,
             int nargs) {
-        // Copy the allowed number (or fewer)
         int n = Math.min(nargs, code.argcount);
         System.arraycopy(stack, start, fastlocals, 0, n);
-        return n;
     }
 
     /**
@@ -135,16 +133,15 @@ class CPythonFrame extends PyFrame {
      * {@link #fastlocals} directly.
      */
     @Override
-    int setPositionalArguments(PyTuple args) {
-        // Copy the allowed number (or fewer)
-        int nargs = args.value.length;
-        int n = Math.min(nargs, code.argcount);
+    void setPositionalArguments(PyTuple args) {
+        int n = Math.min(args.value.length, code.argcount);
         System.arraycopy(args.value, 0, fastlocals, 0, n);
-        return n;
     }
 
     @Override
     PyObject eval() {
+        // Push the frame to the stack
+        push();
         // Evaluation stack index
         int sp = this.stacktop;
         // Cached references from code
@@ -267,8 +264,8 @@ class CPythonFrame extends PyFrame {
                             if (v == null) {
                                 v = builtins.get(name);
                                 if (v == null)
-                                    throw new PyException(
-                                            NAME_ERROR_MSG, name);
+                                    throw new NameError(NAME_ERROR_MSG,
+                                            name);
                             }
                         }
                         valuestack[sp++] = v; // PUSH
@@ -353,6 +350,18 @@ class CPythonFrame extends PyFrame {
                             map.put(name, v);
                         }
                         valuestack[sp++] = map; // PUSH
+                        break;
+
+                    case Opcode.LOAD_GLOBAL:
+                        name = names.getItem(oparg);
+                        v = globals.get(name);
+                        if (v == null) {
+                            v = builtins.get(name);
+                            if (v == null)
+                                throw new NameError(NAME_ERROR_MSG,
+                                        name);
+                        }
+                        valuestack[sp++] = v; // PUSH
                         break;
 
                     case Opcode.LOAD_FAST:

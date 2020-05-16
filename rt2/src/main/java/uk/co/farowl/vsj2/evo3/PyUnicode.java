@@ -1,5 +1,7 @@
 package uk.co.farowl.vsj2.evo3;
 
+import java.math.BigInteger;
+
 /** The Python {@code str} object. */
 class PyUnicode implements PyObject, Comparable<PyUnicode> {
 
@@ -19,7 +21,6 @@ class PyUnicode implements PyObject, Comparable<PyUnicode> {
     @Override
     public String toString() { return value.toString(); }
 
-
     @Override
     public int compareTo(PyUnicode o) {
         return value.compareTo(o.value);
@@ -37,18 +38,32 @@ class PyUnicode implements PyObject, Comparable<PyUnicode> {
 
     static int length(PyUnicode s) { return s.value.length(); }
 
-    static PyObject tp_richcompare(PyUnicode self, PyObject other, Comparison op) {
+    static PyObject tp_richcompare(PyUnicode self, PyObject other,
+            Comparison op) {
         if (other instanceof PyUnicode)
-            return  op.toBool(self.compareTo((PyUnicode)other));
+            return op.toBool(self.compareTo((PyUnicode) other));
         else
             return Py.NotImplemented;
+    }
+
+    static PyObject sq_repeat(PyUnicode self, int i) {
+        try {
+            if (i < 1)
+                return EMPTY;
+            else if (i > 1)
+                return Py.str(self.value.repeat(i));
+            else
+                return self;
+        } catch (OutOfMemoryError e) {
+            throw new IndexError("str index out of range");
+        }
     }
 
     static PyObject sq_item(PyUnicode self, int i) {
         try {
             return new PyUnicode(self.value.charAt(i));
         } catch (IndexOutOfBoundsException e) {
-            throw new IndexError("str index out of range");
+            throw new OverflowError("repeated string is too long");
         }
     }
 
@@ -64,4 +79,9 @@ class PyUnicode implements PyObject, Comparable<PyUnicode> {
         else
             throw Abstract.indexTypeError(self, item);
     }
+
+    // Support methods -----------------------------------------------
+
+    static PyUnicode EMPTY = new PyUnicode("");
+
 }

@@ -24,6 +24,7 @@ enum Slot {
     tp_str(Signature.UNARY), //
     tp_richcompare(Signature.RICHCMP), //
     tp_iter(Signature.UNARY), //
+    tp_vectorcall(Signature.VECTORCALL), //
 
     nb_negative(Signature.UNARY, "-", "neg"), //
     nb_add(Signature.BINARY, "+", "add"), //
@@ -170,6 +171,7 @@ enum Slot {
         BINARY(O, O, O), // +, -, u[v]
         TERNARY(O, S, O, O), // **
         CALL(O, S, TUPLE, DICT), // u(*args, **kwargs)
+        VECTORCALL(O, S, OA, I, I, TUPLE), // u(x, y, ..., a=z)
         PREDICATE(B, S), // nb_bool
         LEN(I, S), // sq_length
         RICHCMP(O, S, O, CMP), // (richcmpfunc) tp_richcompare only

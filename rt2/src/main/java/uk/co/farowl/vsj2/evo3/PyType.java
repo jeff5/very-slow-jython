@@ -36,6 +36,7 @@ class PyType implements PyObject {
 
     // Standard type slots table see CPython PyTypeObject
 
+    MethodHandle tp_vectorcall;
     MethodHandle tp_repr;
     MethodHandle tp_hash;
     MethodHandle tp_call;

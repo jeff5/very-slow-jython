@@ -191,7 +191,7 @@ class PyByteCode5 {
         Py.bytes(8, 2));
     //@formatter:on
 
-    // @Test
+    @Test
     void test_def_func1() {
         //@formatter:off
         PyDict globals = Py.dict();
@@ -202,7 +202,7 @@ class PyByteCode5 {
         //@formatter:on
     }
 
-    // @Test
+    @Test
     void test_def_func2() {
         //@formatter:off
         PyDict globals = Py.dict();
