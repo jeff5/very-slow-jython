@@ -169,6 +169,10 @@ class CPythonFrame extends PyFrame {
                         valuestack[sp - 2] = v; // SET_SECOND
                         break;
 
+                    case Opcode.DUP_TOP:
+                        valuestack[sp] = valuestack[sp++ - 1]; // DUP
+                        break;
+
                     case Opcode.UNARY_NEGATIVE:
                         v = valuestack[sp - 1]; // TOP
                         res = Number.negative(v);

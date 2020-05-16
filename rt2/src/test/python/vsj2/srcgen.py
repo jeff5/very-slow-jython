@@ -496,7 +496,7 @@ class PyObjectTestEmitterEvo3(PyObjectTestEmitter):
         with self.writer.indentation():
             self.writer.emit_line("//@formatter:off")
             # Load the global name space with the test case values
-            self.writer.emit_line("PyDictionary globals = Py.dict();")
+            self.writer.emit_line("PyDict globals = Py.dict();")
             for k, v in before.items():
                 self.writer.emit_line("globals.put(")
                 with self.writer.indentation():

@@ -181,6 +181,29 @@ def p(eins, zwei):
 result = p(1, 2)
 
 
+# factorial_recurse:
+n = 6
+n = 10
+# ? r
+# Compute factorial by recursion
+def fac(n):
+    return fac(n-1) * n if n else 1
+
+r = fac(n)
+
+# factorial_loop:
+n = 6
+n = 10
+# ? r
+# Compute factorial by a loop
+def fac(n):
+    r = n
+    while (n := n - 1) > 1:
+        r = r * n
+    return r
+
+r = fac(n)
+
 
 # closprog_local:
 
