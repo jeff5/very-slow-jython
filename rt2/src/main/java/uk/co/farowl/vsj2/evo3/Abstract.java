@@ -30,7 +30,8 @@ class Abstract {
         else if (v == Py.False || v == Py.None)
             return false;
         else {
-            // Ask the object type through the nb_bool or sq_length slots
+            // Ask the object type through the nb_bool or sq_length
+            // slots
             PyType t = v.getType();
             if (Slot.nb_bool.isDefinedFor(t))
                 return (boolean) t.nb_bool.invokeExact(v);
@@ -39,7 +40,7 @@ class Abstract {
             else if (Slot.sq_length.isDefinedFor(t))
                 return 0 != (int) t.sq_length.invokeExact(v);
             else
-                // No nb_bool and no sq_length: claim everything is True.
+                // No nb_bool and no length: claim everything is True.
                 return true;
         }
     }
@@ -48,8 +49,8 @@ class Abstract {
      * Perform a rich comparison, raising {@code TypeError} when the
      * requested comparison operator is not supported.
      */
-    static PyObject do_richcompare(PyObject v, PyObject w,
-            Comparison op) throws Throwable {
+    static PyObject richCompare(PyObject v, PyObject w, Comparison op)
+            throws Throwable {
         PyType vType = v.getType();
         PyType wType = w.getType();
 
@@ -68,7 +69,8 @@ class Abstract {
             if (r != Py.NotImplemented) { return r; }
         }
 
-        if (!checkedReverse && (f = wType.tp_richcompare) != RICH_EMPTY) {
+        if (!checkedReverse
+                && (f = wType.tp_richcompare) != RICH_EMPTY) {
             PyObject r = (PyObject) f.invokeExact(w, v, op.swapped());
             if (r != Py.NotImplemented) { return r; }
         }
@@ -95,19 +97,12 @@ class Abstract {
                 w.getType().getName());
     }
 
-    static PyObject richCompare(PyObject v, PyObject w, Comparison op)
-            throws Throwable {
-        PyObject res;
-        res = do_richcompare(v, w, op);
-        return res;
-    }
-
     /**
      * Perform a rich comparison with boolean result. This wraps
-     * {@link #richCompare(PyObject, PyObject, Comparison)},
-     * converting the result to Java
-     * {@code false} or {@code true}, or throwing (probably
-     * {@link TypeError}), when the objects cannot be compared.
+     * {@link #richCompare(PyObject, PyObject, Comparison)}, converting
+     * the result to Java {@code false} or {@code true}, or throwing
+     * (probably {@link TypeError}), when the objects cannot be
+     * compared.
      */
     static boolean richCompareBool(PyObject v, PyObject w,
             Comparison op) throws Throwable {
