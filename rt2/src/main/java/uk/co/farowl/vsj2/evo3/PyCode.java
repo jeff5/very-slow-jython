@@ -1,6 +1,7 @@
 package uk.co.farowl.vsj2.evo3;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.EnumSet;
 
 /**
@@ -139,14 +140,16 @@ abstract class PyCode implements PyObject {
         this.freevars = names(freevars);
         this.cellvars = names(cellvars);
 
-        this.cell2arg = null;
-
         this.filename = filename;
         this.name = name;
         this.firstlineno = firstlineno;
         this.lnotab = lnotab;
 
         this.traits = traitsFrom(flags);
+        if (varnames.size() != nlocals)
+            throw new ValueError("code: varnames is too small");
+
+        this.cell2arg = calcCell2arg();
     }
 
     /**
@@ -182,6 +185,40 @@ abstract class PyCode implements PyObject {
                         String.format("Non-unicode name: {}", name));
         }
         return tuple;
+    }
+
+    /**
+     * Create mapping between cells and arguments if needed. Helper for
+     * constructor. Returns {@code null} if the mapping is not needed.
+     */
+    private int[] calcCell2arg() {
+        // Return array (lazily created on first finding we need one)
+        int[] cell2arg = null;
+        int ncells = cellvars.size();
+        if (ncells > 0) {
+            // This many of the varnames are arguments
+            int nargs = argcount + kwonlyargcount
+                    + (traits.contains(Trait.VARARGS) ? 1 : 0)
+                    + (traits.contains(Trait.VARKEYWORDS) ? 1 : 0);
+            // For each cell name, see if it matches an argument
+            for (int i = 0; i < ncells; i++) {
+                PyUnicode cellName = (PyUnicode) cellvars.getItem(i);
+                for (int j = 0; j < nargs; j++) {
+                    PyUnicode argName = (PyUnicode) varnames.getItem(j);
+                    if (cellName.equals(argName)) {
+                        // A match: enter it in the cell2arg array
+                        if (cell2arg == null) {
+                            // In which case the array had better exist.
+                            cell2arg = new int[ncells];
+                            Arrays.fill(cell2arg, CELL_NOT_AN_ARG);
+                        }
+                        cell2arg[i] = j;
+                        break;
+                    }
+                }
+            }
+        }
+        return cell2arg;
     }
 
     /**

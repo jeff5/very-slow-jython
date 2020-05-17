@@ -47,6 +47,7 @@ class PyType implements PyObject {
     // Number slots table see CPython PyNumberMethods
 
     MethodHandle nb_negative;
+    MethodHandle nb_absolute;
     MethodHandle nb_add;
     MethodHandle nb_subtract;
     MethodHandle nb_multiply;

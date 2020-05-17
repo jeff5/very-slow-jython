@@ -13,35 +13,39 @@ class CPythonFrame extends PyFrame {
     @Override
     public PyType getType() { return TYPE; }
 
+    /*
+     * Translation note: NB: in a CPython frame all local storage
+     * local:cell:free:valuestack is one array into which pointers are
+     * set during frame construction. For CPython byte code in Java,
+     * three arrays seems to suit, but for a pure Java frame 4 would be
+     * better.
+     */
+
     /**
+     * The concatenation of the cell and free variables (in that order).
+     * We place these in a single array, and use the slightly confusing
+     * CPython name, to maximise similarity with the CPython code for
+     * opcodes LOAD_DEREF, STORE_DEREF, etc..
+     * <p>
+     * Non-local variables used in the current scope <b>and</b> a nested
+     * scope are named in {@link PyCode#cellvars}. These come first.
+     * <p>
      * Non-local variables used in the current scope or a nested scope,
-     * <b>and</b> in an enclosing scope. These are named in
+     * <b>and</b> in an enclosing scope are named in
      * {@link PyCode#freevars}. During a call, these are provided in the
-     * closure.
+     * closure, copied to the end of this array.
      */
     final PyCell[] freevars;
-    /**
-     * Non-local variables used in the current scope <b>and</b> a nested
-     * scope. These are named in {@link PyCode#cellvars}.
-     */
-    final PyCell[] cellvars;
     /** Simple local variables, named in {@link PyCode#varnames}. */
     final PyObject[] fastlocals;
     /** Value stack. */
     final PyObject[] valuestack;
+
     /** Index of first empty space on the value stack. */
     int stacktop = 0;
 
     /** Assigned eventually by return statement (or stays None). */
     PyObject returnValue = Py.None;
-
-    private static final String NAME_ERROR_MSG =
-            "name '%.200s' is not defined";
-    private static final String UNBOUNDLOCAL_ERROR_MSG =
-            "local variable '%.200s' referenced before assignment";
-    private static final String UNBOUNDFREE_ERROR_MSG =
-            "free variable '%.200s' referenced before assignment"
-                    + " in enclosing scope";
 
     private static final PyCell[] EMPTY_CELL_ARRAY = new PyCell[0];
 
@@ -63,7 +67,6 @@ class CPythonFrame extends PyFrame {
         super(interpreter, code, globals, locals);
         this.valuestack = new PyObject[code.stacksize];
         freevars = EMPTY_CELL_ARRAY;
-        cellvars = EMPTY_CELL_ARRAY;
 
         // The need for a dictionary of locals depends on the code
         EnumSet<PyCode.Trait> traits = code.traits;
@@ -90,15 +93,18 @@ class CPythonFrame extends PyFrame {
         super(interpreter, code, globals);
         this.fastlocals = new PyObject[code.nlocals];
         this.valuestack = new PyObject[code.stacksize];
-        int n = code.cellvars.value.length;
-        this.cellvars = n > 0 ? new PyCell[n] : EMPTY_CELL_ARRAY;
-        if (closure.value.length == 0)
+        int ncells = code.cellvars.size(), nfree = code.freevars.size(),
+                n = ncells + nfree;
+        if (n == 0)
             this.freevars = EMPTY_CELL_ARRAY;
-        else
-            this.freevars = Arrays.copyOf(closure.value,
-                    closure.value.length, PyCell[].class);
-        assert (code.freevars.value.length == this.freevars.length);
-
+        else {
+            this.freevars = new PyCell[n];
+            if (nfree > 0) {
+                assert (nfree == closure.size());
+                System.arraycopy(closure.value, 0, this.freevars,
+                        ncells, nfree);
+            }
+        }
         // Assume this supports an optimised function
         assert (code.traits.contains(Trait.NEWLOCALS));
         assert (code.traits.contains(Trait.OPTIMIZED));
@@ -111,7 +117,7 @@ class CPythonFrame extends PyFrame {
     void setLocal(int i, PyObject v) { fastlocals[i] = v; }
 
     @Override
-    void makeCell(int i, PyObject v) { cellvars[i] = new PyCell(v); }
+    void makeCell(int i, PyObject v) { freevars[i] = new PyCell(v); }
 
     /**
      * {@inheritDoc}
@@ -156,12 +162,18 @@ class CPythonFrame extends PyFrame {
         PyObject name, res, u, v, w;
         PyObject func, args, kwargs;
         PyDict map;
+        PyCell cell;
+        PyTuple kwnames;
 
         loop : for (;;) {
             try {
 
                 // Interpret opcode
                 switch (opcode) {
+
+                    case Opcode.POP_TOP:
+                        sp -= 1;
+                        break;
 
                     case Opcode.ROT_TWO:
                         v = valuestack[sp - 1]; // TOP
@@ -248,6 +260,12 @@ class CPythonFrame extends PyFrame {
                                     "no locals found when storing '%s'",
                                     name);
                         locals.put(name, v);
+                        break;
+
+                    case Opcode.STORE_GLOBAL:
+                        name = names.getItem(oparg);
+                        v = valuestack[--sp]; // POP
+                        globals.put(name, v);
                         break;
 
                     case Opcode.LOAD_CONST:
@@ -374,9 +392,7 @@ class CPythonFrame extends PyFrame {
                             valuestack[sp++] = v; // PUSH
                             break;
                         }
-                        throw new UnboundLocalError(
-                                UNBOUNDLOCAL_ERROR_MSG,
-                                code.varnames.value[oparg]);
+                        throw unboundLocal(oparg);
 
                     case Opcode.STORE_FAST:
                         fastlocals[oparg] = valuestack[--sp]; // POP
@@ -388,19 +404,17 @@ class CPythonFrame extends PyFrame {
                             fastlocals[oparg] = null;
                             break;
                         }
-                        throw new UnboundLocalError(
-                                UNBOUNDLOCAL_ERROR_MSG,
-                                code.varnames.value[oparg]);
+                        throw unboundLocal(oparg);
 
                     case Opcode.CALL_FUNCTION:
                         // func | args[n] |
                         // ----------------^sp
                         // oparg = n
-                        sp -= oparg + 1; // STACK_SHRINK(oparg+1)
-                        func = valuestack[sp];
-                        res = Callables.vectorcall(func, valuestack,
-                                sp + 1, oparg, null);
-                        valuestack[sp++] = res; // PUSH
+                        sp -= oparg; // STACK_SHRINK(oparg+1)
+                        func = valuestack[sp - 1];
+                        res = Callables.vectorcall(func, valuestack, sp,
+                                oparg, null);
+                        valuestack[sp - 1] = res; // PUSH
                         break;
 
                     case Opcode.MAKE_FUNCTION:
@@ -441,10 +455,32 @@ class CPythonFrame extends PyFrame {
                             break;
                         }
 
+                    case Opcode.LOAD_CLOSURE:
+                        valuestack[sp++] = freevars[oparg]; // PUSH
+                        break;
+
+                    case Opcode.LOAD_DEREF:
+                        v = freevars[oparg].obj;
+                        if (v != null) {
+                            valuestack[sp++] = v; // PUSH
+                            break;
+                        }
+                        throw unboundDeref(oparg);
+
+                    case Opcode.STORE_DEREF:
+                        freevars[oparg].obj = valuestack[--sp]; // POP
+                        break;
+
                     case Opcode.CALL_FUNCTION_KW:
                         // func | args[n] | kwargs[m] | kwnames |
                         // --------------------------------------^sp
                         // oparg = n + m and knames has m names
+                        kwnames = (PyTuple) valuestack[--sp]; // POP
+                        sp -= oparg; // STACK_SHRINK(oparg+1)
+                        func = valuestack[sp - 1];
+                        res = Callables.vectorcall(func, valuestack, sp,
+                                oparg - kwnames.size(), kwnames);
+                        valuestack[sp - 1] = res; // PUSH
                         break;
 
                     case Opcode.CALL_FUNCTION_EX:
@@ -528,7 +564,6 @@ class CPythonFrame extends PyFrame {
                         valuestack[sp++] = map; // PUSH
                         break;
 
-
                     case Opcode.BUILD_CONST_KEY_MAP:
                         // values[n] | keys | --> map |
                         // ------------------^sp ------^sp
@@ -602,10 +637,8 @@ class CPythonFrame extends PyFrame {
             return;
         if (Sequence.check(args))
             return;
-        throw new TypeError(ARGUMENT_AFTER_STAR,
-                getFuncName(func),
-                getFuncDesc(func),
-                args.getType().name);
+        throw new TypeError(ARGUMENT_AFTER_STAR, getFuncName(func),
+                getFuncDesc(func), args.getType().name);
     }
 
     /**
@@ -648,10 +681,17 @@ class CPythonFrame extends PyFrame {
     private static final String MUST_BE_STRINGS =
             "%.200s%.200s keywords must be strings";
     private static final String MULTIPLE_VALUES =
-            "%.200s%.200s got multiple "+
-            "values for keyword argument '%s'";
+            "%.200s%.200s got multiple "
+                    + "values for keyword argument '%s'";
     private static final String BAD_MAP_KEYS =
             "bad BUILD_CONST_KEY_MAP keys argument";
+    private static final String NAME_ERROR_MSG =
+            "name '%.200s' is not defined";
+    private static final String UNBOUNDLOCAL_ERROR_MSG =
+            "local variable '%.200s' referenced before assignment";
+    private static final String UNBOUNDFREE_ERROR_MSG =
+            "free variable '%.200s' referenced before assignment"
+                    + " in enclosing scope";
 
     // XXX move this error reporting stuff to base PyFrame
 
@@ -673,5 +713,32 @@ class CPythonFrame extends PyFrame {
             return "()";
         else
             return " object";
+    }
+
+    private UnboundLocalError unboundLocal(int oparg) {
+        return new UnboundLocalError(UNBOUNDLOCAL_ERROR_MSG,
+                code.varnames.value[oparg]);
+    }
+
+    private NameError unboundDeref(int oparg) {
+        int ncells = code.cellvars.size();
+        if (oparg < ncells) {
+            /*
+             * This is a cell variable: a non-local variable used in the
+             * current scope and a nested scope, named in
+             * code.cellvars[].
+             */
+            return new UnboundLocalError(UNBOUNDLOCAL_ERROR_MSG,
+                    code.cellvars.getItem(oparg));
+        } else {
+            /*
+             * This is a free variable: a non-local used in the current
+             * scope or a nested scope, and in an enclosing scope, named
+             * in code.freevars[]. During a call, these are provided in
+             * the closure.
+             */
+            return new UnboundLocalError(UNBOUNDFREE_ERROR_MSG,
+                    code.freevars.getItem(oparg - ncells));
+        }
     }
 }

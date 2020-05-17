@@ -27,6 +27,7 @@ enum Slot {
     tp_vectorcall(Signature.VECTORCALL), //
 
     nb_negative(Signature.UNARY, "-", "neg"), //
+    nb_absolute(Signature.UNARY), //
     nb_add(Signature.BINARY, "+", "add"), //
     nb_subtract(Signature.BINARY, "-", "sub"), //
     nb_multiply(Signature.BINARY, "*", "mul"), //

@@ -13,14 +13,23 @@ class Number extends Abstract {
         try {
             return (PyObject) v.getType().nb_negative.invokeExact(v);
         } catch (Slot.EmptyException e) {
-            throw operandError("-", v);
+            throw operandError("unary -", v);
         }
     }
 
-    /** Create a {@code TypeError} for the named unary op. */
+    /** Python {@code abs(v)} */
+    static PyObject absolute(PyObject v) throws Throwable {
+        try {
+            return (PyObject) v.getType().nb_absolute.invokeExact(v);
+        } catch (Slot.EmptyException e) {
+            throw operandError("abs()", v);
+        }
+    }
+
+    /** Create a {@code TypeError} for a named unary operation. */
     static PyException operandError(String op, PyObject v) {
-        return new TypeError("bad operand type for unary %s: '%.200s'",
-                op, v.getType().getName());
+        return new TypeError("bad operand type for %s: '%.200s'", op,
+                v.getType().getName());
     }
 
     /** Python {@code v + w} */

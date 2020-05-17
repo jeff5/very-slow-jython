@@ -392,7 +392,7 @@ class PyByteCode5 {
         Py.bytes(10, 2, 16, 1));
     //@formatter:on
 
-    // @Test
+    @Test
     void test_def_func_kw1() {
         //@formatter:off
         PyDict globals = Py.dict();
@@ -786,7 +786,7 @@ class PyByteCode5 {
         Py.bytes(4, 1, 4, 1, 8, 5));
     //@formatter:on
 
-    // @Test
+    @Test
     void test_faqprog1() {
         //@formatter:off
         PyDict globals = Py.dict();
@@ -891,7 +891,7 @@ class PyByteCode5 {
         Py.bytes(4, 1, 4, 2, 8, 8));
     //@formatter:on
 
-    // @Test
+    @Test
     void test_globprog_a1() {
         //@formatter:off
         PyDict globals = Py.dict();
@@ -1003,7 +1003,7 @@ class PyByteCode5 {
         Py.bytes(4, 1, 4, 1, 4, 2, 8, 8));
     //@formatter:on
 
-    // @Test
+    @Test
     void test_globprog_b1() {
         //@formatter:off
         PyDict globals = Py.dict();
@@ -1111,7 +1111,7 @@ class PyByteCode5 {
         Py.bytes(4, 1, 4, 2, 8, 8));
     //@formatter:on
 
-    // @Test
+    @Test
     void test_globprog_c1() {
         //@formatter:off
         PyDict globals = Py.dict();
@@ -1225,7 +1225,7 @@ class PyByteCode5 {
         Py.bytes(4, 1, 4, 1, 10, 2, 8, 8));
     //@formatter:on
 
-    // @Test
+    @Test
     void test_alloc_builtin1() {
         //@formatter:off
         PyDict globals = Py.dict();
@@ -1749,7 +1749,7 @@ class PyByteCode5 {
         Py.bytes(8, 12));
     //@formatter:on
 
-    // @Test
+    @Test
     void test_closprog_local1() {
         //@formatter:off
         PyDict globals = Py.dict();
@@ -1927,7 +1927,7 @@ class PyByteCode5 {
         Py.bytes(8, 11));
     //@formatter:on
 
-    // @Test
+    @Test
     void test_closprog_arg1() {
         //@formatter:off
         PyDict globals = Py.dict();
@@ -2146,7 +2146,7 @@ class PyByteCode5 {
         Py.bytes(8, 12));
     //@formatter:on
 
-    // @Test
+    @Test
     void test_closprog_mix1() {
         //@formatter:off
         PyDict globals = Py.dict();
@@ -2349,7 +2349,7 @@ class PyByteCode5 {
         Py.bytes(10, 13));
     //@formatter:on
 
-    // @Test
+    @Test
     void test_kwargprog_a1() {
         //@formatter:off
         PyDict globals = Py.dict();
@@ -2464,7 +2464,7 @@ class PyByteCode5 {
         Py.bytes(8, 8));
     //@formatter:on
 
-    // @Test
+    @Test
     void test_kwargcell1() {
         //@formatter:off
         PyDict globals = Py.dict();
@@ -2674,7 +2674,7 @@ class PyByteCode5 {
         Py.bytes(10, 14));
     //@formatter:on
 
-    // @Test
+    @Test
     void test_kwargprog_b1() {
         //@formatter:off
         PyDict globals = Py.dict();
@@ -2886,7 +2886,7 @@ class PyByteCode5 {
         Py.bytes(10, 14));
     //@formatter:on
 
-    // @Test
+    @Test
     void test_kwargprog_c1() {
         //@formatter:off
         PyDict globals = Py.dict();

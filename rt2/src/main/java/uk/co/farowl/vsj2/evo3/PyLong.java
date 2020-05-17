@@ -47,6 +47,10 @@ class PyLong implements PyObject {
         return new PyLong(v.value.negate());
     }
 
+    static PyObject nb_absolute(PyLong v) {
+        return new PyLong(v.value.abs());
+    }
+
     static PyObject add(PyObject v, PyObject w) {
         try {
             BigInteger a = valueOf(v);

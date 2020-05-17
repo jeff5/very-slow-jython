@@ -337,23 +337,22 @@ abstract class PyFrame implements PyObject {
      * CPython's vector convention in which the values are a slice of
      * the interpreter stack.
      *
-     * @param kwvalues {@code [kwstart:kwstart+len(kwnames)]} values
+     * @param stack {@code [kwstart:kwstart+len(kwnames)]} values
      *            corresponding to {@code kwnames} in order
      * @param kwstart start position in {@code kwvalues}
      * @param kwnames keywords used in the call (or {@code **kwargs})
      */
-    void setKeywordArguments(PyObject[] kwvalues, int kwstart,
+    void setKeywordArguments(PyObject[] stack, int kwstart,
             PyObject[] kwnames) {
         /*
          * Create a dictionary for the excess keyword parameters, and
          * insert it in the local variables at the proper position.
          */
-        int total_args = code.argcount + code.kwonlyargcount;
         PyDict kwdict = null;
         if (code.traits.contains(Trait.VARKEYWORDS)) {
             kwdict = Py.dict();
-            int kwargsIndex = code.traits.contains(Trait.VARARGS)
-                    ? total_args + 1 : total_args;
+            int kwargsIndex = code.argcount + code.kwonlyargcount;
+            if (code.traits.contains(Trait.VARARGS)) { kwargsIndex++; }
             setLocal(kwargsIndex, kwdict);
         }
 
@@ -363,9 +362,9 @@ abstract class PyFrame implements PyObject {
          * name-value pair to kwdict.
          */
         int kwcount = kwnames == null ? 0 : kwnames.length;
-        for (int i = 0; i < kwcount; i++) {
+        for (int i = 0, j=kwstart; i < kwcount; i++) {
             PyObject name = kwnames[i];
-            PyObject value = kwvalues[i];
+            PyObject value = stack[j++];
             int index = varnameIndexOf(name);
 
             if (index < 0) {

@@ -28,6 +28,10 @@ class PyFloat implements PyObject {
 
     static PyObject neg(PyFloat v) { return new PyFloat(-v.value); }
 
+    static PyObject nb_absolute(PyFloat v) {
+        return new PyFloat(Math.abs(v.value));
+    }
+
     static PyObject add(PyObject v, PyObject w) {
         try {
             double a = valueOf(v);

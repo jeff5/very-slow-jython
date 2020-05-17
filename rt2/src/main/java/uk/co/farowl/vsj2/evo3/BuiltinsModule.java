@@ -6,6 +6,12 @@ class BuiltinsModule extends JavaModule implements Exposed {
     BuiltinsModule() { super("builtins"); }
 
     @Function
+    @DocString("Return the absolute value of the argument.")
+    static PyObject abs(PyObject x) throws Throwable {
+        return Number.absolute(x);
+    }
+
+    @Function
     @DocString("Return the dictionary containing the current scope's global variables.")
     static PyObject globals() throws Throwable {
         return Interpreter.getFrame().globals;
@@ -22,11 +28,31 @@ class BuiltinsModule extends JavaModule implements Exposed {
             + "With two or more arguments, return the largest argument.\"")
     // Simplified version of max()
     static PyObject max(PyTuple args) throws Throwable {
+        return minmax(args, Comparison.GT);
+    }
 
-        String name = "max";
-        Comparison op = Comparison.GT;
+    @Function
+    @DocString("With a single iterable argument, return its smallest item. "
+            + "With two or more arguments, return the smallest argument.\"")
+    // Simplified version of max()
+    static PyObject min(PyTuple args) throws Throwable {
+        return minmax(args, Comparison.LT);
+    }
 
-        PyObject v, item, maxitem;
+    /**
+     * Implementation of both {@link #min(PyTuple)} and
+     * {@link #max(PyTuple)}.
+     *
+     * @param args contains arguments or one iterable of arguments
+     * @param op {@code LT} for {@code min} and {@code GT} for
+     *            {@code max}.
+     * @return min or max result as appropriate
+     * @throws Throwable
+     */
+    private static PyObject minmax(PyTuple args, Comparison op)
+            throws Throwable {
+
+        PyObject v, item, result;
         int n = PyTuple.length(args);
 
         if (n > 1)
@@ -39,16 +65,17 @@ class BuiltinsModule extends JavaModule implements Exposed {
         }
 
         if (n == 0)
-            throw new ValueError("%s() arg is an empty sequence", name);
+            throw new ValueError("%s() arg is an empty sequence",
+                    op == Comparison.LT ? "min" : "max");
 
         // Now we can get on with the comparison
-        maxitem = Sequence.getItem(v, 0);
+        result = Sequence.getItem(v, 0);
         for (int i = 1; i < n; i++) {
             item = Sequence.getItem(v, i);
-            if (Abstract.richCompareBool(item, maxitem, op))
-                maxitem = item;
+            if (Abstract.richCompareBool(item, result, op))
+                result = item;
         }
-        return maxitem;
+        return result;
     }
 
 }
