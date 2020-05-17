@@ -156,7 +156,7 @@ class PyByteCode4 {
     @Test
     void test_boolean_and1() {
         //@formatter:off
-        PyDict globals = new PyDict();
+        PyDict globals = Py.dict();
         globals.put("u", Py.False);
         Interpreter interp = Py.createInterpreter();
         interp.evalCode(BOOLEAN_AND, globals, globals);
@@ -170,7 +170,7 @@ class PyByteCode4 {
     @Test
     void test_boolean_and2() {
         //@formatter:off
-        PyDict globals = new PyDict();
+        PyDict globals = Py.dict();
         globals.put("u", Py.True);
         Interpreter interp = Py.createInterpreter();
         interp.evalCode(BOOLEAN_AND, globals, globals);
@@ -184,7 +184,7 @@ class PyByteCode4 {
     @Test
     void test_boolean_and3() {
         //@formatter:off
-        PyDict globals = new PyDict();
+        PyDict globals = Py.dict();
         globals.put("u", Py.val(15));
         Interpreter interp = Py.createInterpreter();
         interp.evalCode(BOOLEAN_AND, globals, globals);
@@ -244,7 +244,7 @@ class PyByteCode4 {
     @Test
     void test_boolean_or1() {
         //@formatter:off
-        PyDict globals = new PyDict();
+        PyDict globals = Py.dict();
         globals.put("u", Py.False);
         Interpreter interp = Py.createInterpreter();
         interp.evalCode(BOOLEAN_OR, globals, globals);
@@ -258,7 +258,7 @@ class PyByteCode4 {
     @Test
     void test_boolean_or2() {
         //@formatter:off
-        PyDict globals = new PyDict();
+        PyDict globals = Py.dict();
         globals.put("u", Py.True);
         Interpreter interp = Py.createInterpreter();
         interp.evalCode(BOOLEAN_OR, globals, globals);
@@ -272,7 +272,7 @@ class PyByteCode4 {
     @Test
     void test_boolean_or3() {
         //@formatter:off
-        PyDict globals = new PyDict();
+        PyDict globals = Py.dict();
         globals.put("u", Py.val(15));
         Interpreter interp = Py.createInterpreter();
         interp.evalCode(BOOLEAN_OR, globals, globals);
@@ -332,7 +332,7 @@ class PyByteCode4 {
     @Test
     void test_boolean_xor1() {
         //@formatter:off
-        PyDict globals = new PyDict();
+        PyDict globals = Py.dict();
         globals.put("u", Py.False);
         Interpreter interp = Py.createInterpreter();
         interp.evalCode(BOOLEAN_XOR, globals, globals);
@@ -346,7 +346,7 @@ class PyByteCode4 {
     @Test
     void test_boolean_xor2() {
         //@formatter:off
-        PyDict globals = new PyDict();
+        PyDict globals = Py.dict();
         globals.put("u", Py.True);
         Interpreter interp = Py.createInterpreter();
         interp.evalCode(BOOLEAN_XOR, globals, globals);
@@ -360,7 +360,7 @@ class PyByteCode4 {
     @Test
     void test_boolean_xor3() {
         //@formatter:off
-        PyDict globals = new PyDict();
+        PyDict globals = Py.dict();
         globals.put("u", Py.val(15));
         Interpreter interp = Py.createInterpreter();
         interp.evalCode(BOOLEAN_XOR, globals, globals);
