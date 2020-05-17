@@ -60,7 +60,7 @@ class BuiltinsModule extends JavaModule implements Exposed {
             v = args;
         else {
             // Single argument: an iterable the values to compare
-            v = args.getItem(0);
+            v = args.get(0);
             n = Abstract.size(v);
         }
 

@@ -3,10 +3,11 @@ package uk.co.farowl.vsj2.evo3;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.StringJoiner;
+import java.util.AbstractList;
 
 /** The Python {@code tuple} object. */
-// XXX: implements AbstractList<T extends PyObject> ?
-class PyTuple implements PyObject {
+class PyTuple /* <E extends PyObject> */ extends AbstractList<PyObject>
+        implements PyObject {
 
     static final PyType TYPE = new PyType("tuple", PyTuple.class);
     private static final PyObject[] EMPTY_PYOBJECT_ARRAY =
@@ -42,9 +43,11 @@ class PyTuple implements PyObject {
         }
     }
 
-    PyObject getItem(int i) { return value[i]; } // XXX: get(i)?
+    @Override
+    public PyObject get(int i) { return value[i]; } // was: getItem(i)
 
-    int size() { return value.length; }
+    @Override
+    public int size() { return value.length; }
 
     /**
      * Return a copy of the contents as an array of the given type, in
@@ -79,7 +82,6 @@ class PyTuple implements PyObject {
     }
 
     // slot functions -------------------------------------------------
-
 
     static int length(PyTuple self) { return self.value.length; }
 

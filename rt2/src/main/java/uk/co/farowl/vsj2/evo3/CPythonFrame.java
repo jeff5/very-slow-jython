@@ -253,7 +253,7 @@ class CPythonFrame extends PyFrame {
                         break loop;
 
                     case Opcode.STORE_NAME:
-                        name = names.getItem(oparg);
+                        name = names.get(oparg);
                         v = valuestack[--sp]; // POP
                         if (locals == null)
                             throw new SystemError(
@@ -263,18 +263,18 @@ class CPythonFrame extends PyFrame {
                         break;
 
                     case Opcode.STORE_GLOBAL:
-                        name = names.getItem(oparg);
+                        name = names.get(oparg);
                         v = valuestack[--sp]; // POP
                         globals.put(name, v);
                         break;
 
                     case Opcode.LOAD_CONST:
-                        v = consts.getItem(oparg);
+                        v = consts.get(oparg);
                         valuestack[sp++] = v; // PUSH
                         break;
 
                     case Opcode.LOAD_NAME:
-                        name = names.getItem(oparg);
+                        name = names.get(oparg);
 
                         if (locals == null)
                             throw new SystemError(
@@ -375,7 +375,7 @@ class CPythonFrame extends PyFrame {
                         break;
 
                     case Opcode.LOAD_GLOBAL:
-                        name = names.getItem(oparg);
+                        name = names.get(oparg);
                         v = globals.get(name);
                         if (v == null) {
                             v = builtins.get(name);
@@ -729,7 +729,7 @@ class CPythonFrame extends PyFrame {
              * code.cellvars[].
              */
             return new UnboundLocalError(UNBOUNDLOCAL_ERROR_MSG,
-                    code.cellvars.getItem(oparg));
+                    code.cellvars.get(oparg));
         } else {
             /*
              * This is a free variable: a non-local used in the current
@@ -738,7 +738,7 @@ class CPythonFrame extends PyFrame {
              * the closure.
              */
             return new UnboundLocalError(UNBOUNDFREE_ERROR_MSG,
-                    code.freevars.getItem(oparg - ncells));
+                    code.freevars.get(oparg - ncells));
         }
     }
 }

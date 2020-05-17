@@ -202,9 +202,9 @@ abstract class PyCode implements PyObject {
                     + (traits.contains(Trait.VARKEYWORDS) ? 1 : 0);
             // For each cell name, see if it matches an argument
             for (int i = 0; i < ncells; i++) {
-                PyUnicode cellName = (PyUnicode) cellvars.getItem(i);
+                PyUnicode cellName = (PyUnicode) cellvars.get(i);
                 for (int j = 0; j < nargs; j++) {
-                    PyUnicode argName = (PyUnicode) varnames.getItem(j);
+                    PyUnicode argName = (PyUnicode) varnames.get(j);
                     if (cellName.equals(argName)) {
                         // A match: enter it in the cell2arg array
                         if (cell2arg == null) {
