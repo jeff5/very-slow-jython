@@ -53,7 +53,7 @@ class BuiltinsModule extends JavaModule implements Exposed {
             throws Throwable {
 
         PyObject v, item, result;
-        int n = PyTuple.length(args);
+        int n = args.size();
 
         if (n > 1)
             // Positional mode: args contains the values to compare

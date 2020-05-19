@@ -3,6 +3,7 @@ package uk.co.farowl.vsj2.evo3;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumSet;
+import java.util.List;
 
 /**
  * The Python {@code code} object. (Compare {@code PyCodeObject} in
@@ -46,22 +47,22 @@ abstract class PyCode implements PyObject {
      * Names referenced in the code (elements guaranteed to be of type
      * {@code str}), not {@code null}.
      */
-    final PyTuple names;
+    final TypedTuple<PyUnicode> names;
     /**
      * Args and non-cell locals (elements guaranteed to be of type
      * {@code str}), not {@code null}.
      */
-    final PyTuple varnames;
+    final TypedTuple<PyUnicode> varnames;
     /**
      * Names referenced but not defined here (elements guaranteed to be
      * of type {@code str}), not {@code null}.
      */
-    final PyTuple freevars;
+    final TypedTuple<PyUnicode> freevars;
     /**
      * Names defined here and referenced elsewhere (elements guaranteed
      * to be of type {@code str}), not {@code null}.
      */
-    final PyTuple cellvars;
+    final TypedTuple<PyUnicode> cellvars;
 
     /* ---------------------- See CPython code.h ------------------ */
     /** Constant to be stored in {@link #cell2arg} as default. */
@@ -178,13 +179,16 @@ abstract class PyCode implements PyObject {
             PyDict globals, PyTuple closure);
 
     /** Check that all the objects in the tuple are {@code str}. */
-    private static PyTuple names(PyTuple tuple) {
+    private static TypedTuple<PyUnicode> names(PyTuple tuple) {
+        List<PyUnicode> u = new ArrayList<>();
         for (PyObject name : tuple.value) {
-            if (!(name instanceof PyUnicode))
+            if (name instanceof PyUnicode)
+                u.add((PyUnicode) name);
+            else
                 throw new IllegalArgumentException(
                         String.format("Non-unicode name: {}", name));
         }
-        return tuple;
+        return new TypedTuple<>(PyUnicode.class, u);
     }
 
     /**
@@ -202,9 +206,9 @@ abstract class PyCode implements PyObject {
                     + (traits.contains(Trait.VARKEYWORDS) ? 1 : 0);
             // For each cell name, see if it matches an argument
             for (int i = 0; i < ncells; i++) {
-                PyUnicode cellName = (PyUnicode) cellvars.get(i);
+                PyUnicode cellName = cellvars.get(i);
                 for (int j = 0; j < nargs; j++) {
-                    PyUnicode argName = (PyUnicode) varnames.get(j);
+                    PyUnicode argName = varnames.get(j);
                     if (cellName.equals(argName)) {
                         // A match: enter it in the cell2arg array
                         if (cell2arg == null) {

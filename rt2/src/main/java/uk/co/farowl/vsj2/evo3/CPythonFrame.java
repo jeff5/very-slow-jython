@@ -1,6 +1,5 @@
 package uk.co.farowl.vsj2.evo3;
 
-import java.util.Arrays;
 import java.util.EnumSet;
 
 import uk.co.farowl.vsj2.evo3.PyCode.Trait;
@@ -151,8 +150,8 @@ class CPythonFrame extends PyFrame {
         // Evaluation stack index
         int sp = this.stacktop;
         // Cached references from code
-        PyTuple names = code.names;
-        PyTuple consts = code.consts;
+        TypedTuple<PyUnicode> names = code.names;
+        TypedTuple<PyObject> consts = code.consts;
         byte[] inst = code.code.value;
         // Get first instruction
         int opcode = inst[0] & 0xff;
@@ -162,7 +161,6 @@ class CPythonFrame extends PyFrame {
         PyObject name, res, u, v, w;
         PyObject func, args, kwargs;
         PyDict map;
-        PyCell cell;
         PyTuple kwnames;
 
         loop : for (;;) {
@@ -253,7 +251,7 @@ class CPythonFrame extends PyFrame {
                         break loop;
 
                     case Opcode.STORE_NAME:
-                        name = names.get(oparg);
+                        name = names.value[oparg];
                         v = valuestack[--sp]; // POP
                         if (locals == null)
                             throw new SystemError(
@@ -263,18 +261,18 @@ class CPythonFrame extends PyFrame {
                         break;
 
                     case Opcode.STORE_GLOBAL:
-                        name = names.get(oparg);
+                        name = names.value[oparg];
                         v = valuestack[--sp]; // POP
                         globals.put(name, v);
                         break;
 
                     case Opcode.LOAD_CONST:
-                        v = consts.get(oparg);
+                        v = consts.value[oparg];
                         valuestack[sp++] = v; // PUSH
                         break;
 
                     case Opcode.LOAD_NAME:
-                        name = names.get(oparg);
+                        name = names.value[oparg];
 
                         if (locals == null)
                             throw new SystemError(
@@ -375,7 +373,7 @@ class CPythonFrame extends PyFrame {
                         break;
 
                     case Opcode.LOAD_GLOBAL:
-                        name = names.get(oparg);
+                        name = names.value[oparg];
                         v = globals.get(name);
                         if (v == null) {
                             v = builtins.get(name);
@@ -729,7 +727,7 @@ class CPythonFrame extends PyFrame {
              * code.cellvars[].
              */
             return new UnboundLocalError(UNBOUNDLOCAL_ERROR_MSG,
-                    code.cellvars.get(oparg));
+                    code.cellvars.value[oparg]);
         } else {
             /*
              * This is a free variable: a non-local used in the current
@@ -738,7 +736,7 @@ class CPythonFrame extends PyFrame {
              * the closure.
              */
             return new UnboundLocalError(UNBOUNDFREE_ERROR_MSG,
-                    code.freevars.get(oparg - ncells));
+                    code.freevars.value[oparg - ncells]);
         }
     }
 }
