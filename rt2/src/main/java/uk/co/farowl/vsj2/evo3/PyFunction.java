@@ -1,5 +1,7 @@
 package uk.co.farowl.vsj2.evo3;
 
+import java.util.Collection;
+
 import uk.co.farowl.vsj2.evo3.PyCode.Trait;
 
 /**
@@ -17,12 +19,12 @@ class PyFunction implements PyObject {
     PyCode code;
     /** __globals__, a dict (other mappings won't do) */
     final PyDict globals;
-    /** A tuple, the __defaults__ attribute (positional), not null. */
-    PyTuple defaults = PyTuple.EMPTY;
+    /** A tuple, the __defaults__ attribute (positional), or null. */
+    PyTuple defaults;
     /** A dict or null, the __kwdefaults__ attribute. */
     PyDict kwdefaults;
-    /** A tuple of cells, the __closure__ attribute, not null. */
-    PyTuple closure = PyTuple.EMPTY;
+    /** A tuple of cells, the __closure__ attribute, or null. */
+    TypedTuple<PyCell> closure;
     /** The __doc__ attribute, can be set to anything. */
     // (but only a str prints in help)
     PyObject doc;
@@ -221,11 +223,11 @@ class PyFunction implements PyObject {
 
     // attribute access ----------------------------------------
 
-    PyTuple getDefaults() { return defaults; }
-
-    void setDefaults(PyTuple defaults) {
-        this.defaults = defaults != null ? defaults : PyTuple.EMPTY;
+    PyObject getDefaults() {
+        return defaults != null ? defaults : Py.None;
     }
+
+    void setDefaults(PyTuple defaults) { this.defaults = defaults; }
 
     PyDict getKwdefaults() { return kwdefaults; }
 
@@ -233,36 +235,46 @@ class PyFunction implements PyObject {
         this.kwdefaults = kwdefaults;
     }
 
-    PyTuple getClosure() { return closure; }
+    PyObject getClosure() {
+        return closure != null ? closure : Py.None;
+    }
 
     /** Set the {@code __closure__} attribute. */
-    void setClosure(PyTuple closure) {
+    <E extends PyObject> void setClosure(Collection<E> closure) {
 
-        if (closure == null)
-            closure = PyTuple.EMPTY;
-
+        int n = closure == null ? 0 : closure.size();
         int nfree = code.freevars.value.length;
-        if (closure.value.length != nfree) {
-            if (nfree == 0) {
+
+        if (nfree == 0) {
+            if (n == 0)
+                this.closure = null;
+            else
                 throw new TypeError("%s closure must be empty/None",
                         code.name);
-            } else {
+        } else {
+            if (n == nfree) {
+                try {
+                    this.closure =
+                            new TypedTuple<>(PyCell.class, closure);
+                } catch (ArrayStoreException e) {
+                    // The closure is not tuple of cells only
+                    for (PyObject o : closure) {
+                        if (!(o instanceof PyCell)) {
+                            throw Abstract.typeError(
+                                    "closure: expected cell, found %s",
+                                    o);
+                        }
+                    }
+                    throw new InterpreterError(
+                            "Failed to make closure from %s", closure);
+                }
+            } else
                 throw new ValueError(
                         "%s requires closure of length %d, not %d",
-                        code.name, nfree, closure.value.length);
-            }
+                        code.name, nfree, n);
         }
-
-        // check that the closure is tuple of cells
-        for (PyObject o : closure.value) {
-            if (!(o instanceof PyCell)) {
-                throw Abstract.typeError(
-                        "closure: expected cell, found %s", o);
-            }
-        }
-
-        this.closure = closure;
     }
+
 
     PyDict getAnnotations() { return annotations; }
 

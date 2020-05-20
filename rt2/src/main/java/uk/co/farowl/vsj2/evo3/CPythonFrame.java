@@ -46,7 +46,7 @@ class CPythonFrame extends PyFrame {
     /** Assigned eventually by return statement (or stays None). */
     PyObject returnValue = Py.None;
 
-    private static final PyCell[] EMPTY_CELL_ARRAY = new PyCell[0];
+    private static final PyCell[] EMPTY_CELL_ARRAY = PyCell.EMPTY_ARRAY;
 
     /**
      * Create a {@code CPythonFrame}, which is a {@code PyFrame} with
@@ -88,7 +88,7 @@ class CPythonFrame extends PyFrame {
      * @param closure closure from function
      */
     CPythonFrame(Interpreter interpreter, PyCode code, PyDict globals,
-            PyTuple closure) {
+            TypedTuple<PyCell> closure) {
         super(interpreter, code, globals);
         this.fastlocals = new PyObject[code.nlocals];
         this.valuestack = new PyObject[code.stacksize];
@@ -98,7 +98,7 @@ class CPythonFrame extends PyFrame {
             this.freevars = EMPTY_CELL_ARRAY;
         else {
             this.freevars = new PyCell[n];
-            if (nfree > 0) {
+            if (closure != null && closure.size() != 0) {
                 assert (nfree == closure.size());
                 System.arraycopy(closure.value, 0, this.freevars,
                         ncells, nfree);

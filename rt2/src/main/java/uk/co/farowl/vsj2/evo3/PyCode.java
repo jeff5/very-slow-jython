@@ -55,7 +55,8 @@ abstract class PyCode implements PyObject {
     final TypedTuple<PyUnicode> varnames;
     /**
      * Names referenced but not defined here (elements guaranteed to be
-     * of type {@code str}), not {@code null}.
+     * of type {@code str}), not {@code null}. These variables will be
+     * set from the closure of the function.
      */
     final TypedTuple<PyUnicode> freevars;
     /**
@@ -176,7 +177,7 @@ abstract class PyCode implements PyObject {
      * @return the frame
      */
     abstract PyFrame createFrame(Interpreter interpreter,
-            PyDict globals, PyTuple closure);
+            PyDict globals, TypedTuple<PyCell> closure);
 
     /** Check that all the objects in the tuple are {@code str}. */
     private static TypedTuple<PyUnicode> names(PyTuple tuple) {
