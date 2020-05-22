@@ -179,6 +179,22 @@ abstract class PyCode implements PyObject {
     abstract PyFrame createFrame(Interpreter interpreter,
             PyDict globals, TypedTuple<PyCell> closure);
 
+    /**
+     * Create a frame from CPython vector call arguments, in the simple
+     * case where only positional arguments are required and are
+     * available in exactly the required number. Unlike
+     * {@link #createFrame(Interpreter, PyDict, TypedTuple)} and its
+     * like, the initialisation of the returned frame is complete.
+     *
+     * @param interpreter providing the module context
+     * @param globals name space to treat as global variables
+     * @param stack array containing {@link #argcount} arguments
+     * @param start start position in that array
+     * @return frame ready for evaluation
+     */
+    abstract PyFrame fastFrame(Interpreter interpreter, PyDict globals,
+            PyObject[] stack, int start);
+
     /** Check that all the objects in the tuple are {@code str}. */
     private static TypedTuple<PyUnicode> names(PyTuple tuple) {
         List<PyUnicode> u = new ArrayList<>();

@@ -109,7 +109,45 @@ class CPythonFrame extends PyFrame {
         assert (code.traits.contains(Trait.OPTIMIZED));
     }
 
-
+    /**
+     * Create a frame from CPython vector call arguments, in the simple
+     * case where only positional arguments are required and are
+     * available in exactly the required number, and copy the arguments
+     * into the {@link #fastlocals} of the frame.
+     *
+     * @param interpreter providing the module context
+     * @param code that this frame executes
+     * @param globals name space to treat as global variables
+     * @param stack array containing {@code code.argcount} arguments
+     * @param start start position in that array
+     */
+    CPythonFrame(Interpreter interpreter, PyCode code, PyDict globals,
+            PyObject[] stack, int start) {
+        super(interpreter, code, globals);
+        this.fastlocals = new PyObject[code.nlocals];
+        this.valuestack = new PyObject[code.stacksize];
+        assert (code.cellvars.size() == 0);
+        this.freevars = EMPTY_CELL_ARRAY;
+        // Assume this supports an optimised function
+        assert (code.traits.contains(Trait.NEWLOCALS));
+        assert (code.traits.contains(Trait.OPTIMIZED));
+        // Avoid the array copy when short
+        int n = code.argcount;
+        switch (n) {
+            case 4:
+                fastlocals[1] = stack[start + 3];
+            case 3:
+                fastlocals[1] = stack[start + 2];
+            case 2:
+                fastlocals[1] = stack[start + 1];
+            case 1:
+                fastlocals[0] = stack[start];
+            case 0:
+                break;
+            default:
+                System.arraycopy(stack, start, fastlocals, 0, n);
+        }
+    }
 
     @Override
     PyObject getLocal(int i) { return fastlocals[i]; }

@@ -1,6 +1,7 @@
 package uk.co.farowl.vsj2.evo3;
 
 import java.util.Collection;
+import java.util.EnumSet;
 
 import uk.co.farowl.vsj2.evo3.PyCode.Trait;
 
@@ -42,6 +43,9 @@ class PyFunction implements PyObject {
     // In CPython a pointer to function
     // vectorcallfunc vectorcall;
 
+    // One or both set when optimised call is possible
+    boolean fast, fast0;
+
     /** The interpreter that defines the import context. */
     final Interpreter interpreter;
 
@@ -51,7 +55,7 @@ class PyFunction implements PyObject {
     PyFunction(Interpreter interpreter, PyCode code, PyDict globals,
             PyUnicode qualname) {
         this.interpreter = interpreter;
-        this.code = code;
+        this.setCode(code);
         this.globals = globals;
         this.name = code.name;
 
@@ -147,13 +151,11 @@ class PyFunction implements PyObject {
 
         int nkwargs = kwnames == null ? 0 : kwnames.value.length;
 
-        PyFrame frame = code.createFrame(interpreter, globals, closure);
-
         /*
          * Here, CPython applies certain criteria for calling a fast
          * path that (in our terms) calls only setPositionalArguments().
-         * Our version makes essentially the same tests below, but
-         * progressively and in a different order.
+         * Those that depend only on code or defaults we make when those
+         * attributes are defined.
          */
         /*
          * CPython's criteria: code.kwonlyargcount == 0 && nkwargs == 0
@@ -162,6 +164,13 @@ class PyFunction implements PyObject {
          * code.argcount or nargs == 0 and func.defaults fills the
          * positional arguments exactly.
          */
+        if (fast && nargs == code.argcount && nkwargs==0)
+            return code.fastFrame(interpreter, globals, stack, start);
+        else if (fast0 && nargs == 0)
+            return code.fastFrame(interpreter, globals, defaults.value,
+                    defaults.size());
+
+        PyFrame frame = code.createFrame(interpreter, globals, closure);
 
         // Set parameters from the positional arguments in the call.
         frame.setPositionalArguments(stack, start, nargs);
@@ -213,11 +222,26 @@ class PyFunction implements PyObject {
 
     // attribute access ----------------------------------------
 
+    PyCode getCode() { return code; }
+
+    void setCode(PyCode code) {
+        this.code = code;
+        // Optimisation relies on code properties
+        this.fast = code.kwonlyargcount == 0
+                && code.traits.equals(FAST_TRAITS);
+        this.fast0 = this.fast && defaults != null
+                && defaults.size() == code.argcount;
+    }
+
     PyObject getDefaults() {
         return defaults != null ? defaults : Py.None;
     }
 
-    void setDefaults(PyTuple defaults) { this.defaults = defaults; }
+    void setDefaults(PyTuple defaults) {
+        this.defaults = defaults;
+        // Must recompute if code or defaults re-assigned
+        this.fast0 = this.fast && defaults.size() == code.argcount;
+    }
 
     PyDict getKwdefaults() { return kwdefaults; }
 
@@ -272,6 +296,9 @@ class PyFunction implements PyObject {
     }
 
     // plumbing ------------------------------------------------------
+
+    private static final EnumSet<Trait> FAST_TRAITS =
+            EnumSet.of(Trait.OPTIMIZED, Trait.NEWLOCALS, Trait.NOFREE);
 
     @Override
     public String toString() {

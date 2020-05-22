@@ -53,4 +53,12 @@ class CPythonCode extends PyCode {
         return f;
     }
 
+    @Override
+    PyFrame fastFrame(Interpreter interpreter, PyDict globals,
+            PyObject[] stack, int start) {
+        CPythonFrame f = new CPythonFrame(interpreter, this, globals,
+                stack, start);
+        return f;
+    }
+
 }
