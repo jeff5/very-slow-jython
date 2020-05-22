@@ -109,6 +109,8 @@ class CPythonFrame extends PyFrame {
         assert (code.traits.contains(Trait.OPTIMIZED));
     }
 
+
+
     @Override
     PyObject getLocal(int i) { return fastlocals[i]; }
 
@@ -150,8 +152,8 @@ class CPythonFrame extends PyFrame {
         // Evaluation stack index
         int sp = this.stacktop;
         // Cached references from code
-        TypedTuple<PyUnicode> names = code.names;
-        TypedTuple<PyObject> consts = code.consts;
+        PyUnicode[] names = code.names.value;
+        PyObject[] consts = code.consts.value;
         byte[] inst = code.code.value;
         // Get first instruction
         int opcode = inst[0] & 0xff;
@@ -251,7 +253,7 @@ class CPythonFrame extends PyFrame {
                         break loop;
 
                     case Opcode.STORE_NAME:
-                        name = names.value[oparg];
+                        name = names[oparg];
                         v = valuestack[--sp]; // POP
                         if (locals == null)
                             throw new SystemError(
@@ -261,18 +263,18 @@ class CPythonFrame extends PyFrame {
                         break;
 
                     case Opcode.STORE_GLOBAL:
-                        name = names.value[oparg];
+                        name = names[oparg];
                         v = valuestack[--sp]; // POP
                         globals.put(name, v);
                         break;
 
                     case Opcode.LOAD_CONST:
-                        v = consts.value[oparg];
+                        v = consts[oparg];
                         valuestack[sp++] = v; // PUSH
                         break;
 
                     case Opcode.LOAD_NAME:
-                        name = names.value[oparg];
+                        name = names[oparg];
 
                         if (locals == null)
                             throw new SystemError(
@@ -373,7 +375,7 @@ class CPythonFrame extends PyFrame {
                         break;
 
                     case Opcode.LOAD_GLOBAL:
-                        name = names.value[oparg];
+                        name = names[oparg];
                         v = globals.get(name);
                         if (v == null) {
                             v = builtins.get(name);

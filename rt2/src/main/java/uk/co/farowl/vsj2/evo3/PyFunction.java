@@ -145,8 +145,9 @@ class PyFunction implements PyObject {
     protected PyFrame createFrame(PyObject[] stack, int start,
             int nargs, PyTuple kwnames) {
 
+        int nkwargs = kwnames == null ? 0 : kwnames.value.length;
+
         PyFrame frame = code.createFrame(interpreter, globals, closure);
-        int nkwargs = kwnames==null ? 0 : kwnames.value.length;
 
         /*
          * Here, CPython applies certain criteria for calling a fast
@@ -158,8 +159,8 @@ class PyFunction implements PyObject {
          * CPython's criteria: code.kwonlyargcount == 0 && nkwargs == 0
          * && code.traits.equals(EnumSet.of(Trait.OPTIMIZED,
          * Trait.NEWLOCALS, Trait.NOFREE)), and then either nargs ==
-         * code.argcount or nargs == 0 and func.defaults fills
-         * the positional arguments exactly.
+         * code.argcount or nargs == 0 and func.defaults fills the
+         * positional arguments exactly.
          */
 
         // Set parameters from the positional arguments in the call.
@@ -209,17 +210,6 @@ class PyFunction implements PyObject {
 
         return frame;
     }
-
-
-
-
-
-
-    // Experiment: define entry points for specific call signatures
-
-    // Zero argument call, no defaults or closure
-
-    // Single argument call
 
     // attribute access ----------------------------------------
 
@@ -274,7 +264,6 @@ class PyFunction implements PyObject {
                         code.name, nfree, n);
         }
     }
-
 
     PyDict getAnnotations() { return annotations; }
 
