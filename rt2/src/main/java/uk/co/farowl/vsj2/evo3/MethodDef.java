@@ -284,8 +284,13 @@ class MethodDef {
     /** Construct an exception about the signature. */
     private InterpreterError sigError(String fmt, Object... args) {
         fmt = "MethodDef: in signature of %s (%s), " + fmt;
-        return new InterpreterError(fmt, name, meth.type(), args);
+        Object[] a = new Object[args.length + 2];
+        a[0] = name;
+        a[1] = meth.type();
+        System.arraycopy(args, 0, a, 2, args.length);
+        return new InterpreterError(fmt, a);
     }
+
 
     /**
      * Check classic {@code (*args, **kwargs)} call arguments against
