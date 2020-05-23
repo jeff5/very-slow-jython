@@ -165,10 +165,9 @@ class CPythonFrame extends PyFrame {
      * {@link #fastlocals} directly.
      */
     @Override
-    void setPositionalArguments(PyObject[] stack, int start,
-            int nargs) {
-        int n = Math.min(nargs, code.argcount);
-        System.arraycopy(stack, start, fastlocals, 0, n);
+    void setPositionalArguments(PyTuple args) {
+        int n = Math.min(args.value.length, code.argcount);
+        System.arraycopy(args.value, 0, fastlocals, 0, n);
     }
 
     /**
@@ -178,9 +177,10 @@ class CPythonFrame extends PyFrame {
      * {@link #fastlocals} directly.
      */
     @Override
-    void setPositionalArguments(PyTuple args) {
-        int n = Math.min(args.value.length, code.argcount);
-        System.arraycopy(args.value, 0, fastlocals, 0, n);
+    void setPositionalArguments(PyObject[] stack, int start,
+            int nargs) {
+        int n = Math.min(nargs, code.argcount);
+        System.arraycopy(stack, start, fastlocals, 0, n);
     }
 
     @Override

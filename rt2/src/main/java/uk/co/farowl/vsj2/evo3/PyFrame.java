@@ -220,8 +220,6 @@ abstract class PyFrame implements PyObject {
      */
     abstract void makeCell(int i, PyObject v);
 
-    // Experiment: define a vector call
-
     /**
      * Copy positional arguments into local variables, making sure we
      * don't copy more than have been allowed for in the frame.

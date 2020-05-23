@@ -102,7 +102,7 @@ class PyFunction implements PyObject {
             if (code.traits.contains(Trait.VARARGS)) {
                 // Locate the * parameter in the frame
                 int varIndex = code.argcount + code.kwonlyargcount;
-                // Put any excess positional args there
+                // Put the excess positional arguments there
                 frame.setLocal(varIndex, new PyTuple(args.value,
                         code.argcount, nargs - code.argcount));
             } else {
@@ -136,8 +136,6 @@ class PyFunction implements PyObject {
 
         return frame;
     }
-
-    // Experiment: define a vector call
 
     static PyObject tp_vectorcall(PyFunction func, PyObject[] stack,
             int start, int nargs, PyTuple kwnames) throws Throwable {
@@ -185,7 +183,7 @@ class PyFunction implements PyObject {
             if (code.traits.contains(Trait.VARARGS)) {
                 // Locate the *args parameter in the frame
                 int varIndex = code.argcount + code.kwonlyargcount;
-                // Put any excess positional args there
+                // Put the excess positional arguments there
                 frame.setLocal(varIndex, new PyTuple(stack,
                         start + code.argcount, nargs - code.argcount));
             } else {
@@ -240,7 +238,8 @@ class PyFunction implements PyObject {
     void setDefaults(PyTuple defaults) {
         this.defaults = defaults;
         // Must recompute if code or defaults re-assigned
-        this.fast0 = this.fast && defaults.size() == code.argcount;
+        this.fast0 = this.fast && defaults != null
+                && defaults.size() == code.argcount;
     }
 
     PyDict getKwdefaults() { return kwdefaults; }

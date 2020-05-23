@@ -728,17 +728,6 @@ but it lands fairly directly in the constructor of this class:
             this.name = code.name;
             ...
         }
-
-        // slot functions -------------------------------------------------
-
-        static PyObject tp_call(PyFunction func, PyTuple args,
-                PyDict kwargs) throws Throwable {
-            PyFrame frame = func.code.createFrame(func.interpreter,
-                    func.globals, func.closure);
-            frame.prepare(args, kwargs, func.defaults, func.kwdefaults);
-            frame.push();
-            return frame.eval();
-        }
         ...
         @Override
         public String toString() {
@@ -794,7 +783,7 @@ presents the positional arguments as a single tuple to ``Callables.call()``,
 and in this case there are no keyword arguments,
 so the keyword arguments dictionary is ``null``.
 As the callable is a ``PyFunction``,
-we end up at ``PyFunction.call`` with these arguments.
+we end up in the slot function ``PyFunction.tp_call`` with these arguments.
 
 This brings us to the problem of getting these arguments,
 and the default values from the function definition,
@@ -803,22 +792,420 @@ There is quite some scope for the arguments not to match the definition.
 In CPython, around 500 lines of ``ceval.c`` are devoted to this,
 and to handling the errors that may arise,
 and another 100 in ``call.c`` preparing to do so.
+We will place most of this processing in
+either the ``PyFunction`` object
+or the ``PyFrame`` object itself.
+
 
 Processing a classic call
 =========================
 
-The objective of the processing in ``PyFunction.call``
-is to prepare a frame in which arguments, default values and the closure
-have initialise the local variables.
-We may then call ``eval()`` on that frame.
-
-
-
-
+We take a frontal approach to ``PyFunction.tp_call``.
+We prepare a frame with all the variables initialised,
+then call ``eval()`` on that frame:
 
 ..  code-block:: java
 
+    class PyFunction implements PyObject { ...
+
+        static PyObject tp_call(PyFunction func, PyTuple args,
+                PyDict kwargs) throws Throwable {
+            PyFrame frame = func.createFrame(args, kwargs);
+            return frame.eval();
+        }
+
+The objective of the processing in ``PyFunction.createFrame``
+is to prepare a frame in which arguments, default values, and the closure
+have been used to initialise the local variables.
+
+Our model is in CPython ``ceval.c`` at ``_PyEval_EvalCodeWithName``,
+and our logic is the same, but the detail has evolved a lot.
+We have many fewer arguments than in CPython,
+since we make use of the fact we have object context
+to reach the information we need.
+We have not implemented the function variants
+(co-routines, etc.)
+but the approach here can extend to that with minor changes.
 
 ..  code-block:: java
 
+    class PyFunction implements PyObject { ...
 
+        /** Prepare the frame from "classic" arguments. */
+        protected PyFrame createFrame(PyTuple args, PyDict kwargs) {
+
+            PyFrame frame = code.createFrame(interpreter, globals, closure);
+            final int nargs = args.value.length;
+
+            // Set parameters from the positional arguments in the call.
+            frame.setPositionalArguments(args);
+
+            // Set parameters from the keyword arguments in the call.
+            if (kwargs != null && !kwargs.isEmpty())
+                frame.setKeywordArguments(kwargs);
+
+            if (nargs > code.argcount) {
+
+                if (code.traits.contains(Trait.VARARGS)) {
+                    // Locate the * parameter in the frame
+                    int varIndex = code.argcount + code.kwonlyargcount;
+                    // Put the excess positional arguments there
+                    frame.setLocal(varIndex, new PyTuple(args.value,
+                            code.argcount, nargs - code.argcount));
+                } else {
+                    // Excess positional arguments but no VARARGS for them.
+                    throw tooManyPositional(nargs, frame);
+                }
+
+            } else { // nargs <= code.argcount
+
+                if (code.traits.contains(Trait.VARARGS)) {
+                    // No excess: set the * parameter in the frame to empty
+                    int varIndex = code.argcount + code.kwonlyargcount;
+                    frame.setLocal(varIndex, PyTuple.EMPTY);
+                }
+
+                if (nargs < code.argcount) {
+                    // Set remaining positional parameters from default
+                    frame.applyDefaults(nargs, defaults);
+                }
+            }
+
+            if (code.kwonlyargcount > 0)
+                // Set keyword parameters from default values
+                frame.applyKWDefaults(kwdefaults);
+
+            // Create cells for bound variables
+            if (code.cellvars.value.length > 0)
+                frame.makeCells();
+
+            return frame;
+        }
+
+It becomes clear that, after creating an empty frame,
+the variables are initialised in a number of optional steps.
+We steer a path through these steps by a combination of
+information fixed in the code object,
+and information fixed at the call site.
+Each step is given to the frame object to carry out.
+The data used in the steps is also partly fixed in those places,
+or in the function object itself.
+This observation is the basis of some optimisations
+we shall come to when we consider the vector call case.
+
+Recall that ``PyFrame`` is an abstract class.
+The methods used here are part of the abstract API,
+and available therefore to be overridden in each implementation.
+We only have one implementation so far, namely ``CPythonFrame``,
+but envisage that a function body compiled to JVM byte code
+would create a different subclass of ``PyFrame``.
+
+As an example,
+consider the implementation of ``PyFrame.setPositionalArguments``.
+We supply a base implementation thus:
+
+..  code-block:: java
+
+    abstract class PyFrame implements PyObject { ...
+
+        /** Get the local variable named by {@code code.varnames[i]} */
+        abstract PyObject getLocal(int i);
+
+        /** Set the local variable named by {@code code.varnames[i]} */
+        abstract void setLocal(int i, PyObject v);
+
+        void setPositionalArguments(PyTuple args) {
+            int n = Math.min(args.value.length, code.argcount);
+            for (int i = 0; i < n; i++)
+                setLocal(i, args.value[i]);
+        }
+
+It would be sufficient for ``CPythonFrame``
+to implement ``getLocal``, ``setLocal`` and a few other simple methods,
+alongside ``eval`` of course,
+but the option is available to provide a more efficient version,
+using its direct access to ``CPythonFrame.fastlocals``.
+``CPythonFrame`` uses this freedom to replace the loop with an array copy:
+
+..  code-block:: java
+
+    class CPythonFrame extends PyFrame { ...
+        @Override
+        PyObject getLocal(int i) { return fastlocals[i]; }
+
+        @Override
+        void setLocal(int i, PyObject v) { fastlocals[i] = v; }
+
+        @Override
+        void setPositionalArguments(PyTuple args) {
+            int n = Math.min(args.value.length, code.argcount);
+            System.arraycopy(args.value, 0, fastlocals, 0, n);
+        }
+
+Another sub-class of ``PyFrame``
+need not keep its variables in a ``fastlocals`` array at all,
+as long as it can correlate them by index with the name in ``PyCode``
+(the name tables ``varnames``, ``freevars`` and ``cellvars``).
+
+
+Processing a vector call
+========================
+
+In the vector call,
+arguments are on the CPython stack,
+including arguments given by keyword.
+If we implement a ``tp_vectorcall`` slot just as we have ``tp_call``,
+then the abstract gateway ``Callables.vectorcall``,
+called in the ``CALL_FUNCTION`` or ``CALL_FUNCTION_KW`` opcode,
+lands us at ``PyFunction.tp_vectorcall``.
+Apart from the arguments, this should be familiar from the previous section.
+
+..  code-block:: java
+
+    class PyFunction implements PyObject { ...
+
+        static PyObject tp_vectorcall(PyFunction func, PyObject[] stack,
+                int start, int nargs, PyTuple kwnames) throws Throwable {
+            PyFrame frame = func.createFrame(stack, start, nargs, kwnames);
+            return frame.eval();
+        }
+
+We deal with the vector call argument style by reproducing
+``createFrame`` in that style.
+The logic is the same,
+and the methods that represent the steps in the logic are
+either the same as, or simple counterparts of, those seen before.
+
+..  code-block:: java
+
+    class PyFunction implements PyObject { ...
+
+        /** Prepare the frame from CPython vector call arguments. */
+        protected PyFrame createFrame(PyObject[] stack, int start,
+                int nargs, PyTuple kwnames) {
+
+            int nkwargs = kwnames == null ? 0 : kwnames.value.length;
+
+            // Optimisation elided ...
+
+            PyFrame frame = code.createFrame(interpreter, globals, closure);
+
+            // Set parameters from the positional arguments in the call.
+            frame.setPositionalArguments(stack, start, nargs);
+
+            // Set parameters from the keyword arguments in the call.
+            if (nkwargs > 0)
+                frame.setKeywordArguments(stack, start + nargs,
+                        kwnames.value);
+
+            if (nargs > code.argcount) {
+
+                if (code.traits.contains(Trait.VARARGS)) {
+                    // Locate the *args parameter in the frame
+                    int varIndex = code.argcount + code.kwonlyargcount;
+                    // Put the excess positional arguments there
+                    frame.setLocal(varIndex, new PyTuple(stack,
+                            start + code.argcount, nargs - code.argcount));
+                } else {
+                    // Excess positional arguments but no VARARGS for them.
+                    throw tooManyPositional(nargs, frame);
+                }
+
+            } else { // nargs <= code.argcount
+
+                if (code.traits.contains(Trait.VARARGS)) {
+                    // No excess: set the * parameter in the frame to empty
+                    int varIndex = code.argcount + code.kwonlyargcount;
+                    frame.setLocal(varIndex, PyTuple.EMPTY);
+                }
+
+                if (nargs < code.argcount) {
+                    // Set remaining positional parameters from default
+                    frame.applyDefaults(nargs, defaults);
+                }
+            }
+
+            if (code.kwonlyargcount > 0)
+                // Set keyword parameters from default values
+                frame.applyKWDefaults(kwdefaults);
+
+            // Create cells for bound variables
+            if (code.cellvars.value.length > 0)
+                frame.makeCells();
+
+            return frame;
+        }
+
+In the listing above we have omitted a fast-path optimisation
+which we now turn to discuss.
+
+
+Possibilities for Optimisation
+==============================
+
+.. _vector-call-fast-path-optimisation:
+
+Fast path in simple cases
+-------------------------
+
+In the logic of ``createFrame`` we see that if ``nargs == code.argcount``,
+meaning exactly the right number of arguments is passed,
+and no keyword arguments are allowed (or given),
+most of the steps are skipped.
+If the code object also meets certain criteria,
+all steps are skipped apart from setting the positional arguments.
+
+This is the basis of the optimisation elided from the code above,
+and now shown here:
+
+..  code-block:: java
+    :emphasize-lines: 9-15
+
+    class PyFunction implements PyObject { ...
+
+        /** Prepare the frame from CPython vector call arguments. */
+        protected PyFrame createFrame(PyObject[] stack, int start,
+                int nargs, PyTuple kwnames) {
+
+            int nkwargs = kwnames == null ? 0 : kwnames.value.length;
+
+            if (fast && nargs == code.argcount && nkwargs==0)
+                // Fast path possible
+                return code.fastFrame(interpreter, globals, stack, start);
+            else if (fast0 && nargs == 0)
+                // Fast path possible
+                return code.fastFrame(interpreter, globals, defaults.value,
+                        defaults.size());
+
+            // Slow path
+            PyFrame frame = code.createFrame(interpreter, globals, closure);
+            ...
+        }
+
+This follows CPython in taking a fast path in the simple case where
+the arguments in the call exactly satisfy the parameters of the function,
+or they are all taken from the defaults.
+
+``PyCode.fastFrame`` rolls
+``PyCode.createFrame`` and ``PyFrame.setPositionalArguments`` into one,
+taking advantage of the knowledge that there are
+no cell variables or varargs arguments to consider.
+It is roughly CPython ``call.c`` at ``function_code_fastcall()``,
+but without the call to ``PyEval_EvalFrameEx()``.
+
+The boolean fields ``fast`` and ``fast0`` are pre-computed
+inside the setters for fields ``code`` and ``defaults``:
+
+..  code-block:: java
+
+    class PyFunction implements PyObject { ...
+
+        boolean fast, fast0;
+        ...
+        void setCode(PyCode code) {
+            this.code = code;
+            this.fast = code.kwonlyargcount == 0
+                    && code.traits.equals(FAST_TRAITS);
+            this.fast0 = this.fast && defaults != null
+                    && defaults.size() == code.argcount;
+        }
+
+        void setDefaults(PyTuple defaults) {
+            this.defaults = defaults;
+            this.fast0 = this.fast && defaults != null
+                    && defaults.size() == code.argcount;
+        }
+
+        private static final EnumSet<Trait> FAST_TRAITS =
+                EnumSet.of(Trait.OPTIMIZED, Trait.NEWLOCALS, Trait.NOFREE);
+
+It is not sufficient to do this once in the constructor,
+for two reasons:
+
+1.  The ``__code__`` attribute of a ``function`` is (surprisingly)
+    writable from Python.
+    It's confusing, but you can do it, and it invalidates the optimisation.
+2.  While the ``__defaults__`` attribute of a ``function`` is
+    read-only from Python,
+    the ``MAKE_FUNCTION`` opcode sets it after constructing the function,
+    so it must be writable from Java and ``fast0`` recomputed each time.
+
+
+Possibility of using ``MethodHandle``
+-------------------------------------
+
+The CPython vector call presents an interesting case.
+It involves a call through a pointer to a function,
+which is in the instance function object.
+This is not like a call through a slot function,
+which is in the type object.
+
+The type object does contain a slot associated with vector call protocol,
+but (if not empty) it contains an offset in the instance,
+at which the pointer to function may be found.
+The offset (or its absence) is characteristic of the type,
+but the particular function pointer is specific to the instance.
+It is obtained (see ``abstract.h``) like this:
+
+..  code-block:: C
+
+    static inline vectorcallfunc
+    _PyVectorcall_Function(PyObject *callable)
+    {
+        PyTypeObject *tp = Py_TYPE(callable);
+        Py_ssize_t offset = tp->tp_vectorcall_offset;
+        vectorcallfunc *ptr;
+        if (!PyType_HasFeature(tp, _Py_TPFLAGS_HAVE_VECTORCALL)) {
+            return NULL;
+        }
+        ptr = (vectorcallfunc*)(((char *)callable) + offset);
+        return *ptr;
+    }
+
+It is used essentially as ``res = ptr(callable, args, nargs, kwnames)``.
+
+Another, long-standing example of this use of an offset,
+is the way in which the instance dictionary is located
+(simplifying a little):
+
+..  code-block:: C
+
+    PyObject **
+    _PyObject_GetDictPtr(PyObject *obj)
+    {
+        Py_ssize_t dictoffset;
+        PyTypeObject *tp = Py_TYPE(obj);
+        dictoffset = tp->tp_dictoffset;
+        ...
+        return (PyObject **) ((char *)obj + dictoffset);
+    }
+
+In the case of a function,
+the pointer in question is always to ``_PyFunction_Vectorcall``,
+which is functionally equivalent to our ``createFrame``
+(with the conditional :ref:`vector-call-fast-path-optimisation`).
+However,
+CPython tries harder in its ``PyCFunctionObject``
+(Python ``builtin_function_or_method``).
+What is the equivalent idea in Java?
+
+A Java ``VarHandle`` is the obvious choice,
+if we want a reference through which we may manipulate the pointer.
+However, since the objective is to call the target,
+we could build the optimisation into the ``MethodHandle`` ``tp_vectorcall``,
+that we already defined.
+The handle would have to interrogate the function object passed as argument,
+and the numbers of positional and keyword arguments,
+expressing the fast path logic of ``createFrame`` in handles,
+and falling back to the plain version.
+
+Bearing in mind the ultimate implementation of ``CALL_FUNCTION``
+should be a Java ``CallSite``
+that has full knowledge of the ``nargs`` and ``kwnames``,
+we should rather think of a handle that can be inserted there,
+specific to the call site and function,
+and re-linkable if the function (or its ``__code__`` attribute) should change.
+
+We therefore draw a line here on optimisation of function calls
+in the CPython byte code interpreter.
+(Ours runs at about 2/3 the speed of CPython, in trivial tests.)
