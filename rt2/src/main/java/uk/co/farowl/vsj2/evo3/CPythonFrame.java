@@ -64,16 +64,16 @@ class CPythonFrame extends PyFrame {
     CPythonFrame(Interpreter interpreter, PyCode code, PyDict globals,
             PyObject locals) {
         super(interpreter, code, globals, locals);
-        this.valuestack = new PyObject[code.stacksize];
+        valuestack = new PyObject[code.stacksize];
         freevars = EMPTY_CELL_ARRAY;
 
         // The need for a dictionary of locals depends on the code
         EnumSet<PyCode.Trait> traits = code.traits;
         if (traits.contains(PyCode.Trait.NEWLOCALS)
                 && traits.contains(PyCode.Trait.OPTIMIZED)) {
-            this.fastlocals = new PyObject[code.nlocals];
+            fastlocals = new PyObject[code.nlocals];
         } else {
-            this.fastlocals = null;
+            fastlocals = null;
         }
     }
 
@@ -88,20 +88,19 @@ class CPythonFrame extends PyFrame {
      * @param closure closure from function
      */
     CPythonFrame(Interpreter interpreter, PyCode code, PyDict globals,
-            TypedTuple<PyCell> closure) {
+            PyCell[] closure) {
         super(interpreter, code, globals);
-        this.fastlocals = new PyObject[code.nlocals];
-        this.valuestack = new PyObject[code.stacksize];
-        int ncells = code.cellvars.size(), nfree = code.freevars.size(),
+        fastlocals = new PyObject[code.nlocals];
+        valuestack = new PyObject[code.stacksize];
+        int ncells = code.cellvars.length, nfree = code.freevars.length,
                 n = ncells + nfree;
         if (n == 0)
-            this.freevars = EMPTY_CELL_ARRAY;
+            freevars = EMPTY_CELL_ARRAY;
         else {
-            this.freevars = new PyCell[n];
-            if (closure != null && closure.size() != 0) {
-                assert (nfree == closure.size());
-                System.arraycopy(closure.value, 0, this.freevars,
-                        ncells, nfree);
+            freevars = new PyCell[n];
+            if (closure != null && closure.length != 0) {
+                assert (nfree == closure.length);
+                System.arraycopy(closure, 0, freevars, ncells, nfree);
             }
         }
         // Assume this supports an optimised function
@@ -126,7 +125,7 @@ class CPythonFrame extends PyFrame {
         super(interpreter, code, globals);
         this.fastlocals = new PyObject[code.nlocals];
         this.valuestack = new PyObject[code.stacksize];
-        assert (code.cellvars.size() == 0);
+        assert (code.cellvars.length == 0);
         this.freevars = EMPTY_CELL_ARRAY;
         // Assume this supports an optimised function
         assert (code.traits.contains(Trait.NEWLOCALS));
@@ -190,8 +189,8 @@ class CPythonFrame extends PyFrame {
         // Evaluation stack index
         int sp = this.stacktop;
         // Cached references from code
-        PyUnicode[] names = code.names.value;
-        PyObject[] consts = code.consts.value;
+        PyUnicode[] names = code.names;
+        PyObject[] consts = code.consts;
         byte[] inst = code.code.value;
         // Get first instruction
         int opcode = inst[0] & 0xff;
@@ -556,7 +555,7 @@ class CPythonFrame extends PyFrame {
                         }
                         valuestack[sp++] = // PUSH
                                 opcode == Opcode.BUILD_LIST_UNPACK ? sum
-                                        : PyTuple.fromList(sum);
+                                        : PyTuple.from(sum);
                         break;
 
                     case Opcode.BUILD_MAP_UNPACK:
@@ -755,11 +754,11 @@ class CPythonFrame extends PyFrame {
 
     private UnboundLocalError unboundLocal(int oparg) {
         return new UnboundLocalError(UNBOUNDLOCAL_ERROR_MSG,
-                code.varnames.value[oparg]);
+                code.varnames[oparg]);
     }
 
     private NameError unboundDeref(int oparg) {
-        int ncells = code.cellvars.size();
+        int ncells = code.cellvars.length;
         if (oparg < ncells) {
             /*
              * This is a cell variable: a non-local variable used in the
@@ -767,7 +766,7 @@ class CPythonFrame extends PyFrame {
              * code.cellvars[].
              */
             return new UnboundLocalError(UNBOUNDLOCAL_ERROR_MSG,
-                    code.cellvars.value[oparg]);
+                    code.cellvars[oparg]);
         } else {
             /*
              * This is a free variable: a non-local used in the current
@@ -776,7 +775,7 @@ class CPythonFrame extends PyFrame {
              * the closure.
              */
             return new UnboundLocalError(UNBOUNDFREE_ERROR_MSG,
-                    code.freevars.value[oparg - ncells]);
+                    code.freevars[oparg - ncells]);
         }
     }
 }

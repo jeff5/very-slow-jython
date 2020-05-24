@@ -20,12 +20,12 @@ class PyFunction implements PyObject {
     PyCode code;
     /** __globals__, a dict (other mappings won't do) */
     final PyDict globals;
-    /** A tuple, the __defaults__ attribute (positional), or null. */
-    PyTuple defaults;
+    /** The (positional) default arguments or {@code null}. */
+    PyObject[] defaults;
     /** A dict or null, the __kwdefaults__ attribute. */
     PyDict kwdefaults;
-    /** A tuple of cells, the __closure__ attribute, or null. */
-    TypedTuple<PyCell> closure;
+    /** The __closure__ attribute, or {@code null}. */
+    PyCell[] closure;
     /** The __doc__ attribute, can be set to anything. */
     // (but only a str prints in help)
     PyObject doc;
@@ -35,13 +35,10 @@ class PyFunction implements PyObject {
     PyDict dict;
     /** __module__ attribute, can be anything */
     PyObject module;
-    /** __annotations__, a dict or null */
+    /** __annotations__, a dict or {@code null} */
     PyDict annotations;
     /** __qualname__, the qualified name, a str */
     PyUnicode qualname;
-
-    // In CPython a pointer to function
-    // vectorcallfunc vectorcall;
 
     // One or both set when optimised call is possible
     boolean fast, fast0;
@@ -55,16 +52,13 @@ class PyFunction implements PyObject {
     PyFunction(Interpreter interpreter, PyCode code, PyDict globals,
             PyUnicode qualname) {
         this.interpreter = interpreter;
-        this.setCode(code);
+        setCode(code);
         this.globals = globals;
         this.name = code.name;
 
-        // XXX: when we support the stack-slice call add handle.
-        // op->vectorcall = _PyFunction_Vectorcall;
-
         // Get __doc__ from first constant in code (if str)
         PyObject doc;
-        PyObject[] consts = code.consts.value;
+        PyObject[] consts = code.consts;
         if (consts.length >= 1
                 && (doc = consts[0]) instanceof PyUnicode)
             this.doc = doc;
@@ -129,7 +123,7 @@ class PyFunction implements PyObject {
             frame.applyKWDefaults(kwdefaults);
 
         // Create cells for bound variables
-        if (code.cellvars.value.length > 0)
+        if (code.cellvars.length > 0)
             frame.makeCells();
 
         // XXX Handle generators by returning Evaluable wrapping gen.
@@ -162,11 +156,10 @@ class PyFunction implements PyObject {
          * code.argcount or nargs == 0 and func.defaults fills the
          * positional arguments exactly.
          */
-        if (fast && nargs == code.argcount && nkwargs==0)
+        if (fast && nargs == code.argcount && nkwargs == 0)
             return code.fastFrame(interpreter, globals, stack, start);
         else if (fast0 && nargs == 0)
-            return code.fastFrame(interpreter, globals, defaults.value,
-                    defaults.size());
+            return code.fastFrame(interpreter, globals, defaults, 0);
 
         PyFrame frame = code.createFrame(interpreter, globals, closure);
 
@@ -210,7 +203,7 @@ class PyFunction implements PyObject {
             frame.applyKWDefaults(kwdefaults);
 
         // Create cells for bound variables
-        if (code.cellvars.value.length > 0)
+        if (code.cellvars.length > 0)
             frame.makeCells();
 
         // XXX Handle generators by returning Evaluable wrapping gen.
@@ -228,35 +221,47 @@ class PyFunction implements PyObject {
         this.fast = code.kwonlyargcount == 0
                 && code.traits.equals(FAST_TRAITS);
         this.fast0 = this.fast && defaults != null
-                && defaults.size() == code.argcount;
+                && defaults.length == code.argcount;
     }
 
+    /**
+     * @return the positional {@code __defaults__ tuple} or
+     *         {@code None}.
+     */
     PyObject getDefaults() {
-        return defaults != null ? defaults : Py.None;
+        return defaults != null ? PyTuple.wrap(defaults) : Py.None;
     }
 
     void setDefaults(PyTuple defaults) {
-        this.defaults = defaults;
+        this.defaults = defaults.value;
         // Must recompute if code or defaults re-assigned
         this.fast0 = this.fast && defaults != null
                 && defaults.size() == code.argcount;
     }
 
-    PyDict getKwdefaults() { return kwdefaults; }
+    /**
+     * @return the keyword {@code __kwdefaults__ dict} or {@code None}.
+     */
+    PyObject getKwdefaults() {
+        return kwdefaults != null ? kwdefaults : Py.None;
+    }
 
     void setKwdefaults(PyDict kwdefaults) {
         this.kwdefaults = kwdefaults;
     }
 
+    /**
+     * @return the {@code __closure__ tuple} or {@code None}.
+     */
     PyObject getClosure() {
-        return closure != null ? closure : Py.None;
+        return closure != null ? PyTuple.wrap(closure) : Py.None;
     }
 
     /** Set the {@code __closure__} attribute. */
     <E extends PyObject> void setClosure(Collection<E> closure) {
 
         int n = closure == null ? 0 : closure.size();
-        int nfree = code.freevars.value.length;
+        int nfree = code.freevars.length;
 
         if (nfree == 0) {
             if (n == 0)
@@ -267,8 +272,7 @@ class PyFunction implements PyObject {
         } else {
             if (n == nfree) {
                 try {
-                    this.closure =
-                            new TypedTuple<>(PyCell.class, closure);
+                    this.closure = closure.toArray(new PyCell[n]);
                 } catch (ArrayStoreException e) {
                     // The closure is not tuple of cells only
                     for (PyObject o : closure) {
@@ -322,7 +326,7 @@ class PyFunction implements PyObject {
         int kwGiven = 0;
         String posText, givenText;
         int argcount = code.argcount;
-        int defcount = defaults.value.length;
+        int defcount = defaults.length;
         int end = argcount + code.kwonlyargcount;
 
         assert (!code.traits.contains(Trait.VARARGS));

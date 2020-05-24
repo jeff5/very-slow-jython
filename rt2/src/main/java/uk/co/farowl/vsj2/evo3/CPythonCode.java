@@ -47,7 +47,7 @@ class CPythonCode extends PyCode {
 
     @Override
     CPythonFrame createFrame(Interpreter interpreter, PyDict globals,
-            TypedTuple<PyCell> closure) {
+            PyCell[] closure) {
         CPythonFrame f =
                 new CPythonFrame(interpreter, this, globals, closure);
         return f;

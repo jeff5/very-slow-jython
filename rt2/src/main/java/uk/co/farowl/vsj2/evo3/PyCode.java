@@ -3,7 +3,6 @@ package uk.co.farowl.vsj2.evo3;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumSet;
-import java.util.List;
 
 /**
  * The Python {@code code} object. (Compare {@code PyCodeObject} in
@@ -42,28 +41,28 @@ abstract class PyCode implements PyObject {
     /** Instruction opcodes, not {@code null}. */
     final PyBytes code;
     /** Constant objects needed by the code, not {@code null}. */
-    final PyTuple consts;
+    final PyObject[] consts;
     /**
      * Names referenced in the code (elements guaranteed to be of type
      * {@code str}), not {@code null}.
      */
-    final TypedTuple<PyUnicode> names;
+    final PyUnicode[] names;
     /**
      * Args and non-cell locals (elements guaranteed to be of type
      * {@code str}), not {@code null}.
      */
-    final TypedTuple<PyUnicode> varnames;
+    final PyUnicode[] varnames;
     /**
      * Names referenced but not defined here (elements guaranteed to be
      * of type {@code str}), not {@code null}. These variables will be
      * set from the closure of the function.
      */
-    final TypedTuple<PyUnicode> freevars;
+    final PyUnicode[] freevars;
     /**
      * Names defined here and referenced elsewhere (elements guaranteed
      * to be of type {@code str}), not {@code null}.
      */
-    final TypedTuple<PyUnicode> cellvars;
+    final PyUnicode[] cellvars;
 
     /* ---------------------- See CPython code.h ------------------ */
     /** Constant to be stored in {@link #cell2arg} as default. */
@@ -135,7 +134,7 @@ abstract class PyCode implements PyObject {
         this.stacksize = stacksize;
         this.flags = flags;
         this.code = code;
-        this.consts = consts;
+        this.consts = consts.value;
 
         this.names = names(names);
         this.varnames = names(varnames);
@@ -153,6 +152,20 @@ abstract class PyCode implements PyObject {
 
         this.cell2arg = calcCell2arg();
     }
+
+    // Attributes ------------------------------------------------
+
+    PyTuple getConsts() { return PyTuple.wrap(consts); }
+
+    PyTuple getNames() { return PyTuple.wrap(names); }
+
+    PyTuple getVarnames() { return PyTuple.wrap(varnames); }
+
+    PyTuple getFreevars() { return PyTuple.wrap(freevars); }
+
+    PyTuple getCellvars() { return PyTuple.wrap(cellvars); }
+
+    // Plumbing --------------------------------------------------
 
     /**
      * Create a {@code PyFrame} suitable to execute this {@code PyCode}
@@ -173,11 +186,11 @@ abstract class PyCode implements PyObject {
      *
      * @param interpreter providing the module context
      * @param globals name space to treat as global variables
-     * @param closure a tuple of cells (may be {@code null})
+     * @param closure an array of cells (may be {@code null})
      * @return the frame
      */
     abstract PyFrame createFrame(Interpreter interpreter,
-            PyDict globals, TypedTuple<PyCell> closure);
+            PyDict globals, PyCell[] closure);
 
     /**
      * Create a frame from CPython vector call arguments, in the simple
@@ -195,17 +208,20 @@ abstract class PyCode implements PyObject {
     abstract PyFrame fastFrame(Interpreter interpreter, PyDict globals,
             PyObject[] stack, int start);
 
-    /** Check that all the objects in the tuple are {@code str}. */
-    private static TypedTuple<PyUnicode> names(PyTuple tuple) {
-        List<PyUnicode> u = new ArrayList<>();
-        for (PyObject name : tuple.value) {
+    /** Check that all the objects in the tuple are {@code str},
+     * and return them as an array.
+     */
+    private static PyUnicode[] names(PyTuple tuple) {
+        PyUnicode[] u = new PyUnicode[tuple.size()];
+        int i = 0;
+        for (PyObject name : tuple) {
             if (name instanceof PyUnicode)
-                u.add((PyUnicode) name);
+                u[i++] = (PyUnicode) name;
             else
                 throw new IllegalArgumentException(
                         String.format("Non-unicode name: {}", name));
         }
-        return new TypedTuple<>(PyUnicode.class, u);
+        return u;
     }
 
     /**
@@ -215,7 +231,7 @@ abstract class PyCode implements PyObject {
     private int[] calcCell2arg() {
         // Return array (lazily created on first finding we need one)
         int[] cell2arg = null;
-        int ncells = cellvars.size();
+        int ncells = cellvars.length;
         if (ncells > 0) {
             // This many of the varnames are arguments
             int nargs = argcount + kwonlyargcount
@@ -223,9 +239,9 @@ abstract class PyCode implements PyObject {
                     + (traits.contains(Trait.VARKEYWORDS) ? 1 : 0);
             // For each cell name, see if it matches an argument
             for (int i = 0; i < ncells; i++) {
-                PyUnicode cellName = cellvars.get(i);
+                PyUnicode cellName = cellvars[i];
                 for (int j = 0; j < nargs; j++) {
-                    PyUnicode argName = varnames.get(j);
+                    PyUnicode argName = varnames[j];
                     if (cellName.equals(argName)) {
                         // A match: enter it in the cell2arg array
                         if (cell2arg == null) {

@@ -1,7 +1,5 @@
 package uk.co.farowl.vsj2.evo3;
 
-import java.math.BigInteger;
-
 /** The Python {@code str} object. */
 class PyUnicode implements PyObject, Comparable<PyUnicode> {
 

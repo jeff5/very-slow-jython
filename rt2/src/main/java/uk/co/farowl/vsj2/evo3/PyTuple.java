@@ -43,8 +43,12 @@ public class PyTuple extends TypedTuple<PyObject> {
      * circumstances where the argument will often be empty, this has
      * space and time advantages over the constructor
      * {@link #PyTuple(Collection)}.
+     *
+     * @param <E> component type
+     * @param c value of new tuple
+     * @return a tuple with the given contents or {@link #EMPTY}
      */
-    static <E extends PyObject> PyTuple fromList(Collection<E> c) {
+    static <E extends PyObject> PyTuple from(Collection<E> c) {
         if (c.size() == 0)
             return EMPTY;
         else
@@ -53,4 +57,30 @@ public class PyTuple extends TypedTuple<PyObject> {
 
     /** Convenient constant for a {@code tuple} with zero elements. */
     static final PyTuple EMPTY = new PyTuple();
+
+    private PyTuple(boolean iPromiseNotToModifyTheArray,
+            PyObject[] value) throws ArrayStoreException {
+        super(PyObject.class, iPromiseNotToModifyTheArray, value);
+    }
+
+    /**
+     * Unsafely wrap an array of {@code PyObject} (or of a type
+     * assignable to {@code PyObject}) in a "tuple view".
+     * <p>
+     * The method is unsafe insofar as the array becomes embedded as the
+     * value of the tuple. <b>The client therefore promises not to
+     * modify the content.</b> For this reason, this method should only
+     * ever have package visibility.
+     *
+     * @param <T> component type of the array in the new tuple
+     * @param value of the new tuple or {@code null}
+     * @return a tuple with the given contents or {@link #EMPTY}
+     */
+    static <T extends PyObject> PyTuple wrap(T[] value) {
+        if (value == null)
+            return EMPTY;
+        else
+            return new PyTuple(true, value);
+    }
+
 }

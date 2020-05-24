@@ -1,8 +1,12 @@
 package uk.co.farowl.vsj2.evo3;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 
 import java.util.Arrays;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Queue;
 
 import org.junit.jupiter.api.Test;
 
@@ -79,6 +83,48 @@ class PyByteCode5 {
         double upper = times[3 * n / 4] * 1e-9;
         System.out.printf("%s: %f, %f, %f (sec)\n", name, n * median,
                 n * lower, n * upper);
+    }
+
+    /**
+     * Test the idea of wrapping an array into a tuple, that allows us
+     * to use strongly-typed arrays internally to PyCode.
+     */
+    @Test
+    void code_accessors() {
+
+        // Do the test with code objects form these tests::
+        Queue<PyCode> queue = new LinkedList<>();
+        queue.add(DEF_FUNC);
+        queue.add(CLOSPROG_ARG);
+
+        // Walk the tree of constants and collect code objects
+        List<PyCode> examples = new LinkedList<>();
+        PyCode current;
+        while ((current = queue.poll()) != null) {
+            examples.add(current);
+            for (PyObject o : current.consts) {
+                if ((o instanceof PyCode) && !examples.contains(o)) {
+                    queue.add((PyCode) o);
+                }
+            }
+        }
+
+        // For each code object, check the accessors work.
+        for (PyCode code : examples) {
+            assertTupleMatch(code.consts, code.getConsts());
+            assertTupleMatch(code.names, code.getNames());
+            assertTupleMatch(code.varnames, code.getVarnames());
+            assertTupleMatch(code.freevars, code.getFreevars());
+            assertTupleMatch(code.cellvars, code.getCellvars());
+        }
+    }
+
+    <T extends PyObject> void assertTupleMatch(T[] u, PyTuple t) {
+        Class<?> cls = u.getClass().getComponentType();
+        assertEquals(u.length, t.size());
+        assertSame(PyTuple.class, t.getClass());
+        assertSame(cls, t.value.getClass().getComponentType());
+        if (u.length > 0) { assertSame(u, t.value); }
     }
 
     // --------------------- Generated Tests -----------------------

@@ -397,7 +397,7 @@ abstract class PyFrame implements PyObject {
      */
     private int varnameIndexOf(PyObject name) {
 
-        PyObject[] varnames = code.varnames.value;
+        PyObject[] varnames = code.varnames;
         int end = code.argcount + code.kwonlyargcount;
 
         if (name == null || !(name instanceof PyUnicode)) {
@@ -439,9 +439,9 @@ abstract class PyFrame implements PyObject {
      * @param defs default values by position or {@code null}
      * @throws TypeError if there are still missing arguments.
      */
-    void applyDefaults(int nargs, PyTuple defs) throws TypeError {
+    void applyDefaults(int nargs, PyObject[] defs) throws TypeError {
 
-        int ndefs = defs == null ? 0 : defs.value.length;
+        int ndefs = defs == null ? 0 : defs.length;
         /*
          * At this stage, the first nargs parameter slots have been
          * filled and some (or all) of the remaining code.argcount-nargs
@@ -464,7 +464,7 @@ abstract class PyFrame implements PyObject {
          */
         for (int i = nargs, j = Math.max(nargs - m, 0); j < ndefs;
                 i++, j++) {
-            if (getLocal(i) == null) { setLocal(i, defs.value[j]); }
+            if (getLocal(i) == null) { setLocal(i, defs[j]); }
         }
     }
 
@@ -485,7 +485,7 @@ abstract class PyFrame implements PyObject {
          * arguments. If they have not been assigned yet, they take
          * values from dict kwdefs.
          */
-        PyObject[] varnames = code.varnames.value;
+        PyObject[] varnames = code.varnames;
         int end = code.argcount + code.kwonlyargcount;
         int missing = 0;
         for (int i = code.argcount; i < end; i++) {
@@ -506,10 +506,10 @@ abstract class PyFrame implements PyObject {
      * have been set by any mechanism.
      *
      * It is harmless (but a waste) to call this when
-     * {@code code.cellvars.value.length == 0}.
+     * {@code code.cellvars.length == 0}.
      */
     void makeCells() {
-        for (int i = 0; i < code.cellvars.value.length; ++i) {
+        for (int i = 0; i < code.cellvars.length; ++i) {
             int arg;
             // Perhaps the cell variable is also an argument.
             if (code.cell2arg != null && (arg =
@@ -623,7 +623,7 @@ abstract class PyFrame implements PyObject {
          */
         List<String> names = new ArrayList<>();
         for (int k = 0; k < code.posonlyargcount; k++) {
-            PyObject varname = code.varnames.value[k];
+            PyObject varname = code.varnames[k];
             for (PyObject keyword : kwnames) {
                 if (Abstract.richCompareBool(varname, keyword,
                         Comparison.EQ, null))
@@ -675,7 +675,7 @@ abstract class PyFrame implements PyObject {
         ArrayList<String> names = new ArrayList<>(missing);
         for (int i = start, j = 0; i < end; i++) {
             if (getLocal(i) == null) {
-                names.add(j++, code.varnames.value[i].toString());
+                names.add(j++, code.varnames[i].toString());
             }
         }
 

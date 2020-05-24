@@ -1,6 +1,5 @@
 package uk.co.farowl.vsj2.evo3;
 
-import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;

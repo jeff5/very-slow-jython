@@ -28,9 +28,8 @@ class TypedTuple<E extends PyObject> extends AbstractList<E>
     @SuppressWarnings("unchecked")
     TypedTuple(Class<E> cls, PyObject... value)
             throws ArrayStoreException {
-        int n = value.length;
-        this.value = (E[]) Array.newInstance(cls, n);
-        System.arraycopy(value, 0, this.value, 0, value.length);
+        // Use the "unsafe" constructor in safe mode.
+        this(cls, false, value);
     }
 
     /**
@@ -71,6 +70,69 @@ class TypedTuple<E extends PyObject> extends AbstractList<E>
 
     @Override
     public int size() { return value.length; }
+
+    @SuppressWarnings("unchecked")
+    <T extends PyObject> T[] items(Class<T> cls) {
+        if (cls.isAssignableFrom(value.getClass().getComponentType()))
+            return (T[]) value;
+        else
+            throw new ClassCastException();
+    }
+
+    // Plumbing -------------------------------------------------
+
+    /**
+     * Potentially unsafe constructor, capable of creating a
+     * "{@code tuple} view" of an array, or a copy. We make a copy (the
+     * safe option) if the caller is <b>not</b> prepared to promise
+     * <b>not</b> to modify the array. The arguments begin with a
+     * claimed element type for the array, or the element type of the
+     * array to create.
+     *
+     * @param cls class of elements
+     * @param iPromiseNotToModifyTheArray if {@code true} try to re-use
+     *            the array, otherwise make a copy.
+     * @param value of the tuple
+     * @throws ArrayStoreException if any element of {@code value} is
+     *             not assignment compatible with {@code cls}
+     */
+    @SuppressWarnings("unchecked")
+    protected TypedTuple(Class<E> cls,
+            boolean iPromiseNotToModifyTheArray, PyObject[] value)
+            throws ArrayStoreException {
+        int n = value.length;
+        if (iPromiseNotToModifyTheArray && cls.isAssignableFrom(
+                value.getClass().getComponentType())) {
+            // The array may be safely cast to match the requested type.
+            this.value = (E[]) value;
+        } else {
+            // We make a new array of element type E.
+            this.value = (E[]) Array.newInstance(cls, n);
+            // The copy may throw ArrayStoreException.
+            System.arraycopy(value, 0, this.value, 0, value.length);
+        }
+    }
+
+    /**
+     * Produce slightly unsafe "tuple view" of an array, each of whose
+     * elements must be assignable to the given class. The method is
+     * unsafe because of the possibility that the client will
+     * subsequently modify the array. It will therefore never be public
+     * API. The main use for this is to return as a {@code tuple} to
+     * Python, an attribute that is kept internally as an array,
+     * possibly guaranteeing a particular component type (e.g.
+     * {@link PyCode#names} returned by {@link PyCode#getNames()}).
+     *
+     * @param cls class of elements
+     * @param iPromiseNotToModifyTheArray true to re-use the array
+     * @param value of the tuple
+     * @throws ArrayStoreException if any element of {@code value} is
+     *             not assignment compatible with {@code cls}
+     */
+    static <T extends PyObject> TypedTuple<T> wrap(Class<T> cls,
+            T[] value) {
+        return new TypedTuple<T>(cls, true, value);
+    }
 
     @Override
     public String toString() {

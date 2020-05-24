@@ -708,9 +708,9 @@ but it lands fairly directly in the constructor of this class:
         ...
         PyCode code;
         final PyDict globals;
-        PyTuple defaults = PyTuple.EMPTY;
+        PyObject[] defaults;
         PyDict kwdefaults;
-        PyTuple closure = PyTuple.EMPTY;
+        PyCell[] closure;
         PyObject doc;
         PyUnicode name;
         PyDict dict;
@@ -723,7 +723,7 @@ but it lands fairly directly in the constructor of this class:
         PyFunction(Interpreter interpreter, PyCode code, PyDict globals,
                 PyUnicode qualname) {
             this.interpreter = interpreter;
-            this.code = code;
+            setCode(code);
             this.globals = globals;
             this.name = code.name;
             ...
@@ -737,15 +737,18 @@ but it lands fairly directly in the constructor of this class:
 
 The CPython equivalent is ``PyFunctionObject``
 and the construction of it is at ``PyFunction_NewWithQualName``.
-CPython allows most of the member fields to be ``NULL`` if they are not used,
-for example closure and defaults,
-but we find it slightly simpler if they contain a valid but empty object,
-in those cases an empty ``tuple``.
+Like CPython,
+we allow most of the member fields to be ``null`` if they are not used,
+representing that as ``None`` externally.
+Those that CPython makes tuples,
+for example ``closure`` and ``defaults``,
+we find it slightly simpler to make correctly-typed arrays internally.
 
 In an important design difference from CPython,
 we explicitly store the interpreter that is current at the time of definition.
 This is so that body code executes with the same "import context",
 wherever it is called from.
+
 
 Classic call site
 =================
@@ -876,7 +879,7 @@ but the approach here can extend to that with minor changes.
                 frame.applyKWDefaults(kwdefaults);
 
             // Create cells for bound variables
-            if (code.cellvars.value.length > 0)
+            if (code.cellvars.length > 0)
                 frame.makeCells();
 
             return frame;
@@ -1030,7 +1033,7 @@ either the same as, or simple counterparts of, those seen before.
                 frame.applyKWDefaults(kwdefaults);
 
             // Create cells for bound variables
-            if (code.cellvars.value.length > 0)
+            if (code.cellvars.length > 0)
                 frame.makeCells();
 
             return frame;
@@ -1059,7 +1062,7 @@ This is the basis of the optimisation elided from the code above,
 and now shown here:
 
 ..  code-block:: java
-    :emphasize-lines: 9-15
+    :emphasize-lines: 9-14
 
     class PyFunction implements PyObject { ...
 
@@ -1074,8 +1077,7 @@ and now shown here:
                 return code.fastFrame(interpreter, globals, stack, start);
             else if (fast0 && nargs == 0)
                 // Fast path possible
-                return code.fastFrame(interpreter, globals, defaults.value,
-                        defaults.size());
+                return code.fastFrame(interpreter, globals, defaults, 0);
 
             // Slow path
             PyFrame frame = code.createFrame(interpreter, globals, closure);
@@ -1107,13 +1109,13 @@ inside the setters for fields ``code`` and ``defaults``:
             this.fast = code.kwonlyargcount == 0
                     && code.traits.equals(FAST_TRAITS);
             this.fast0 = this.fast && defaults != null
-                    && defaults.size() == code.argcount;
+                    && defaults.length == code.argcount;
         }
 
         void setDefaults(PyTuple defaults) {
             this.defaults = defaults;
             this.fast0 = this.fast && defaults != null
-                    && defaults.size() == code.argcount;
+                    && defaults.length == code.argcount;
         }
 
         private static final EnumSet<Trait> FAST_TRAITS =
