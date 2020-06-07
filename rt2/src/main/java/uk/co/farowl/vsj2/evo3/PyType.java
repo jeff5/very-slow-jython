@@ -41,6 +41,10 @@ class PyType implements PyObject {
     MethodHandle tp_hash;
     MethodHandle tp_call;
     MethodHandle tp_str;
+
+    MethodHandle tp_getattro;
+    MethodHandle tp_setattro;
+
     MethodHandle tp_richcompare;
     MethodHandle tp_iter;
 

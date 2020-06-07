@@ -22,6 +22,10 @@ enum Slot {
     tp_hash(Signature.LEN), //
     tp_call(Signature.CALL), //
     tp_str(Signature.UNARY), //
+
+    tp_getattro(Signature.GETATTRO), //
+    tp_setattro(Signature.SETATTRO), //
+
     tp_richcompare(Signature.RICHCMP), //
     tp_iter(Signature.UNARY), //
     tp_vectorcall(Signature.VECTORCALL), //
@@ -179,7 +183,9 @@ enum Slot {
         SQ_INDEX(O, S, I), // (ssizeargfunc) sq_item, sq_repeat only
         SQ_ASSIGN(V, S, I, O), // (ssizeobjargproc) sq_ass_item only
         SELFBINARY(O, S, O), // (binaryfunc?) mp_subscript
-        MP_ASSIGN(V, S, O, O); // (objobjargproc) mp_ass_subscript only
+        MP_ASSIGN(V, S, O, O), // (objobjargproc) mp_ass_subscript only
+        GETATTRO(O, S, U), // (getattrofunc) tp_getattro
+        SETATTRO(V, S, U, O); // (setattrofunc) tp_setattro
 
         /**
          * A method handle offered to this slot must be based on this

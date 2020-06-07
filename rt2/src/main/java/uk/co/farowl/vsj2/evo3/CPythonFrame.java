@@ -285,6 +285,14 @@ class CPythonFrame extends PyFrame {
                         valuestack[sp - 1] = res; // SET_TOP
                         break;
 
+                    case Opcode.LOAD_BUILD_CLASS:
+                        v = builtins.get(ID.__build_class__);
+                        if (v == null)
+                            throw new NameError(
+                                    "__build_class__ not found");
+                        valuestack[sp++] = v; // PUSH
+                        break;
+
                     case Opcode.RETURN_VALUE:
                         returnValue = valuestack[--sp]; // POP
                         break loop;
@@ -297,6 +305,20 @@ class CPythonFrame extends PyFrame {
                                     "no locals found when storing '%s'",
                                     name);
                         locals.put(name, v);
+                        break;
+
+                    case Opcode.STORE_ATTR: // v.name = w
+                        // v | w | -> |
+                        // -------^sp -^sp
+                        sp -= 2; // SHRINK 2
+                        v = valuestack[sp];
+                        w = valuestack[sp + 1];
+                        Abstract.setAttr(v, names[oparg], w);
+                        break;
+
+                    case Opcode.DELETE_ATTR: // del v.name
+                        v = valuestack[--sp];
+                        Abstract.setAttr(v, names[oparg], null);
                         break;
 
                     case Opcode.STORE_GLOBAL:
@@ -328,6 +350,14 @@ class CPythonFrame extends PyFrame {
                             }
                         }
                         valuestack[sp++] = v; // PUSH
+                        break;
+
+                    case Opcode.LOAD_ATTR: // v.name
+                        // v | -> | v.name |
+                        // ---^sp ----------^sp
+                        v = valuestack[sp - 1];
+                        valuestack[sp - 1] =
+                                Abstract.getAttr(v, names[oparg]);
                         break;
 
                     case Opcode.COMPARE_OP:

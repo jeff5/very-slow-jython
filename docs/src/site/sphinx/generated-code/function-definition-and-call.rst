@@ -246,6 +246,8 @@ Python compiled to the JVM will have something quite different.
 Defining a Function in Java
 ***************************
 
+..  _a-specialised-callable:
+
 A Specialised Callable
 ======================
 

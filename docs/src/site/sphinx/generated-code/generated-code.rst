@@ -21,13 +21,11 @@ but take a different approach to implementation.
     comparison-and-loops
     refactor-to-evo3
     function-definition-and-call
+    classes-and-attributes
 
 ..  I think the chapters might go like this,
     but I'm not certain enough to create the files:
-    basic-type-system
     mutable-types (object base and a hint of inheritance)
-    test-branch-jump
-    function-definition-and-call
     attribute-access
     exceptions
     class-definition-and-instantiation

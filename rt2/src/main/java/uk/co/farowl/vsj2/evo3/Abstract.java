@@ -176,6 +176,10 @@ class Abstract {
             throw typeError(NOT_SUBSCRIPTABLE, o);
     }
 
+    /**
+     * Python {@code o[key] = value} where {@code o} may be a mapping or
+     * a sequence.
+     */
     static void setItem(PyObject o, PyObject key, PyObject value)
             throws Throwable {
         // Corresponds to abstract.c : PyObject_SetItem
@@ -198,6 +202,75 @@ class Abstract {
             throw typeError(NOT_ITEM_ASSIGNMENT, o);
     }
 
+    /** Python {@code o.name}. */
+    static PyObject getAttr(PyObject o, String name) throws Throwable {
+        // Corresponds to object.c : PyObject_SetAttrString
+        return getAttr(o, Py.str(name));
+    }
+
+    /** Python {@code o.name}. */
+    static PyObject getAttr(PyObject o, PyObject name)
+            throws Throwable {
+        // Corresponds to object.c : PyObject_GetAttr
+        // Decisions are based on types of o and name
+        if (name instanceof PyUnicode) {
+            return getAttr(o, (PyUnicode) name);
+        } else {
+            throw new TypeError(ATTR_MUST_BE_STRING_NOT, name);
+        }
+    }
+
+    /** Python {@code o.name}. */
+    static PyObject getAttr(PyObject o, PyUnicode name)
+            throws Throwable {
+        // Corresponds to object.c : PyObject_GetAttr
+        // Decisions are based on type of o (that of name is known)
+        try {
+            return (PyObject) o.getType().tp_getattro.invokeExact(o,
+                    name);
+        } catch (EmptyException e) {
+            throw noAttributeError(o, name);
+        }
+    }
+
+    /** Python {@code o.name = value}. */
+    static void setAttr(PyObject o, String name, PyObject value)
+            throws Throwable {
+        // Corresponds to object.c : PyObject_SetAttrString
+        // Decisions are based on type of o (that of name is known)
+        setAttr(o, Py.str(name), value);
+    }
+
+    /** Python {@code o.name = value}. */
+    static void setAttr(PyObject o, PyObject name, PyObject value)
+            throws Throwable {
+        // Corresponds to object.c : PyObject_SetAttr
+        if (name instanceof PyUnicode) {
+            setAttr(o, (PyUnicode) name, value);
+        } else {
+            throw new TypeError(ATTR_MUST_BE_STRING_NOT, name);
+        }
+    }
+
+    /** Python {@code o.name = value}. */
+    static void setAttr(PyObject o, PyUnicode name, PyObject value)
+            throws Throwable {
+        // Corresponds to object.c : PyObject_SetAttr
+        // Decisions are based on type of o (that of name is known)
+        try {
+            o.getType().tp_setattro.invokeExact(o, name, value);
+            return;
+        } catch (EmptyException e) {
+            String fmt =
+                    "'%.100s' object has %s attributes (%s .%.50s)";
+            PyType oType = o.getType();
+            String kind = Slot.tp_getattro.isDefinedFor(oType)
+                    ? "only read-only" : "no";
+            String mode = value == null ? "del" : "assign to";
+            throw new TypeError(fmt, oType, kind, mode, name);
+        }
+    }
+
     protected static final String HAS_NO_LEN =
             "object of type '%.200s' has no len()";
     private static final String MUST_BE_INT_NOT =
@@ -206,6 +279,8 @@ class Abstract {
             "'%.200s' object is not subscriptable";
     protected static final String NOT_ITEM_ASSIGNMENT =
             "'%.200s' object does not support item assignment";
+    private static final String ATTR_MUST_BE_STRING_NOT =
+            "attribute name must be string, not '%.200s'";
 
     /**
      * Create a {@link TypeError} with a message involving the type of
@@ -251,6 +326,36 @@ class Abstract {
     static TypeError returnTypeError(String f, String t, PyObject o) {
         String fmt = "%.200s returned non-%.200s (type %.200s)";
         return new TypeError(fmt, f, t, o.getType().getName());
+    }
+
+    /**
+     * Convenience function to create a {@link TypeError} with a message
+     * along the lines "'T' object has no attributes (A 'N')" or "'T'
+     * object has only read-only attributes", where T is the type of the
+     * object accessed, A is the action and .
+     *
+     * @param v object accessed
+     * @param name of attribute
+     * @return exception to throw
+     */
+    static TypeError attributeTypeError(String f, String t,
+            PyObject o) {
+        String fmt = "%.200s returned non-%.200s (type %.200s)";
+        return new TypeError(fmt, f, t, o.getType().getName());
+    }
+
+    /**
+     * Convenience function to create a {@link AttributeError} with a
+     * message along the lines "'T' object has no attribute N", where T
+     * is the type of the object accessed.
+     *
+     * @param v object accessed
+     * @param name of attribute
+     * @return exception to throw
+     */
+    static AttributeError noAttributeError(PyObject v, PyObject name) {
+        String fmt = "'%.50s' object has no attribute '%.50s'";
+        return new AttributeError(fmt, v.getType().getName(), name);
     }
 
     /**

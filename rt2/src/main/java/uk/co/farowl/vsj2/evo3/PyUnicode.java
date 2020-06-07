@@ -3,7 +3,7 @@ package uk.co.farowl.vsj2.evo3;
 /** The Python {@code str} object. */
 class PyUnicode implements PyObject, Comparable<PyUnicode> {
 
-    static final PyType TYPE = new PyType("unicode", PyUnicode.class);
+    static final PyType TYPE = new PyType("str", PyUnicode.class);
 
     @Override
     public PyType getType() { return TYPE; }

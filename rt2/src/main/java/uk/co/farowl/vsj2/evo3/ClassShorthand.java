@@ -6,6 +6,7 @@ import uk.co.farowl.vsj2.evo3.Slot.Self;
 interface ClassShorthand {
 
     static final Class<PyObject> O = PyObject.class;
+    static final Class<PyUnicode> U = PyUnicode.class;
     static final Class<?> S = Self.class;
     static final Class<?> I = int.class;
     static final Class<?> B = boolean.class;
