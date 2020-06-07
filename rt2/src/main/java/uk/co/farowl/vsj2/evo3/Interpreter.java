@@ -48,7 +48,7 @@ class Interpreter {
      * @return
      */
     PyObject evalCode(PyCode code, PyDict globals, PyObject locals) {
-        globals.putIfAbsent(Py.BUILTINS, builtinsModule);
+        globals.putIfAbsent(ID.__builtins__, builtinsModule);
         PyFrame f = code.createFrame(this, globals, locals);
         f.push();
         return f.eval();

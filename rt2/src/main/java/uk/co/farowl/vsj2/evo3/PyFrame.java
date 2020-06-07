@@ -126,7 +126,7 @@ abstract class PyFrame implements PyObject {
             // Same globals, same builtins.
             return back.builtins;
         else {
-            PyObject b = globals.get(Py.BUILTINS);
+            PyObject b = globals.get(ID.__builtins__);
             if (b != null) {
                 // Normally, globals[__builtins__] is a module
                 if (b instanceof PyModule)
@@ -134,7 +134,7 @@ abstract class PyFrame implements PyObject {
                 else if (b instanceof PyDict)
                     return (PyDict) b;
                 throw new TypeError("%s should be module not %s",
-                        Py.BUILTINS, b);
+                        ID.__builtins__, b);
             } else {
                 // Substitute minimal builtins
                 PyDict builtins = new PyDict();

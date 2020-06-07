@@ -95,9 +95,6 @@ class Py {
 
     // -------------------- Initialisation ----------------------------
 
-    /** Name of the builtin module when it appears in globals(). */
-    static final String BUILTINS = "__builtins__";
-
     static synchronized void initialise() {}
 
     static synchronized void finalise() {}

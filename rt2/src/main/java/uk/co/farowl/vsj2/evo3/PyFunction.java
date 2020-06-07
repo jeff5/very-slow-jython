@@ -46,8 +46,6 @@ class PyFunction implements PyObject {
     /** The interpreter that defines the import context. */
     final Interpreter interpreter;
 
-    private static final PyUnicode STR__name__ = Py.str("__name__");
-
     // Compare PyFunction_NewWithQualName + explicit interpreter
     PyFunction(Interpreter interpreter, PyCode code, PyDict globals,
             PyUnicode qualname) {
@@ -66,7 +64,7 @@ class PyFunction implements PyObject {
             this.doc = Py.None;
 
         // __module__: if module name is in globals, use it.
-        this.module = globals.get(STR__name__);
+        this.module = globals.get(ID.__name__);
         this.qualname = qualname != null ? qualname : this.name;
     }
 
