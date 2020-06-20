@@ -105,4 +105,32 @@ class Callables extends Abstract {
         return call(callable, args, kwargs);
     }
 
+    /**
+     * Call an object with argument with vector call protocol. This
+     * supports CPython byte code generated according to the conventions
+     * in PEP-590. It differs in detail since one cannot designate, in
+     * Java, a slice of the stack by an address and size.
+     *
+     * @param callable target
+     * @param stack positional and keyword arguments
+     * @param start position of arguments in the array
+     * @param nargs number of positional arguments
+     * @param kwnames names of keyword arguments
+     * @return the return from the call to the object
+     * @throws TypeError if target is not callable
+     * @throws Throwable for errors raised in the function
+     */
+    static PyObject call(PyObject callable) throws Throwable {
+
+        // Try the vector call slot. Not an offset like CPython's slot.
+        try {
+            MethodHandle call = callable.getType().tp_vectorcall;
+            return (PyObject) call.invokeExact(callable, Py.EMPTY_ARRAY, 0,
+                    0, PyTuple.EMPTY);
+        } catch (Slot.EmptyException e) {}
+
+        // Vector call is not supported by the type. Make classic call.
+        return call(callable, PyTuple.EMPTY, null);
+    }
+
 }

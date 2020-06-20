@@ -89,6 +89,9 @@ class Py {
         return new PyDict();
     }
 
+    /** Empty (zero-length) array of {@link PyObject}. */
+    static final PyObject[] EMPTY_ARRAY = new PyObject[0];
+
     // -------------------- Interpreter ----------------------------
 
     static Interpreter createInterpreter() { return new Interpreter(); }

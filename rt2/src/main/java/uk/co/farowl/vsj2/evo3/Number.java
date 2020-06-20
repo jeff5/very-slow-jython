@@ -231,8 +231,8 @@ class Number extends Abstract {
                 // XXX Sub-types not implemented: maybe can't cast
                 return ((PyLong) value).asSize();
             else
-                return 0;   // Number.index guarantees we never reach
-                            // here
+                // Number.index guarantees we never reach here
+                return 0;
         } catch (OverflowError e) {
             // Caller may replace overflow with own type of exception
             if (exc == null) {
@@ -249,6 +249,52 @@ class Number extends Abstract {
                 throw exc.apply(msg);
             }
         }
+    }
+
+    /**
+     * Returns the {@code o} converted to an integer object. This is the
+     * equivalent of the Python expression {@code int(o)}.
+     *
+     * @param o
+     * @return
+     * @throws Throwable
+     */
+    // Compare with CPython abstract.h :: PyNumber_Long
+    static PyObject asLong(PyObject o) throws Throwable {
+        PyObject result;
+        PyType oType = o.getType();
+
+        if (oType == PyLong.TYPE) {
+            // Fast path for the case that we already have an int.
+            return o;
+        }
+
+        else if (Slot.nb_int.isDefinedFor(oType)) {
+            /* This should include subclasses of int */
+            result = PyLong.fromNbInt(o);
+            if (result.getType() != PyLong.TYPE) {
+                result = new PyLong((PyLong) result);
+            }
+            return result;
+        }
+
+        else if (Slot.nb_index.isDefinedFor(oType)) {
+            result = PyLong.fromNbIndexOrNbInt(o);
+            if (result != null && !(result.getType() == PyLong.TYPE)) {
+                result = new PyLong((PyLong) result);
+            }
+            return result;
+        }
+
+        // XXX Not implemented: else try the __trunc__ method
+
+        if ((o instanceof PyUnicode))
+            return PyLong.fromUnicode((PyUnicode) o, 10);
+
+        // else if ... support for bytes-like objects
+        else
+            throw argumentTypeError("int()", 0,
+                    "a string, a bytes-like object or a number", o);
     }
 
     private static final String CANT_MULTIPLY =

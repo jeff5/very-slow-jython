@@ -10,6 +10,7 @@ interface ClassShorthand {
     static final Class<?> S = Self.class;
     static final Class<?> I = int.class;
     static final Class<?> B = boolean.class;
+    static final Class<?> T = PyType.class;
     static final Class<?> V = void.class;
     static final Class<Comparison> CMP = Comparison.class;
     static final Class<PyTuple> TUPLE = PyTuple.class;

@@ -203,14 +203,15 @@ class Abstract {
     }
 
     /** Python {@code o.name}. */
-    static PyObject getAttr(PyObject o, String name) throws Throwable {
+    static PyObject getAttr(PyObject o, String name)
+            throws AttributeError, TypeError, Throwable {
         // Corresponds to object.c : PyObject_SetAttrString
         return getAttr(o, Py.str(name));
     }
 
     /** Python {@code o.name}. */
     static PyObject getAttr(PyObject o, PyObject name)
-            throws Throwable {
+            throws AttributeError, TypeError, Throwable {
         // Corresponds to object.c : PyObject_GetAttr
         // Decisions are based on types of o and name
         if (name instanceof PyUnicode) {
@@ -222,7 +223,7 @@ class Abstract {
 
     /** Python {@code o.name}. */
     static PyObject getAttr(PyObject o, PyUnicode name)
-            throws Throwable {
+            throws AttributeError, TypeError, Throwable {
         // Corresponds to object.c : PyObject_GetAttr
         // Decisions are based on type of o (that of name is known)
         try {
@@ -235,7 +236,7 @@ class Abstract {
 
     /** Python {@code o.name = value}. */
     static void setAttr(PyObject o, String name, PyObject value)
-            throws Throwable {
+            throws AttributeError, TypeError, Throwable {
         // Corresponds to object.c : PyObject_SetAttrString
         // Decisions are based on type of o (that of name is known)
         setAttr(o, Py.str(name), value);
@@ -243,7 +244,7 @@ class Abstract {
 
     /** Python {@code o.name = value}. */
     static void setAttr(PyObject o, PyObject name, PyObject value)
-            throws Throwable {
+            throws AttributeError, TypeError, Throwable {
         // Corresponds to object.c : PyObject_SetAttr
         if (name instanceof PyUnicode) {
             setAttr(o, (PyUnicode) name, value);
@@ -254,12 +255,11 @@ class Abstract {
 
     /** Python {@code o.name = value}. */
     static void setAttr(PyObject o, PyUnicode name, PyObject value)
-            throws Throwable {
+            throws AttributeError, TypeError, Throwable {
         // Corresponds to object.c : PyObject_SetAttr
         // Decisions are based on type of o (that of name is known)
         try {
             o.getType().tp_setattro.invokeExact(o, name, value);
-            return;
         } catch (EmptyException e) {
             String fmt =
                     "'%.100s' object has %s attributes (%s .%.50s)";
@@ -277,10 +277,14 @@ class Abstract {
             "sequence index must be integer, not '%.200s'";
     private static final String NOT_SUBSCRIPTABLE =
             "'%.200s' object is not subscriptable";
-    protected static final String NOT_ITEM_ASSIGNMENT =
-            "'%.200s' object does not support item assignment";
     private static final String ATTR_MUST_BE_STRING_NOT =
             "attribute name must be string, not '%.200s'";
+    private static final String IS_REQUIRED_NOT =
+            "%.200s is required, not '%.100s'";
+    protected static final String NOT_ITEM_ASSIGNMENT =
+            "'%.200s' object does not support item assignment";
+    private static final String RETURNED_NON_TYPE =
+            "%.200s returned non-%.200s (type %.200s)";
 
     /**
      * Create a {@link TypeError} with a message involving the type of
@@ -295,11 +299,10 @@ class Abstract {
     }
 
     /**
-     * Convenience function to create a {@link TypeError} with a message
-     * along the lines "T indices must be integers or slices, not X"
-     * involving the type name T of a target and the type X of {@code o}
-     * presented as an index, e.g. "list indices must be integers or
-     * slices, not str".
+     * Create a {@link TypeError} with a message along the lines "T
+     * indices must be integers or slices, not X" involving the type
+     * name T of a target and the type X of {@code o} presented as an
+     * index, e.g. "list indices must be integers or slices, not str".
      *
      * @param t target of function or operation
      * @param o actual object presented as an index
@@ -313,10 +316,63 @@ class Abstract {
     }
 
     /**
-     * Convenience function to create a {@link TypeError} with a message
-     * along the lines "F returned non-T (type X)" involving a function
-     * name, an expected type T and the type X of {@code o}, e.g.
-     * "__int__ returned non-int (type str)".
+     * Create a {@link TypeError} with a message along the lines "T is
+     * required, not X" involving any descriptive phrase T and the type
+     * X of {@code o}, e.g. "<u>a bytes-like object</u> is required, not
+     * '<u>str</u>'".
+     *
+     * @param t expected kind of thing
+     * @param o actual object returned
+     * @return exception to throw
+     */
+    static TypeError requiredTypeError(String t, PyObject o) {
+        return new TypeError(IS_REQUIRED_NOT, t, o.getType().getName());
+    }
+
+    /**
+     * Create a {@link TypeError} with a message along the lines "F()
+     * [nth] argument must be T, not X", involving a function name,
+     * optionally an ordinal n, an expected type T and the type X of
+     * {@code o}, e.g. "int() argument must be a string, a bytes-like
+     * object or a number, not 'list'" or "complex() second argument
+     * must be a number, not 'type'".
+     *
+     * @param f name of function or operation
+     * @param n ordinal of argument: 1 for "first", etc. or 0
+     * @param t expected kind of argument
+     * @param o actual argument (not its type)
+     * @return exception to throw
+     */
+    static TypeError argumentTypeError(String f, int n, String t,
+            PyObject o) {
+        String ord = "", space = "";
+        if (n == 0) { ord = ordinal(n); space = " "; }
+        return new TypeError(ARGUMENT_MUST_BE, f, ord, space, t,
+                o.getType().getName());
+    }
+
+    // Helper for argumentTypeError
+    private static String ordinal(int n) {
+        switch (n) {
+            case 1:
+                return "first";
+            case 2:
+                return "second";
+            case 3:
+                return "third";
+            default:
+                return String.format("%dth", n);
+        }
+    }
+
+    private static final String ARGUMENT_MUST_BE =
+            "%s%s%s argument must be %s, not '%.200s'";
+
+    /**
+     * Create a {@link TypeError} with a message along the lines "F
+     * returned non-T (type X)" involving a function name, an expected
+     * type T and the type X of {@code o}, e.g. "__int__ returned
+     * non-int (type str)".
      *
      * @param f name of function or operation
      * @param t expected type of return
@@ -324,30 +380,14 @@ class Abstract {
      * @return exception to throw
      */
     static TypeError returnTypeError(String f, String t, PyObject o) {
-        String fmt = "%.200s returned non-%.200s (type %.200s)";
-        return new TypeError(fmt, f, t, o.getType().getName());
+        return new TypeError(RETURNED_NON_TYPE, f, t,
+                o.getType().getName());
     }
 
     /**
-     * Convenience function to create a {@link TypeError} with a message
-     * along the lines "'T' object has no attributes (A 'N')" or "'T'
-     * object has only read-only attributes", where T is the type of the
-     * object accessed, A is the action and .
-     *
-     * @param v object accessed
-     * @param name of attribute
-     * @return exception to throw
-     */
-    static TypeError attributeTypeError(String f, String t,
-            PyObject o) {
-        String fmt = "%.200s returned non-%.200s (type %.200s)";
-        return new TypeError(fmt, f, t, o.getType().getName());
-    }
-
-    /**
-     * Convenience function to create a {@link AttributeError} with a
-     * message along the lines "'T' object has no attribute N", where T
-     * is the type of the object accessed.
+     * Create a {@link AttributeError} with a message along the lines
+     * "'T' object has no attribute N", where T is the type of the
+     * object accessed.
      *
      * @param v object accessed
      * @param name of attribute
@@ -359,6 +399,29 @@ class Abstract {
     }
 
     /**
+     * Submit a {@link DeprecationWarning} call (which may result in an
+     * exception) with the same message as
+     * {@link #returnTypeError(String, String, PyObject)}, the whole
+     * followed by one about deprecation of the facility.
+     *
+     * @param f name of function or operation
+     * @param t expected type of return
+     * @param o actual object returned
+     * @return exception to throw
+     */
+    static void returnDeprecation(String f, String t, PyObject o) {
+        Warnings.format(DeprecationWarning.TYPE, 1,
+                RETURNED_NON_TYPE_DEPRECATION, f, t,
+                o.getType().getName(), t);
+    }
+
+    private static final String RETURNED_NON_TYPE_DEPRECATION =
+            RETURNED_NON_TYPE + ".  "
+                    + "The ability to return an instance of a strict "
+                    + "subclass of %s is deprecated, and may be "
+                    + "removed in a future version of Python.";
+
+    /**
      * True iff the object has a slot for conversion to the index type.
      *
      * @param obj to test
@@ -366,6 +429,11 @@ class Abstract {
      */
     static boolean indexCheck(PyObject obj) {
         return Slot.nb_index.isDefinedFor(obj.getType());
+    }
+
+    /** Throw generic something went wrong internally */
+    static void badInternalCall() {
+        throw new InterpreterError("bad internal call");
     }
 
 }

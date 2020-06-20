@@ -28,6 +28,10 @@ enum Slot {
 
     tp_richcompare(Signature.RICHCMP), //
     tp_iter(Signature.UNARY), //
+
+    tp_init(Signature.INIT), //
+    tp_new(Signature.NEW), //
+
     tp_vectorcall(Signature.VECTORCALL), //
 
     nb_negative(Signature.UNARY, "-", "neg"), //
@@ -35,10 +39,11 @@ enum Slot {
     nb_add(Signature.BINARY, "+", "add"), //
     nb_subtract(Signature.BINARY, "-", "sub"), //
     nb_multiply(Signature.BINARY, "*", "mul"), //
-    nb_and(Signature.BINARY, "&", "and"), //
-    nb_or(Signature.BINARY, "|", "or"), //
-    nb_xor(Signature.BINARY, "^", "xor"), //
     nb_bool(Signature.PREDICATE), //
+    nb_and(Signature.BINARY, "&", "and"), //
+    nb_xor(Signature.BINARY, "^", "xor"), //
+    nb_or(Signature.BINARY, "|", "or"), //
+    nb_int(Signature.UNARY), //
     nb_index(Signature.UNARY), //
 
     sq_length(Signature.LEN, null, "length"), //
@@ -175,7 +180,7 @@ enum Slot {
         UNARY(O, S), // nb_negative, nb_invert
         BINARY(O, O, O), // +, -, u[v]
         TERNARY(O, S, O, O), // **
-        CALL(O, S, TUPLE, DICT), // u(*args, **kwargs)
+        CALL(O, S, TUPLE, DICT), // u(self, *args, **kwargs)
         VECTORCALL(O, S, OA, I, I, TUPLE), // u(x, y, ..., a=z)
         PREDICATE(B, S), // nb_bool
         LEN(I, S), // sq_length
@@ -185,7 +190,9 @@ enum Slot {
         SELFBINARY(O, S, O), // (binaryfunc?) mp_subscript
         MP_ASSIGN(V, S, O, O), // (objobjargproc) mp_ass_subscript only
         GETATTRO(O, S, U), // (getattrofunc) tp_getattro
-        SETATTRO(V, S, U, O); // (setattrofunc) tp_setattro
+        SETATTRO(V, S, U, O), // (setattrofunc) tp_setattro
+        INIT(V, S, TUPLE, DICT), // (initproc) tp_init
+        NEW(O, T, TUPLE, DICT); // (newfunc) tp_new
 
         /**
          * A method handle offered to this slot must be based on this

@@ -3,6 +3,13 @@ package uk.co.farowl.vsj2.evo3;
 /** Miscellaneous static helpers common to built-in objects. */
 class PyObjectUtil {
 
+    /**
+     * Convert comparison result (int) to rich comparison result.
+     * Typically, {@code u} is the result of {@link Comparable#compareTo(Object)}.
+     * @param u comparison result
+     * @param op kind of rich comparison requested
+     * @return rich comparison result (Python {@code bool})
+     */
     static PyObject richCompareHelper(int u, Comparison op) {
         boolean r = false;
         switch (op) {
@@ -16,4 +23,5 @@ class PyObjectUtil {
         }
         return r ? PyBool.True : PyBool.False;
     }
+
 }

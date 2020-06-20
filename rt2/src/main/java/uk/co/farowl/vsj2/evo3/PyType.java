@@ -7,6 +7,8 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
+import uk.co.farowl.vsj2.evo3.Slot.EmptyException;
+
 /** The Python {@code type} object. */
 class PyType implements PyObject {
 
@@ -34,7 +36,7 @@ class PyType implements PyObject {
     private PyType[] bases;
     private PyType[] mro;
 
-    // Standard type slots table see CPython PyTypeObject
+    // Standard type slots table see CPython PyType
 
     MethodHandle tp_vectorcall;
     MethodHandle tp_repr;
@@ -46,20 +48,25 @@ class PyType implements PyObject {
     MethodHandle tp_setattro;
 
     MethodHandle tp_richcompare;
+    MethodHandle tp_init;
+    MethodHandle tp_new;
     MethodHandle tp_iter;
 
     // Number slots table see CPython PyNumberMethods
 
-    MethodHandle nb_negative;
-    MethodHandle nb_absolute;
     MethodHandle nb_add;
     MethodHandle nb_subtract;
     MethodHandle nb_multiply;
-    MethodHandle nb_and;
-    MethodHandle nb_or;
-    MethodHandle nb_xor;
 
+    MethodHandle nb_negative;
+
+    MethodHandle nb_absolute;
     MethodHandle nb_bool;
+
+    MethodHandle nb_and;
+    MethodHandle nb_xor;
+    MethodHandle nb_or;
+    MethodHandle nb_int;
 
     MethodHandle nb_index;
 
@@ -116,7 +123,8 @@ class PyType implements PyObject {
         setAllSlots();
     }
 
-    /** Set the MRO, but at present only single base. */// XXX note may retain a reference to declaredBases
+    /** Set the MRO, but at present only single base. */
+    // XXX note may retain a reference to declaredBases
     private void setMROfromBases(PyType[] declaredBases) {
         int n;
 
@@ -184,10 +192,7 @@ class PyType implements PyObject {
         // Only crudely supported. Later, search the MRO of this for b.
         // Awaits PyType.forClass() factory method.
         PyType t = this;
-        while (t != b) {
-            t = t.base;
-            if (t == null) { return false; }
-        }
+        while (t != b) { t = t.base; if (t == null) { return false; } }
         return true;
     }
 
@@ -283,7 +288,65 @@ class PyType implements PyObject {
             return String.format(fmt, name, bases, flags,
                     implClass.getSimpleName());
         }
-
     }
 
+    // slot functions -------------------------------------------------
+
+    /**
+     * Handle calls to a type object, which will normally be for
+     * construction of an object of that type, except for the special
+     * case {@code type(obj)}, which enquires the Python type of the
+     * object.
+     *
+     * @param type of which an instance is required.
+     * @param args argument tuple (length 1 in a type enquiry).
+     * @param kwargs keyword arguments (empty or {@code null} in a type
+     *            enquiry).
+     * @return new object (or a type if an enquiry).
+     * @throws Throwable
+     */
+    static PyObject tp_call(PyType type, PyTuple args, PyDict kwargs)
+            throws Throwable {
+        try {
+            // Create the instance with given arguments.
+            PyObject o = (PyObject) type.tp_new.invokeExact(type, args,
+                    kwargs);
+            // Check for special case type enquiry.
+            if (isTypeEnquiry(type, args, kwargs)) { return o; }
+            // As __new__ may be user-defined, check type as expected.
+            PyType oType = o.getType();
+            if (oType.isSubTypeOf(type)) {
+                // Initialise the object just returned (in necessary).
+                if (Slot.tp_init.isDefinedFor(oType))
+                    oType.tp_init.invokeExact(o, args, kwargs);
+            }
+            return o;
+        } catch (EmptyException e) {
+            throw new TypeError("cannot create '%.100s' instances",
+                    type.name);
+        }
+    }
+
+    PyObject tp_new(PyType metatype, PyTuple args, PyDict kwds)
+            throws Throwable {
+        // Special case: type(x) should return type(x)
+        int nargs = args.size();
+        if (isTypeEnquiry(metatype, args, kwds)) {
+            return args.get(0).getType();
+        }
+
+        if (nargs != 3) {
+            throw new TypeError("type() takes 1 or 3 arguments");
+        }
+
+        // Type creation call
+        throw new NotImplementedError("type creation");
+    }
+
+    /** Helper for {@link #tp_call} and {@link #tp_new}. */
+    private static boolean isTypeEnquiry(PyType type, PyTuple args,
+            PyDict kwargs) {
+        return type == TYPE && args.size() == 0
+                && (kwargs == null || kwargs.isEmpty());
+    }
 }
