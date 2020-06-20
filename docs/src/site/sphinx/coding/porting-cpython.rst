@@ -115,6 +115,37 @@ The Very Slow Jython Project code base was written with those in mind
 who read and modify it in that type of IDE.
 
 
+CPython source to Java in general
+=================================
+
+There is no mechanical way to convert CPython source to valid Java.
+In the sections that follow,
+we point out some replacements that work at the time of writing,
+to move CPython source towards Jython source,
+in particular contexts.
+It is always safest to watch these operate,
+rather than trust to global replacement.
+Some replacements make a good beginning.
+
+.. csv-table:: Editor regexes
+   :header: "Match", "Replacement"
+   :widths: 30, 20
+
+    "``NULL``", "``null``"
+    "``static``", "``private``"
+    "``Py_ssize_t``", "``int``"
+    "``const\s+``", nothing
+    "``(Py\w+)\s*\*\s*(\w+)``", "``$1 $2``"
+    "``, \*(\w+)``", "``, $1``"
+
+In general, it is difficult to decide whether a C pointer
+is a reference to an object,
+an array base,
+or serves as an array and an index into it.
+Pointers that appear in arithmetic expressions
+cannot simply be turned into array bases or object references.
+
+
 Names
 =====
 
@@ -124,10 +155,53 @@ because classes form a namespace that makes the prefixes
 used in CPython unnecessary.
 Similarly, overloading of names
 (disambiguated by type signature)
-allows us to dipense with complicated suffixes.
+allows us to dispense with complicated suffixes.
 So ``PyEval_EvalCode``, ``PyEval_EvalFrame`` and ``PyEval_EvalFrameEx``
-could all reasonably be ``eval``, taking type into account,
-or ``PyFrame.eval)`` and ``PyCode.eval`` as methods.
+could all reasonably be called ``eval``,
+or taking target type into account,
+``PyFrame.eval`` and ``PyCode.eval``.
+
+In view of the name-spacing available from packages and classes,
+it seems superfluous to add ``Object`` to the end of every type,
+apart from ``PyObject``.
+So, ``PyTypeObject`` becomes ``PyType``, and so on.
+
+CPython has a convention for interning strings
+that are commonly used as identifiers.
+This looks a little like a declaration statement,
+that is then referenced later,
+for example:
+
+..  code-block:: c
+
+    _Py_IDENTIFIER(__builtins__);
+    ...
+        builtins = _PyDict_GetItemIdWithError(globals, &PyId___builtins__);
+
+It is in fact a macro that initialises a statically allocated ``struct``.
+Special versions of many look-up methods take a ``_Py_Identifier``
+as an argument where a string might otherwise be expected.
+We have a similar facility
+(less cunning but more transparent)
+by defining names as static members of a class ``ID``.
+We do not need a special version of any look-up methods to accept them.
+
+..  code-block:: java
+
+    class ID {
+        static final PyUnicode __builtins__ = Py.str("__builtins__");
+        static final PyUnicode __name__ = Py.str("__name__");
+        ...
+    }
+
+These regular expressions are useful for the subjects covered here:
+
+.. csv-table:: Editor regexes related to names
+   :header: "Match", "Replacement"
+   :widths: 30, 20
+
+    "``Py(\w+)Object``", "``Py$1``"
+    "``&PyId_(\w+)``", "``ID.$1``"
 
 
 Type and cast
@@ -206,8 +280,17 @@ Once we start doing this,
 the implications of each type deduction spread to other signatures
 and variables.
 
-A useful regex is: ``(\w+)_Check\((\w+)\)``
-replaced with ``($2 instanceof $1)``.
+.. csv-table:: Editor regexes dealing with type
+   :header: "Match", "Replacement"
+   :widths: 30, 20
+
+    "``Py_TYPE(\w+)``", "``$1.getType()``"
+    "``(\w+)->ob_type``", "``$1.getType()``"
+    "``(\w+)_Check\((\w+)\)``", "``($2 instanceof $1)``"
+    "``(\w+)_CheckExact\((\w+)\)``", "``($2.isSubTypeOf($1)``"
+
+Note that these assume a type model as in ``vsj2`` and ``evo3``.
+This will be superseded in due course.
 
 
 Object Lifecycle
@@ -222,7 +305,11 @@ such as ``PyMem_Free`` and ``_PyObject_GC_TRACK``.
 ``Py_CLEAR`` should perhaps be replaced with assignment of ``null``,
 rather than being removed totally.
 
-Useful regex: ``Py_X?(IN|DE)CREF\([^)]+\);`` replaced with nothing.
+.. csv-table:: Editor regexes dealing with type
+   :header: "Match", "Replacement"
+   :widths: 30, 20
+
+    "``Py_X?(IN|DE)CREF\([^)]+\);``", nothing
 
 
 
@@ -333,7 +420,6 @@ A typical idiom in CPython might be:
 
 and the code at ``fail`` will typically clean up (``XDECREF``) objects
 and return ``NULL`` from the containing function.
-
 We should turn this into a throw statement,
 along the lines:
 
@@ -352,8 +438,13 @@ The format string will need attention,
 since (as here) the formatting codes may not be available,
 but ``%s`` calls ``toString()``, which is generally right.
 
-A useful regex for this is: ``_PyErr_Format\(\w+, PyExc_(\w+),`` replaced with
-``throw new $1(``.
+.. csv-table:: Editor regexes dealing with exceptions
+   :header: "Match", "Replacement"
+   :widths: 30, 20
+
+    "``_PyErr_Format\(\w+,\s*PyExc_(\w+),``", "``throw new $1(``"
+    "``PyErr_Format\(\s*PyExc_(\w+),``", ``throw new $1(``
+    "``PyErr_SetString\(\s*PyExc_(\w+),``", ``throw new $1(``
 
 
 Translating Container Access
@@ -362,21 +453,18 @@ Translating Container Access
 CPython defines a range of macros, for use in the implementation only,
 that expand to a direct field access,
 so they are efficient but somewhat unsafe.
-We'll follow suit, with direct access to fields of the corresponding types.
+The substitutions below show both the (intended) public API,
+and the direct counterparts possible for code in the core.
 
-Useful regexes
---------------
+.. csv-table:: Editor regexes dealing with containers
+   :header: "Match", "Replacement"
+   :widths: 30, 20
 
-``PyTuple_GET_ITEM\(([^,]+), ([^)]+)\)``
-replaced by ``$1.value[$2]``.
-
-
-``PyTuple_GET_SIZE\(([^)]+)\)``
-replaced by ``$1.value.length``.
-
-
-``PyDict_SetItem\((\w+), ([^,]+), ([^)]+)\)``
-replaced by ``$1.put($2, $3)``.
+    "``PyTuple_GET_SIZE\(([^)]+)\)``", "``$1.size()``"
+    "``PyTuple_GET_SIZE\(([^)]+)\)``", "``$1.value.length``"
+    "``PyTuple_GET_ITEM\(([^,]+), ([^)]+)\)``",  "``$1.get($2)``"
+    "``PyTuple_GET_ITEM\(([^,]+), ([^)]+)\)``",  "``$1.value[$2]``"
+    "``PyDict_SetItem\((\w+), ([^,]+), ([^)]+)\)``", "``$1.put($2, $3)``"
 
 
 
