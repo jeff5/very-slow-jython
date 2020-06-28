@@ -185,12 +185,15 @@ might we not be better off with a ``static`` or interned ``PyUnicode``?
 
 .. _a-custom-class-constructor:
 
-A Custom Class and its Constructor
-==================================
+A Custom Class with Attribute Access
+====================================
 
-A class exhibiting these slots is as follows:
+A class exhibiting these slots,
+and giving access to a single attribute ``x``,
+is as follows:
 
 ..  code-block:: java
+    :emphasize-lines: 10, 12, 21
 
         @SuppressWarnings("unused")
         private static class C implements PyObject {
@@ -225,7 +228,9 @@ A class exhibiting these slots is as follows:
 There is no proper attribute look-up going on.
 We test the name, and if it is exactly "x",
 then we get or set the attribute.
-We call it all like this (in a JUnit test):
+We call it all like this (in a JUnit test),
+exercising the abstract method ``getAttr``
+that also supports the ``LOAD_ATTR`` opcode:
 
 ..  code-block:: java
 
@@ -237,21 +242,179 @@ We call it all like this (in a JUnit test):
             assertEquals(Py.val(42), result);
         }
 
+Common built-ins do not provide for attributes added by client code,
+that is,
+they have no instance dictionary.
+In order to experiment with simple attributes,
+we must first address class and object creation.
+This is is inseparable from sub-classing.
+Suddenly, we have a lot on our agenda.
+
 
 Making ``PyType`` callable
 **************************
 
 We must define the ``tp_call`` slot in ``PyType``,
-and also a new slot ``tp_new``
-defined in all types we expect to instantiate this way.
+so that anything that is a type can be called to make an instance.
 
 
+``tp_call`` in ``PyType``
+=========================
+
+``PyType.tp_call`` is actually fairly simple,
+but it depends on two other new slots.
+The body of this method invokes the new slot ``tp_new``,
+which returns a new object,
+followed optionally by ``tp_init`` on the object itself.
+``tp_new`` must be defined in all types we expect to instantiate this way,
+perhaps by inheritance.
 
 ..  code-block:: java
 
+    class PyType implements PyObject {
+        ...
+        static PyObject tp_call(PyType type, PyTuple args, PyDict kwargs)
+                throws Throwable {
+            try {
+                // Create the instance with given arguments.
+                PyObject o = (PyObject) type.tp_new.invokeExact(type, args,
+                        kwargs);
+                // Check for special case type enquiry.
+                if (isTypeEnquiry(type, args, kwargs)) { return o; }
+                // As __new__ may be user-defined, check type as expected.
+                PyType oType = o.getType();
+                if (oType.isSubTypeOf(type)) {
+                    // Initialise the object just returned (in necessary).
+                    if (Slot.tp_init.isDefinedFor(oType))
+                        oType.tp_init.invokeExact(o, args, kwargs);
+                }
+                return o;
+            } catch (EmptyException e) {
+                throw new TypeError("cannot create '%.100s' instances",
+                        type.name);
+            }
+        }
+        ...
+    }
+
+The code must take into account that ``type`` is itself a type,
+but the call ``type(x)`` enquires the type of ``x``,
+rather than being a constructor.
+(The call ``type(name, bases, dict)`` does construct a ``type`` however.)
+This difference is detected from the number of arguments by
+``isTypeEnquiry(type, args, kwargs)``.
+We follow CPython in placing the test after ``tp_new`` is invoked,
+which performs both functions.
+
+
+Slots ``tp_new`` and ``tp_init``
+================================
+
+The slot ``tp_init`` (for ``__init__``) holds no surprises:
+it basically looks like ``tp_call``,
+but returns ``void``.
+
+The Python special method ``__new__``,
+which ``tp_new`` implements,
+is (effectively) a static method.
+It therefore does not have the "self type" in its signature,
+but ``T``, standing for ``Class<? extends PyType>``.
 
 ..  code-block:: java
 
+    enum Slot {
+        ...
+        tp_init(Signature.INIT), //
+        tp_new(Signature.NEW), //
+
+        enum Signature implements ClassShorthand {
+            ...
+            INIT(V, S, TUPLE, DICT), // (initproc) tp_init
+            NEW(O, T, TUPLE, DICT); // (newfunc) tp_new
+            ...
+        }
+        ...
+    }
+
+These are easily defined,
+but the hard work is to add them to every built-in type.
+
+
+``tp_new`` in ``PyLong``
+========================
+
+The CPython code behind ``int()`` is quite complicated,
+and not very interesting in the present context,
+except to say that it tries the ``nb_int`` and ``nb_index`` slots,
+in the case of single arguments ``int(x)``,
+and a conversion from text for string-like objects.
+For the purpose of exploration,
+the Very Slow Jython code base implements a subset of the functionality.
+
+The following attempt at ``PyLong.tp_new`` gives an idea,
+but it does not deal with Python subclasses of ``int``.
+The lines highlighted invoke, directly or indirectly,
+a constructor of ``PyLong``.
+
+..  code-block:: java
+    :emphasize-lines: 8, 15
+
+    static PyObject tp_new(PyType type, PyTuple args, PyDict kwargs)
+            throws Throwable {
+        PyObject x = null, obase = null;
+
+        // ... argument processing to x, obase
+
+        if (obase == null)
+            return Number.asLong(x);
+        else {
+            int base = Number.asSize(obase, null);
+            if ((base != 0 && base < 2) || base > 36)
+                throw new ValueError(
+                        "int() base must be >= 2 and <= 36, or 0");
+            else if (x instanceof PyUnicode)
+                return new PyLong(new BigInteger(x.toString(), base));
+            // else if ... support for bytes-like objects
+            else
+                throw new TypeError(NON_STR_EXPLICIT_BASE);
+        }
+    }
+
+We cannot yet use this from Python code,
+but the type object for ``int`` can be called from Java.
+The test ``PyByteCode6.intFrom__new__`` does this
+for a few of the possible constructor calls.
+
+..  code-block:: java
+
+    class PyByteCode6 {
+        // ...
+        @Test
+        void intFrom__new__() throws Throwable {
+            PyType intType = PyLong.TYPE;
+            // int()
+            PyObject result = Callables.call(intType);
+            assertEquals(PyLong.ZERO, result);
+            // int(42)
+            result = Callables.call(intType, Py.tuple(Py.val(42)), null);
+            assertEquals(Py.val(42), result);
+            // int("2c", 15)
+            PyTuple args = Py.tuple(Py.str("2c"), Py.val(15));
+            result = Callables.call(intType, args, null);
+            assertEquals(Py.val(42), result);
+        }
+
+
+
+``tp_new`` in ``PyType``
+========================
+
+When we invoke the ``tp_call`` slot of ``PyType``,
+and the target ``PyType`` is ``type`` itself,
+the ``tp_new`` slot of ``type`` is invoked,
+and we create a new type from the arguments supplied.
+This convoluted situation needs careful thought,
+based on successively approximating the class build process.
 
 
 Defining a Class

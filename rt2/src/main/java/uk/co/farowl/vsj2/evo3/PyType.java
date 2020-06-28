@@ -346,7 +346,7 @@ class PyType implements PyObject {
     /** Helper for {@link #tp_call} and {@link #tp_new}. */
     private static boolean isTypeEnquiry(PyType type, PyTuple args,
             PyDict kwargs) {
-        return type == TYPE && args.size() == 0
+        return type == TYPE && args.size() == 1
                 && (kwargs == null || kwargs.isEmpty());
     }
 }
