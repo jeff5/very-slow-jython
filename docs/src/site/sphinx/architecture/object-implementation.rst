@@ -16,7 +16,7 @@ and their relationship to dunder methods (``__hash__``, ``__add__``, etc.).
     inheritance is not yet correct,
     nor support for acceptable implementations.
 
-..  note:: These notes are quite sketchy at present (``evo3``).
+..  note:: These notes are quite sketchy in places at present (``evo3``).
 
 
 Type Slots
@@ -52,6 +52,302 @@ they work directly with ``invokedynamic`` call sites.
 We expect to generate ``invokedynamic`` instructions
 when we compile Python to JVM byte code,
 and this is the code in which we seek maximum performance. 
+
+
+
+Initialisation of Slots
+=======================
+
+From Definitions in Java
+------------------------
+
+We have established a pattern in ``rt2`` (``evo2`` onwards)
+whereby each ``PyType`` contains named ``MethodHandle`` fields,
+pointing to the implementation of the "slot functions" for that type.
+At the time of writing (``evo3``),
+these are identified by a reserved name like ``nb_add`` or ``tp_call``.
+Other approaches are possible and certainly other names.
+The design, using a system of Java ``enum``\s denoting the slots,
+has worked smoothly in the definition of a wide range of slot types.
+
+The handle in a given slot has to have
+a signature characteristic of the slot.
+
+Where a slot defined in a type corresponds to a special function,
+in the way for example ``nb_negative`` corresponds to ``__neg__``,
+a callable that wraps an invocation of that slot
+will be created in the dictionary of the type.
+This makes it an attribute of the type.
+Instances of it appear to have a "bound" version of the attribute,
+that we may tentatively equate to a Curried ``MethodHandle``.
+
+..  code-block:: pycon
+
+    >>> int.__neg__
+    <slot wrapper '__neg__' of 'int' objects>
+    >>> int.__dict__['__neg__']
+    <slot wrapper '__neg__' of 'int' objects>
+    >>> (42).__neg__
+    <method-wrapper '__neg__' of int object at 0x00007FF8E0CD9BC0>
+
+If the slot is inherited,
+it is sufficient that the method be an attribute by inheritance.
+
+..  code-block:: pycon
+
+    >>> bool.__neg__
+    <slot wrapper '__neg__' of 'int' objects>
+    >>> bool.__dict__['__neg__']
+    Traceback (most recent call last):
+      File "<stdin>", line 1, in <module>
+    KeyError: '__neg__'
+    >>>
+    >>> class MyInt(int): pass
+    ...
+    >>> MyInt.__neg__
+    <slot wrapper '__neg__' of 'int' objects>
+    >>> MyInt.__dict__['__neg__']
+    Traceback (most recent call last):
+      File "<stdin>", line 1, in <module>
+    KeyError: '__neg__'
+    >>> m = MyInt(10)
+    >>> -m
+    -10
+
+In the last operation,
+``-m`` invokes the slot ``nb_negative`` in the type of ``m``,
+which is a copy of the one in ``int``.
+This happens without a dictionary look-up.
+
+
+From Instance Methods [untested]
+--------------------------------
+
+In implementations up to ``evo3``,
+the functions are ``static`` members of the implementation class of the type,
+or of a Java super-type,
+with a signature correct for the slot.
+They could, without a significant change to the framework,
+be made instance methods of that class.
+
+Wer took a step towards instance methods in ``evo3``,
+when it became possible for an argument to the slot function
+to adapt to the implementing type.
+The method handle in slot ``nb_negative``
+has ``MethodType`` ``(O)O`` as it must,
+but the implementing function has signature ``(S)O``,
+where ``S`` is the implementing type (the type of ``self``).
+This is dealt with by a cast in the method handle,
+which is neater than doing so in the implementation.
+
+An exception to that pattern occurs with binary operations,
+since although at least one of the operands has the target type,
+or that implementation would not have been called,
+it may be on the left or the right.
+As a result,
+the implementation (in CPython) must coerce both arguments.
+
+Binary operations could be split into two slots
+(``nb_add`` and ``nb_radd``, say),
+guaranteeing the type of the target.
+The split is necessary if we choose to make the slots instance methods.
+In the instance method for ``nb_radd``,
+the right-hand argument of ``+`` becomes the target of the call,
+therefore the left-hand argument of the signature ``(S,O)O``.
+We see this also in the (otherwise quite different)
+Jython 2 approach to slot functions.
+
+
+From Definitions in Python [untested]
+-------------------------------------
+
+A function defined in a class becomes a method of that class,
+that is, it creates a function that is an attribute of the type.
+This is true irrespective of the number or the names of the arguments.
+We consider here how functions with the reserved names
+``__neg__``, ``__add__``, and so on,
+can be made to satisfy the type slots as the Python data model requires.
+
+We saw in the previous section how the definition of a slot
+induced the existence of a callable attribute,
+a wrapper method on the slot that implements the basic operations,
+and that this attribute was inherited by sub-classes:
+
+..  code-block:: pycon
+
+    >>> class MyInt(int): pass
+    ...
+    >>> MyInt.__neg__
+    <slot wrapper '__neg__' of 'int' objects>
+    >>> m = MyInt(10)
+    >>> -m
+    -10
+
+Overriding ``__neg__`` changes this behaviour,
+because assignment to a special function in a type
+assigns the slot as well.
+Note that,
+although these methods are usually defined with the class,
+they may be assigned after the type has been created,
+and the change affects existing objects of that type.
+
+..  code-block:: pycon
+
+    >>> MyInt.__neg__ = lambda v: 42
+    >>> -m
+    42
+    >>> MyInt.__neg__
+    <function <lambda> at 0x000001C97118EA60>
+    >>> MyInt.__dict__['__neg__']
+    <function <lambda> at 0x000001C97118EA60>
+
+The implementation of attribute assignment in ``type``
+must be specialised to check for these special names.
+It must insert into the slot (``nb_negative`` in the example)
+a ``MethodHandle`` that will call the ``PyFunction``
+being inserted at ``__neg__``.
+
+CPython ensures that a change of definition is visible
+from types down the inheritance hierarchy from the one modified,
+so that the behaviour of classes inheriting this method follows the change.
+
+..  code-block:: pycon
+
+    >>> class MyInt2(MyInt): pass
+    ...
+    >>> m2 = MyInt2(100)
+    >>> -m2
+    42
+    >>> MyInt.__neg__ = lambda v: 53
+    >>> -m2
+    53
+
+This fluidity limits the gains available from binding a handle to a call site.
+A call site capable of binding a method handle
+(even one guarded by the Python type of the target)
+must still consult the slot because it may have changed by this mechanism.
+A call site may bind the actual value found in a slot
+only if that is immutable or it becomes an "observer"
+of changes coming from the type hierarchy,
+potentially to be invalidated by a change (see ``SwitchPoint``).
+The cost of invalidation is quite high,
+but applications do not often have to redefine a slot.
+
+Some types,
+generally built-in types,
+do not allow (re)definition of special functions,
+even by manipulating the dictionary of the type.
+
+..  code-block:: pycon
+
+    >>> int.__neg__ = lambda v: 42
+    Traceback (most recent call last):
+      File "<stdin>", line 1, in <module>
+    TypeError: can't set attributes of built-in/extension type 'int'
+    >>> int.__dict__['__neg__'] = lambda x: 42
+    Traceback (most recent call last):
+      File "<stdin>", line 1, in <module>
+    TypeError: 'mappingproxy' object does not support item assignment
+
+A call site that binds the value from a slot in such a type
+does not need to become an observer of the type,
+since no change will ever be notified.
+
+
+Bug involving Arithmetic and Sequence Slots in CPython
+------------------------------------------------------
+
+Whilst on this subject,
+it is worth noting an `operand precedence bug`_ in CPython
+with respect to sequence ``+`` and ``*``,
+where the same special function defines multiple slots.
+The examples are ``__add__``,
+which fills both ``nb_add`` and ``sq_concat``,
+and ``__mul__``,
+which fills both ``nb_multiply`` and ``sq_repeat``.
+This also involves the reflected and in-place variants of these operators
+(``__iadd__``, ``__imul__``, ``__radd__``, ``__rmul__``).
+
+A `discussion of the operand precedence bug`_ concludes that
+the root of the problem is that the abstract implementation
+of these binary operation tries to treat both arguments as numeric,
+that is, CPython tries the ``nb_add`` slot in the left *and right* operands,
+before it tries ``sq_concat`` in the left.
+A simple illustration is:
+
+..  code-block:: pycon
+
+    >>> class C(tuple):
+    ...     def __radd__(w, v):
+    ...         return 42
+    ...
+    >>> [1,] + C((2,3,4))
+    42
+
+In fact, there is a ``list.__add__``,
+but it is defined by the ``sq_concat`` slot,
+which is not tried until after the ``nb_add`` of ``C``,
+with the ``C`` instance on the right leading to a call of ``__radd__``.
+(Note that ``C`` is not a sub-class of ``list``.)
+
+Several downstream libraries depend on this bug.
+They may give different meanings to the ``nb_add`` and ``sq_concat`` slots,
+or the ``nb_multiply`` and ``sq_repeat`` slots,
+relying on the (faulty) ordering to get their ``nb_add`` called first.
+This is only possible in the C implementation of their objects,
+so it should be considered a CPython detail, not a language feature.
+(PyPy has reproduced the bug so that it can support these C extensions.)
+
+..  note:: We could do away with the ``sq_concat`` slot,
+    and have only ``nb_add``,
+    which would then be implemented by ``list``, etc. as concatenation.
+    And the same for ``sq_repeat`` in favour of ``nb_multiply``.
+    There would then be only one place to look for ``list.__add__`` etc.,
+    and it would definitely be tried first.
+
+..  _operand precedence bug:
+    https://bugs.python.org/issue11477
+..  _discussion of the operand precedence bug:
+    https://mail.python.org/pipermail/python-dev/2015-May/140006.html
+
+
+Inheritance of Slots [untested]
+-------------------------------
+
+The following is an understanding of the CPython implementation.
+(Certain slots have to be given special treatment,
+but for most operations, the account here is accurate.)
+The behavioural outcome must be the same for all implementations,
+and having decided on a Java implementation that uses slots,
+the mechanics would have to be similar.
+
+When a new type is defined,
+a slot will be filled, by default, by inheritance along the MRO.
+This does not happen directly by copying,
+but indirectly through the normal rules of class attribute inheritance,
+then the insertion of a handle for the slot function.
+These are the same rules under which requested ``x.__add__``, say,
+will be sought along the MRO of ``type(x)``.
+
+If the inherited attribute, where found, is a wrapper on a slot,
+certain coherence criteria are met,
+and there are no additional complexities
+the wrapped slot may be copied to the new type directly.
+(It is unclear from comments in CPython
+``~/Objects/typeobject.c update_one_slot()``
+exactly what "complex thinking" the code is doing.
+This is the bit of CPython that offers free-as-in-beer ... beer.)
+
+If the inherited attribute is a method defined in Python,
+the slot in the new class will be an invoker for the method,
+identified by its name.
+Each call involves searching for the definition again along the MRO.
+(Search along the MRO is backed by a cache, in CPython,
+mitigating the obvious slowness.)
+
+When a special function is re-defined in a type,
+affected slots in the sub-types of that type are re-computed.
+This is why a re-definition is visible in derived types.
 
 
 ``tp_new`` and Java Constructors
