@@ -48,8 +48,8 @@ class PyByteCode6 {
     @Test
     void abstract_attr() throws Throwable {
         PyObject c = new C();
-        Abstract.setAttr(c, "x", Py.val(42));
-        PyObject result = Abstract.getAttr(c, "x");
+        Abstract.setAttr(c, Py.str("x"), Py.val(42));
+        PyObject result = Abstract.getAttr(c, Py.str("x"));
         assertEquals(Py.val(42), result);
     }
 

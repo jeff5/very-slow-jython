@@ -203,13 +203,6 @@ class Abstract {
     }
 
     /** Python {@code o.name}. */
-    static PyObject getAttr(PyObject o, String name)
-            throws AttributeError, TypeError, Throwable {
-        // Corresponds to object.c : PyObject_SetAttrString
-        return getAttr(o, Py.str(name));
-    }
-
-    /** Python {@code o.name}. */
     static PyObject getAttr(PyObject o, PyObject name)
             throws AttributeError, TypeError, Throwable {
         // Corresponds to object.c : PyObject_GetAttr
@@ -227,19 +220,11 @@ class Abstract {
         // Corresponds to object.c : PyObject_GetAttr
         // Decisions are based on type of o (that of name is known)
         try {
-            return (PyObject) o.getType().tp_getattro.invokeExact(o,
-                    name);
+            MethodHandle getattro = o.getType().tp_getattro;
+            return (PyObject) getattro.invokeExact(o, name);
         } catch (EmptyException e) {
             throw noAttributeError(o, name);
         }
-    }
-
-    /** Python {@code o.name = value}. */
-    static void setAttr(PyObject o, String name, PyObject value)
-            throws AttributeError, TypeError, Throwable {
-        // Corresponds to object.c : PyObject_SetAttrString
-        // Decisions are based on type of o (that of name is known)
-        setAttr(o, Py.str(name), value);
     }
 
     /** Python {@code o.name = value}. */

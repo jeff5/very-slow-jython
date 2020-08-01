@@ -309,8 +309,8 @@ class PyType implements PyObject {
             throws Throwable {
         try {
             // Create the instance with given arguments.
-            PyObject o = (PyObject) type.tp_new.invokeExact(type, args,
-                    kwargs);
+            MethodHandle n = type.tp_new;
+            PyObject o = (PyObject) n.invokeExact(type, args, kwargs);
             // Check for special case type enquiry.
             if (isTypeEnquiry(type, args, kwargs)) { return o; }
             // As __new__ may be user-defined, check type as expected.
