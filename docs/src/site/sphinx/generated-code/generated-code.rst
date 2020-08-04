@@ -21,6 +21,7 @@ but take a different approach to implementation.
     comparison-and-loops
     refactor-to-evo3
     function-definition-and-call
+    refactor-to-evo4
     classes-and-attributes
 
 ..  I think the chapters might go like this,

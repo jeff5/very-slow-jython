@@ -1,7 +1,7 @@
 ..  generated-code/refactor-to-evo3.rst
 
-Refactoring the Code Base
-#########################
+Refactoring for ``evo3``
+########################
 
     Code fragments in this section are taken from
     ``rt2/src/main/java/.../vsj2/evo3``
