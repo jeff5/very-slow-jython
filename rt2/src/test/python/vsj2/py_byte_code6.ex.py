@@ -3,6 +3,15 @@
 # This looks like a Python module but it isn't. These are code fragments that
 # the module vsj2.exparser will break apart to generate test material.
 
+# type_enquiry:
+x = 6
+x = 6.1
+x = "42"
+# ? r, s, t
+r = int(x)
+s = float(x)
+t = type(x)
+
 # empty_class:
 
 # ? name, n

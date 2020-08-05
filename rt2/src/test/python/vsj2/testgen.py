@@ -5,7 +5,8 @@ import re
 from contextlib import closing
 from vsj2.exparser import LineToken, Lines
 from vsj2.srcgen import PyObjectTestEmitter, PyObjectEmitter, \
-    PyObjectEmitterEvo3, PyObjectTestEmitterEvo3
+    PyObjectEmitterEvo3, PyObjectTestEmitterEvo3, PyObjectTestEmitterEvo4, \
+    PyObjectEmitterEvo4
 
 
 def generate(test, testType=None, writer=None):
@@ -35,6 +36,11 @@ def main(filename):
     elif evo == 3:
         writer = PyObjectEmitterEvo3(code_comment=True)
         testType = PyObjectTestEmitterEvo3
+    elif evo == 4:
+        writer = PyObjectEmitterEvo4(code_comment=True)
+        testType = PyObjectTestEmitterEvo4
+    else:
+        raise ValueError("evo = {} out of range".format(evo))
 
     # Open the input and wrap in a parser
     examples = os.path.join(dirname, name)

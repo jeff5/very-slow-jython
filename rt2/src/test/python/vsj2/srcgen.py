@@ -148,14 +148,26 @@ class PythonEmitter(JavaConstantEmitter):
     environment.
     """
 
+    def __init__(self, special_handlers=None, **kwds):
+        self._handlers = special_handlers or dict()
+        super().__init__(**kwds)
+
+    def add_special_handlers(self, handlers):
+        """Map particular object values to f(obj, suffix)"""
+        self._handlers.update(handlers)
+
     def python(self, obj, suffix=""):
         """Emit Java to construct a Python value of any supported type."""
-        t = type(obj)
-        handler = getattr(self, "python_" + t.__name__, None)
+        handler = self._handlers.get(id(obj))
         if handler:
-            handler(obj, suffix)
+            handler(self, obj, suffix)
         else:
-            self.java_string(repr(t), suffix)
+            t = type(obj)
+            handler = getattr(self, "python_" + t.__name__, None)
+            if handler:
+                handler(obj, suffix)
+            else:
+                self.java_string(repr(t), suffix)
         return self
 
     # Override the following at least
@@ -466,7 +478,7 @@ class PyObjectTestEmitterEvo3(PyObjectTestEmitter):
     """Class to emit a test PyCode and a JUnit test method for each case.
 
     The generated code assumes a particular representation for Python in Java,
-    which is introduced in PyByteCode1.java and pursued in Java package evo2.
+    which matches the run-time environment explored in Java package evo3.
     """
 
     def __init__(self, test, writer=None):
@@ -519,3 +531,106 @@ class PyObjectTestEmitterEvo3(PyObjectTestEmitter):
             self.writer.emit_line("//@formatter:on")
         self.writer.emit_line("}")
         return self.writer.emit_line()
+
+
+class PyObjectEmitterEvo4(PyObjectEmitterEvo3):
+    """A class capable of emitting Python values as PyObjects (short variant).
+
+    This class extends PyObjectEmitter, replacing the methods that emit
+    constructors with equivalent calls to static runtime methods. This
+    matches the run-time environment explored in Java package evo4.
+    """
+    # So far, just the same as in evo3
+    pass
+
+# Used by PyObjectTestEmitterEvo4
+def _make_handlers():
+    # Make a lookup from ids of builtins values to an access expression
+    snitliub = dict()
+    builtins = __builtins__
+    # __builtins__ may be a module or a dictionary
+    if not isinstance(builtins, dict):
+        builtins = builtins.__dict__
+    names = set(builtins.keys())
+    # Edit out objects we handle another way
+    #names -= set(('None', 'True', 'False', '__debug__'))
+    names -= {'__spec__', '__package__', '__name__', 'credits', 'copyright'}
+    unvalues = {False, True, None, ''}
+
+    for name in names:
+        if (v := builtins[name]) not in unvalues:
+            # Bind the specific name using default args
+            #print("Map[{!r}] -> {}".format(v, name))
+            def h(w, obj, suffix="", n=name):
+                # first argument "obj" is ignored
+                #print("Called handler[{!r}] -> {}".format(obj, n))
+                w.emit('interp.getBuiltin("{}")'.format(n), suffix)
+            snitliub[id(v)] = h
+    return snitliub
+
+
+class PyObjectTestEmitterEvo4(PyObjectTestEmitter):
+    """Class to emit a test PyCode and a JUnit test method for each case.
+
+    The generated code assumes a particular representation for Python in Java,
+    which matches the run-time environment explored in Java package evo4.
+    """
+
+    def __init__(self, test, writer=None):
+        self.writer = PyObjectEmitterEvo3() if writer is None else writer
+        self.test = test
+        # Compile the lines to byte code
+        prog = '\n'.join(test.body)
+        code = compile(prog, self.test.name, 'exec')
+        self.bytecode = dis.Bytecode(code)
+        # Handle built-ins distinctly
+        writer.add_special_handlers(PyObjectTestEmitterEvo4.snitlub)
+
+    # Lookup from ids of builtins values to an access expression
+    snitlub = _make_handlers()
+
+    def emit_test_method(self, name, c):
+        """Emit one JUnit test method with the given name"""
+        # Prepare the "before" name space by executing the "case" code
+        before = dict()
+        exec(c, {}, before)
+        # Execute the example code against a copy of that name space
+        globals = dict(before)
+        exec(self.bytecode.codeobj, globals)
+        # Extract those variables names as results to test
+        after = {k: globals[k] for k in self.test.test}
+        # Check
+        #print("before = {!r}".format(before))
+        #print("after = {!r}".format(after))
+        # Emit the code for the test method
+        self.writer.emit_line("@Test")
+        self.writer.emit_line("void " + name + "() {")
+        with self.writer.indentation():
+            self.writer.emit_line("//@formatter:off")
+            # Create an interpreter to execute the code object
+            self.writer.emit_line(
+                "Interpreter interp = Py.createInterpreter();")
+            # Load the global name space with the test case values
+            self.writer.emit_line("PyDict globals = Py.dict();")
+            for k, v in before.items():
+                self.writer.emit_line("globals.put(")
+                with self.writer.indentation():
+                    self.writer.java_string(k, ", ")
+                    self.writer.python(v, ");")
+            # Execute the code in the Java implementation
+            self.writer.emit_line("interp.evalCode(")
+            self.writer.emit(self.test.name.upper())
+            self.writer.emit(", globals, globals);")
+            # Compare named results against the values this Python got
+            for k, v in after.items():
+                msg = "{} == {}".format(k, repr(v))
+                self.writer.emit_line("assertEquals(")
+                with self.writer.indentation():
+                    self.writer.python(v, ", ")
+                    self.writer.emit("globals.get(")
+                    self.writer.java_string(k, "), ")
+                    self.writer.java_string(msg, ");")
+            self.writer.emit_line("//@formatter:on")
+        self.writer.emit_line("}")
+        return self.writer.emit_line()
+

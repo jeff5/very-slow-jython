@@ -55,6 +55,17 @@ class Interpreter {
     }
 
     /**
+     * Get the value of an attribute of the built-in module, equivalent
+     * to {@code builtinsModule.dict.get(name)}.
+     *
+     * @param name of the attribute ({@code String} or {@code str})
+     * @return value of the attribute
+     */
+    <T> PyObject getBuiltin(T name) {
+        return builtinsModule.dict.get(name);
+    }
+
+    /**
      * Get the current frame or null in there is none. The current frame
      * is the one at the top of the stack in the current ThreadState.
      */
