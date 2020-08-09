@@ -86,7 +86,7 @@ class JavaConstantEmitter(IndentedEmitter):
     Java constants (or constructor expressions). Each
     """
 
-    MAX_INT = 1 << 31
+    MAX_INT = (1 << 31) - 1
     MIN_INT = -MAX_INT - 1
 
     def java_int(self, value, suffix=""):
@@ -540,8 +540,19 @@ class PyObjectEmitterEvo4(PyObjectEmitterEvo3):
     constructors with equivalent calls to static runtime methods. This
     matches the run-time environment explored in Java package evo4.
     """
-    # So far, just the same as in evo3
-    pass
+    MAX_LONG = (1 << 63) - 1
+    MIN_LONG = -MAX_LONG - 1
+
+    def python_int(self, value, suffix=""):
+        """Emit Java to construct a Python int."""
+        if self.MIN_INT <= value <= self.MAX_INT:
+            text = f"Py.val({value})"
+        elif self.MIN_LONG <= value <= self.MAX_LONG:
+            text = f"Py.val({value}L)"
+        else:
+            text = f"Py.val(new BigInteger(\"{value}\"))"
+        return self.emit(text, suffix)
+
 
 # Used by PyObjectTestEmitterEvo4
 def _make_handlers():
@@ -584,10 +595,10 @@ class PyObjectTestEmitterEvo4(PyObjectTestEmitter):
         code = compile(prog, self.test.name, 'exec')
         self.bytecode = dis.Bytecode(code)
         # Handle built-ins distinctly
-        writer.add_special_handlers(PyObjectTestEmitterEvo4.snitlub)
+        writer.add_special_handlers(PyObjectTestEmitterEvo4.snitliub)
 
     # Lookup from ids of builtins values to an access expression
-    snitlub = _make_handlers()
+    snitliub = _make_handlers()
 
     def emit_test_method(self, name, c):
         """Emit one JUnit test method with the given name"""

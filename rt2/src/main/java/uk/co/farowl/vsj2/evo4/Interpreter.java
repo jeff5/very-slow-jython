@@ -61,7 +61,18 @@ class Interpreter {
      * @param name of the attribute ({@code String} or {@code str})
      * @return value of the attribute
      */
-    <T> PyObject getBuiltin(T name) {
+    PyObject getBuiltin(PyUnicode name) {
+        return builtinsModule.dict.get(name);
+    }
+
+    /**
+     * Get the value of an attribute of the built-in module, equivalent
+     * to {@code builtinsModule.dict.get(name)}.
+     *
+     * @param name of the attribute ({@code String} or {@code str})
+     * @return value of the attribute
+     */
+    PyObject getBuiltin(String name) {
         return builtinsModule.dict.get(name);
     }
 

@@ -44,6 +44,7 @@ enum Slot {
     nb_xor(Signature.BINARY, "^", "xor"), //
     nb_or(Signature.BINARY, "|", "or"), //
     nb_int(Signature.UNARY), //
+    nb_float(Signature.UNARY), //
     nb_index(Signature.UNARY), //
 
     sq_length(Signature.LEN, null, "length"), //

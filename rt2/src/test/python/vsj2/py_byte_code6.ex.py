@@ -3,13 +3,26 @@
 # This looks like a Python module but it isn't. These are code fragments that
 # the module vsj2.exparser will break apart to generate test material.
 
+# numeric_constructor:
+u = 7.5
+u = "42"
+u = 7**21  # < 2**63
+u = -7**21
+u = 2**63-1
+u = -2**63
+u = 9**21  # > 2**63
+u = -9**21
+# ? i, j, x, y
+i = int(u)
+x = float(i)
+y = float(u)
+j = int(y)
+
 # type_enquiry:
 x = 6
-x = 6.1
+x = 6.9
 x = "42"
-# ? r, s, t
-r = int(x)
-s = float(x)
+# ? t
 t = type(x)
 
 # empty_class:

@@ -323,35 +323,35 @@ class Abstract {
      * must be a number, not 'type'".
      *
      * @param f name of function or operation
-     * @param n ordinal of argument: 1 for "first", etc. or 0
+     * @param n ordinal of argument: 1 for "first", etc., 0 for ""
      * @param t expected kind of argument
      * @param o actual argument (not its type)
      * @return exception to throw
      */
     static TypeError argumentTypeError(String f, int n, String t,
             PyObject o) {
-        String ord = "", space = "";
-        if (n == 0) { ord = ordinal(n); space = " "; }
-        return new TypeError(ARGUMENT_MUST_BE, f, ord, space, t,
+        return new TypeError(ARGUMENT_MUST_BE, f, ordinal(n), t,
                 o.getType().getName());
     }
 
     // Helper for argumentTypeError
     private static String ordinal(int n) {
         switch (n) {
+            case 0:
+                return "";
             case 1:
-                return "first";
+                return " first";
             case 2:
-                return "second";
+                return " second";
             case 3:
-                return "third";
+                return " third";
             default:
-                return String.format("%dth", n);
+                return String.format(" %dth", n);
         }
     }
 
     private static final String ARGUMENT_MUST_BE =
-            "%s%s%s argument must be %s, not '%.200s'";
+            "%s()%s argument must be %s, not '%.200s'";
 
     /**
      * Create a {@link TypeError} with a message along the lines "F

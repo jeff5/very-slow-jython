@@ -33,8 +33,31 @@ class PyLong implements PyObject {
             throw new OverflowError(INT_TOO_LARGE);
         }
     }
+
     private static String INT_TOO_LARGE =
             "Python int too large to convert to 'size'";
+
+    /**
+     * Value as a Java {@code double} using the round-half-to-even rule.
+     *
+     * @return nearest double
+     * @throws OverflowError if out of double range
+     */
+    // Compare CPython longobject.c: PyLong_AsDouble
+    double doubleValue() throws OverflowError {
+        /*
+         * BigInteger.doubleValue() rounds half-to-even as required, but
+         * on overflow returns ±∞ rather than throwing.
+         */
+        double x = value.doubleValue();
+        if (Double.isInfinite(x))
+            throw new OverflowError(INT_TOO_LARGE_FLOAT);
+        else
+            return x;
+    }
+
+    private static String INT_TOO_LARGE_FLOAT =
+            "Python int too large to convert to float";
 
     int signum() { return value.signum(); }
 
@@ -190,6 +213,10 @@ class PyLong implements PyObject {
             return new PyLong(v.value);
     }
 
+    static PyObject nb_float(PyLong v) { // return PyFloat
+        return Py.val(v.doubleValue());
+    }
+
     /**
      * Check the argument is a {@code PyLong} and return its value.
      *
@@ -229,7 +256,7 @@ class PyLong implements PyObject {
                 if (r.getType() == PyLong.TYPE) {
                     return r;
                 } else if (r instanceof PyLong) {
-                    // 'result' not of exact type int but is a subclass
+                    // Result not of exact type int but is a subclass
                     Abstract.returnDeprecation("__int__", "int", r);
                     return r;
                 } else
@@ -305,4 +332,18 @@ class PyLong implements PyObject {
                     base, u);
         }
     }
+
+    /**
+     * Create a Python {@code int} from a Java {@code double}.
+     *
+     * @param value to convert
+     * @return BigInteger equivalent.
+     * @throws OverflowError when this is a floating infinity
+     * @throws ValueError when this is a floating NaN
+     */
+    // Compare CPython longobject.c :: PyLong_FromDouble
+    PyLong fromDouble(double value) {
+        return new PyLong(PyFloat.bigIntegerFromDouble(value));
+    }
+
 }

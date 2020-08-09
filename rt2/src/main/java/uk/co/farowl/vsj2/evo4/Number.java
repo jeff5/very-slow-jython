@@ -166,27 +166,27 @@ class Number extends Abstract {
      * Return a Python {@code int} (or subclass) from the object
      * {@code o}. Raise {@code TypeError} if the result is not a Python
      * {@code int} subclass, or if the object {@code o} cannot be
-     * interpreted as an index (it does not fill {@link NB#index}). This
+     * interpreted as an index (it does not fill {@link nb_index}). This
      * method makes no guarantee about the <i>range</i> of the result.
      */
-    static PyObject index(PyObject o) throws Throwable {
+    static PyLong index(PyObject o) throws Throwable {
 
         PyType itemType = o.getType();
         PyObject result;
 
         if (itemType.isSubTypeOf(PyLong.TYPE))
-            return o;
+            return (PyLong) o;
         else {
             try {
                 result = (PyObject) itemType.nb_index.invokeExact(o);
                 // Enforce expectations on the return type
                 PyType resultType = result.getType();
                 if (resultType == PyLong.TYPE)
-                    return result;
+                    return (PyLong) result;
                 else if (resultType.isSubTypeOf(PyLong.TYPE))
                     // XXX Sub-types not implemented yet
                     // CPython issues DeprecationWarning on sub-type.
-                    return result;
+                    return (PyLong) result;
                 else
                     throw returnTypeError("__index__", "int", result);
             } catch (EmptyException e) {
@@ -293,7 +293,7 @@ class Number extends Abstract {
 
         // else if ... support for bytes-like objects
         else
-            throw argumentTypeError("int()", 0,
+            throw argumentTypeError("int", 0,
                     "a string, a bytes-like object or a number", o);
     }
 
@@ -303,6 +303,49 @@ class Number extends Abstract {
             "'%.200s' object cannot be interpreted as an integer";
     private static final String CANNOT_FIT =
             "cannot fit '%.200s' into an index-sized integer";
+
+    /**
+     * Convert an object to a Python {@code float}, This is the
+     * equivalent of the Python expression {@code float(o)}.
+     *
+     * @param o to convert
+     * @return converted value
+     * @throws Throwable
+     */
+    // Compare CPython abstract.c: PyNumber_Float
+    static PyFloat toFloat(PyObject o) throws Throwable  {
+        /*
+         * Ever so similar to PyFloat.asDouble, but returns always
+         * exactly a PyFloat, constructed if necessary from the value in
+         * a sub-type of PyFloat, or a from string.
+         */
+        PyType oType = o.getType();
+
+        if (oType == PyFloat.TYPE) {
+            return (PyFloat) o;
+
+        } else {
+            try {
+                // Try __float__ (if defined)
+                PyObject res = (PyObject) oType.nb_float.invokeExact(o);
+                if (res.getType() == PyFloat.TYPE) // Exact type
+                    return (PyFloat) res;
+                else if (res instanceof PyFloat) { // Sub-class
+                    // Warn about this and make a clean PyFloat
+                    returnDeprecation("__float__", "float", res);
+                    return Py.val(((PyFloat) res).value);
+                } else
+                    // Slot defined but not a PyFloat at all
+                    throw returnTypeError("__float__", "float", res);
+            } catch (Slot.EmptyException e) {}
+
+            // Fall out here if nb_float was not defined
+            if (Slot.nb_index.isDefinedFor(oType))
+                return Py.val(index(o).doubleValue());
+            else
+                return PyFloat.fromString(o);
+        }
+    }
 
     /** Create a {@code TypeError} for the named binary op. */
     static PyException operandError(String op, PyObject v, PyObject w) {

@@ -67,6 +67,7 @@ class PyType implements PyObject {
     MethodHandle nb_xor;
     MethodHandle nb_or;
     MethodHandle nb_int;
+    MethodHandle nb_float;
 
     MethodHandle nb_index;
 
@@ -327,7 +328,7 @@ class PyType implements PyObject {
         }
     }
 
-    PyObject tp_new(PyType metatype, PyTuple args, PyDict kwds)
+    static PyObject tp_new(PyType metatype, PyTuple args, PyDict kwds)
             throws Throwable {
         // Special case: type(x) should return type(x)
         int nargs = args.size();

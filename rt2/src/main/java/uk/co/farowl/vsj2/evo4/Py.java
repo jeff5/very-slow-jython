@@ -1,5 +1,7 @@
 package uk.co.farowl.vsj2.evo4;
 
+import java.math.BigInteger;
+
 /** Runtime */
 class Py {
 
@@ -31,6 +33,11 @@ class Py {
 
     /** Return Python {@code int} for Java {@code long}. */
     static PyLong val(long value) {
+        return new PyLong(value);
+    }
+
+    /** Return Python {@code int} for Java {@code BigInteger}. */
+    static PyLong val(BigInteger value) {
         return new PyLong(value);
     }
 

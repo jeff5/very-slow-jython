@@ -2,6 +2,8 @@ package uk.co.farowl.vsj2.evo4;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.math.BigInteger;
+
 import org.junit.jupiter.api.Test;
 
 /**
@@ -121,83 +123,248 @@ class PyByteCode6 {
     // from py_byte_code6.ex.py
 
     /**
+     * Example 'numeric_constructor': <pre>
+     * i = int(u)
+     * x = float(i)
+     * y = float(u)
+     * j = int(y)
+     * </pre>
+     */
+    //@formatter:off
+    static final PyCode NUMERIC_CONSTRUCTOR =
+    /*
+     *   1           0 LOAD_NAME                0 (int)
+     *               2 LOAD_NAME                1 (u)
+     *               4 CALL_FUNCTION            1
+     *               6 STORE_NAME               2 (i)
+     *
+     *   2           8 LOAD_NAME                3 (float)
+     *              10 LOAD_NAME                2 (i)
+     *              12 CALL_FUNCTION            1
+     *              14 STORE_NAME               4 (x)
+     *
+     *   3          16 LOAD_NAME                3 (float)
+     *              18 LOAD_NAME                1 (u)
+     *              20 CALL_FUNCTION            1
+     *              22 STORE_NAME               5 (y)
+     *
+     *   4          24 LOAD_NAME                0 (int)
+     *              26 LOAD_NAME                5 (y)
+     *              28 CALL_FUNCTION            1
+     *              30 STORE_NAME               6 (j)
+     *              32 LOAD_CONST               0 (None)
+     *              34 RETURN_VALUE
+     */
+    new CPythonCode(0, 0, 0, 0, 2, 64,
+        Py.bytes(101, 0, 101, 1, -125, 1, 90, 2, 101, 3, 101, 2,
+            -125, 1, 90, 4, 101, 3, 101, 1, -125, 1, 90, 5, 101, 0,
+            101, 5, -125, 1, 90, 6, 100, 0, 83, 0),
+        Py.tuple(Py.None),
+        Py.tuple(Py.str("int"), Py.str("u"), Py.str("i"),
+            Py.str("float"), Py.str("x"), Py.str("y"), Py.str("j")),
+        Py.tuple(),
+        Py.tuple(),
+        Py.tuple(), Py.str("numeric_constructor"),
+        Py.str("<module>"), 1,
+        Py.bytes(8, 1, 8, 1, 8, 1));
+    //@formatter:on
+
+    @Test
+    void test_numeric_constructor1() {
+        //@formatter:off
+        Interpreter interp = Py.createInterpreter();
+        PyDict globals = Py.dict();
+        globals.put("u", Py.val(7.5));
+        interp.evalCode(NUMERIC_CONSTRUCTOR, globals, globals);
+        assertEquals(Py.val(7), globals.get("i"), "i == 7");
+        assertEquals(Py.val(7), globals.get("j"), "j == 7");
+        assertEquals(Py.val(7.0), globals.get("x"), "x == 7.0");
+        assertEquals(Py.val(7.5), globals.get("y"), "y == 7.5");
+        //@formatter:on
+    }
+
+    @Test
+    void test_numeric_constructor2() {
+        //@formatter:off
+        Interpreter interp = Py.createInterpreter();
+        PyDict globals = Py.dict();
+        globals.put("u", Py.str("42"));
+        interp.evalCode(NUMERIC_CONSTRUCTOR, globals, globals);
+        assertEquals(Py.val(42), globals.get("i"), "i == 42");
+        assertEquals(Py.val(42), globals.get("j"), "j == 42");
+        assertEquals(Py.val(42.0), globals.get("x"), "x == 42.0");
+        assertEquals(Py.val(42.0), globals.get("y"), "y == 42.0");
+        //@formatter:on
+    }
+
+    @Test
+    void test_numeric_constructor3() {
+        //@formatter:off
+        Interpreter interp = Py.createInterpreter();
+        PyDict globals = Py.dict();
+        globals.put("u", Py.val(558545864083284007L));
+        interp.evalCode(NUMERIC_CONSTRUCTOR, globals, globals);
+        assertEquals(Py.val(558545864083284007L), globals.get("i"),
+            "i == 558545864083284007");
+        assertEquals(Py.val(558545864083284032L), globals.get("j"),
+            "j == 558545864083284032");
+        assertEquals(Py.val(5.5854586408328403e+17), globals.get(
+            "x"), "x == 5.5854586408328403e+17");
+        assertEquals(Py.val(5.5854586408328403e+17), globals.get(
+            "y"), "y == 5.5854586408328403e+17");
+        //@formatter:on
+    }
+
+    @Test
+    void test_numeric_constructor4() {
+        //@formatter:off
+        Interpreter interp = Py.createInterpreter();
+        PyDict globals = Py.dict();
+        globals.put("u", Py.val(-558545864083284007L));
+        interp.evalCode(NUMERIC_CONSTRUCTOR, globals, globals);
+        assertEquals(Py.val(-558545864083284007L), globals.get("i"),
+            "i == -558545864083284007");
+        assertEquals(Py.val(-558545864083284032L), globals.get("j"),
+            "j == -558545864083284032");
+        assertEquals(Py.val(-5.5854586408328403e+17), globals.get(
+            "x"), "x == -5.5854586408328403e+17");
+        assertEquals(Py.val(-5.5854586408328403e+17), globals.get(
+            "y"), "y == -5.5854586408328403e+17");
+        //@formatter:on
+    }
+
+    @Test
+    void test_numeric_constructor5() {
+        //@formatter:off
+        Interpreter interp = Py.createInterpreter();
+        PyDict globals = Py.dict();
+        globals.put("u", Py.val(9223372036854775807L));
+        interp.evalCode(NUMERIC_CONSTRUCTOR, globals, globals);
+        assertEquals(Py.val(9223372036854775807L), globals.get("i"),
+            "i == 9223372036854775807");
+        assertEquals(Py.val(new BigInteger("9223372036854775808")),
+            globals.get("j"), "j == 9223372036854775808");
+        assertEquals(Py.val(9.223372036854776e+18), globals.get("x"),
+            "x == 9.223372036854776e+18");
+        assertEquals(Py.val(9.223372036854776e+18), globals.get("y"),
+            "y == 9.223372036854776e+18");
+        //@formatter:on
+    }
+
+    @Test
+    void test_numeric_constructor6() {
+        //@formatter:off
+        Interpreter interp = Py.createInterpreter();
+        PyDict globals = Py.dict();
+        globals.put("u", Py.val(-9223372036854775808L));
+        interp.evalCode(NUMERIC_CONSTRUCTOR, globals, globals);
+        assertEquals(Py.val(-9223372036854775808L), globals.get("i"),
+            "i == -9223372036854775808");
+        assertEquals(Py.val(-9223372036854775808L), globals.get("j"),
+            "j == -9223372036854775808");
+        assertEquals(Py.val(-9.223372036854776e+18), globals.get(
+            "x"), "x == -9.223372036854776e+18");
+        assertEquals(Py.val(-9.223372036854776e+18), globals.get(
+            "y"), "y == -9.223372036854776e+18");
+        //@formatter:on
+    }
+
+    @Test
+    void test_numeric_constructor7() {
+        //@formatter:off
+        Interpreter interp = Py.createInterpreter();
+        PyDict globals = Py.dict();
+        globals.put("u",
+            Py.val(new BigInteger("109418989131512359209")));
+        interp.evalCode(NUMERIC_CONSTRUCTOR, globals, globals);
+        assertEquals(Py.val(new BigInteger("109418989131512359209")),
+            globals.get("i"), "i == 109418989131512359209");
+        assertEquals(Py.val(new BigInteger("109418989131512365056")),
+            globals.get("j"), "j == 109418989131512365056");
+        assertEquals(Py.val(1.0941898913151237e+20), globals.get(
+            "x"), "x == 1.0941898913151237e+20");
+        assertEquals(Py.val(1.0941898913151237e+20), globals.get(
+            "y"), "y == 1.0941898913151237e+20");
+        //@formatter:on
+    }
+
+    @Test
+    void test_numeric_constructor8() {
+        //@formatter:off
+        Interpreter interp = Py.createInterpreter();
+        PyDict globals = Py.dict();
+        globals.put("u",
+            Py.val(new BigInteger("-109418989131512359209")));
+        interp.evalCode(NUMERIC_CONSTRUCTOR, globals, globals);
+        assertEquals(
+            Py.val(new BigInteger("-109418989131512359209")),
+            globals.get("i"), "i == -109418989131512359209");
+        assertEquals(
+            Py.val(new BigInteger("-109418989131512365056")),
+            globals.get("j"), "j == -109418989131512365056");
+        assertEquals(Py.val(-1.0941898913151237e+20), globals.get(
+            "x"), "x == -1.0941898913151237e+20");
+        assertEquals(Py.val(-1.0941898913151237e+20), globals.get(
+            "y"), "y == -1.0941898913151237e+20");
+        //@formatter:on
+    }
+
+    /**
      * Example 'type_enquiry': <pre>
-     * r = int(x)
-     * s = float(x)
      * t = type(x)
      * </pre>
      */
     //@formatter:off
     static final PyCode TYPE_ENQUIRY =
     /*
-     *   1           0 LOAD_NAME                0 (int)
+     *   1           0 LOAD_NAME                0 (type)
      *               2 LOAD_NAME                1 (x)
      *               4 CALL_FUNCTION            1
-     *               6 STORE_NAME               2 (r)
-     *
-     *   2           8 LOAD_NAME                3 (float)
-     *              10 LOAD_NAME                1 (x)
-     *              12 CALL_FUNCTION            1
-     *              14 STORE_NAME               4 (s)
-     *
-     *   3          16 LOAD_NAME                5 (type)
-     *              18 LOAD_NAME                1 (x)
-     *              20 CALL_FUNCTION            1
-     *              22 STORE_NAME               6 (t)
-     *              24 LOAD_CONST               0 (None)
-     *              26 RETURN_VALUE
+     *               6 STORE_NAME               2 (t)
+     *               8 LOAD_CONST               0 (None)
+     *              10 RETURN_VALUE
      */
     new CPythonCode(0, 0, 0, 0, 2, 64,
-        Py.bytes(101, 0, 101, 1, -125, 1, 90, 2, 101, 3, 101, 1,
-            -125, 1, 90, 4, 101, 5, 101, 1, -125, 1, 90, 6, 100, 0,
-            83, 0),
+        Py.bytes(101, 0, 101, 1, -125, 1, 90, 2, 100, 0, 83, 0),
         Py.tuple(Py.None),
-        Py.tuple(Py.str("int"), Py.str("x"), Py.str("r"),
-            Py.str("float"), Py.str("s"), Py.str("type"),
-            Py.str("t")),
+        Py.tuple(Py.str("type"), Py.str("x"), Py.str("t")),
         Py.tuple(),
         Py.tuple(),
         Py.tuple(), Py.str("type_enquiry"), Py.str("<module>"), 1,
-        Py.bytes(8, 1, 8, 1));
+        Py.bytes());
     //@formatter:on
 
-    //@Test
+    @Test
     void test_type_enquiry1() {
         //@formatter:off
         Interpreter interp = Py.createInterpreter();
         PyDict globals = Py.dict();
         globals.put("x", Py.val(6));
         interp.evalCode(TYPE_ENQUIRY, globals, globals);
-        assertEquals(Py.val(6), globals.get("r"), "r == 6");
-        assertEquals(Py.val(6.0), globals.get("s"), "s == 6.0");
         assertEquals(interp.getBuiltin("int"), globals.get("t"),
             "t == <class 'int'>");
         //@formatter:on
     }
 
-    //@Test
+    @Test
     void test_type_enquiry2() {
         //@formatter:off
         Interpreter interp = Py.createInterpreter();
         PyDict globals = Py.dict();
-        globals.put("x", Py.val(6.1));
+        globals.put("x", Py.val(6.9));
         interp.evalCode(TYPE_ENQUIRY, globals, globals);
-        assertEquals(Py.val(6), globals.get("r"), "r == 6");
-        assertEquals(Py.val(6.1), globals.get("s"), "s == 6.1");
         assertEquals(interp.getBuiltin("float"), globals.get("t"),
             "t == <class 'float'>");
         //@formatter:on
     }
 
-    //@Test
+    @Test
     void test_type_enquiry3() {
         //@formatter:off
         Interpreter interp = Py.createInterpreter();
         PyDict globals = Py.dict();
         globals.put("x", Py.str("42"));
         interp.evalCode(TYPE_ENQUIRY, globals, globals);
-        assertEquals(Py.val(42), globals.get("r"), "r == 42");
-        assertEquals(Py.val(42.0), globals.get("s"), "s == 42.0");
         assertEquals(interp.getBuiltin("str"), globals.get("t"),
             "t == <class 'str'>");
         //@formatter:on
@@ -218,7 +385,7 @@ class PyByteCode6 {
     static final PyCode EMPTY_CLASS =
     /*
      *   1           0 LOAD_BUILD_CLASS
-     *               2 LOAD_CONST               0 (<code object C at 0x000001E01BFDDD40, file "empty_class", line 1>)
+     *               2 LOAD_CONST               0 (<code object C at 0x0000026141D2C920, file "empty_class", line 1>)
      *               4 LOAD_CONST               1 ('C')
      *               6 MAKE_FUNCTION            0
      *               8 LOAD_CONST               1 ('C')
@@ -302,7 +469,7 @@ class PyByteCode6 {
     static final PyCode SIMPLE_METHOD =
     /*
      *   1           0 LOAD_BUILD_CLASS
-     *               2 LOAD_CONST               0 (<code object C at 0x000001E01BFE5030, file "simple_method", line 1>)
+     *               2 LOAD_CONST               0 (<code object C at 0x0000026141D2C920, file "simple_method", line 1>)
      *               4 LOAD_CONST               1 ('C')
      *               6 MAKE_FUNCTION            0
      *               8 LOAD_CONST               1 ('C')
@@ -345,7 +512,7 @@ class PyByteCode6 {
              *               4 LOAD_CONST               0 ('C')
              *               6 STORE_NAME               2 (__qualname__)
              *
-             *   2           8 LOAD_CONST               1 (<code object f at 0x000001E01BFDDD40, file "simple_method", line 2>)
+             *   2           8 LOAD_CONST               1 (<code object f at 0x0000026141D2CBE0, file "simple_method", line 2>)
              *              10 LOAD_CONST               2 ('C.f')
              *              12 MAKE_FUNCTION            0
              *              14 STORE_NAME               3 (f)
@@ -432,7 +599,7 @@ class PyByteCode6 {
     static final PyCode ATTRIBUTES =
     /*
      *   1           0 LOAD_BUILD_CLASS
-     *               2 LOAD_CONST               0 (<code object C at 0x000001E01BFE5500, file "attributes", line 1>)
+     *               2 LOAD_CONST               0 (<code object C at 0x0000026141D350E0, file "attributes", line 1>)
      *               4 LOAD_CONST               1 ('C')
      *               6 MAKE_FUNCTION            0
      *               8 LOAD_CONST               1 ('C')
@@ -475,12 +642,12 @@ class PyByteCode6 {
              *               4 LOAD_CONST               0 ('C')
              *               6 STORE_NAME               2 (__qualname__)
              *
-             *   2           8 LOAD_CONST               1 (<code object __init__ at 0x000001E01BFE53A0, file "attributes", line 2>)
+             *   2           8 LOAD_CONST               1 (<code object __init__ at 0x0000026141D2CF50, file "attributes", line 2>)
              *              10 LOAD_CONST               2 ('C.__init__')
              *              12 MAKE_FUNCTION            0
              *              14 STORE_NAME               3 (__init__)
              *
-             *   6          16 LOAD_CONST               3 (<code object f at 0x000001E01BFE5450, file "attributes", line 6>)
+             *   6          16 LOAD_CONST               3 (<code object f at 0x0000026141D35030, file "attributes", line 6>)
              *              18 LOAD_CONST               4 ('C.f')
              *              20 MAKE_FUNCTION            0
              *              22 STORE_NAME               4 (f)
