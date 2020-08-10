@@ -1,6 +1,7 @@
 package uk.co.farowl.vsj2.evo4;
 
 import java.util.EnumSet;
+import java.util.StringJoiner;
 
 import uk.co.farowl.vsj2.evo4.PyCode.Trait;
 
@@ -807,5 +808,29 @@ class CPythonFrame extends PyFrame {
             return new UnboundLocalError(UNBOUNDFREE_ERROR_MSG,
                     code.freevars[oparg - ncells]);
         }
+    }
+
+    @Override
+    public String toString() {
+        int total = code.argcount + code.kwonlyargcount;
+        if (code.traits.contains(PyCode.Trait.VARARGS)) { total++; }
+        if (code.traits.contains(PyCode.Trait.VARKEYWORDS)) { total++; }
+        String args = fastlocals == null ? ""
+                : sliceToString(fastlocals, 0, total);
+        String cells = freevars == null ? ""
+                : sliceToString(freevars, 0, freevars.length);
+        return "CPythonFrame: " + code.name + "(" + args + ") [" + cells
+                + "]";
+    }
+
+    private static <E> String sliceToString(E[] a, int start, int end) {
+        start = Math.max(0, start);
+        end = Math.min(a.length, end);
+        StringJoiner sj = new StringJoiner(", ");
+        for (int i = start; i < end; i++) {
+            E v = a[i];
+            sj.add(v != null ? v.toString() : "null");
+        }
+        return sj.toString();
     }
 }

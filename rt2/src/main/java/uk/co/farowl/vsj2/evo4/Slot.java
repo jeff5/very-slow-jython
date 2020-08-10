@@ -85,6 +85,12 @@ enum Slot {
         this(signature, opName, null);
     }
 
+    @Override
+    public java.lang.String toString() {
+        return "Slot." + name() + " ( " + methodName + signature.type
+                + " ) [" + signature.name() + "]";
+    }
+
     /**
      * Get the name of the method that, by convention, identifies the
      * corresponding operation in the implementing class. This is not
