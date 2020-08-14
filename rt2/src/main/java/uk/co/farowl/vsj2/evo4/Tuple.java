@@ -31,9 +31,9 @@ interface Tuple<E extends PyObject> extends List<E>, PyObject {
 
     // slot functions -------------------------------------------------
 
-    static int length(Tuple<?> self) { return self.size(); }
+    static int __len__(Tuple<?> self) { return self.size(); }
 
-    static PyObject sq_item(Tuple<?> self, int i) {
+    static PyObject __getitem__(Tuple<?> self, int i) {
         try {
             return self.get(i);
         } catch (IndexOutOfBoundsException e) {
@@ -41,13 +41,13 @@ interface Tuple<E extends PyObject> extends List<E>, PyObject {
         }
     }
 
-    static PyObject mp_subscript(Tuple<?> self, PyObject item)
+    static PyObject __getitem__(Tuple<?> self, PyObject item)
             throws Throwable {
         PyType itemType = item.getType();
         if (Slot.nb_index.isDefinedFor(itemType)) {
             int i = Number.asSize(item, IndexError::new);
             if (i < 0) { i += self.size(); }
-            return sq_item(self, i);
+            return __getitem__(self, i);
         }
         // else if item is a PySlice { ... }
         else

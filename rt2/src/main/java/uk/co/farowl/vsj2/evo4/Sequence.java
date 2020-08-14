@@ -20,9 +20,9 @@ class Sequence extends Abstract {
             return (int) sType.sq_length.invokeExact(s);
         } catch (Slot.EmptyException e) {}
 
-        if (Slot.mp_length.isDefinedFor(sType))
+        //if (Slot.mp_length.isDefinedFor(sType))
             // Caller should have tried Abstract.size
-            throw typeError(NOT_SEQUENCE, s);
+        //    throw typeError(NOT_SEQUENCE, s);
         throw typeError(HAS_NO_LEN, s);
     }
 

@@ -70,7 +70,7 @@ class PyFunction implements PyObject {
 
     // slot functions -------------------------------------------------
 
-    static PyObject tp_call(PyFunction func, PyTuple args,
+    static PyObject __call__(PyFunction func, PyTuple args,
             PyDict kwargs) throws Throwable {
         PyFrame frame = func.createFrame(args, kwargs);
         return frame.eval();

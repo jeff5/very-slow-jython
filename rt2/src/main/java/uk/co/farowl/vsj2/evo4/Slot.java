@@ -23,8 +23,8 @@ enum Slot {
     tp_call(Signature.CALL), //
     tp_str(Signature.UNARY), //
 
-    tp_getattro(Signature.GETATTRO), //
-    tp_setattro(Signature.SETATTRO), //
+    tp_getattro(Signature.GETATTRO, null, "__getattr__"), //
+    tp_setattro(Signature.SETATTRO, null, "__setattr__"), //
 
     tp_richcompare(Signature.RICHCMP), //
     tp_iter(Signature.UNARY), //
@@ -34,27 +34,27 @@ enum Slot {
 
     tp_vectorcall(Signature.VECTORCALL), //
 
-    nb_negative(Signature.UNARY, "-", "neg"), //
-    nb_absolute(Signature.UNARY), //
-    nb_add(Signature.BINARY, "+", "add"), //
-    nb_subtract(Signature.BINARY, "-", "sub"), //
-    nb_multiply(Signature.BINARY, "*", "mul"), //
+    nb_negative(Signature.UNARY, "-", "__neg__"), //
+    nb_absolute(Signature.UNARY, null, "__abs__"), //
+    nb_add(Signature.BINARY, "+"), //
+    nb_subtract(Signature.BINARY, "-", "__sub__"), //
+    nb_multiply(Signature.BINARY, "*", "__mul__"), //
     nb_bool(Signature.PREDICATE), //
-    nb_and(Signature.BINARY, "&", "and"), //
-    nb_xor(Signature.BINARY, "^", "xor"), //
-    nb_or(Signature.BINARY, "|", "or"), //
+    nb_and(Signature.BINARY, "&"), //
+    nb_xor(Signature.BINARY, "^"), //
+    nb_or(Signature.BINARY, "|"), //
     nb_int(Signature.UNARY), //
     nb_float(Signature.UNARY), //
     nb_index(Signature.UNARY), //
 
-    sq_length(Signature.LEN, null, "length"), //
-    sq_repeat(Signature.SQ_INDEX), //
-    sq_item(Signature.SQ_INDEX), //
-    sq_ass_item(Signature.SQ_ASSIGN), //
+    sq_length(Signature.LEN, null, "__len__"), //
+    //sq_repeat(Signature.SQ_INDEX, "*", "__mul__"), //
+    sq_item(Signature.SQ_INDEX, null, "__getitem__"), //
+    sq_ass_item(Signature.SQ_ASSIGN, null, "__setitem__"), //
 
-    mp_length(Signature.LEN, null, "length"), //
-    mp_subscript(Signature.SELFBINARY), //
-    mp_ass_subscript(Signature.MP_ASSIGN);
+    //mp_length(Signature.LEN, null, "__len__"), //
+    mp_subscript(Signature.SELFBINARY, null, "__getitem__"), //
+    mp_ass_subscript(Signature.MP_ASSIGN, null, "__setitem__");
 
     /** Method signature to match when filling this slot. */
     final Signature signature;
@@ -70,11 +70,11 @@ enum Slot {
      *
      * @param signature of the function to be called
      * @param opName symbol (such as "+")
-     * @param methodName implementation method (e.g. "add")
+     * @param methodName implementation method (e.g. "__add__")
      */
     Slot(Signature signature, String opName, String methodName) {
         this.opName = opName == null ? name() : opName;
-        this.methodName = methodName == null ? name() : methodName;
+        this.methodName = dunder(methodName);
         this.signature = signature;
         this.slotHandle = Util.slotHandle(this);
     }
@@ -83,6 +83,19 @@ enum Slot {
 
     Slot(Signature signature, String opName) {
         this(signature, opName, null);
+    }
+
+    /** Compute corresponding double-underscore method name. */
+    private String dunder(String methodName) {
+        if (methodName != null)
+            return methodName;
+        else {
+            String s = name();
+            int i = s.indexOf('_');
+            if (i > 0)
+                s = "__" + s.substring(i + 1) + "__";
+            return s;
+        }
     }
 
     @Override

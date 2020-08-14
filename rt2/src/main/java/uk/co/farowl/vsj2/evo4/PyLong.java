@@ -72,7 +72,7 @@ class PyLong implements PyObject {
 
     // slot functions -------------------------------------------------
 
-    static PyObject tp_new(PyType type, PyTuple args, PyDict kwargs)
+    static PyObject __new__(PyType type, PyTuple args, PyDict kwargs)
             throws Throwable {
         PyObject x = null, obase = null;
         int argsLen = args.size();
@@ -117,15 +117,15 @@ class PyLong implements PyObject {
     private static final String NON_STR_EXPLICIT_BASE =
             "int() can't convert non-string with explicit base";
 
-    static PyObject neg(PyLong v) {
+    static PyObject __neg__(PyLong v) {
         return new PyLong(v.value.negate());
     }
 
-    static PyObject nb_absolute(PyLong v) {
+    static PyObject __abs__(PyLong v) {
         return new PyLong(v.value.abs());
     }
 
-    static PyObject add(PyObject v, PyObject w) {
+    static PyObject __add__(PyObject v, PyObject w) {
         try {
             BigInteger a = valueOf(v);
             BigInteger b = valueOf(w);
@@ -135,7 +135,7 @@ class PyLong implements PyObject {
         }
     }
 
-    static PyObject sub(PyObject v, PyObject w) {
+    static PyObject __sub__(PyObject v, PyObject w) {
         try {
             BigInteger a = valueOf(v);
             BigInteger b = valueOf(w);
@@ -145,7 +145,7 @@ class PyLong implements PyObject {
         }
     }
 
-    static PyObject mul(PyObject v, PyObject w) {
+    static PyObject __mul__(PyObject v, PyObject w) {
         try {
             BigInteger a = valueOf(v);
             BigInteger b = valueOf(w);
@@ -155,7 +155,7 @@ class PyLong implements PyObject {
         }
     }
 
-    static PyObject and(PyObject v, PyObject w) {
+    static PyObject __and__(PyObject v, PyObject w) {
         try {
             BigInteger a = valueOf(v);
             BigInteger b = valueOf(w);
@@ -165,7 +165,7 @@ class PyLong implements PyObject {
         }
     }
 
-    static PyObject or(PyObject v, PyObject w) {
+    static PyObject __or__(PyObject v, PyObject w) {
         try {
             BigInteger a = valueOf(v);
             BigInteger b = valueOf(w);
@@ -175,7 +175,7 @@ class PyLong implements PyObject {
         }
     }
 
-    static PyObject xor(PyObject v, PyObject w) {
+    static PyObject __xor__(PyObject v, PyObject w) {
         try {
             BigInteger a = valueOf(v);
             BigInteger b = valueOf(w);
@@ -185,7 +185,7 @@ class PyLong implements PyObject {
         }
     }
 
-    static PyObject tp_richcompare(PyLong v, PyObject w,
+    static PyObject __richcompare__(PyLong v, PyObject w,
             Comparison op) {
         if (w instanceof PyLong) {
             int u = v.value.compareTo(((PyLong) w).value);
@@ -195,25 +195,25 @@ class PyLong implements PyObject {
         }
     }
 
-    static boolean nb_bool(PyLong v) {
+    static boolean __bool__(PyLong v) {
         return !BigInteger.ZERO.equals(v.value);
     }
 
-    static PyObject nb_index(PyLong v) {
+    static PyObject __index__(PyLong v) {
         if (v.getType() == TYPE)
             return v;
         else
             return new PyLong(v.value);
     }
 
-    static PyObject nb_int(PyLong v) { // identical to nb_index
+    static PyObject __int__(PyLong v) { // identical to __index__
         if (v.getType() == TYPE)
             return v;
         else
             return new PyLong(v.value);
     }
 
-    static PyObject nb_float(PyLong v) { // return PyFloat
+    static PyObject __float__(PyLong v) { // return PyFloat
         return Py.val(v.doubleValue());
     }
 
@@ -262,7 +262,7 @@ class PyLong implements PyObject {
                 } else
                     throw Abstract.returnTypeError("__int__", "int", r);
             } catch (EmptyException e) {
-                // Slot nb_int is not defioned for t
+                // Slot __int__ is not defioned for t
                 throw Abstract.requiredTypeError("an integer",
                         integral);
             }

@@ -35,8 +35,8 @@ class Abstract {
             PyType t = v.getType();
             if (Slot.nb_bool.isDefinedFor(t))
                 return (boolean) t.nb_bool.invokeExact(v);
-            else if (Slot.mp_length.isDefinedFor(t))
-                return 0 != (int) t.mp_length.invokeExact(v);
+            //else if (Slot.mp_length.isDefinedFor(t))
+            //    return 0 != (int) t.mp_length.invokeExact(v);
             else if (Slot.sq_length.isDefinedFor(t))
                 return 0 != (int) t.sq_length.invokeExact(v);
             else

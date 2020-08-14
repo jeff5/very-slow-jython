@@ -75,7 +75,7 @@ class PyType implements PyObject {
 
     MethodHandle sq_length;
     // MethodHandle concat;
-    MethodHandle sq_repeat;
+    // MethodHandle sq_repeat;
     MethodHandle sq_item;
     MethodHandle sq_ass_item;
     // MethodHandle contains;
@@ -85,7 +85,7 @@ class PyType implements PyObject {
 
     // Mapping slots table see CPython PyMappingMethods
 
-    MethodHandle mp_length;
+    // MethodHandle mp_length;
     MethodHandle mp_subscript;
     MethodHandle mp_ass_subscript;
 
@@ -306,7 +306,7 @@ class PyType implements PyObject {
      * @return new object (or a type if an enquiry).
      * @throws Throwable
      */
-    static PyObject tp_call(PyType type, PyTuple args, PyDict kwargs)
+    static PyObject __call__(PyType type, PyTuple args, PyDict kwargs)
             throws Throwable {
         try {
             // Create the instance with given arguments.
@@ -328,7 +328,7 @@ class PyType implements PyObject {
         }
     }
 
-    static PyObject tp_new(PyType metatype, PyTuple args, PyDict kwds)
+    static PyObject __new__(PyType metatype, PyTuple args, PyDict kwds)
             throws Throwable {
         // Special case: type(x) should return type(x)
         int nargs = args.size();
@@ -344,7 +344,7 @@ class PyType implements PyObject {
         throw new NotImplementedError("type creation");
     }
 
-    /** Helper for {@link #tp_call} and {@link #tp_new}. */
+    /** Helper for {@link #__call__} and {@link #__new__}. */
     private static boolean isTypeEnquiry(PyType type, PyTuple args,
             PyDict kwargs) {
         return type == TYPE && args.size() == 1

@@ -28,28 +28,28 @@ class PyBool extends PyLong {
 
     // slot functions -------------------------------------------------
 
-    static PyObject and(PyObject v, PyObject w) {
+    static PyObject __and__(PyObject v, PyObject w) {
         if (v instanceof PyBool && w instanceof PyBool)
             return Py.val(v == True && w == True);
         else
             // v is not a bool, or w is not.
-            return PyLong.and(v, w);
+            return PyLong.__and__(v, w);
     }
 
-    static PyObject or(PyObject v, PyObject w) {
+    static PyObject __or__(PyObject v, PyObject w) {
         if (v instanceof PyBool && w instanceof PyBool)
             return Py.val(v == True || w == True);
         else
             // v is not a bool, or w is not.
-            return PyLong.or(v, w);
+            return PyLong.__or__(v, w);
     }
 
-    static PyObject xor(PyObject v, PyObject w) {
+    static PyObject __xor__(PyObject v, PyObject w) {
         if (v instanceof PyBool && w instanceof PyBool)
             return Py.val(v != w);
         else
             // v is not a bool, or w is not.
-            return PyLong.xor(v, w);
+            return PyLong.__xor__(v, w);
     }
 
 }

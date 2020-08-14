@@ -66,7 +66,7 @@ class PyDict extends LinkedHashMap<PyObject, PyObject>
 
     // slot functions -------------------------------------------------
 
-    static PyObject mp_subscript(PyDict self, PyObject key)
+    static PyObject __getitem__(PyDict self, PyObject key)
             throws Throwable {
         // This may be over-simplifying things but ... :)
         return self.get(key);

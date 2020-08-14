@@ -100,7 +100,7 @@ class Callables extends Abstract {
             kwargs = Py.dict();
             PyObject[] names = kwnames.value;
             for (int i = 0, j = start + nargs; i < names.length; i++)
-                kwargs.put(names[j++], stack[i]);
+                kwargs.put(names[i], stack[j++]);
         }
         return call(callable, args, kwargs);
     }

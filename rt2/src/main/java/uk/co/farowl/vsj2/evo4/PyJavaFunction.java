@@ -278,7 +278,7 @@ class PyJavaFunction implements PyObject {
 
     // slot functions -------------------------------------------------
 
-    static PyObject tp_call(PyJavaFunction f, PyTuple args,
+    static PyObject __call__(PyJavaFunction f, PyTuple args,
             PyDict kwargs) throws Throwable {
         try {
             return (PyObject) f.tpCall.invokeExact(args, kwargs);
@@ -287,7 +287,7 @@ class PyJavaFunction implements PyObject {
             f.methodDef.check(args, kwargs);
             // It didn't :( so this is an internal error
             throw new InterpreterError(bce,
-                    "Unexplained BadCallException in tp_call");
+                    "Unexplained BadCallException in __call__");
         }
     }
 

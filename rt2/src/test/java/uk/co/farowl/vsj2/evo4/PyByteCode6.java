@@ -28,7 +28,7 @@ class PyByteCode6 {
 
         PyObject x;         // Attribute for test
 
-        static PyObject tp_getattro(C self, PyUnicode name)
+        static PyObject __getattr__(C self, PyUnicode name)
                 throws Throwable {
             String n = name.toString();
             if ("x".equals(n) && self.x != null)
@@ -37,7 +37,7 @@ class PyByteCode6 {
                 throw Abstract.noAttributeError(self, name);
         }
 
-        static void tp_setattro(C self, PyUnicode name, PyObject value)
+        static void __setattr__(C self, PyUnicode name, PyObject value)
                 throws Throwable {
             String n = name.toString();
             if ("x".equals(n))

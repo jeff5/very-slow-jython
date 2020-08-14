@@ -34,9 +34,9 @@ class PyUnicode implements PyObject, Comparable<PyUnicode> {
 
     // slot functions -------------------------------------------------
 
-    static int length(PyUnicode s) { return s.value.length(); }
+    static int __len__(PyUnicode s) { return s.value.length(); }
 
-    static PyObject tp_richcompare(PyUnicode self, PyObject other,
+    static PyObject __richcompare__(PyUnicode self, PyObject other,
             Comparison op) {
         if (other instanceof PyUnicode)
             return op.toBool(self.compareTo((PyUnicode) other));
@@ -44,7 +44,7 @@ class PyUnicode implements PyObject, Comparable<PyUnicode> {
             return Py.NotImplemented;
     }
 
-    static PyObject sq_repeat(PyUnicode self, int i) {
+    static PyObject __mul__(PyUnicode self, int i) { // sq_repeat
         try {
             if (i < 1)
                 return EMPTY;
@@ -57,7 +57,7 @@ class PyUnicode implements PyObject, Comparable<PyUnicode> {
         }
     }
 
-    static PyObject sq_item(PyUnicode self, int i) {
+    static PyObject __getitem__(PyUnicode self, int i) {
         try {
             return new PyUnicode(self.value.charAt(i));
         } catch (IndexOutOfBoundsException e) {
@@ -65,13 +65,13 @@ class PyUnicode implements PyObject, Comparable<PyUnicode> {
         }
     }
 
-    static PyObject mp_subscript(PyUnicode self, PyObject item)
+    static PyObject __getitem__(PyUnicode self, PyObject item)
             throws Throwable {
         PyType itemType = item.getType();
         if (Slot.nb_index.isDefinedFor(itemType)) {
             int i = Number.asSize(item, IndexError::new);
             if (i < 0) { i += self.value.length(); }
-            return sq_item(self, i);
+            return __getitem__(self, i);
         }
         // else if item is a PySlice { ... }
         else

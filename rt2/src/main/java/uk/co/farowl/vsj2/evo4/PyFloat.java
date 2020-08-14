@@ -30,13 +30,13 @@ class PyFloat implements PyObject {
 
     // slot functions -------------------------------------------------
 
-    static PyObject neg(PyFloat v) { return new PyFloat(-v.value); }
+    static PyObject __neg__(PyFloat v) { return new PyFloat(-v.value); }
 
-    static PyObject nb_absolute(PyFloat v) {
+    static PyObject __abs__(PyFloat v) {
         return new PyFloat(Math.abs(v.value));
     }
 
-    static PyObject add(PyObject v, PyObject w) {
+    static PyObject __add__(PyObject v, PyObject w) {
         try {
             double a = valueOf(v);
             double b = valueOf(w);
@@ -46,7 +46,7 @@ class PyFloat implements PyObject {
         }
     }
 
-    static PyObject sub(PyObject v, PyObject w) {
+    static PyObject __sub__(PyObject v, PyObject w) {
         try {
             double a = valueOf(v);
             double b = valueOf(w);
@@ -56,7 +56,7 @@ class PyFloat implements PyObject {
         }
     }
 
-    static PyObject mul(PyObject v, PyObject w) {
+    static PyObject __mul__(PyObject v, PyObject w) {
         try {
             double a = valueOf(v);
             double b = valueOf(w);
@@ -66,9 +66,9 @@ class PyFloat implements PyObject {
         }
     }
 
-    static boolean nb_bool(PyFloat v) { return v.value != 0.0; }
+    static boolean __bool__(PyFloat v) { return v.value != 0.0; }
 
-    static PyObject tp_new(PyType type, PyTuple args, PyDict kwargs)
+    static PyObject __new__(PyType type, PyTuple args, PyDict kwargs)
             throws Throwable {
         PyObject x = null;
         int argsLen = args.size();
@@ -149,7 +149,7 @@ class PyFloat implements PyObject {
                             res);
             } catch (Slot.EmptyException e) {}
 
-            // Fall out here if nb_float was not defined
+            // Fall out here if __float__ was not defined
             if (Slot.nb_index.isDefinedFor(oType))
                 return Number.index(o).doubleValue();
             else
@@ -167,7 +167,7 @@ class PyFloat implements PyObject {
         return new PyFloat(Double.valueOf(v.toString()));
     }
 
-    static PyObject nb_int(PyFloat self) {
+    static PyObject __int__(PyFloat self) {
         return new PyLong(bigIntegerFromDouble(self.value));
     }
 
