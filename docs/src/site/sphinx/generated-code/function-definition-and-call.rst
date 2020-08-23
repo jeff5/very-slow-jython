@@ -510,6 +510,8 @@ would not be enough to determine the flags.
 .. _Argument Clinic: https://docs.python.org/3/howto/clinic.html
 
 
+.. _MethodDef-and-PyJavaFunction:
+
 Java ``MethodDef`` and ``PyJavaFunction``
 =========================================
 

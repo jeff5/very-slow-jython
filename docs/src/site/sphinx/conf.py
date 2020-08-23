@@ -43,9 +43,9 @@ extensions = [
 # PlantUML options (if extension used)
 java_cmd = "java -Djava.awt.headless=true"
 if os.name.startswith('nt'):
-    plantuml_jar = r"-jar C:\Local\ext\plantuml.jar" # Jeff's machine :)
+    plantuml_jar = r"C:\Local\ext\plantuml.jar"  # Jeff's machine :)
 else:
-    plantuml_jar = "/usr/share/plantuml/plantuml.jar" # Ubuntu
+    plantuml_jar = "/usr/share/plantuml/plantuml.jar"  # Ubuntu
 plantuml = os.getenv('plantuml', ' '.join([java_cmd, '-jar', plantuml_jar]))
 print("plantuml =", plantuml)
 
