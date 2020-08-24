@@ -7,21 +7,31 @@ import uk.co.farowl.vsj2.evo4.Slot.EmptyException;
 /** The Python {@code int} object. */
 class PyLong implements PyObject {
 
+    /** The type {@code int}. */
     static PyType TYPE = PyType.fromSpec( //
             new PyType.Spec("int", PyLong.class));
 
     static PyLong ZERO = new PyLong(BigInteger.ZERO);
     static PyLong ONE = new PyLong(BigInteger.ONE);
 
-    @Override
-    public PyType getType() { return TYPE; }
+    private final PyType type;
     final BigInteger value;
 
-    PyLong(BigInteger value) { this.value = value; }
+    /** Constructor for Python sub-class specifying {@link #type}. */
+    PyLong(PyType type, BigInteger value) {
+        this.type = type;
+        this.value = value;
+    }
 
-    PyLong(long value) { this.value = BigInteger.valueOf(value); }
+    /** Construct a Python {@code long}. */
+    PyLong(BigInteger value) { this(TYPE, value); }
+
+    PyLong(long value) { this(BigInteger.valueOf(value)); }
 
     PyLong(PyLong value) { this(value.value); }
+
+    @Override
+    public PyType getType() { return type; }
 
     @Override
     public String toString() { return value.toString(); }

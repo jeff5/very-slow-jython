@@ -683,7 +683,7 @@ class CPythonFrame extends PyFrame {
                  */
                 // Should handle within Python, but for now, stop.
                 t.printStackTrace();
-                throw new InterpreterError("Non-PyException", t);
+                throw new InterpreterError(t, "Non-PyException");
             }
         } // loop
 

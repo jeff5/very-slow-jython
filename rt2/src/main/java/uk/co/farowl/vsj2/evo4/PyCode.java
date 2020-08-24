@@ -11,6 +11,7 @@ import java.util.EnumSet;
  */
 abstract class PyCode implements PyObject {
 
+    /** The type {@code code}. */
     static final PyType TYPE = new PyType("code", PyCode.class);
 
     @Override

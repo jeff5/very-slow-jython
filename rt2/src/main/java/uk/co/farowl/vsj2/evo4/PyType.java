@@ -17,16 +17,15 @@ class PyType implements PyObject {
 
     // *** The order of these initialisations is critical
     static final PyType[] EMPTY_TYPE_ARRAY = new PyType[0];
-    static final PyType OBJECT_TYPE = new PyType("object",
-            PyBaseObject.class, null, Spec.DEFAULT_FLAGS);
+    /** The type object of {@code type} objects. */
+    static final PyType TYPE = new PyType();
+    /** The type object of {@code object} objects. */
+    static final PyType OBJECT_TYPE = TYPE.getBase();
     private static final PyType[] ONLY_OBJECT =
             new PyType[] {OBJECT_TYPE};
-    static final PyType TYPE =
-            PyType.fromSpec(new Spec("type", PyType.class));
     // *** End critical ordered section
 
-    @Override
-    public PyType getType() { return TYPE; }
+    private final PyType type;
     final String name;
     private final Class<? extends PyObject> implClass;
     EnumSet<Flag> flags;
@@ -107,12 +106,19 @@ class PyType implements PyObject {
     }
 
     /**
-     * Construct a type object with given name, provided the
-     * {@code *Methods} and other values in a long-form constructor.
+     * Construct a {@code type} object with given sub-type and name,
      * This constructor is a helper to factory methods.
+     *
+     * @param metatype the sub-type of type we are constructing
+     * @param name of that type (with the given metatype)
+     * @param implClass implementation class of the type being defined
+     * @param declaredBases of the type being defined
+     * @param flags characteristics of the type being defined
      */
-    private PyType(String name, Class<? extends PyObject> implClass,
-            PyType[] declaredBases, EnumSet<Flag> flags) {
+    private PyType(PyType metatype, String name,
+            Class<? extends PyObject> implClass, PyType[] declaredBases,
+            EnumSet<Flag> flags) {
+        this.type = metatype;
         this.name = name;
         this.implClass = implClass;
         this.flags = flags;
@@ -123,6 +129,41 @@ class PyType implements PyObject {
         // Fill slots from implClass or bases
         setAllSlots();
     }
+
+    /**
+     * Construct a {@code type} object with given name, provided other
+     * values in a long-form constructor. This constructor is a helper
+     * to factory methods.
+     */
+    private PyType(String name, Class<? extends PyObject> implClass,
+            PyType[] declaredBases, EnumSet<Flag> flags) {
+        this(TYPE, name, implClass, declaredBases, flags);
+    }
+
+    /**
+     * Construct a {@code type} object for {@code type}. This has to be
+     * the first type object. But {@code type} has a base
+     * {@code object}, which must exist first, but {@code object} has a
+     * type ... so we make both at the same time.
+     */
+    private PyType() {
+        this.type = this;
+        this.name = "type";
+        this.implClass = PyType.class;
+        this.flags = Spec.DEFAULT_FLAGS;
+
+        PyType objectType = new PyType(this, "object",
+                PyBaseObject.class, null, Spec.DEFAULT_FLAGS);
+
+        // The only base of type is object
+        setMROfromBases(new PyType[] {objectType});
+
+        // Fill slots from implClass or bases
+        setAllSlots();
+    }
+
+    @Override
+    public PyType getType() { return type; }
 
     /** Set the MRO, but at present only single base. */
     // XXX note may retain a reference to declaredBases

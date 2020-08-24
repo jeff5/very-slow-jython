@@ -1,5 +1,6 @@
 package uk.co.farowl.vsj2.evo4;
 
+import java.lang.invoke.MethodHandle;
 import java.math.BigInteger;
 
 /** Runtime */
@@ -30,6 +31,11 @@ class Py {
     /** Python {@code NotImplemented} object. */
     static final PyObject NotImplemented =
             new Singleton("NotImplemented") {};
+
+    /** Return the Python {@code type} of an object. */
+    static PyType type(PyObject object) {
+        return object.getType();
+    }
 
     /** Return Python {@code int} for Java {@code long}. */
     static PyLong val(long value) {
@@ -98,6 +104,33 @@ class Py {
 
     /** Empty (zero-length) array of {@link PyObject}. */
     static final PyObject[] EMPTY_ARRAY = new PyObject[0];
+
+    /**
+     * Convenient default toString implementation that tries __str__, if
+     * defined, but always falls back to something. Use as:<pre>
+     * public String toString() { return Py.defaultToString(this); }
+     * </pre>
+     *
+     * @param o object to represent
+     * @return a string representation
+     */
+    static String defaultToString(PyObject o) {
+        if (o == null)
+            return "null";
+        else {
+            PyType type = o.getType();
+            try {
+                MethodHandle str = type.tp_str;
+                PyObject res = (PyObject) str.invoke(o);
+                if (res instanceof PyUnicode)
+                    return ((PyUnicode) res).value;
+            } catch (Throwable e) {}
+            // Fall back on pseudo object.__str__
+            String name = type != null ? type.name
+                    : o.getClass().getSimpleName();
+            return "<'" + name + "' object>";
+        }
+    }
 
     // -------------------- Interpreter ----------------------------
 

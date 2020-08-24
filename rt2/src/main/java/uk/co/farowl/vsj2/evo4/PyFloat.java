@@ -5,15 +5,25 @@ import java.math.BigInteger;
 /** The Python {@code float} object. */
 class PyFloat implements PyObject {
 
-    static final PyType TYPE = new PyType("float", PyFloat.class);
+    /** The type {@code float}. */
+    static final PyType TYPE = PyType.fromSpec( //
+            new PyType.Spec("float", PyFloat.class));
 
     static PyFloat ZERO = new PyFloat(0.0);
 
-    @Override
-    public PyType getType() { return TYPE; }
+    protected final PyType type;
     final double value;
 
-    PyFloat(double value) { this.value = value; }
+    /** Constructor for Python sub-class specifying {@link #type}. */
+    protected PyFloat(PyType type, double value) {
+        this.type = type;
+        this.value = value;
+    }
+
+    PyFloat(double value) { this(TYPE, value); }
+
+    @Override
+    public PyType getType() { return type; }
 
     @Override
     public String toString() { return Double.toString(value); }
@@ -215,7 +225,8 @@ class PyFloat implements PyObject {
     private static final int EXPONENT_BIAS = 1023;
 
     // Masks derived from the 64-bit floating point parameters
-    private static final long IMPLIED_ONE = 1L << (SIGNIFICAND_BITS-1);
+    private static final long IMPLIED_ONE =
+            1L << (SIGNIFICAND_BITS - 1);
     // = 0x0010000000000000L
     private static final long FRACTION = IMPLIED_ONE - 1;
     // = 0x000fffffffffffffL
