@@ -141,17 +141,24 @@ class PyType implements PyObject {
     }
 
     /**
-     * Construct a {@code type} object for {@code type}. This has to be
-     * the first type object. But {@code type} has a base
-     * {@code object}, which must exist first, but {@code object} has a
-     * type ... so we make both at the same time.
+     * Construct a {@code type} object for {@code type}, and by
+     * side-effect the type object of its base {@code object}. The
+     * special constructor solves the problem that each of these has to
+     * exist in order properly to create the other. This constructor is
+     * <b>only</b> used, once, for the static initialisation these
+     * objects as static final constants.
      */
     private PyType() {
+        // We are creating the PyType for "type"
         this.type = this;
         this.name = "type";
         this.implClass = PyType.class;
         this.flags = Spec.DEFAULT_FLAGS;
-
+        /*
+         * Now we need the type object for "object", which references
+         * this one as its type. Note that PyType.TYPE is not yet set
+         * because we have not returned from this constructor.
+         */
         PyType objectType = new PyType(this, "object",
                 PyBaseObject.class, null, Spec.DEFAULT_FLAGS);
 

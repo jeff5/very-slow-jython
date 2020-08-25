@@ -6,22 +6,44 @@ import java.util.Collection;
 public class PyTuple extends TypedTuple<PyObject> {
 
     /**
+     * As {@link #PyTuple(PyObject...)} for Python sub-class specifying
+     * {@link #type}.
+     */
+    PyTuple(PyType type, PyObject... value) {
+        super(type, PyObject.class, value);
+    }
+
+    /**
+     * As {@link #PyTuple(Collection)} for Python sub-class specifying
+     * {@link #type}.
+     */
+    PyTuple(PyType type, Collection<? extends PyObject> c) {
+        super(type, PyObject.class, c);
+    }
+
+    /**
+     * As {@link #PyTuple(PyObject[], int, int)} for Python sub-class
+     * specifying {@link #type}.
+     */
+    PyTuple(PyType type, PyObject a[], int start, int count) {
+        super(type, PyObject.class, a, start, count);
+    }
+
+    /**
      * Construct a {@code PyTuple} from an array of {@link PyObject}s or
      * zero or more {@link PyObject} arguments. The argument is copied
      * for use, so it is safe to modify an array passed in.
      *
      * @param value source of element values for this {@code tuple}
      */
-    PyTuple(PyObject... value) { super(PyObject.class, value); }
+    PyTuple(PyObject... value) { this(TYPE, value); }
 
     /**
      * Construct a {@code PyTuple} from the elements of a collection.
      *
      * @param value source of element values for this {@code tuple}
      */
-    PyTuple(Collection<? extends PyObject> c) {
-        super(PyObject.class, c);
-    }
+    PyTuple(Collection<? extends PyObject> c) { this(TYPE, c); }
 
     /**
      * Construct a {@code PyTuple} from an array of {@link PyObject}s or
@@ -34,7 +56,7 @@ public class PyTuple extends TypedTuple<PyObject> {
      * @param count number of elements to take
      */
     PyTuple(PyObject a[], int start, int count) {
-        super(PyObject.class, a, start, count);
+        this(TYPE, a, start, count);
     }
 
     /**
@@ -60,7 +82,7 @@ public class PyTuple extends TypedTuple<PyObject> {
 
     private PyTuple(boolean iPromiseNotToModifyTheArray,
             PyObject[] value) throws ArrayStoreException {
-        super(PyObject.class, iPromiseNotToModifyTheArray, value);
+        super(TYPE, PyObject.class, iPromiseNotToModifyTheArray, value);
     }
 
     /**
@@ -81,6 +103,30 @@ public class PyTuple extends TypedTuple<PyObject> {
             return EMPTY;
         else
             return new PyTuple(true, value);
+    }
+    // slot functions -------------------------------------------------
+
+    static int __len__(PyTuple self) { return self.size(); }
+
+    static PyObject __getitem__(PyTuple self, int i) {
+        try {
+            return self.get(i);
+        } catch (IndexOutOfBoundsException e) {
+            throw new IndexError("tuple index out of range");
+        }
+    }
+
+    static PyObject __getitem__(PyTuple self, PyObject item)
+            throws Throwable {
+        PyType itemType = item.getType();
+        if (Slot.nb_index.isDefinedFor(itemType)) {
+            int i = Number.asSize(item, IndexError::new);
+            if (i < 0) { i += self.size(); }
+            return __getitem__(self, i);
+        }
+        // else if item is a PySlice { ... }
+        else
+            throw Abstract.indexTypeError(self, item);
     }
 
 }

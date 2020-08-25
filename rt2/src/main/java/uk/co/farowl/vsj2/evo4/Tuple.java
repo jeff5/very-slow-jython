@@ -24,33 +24,6 @@ import java.util.List;
  */
 interface Tuple<E extends PyObject> extends List<E>, PyObject {
 
-    static final PyType TYPE = new PyType("tuple", Tuple.class);
+    static final PyType TYPE = new PyType("tuple", PyTuple.class);
 
-    @Override
-    default PyType getType() { return TYPE; }
-
-    // slot functions -------------------------------------------------
-
-    static int __len__(Tuple<?> self) { return self.size(); }
-
-    static PyObject __getitem__(Tuple<?> self, int i) {
-        try {
-            return self.get(i);
-        } catch (IndexOutOfBoundsException e) {
-            throw new IndexError("tuple index out of range");
-        }
-    }
-
-    static PyObject __getitem__(Tuple<?> self, PyObject item)
-            throws Throwable {
-        PyType itemType = item.getType();
-        if (Slot.nb_index.isDefinedFor(itemType)) {
-            int i = Number.asSize(item, IndexError::new);
-            if (i < 0) { i += self.size(); }
-            return __getitem__(self, i);
-        }
-        // else if item is a PySlice { ... }
-        else
-            throw Abstract.indexTypeError(self, item);
-    }
 }

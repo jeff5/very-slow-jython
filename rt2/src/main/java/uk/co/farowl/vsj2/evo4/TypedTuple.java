@@ -3,7 +3,6 @@ package uk.co.farowl.vsj2.evo4;
 import java.lang.reflect.Array;
 import java.util.AbstractList;
 import java.util.Collection;
-import java.util.List;
 import java.util.StringJoiner;
 
 /**
@@ -15,7 +14,12 @@ import java.util.StringJoiner;
 class TypedTuple<E extends PyObject> extends AbstractList<E>
         implements Tuple<E> {
 
+    protected final PyType type;
     final E[] value;
+
+    @Override
+    public PyType getType() { return type; }
+
 
     /**
      * Construct from an array or multiple values passed as arguments.
@@ -26,10 +30,10 @@ class TypedTuple<E extends PyObject> extends AbstractList<E>
      *             not assignment compatible with {@code cls}
      */
     @SuppressWarnings("unchecked")
-    TypedTuple(Class<E> cls, PyObject... value)
+    TypedTuple(PyType type, Class<E> cls, PyObject... value)
             throws ArrayStoreException {
         // Use the "unsafe" constructor in safe mode.
-        this(cls, false, value);
+        this(type, cls, false, value);
     }
 
     /**
@@ -43,8 +47,9 @@ class TypedTuple<E extends PyObject> extends AbstractList<E>
      *             not assignment compatible with {@code cls}
      */
     @SuppressWarnings("unchecked")
-    TypedTuple(Class<E> cls, PyObject a[], int start, int count)
+    TypedTuple(PyType type, Class<E> cls, PyObject a[], int start, int count)
             throws ArrayStoreException {
+        this.type = type;
         this.value = (E[]) Array.newInstance(cls, count);
         System.arraycopy(a, start, this.value, 0, count);
     }
@@ -58,8 +63,9 @@ class TypedTuple<E extends PyObject> extends AbstractList<E>
      *             assignment compatible with {@code cls}
      */
     @SuppressWarnings("unchecked")
-    TypedTuple(Class<E> cls, Collection<?> c)
+    TypedTuple(PyType type, Class<E> cls, Collection<?> c)
             throws ArrayStoreException {
+        this.type = type;
         int n = c.size();
         E[] a = (E[]) Array.newInstance(cls, n);
         this.value = c.toArray(a);
@@ -89,6 +95,7 @@ class TypedTuple<E extends PyObject> extends AbstractList<E>
      * claimed element type for the array, or the element type of the
      * array to create.
      *
+     * @param type sub-type for which this is being created
      * @param cls class of elements
      * @param iPromiseNotToModifyTheArray if {@code true} try to re-use
      *            the array, otherwise make a copy.
@@ -97,9 +104,10 @@ class TypedTuple<E extends PyObject> extends AbstractList<E>
      *             not assignment compatible with {@code cls}
      */
     @SuppressWarnings("unchecked")
-    protected TypedTuple(Class<E> cls,
+    protected TypedTuple(PyType type, Class<E> cls,
             boolean iPromiseNotToModifyTheArray, PyObject[] value)
             throws ArrayStoreException {
+        this.type = type;
         int n = value.length;
         if (iPromiseNotToModifyTheArray && cls.isAssignableFrom(
                 value.getClass().getComponentType())) {
@@ -131,7 +139,7 @@ class TypedTuple<E extends PyObject> extends AbstractList<E>
      */
     static <T extends PyObject> TypedTuple<T> wrap(Class<T> cls,
             T[] value) {
-        return new TypedTuple<T>(cls, true, value);
+        return new TypedTuple<T>(TYPE, cls, true, value);
     }
 
     @Override
