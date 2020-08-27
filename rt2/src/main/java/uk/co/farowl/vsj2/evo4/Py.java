@@ -118,8 +118,9 @@ class Py {
         if (o == null)
             return "null";
         else {
-            PyType type = o.getType();
+            PyType type = null;
             try {
+                type = o.getType();
                 MethodHandle str = type.tp_str;
                 PyObject res = (PyObject) str.invoke(o);
                 if (res instanceof PyUnicode)
@@ -128,7 +129,7 @@ class Py {
             // Fall back on pseudo object.__str__
             String name = type != null ? type.name
                     : o.getClass().getSimpleName();
-            return "<'" + name + "' object>";
+            return "<" + name + " object>";
         }
     }
 

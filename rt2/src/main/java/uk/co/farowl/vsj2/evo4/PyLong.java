@@ -34,7 +34,7 @@ class PyLong implements PyObject {
     public PyType getType() { return type; }
 
     @Override
-    public String toString() { return value.toString(); }
+    public String toString() { return Py.defaultToString(this); }
 
     int asSize() {
         try {
@@ -126,6 +126,10 @@ class PyLong implements PyObject {
 
     private static final String NON_STR_EXPLICIT_BASE =
             "int() can't convert non-string with explicit base";
+
+    static PyObject __repr__(PyLong v) {
+        return Py.str(v.value.toString());
+    }
 
     static PyObject __neg__(PyLong v) {
         return new PyLong(v.value.negate());

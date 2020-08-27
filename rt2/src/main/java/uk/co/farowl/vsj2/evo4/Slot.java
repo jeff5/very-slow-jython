@@ -309,12 +309,28 @@ enum Slot {
          *         accessible.
          */
         static MethodHandle findInClass(Slot slot, Class<?> c) {
+            // The method has the same name in every implementation
+            String name = slot.getMethodName();
+            MethodType stype = slot.signature.type;
             try {
-                // The method has the same name in every implementation
-                String name = slot.getMethodName();
-                // The implementation has c where slot.type has Self
-                MethodType mtype = replaceSelf(slot.signature.type, c);
-                MethodHandle impl = LOOKUP.findStatic(c, name, mtype);
+                /*
+                 * Normally, the Self class in slot.signature.type will
+                 * be the target class c
+                 */
+                MethodType mt = replaceSelf(stype, c);
+                MethodHandle impl = LOOKUP.findStatic(c, name, mt);
+                // The invocation type remains that of slot.empty
+                return impl.asType(slot.getType());
+            } catch (NoSuchMethodException
+                    | IllegalAccessException e) {}
+            // Try instead the object-based signature
+            try {
+                /*
+                 * Optionally, the Self class in slot.signature.type may
+                 * be PyObject
+                 */
+                MethodType mt = replaceSelf(stype, PyObject.class);
+                MethodHandle impl = LOOKUP.findStatic(c, name, mt);
                 // The invocation type remains that of slot.empty
                 return impl.asType(slot.getType());
             } catch (NoSuchMethodException | IllegalAccessException e) {

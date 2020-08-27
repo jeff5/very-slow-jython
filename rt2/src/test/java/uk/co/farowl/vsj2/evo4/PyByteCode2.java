@@ -9,6 +9,8 @@ import java.lang.invoke.MethodHandles;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 
+import uk.co.farowl.vsj2.evo4.PyType.Spec;
+
 /**
  * A test illustrating a naive emulation using {@code MethodHandle} of
  * CPython's approach to type objects.
@@ -17,6 +19,76 @@ import org.junit.jupiter.api.function.Executable;
  * CPython's, but for just the opcodes we need.
  */
 class PyByteCode2 {
+
+    /** Any attempt to use a slot will fail. */
+    private static class TestToString implements PyObject {
+
+        @Override
+        public PyType getType() { throw new RuntimeException(); }
+
+        @Override
+        public String toString() { return Py.defaultToString(this); }
+    }
+
+    /**
+     * Test implementation of default toString() always gives us
+     * something, when __str__ or __repr__ are not defined.
+     */
+    @Test
+    void testToString() {
+        String s = (new TestToString()).toString();
+        assertEquals("<TestToString object>", s, "toString fallback");
+    }
+
+    /** Python object that defines __repr__. */
+    @SuppressWarnings("unused")
+    private static class TestToStringRepr extends TestToString {
+
+        PyType type = PyType.fromSpec(
+                new Spec("0TestToStringRepr", TestToStringRepr.class));
+
+        @Override
+        public PyType getType() { return type; }
+
+        static PyObject __repr__(TestToStringRepr self) {
+            return Py.str("grim!");
+        }
+    }
+
+    /**
+     * Test implementation of default toString() always gives us
+     * something, and __str__ or __repr__ if it can.
+     */
+    @Test
+    void testToStringRepr() {
+        String s = (new TestToStringRepr()).toString();
+        assertEquals("grim!", s, "toString is __repr__");
+    }
+
+    /** Python object that defines __repr__. */
+    @SuppressWarnings("unused")
+    private static class TestToStringStr extends TestToString {
+
+        PyType type = PyType.fromSpec(
+                new Spec("0TestToStringStr", TestToStringStr.class));
+
+        @Override
+        public PyType getType() { return type; }
+
+        static PyObject __str__(TestToStringStr self) {
+            return Py.str("w00t!");
+        }
+    }
+
+    /**
+     * Test implementation of default toString() always gives us
+     * something, and __str__ or __repr__ if it can.
+     */
+    @Test
+    void testToStringStr() {
+        String s = (new TestToStringStr()).toString();
+        assertEquals("w00t!", s, "toString is __str__");
+    }
 
     /**
      * A test that the method handles we place in nominally empty slots,
@@ -76,8 +148,9 @@ class PyByteCode2 {
     @Test
     void testSlotTP() {
         // Create a type defining none of the reserved names
-        final PyType basic = new PyType("0Test", PyObject.class);
-        assertEquals(Slot.Signature.UNARY.empty, basic.tp_repr,
+        final PyType basic = PyType.fromSpec( //
+                new Spec("0Test", PyObject.class));
+        assertEquals(Slot.Signature.CALL.empty, basic.tp_call,
                 "not EMPTY");
 
         // Make method handles to try
@@ -122,7 +195,8 @@ class PyByteCode2 {
     @Test
     void testSlotNB() {
         // Create a type defining none of the reserved names
-        final PyType number = new PyType("1Test", PyObject.class);
+        final PyType number = PyType.fromSpec(//
+                new Spec("1Test", PyObject.class));
         assertEquals(Slot.Signature.UNARY.empty, number.nb_negative,
                 Slot.nb_negative.name());
         assertEquals(Slot.Signature.BINARY.empty, number.nb_add,
@@ -179,7 +253,8 @@ class PyByteCode2 {
     @Test
     void testSlotSQ() {
         // Create a type defining none of the reserved names
-        final PyType sequence = new PyType("2Test", PyObject.class);
+        final PyType sequence = PyType.fromSpec(new Spec( //
+                "2Test", PyObject.class));
         assertEquals(Slot.Signature.LEN.empty, sequence.sq_length,
                 "not empty");
 
@@ -220,19 +295,20 @@ class PyByteCode2 {
     @Test
     void testSlotMP() {
         // Create a type defining none of the reserved names
-        final PyType mapping = new PyType("3Test", PyObject.class);
-        assertEquals(Slot.Signature.SELFBINARY.empty, mapping.mp_subscript,
-                "not empty");
-        assertEquals(Slot.Signature.MP_ASSIGN.empty, mapping.mp_ass_subscript,
-                "not empty");
+        final PyType mapping = PyType.fromSpec(new Spec( //
+                "3Test", PyObject.class));
+        assertEquals(Slot.Signature.SELFBINARY.empty,
+                mapping.mp_subscript, "not empty");
+        assertEquals(Slot.Signature.MP_ASSIGN.empty,
+                mapping.mp_ass_subscript, "not empty");
 
         // Make method handles to try
-        MethodHandle getitem =
-                MethodHandles.empty(Slot.Signature.SELFBINARY.empty.type());
-        MethodHandle setitem =
-                MethodHandles.empty(Slot.Signature.MP_ASSIGN.empty.type());
-        MethodHandle bad1 =
-                MethodHandles.empty(Slot.Signature.SQ_INDEX.empty.type());
+        MethodHandle getitem = MethodHandles
+                .empty(Slot.Signature.SELFBINARY.empty.type());
+        MethodHandle setitem = MethodHandles
+                .empty(Slot.Signature.MP_ASSIGN.empty.type());
+        MethodHandle bad1 = MethodHandles
+                .empty(Slot.Signature.SQ_INDEX.empty.type());
         MethodHandle bad2 = MethodHandles
                 .empty(Slot.Signature.SQ_ASSIGN.empty.type());
 
@@ -256,8 +332,9 @@ class PyByteCode2 {
 
         // And the slots should be unaffected
         assertEquals(getitem, mapping.mp_subscript, "slot modified");
-        assertEquals(setitem, mapping.mp_ass_subscript, "slot modified");
-         }
+        assertEquals(setitem, mapping.mp_ass_subscript,
+                "slot modified");
+    }
 
     // --------------------- Generated Tests -----------------------
     // Code generated by py_byte_code2_evo4.py

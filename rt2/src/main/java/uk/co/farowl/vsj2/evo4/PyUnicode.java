@@ -3,15 +3,23 @@ package uk.co.farowl.vsj2.evo4;
 /** The Python {@code str} object. */
 class PyUnicode implements PyObject, Comparable<PyUnicode> {
 
-    static final PyType TYPE = new PyType("str", PyUnicode.class);
+    static final PyType TYPE = PyType.fromSpec( //
+            new PyType.Spec("str", PyUnicode.class));
 
-    @Override
-    public PyType getType() { return TYPE; }
+    protected final PyType type;
     final String value; // only supporting BMP for now
 
-    PyUnicode(String value) { this.value = value; }
+    PyUnicode(PyType type, String value) {
+        this.type = type;
+        this.value = value;
+    }
 
-    PyUnicode(char c) { this.value = String.valueOf(c); }
+    PyUnicode(String value) { this(TYPE, value); }
+
+    PyUnicode(char c) { this(TYPE, String.valueOf(c)); }
+
+    @Override
+    public PyType getType() { return type; }
 
     @Override
     public int hashCode() { return value.hashCode(); }

@@ -1,5 +1,7 @@
 package uk.co.farowl.vsj2.evo4;
 
+import java.math.BigInteger;
+
 /** The Python {@code bool} object. */
 class PyBool extends PyLong {
 
@@ -8,11 +10,10 @@ class PyBool extends PyLong {
                     .base(PyLong.TYPE) //
                     .flagNot(PyType.Flag.BASETYPE));
 
-    @Override
-    public PyType getType() { return TYPE; }
-
     // Private so we can guarantee the doubleton. :)
-    private PyBool(boolean value) { super(value ? 1 : 0); }
+    private PyBool(boolean value) {
+        super(TYPE, value ? BigInteger.ONE : BigInteger.ZERO);
+    }
 
     /** Python {@code False} object. */
     static final PyBool False = new PyBool(false);
@@ -20,13 +21,12 @@ class PyBool extends PyLong {
     /** Python {@code True} object. */
     static final PyBool True = new PyBool(true);
 
-    @Override
-    public String toString() {
-        return asSize() == 0 ? "False" : "True";
-    }
-
 
     // slot functions -------------------------------------------------
+
+    static PyObject __repr__(PyBool v) {
+        return Py.str(v.value == BigInteger.ZERO ? "False" : "True");
+    }
 
     static PyObject __and__(PyObject v, PyObject w) {
         if (v instanceof PyBool && w instanceof PyBool)
