@@ -60,7 +60,7 @@ class BuiltinsModule extends JavaModule implements Exposed {
 
     @Function
     @DocString("With a single iterable argument, return its biggest item. "
-            + "With two or more arguments, return the largest argument.\"")
+            + "With two or more arguments, return the largest argument.")
     // Simplified version of max()
     static PyObject max(PyTuple args) throws Throwable {
         return minmax(args, Comparison.GT);
@@ -68,7 +68,7 @@ class BuiltinsModule extends JavaModule implements Exposed {
 
     @Function
     @DocString("With a single iterable argument, return its smallest item. "
-            + "With two or more arguments, return the smallest argument.\"")
+            + "With two or more arguments, return the smallest argument.")
     // Simplified version of max()
     static PyObject min(PyTuple args) throws Throwable {
         return minmax(args, Comparison.LT);
@@ -113,4 +113,10 @@ class BuiltinsModule extends JavaModule implements Exposed {
         return result;
     }
 
+    @Function
+    @DocString("Return the canonical string representation of the object.\n"
+            + "For many object types, including most builtins, eval(repr(obj)) == obj.")
+    static PyObject repr(PyObject obj) throws Throwable {
+        return Abstract.repr(obj);
+    }
 }

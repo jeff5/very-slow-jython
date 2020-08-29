@@ -3,6 +3,7 @@ package uk.co.farowl.vsj2.evo4;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.StringJoiner;
 
 /**
  * The Python {@code dict} object. The Java API is provided directly by
@@ -16,6 +17,9 @@ class PyDict extends LinkedHashMap<PyObject, PyObject>
 
     @Override
     public PyType getType() { return TYPE; }
+
+    @Override
+    public String toString() { return Py.defaultToString(this); }
 
     /**
      * Specialisation of {@code Map.get} allowing Java {@code String}
@@ -65,6 +69,16 @@ class PyDict extends LinkedHashMap<PyObject, PyObject>
     }
 
     // slot functions -------------------------------------------------
+
+    static PyObject __repr__(PyDict self) throws Throwable {
+        StringJoiner sj = new StringJoiner(", ", "{", "}");
+        for (Map.Entry<PyObject, PyObject> e: self.entrySet()) {
+            String key = Abstract.repr(e.getKey()).toString();
+            String value =Abstract.repr(e.getValue()).toString();
+            sj.add(key + ": " + value);
+        }
+        return Py.str(sj.toString());
+    }
 
     static PyObject __getitem__(PyDict self, PyObject key)
             throws Throwable {

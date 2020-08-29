@@ -5,8 +5,7 @@ class PyUnicode implements PyObject, Comparable<PyUnicode> {
 
     static final PyType TYPE = PyType.fromSpec( //
             new PyType.Spec("str", PyUnicode.class));
-
-    protected final PyType type;
+    protected PyType type;
     final String value; // only supporting BMP for now
 
     PyUnicode(PyType type, String value) {
@@ -19,13 +18,7 @@ class PyUnicode implements PyObject, Comparable<PyUnicode> {
     PyUnicode(char c) { this(TYPE, String.valueOf(c)); }
 
     @Override
-    public PyType getType() { return type; }
-
-    @Override
     public int hashCode() { return value.hashCode(); }
-
-    @Override
-    public String toString() { return value.toString(); }
 
     @Override
     public int compareTo(PyUnicode o) {
@@ -40,9 +33,44 @@ class PyUnicode implements PyObject, Comparable<PyUnicode> {
             return false;
     }
 
+    /**
+     * Create a {@code str} from a format and arguments. Not Java
+     * {@code String.format} semantics are applied, not the CPython
+     * ones.
+     *
+     * @param fmt format string (Java semantics)
+     * @param args arguments
+     * @return formatted string
+     */
+    static PyUnicode fromFormat(String fmt, Object... args) {
+        return new PyUnicode(TYPE, String.format(fmt, args));
+    }
+
+    @Override
+    public PyType getType() { return type; }
+
+    /*
+     * str is a little special in defining toString() directly. We do
+     * this because the default implementation __str__.toString would
+     * recurse infinitely. Derived classes should revert to
+     * Py.defaultToString(self).
+     */
+    @Override
+    public String toString() { return value; }
+
     // slot functions -------------------------------------------------
 
     static int __len__(PyUnicode s) { return s.value.length(); }
+
+    static PyObject __str__(PyUnicode s) {
+        // return self
+        return s;
+    }
+
+    static PyObject __repr__(PyUnicode s) {
+        // Ok, it should be more complicated but I'm in a hurry.
+        return Py.str("'" + s + "'");
+    }
 
     static PyObject __richcompare__(PyUnicode self, PyObject other,
             Comparison op) {

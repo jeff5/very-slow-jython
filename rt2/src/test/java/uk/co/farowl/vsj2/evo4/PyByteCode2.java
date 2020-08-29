@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
+import java.math.BigInteger;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
@@ -19,6 +20,40 @@ import uk.co.farowl.vsj2.evo4.PyType.Spec;
  * CPython's, but for just the opcodes we need.
  */
 class PyByteCode2 {
+
+    /** Test PyUnicode.toString is not recursive, etc. */
+    @Test
+    void testStrToString() {
+        assertEquals("hello", Py.str("hello").toString());
+    }
+
+    /** Test PyLong.toString is its repr. */
+    @Test
+    void testIntToString() {
+        assertEquals("42", Py.val(42).toString());
+        assertEquals("-42", Py.val(-42).toString());
+        assertEquals("1", Py.val(BigInteger.ONE).toString());
+    }
+
+    /** Test PyTuple.toString is its repr. */
+    @Test
+    void testTupleToString() {
+        assertEquals("()", Py.tuple().toString());
+        PyObject[] x = {Py.val(1),Py.val(2)};
+        assertEquals("(1, 2)", Py.tuple(x).toString());
+        assertEquals("(1,)", Py.tuple(x[0]).toString());
+    }
+
+    /** Test PyDict.toString is is its repr. */
+    @Test
+    void testDictToString() {
+        PyDict d = Py.dict();
+        assertEquals("{}", d.toString());
+        d.put(Py.str("b"), Py.val(1));
+        assertEquals("{'b': 1}", d.toString());
+        d.put(Py.str("a"), Py.dict());
+        assertEquals("{'b': 1, 'a': {}}", d.toString());
+    }
 
     /** Any attempt to use a slot will fail. */
     private static class TestToString implements PyObject {

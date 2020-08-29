@@ -20,6 +20,59 @@ import uk.co.farowl.vsj2.evo4.Slot.EmptyException;
 class Abstract {
 
     /**
+     * The equivalent of the Python expression repr(o), and is called by
+     * the repr() built-in function.
+     *
+     * @param o object
+     * @return the string representation o
+     * @throws Throwable
+     */
+    static PyObject repr(PyObject o) throws Throwable {
+        if (o == null) {
+            return Py.str("<NULL>");
+        } else {
+            PyType type = o.getType();
+            try {
+                PyObject res = (PyObject) type.tp_repr.invoke(o);
+                if (res instanceof PyUnicode) {
+                    return res;
+                } else {
+                    throw returnTypeError("__repr__", "string", res);
+                }
+            } catch (Slot.EmptyException e) {
+                return PyUnicode.fromFormat("<%s object>", type.name);
+            }
+        }
+    }
+
+    /**
+     * The equivalent of the Python expression str(o).
+     *
+     * @param o object
+     * @return the string representation o
+     * @throws Throwable
+     */
+    static PyObject str(PyObject o) throws Throwable {
+        if (o == null) {
+            return Py.str("<NULL>");
+        } else {
+            PyType type = o.getType();
+            if (type == PyUnicode.TYPE) {
+                return o;
+            } else if (Slot.tp_str.isDefinedFor(type)) {
+                PyObject res = (PyObject) type.tp_str.invoke(o);
+                if (res instanceof PyUnicode) {
+                    return res;
+                } else {
+                    throw returnTypeError("__str__", "string", res);
+                }
+            } else {
+                return repr(o);
+            }
+        }
+    }
+
+    /**
      * Test a value used as condition in a {@code for} or {@code if}
      * statement.
      */
@@ -35,8 +88,8 @@ class Abstract {
             PyType t = v.getType();
             if (Slot.nb_bool.isDefinedFor(t))
                 return (boolean) t.nb_bool.invokeExact(v);
-            //else if (Slot.mp_length.isDefinedFor(t))
-            //    return 0 != (int) t.mp_length.invokeExact(v);
+            // else if (Slot.mp_length.isDefinedFor(t))
+            // return 0 != (int) t.mp_length.invokeExact(v);
             else if (Slot.sq_length.isDefinedFor(t))
                 return 0 != (int) t.sq_length.invokeExact(v);
             else

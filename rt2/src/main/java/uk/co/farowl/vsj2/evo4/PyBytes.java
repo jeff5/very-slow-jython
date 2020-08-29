@@ -1,14 +1,12 @@
 package uk.co.farowl.vsj2.evo4;
 
 /** The Python {@code bytes} object. */
-class PyBytes implements PyObject {
+class PyBytes extends AbstractPyObject {
 
     static final PyType TYPE = PyType.fromSpec( //
             new PyType.Spec("bytes", PyBytes.class));
     private static final byte[] EMPTY_BYTE_ARRAY = new byte[] {};
     static final PyBytes EMPTY = new PyBytes(EMPTY_BYTE_ARRAY);
-
-    protected final PyType type;
     final byte[] value;
 
     /**
@@ -16,7 +14,7 @@ class PyBytes implements PyObject {
      * {@link #type}.
      */
     protected PyBytes(PyType type, byte[] value) {
-        this.type = type;
+        super(type);
         if (value.length == 0)
             this.value = EMPTY_BYTE_ARRAY;
         else {
@@ -30,7 +28,7 @@ class PyBytes implements PyObject {
      * {@link #type}.
      */
     protected PyBytes(PyType type, int... value) {
-        this.type = type;
+        super(type);
         int n = value.length;
         if (n == 0)
             this.value = EMPTY_BYTE_ARRAY;
@@ -54,7 +52,4 @@ class PyBytes implements PyObject {
      * treated as unsigned.
      */
     PyBytes(int... value) { this(TYPE, value); }
-
-    @Override
-    public PyType getType() { return type; }
 }

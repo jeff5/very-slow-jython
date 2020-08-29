@@ -5,16 +5,23 @@ class PyCell implements PyObject {
 
     static final PyType TYPE = new PyType("cell", PyCell.class);
 
-    @Override
-    public PyType getType() { return TYPE; }
-
     PyObject obj;
 
     PyCell(PyObject obj) { this.obj = obj; }
 
-    @Override
-    public String toString() {
-        return String.format("<cell [%.80s]>", obj);
-    }
     static final PyCell[] EMPTY_ARRAY = new PyCell[0];
+
+    // Type admits no subclasses.
+    @Override
+    public PyType getType() { return TYPE; }
+
+    @Override
+    public String toString() { return Py.defaultToString(this); }
+
+    // slot functions -------------------------------------------------
+
+    static PyObject __repr__(PyCell self) {
+        return Py.str(String.format("<cell [%.80s]>", self.obj));
+    }
+
 }

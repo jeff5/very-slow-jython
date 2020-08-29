@@ -22,28 +22,20 @@ import uk.co.farowl.vsj2.evo4.Slot.Signature;
  * method handles copied from the slots of {@code object} function
  * correctly in the type slots of receiving Python objects.
  */
-class PyBaseObject implements PyObject {
+class PyBaseObject extends AbstractPyObject {
 
     /** The type object of {@code object} objects. */
     static final PyType TYPE = PyType.OBJECT_TYPE;
 
-    protected final PyType type;
-
     /** Constructor for Python sub-class specifying {@link #type}. */
     protected PyBaseObject(PyType type) {
-        this.type = type;
+        super(type);
     }
 
     /** Constructor {@code object}. */
     public PyBaseObject() {
-        this(TYPE);
+        super(TYPE);
     }
-
-    @Override
-    public PyType getType() { return type; }
-
-    @Override
-    public String toString() { return Py.defaultToString(this); }
 
     // slot functions -------------------------------------------------
 

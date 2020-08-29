@@ -9,13 +9,10 @@ import java.util.EnumSet;
  * CPython's C API.) A {@code code} object describes the layout of a
  * {@link PyFrame}, and is a factory for frames of matching type.
  */
-abstract class PyCode implements PyObject {
+abstract class PyCode extends AbstractPyObject {
 
     /** The type {@code code}. */
     static final PyType TYPE = new PyType("code", PyCode.class);
-
-    @Override
-    public PyType getType() { return TYPE; }
 
     /** Characteristics of a PyCode (as CPython co_flags). */
     enum Trait {
@@ -127,6 +124,7 @@ abstract class PyCode implements PyObject {
             int firstlineno,        // of source
             PyBytes lnotab          // map opcode address to source
     ) {
+        super(TYPE);
         this.argcount = argcount;
         this.posonlyargcount = posonlyargcount;
         this.kwonlyargcount = kwonlyargcount;
@@ -309,9 +307,12 @@ abstract class PyCode implements PyObject {
         return EnumSet.copyOf(traits);
     }
 
-    @Override
-    public String toString() {
-        return String.format("<code %s %s>", name, traits);
+
+    // slot functions -------------------------------------------------
+
+    public PyObject __repr__(PyCode self) {
+        return Py.str(
+                String.format("<code %s %s>", self.name, self.traits));
     }
 
 }

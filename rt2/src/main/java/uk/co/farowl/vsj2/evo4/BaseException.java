@@ -19,4 +19,14 @@ class BaseException extends RuntimeException implements PyObject {
     public BaseException(String msg, Object... args) {
         this(TYPE, msg, args);
     }
+
+    @Override
+    public String toString() { return Py.defaultToString(this); }
+
+    // slot functions -------------------------------------------------
+
+    static PyObject __repr__(BaseException self) {
+        return Py.str(
+                self.getType().name + '(' + self.getMessage() + ')');
+    }
 }
