@@ -331,6 +331,7 @@ class PyType implements PyObject {
                 return bases.toArray(new PyType[bases.size()]);
         }
 
+        // Something more helpful than the standard repr()
         @Override
         public String toString() {
             String fmt = "%s %s, flags=%s impl=%s";
@@ -340,6 +341,10 @@ class PyType implements PyObject {
     }
 
     // slot functions -------------------------------------------------
+
+    static PyObject __repr__(PyType self) throws Throwable {
+        return PyUnicode.fromFormat("<class '%s'>", self.name);
+    }
 
     /**
      * Handle calls to a type object, which will normally be for

@@ -3,33 +3,24 @@ package uk.co.farowl.vsj2.evo4;
 import java.math.BigInteger;
 
 /** The Python {@code float} object. */
-class PyFloat implements PyObject {
+class PyFloat extends AbstractPyObject {
 
     /** The type {@code float}. */
     static final PyType TYPE = PyType.fromSpec( //
             new PyType.Spec("float", PyFloat.class));
 
     static PyFloat ZERO = new PyFloat(0.0);
-
-    protected final PyType type;
     final double value;
 
     /** Constructor for Python sub-class specifying {@link #type}. */
     protected PyFloat(PyType type, double value) {
-        this.type = type;
+        super(type);
         this.value = value;
     }
 
     PyFloat(double value) { this(TYPE, value); }
 
     @Override
-    public PyType getType() { return type; }
-
-    @Override
-    public String toString() { return Double.toString(value); }
-
-    @Override
-
     public boolean equals(Object obj) {
         if (obj instanceof PyFloat) {
             PyFloat other = (PyFloat) obj;

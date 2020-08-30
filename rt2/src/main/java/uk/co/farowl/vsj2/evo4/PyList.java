@@ -2,6 +2,8 @@ package uk.co.farowl.vsj2.evo4;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Map;
+import java.util.StringJoiner;
 
 /** The Python {@code list} object. */
 class PyList extends ArrayList<PyObject> implements PyObject {
@@ -26,6 +28,14 @@ class PyList extends ArrayList<PyObject> implements PyObject {
     }
 
     // slot functions -------------------------------------------------
+
+    static PyObject __repr__(PyList self) throws Throwable {
+        StringJoiner sj = new StringJoiner(", ", "[", "]");
+        for (PyObject e: self) {
+            sj.add(e.toString());
+        }
+        return Py.str(sj.toString());
+    }
 
     static PyObject __mul__(PyList self, int n) {
         PyList r = new PyList(n * self.size());

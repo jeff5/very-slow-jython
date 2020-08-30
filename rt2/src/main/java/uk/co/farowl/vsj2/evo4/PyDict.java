@@ -72,9 +72,9 @@ class PyDict extends LinkedHashMap<PyObject, PyObject>
 
     static PyObject __repr__(PyDict self) throws Throwable {
         StringJoiner sj = new StringJoiner(", ", "{", "}");
-        for (Map.Entry<PyObject, PyObject> e: self.entrySet()) {
+        for (Map.Entry<PyObject, PyObject> e : self.entrySet()) {
             String key = Abstract.repr(e.getKey()).toString();
-            String value =Abstract.repr(e.getValue()).toString();
+            String value = Abstract.repr(e.getValue()).toString();
             sj.add(key + ": " + value);
         }
         return Py.str(sj.toString());

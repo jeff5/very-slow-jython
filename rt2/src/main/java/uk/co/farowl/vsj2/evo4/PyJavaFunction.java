@@ -278,6 +278,11 @@ class PyJavaFunction implements PyObject {
 
     // slot functions -------------------------------------------------
 
+    static PyObject __repr__(PyFunction func) throws Throwable {
+        return PyUnicode.fromFormat("<built-in function %s>",
+                func.name);
+    }
+
     static PyObject __call__(PyJavaFunction f, PyTuple args,
             PyDict kwargs) throws Throwable {
         try {

@@ -8,11 +8,6 @@ import uk.co.farowl.vsj2.evo4.PyCode.Trait;
 /** A {@link PyFrame} for executing CPython 3.8 byte code. */
 class CPythonFrame extends PyFrame {
 
-    static final PyType TYPE = new PyType("frame", PyCode.class);
-
-    @Override
-    public PyType getType() { return TYPE; }
-
     /*
      * Translation note: NB: in a CPython frame all local storage
      * local:cell:free:valuestack is one array into which pointers are

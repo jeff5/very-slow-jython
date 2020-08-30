@@ -9,12 +9,9 @@ import uk.co.farowl.vsj2.evo4.PyCode.Trait;
  * Function object as created by a function definition and subsequently
  * called.
  */
-class PyFunction implements PyObject {
+class PyFunction extends AbstractPyObject {
 
     static final PyType TYPE = new PyType("function", PyFunction.class);
-
-    @Override
-    public PyType getType() { return TYPE; }
 
     /** __code__, the code object */
     PyCode code;
@@ -49,6 +46,7 @@ class PyFunction implements PyObject {
     // Compare PyFunction_NewWithQualName + explicit interpreter
     PyFunction(Interpreter interpreter, PyCode code, PyDict globals,
             PyUnicode qualname) {
+        super(TYPE);
         this.interpreter = interpreter;
         setCode(code);
         this.globals = globals;
@@ -69,6 +67,10 @@ class PyFunction implements PyObject {
     }
 
     // slot functions -------------------------------------------------
+
+    static PyObject __repr__(PyFunction func) throws Throwable {
+        return PyUnicode.fromFormat("<function %s>", func.name);
+    }
 
     static PyObject __call__(PyFunction func, PyTuple args,
             PyDict kwargs) throws Throwable {
@@ -300,11 +302,6 @@ class PyFunction implements PyObject {
 
     private static final EnumSet<Trait> FAST_TRAITS =
             EnumSet.of(Trait.OPTIMIZED, Trait.NEWLOCALS, Trait.NOFREE);
-
-    @Override
-    public String toString() {
-        return String.format("<function %s>", name);
-    }
 
     /*
      * Compare CPython ceval.c::too_many_positional(). Unlike that

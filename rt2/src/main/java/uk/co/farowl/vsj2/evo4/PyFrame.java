@@ -72,6 +72,16 @@ import uk.co.farowl.vsj2.evo4.PyCode.Trait;
  */
 abstract class PyFrame implements PyObject {
 
+    /** The type {@code frame}. */
+    static final PyType TYPE = new PyType("frame", PyFrame.class);
+
+    // Type admits no subclasses.
+    @Override
+    public PyType getType() { return TYPE; }
+
+    @Override
+    public String toString() { return Py.defaultToString(this); }
+
     /** Frames form a stack by chaining through the back pointer. */
     PyFrame back;
     /** Code this frame is to execute. */
