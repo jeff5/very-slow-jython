@@ -139,61 +139,97 @@ class PyLong implements PyObject {
         return new PyLong(v.value.abs());
     }
 
-    static PyObject __add__(PyObject v, PyObject w) {
+    static PyObject __add__(PyLong v, PyObject w) {
         try {
-            BigInteger a = valueOf(v);
-            BigInteger b = valueOf(w);
-            return new PyLong(a.add(b));
+            return new PyLong(v.value.add(valueOf(w)));
         } catch (ClassCastException cce) {
             return Py.NotImplemented;
         }
     }
 
-    static PyObject __sub__(PyObject v, PyObject w) {
+    static PyObject __radd__(PyLong w, PyObject v) {
         try {
-            BigInteger a = valueOf(v);
-            BigInteger b = valueOf(w);
-            return new PyLong(a.subtract(b));
+            return new PyLong(valueOf(v).add(w.value));
         } catch (ClassCastException cce) {
             return Py.NotImplemented;
         }
     }
 
-    static PyObject __mul__(PyObject v, PyObject w) {
+    static PyObject __sub__(PyLong v, PyObject w) {
         try {
-            BigInteger a = valueOf(v);
-            BigInteger b = valueOf(w);
-            return new PyLong(a.multiply(b));
+            return new PyLong(v.value.subtract(valueOf(w)));
         } catch (ClassCastException cce) {
             return Py.NotImplemented;
         }
     }
 
-    static PyObject __and__(PyObject v, PyObject w) {
+    static PyObject __rsub__(PyLong w, PyObject v) {
         try {
-            BigInteger a = valueOf(v);
-            BigInteger b = valueOf(w);
-            return new PyLong(a.and(b));
+            return new PyLong(valueOf(v).subtract(w.value));
         } catch (ClassCastException cce) {
             return Py.NotImplemented;
         }
     }
 
-    static PyObject __or__(PyObject v, PyObject w) {
+    static PyObject __mul__(PyLong v, PyObject w) {
         try {
-            BigInteger a = valueOf(v);
-            BigInteger b = valueOf(w);
-            return new PyLong(a.or(b));
+            return new PyLong(v.value.multiply(valueOf(w)));
         } catch (ClassCastException cce) {
             return Py.NotImplemented;
         }
     }
 
-    static PyObject __xor__(PyObject v, PyObject w) {
+    static PyObject __rmul__(PyLong w, PyObject v) {
         try {
-            BigInteger a = valueOf(v);
-            BigInteger b = valueOf(w);
-            return new PyLong(a.xor(b));
+            return new PyLong(valueOf(v).multiply(w.value));
+        } catch (ClassCastException cce) {
+            return Py.NotImplemented;
+        }
+    }
+
+    static PyObject __and__(PyLong v, PyObject w) {
+        try {
+            return new PyLong(v.value.and(valueOf(w)));
+        } catch (ClassCastException cce) {
+            return Py.NotImplemented;
+        }
+    }
+
+    static PyObject __rand__(PyLong w, PyObject v) {
+        try {
+            return new PyLong(valueOf(v).and(w.value));
+        } catch (ClassCastException cce) {
+            return Py.NotImplemented;
+        }
+    }
+
+    static PyObject __or__(PyLong v, PyObject w) {
+        try {
+            return new PyLong(v.value.or(valueOf(w)));
+        } catch (ClassCastException cce) {
+            return Py.NotImplemented;
+        }
+    }
+
+    static PyObject __ror__(PyLong w, PyObject v) {
+        try {
+            return new PyLong(valueOf(v).or(w.value));
+        } catch (ClassCastException cce) {
+            return Py.NotImplemented;
+        }
+    }
+
+    static PyObject __xor__(PyLong v, PyObject w) {
+        try {
+            return new PyLong(v.value.xor(valueOf(w)));
+        } catch (ClassCastException cce) {
+            return Py.NotImplemented;
+        }
+    }
+
+    static PyObject __rxor__(PyLong w, PyObject v) {
+        try {
+            return new PyLong(valueOf(v).xor(w.value));
         } catch (ClassCastException cce) {
             return Py.NotImplemented;
         }

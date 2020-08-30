@@ -36,24 +36,34 @@ enum Slot {
 
     nb_negative(Signature.UNARY, "-", "__neg__"), //
     nb_absolute(Signature.UNARY, null, "__abs__"), //
-    nb_add(Signature.BINARY, "+"), //
-    nb_subtract(Signature.BINARY, "-", "__sub__"), //
-    nb_multiply(Signature.BINARY, "*", "__mul__"), //
+
+    // Binary ops: reflected form comes first so we can reference it.
+    nb_radd(Signature.BINARY, "+"), //
+    nb_rsub(Signature.BINARY, "-"), //
+    nb_rmul(Signature.BINARY, "*"), //
+    nb_rand(Signature.BINARY, "&"), //
+    nb_rxor(Signature.BINARY, "^"), //
+    nb_ror(Signature.BINARY, "|"), //
+
+    nb_add(Signature.BINARY, "+", nb_radd), //
+    nb_sub(Signature.BINARY, "-", nb_rsub), //
+    nb_mul(Signature.BINARY, "*", nb_rmul), //
+    nb_and(Signature.BINARY, "&", nb_rand), //
+    nb_xor(Signature.BINARY, "^", nb_rxor), //
+    nb_or(Signature.BINARY, "|", nb_ror), //
+
     nb_bool(Signature.PREDICATE), //
-    nb_and(Signature.BINARY, "&"), //
-    nb_xor(Signature.BINARY, "^"), //
-    nb_or(Signature.BINARY, "|"), //
     nb_int(Signature.UNARY), //
     nb_float(Signature.UNARY), //
     nb_index(Signature.UNARY), //
 
     sq_length(Signature.LEN, null, "__len__"), //
-    //sq_repeat(Signature.SQ_INDEX, "*", "__mul__"), //
+    // sq_repeat(Signature.SQ_INDEX, "*", "__mul__"), //
     sq_item(Signature.SQ_INDEX, null, "__getitem__"), //
     sq_ass_item(Signature.SQ_ASSIGN, null, "__setitem__"), //
 
-    //mp_length(Signature.LEN, null, "__len__"), //
-    mp_subscript(Signature.SELFBINARY, null, "__getitem__"), //
+    // mp_length(Signature.LEN, null, "__len__"), //
+    mp_subscript(Signature.BINARY, null, "__getitem__"), //
     mp_ass_subscript(Signature.MP_ASSIGN, null, "__setitem__");
 
     /** Method signature to match when filling this slot. */
@@ -64,6 +74,8 @@ enum Slot {
     final String opName;
     /** Reference to field holding this slot in a {@link PyType} */
     final VarHandle slotHandle;
+    /** Reference to field holding alternate slot in a {@link PyType} */
+    final VarHandle altSlotHandle;
 
     /**
      * Constructor for enum constants.
@@ -71,18 +83,33 @@ enum Slot {
      * @param signature of the function to be called
      * @param opName symbol (such as "+")
      * @param methodName implementation method (e.g. "__add__")
+     * @param alt alternate slot (e.g. "nb_radd")
      */
-    Slot(Signature signature, String opName, String methodName) {
+    Slot(Signature signature, String opName, String methodName,
+            Slot alt) {
         this.opName = opName == null ? name() : opName;
         this.methodName = dunder(methodName);
         this.signature = signature;
         this.slotHandle = Util.slotHandle(this);
+        this.altSlotHandle = alt == null ? null : alt.slotHandle;
     }
 
-    Slot(Signature signature) { this(signature, null, null); }
+    Slot(Signature signature) { this(signature, null, null, null); }
 
     Slot(Signature signature, String opName) {
-        this(signature, opName, null);
+        this(signature, opName, null, null);
+    }
+
+    Slot(Signature signature, String opName, String methodName) {
+        this(signature, opName, methodName, null);
+    }
+
+    Slot(Signature signature, Slot alt) {
+        this(signature, null, null, alt);
+    }
+
+    Slot(Signature signature, String opName, Slot alt) {
+        this(signature, opName, null, alt);
     }
 
     /** Compute corresponding double-underscore method name. */
@@ -153,6 +180,17 @@ enum Slot {
     }
 
     /**
+     * Get the contents of the "alternate" slot in the given type.
+     * For a binary operation this is the reflected operation.
+     *
+     * @param t target type
+     * @return current contents of the alternate slot in {@code t}
+     */
+    MethodHandle getAltSlot(PyType t) {
+        return (MethodHandle) altSlotHandle.get(t);
+    }
+
+    /**
      * Set the contents of this slot in the given type to the
      * {@code MethodHandle} provided.
      *
@@ -198,7 +236,7 @@ enum Slot {
      */
     enum Signature implements ClassShorthand {
         UNARY(O, S), // nb_negative, nb_invert
-        BINARY(O, O, O), // +, -, u[v]
+        BINARY(O, S, O), // +, -, u[v]
         TERNARY(O, S, O, O), // **
         CALL(O, S, TUPLE, DICT), // u(self, *args, **kwargs)
         VECTORCALL(O, S, OA, I, I, TUPLE), // u(x, y, ..., a=z)
@@ -207,7 +245,6 @@ enum Slot {
         RICHCMP(O, S, O, CMP), // (richcmpfunc) tp_richcompare only
         SQ_INDEX(O, S, I), // (ssizeargfunc) sq_item, sq_repeat only
         SQ_ASSIGN(V, S, I, O), // (ssizeobjargproc) sq_ass_item only
-        SELFBINARY(O, S, O), // (binaryfunc?) mp_subscript
         MP_ASSIGN(V, S, O, O), // (objobjargproc) mp_ass_subscript only
         GETATTRO(O, S, U), // (getattrofunc) tp_getattro
         SETATTRO(V, S, U, O), // (setattrofunc) tp_setattro

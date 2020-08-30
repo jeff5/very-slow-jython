@@ -21,35 +21,58 @@ class PyBool extends PyLong {
     /** Python {@code True} object. */
     static final PyBool True = new PyBool(true);
 
-
     // slot functions -------------------------------------------------
 
     static PyObject __repr__(PyBool v) {
         return Py.str(v.value == BigInteger.ZERO ? "False" : "True");
     }
 
-    static PyObject __and__(PyObject v, PyObject w) {
-        if (v instanceof PyBool && w instanceof PyBool)
+    static PyObject __and__(PyBool v, PyObject w) {
+        if (w instanceof PyBool)
             return Py.val(v == True && w == True);
         else
-            // v is not a bool, or w is not.
+            // w is not a bool, go arithmetic.
             return PyLong.__and__(v, w);
     }
 
-    static PyObject __or__(PyObject v, PyObject w) {
-        if (v instanceof PyBool && w instanceof PyBool)
+    static PyObject __rand__(PyBool w, PyObject v) {
+        if (v instanceof PyBool)
+            return Py.val(v == True && w == True);
+        else
+            // v is not a bool, go arithmetic.
+            return PyLong.__rand__(w, v);
+    }
+
+    static PyObject __or__(PyBool v, PyObject w) {
+        if (w instanceof PyBool)
             return Py.val(v == True || w == True);
         else
-            // v is not a bool, or w is not.
+            // v is not a bool, go arithmetic.
             return PyLong.__or__(v, w);
     }
 
-    static PyObject __xor__(PyObject v, PyObject w) {
-        if (v instanceof PyBool && w instanceof PyBool)
+    static PyObject __ror__(PyBool w, PyObject v) {
+        if (v instanceof PyBool)
+            return Py.val(v == True || w == True);
+        else
+            // v is not a bool, go arithmetic.
+            return PyLong.__ror__(w, v);
+    }
+
+    static PyObject __xor__(PyBool v, PyObject w) {
+        if (w instanceof PyBool)
             return Py.val(v != w);
         else
-            // v is not a bool, or w is not.
+            // w is not a bool, go arithmetic.
             return PyLong.__xor__(v, w);
+    }
+
+    static PyObject __rxor__(PyBool w, PyObject v) {
+        if (v instanceof PyBool)
+            return Py.val(v != w);
+        else
+            // v is not a bool, go arithmetic.
+            return PyLong.__rxor__(w, v);
     }
 
 }

@@ -339,14 +339,14 @@ class PyByteCode2 {
         // Create a type defining none of the reserved names
         final PyType mapping = PyType.fromSpec(new Spec( //
                 "3Test", PyObject.class));
-        assertEquals(Slot.Signature.SELFBINARY.empty,
+        assertEquals(Slot.Signature.BINARY.empty,
                 mapping.mp_subscript, "not empty");
         assertEquals(Slot.Signature.MP_ASSIGN.empty,
                 mapping.mp_ass_subscript, "not empty");
 
         // Make method handles to try
         MethodHandle getitem = MethodHandles
-                .empty(Slot.Signature.SELFBINARY.empty.type());
+                .empty(Slot.Signature.BINARY.empty.type());
         MethodHandle setitem = MethodHandles
                 .empty(Slot.Signature.MP_ASSIGN.empty.type());
         MethodHandle bad1 = MethodHandles

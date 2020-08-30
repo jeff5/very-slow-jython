@@ -46,12 +46,12 @@ class Number extends Abstract {
 
     /** Python {@code v - w} */
     static PyObject subtract(PyObject v, PyObject w) throws Throwable {
-        return binary_op(v, w, Slot.nb_subtract);
+        return binary_op(v, w, Slot.nb_sub);
     }
 
     /** Python {@code v * w} */
     static PyObject multiply(PyObject v, PyObject w) throws Throwable {
-        return binary_op(v, w, Slot.nb_multiply);
+        return binary_op(v, w, Slot.nb_mul);
 //        try {
 //            PyObject r = binary_op1(v, w, Slot.nb_multiply);
 //            if (r != Py.NotImplemented) { return r; }
@@ -120,15 +120,21 @@ class Number extends Abstract {
      * @throws Throwable from the implementation of the operation
      */
     private static PyObject binary_op1(PyObject v, PyObject w,
-            Slot binop) throws Slot.EmptyException, Throwable {
+            Slot binop)
+            throws Slot.EmptyException, Throwable {
         PyType vtype = v.getType();
         PyType wtype = w.getType();
 
         MethodHandle slotv = binop.getSlot(vtype);
         MethodHandle slotw;
 
-        if (wtype == vtype || (slotw = binop.getSlot(wtype)) == slotv)
-            // Both types give the same result
+        /*
+         * CPython would also test: (slotw = rbinop.getSlot(wtype)) ==
+         * slotv as an optimisiation , but that's never the case since
+         * we use distinct binop and rbinop slots.
+         */
+        if (wtype == vtype)
+            // Same types so only try the binop slot
             return (PyObject) slotv.invokeExact(v, w);
 
         else if (!wtype.isSubTypeOf(vtype)) {
@@ -138,12 +144,14 @@ class Number extends Abstract {
                 if (r != Py.NotImplemented)
                     return r;
             }
-            return (PyObject) slotw.invokeExact(v, w);
+            slotw = binop.getAltSlot(wtype);
+            return (PyObject) slotw.invokeExact(w, v);
 
         } else {
             // Right is sub-class: ask first (if not empty).
+            slotw = binop.getAltSlot(wtype);
             if (slotw != BINARY_EMPTY) {
-                PyObject r = (PyObject) slotw.invokeExact(v, w);
+                PyObject r = (PyObject) slotw.invokeExact(w, v);
                 if (r != Py.NotImplemented)
                     return r;
             }
@@ -315,7 +323,7 @@ class Number extends Abstract {
      * @throws Throwable
      */
     // Compare CPython abstract.c: PyNumber_Float
-    static PyFloat toFloat(PyObject o) throws Throwable  {
+    static PyFloat toFloat(PyObject o) throws Throwable {
         /*
          * Ever so similar to PyFloat.asDouble, but returns always
          * exactly a PyFloat, constructed if necessary from the value in

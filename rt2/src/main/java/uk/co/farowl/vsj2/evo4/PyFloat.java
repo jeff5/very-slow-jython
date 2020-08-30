@@ -37,31 +37,49 @@ class PyFloat extends AbstractPyObject {
         return new PyFloat(Math.abs(v.value));
     }
 
-    static PyObject __add__(PyObject v, PyObject w) {
+    static PyObject __add__(PyFloat v, PyObject w) {
         try {
-            double a = valueOf(v);
-            double b = valueOf(w);
-            return new PyFloat(a + b);
+            return new PyFloat(v.value + valueOf(w));
         } catch (ClassCastException cce) {
             return Py.NotImplemented;
         }
     }
 
-    static PyObject __sub__(PyObject v, PyObject w) {
+    static PyObject __radd__(PyFloat w, PyObject v) {
         try {
-            double a = valueOf(v);
-            double b = valueOf(w);
-            return new PyFloat(a - b);
+            return new PyFloat(valueOf(v) + w.value);
         } catch (ClassCastException cce) {
             return Py.NotImplemented;
         }
     }
 
-    static PyObject __mul__(PyObject v, PyObject w) {
+    static PyObject __sub__(PyFloat v, PyObject w) {
         try {
-            double a = valueOf(v);
-            double b = valueOf(w);
-            return new PyFloat(a * b);
+            return new PyFloat(v.value - valueOf(w));
+        } catch (ClassCastException cce) {
+            return Py.NotImplemented;
+        }
+    }
+
+    static PyObject __rsub__(PyFloat w, PyObject v) {
+        try {
+            return new PyFloat(valueOf(v) - w.value);
+        } catch (ClassCastException cce) {
+            return Py.NotImplemented;
+        }
+    }
+
+    static PyObject __mul__(PyFloat v, PyObject w) {
+        try {
+            return new PyFloat(v.value * valueOf(w));
+        } catch (ClassCastException cce) {
+            return Py.NotImplemented;
+        }
+    }
+
+    static PyObject __rmul__(PyFloat w, PyObject v) {
+        try {
+            return new PyFloat(valueOf(v) * w.value);
         } catch (ClassCastException cce) {
             return Py.NotImplemented;
         }
