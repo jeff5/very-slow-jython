@@ -3,7 +3,9 @@ package uk.co.farowl.vsj2.evo4;
 /** The Python {@code KeyError} exception. */
 class KeyError extends LookupError {
 
-    static final PyType TYPE = new PyType("KeyError", KeyError.class);
+    static final PyType TYPE =
+            PyType.fromSpec(new PyType.Spec("KeyError", KeyError.class)
+                    .base(LookupError.TYPE));
 
     final PyObject key;
 
@@ -18,6 +20,7 @@ class KeyError extends LookupError {
     }
 
     static class Duplicate extends KeyError {
+
         public Duplicate(PyObject key) {
             super(key, "duplicate key %s", key.toString());
         }

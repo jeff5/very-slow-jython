@@ -44,7 +44,7 @@ class PyByteCode2 {
         assertEquals("(1,)", Py.tuple(x[0]).toString());
     }
 
-    /** Test PyDict.toString is is its repr. */
+    /** Test PyDict.toString is its repr. */
     @Test
     void testDictToString() {
         PyDict d = Py.dict();
@@ -53,6 +53,13 @@ class PyByteCode2 {
         assertEquals("{'b': 1}", d.toString());
         d.put(Py.str("a"), Py.dict());
         assertEquals("{'b': 1, 'a': {}}", d.toString());
+    }
+
+    /** Test PyException repr for a simple case. */
+    @Test
+    void testExceptionToString() {
+        PyException e = new TypeError("test");
+        assertEquals("TypeError('test')", e.toString());
     }
 
     /** Any attempt to use a slot will fail. */

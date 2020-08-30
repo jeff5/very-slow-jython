@@ -1,10 +1,11 @@
 package uk.co.farowl.vsj2.evo4;
 
-
 /** The Python {@code AttributeError} exception. */
 class AttributeError extends PyException {
 
-    static final PyType TYPE = new PyType("AttributeError", AttributeError.class);
+    static final PyType TYPE = PyType.fromSpec(
+            new PyType.Spec("AttributeError", AttributeError.class)
+                    .base(PyException.TYPE));
 
     protected AttributeError(PyType type, String msg, Object... args) {
         super(type, msg, args);
@@ -14,4 +15,3 @@ class AttributeError extends PyException {
         this(TYPE, msg, args);
     }
 }
-

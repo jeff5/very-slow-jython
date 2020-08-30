@@ -4,7 +4,7 @@ package uk.co.farowl.vsj2.evo4;
 class BaseException extends RuntimeException implements PyObject {
 
     static final PyType TYPE =
-            new PyType("BaseException", BaseException.class);
+            PyType.fromSpec( new PyType.Spec("BaseException", BaseException.class));
     private final PyType type;
 
     @Override
@@ -26,7 +26,8 @@ class BaseException extends RuntimeException implements PyObject {
     // slot functions -------------------------------------------------
 
     static PyObject __repr__(BaseException self) {
+        // Somewhat simplified
         return Py.str(
-                self.getType().name + '(' + self.getMessage() + ')');
+                self.getType().name + "('" + self.getMessage() + "')");
     }
 }
