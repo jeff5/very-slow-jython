@@ -204,7 +204,10 @@ enum Slot {
     }
 
     /** The type of exception thrown by invoking an empty slot. */
-    static class EmptyException extends Exception {}
+    static class EmptyException extends Exception {
+        // Suppression and stack trace disabled since singleton.
+        EmptyException() { super(null, null, false, false); }
+    }
 
     /**
      * Placeholder type, exclusively for use in slot signatures,
