@@ -28,7 +28,6 @@ enum Slot {
 
     tp_richcompare(Signature.RICHCMP), //
     tp_iter(Signature.UNARY), //
-
     tp_init(Signature.INIT), //
     tp_new(Signature.NEW), //
 

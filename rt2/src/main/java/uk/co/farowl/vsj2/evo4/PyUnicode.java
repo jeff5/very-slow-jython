@@ -1,7 +1,7 @@
 package uk.co.farowl.vsj2.evo4;
 
 /** The Python {@code str} object. */
-class PyUnicode implements PyObject, Comparable<PyUnicode> {
+class PyUnicode implements PySequence, Comparable<PyUnicode> {
 
     static final PyType TYPE = PyType.fromSpec( //
             new PyType.Spec("str", PyUnicode.class));
@@ -58,6 +58,23 @@ class PyUnicode implements PyObject, Comparable<PyUnicode> {
     @Override
     public String toString() { return value; }
 
+
+    // Sequence interface ---------------------------------------------
+
+    @Override
+    public PyUnicode repeat(int i) {
+        try {
+            if (i < 1)
+                return EMPTY;
+            else if (i > 1)
+                return Py.str(value.repeat(i));
+            else
+                return this;
+        } catch (OutOfMemoryError e) {
+            throw new OverflowError("repeated string is too long");
+        }
+    }
+
     // slot functions -------------------------------------------------
 
     static int __len__(PyUnicode s) { return s.value.length(); }
@@ -80,24 +97,21 @@ class PyUnicode implements PyObject, Comparable<PyUnicode> {
             return Py.NotImplemented;
     }
 
-    static PyObject __mul__(PyUnicode self, int i) { // sq_repeat
-        try {
-            if (i < 1)
-                return EMPTY;
-            else if (i > 1)
-                return Py.str(self.value.repeat(i));
-            else
-                return self;
-        } catch (OutOfMemoryError e) {
-            throw new IndexError("str index out of range");
-        }
+    static PyObject __mul__(PyUnicode self, PyObject n)
+            throws Throwable {
+        return PyObjectUtil.repeat(self, n);
+    }
+
+    static PyObject __rmul__(PyUnicode self, PyObject n)
+            throws Throwable {
+        return PyObjectUtil.repeat(self, n);
     }
 
     static PyObject __getitem__(PyUnicode self, int i) {
         try {
             return new PyUnicode(self.value.charAt(i));
         } catch (IndexOutOfBoundsException e) {
-            throw new OverflowError("repeated string is too long");
+            throw new IndexError("str index out of range");
         }
     }
 

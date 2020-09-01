@@ -293,7 +293,7 @@ class PyByteCode5 {
         //@formatter:on
     }
 
-    //@Test // XXX fails because __mul__(str, int) is not found.
+    @Test
     void test_def_func2() {
         //@formatter:off
         Interpreter interp = Py.createInterpreter();

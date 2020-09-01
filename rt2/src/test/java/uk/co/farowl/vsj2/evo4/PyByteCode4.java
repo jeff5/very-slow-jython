@@ -50,18 +50,24 @@ class PyByteCode4 {
     }
 
     /** Test bases and MRO in certain exception types. */
-    // @Test // FIXME not working yet
+    @Test
     void testExceptionsMRO() {
 
         PyType OBJECT = PyBaseObject.TYPE;
-        PyType BASE_EXCEPTION = PyException.TYPE;
+        PyType BASE_EXCEPTION = BaseException.TYPE;
         PyType EXCEPTION = PyException.TYPE;
         PyType TYPE_ERROR = TypeError.TYPE;
 
-        // TypeError
+        // Basic exceptions from their type objects
+        assertEquals(OBJECT, BASE_EXCEPTION.getBase());
+        assertEquals(BASE_EXCEPTION, EXCEPTION.getBase());
+        assertArrayEquals(
+                new PyType[] {EXCEPTION, BASE_EXCEPTION, OBJECT},
+                EXCEPTION.getMRO());
+
+        // TypeError accessed via instance for a change
         PyType t = new TypeError("").getType();
-        assertEquals(OBJECT, t.getBase());
-        assertArrayEquals(new PyType[] {EXCEPTION}, t.getBases());
+        assertEquals(EXCEPTION, t.getBase());
         PyType[] exp = new PyType[] {TYPE_ERROR, EXCEPTION,
                 BASE_EXCEPTION, OBJECT};
         assertArrayEquals(exp, t.getMRO());

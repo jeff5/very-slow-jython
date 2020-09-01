@@ -35,13 +35,6 @@ class Number extends Abstract {
     /** Python {@code v + w} */
     static PyObject add(PyObject v, PyObject w) throws Throwable {
         return binary_op(v, w, Slot.nb_add);
-//        try {
-//            PyObject r = binary_op1(v, w, Slot.nb_add);
-//            if (r != Py.NotImplemented)
-//                return r;
-//        } catch (Slot.EmptyException e) {}
-//        throw operandError("+", v, w);
-//        // XXX Try the sequence concatenate interpretation
     }
 
     /** Python {@code v - w} */
@@ -52,19 +45,6 @@ class Number extends Abstract {
     /** Python {@code v * w} */
     static PyObject multiply(PyObject v, PyObject w) throws Throwable {
         return binary_op(v, w, Slot.nb_mul);
-//        try {
-//            PyObject r = binary_op1(v, w, Slot.nb_multiply);
-//            if (r != Py.NotImplemented) { return r; }
-//        } catch (Slot.EmptyException e) {}
-//
-//        // Try the sequence interpretations ...
-//        MethodHandle mh = v.getType().sq_repeat;
-//        if (mh != SQ_INDEX_EMPTY) { return sequence_repeat(mh, v, w); }
-//        mh = w.getType().sq_repeat;
-//        if (mh != SQ_INDEX_EMPTY) { return sequence_repeat(mh, w, v); }
-//
-//        // Nothing worked
-//        throw operandError("*", v, w);
     }
 
     /** Python {@code v | w} */
@@ -156,16 +136,6 @@ class Number extends Abstract {
                     return r;
             }
             return (PyObject) slotv.invokeExact(v, w);
-        }
-    }
-
-    private static PyObject sequence_repeat(MethodHandle repeat,
-            PyObject seq, PyObject n) throws TypeError, Throwable {
-        if (indexCheck(n)) {
-            int count = asSize(n, IndexError::new);
-            return (PyObject) repeat.invokeExact(seq, count);
-        } else {
-            throw typeError(CANT_MULTIPLY, n);
         }
     }
 
@@ -307,8 +277,6 @@ class Number extends Abstract {
                     "a string, a bytes-like object or a number", o);
     }
 
-    private static final String CANT_MULTIPLY =
-            "can't multiply sequence by non-int of type '%.200s'";
     private static final String CANNOT_INTERPRET_AS_INT =
             "'%.200s' object cannot be interpreted as an integer";
     private static final String CANNOT_FIT =
