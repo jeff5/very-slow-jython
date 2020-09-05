@@ -1,8 +1,6 @@
 package uk.co.farowl.vsj2.evo4;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
 import org.junit.jupiter.api.Test;
@@ -14,64 +12,6 @@ import org.junit.jupiter.api.Test;
  * numeric to provide some challenges concerning inheritance.
  */
 class PyByteCode4 {
-
-    /** Test bases and MRO in certain simple numeric types. */
-    @Test
-    void testBuiltinMRO() {
-
-        PyType OBJECT = PyBaseObject.TYPE;
-        PyType INT = PyLong.TYPE;
-        PyType FLOAT = PyFloat.TYPE;
-        PyType BOOL = PyBool.TYPE;
-
-        // object
-        PyType t = Py.object().getType();
-        assertNull(t.getBase());
-        assertArrayEquals(new PyType[] {}, t.getBases());
-        assertArrayEquals(new PyType[] {OBJECT}, t.getMRO());
-
-        // int
-        t = Py.val(1).getType();
-        assertEquals(OBJECT, t.getBase());
-        assertArrayEquals(new PyType[] {OBJECT}, t.getBases());
-        assertArrayEquals(new PyType[] {INT, OBJECT}, t.getMRO());
-
-        // float
-        t = Py.val(1.0).getType();
-        assertEquals(OBJECT, t.getBase());
-        assertArrayEquals(new PyType[] {OBJECT}, t.getBases());
-        assertArrayEquals(new PyType[] {FLOAT, OBJECT}, t.getMRO());
-
-        // bool
-        t = Py.True.getType();
-        assertEquals(INT, t.getBase());
-        assertArrayEquals(new PyType[] {INT}, t.getBases());
-        assertArrayEquals(new PyType[] {BOOL, INT, OBJECT}, t.getMRO());
-    }
-
-    /** Test bases and MRO in certain exception types. */
-    @Test
-    void testExceptionsMRO() {
-
-        PyType OBJECT = PyBaseObject.TYPE;
-        PyType BASE_EXCEPTION = BaseException.TYPE;
-        PyType EXCEPTION = PyException.TYPE;
-        PyType TYPE_ERROR = TypeError.TYPE;
-
-        // Basic exceptions from their type objects
-        assertEquals(OBJECT, BASE_EXCEPTION.getBase());
-        assertEquals(BASE_EXCEPTION, EXCEPTION.getBase());
-        assertArrayEquals(
-                new PyType[] {EXCEPTION, BASE_EXCEPTION, OBJECT},
-                EXCEPTION.getMRO());
-
-        // TypeError accessed via instance for a change
-        PyType t = new TypeError("").getType();
-        assertEquals(EXCEPTION, t.getBase());
-        PyType[] exp = new PyType[] {TYPE_ERROR, EXCEPTION,
-                BASE_EXCEPTION, OBJECT};
-        assertArrayEquals(exp, t.getMRO());
-    }
 
     /** Test boolean "and" returns exactly the singleton True/False. */
     @Test
