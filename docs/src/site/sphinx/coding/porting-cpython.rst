@@ -133,17 +133,35 @@ Some replacements make a good beginning.
 
     "``NULL``", "``null``"
     "``static``", "``private``"
-    "``Py_ssize_t``", "``int``"
+    "``(Py_s)?size_t``", "``int``"
+    "``Py_UNUSED\((\w+)\)``", "``$1``"
     "``const\s+``", nothing
+    "``""\n\s+""``", nothing
+    "``(Py\w+)\s*\*\s*(\w+),((\s*\*\s*(\w+),?)+);``", "``$1 $2; $1 $3;``"
     "``(Py\w+)\s*\*\s*(\w+)``", "``$1 $2``"
     "``, \*(\w+)``", "``, $1``"
+    "``Py_RETURN_TRUE``", "``return Py.True``"
+    "``Py_RETURN_FALSE``", "``return Py.False``"
+    "``Py_RETURN_NONE``", "``return Py.None``"
+    "``Py_RETURN_NOTIMPLEMENTED``", "``return Py.NotImplemented``"
 
 In general, it is difficult to decide whether a C pointer
 is a reference to an object,
-an array base,
-or serves as an array and an index into it.
+an array base, or serves as a moving pointer into an array.
 Pointers that appear in arithmetic expressions
 cannot simply be turned into array bases or object references.
+On the plus side, we often find length arguments we do not need.
+
+In something of a different league,
+this can be useful in correlating the Java port to the CPython original,
+but needs adaptation to the local file name (at least):
+
+.. csv-table:: Method labelling
+   :header: "Match", "Replacement"
+   :widths: 30, 20
+
+    "``^((    \s*)(static)?)\s+(PyObject|int|void|boolean)\s+(\w+)\(``", "``$2// Compare CPython $5 in NAME.c\n$1 $4 $5\(``"
+
 
 
 Names
@@ -202,7 +220,7 @@ These regular expressions are useful for the subjects covered here:
 
     "``Py(\w+)Object``", "``Py$1``"
     "``&PyId_(\w+)``", "``ID.$1``"
-
+    "``_Py_IDENTIFIER\(\w+\);``", "nothing"
 
 Type and cast
 =============
@@ -284,10 +302,15 @@ and variables.
    :header: "Match", "Replacement"
    :widths: 30, 20
 
-    "``Py_TYPE(\w+)``", "``$1.getType()``"
+    "``Py_TYPE\((\w+)\)``", "``$1.getType()``"
     "``(\w+)->ob_type``", "``$1.getType()``"
-    "``(\w+)_Check\((\w+)\)``", "``($2 instanceof $1)``"
-    "``(\w+)_CheckExact\((\w+)\)``", "``($2.isSubTypeOf($1)``"
+    "``PyType_IsSubtype\(([^,]+), ([^)]+)\)``", "``($1).isSubTypeOf($2)``"
+    "``PyObject_TypeCheck\(([^,]+),\s*([^)]+)\)``", "``Abstract.typeCheck($1, $2)``"
+    "``(\w+)_Check\((\w+)\)``", "``($2.getType().isSubTypeOf($1.TYPE))``"
+    "``(\w+)_CheckExact\(([^)]+)\)``", "``($2.getType()==$1.TYPE)``"
+    "``(\w+)_CheckExact\(([^)]+)\)``", "``($2 instanceof $1)`` if one-to-one"
+    "``PyDescr_TYPE\((\w+)\)``", "``$1.objclass``"
+    "``PyDescr_NAME\((\w+)\)``", "``$1.name``"
 
 Note that these assume a type model as in ``vsj2`` and ``evo3``.
 This will be superseded in due course.
@@ -310,7 +333,34 @@ rather than being removed totally.
    :widths: 30, 20
 
     "``Py_X?(IN|DE)CREF\([^)]+\);``", nothing
+    "``Py_X?SETREF\(([^,]+),\s*([^)]+)\);``", "``$1 = $2;``"
+    "``Py_CLEAR\(([^)]+)\);``", "``$1 = null;``"
 
+
+Some Abstract Interface Methods
+===============================
+
+CPython defines a large API with structured names.
+The methods are not always to be found in the file the name suggests.
+We have less freedom in Java,
+and consolidate their equivalents in classes suggested by the CPython name,
+except that ``Object`` and ``PyObject`` don't seem like good choices,
+so we settle for ``Abstract``.
+
+.. csv-table:: Editor regexes for the abstract object API
+   :header: "Match", "Replacement"
+   :widths: 30, 20
+
+    "``PyObject_Repr``", "``Abstract.repr``"
+    "``PyObject_Str``", "``Abstract.str``"
+    "``PyObject_IsTrue``", "``Abstract.isTrue``"
+    "``PyObject_Rich(Compare(Bool)?)``", "``Abstract.rich$1``"
+    "``PyObject_Size``", "``Abstract.size``"
+    "``PyObject_Get(Item|Attr)(Id)?``", "``Abstract.get$1``"
+    "``PyObject_Set(Item|Attr)(Id)?``", "``Abstract.set$1``"
+    "``_PyObject_LookupAttr(Id)?``", "``Abstract.lookupAttr``"
+    "``PyObject_Is(Instance|Subclass)``", "``Abstract.is$1``"
+    "``_PyObject_RealIs(Instance|Subclass)``", "``Abstract.recursiveIs$1``"
 
 
 Pointer-to-Function is ``MethodHandle``
@@ -442,9 +492,23 @@ but ``%s`` calls ``toString()``, which is generally right.
    :header: "Match", "Replacement"
    :widths: 30, 20
 
-    "``_PyErr_Format\(\w+,\s*PyExc_(\w+),``", "``throw new $1(``"
-    "``PyErr_Format\(\s*PyExc_(\w+),``", ``throw new $1(``
-    "``PyErr_SetString\(\s*PyExc_(\w+),``", ``throw new $1(``
+    "``_?PyErr_(SetString|Format)\(\s*PyExc_(\w+),``", "``throw new $2(``"
+
+
+Translating Attribute Access
+============================
+
+CPython has optimisations and short-cuts based on interned identifiers,
+but we have slightly different ones.
+Java overloading means that we do not have to give them different names.
+
+.. csv-table:: Editor regexes dealing with attribute access
+   :header: "Match", "Replacement"
+   :widths: 30, 20
+
+    "``_?PyObject_GetAttr(Id)?``", "``Abstract.getAttr``"
+    "``_?PyObject_SetAttr(Id)?``", "``Abstract.setAttr``"
+    "``_?PyObject_LookupAttr(Id)?\(([^,]+),\s*([^,]+),\s*&([^)]+)\)``", "``($4 = Abstract.lookupAttr($2, $3))==null?0:1``"
 
 
 Translating Container Access
