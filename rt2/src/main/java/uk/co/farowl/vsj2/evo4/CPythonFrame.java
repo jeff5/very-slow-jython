@@ -550,7 +550,7 @@ class CPythonFrame extends PyFrame {
                         kwargs = oparg == 0 ? null : valuestack[--sp];
                         args = valuestack[--sp]; // POP
                         func = valuestack[sp - 1]; // TOP
-                        res = Callables.call(func, args, kwargs);
+                        res = Callables.callEx(func, args, kwargs);
                         valuestack[sp - 1] = res; // SET_TOP
                         break;
 

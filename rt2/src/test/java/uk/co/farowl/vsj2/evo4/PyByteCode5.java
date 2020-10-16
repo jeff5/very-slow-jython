@@ -39,8 +39,8 @@ class PyByteCode5 {
     @Test
     void abstract_call() throws TypeError, Throwable {
         PyObject callable = new LenCallable();
-        PyObject args = Py.tuple(Py.str("hello"));
-        PyObject kwargs = Py.dict();
+        PyTuple args = Py.tuple(Py.str("hello"));
+        PyDict kwargs = Py.dict();
         PyObject result = Callables.call(callable, args, kwargs);
         assertEquals(Py.val(5), result);
     }
