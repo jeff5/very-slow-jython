@@ -152,7 +152,9 @@ do not have to check and cast their arguments.
 
 The possible variety of arguments at a call site is not always appreciated.
 A special opcode supports the concatenation of positional arguments
-into a single ``tuple`` for the call::
+into a single ``tuple`` for the call:
+
+..  code-block:: python
 
     >>> def f(*args, **kwargs): print(args, "\nkw =", kwargs)
     ...
@@ -169,7 +171,9 @@ into a single ``tuple`` for the call::
                  12 CALL_FUNCTION_EX         0
                  14 RETURN_VALUE
 
-And similarly for keyword arguments::
+And similarly for keyword arguments:
+
+..  code-block:: python
 
     >>> f(1, 2, *(3,4), a=10, b=20, **{'x':30, 'y':40})
     (1, 2, 3, 4)
@@ -679,7 +683,9 @@ With the CPython compiler doing the hard part,
 of turning the body of a function into a code object,
 our interest is only in the execution of the byte code
 that creates the functin object at run time.
-If we write::
+If we write:
+
+..  code-block:: python
 
     def f(x, y, a=5, b=6):
         return x * y + a * b
@@ -757,7 +763,9 @@ wherever it is called from.
 Classic call site
 =================
 
-We shall take a fairly complicated example that leads to classic call::
+We shall take a fairly complicated example that leads to classic call:
+
+..  code-block:: python
 
     def f(x, y, *args):
         return x * y + args[0] * args[1]

@@ -768,8 +768,8 @@ and this is a wrapper that invokes the method ``PyList.tp_new``.
 Recall that the first argument to ``tp_new`` (a ``PyType``) must be
 the type actually under construction, in this case ``L3``.
 
-A conclusion
-------------
+A conclusion about inheritance
+------------------------------
 
 We conclude from the examples that the behaviour of ``PyList.tp_new`` must be
 to construct a plain ``PyList`` when the type argument is ``list``,

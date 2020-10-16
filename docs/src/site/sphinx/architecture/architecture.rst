@@ -28,6 +28,7 @@ and then tested ideas that address them.
     object-implementation
     compiled-code
     functions-in-java
+    descriptors
 
 
 This chapter has diagrams generated with PlantUML

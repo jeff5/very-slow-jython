@@ -160,7 +160,7 @@ but needs adaptation to the local file name (at least):
    :header: "Match", "Replacement"
    :widths: 30, 20
 
-    "``^((    \s*)(static)?)\s+(PyObject|int|void|boolean)\s+(\w+)\(``", "``$2// Compare CPython $5 in NAME.c\n$1 $4 $5\(``"
+    "``^((    \s*)(static\s+)?)(PyObject|int|void|boolean)\s+(\w+)\(``", "``$2// Compare CPython $5 in NAME.c\n$1 $4 $5\(``"
 
 
 
@@ -509,6 +509,7 @@ Java overloading means that we do not have to give them different names.
     "``_?PyObject_GetAttr(Id)?``", "``Abstract.getAttr``"
     "``_?PyObject_SetAttr(Id)?``", "``Abstract.setAttr``"
     "``_?PyObject_LookupAttr(Id)?\(([^,]+),\s*([^,]+),\s*&([^)]+)\)``", "``($4 = Abstract.lookupAttr($2, $3))==null?0:1``"
+    "``_PyType_Lookup(Id)?\(([^,]+),\s*([^)]+)\)``", "``$2.lookup($3)``"
 
 
 Translating Container Access
