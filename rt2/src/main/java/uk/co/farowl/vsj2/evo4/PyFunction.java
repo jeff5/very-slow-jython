@@ -4,6 +4,7 @@ import java.util.Collection;
 import java.util.EnumSet;
 
 import uk.co.farowl.vsj2.evo4.PyCode.Trait;
+import uk.co.farowl.vsj2.evo4.PyType.Flag;
 
 /**
  * Function object as created by a function definition and subsequently
@@ -11,7 +12,9 @@ import uk.co.farowl.vsj2.evo4.PyCode.Trait;
  */
 class PyFunction extends AbstractPyObject {
 
-    static final PyType TYPE = new PyType("function", PyFunction.class);
+    static final PyType TYPE = PyType
+            .fromSpec(new PyType.Spec("function", PyFunction.class)
+                    .flagNot(Flag.BASETYPE));
 
     /** __code__, the code object */
     PyCode code;

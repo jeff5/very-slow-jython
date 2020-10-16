@@ -13,7 +13,8 @@ import java.util.StringJoiner;
 class PyDict extends LinkedHashMap<PyObject, PyObject>
         implements PyObject {
 
-    static final PyType TYPE = new PyType("dict", PyDict.class);
+    static final PyType TYPE =
+            PyType.fromSpec(new PyType.Spec("dict", PyDict.class));
 
     @Override
     public PyType getType() { return TYPE; }
