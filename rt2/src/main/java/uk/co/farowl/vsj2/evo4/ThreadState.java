@@ -21,7 +21,106 @@ class ThreadState {
     /** The top frame of the call stack. */
     PyFrame frame = null;
 
-    // Missing: stack overflow prevention: recursion_depth, ...
+    // Recursion control ----------
+    /**
+     * Maximum recursion depth after which the interpreter will raise
+     * {@code RecursionError}
+     */
+    static final int RECURSION_LIMIT = 1000;
+    /**
+     * Extra recursion depth allowed while processing a
+     * {@code RecursionError}
+     */
+    private static final int RECURSION_EXTRA = 50;
+    /** Recursion state of this thread */
+    private final RecursionState recursionState = new RecursionState();
+    /** Current recursion limit */
+    private int recursionLimit = RECURSION_LIMIT;
+    /**
+     * {@code StackOverflow} has been raised and the stack has not yet
+     * recovered.
+     */
+    boolean overflowed = false;
+
+    // Missing: recursionCritical;
+
+    class RecursionState implements AutoCloseable {
+
+        private int recursionLimit;
+        private int lowWaterMark;
+        private int limit;
+        private int depth = 0;
+        /**
+         * {@code StackOverflow} has been raised and the stack has not
+         * yet recovered.
+         */
+        private boolean overflowed;
+
+        RecursionState() { setRecursionLimit(RECURSION_LIMIT); }
+
+        RecursionState enter() throws RecursionError {
+            if (++depth > limit) {
+                if (overflowed) {
+                    // Overflowing while handling an overflow. Give up.
+                    throw new InterpreterError(
+                            "Cannot recover from stack overflow.");
+                } else {
+                    // Entering overflow state: increase working limit.
+                    overflowed = true;
+                    limit += RECURSION_EXTRA;
+                    throw new RecursionError(
+                            "maximum recursion depth exceeded");
+                }
+            }
+            return this;
+        }
+
+        @Override
+        public void close() {
+            --depth;
+            if (overflowed && depth <= lowWaterMark) {
+                // Leaving overflow state: restore working limit.
+                overflowed = false;
+                limit = recursionLimit;
+            }
+        }
+
+        /**
+         * Set the recursion l;imit for this thread. The new limit must
+         * be higher than the current depth by about 50.
+         */
+        void setRecursionLimit(int limit) {
+            int mark = Math.max(limit - 50, 3 * limit / 4);
+            if (depth >= mark) {
+                throw new RecursionError(LIMIT_TOO_LOW, limit, depth);
+            }
+            lowWaterMark = mark;
+            this.limit = recursionLimit = limit;
+            overflowed = false;
+        }
+
+        private static final String LIMIT_TOO_LOW =
+                "cannot set the recursion limit to %i at depth %i: "
+                        + "the limit is too low";
+
+        /**
+         * {@code StackOverflow} has been raised and the stack has not
+         * yet recovered.
+         */
+        public boolean isOverflowed() { return overflowed; }
+    }
+
+    /**
+     * Use as a resource in a try-with-resources construct, around any
+     * method body that should count against the limit.
+     */
+    public static RecursionState enterRecursiveCall(String cause) {
+        try {
+            return current.get().recursionState.enter();
+        } catch (RecursionError re) {
+            throw new RecursionError("%s %s", re.getMessage(), cause);
+        }
+    }
 
     /** Java {@code Thread} represented by this {@code ThreadState} */
     final Thread thread;
