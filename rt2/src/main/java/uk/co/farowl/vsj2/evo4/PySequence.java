@@ -3,7 +3,7 @@ package uk.co.farowl.vsj2.evo4;
 /**
  * Sequences exhibit certain common behaviours and utilities that
  * implement them need to call back into the object by this interface.
- * Tghis interface cannot be used as a marker for objects that implement
+ * This interface cannot be used as a marker for objects that implement
  * the sequence protocol because it is perfectly possible for a
  * user-defined Python type to do so without its Java implementation
  * implementing {@code PySequence}. A proxy class could be created that
