@@ -68,9 +68,9 @@ import java.util.EnumSet;
  * <p>
  * The FAST versions replicate the convention in CPython that allows
  * direct access to a slice of the interpreter stack, indicated as an
- * arry (the stack), a start, and a count of arguments. (In Java we
- * cannot simply pass a {@code PyObject*} pointer to a location the
- * array.
+ * array (the stack), a start, and a count of arguments. (In Java we
+ * cannot simply pass a {@code PyObject*} pointer to a location the in
+ * array, as CPython does.)
  *
  * <p>
  * All the same possibilities exist for methods (or non-static module
@@ -123,14 +123,14 @@ import java.util.EnumSet;
  * However, the former will be an instance method and the latter
  * {@code static}.
  */
+// Compare CPython struct PyMethodDef
 class MethodDef {
 
     /** The name of the built-in function or method */
     final String name;
     /**
-     * Handle of Java method that implements the function or method. The
-     * type of this handle reflects exactly consistent the declared
-     * signature.
+     * Handle of the Java method that implements the function or method.
+     * The type of this handle exactly reflects the declared signature.
      */
     final MethodHandle meth;
     /**
@@ -291,7 +291,6 @@ class MethodDef {
         return new InterpreterError(fmt, a);
     }
 
-
     /**
      * Check classic {@code (*args, **kwargs)} call arguments against
      * this MethodDef and throw an exception if if {@code len(args)} or
@@ -375,4 +374,5 @@ class MethodDef {
         return String.format("MethodDef [name=%s, meth=%s, flags=%s]",
                 name, meth, flags);
     }
+
 }

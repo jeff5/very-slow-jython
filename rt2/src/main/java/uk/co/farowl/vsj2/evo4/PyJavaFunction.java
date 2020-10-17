@@ -22,14 +22,17 @@ import uk.co.farowl.vsj2.evo4.MethodDef.Flag;
 /** The Python {@code builtin_function_or_method} object. */
 class PyJavaFunction implements PyObject {
 
-    static final PyType TYPE = new PyType("builtin_function_or_method",
-            PyJavaFunction.class);
+    static final PyType TYPE = PyType.fromSpec(new PyType.Spec("builtin_function_or_method",
+            PyJavaFunction.class));
 
     @Override
     public PyType getType() { return TYPE; }
 
     /** Description of the function to call */
     final MethodDef methodDef;
+
+    /** Name of the containing module (or {@code null}). */
+    final PyUnicode module;
 
     /** The MethodType of {@link #tpCall}. */
     protected static final MethodType methCallType =
@@ -43,9 +46,14 @@ class PyJavaFunction implements PyObject {
      */
     final MethodHandle tpCall;
 
-    PyJavaFunction(MethodDef def) {
+    PyJavaFunction(MethodDef def, PyUnicode module) {
         this.methodDef = def;
+        this.module = module;
         this.tpCall = getTpCallHandle(def);
+    }
+
+    PyJavaFunction(MethodDef def) {
+        this(def, null);
     }
 
     @Override
@@ -55,11 +63,13 @@ class PyJavaFunction implements PyObject {
 
     /**
      * Create a MethodHandle with the signature {@code (TUPLE, DICT) O}
-     * from information in a {@link MethodDef}.
+     * that will make a "classic call" to the method described in a
+     * {@link MethodDef}.
      *
      * @param def defining information
      * @return required handle
      */
+    // XXX This should probably be in MethodDef
     private static MethodHandle getTpCallHandle(MethodDef def) {
         EnumSet<Flag> f = def.flags;
 
@@ -94,12 +104,16 @@ class PyJavaFunction implements PyObject {
      * present or null. It doesn't tell us what went wrong: instead, we
      * catch it and work out what kind of {@link TypeError} to throw.
      */
-    static class BadCallException extends Exception {}
+    static class BadCallException extends Exception {
+        // Suppression and stack trace disabled since singleton.
+        BadCallException() { super(null, null, false, false); }
+    }
 
     /**
      * Helpers for {@link PyJavaFunction} used to construct
      * {@code MethodHandle}s.
      */
+    // XXX This should probably be in MethodDef
     private static class Util {
 
         /** Single re-used instance of {@code BadCallException} */
@@ -184,8 +198,8 @@ class PyJavaFunction implements PyObject {
 
         /**
          * Convert the method handle in {@code MethodDef def}, which
-         * must correspond to the KEYWORDS function, to a handle that
-         * accepts an classic (*args, **kwargs) call, in which the
+         * must describe a KEYWORDS function, to a handle that
+         * accepts a classic (*args, **kwargs) call, in which the
          * dictionary must not be {@code null}.
          *
          * @param def method definition
@@ -207,8 +221,8 @@ class PyJavaFunction implements PyObject {
 
         /**
          * Convert the method handle in {@code MethodDef def}, which
-         * must correspond to the VARARG-only function, to a handle that
-         * accepts an classic (*args, **kwargs) call, in which the
+         * must describe a VARARG-only function, to a handle that
+         * accepts a classic (*args, **kwargs) call, in which the
          * dictionary must be {@code null} or empty.
          *
          * @param def method definition
@@ -234,8 +248,8 @@ class PyJavaFunction implements PyObject {
 
         /**
          * Convert the method handle in {@code MethodDef def}, which
-         * must correspond to the a fixed-arity plain signature, to a
-         * handle that accepts an classic {@code (*args, **kwargs)}
+         * must describe a fixed-arity plain signature, to a
+         * handle that accepts a classic {@code (*args, **kwargs)}
          * call, in which the dictionary must be {@code null} or empty,
          * and the size of the tuple match the number of argument.
          *
@@ -278,9 +292,13 @@ class PyJavaFunction implements PyObject {
 
     // slot functions -------------------------------------------------
 
-    static PyObject __repr__(PyFunction func) throws Throwable {
+    static PyObject __repr__(PyJavaFunction func) throws Throwable {
+        return func.repr();
+    }
+
+    protected PyUnicode repr() {
         return PyUnicode.fromFormat("<built-in function %s>",
-                func.name);
+                this.methodDef.name);
     }
 
     static PyObject __call__(PyJavaFunction f, PyTuple args,
