@@ -13,7 +13,7 @@ import uk.co.farowl.vsj2.evo4.Slot.EmptyException;
  * opcode.)
  * <p>
  * See also {@link Number}, {@link Sequence}, {@link Mapping} and
- * {@link Callable} which contain the abstract interface to the
+ * {@link Callables} which contain the abstract interface to the
  * corresponding type families. In CPython, the methods of all these
  * classes are found in {@code Objects/abstract.c}
  */
@@ -27,9 +27,10 @@ class Abstract {
      * @return the string representation o
      * @throws Throwable
      */
+    // Compare CPython PyObject_Repr in object.c
     static PyObject repr(PyObject o) throws Throwable {
         if (o == null) {
-            return Py.str("<NULL>");
+            return Py.str("<null>");
         } else {
             PyType type = o.getType();
             try {
@@ -52,9 +53,10 @@ class Abstract {
      * @return the string representation o
      * @throws Throwable
      */
+    // Compare CPython PyObject_Str in object.c
     static PyObject str(PyObject o) throws Throwable {
         if (o == null) {
-            return Py.str("<NULL>");
+            return Py.str("<null>");
         } else {
             PyType type = o.getType();
             if (type == PyUnicode.TYPE) {
@@ -76,6 +78,7 @@ class Abstract {
      * Test a value used as condition in a {@code for} or {@code if}
      * statement.
      */
+    // Compare CPython PyObject_IsTrue in object.c
     static boolean isTrue(PyObject v) throws Throwable {
         // Begin with common special cases
         if (v == Py.True)
@@ -102,6 +105,7 @@ class Abstract {
      * Perform a rich comparison, raising {@code TypeError} when the
      * requested comparison operator is not supported.
      */
+    // Compare CPython PyObject_RichCompare, do_richcompare in object.c
     static PyObject richCompare(PyObject v, PyObject w, Comparison op)
             throws Throwable {
         PyType vType = v.getType();
@@ -157,6 +161,7 @@ class Abstract {
      * (probably {@link TypeError}), when the objects cannot be
      * compared.
      */
+    // Compare CPython PyObject_RichCompareBool in object.c
     static boolean richCompareBool(PyObject v, PyObject w,
             Comparison op) throws Throwable {
         /*
@@ -195,6 +200,7 @@ class Abstract {
     }
 
     /** Python size of {@code o} */
+    // Compare CPython PyObject_Size in abstract.c
     static int size(PyObject o) throws Throwable {
         // Note that the slot is called sq_length but this method, size.
         try {
@@ -209,6 +215,7 @@ class Abstract {
      * Python {@code o[key]} where {@code o} may be a mapping or a
      * sequence.
      */
+    // Compare CPython PyObject_GetItem in abstract.c
     static PyObject getItem(PyObject o, PyObject key) throws Throwable {
         // Corresponds to abstract.c : PyObject_GetItem
         // Decisions are based on types of o and key
@@ -233,6 +240,7 @@ class Abstract {
      * Python {@code o[key] = value} where {@code o} may be a mapping or
      * a sequence.
      */
+    // Compare CPython PyObject_SetItem in abstract.c
     static void setItem(PyObject o, PyObject key, PyObject value)
             throws Throwable {
         // Corresponds to abstract.c : PyObject_SetItem
@@ -256,9 +264,9 @@ class Abstract {
     }
 
     /** Python {@code o.name}. */
+    // Compare CPython PyObject_GetAttr in object.c
     static PyObject getAttr(PyObject o, PyObject name)
             throws AttributeError, TypeError, Throwable {
-        // Corresponds to object.c : PyObject_GetAttr
         // Decisions are based on types of o and name
         if (name instanceof PyUnicode) {
             return getAttr(o, (PyUnicode) name);
@@ -268,11 +276,12 @@ class Abstract {
     }
 
     /** Python {@code o.name}. */
+    // Compare CPython PyObject_GetAttr in object.c
     static PyObject getAttr(PyObject o, PyUnicode name)
-            throws AttributeError, TypeError, Throwable {
-        // Corresponds to object.c : PyObject_GetAttr
+            throws AttributeError, Throwable {
         // Decisions are based on type of o (that of name is known)
         try {
+            // Invoke __getattribute__
             MethodHandle getattro = o.getType().tp_getattro;
             return (PyObject) getattro.invokeExact(o, name);
         } catch (EmptyException e) {
@@ -281,9 +290,9 @@ class Abstract {
     }
 
     /** Python {@code o.name = value}. */
+    // Compare CPython PyObject_SetAttr in object.c
     static void setAttr(PyObject o, PyObject name, PyObject value)
             throws AttributeError, TypeError, Throwable {
-        // Corresponds to object.c : PyObject_SetAttr
         if (name instanceof PyUnicode) {
             setAttr(o, (PyUnicode) name, value);
         } else {
@@ -292,9 +301,9 @@ class Abstract {
     }
 
     /** Python {@code o.name = value}. */
+    // Compare CPython PyObject_SetAttr in object.c
     static void setAttr(PyObject o, PyUnicode name, PyObject value)
             throws AttributeError, TypeError, Throwable {
-        // Corresponds to object.c : PyObject_SetAttr
         // Decisions are based on type of o (that of name is known)
         try {
             o.getType().tp_setattro.invokeExact(o, name, value);
@@ -469,7 +478,7 @@ class Abstract {
         return Slot.nb_index.isDefinedFor(obj.getType());
     }
 
-    /** Throw generic something went wrong internally */
+    /** Throw generic something went wrong internally (last resort). */
     static void badInternalCall() {
         throw new InterpreterError("bad internal call");
     }

@@ -52,6 +52,7 @@ class Py {
         return new PyFloat(value);
     }
 
+    /** Return Python {@code bool} for Java {@code boolean}. */
     static PyBool val(boolean value) {
         return value ? Py.True : Py.False;
     }
