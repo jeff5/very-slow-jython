@@ -264,6 +264,43 @@ class Abstract {
     }
 
     /** Python {@code o.name}. */
+    // Compare CPython _PyObject_GetAttr in object.c
+    // Also _PyObject_GetAttrId in object.c
+    static PyObject getAttr(PyObject o, PyUnicode name)
+            throws AttributeError, Throwable {
+        // Decisions are based on type of o (that of name is known)
+        PyType t = o.getType();
+        try {
+            // Invoke __getattribute__.
+            return (PyObject) t.tp_getattribute.invokeExact(o, name);
+        } catch (AttributeError e) {
+            try {
+                // Not found or not defined: fall back on __getattr__.
+                return (PyObject) t.tp_getattro.invokeExact(o, name);
+            } catch (EmptyException ignored) {
+                // __getattr__ not defined, original exception stands.
+                if (e instanceof AttributeError) {
+                    throw e;
+                } else {
+                    // Probably never, since inherited from object
+                    throw noAttributeError(o, name);
+                }
+            }
+        }
+    }
+
+    // static PyObject getAttr(PyObject o, PyUnicode name)
+    // throws AttributeError, Throwable {
+    // // Decisions are based on type of o (that of name is known)
+    // PyType t = o.getType();
+    // try {
+    // return (PyObject) t.tp_getattro.invokeExact(o, name);
+    // } catch (EmptyException e) {
+    // throw noAttributeError(o, name);
+    // }
+    // }
+
+    /** Python {@code o.name}. */
     // Compare CPython PyObject_GetAttr in object.c
     static PyObject getAttr(PyObject o, PyObject name)
             throws AttributeError, TypeError, Throwable {
@@ -275,30 +312,12 @@ class Abstract {
         }
     }
 
-    /** Python {@code o.name}. */
-    // Compare CPython PyObject_GetAttr in object.c
-    static PyObject getAttr(PyObject o, PyUnicode name)
-            throws AttributeError, Throwable {
-        // Decisions are based on type of o (that of name is known)
-        try {
-            // Invoke __getattribute__
-            MethodHandle getattro = o.getType().tp_getattro;
-            return (PyObject) getattro.invokeExact(o, name);
-        } catch (EmptyException e) {
-            throw noAttributeError(o, name);
-        }
-    }
-
-    /** Python {@code o.name = value}. */
-    // Compare CPython PyObject_SetAttr in object.c
-    static void setAttr(PyObject o, PyObject name, PyObject value)
-            throws AttributeError, TypeError, Throwable {
-        if (name instanceof PyUnicode) {
-            setAttr(o, (PyUnicode) name, value);
-        } else {
-            throw new TypeError(ATTR_MUST_BE_STRING_NOT, name);
-        }
-    }
+    //    /** Python {@code o.name}. */
+    //    // Compare CPython PyObject_GetAttrString in object.c
+    //    static PyObject getAttr(PyObject o, String name)
+    //            throws AttributeError, Throwable {
+    //        return getAttr(o, Py.str(name));
+    //    }
 
     /** Python {@code o.name = value}. */
     // Compare CPython PyObject_SetAttr in object.c
@@ -317,6 +336,24 @@ class Abstract {
             throw new TypeError(fmt, oType, kind, mode, name);
         }
     }
+
+    /** Python {@code o.name = value}. */
+    // Compare CPython PyObject_SetAttr in object.c
+    static void setAttr(PyObject o, PyObject name, PyObject value)
+            throws AttributeError, TypeError, Throwable {
+        if (name instanceof PyUnicode) {
+            setAttr(o, (PyUnicode) name, value);
+        } else {
+            throw new TypeError(ATTR_MUST_BE_STRING_NOT, name);
+        }
+    }
+
+    //    /** Python {@code o.name}. */
+    //    // Compare CPython PyObject_GetAttrString in object.c
+    //    static void setAttr(PyObject o, String name, PyObject value)
+    //            throws AttributeError, Throwable {
+    //        setAttr(o, Py.str(name), value);
+    //    }
 
     protected static final String HAS_NO_LEN =
             "object of type '%.200s' has no len()";
@@ -442,6 +479,21 @@ class Abstract {
      */
     static AttributeError noAttributeError(PyObject v, PyObject name) {
         String fmt = "'%.50s' object has no attribute '%.50s'";
+        return new AttributeError(fmt, v.getType().getName(), name);
+    }
+
+    /**
+     * Create a {@link AttributeError} with a message along the lines
+     * "'T' object attribute N is read-only", where T is the type of the
+     * object accessed.
+     *
+     * @param v object accessed
+     * @param name of attribute
+     * @return exception to throw
+     */
+    static AttributeError readonlyAttributeError(PyObject v,
+            PyObject name) {
+        String fmt = "'%.50s' object attribute '%s' is read-only";
         return new AttributeError(fmt, v.getType().getName(), name);
     }
 

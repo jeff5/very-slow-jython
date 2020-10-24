@@ -3,6 +3,7 @@ package uk.co.farowl.vsj2.evo4;
 import java.lang.invoke.MethodHandle;
 import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -35,21 +36,35 @@ class PyType implements PyObject {
     private PyType[] bases;
     private PyType[] mro;
 
+    /**
+     * The dictionary of the type is always an ordered {@code Map}. It
+     * is only accessible (outside the core) through a
+     * {@code mappingproxy} that renders it read-only.
+     */
+    private final Map<PyUnicode, PyObject> dict = new LinkedHashMap<>();
+
     // Standard type slots table see CPython PyType
 
-    MethodHandle tp_vectorcall;
     MethodHandle tp_repr;
     MethodHandle tp_hash;
     MethodHandle tp_call;
     MethodHandle tp_str;
 
+    MethodHandle tp_getattribute;
     MethodHandle tp_getattro;
     MethodHandle tp_setattro;
 
     MethodHandle tp_richcompare;
+
+    MethodHandle tp_iter;
+
+    MethodHandle tp_descr_get;
+    MethodHandle tp_descr_set;
+
     MethodHandle tp_init;
     MethodHandle tp_new;
-    MethodHandle tp_iter;
+
+    MethodHandle tp_vectorcall;
 
     // Number slots table see CPython PyNumberMethods
 
@@ -84,7 +99,7 @@ class PyType implements PyObject {
     // MethodHandle sq_repeat;
     MethodHandle sq_item;
     MethodHandle sq_ass_item;
-    // MethodHandle contains;
+    // MethodHandle sq_contains;
 
     // MethodHandle inplace_concat;
     // MethodHandle inplace_repeat;
@@ -98,12 +113,6 @@ class PyType implements PyObject {
     /** Construct a type with given name and {@code object} as base. */
     PyType(String name, Class<? extends PyObject> implClass) {
         this(name, implClass, EMPTY_TYPE_ARRAY, Spec.DEFAULT_FLAGS);
-    }
-
-    /** Construct a type {@code object} exactly. */
-    static PyType forObject() {
-        return new PyType("object", PyBaseObject.class, null,
-                Spec.DEFAULT_FLAGS);
     }
 
     /** Construct a type from the given specification. */
@@ -152,8 +161,8 @@ class PyType implements PyObject {
      * side-effect the type object of its base {@code object}. The
      * special constructor solves the problem that each of these has to
      * exist in order properly to create the other. This constructor is
-     * <b>only</b> used, once, for the static initialisation these
-     * objects as static final constants.
+     * <b>only</b> used, once, during the static initialisation of
+     * {@code PyType}, after which these objects are constants.
      */
     private PyType() {
         // We are creating the PyType for "type"
@@ -243,16 +252,67 @@ class PyType implements PyObject {
             throw new TypeError("cannot update slots of %s", name);
     }
 
+    /**
+     * {@code true} iff the type of {@code o} is {@code this} or a
+     * Python sub-type of {@code this}.
+     */
+    boolean check(PyObject o) {
+        PyType t = o.getType();
+        return t == this || t.isSubTypeOf(this);
+    }
+
+    /**
+     * {@code true} iff the Python type of {@code o} is exactly
+     * {@code this}, not a Python sub-type of {@code this}, nor just any
+     * Java sub-class of {@code PyType}. {@code o} will also be
+     * assignable in Java to the implementation class of this type.
+     */
+    // Multiple acceptable implementations would invalidate last stmt.
+    boolean checkExact(PyObject o) {
+        return o.getType() == TYPE;
+    }
+
     /** True iff b is a sub-type (on the MRO of) this type. */
+    // Compare CPython PyType_IsSubtype in typeobject.c
     boolean isSubTypeOf(PyType b) {
+        if (mro != null) {
+            /*
+             * Deal with multiple inheritance without recursion by
+             * walking the MRO tuple
+             */
+            for (PyType base : mro) {
+                if (base == b)
+                    return true;
+            }
+            return false;
+        } else
+            // a is not completely initilized yet; follow base
+            return type_is_subtype_base_chain(b);
+    }
+
+    // Compare CPython type_is_subtype_base_chain in typeobject.c
+    private boolean type_is_subtype_base_chain(PyType b) {
         // Only crudely supported. Later, search the MRO of this for b.
         // Awaits PyType.forClass() factory method.
         PyType t = this;
-        while (t != b) { t = t.base; if (t == null) { return false; } }
+        while (t != b) {
+            t = t.base;
+            if (t == null) { return b == OBJECT_TYPE; }
+        }
         return true;
     }
 
     boolean isMutable() { return flags.contains(Flag.MUTABLE); }
+
+    boolean isDataDescr() {
+        // XXX Base on the Trait & that on something in construction.
+        return false;
+    }
+
+    boolean isNonDataDescr() {
+        // XXX Base on the Trait & that on something in construction.
+        return false;
+    }
 
     /** Return the base (core use only). */
     PyType getBase() {
@@ -268,6 +328,52 @@ class PyType implements PyObject {
     PyType[] getMRO() {
         return mro;
     }
+
+    // /** Return the dictionary of the type. */
+    // @Override
+    // PyObject.Mapping getDict() {
+    // XXX // Need a wrapper that is a PyObject (mappingproxy)
+    // return dict;
+    // }
+
+    /**
+     * Look for a name, returning the entry directly from the first
+     * dictionary along the MRO containing key {@code name}. This may be
+     * a descriptor, but no {@code __get__} takes place on it: the
+     * descriptor itself will be returned. This method does not throw an
+     * exception if the name is not found, but returns {@code null} like
+     * a {@code Map.get}
+     *
+     * @param name to look up, must be exactly a {@code str}
+     * @return dictionary entry or null
+     */
+    // Compare CPython _PyType_Lookup in typeobject.c
+    // and find_name_in_mro in typeobject.c
+    PyObject lookup(PyUnicode name) {
+
+        /*
+         * CPython wraps this in a cache keyed by (type, name) and
+         * sensitive to the "version" of this type. (Version changes
+         * when any change occurs, even in a super-class, that would
+         * alter the result of a look-up. We do not reproduce that at
+         * present.
+         */
+
+        // Look in dictionaries of types in MRO
+        PyType[] mro = getMRO();
+
+        // CPython checks here to see in this type is "ready".
+        // Could we be "not ready" in some loop of types?
+
+        for (PyType base : mro) {
+            PyObject res;
+            if ((res = base.dict.get(name)) != null)
+                return res;
+        }
+        return null;
+    }
+
+
 
     /** Holds each type as it is defined. (Not used in this version.) */
     static class TypeRegistry {
@@ -367,22 +473,24 @@ class PyType implements PyObject {
      * @throws Throwable
      */
     static PyObject __call__(PyType type, PyTuple args, PyDict kwargs)
-            throws Throwable {
+            throws TypeError, Throwable {
         try {
             // Create the instance with given arguments.
             MethodHandle n = type.tp_new;
             PyObject o = (PyObject) n.invokeExact(type, args, kwargs);
-            // Check for special case type enquiry.
+            // Check for special case type enquiry: yes afterwards!
+            // (PyType.__new__ performs both functions.)
             if (isTypeEnquiry(type, args, kwargs)) { return o; }
             // As __new__ may be user-defined, check type as expected.
             PyType oType = o.getType();
             if (oType.isSubTypeOf(type)) {
-                // Initialise the object just returned (in necessary).
+                // Initialise the object just returned (if necessary).
                 if (Slot.tp_init.isDefinedFor(oType))
                     oType.tp_init.invokeExact(o, args, kwargs);
             }
             return o;
         } catch (EmptyException e) {
+            // type.tp_new is empty (not TYPE.tp_new)
             throw new TypeError("cannot create '%.100s' instances",
                     type.name);
         }
@@ -404,10 +512,29 @@ class PyType implements PyObject {
         throw new NotImplementedError("type creation");
     }
 
-    /** Helper for {@link #__call__} and {@link #__new__}. */
+    /**
+     * Helper for {@link #__call__} and {@link #__new__}. This is a type
+     * enquiry if {@code type} is {@link PyType#TYPE} and there is just
+     * one argument.
+     */
     private static boolean isTypeEnquiry(PyType type, PyTuple args,
             PyDict kwargs) {
         return type == TYPE && args.size() == 1
                 && (kwargs == null || kwargs.isEmpty());
+    }
+
+    // Compare CPython _PyType_GetDocFromInternalDoc
+    // in typeobject.c
+    static PyObject getDocFromInternalDoc(String name, String doc) {
+        // TODO Auto-generated method stub
+        return null;
+    }
+
+    // Compare CPython: PyType_GetTextSignatureFromInternalDoc
+    // in typeobject.c
+    static PyObject getTextSignatureFromInternalDoc(String name,
+            String doc) {
+        // TODO Auto-generated method stub
+        return null;
     }
 }

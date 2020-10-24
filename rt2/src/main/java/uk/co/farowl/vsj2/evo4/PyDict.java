@@ -11,7 +11,7 @@ import java.util.StringJoiner;
  * been implemented on top of the Java one.
  */
 class PyDict extends LinkedHashMap<PyObject, PyObject>
-        implements PyObject {
+        implements PyObject.Mapping {
 
     static final PyType TYPE =
             PyType.fromSpec(new PyType.Spec("dict", PyDict.class));

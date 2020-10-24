@@ -23,11 +23,16 @@ enum Slot {
     tp_call(Signature.CALL), //
     tp_str(Signature.UNARY), //
 
+    tp_getattribute(Signature.GETATTRO, null, "__getattribute__"), //
     tp_getattro(Signature.GETATTRO, null, "__getattr__"), //
     tp_setattro(Signature.SETATTRO, null, "__setattr__"), //
 
     tp_richcompare(Signature.RICHCMP), //
     tp_iter(Signature.UNARY), //
+
+    tp_descr_get(Signature.DESCRGET, null, "__get__"), //
+    tp_descr_set(Signature.DESCRSET, null, "__set__"), //
+
     tp_init(Signature.INIT), //
     tp_new(Signature.NEW), //
 
@@ -243,13 +248,15 @@ enum Slot {
         CALL(O, S, TUPLE, DICT), // u(self, *args, **kwargs)
         VECTORCALL(O, S, OA, I, I, TUPLE), // u(x, y, ..., a=z)
         PREDICATE(B, S), // nb_bool
-        LEN(I, S), // sq_length
+        LEN(I, S), // sq_length, tp_hash
         RICHCMP(O, S, O, CMP), // (richcmpfunc) tp_richcompare only
         SQ_INDEX(O, S, I), // (ssizeargfunc) sq_item, sq_repeat only
         SQ_ASSIGN(V, S, I, O), // (ssizeobjargproc) sq_ass_item only
         MP_ASSIGN(V, S, O, O), // (objobjargproc) mp_ass_subscript only
         GETATTRO(O, S, U), // (getattrofunc) tp_getattro
         SETATTRO(V, S, U, O), // (setattrofunc) tp_setattro
+        DESCRGET(O, S, O, T), // (descrgetfunc)
+        DESCRSET(V, S, O, O), // (descrsetfunc)
         INIT(V, S, TUPLE, DICT), // (initproc) tp_init
         NEW(O, T, TUPLE, DICT); // (newfunc) tp_new
 
@@ -331,8 +338,8 @@ enum Slot {
                 return LOOKUP.findVarHandle(methodsClass, slot.name(),
                         MethodHandle.class);
             } catch (NoSuchFieldException | IllegalAccessException e) {
-                throw new InterpreterError(e, "creating enum for %s",
-                        methodsClass.getSimpleName());
+                throw new InterpreterError(e, "seeking slot %s in %s",
+                        slot.name(), methodsClass.getSimpleName());
             }
         }
 
