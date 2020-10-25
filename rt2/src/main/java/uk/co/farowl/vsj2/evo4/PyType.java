@@ -1,6 +1,7 @@
 package uk.co.farowl.vsj2.evo4;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -117,8 +118,20 @@ class PyType implements PyObject {
 
     /** Construct a type from the given specification. */
     static PyType fromSpec(Spec spec) {
-        return new PyType(spec.name, spec.implClass, spec.getBases(),
-                spec.flags);
+        PyType type = new PyType(spec.name, spec.implClass,
+                spec.getBases(), spec.flags);
+        type.processNamespace(spec.namespace);
+        return type;
+    }
+
+    /** Copy a name space into the dictionary of this type. */
+    private void processNamespace(Map<PyObject, PyObject> namespace) {
+        for (Map.Entry<PyObject, PyObject> e : namespace.entrySet()) {
+            PyObject key = e.getKey();
+            if (key instanceof PyUnicode) {
+                dict.put((PyUnicode) key, e.getValue());
+            }
+        }
     }
 
     /**
@@ -329,12 +342,16 @@ class PyType implements PyObject {
         return mro;
     }
 
-    // /** Return the dictionary of the type. */
-    // @Override
-    // PyObject.Mapping getDict() {
-    // XXX // Need a wrapper that is a PyObject (mappingproxy)
-    // return dict;
-    // }
+    /**
+     * {@inheritDoc}
+     * <p>
+     * The dictionary of a {@code type} always exists, but is presented
+     * externally only in read-only form.
+     */
+    @Override
+    public Map<PyObject, PyObject> getDict(boolean create) {
+        return Collections.unmodifiableMap(dict);
+    }
 
     /**
      * Look for a name, returning the entry directly from the first
@@ -373,8 +390,6 @@ class PyType implements PyObject {
         return null;
     }
 
-
-
     /** Holds each type as it is defined. (Not used in this version.) */
     static class TypeRegistry {
 
@@ -408,19 +423,45 @@ class PyType implements PyObject {
                 EnumSet.of(Flag.BASETYPE);
 
         final String name;
-        final Class<? extends PyObject> implClass;
-        final List<PyType> bases = new LinkedList<>();
+        Class<? extends PyObject> implClass;
+        private final List<PyType> bases = new LinkedList<>();
+        Map<PyObject, PyObject> namespace = Collections.emptyMap();
         EnumSet<Flag> flags = EnumSet.copyOf(DEFAULT_FLAGS);
 
-        /** Create (begin) a specification for a {@link PyType}. */
+        /**
+         * Create (begin) a specification for a {@link PyType} based on
+         * a specific implementation class. This is the beginning
+         * normally made by built-in classes.
+         */
         Spec(String name, Class<? extends PyObject> implClass) {
             this.name = name;
             this.implClass = implClass;
         }
 
+        /**
+         * Create (begin) a specification for a {@link PyType} deferring
+         * the choice of implementation class. This is the beginning
+         * made by {@code type.__new__}.
+         */
+        Spec(String name) {
+            this.name = name;
+            this.implClass = PyBaseObject.class;
+        }
+
         /** Specify a base for the type. */
         Spec base(PyType b) {
             bases.add(b);
+            return this;
+        }
+
+        /**
+         * Specify a name space for the type. Normally this is the
+         * result of processing the body of a class declaration. It is
+         * copied into the type dictionary during class creation. Until
+         * then, it is ok to update it.
+         */
+        Spec namespace(Map<PyObject, PyObject> ns) {
+            namespace = ns;
             return this;
         }
 
@@ -498,19 +539,44 @@ class PyType implements PyObject {
 
     static PyObject __new__(PyType metatype, PyTuple args, PyDict kwds)
             throws Throwable {
+
         // Special case: type(x) should return type(x)
-        int nargs = args.size();
         if (isTypeEnquiry(metatype, args, kwds)) {
             return args.get(0).getType();
         }
 
-        if (nargs != 3) {
+        // Type creation call
+        PyObject oBases, oName, oNamespace;
+
+        if (args.size() != 3) {
             throw new TypeError("type() takes 1 or 3 arguments");
+        } else if (!PyUnicode.TYPE.check(oName = args.get(0))) {
+            throw new TypeError(NEW_ARG_MUST_BE, 0, PyUnicode.TYPE,
+                    oName.getType());
+        } else if (!PyTuple.TYPE.check(oBases = args.get(1))) {
+            throw new TypeError(NEW_ARG_MUST_BE, 1, PyTuple.TYPE.name,
+                    oBases.getType());
+        } else if (!PyDict.TYPE.check(oNamespace = args.get(2))) {
+            throw new TypeError(NEW_ARG_MUST_BE, 2, PyDict.TYPE.name,
+                    oNamespace.getType());
         }
 
-        // Type creation call
-        throw new NotImplementedError("type creation");
+        String name = oName.toString();
+        PyObject[] bases = ((PyTuple) oBases).value;
+        PyDict namespace = (PyDict) oNamespace;
+
+        // Specify using provided material
+        Spec spec = new Spec(name).namespace(namespace);
+        for (PyObject t : bases) {
+            if (t instanceof PyType)
+                spec.base((PyType) t);
+        }
+
+        return PyType.fromSpec(spec);
     }
+
+    private static final String NEW_ARG_MUST_BE =
+            "type.__new__() argument %d must be %s, not %s";
 
     /**
      * Helper for {@link #__call__} and {@link #__new__}. This is a type
@@ -522,6 +588,113 @@ class PyType implements PyObject {
         return type == TYPE && args.size() == 1
                 && (kwargs == null || kwargs.isEmpty());
     }
+
+    /**
+     * {@link Slot#tp_getattribute} has signature
+     * {@link Signature#GETATTR} and provides attribute read access on
+     * this type object and its metatype. This is very like
+     * {@code object.__getattribute__}
+     * (PyBaseObject{@link #__getattribute__(PyObject, PyUnicode)}), but
+     * the instance is replaced by a type object, and that object's type
+     * is a meta-type (which is also a {@code type}).
+     * <p>
+     * The behavioural difference is that in looking for attributes on a
+     * type:
+     * <ul>
+     * <li>we use {@link #lookup(PyUnicode)} to search along along the
+     * MRO, and</li>
+     * <li>if we find a descriptor, we use it.
+     * ({@code object.__getattribute__} does not check for descriptors
+     * on the instance.)</li>
+     * </ul>
+     * <p>
+     * The following order of precedence applies when looking for the
+     * value of an attribute:
+     * <ol>
+     * <li>a data descriptor from the dictionary of the meta-type</li>
+     * <li>a descriptor or value in the dictionary of {@code type}</li>
+     * <li>a non-data descriptor or value from dictionary of the meta
+     * type</li>
+     * </ol>
+     *
+     * @param type the target of the get
+     * @param name of the attribute
+     * @return attribute value
+     * @throws AttributeError if no such attribute
+     * @throws Throwable on other errors, typically from the descriptor
+     */
+    // Compare CPython type_getattro in typeobject.c
+    static PyObject __getattribute__(PyType type, PyUnicode name)
+            throws AttributeError, Throwable {
+
+        PyType metatype = type.getType();
+        MethodHandle metaGet = null;
+
+        // Look up the name in the type (null if not found).
+        PyObject metaAttr = metatype.lookup(name);
+        if (metaAttr != null) {
+            // Found in the metatype, it might be a descriptor
+            PyType metaAttrType = metaAttr.getType();
+            metaGet = metaAttrType.tp_descr_get;
+            if (metaAttrType.isDataDescr()) {
+                // metaAttr is a data descriptor so call its __get__.
+                try {
+                    return (PyObject) metaGet.invokeExact(metaAttr,
+                            type, metatype);
+                } catch (AttributeError | Slot.EmptyException e) {
+                    /*
+                     * Not found via descriptor: fall through to try the
+                     * instance dictionary, but prevent trying the
+                     * descriptor again.
+                     */
+                    metaGet = null;
+                }
+            }
+        }
+
+        /*
+         * At this stage: metaAttr is the value from the metatype, or
+         * null if we didn't get one, and descrGet is an untried
+         * non-data descriptor, or null or empty if there wasn't one.
+         * It's time to give the object instance dictionary a chance.
+         */
+        PyObject attr = type.lookup(name);
+        if (attr != null) {
+            // Found in this type, it might still be a descriptor
+            PyType attrType = attr.getType();
+            // attr is a descriptor so call its __get__.
+            try {
+                // Note the args are (null, this) as this is the type
+                return (PyObject) attrType.tp_descr_get
+                        .invokeExact(attr, (PyObject) null, type);
+            } catch (AttributeError | Slot.EmptyException e) {
+                // Not found via descriptor: the attribute itself.
+                return attr;
+            }
+        }
+
+        /*
+         * The name wasn't in the type dictionary. We are now left with
+         * the results of look-up on the metatype.
+         */
+        if (metaGet != null) {
+            // metaAttr is a non-data descriptor so call its __get__.
+            try {
+                return (PyObject) metaGet.invokeExact(metaAttr, type,
+                        metatype);
+            } catch (AttributeError | Slot.EmptyException e) {
+                // Not found via descriptor (or empty?)
+            }
+        } else if (metaAttr != null) {
+            // The attribute obtained from the type is a plain value.
+            return metaAttr;
+        }
+
+        // All the look-ups came and descriptors to nothing :(
+        throw Abstract.noAttributeError(type, name);
+    }
+
+    // plumbing --------------------------------------------------
 
     // Compare CPython _PyType_GetDocFromInternalDoc
     // in typeobject.c

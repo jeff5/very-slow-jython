@@ -182,7 +182,7 @@ but this is a trap when it comes to efficiency:
 it involves making a ``PyUnicode`` every time we call it.
 (The equivalent is avoided in CPython source for a good reason.)
 We use a call to ``Py.str`` for ephemeral values
-or constant interned in ``Id`` when built-in names are involved.
+or constant interned in ``ID`` when built-in names are involved.
 
 There is a ``setAttr`` to complement the candidate ``getAttr``,
 with an easily-guessed implementation.
@@ -565,11 +565,8 @@ Now we can execute the following fragment within ``PyByteCode6``:
 and this is done for a range of arguments ``u`` and ``i``.
 
 
-
-
-
-``__new__`` in ``PyType``
-=========================
+``__new__`` in ``PyType`` (Provisional)
+=======================================
 
 When we invoke the ``__call__`` special method of ``PyType``,
 and the target ``PyType`` is ``type`` itself,
@@ -578,19 +575,157 @@ and we create a new type from the arguments supplied.
 This convoluted situation needs careful thought,
 based on successively approximating the class build process.
 
+Consider the apparently trivial sequence:
+
+..  code-block:: python
+
+    C = type('C', (), {})
+    c = C()
+
+Here we call the constructor of ``type`` objects
+to create a class called ``"C"``,
+that for sanity's sake we assign to the variable ``C``.
+This is to say we call ``type.__call__``,
+and this in turn calls ``type.__new__``.
+The arguments are the name, a tuple of bases and a name space
+that would ordinarily be the result of executing
+the body of a class definition.
+
+We have seen ``type.__call__`` already,
+but a provisional ``type.__new__`` runs like this:
+
+..  code-block:: java
+
+     static PyObject __new__(PyType metatype, PyTuple args, PyDict kwds)
+                throws Throwable {
+
+            // Special case: type(x) should return type(x)
+            if (isTypeEnquiry(metatype, args, kwds)) {
+                return args.get(0).getType();
+            }
+
+            // ... Process arguments to bases, name, namespace ...
+
+            // Specify using provided material
+            Spec spec = new Spec(name).namespace(namespace);
+            for (PyObject t : bases) {
+                if (t instanceof PyType)
+                    spec.base((PyType) t);
+            }
+
+            return PyType.fromSpec(spec);
+     }
+
+After the clause where ``__new__`` checks to see if this is a type enquiry,
+it creates a specification for the type,
+and a type from that.
+In CPython, ``type_new`` is 523 lines long,
+so it is likely we have missed a few details,
+but we do actually get a type object from this.
+
+In the Python snippet,
+we go on to call that type object to get an instance.
+That works too, iof we don't look too hard.
+
+One delicate question is how to choose the (Java) implementation class
+of the new type.
+For a built-in type we construct the ``Spec`` with a knowledge of the
+implementation class.
+The new type is a Python subclass of each of its bases
+(or if that tuple is empty, as it is in the example, just of ``object``).
+It must also be a Java sub-class of their implementation types,
+so that any methods implemented in Java are applicable to it.
+This creates a constraint on the selection of bases
+that is the Java parallel to the dreaded "layout conflict".
+
+Assuming ``PyBaseObject`` appears to work for this simple case,
+but it doesn't get us far:
+``C`` should have an instance dictionary and
+``PyBaseObject`` (i.e. ``object``) doesn't.
+The correct Java class is one that all the bases may extend,
+and which may also have an instance dictionary (or slots, or both).
 
 
-******************************************************************
+.. _instance-dictionary:
 
 The Instance Dictionary
 =======================
 
-Support in PyObject
--------------------
+Support in ``PyObject``
+-----------------------
+
+It will be a frequent need to get the instance dictionary (in Java) from
+a Python object, to look up attributes in it.
+This includes the case where the object os a type object.
+So we're going to add that facility to the interface ``PyObject``.
+
+Now, it would be a mistake here to hand out a reference to
+a fully-functional ``PyDict``.
+Some types of object (and ``type`` is one of them),
+insist on controlling access to their members.
+(``PyType`` has a lot of re-computing to do when attributes change,
+so it needs to know when that happens.)
+Although every ``type`` object has a ``__dict__`` member,
+it is not as permissive as that of most objects of user-defined type.
+
+..  code-block:: python
+
+    >>> type(c.__dict__)
+    <class 'dict'>
+    >>> (c:=C()).__dict__['a'] = 42
+    >>> c.a
+    42
+    >>> type(C.__dict__)
+    <class 'mappingproxy'>
+    >>> C.__dict__['a'] = 42
+    Traceback (most recent call last):
+      File "<pyshell#377>", line 1, in <module>
+        C.__dict__['a'] = 42
+    TypeError: 'mappingproxy' object does not support item assignment
+
+We therefore need to accommodate instance "dictionaries"
+that are ``dict``\-like, but may be a read-only proxy to the real,
+modifiable dictionary.
+We now redefine:
+
+..  code-block:: java
+
+    interface PyObject {
+
+        /** The Python {@code type} of this object. */
+        PyType getType();
+
+        /**
+         * The dictionary of the instance, (not necessarily a Python
+         * {@code dict} or writable.
+         */
+        default Map<PyObject, PyObject> getDict(boolean create) {
+            return null;
+        }
+    }
+
+An object may implement this additional method
+by handing out an actual instance dictionary (a ``dict``),
+or a proxy that manages access.
+
+..  code-block:: java
+
+    class PyDict extends LinkedHashMap<PyObject, PyObject>
+            implements Map<PyObject, PyObject>, PyObject {
+        // ...
+
+
+The slightly clumsy ``create`` argument is intended to allow objects
+that create their dictionary lazily,
+to defer creation until a client intends to write something in it.
 
 
 Read-only Dictionary (``PyType``)
 ---------------------------------
+
+
+
+
 
 
 

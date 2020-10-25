@@ -279,12 +279,7 @@ class Abstract {
                 return (PyObject) t.tp_getattro.invokeExact(o, name);
             } catch (EmptyException ignored) {
                 // __getattr__ not defined, original exception stands.
-                if (e instanceof AttributeError) {
-                    throw e;
-                } else {
-                    // Probably never, since inherited from object
-                    throw noAttributeError(o, name);
-                }
+                throw e;
             }
         }
     }
@@ -312,12 +307,12 @@ class Abstract {
         }
     }
 
-    //    /** Python {@code o.name}. */
-    //    // Compare CPython PyObject_GetAttrString in object.c
-    //    static PyObject getAttr(PyObject o, String name)
-    //            throws AttributeError, Throwable {
-    //        return getAttr(o, Py.str(name));
-    //    }
+    // /** Python {@code o.name}. */
+    // // Compare CPython PyObject_GetAttrString in object.c
+    // static PyObject getAttr(PyObject o, String name)
+    // throws AttributeError, Throwable {
+    // return getAttr(o, Py.str(name));
+    // }
 
     /** Python {@code o.name = value}. */
     // Compare CPython PyObject_SetAttr in object.c
@@ -348,12 +343,12 @@ class Abstract {
         }
     }
 
-    //    /** Python {@code o.name}. */
-    //    // Compare CPython PyObject_GetAttrString in object.c
-    //    static void setAttr(PyObject o, String name, PyObject value)
-    //            throws AttributeError, Throwable {
-    //        setAttr(o, Py.str(name), value);
-    //    }
+    // /** Python {@code o.name}. */
+    // // Compare CPython PyObject_GetAttrString in object.c
+    // static void setAttr(PyObject o, String name, PyObject value)
+    // throws AttributeError, Throwable {
+    // setAttr(o, Py.str(name), value);
+    // }
 
     protected static final String HAS_NO_LEN =
             "object of type '%.200s' has no len()";

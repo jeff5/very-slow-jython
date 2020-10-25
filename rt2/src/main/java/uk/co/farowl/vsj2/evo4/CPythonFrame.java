@@ -303,18 +303,20 @@ class CPythonFrame extends PyFrame {
                         locals.put(name, v);
                         break;
 
-                    case Opcode.STORE_ATTR: // v.name = w
+                    case Opcode.STORE_ATTR: // w.name = v
                         // v | w | -> |
                         // -------^sp -^sp
                         sp -= 2; // SHRINK 2
                         v = valuestack[sp];
                         w = valuestack[sp + 1];
-                        Abstract.setAttr(v, names[oparg], w);
+                        Abstract.setAttr(w, names[oparg], v);
                         break;
 
-                    case Opcode.DELETE_ATTR: // del v.name
-                        v = valuestack[--sp];
-                        Abstract.setAttr(v, names[oparg], null);
+                    case Opcode.DELETE_ATTR: // del w.name
+                        // w | -> |
+                        // ---^sp -^sp
+                        w = valuestack[--sp];
+                        Abstract.setAttr(w, names[oparg], null);
                         break;
 
                     case Opcode.STORE_GLOBAL:
@@ -348,12 +350,12 @@ class CPythonFrame extends PyFrame {
                         valuestack[sp++] = v; // PUSH
                         break;
 
-                    case Opcode.LOAD_ATTR: // v.name
-                        // v | -> | v.name |
+                    case Opcode.LOAD_ATTR: // w.name
+                        // w | -> | w.name |
                         // ---^sp ----------^sp
-                        v = valuestack[sp - 1];
+                        w = valuestack[sp - 1];
                         valuestack[sp - 1] =
-                                Abstract.getAttr(v, names[oparg]);
+                                Abstract.getAttr(w, names[oparg]);
                         break;
 
                     case Opcode.COMPARE_OP:

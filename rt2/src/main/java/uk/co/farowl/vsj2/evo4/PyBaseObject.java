@@ -1,6 +1,7 @@
 package uk.co.farowl.vsj2.evo4;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Map;
 
 import uk.co.farowl.vsj2.evo4.Slot.Signature;
 
@@ -75,6 +76,16 @@ class PyBaseObject extends AbstractPyObject {
         return __repr__(self);
     }
 
+    static PyObject __new__(PyType type, PyTuple args, PyDict kwargs)
+            throws Throwable {
+        // Assert no arguments
+        if (args.isEmpty() && (kwargs == null || kwargs.isEmpty())) {
+            return new PyBaseObject(type);
+        } else {
+            throw new TypeError("object() takes no arguments");
+        }
+    }
+
     /**
      * {@link Slot#tp_getattribute} has signature
      * {@link Signature#GETATTR} and provides attribute read access on
@@ -89,7 +100,7 @@ class PyBaseObject extends AbstractPyObject {
      * <li>a non-data descriptor from dictionary of the type</li>
      * <li>a value from the dictionary of the type</li>
      * </ol>
-     * If a matching entry on the type is a data descriptor (case 1) ,
+     * If a matching entry on the type is a data descriptor (case 1),
      * but throws {@link AttributeError}, the instance dictionary (if
      * any) will be consulted, and the subsequent cases (3 and 4)
      * skipped. A non-data descriptor that throws an
@@ -137,7 +148,7 @@ class PyBaseObject extends AbstractPyObject {
          * descriptor, or null or empty if there wasn't one. It's time
          * to give the object instance dictionary a chance.
          */
-        PyObject.Mapping dict = obj.getDict(false);
+        Map<PyObject, PyObject> dict = obj.getDict(false);
         PyObject instanceAttr;
         if (dict != null && (instanceAttr = dict.get(name)) != null) {
             // Found something
@@ -149,7 +160,7 @@ class PyBaseObject extends AbstractPyObject {
          * an instance dictionary). We are now left with the results of
          * look-up on the type.
          */
-        if (descrGet != null) {
+        if (descrGet != null && descrGet != EMPTY_GET) {
             // typeAttr is a non-data descriptor so call its __get__.
             try {
                 return (PyObject) descrGet.invokeExact(typeAttr, obj,
@@ -200,7 +211,7 @@ class PyBaseObject extends AbstractPyObject {
             if (descrSet != EMPTY_SET) {
                 /*
                  * Descriptor has a __set__: use that. The action may
-                 * throw AttributeError
+                 * throw AttributeError, but we're done.
                  */
                 descrSet.invokeExact(typeAttr, obj, value);
                 return;
@@ -208,35 +219,59 @@ class PyBaseObject extends AbstractPyObject {
         }
 
         /*
-         * At this stage: typeAttr is the value from the type, or null
-         * if we didn't get one, and descrGet is null or empty if there
-         * wasn't one. It's time to give the object instance dictionary
-         * a chance.
+         * There was no __set__ descriptor, so it's time to give the
+         * object instance dictionary a chance to receive.
+         *
+         * At this stage: typeAttr is the value from the type, or a
+         * descriptor (without a __set__), or null if there was no
+         * attribute. The state of typeAttr will only vary the error
+         * message in the case that the instance won't receive the
+         * attribute. Also in that case, it matters to the error message
+         * whether the instance allows a dictionary in principle, so we
+         * ask to create one unconditionally.
          */
-        PyObject.Mapping dict = obj.getDict(true);
+        Map<PyObject, PyObject> dict = obj.getDict(true);
         if (dict == null) {
-            // Object has no dictionary (and can't be given one)
+            // Object has no dictionary (and won't support one).
             if (typeAttr == null) {
+                // Neither has the type an entry for the name.
                 throw Abstract.noAttributeError(obj, name);
             } else {
-                // No dict and a descriptor but no __set__
+                /*
+                 * The type had either a value for the name or a
+                 * descriptor with no __set__ operation. Either way,
+                 * it's read-only when accessed via the instance.
+                 */
                 throw Abstract.readonlyAttributeError(obj, name);
             }
-        } else if (value == null) {
-            // There is a dictionary, and this is a delete.
-            PyObject previous = dict.remove(name);
-            if (previous == null) {
-                // A null return implies it didn't exist
-                throw Abstract.noAttributeError(obj, name);
-            }
         } else {
-            // There is a dictionary, and this is a put.
-            // XXX dict might be read-only, e.g. obj is a type.
-            dict.put(name, value);
+            try {
+                if (value != null) {
+                    // There is a dictionary, and this is a put.
+                    dict.put(name, value);
+                } else {
+                    // There is a dictionary, and this is a delete.
+                    PyObject previous = dict.remove(name);
+                    if (previous == null) {
+                        // A null return implies it didn't exist
+                        throw Abstract.noAttributeError(obj, name);
+                    }
+                }
+            } catch (UnsupportedOperationException e) {
+                // But the dictionary is unmodifiable
+                throw new TypeError(CANT_SET_ATTRIBUTES,
+                        obj.getType().name);
+            }
         }
+
         return;
     }
 
+    private static final String CANT_SET_ATTRIBUTES =
+            "can't set attributes of type '%s'";
+
     private static final MethodHandle EMPTY_SET =
             Slot.tp_descr_set.getEmpty();
+    private static final MethodHandle EMPTY_GET =
+            Slot.tp_descr_get.getEmpty();
 }

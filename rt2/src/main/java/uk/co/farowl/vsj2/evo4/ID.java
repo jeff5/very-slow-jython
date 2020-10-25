@@ -13,23 +13,40 @@ class ID {
 
     private static Map<String, PyUnicode> ids = new HashMap<>();
 
+    static final PyUnicode __isabstractmethod__ =
+            intern("__isabstractmethod__");
+    static final PyUnicode __bases__ = intern("__bases__");
     static final PyUnicode __build_class__ = intern("__build_class__");
     static final PyUnicode __builtins__ = intern("__builtins__");
+    static final PyUnicode __class__ = intern("__class__");
+    static final PyUnicode __doc__ = intern("__doc__");
+    static final PyUnicode __instancecheck__ =
+            intern("__instancecheck__");
     static final PyUnicode __mro_entries__ = intern("__mro_entries__");
     static final PyUnicode __name__ = intern("__name__");
+    static final PyUnicode __qualname__ = intern("__qualname__");
+    static final PyUnicode __subclasscheck__ =
+            intern("__subclasscheck__");
 
+    static final PyUnicode False = intern("False");
     static final PyUnicode None = intern("None");
     static final PyUnicode NotImplemented = intern("NotImplemented");
-    static final PyUnicode False = intern("False");
     static final PyUnicode True = intern("True");
+
     static final PyUnicode bool = intern("bool");
     static final PyUnicode bytes = intern("bytes");
+    static final PyUnicode copy = intern("copy");
     static final PyUnicode dict = intern("dict");
+    static final PyUnicode get = intern("get");
+    static final PyUnicode getattr = intern("getattr");
+    static final PyUnicode items = intern("items");
+    static final PyUnicode keys = intern("keys");
     static final PyUnicode list = intern("list");
     static final PyUnicode object = intern("object");
     static final PyUnicode str = intern("str");
     static final PyUnicode tuple = intern("tuple");
     static final PyUnicode type = intern("type");
+    static final PyUnicode values = intern("values");
 
     /**
      * Find or create, and intern, a Python <code>str</code> for the
@@ -37,7 +54,7 @@ class ID {
      * static member of the same name.
      *
      * @param name to intern (or look up)
-     * @return the Python {@code str} withthat value
+     * @return the Python {@code str} with that value
      */
     static PyUnicode intern(String name) {
         PyUnicode u = ids.get(name);

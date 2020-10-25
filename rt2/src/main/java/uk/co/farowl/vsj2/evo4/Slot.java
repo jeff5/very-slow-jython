@@ -23,7 +23,7 @@ enum Slot {
     tp_call(Signature.CALL), //
     tp_str(Signature.UNARY), //
 
-    tp_getattribute(Signature.GETATTRO, null, "__getattribute__"), //
+    tp_getattribute(Signature.GETATTRO), //
     tp_getattro(Signature.GETATTRO, null, "__getattr__"), //
     tp_setattro(Signature.SETATTRO, null, "__setattr__"), //
 
@@ -184,8 +184,8 @@ enum Slot {
     }
 
     /**
-     * Get the contents of the "alternate" slot in the given type.
-     * For a binary operation this is the reflected operation.
+     * Get the contents of the "alternate" slot in the given type. For a
+     * binary operation this is the reflected operation.
      *
      * @param t target type
      * @return current contents of the alternate slot in {@code t}
@@ -209,6 +209,7 @@ enum Slot {
 
     /** The type of exception thrown by invoking an empty slot. */
     static class EmptyException extends Exception {
+
         // Suppression and stack trace disabled since singleton.
         EmptyException() { super(null, null, false, false); }
     }

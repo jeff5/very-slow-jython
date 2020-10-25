@@ -77,6 +77,16 @@ class TypedTuple<E extends PyObject> extends AbstractList<E>
     @Override
     public int size() { return value.length; }
 
+    /**
+     * Access the elements of the tuple checking that they are an array
+     * of the given component type. It is not sufficient that this be
+     * the actual type of every element: it must have been created and
+     * given to the {@code TypedTuple} as such.
+     *
+     * @param <T> element type expected
+     * @param cls element type expected
+     * @return contents as array of {@code T}
+     */
     @SuppressWarnings("unchecked")
     <T extends PyObject> T[] items(Class<T> cls) {
         if (cls.isAssignableFrom(value.getClass().getComponentType()))

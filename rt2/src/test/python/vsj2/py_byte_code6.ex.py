@@ -30,48 +30,100 @@ t = type(x)
 
 # type_constructor:
 
-# ? t, name
+# ? t
 # Create a class using the type constructor
 C = type('C', (), {})
-t = type(C)
-name = t.__name__
+c = C()
+t = repr(type(c))
 
 
-# instance_attributes:
+# type_get_attribute:
 
-# ? r
-# An instance has a dictionary we may access from Python.
+# ? a, b
+# A created class has attributes we can get
+C = type('C', (), {'a': 'hello', 'b': 'world'})
+a = C.a
+c = C()
+b = c.b
+
+# type_set_attribute:
+
+# ? a, b, ca, cb
+# A created class has attributes we can set
+C = type('C', (), {'b': 'world'})
+c = C()
+C.a = 'hello'
+C.b = 42
+a = C.a
+b = C.b
+ca = c.a
+cb = c.b
+
+
+# type_instance_dict:
+
+# ? a, b
+# An instance of a created class has a read/write dictionary
+C = type('C', (), {'b': 'world'})
+c = C()
+c.a = 5
+c.b = 42
+a = c.a
+b = c.b
+
+
+
+# class_definition:
+
+# ? t
+# Create a class using class definition
 class C:
     pass
 
 c = C()
-c.a = 10
-r = c.a
+t = repr(type(c))
 
 
 # class_get_attribute:
 
-# ? name, x
-# A class defined in Python has a dictionary we may read from Python.
+# ? a, b
+# A created class has attributes we can get
 class C:
-    X = 42
-    pass
+    a = 'hello'
+    b = 'world'
 
-name = C.__name__
-x = C.X
+a = C.a
+c = C()
+b = c.b
 
 # class_set_attribute:
 
-# ? x, y
-# A class defined in Python has a dictionary we may write from Python.
+# ? a, b, ca, cb
+# A created class has attributes we can set
 class C:
-    X = "penguin"
-    pass
+    b = 'world'
 
-C.X = "telly"
-C.Y = "explode"
-x = C.X
-y = C.Y
+c = C()
+C.a = 'hello'
+C.b = 42
+a = C.a
+b = C.b
+ca = c.a
+cb = c.b
+
+
+# class_instance_dict:
+
+# ? a, b
+# An instance of a created class has a read/write dictionary
+class C:
+    b = 'world'
+
+c = C()
+c.a = 5
+c.b = 42
+a = c.a
+b = c.b
 
 
 # instance_init:
