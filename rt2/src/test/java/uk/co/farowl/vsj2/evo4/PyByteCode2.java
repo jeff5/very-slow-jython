@@ -55,11 +55,19 @@ class PyByteCode2 {
         assertEquals("{'b': 1, 'a': {}}", d.toString());
     }
 
-    /** Test PyException repr for a simple case. */
+    /** Test PyException to String for a simple case. */
     @Test
     void testExceptionToString() {
         PyException e = new TypeError("test");
-        assertEquals("TypeError('test')", e.toString());
+        assertEquals("TypeError: test", e.toString());
+    }
+
+    /** Test PyException repr for a simple case. */
+    @Test
+    void testExceptionRepr() {
+        PyException e = new TypeError("test");
+        assertEquals(Py.str("TypeError('test')"),
+                PyException.__repr__(e));
     }
 
     /** Any attempt to use a slot will fail. */

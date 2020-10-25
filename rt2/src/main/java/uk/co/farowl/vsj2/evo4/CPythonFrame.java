@@ -663,6 +663,7 @@ class CPythonFrame extends PyFrame {
                  * code, or in a Python finally clause.
                  */
                 // Should handle within Python, but for now, stop.
+                System.err.println(pye);
                 throw pye;
             } catch (InterpreterError ie) {
                 /*
