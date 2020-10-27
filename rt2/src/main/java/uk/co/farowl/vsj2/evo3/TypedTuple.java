@@ -3,7 +3,6 @@ package uk.co.farowl.vsj2.evo3;
 import java.lang.reflect.Array;
 import java.util.AbstractList;
 import java.util.Collection;
-import java.util.List;
 import java.util.StringJoiner;
 
 /**
@@ -25,7 +24,6 @@ class TypedTuple<E extends PyObject> extends AbstractList<E>
      * @throws ArrayStoreException if any element of {@code value} is
      *             not assignment compatible with {@code cls}
      */
-    @SuppressWarnings("unchecked")
     TypedTuple(Class<E> cls, PyObject... value)
             throws ArrayStoreException {
         // Use the "unsafe" constructor in safe mode.

@@ -1,7 +1,5 @@
 package uk.co.farowl.vsj2.evo3;
 
-import java.util.Objects;
-
 /**
  * Compare CPython {@code warnings.h}: {@code PyErr_*}. At present, this
  * is no more than a home for placeholder methods to satisfy ported

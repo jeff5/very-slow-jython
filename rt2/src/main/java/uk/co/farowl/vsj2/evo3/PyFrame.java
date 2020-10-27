@@ -167,6 +167,7 @@ abstract class PyFrame implements PyObject {
      * @param globals global name space
      * @param locals local name space (or it may be {@code globals})
      */
+    @SuppressWarnings("unchecked")
     protected PyFrame(Interpreter interpreter, PyCode code,
             PyDict globals, PyObject locals) {
 

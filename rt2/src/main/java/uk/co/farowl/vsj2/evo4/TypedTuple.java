@@ -29,7 +29,6 @@ class TypedTuple<E extends PyObject> extends AbstractList<E>
      * @throws ArrayStoreException if any element of {@code value} is
      *             not assignment compatible with {@code cls}
      */
-    @SuppressWarnings("unchecked")
     TypedTuple(PyType type, Class<E> cls, PyObject... value)
             throws ArrayStoreException {
         // Use the "unsafe" constructor in safe mode.

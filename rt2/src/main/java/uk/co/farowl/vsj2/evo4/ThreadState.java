@@ -34,18 +34,12 @@ class ThreadState {
     private static final int RECURSION_EXTRA = 50;
     /** Recursion state of this thread */
     private final RecursionState recursionState = new RecursionState();
-    /** Current recursion limit */
-    private int recursionLimit = RECURSION_LIMIT;
-    /**
-     * {@code StackOverflow} has been raised and the stack has not yet
-     * recovered.
-     */
-    boolean overflowed = false;
 
     // Missing: recursionCritical;
 
     class RecursionState implements AutoCloseable {
 
+        /** Current recursion limit */
         private int recursionLimit;
         private int lowWaterMark;
         private int limit;
