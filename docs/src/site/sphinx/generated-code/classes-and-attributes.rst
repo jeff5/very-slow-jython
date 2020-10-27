@@ -656,36 +656,38 @@ Support in ``PyObject``
 
 It will be a frequent need to get the instance dictionary (in Java) from
 a Python object, to look up attributes in it.
-This includes the case where the object os a type object.
+This includes the case where the object is a type object.
 So we're going to add that facility to the interface ``PyObject``.
 
-Now, it would be a mistake here to hand out a reference to
+Now, it would be a mistake here to promise a reference to
 a fully-functional ``PyDict``.
 Some types of object (and ``type`` is one of them),
 insist on controlling access to their members.
 (``PyType`` has a lot of re-computing to do when attributes change,
 so it needs to know when that happens.)
 Although every ``type`` object has a ``__dict__`` member,
-it is not as permissive as that of most objects of user-defined type.
+it is not as permissive as those found in objects of user-defined type.
 
 ..  code-block:: python
 
-    >>> type(c.__dict__)
-    <class 'dict'>
+    >>> class C: pass
+
     >>> (c:=C()).__dict__['a'] = 42
     >>> c.a
     42
+    >>> type(c.__dict__)
+    <class 'dict'>
     >>> type(C.__dict__)
     <class 'mappingproxy'>
     >>> C.__dict__['a'] = 42
     Traceback (most recent call last):
-      File "<pyshell#377>", line 1, in <module>
+      File "<pyshell#489>", line 1, in <module>
         C.__dict__['a'] = 42
     TypeError: 'mappingproxy' object does not support item assignment
 
 We therefore need to accommodate instance "dictionaries"
 that are ``dict``\-like, but may be a read-only proxy to the real,
-modifiable dictionary.
+potentially modifiable dictionary.
 We now redefine:
 
 ..  code-block:: java
@@ -723,10 +725,43 @@ to defer creation until a client intends to write something in it.
 Read-only Dictionary (``PyType``)
 ---------------------------------
 
+Where we need to ensure that a mapping handed out by an object
+is not modified by the client,
+we may use an implementation of ``getDict()`` that wraps it,
+for example, if ``dict`` is the instance dictionary:
 
+..  code-block:: java
 
+        @Override
+        public Map<PyObject, PyObject> getDict(boolean create) {
+            return Collections.unmodifiableMap(dict);
+        }
 
+We do this in ``PyType``,
+to prevent clients updating the dictionary directly.
+The ``PyObject`` interface is public API,
+as public as the ``__dict__`` attribute,
+and therefore we cannot rely on clients to be well-behaved,
+remembering to police their own use of the dictionary,
+and triggering re-computation of the ``PyType`` after changes.
 
+(It also prevents ``object.__setattr__`` being applied to a type,
+since ``PyBaseObject.__setattr__`` uses this API.)
+
+While built-in types generally do not allow attribute setting,
+many user-defined instances of ``PyType`` allow it.
+We can manage this because we give ``PyType`` a custom ``__setttr__``,
+that inspects the flag that determines this kind of mutability,
+and has private access to the type dictionary.
+*All* type objects have to respond to changes to special methods
+in their dictionary,
+by updating type slots
+and notifying sub-classes of (potentially) changed inheritance.
+The custom ``__setttr__`` also makes sure that happens.
+
+Since we have already strayed a long way into
+the discussion of attribute access,
+we turn to that next.
 
 
 The Mechanism of Attribute Access
@@ -737,7 +772,7 @@ The Mechanism of Attribute Access
 ``__getattribute__`` and ``__getattr__``
 ========================================
 
-In :ref:`candidate-getattr`,
+In the :ref:`candidate-getattr`,
 we showed a simplified ``getAttr()`` sufficient for the example just past.
 It matches the CPython code, but CPython is hiding a trick.
 

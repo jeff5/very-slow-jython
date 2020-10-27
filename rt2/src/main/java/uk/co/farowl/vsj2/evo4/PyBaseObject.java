@@ -160,16 +160,16 @@ class PyBaseObject extends AbstractPyObject {
          * an instance dictionary). We are now left with the results of
          * look-up on the type.
          */
-        if (descrGet != null && descrGet != EMPTY_GET) {
-            // typeAttr is a non-data descriptor so call its __get__.
+        if (descrGet != null) {
+            // typeAttr may be a non-data descriptor: call __get__.
             try {
                 return (PyObject) descrGet.invokeExact(typeAttr, obj,
                         objType);
-            } catch (AttributeError | Slot.EmptyException e) {
-                // Not found via descriptor (or empty?)
-            }
-        } else if (typeAttr != null) {
-            // The attribute obtained from the type is a plain value.
+            } catch (Slot.EmptyException e) {}
+        }
+
+        if (typeAttr != null) {
+            // The attribute obtained from the type is the value.
             return typeAttr;
         }
 
@@ -259,19 +259,13 @@ class PyBaseObject extends AbstractPyObject {
                 }
             } catch (UnsupportedOperationException e) {
                 // But the dictionary is unmodifiable
-                throw new TypeError(CANT_SET_ATTRIBUTES,
-                        obj.getType().name);
+                throw Abstract.cantSetAttributeError(obj);
             }
         }
 
         return;
     }
 
-    private static final String CANT_SET_ATTRIBUTES =
-            "can't set attributes of type '%s'";
-
     private static final MethodHandle EMPTY_SET =
             Slot.tp_descr_set.getEmpty();
-    private static final MethodHandle EMPTY_GET =
-            Slot.tp_descr_get.getEmpty();
 }

@@ -196,7 +196,6 @@ class PyByteCode6 {
     }
 
     /** Set non-existent attribute raises {@code AttributeError}. */
-    @SuppressWarnings("unused")
     @Test
     void setAttrInDictError() throws Throwable {
         PyObject a = new A(43);
@@ -208,6 +207,31 @@ class PyByteCode6 {
         PyLong v = Py.val(7);
         assertThrows(AttributeError.class, () -> { //
             Abstract.setAttr(Py.str("x"), bar, v);
+        });
+    }
+
+    /**
+     * Setting an attribute on the type of a built-in raises
+     * {@code TypeError}.
+     */
+    @Test
+    void setBuiltinTypeAttrError() throws Throwable {
+        // object
+        final PyObject object = PyType.OBJECT_TYPE;
+        PyUnicode bar = Py.str("bar");
+        assertThrows(TypeError.class, () -> { // delete
+            Abstract.setAttr(object, bar, null);
+        });
+        assertThrows(TypeError.class, () -> { // set
+            Abstract.setAttr(object, bar, Py.val(1));
+        });
+        // str
+        final PyObject str = PyUnicode.TYPE;
+        assertThrows(TypeError.class, () -> { // delete
+            Abstract.setAttr(str, bar, null);
+        });
+        assertThrows(TypeError.class, () -> { // set
+            Abstract.setAttr(str, bar, Py.val(1));
         });
     }
 
@@ -660,7 +684,7 @@ class PyByteCode6 {
         Py.bytes(16, 1, 6, 1, 6, 1, 6, 1, 6, 1, 6, 1, 6, 1));
     //@formatter:on
 
-    // @Test
+    @Test
     void test_type_set_attribute1() {
         //@formatter:off
         Interpreter interp = Py.createInterpreter();

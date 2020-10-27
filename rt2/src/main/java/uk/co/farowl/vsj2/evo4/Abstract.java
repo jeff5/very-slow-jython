@@ -303,7 +303,7 @@ class Abstract {
         if (name instanceof PyUnicode) {
             return getAttr(o, (PyUnicode) name);
         } else {
-            throw new TypeError(ATTR_MUST_BE_STRING_NOT, name);
+            throw attributeNameTypeError(name);
         }
     }
 
@@ -339,7 +339,7 @@ class Abstract {
         if (name instanceof PyUnicode) {
             setAttr(o, (PyUnicode) name, value);
         } else {
-            throw new TypeError(ATTR_MUST_BE_STRING_NOT, name);
+            throw attributeNameTypeError(name);
         }
     }
 
@@ -350,24 +350,29 @@ class Abstract {
     // setAttr(o, Py.str(name), value);
     // }
 
+
+    // Convenience functions constructing errors --------------------
+
     protected static final String HAS_NO_LEN =
             "object of type '%.200s' has no len()";
     private static final String MUST_BE_INT_NOT =
             "sequence index must be integer, not '%.200s'";
     private static final String NOT_SUBSCRIPTABLE =
             "'%.200s' object is not subscriptable";
-    private static final String ATTR_MUST_BE_STRING_NOT =
-            "attribute name must be string, not '%.200s'";
     private static final String IS_REQUIRED_NOT =
             "%.200s is required, not '%.100s'";
     protected static final String NOT_ITEM_ASSIGNMENT =
             "'%.200s' object does not support item assignment";
     private static final String RETURNED_NON_TYPE =
             "%.200s returned non-%.200s (type %.200s)";
+    private static final String ARGUMENT_MUST_BE =
+            "%s()%s argument must be %s, not '%.200s'";
+
 
     /**
      * Create a {@link TypeError} with a message involving the type of
-     * {@code o}.
+     * {@code o}. All this really adds is the convenience of being able
+     * to pass the object rather than the type name of the object.
      *
      * @param fmt format string for message (with one {@code %s}
      * @param o object whose type name will substitute for {@code %s}
@@ -409,6 +414,30 @@ class Abstract {
     }
 
     /**
+     * Create a {@link TypeError} with a message along the lines
+     * "attribute name must be string, not 'X'" giving the type X of
+     * {@code name}.
+     *
+     * @param name actual object offered as a name
+     * @return exception to throw
+     */
+    static TypeError attributeNameTypeError(PyObject name) {
+        String fmt = "attribute name must be string, not '%.200s'";
+        return new TypeError(fmt, name.getType().getName());
+    }
+
+    /**
+     * Create a {@link TypeError} with a message along the lines "can't
+     * set attributes of X" giving str of {@code name}.
+     *
+     * @param obj actual object on which setting failed
+     * @return exception to throw
+     */
+    static TypeError cantSetAttributeError(PyObject obj) {
+        return new TypeError("can't set attributes of %.200s", obj);
+    }
+
+    /**
      * Create a {@link TypeError} with a message along the lines "F()
      * [nth] argument must be T, not X", involving a function name,
      * optionally an ordinal n, an expected type T and the type X of
@@ -443,9 +472,6 @@ class Abstract {
                 return String.format(" %dth", n);
         }
     }
-
-    private static final String ARGUMENT_MUST_BE =
-            "%s()%s argument must be %s, not '%.200s'";
 
     /**
      * Create a {@link TypeError} with a message along the lines "F
