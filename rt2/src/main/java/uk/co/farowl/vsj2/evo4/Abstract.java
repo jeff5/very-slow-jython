@@ -273,13 +273,14 @@ class Abstract {
         try {
             // Invoke __getattribute__.
             return (PyObject) t.tp_getattribute.invokeExact(o, name);
-        } catch (AttributeError e) {
+        } catch (EmptyException | AttributeError e) {
             try {
                 // Not found or not defined: fall back on __getattr__.
                 return (PyObject) t.tp_getattro.invokeExact(o, name);
             } catch (EmptyException ignored) {
                 // __getattr__ not defined, original exception stands.
-                throw e;
+                if (e instanceof AttributeError) { throw e; }
+                throw noAttributeError(o, name);
             }
         }
     }
@@ -322,13 +323,7 @@ class Abstract {
         try {
             o.getType().tp_setattro.invokeExact(o, name, value);
         } catch (EmptyException e) {
-            String fmt =
-                    "'%.100s' object has %s attributes (%s .%.50s)";
-            PyType oType = o.getType();
-            String kind = Slot.tp_getattro.isDefinedFor(oType)
-                    ? "only read-only" : "no";
-            String mode = value == null ? "del" : "assign to";
-            throw new TypeError(fmt, oType, kind, mode, name);
+            throw attributeAccessError(o, name, Slot.tp_setattro);
         }
     }
 
@@ -350,6 +345,63 @@ class Abstract {
     // setAttr(o, Py.str(name), value);
     // }
 
+    /** Python {@code del o.name}. */
+    // Compare CPython PyObject_DelAttr in abstract.h
+    // which is a macro for PyObject_SetAttr in object.c
+    static void delAttr(PyObject o, PyUnicode name)
+            throws AttributeError, TypeError, Throwable {
+        // Decisions are based on type of o (that of name is known)
+        try {
+            o.getType().tp_delattro.invokeExact(o, name);
+        } catch (EmptyException e) {
+            throw attributeAccessError(o, name, Slot.tp_delattro);
+        }
+    }
+
+    /** Python {@code del o.name}. */
+    // Compare CPython PyObject_SetAttr in object.c
+    static void delAttr(PyObject o, PyObject name)
+            throws AttributeError, TypeError, Throwable {
+        if (name instanceof PyUnicode) {
+            delAttr(o, (PyUnicode) name);
+        } else {
+            throw attributeNameTypeError(name);
+        }
+    }
+
+    /**
+     * Crafted error supporting {@link #getAttr(PyObject, PyUnicode)},
+     * {@link #setAttr(PyObject, PyUnicode, PyObject)}, and
+     * {@link #delAttr(PyObject, PyUnicode)}.
+     *
+     * @param o object accessed
+     * @param name of attribute
+     * @param slot operation
+     * @return an error to throw
+     */
+    private static TypeError attributeAccessError(PyObject o,
+            PyUnicode name, Slot slot) {
+        String mode, kind,
+                fmt = "'%.100s' object has %s attributes (%s.%.50s)";
+        // What were we trying to do?
+        switch (slot) {
+            case tp_delattro:
+                mode = "delete ";
+                break;
+            case tp_setattro:
+                mode = "assign to ";
+                break;
+            default:
+                mode = "";
+                break;
+        }
+        // Can we even read this object's attributes?
+        PyType oType = o.getType();
+        kind = Slot.tp_getattribute.isDefinedFor(oType)
+                ? "only read-only" : "no";
+        // Now we know what to say
+        return new TypeError(fmt, oType, kind, mode, name);
+    }
 
     // Convenience functions constructing errors --------------------
 
@@ -367,7 +419,6 @@ class Abstract {
             "%.200s returned non-%.200s (type %.200s)";
     private static final String ARGUMENT_MUST_BE =
             "%s()%s argument must be %s, not '%.200s'";
-
 
     /**
      * Create a {@link TypeError} with a message involving the type of
@@ -515,6 +566,21 @@ class Abstract {
     static AttributeError readonlyAttributeError(PyObject v,
             PyObject name) {
         String fmt = "'%.50s' object attribute '%s' is read-only";
+        return new AttributeError(fmt, v.getType().getName(), name);
+    }
+
+    /**
+     * Create a {@link AttributeError} with a message along the lines
+     * "'T' object attribute N cannot be deleted", where T is the type
+     * of the object accessed.
+     *
+     * @param v object accessed
+     * @param name of attribute
+     * @return exception to throw
+     */
+    static AttributeError mandatoryAttributeError(PyObject v,
+            PyObject name) {
+        String fmt = "'%.50s' object attribute '%s' cannot be deleted";
         return new AttributeError(fmt, v.getType().getName(), name);
     }
 

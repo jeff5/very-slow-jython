@@ -55,6 +55,7 @@ class PyType implements PyObject {
     MethodHandle tp_getattribute;
     MethodHandle tp_getattro;
     MethodHandle tp_setattro;
+    MethodHandle tp_delattro;
 
     MethodHandle tp_richcompare;
 
@@ -62,6 +63,7 @@ class PyType implements PyObject {
 
     MethodHandle tp_descr_get;
     MethodHandle tp_descr_set;
+    MethodHandle tp_descr_delete;
 
     MethodHandle tp_init;
     MethodHandle tp_new;
@@ -373,8 +375,6 @@ class PyType implements PyObject {
         return Collections.unmodifiableMap(dict);
     }
 
-
-
     /**
      * Look for a name, returning the entry directly from the first
      * dictionary along the MRO containing key {@code name}. This may be
@@ -668,8 +668,8 @@ class PyType implements PyObject {
                 } catch (AttributeError | Slot.EmptyException e) {
                     /*
                      * Not found via descriptor: fall through to try the
-                     * instance dictionary, but prevent trying the
-                     * descriptor again.
+                     * instance dictionary, but not the descriptor
+                     * again.
                      */
                     descrGet = null;
                 }
@@ -677,22 +677,24 @@ class PyType implements PyObject {
         }
 
         /*
-         * At this stage: metaAttr is the value from the metatype, or
-         * null if we didn't get one, and descrGet is an untried
-         * non-data descriptor, or null or empty if there wasn't one.
-         * It's time to give the object instance dictionary a chance.
+         * At this stage: metaAttr is the value from the meta-type, or a
+         * non-data descriptor, or null if the attribute was not found.
+         * It's time to give the type's instance dictionary a chance.
          */
         PyObject attr = type.lookup(name);
         if (attr != null) {
-            // Found in this type, it might still be a descriptor
-            PyType attrType = attr.getType();
-            // attr is a descriptor so call its __get__.
+            // Found in this type. Try it as a descriptor.
             try {
-                // Note the args are (null, this) as this is the type
-                return (PyObject) attrType.tp_descr_get
+                /*
+                 * Note the args are (null, this): we respect
+                 * descriptors in this step, but have not forgotten we
+                 * are dereferencing a type.
+                 */
+                return (PyObject) attr.getType().tp_descr_get
                         .invokeExact(attr, (PyObject) null, type);
-            } catch (AttributeError | Slot.EmptyException e) {
-                // Not found via descriptor: the attribute itself.
+            } catch (Slot.EmptyException e) {
+                // We do not catch AttributeError: it's definitive.
+                // Not a descriptor: the attribute itself.
                 return attr;
             }
         }
@@ -714,7 +716,7 @@ class PyType implements PyObject {
             return metaAttr;
         }
 
-        // All the look-ups came and descriptors to nothing :(
+        // All the look-ups and descriptors came to nothing :(
         throw Abstract.noAttributeError(type, name);
     }
 
@@ -735,6 +737,13 @@ class PyType implements PyObject {
     static void __setattr__(PyType type, PyUnicode name, PyObject value)
             throws AttributeError, Throwable {
 
+        // Accommodate CPython idiom that set null means delete.
+        if (value == null) {
+            // Do this to help porting. Really this is an error.
+            __delattr__(type, name);
+            return;
+        }
+
         // Trap immutable types
         if (!type.flags.contains(Flag.MUTABLE))
             throw Abstract.cantSetAttributeError(type);
@@ -751,44 +760,96 @@ class PyType implements PyObject {
         PyObject metaAttr = type.getType().lookup(name);
         if (metaAttr != null) {
             // Found in the meta-type, it might be a descriptor.
-            MethodHandle descrSet = metaAttr.getType().tp_descr_set;
-            if (descrSet != EMPTY_SET) {
-                /*
-                 * Descriptor has a __set__: use that. The action may
-                 * throw AttributeError, but we're done.
-                 */
-                descrSet.invokeExact(metaAttr, type, value);
-                if (special) {type.updateAfterSetAttr(name);}
-                return;
+            PyType metaAttrType = metaAttr.getType();
+            if (metaAttrType.isDataDescr()) {
+                // Try descriptor __set__
+                try {
+                    metaAttrType.tp_descr_set.invokeExact(metaAttr,
+                            type, value);
+                    if (special) { type.updateAfterSetAttr(name); }
+                    return;
+                } catch (Slot.EmptyException e) {
+                    // We do not catch AttributeError: it's definitive.
+                    // Descriptor but no __set__: do not fall through.
+                    throw Abstract.readonlyAttributeError(type, name);
+                }
             }
         }
 
         /*
-         * There was no __set__ descriptor, so it's time to give the
-         * type instance dictionary a chance to receive. A type always
-         * has a dictionary so type.dict can't be null.
+         * There was no data descriptor, so we will place the value in
+         * the object instance dictionary directly.
          */
-        if (value != null) {
-            // Use the privileged put
-            type.dict.put(name, value);
-        } else {
-            // Use the privileged remove
-            PyObject previous = type.dict.remove(name);
-            if (previous == null) {
-                // A null return implies it didn't exist
-                throw Abstract.noAttributeError(type, name);
+        // Use the privileged put
+        type.dict.put(name, value);
+        if (special) { type.updateAfterSetAttr(name); }
+    }
+
+    /**
+     * {@link Slot#tp_delattr} has signature {@link Signature#DELATTR}
+     * and provides attribute deletion on this type object. The
+     * behaviour is very like the default {@code object.__delattr__}
+     * except that it has write access to the type dictionary that is
+     * denied through {@link #getDict(boolean)}.
+     *
+     * @param type the target of the set
+     * @param name of the attribute
+     * @throws AttributeError if no such attribute or it is read-only
+     * @throws Throwable on other errors, typically from the descriptor
+     */
+    // Compare CPython type_setattro in typeobject.c
+    static void __delattr__(PyType type, PyUnicode name)
+            throws AttributeError, Throwable {
+
+        // Trap immutable types
+        if (!type.flags.contains(Flag.MUTABLE))
+            throw Abstract.cantSetAttributeError(type);
+
+        // Force name to actual str , not just a sub-class
+        if (name.getClass() != PyUnicode.class) {
+            name = Py.str(name.toString());
+        }
+
+        // Check to see if this is a special name
+        boolean special = isDunderName(name);
+
+        // Look up the name in the meta-type (null if not found).
+        PyObject metaAttr = type.getType().lookup(name);
+        if (metaAttr != null) {
+            // Found in the meta-type, it might be a descriptor.
+            PyType metaAttrType = metaAttr.getType();
+            if (metaAttrType.isDataDescr()) {
+                // Try descriptor __delete__
+                try {
+                    metaAttrType.tp_descr_delete.invokeExact(metaAttr,
+                            type);
+                    if (special) { type.updateAfterSetAttr(name); }
+                    return;
+                } catch (Slot.EmptyException e) {
+                    // We do not catch AttributeError: it's definitive.
+                    // Data descriptor but no __delete__.
+                    throw Abstract.mandatoryAttributeError(type, name);
+                }
             }
         }
 
-        if (special) {type.updateAfterSetAttr(name);}
+        /*
+         * There was no data descriptor, so it's time to give the type
+         * instance dictionary a chance to receive. A type always has a
+         * dictionary so type.dict can't be null.
+         */
+        // Use the privileged remove
+        PyObject previous = type.dict.remove(name);
+        if (previous == null) {
+            // A null return implies it didn't exist
+            throw Abstract.noAttributeError(type, name);
+        }
+
+        if (special) { type.updateAfterSetAttr(name); }
         return;
     }
 
-
     // plumbing --------------------------------------------------
-
-    private static final MethodHandle EMPTY_SET =
-            Slot.tp_descr_set.getEmpty();
 
     // Compare CPython _PyType_GetDocFromInternalDoc
     // in typeobject.c

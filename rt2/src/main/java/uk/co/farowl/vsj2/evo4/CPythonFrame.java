@@ -316,7 +316,7 @@ class CPythonFrame extends PyFrame {
                         // w | -> |
                         // ---^sp -^sp
                         w = valuestack[--sp];
-                        Abstract.setAttr(w, names[oparg], null);
+                        Abstract.delAttr(w, names[oparg]);
                         break;
 
                     case Opcode.STORE_GLOBAL:

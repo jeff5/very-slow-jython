@@ -26,12 +26,14 @@ enum Slot {
     tp_getattribute(Signature.GETATTRO), //
     tp_getattro(Signature.GETATTRO, null, "__getattr__"), //
     tp_setattro(Signature.SETATTRO, null, "__setattr__"), //
+    tp_delattro(Signature.DELATTRO, null, "__delattr__"), //
 
     tp_richcompare(Signature.RICHCMP), //
     tp_iter(Signature.UNARY), //
 
     tp_descr_get(Signature.DESCRGET, null, "__get__"), //
     tp_descr_set(Signature.DESCRSET, null, "__set__"), //
+    tp_descr_delete(Signature.DESCRDEL, null, "__delete__"), //
 
     tp_init(Signature.INIT), //
     tp_new(Signature.NEW), //
@@ -256,8 +258,10 @@ enum Slot {
         MP_ASSIGN(V, S, O, O), // (objobjargproc) mp_ass_subscript only
         GETATTRO(O, S, U), // (getattrofunc) tp_getattro
         SETATTRO(V, S, U, O), // (setattrofunc) tp_setattro
+        DELATTRO(V, S, U), // (not in CPython) tp_delattro
         DESCRGET(O, S, O, T), // (descrgetfunc)
         DESCRSET(V, S, O, O), // (descrsetfunc)
+        DESCRDEL(V, S, O), // (not in CPython) tp_descr_delete
         INIT(V, S, TUPLE, DICT), // (initproc) tp_init
         NEW(O, T, TUPLE, DICT); // (newfunc) tp_new
 

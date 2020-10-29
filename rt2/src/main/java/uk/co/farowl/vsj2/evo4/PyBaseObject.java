@@ -134,8 +134,8 @@ class PyBaseObject extends AbstractPyObject {
                 } catch (AttributeError | Slot.EmptyException e) {
                     /*
                      * Not found via descriptor: fall through to try the
-                     * instance dictionary, but prevent trying the
-                     * descriptor again.
+                     * instance dictionary, but not the descriptor
+                     * again.
                      */
                     descrGet = null;
                 }
@@ -143,10 +143,9 @@ class PyBaseObject extends AbstractPyObject {
         }
 
         /*
-         * At this stage: typeAttr is the value from the type, or null
-         * if we didn't get one, and descrGet is an untried non-data
-         * descriptor, or null or empty if there wasn't one. It's time
-         * to give the object instance dictionary a chance.
+         * At this stage: typeAttr is the value from the type, or a
+         * non-data descriptor, or null if the attribute was not found.
+         * It's time to give the object instance dictionary a chance.
          */
         Map<PyObject, PyObject> dict = obj.getDict(false);
         PyObject instanceAttr;
@@ -173,7 +172,7 @@ class PyBaseObject extends AbstractPyObject {
             return typeAttr;
         }
 
-        // All the look-ups came and descriptors to nothing :(
+        // All the look-ups and descriptors came to nothing :(
         throw Abstract.noAttributeError(obj, name);
     }
 
@@ -203,32 +202,108 @@ class PyBaseObject extends AbstractPyObject {
     static void __setattr__(PyObject obj, PyUnicode name,
             PyObject value) throws AttributeError, Throwable {
 
+        // Accommodate CPython idiom that set null means delete.
+        if (value == null) {
+            // Do this to help porting. Really this is an error.
+            __delattr__(obj, name);
+            return;
+        }
+
         // Look up the name in the type (null if not found).
         PyObject typeAttr = obj.getType().lookup(name);
         if (typeAttr != null) {
             // Found in the type, it might be a descriptor.
-            MethodHandle descrSet = typeAttr.getType().tp_descr_set;
-            if (descrSet != EMPTY_SET) {
-                /*
-                 * Descriptor has a __set__: use that. The action may
-                 * throw AttributeError, but we're done.
-                 */
-                descrSet.invokeExact(typeAttr, obj, value);
-                return;
+            PyType typeAttrType = typeAttr.getType();
+            if (typeAttrType.isDataDescr()) {
+                // Try descriptor __set__
+                try {
+                    typeAttrType.tp_descr_set.invokeExact(typeAttr, obj,
+                            value);
+                    return;
+                } catch (Slot.EmptyException e) {
+                    // We do not catch AttributeError: it's definitive.
+                    // Descriptor but no __set__: do not fall through.
+                    throw Abstract.readonlyAttributeError(obj, name);
+                }
             }
         }
 
         /*
-         * There was no __set__ descriptor, so it's time to give the
-         * object instance dictionary a chance to receive.
-         *
-         * At this stage: typeAttr is the value from the type, or a
-         * descriptor (without a __set__), or null if there was no
-         * attribute. The state of typeAttr will only vary the error
-         * message in the case that the instance won't receive the
-         * attribute. Also in that case, it matters to the error message
-         * whether the instance allows a dictionary in principle, so we
-         * ask to create one unconditionally.
+         * There was no data descriptor, so we will place the value in
+         * the object instance dictionary directly.
+         */
+        Map<PyObject, PyObject> dict = obj.getDict(true);
+        if (dict == null) {
+            // Object has no dictionary (and won't support one).
+            if (typeAttr == null) {
+                // Neither had the type an entry for the name.
+                throw Abstract.noAttributeError(obj, name);
+            } else {
+                /*
+                 * The type had either a value for the attribute or a
+                 * non-data descriptor. Either way, it's read-only when
+                 * accessed via the instance.
+                 */
+                throw Abstract.readonlyAttributeError(obj, name);
+            }
+        } else {
+            try {
+                // There is a dictionary, and this is a put.
+                dict.put(name, value);
+            } catch (UnsupportedOperationException e) {
+                // But the dictionary is unmodifiable
+                throw Abstract.cantSetAttributeError(obj);
+            }
+        }
+    }
+
+    /**
+     * {@link Slot#tp_delattr} has signature {@link Signature#DELATTR}
+     * and provides attribute deletion on the object. The default
+     * instance {@code __delattr__} slot implements dictionary look-up
+     * on the type and the instance. It is the starting point for
+     * activating the descriptor protocol. The following order of
+     * precedence applies when setting the value of an attribute:
+     * <ol>
+     * <li>call a data descriptor from the dictionary of the type</li>
+     * <li>remove an entry from the instance dictionary of
+     * {@code obj}</li>
+     * </ol>
+     * If a matching entry on the type is a data descriptor (case 1) ,
+     * but it throws {@link AttributeError}, this is definitive and the
+     * instance dictionary (if any) will not be updated.
+     *
+     * @param obj the target of the delete
+     * @param name of the attribute
+     * @throws AttributeError if no such attribute or it is read-only
+     * @throws Throwable on other errors, typically from the descriptor
+     */
+    // Compare CPython PyObject_GenericSetAttr in object.c
+    static void __delattr__(PyObject obj, PyUnicode name)
+            throws AttributeError, Throwable {
+
+        // Look up the name in the type (null if not found).
+        PyObject typeAttr = obj.getType().lookup(name);
+        if (typeAttr != null) {
+            // Found in the type, it might be a descriptor.
+            PyType typeAttrType = typeAttr.getType();
+            if (typeAttrType.isDataDescr()) {
+                // Try descriptor __delete__
+                try {
+                    typeAttrType.tp_descr_delete.invokeExact(typeAttr,
+                            obj);
+                    return;
+                } catch (Slot.EmptyException e) {
+                    // We do not catch AttributeError: it's definitive.
+                    // Data descriptor but no __delete__.
+                    throw Abstract.mandatoryAttributeError(obj, name);
+                }
+            }
+        }
+
+        /*
+         * There was no data descriptor, so we will remove the name from
+         * the object instance dictionary directly.
          */
         Map<PyObject, PyObject> dict = obj.getDict(true);
         if (dict == null) {
@@ -238,34 +313,25 @@ class PyBaseObject extends AbstractPyObject {
                 throw Abstract.noAttributeError(obj, name);
             } else {
                 /*
-                 * The type had either a value for the name or a
-                 * descriptor with no __set__ operation. Either way,
-                 * it's read-only when accessed via the instance.
+                 * The type had either a value for the attribute or a
+                 * non-data descriptor. Either way, it's read-only when
+                 * accessed via the instance.
                  */
                 throw Abstract.readonlyAttributeError(obj, name);
             }
         } else {
             try {
-                if (value != null) {
-                    // There is a dictionary, and this is a put.
-                    dict.put(name, value);
-                } else {
-                    // There is a dictionary, and this is a delete.
-                    PyObject previous = dict.remove(name);
-                    if (previous == null) {
-                        // A null return implies it didn't exist
-                        throw Abstract.noAttributeError(obj, name);
-                    }
+                // There is a dictionary, and this is a delete.
+                PyObject previous = dict.remove(name);
+                if (previous == null) {
+                    // A null return implies it didn't exist
+                    throw Abstract.noAttributeError(obj, name);
                 }
             } catch (UnsupportedOperationException e) {
                 // But the dictionary is unmodifiable
                 throw Abstract.cantSetAttributeError(obj);
             }
         }
-
-        return;
     }
 
-    private static final MethodHandle EMPTY_SET =
-            Slot.tp_descr_set.getEmpty();
 }

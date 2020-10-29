@@ -835,32 +835,29 @@ has been cleverly folded into the slot function.
 We could do this in the ``MethodHandle``,
 but we choose a greater transparency at the cost of an extra slot.
 We shall have two slots ``tp_getattribute`` and ``tp_getattro``,
-and put the mechanism for choosing between them in ``getAttr``:
+and put the mechanism for choosing between them in ``Abstract.getAttr``:
 
 ..  code-block:: java
 
-     static PyObject getAttr(PyObject o, PyUnicode name)
+        static PyObject getAttr(PyObject o, PyUnicode name)
                 throws AttributeError, Throwable {
             // Decisions are based on type of o (that of name is known)
             PyType t = o.getType();
             try {
                 // Invoke __getattribute__.
                 return (PyObject) t.tp_getattribute.invokeExact(o, name);
-            } catch (AttributeError e) {
+            } catch (EmptyException | AttributeError e) {
                 try {
                     // Not found or not defined: fall back on __getattr__.
                     return (PyObject) t.tp_getattro.invokeExact(o, name);
                 } catch (EmptyException ignored) {
                     // __getattr__ not defined, original exception stands.
-                    if (e instanceof AttributeError) {
-                        throw e;
-                    } else {
-                        // Probably never, since inherited from object
-                        throw noAttributeError(o, name);
-                    }
+                    if (e instanceof AttributeError) { throw e; }
+                    throw noAttributeError(o, name);
                 }
             }
         }
+
 
 This will carry no run-time cost where ``__getattribute__`` succeeds,
 and only a small one if it raises ``AttributeError``
@@ -880,7 +877,33 @@ the ``Slot``\s are not API, and so this is an internal matter.
 Descriptors in Concept
 ======================
 
+There is a long discussion of the different types of descriptor
+in the architecture section :ref:`Descriptors`.
+The short version is that a descriptor is
+an object that defines the slot function ``__get__``,
+and may also define ``__set__`` and ``__delete__``.
+If it also defines ``__set__`` or ``__delete__`` it is a data descriptor.
 
+A descriptor may appear in the dictionary of a type object.
+
+When looking for an attribute on an object,
+the dictionary of the type object is consulted first.
+The type may, in the end, supply a simple value for the attribute,
+as when a variable or constant defined in the class body
+is referenced via the instance.
+However,
+the search for an attribute via the type will often find a descriptor,
+and the ``__get__``, ``__set__`` or ``__delete__``,
+according to the action requested,
+will then take control of the getting, setting or deletion.
+
+Most attributes of built-in types are mediated this way,
+and it is especially important in the way that methods are bound
+before being called.
+That descriptors are executed in the course of attribute access,
+is critical to a full understanding of the implementations of
+``__getattribute__``, ``__setattr__`` and ``__delattr__``
+in the coming sections.
 
 
 .. _object-getattribute:
@@ -888,12 +911,459 @@ Descriptors in Concept
 Implementing ``object.__getattribute__``
 ========================================
 
+The standard implementation of ``__getattribute__`` is in ``PyBaseObject``.
+The special function (type slot) it produces
+is inherited by almost all built-in and user-defined classes.
+It fills the type slot ``tp_getattribute``.
+
+The code speaks quite well for itself.
+It is adapted from the CPython ``PyObject_GenericGetAttr`` in ``object.c``,
+taking account of our different approach to error handling,
+and with the removal of some efficiency tricks.
+There is some delicacy around which exceptions should be caught,
+and the next source consulted,
+and which should put a definitive end to the attempt.
+
+..  code-block:: java
+
+    class PyBaseObject extends AbstractPyObject {
+        //...
+
+        static PyObject __getattribute__(PyObject obj, PyUnicode name)
+                throws AttributeError, Throwable {
+
+            PyType objType = obj.getType();
+            MethodHandle descrGet = null;
+
+            // Look up the name in the type (null if not found).
+            PyObject typeAttr = objType.lookup(name);
+            if (typeAttr != null) {
+                // Found in the type, it might be a descriptor
+                PyType typeAttrType = typeAttr.getType();
+                descrGet = typeAttrType.tp_descr_get;
+                if (typeAttrType.isDataDescr()) {
+                    // typeAttr is a data descriptor so call its __get__.
+                    try {
+                        return (PyObject) descrGet.invokeExact(typeAttr,
+                                obj, objType);
+                    } catch (AttributeError | Slot.EmptyException e) {
+                        /*
+                         * Not found via descriptor: fall through to try the
+                         * instance dictionary, but not the descriptor
+                         * again.
+                         */
+                        descrGet = null;
+                    }
+                }
+            }
+
+            /*
+             * At this stage: typeAttr is the value from the type, or a
+             * non-data descriptor, or null if the attribute was not found.
+             * It's time to give the object instance dictionary a chance.
+             */
+            Map<PyObject, PyObject> dict = obj.getDict(false);
+            PyObject instanceAttr;
+            if (dict != null && (instanceAttr = dict.get(name)) != null) {
+                // Found something
+                return instanceAttr;
+            }
+
+            /*
+             * The name wasn't in the instance dictionary (or there wasn't
+             * an instance dictionary). We are now left with the results of
+             * look-up on the type.
+             */
+            if (descrGet != null) {
+                // typeAttr may be a non-data descriptor: call __get__.
+                try {
+                    return (PyObject) descrGet.invokeExact(typeAttr, obj,
+                            objType);
+                } catch (Slot.EmptyException e) {}
+            }
+
+            if (typeAttr != null) {
+                // The attribute obtained from the type is the value.
+                return typeAttr;
+            }
+
+            // All the look-ups and descriptors came to nothing :(
+            throw Abstract.noAttributeError(obj, name);
+        }
+
+
+
+.. _object-setattr:
+
+Implementing ``object.__setattr__``
+===================================
+
+The approach to ``__delattr__`` and ``__setattr__``
+differs from the implementation in CPython.
+``__delattr__`` definitely exists separately in the Python data model,
+but in CPython both compete for the ``tp_setattro`` slot.
+CPython funnels both source-level operations (assignment and deletion)
+into ``PyObject_SetAttr`` with deletion indicated by a ``null``
+as the value to be assigned.
+When definitions of ``__delattr__`` and ``__setattr__`` exist in Python,
+CPython's synthetic type-slot function chooses which to call
+based on the nullity of the value.
+
+Our approach reflects a design policy of one special function per type slot.
+It simplifies the logic (fewer if statements),
+although it means a little more code as we have separate methods.
+
+The standard implementation of ``__setattr__`` is as follows:
+
+..  code-block:: java
+
+    class PyBaseObject extends AbstractPyObject {
+        //...
+
+        static void __setattr__(PyObject obj, PyUnicode name,
+                PyObject value) throws AttributeError, Throwable {
+
+            // Accommodate CPython idiom that set null means delete.
+            if (value == null) {
+                // Do this to help porting. Really this is an error.
+                __delattr__(obj, name);
+                return;
+            }
+
+            // Look up the name in the type (null if not found).
+            PyObject typeAttr = obj.getType().lookup(name);
+            if (typeAttr != null) {
+                // Found in the type, it might be a descriptor.
+                PyType typeAttrType = typeAttr.getType();
+                if (typeAttrType.isDataDescr()) {
+                    // Try descriptor __set__
+                    try {
+                        typeAttrType.tp_descr_set.invokeExact(typeAttr, obj,
+                                value);
+                        return;
+                    } catch (Slot.EmptyException e) {
+                        // We do not catch AttributeError: it's definitive.
+                        // Descriptor but no __set__: do not fall through.
+                        throw Abstract.readonlyAttributeError(obj, name);
+                    }
+                }
+            }
+
+            /*
+             * There was no data descriptor, so we will place the value in
+             * the object instance dictionary directly.
+             */
+            Map<PyObject, PyObject> dict = obj.getDict(true);
+            if (dict == null) {
+                // Object has no dictionary (and won't support one).
+                if (typeAttr == null) {
+                    // Neither had the type an entry for the name.
+                    throw Abstract.noAttributeError(obj, name);
+                } else {
+                    /*
+                     * The type had either a value for the attribute or a
+                     * non-data descriptor. Either way, it's read-only when
+                     * accessed via the instance.
+                     */
+                    throw Abstract.readonlyAttributeError(obj, name);
+                }
+            } else {
+                try {
+                    // There is a dictionary, and this is a put.
+                    dict.put(name, value);
+                } catch (UnsupportedOperationException e) {
+                    // But the dictionary is unmodifiable
+                    throw Abstract.cantSetAttributeError(obj);
+                }
+            }
+        }
+
+
+.. _object-delattr:
+
+Implementing ``object.__delattr__``
+===================================
+
+The standard ``object.__delattr__`` is not much different from
+``object.__setattr__``.
+If we find a data descriptor in the type,
+we call its ``tp_descr_delete`` slot
+in place of ``tp_descr_set`` in ``__setattr__``.
+Not only have we a distinct slot for ``__delattr__`` in objects,
+we have one for ``__delete__`` in descriptors too.
+
+Note the way ``isDataDescr()`` is used
+in both ``__setattr__`` and ``__delattr__``
+in deciding whether to call the descriptor:
+a descriptor is a data descriptor if it defines
+*either* ``__set__`` or ``__delete__``.
+It need not define both.
+
+It is therefore possible to find a data descriptor in the type,
+and then find the necessary slot empty.
+This is raises an ``AttributeError``:
+we should not go on to try the instance dictionary.
+In these circumstances CPython also raises an attribute error,
+but from within the slot function (and with less helpful text).
+
+..  code-block:: java
+
+    class PyBaseObject extends AbstractPyObject {
+        //...
+        static void __delattr__(PyObject obj, PyUnicode name)
+                throws AttributeError, Throwable {
+
+            // Look up the name in the type (null if not found).
+            PyObject typeAttr = obj.getType().lookup(name);
+            if (typeAttr != null) {
+                // Found in the type, it might be a descriptor.
+                PyType typeAttrType = typeAttr.getType();
+                if (typeAttrType.isDataDescr()) {
+                    // Try descriptor __delete__
+                    try {
+                        typeAttrType.tp_descr_delete.invokeExact(typeAttr,
+                                obj);
+                        return;
+                    } catch (Slot.EmptyException e) {
+                        // We do not catch AttributeError: it's definitive.
+                        // Data descriptor but no __delete__.
+                        throw Abstract.mandatoryAttributeError(obj, name);
+                    }
+                }
+            }
+
+            /*
+             * There was no data descriptor, so we will remove the name from
+             * the object instance dictionary directly.
+             */
+            Map<PyObject, PyObject> dict = obj.getDict(true);
+            if (dict == null) {
+                // Object has no dictionary (and won't support one).
+                if (typeAttr == null) {
+                    // Neither has the type an entry for the name.
+                    throw Abstract.noAttributeError(obj, name);
+                } else {
+                    /*
+                     * The type had either a value for the attribute or a
+                     * non-data descriptor. Either way, it's read-only when
+                     * accessed via the instance.
+                     */
+                    throw Abstract.readonlyAttributeError(obj, name);
+                }
+            } else {
+                try {
+                    // There is a dictionary, and this is a delete.
+                    PyObject previous = dict.remove(name);
+                    if (previous == null) {
+                        // A null return implies it didn't exist
+                        throw Abstract.noAttributeError(obj, name);
+                    }
+                } catch (UnsupportedOperationException e) {
+                    // But the dictionary is unmodifiable
+                    throw Abstract.cantSetAttributeError(obj);
+                }
+            }
+        }
+
 
 
 .. _type-getattribute:
 
 Implementing ``type.__getattribute__``
 ======================================
+
+The type object gets its own definition of ``__getattribute__``,
+slightly different from that in ``object``,
+and found in ``PyType.__getattribute__``.
+We highlight the differences here.
+
+Types have types, called the meta-type.
+This occasions a change of variable names, even where the code is the same:
+where in ``PyBaseObject`` we had ``obj``, in ``PyType`` we write ``type``,
+and where we had ``typeAttr``, we write ``metaAttr``.
+
+..  code-block:: java
+    :emphasize-lines: 36, 38-51
+
+    class PyType implements PyObject {
+        //...
+        static PyObject __getattribute__(PyType type, PyUnicode name)
+                throws AttributeError, Throwable {
+
+            PyType metatype = type.getType();
+            MethodHandle descrGet = null;
+
+            // Look up the name in the type (null if not found).
+            PyObject metaAttr = metatype.lookup(name);
+            if (metaAttr != null) {
+                // Found in the metatype, it might be a descriptor
+                PyType metaAttrType = metaAttr.getType();
+                descrGet = metaAttrType.tp_descr_get;
+                if (metaAttrType.isDataDescr()) {
+                    // metaAttr is a data descriptor so call its __get__.
+                    try {
+                        return (PyObject) descrGet.invokeExact(metaAttr,
+                                type, metatype);
+                    } catch (AttributeError | Slot.EmptyException e) {
+                        /*
+                         * Not found via descriptor: fall through to try the
+                         * instance dictionary, but not the descriptor
+                         * again.
+                         */
+                        descrGet = null;
+                    }
+                }
+            }
+
+            /*
+             * At this stage: metaAttr is the value from the meta-type, or a
+             * non-data descriptor, or null if the attribute was not found.
+             * It's time to give the type's instance dictionary a chance.
+             */
+            PyObject attr = type.lookup(name);
+            if (attr != null) {
+                // Found in this type. Try it as a descriptor.
+                try {
+                    /*
+                     * Note the args are (null, this): we respect
+                     * descriptors in this step, but have not forgotten we
+                     * are dereferencing a type.
+                     */
+                    return (PyObject) attr.getType().tp_descr_get
+                            .invokeExact(attr, (PyObject) null, type);
+                } catch (Slot.EmptyException e) {
+                    // We do not catch AttributeError: it's definitive.
+                    // Not a descriptor: the attribute itself.
+                    return attr;
+                }
+            }
+
+            /*
+             * The name wasn't in the type dictionary. We are now left with
+             * the results of look-up on the meta-type.
+             */
+            if (descrGet != null) {
+                // metaAttr may be a non-data descriptor: call __get__.
+                try {
+                    return (PyObject) descrGet.invokeExact(metaAttr, type,
+                            metatype);
+                } catch (Slot.EmptyException e) {}
+            }
+
+            if (metaAttr != null) {
+                // The attribute obtained from the meta-type is the value.
+                return metaAttr;
+            }
+
+            // All the look-ups and descriptors came to nothing :(
+            throw Abstract.noAttributeError(type, name);
+        }
+
+As with regular objects,
+the first step is to acceess the type (that is the meta-type),
+and if we find a data descriptor, act on it.
+The second option is again to look in the instance (that is, the type),
+but here we use ``type.lookup(name)``, in place of a dictionary look-up,
+and must also be ready to find a descriptor rather than a plain value.
+
+If we find a descriptor, we call it with arguments ``(null, type)``.
+A descriptor called so will most often return itself,
+making this the same as retrieving the plain value,
+but an exception is the descriptor of a class method
+(see :ref:`PyClassMethodDescr`),
+which returns the method bound to the type.
+
+
+.. _type-setattr:
+
+Implementing ``type.__setattr__``
+=================================
+
+The definition of `type.__setattr__``
+is also slightly different from that in ``object``.
+First we must deal with the possibility that
+the type does not allow its attributes to be changed.
+Most built-in types are in that category,
+while most classes defined in Python (sub-classes of ``object``)
+do allow this.
+
+..  code-block:: java
+    :emphasize-lines: 14-15, 23, 35, 51
+
+    class PyType implements PyObject {
+        //...
+        static void __setattr__(PyType type, PyUnicode name, PyObject value)
+                throws AttributeError, Throwable {
+
+            // Accommodate CPython idiom that set null means delete.
+            if (value == null) {
+                // Do this to help porting. Really this is an error.
+                __delattr__(type, name);
+                return;
+            }
+
+            // Trap immutable types
+            if (!type.flags.contains(Flag.MUTABLE))
+                throw Abstract.cantSetAttributeError(type);
+
+            // Force name to actual str , not just a sub-class
+            if (name.getClass() != PyUnicode.class) {
+                name = Py.str(name.toString());
+            }
+
+            // Check to see if this is a special name
+            boolean special = isDunderName(name);
+
+            // Look up the name in the meta-type (null if not found).
+            PyObject metaAttr = type.getType().lookup(name);
+            if (metaAttr != null) {
+                // Found in the meta-type, it might be a descriptor.
+                PyType metaAttrType = metaAttr.getType();
+                if (metaAttrType.isDataDescr()) {
+                    // Try descriptor __set__
+                    try {
+                        metaAttrType.tp_descr_set.invokeExact(metaAttr,
+                                type, value);
+                        if (special) { type.updateAfterSetAttr(name); }
+                        return;
+                    } catch (Slot.EmptyException e) {
+                        // We do not catch AttributeError: it's definitive.
+                        // Descriptor but no __set__: do not fall through.
+                        throw Abstract.readonlyAttributeError(type, name);
+                    }
+                }
+            }
+
+            /*
+             * There was no data descriptor, so we will place the value in
+             * the object instance dictionary directly.
+             */
+            // Use the privileged put
+            type.dict.put(name, value);
+            if (special) { type.updateAfterSetAttr(name); }
+        }
+
+As in ``object.__setattr__``,
+the logic looks for and acts on a data descriptors found in the meta-type,
+and then moves to the instance dictionary of the type.
+Things are made simpler by the fact that a type always has a dictionary,
+and we already know that we are allowed to modify it.
+
+Following the re-definition of any special function,
+the type must be given the chance to re-compute internal data structures,
+in particular, the affected type slots.
+
+
+.. _type-delattr:
+
+Implementing ``type.__delattr__``
+=================================
+
+There is nothing to write concerning ``type.__delattr__``
+that is not already covered in :ref:`object-delattr`
+and :ref:`type-setattr`.
+
+
 
 
 

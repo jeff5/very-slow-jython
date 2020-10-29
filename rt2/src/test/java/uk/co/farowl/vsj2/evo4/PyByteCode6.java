@@ -8,6 +8,8 @@ import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
+import uk.co.farowl.vsj2.evo4.Slot.EmptyException;
+
 /**
  * Continues the test illustrating a naive emulation using
  * {@code MethodHandle} of CPython's approach to type objects. The
@@ -143,47 +145,79 @@ class PyByteCode6 {
 
         static final PyType TYPE =
                 PyType.fromSpec(new PyType.Spec("00A", A.class));
+        protected PyType type = TYPE;
 
         @Override
-        public PyType getType() { return TYPE; }
+        public PyType getType() { return type; }
 
         private PyDict dict = new PyDict();
 
         /** Construct an A and initialise a test value. */
         A(int foo) {
             dict.put("foo", Py.val(foo));
+            dict.put("foo2", Py.val(foo + 1));
         }
 
         @Override
         public Map<PyObject, PyObject> getDict(boolean create) {
             return dict;
         }
+
+        /**
+         * A class that has effectively empty {@code tp_setattro} and
+         * {@code tp_delattro} slots, in spite of inheriting from
+         * object.
+         */
+        static class Readonly extends A {
+
+            static final PyType TYPE = PyType
+                    .fromSpec(new PyType.Spec("01A", Readonly.class));
+
+            Readonly(int foo) { super(foo); type = TYPE; }
+
+            @SuppressWarnings("unused")
+            static void __setattr__(Readonly a, PyUnicode name,
+                    PyObject value) throws EmptyException {
+                throw new Slot.EmptyException();
+            }
+
+            @SuppressWarnings("unused")
+            static void __delattr__(Readonly a, PyUnicode name)
+                    throws EmptyException {
+                throw new Slot.EmptyException();
+            }
+        }
+
+        /**
+         * A class that has effectively empty {@code tp_getattribute},
+         * in spite of inheriting from object.
+         */
+        static class NoAttrs extends Readonly {
+
+            static final PyType TYPE = PyType
+                    .fromSpec(new PyType.Spec("02A", NoAttrs.class)
+                            .base(Readonly.TYPE));
+
+            NoAttrs(int foo) { super(foo); type = TYPE; }
+
+            @SuppressWarnings("unused")
+            static PyObject __getattribute__(NoAttrs a, PyUnicode name)
+                    throws EmptyException {
+                throw new Slot.EmptyException();
+            }
+        }
+
     }
 
     /** Get attribute in a dictionary. */
     @Test
-    void getattributeFromDict() throws Throwable {
+    void getAttrFromDict() throws Throwable {
         PyObject a = new A(42);
         PyObject result = Abstract.getAttr(a, Py.str("foo"));
         assertEquals(Py.val(42), result);
     }
 
-    /** Get non-existent attribute raises {@code AttributeError}. */
-    @SuppressWarnings("unused")
-    @Test
-    void getattributeFromDictError() throws Throwable {
-        PyObject a = new A(43);
-        PyUnicode bar = Py.str("bar");
-        assertThrows(AttributeError.class, () -> { //
-            PyObject result = Abstract.getAttr(a, bar);
-        });
-        // str has no dictionary
-        assertThrows(AttributeError.class, () -> { //
-            PyObject result = Abstract.getAttr(Py.str("x"), bar);
-        });
-    }
-
-    /** Set attribute in a dictionary. */
+    /** Set attribute in an instance dictionary. */
     @Test
     void setAttrInDict() throws Throwable {
         PyObject a = new A(42);
@@ -195,18 +229,77 @@ class PyByteCode6 {
         assertEquals(null, a.getDict(false).get(foo));
     }
 
-    /** Set non-existent attribute raises {@code AttributeError}. */
+    /** Delete attribute from an instance dictionary. */
     @Test
-    void setAttrInDictError() throws Throwable {
-        PyObject a = new A(43);
+    void delAttrInDict() throws Throwable {
+        PyObject a = new A(42);
+        PyUnicode foo = Py.str("foo");
+        Abstract.delAttr(a, foo);
+        assertEquals(null, a.getDict(false).get(foo));
+    }
+
+    /** Get non-existent attribute raises {@code AttributeError}. */
+    @SuppressWarnings("unused")
+    @Test
+    void getAttrFromDictError() throws Throwable {
+        final PyObject a = new A(42);
         PyUnicode bar = Py.str("bar");
-        assertThrows(AttributeError.class, () -> { // delete
-            Abstract.setAttr(a, bar, null);
+        assertThrows(AttributeError.class, () -> { //
+            PyObject result = Abstract.getAttr(a, bar);
         });
+        PyUnicode foo = Py.str("foo");
+        Abstract.getAttr(a, foo); // It's there
+        Abstract.delAttr(a, foo);
+        assertThrows(AttributeError.class, () -> { //
+            PyObject result = Abstract.getAttr(a, foo);
+        });
+    }
+
+    /** Read-only type raises {@code TypeError}. */
+    @Test
+    void setAttrReadonly() throws Throwable {
+        // A type where __setattr__ is disabled
+        final PyObject a = new A.Readonly(43);
+        PyLong v = Py.val(7);
+        PyUnicode foo = Py.str("foo");
+        PyObject result = Abstract.getAttr(a, Py.str("foo"));
+        assertEquals(Py.val(43), result);
+        assertThrows(TypeError.class,
+                () -> Abstract.setAttr(a, foo, v));
+        assertThrows(TypeError.class, () -> Abstract.delAttr(a, foo));
+    }
+
+    /**
+     * Set and delete on no-attrs type raises {@code TypeError} but a
+     * get raises {@code AttributeError}.
+     */
+    @SuppressWarnings("unused")
+    @Test
+    void setAttrNoAttrs() throws Throwable {
+        // A type where __setattr__ and __getattribute__ are disabled
+        final PyObject a = new A.NoAttrs(44);
+        PyLong v = Py.val(7);
+        PyUnicode foo = Py.str("foo");
+        assertThrows(AttributeError.class, () -> { //
+            PyObject result = Abstract.getAttr(a, foo);
+        });
+        assertThrows(TypeError.class,
+                () -> Abstract.setAttr(a, foo, v));
+        assertThrows(TypeError.class, () -> Abstract.delAttr(a, foo));
+    }
+
+    /** Attribute of built-in type raises {@code AttributeError}. */
+    @Test
+    void setBuiltinAttrError() throws Throwable {
         // str has no dictionary
         PyLong v = Py.val(7);
+        PyUnicode bar = Py.str("bar");
         assertThrows(AttributeError.class, () -> { //
-            Abstract.setAttr(Py.str("x"), bar, v);
+            Abstract.setAttr(Py.str("hello"), bar, v);
+        });
+        // "hello".__str__ found on type but read-only
+        assertThrows(AttributeError.class, () -> { //
+            Abstract.setAttr(Py.str("hello"), ID.__str__, v);
         });
     }
 
