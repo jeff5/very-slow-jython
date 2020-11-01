@@ -58,6 +58,7 @@ enum Slot {
     nb_xor(Signature.BINARY, "^", nb_rxor), //
     nb_or(Signature.BINARY, "|", nb_ror), //
 
+    /** Handle to {@code __bool__} with {@link Signature#PREDICATE} */
     nb_bool(Signature.PREDICATE), //
     nb_int(Signature.UNARY), //
     nb_float(Signature.UNARY), //
@@ -164,7 +165,6 @@ enum Slot {
      * implements it, or the default handle (of the correct signature)
      * that throws {@link EmptyException}.
      *
-     * @param s slot
      * @param c target class
      * @return handle to method in {@code c} implementing this slot, or
      *         appropriate "empty" if no such method is accessible.

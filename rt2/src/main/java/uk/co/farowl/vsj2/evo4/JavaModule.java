@@ -13,7 +13,7 @@ import java.util.List;
 import uk.co.farowl.vsj2.evo4.MethodDef.Flag;
 
 /** Common mechanisms for all Python modules defined in Java. */
-public abstract class JavaModule extends PyModule {
+abstract class JavaModule extends PyModule {
 
     /**
      * A table of the methods in this module, from which each instance

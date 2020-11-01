@@ -3,7 +3,7 @@ package uk.co.farowl.vsj2.evo4;
 import java.util.Collection;
 
 /** The Python {@code tuple} object. */
-public class PyTuple extends TypedTuple<PyObject> {
+class PyTuple extends TypedTuple<PyObject> {
 
     /**
      * As {@link #PyTuple(PyObject...)} for Python sub-class specifying
@@ -41,7 +41,7 @@ public class PyTuple extends TypedTuple<PyObject> {
     /**
      * Construct a {@code PyTuple} from the elements of a collection.
      *
-     * @param value source of element values for this {@code tuple}
+     * @param c source of element values for this {@code tuple}
      */
     PyTuple(Collection<? extends PyObject> c) { this(TYPE, c); }
 

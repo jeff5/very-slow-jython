@@ -96,7 +96,7 @@ enum Comparison {
     @Override
     public String toString() { return text; }
 
-    /** The swapped version of this comparison, e.g. LT <--> GT */
+    /** The swapped version of this comparison, e.g. LT with GT */
     Comparison swapped() {
         return swap[code];
     }

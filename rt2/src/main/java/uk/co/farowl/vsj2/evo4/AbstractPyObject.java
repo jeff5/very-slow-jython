@@ -4,7 +4,7 @@ package uk.co.farowl.vsj2.evo4;
  * Class that may be used as a base for Python objects (but doesn't have
  * to be) to supply some universally needed methods and the type.
  */
-public abstract class AbstractPyObject implements PyObject {
+abstract class AbstractPyObject implements PyObject {
 
     private PyType type;
 

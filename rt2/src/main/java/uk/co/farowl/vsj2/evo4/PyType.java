@@ -615,10 +615,10 @@ class PyType implements PyObject {
 
     /**
      * {@link Slot#tp_getattribute} has signature
-     * {@link Signature#GETATTR} and provides attribute read access on
+     * {@link Signature#GETATTRO} and provides attribute read access on
      * this type object and its metatype. This is very like
      * {@code object.__getattribute__}
-     * (PyBaseObject{@link #__getattribute__(PyObject, PyUnicode)}), but
+     * ({@link PyBaseObject#__getattribute__(PyObject, PyUnicode)}), but
      * the instance is replaced by a type object, and that object's type
      * is a meta-type (which is also a {@code type}).
      * <p>
@@ -721,7 +721,7 @@ class PyType implements PyObject {
     }
 
     /**
-     * {@link Slot#tp_setattr} has signature {@link Signature#SETATTR}
+     * {@link Slot#tp_setattro} has signature {@link Signature#SETATTRO}
      * and provides attribute write access on this type object. The
      * behaviour is very like the default {@code object.__setattr__}
      * except that it has write access to the type dictionary that is
@@ -786,7 +786,7 @@ class PyType implements PyObject {
     }
 
     /**
-     * {@link Slot#tp_delattr} has signature {@link Signature#DELATTR}
+     * {@link Slot#tp_delattro} has signature {@link Signature#DELATTRO}
      * and provides attribute deletion on this type object. The
      * behaviour is very like the default {@code object.__delattr__}
      * except that it has write access to the type dictionary that is

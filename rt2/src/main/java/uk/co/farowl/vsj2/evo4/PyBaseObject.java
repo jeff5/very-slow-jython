@@ -88,7 +88,7 @@ class PyBaseObject extends AbstractPyObject {
 
     /**
      * {@link Slot#tp_getattribute} has signature
-     * {@link Signature#GETATTR} and provides attribute read access on
+     * {@link Signature#GETATTRO} and provides attribute read access on
      * the object and its type. The default instance
      * {@code __getattribute__} slot implements dictionary look-up on
      * the type and the instance. It is the starting point for
@@ -177,7 +177,7 @@ class PyBaseObject extends AbstractPyObject {
     }
 
     /**
-     * {@link Slot#tp_setattr} has signature {@link Signature#SETATTR}
+     * {@link Slot#tp_setattro} has signature {@link Signature#SETATTRO}
      * and provides attribute write access on the object. The default
      * instance {@code __setattr__} slot implements dictionary look-up
      * on the type and the instance. It is the starting point for
@@ -258,7 +258,7 @@ class PyBaseObject extends AbstractPyObject {
     }
 
     /**
-     * {@link Slot#tp_delattr} has signature {@link Signature#DELATTR}
+     * {@link Slot#tp_delattro} has signature {@link Signature#DELATTRO}
      * and provides attribute deletion on the object. The default
      * instance {@code __delattr__} slot implements dictionary look-up
      * on the type and the instance. It is the starting point for

@@ -6,7 +6,7 @@ package uk.co.farowl.vsj2.evo4;
  * code. None of the functionality of the {@code warnings} module is
  * really present.
  */
-public class Warnings {
+class Warnings {
 
     private static PyObject do_warn(String message, PyType category,
             int stack_level, PyObject source) {

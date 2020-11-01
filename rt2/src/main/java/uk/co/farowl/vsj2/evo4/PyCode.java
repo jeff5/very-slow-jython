@@ -194,9 +194,8 @@ abstract class PyCode extends AbstractPyObject {
     /**
      * Create a frame from CPython vector call arguments, in the simple
      * case where only positional arguments are required and are
-     * available in exactly the required number. Unlike
-     * {@link #createFrame(Interpreter, PyDict, TypedTuple)} and its
-     * like, the initialisation of the returned frame is complete.
+     * available in exactly the required number. The initialisation of
+     * the returned frame is complete.
      *
      * @param interpreter providing the module context
      * @param globals name space to treat as global variables

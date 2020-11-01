@@ -134,7 +134,7 @@ class PyFunction extends AbstractPyObject {
         return frame;
     }
 
-    static PyObject tp_vectorcall(PyFunction func, PyObject[] stack,
+    static PyObject __vectorcall__(PyFunction func, PyObject[] stack,
             int start, int nargs, PyTuple kwnames) throws Throwable {
         PyFrame frame = func.createFrame(stack, start, nargs, kwnames);
         return frame.eval();
