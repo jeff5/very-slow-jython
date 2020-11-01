@@ -392,7 +392,6 @@ class Abstract {
      * @param f name of function or operation
      * @param t expected type of return
      * @param o actual object returned
-     * @return exception to throw
      */
     static void returnDeprecation(String f, String t, PyObject o) {
         Warnings.format(DeprecationWarning.TYPE, 1,

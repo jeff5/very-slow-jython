@@ -122,7 +122,6 @@ class TypedTuple<E extends PyObject> extends AbstractList<E>
      * {@link PyCode#names} returned by {@link PyCode#getNames()}).
      *
      * @param cls class of elements
-     * @param iPromiseNotToModifyTheArray true to re-use the array
      * @param value of the tuple
      * @throws ArrayStoreException if any element of {@code value} is
      *             not assignment compatible with {@code cls}

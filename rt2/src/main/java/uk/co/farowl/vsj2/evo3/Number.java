@@ -166,7 +166,7 @@ class Number extends Abstract {
      * Return a Python {@code int} (or subclass) from the object
      * {@code o}. Raise {@code TypeError} if the result is not a Python
      * {@code int} subclass, or if the object {@code o} cannot be
-     * interpreted as an index (it does not fill {@link NB#index}). This
+     * interpreted as an index (it does not fill {@link Slot#nb_index}). This
      * method makes no guarantee about the <i>range</i> of the result.
      */
     static PyObject index(PyObject o) throws Throwable {

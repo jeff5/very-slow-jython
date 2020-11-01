@@ -17,7 +17,7 @@ public class PyTuple extends TypedTuple<PyObject> {
     /**
      * Construct a {@code PyTuple} from the elements of a collection.
      *
-     * @param value source of element values for this {@code tuple}
+     * @param c source of element values for this {@code tuple}
      */
     PyTuple(Collection<? extends PyObject> c) {
         super(PyObject.class, c);

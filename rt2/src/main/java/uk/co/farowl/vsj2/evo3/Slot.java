@@ -111,7 +111,6 @@ enum Slot {
      * implements it, or the default handle (of the correct signature)
      * that throws {@link EmptyException}.
      *
-     * @param s slot
      * @param c target class
      * @return handle to method in {@code c} implementing this slot, or
      *         appropriate "empty" if no such method is accessible.
