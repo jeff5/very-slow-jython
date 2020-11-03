@@ -24,14 +24,16 @@ and to implement the MRO along which
 the search for any attribute is made.
 This means it is already time for an ``evo4``.
 
-Descriptors must represent attributes defined in either Java or Python,
+Descriptors must be able to represent
+attributes defined in either Java or Python:
 type slots (still ``MethodHandle``\s) will be filled from these descriptors.
 
 
 Scope
 =====
 
-Aspects of the design to be revisited in ``evo4`` are:
+Aspects of the design to be revisited in ``evo4`` (not just of ``PyType``)
+are:
 
 * Initialisation of slots (``nb_add``, ``tp_call`` etc.).
 * Naming of slot functions (offering simplifications).
@@ -42,9 +44,11 @@ These features will be added:
 * The dictionary of the type.
 * Descriptor protocol. (Extensively described in :ref:`Descriptors`.)
 * The actual Python type is not determined statically by the Java class.
-* The ``__new__`` slot and its implementation for several types.
+* The ``tp_new`` slot and its implementation for several types.
+* The ``tp_getattribute``, ``tp_getattr``, ``tp_setattr`` and  ``tp_delattr``
+  slots and their implementations in ``object`` and ``type``.
 * Attribute names resolved along the MRO.
-* Classes defined in Python
+* Classes defined in Python.
 
 ``evo3`` as we abandon it contains the beginnings of these features,
 but it became impossible to follow through without significant re-work.
@@ -82,28 +86,35 @@ the built-in and extension types,
 the slot is assigned a pointer to the C implementation function,
 either statically,
 or during ``type`` creation from a specification.
-CPython creates a dictionary entry to wrap any slot implemented,
-so that however it is implemented, in Python or C,
-a type that fills the slot also possesses a special method.
+CPython creates a descriptor in the dictionary to wrap any slot implemented.
+
+Thus, however it is implemented, in Python or C,
+the slot is filled and there is an entry in the type dictionary.
+
+
+A Complication
+==============
 
 At least, this is approximately correct.
-The relationship between special methods and slots, in some cases,
-is not actually one-to-one as this simple description suggests.
+The relationship between special methods and slots
+is one-to-one in some cases, as this simple description suggests,
+and in many others is more complicated.
 Some slots involve multiple special methods,
 and a few special methods affect more than one slot.
-However,
-the documented data model is expressed in terms of the special methods,
-and we should consider the API towards Python as definitive.
-The difference makes both the filling of the slot
+This complication makes difficult both the filling of the slot
 from a method defined in Python,
-and the synthesis of a Python method from a slot filled by class definition,
-difficult in some cases.
+and the synthesis of a Python method from a slot filled by C.
 
 This difficulty cannot be resolved by changes to the slot lay-down in CPython,
 since the lay-down is public API
 and many extensions rely on it.
 Recent work to make the internals of ``PyTypeObject`` restricted API,
 does not hide the set of slot names.
+
+The documented data model is expressed in terms of the special methods,
+and we should consider the API towards Python as definitive,
+not the gymnastics CPython undertakes to satisfy at once
+both the data model and the C API.
 
 
 A Java Approach the Slot Table
@@ -175,7 +186,8 @@ Consider the following abuse:
     >>> ~T()
     Traceback (most recent call last):
       File "<stdin>", line 1, in <module>
-    TypeError: descriptor '__neg__' requires a 'int' object but received a 'Thing'
+    TypeError: descriptor '__neg__' requires a 'int' object but received a
+    'Thing'
 
 Clearly, some complex validation goes on at the time of the call.
 One might think this should be nipped in the bud at class-creation time,
@@ -201,114 +213,5 @@ but short-circuits this when the descriptor is already a slot wrapper.
 In Java, in the same circumstances,
 we shall also reduce the work to a slot copy,
 but it is desirable too to avoid the look-up if we can.
-
-
-Directly-Defined Slots
-======================
-
-The slots for many unary numerical operations,
-and some slots that have seemingly complex signatures (like ``__call__``)
-are always defined directly by a single special method.
-
-When defined in Python,
-the descriptor must provide a wrapper
-that invokes the method as a general callable.
-It may be possible to create a ``MethodHandle`` that does this.
-
-When defined in Java,
-the descriptor may derive a ``MethodHandle``
-directly for the defining method.
-Note that the slot can safely contain that handle
-only if the described function is applicable to the implementation
-as it is for ``S`` and ``int`` in the Python example above.
-If this is not guaranteed by construction,
-invoking the handle must lead to a diagnostic (as in ``T`` above).
-
-CPython achieves this by copying the slot itself (as in our ``evo3``),
-when inspection of the descriptor leads to this possibility.
-
-
-Binary Operations
-=================
-
-The slot functions for the binary operations of built-in types
-in CPython (and in ``evo3``)
-are not guaranteed the type of either argument,
-and must test the type of both.
-For each operation the data model defines two special methods
-with signature ``op(self, right)`` and ``rop(self, left)``.
-For example, descriptors for ``__sub__`` and ``__rsub__``,
-defined in Python in some class,
-compete for the ``nb_subtract`` slot.
-CPython must define a ``slot_nb_subtract`` function to occupy the type slot,
-(see the ``SLOT1BIN`` macro in ``typeobject.c``)
-that will try ``__sub__`` or ``__rsub__`` or both,
-looking them up by name on the respective left and right objects presented.
-
-We will follow Jython 2 in making these separate slots.
-In the example,
-the Java implementation consists of two methods ``__sub__`` and ``__rsub__``,
-and there are two slots ``nb_sub`` and ``nb_rsub``,
-ultimately containing either the handle of the Java implementation,
-or a handle able to call the correspondingly-named Python method.
-
-What follows is still only notes of the issues
-or special features needing consideration
-when we come to implement them.
-
-
-``__add__``
-===========
-
-* two special methods, three slots.
-* Special logic of ``Number.add`` (``PyNumber_Add``),
-  ``nb_add``, ``sq_concat``.
-* Defining ``__add__`` in Python does not populate ``sq_concat``,
-  only ``nb_add``
-  but ``PySequence_Concat`` tries ``nb_add`` after ``sq_concat``.
-
-
-``__mul__``
-===========
-
-* two special methods, three slots.
-* Special logic of ``Number.multiply`` (``PyNumber_Multiply``),
-  ``nb_multiply``, ``sq_repeat``.
-* Problem that the second argument of ``sq_repeat`` is ``int.``
-
-
-``__len__``
-===========
-
-* one special method, two slots.
-* Tangled logic of ``Abstract.size`` (``PyObject_Size``),
-  ``Sequence.size`` (``PySequence_Size``),
-  ``Mapping.size`` (``PyMapping_Size``), ``sq_length``, ``mp_length``.
-
-
-``__getitem__``
-===============
-
-* one special method, two slots.
-* Mapping ``__getitem__`` accepts an object as key.
-* ``sq_item`` second argument accepts only ''int''
-  while sequence ``__getitem__`` accepts a slice.
-* Who is responsible for end-relative indexing (negative ``int``)?
-* Sequences accepting slices as indexes do so via
-  ``mp_subscript(s, slice)``.
-* possible disambiguation by signature (``sq_item``, ``mp_subscript``).
-
-
-``__setitem__``
-===============
-
-* one special method, two slots.
-* Mapping ``__setitem__`` accepts an object as key.
-* ``sq_ass_item`` second argument accepts only ''int''
-  while ``__setitem__`` accepts a slice.
-* Who is responsible for end-relative indexing (negative ``int``)?
-* Sequences accepting slices as indexes do so via
-  ``mp_ass_subscript(s, slice, o)``.
-* disambiguation by signature (``sq_ass_item``, ``mp_ass_subscript``).
 
 

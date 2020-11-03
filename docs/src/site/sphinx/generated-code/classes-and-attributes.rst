@@ -1365,10 +1365,16 @@ and :ref:`type-setattr`.
 
 
 
-
+.. _class-creation-descr:
 
 Class Creation with Descriptors
 *******************************
+
+
+
+
+
+
 
 
 
