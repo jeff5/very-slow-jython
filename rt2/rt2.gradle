@@ -25,3 +25,10 @@ test {
     }
 }
 
+tasks.withType(Javadoc) {
+    options.showFromPackage()
+    // addStringOption inserts one "-" for us :/
+    options.addStringOption("-add-stylesheet",
+        "src/main/javadoc/project-styles.css")
+}
+

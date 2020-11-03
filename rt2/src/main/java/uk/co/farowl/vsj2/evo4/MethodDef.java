@@ -12,7 +12,6 @@ import java.util.EnumSet;
 /**
  * A class to describe a built-in function as it is declared. Only
  * certain patterns (signatures) are supported.
- * <p>
  * <table>
  * <caption>Functions</caption>
  *

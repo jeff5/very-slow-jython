@@ -13,7 +13,7 @@ import uk.co.farowl.vsj2.evo3.Slot.EmptyException;
  * opcode.)
  * <p>
  * See also {@link Number}, {@link Sequence}, {@link Mapping} and
- * {@link Callable} which contain the abstract interface to the
+ * {@link Callables} which contain the abstract interface to the
  * corresponding type families. In CPython, the methods of all these
  * classes are found in {@code Objects/abstract.c}
  */

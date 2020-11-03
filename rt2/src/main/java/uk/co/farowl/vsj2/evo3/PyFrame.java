@@ -15,14 +15,12 @@ import uk.co.farowl.vsj2.evo3.PyCode.Trait;
  * def func(a, b, c=3, d=4, /, e=5, f=6, *aa, g=7, h, i=9, **kk):
  *     v, w, x = b, c, d, e
  *     return u
- * </pre>The layout of the local variables in a frame is as follows.
- * <p>
- * <style> table.lined td {border: 1px solid black; text-align: center;
- * min-width: 2em;} table.lined {border-collapse: collapse;} table.lined
- * td.row-label {text-align: left;} </style>
- * <table class="lined">
+ * </pre>
+ * the layout of the local variables in a frame would be as below
+ * <table class="framed-layout" style="border: none;">
+ * <caption>A Python {@code frame}</caption>
  * <tr>
- * <td class="row-label">frame</td>
+ * <td class="label">frame</td>
  * <td>a</td>
  * <td>b</td>
  * <td>c</td>
@@ -40,7 +38,7 @@ import uk.co.farowl.vsj2.evo3.PyCode.Trait;
  * <td>x</td>
  * </tr>
  * <tr>
- * <td class="row-label" rowspan=2>code</td>
+ * <td class="label" rowspan=2>code</td>
  * <td colspan=6>argcount</td>
  * <td colspan=3>kwonlyargcount</td>
  * <td>*</td>
@@ -52,7 +50,7 @@ import uk.co.farowl.vsj2.evo3.PyCode.Trait;
  * <td colspan=13></td>
  * </tr>
  * <tr>
- * <td class="row-label">function</td>
+ * <td class="label">function</td>
  * <td colspan=2></td>
  * <td colspan=4>defaults</td>
  * <td colspan=3 style="border-style: dashed;">kwdefaults</td>

@@ -12,8 +12,7 @@ import java.util.EnumSet;
 /**
  * A class to describe a built-in function as it is declared. Only
  * certain patterns (signatures) are supported.
- * <p>
- * <table frame=box rules=all>
+ * <table>
  * <caption>Functions</caption>
  *
  * <tr>
@@ -77,7 +76,7 @@ import java.util.EnumSet;
  * functions), but there must be a target object of the type declaring
  * the method, shown here as {@code self}.
  *
- * <table frame=box rules=all>
+ * <table>
  * <caption>Methods</caption>
  *
  * <tr>
