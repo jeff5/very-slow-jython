@@ -13,11 +13,11 @@ class Mapping extends Abstract {
         PyType oType = o.getType();
 
         try {
-            MethodHandle mh = oType.sq_length;
+            MethodHandle mh = oType.op_len;
             return (int) mh.invokeExact(o);
         } catch (Slot.EmptyException e) {}
 
-        if (Slot.sq_length.isDefinedFor(oType)) // XXX sq_ or mp_?
+        if (Slot.op_len.isDefinedFor(oType)) // XXX sq_ or mp_?
             // Caller should have tried Abstract.size
             throw typeError(NOT_MAPPING, o);
         throw typeError(HAS_NO_LEN, o);

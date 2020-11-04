@@ -200,7 +200,7 @@ class PyByteCode2 {
         // Create a type defining none of the reserved names
         final PyType basic = PyType.fromSpec( //
                 new Spec("0Test", PyObject.class));
-        assertEquals(Slot.Signature.CALL.empty, basic.tp_call,
+        assertEquals(Slot.Signature.CALL.empty, basic.op_call,
                 "not EMPTY");
 
         // Make method handles to try
@@ -214,29 +214,29 @@ class PyByteCode2 {
                 .empty(Slot.Signature.TERNARY.empty.type());
 
         // These go quietly
-        Slot.tp_hash.setSlot(basic, length);
-        Slot.tp_str.setSlot(basic, unary);
+        Slot.op_hash.setSlot(basic, length);
+        Slot.op_str.setSlot(basic, unary);
 
         // These should be prevented
         assertThrows(InterpreterError.class, () -> { //
-            Slot.tp_str.setSlot(basic, length);
+            Slot.op_str.setSlot(basic, length);
         });
         assertThrows(InterpreterError.class, () -> { //
-            Slot.tp_hash.setSlot(basic, unary);
+            Slot.op_hash.setSlot(basic, unary);
         });
         assertThrows(InterpreterError.class, () -> { //
-            Slot.tp_hash.setSlot(basic, binary);
+            Slot.op_hash.setSlot(basic, binary);
         });
         assertThrows(InterpreterError.class, () -> { //
-            Slot.tp_hash.setSlot(basic, ternary);
+            Slot.op_hash.setSlot(basic, ternary);
         });
         assertThrows(InterpreterError.class, () -> { //
-            Slot.tp_hash.setSlot(basic, null);
+            Slot.op_hash.setSlot(basic, null);
         });
 
         // And the slots should be unaffected
-        assertEquals(length, basic.tp_hash, "slot modified");
-        assertEquals(unary, basic.tp_str, "slot modified");
+        assertEquals(length, basic.op_hash, "slot modified");
+        assertEquals(unary, basic.op_str, "slot modified");
     }
 
     /**
@@ -247,10 +247,10 @@ class PyByteCode2 {
         // Create a type defining none of the reserved names
         final PyType number = PyType.fromSpec(//
                 new Spec("1Test", PyObject.class));
-        assertEquals(Slot.Signature.UNARY.empty, number.nb_negative,
-                Slot.nb_negative.name());
-        assertEquals(Slot.Signature.BINARY.empty, number.nb_add,
-                Slot.nb_add.name());
+        assertEquals(Slot.Signature.UNARY.empty, number.op_neg,
+                Slot.op_neg.name());
+        assertEquals(Slot.Signature.BINARY.empty, number.op_add,
+                Slot.op_add.name());
 
         // Make method handles to try
         final MethodHandle length =
@@ -262,39 +262,39 @@ class PyByteCode2 {
         final MethodHandle ternary = MethodHandles
                 .empty(Slot.Signature.TERNARY.empty.type());
         // These go quietly
-        Slot.nb_negative.setSlot(number, unary);
-        Slot.nb_add.setSlot(number, binary);
+        Slot.op_neg.setSlot(number, unary);
+        Slot.op_add.setSlot(number, binary);
 
         // These should be prevented
         assertThrows(InterpreterError.class, () -> { //
-            Slot.nb_negative.setSlot(number, length);
+            Slot.op_neg.setSlot(number, length);
         });
         assertThrows(InterpreterError.class, () -> { //
-            Slot.nb_negative.setSlot(number, binary);
+            Slot.op_neg.setSlot(number, binary);
         });
         assertThrows(InterpreterError.class, () -> { //
-            Slot.nb_negative.setSlot(number, ternary);
+            Slot.op_neg.setSlot(number, ternary);
         });
         assertThrows(InterpreterError.class, () -> { //
-            Slot.nb_negative.setSlot(number, null);
+            Slot.op_neg.setSlot(number, null);
         });
 
         assertThrows(InterpreterError.class, () -> { //
-            Slot.nb_add.setSlot(number, length);
+            Slot.op_add.setSlot(number, length);
         });
         assertThrows(InterpreterError.class, () -> { //
-            Slot.nb_add.setSlot(number, unary);
+            Slot.op_add.setSlot(number, unary);
         });
         assertThrows(InterpreterError.class, () -> { //
-            Slot.nb_add.setSlot(number, ternary);
+            Slot.op_add.setSlot(number, ternary);
         });
         assertThrows(InterpreterError.class, () -> { //
-            Slot.nb_add.setSlot(number, null);
+            Slot.op_add.setSlot(number, null);
         });
 
         // And the slots should have the value set earlier
-        assertEquals(unary, number.nb_negative, "slot modified");
-        assertEquals(binary, number.nb_add, "slot modified");
+        assertEquals(unary, number.op_neg, "slot modified");
+        assertEquals(binary, number.op_add, "slot modified");
     }
 
     /**
@@ -305,7 +305,7 @@ class PyByteCode2 {
         // Create a type defining none of the reserved names
         final PyType sequence = PyType.fromSpec(new Spec( //
                 "2Test", PyObject.class));
-        assertEquals(Slot.Signature.LEN.empty, sequence.sq_length,
+        assertEquals(Slot.Signature.LEN.empty, sequence.op_len,
                 "not empty");
 
         // Make method handles to try
@@ -319,24 +319,24 @@ class PyByteCode2 {
                 .empty(Slot.Signature.TERNARY.empty.type());
 
         // This goes quietly
-        Slot.sq_length.setSlot(sequence, length);
+        Slot.op_len.setSlot(sequence, length);
 
         // These should be prevented
         assertThrows(InterpreterError.class, () -> { //
-            Slot.sq_length.setSlot(sequence, unary);
+            Slot.op_len.setSlot(sequence, unary);
         });
         assertThrows(InterpreterError.class, () -> { //
-            Slot.sq_length.setSlot(sequence, binary);
+            Slot.op_len.setSlot(sequence, binary);
         });
         assertThrows(InterpreterError.class, () -> { //
-            Slot.sq_length.setSlot(sequence, ternary);
+            Slot.op_len.setSlot(sequence, ternary);
         });
         assertThrows(InterpreterError.class, () -> { //
-            Slot.sq_length.setSlot(sequence, null);
+            Slot.op_len.setSlot(sequence, null);
         });
 
         // And the slot should be unaffected
-        assertEquals(length, sequence.sq_length, "slot modified");
+        assertEquals(length, sequence.op_len, "slot modified");
     }
 
     /**
@@ -348,41 +348,41 @@ class PyByteCode2 {
         final PyType mapping = PyType.fromSpec(new Spec( //
                 "3Test", PyObject.class));
         assertEquals(Slot.Signature.BINARY.empty,
-                mapping.mp_subscript, "not empty");
-        assertEquals(Slot.Signature.MP_ASSIGN.empty,
-                mapping.mp_ass_subscript, "not empty");
+                mapping.op_getitem, "not empty");
+        assertEquals(Slot.Signature.SETITEM.empty,
+                mapping.op_setitem, "not empty");
 
         // Make method handles to try
         MethodHandle getitem = MethodHandles
                 .empty(Slot.Signature.BINARY.empty.type());
         MethodHandle setitem = MethodHandles
-                .empty(Slot.Signature.MP_ASSIGN.empty.type());
+                .empty(Slot.Signature.SETITEM.empty.type());
         MethodHandle bad1 = MethodHandles
                 .empty(Slot.Signature.SQ_INDEX.empty.type());
         MethodHandle bad2 = MethodHandles
                 .empty(Slot.Signature.SQ_ASSIGN.empty.type());
 
         // These go quietly
-        Slot.mp_subscript.setSlot(mapping, getitem);
-        Slot.mp_ass_subscript.setSlot(mapping, setitem);
+        Slot.op_getitem.setSlot(mapping, getitem);
+        Slot.op_setitem.setSlot(mapping, setitem);
 
         // These should be prevented
         assertThrows(InterpreterError.class, () -> { //
-            Slot.mp_subscript.setSlot(mapping, bad1);
+            Slot.op_getitem.setSlot(mapping, bad1);
         });
         assertThrows(InterpreterError.class, () -> { //
-            Slot.mp_subscript.setSlot(mapping, bad2);
+            Slot.op_getitem.setSlot(mapping, bad2);
         });
         assertThrows(InterpreterError.class, () -> { //
-            Slot.mp_ass_subscript.setSlot(mapping, bad2);
+            Slot.op_setitem.setSlot(mapping, bad2);
         });
         assertThrows(InterpreterError.class, () -> { //
-            Slot.mp_ass_subscript.setSlot(mapping, null);
+            Slot.op_setitem.setSlot(mapping, null);
         });
 
         // And the slots should be unaffected
-        assertEquals(getitem, mapping.mp_subscript, "slot modified");
-        assertEquals(setitem, mapping.mp_ass_subscript,
+        assertEquals(getitem, mapping.op_getitem, "slot modified");
+        assertEquals(setitem, mapping.op_setitem,
                 "slot modified");
     }
 

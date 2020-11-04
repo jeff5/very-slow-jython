@@ -24,7 +24,9 @@ class PyLong implements PyObject {
     }
 
     /** Construct a Python {@code long}. */
-    PyLong(BigInteger value) { this(TYPE, value); }
+    PyLong(BigInteger value) {
+        this(TYPE, value);
+    }
 
     PyLong(long value) { this(BigInteger.valueOf(value)); }
 
@@ -302,7 +304,7 @@ class PyLong implements PyObject {
                  * Convert using the nb_int slot, which should return
                  * something of exact type int.
                  */
-                PyObject r = (PyObject) t.nb_int.invokeExact(integral);
+                PyObject r = (PyObject) t.op_int.invokeExact(integral);
                 if (r.getType() == PyLong.TYPE) {
                     return r;
                 } else if (r instanceof PyLong) {
@@ -341,7 +343,7 @@ class PyLong implements PyObject {
 
         try {
             // Normally, the nb_index slot will do the job
-            PyObject r = (PyObject) t.nb_index.invokeExact(integral);
+            PyObject r = (PyObject) t.op_index.invokeExact(integral);
             if (r.getType() == PyLong.TYPE)
                 return r;
             else if (r instanceof PyLong) {
@@ -353,7 +355,7 @@ class PyLong implements PyObject {
         } catch (EmptyException e) {}
 
         // We're here because nb_index was empty. Try nb_int.
-        if (Slot.nb_int.isDefinedFor(t)) {
+        if (Slot.op_int.isDefinedFor(t)) {
             PyObject r = fromNbInt(integral);
             // ... but grumble about it.
             Warnings.format(DeprecationWarning.TYPE, 1,

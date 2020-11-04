@@ -699,7 +699,7 @@ class CPythonFrame extends PyFrame {
      * iterable, throw a {@link TypeError}.
      */
     private void checkArgsIterable(PyObject func, PyObject args) {
-        if (args == null || Slot.tp_iter.isDefinedFor(args.getType()))
+        if (args == null || Slot.op_iter.isDefinedFor(args.getType()))
             return;
         if (Sequence.check(args))
             return;

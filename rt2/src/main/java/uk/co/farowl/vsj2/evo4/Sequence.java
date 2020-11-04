@@ -17,7 +17,7 @@ class Sequence extends Abstract {
         PyType sType = s.getType();
 
         try {
-            return (int) sType.sq_length.invokeExact(s);
+            return (int) sType.op_len.invokeExact(s);
         } catch (Slot.EmptyException e) {}
 
         //if (Slot.mp_length.isDefinedFor(sType))
@@ -33,7 +33,7 @@ class Sequence extends Abstract {
         if (i < 0) {
             // Index from the end of the sequence (if it has one)
             try {
-                i += (int) sType.sq_length.invokeExact(s);
+                i += (int) sType.op_len.invokeExact(s);
             } catch (EmptyException e) {}
         }
 
@@ -41,7 +41,7 @@ class Sequence extends Abstract {
             return (PyObject) sType.sq_item.invokeExact(s, i);
         } catch (EmptyException e) {}
 
-        if (Slot.mp_subscript.isDefinedFor(sType))
+        if (Slot.op_getitem.isDefinedFor(sType))
             // Caller should have tried Abstract.getItem
             throw typeError(NOT_SEQUENCE, s);
         throw typeError(NOT_INDEXING, s);
@@ -54,7 +54,7 @@ class Sequence extends Abstract {
         if (i < 0) {
             // Index from the end of the sequence (if it has one)
             try {
-                i += (int) sType.sq_length.invokeExact(s);
+                i += (int) sType.op_len.invokeExact(s);
             } catch (EmptyException e) {}
         }
 
@@ -63,7 +63,7 @@ class Sequence extends Abstract {
             return;
         } catch (EmptyException e) {}
 
-        if (Slot.mp_ass_subscript.isDefinedFor(sType))
+        if (Slot.op_setitem.isDefinedFor(sType))
             // Caller should have tried Abstract.setItem
             throw typeError(NOT_SEQUENCE, s);
         throw typeError(NOT_ITEM_ASSIGNMENT, s);

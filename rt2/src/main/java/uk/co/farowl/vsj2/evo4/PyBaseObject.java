@@ -50,7 +50,7 @@ class PyBaseObject extends AbstractPyObject {
      */
 
     /**
-     * {@link Slot#tp_repr} has signature {@link Signature#UNARY} and
+     * {@link Slot#op_repr} has signature {@link Signature#UNARY} and
      * sometimes reproduces the source-code representation of the
      * object.
      */
@@ -60,13 +60,13 @@ class PyBaseObject extends AbstractPyObject {
     }
 
     /**
-     * {@link Slot#tp_str} has signature {@link Signature#UNARY} and
+     * {@link Slot#op_str} has signature {@link Signature#UNARY} and
      * returns a human-readable presentation of the object. The default
      * definition of the {@code __str__} slot is to invoke the
      * {@code __repr__} slot.
      */
     static PyObject __str__(PyObject self) {
-        MethodHandle repr = self.getType().tp_repr;
+        MethodHandle repr = self.getType().op_repr;
         // Be more bullet-proof than usual
         try {
             if (repr != null)
@@ -87,8 +87,8 @@ class PyBaseObject extends AbstractPyObject {
     }
 
     /**
-     * {@link Slot#tp_getattribute} has signature
-     * {@link Signature#GETATTRO} and provides attribute read access on
+     * {@link Slot#op_getattribute} has signature
+     * {@link Signature#GETATTR} and provides attribute read access on
      * the object and its type. The default instance
      * {@code __getattribute__} slot implements dictionary look-up on
      * the type and the instance. It is the starting point for
@@ -125,7 +125,7 @@ class PyBaseObject extends AbstractPyObject {
         if (typeAttr != null) {
             // Found in the type, it might be a descriptor
             PyType typeAttrType = typeAttr.getType();
-            descrGet = typeAttrType.tp_descr_get;
+            descrGet = typeAttrType.op_get;
             if (typeAttrType.isDataDescr()) {
                 // typeAttr is a data descriptor so call its __get__.
                 try {
@@ -177,7 +177,7 @@ class PyBaseObject extends AbstractPyObject {
     }
 
     /**
-     * {@link Slot#tp_setattro} has signature {@link Signature#SETATTRO}
+     * {@link Slot#op_setattr} has signature {@link Signature#SETATTR}
      * and provides attribute write access on the object. The default
      * instance {@code __setattr__} slot implements dictionary look-up
      * on the type and the instance. It is the starting point for
@@ -217,7 +217,7 @@ class PyBaseObject extends AbstractPyObject {
             if (typeAttrType.isDataDescr()) {
                 // Try descriptor __set__
                 try {
-                    typeAttrType.tp_descr_set.invokeExact(typeAttr, obj,
+                    typeAttrType.op_set.invokeExact(typeAttr, obj,
                             value);
                     return;
                 } catch (Slot.EmptyException e) {
@@ -258,7 +258,7 @@ class PyBaseObject extends AbstractPyObject {
     }
 
     /**
-     * {@link Slot#tp_delattro} has signature {@link Signature#DELATTRO}
+     * {@link Slot#op_delattr} has signature {@link Signature#DELATTR}
      * and provides attribute deletion on the object. The default
      * instance {@code __delattr__} slot implements dictionary look-up
      * on the type and the instance. It is the starting point for
@@ -290,8 +290,7 @@ class PyBaseObject extends AbstractPyObject {
             if (typeAttrType.isDataDescr()) {
                 // Try descriptor __delete__
                 try {
-                    typeAttrType.tp_descr_delete.invokeExact(typeAttr,
-                            obj);
+                    typeAttrType.op_delete.invokeExact(typeAttr, obj);
                     return;
                 } catch (Slot.EmptyException e) {
                     // We do not catch AttributeError: it's definitive.

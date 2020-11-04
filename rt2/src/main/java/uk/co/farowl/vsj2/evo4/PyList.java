@@ -72,7 +72,7 @@ class PyList extends ArrayList<PyObject> implements PySequence {
     static PyObject __getitem__(PyList self, PyObject item)
             throws Throwable {
         PyType itemType = item.getType();
-        if (Slot.nb_index.isDefinedFor(itemType)) {
+        if (Slot.op_index.isDefinedFor(itemType)) {
             int i = Number.asSize(item, IndexError::new);
             if (i < 0) { i += self.size(); }
             return __getitem__(self, i);
@@ -85,7 +85,7 @@ class PyList extends ArrayList<PyObject> implements PySequence {
     static void __setitem__(PyList self, PyObject item, PyObject value)
             throws Throwable {
         PyType itemType = item.getType();
-        if (Slot.nb_index.isDefinedFor(itemType)) {
+        if (Slot.op_index.isDefinedFor(itemType)) {
             int i = Number.asSize(item, IndexError::new);
             if (i < 0) { i += self.size(); }
             __setitem__(self, i, value);

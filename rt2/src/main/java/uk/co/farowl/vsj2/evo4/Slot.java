@@ -18,60 +18,61 @@ import java.lang.invoke.VarHandle;
  */
 enum Slot {
 
-    tp_repr(Signature.UNARY), //
-    tp_hash(Signature.LEN), //
-    tp_call(Signature.CALL), //
-    tp_str(Signature.UNARY), //
+    op_repr(Signature.UNARY), //
+    op_hash(Signature.LEN), //
+    op_call(Signature.CALL), //
+    op_str(Signature.UNARY), //
 
-    tp_getattribute(Signature.GETATTRO), //
-    tp_getattro(Signature.GETATTRO, null, "__getattr__"), //
-    tp_setattro(Signature.SETATTRO, null, "__setattr__"), //
-    tp_delattro(Signature.DELATTRO, null, "__delattr__"), //
+    op_getattribute(Signature.GETATTR), //
+    op_getattr(Signature.GETATTR), //
+    op_setattr(Signature.SETATTR), //
+    op_delattr(Signature.DELATTR), //
 
     tp_richcompare(Signature.RICHCMP), //
-    tp_iter(Signature.UNARY), //
 
-    tp_descr_get(Signature.DESCRGET, null, "__get__"), //
-    tp_descr_set(Signature.DESCRSET, null, "__set__"), //
-    tp_descr_delete(Signature.DESCRDEL, null, "__delete__"), //
+    op_iter(Signature.UNARY), //
 
-    tp_init(Signature.INIT), //
-    tp_new(Signature.NEW), //
+    op_get(Signature.DESCRGET), //
+    op_set(Signature.SETITEM), //
+    op_delete(Signature.DELITEM), //
 
-    tp_vectorcall(Signature.VECTORCALL), //
+    op_init(Signature.INIT), //
+    op_new(Signature.NEW), //
 
-    nb_negative(Signature.UNARY, "-", "__neg__"), //
-    nb_absolute(Signature.UNARY, null, "__abs__"), //
+    op_vectorcall(Signature.VECTORCALL), //
+
+    op_neg(Signature.UNARY), //
+    op_abs(Signature.UNARY), //
 
     // Binary ops: reflected form comes first so we can reference it.
-    nb_radd(Signature.BINARY, "+"), //
-    nb_rsub(Signature.BINARY, "-"), //
-    nb_rmul(Signature.BINARY, "*"), //
-    nb_rand(Signature.BINARY, "&"), //
-    nb_rxor(Signature.BINARY, "^"), //
-    nb_ror(Signature.BINARY, "|"), //
+    op_radd(Signature.BINARY, "+"), //
+    op_rsub(Signature.BINARY, "-"), //
+    op_rmul(Signature.BINARY, "*"), //
+    op_rand(Signature.BINARY, "&"), //
+    op_rxor(Signature.BINARY, "^"), //
+    op_ror(Signature.BINARY, "|"), //
 
-    nb_add(Signature.BINARY, "+", nb_radd), //
-    nb_sub(Signature.BINARY, "-", nb_rsub), //
-    nb_mul(Signature.BINARY, "*", nb_rmul), //
-    nb_and(Signature.BINARY, "&", nb_rand), //
-    nb_xor(Signature.BINARY, "^", nb_rxor), //
-    nb_or(Signature.BINARY, "|", nb_ror), //
+    op_add(Signature.BINARY, "+", op_radd), //
+    op_sub(Signature.BINARY, "-", op_rsub), //
+    op_mul(Signature.BINARY, "*", op_rmul), //
+    op_and(Signature.BINARY, "&", op_rand), //
+    op_xor(Signature.BINARY, "^", op_rxor), //
+    op_or(Signature.BINARY, "|", op_ror), //
 
     /** Handle to {@code __bool__} with {@link Signature#PREDICATE} */
-    nb_bool(Signature.PREDICATE), //
-    nb_int(Signature.UNARY), //
-    nb_float(Signature.UNARY), //
-    nb_index(Signature.UNARY), //
+    op_bool(Signature.PREDICATE), //
+    op_int(Signature.UNARY), //
+    op_float(Signature.UNARY), //
+    op_index(Signature.UNARY), //
 
-    sq_length(Signature.LEN, null, "__len__"), //
-    // sq_repeat(Signature.SQ_INDEX, "*", "__mul__"), //
+    op_len(Signature.LEN), //
+
     sq_item(Signature.SQ_INDEX, null, "__getitem__"), //
     sq_ass_item(Signature.SQ_ASSIGN, null, "__setitem__"), //
 
-    // mp_length(Signature.LEN, null, "__len__"), //
-    mp_subscript(Signature.BINARY, null, "__getitem__"), //
-    mp_ass_subscript(Signature.MP_ASSIGN, null, "__setitem__");
+    op_getitem(Signature.BINARY), //
+    op_setitem(Signature.SETITEM), //
+    op_delitem(Signature.DELITEM);
 
     /** Method signature to match when filling this slot. */
     final Signature signature;
@@ -126,7 +127,7 @@ enum Slot {
         else {
             String s = name();
             int i = s.indexOf('_');
-            if (i > 0)
+            if (i == 2)
                 s = "__" + s.substring(i + 1) + "__";
             return s;
         }
@@ -251,17 +252,17 @@ enum Slot {
         CALL(O, S, TUPLE, DICT), // u(self, *args, **kwargs)
         VECTORCALL(O, S, OA, I, I, TUPLE), // u(x, y, ..., a=z)
         PREDICATE(B, S), // nb_bool
+        BINARY_PREDICATE(B, S, O), // __lt__, __le__, ...
         LEN(I, S), // sq_length, tp_hash
         RICHCMP(O, S, O, CMP), // (richcmpfunc) tp_richcompare only
         SQ_INDEX(O, S, I), // (ssizeargfunc) sq_item, sq_repeat only
         SQ_ASSIGN(V, S, I, O), // (ssizeobjargproc) sq_ass_item only
-        MP_ASSIGN(V, S, O, O), // (objobjargproc) mp_ass_subscript only
-        GETATTRO(O, S, U), // (getattrofunc) tp_getattro
-        SETATTRO(V, S, U, O), // (setattrofunc) tp_setattro
-        DELATTRO(V, S, U), // (not in CPython) tp_delattro
-        DESCRGET(O, S, O, T), // (descrgetfunc)
-        DESCRSET(V, S, O, O), // (descrsetfunc)
-        DESCRDEL(V, S, O), // (not in CPython) tp_descr_delete
+        SETITEM(V, S, O, O), // (objobjargproc) op_sertitem, op_set
+        DELITEM(V, S, O), // (not in CPython) op_delitem, op_delete
+        GETATTR(O, S, U), // (getattrofunc) tp_getattro
+        SETATTR(V, S, U, O), // (setattrofunc) tp_setattro
+        DELATTR(V, S, U), // (not in CPython) tp_delattro
+        DESCRGET(O, S, O, T), // (descrgetfunc) op_get
         INIT(V, S, TUPLE, DICT), // (initproc) tp_init
         NEW(O, T, TUPLE, DICT); // (newfunc) tp_new
 

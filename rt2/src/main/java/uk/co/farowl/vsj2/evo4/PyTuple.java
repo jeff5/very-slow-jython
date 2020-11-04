@@ -119,7 +119,7 @@ class PyTuple extends TypedTuple<PyObject> {
     static PyObject __getitem__(PyTuple self, PyObject item)
             throws Throwable {
         PyType itemType = item.getType();
-        if (Slot.nb_index.isDefinedFor(itemType)) {
+        if (Slot.op_index.isDefinedFor(itemType)) {
             int i = Number.asSize(item, IndexError::new);
             if (i < 0) { i += self.size(); }
             return __getitem__(self, i);

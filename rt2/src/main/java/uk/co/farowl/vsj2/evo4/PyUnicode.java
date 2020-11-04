@@ -118,7 +118,7 @@ class PyUnicode implements PySequence, Comparable<PyUnicode> {
     static PyObject __getitem__(PyUnicode self, PyObject item)
             throws Throwable {
         PyType itemType = item.getType();
-        if (Slot.nb_index.isDefinedFor(itemType)) {
+        if (Slot.op_index.isDefinedFor(itemType)) {
             int i = Number.asSize(item, IndexError::new);
             if (i < 0) { i += self.value.length(); }
             return __getitem__(self, i);

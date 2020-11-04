@@ -11,7 +11,7 @@ class Number extends Abstract {
     /** Python {@code -v} */
     static PyObject negative(PyObject v) throws Throwable {
         try {
-            return (PyObject) v.getType().nb_negative.invokeExact(v);
+            return (PyObject) v.getType().op_neg.invokeExact(v);
         } catch (Slot.EmptyException e) {
             throw operandError("unary -", v);
         }
@@ -20,7 +20,7 @@ class Number extends Abstract {
     /** Python {@code abs(v)} */
     static PyObject absolute(PyObject v) throws Throwable {
         try {
-            return (PyObject) v.getType().nb_absolute.invokeExact(v);
+            return (PyObject) v.getType().op_abs.invokeExact(v);
         } catch (Slot.EmptyException e) {
             throw operandError("abs()", v);
         }
@@ -34,32 +34,32 @@ class Number extends Abstract {
 
     /** Python {@code v + w} */
     static PyObject add(PyObject v, PyObject w) throws Throwable {
-        return binary_op(v, w, Slot.nb_add);
+        return binary_op(v, w, Slot.op_add);
     }
 
     /** Python {@code v - w} */
     static PyObject subtract(PyObject v, PyObject w) throws Throwable {
-        return binary_op(v, w, Slot.nb_sub);
+        return binary_op(v, w, Slot.op_sub);
     }
 
     /** Python {@code v * w} */
     static PyObject multiply(PyObject v, PyObject w) throws Throwable {
-        return binary_op(v, w, Slot.nb_mul);
+        return binary_op(v, w, Slot.op_mul);
     }
 
     /** Python {@code v | w} */
     static final PyObject or(PyObject v, PyObject w) throws Throwable {
-        return binary_op(v, w, Slot.nb_or);
+        return binary_op(v, w, Slot.op_or);
     }
 
     /** Python {@code v & w} */
     static final PyObject and(PyObject v, PyObject w) throws Throwable {
-        return binary_op(v, w, Slot.nb_and);
+        return binary_op(v, w, Slot.op_and);
     }
 
     /** Python {@code v ^ w} */
     static final PyObject xor(PyObject v, PyObject w) throws Throwable {
-        return binary_op(v, w, Slot.nb_xor);
+        return binary_op(v, w, Slot.op_xor);
     }
 
     private static final MethodHandle SQ_INDEX_EMPTY =
@@ -146,7 +146,7 @@ class Number extends Abstract {
      * Return a Python {@code int} (or subclass) from the object
      * {@code o}. Raise {@code TypeError} if the result is not a Python
      * {@code int} subclass, or if the object {@code o} cannot be
-     * interpreted as an index (it does not fill {@link Slot#nb_index}).
+     * interpreted as an index (it does not fill {@link Slot#op_index}).
      * This method makes no guarantee about the <i>range</i> of the
      * result.
      */
@@ -159,7 +159,7 @@ class Number extends Abstract {
             return (PyLong) o;
         else {
             try {
-                result = (PyObject) itemType.nb_index.invokeExact(o);
+                result = (PyObject) itemType.op_index.invokeExact(o);
                 // Enforce expectations on the return type
                 PyType resultType = result.getType();
                 if (resultType == PyLong.TYPE)
@@ -250,7 +250,7 @@ class Number extends Abstract {
             return o;
         }
 
-        else if (Slot.nb_int.isDefinedFor(oType)) {
+        else if (Slot.op_int.isDefinedFor(oType)) {
             /* This should include subclasses of int */
             result = PyLong.fromNbInt(o);
             if (result.getType() != PyLong.TYPE) {
@@ -259,7 +259,7 @@ class Number extends Abstract {
             return result;
         }
 
-        else if (Slot.nb_index.isDefinedFor(oType)) {
+        else if (Slot.op_index.isDefinedFor(oType)) {
             result = PyLong.fromNbIndexOrNbInt(o);
             if (result != null && !(result.getType() == PyLong.TYPE)) {
                 result = new PyLong((PyLong) result);
@@ -306,7 +306,7 @@ class Number extends Abstract {
         } else {
             try {
                 // Try __float__ (if defined)
-                PyObject res = (PyObject) oType.nb_float.invokeExact(o);
+                PyObject res = (PyObject) oType.op_float.invokeExact(o);
                 if (res.getType() == PyFloat.TYPE) // Exact type
                     return (PyFloat) res;
                 else if (res instanceof PyFloat) { // Sub-class
@@ -319,7 +319,7 @@ class Number extends Abstract {
             } catch (Slot.EmptyException e) {}
 
             // Fall out here if nb_float was not defined
-            if (Slot.nb_index.isDefinedFor(oType))
+            if (Slot.op_index.isDefinedFor(oType))
                 return Py.val(index(o).doubleValue());
             else
                 return PyFloat.fromString(o);

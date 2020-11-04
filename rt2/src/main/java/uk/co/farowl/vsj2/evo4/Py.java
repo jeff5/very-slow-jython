@@ -122,7 +122,7 @@ class Py {
             PyType type = null;
             try {
                 type = o.getType();
-                MethodHandle str = type.tp_str;
+                MethodHandle str = type.op_str;
                 PyObject res = (PyObject) str.invoke(o);
                 if (res instanceof PyUnicode)
                     return ((PyUnicode) res).toString();

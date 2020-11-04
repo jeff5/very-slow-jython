@@ -154,7 +154,7 @@ class PyFloat extends AbstractPyObject {
         } else {
             try {
                 // Try __float__ (if defined)
-                PyObject res = (PyObject) oType.nb_float.invokeExact(o);
+                PyObject res = (PyObject) oType.op_float.invokeExact(o);
                 if (res.getType() == PyFloat.TYPE) // Exact type
                     return ((PyFloat) res).value;
                 else if (res instanceof PyFloat) { // Sub-class
@@ -169,7 +169,7 @@ class PyFloat extends AbstractPyObject {
             } catch (Slot.EmptyException e) {}
 
             // Fall out here if __float__ was not defined
-            if (Slot.nb_index.isDefinedFor(oType))
+            if (Slot.op_index.isDefinedFor(oType))
                 return Number.index(o).doubleValue();
             else
                 throw Abstract.requiredTypeError("a real number",

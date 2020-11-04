@@ -34,7 +34,7 @@ class Abstract {
         } else {
             PyType type = o.getType();
             try {
-                PyObject res = (PyObject) type.tp_repr.invoke(o);
+                PyObject res = (PyObject) type.op_repr.invoke(o);
                 if (res instanceof PyUnicode) {
                     return res;
                 } else {
@@ -61,8 +61,8 @@ class Abstract {
             PyType type = o.getType();
             if (type == PyUnicode.TYPE) {
                 return o;
-            } else if (Slot.tp_str.isDefinedFor(type)) {
-                PyObject res = (PyObject) type.tp_str.invoke(o);
+            } else if (Slot.op_str.isDefinedFor(type)) {
+                PyObject res = (PyObject) type.op_str.invoke(o);
                 if (res instanceof PyUnicode) {
                     return res;
                 } else {
@@ -89,12 +89,12 @@ class Abstract {
             // Ask the object type through the nb_bool or sq_length
             // slots
             PyType t = v.getType();
-            if (Slot.nb_bool.isDefinedFor(t))
-                return (boolean) t.nb_bool.invokeExact(v);
+            if (Slot.op_bool.isDefinedFor(t))
+                return (boolean) t.op_bool.invokeExact(v);
             // else if (Slot.mp_length.isDefinedFor(t))
             // return 0 != (int) t.mp_length.invokeExact(v);
-            else if (Slot.sq_length.isDefinedFor(t))
-                return 0 != (int) t.sq_length.invokeExact(v);
+            else if (Slot.op_len.isDefinedFor(t))
+                return 0 != (int) t.op_len.invokeExact(v);
             else
                 // No nb_bool and no length: claim everything is True.
                 return true;
@@ -204,7 +204,7 @@ class Abstract {
     static int size(PyObject o) throws Throwable {
         // Note that the slot is called sq_length but this method, size.
         try {
-            MethodHandle mh = o.getType().sq_length;
+            MethodHandle mh = o.getType().op_len;
             return (int) mh.invokeExact(o);
         } catch (Slot.EmptyException e) {}
 
@@ -222,12 +222,12 @@ class Abstract {
         PyType oType = o.getType();
 
         try {
-            return (PyObject) oType.mp_subscript.invokeExact(o, key);
+            return (PyObject) oType.op_getitem.invokeExact(o, key);
         } catch (EmptyException e) {}
 
         if (Slot.sq_item.isDefinedFor(oType)) {
             // For a sequence (only), key must have index-like type
-            if (Slot.nb_index.isDefinedFor(key.getType())) {
+            if (Slot.op_index.isDefinedFor(key.getType())) {
                 int k = Number.asSize(key, IndexError::new);
                 return Sequence.getItem(o, k);
             } else
@@ -248,13 +248,13 @@ class Abstract {
         PyType oType = o.getType();
 
         try {
-            oType.mp_ass_subscript.invokeExact(o, key, value);
+            oType.op_setitem.invokeExact(o, key, value);
             return;
         } catch (EmptyException e) {}
 
         if (Slot.sq_ass_item.isDefinedFor(oType)) {
             // For a sequence (only), key must have index-like type
-            if (Slot.nb_index.isDefinedFor(key.getType())) {
+            if (Slot.op_index.isDefinedFor(key.getType())) {
                 int k = Number.asSize(key, IndexError::new);
                 Sequence.setItem(o, k, value);
             } else
@@ -272,11 +272,11 @@ class Abstract {
         PyType t = o.getType();
         try {
             // Invoke __getattribute__.
-            return (PyObject) t.tp_getattribute.invokeExact(o, name);
+            return (PyObject) t.op_getattribute.invokeExact(o, name);
         } catch (EmptyException | AttributeError e) {
             try {
                 // Not found or not defined: fall back on __getattr__.
-                return (PyObject) t.tp_getattro.invokeExact(o, name);
+                return (PyObject) t.op_getattr.invokeExact(o, name);
             } catch (EmptyException ignored) {
                 // __getattr__ not defined, original exception stands.
                 if (e instanceof AttributeError) { throw e; }
@@ -321,9 +321,9 @@ class Abstract {
             throws AttributeError, TypeError, Throwable {
         // Decisions are based on type of o (that of name is known)
         try {
-            o.getType().tp_setattro.invokeExact(o, name, value);
+            o.getType().op_setattr.invokeExact(o, name, value);
         } catch (EmptyException e) {
-            throw attributeAccessError(o, name, Slot.tp_setattro);
+            throw attributeAccessError(o, name, Slot.op_setattr);
         }
     }
 
@@ -352,9 +352,9 @@ class Abstract {
             throws AttributeError, TypeError, Throwable {
         // Decisions are based on type of o (that of name is known)
         try {
-            o.getType().tp_delattro.invokeExact(o, name);
+            o.getType().op_delattr.invokeExact(o, name);
         } catch (EmptyException e) {
-            throw attributeAccessError(o, name, Slot.tp_delattro);
+            throw attributeAccessError(o, name, Slot.op_delattr);
         }
     }
 
@@ -385,10 +385,10 @@ class Abstract {
                 fmt = "'%.100s' object has %s attributes (%s.%.50s)";
         // What were we trying to do?
         switch (slot) {
-            case tp_delattro:
+            case op_delattr:
                 mode = "delete ";
                 break;
-            case tp_setattro:
+            case op_setattr:
                 mode = "assign to ";
                 break;
             default:
@@ -397,7 +397,7 @@ class Abstract {
         }
         // Can we even read this object's attributes?
         PyType oType = o.getType();
-        kind = Slot.tp_getattribute.isDefinedFor(oType)
+        kind = Slot.op_getattribute.isDefinedFor(oType)
                 ? "only read-only" : "no";
         // Now we know what to say
         return new TypeError(fmt, oType, kind, mode, name);
@@ -610,10 +610,10 @@ class Abstract {
      * True iff the object has a slot for conversion to the index type.
      *
      * @param obj to test
-     * @return whether {@code obj} has non-empty {@link Slot#nb_index}
+     * @return whether {@code obj} has non-empty {@link Slot#op_index}
      */
     static boolean indexCheck(PyObject obj) {
-        return Slot.nb_index.isDefinedFor(obj.getType());
+        return Slot.op_index.isDefinedFor(obj.getType());
     }
 
     /** Throw generic something went wrong internally (last resort). */

@@ -47,72 +47,66 @@ class PyType implements PyObject {
 
     // Standard type slots table see CPython PyType
 
-    MethodHandle tp_repr;
-    MethodHandle tp_hash;
-    MethodHandle tp_call;
-    MethodHandle tp_str;
+    MethodHandle op_repr;
+    MethodHandle op_hash;
+    MethodHandle op_call;
+    MethodHandle op_str;
 
-    MethodHandle tp_getattribute;
-    MethodHandle tp_getattro;
-    MethodHandle tp_setattro;
-    MethodHandle tp_delattro;
+    MethodHandle op_getattribute;
+    MethodHandle op_getattr;
+    MethodHandle op_setattr;
+    MethodHandle op_delattr;
 
     MethodHandle tp_richcompare;
 
-    MethodHandle tp_iter;
+    MethodHandle op_iter;
 
-    MethodHandle tp_descr_get;
-    MethodHandle tp_descr_set;
-    MethodHandle tp_descr_delete;
+    MethodHandle op_get;
+    MethodHandle op_set;
+    MethodHandle op_delete;
 
-    MethodHandle tp_init;
-    MethodHandle tp_new;
+    MethodHandle op_init;
+    MethodHandle op_new;
 
-    MethodHandle tp_vectorcall;
+    MethodHandle op_vectorcall;
 
     // Number slots table see CPython PyNumberMethods
 
-    MethodHandle nb_add;
-    MethodHandle nb_radd;
-    MethodHandle nb_sub;
-    MethodHandle nb_rsub;
-    MethodHandle nb_mul;
-    MethodHandle nb_rmul;
+    MethodHandle op_add;
+    MethodHandle op_radd;
+    MethodHandle op_sub;
+    MethodHandle op_rsub;
+    MethodHandle op_mul;
+    MethodHandle op_rmul;
 
-    MethodHandle nb_negative;
+    MethodHandle op_neg;
 
-    MethodHandle nb_absolute;
-    MethodHandle nb_bool;
+    MethodHandle op_abs;
+    MethodHandle op_bool;
 
-    MethodHandle nb_and;
-    MethodHandle nb_rand;
-    MethodHandle nb_xor;
-    MethodHandle nb_rxor;
-    MethodHandle nb_or;
-    MethodHandle nb_ror;
+    MethodHandle op_and;
+    MethodHandle op_rand;
+    MethodHandle op_xor;
+    MethodHandle op_rxor;
+    MethodHandle op_or;
+    MethodHandle op_ror;
 
-    MethodHandle nb_int;
-    MethodHandle nb_float;
+    MethodHandle op_int;
+    MethodHandle op_float;
 
-    MethodHandle nb_index;
+    MethodHandle op_index;
 
     // Sequence slots table see CPython PySequenceMethods
+    // Mapping slots table see CPython PyMappingMethods
 
-    MethodHandle sq_length;
-    // MethodHandle concat;
-    // MethodHandle sq_repeat;
+    MethodHandle op_len;
     MethodHandle sq_item;
     MethodHandle sq_ass_item;
     // MethodHandle sq_contains;
 
-    // MethodHandle inplace_concat;
-    // MethodHandle inplace_repeat;
-
-    // Mapping slots table see CPython PyMappingMethods
-
-    // MethodHandle mp_length;
-    MethodHandle mp_subscript;
-    MethodHandle mp_ass_subscript;
+    MethodHandle op_getitem;
+    MethodHandle op_setitem;
+    MethodHandle op_delitem;
 
     /** Construct a type with given name and {@code object} as base. */
     PyType(String name, Class<? extends PyObject> implClass) {
@@ -539,7 +533,7 @@ class PyType implements PyObject {
             throws TypeError, Throwable {
         try {
             // Create the instance with given arguments.
-            MethodHandle n = type.tp_new;
+            MethodHandle n = type.op_new;
             PyObject o = (PyObject) n.invokeExact(type, args, kwargs);
             // Check for special case type enquiry: yes afterwards!
             // (PyType.__new__ performs both functions.)
@@ -548,8 +542,8 @@ class PyType implements PyObject {
             PyType oType = o.getType();
             if (oType.isSubTypeOf(type)) {
                 // Initialise the object just returned (if necessary).
-                if (Slot.tp_init.isDefinedFor(oType))
-                    oType.tp_init.invokeExact(o, args, kwargs);
+                if (Slot.op_init.isDefinedFor(oType))
+                    oType.op_init.invokeExact(o, args, kwargs);
             }
             return o;
         } catch (EmptyException e) {
@@ -614,8 +608,8 @@ class PyType implements PyObject {
     }
 
     /**
-     * {@link Slot#tp_getattribute} has signature
-     * {@link Signature#GETATTRO} and provides attribute read access on
+     * {@link Slot#op_getattribute} has signature
+     * {@link Signature#GETATTR} and provides attribute read access on
      * this type object and its metatype. This is very like
      * {@code object.__getattribute__}
      * ({@link PyBaseObject#__getattribute__(PyObject, PyUnicode)}), but
@@ -659,7 +653,7 @@ class PyType implements PyObject {
         if (metaAttr != null) {
             // Found in the metatype, it might be a descriptor
             PyType metaAttrType = metaAttr.getType();
-            descrGet = metaAttrType.tp_descr_get;
+            descrGet = metaAttrType.op_get;
             if (metaAttrType.isDataDescr()) {
                 // metaAttr is a data descriptor so call its __get__.
                 try {
@@ -690,7 +684,7 @@ class PyType implements PyObject {
                  * descriptors in this step, but have not forgotten we
                  * are dereferencing a type.
                  */
-                return (PyObject) attr.getType().tp_descr_get
+                return (PyObject) attr.getType().op_get
                         .invokeExact(attr, (PyObject) null, type);
             } catch (Slot.EmptyException e) {
                 // We do not catch AttributeError: it's definitive.
@@ -721,7 +715,7 @@ class PyType implements PyObject {
     }
 
     /**
-     * {@link Slot#tp_setattro} has signature {@link Signature#SETATTRO}
+     * {@link Slot#op_setattr} has signature {@link Signature#SETATTR}
      * and provides attribute write access on this type object. The
      * behaviour is very like the default {@code object.__setattr__}
      * except that it has write access to the type dictionary that is
@@ -764,8 +758,8 @@ class PyType implements PyObject {
             if (metaAttrType.isDataDescr()) {
                 // Try descriptor __set__
                 try {
-                    metaAttrType.tp_descr_set.invokeExact(metaAttr,
-                            type, value);
+                    metaAttrType.op_set.invokeExact(metaAttr, type,
+                            value);
                     if (special) { type.updateAfterSetAttr(name); }
                     return;
                 } catch (Slot.EmptyException e) {
@@ -786,7 +780,7 @@ class PyType implements PyObject {
     }
 
     /**
-     * {@link Slot#tp_delattro} has signature {@link Signature#DELATTRO}
+     * {@link Slot#op_delattr} has signature {@link Signature#DELATTR}
      * and provides attribute deletion on this type object. The
      * behaviour is very like the default {@code object.__delattr__}
      * except that it has write access to the type dictionary that is
@@ -821,8 +815,7 @@ class PyType implements PyObject {
             if (metaAttrType.isDataDescr()) {
                 // Try descriptor __delete__
                 try {
-                    metaAttrType.tp_descr_delete.invokeExact(metaAttr,
-                            type);
+                    metaAttrType.op_delete.invokeExact(metaAttr, type);
                     if (special) { type.updateAfterSetAttr(name); }
                     return;
                 } catch (Slot.EmptyException e) {

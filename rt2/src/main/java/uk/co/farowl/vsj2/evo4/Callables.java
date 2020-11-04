@@ -31,7 +31,7 @@ class Callables extends Abstract {
              * cfunction_call_varargs respectively on the args, kwargs
              * arguments.
              */
-            MethodHandle call = callable.getType().tp_call;
+            MethodHandle call = callable.getType().op_call;
             return (PyObject) call.invokeExact(callable, args, kwargs);
         } catch (Slot.EmptyException e) {
             throw typeError(OBJECT_NOT_CALLABLE, callable);
@@ -39,10 +39,10 @@ class Callables extends Abstract {
     }
 
     /**
-     * Call an object with the classic call protocol as
-     * supported in the interpreter {@code CALL_FUNCTION_EX} opcode, that is, an
-     * argument tuple (or iterable) and keyword dictionary (or iterable
-     * of key-value pairs).
+     * Call an object with the classic call protocol as supported in the
+     * interpreter {@code CALL_FUNCTION_EX} opcode, that is, an argument
+     * tuple (or iterable) and keyword dictionary (or iterable of
+     * key-value pairs).
      *
      * @param callable target
      * @param args positional arguments
@@ -96,8 +96,8 @@ class Callables extends Abstract {
      *
      * @param args positional arguments
      * @param kwargs keyword arguments (normally {@code PyDict})
-     * @param stack to receive positional and keyword arguments,
-     * must be sized {@code nargs + kwargs.size()}.
+     * @param stack to receive positional and keyword arguments, must be
+     *            sized {@code nargs + kwargs.size()}.
      * @return names of keyword arguments
      */
     // Compare CPython _PyStack_UnpackDict in call.c
@@ -141,7 +141,7 @@ class Callables extends Abstract {
 
         // Try the vector call slot. Not an offset like CPython's slot.
         try {
-            MethodHandle call = callable.getType().tp_vectorcall;
+            MethodHandle call = callable.getType().op_vectorcall;
             return (PyObject) call.invokeExact(callable, stack, start,
                     nargs, kwnames);
         } catch (Slot.EmptyException e) {}
@@ -190,11 +190,11 @@ class Callables extends Abstract {
      * @throws Throwable for errors raised in the function
      */
     // Compare CPython PyObject_CallFunctionObjArgs in call.c
-    static  PyObject callFunction(PyObject callable, PyObject... args)
+    static PyObject callFunction(PyObject callable, PyObject... args)
             throws Throwable {
         try {
             // A vector call with no keywords (if supported).
-            MethodHandle call = callable.getType().tp_vectorcall;
+            MethodHandle call = callable.getType().op_vectorcall;
             return (PyObject) call.invokeExact(callable, args, 0,
                     args.length, PyTuple.EMPTY);
         } catch (Slot.EmptyException e) {}
@@ -216,7 +216,7 @@ class Callables extends Abstract {
     static PyObject call(PyObject callable) throws Throwable {
         // Try the vector call slot. Not an offset like CPython's slot.
         try {
-            MethodHandle call = callable.getType().tp_vectorcall;
+            MethodHandle call = callable.getType().op_vectorcall;
             return (PyObject) call.invokeExact(callable, Py.EMPTY_ARRAY,
                     0, 0, PyTuple.EMPTY);
         } catch (Slot.EmptyException e) {}
