@@ -247,6 +247,60 @@ class PyLong implements PyObject {
         }
     }
 
+    static PyObject __lt__(PyLong v, PyObject w) {
+        if (w instanceof PyLong) {
+            int u = v.value.compareTo(((PyLong) w).value);
+            return Py.val(u < 0);
+        } else {
+            return Py.NotImplemented;
+        }
+    }
+
+    static PyObject __le__(PyLong v, PyObject w) {
+        if (w instanceof PyLong) {
+            int u = v.value.compareTo(((PyLong) w).value);
+            return Py.val(u <= 0);
+        } else {
+            return Py.NotImplemented;
+        }
+    }
+
+    static PyObject __eq__(PyLong v, PyObject w) {
+        if (w instanceof PyLong) {
+            int u = v.value.compareTo(((PyLong) w).value);
+            return Py.val(u == 0);
+        } else {
+            return Py.NotImplemented;
+        }
+    }
+
+    static PyObject __ne__(PyLong v, PyObject w) {
+        if (w instanceof PyLong) {
+            int u = v.value.compareTo(((PyLong) w).value);
+            return Py.val(u != 0);
+        } else {
+            return Py.NotImplemented;
+        }
+    }
+
+    static PyObject __ge__(PyLong v, PyObject w) {
+        if (w instanceof PyLong) {
+            int u = v.value.compareTo(((PyLong) w).value);
+            return Py.val(u >= 0);
+        } else {
+            return Py.NotImplemented;
+        }
+    }
+
+    static PyObject __gt__(PyLong v, PyObject w) {
+        if (w instanceof PyLong) {
+            int u = v.value.compareTo(((PyLong) w).value);
+            return Py.val(u > 0);
+        } else {
+            return Py.NotImplemented;
+        }
+    }
+
     static boolean __bool__(PyLong v) {
         return !BigInteger.ZERO.equals(v.value);
     }

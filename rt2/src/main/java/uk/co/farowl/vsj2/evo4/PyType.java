@@ -57,7 +57,12 @@ class PyType implements PyObject {
     MethodHandle op_setattr;
     MethodHandle op_delattr;
 
-    MethodHandle tp_richcompare;
+    MethodHandle op_lt;
+    MethodHandle op_le;
+    MethodHandle op_eq;
+    MethodHandle op_ne;
+    MethodHandle op_ge;
+    MethodHandle op_gt;
 
     MethodHandle op_iter;
 
@@ -102,7 +107,7 @@ class PyType implements PyObject {
     MethodHandle op_len;
     MethodHandle sq_item;
     MethodHandle sq_ass_item;
-    // MethodHandle sq_contains;
+    MethodHandle op_contains;
 
     MethodHandle op_getitem;
     MethodHandle op_setitem;

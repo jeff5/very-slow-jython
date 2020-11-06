@@ -28,7 +28,12 @@ enum Slot {
     op_setattr(Signature.SETATTR), //
     op_delattr(Signature.DELATTR), //
 
-    tp_richcompare(Signature.RICHCMP), //
+    op_lt(Signature.BINARY), //
+    op_le(Signature.BINARY), //
+    op_eq(Signature.BINARY), //
+    op_ne(Signature.BINARY), //
+    op_ge(Signature.BINARY), //
+    op_gt(Signature.BINARY), //
 
     op_iter(Signature.UNARY), //
 
@@ -69,6 +74,7 @@ enum Slot {
 
     sq_item(Signature.SQ_INDEX, null, "__getitem__"), //
     sq_ass_item(Signature.SQ_ASSIGN, null, "__setitem__"), //
+    op_contains(Signature.BINARY_PREDICATE), //
 
     op_getitem(Signature.BINARY), //
     op_setitem(Signature.SETITEM), //
@@ -252,7 +258,7 @@ enum Slot {
         CALL(O, S, TUPLE, DICT), // u(self, *args, **kwargs)
         VECTORCALL(O, S, OA, I, I, TUPLE), // u(x, y, ..., a=z)
         PREDICATE(B, S), // nb_bool
-        BINARY_PREDICATE(B, S, O), // __lt__, __le__, ...
+        BINARY_PREDICATE(B, S, O), // op_contains
         LEN(I, S), // sq_length, tp_hash
         RICHCMP(O, S, O, CMP), // (richcmpfunc) tp_richcompare only
         SQ_INDEX(O, S, I), // (ssizeargfunc) sq_item, sq_repeat only

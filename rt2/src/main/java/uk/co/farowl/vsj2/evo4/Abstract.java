@@ -108,50 +108,7 @@ class Abstract {
     // Compare CPython PyObject_RichCompare, do_richcompare in object.c
     static PyObject richCompare(PyObject v, PyObject w, Comparison op)
             throws Throwable {
-        PyType vType = v.getType();
-        PyType wType = w.getType();
-
-        boolean checkedReverse = false;
-        MethodHandle f;
-
-        if (vType != wType && wType.isSubTypeOf(vType)
-                && (f = wType.tp_richcompare) != RICH_EMPTY) {
-            checkedReverse = true;
-            PyObject r = (PyObject) f.invokeExact(w, v, op.swapped());
-            if (r != Py.NotImplemented) { return r; }
-        }
-
-        if ((f = vType.tp_richcompare) != RICH_EMPTY) {
-            PyObject r = (PyObject) f.invokeExact(v, w, op);
-            if (r != Py.NotImplemented) { return r; }
-        }
-
-        if (!checkedReverse
-                && (f = wType.tp_richcompare) != RICH_EMPTY) {
-            PyObject r = (PyObject) f.invokeExact(w, v, op.swapped());
-            if (r != Py.NotImplemented) { return r; }
-        }
-
-        /// Neither object implements op: base == and != on identity.
-        switch (op) {
-            case EQ:
-                return Py.val(v == w);
-            case NE:
-                return Py.val(v != w);
-            default:
-                throw comparisonTypeError(v, w, op);
-        }
-    }
-
-    private static final MethodHandle RICH_EMPTY =
-            Slot.Signature.RICHCMP.empty;
-
-    static PyException comparisonTypeError(PyObject v, PyObject w,
-            Comparison op) {
-        String fmt =
-                "'%s' not supported between instances of '%.100s' and '%.100s'";
-        return new TypeError(fmt, op, v.getType().getName(),
-                w.getType().getName());
+        return op.apply(v, w);
     }
 
     /**
@@ -174,7 +131,7 @@ class Abstract {
             else if (op == Comparison.NE)
                 return false;
         }
-        return isTrue(richCompare(v, w, op));
+        return isTrue(op.apply(v, w));
     }
 
     /**

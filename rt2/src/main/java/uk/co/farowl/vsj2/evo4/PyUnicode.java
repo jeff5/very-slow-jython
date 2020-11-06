@@ -97,6 +97,60 @@ class PyUnicode implements PySequence, Comparable<PyUnicode> {
             return Py.NotImplemented;
     }
 
+    static PyObject __lt__(PyUnicode v, PyObject w) {
+        if (w instanceof PyUnicode) {
+            int u = v.compareTo((PyUnicode) w);
+            return Py.val(u < 0);
+        } else {
+            return Py.NotImplemented;
+        }
+    }
+
+    static PyObject __le__(PyUnicode v, PyObject w) {
+        if (w instanceof PyUnicode) {
+            int u = v.compareTo((PyUnicode) w);
+            return Py.val(u <= 0);
+        } else {
+            return Py.NotImplemented;
+        }
+    }
+
+    static PyObject __eq__(PyUnicode v, PyObject w) {
+        if (w instanceof PyUnicode) {
+            int u = v.compareTo((PyUnicode) w);
+            return Py.val(u == 0);
+        } else {
+            return Py.NotImplemented;
+        }
+    }
+
+    static PyObject __ne__(PyUnicode v, PyObject w) {
+        if (w instanceof PyUnicode) {
+            int u = v.compareTo((PyUnicode) w);
+            return Py.val(u != 0);
+        } else {
+            return Py.NotImplemented;
+        }
+    }
+
+    static PyObject __ge__(PyUnicode v, PyObject w) {
+        if (w instanceof PyUnicode) {
+            int u = v.compareTo((PyUnicode) w);
+            return Py.val(u >= 0);
+        } else {
+            return Py.NotImplemented;
+        }
+    }
+
+    static PyObject __gt__(PyUnicode v, PyObject w) {
+        if (w instanceof PyUnicode) {
+            int u = v.compareTo((PyUnicode) w);
+            return Py.val(u > 0);
+        } else {
+            return Py.NotImplemented;
+        }
+    }
+
     static PyObject __mul__(PyUnicode self, PyObject n)
             throws Throwable {
         return PyObjectUtil.repeat(self, n);

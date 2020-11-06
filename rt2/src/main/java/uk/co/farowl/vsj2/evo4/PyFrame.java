@@ -727,7 +727,7 @@ abstract class PyFrame implements PyObject {
         }
 
         return new TypeError(
-                "%s() missing %i required %s argument%s: %s", code.name,
+                "%s() missing %d required %s argument%s: %s", code.name,
                 len, kind, len == 1 ? "" : "s", joinedNames);
     }
 }
