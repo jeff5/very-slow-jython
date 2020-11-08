@@ -155,9 +155,9 @@ class CPythonFrame extends PyFrame {
 
     /**
      * {@inheritDoc}
-     * <p>
-     * Optimised version for {@code CPythonFrame} copying to
-     * {@link #fastlocals} directly.
+     *
+     * @implNote Optimised version for {@code CPythonFrame} copying to
+     *           {@link #fastlocals} directly.
      */
     @Override
     void setPositionalArguments(PyTuple args) {
@@ -167,9 +167,9 @@ class CPythonFrame extends PyFrame {
 
     /**
      * {@inheritDoc}
-     * <p>
-     * Optimised version for {@code CPythonFrame} copying to
-     * {@link #fastlocals} directly.
+     *
+     * @implNote Optimised version for {@code CPythonFrame} copying to
+     *           {@link #fastlocals} directly.
      */
     @Override
     void setPositionalArguments(PyObject[] stack, int start,
