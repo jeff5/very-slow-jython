@@ -12,9 +12,9 @@ package uk.co.farowl.vsj2.evo4;
 interface PySequence extends PyObject {
 
     /** Get one element from the sequence. */
-    //PyObject getItem(int n);
+    //PyObject getItem(int i);
     /** Set one element from the sequence (if mutable). */
-    //void setItem(int n, PyObject v);
+    //void setItem(int i, PyObject v);
     /** Return a sequence of the target type, concatenating this with a sequence of possibly different type. */
     //<S extends PySequence> S concat(PyObject other);
     /** Return a sequence of the target type, by repeated concatenating n copies of the present value. */

@@ -28,6 +28,14 @@ class PyList extends ArrayList<PyObject> implements PySequence {
 
     // Sequence interface ---------------------------------------------
 
+    PyObject getItem(int i) {
+        try {
+            return get(i);
+        } catch (IndexOutOfBoundsException e) {
+            throw Abstract.indexOutOfRange("list");
+        }
+    }
+
     @Override
     public PyList repeat(int n) {
         PyList r = new PyList(n * size());
@@ -53,14 +61,6 @@ class PyList extends ArrayList<PyObject> implements PySequence {
 
     static int __len__(PyList s) { return s.size(); }
 
-    static PyObject __getitem__(PyList self, int i) {
-        try {
-            return ((PyList) self).get(i);
-        } catch (IndexOutOfBoundsException e) {
-            throw new IndexError("list index out of range");
-        }
-    }
-
     static void __setitem__(PyList self, int i, PyObject o) {
         try {
             self.set(i, o);
@@ -75,7 +75,7 @@ class PyList extends ArrayList<PyObject> implements PySequence {
         if (Slot.op_index.isDefinedFor(itemType)) {
             int i = Number.asSize(item, IndexError::new);
             if (i < 0) { i += self.size(); }
-            return __getitem__(self, i);
+            return self.getItem(i);
         }
         // else if item is a PySlice { ... }
         else

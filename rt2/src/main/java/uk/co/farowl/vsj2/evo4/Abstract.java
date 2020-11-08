@@ -174,23 +174,13 @@ class Abstract {
      */
     // Compare CPython PyObject_GetItem in abstract.c
     static PyObject getItem(PyObject o, PyObject key) throws Throwable {
-        // Corresponds to abstract.c : PyObject_GetItem
         // Decisions are based on types of o and key
-        PyType oType = o.getType();
-
         try {
+            PyType oType = o.getType();
             return (PyObject) oType.op_getitem.invokeExact(o, key);
-        } catch (EmptyException e) {}
-
-        if (Slot.sq_item.isDefinedFor(oType)) {
-            // For a sequence (only), key must have index-like type
-            if (Slot.op_index.isDefinedFor(key.getType())) {
-                int k = Number.asSize(key, IndexError::new);
-                return Sequence.getItem(o, k);
-            } else
-                throw typeError(MUST_BE_INT_NOT, key);
-        } else
+        } catch (EmptyException e) {
             throw typeError(NOT_SUBSCRIPTABLE, o);
+        }
     }
 
     /**
@@ -200,24 +190,30 @@ class Abstract {
     // Compare CPython PyObject_SetItem in abstract.c
     static void setItem(PyObject o, PyObject key, PyObject value)
             throws Throwable {
-        // Corresponds to abstract.c : PyObject_SetItem
         // Decisions are based on types of o and key
         PyType oType = o.getType();
-
         try {
             oType.op_setitem.invokeExact(o, key, value);
             return;
-        } catch (EmptyException e) {}
+        } catch (EmptyException e) {
+            throw typeError(DOES_NOT_SUPPORT_ITEM, o, "assignment");
+        }
+    }
 
-        if (Slot.sq_ass_item.isDefinedFor(oType)) {
-            // For a sequence (only), key must have index-like type
-            if (Slot.op_index.isDefinedFor(key.getType())) {
-                int k = Number.asSize(key, IndexError::new);
-                Sequence.setItem(o, k, value);
-            } else
-                throw typeError(MUST_BE_INT_NOT, key);
-        } else
-            throw typeError(NOT_ITEM_ASSIGNMENT, o);
+    /**
+     * Python {@code del o[key]} where {@code o} may be a mapping or a
+     * sequence.
+     */
+    // Compare CPython PyObject_DelItem in abstract.c
+    static void delItem(PyObject o, PyObject key) throws Throwable {
+        // Decisions are based on types of o and key
+        PyType oType = o.getType();
+        try {
+            oType.op_delitem.invokeExact(o, key);
+            return;
+        } catch (EmptyException e) {
+            throw typeError(DOES_NOT_SUPPORT_ITEM, o, "deletion");
+        }
     }
 
     /** Python {@code o.name}. */
@@ -364,14 +360,12 @@ class Abstract {
 
     protected static final String HAS_NO_LEN =
             "object of type '%.200s' has no len()";
-    private static final String MUST_BE_INT_NOT =
-            "sequence index must be integer, not '%.200s'";
     private static final String NOT_SUBSCRIPTABLE =
             "'%.200s' object is not subscriptable";
     private static final String IS_REQUIRED_NOT =
             "%.200s is required, not '%.100s'";
-    protected static final String NOT_ITEM_ASSIGNMENT =
-            "'%.200s' object does not support item assignment";
+    protected static final String DOES_NOT_SUPPORT_ITEM =
+            "'%.200s' object does not support item %s";
     private static final String RETURNED_NON_TYPE =
             "%.200s returned non-%.200s (type %.200s)";
     private static final String ARGUMENT_MUST_BE =
@@ -379,15 +373,15 @@ class Abstract {
 
     /**
      * Create a {@link TypeError} with a message involving the type of
-     * {@code o}. All this really adds is the convenience of being able
-     * to pass the object rather than the type name of the object.
+     * {@code o} and optionally other arguments.
      *
-     * @param fmt format string for message (with one {@code %s}
-     * @param o object whose type name will substitute for {@code %s}
+     * @param fmt format for message with at least one {@code %s}
+     * @param o object whose type name will fill the first {@code %s}
+     * @param args extra arguments to the formatted message
      * @return exception to throw
      */
-    static TypeError typeError(String fmt, PyObject o) {
-        return new TypeError(fmt, o.getType().getName());
+    static TypeError typeError(String fmt, PyObject o, Object... args) {
+        return new TypeError(fmt, o.getType().getName(), args);
     }
 
     /**
@@ -539,6 +533,18 @@ class Abstract {
             PyObject name) {
         String fmt = "'%.50s' object attribute '%s' cannot be deleted";
         return new AttributeError(fmt, v.getType().getName(), name);
+    }
+
+    /**
+     * Create an {@link IndexError} with a message along the lines "N
+     * index out of range", where N is usually a function or type name.
+     *
+     * @param name object accessed
+     * @return exception to throw
+     */
+    static IndexError indexOutOfRange(String name) {
+        String fmt = "%.50s index out of range";
+        return new IndexError(fmt, name);
     }
 
     /**

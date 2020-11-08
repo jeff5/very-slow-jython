@@ -173,13 +173,14 @@ class PyByteCode2 {
                     .invokeExact(v, w);
         });
 
-        // Call to handle that fills "empty" SQ_ASSIGN slot.
+        // Call to handle that fills "empty" SETITEM slot.
         PyObject u = new PyTuple(v, w);
         assertThrows(Slot.EmptyException.class, new Executable() { //
 
             @Override
             public void execute() throws Throwable {
-                Slot.Signature.SQ_ASSIGN.empty.invokeExact(u, 1, w);
+                PyObject i = Py.val(1);
+                Slot.Signature.SETITEM.empty.invokeExact(u, i, w);
             }
         });
 
@@ -358,9 +359,9 @@ class PyByteCode2 {
         MethodHandle setitem = MethodHandles
                 .empty(Slot.Signature.SETITEM.empty.type());
         MethodHandle bad1 = MethodHandles
-                .empty(Slot.Signature.SQ_INDEX.empty.type());
+                .empty(Slot.Signature.SETATTR.empty.type());
         MethodHandle bad2 = MethodHandles
-                .empty(Slot.Signature.SQ_ASSIGN.empty.type());
+                .empty(Slot.Signature.GETATTR.empty.type());
 
         // These go quietly
         Slot.op_getitem.setSlot(mapping, getitem);

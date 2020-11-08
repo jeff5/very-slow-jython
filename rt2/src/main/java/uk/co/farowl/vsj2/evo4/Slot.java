@@ -72,8 +72,6 @@ enum Slot {
 
     op_len(Signature.LEN), //
 
-    sq_item(Signature.SQ_INDEX, null, "__getitem__"), //
-    sq_ass_item(Signature.SQ_ASSIGN, null, "__setitem__"), //
     op_contains(Signature.BINARY_PREDICATE), //
 
     op_getitem(Signature.BINARY), //
@@ -261,8 +259,6 @@ enum Slot {
         BINARY_PREDICATE(B, S, O), // op_contains
         LEN(I, S), // sq_length, tp_hash
         RICHCMP(O, S, O, CMP), // (richcmpfunc) tp_richcompare only
-        SQ_INDEX(O, S, I), // (ssizeargfunc) sq_item, sq_repeat only
-        SQ_ASSIGN(V, S, I, O), // (ssizeobjargproc) sq_ass_item only
         SETITEM(V, S, O, O), // (objobjargproc) op_sertitem, op_set
         DELITEM(V, S, O), // (not in CPython) op_delitem, op_delete
         GETATTR(O, S, U), // (getattrofunc) tp_getattro

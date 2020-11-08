@@ -62,9 +62,6 @@ class Number extends Abstract {
         return binary_op(v, w, Slot.op_xor);
     }
 
-    private static final MethodHandle SQ_INDEX_EMPTY =
-            Slot.Signature.SQ_INDEX.empty;
-
     /**
      * Helper for implementing a binary operation that has one,
      * slot-based interpretation.

@@ -61,6 +61,14 @@ class PyUnicode implements PySequence, Comparable<PyUnicode> {
 
     // Sequence interface ---------------------------------------------
 
+    PyUnicode getItem(int i) {
+        try {
+            return new PyUnicode(value.charAt(i));
+        } catch (IndexOutOfBoundsException e) {
+            throw Abstract.indexOutOfRange("str");
+        }
+    }
+
     @Override
     public PyUnicode repeat(int i) {
         try {
@@ -161,21 +169,13 @@ class PyUnicode implements PySequence, Comparable<PyUnicode> {
         return PyObjectUtil.repeat(self, n);
     }
 
-    static PyObject __getitem__(PyUnicode self, int i) {
-        try {
-            return new PyUnicode(self.value.charAt(i));
-        } catch (IndexOutOfBoundsException e) {
-            throw new IndexError("str index out of range");
-        }
-    }
-
     static PyObject __getitem__(PyUnicode self, PyObject item)
             throws Throwable {
         PyType itemType = item.getType();
         if (Slot.op_index.isDefinedFor(itemType)) {
             int i = Number.asSize(item, IndexError::new);
             if (i < 0) { i += self.value.length(); }
-            return __getitem__(self, i);
+            return self.getItem(i);
         }
         // else if item is a PySlice { ... }
         else

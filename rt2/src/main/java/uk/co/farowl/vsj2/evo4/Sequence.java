@@ -1,5 +1,7 @@
 package uk.co.farowl.vsj2.evo4;
 
+import java.util.List;
+
 import uk.co.farowl.vsj2.evo4.Slot.EmptyException;
 
 /** Compare CPython {@code abstract.h}: {@code Py_Sequence_*}. */
@@ -8,69 +10,53 @@ class Sequence extends Abstract {
     /** {@code true} iff {@code s} is a sequence type. */
     static boolean check(PyObject s) {
         return !(s instanceof PyDict)
-                && Slot.sq_item.isDefinedFor(s.getType());
+                && Slot.op_getitem.isDefinedFor(s.getType());
     }
 
     /** Python size of {@code s} */
     static int size(PyObject s) throws Throwable {
         // Note that the slot is called sq_length but this method, size.
-        PyType sType = s.getType();
-
         try {
+            PyType sType = s.getType();
             return (int) sType.op_len.invokeExact(s);
-        } catch (Slot.EmptyException e) {}
-
-        //if (Slot.mp_length.isDefinedFor(sType))
-            // Caller should have tried Abstract.size
-        //    throw typeError(NOT_SEQUENCE, s);
-        throw typeError(HAS_NO_LEN, s);
+        } catch (Slot.EmptyException e) {
+            throw typeError(HAS_NO_LEN, s);
+        }
     }
 
     /** Python {@code s[i]} */
     static PyObject getItem(PyObject s, int i) throws Throwable {
-        PyType sType = s.getType();
-
-        if (i < 0) {
-            // Index from the end of the sequence (if it has one)
-            try {
-                i += (int) sType.op_len.invokeExact(s);
-            } catch (EmptyException e) {}
-        }
-
         try {
-            return (PyObject) sType.sq_item.invokeExact(s, i);
-        } catch (EmptyException e) {}
-
-        if (Slot.op_getitem.isDefinedFor(sType))
-            // Caller should have tried Abstract.getItem
-            throw typeError(NOT_SEQUENCE, s);
-        throw typeError(NOT_INDEXING, s);
+            PyObject k = Py.val(i);
+            return (PyObject) s.getType().op_getitem.invokeExact(s, k);
+        } catch (EmptyException e) {
+            throw typeError(NOT_INDEXING, s);
+        }
     }
 
-    static void setItem(PyObject s, int i, PyObject o)
+    /** Python {@code s[i] = value} */
+    static void setItem(PyObject s, int i, PyObject value)
             throws Throwable {
-        PyType sType = s.getType();
-
-        if (i < 0) {
-            // Index from the end of the sequence (if it has one)
-            try {
-                i += (int) sType.op_len.invokeExact(s);
-            } catch (EmptyException e) {}
-        }
-
         try {
-            sType.sq_ass_item.invokeExact(s, i, o);
+            PyObject k = Py.val(i);
+            s.getType().op_setitem.invokeExact(s, k, value);
             return;
-        } catch (EmptyException e) {}
-
-        if (Slot.op_setitem.isDefinedFor(sType))
-            // Caller should have tried Abstract.setItem
-            throw typeError(NOT_SEQUENCE, s);
-        throw typeError(NOT_ITEM_ASSIGNMENT, s);
+        } catch (EmptyException e) {
+            throw typeError(DOES_NOT_SUPPORT_ITEM, s, "assignment");
+        }
     }
 
-    private static final String NOT_SEQUENCE =
-            "%.200s is not a sequence";
+    /** Python {@code del s[i]} */
+    static void delItem(PyObject s, int i) throws Throwable {
+        try {
+            PyObject k = Py.val(i);
+            s.getType().op_delitem.invokeExact(s, k);
+            return;
+        } catch (EmptyException e) {
+            throw typeError(DOES_NOT_SUPPORT_ITEM, s, "deletion");
+        }
+    }
+
     private static final String NOT_INDEXING =
             // XXX is this different from Abstract.NOT_SUBSCRIPTABLE?
             "'%.200s' object does not support indexing";

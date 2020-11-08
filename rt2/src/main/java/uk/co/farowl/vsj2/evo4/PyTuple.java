@@ -104,17 +104,20 @@ class PyTuple extends TypedTuple<PyObject> {
         else
             return new PyTuple(true, value);
     }
+
+    // Sequence interface ---------------------------------------------
+
+    PyObject getItem(int i) {
+        try {
+            return get(i);
+        } catch (IndexOutOfBoundsException e) {
+            throw Abstract.indexOutOfRange("tuple");
+        }
+    }
+
     // slot functions -------------------------------------------------
 
     static int __len__(PyTuple self) { return self.size(); }
-
-    static PyObject __getitem__(PyTuple self, int i) {
-        try {
-            return self.get(i);
-        } catch (IndexOutOfBoundsException e) {
-            throw new IndexError("tuple index out of range");
-        }
-    }
 
     static PyObject __getitem__(PyTuple self, PyObject item)
             throws Throwable {
@@ -122,7 +125,7 @@ class PyTuple extends TypedTuple<PyObject> {
         if (Slot.op_index.isDefinedFor(itemType)) {
             int i = Number.asSize(item, IndexError::new);
             if (i < 0) { i += self.size(); }
-            return __getitem__(self, i);
+            return self.getItem(i);
         }
         // else if item is a PySlice { ... }
         else

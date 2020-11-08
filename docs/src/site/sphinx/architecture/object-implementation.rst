@@ -25,26 +25,70 @@ Methods
 Special Methods
 ===============
 
-The Java implementation of an object will define special methods
-that are a selection from those defined in the Python Data Model.
-Their names in Java will be tha same as they are in Python:
+Special methods define the operations needed
+
+* to interpret byte code,
+* to support the abstract object API,
+* to implement the built-in functions in Java, and (quite likely)
+* to support the same operations compiled to JVM code.
+
+In Java
+-------
+
+Special methods defined in the Java implementation of an object
+take distinctive names selected from
+those defined in the `Python Data Model`_.
+Their names in Java will be the same as they are in Python:
 ``__repr__``, ``__hash__``, ``__add__``, ``__getattribute__``, and so on.
+The run-time finds them by reflection and treats them specially.
+Here, for example, is a partial ``javap`` dump of ``PyLong``
+at a point in its development:
 
-This is a difference from CPython,
-where the names are only of local significance.
-Their global significance is achieved
-by being installed in a type object struct at a certain offset,
-as a pointer to a function of the right signature.
-They are necessarily aligned to the expected behaviour *of the type slots*,
-but the type slots bear a complex relationship to the special functions
-in the `Python Data Model`_.
+..  code-block:: none
 
-As our thinking has evolved (in The Very Slow Jython Project),
-we have become confident that aligning with the data model methods
-is preferable to repeating the choice of slots from CPython.
-It is effectively what Jython 2 does in defining its ``PyObject``
-to have those names as (virtual) methods.
-This principle is further enunciated in :ref:`one-to-one-slot-principle`.
+        class PyLong implements PyObject {
+          ...
+          static PyObject __new__(PyType, PyTuple, PyDict) throws Throwable;
+          static PyObject __repr__(PyLong);
+          static PyObject __neg__(PyLong);
+          static PyObject __abs__(PyLong);
+          static PyObject __add__(PyLong, PyObject);
+          static PyObject __radd__(PyLong, PyObject);
+          static PyObject __sub__(PyLong, PyObject);
+          static PyObject __rsub__(PyLong, PyObject);
+          static PyObject __mul__(PyLong, PyObject);
+          static PyObject __rmul__(PyLong, PyObject);
+          ...
+          static PyObject __lt__(PyLong, PyObject);
+          static PyObject __le__(PyLong, PyObject);
+          static PyObject __eq__(PyLong, PyObject);
+          static PyObject __ne__(PyLong, PyObject);
+          static PyObject __ge__(PyLong, PyObject);
+          static PyObject __gt__(PyLong, PyObject);
+          static boolean __bool__(PyLong);
+          static PyObject __index__(PyLong);
+          static PyObject __int__(PyLong);
+          static PyObject __float__(PyLong);
+          ...
+        }
+
+In Python
+---------
+
+During the definition of a class in Python,
+the body of the class definition is executed
+in a way similar to the execution of a function body.
+This leaves behind a dictionary containing class members,
+including the definition of methods,
+and including special methods if any are defined.
+
+Processing that dictionary creates the descriptors
+that make the entries attributes accessible in the correct way.
+In the case of special methods (defined in Python),
+this includes placing a handle in the corresponding type slots,
+able to call the function defined.
+
+
 
 .. _Python Data Model:
     https://docs.python.org/3/reference/datamodel.html
@@ -55,12 +99,12 @@ This principle is further enunciated in :ref:`one-to-one-slot-principle`.
 Type Slots
 **********
 
-The implementation of object type in CPython
-depends on a pointer in every ``PyObject`` to a ``PyTypeObject``,
-in which a two-level table structure gives operational meaning,
-by means of a pointer to function,
-to each of the fundamental operations that any object could,
-in principle, support.
+We have adopted from CPython the general principle of type slots
+as a way to cache ``MethodHandle``\s to the special methods on each type,
+that implement its specialisation of
+the fundamental operations needed by the byte-code interpreter.
+(Our interpreter is actually in the class ``CPythonFrame``,
+a specialisation of ``PyFrame``.)
 
 
 Apparent Obsession with ``MethodHandle``
@@ -76,25 +120,86 @@ and Jython 2 approaches the same need through overriding methods,
 which seems the natural choice in Java.
 The repeated idiom ``(PyObject) invokeExact(...)``
 is fairly ugly and sacrifices compile-time type safety at the call site.
+So why on earth are we doing this?
 
 A strong motivation for the use of ``MethodHandle``\s is that
 they work directly with ``invokedynamic`` call sites.
-We expect to generate ``invokedynamic`` instructions
-when we compile Python to JVM byte code,
+Call sites support dynamic specialisation to the exact types
+encountered at run-time.
+The optimisation built into a JVM understands ``MethodHandle`` trees,
+and is able to transform them further to machine code.
+When we come to generate code for the JVM,
+we expect to output ``invokedynamic`` instructions,
 and this is the code in which we seek maximum performance.
 
 
 Some differences from CPython
 =============================
 
+As our thinking has evolved (in The Very Slow Jython Project),
+we have become confident that aligning with the data model methods
+is preferable to repeating the choice of slots from CPython.
+It is effectively what Jython 2 does in defining its ``PyObject``
+to have those names as (virtual) methods.
+This principle is further enunciated in :ref:`one-to-one-slot-principle`.
+For this reason, our differ in their names and number from the CPython slots.
+
+
+Special Methods and the Slot Table in CPython
+---------------------------------------------
+
+When execution of the class body is complete,
+CPython goes on to wrap each special method in a C function
+that it posts to a corresponding slot in the ``type`` object,
+the same place they would be if defined in C originally.
+
+In the case of types defined in C,
+the built-in and extension types,
+the slot is assigned a pointer to the C implementation function,
+either statically,
+or during ``type`` creation from a specification.
+CPython creates a descriptor in the dictionary to wrap any slot implemented.
+
+Thus, however it is implemented, in Python or C,
+the slot is filled and there is an entry in the type dictionary.
+
+
+A Complication in CPython
+-------------------------
+
+At least, this is approximately correct.
+The relationship between special methods and slots
+is one-to-one in some cases, as this simple description suggests,
+but in many others it is more complicated.
+Some slots involve multiple special methods,
+and a few special methods affect more than one slot.
+This complication makes difficult both the filling of the slot
+from a method defined in Python,
+and the synthesis of a Python method from a slot filled by C.
+
+This difficulty cannot be resolved by changes to the slot lay-down in CPython,
+since the lay-down is public API
+and many extensions rely on it.
+Recent work to make the internals of ``PyTypeObject`` restricted API,
+does not hide the set of slot names.
+
+The documented data model is expressed in terms of the special methods,
+and we should consider the API towards Python as definitive,
+not the gymnastics CPython undertakes to satisfy at once
+both the data model and the C API.
+
+
 Naming Type Slots
 -----------------
 
-We have adopted from CPython the general principle of type slots
-as a way to cache pointers to the methods
-that implement the fundamental operations needed by the byte-code interpreter
-(actually a byte code ``PyFrame``),
-We assume this will also be useful in an implementation for the JVM.
+The approach to Java implementation of an object differs from CPython,
+where the names are only of local significance.
+Their global significance is achieved
+by being installed in a type object struct at a certain offset,
+as a pointer to a function of the right signature.
+They are necessarily aligned to the expected behaviour *of the type slots*,
+but the type slots bear a complex relationship to the special functions
+in the `Python Data Model`_.
 
 In adopting :ref:`one-to-one-slot-principle`,
 we have chosen to align our choice of type slots to the special functions
@@ -132,6 +237,13 @@ Flattening the Slot-function Table
 
 ..  note:: Code examples need updating after the change that this
     text describes.
+
+The implementation of object type in CPython
+depends on a pointer in every ``PyObject`` to a ``PyTypeObject``,
+in which a two-level table structure gives operational meaning,
+by means of a pointer to function,
+to each of the fundamental operations that any object could,
+in principle, support.
 
 In the CPython ``PyTypeObject``,
 some slots are directly in the type object (e.g. ``tp_repr``),

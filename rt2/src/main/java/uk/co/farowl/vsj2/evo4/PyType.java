@@ -105,8 +105,6 @@ class PyType implements PyObject {
     // Mapping slots table see CPython PyMappingMethods
 
     MethodHandle op_len;
-    MethodHandle sq_item;
-    MethodHandle sq_ass_item;
     MethodHandle op_contains;
 
     MethodHandle op_getitem;

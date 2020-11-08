@@ -35,8 +35,9 @@ Scope
 Aspects of the design to be revisited in ``evo4`` (not just of ``PyType``)
 are:
 
-* Initialisation of slots (``nb_add``, ``tp_call`` etc.).
-* Naming of slot functions (offering simplifications).
+* Alignment of slots to special function (see :ref:`type-slots`).
+* Names of slots: renaming to the pattern ``op_add``, ``op_setattr``, etc..
+* Process for initialisation of slots (``op_add``, ``op_call`` etc.).
 * Inheritance of slots not simply by copying.
 
 These features will be added:
@@ -44,8 +45,8 @@ These features will be added:
 * The dictionary of the type.
 * Descriptor protocol. (Extensively described in :ref:`Descriptors`.)
 * The actual Python type is not determined statically by the Java class.
-* The ``tp_new`` slot and its implementation for several types.
-* The ``tp_getattribute``, ``tp_getattr``, ``tp_setattr`` and  ``tp_delattr``
+* The ``op_new`` slot and its implementation for several types.
+* The ``op_getattribute``, ``op_getattr``, ``op_setattr`` and  ``op_delattr``
   slots and their implementations in ``object`` and ``type``.
 * Attribute names resolved along the MRO.
 * Classes defined in Python.
@@ -66,9 +67,6 @@ What we like to do at such a juncture is to *evolve*.
 Slot Functions
 **************
 
-Special Methods and the Slot Table
-==================================
-
 We wish to support types defined in Python
 and a fairly complete model of inheritance.
 Types defined in Python define slots through special (or  "dunder") methods
@@ -76,49 +74,18 @@ Types defined in Python define slots through special (or  "dunder") methods
 which are entered in the dictionary of the ``type``
 when the class is defined.
 
-When execution of the class body is complete,
-CPython goes on to wrap each special method in a C function
-that it posts to a corresponding slot in the ``type`` object,
-the same place they would be if defined in C originally.
-
-In the case of types defined in C,
-the built-in and extension types,
-the slot is assigned a pointer to the C implementation function,
-either statically,
-or during ``type`` creation from a specification.
-CPython creates a descriptor in the dictionary to wrap any slot implemented.
-
-Thus, however it is implemented, in Python or C,
-the slot is filled and there is an entry in the type dictionary.
-
-
-A Complication
-==============
-
-At least, this is approximately correct.
-The relationship between special methods and slots
-is one-to-one in some cases, as this simple description suggests,
-and in many others is more complicated.
-Some slots involve multiple special methods,
-and a few special methods affect more than one slot.
-This complication makes difficult both the filling of the slot
-from a method defined in Python,
-and the synthesis of a Python method from a slot filled by C.
-
-This difficulty cannot be resolved by changes to the slot lay-down in CPython,
-since the lay-down is public API
-and many extensions rely on it.
-Recent work to make the internals of ``PyTypeObject`` restricted API,
-does not hide the set of slot names.
-
-The documented data model is expressed in terms of the special methods,
-and we should consider the API towards Python as definitive,
-not the gymnastics CPython undertakes to satisfy at once
-both the data model and the C API.
+The ultimate approach will be described in
+the architecture section :ref:`type-slots`.
+Here we want to mention notable changes of approach
+occurring between ``evo3`` and ``evo4``.
 
 
 A Java Approach the Slot Table
 ==============================
+
+The function pointers in a CPython built-in type
+are assigned either statically,
+or during ``type`` creation from a specification.
 
 We need to find an equivalent process in Java
 that results in method handles we may post in the ``PyType`` slots,
@@ -162,6 +129,161 @@ precludes reproducing it exactly.)
 
 We will consider what slots this leads to shortly,
 including the difficult cases CPython has to deal with.
+
+
+Defining Comparison Operations
+==============================
+
+We are abandoning ``tp_richcompare`` in favour of ``op_lt``, ``op_le``, etc..
+A drawback is that that where types were only asked to implement one method,
+they now have to implement six.
+And these are quite similar,
+which is why CPython's rich comparison approach is attractive.
+In particular, there is often a handy ``Comparable.compareTo`` method
+returning ``-1``, ``0`` or ``+1``.
+
+..  note:: give an account when we find an efficient support
+    for comparable types.
+
+
+Defining ``__getitem__`` and similar
+====================================
+
+In ``evo3`` we have an abstract API method ``getItem(PyObject, PyObject)``.
+It corresponds to CPython ``PyObject_GetItem``,
+and is the implementation of ``Opcode.BINARY_SUBSCR``.
+Following CPython, it tries the ``mp_subscript`` slot first.
+If that is not defined, the object appears to be a sequence,
+and the it can be converted to a native ``int``,
+the method delegates to ``getItem(PyObject, int)``.
+
+``getItem(PyObject, int)`` deals with end-relative addressing
+(a negative index) and calls the ``sq_item`` slot.
+In code where an integer index is available, this is a good option.
+Meanwhile, the implementation of ``mp_subscript`` in a sequence type,
+must itself validate the integer nature of the index
+and deal with end-relative addressing where it is negative.
+
+..  code-block:: java
+
+    class Abstract {
+        // ...
+        static PyObject getItem(PyObject o, PyObject key) throws Throwable {
+            PyType oType = o.getType();
+
+            try {
+                return (PyObject) oType.mp_subscript.invokeExact(o, key);
+            } catch (EmptyException e) {}
+
+            if (Slot.sq_item.isDefinedFor(oType)) {
+                // For a sequence (only), key must have index-like type
+                if (Slot.nb_index.isDefinedFor(key.getType())) {
+                    int k = Number.asSize(key, IndexError::new);
+                    return Sequence.getItem(o, k);
+                } else
+                    throw typeError(MUST_BE_INT_NOT, key);
+            } else
+                throw typeError(NOT_SUBSCRIPTABLE, o);
+        }
+
+
+    class Sequence extends Abstract {
+        // ...
+        static PyObject getItem(PyObject s, int i) throws Throwable {
+            PyType sType = s.getType();
+
+            if (i < 0) {
+                // Index from the end of the sequence (if it has one)
+                try {
+                    i += (int) sType.sq_length.invokeExact(s);
+                } catch (EmptyException e) {}
+            }
+
+            try {
+                return (PyObject) sType.sq_item.invokeExact(s, i);
+            } catch (EmptyException e) {}
+
+            if (Slot.mp_subscript.isDefinedFor(sType))
+                // Caller should have tried Abstract.getItem
+                throw typeError(NOT_SEQUENCE, s);
+            throw typeError(NOT_INDEXING, s);
+        }
+
+What we have to say here about ``getItem()`` calling (``__getitem__``)
+applies to ``setItem()`` and ``delItem()``
+(calling ``__setitem__`` and ``__delitem__`` respectively).
+
+Almost no built-in types (in CPython) omit a definition for ``mp_subscript``
+(or ``mp_ass_subscript``).
+Therefore, the ``sq_item`` path is hardly ever taken
+when executing the ``BINARY_SUBSCR``, ``STORE_SUBSCR`` or ``DELETE_SUBSCR``
+opcode.
+``sq_item`` is mostly only called from built-in functions,
+such as ``min()``, when iterating an sequence-like type.
+
+In ``evo4``, we effectively re-name ``mp_subscript`` to ``op_getitem``,
+and discard ``sq_item``.
+This makes everything simpler:
+
+..  code-block:: java
+
+    class Abstract {
+        // ...
+        static PyObject getItem(PyObject o, PyObject key) throws Throwable {
+            // Decisions are based on types of o and key
+            try {
+                PyType oType = o.getType();
+                return (PyObject) oType.op_getitem.invokeExact(o, key);
+            } catch (EmptyException e) {
+                throw typeError(NOT_SUBSCRIPTABLE, o);
+            }
+        }
+
+    class Sequence extends Abstract {
+        // ...
+        static PyObject getItem(PyObject s, int i) throws Throwable {
+            try {
+                PyObject k = Py.val(i);
+                return (PyObject) s.getType().op_getitem.invokeExact(s, k);
+            } catch (EmptyException e) {
+                throw typeError(NOT_INDEXING, s);
+            }
+        }
+
+But simpler is not quicker where we have a native ``int`` index to hand.
+We see that ``getItem(PyObject, int)``
+has to wrap its argument as a Python object.
+Then the receiving object will validate and unwrap it.
+In order to avoid this nugatory work we would have to recognise
+types for which a short-cut is available,
+in ``getItem(PyObject, int)`` or where it might be called.
+
+A check for the Java ``List<PyObject>`` interface
+would allow us to call ``List.get(int)`` directly,
+although it leaves the problem of end-relative indexing,
+and raising the correct error, in that caller's hands.
+We must be careful that in subclasses defined in Python,
+the implementation of ``List.get(int)`` actually calls ``__getitem__``.
+
+..  note::
+    The problems with implementing ``List`` are that it requires a lot
+    of methods to be implemented referencing the actual value,
+    that sub-classes may make arbitrary definitions of critical methods,
+    and that the problem of end-relative indexing,
+    and raising the correct error, remain in the caller's hands..
+    We have bumped into this with ``mappingproxy`` and ``Map``,
+    where it is even worse.
+    It's not impossible but it's a lot of work and
+    the attraction of efficiency soon evaporates.
+
+    A specific interface or wrapper like ``PySequence`` may be better.
+    But there are interesting possibilities in return for the work.
+    Down this route lies a series of interfaces that ``PyObject``\s
+    may optionally have for efficient use at the Java level.
+    It may these can be "discovered" when Python objects are passed
+    in Python to Java methods that expect those interfaces.
+    They cannot be used to make all dict-like Python objects Java ``Map``\s,
+    since the characteristic methods may be added or removed dynamically.
 
 
 Java Signatures of Slots
