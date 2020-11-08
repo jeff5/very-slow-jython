@@ -258,7 +258,6 @@ enum Slot {
         PREDICATE(B, S), // nb_bool
         BINARY_PREDICATE(B, S, O), // op_contains
         LEN(I, S), // sq_length, tp_hash
-        RICHCMP(O, S, O, CMP), // (richcmpfunc) tp_richcompare only
         SETITEM(V, S, O, O), // (objobjargproc) op_sertitem, op_set
         DELITEM(V, S, O), // (not in CPython) op_delitem, op_delete
         GETATTR(O, S, U), // (getattrofunc) tp_getattro

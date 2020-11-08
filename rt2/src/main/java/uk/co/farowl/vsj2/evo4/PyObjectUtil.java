@@ -7,30 +7,11 @@ import java.util.StringJoiner;
 class PyObjectUtil {
 
     /**
-     * Convert comparison result (int) to rich comparison result.
-     * Typically, {@code u} is the result of
-     * {@link Comparable#compareTo(Object)}.
-     *
-     * @param u comparison result
-     * @param op kind of rich comparison requested
-     * @return rich comparison result (Python {@code bool})
+     * Convenient wrapper for sequence types implementing
+     * {@code __mul__}, so that they need only provide a
+     * {@link PySequence#repeat(int)} implementation. The wrapper takes
+     * care of object conversion and errors that arise from it.
      */
-    static PyObject richCompareHelper(int u, Comparison op) {
-        boolean r = false;
-        switch (op) {
-            //@formatter:off
-            case LE: r = u <= 0; break;
-            case LT: r = u < 0; break;
-            case EQ: r = u == 0; break;
-            case NE: r = u != 0; break;
-            case GE: r = u >= 0; break;
-            case GT: r = u > 0; break;
-            default: // pass
-           //@formatter:on
-        }
-        return r ? PyBool.True : PyBool.False;
-    }
-
     static PySequence repeat(PySequence self, PyObject n)
             throws TypeError, Throwable {
         if (Number.indexCheck(n)) {

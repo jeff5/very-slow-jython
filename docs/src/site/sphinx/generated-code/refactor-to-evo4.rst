@@ -136,14 +136,89 @@ Defining Comparison Operations
 
 We are abandoning ``tp_richcompare`` in favour of ``op_lt``, ``op_le``, etc..
 A drawback is that that where types were only asked to implement one method,
-they now have to implement six.
-And these are quite similar,
-which is why CPython's rich comparison approach is attractive.
+they now have to implement six quite similar methods.
+This is why CPython's rich comparison approach is attractive.
 In particular, there is often a handy ``Comparable.compareTo`` method
-returning ``-1``, ``0`` or ``+1``.
+returning ``-1``, ``0`` or ``+1`` meaning less, equal or more.
 
-..  note:: give an account when we find an efficient support
-    for comparable types.
+We can provide some support, and a useful pattern.
+We can attach code that might have been a support method,
+directly to the operation (the ``enum Comparison``),
+since Java ``enum`` members are full-blown singleton objects
+or even sub-classes (where necessary).
+In our case,
+each member is initialised knowing which ``Slot`` it corresponds to,
+and how to convert a 3-way comparison result:
+
+..  code-block:: java
+
+    enum Comparison {
+
+        /** The {@code __lt__} operation. */
+        LT("<", Slot.op_lt) {
+
+            @Override
+            PyBool toBool(int c) { return c < 0 ? Py.True : Py.False; }
+        },
+
+We define a method ``Comparison.apply(PyObject, PyObject)``,
+so that the implementation of ``COMPARE_OP`` is no more than:
+
+..  code-block:: java
+
+    class CPythonFrame extends PyFrame {
+        // ...
+        PyObject eval() {
+                        // ...
+                        case Opcode.COMPARE_OP:
+                            w = valuestack[--sp]; // POP
+                            v = valuestack[sp - 1]; // TOP
+                            valuestack[sp - 1] = // SET_TOP
+                                    Comparison.from(oparg).apply(v, w);
+                            break;
+
+The complexity entailed by the "big six" binary operations,
+trying left and right objects and deferring to sub-classes,
+does not disappear:
+it is all inside ``Comparison.apply``,
+which uses the slot we gave the constructor,
+and built-in knowledge of the "swapped" operation.
+Outside the big six operations,
+other implementations override ``apply`` appropriately for themselves.
+
+We hope to gain as we replace CPython's nested switch statements
+by a single virtual method call.
+As a side benefit, ``Abstract.richCompare`` works for all operation types.
+
+The use of ``Comparison.toBool(int)``, glimpsed earlier,
+is as a wrapper on the result provided by Java ``Comparable.compareTo``.
+We may minimise code duplication by this pattern (here in ``PyUnicode``):
+
+..  code-block:: java
+
+    class PyUnicode implements PySequence, Comparable<PyUnicode> {
+        // ...
+        @Override
+        public int compareTo(PyUnicode o) {
+            return value.compareTo(o.value);
+        }
+        // ...
+        static PyObject __lt__(PyUnicode v, PyObject w) {
+            return v.cmp(w, Comparison.LT);
+        }
+        static PyObject __le__(PyUnicode v, PyObject w) {
+            return v.cmp(w, Comparison.LE);
+        }
+        // and so on ...
+        private PyObject cmp(PyObject w, Comparison op) {
+            if (w instanceof PyUnicode) {
+                return op.toBool(compareTo((PyUnicode) w));
+            } else {
+                return Py.NotImplemented;
+            }
+        }
+    }
+
 
 
 Defining ``__getitem__`` and similar

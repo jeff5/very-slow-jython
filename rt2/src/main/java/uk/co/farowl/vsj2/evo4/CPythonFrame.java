@@ -361,8 +361,8 @@ class CPythonFrame extends PyFrame {
                     case Opcode.COMPARE_OP:
                         w = valuestack[--sp]; // POP
                         v = valuestack[sp - 1]; // TOP
-                        res = Comparison.from(oparg).apply(v, w);
-                        valuestack[sp - 1] = res; // SET_TOP
+                        valuestack[sp - 1] = // SET_TOP
+                                Comparison.from(oparg).apply(v, w);
                         break;
 
                     case Opcode.JUMP_FORWARD:

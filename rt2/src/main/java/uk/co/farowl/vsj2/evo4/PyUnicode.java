@@ -97,66 +97,28 @@ class PyUnicode implements PySequence, Comparable<PyUnicode> {
         return Py.str("'" + s + "'");
     }
 
-    static PyObject __richcompare__(PyUnicode self, PyObject other,
-            Comparison op) {
-        if (other instanceof PyUnicode)
-            return op.toBool(self.compareTo((PyUnicode) other));
-        else
-            return Py.NotImplemented;
-    }
-
     static PyObject __lt__(PyUnicode v, PyObject w) {
-        if (w instanceof PyUnicode) {
-            int u = v.compareTo((PyUnicode) w);
-            return Py.val(u < 0);
-        } else {
-            return Py.NotImplemented;
-        }
+        return v.cmp(w, Comparison.LT);
     }
 
     static PyObject __le__(PyUnicode v, PyObject w) {
-        if (w instanceof PyUnicode) {
-            int u = v.compareTo((PyUnicode) w);
-            return Py.val(u <= 0);
-        } else {
-            return Py.NotImplemented;
-        }
+        return v.cmp(w, Comparison.LE);
     }
 
     static PyObject __eq__(PyUnicode v, PyObject w) {
-        if (w instanceof PyUnicode) {
-            int u = v.compareTo((PyUnicode) w);
-            return Py.val(u == 0);
-        } else {
-            return Py.NotImplemented;
-        }
+        return v.cmp(w, Comparison.EQ);
     }
 
     static PyObject __ne__(PyUnicode v, PyObject w) {
-        if (w instanceof PyUnicode) {
-            int u = v.compareTo((PyUnicode) w);
-            return Py.val(u != 0);
-        } else {
-            return Py.NotImplemented;
-        }
-    }
-
-    static PyObject __ge__(PyUnicode v, PyObject w) {
-        if (w instanceof PyUnicode) {
-            int u = v.compareTo((PyUnicode) w);
-            return Py.val(u >= 0);
-        } else {
-            return Py.NotImplemented;
-        }
+        return v.cmp(w, Comparison.NE);
     }
 
     static PyObject __gt__(PyUnicode v, PyObject w) {
-        if (w instanceof PyUnicode) {
-            int u = v.compareTo((PyUnicode) w);
-            return Py.val(u > 0);
-        } else {
-            return Py.NotImplemented;
-        }
+        return v.cmp(w, Comparison.GT);
+    }
+
+    static PyObject __ge__(PyUnicode v, PyObject w) {
+        return v.cmp(w, Comparison.GE);
     }
 
     static PyObject __mul__(PyUnicode self, PyObject n)
@@ -185,5 +147,14 @@ class PyUnicode implements PySequence, Comparable<PyUnicode> {
     // Support methods -----------------------------------------------
 
     static PyUnicode EMPTY = new PyUnicode("");
+
+    /** Helper for comparison operations. */
+    private PyObject cmp(PyObject w, Comparison op) {
+        if (w instanceof PyUnicode) {
+            return op.toBool(compareTo((PyUnicode) w));
+        } else {
+            return Py.NotImplemented;
+        }
+    }
 
 }

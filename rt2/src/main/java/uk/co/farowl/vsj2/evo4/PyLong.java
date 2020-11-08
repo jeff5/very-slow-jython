@@ -237,20 +237,22 @@ class PyLong implements PyObject {
         }
     }
 
-    static PyObject __richcompare__(PyLong v, PyObject w,
-            Comparison op) {
+    private PyObject cmp(PyObject w, Comparison op) {
         if (w instanceof PyLong) {
-            int u = v.value.compareTo(((PyLong) w).value);
-            return PyObjectUtil.richCompareHelper(u, op);
+            return op.toBool(value.compareTo(((PyLong) w).value));
         } else {
             return Py.NotImplemented;
         }
     }
 
+    static PyObject __lt__new(PyLong v, PyObject w) {
+        return v.cmp(w, Comparison.LT);
+    }
+
     static PyObject __lt__(PyLong v, PyObject w) {
         if (w instanceof PyLong) {
             int u = v.value.compareTo(((PyLong) w).value);
-            return Py.val(u < 0);
+            return u < 0 ? Py.True : Py.False;
         } else {
             return Py.NotImplemented;
         }
@@ -259,7 +261,7 @@ class PyLong implements PyObject {
     static PyObject __le__(PyLong v, PyObject w) {
         if (w instanceof PyLong) {
             int u = v.value.compareTo(((PyLong) w).value);
-            return Py.val(u <= 0);
+            return u <= 0 ? Py.True : Py.False;
         } else {
             return Py.NotImplemented;
         }
@@ -268,7 +270,7 @@ class PyLong implements PyObject {
     static PyObject __eq__(PyLong v, PyObject w) {
         if (w instanceof PyLong) {
             int u = v.value.compareTo(((PyLong) w).value);
-            return Py.val(u == 0);
+            return u == 0 ? Py.True : Py.False;
         } else {
             return Py.NotImplemented;
         }
@@ -277,16 +279,7 @@ class PyLong implements PyObject {
     static PyObject __ne__(PyLong v, PyObject w) {
         if (w instanceof PyLong) {
             int u = v.value.compareTo(((PyLong) w).value);
-            return Py.val(u != 0);
-        } else {
-            return Py.NotImplemented;
-        }
-    }
-
-    static PyObject __ge__(PyLong v, PyObject w) {
-        if (w instanceof PyLong) {
-            int u = v.value.compareTo(((PyLong) w).value);
-            return Py.val(u >= 0);
+            return u != 0 ? Py.True : Py.False;
         } else {
             return Py.NotImplemented;
         }
@@ -295,7 +288,16 @@ class PyLong implements PyObject {
     static PyObject __gt__(PyLong v, PyObject w) {
         if (w instanceof PyLong) {
             int u = v.value.compareTo(((PyLong) w).value);
-            return Py.val(u > 0);
+            return u > 0 ? Py.True : Py.False;
+        } else {
+            return Py.NotImplemented;
+        }
+    }
+
+    static PyObject __ge__(PyLong v, PyObject w) {
+        if (w instanceof PyLong) {
+            int u = v.value.compareTo(((PyLong) w).value);
+            return u >= 0 ? Py.True : Py.False;
         } else {
             return Py.NotImplemented;
         }
