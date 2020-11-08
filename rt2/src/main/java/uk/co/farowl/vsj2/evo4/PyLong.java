@@ -339,13 +339,13 @@ class PyLong implements PyObject {
 
     /**
      * Convert the given object to a {@code PyLong} using the
-     * {@code nb_int} slot, if available. Raise {@code TypeError} if
-     * either the {@code nb_int} slot is not available or the result of
-     * the call to {@code nb_int} returns something not of type
+     * {@code op_int} slot, if available. Raise {@code TypeError} if
+     * either the {@code op_int} slot is not available or the result of
+     * the call to {@code op_int} returns something not of type
      * {@code int}.
      */
     // Compare CPython longobject.c::_PyLong_FromNbInt
-    static PyObject fromNbInt(PyObject integral)
+    static PyObject fromIntOf(PyObject integral)
             throws TypeError, Throwable {
         PyType t = integral.getType();
 
@@ -357,7 +357,7 @@ class PyLong implements PyObject {
         else
             try {
                 /*
-                 * Convert using the nb_int slot, which should return
+                 * Convert using the op_int slot, which should return
                  * something of exact type int.
                  */
                 PyObject r = (PyObject) t.op_int.invokeExact(integral);
@@ -378,10 +378,10 @@ class PyLong implements PyObject {
 
     /**
      * Convert the given object to a {@code PyLong} using the
-     * {@code nb_index} or {@code nb_int} slots, if available (the
+     * {@code op_index} or {@code op_int} slots, if available (the
      * latter is deprecated). Raise {@code TypeError} if either
-     * {@code nb_index} and {@code nb_int} slots are not available or
-     * the result of the call to {@code nb_index} or {@code nb_int}
+     * {@code op_index} and {@code op_int} slots are not available or
+     * the result of the call to {@code op_index} or {@code op_int}
      * returns something not of type {@code int}. Should be replaced
      * with {@link Number#index(PyObject)} after the end of the
      * deprecation period.
@@ -389,7 +389,7 @@ class PyLong implements PyObject {
      * @throws Throwable
      */
     // Compare CPython longobject.c :: _PyLong_FromNbIndexOrNbInt
-    static PyObject fromNbIndexOrNbInt(PyObject integral)
+    static PyObject fromIndexOrIntOf(PyObject integral)
             throws Throwable {
         PyType t = integral.getType();
 
@@ -398,7 +398,7 @@ class PyLong implements PyObject {
             return integral;
 
         try {
-            // Normally, the nb_index slot will do the job
+            // Normally, the op_index slot will do the job
             PyObject r = (PyObject) t.op_index.invokeExact(integral);
             if (r.getType() == PyLong.TYPE)
                 return r;
@@ -410,9 +410,9 @@ class PyLong implements PyObject {
                 throw Abstract.returnTypeError("__index__", "int", r);
         } catch (EmptyException e) {}
 
-        // We're here because nb_index was empty. Try nb_int.
+        // We're here because op_index was empty. Try op_int.
         if (Slot.op_int.isDefinedFor(t)) {
-            PyObject r = fromNbInt(integral);
+            PyObject r = fromIntOf(integral);
             // ... but grumble about it.
             Warnings.format(DeprecationWarning.TYPE, 1,
                     "an integer is required (got type %.200s).  "

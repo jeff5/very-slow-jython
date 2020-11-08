@@ -34,7 +34,7 @@ class PyJavaFunction implements PyObject {
     /** Name of the containing module (or {@code null}). */
     final PyUnicode module;
 
-    /** The MethodType of {@link #tpCall}. */
+    /** The MethodType of {@link #opCall}. */
     protected static final MethodType methCallType =
             MethodType.methodType(O, TUPLE, DICT);
 
@@ -44,12 +44,12 @@ class PyJavaFunction implements PyObject {
      * methodDef.meth with a check on the number of arguments and
      * manipulation to deliver them to this target.
      */
-    final MethodHandle tpCall;
+    final MethodHandle opCall;
 
     PyJavaFunction(MethodDef def, PyUnicode module) {
         this.methodDef = def;
         this.module = module;
-        this.tpCall = getTpCallHandle(def);
+        this.opCall = getOpCallHandle(def);
     }
 
     PyJavaFunction(MethodDef def) {
@@ -70,7 +70,7 @@ class PyJavaFunction implements PyObject {
      * @return required handle
      */
     // XXX This should probably be in MethodDef
-    private static MethodHandle getTpCallHandle(MethodDef def) {
+    private static MethodHandle getOpCallHandle(MethodDef def) {
         EnumSet<Flag> f = def.flags;
 
         if (f.contains(Flag.FASTCALL)) {
@@ -99,7 +99,7 @@ class PyJavaFunction implements PyObject {
 
     /**
      * The type of exception thrown by invoking
-     * {@link PyJavaFunction#tpCall} with the wrong size of arguments
+     * {@link PyJavaFunction#opCall} with the wrong size of arguments
      * (unacceptable tuple size or keyword dictionary unexpectedly
      * present or null. It doesn't tell us what went wrong: instead, we
      * catch it and work out what kind of {@link TypeError} to throw.
@@ -304,7 +304,7 @@ class PyJavaFunction implements PyObject {
     static PyObject __call__(PyJavaFunction f, PyTuple args,
             PyDict kwargs) throws Throwable {
         try {
-            return (PyObject) f.tpCall.invokeExact(args, kwargs);
+            return (PyObject) f.opCall.invokeExact(args, kwargs);
         } catch (BadCallException bce) {
             // After the BCE, check() should always throw.
             f.methodDef.check(args, kwargs);

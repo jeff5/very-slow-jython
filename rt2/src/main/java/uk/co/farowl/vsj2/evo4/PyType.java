@@ -239,7 +239,7 @@ class PyType implements PyObject {
     }
 
     /**
-     * Set all the slots ({@code tp_*}, {@code nb_*}, etc.) from the
+     * Set all the slots ({@code op_*}) from the
      * {@link #implClass} and {@link #bases}.
      */
     private void setAllSlots() {
@@ -550,7 +550,7 @@ class PyType implements PyObject {
             }
             return o;
         } catch (EmptyException e) {
-            // type.tp_new is empty (not TYPE.tp_new)
+            // type.op_new is empty (not TYPE.op_new)
             throw new TypeError("cannot create '%.100s' instances",
                     type.name);
         }

@@ -1,6 +1,5 @@
 package uk.co.farowl.vsj2.evo4;
 
-import java.lang.invoke.MethodHandle;
 import java.util.function.Supplier;
 
 import uk.co.farowl.vsj2.evo4.Slot.EmptyException;
@@ -12,10 +11,10 @@ import uk.co.farowl.vsj2.evo4.Slot.EmptyException;
  * interpreter. (Methods here often correspond closely to a CPython
  * opcode.)
  * <p>
- * See also {@link Number}, {@link Sequence}, {@link Mapping} and
- * {@link Callables} which contain the abstract interface to the
- * corresponding type families. In CPython, the methods of all these
- * classes are found in {@code Objects/abstract.c}
+ * See also {@link Number}, {@link Sequence} and {@link Callables} which
+ * contain the abstract interface to the corresponding type families. In
+ * CPython, the methods of all these classes are found in
+ * {@code Objects/abstract.c}
  */
 class Abstract {
 
@@ -86,17 +85,14 @@ class Abstract {
         else if (v == Py.False || v == Py.None)
             return false;
         else {
-            // Ask the object type through the nb_bool or sq_length
-            // slots
+            // Ask the object type through the op_bool or op_len slots
             PyType t = v.getType();
             if (Slot.op_bool.isDefinedFor(t))
                 return (boolean) t.op_bool.invokeExact(v);
-            // else if (Slot.mp_length.isDefinedFor(t))
-            // return 0 != (int) t.mp_length.invokeExact(v);
             else if (Slot.op_len.isDefinedFor(t))
                 return 0 != (int) t.op_len.invokeExact(v);
             else
-                // No nb_bool and no length: claim everything is True.
+                // No op_bool and no length: claim everything is True.
                 return true;
         }
     }
@@ -159,13 +155,12 @@ class Abstract {
     /** Python size of {@code o} */
     // Compare CPython PyObject_Size in abstract.c
     static int size(PyObject o) throws Throwable {
-        // Note that the slot is called sq_length but this method, size.
+        // Note that the slot is called op_len but this method, size.
         try {
-            MethodHandle mh = o.getType().op_len;
-            return (int) mh.invokeExact(o);
-        } catch (Slot.EmptyException e) {}
-
-        return Mapping.size(o);
+            return (int) o.getType().op_len.invokeExact(o);
+        } catch (Slot.EmptyException e) {
+            throw typeError(HAS_NO_LEN, o);
+        }
     }
 
     /**
@@ -243,7 +238,7 @@ class Abstract {
     // // Decisions are based on type of o (that of name is known)
     // PyType t = o.getType();
     // try {
-    // return (PyObject) t.tp_getattro.invokeExact(o, name);
+    // return (PyObject) t.op_getattr.invokeExact(o, name);
     // } catch (EmptyException e) {
     // throw noAttributeError(o, name);
     // }
@@ -370,6 +365,8 @@ class Abstract {
             "%.200s returned non-%.200s (type %.200s)";
     private static final String ARGUMENT_MUST_BE =
             "%s()%s argument must be %s, not '%.200s'";
+    protected static final String NOT_MAPPING =
+            "%.200s is not a mapping";
 
     /**
      * Create a {@link TypeError} with a message involving the type of

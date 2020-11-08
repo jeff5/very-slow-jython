@@ -249,7 +249,7 @@ class Number extends Abstract {
 
         else if (Slot.op_int.isDefinedFor(oType)) {
             /* This should include subclasses of int */
-            result = PyLong.fromNbInt(o);
+            result = PyLong.fromIntOf(o);
             if (result.getType() != PyLong.TYPE) {
                 result = new PyLong((PyLong) result);
             }
@@ -257,7 +257,7 @@ class Number extends Abstract {
         }
 
         else if (Slot.op_index.isDefinedFor(oType)) {
-            result = PyLong.fromNbIndexOrNbInt(o);
+            result = PyLong.fromIndexOrIntOf(o);
             if (result != null && !(result.getType() == PyLong.TYPE)) {
                 result = new PyLong((PyLong) result);
             }
@@ -315,7 +315,7 @@ class Number extends Abstract {
                     throw returnTypeError("__float__", "float", res);
             } catch (Slot.EmptyException e) {}
 
-            // Fall out here if nb_float was not defined
+            // Fall out here if op_float was not defined
             if (Slot.op_index.isDefinedFor(oType))
                 return Py.val(index(o).doubleValue());
             else

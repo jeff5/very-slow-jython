@@ -95,7 +95,7 @@ enum Slot {
      * @param signature of the function to be called
      * @param opName symbol (such as "+")
      * @param methodName implementation method (e.g. "__add__")
-     * @param alt alternate slot (e.g. "nb_radd")
+     * @param alt alternate slot (e.g. "op_radd")
      */
     Slot(Signature signature, String opName, String methodName,
             Slot alt) {
@@ -250,22 +250,22 @@ enum Slot {
      * in the C-API names but not here.
      */
     enum Signature implements ClassShorthand {
-        UNARY(O, S), // nb_negative, nb_invert
+        UNARY(O, S), // op_negative, op_invert
         BINARY(O, S, O), // +, -, u[v]
         TERNARY(O, S, O, O), // **
         CALL(O, S, TUPLE, DICT), // u(self, *args, **kwargs)
         VECTORCALL(O, S, OA, I, I, TUPLE), // u(x, y, ..., a=z)
-        PREDICATE(B, S), // nb_bool
+        PREDICATE(B, S), // op_bool
         BINARY_PREDICATE(B, S, O), // op_contains
-        LEN(I, S), // sq_length, tp_hash
-        SETITEM(V, S, O, O), // (objobjargproc) op_sertitem, op_set
+        LEN(I, S), // op_length, op_hash
+        SETITEM(V, S, O, O), // (objobjargproc) op_setitem, op_set
         DELITEM(V, S, O), // (not in CPython) op_delitem, op_delete
-        GETATTR(O, S, U), // (getattrofunc) tp_getattro
-        SETATTR(V, S, U, O), // (setattrofunc) tp_setattro
-        DELATTR(V, S, U), // (not in CPython) tp_delattro
+        GETATTR(O, S, U), // (getattrofunc) op_getattr
+        SETATTR(V, S, U, O), // (setattrofunc) op_setattr
+        DELATTR(V, S, U), // (not in CPython) op_delattr
         DESCRGET(O, S, O, T), // (descrgetfunc) op_get
-        INIT(V, S, TUPLE, DICT), // (initproc) tp_init
-        NEW(O, T, TUPLE, DICT); // (newfunc) tp_new
+        INIT(V, S, TUPLE, DICT), // (initproc) op_init
+        NEW(O, T, TUPLE, DICT); // (newfunc) op_new
 
         /**
          * A method handle offered to this slot must be based on this
