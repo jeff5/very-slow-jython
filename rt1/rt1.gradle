@@ -10,7 +10,7 @@ plugins {
 
 dependencies {
     antlr "org.antlr:antlr4:4.7" // use ANTLR version 4
-    testCompile 'junit:junit:4.12'
+    testCompile 'junit:junit:4.13.1'
 }
 
 // Import the plug-in task so we can use it as a task type.

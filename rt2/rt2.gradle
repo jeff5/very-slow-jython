@@ -15,7 +15,7 @@ dependencies {
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.1.0'
 
     // Support legacy JUnit4 tests under JUnit5 engine
-    testImplementation 'junit:junit:4.12'
+    testImplementation 'junit:junit:4.13.1'
     testRuntimeOnly 'org.junit.vintage:junit-vintage-engine:5.1.0'
 }
 
