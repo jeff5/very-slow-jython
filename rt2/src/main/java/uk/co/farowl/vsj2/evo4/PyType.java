@@ -30,7 +30,7 @@ class PyType implements PyObject {
 
     private final PyType type;
     final String name;
-    private final Class<? extends PyObject> implClass;
+    final Class<? extends PyObject> implClass;
     EnumSet<Flag> flags;
 
     // Support for class hierarchy

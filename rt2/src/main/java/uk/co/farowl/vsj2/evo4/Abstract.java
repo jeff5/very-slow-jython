@@ -507,8 +507,20 @@ class Abstract {
      * @return exception to throw
      */
     static AttributeError noAttributeError(PyObject v, Object name) {
+        return noAttributeOnType(v.getType(), name);
+    }
+
+    /**
+     * Create a {@link AttributeError} with a message along the lines
+     * "'T' object has no attribute N", where T is the type given.
+     *
+     * @param type of object accessed
+     * @param name of attribute
+     * @return exception to throw
+     */
+    static AttributeError noAttributeOnType(PyType type, Object name) {
         String fmt = "'%.50s' object has no attribute '%.50s'";
-        return new AttributeError(fmt, v.getType().getName(), name);
+        return new AttributeError(fmt, type.getName(), name);
     }
 
     /**
@@ -522,8 +534,21 @@ class Abstract {
      */
     static AttributeError readonlyAttributeError(PyObject v,
             Object name) {
+        return readonlyAttributeOnType(v.getType(), name);
+    }
+
+    /**
+     * Create a {@link AttributeError} with a message along the lines
+     * "'T' object attribute N is read-only", where T is the type given.
+     *
+     * @param type of object accessed
+     * @param name of attribute
+     * @return exception to throw
+     */
+    static AttributeError readonlyAttributeOnType(PyType type,
+            Object name) {
         String fmt = "'%.50s' object attribute '%s' is read-only";
-        return new AttributeError(fmt, v.getType().getName(), name);
+        return new AttributeError(fmt, type.getName(), name);
     }
 
     /**
@@ -537,8 +562,22 @@ class Abstract {
      */
     static AttributeError mandatoryAttributeError(PyObject v,
             Object name) {
+        return mandatoryAttributeOnType(v.getType(), name);
+    }
+
+    /**
+     * Create a {@link AttributeError} with a message along the lines
+     * "'T' object attribute N cannot be deleted", where T is the type
+     * given.
+     *
+     * @param type of object accessed
+     * @param name of attribute
+     * @return exception to throw
+     */
+    static AttributeError mandatoryAttributeOnType(PyType type,
+            Object name) {
         String fmt = "'%.50s' object attribute '%s' cannot be deleted";
-        return new AttributeError(fmt, v.getType().getName(), name);
+        return new AttributeError(fmt, type.getName(), name);
     }
 
     /**

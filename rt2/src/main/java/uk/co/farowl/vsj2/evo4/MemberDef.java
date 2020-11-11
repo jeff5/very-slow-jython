@@ -26,9 +26,10 @@ import java.util.Set;
 // Compare CPython struct PyMemberDef in descrobject.h
 abstract class MemberDef {
 
-    /** Values used in {@link #flags} */
     String name;
-    // CPython: int type; int offset;
+
+    /** Reference to the field (offset) to access. */
+    // CPython PyMemberDef: int type; int offset;
     VarHandle handle;
 
     /**
@@ -124,13 +125,6 @@ abstract class MemberDef {
 
     protected static final String UNSUPPORTED_TYPE =
             "@Member target %.50s has unsupported type %.50s";
-
-    /** Make an unmodifiable set from an succession of classes. */
-    protected static Set<Class<?>>
-            unmodifiableSet(Class<?>... classes) {
-        HashSet<Class<?>> set = new HashSet<>(Arrays.asList(classes));
-        return Collections.unmodifiableSet(set);
-    }
 
     private static class _int extends MemberDef {
 
