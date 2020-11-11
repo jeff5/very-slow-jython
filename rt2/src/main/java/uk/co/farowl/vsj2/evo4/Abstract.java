@@ -98,6 +98,15 @@ class Abstract {
     }
 
     /**
+     * Return {@code true} if {@code o} is of Python type {@code type}
+     * or a Python sub-type of {@code type}.
+     */
+    static boolean typeCheck(PyObject o, PyType type) throws Throwable {
+        PyType oType = o.getType();
+        return oType == type || oType.isSubTypeOf(type);
+    }
+
+    /**
      * Perform a rich comparison, raising {@code TypeError} when the
      * requested comparison operator is not supported.
      */
@@ -497,7 +506,7 @@ class Abstract {
      * @param name of attribute
      * @return exception to throw
      */
-    static AttributeError noAttributeError(PyObject v, PyObject name) {
+    static AttributeError noAttributeError(PyObject v, Object name) {
         String fmt = "'%.50s' object has no attribute '%.50s'";
         return new AttributeError(fmt, v.getType().getName(), name);
     }
@@ -512,7 +521,7 @@ class Abstract {
      * @return exception to throw
      */
     static AttributeError readonlyAttributeError(PyObject v,
-            PyObject name) {
+            Object name) {
         String fmt = "'%.50s' object attribute '%s' is read-only";
         return new AttributeError(fmt, v.getType().getName(), name);
     }
@@ -527,7 +536,7 @@ class Abstract {
      * @return exception to throw
      */
     static AttributeError mandatoryAttributeError(PyObject v,
-            PyObject name) {
+            Object name) {
         String fmt = "'%.50s' object attribute '%s' cannot be deleted";
         return new AttributeError(fmt, v.getType().getName(), name);
     }
