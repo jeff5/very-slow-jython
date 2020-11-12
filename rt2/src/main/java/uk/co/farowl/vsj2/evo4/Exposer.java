@@ -17,7 +17,8 @@ class Exposer {
             MethodHandles.lookup();
 
     /**
-     * Create a table of {@link PyMemberDescr}s for the given type.
+     * Create a table of {@link PyMemberDescr}s for the given type and
+     * lookup class.
      *
      * @param type to introspect for member definitions
      * @param lookup authorisation to access fields
@@ -33,7 +34,7 @@ class Exposer {
             Exposed.Member a =
                     f.getDeclaredAnnotation(Exposed.Member.class);
             if (a != null) {
-                PyMemberDescr def = getMethodDescr(type, f, lookup);
+                PyMemberDescr def = getMemberDescr(type, f, lookup);
                 PyMemberDescr previous = defs.put(def.name, def);
                 if (previous != null) {
                     // There was one already :(
@@ -45,8 +46,9 @@ class Exposer {
         return defs;
     }
 
-    /** Build one member definition for the given field. */
-    private static PyMemberDescr getMethodDescr(PyType type, Field f, Lookup lookup) {
+    /** Build one member descriptor for the given field. */
+    private static PyMemberDescr getMemberDescr(PyType type, Field f,
+            Lookup lookup) {
 
         String name = null;
 
@@ -57,7 +59,9 @@ class Exposer {
                 f.getAnnotation(Exposed.Member.class);
         if (memberAnno != null) {
             name = memberAnno.value();
-            if (memberAnno.readonly()) { flags.add(PyMemberDescr.Flag.READONLY); }
+            if (memberAnno.readonly()) {
+                flags.add(PyMemberDescr.Flag.READONLY);
+            }
         }
 
         // May also have DocString annotation
@@ -66,80 +70,12 @@ class Exposer {
         if (d != null)
             doc = d.value();
 
-        // From all these parts, construct a definition.
-        return PyMemberDescr.forField(type, name, f, lookup, flags, doc);
-    }
-
-    /**
-     * Create a table of {@link MemberDef}s for the given class.
-     *
-     * @param klass to introspect for member definitions
-     * @param lookup authorisation to access fields of {@code klass}
-     * @return members defined (in the order encountered)
-     * @throws InterpreterError on duplicates or unsupported types
-     */
-    static Map<String, MemberDef> memberDefs(Class<?> klass,
-            Lookup lookup) throws InterpreterError {
-
-        Map<String, MemberDef> defs = new LinkedHashMap<>();
-
-        for (Field f : klass.getDeclaredFields()) {
-            Exposed.Member a =
-                    f.getDeclaredAnnotation(Exposed.Member.class);
-            if (a != null) {
-                MemberDef def = getMethodDef(f, lookup);
-                MemberDef previous = defs.put(def.name, def);
-                if (previous != null) {
-                    // There was one already :(
-                    throw new InterpreterError(MEMBER_REPEAT, def.name,
-                            klass.getSimpleName());
-                }
-            }
-        }
-        return defs;
+        // From all these parts, construct a descriptor.
+        return PyMemberDescr.forField(type, name, f, lookup, flags,
+                doc);
     }
 
     protected static final String MEMBER_REPEAT =
             "Repeated definition of member %.50s in type %.50s";
-
-    /** Build one member definition for the given field. */
-    private static MemberDef getMethodDef(Field f, Lookup lookup) {
-
-        String name = f.getName();
-        int modifiers = f.getModifiers();
-        Class<?> type = f.getType();
-
-        EnumSet<MemberDef.Flag> flags = EnumSet.noneOf(MemberDef.Flag.class);
-
-        // Get the exposed name.
-        Exposed.Member memberAnno =
-                f.getAnnotation(Exposed.Member.class);
-        if (memberAnno != null) {
-            String exposedName = memberAnno.value();
-            if (exposedName != null && exposedName.length() > 0)
-                name = exposedName;
-            boolean ro = memberAnno.readonly()
-                    || (modifiers & Modifier.FINAL) != 0;
-            if (ro) { flags.add(MemberDef.Flag.READONLY); }
-        }
-
-        // May also have DocString annotation
-        String doc = "";
-        Exposed.DocString d = f.getAnnotation(Exposed.DocString.class);
-        if (d != null)
-            doc = d.value();
-
-        // Create a handle for the member
-        VarHandle handle;
-        try {
-            handle = lookup.unreflectVarHandle(f);
-        } catch (IllegalAccessException e) {
-            throw new InterpreterError(e,
-                    "cannot get method handle for '%s'", name);
-        }
-
-        // From all these parts, construct a definition.
-        return MemberDef.forClass(type, name, handle, flags, doc);
-    }
 
 }

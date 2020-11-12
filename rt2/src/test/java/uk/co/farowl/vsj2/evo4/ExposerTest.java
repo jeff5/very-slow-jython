@@ -69,153 +69,13 @@ class ExposerTest {
     }
 
     /**
-     * A class that extends the above, with the same Python type. We want
-     * to check that what we're doing to reflect on the parent produces
-     * descriptors we can apply to a sub-class.
+     * A class that extends the above, with the same Python type. We
+     * want to check that what we're doing to reflect on the parent
+     * produces descriptors we can apply to a sub-class.
      */
     private static class DerivedWithMembers extends ObjectWithMembers {
 
         DerivedWithMembers(double value) { super(value); }
-    }
-
-    /**
-     * Test that the {@link Exposer} creates {@link MemberDef}s for
-     * fields annotated as {@link Member}.
-     */
-    @Test
-    void memberDefConstruct() {
-        Map<String, MemberDef> mds = Exposer.memberDefs(
-                ObjectWithMembers.class, ObjectWithMembers.LOOKUP);
-        // Try a few attributes of i
-        assertTrue(mds.containsKey("i"));
-        MemberDef md = mds.get("i");
-        assertEquals("", md.doc);
-        assertTrue(md.flags.isEmpty());
-        // Try a few attributes of x
-        md = mds.get("x");
-        assertEquals("My test x", md.doc);
-        assertTrue(md.flags.isEmpty());
-        // Now text2
-        md = mds.get("text2");
-        assertEquals("", md.doc);
-        assertEquals(EnumSet.of(MemberDef.Flag.READONLY), md.flags);
-    }
-
-    /**
-     * Test that we can get values via the {@link MemberDef}s the
-     * {@link Exposer} creates for fields annotated as {@link Member}.
-     */
-    @Test
-    void memberDefGetValues() {
-        Map<String, MemberDef> mds = Exposer.memberDefs(
-                ObjectWithMembers.class, ObjectWithMembers.LOOKUP);
-        ObjectWithMembers o = new ObjectWithMembers(42.0);
-        ObjectWithMembers p = new ObjectWithMembers(-1.0);
-
-        // Same MemberDef, different objects
-        MemberDef md_i = mds.get("i");
-        assertEquals(Py.val(42), md_i.get(o));
-        assertEquals(Py.val(-1), md_i.get(p));
-        assertEquals(Py.val(42.0), mds.get("x").get(o));
-        assertEquals(Py.str("-1"), mds.get("text").get(p));
-
-        // Read-only cases work too
-        MemberDef md_i2 = mds.get("i2");
-        assertEquals(Py.val(42), md_i2.get(o));
-        assertEquals(Py.val(-1), md_i2.get(p));
-        assertEquals(Py.val(42.0), mds.get("x").get(o));
-        assertEquals(Py.str("-1"), mds.get("text").get(p));
-    }
-
-    /**
-     * Test that we can get values via the {@link MemberDef}s the
-     * {@link Exposer} creates for fields annotated as {@link Member}.
-     *
-     * @throws Throwable
-     * @throws TypeError
-     */
-    @Test
-    void memberDefSetValues() throws TypeError, Throwable {
-        Map<String, MemberDef> mds = Exposer.memberDefs(
-                ObjectWithMembers.class, ObjectWithMembers.LOOKUP);
-        final ObjectWithMembers o = new ObjectWithMembers(42.0);
-        final ObjectWithMembers p = new ObjectWithMembers(-1.0);
-
-        int i = 43, j = 44;
-        final PyObject oi = Py.val(i);
-        final PyObject oj = Py.val(j);
-        double x = 9.0;
-        final PyObject ox = Py.val(x);
-        String t = "Gumby";
-        final PyObject ot = Py.str(t);
-
-        // Same MemberDef, different objects
-        MemberDef md_i = mds.get("i");
-        md_i.set(o, oi);
-        md_i.set(p, oj);
-        assertEquals(i, o.i);
-        assertEquals(j, p.i);
-
-        MemberDef md_x = mds.get("x");
-        md_x.set(o, ox);
-        assertEquals(x, o.x, 1e-6);
-
-        mds.get("text").set(p, ot);
-        assertEquals(t, p.t);
-
-        // Read-only cases throw
-        final MemberDef md_i2 = mds.get("i2");
-        assertThrows(AttributeError.class, () -> md_i2.set(o, oi));
-        assertThrows(AttributeError.class, () -> md_i2.set(p, oj));
-
-        final MemberDef md_x2 = mds.get("x2");
-        assertThrows(AttributeError.class, () -> md_x2.set(o, ox));
-
-        final MemberDef md_text2 = mds.get("text2");
-        assertThrows(AttributeError.class, () -> md_text2.set(p, ot));
-    }
-
-    /**
-     * Test that we can get and set values in a Java sub-class via the
-     * {@link MemberDef}s the {@link Exposer} creates.
-     *
-     * @throws Throwable
-     * @throws TypeError
-     */
-    @Test
-    void memberDefInDerived() throws TypeError, Throwable {
-        // Note we make the table for the super-class
-        Map<String, MemberDef> mds = Exposer.memberDefs(
-                ObjectWithMembers.class, ObjectWithMembers.LOOKUP);
-        // But the test object is the sub-class
-        final DerivedWithMembers o = new DerivedWithMembers(42.0);
-
-        int i = 45;
-        final PyObject oi = Py.val(i);
-        double x = 9.0;
-        final PyObject ox = Py.val(x);
-        String t = "Gumby";
-        final PyObject ot = Py.str(t);
-
-        // Set then get
-        MemberDef md_i = mds.get("i");
-        md_i.set(o, oi);
-        assertEquals(oi, md_i.get(o));
-
-        MemberDef md_x = mds.get("x");
-        md_x.set(o, ox);
-        assertEquals(x, o.x, 1e-6);
-
-        mds.get("text").set(o, ot);
-        assertEquals(t, o.t);
-
-        MemberDef md_t = mds.get("text");
-        md_t.set(o, ot);
-        assertEquals(ot, md_t.get(o));
-
-        // Read-only cases throw
-        final MemberDef md_i2 = mds.get("i2");
-        assertThrows(AttributeError.class, () -> md_i2.set(o, oi));
     }
 
     /**
@@ -376,8 +236,8 @@ class ExposerTest {
     }
 
     /**
-     * Test that attempts to apply a descriptor to the wrong type produce
-     * a {@code TypeError}.
+     * Test that attempts to apply a descriptor to the wrong type
+     * produce a {@code TypeError}.
      */
     @Test
     void memberTypeError() {

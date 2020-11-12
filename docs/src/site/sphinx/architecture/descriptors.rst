@@ -592,34 +592,34 @@ In Java, this gives rise to a fair few related classes.
     }
     Descriptor -left-> PyType : objclass
 
-    Descriptor <|-- PyMemberDescr
-    class PyMemberDescr {
+    Descriptor <|-- DataDescriptor
+    abstract class DataDescriptor {
+        flags : EnumSet<Flag>
+        {abstract} {method} __set__()
+        {abstract} {method} __delete__()
+    }
+
+    DataDescriptor <|-- PyMemberDescr
+    abstract class PyMemberDescr {
+        handle : VarHandle
+        doc : String
         {method} __get__()
         {method} __set__()
-    }
-    PyMemberDescr --> MemberDef : member
-
-    abstract class MemberDef {
-        name
-        handle VarHandle
-        flags : EnumSet<MemberDef.Flag>
-        doc
+        {method} __delete__()
         {abstract} get()
         {abstract} set()
+        {abstract} delete()
     }
 
-    Descriptor <|-- PyGetSetDescr
+    DataDescriptor <|-- PyGetSetDescr
     class PyGetSetDescr {
+        getter : MethodHandle
+        setter : MethodHandle
+        deleter : MethodHandle
+        doc : String
         {method} __get__()
         {method} __set__()
-    }
-    PyGetSetDescr --> GetSetDef : getset
-
-    class GetSetDef {
-        name
-        get : getter
-        set : setter
-        closure
+        {method} __delete__()
     }
 
     Descriptor <|-- PyMethodDescr
@@ -669,16 +669,9 @@ those that are ``int`` selectors may become ``enum`` or ``EnumSet``.
 Members (``PyMemberDescr``)
 ***************************
 
-During type creation,
+During type creation from a Java class definition,
 a ``PyMemberDescr`` that appears in the dictionary of the ``PyType``
-is created from a ``MemberDef`` specified by the class.
-A ``MemberDef`` (``PyMemberDef`` in CPython)
-represents a field occurring in instances of the implementation of a class
-that is to be exposed as the attribute of a Python ``object``.
-
-In CPython, ``PyMemberDef``\s occur in short, statically-defined tables,
-each entry specifying the type and offset of the member in an instance.
-We might identify the fields in Java by an annotation.
+is the result of an ``@Member`` annotation applied to a field.
 
 ..  uml::
     :caption: Member Descriptor
@@ -690,62 +683,86 @@ We might identify the fields in Java by an annotation.
     }
     Descriptor -left-> PyType : objclass
 
-    Descriptor <|-- PyMemberDescr
-    class PyMemberDescr {
+    Descriptor <|-- DataDescriptor
+    abstract class DataDescriptor {
+        flags : EnumSet<DataDescriptor.Flag>
+        {abstract} {method} __set__()
+    }
+
+    DataDescriptor <|-- PyMemberDescr
+    abstract class PyMemberDescr {
+        handle : VarHandle
+        doc : String
         {method} __get__()
         {method} __set__()
-    }
-    PyMemberDescr --> MemberDef : member
-
-    abstract class MemberDef {
-        name
-        handle VarHandle
-        flags : EnumSet<MemberDef.Flag>
-        doc
+        {method} __delete__()
         {abstract} get()
         {abstract} set()
+        {abstract} delete()
     }
 
-    enum MemberDef.Flag {
+    enum DataDescriptor.Flag {
         READONLY
         READ_RESTRICTED
         WRITE_RESTRICTED
     }
 
-    class MemberDef.Int {
+    class PyMemberDescr._int {
     }
-    class MemberDef.Str {
+    class PyMemberDescr._double {
     }
-    class MemberDef.Object {
+    class PyMemberDescr._String {
     }
 
-    MemberDef .right.> MemberDef.Flag
-    MemberDef <|-- MemberDef.Int
-    MemberDef <|-- MemberDef.Str
-    MemberDef <|-- MemberDef.Object
+    DataDescriptor .right.> DataDescriptor.Flag
+    PyMemberDescr <|-- PyMemberDescr._int
+    PyMemberDescr <|-- PyMemberDescr._double
+    PyMemberDescr <|-- PyMemberDescr._String
     note on link #White: and other specialisations to type
 
-The ``__get__`` and ``__set__`` of a ``PyMemberDescr``
-must get and set the field in instances of the defining type.
-The member may be specified to be read-only,
-in which case ``__set__``
-(in reality it is ``MemberDef.set()``)
-raises ``AttributeError("readonly attribute")``.
+The ``PyMemberDescr`` descriptor is based on a ``VarHandle``
+designating the field.
+The ``__get__``, ``__set__`` and ``__delete__`` of a ``PyMemberDescr``
+must get, set or delete the field in instances of the defining type
+through this ``VarHandle``.
+Setting will be disallowed if the member is annotated as read-only,
+and if setting is allowed, deletion may still be impossible for the type,
+e.g. for an ``int``.
+When disallowed, both raise an ``AttributeError``.
 
-A fixed repertoire of implementation types is supported:
-a range of primitives, ``String`` and ``PyObject`` itself,
-with the option to treat ``null`` as ``None`` or absent (meaning deleted)
-on the ``__get__``.
-Whatever the Java type of the field,
-it must be exposed as an attribute in Python,
-and therefore be read (and written) as a Python object.
-Each type effectively needs a sub-class of ``MemberDef``
-that can convert between the implementation type and
-one acceptable as a Python object.
+In CPython,
+a ``PyMemberDef`` has to be created for each member to be exposed,
+specifying the type and offset of the member in an instance,
+and placed in a short, static table referenced from the type object.
+In Java, we need no intermediary:
+we may make the descriptor directly,
+using information available by reflection,
+and from the identifying ``@Member`` annotation,
+optional properties or further annotations:
 
-A Java ``MemberDef`` could be based on a ``VarHandle``.
-The type conversions do not need to be provided dynamically,
-since the proper sub-class may be selected when the ``MemberDef`` is built.
+..  code-block:: java
+
+    class ObjectWithMembers implements PyObject {
+        // ...
+        @Member
+        @DocString("The i property")
+        int i;
+        @Member("text")
+        String t;
+        @Member(readonly = true)
+        int i2;
+        @Member(readonly = true, value = "text2")
+        String t2;
+        // ...
+    }
+
+We express through Java sub-classes,
+the specific implementation of ``get()``, ``set()`` and ``delete()``,
+appropriate to the implementation type.
+These do not result in distinct Python types.
+This is possible because only a fixed repertoire of implementation types
+is supported.
+
 (In CPython, the types are defined as constants in ``structmember.h``,
 and the set/get functions contain a big case statement.
 The API is used exclusively by member descriptors.)
@@ -870,7 +887,7 @@ will supersede this before the first implementation.
     class MethodDef {
         name
         meth : MethodHandle
-        flags : EnumSet<MemberDef.Flag>
+        flags : EnumSet<MethodDef.Flag>
         doc
     }
 
@@ -1605,7 +1622,7 @@ looking forward to possible use in a ``CallSite``.
     class MethodDef {
         name
         meth : MethodHandle
-        flags : EnumSet<MemberDef.Flag>
+        flags : EnumSet<MethodDef.Flag>
         doc
     }
 
@@ -1823,7 +1840,7 @@ The wrapped object appears as the ``__func__`` member
     class MethodDef {
         name
         meth : MethodHandle
-        flags : EnumSet<MemberDef.Flag>
+        flags : EnumSet<MethodDef.Flag>
         doc
     }
 
