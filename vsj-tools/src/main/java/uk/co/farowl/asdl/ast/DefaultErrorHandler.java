@@ -11,6 +11,7 @@ public class DefaultErrorHandler implements ErrorHandler {
     /** Counter of errors. */
     protected int errors;
 
+    /** Constructor */
     public DefaultErrorHandler() {
         errors = 0;
     }

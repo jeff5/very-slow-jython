@@ -23,7 +23,13 @@ public class CodeTree {
     /** Root node of this <code>CodeTree</code>. */
     public final Module root;
 
-    /** Construct the AST from the result of parsing an ASDL module. */
+    /**
+     * Construct the AST from the result of parsing an ASDL module.
+     *
+     * @param scope to contain the definitions found
+     * @param tree to traverse (a module)
+     * @param errorHandler to receive semantic errors
+     */
     public CodeTree(Scope<Definition> scope, AsdlTree.Module tree, ErrorHandler errorHandler) {
 
         // Ensure the module has all its definitions, but without the fields.
@@ -58,7 +64,11 @@ public class CodeTree {
         /** The ASDL source, or an alternative specified with {@link #setCode(String)}. */
         String code;
 
-        /** Initially the ASDL name and the code name are the same. */
+        /**
+         * Initially the ASDL name and the code name are the same.
+         *
+         * @param asdlName as given in ASDL source
+         */
         public Name(String asdlName) {
             code = asdl = asdlName;
         }
@@ -81,16 +91,18 @@ public class CodeTree {
         /**
          * Call the "visit" method on the visitor that is specific to this node's type. (See the
          * <code>Visitor</code> interface.) The visitor could call its own type-appropriate visit
-         * method directly. In the case that the caller does not know the concrete type of <Node>,
-         * <code>accept</code> is a useful way of dispatching to a method that depends on the actual
-         * types of both the node and the visitor.
+         * method directly. In the case that the caller does not know the concrete type of
+         * {@code Node}, <code>accept</code> is a useful way of dispatching to a method that depends
+         * on the actual types of both the node and the visitor.
          *
-         * @param visitor
-         * @return
+         * @param <T> type returned by each visit
+         * @param visitor to traverse the tree
+         * @return result the visit
          */
         abstract <T> T accept(Visitor<T> visitor);
     }
 
+    /** Class representing an entire module. */
     public static class Module implements Node {
 
         /** The name of the module. */
@@ -105,7 +117,7 @@ public class CodeTree {
          * that nests inside the one named in the constructor.
          *
          * @param name the name (in the ASDL source) of the module
-         * @param scope the symbol table enclosing this module's scope
+         * @param enclosingScope the symbol table enclosing this module's scope
          */
         public Module(String name, Scope<Definition> enclosingScope) {
             this.name = new Name(name);
@@ -113,7 +125,11 @@ public class CodeTree {
             this.defs = new ArrayList<>();
         }
 
-        /** Module is the container for built-in types if it is the nameless module. */
+        /**
+         * Module is the container for built-in types if it is the nameless module.
+         *
+         * @return true iff this module is for built-in types
+         */
         public boolean isBuiltin() {
             return "".equals(name.toString());
         }
@@ -153,30 +169,38 @@ public class CodeTree {
             this.attributes = new ArrayList<>(attributeCount);
         }
 
+        /** @return true if the definition is a "sum" type. */
         public boolean isSum() {
             return this instanceof Sum;
         }
 
-        /** A definition that is simple allows for certain simplifications in the generated code. */
+        /**
+         * A definition that is simple allows for certain simplifications in the generated code.
+         *
+         * @return true iff this definition is simple
+         */
         public abstract boolean isSimple();
 
-        /** A definition is a built-in if it is in the nameless module. */
+        /**
+         * A definition is a built-in if it is in the nameless module.
+         *
+         * @return true iff built-in type
+         */
         public boolean isBuiltin() {
             return module.isBuiltin();
         }
 
         /**
-         * The attributes are all of
-         * built-in type (and therefore has no child nodes).
+         * The attributes are all of built-in type (and therefore has no child nodes).
          *
          * @return whether this type contains only built-ins
          */
         public abstract boolean hasOnlyBuiltin();
 
         /**
-         * The attributes are all either
-         * of simple type or of built-in type. If simple types are not represented by nodes (an option in
-         * the generation of code) such a definition has no child nodes.
+         * The attributes are all either of simple type or of built-in type. If simple types are not
+         * represented by nodes (an option in the generation of code) such a definition has no child
+         * nodes.
          *
          * @return whether this type contains only simple types or built-ins
          */
@@ -186,6 +210,7 @@ public class CodeTree {
     /** Class representing one sum-type definition. */
     public static class Sum extends Definition {
 
+        /** Constructors form the sum-type {@code Definition}. */
         public final List<Constructor> constructors;
 
         /**
@@ -246,6 +271,7 @@ public class CodeTree {
      */
     public static class Product extends Definition {
 
+        /** Fields that are the members of the {@code Product}. */
         public final List<Field> members;
 
         /**
@@ -273,8 +299,7 @@ public class CodeTree {
         }
 
         /**
-         * {@inheritDoc}
-         * For a product, this must also be true of the members.
+         * {@inheritDoc} For a product, this must also be true of the members.
          */
         @Override
         public boolean hasOnlyBuiltin() {
@@ -282,8 +307,7 @@ public class CodeTree {
         }
 
         /**
-         * {@inheritDoc}
-         * For a product, this must also be true of the members.
+         * {@inheritDoc} For a product, this must also be true of the members.
          */
         @Override
         public boolean hasOnlySimple() {
@@ -297,6 +321,8 @@ public class CodeTree {
         }
     }
 
+    /** Class representing one constructor in a sum-type definition. */
+    @SuppressWarnings("javadoc")
     public static class Constructor implements Node {
 
         public final Name name;
@@ -345,6 +371,10 @@ public class CodeTree {
         }
     }
 
+    /**
+     * Class representing the occurrence of a field, the definition of which will be elsewhere.
+     */
+    @SuppressWarnings("javadoc")
     public static class Field implements Node {
 
         public final Name name;
@@ -357,10 +387,12 @@ public class CodeTree {
             this.name = new Name(name);
         }
 
+        /** @return {@code cardinality == Cardinality.OPTIONAL} */
         public final boolean isOptional() {
             return cardinality == Cardinality.OPTIONAL;
         }
 
+        /** @return {@code cardinality == Cardinality.SEQUENCE} */
         public final boolean isSequence() {
             return cardinality == Cardinality.SEQUENCE;
         }
@@ -386,6 +418,7 @@ public class CodeTree {
      * There is a method in the <code>Visitor</code> interface for each <em>concrete</em> type of
      * {@link CodeTree.Node}.
      */
+    @SuppressWarnings("javadoc")
     public interface Visitor<T> {
 
         T visitModule(Module module);

@@ -15,7 +15,7 @@ import uk.co.farowl.asdl.ASTBuilderParseVisitor;
  * This class defines the nodes in abstract syntax trees that represent the (partially) compiled
  * form of ASDL source. Any such node may be thought of as a sub-tree, since an instance cannot
  * exist without its complement of child nodes. All the nodes of the ASDL AST extend this base
- * class. The root node of the AST is always a {@link #Module}.
+ * class. The root node of the AST is always a {@link Module}.
  * <p>
  * From these node classes the AST representing an instance of a specification in ASDL may be
  * composed. These classes support traversal of the AST by objects that implement
@@ -46,6 +46,12 @@ public abstract class AsdlTree {
         }
     }
 
+    /**
+     * From the parse tree build an AST of the ASDL source.
+     *
+     * @param parseTree to build form
+     * @return AST of the ASDL source
+     */
     public static Module forModule(ASDLParser.ModuleContext parseTree) {
         // Using a visitor to the parse tree, construct an AST
         ASTBuilderParseVisitor astBuilder = new ASTBuilderParseVisitor();
@@ -55,13 +61,14 @@ public abstract class AsdlTree {
     /**
      * Call the "visit" method on the visitor that is specific to this node's type. (See the
      * <code>Visitor</code> interface.) The visitor could call its own type-appropriate visit method
-     * directly. In the case that the caller does not know the concrete type of <AsdlTree>,
+     * directly. In the case that the caller does not know the concrete type of {@code AsdlTree},
      * <code>accept</code> is a useful way of dispatching to a method that depends on the actual
      * types of both the node and the visitor.
      *
-     * @param visitor
-     * @return
-     * @throws SemanticError
+     * @param <T> The type of result each visit method must produce
+     * @param visitor to walk round the tree
+     * @return result of visit
+     * @throws SemanticError from analysis in this pass
      */
     public abstract <T> T accept(Visitor<T> visitor) throws SemanticError;
 
@@ -75,6 +82,11 @@ public abstract class AsdlTree {
         /** Parse tree context (not null). */
         public final ParserRuleContext context;
 
+        /**
+         * Signal a semantic error.
+         *
+         * @param message to accompany the error
+         */
         public SemanticError(String message) {
             super(message);
             this.context = AsdlTree.this.context;
@@ -89,22 +101,46 @@ public abstract class AsdlTree {
         }
     }
 
+    /** Something defined more than once. */
     public class Duplicate extends SemanticError {
 
-        /** Signal that attribute/member 'name' is a duplicate. */
+        /**
+         * Signal that attribute/member 'name' is a duplicate.
+         *
+         * @param typeOfThing duplicated
+         * @param name duplicated
+         */
         public Duplicate(String typeOfThing, String name) {
             super(String.format("duplicate %s name '%s'", typeOfThing, name));
         }
     }
 
+    /** A name clash with an attribute. */
     public class Shadow extends SemanticError {
 
-        /** Signal that member 'name' clashes with an attribute of the same name. */
+        /**
+         * Signal that member 'name' clashes with an attribute of the same name.
+         *
+         * @param name that clashes
+         */
         public Shadow(String name) {
             super(String.format("member '%s' clashes with an attribute of the same name", name));
         }
     }
 
+    /**
+     * Class representing an entire module. In EBNF: <pre>
+     * module        ::= "module" Id "{" [definitions] "}"
+     * definitions   ::= { TypeId "=" type }
+     * type          ::= product | sum
+     * product       ::= fields ["attributes" fields]
+     * fields        ::= "(" { field, "," } field ")"
+     * field         ::= TypeId ["?" | "*"] [id]
+     * sum           ::= constructor { "|" constructor } ["attributes" fields]
+     * constructor   ::= ConstructorId [fields]
+     * </pre>
+     */
+    @SuppressWarnings("javadoc") // Mostly self-evident from the EBNF
     public static class Module extends AsdlTree {
 
         public final String name;
@@ -125,7 +161,6 @@ public abstract class AsdlTree {
         public String toString() {
             return String.format("module %s %s", name, defs);
         }
-
     }
 
     /**
@@ -142,15 +177,24 @@ public abstract class AsdlTree {
      */
     public abstract static class Definition extends AsdlTree {
 
+        /** Name ({@code TypeId}) being defined. */
         public final String name;
+        /** Attributes of the {@code Definition}. */
         public final List<Field> attributes;
 
-        public Definition(ASDLParser.DefinitionContext ctx, List<Field> attributes) {
+        /**
+         * Create one definition, which may be a sum or product type.
+         *
+         * @param ctx parse tree context
+         * @param attributes to list as the attributes of this {@code Definition}
+         */
+        protected Definition(ASDLParser.DefinitionContext ctx, List<Field> attributes) {
             super(ctx);
             this.name = ctx.TypeId().getText();
             this.attributes = Collections.unmodifiableList(attributes);
         }
 
+        /** @return whether this is a {@code Sum}. */
         public boolean isSum() {
             return this instanceof Sum;
         }
@@ -165,6 +209,7 @@ public abstract class AsdlTree {
      */
     public static class Sum extends Definition {
 
+        /** Constructors (alternatives) for the definition. */
         public final List<Constructor> constructors;
 
         /**
@@ -173,8 +218,8 @@ public abstract class AsdlTree {
          * super-class constructor.
          *
          * @param ctx parse tree context: note use of <code>DefinitionContext</code>
-         * @param constructors
-         * @param attributes
+         * @param constructors (alternatives) for the definition
+         * @param attributes to list as the attributes of this {@code Sum}
          */
         public Sum(ASDLParser.DefinitionContext ctx, List<Constructor> constructors,
                 List<Field> attributes) {
@@ -187,7 +232,11 @@ public abstract class AsdlTree {
             return visitor.visitSum(this);
         }
 
-        /** A sum is simple if it has no members or attributes. */
+        /**
+         * A sum is simple if it has no members or attributes.
+         *
+         * @return whether sum is simple
+         */
         public boolean isSimple() {
             if (attributes == null || !attributes.isEmpty()) {
                 return false;
@@ -215,6 +264,7 @@ public abstract class AsdlTree {
      * attributes : Attributes fields ;
      * </pre>
      */
+    @SuppressWarnings("javadoc") // Mostly self-evident from the EBNF
     public static class Product extends Definition {
 
         public final List<Field> members;
@@ -225,8 +275,8 @@ public abstract class AsdlTree {
          * super-class constructor.
          *
          * @param ctx parse tree context: note use of <code>DefinitionContext</code>
-         * @param members
-         * @param attributes
+         * @param members to list as the members of this {@code Product}
+         * @param attributes to list as the attributes of this {@code Product}
          */
         public Product(ASDLParser.DefinitionContext ctx, List<Field> members,
                 List<Field> attributes) {
@@ -246,6 +296,7 @@ public abstract class AsdlTree {
         }
     }
 
+    @SuppressWarnings("javadoc") // Mostly self-evident from the EBNF
     public static class Constructor extends AsdlTree {
 
         public final String name;
@@ -268,6 +319,7 @@ public abstract class AsdlTree {
         }
     }
 
+    @SuppressWarnings("javadoc") // Mostly self-evident from the EBNF
     public enum Cardinality {
         SINGLE(""), OPTIONAL("?"), SEQUENCE("*");
 
@@ -278,6 +330,7 @@ public abstract class AsdlTree {
         }
     };
 
+    @SuppressWarnings("javadoc") // Mostly self-evident from the EBNF
     public static class Field extends AsdlTree {
 
         public final String typeName;
@@ -312,7 +365,10 @@ public abstract class AsdlTree {
     /**
      * There is a method in the <code>Visitor</code> interface for each <em>concrete</em> type of
      * {@link AsdlTree}.
+     *
+     * @param <T> The type of result each visit method must produce.
      */
+    @SuppressWarnings("javadoc")
     public interface Visitor<T> {
 
         T visitModule(Module module);

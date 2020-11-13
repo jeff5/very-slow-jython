@@ -33,6 +33,12 @@ class DefinitionBuilder implements AsdlTree.Visitor<Definition> {
     /** Called whenever there is a semantic error in processing the AST. */
     protected final ErrorHandler errorHandler;
 
+    /**
+     * Create a {@code DefinitionBuilder} to walk the tree, building a scope.
+     *
+     * @param enclosingScope within which this <code>DefinitionBuilder</code> creates types
+     * @param handler called whenever there is a semantic error
+     */
     public DefinitionBuilder(Scope<Definition> enclosingScope, ErrorHandler handler) {
         this.enclosingScope = enclosingScope;
         this.errorHandler = handler;
@@ -44,6 +50,9 @@ class DefinitionBuilder implements AsdlTree.Visitor<Definition> {
      * generating code from the ASDL AST. It visits all the definitions and adds them to the module.
      * It also creates separate lists {@link #sums} and {@link #products} that will drive the next
      * phase of code generation.
+     *
+     * @param module to visit
+     * @return built module
      */
     public Module buildModule(AsdlTree.Module module) {
         // Construct an empty module

@@ -1,6 +1,5 @@
 package uk.co.farowl.asdl;
 
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -20,9 +19,10 @@ public class Compile {
      * java -cp ... uk.co.farowl.asdl.Compile -h
      *</pre>
      *
-     * @param args
+     * @param args to command
+     * @throws IOException from opening or reading files in the compiler
      */
-    public static void main(String[] args) throws FileNotFoundException, IOException {
+    public static void main(String[] args) throws IOException {
 
         // Parse the command line
         Compile.Options options = new Compile.Options(args);
@@ -51,13 +51,12 @@ public class Compile {
      * Implements the main action of the compiler once it is known there is no error, and we're
      * actually going to compile some source (not just print the usage message).
      *
-     * @param options
-     * @throws IOException
-     * @throws ASDLErrors
-     * @throws FileNotFoundException
+     * @param options bundle of options (command line)
+     * @throws IOException from accessing the source or output
+     * @throws ASDLErrors from parsing the content
      */
     private static void compileMain(Compile.Options options)
-            throws IOException, ASDLErrors, FileNotFoundException {
+            throws IOException, ASDLErrors {
 
         // Create an instance of the compiler to use, then configure it from the options.
         ASDLCompiler compiler = new ASDLCompiler();

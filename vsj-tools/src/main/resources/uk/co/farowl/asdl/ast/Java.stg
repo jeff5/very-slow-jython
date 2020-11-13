@@ -40,6 +40,7 @@ main(command, asdlCodeRoot, asdlPackagePath, params) ::= <<
  * Outer class scoping the types defined in the ASDL module
  * {@code <asdlCodeRoot.name>}.
  */
+@SuppressWarnings("javadoc")
 public abstract class <asdlCodeRoot.name> {
     /**
      * All definitions in this module implement this interface to

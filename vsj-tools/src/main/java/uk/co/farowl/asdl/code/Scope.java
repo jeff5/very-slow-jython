@@ -46,6 +46,8 @@ public class Scope<T> {
             return String.format("%s=%s", name, def);
         }
 
+        /** Return the {@link Scope} within which this symbol is defined.
+         * @return defining scope. */
         public Scope<T> scope() {
             return Scope.this;
         }
@@ -66,12 +68,17 @@ public class Scope<T> {
             }
         }
 
-        /** Return true iff this <code>Symbol</code> is defined. */
+        /**
+         * Return {@code true} iff this {@code Symbol} is defined. @return {@code true} if defined
+         *
+         * @return {@code true} iff this {@code Symbol} is defined
+         */
         public boolean isDefined() {
             return def != null;
         }
 
-        /** Return the definition of this <code>Symbol</code>. */
+        /** Return the definition of this <code>Symbol</code>.
+         * @return definition of this <code>Symbol</code> */
         public T definitionOrNull() {
             return def;
         }

@@ -57,27 +57,47 @@ public class ASDLCompiler {
     private String outputNameFormat = DEFAULT_OUTPUT_NAME_FORMAT;
     private Map<String, Object> params = new HashMap<>();
 
-    /** Specify the project root, relative to which file names will be represented in comments. */
+    /**
+     * Specify the project root.
+     *
+     * @param projectRoot relative to which file names will be represented in comments.
+     */
     public void setProjectRoot(Path projectRoot) {
         this.projectRoot = projectRoot.normalize();
     }
 
-    /** Specify the root relative to which the package name of the source is interpreted. */
+    /**
+     * Specify the root relative to which the package name of the source is interpreted.
+     *
+     * @param sourceRoot relative to which the package name interpreted
+     */
     public void setSourceRoot(Path sourceRoot) {
         this.sourceRoot = sourceRoot.normalize();
     }
 
-    /** The root relative to which the package name of the source is interpreted. */
+    /**
+     * The root relative to which the package name of the source is interpreted.
+     *
+     * @return root relative to which the package name interpreted
+     */
     public Path getSourceRoot() {
         return sourceRoot;
     }
 
-    /** Specify the root relative to which the output is generated using the package name. */
+    /**
+     * Specify the root relative to which the output is generated using the package name.
+     *
+     * @param outputDirectory relative to which the output is generated
+     */
     public void setOutputDirectory(Path outputDirectory) {
         this.outputDirectory = outputDirectory.normalize();
     }
 
-    /** The root relative to which the output is generated using the package name. */
+    /**
+     * The root relative to which the output is generated using the package name.
+     *
+     * @return root relative to which the output is generated
+     */
     public Path getOutputDirectory() {
         return outputDirectory;
     }
@@ -85,23 +105,37 @@ public class ASDLCompiler {
     /**
      * Specify the file name to give the output within package-directory as a format string (default
      * "%s.java").
+     *
+     * @param outputNameFormat file name to give the output
      */
     public void setOutputNameFormat(String outputNameFormat) {
         this.outputNameFormat = outputNameFormat;
     }
 
-    /** The root relative to which the output is generated using the package name. */
+    /**
+     * The root relative to which the output is generated using the package name.
+     *
+     * @return root relative to which the output is generated
+     */
     public String getOutputNameFormat() {
         return outputNameFormat;
     }
 
-    /** Specify the built-in template set to use when generating output (default "Java"). */
+    /**
+     * Specify the built-in template set to use when generating output (default "Java").
+     *
+     * @param groupName built-in template set
+     */
     public void setGroupName(String groupName) {
         this.groupName = groupName;
         groupFile = null;
     }
 
-    /** The name of the built-in template group used when generating output (default "Java"). */
+    /**
+     * The name of the built-in template group used when generating output (default "Java").
+     *
+     * @return built-in template set
+     */
     public String getGroupName() {
         return groupName;
     }
@@ -110,23 +144,37 @@ public class ASDLCompiler {
      * Specify an external StringTemplate group file containing the template group to use when
      * generating output, instead of any internal template group (see {@link #getGroupName()} to be
      * ignored.
+     *
+     * @param groupFile external StringTemplate group file
      */
     public void setGroupFile(Path groupFile) {
         this.groupFile = groupFile.normalize();
         groupName = null;
     }
 
-    /** An external StringTemplate group file containing the template group. */
+    /**
+     * An external StringTemplate group file containing the template group.
+     *
+     * @return external StringTemplate group file
+     */
     public Path getGroupFile() {
         return groupFile;
     }
 
-    /** Specify the template to begin at (rendering the ASDL "module"). */
+    /**
+     * Specify the template to begin at (rendering the ASDL "module").
+     *
+     * @param templateName template to begin at
+     */
     public void setTemplateName(String templateName) {
         this.templateName = templateName;
     }
 
-    /** The template this compiler will begin at (rendering the ASDL "module"). */
+    /**
+     * The template this compiler will begin at (rendering the ASDL "module").
+     *
+     * @return template to begin at
+     */
     public String getTemplateName() {
         return templateName;
     }
@@ -136,6 +184,7 @@ public class ASDLCompiler {
      * group files may give these a particular meaning (or ignore ones they don't support). The Java
      * template supports the following:
      * <table>
+     * <caption>Parameters supported in the Java template</caption>
      * <tr>
      * <td>useEnum</td>
      * <td>Boolean</td>
@@ -173,8 +222,8 @@ public class ASDLCompiler {
      *
      * @param asdlSource the ASDL source file to render.
      * @param outputDirectory location relative to which generated code is written.
-     * @throws IOException
-     * @throws ASDLErrors
+     * @throws IOException from generating the output
+     * @throws ASDLErrors from parsing
      */
     public void compile(Path asdlSource, Path outputDirectory) throws IOException, ASDLErrors {
 
@@ -209,7 +258,6 @@ public class ASDLCompiler {
 
         // Output generated code as specified
         emit(outputFile, code.root, asdlSource, packagePath);
-
     }
 
     /**
@@ -299,10 +347,20 @@ public class ASDLCompiler {
      */
     public class ASDLErrors extends Exception {
 
+        /** Number of errors in the phase reported. */
         protected final int errors;
+        /** Phase of compilation, e.g. "Semantic" or "Syntax". */
         protected final String kind;
+        /** Source that gave rise to the errors. */
         protected final String sourceName;
 
+        /**
+         * Construct an error summary
+         *
+         * @param sourceName that gave rise to the errors
+         * @param kind e.g. "Semantic" or "Syntax"
+         * @param numberOfErrors a count in the phase being reported
+         */
         public ASDLErrors(String sourceName, String kind, int numberOfErrors) {
             this.sourceName = sourceName;
             this.kind = kind;
@@ -321,9 +379,10 @@ public class ASDLCompiler {
     /**
      * Compile the source (actually an ANTLR stream) into a new parse tree. The parser emits parse
      * errors to {@code System.err}, but generally recovers to continue the parse. Errors are
-     * counted, and if the count is positive, this method will throw
-     * {@link ASDLException.SyntaxErrors}.
+     * counted, and if the count is positive, this method will throw {@link ASDLErrors}.
      *
+     * @param input ASDL source text
+     * @return the parse tree of the input
      * @throws ASDLErrors when syntax errors
      */
     public ModuleContext buildParseTree(CharStream input) throws ASDLErrors {
