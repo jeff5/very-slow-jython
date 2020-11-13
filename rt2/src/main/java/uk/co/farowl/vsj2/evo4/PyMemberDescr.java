@@ -8,8 +8,8 @@ import java.util.EnumSet;
 
 /**
  * Descriptor for an attribute that has been defined (by a
- * {@link Member} annotation) to get and optionally set the value (with
- * default type conversions).
+ * {@code @Member} annotation) to get and optionally set the value, with
+ * default type conversions.
  */
 abstract class PyMemberDescr extends DataDescriptor {
 
@@ -69,24 +69,49 @@ abstract class PyMemberDescr extends DataDescriptor {
     }
 
     /**
-     * A method to get {@code o.name}. If the variable type of the
-     * handle does not implement {@link PyObject} a conversion will be
-     * applied to the value returned.
+     * A method to get {@code o.name}, with conversion from the internal
+     * field value if necessary (which will always succeed). This method
+     * is called from {@link #__get__(PyMemberDescr, PyObject, PyType)},
+     * after checks, to implement the type-specific conversion.
+     *
+     * @param obj object to access via {@link #handle} (never null)
+     * @return field value
      */
     // Compare CPython PyMember_GetOne in structmember.c
-    abstract PyObject get(PyObject o);
+    protected abstract PyObject get(PyObject obj) throws AttributeError;
 
     /**
-     * A method to set {@code o.name = v}. If the variable type of the
-     * handle does not implement {@link PyObject} a conversion will be
-     * applied to the value provided.
+     * A method to set {@code o.name = v}, with conversion to the
+     * internal field value if necessary. This method is called from
+     * {@link #__set__(PyMemberDescr, PyObject, PyObject)}, after
+     * checks, to implement the type-specific conversion.
      *
-     * @throws TypeError
-     * @throws Throwable
+     * @param obj object to access via {@link #handle} (never null)
+     * @param v value to assign: never null, may be {@code None}
+     * @throws TypeError if v cannot be converted
+     * @throws Throwable potentially from conversion
      */
     // Compare CPython PyMember_SetOne in structmember.c
-    abstract void set(PyObject o, PyObject v)
-            throws TypeError, Throwable;
+    protected abstract void set(PyObject obj, PyObject v)
+            throws AttributeError, TypeError, Throwable;
+
+    /**
+     * A method to delete {@code del o.name}. This method is called from
+     * {@link #__delete__(PyMemberDescr, PyObject, PyObject)}, after
+     * checks, to implement the type-specific conversion.
+     *
+     * @implNote The default implementation is correct for primitive
+     *           types (i.e. the majority) in raising {@link TypeError}
+     *           with the message that the attribute cannot be deleted.
+     * @param obj object to access via {@link #handle} (never null)
+     * @throws TypeError when not a type that can be deleted
+     * @throws AttributeError when already deleted/undefined
+     */
+    // Compare CPython PyMember_SetOne in structmember.c with NULL
+    protected void delete(PyObject obj)
+            throws TypeError, AttributeError {
+        throw cannotDeleteAttr();
+    }
 
     // CPython get-set table (to convert to annotations):
     // private GetSetDef member_getset[] = {
@@ -134,7 +159,7 @@ abstract class PyMemberDescr extends DataDescriptor {
     // };
 
     // Compare CPython member_repr in descrobject.c
-    static PyObject __repr__(PyMemberDescr descr) {
+    static PyObject __repr__(DataDescriptor descr) {
         return descr.descr_repr("<member '%s' of '%s' objects>");
     }
 
@@ -157,10 +182,23 @@ abstract class PyMemberDescr extends DataDescriptor {
     // Compare CPython member_set in descrobject.c
     static void __set__(PyMemberDescr descr, PyObject obj,
             PyObject value) throws TypeError, Throwable {
-        descr.checkSet(obj);
-        descr.set(obj, value);
+        if (value == null) {
+            // This ought to be an error, but allow for CPython idiom.
+            __delete__(descr, obj);
+        } else {
+            descr.checkSet(obj);
+            descr.set(obj, value);
+        }
     }
 
+    // Compare CPython member_set in descrobject.c with NULL
+    static void __delete__(PyMemberDescr descr, PyObject obj)
+            throws TypeError, Throwable {
+        descr.checkDelete(obj);
+        descr.delete(obj);
+    }
+
+    // XXX @Getter
     // Compare CPython member_get_doc in descrobject.c
     static PyObject member_get_doc(PyMemberDescr descr) {
         if (descr.doc == null) { return Py.None; }
@@ -185,17 +223,18 @@ abstract class PyMemberDescr extends DataDescriptor {
             throws InterpreterError {
         Class<?> fieldType = field.getType();
         name = decideName(name, field);
-        VarHandle handle = varHandle(field, lookup);
+        VarHandle vh = varHandle(field, lookup);
+        // Note remove to minimise work in checkSet/checkDelete
+        boolean opt = flags.remove(Flag.OPTIONAL);
+        // This also treats Java final as READONLY (adds the flag)
         flags = decideFlags(flags, field);
         if (fieldType == int.class)
-            return new _int(objclass, name, handle, flags, doc);
+            return new _int(objclass, name, vh, flags, doc);
         else if (fieldType == double.class)
-            return new _double(objclass, name, handle, flags, doc);
-        else if (fieldType == String.class)
-            return new _String(objclass, name, handle, flags, doc);
-        else if (fieldType == String.class)
-            return new _String(objclass, name, handle, flags, doc);
-        else {
+            return new _double(objclass, name, vh, flags, doc);
+        else if (fieldType == String.class) {
+            return new _String(objclass, name, vh, flags, doc, opt);
+        } else {
             throw new InterpreterError(UNSUPPORTED_TYPE, name,
                     fieldType.getSimpleName());
         }
@@ -213,13 +252,13 @@ abstract class PyMemberDescr extends DataDescriptor {
         }
 
         @Override
-        PyObject get(PyObject obj) {
+        protected PyObject get(PyObject obj) {
             int value = (int) handle.get(obj);
             return Py.val(value);
         }
 
         @Override
-        void set(PyObject obj, PyObject value)
+        protected void set(PyObject obj, PyObject value)
                 throws TypeError, Throwable {
             int v = Number.asSize(value, null);
             handle.set(obj, v);
@@ -234,38 +273,85 @@ abstract class PyMemberDescr extends DataDescriptor {
         }
 
         @Override
-        PyObject get(PyObject obj) {
+        protected PyObject get(PyObject obj) {
             double value = (double) handle.get(obj);
             return Py.val(value);
         }
 
         @Override
-        void set(PyObject obj, PyObject value)
+        protected void set(PyObject obj, PyObject value)
                 throws TypeError, Throwable {
             double v = Number.toFloat(value).doubleValue();
             handle.set(obj, v);
         }
     }
 
-    private static class _String extends PyMemberDescr {
+    /** Behaviour for reference types. */
+    private static abstract class Reference
+            extends PyMemberDescr {
+
+        /**
+         * Controls what happens when the attribute implementation is
+         * {@code null}, If {@code true}, {@link #get(PyObject)} will
+         * raise {@link AttributeError}. If {@code false},
+         * {@link #get(PyObject)} will return {@code None}.
+         *
+         * Delete sets the attribute implementation to {@code null}.
+         */
+        protected final boolean optional;
+
+        Reference(PyType objclass, String name, VarHandle handle,
+                EnumSet<Flag> flags, String doc, boolean optional) {
+            super(objclass, name, handle, flags, doc);
+            this.optional = optional;
+        }
+
+        /**
+         * {@inheritDoc}
+         * <p>
+         * If {@link #optional} and the attribute is {@code null},
+         * reference types raise an {@link AttributeError}.
+         */
+        @Override
+        protected void delete(PyObject obj) {
+            if (optional && handle.get(obj) == null)
+                throw Abstract.noAttributeOnType(objclass, name);
+            handle.set(obj, null);
+        }
+    }
+
+    /**
+     * A string attribute that may be deleted (represented by
+     * {@code null} in Java).
+     */
+    private static class _String extends Reference {
 
         _String(PyType objclass, String name, VarHandle handle,
-                EnumSet<Flag> flags, String doc) {
-            super(objclass, name, handle, flags, doc);
+                EnumSet<Flag> flags, String doc, boolean optional) {
+            super(objclass, name, handle, flags, doc, optional);
         }
 
         @Override
-        PyObject get(PyObject obj) {
+        protected PyObject get(PyObject obj) {
             String value = (String) handle.get(obj);
+            if (value == null) {
+                if (optional)
+                    throw Abstract.noAttributeOnType(objclass, name);
+                else
+                    return Py.None;
+            }
             return Py.str(value);
         }
 
         @Override
-        void set(PyObject obj, PyObject value)
+        protected void set(PyObject obj, PyObject value)
                 throws TypeError, Throwable {
+            if (!Abstract.typeCheck(value, PyUnicode.TYPE))
+                throw attrMustBeSet(value, "a string");
             String v = value.toString();
             handle.set(obj, v);
         }
+
     }
 
 }

@@ -414,7 +414,7 @@ class Abstract {
      * '<u>str</u>'".
      *
      * @param t expected kind of thing
-     * @param o actual object returned
+     * @param o actual object involved
      * @return exception to throw
      */
     static TypeError requiredTypeError(String t, PyObject o) {

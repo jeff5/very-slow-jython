@@ -49,6 +49,9 @@ class ExposerTest {
         /** String with change of name. */
         @Member("text")
         String t;
+        /** Can be properly deleted without popping up as None */
+        @Member(optional = true)
+        String s;
 
         /** Read-only access. */
         @Member(readonly = true)
@@ -63,7 +66,7 @@ class ExposerTest {
         ObjectWithMembers(double value) {
             x2 = x = value;
             i2 = i = Math.round((float) value);
-            t2 = t = String.format("%d", i);
+            t2 = t = s = String.format("%d", i);
         }
 
     }
@@ -126,6 +129,10 @@ class ExposerTest {
         assertEquals(Py.str("-1"),
                 PyMemberDescr.__get__(md_t, p, null));
 
+        PyMemberDescr md_s = mds.get("s");
+        assertEquals(Py.str("42"),
+                PyMemberDescr.__get__(md_s, o, null));
+
         // Read-only cases work too
         PyMemberDescr md_i2 = mds.get("i2");
         assertEquals(Py.val(42), PyMemberDescr.__get__(md_i2, o, null));
@@ -141,8 +148,9 @@ class ExposerTest {
     }
 
     /**
-     * Test that we can get values via the {@link PyMemberDescr}s the
-     * {@link Exposer} creates for fields annotated as {@link Member}.
+     * Test that we can set values via the {@link PyMemberDescr}s the
+     * {@link Exposer} creates for fields annotated as {@link Member},
+     * and receive an {@link AttributeError} when read-only.
      *
      * @throws Throwable
      * @throws TypeError
@@ -162,22 +170,30 @@ class ExposerTest {
         String t = "Gumby";
         final PyObject ot = Py.str(t);
 
-        // Same PyMemberDescr, different objects
+        // Same descriptor applicable to different objects
         PyMemberDescr md_i = mds.get("i");
         PyMemberDescr.__set__(md_i, o, oi);
         PyMemberDescr.__set__(md_i, p, oj);
         assertEquals(i, o.i);
         assertEquals(j, p.i);
 
+        // Set a double
         PyMemberDescr md_x = mds.get("x");
         PyMemberDescr.__set__(md_x, o, ox);
         assertEquals(x, o.x, 1e-6);
 
+        // Set a String
         PyMemberDescr md_t = mds.get("text");
         PyMemberDescr.__set__(md_t, p, ot);
         assertEquals(t, p.t);
 
-        // Read-only cases throw
+        // It is a TypeError to set the wrong kind of value
+        assertThrows(TypeError.class,
+                () -> PyMemberDescr.__set__(md_i, o, ot));
+        assertThrows(TypeError.class,
+                () -> PyMemberDescr.__set__(md_t, o, oi));
+
+        // It is an AttributeError to set a read-only attribute
         final PyMemberDescr md_i2 = mds.get("i2");
         assertThrows(AttributeError.class,
                 () -> PyMemberDescr.__set__(md_i2, o, oi));
@@ -191,6 +207,84 @@ class ExposerTest {
         final PyMemberDescr md_text2 = mds.get("text2");
         assertThrows(AttributeError.class,
                 () -> PyMemberDescr.__set__(md_text2, p, ot));
+    }
+
+    /**
+     * Test that we can delete values via the {@link PyMemberDescr}s the
+     * {@link Exposer} creates for fields annotated as {@link Member},
+     * and receive an {@link AttributeError} when read-only.
+     *
+     * @throws Throwable
+     * @throws TypeError
+     */
+    @Test
+    void memberDeleteValues() throws TypeError, Throwable {
+        Map<String, PyMemberDescr> mds = Exposer.memberDescrs(
+                ObjectWithMembers.TYPE, ObjectWithMembers.LOOKUP);
+        final ObjectWithMembers o = new ObjectWithMembers(42.0);
+        final PyType T = ObjectWithMembers.TYPE;
+
+        String s = "P.J.", t = "Gumby";
+        final PyObject os = Py.str(s);
+        final PyObject ot = Py.str(t);
+
+        /*
+         * The text (o.t) attribute is a writable, non-optional String
+         */
+        PyMemberDescr md_t = mds.get("text");
+        assertEquals("42", o.t);
+        // Deleting it makes it null internally, None externally
+        PyMemberDescr.__delete__(md_t, o);
+        assertEquals(null, o.t);
+        assertEquals(Py.None, PyMemberDescr.__get__(md_t, o, T));
+        // We can delete it again (no error) and set it
+        PyMemberDescr.__delete__(md_t, o);
+        PyMemberDescr.__set__(md_t, o, ot);
+        assertEquals(t, o.t);
+
+        /*
+         * The s attribute is a writable, optional String
+         */
+        PyMemberDescr md_s = mds.get("s");
+        PyMemberDescr.__set__(md_s, o, os);
+        assertEquals(s, o.s);
+        assertEquals(os, PyMemberDescr.__get__(md_s, o, T));
+        // Deleting it makes it null internally, vanish externally
+        PyMemberDescr.__delete__(md_s, o);
+        assertEquals(null, o.s);
+        assertThrows(AttributeError.class,
+                () -> PyMemberDescr.__get__(md_s, o, T));
+        // Deleting it again is an error
+        assertThrows(AttributeError.class,
+                () -> PyMemberDescr.__delete__(md_s, o));
+        // But we can set it
+        PyMemberDescr.__set__(md_s, o, ot);
+        assertEquals(t, o.s);
+
+        /*
+         * i, x are primitives, so cannot be deleted.
+         */
+        // Deleting a primitive is a TypeError
+        PyMemberDescr md_i = mds.get("i");
+        assertThrows(TypeError.class,
+                () -> PyMemberDescr.__delete__(md_i, o));
+        final PyMemberDescr md_x = mds.get("x");
+        assertThrows(TypeError.class,
+                () -> PyMemberDescr.__delete__(md_x, o));
+
+        /*
+         * i2, x2, text2 (o.t) are read-only, so cannot be deleted.
+         */
+        // Deleting a read-only is an AttributeError
+        final PyMemberDescr md_i2 = mds.get("i2");
+        assertThrows(AttributeError.class,
+                () -> PyMemberDescr.__delete__(md_i2, o));
+        final PyMemberDescr md_x2 = mds.get("x2");
+        assertThrows(AttributeError.class,
+                () -> PyMemberDescr.__delete__(md_x2, o));
+        final PyMemberDescr md_text2 = mds.get("text2");
+        assertThrows(AttributeError.class,
+                () -> PyMemberDescr.__delete__(md_text2, o));
     }
 
     /**
@@ -233,70 +327,6 @@ class ExposerTest {
         final PyMemberDescr md_i2 = mds.get("i2");
         assertThrows(AttributeError.class,
                 () -> PyMemberDescr.__set__(md_i2, o, oi));
-    }
-
-    /**
-     * Test that attempts to apply a descriptor to the wrong type
-     * produce a {@code TypeError}.
-     */
-    @Test
-    void memberTypeError() {
-        Map<String, PyMemberDescr> mds = Exposer.memberDescrs(
-                ObjectWithMembers.TYPE, ObjectWithMembers.LOOKUP);
-        // But the test object is something incompatible
-        final PyObject o = new PyFloat(42.0);
-
-        PyMemberDescr md_x = mds.get("x");
-        assertThrows(TypeError.class,
-                () -> PyMemberDescr.__get__(md_x, o, null));
-
-        double x = 9.0;
-        final PyObject ox = Py.val(x);
-        assertThrows(TypeError.class,
-                () -> PyMemberDescr.__set__(md_x, o, ox));
-
-        PyMemberDescr md_x2 = mds.get("x2");
-        assertThrows(TypeError.class,
-                () -> PyMemberDescr.__get__(md_x2, o, null));
-
-        assertThrows(TypeError.class,
-                () -> PyMemberDescr.__set__(md_x2, o, ox));
-    }
-
-    /**
-     * A test {@link PyObject} with exposed members that {@link PyType}
-     * should pick up.
-     */
-    private static class PyObjectWithMembers extends AbstractPyObject {
-
-        static final PyType TYPE = PyType.fromSpec( //
-                new Spec("PyObjectWithMembers",
-                        PyObjectWithMembers.class));
-        @Member
-        int i;
-        @Member
-        @DocString("My test x")
-        double x;
-        /** String with change of name. */
-        @Member("text")
-        String t;
-
-        /** Read-only access. */
-        @Member(readonly = true)
-        int i2;
-        /** Read-only access since final. */
-        @Member
-        final double x2;
-        /** Read-only access given first. */
-        @Member(readonly = true, value = "text2")
-        String t2;
-
-        PyObjectWithMembers(double value) {
-            super(TYPE);
-            x2 = x = value;
-            i2 = i = Math.round((float) value);
-            t2 = t = String.format("%d", i);
-        }
     }
 
 }

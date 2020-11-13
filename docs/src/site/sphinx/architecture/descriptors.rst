@@ -687,6 +687,7 @@ is the result of an ``@Member`` annotation applied to a field.
     abstract class DataDescriptor {
         flags : EnumSet<DataDescriptor.Flag>
         {abstract} {method} __set__()
+        {abstract} {method} __delete__()
     }
 
     DataDescriptor <|-- PyMemberDescr
@@ -698,27 +699,41 @@ is the result of an ``@Member`` annotation applied to a field.
         {method} __delete__()
         {abstract} get()
         {abstract} set()
-        {abstract} delete()
+        delete()
     }
 
     enum DataDescriptor.Flag {
         READONLY
+        OPTIONAL
         READ_RESTRICTED
         WRITE_RESTRICTED
     }
 
     class PyMemberDescr._int {
+        get()
+        set()
     }
     class PyMemberDescr._double {
+        get()
+        set()
     }
+
+    abstract class PyMemberDescr.Reference {
+        optional : boolean
+        delete()
+    }
+    PyMemberDescr <|-- PyMemberDescr.Reference
+    note on link #White: and other specialisations to type
+
     class PyMemberDescr._String {
+        get()
+        set()
     }
 
     DataDescriptor .right.> DataDescriptor.Flag
     PyMemberDescr <|-- PyMemberDescr._int
     PyMemberDescr <|-- PyMemberDescr._double
-    PyMemberDescr <|-- PyMemberDescr._String
-    note on link #White: and other specialisations to type
+    PyMemberDescr.Reference <|-- PyMemberDescr._String
 
 The ``PyMemberDescr`` descriptor is based on a ``VarHandle``
 designating the field.
@@ -766,6 +781,78 @@ is supported.
 (In CPython, the types are defined as constants in ``structmember.h``,
 and the set/get functions contain a big case statement.
 The API is used exclusively by member descriptors.)
+
+Deletion, ``None`` and ``null``
+===============================
+
+Reference values in Java may be ``null``.
+When we implement an attribute by a Java reference type,
+we may use this possibility to augment its natural range with
+either ``None`` or "not defined", but not both.
+
+This possibility is not available to an attribute implemented as a primitive,
+since primitive values have no equivalent of ``null``.
+
+The only writeable reference amongst CPython member types is ``object``
+(signified by ``T_OBJECT`` in the ``PyMemberDef.type`` field).
+Strings (``STRING_T``) are only supported for reading,
+although the possibility of ``null`` is still accommodated in the code.
+The historic norm is to interpret ``null`` as ``None`` in a ``get``
+but for ``set`` to accept and store ``None`` in the attribute.
+The asymmetry does not seem to bother anyone.
+
+In CPython it is acceptable to supply a ``null`` value
+to ``set`` an attribute,
+but in our Java implementation we shall spell that ``delete``.
+It is not an error to ``get`` an ``object`` member
+that has been deleted but remains visible as ``None``,
+or to delete it repeatedly.
+
+An addition to the set of CPython member types (``T_OBJECT_EX``),
+defines a variant for the ``object`` member
+in which a ``null`` value signifies a deleted (or undefined) attribute.
+After deleting this type of attribute,
+``get`` and ``delete`` raise ``AttributeError``,
+but a ``set`` (non-null value, even ``None``) re-creates it.
+
+
+..  csv-table::  CPython treatment of ``null`` and ``None`` in ``get`` and ``set``
+    :header: "Descriptor type", "Current value", "``get`` returns", "``set None`` effect", "``set null`` effect"
+    :widths: 15, 10, 10, 10, 10
+
+    "``Primitive``",   "``x``",    "``x``",           "type error", "type error"
+    "``T_OBJECT``",    "``x``",    "``x``",           "``None``",   "``null``"
+    "``T_OBJECT``",    "``null``", "``None``",        "``None``",   "``null``"
+    "``STRING_T``",    "``x``",    "``str(x)``",      "readonly",   "readonly"
+    "``STRING_T``",    "``null``", "``None``",        "readonly",   "readonly"
+    "``T_OBJECT_EX``", "``x``",    "``x``",           "``None``",   "``null``"
+    "``T_OBJECT_EX``", "``null``", "attribute error", "``None``",   "attribute error"
+
+
+We will allow this behaviour for any supported reference type,
+through the flag ``DataDescriptor.OPTIONAL``
+and annotation property ``Member.optional``.
+When ``optional == true``, the attribute may be deleted,
+otherwise ``delete`` sets it to ``null`` appearing as ``None``.
+
+..  csv-table:: Interpreting ``null`` and ``None`` in ``get``, ``set`` and ``delete``
+    :header: "Field type", "Optional", "Current value", "``get`` returns", "``set None`` effect", "``delete`` effect"
+    :widths: 10, 10, 10, 10, 10, 10
+
+    "``Primitive``", "``false``", "``x``",    "``x``",           "type error", "attribute error"
+    "``PyObject``",  "``false``", "``x``",    "``x``",           "``None``",   "``null``"
+    "",              "",          "``null``", "``None``",        "``None``",   "``null``"
+    "``String``",    "``false``", "``x``",    "``x``",           "type error", "``null``"
+    "",              "",          "``null``", "``None``",        "type error", "``null``"
+    "``PyObject``",  "``true``",  "``x``",    "``x``",           "``None``",   "``null``"
+    "",              "",          "``null``", "attribute error", "``None``",   "attribute error"
+    "``String``",    "``true``",  "``x``",    "``x``",           "type error", "``null``"
+    "",              "",          "``null``", "attribute error", "type error", "attribute error"
+
+This is consistent with CPython behaviour,
+whilst allowing for more assignable reference types (if we want them).
+Th type errors arise because a String cannot be assigned the value ``None``,
+even though that's what deleted appears to set.
 
 
 .. _PyGetSetDescr:

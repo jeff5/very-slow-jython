@@ -35,7 +35,7 @@ class Exposer {
                     f.getDeclaredAnnotation(Exposed.Member.class);
             if (a != null) {
                 PyMemberDescr def = getMemberDescr(type, f, lookup);
-                PyMemberDescr previous = defs.put(def.name, def);
+                DataDescriptor previous = defs.put(def.name, def);
                 if (previous != null) {
                     // There was one already :(
                     throw new InterpreterError(MEMBER_REPEAT, def.name,
@@ -59,9 +59,10 @@ class Exposer {
                 f.getAnnotation(Exposed.Member.class);
         if (memberAnno != null) {
             name = memberAnno.value();
-            if (memberAnno.readonly()) {
-                flags.add(PyMemberDescr.Flag.READONLY);
-            }
+            if (memberAnno.readonly())
+                flags.add(DataDescriptor.Flag.READONLY);
+            if (memberAnno.optional())
+                flags.add(DataDescriptor.Flag.OPTIONAL);
         }
 
         // May also have DocString annotation

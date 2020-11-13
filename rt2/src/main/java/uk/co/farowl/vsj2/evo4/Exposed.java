@@ -35,6 +35,8 @@ interface Exposed {
         String value() default "";
         /** Member is read-only. */
         boolean readonly() default false;
+        /** Member can be deleted and not report as None. */
+        boolean optional() default false;
     }
 
 }
