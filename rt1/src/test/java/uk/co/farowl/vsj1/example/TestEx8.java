@@ -38,6 +38,7 @@ import uk.co.farowl.vsj1.example.TreePythonEx6.unaryop;
  * sensible use of <code>Number</code> to avoid an explosion of
  * implementations of the binary operations.
  */
+@SuppressWarnings("javadoc") // C'mon guys, it's just an old test :)
 public class TestEx8 {
 
     @BeforeClass
@@ -999,7 +1000,7 @@ public class TestEx8 {
          *
          * @param op the binary operation to find
          * @param vClass Java class of operand
-         * @return
+         * @return method handle of the implementation
          */
         public MethodHandle findUnaryOp(unaryop op, Class<?> vClass) {
             String name = UnaryOpInfo.forOp(op).name;
@@ -1023,7 +1024,7 @@ public class TestEx8 {
          * @param vClass Java class of left operand
          * @param op operator to apply
          * @param wClass Java class of right operand
-         * @return
+         * @return method handle of the implementation
          */
         public MethodHandle findBinOp(Class<?> vClass, operator op,
                 Class<?> wClass) {

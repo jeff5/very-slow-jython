@@ -33,6 +33,7 @@ import uk.co.farowl.vsj1.example.TreePythonEx6.unaryop;
  * Demonstrate interpretation of the AST where nodes contain an embedded
  * CallSite object. Extension to unary operations.
  */
+@SuppressWarnings("javadoc") // C'mon guys, it's just an old test :)
 public class TestEx6 {
 
     @BeforeClass
@@ -740,7 +741,7 @@ public class TestEx6 {
          *
          * @param op the binary operation to find
          * @param vClass Java class of operand
-         * @return
+         * @return method handle of the implementation
          */
         public MethodHandle findUnaryOp(unaryop op, Class<?> vClass) {
             String name = UnaryOpInfo.forOp(op).name;
@@ -764,7 +765,7 @@ public class TestEx6 {
          * @param vClass Java class of left operand
          * @param op operator to apply
          * @param wClass Java class of right operand
-         * @return
+         * @return method handle of the implementation
          */
         public MethodHandle findBinOp(Class<?> vClass, operator op,
                 Class<?> wClass) {

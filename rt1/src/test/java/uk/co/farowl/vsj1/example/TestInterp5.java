@@ -63,6 +63,7 @@ import uk.co.farowl.vsj1.UnaryOpCallSite;
  * This test program experiments with some changes to simple function
  * calling, in an AST-based interpreter.
  */
+@SuppressWarnings("javadoc") // C'mon guys, it's just an old test :)
 public class TestInterp5 {
 
     @BeforeClass

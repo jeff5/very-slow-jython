@@ -38,6 +38,7 @@ import uk.co.farowl.vsj1.TreePython.unaryop;
  * CPython program, and we compare the results of our analysis with the
  * symbol tables also exposed by CPython.
  */
+@SuppressWarnings("javadoc") // C'mon guys, it's just an old test :)
 public class TestInterp1 {
 
     /**

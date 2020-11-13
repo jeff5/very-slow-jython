@@ -32,6 +32,7 @@ import uk.co.farowl.vsj1.example.TreePythonEx1.operator;
  * one to link the implementation of the operation for those Java types,
  * and a second to execute that linked method.
  */
+@SuppressWarnings("javadoc") // Water under the bridge
 public class TestEx4 {
 
     @BeforeClass
@@ -435,7 +436,7 @@ public class TestEx4 {
          * @param vClass Java class of left operand
          * @param op operator to apply
          * @param wClass Java class of right operand
-         * @return
+         * @return method handle of the implementation
          */
         public MethodHandle findBinOp(Class<?> vClass, operator op,
                 Class<?> wClass) {

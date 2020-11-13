@@ -40,6 +40,7 @@ import uk.co.farowl.vsj1.TreePython.unaryop;
  * define the frame layout) and that these code objects get attached as
  * constants to the right part of the AST for execution.
  */
+@SuppressWarnings("javadoc") // C'mon guys, it's just an old test :)
 public class TestInterp2 {
 
     /**

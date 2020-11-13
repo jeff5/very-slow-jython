@@ -64,6 +64,7 @@ import uk.co.farowl.vsj1.UnaryOpCallSite;
  * accelerate several styles of assignment and simple function calling, in
  * an AST-based interpreter.
  */
+@SuppressWarnings("javadoc") // C'mon guys, it's just an old test :)
 public class TestInterp4 {
 
     @BeforeClass

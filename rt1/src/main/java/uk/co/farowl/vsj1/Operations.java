@@ -111,7 +111,7 @@ public abstract class Operations {
 
     /**
      * Return the method handle for the implementation of
-     * <code>op v</code>, where <code>v</code>, or {@link NOT_IMPLEMENTED}
+     * <code>op v</code>, where <code>v</code>, or {@link #NOT_IMPLEMENTED}
      * if a match cannot be found within this operation handler. The
      * returned handle is capable of being cast to
      * <code>(Object)Object</code> with
@@ -130,9 +130,9 @@ public abstract class Operations {
 
     /**
      * Return the method handle of the implementation of
-     * <code>v op w</code>, or {@link NOT_IMPLEMENTED} if a match cannot be
-     * found within this operation handler. The returned handle is capable
-     * of being cast to <code>(Object,Object)Object</code> with
+     * <code>v op w</code>, or {@link #NOT_IMPLEMENTED} if a match cannot
+     * be found within this operation handler. The returned handle is
+     * capable of being cast to <code>(Object,Object)Object</code> with
      * {@link MethodHandle#asType(MethodType)}.
      *
      * @param vClass Java class of left operand

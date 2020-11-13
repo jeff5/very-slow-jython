@@ -39,6 +39,7 @@ import uk.co.farowl.vsj1.UnaryOpCallSite;
  * classes moved out to the vsj1 core, considered no longer experimental,
  * at least in the features necessary to support this program.
  */
+@SuppressWarnings("javadoc") // C'mon guys, it's just an old test :)
 public class TestEx9 {
 
     @BeforeClass

@@ -33,6 +33,7 @@ import uk.co.farowl.vsj1.example.TreePythonEx5.operator;
  * Demonstrate interpretation of the AST where nodes contain an embedded
  * CallSite object.
  */
+@SuppressWarnings("javadoc") // Water under the bridge
 public class TestEx5 {
 
     @BeforeClass
@@ -644,7 +645,7 @@ public class TestEx5 {
          * @param vClass Java class of left operand
          * @param op operator to apply
          * @param wClass Java class of right operand
-         * @return
+         * @return method handle of the implementation
          */
         public MethodHandle findBinOp(Class<?> vClass, operator op,
                 Class<?> wClass) {

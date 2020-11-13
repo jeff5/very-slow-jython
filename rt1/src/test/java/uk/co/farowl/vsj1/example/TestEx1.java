@@ -15,6 +15,7 @@ import uk.co.farowl.vsj1.example.TreePythonEx1.expr_context;
 import uk.co.farowl.vsj1.example.TreePythonEx1.operator;
 
 /** Demonstrate a Python interpreter for the AST. */
+@SuppressWarnings("javadoc") // Water under the bridge
 public class TestEx1 {
 
     // Visitor to execute the code.

@@ -59,6 +59,7 @@ import uk.co.farowl.vsj1.UnaryOpCallSite;
  * the previous demonstrations of generating symbol tables and code
  * objects.
  */
+@SuppressWarnings("javadoc") // C'mon guys, it's just an old test :)
 public class TestInterp3 {
 
     @BeforeClass

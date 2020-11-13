@@ -25,6 +25,7 @@ import uk.co.farowl.vsj1.example.TreePythonEx1.operator;
  * Java type to a delegate implementing Python operations for that Java
  * type.
  */
+@SuppressWarnings("javadoc") // Water under the bridge
 public class TestEx3 {
 
     // Visitor to execute the code.
