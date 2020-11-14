@@ -8,6 +8,8 @@ import java.util.Map;
  * information we have about the thing named. The container is type-safe through the parameter
  * <code>T</code>, if we avoid casting. <code>Scope</code>s may be nested, although at present we
  * only need the module scope and a global scope for built-in types.
+ *
+ * @param <T> The type of object to be looked up in the table
  */
 public class Scope<T> {
 
