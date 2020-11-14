@@ -15,8 +15,7 @@ import uk.co.farowl.vsj2.evo4.PyCode.Trait;
  * def func(a, b, c=3, d=4, /, e=5, f=6, *aa, g=7, h, i=9, **kk):
  *     v, w, x = b, c, d, e
  *     return u
- * </pre>
- * the layout of the local variables in a frame would be as below
+ * </pre> the layout of the local variables in a frame would be as below
  * <table class="framed-layout" style="border: none;">
  * <caption>A Python {@code frame}</caption>
  * <tr>
@@ -214,18 +213,36 @@ abstract class PyFrame implements PyObject {
         builtins = inferBuiltins();
     }
 
-    /** Execute the code in this frame. */
+    /**
+     * Execute the code in this frame.
+     *
+     * @return return value of the frame
+     */
     abstract PyObject eval();
 
-    /** Get the local variable named by {@code code.varnames[i]} */
+    /**
+     * Get the local variable named by {@code code.varnames[i]}
+     *
+     * @param i index of variable name in {@code code.varnames}
+     * @return value of variable named {@code code.varnames[i]}
+     */
     abstract PyObject getLocal(int i);
 
-    /** Set the local variable named by {@code code.varnames[i]} */
+    /**
+     * Set the local variable named by {@code code.varnames[i]}
+     *
+     * @param i index of variable name in {@code code.varnames}
+     * @param i index of variable name in {@code code.varnames}
+     * @param v to assign to variable named {@code code.varnames[i]}
+     */
     abstract void setLocal(int i, PyObject v);
 
     /**
      * Create a cell for the non-local bound variable named by
      * {@code code.cellvars[i]}
+     *
+     * @param i index of variable name in {@code code.cellvars}
+     * @param v initial value to place in Cell (or {@code null})
      */
     abstract void makeCell(int i, PyObject v);
 
@@ -369,7 +386,7 @@ abstract class PyFrame implements PyObject {
          * name-value pair to kwdict.
          */
         int kwcount = kwnames == null ? 0 : kwnames.length;
-        for (int i = 0, j=kwstart; i < kwcount; i++) {
+        for (int i = 0, j = kwstart; i < kwcount; i++) {
             PyObject name = kwnames[i];
             PyObject value = stack[j++];
             int index = varnameIndexOf(name);

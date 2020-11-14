@@ -85,7 +85,27 @@ class PyCode implements PyObject {
 
     /**
      * Full constructor based on CPython's
-     * {@code PyCode_NewWithPosOnlyArgs}.
+     * {@code PyCode_NewWithPosOnlyArgs}. The {@link #traits} of the
+     * code are supplied here as CPython reports them: as a bit array in
+     * an integer, but the constructor makes a conversion, and it is the
+     * {@link #traits} which should be used at the Java level.
+     *
+     * @param argcount value of {@link #argcount}
+     * @param posonlyargcount value of {@link #posonlyargcount}
+     * @param kwonlyargcount value of {@link #kwonlyargcount}
+     * @param nlocals value of {@link #nlocals}
+     * @param stacksize value of {@link #stacksize}
+     * @param flags value of {@link #flags} and {@link #traits}
+     * @param code value of {@link #code}
+     * @param consts value of {@link #consts}
+     * @param names value of {@link #names}
+     * @param varnames value of {@link #varnames} must be {@code str}
+     * @param freevars value of {@link #freevars} must be {@code str}
+     * @param cellvars value of {@link #cellvars} must be {@code str}
+     * @param filename value of {@link #filename} must be {@code str}
+     * @param name value of {@link #name}
+     * @param firstlineno value of {@link #firstlineno}
+     * @param lnotab value of {@link #lnotab}
      */
     public PyCode( //
             int argcount,           // co_argcount

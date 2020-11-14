@@ -165,26 +165,47 @@ class Slot {
          * The group to which this slot belongs (implying a
          * {@code *Method} class that has a members with the same name
          * as this {@code enum} constant.
+         *
+         * @return group to which this slot belongs
          */
         Group group();
 
-        /** Name of the slot (supplied by Java for the {@code enum}). */
+        /**
+         * Name of the slot (supplied by Java for the {@code enum}).
+         *
+         * @return name of the slot
+         */
         String name();
 
         /**
          * Get the name of the method that, by convention, identifies
          * the corresponding operation in the implementing class. This
          * is not the same as the slot name.
+         *
+         * @return name of the method
          */
         String getMethodName();
 
-        /** The type required for slots of this name. */
+        /**
+         * The type required for slots of this name.
+         *
+         * @return type required
+         */
         MethodType getType();
 
-        /** Get the default that fills the slot when it is "empty". */
+        /**
+         * Get the default that fills the slot when it is "empty".
+         *
+         * @return handle when empty
+         */
         MethodHandle getEmpty();
 
-        /** Test whether this slot is non-empty in the given type. */
+        /**
+         * Test whether this slot is non-empty in the given type.
+         *
+         * @param t type to interrogate
+         * @return whether defined (i.e. not empty)
+         */
         boolean isDefinedFor(PyType t);
 
         /**
@@ -193,8 +214,8 @@ class Slot {
          * signature) that throws {@link EmptyException}.
          *
          * @param c target class
-         * @return handle to method in {@code c} implementing this
-         *         slot, or appropriate "empty" if no such method is
+         * @return handle to method in {@code c} implementing this slot,
+         *         or appropriate "empty" if no such method is
          *         accessible.
          */
         MethodHandle findInClass(Class<?> c);

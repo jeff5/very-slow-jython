@@ -130,10 +130,4 @@ class Opcode {
      * when entering an except handler. It is not an opcode.
      */
     static final int EXCEPT_HANDLER = 257;
-
-    /** Whether the opcode has an argument. */
-    static final boolean hasArg(int op) {
-        return op >= HAVE_ARGUMENT;
-    }
-
 }

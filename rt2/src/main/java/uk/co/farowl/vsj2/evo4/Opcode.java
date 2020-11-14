@@ -125,15 +125,9 @@ class Opcode {
     static final int CALL_FINALLY = 162;
     static final int POP_FINALLY = 163;
 
-    /*
+    /**
      * EXCEPT_HANDLER is a special, implicit block type that is created
      * when entering an except handler. It is not an opcode.
      */
     static final int EXCEPT_HANDLER = 257;
-
-    /** Whether the opcode has an argument. */
-    static final boolean hasArg(int op) {
-        return op >= HAVE_ARGUMENT;
-    }
-
 }

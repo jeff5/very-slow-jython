@@ -90,6 +90,9 @@ abstract class PyFrame implements PyObject {
         }
     }
 
-    /** Execute the code in this frame. */
+    /** Execute the code in this frame.
+     *
+     * @return return value of the frame
+     */
     abstract PyObject eval();
 }

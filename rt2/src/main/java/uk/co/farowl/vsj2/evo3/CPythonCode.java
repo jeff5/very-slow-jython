@@ -8,7 +8,32 @@ class CPythonCode extends PyCode {
 
     /**
      * Full constructor based on CPython's
-     * {@code PyCode_NewWithPosOnlyArgs}.
+     * {@code PyCode_NewWithPosOnlyArgs}. The {@link #traits} of the
+     * code are supplied here as CPython reports them: as a bit array in
+     * an integer, but the constructor makes a conversion, and it is the
+     * {@link #traits} which should be used at the Java level.
+     *
+     * @param argcount value of {@link PyCode#argcount}
+     * @param posonlyargcount value of {@link PyCode#posonlyargcount}
+     * @param kwonlyargcount value of {@link PyCode#kwonlyargcount}
+     * @param nlocals value of {@link PyCode#nlocals}
+     * @param stacksize value of {@link PyCode#stacksize}
+     * @param flags value of {@link PyCode#flags} and
+     *            {@link PyCode#traits}
+     * @param code value of {@link PyCode#code}
+     * @param consts value of {@link PyCode#consts}
+     * @param names value of {@link PyCode#names}
+     * @param varnames value of {@link PyCode#varnames} must be
+     *            {@code str}
+     * @param freevars value of {@link PyCode#freevars} must be
+     *            {@code str}
+     * @param cellvars value of {@link PyCode#cellvars} must be
+     *            {@code str}
+     * @param filename value of {@link PyCode#filename} must be
+     *            {@code str}
+     * @param name value of {@link PyCode#name}
+     * @param firstlineno value of {@link PyCode#firstlineno}
+     * @param lnotab value of {@link PyCode#lnotab}
      */
     public CPythonCode( //
             int argcount,           // co_argcount
