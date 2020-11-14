@@ -5,7 +5,13 @@ import java.lang.invoke.MethodHandle;
 /** Compare CPython {@code abstract.h}: {@code Py_Mapping_*}. */
 class Mapping extends Abstract {
 
-    /** Python size of {@code o} */
+    /**
+     * Python size of {@code o}, a mapping.
+     *
+     * @param o to operate on
+     * @return derived size
+     * @throws Throwable from invoked method implementations
+     */
     static int size(PyObject o) throws Throwable {
         // Note that the slot is called sq_length but this method, size.
         PyType oType = o.getType();

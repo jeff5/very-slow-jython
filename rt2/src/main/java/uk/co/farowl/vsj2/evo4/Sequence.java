@@ -11,7 +11,15 @@ class Sequence extends Abstract {
                 && Slot.op_getitem.isDefinedFor(s.getType());
     }
 
-    /** Python {@code s[i]} */
+    /**
+     * {@code s[i]} with Python sequence semantics.
+     *
+     * @param s the sequence to operate on
+     * @param i index
+     * @return {@code s[i]}
+     * @throws TypeError when {@code s} does not support indexing
+     * @throws Throwable from invoked method implementations
+     */
     static PyObject getItem(PyObject s, int i) throws Throwable {
         try {
             PyObject k = Py.val(i);
@@ -21,7 +29,15 @@ class Sequence extends Abstract {
         }
     }
 
-    /** Python {@code s[i] = value} */
+    /**
+     * Python {@code s[i] = value} with Python sequence semantics.
+     *
+     * @param s the sequence to operate on
+     * @param i index
+     * @param value to set at {@code s[i]}
+     * @throws TypeError when {@code s} does not support indexing
+     * @throws Throwable from invoked method implementations
+     */
     static void setItem(PyObject s, int i, PyObject value)
             throws Throwable {
         try {
@@ -33,7 +49,14 @@ class Sequence extends Abstract {
         }
     }
 
-    /** Python {@code del s[i]} */
+    /**
+     * Python {@code del s[i]} with Python sequence semantics.
+     *
+     * @param s the sequence to operate on
+     * @param i index
+     * @throws TypeError when {@code s} does not support indexing
+     * @throws Throwable from invoked method implementations
+     */
     static void delItem(PyObject s, int i) throws Throwable {
         try {
             PyObject k = Py.val(i);

@@ -5,10 +5,11 @@ import java.util.Map;
 /** All Python object implementations implement this interface. */
 interface PyObject {
 
-    // /** Sub-interface to which built-in dict-like objects conform. */
-    // interface Mapping extends PyObject, Map<PyObject, PyObject> {}
-
-    /** The Python {@code type} of this object. */
+    /**
+     * The Python {@code type} of this object.
+     *
+     * @return {@code type} of this object
+     */
     PyType getType();
 
     /**

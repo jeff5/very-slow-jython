@@ -109,6 +109,12 @@ class Abstract {
     /**
      * Perform a rich comparison, raising {@code TypeError} when the
      * requested comparison operator is not supported.
+     *
+     * @param v left operand
+     * @param w right operand
+     * @param op comparison type
+     * @return comparison result
+     * @throws Throwable from invoked implementations
      */
     // Compare CPython PyObject_RichCompare, do_richcompare in object.c
     static PyObject richCompare(PyObject v, PyObject w, Comparison op)
@@ -122,6 +128,12 @@ class Abstract {
      * the result to Java {@code false} or {@code true}, or throwing
      * (probably {@link TypeError}), when the objects cannot be
      * compared.
+     *
+     * @param v left operand
+     * @param w right operand
+     * @param op comparison type
+     * @return comparison result
+     * @throws Throwable from invoked method implementations
      */
     // Compare CPython PyObject_RichCompareBool in object.c
     static boolean richCompareBool(PyObject v, PyObject w,
@@ -148,9 +160,17 @@ class Abstract {
      * choose the exception through the provider {@code exc}. When this
      * is {@code null}, the return will simply be {@code false} for
      * incomparable objects.
+     *
+     * @param <T> type of exception
+     * @param v left operand
+     * @param w right operand
+     * @param op comparison type
+     * @param exc supplies an exception of the desired type
+     * @return comparison result
+     * @throws T on any kind of error
      */
     static <T extends PyException> boolean richCompareBool(PyObject v,
-            PyObject w, Comparison op, Supplier<T> exc) {
+            PyObject w, Comparison op, Supplier<T> exc) throws T {
         try {
             return richCompareBool(v, w, op);
         } catch (Throwable e) {
@@ -161,7 +181,13 @@ class Abstract {
         }
     }
 
-    /** Python size of {@code o} */
+    /**
+     * {@code len(o)} with Python semantics.
+     *
+     * @param o to operate on
+     * @return {@code len(o)}
+     * @throws Throwable from invoked method implementations
+     */
     // Compare CPython PyObject_Size in abstract.c
     static int size(PyObject o) throws Throwable {
         // Note that the slot is called op_len but this method, size.
@@ -173,8 +199,14 @@ class Abstract {
     }
 
     /**
-     * Python {@code o[key]} where {@code o} may be a mapping or a
+     * {@code o[key]}  with Python semantics, where {@code o} may be a mapping or a
      * sequence.
+     *
+     * @param o object to operate on
+     * @param key index
+     * @return {@code o[key]}
+     * @throws TypeError when {@code o} does not allow subscripting
+     * @throws Throwable from invoked method implementations
      */
     // Compare CPython PyObject_GetItem in abstract.c
     static PyObject getItem(PyObject o, PyObject key) throws Throwable {
@@ -188,8 +220,14 @@ class Abstract {
     }
 
     /**
-     * Python {@code o[key] = value} where {@code o} may be a mapping or
+     * {@code o[key] = value}  with Python semantics, where {@code o} may be a mapping or
      * a sequence.
+     *
+     * @param o object to operate on
+     * @param key index
+     * @param value to put at index
+     * @throws TypeError when {@code o} does not allow subscripting
+     * @throws Throwable from invoked method implementations
      */
     // Compare CPython PyObject_SetItem in abstract.c
     static void setItem(PyObject o, PyObject key, PyObject value)
@@ -205,8 +243,13 @@ class Abstract {
     }
 
     /**
-     * Python {@code del o[key]} where {@code o} may be a mapping or a
+     * {@code del o[key]} with Python semantics, where {@code o} may be a mapping or a
      * sequence.
+     *
+     * @param o object to operate on
+     * @param key index at which to delete element
+     * @throws TypeError when {@code o} does not allow subscripting
+     * @throws Throwable from invoked method implementations
      */
     // Compare CPython PyObject_DelItem in abstract.c
     static void delItem(PyObject o, PyObject key) throws Throwable {
@@ -220,7 +263,15 @@ class Abstract {
         }
     }
 
-    /** Python {@code o.name}. */
+    /**
+     * {@code o.name} with Python semantics.
+     *
+     * @param o object to operate on
+     * @param name of attribute
+     * @return {@code o.name}
+     * @throws AttributeError if non-existent etc.
+     * @throws Throwable on other errors
+     */
     // Compare CPython _PyObject_GetAttr in object.c
     // Also _PyObject_GetAttrId in object.c
     static PyObject getAttr(PyObject o, PyUnicode name)
@@ -253,7 +304,16 @@ class Abstract {
     // }
     // }
 
-    /** Python {@code o.name}. */
+    /**
+     * {@code o.name} with Python semantics.
+     *
+     * @param o object to operate on
+     * @param name of attribute
+     * @return {@code o.name}
+     * @throws AttributeError if non-existent etc.
+     * @throws TypeError if the name is not a {@code str}
+     * @throws Throwable on other errors
+     */
     // Compare CPython PyObject_GetAttr in object.c
     static PyObject getAttr(PyObject o, PyObject name)
             throws AttributeError, TypeError, Throwable {
@@ -265,17 +325,25 @@ class Abstract {
         }
     }
 
-    // /** Python {@code o.name}. */
+    // /** {@code o.name} with Python semantics.  */
     // // Compare CPython PyObject_GetAttrString in object.c
     // static PyObject getAttr(PyObject o, String name)
     // throws AttributeError, Throwable {
     // return getAttr(o, Py.str(name));
     // }
 
-    /** Python {@code o.name = value}. */
+    /**
+     * {@code o.name = value} with Python semantics.
+     *
+     * @param o object to operate on
+     * @param name of attribute
+     * @param value to set
+     * @throws AttributeError if non-existent etc.
+     * @throws Throwable on other errors
+     */
     // Compare CPython PyObject_SetAttr in object.c
     static void setAttr(PyObject o, PyUnicode name, PyObject value)
-            throws AttributeError, TypeError, Throwable {
+            throws AttributeError, Throwable {
         // Decisions are based on type of o (that of name is known)
         try {
             o.getType().op_setattr.invokeExact(o, name, value);
@@ -284,7 +352,16 @@ class Abstract {
         }
     }
 
-    /** Python {@code o.name = value}. */
+    /**
+     * {@code o.name = value} with Python semantics.
+     *
+     * @param o object to operate on
+     * @param name of attribute
+     * @param value to set
+     * @throws AttributeError if non-existent etc.
+     * @throws TypeError if the name is not a {@code str}
+     * @throws Throwable on other errors
+     */
     // Compare CPython PyObject_SetAttr in object.c
     static void setAttr(PyObject o, PyObject name, PyObject value)
             throws AttributeError, TypeError, Throwable {
@@ -295,18 +372,26 @@ class Abstract {
         }
     }
 
-    // /** Python {@code o.name}. */
+    // /** {@code o.name} with Python semantics.  */
     // // Compare CPython PyObject_GetAttrString in object.c
     // static void setAttr(PyObject o, String name, PyObject value)
     // throws AttributeError, Throwable {
     // setAttr(o, Py.str(name), value);
     // }
 
-    /** Python {@code del o.name}. */
+    /**
+     * {@code del o.name} with Python semantics.
+     *
+     * @param o object to operate on
+     * @param name of attribute
+     * @throws AttributeError if non-existent etc.
+     * @throws Throwable on other errors
+     *
+     */
     // Compare CPython PyObject_DelAttr in abstract.h
     // which is a macro for PyObject_SetAttr in object.c
     static void delAttr(PyObject o, PyUnicode name)
-            throws AttributeError, TypeError, Throwable {
+            throws AttributeError, Throwable {
         // Decisions are based on type of o (that of name is known)
         try {
             o.getType().op_delattr.invokeExact(o, name);
@@ -315,7 +400,15 @@ class Abstract {
         }
     }
 
-    /** Python {@code del o.name}. */
+    /**
+     * {@code del o.name} with Python semantics.
+     *
+     * @param o object to operate on
+     * @param name of attribute
+     * @throws AttributeError if non-existent etc.
+     * @throws TypeError if the name is not a {@code str}
+     * @throws Throwable on other errors
+     */
     // Compare CPython PyObject_SetAttr in object.c
     static void delAttr(PyObject o, PyObject name)
             throws AttributeError, TypeError, Throwable {

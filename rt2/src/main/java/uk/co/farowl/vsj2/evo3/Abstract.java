@@ -22,6 +22,10 @@ class Abstract {
     /**
      * Test a value used as condition in a {@code for} or {@code if}
      * statement.
+     *
+     * @param v to operate on
+     * @return whether Python True-ish
+     * @throws Throwable from invoked method implementations
      */
     static boolean isTrue(PyObject v) throws Throwable {
         // Begin with common special cases
@@ -47,7 +51,14 @@ class Abstract {
 
     /**
      * Perform a rich comparison, raising {@code TypeError} when the
-     * requested comparison operator is not supported.
+     * requested comparison operator is not supported. /** Rich
+     * comparison operations.
+     *
+     * @param v left operand
+     * @param w right operand
+     * @param op comparison type
+     * @return comparison result
+     * @throws Throwable from invoked method implementations
      */
     static PyObject richCompare(PyObject v, PyObject w, Comparison op)
             throws Throwable {
@@ -103,6 +114,12 @@ class Abstract {
      * the result to Java {@code false} or {@code true}, or throwing
      * (probably {@link TypeError}), when the objects cannot be
      * compared.
+     *
+     * @param v left operand
+     * @param w right operand
+     * @param op comparison type
+     * @return comparison result
+     * @throws Throwable from invoked method implementations
      */
     static boolean richCompareBool(PyObject v, PyObject w,
             Comparison op) throws Throwable {
@@ -128,6 +145,13 @@ class Abstract {
      * choose the exception through the provider {@code exc}. When this
      * is {@code null}, the return will simply be {@code false} for
      * incomparable objects.
+     *
+     * @param <T> type of exception
+     * @param v left operand
+     * @param w right operand
+     * @param op comparison type
+     * @param exc supplies an exception of the desired type
+     * @return comparison result
      */
     static <T extends PyException> boolean richCompareBool(PyObject v,
             PyObject w, Comparison op, Supplier<T> exc) {
@@ -141,20 +165,31 @@ class Abstract {
         }
     }
 
-    /** Python size of {@code o} */
+    /**
+     * Python size of {@code o} *
+     *
+     * @param o to operate on
+     * @return derived size
+     * @throws Throwable from invoked method implementations
+     */
     static int size(PyObject o) throws Throwable {
         // Note that the slot is called sq_length but this method, size.
         try {
             MethodHandle mh = o.getType().sq_length;
             return (int) mh.invokeExact(o);
         } catch (Slot.EmptyException e) {}
-
         return Mapping.size(o);
     }
 
     /**
      * Python {@code o[key]} where {@code o} may be a mapping or a
      * sequence.
+     *
+     * @param o object to operate on
+     * @param key index
+     * @return {@code o[key]}
+     * @throws TypeError when {@code o} does not allow subscripting
+     * @throws Throwable from invoked method implementations
      */
     static PyObject getItem(PyObject o, PyObject key) throws Throwable {
         // Corresponds to abstract.c : PyObject_GetItem
@@ -179,6 +214,12 @@ class Abstract {
     /**
      * Python {@code o[key] = value} where {@code o} may be a mapping or
      * a sequence.
+     *
+     * @param o object to operate on
+     * @param key index
+     * @param value to put at index
+     * @throws TypeError when {@code o} does not allow subscripting
+     * @throws Throwable from invoked method implementations
      */
     static void setItem(PyObject o, PyObject key, PyObject value)
             throws Throwable {
@@ -202,7 +243,16 @@ class Abstract {
             throw typeError(NOT_ITEM_ASSIGNMENT, o);
     }
 
-    /** Python {@code o.name}. */
+    /**
+     * Python {@code o.name}.
+     *
+     * @param o object to operate on
+     * @param name of attribute
+     * @return value of attribute
+     * @throws AttributeError if non-existent etc.
+     * @throws TypeError if the name is not a {@code str}
+     * @throws Throwable on other errors
+     */
     static PyObject getAttr(PyObject o, PyObject name)
             throws AttributeError, TypeError, Throwable {
         // Corresponds to object.c : PyObject_GetAttr
@@ -214,7 +264,15 @@ class Abstract {
         }
     }
 
-    /** Python {@code o.name}. */
+    /**
+     * Python {@code o.name}.
+     *
+     * @param o object to operate on
+     * @param name of attribute
+     * @return value of attribute
+     * @throws AttributeError if non-existent etc.
+     * @throws Throwable on other errors
+     */
     static PyObject getAttr(PyObject o, PyUnicode name)
             throws AttributeError, TypeError, Throwable {
         // Corresponds to object.c : PyObject_GetAttr
@@ -227,7 +285,16 @@ class Abstract {
         }
     }
 
-    /** Python {@code o.name = value}. */
+    /**
+     * Python {@code o.name = value}.
+     *
+     * @param o object to operate on
+     * @param name of attribute
+     * @param value to set
+     * @throws AttributeError if non-existent etc.
+     * @throws TypeError if the name is not a {@code str}
+     * @throws Throwable on other errors
+     */
     static void setAttr(PyObject o, PyObject name, PyObject value)
             throws AttributeError, TypeError, Throwable {
         // Corresponds to object.c : PyObject_SetAttr
@@ -238,7 +305,15 @@ class Abstract {
         }
     }
 
-    /** Python {@code o.name = value}. */
+    /**
+     * Python {@code o.name = value}.
+     *
+     * @param o object to operate on
+     * @param name of attribute
+     * @param value to set
+     * @throws AttributeError if non-existent etc.
+     * @throws Throwable on other errors
+     */
     static void setAttr(PyObject o, PyUnicode name, PyObject value)
             throws AttributeError, TypeError, Throwable {
         // Corresponds to object.c : PyObject_SetAttr

@@ -3,6 +3,10 @@ package uk.co.farowl.vsj2.evo3;
 /** All Python object implementations implement this interface. */
 interface PyObject {
 
-    /** The Python {@code type} of this object. */
+    /**
+     * The Python {@code type} of this object.
+     *
+     * @return {@code type} of this object
+     */
     PyType getType();
 }

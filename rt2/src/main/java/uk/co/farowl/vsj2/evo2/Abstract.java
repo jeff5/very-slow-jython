@@ -21,6 +21,10 @@ class Abstract {
     /**
      * Test a value used as condition in a {@code for} or {@code if}
      * statement.
+     *
+     * @param v to operate on
+     * @return whether Python True-ish
+     * @throws Throwable from invoked method implementations
      */
     static boolean isTrue(PyObject v) throws Throwable {
         // Begin with common special cases
@@ -46,6 +50,12 @@ class Abstract {
     /**
      * Perform a rich comparison, raising {@code TypeError} when the
      * requested comparison operator is not supported.
+     *
+     * @param v left operand
+     * @param w right operand
+     * @param op comparison type
+     * @return comparison result
+     * @throws Throwable from invoked method implementations
      */
     static PyObject do_richcompare(PyObject v, PyObject w,
             Comparison op) throws Throwable {
@@ -94,6 +104,15 @@ class Abstract {
                 w.getType().getName());
     }
 
+    /**
+     * Rich comparison operations.
+     *
+     * @param v left operand
+     * @param w right operand
+     * @param op comparison type
+     * @return comparison result
+     * @throws Throwable from invoked method implementations
+     */
     static PyObject richCompare(PyObject v, PyObject w, Comparison op)
             throws Throwable {
         PyObject res;
@@ -101,10 +120,16 @@ class Abstract {
         return res;
     }
 
-    /*
+    /**
      * Perform a rich comparison with integer result. This wraps
      * PyObject_RichCompare(), returning -1 for error, 0 for false, 1
      * for true.
+     *
+     * @param v left operand
+     * @param w right operand
+     * @param op comparison type
+     * @return comparison result
+     * @throws Throwable from invoked method implementations
      */
     static boolean richCompareBool(PyObject v, PyObject w,
             Comparison op) throws Throwable {
@@ -121,7 +146,13 @@ class Abstract {
         return isTrue(richCompare(v, w, op));
     }
 
-    /** Python size of {@code o} */
+    /**
+     * Python size of {@code o} *
+     *
+     * @param o object to operate on
+     * @return derived size
+     * @throws Throwable from invoked method implementations
+     */
     static PyObject size(PyObject o) throws Throwable {
         // Note that the slot is called length but this method, size.
         try {
@@ -135,6 +166,12 @@ class Abstract {
     /**
      * Python {@code o[key]} where {@code o} may be a mapping or a
      * sequence.
+     *
+     * @param o object to operate on
+     * @param key index
+     * @return {@code o[key]}
+     * @throws TypeError when {@code o} does not allow subscripting
+     * @throws Throwable from invoked method implementations
      */
     static PyObject getItem(PyObject o, PyObject key) throws Throwable {
         // Corresponds to abstract.c : PyObject_GetItem
@@ -157,6 +194,16 @@ class Abstract {
             throw typeError(NOT_SUBSCRIPTABLE, o);
     }
 
+    /**
+     * Python {@code o[key] = value} where {@code o} may be a mapping or
+     * a sequence.
+     *
+     * @param o object to operate on
+     * @param key index
+     * @param value to put at index
+     * @throws TypeError when {@code o} does not allow subscripting
+     * @throws Throwable from invoked method implementations
+     */
     static void setItem(PyObject o, PyObject key, PyObject value)
             throws Throwable {
         // Corresponds to abstract.c : PyObject_SetItem

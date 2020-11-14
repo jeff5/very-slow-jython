@@ -9,7 +9,13 @@ import uk.co.farowl.vsj2.evo2.Slot.NB;
 /** Compare CPython {@code abstract.h}: {@code Py_Number_*}. */
 class Number extends Abstract {
 
-    /** Python {@code -v} */
+    /**
+     * {@code -v}: unary negative with Python semantics.
+     *
+     * @param v operand
+     * @return {@code -v}
+     * @throws Throwable from invoked implementations
+     */
     static PyObject negative(PyObject v) throws Throwable {
         try {
             MethodHandle mh = v.getType().number.negative;
@@ -19,13 +25,27 @@ class Number extends Abstract {
         }
     }
 
-    /** Create a {@code TypeError} for the named unary op. */
+    /**
+     * Create a {@code TypeError} for a named unary operation, along the
+     * lines "bad operand type for OP: 'T'".
+     *
+     * @param op operation to report
+     * @param v actual operand (only {@code v.getType()} is used)
+     * @return exception to throw
+     */
     static PyException operandError(String op, PyObject v) {
         return new TypeError("bad operand type for unary %s: '%.200s'",
                 op, v.getType().getName());
     }
 
-    /** Python {@code v+w} */
+    /**
+     * {@code v+w} with Python semantics.
+     *
+     * @param v left operand
+     * @param w right operand
+     * @return {@code v+w}
+     * @throws Throwable from invoked implementations
+     */
     static PyObject add(PyObject v, PyObject w) throws Throwable {
         try {
             PyObject r = binary_op1(v, w, Slot.NB.add);
@@ -35,7 +55,14 @@ class Number extends Abstract {
         throw operandError("+", v, w);
     }
 
-    /** Python {@code v-w} */
+    /**
+     * {@code v-w} with Python semantics.
+     *
+     * @param v left operand
+     * @param w right operand
+     * @return {@code v-w}
+     * @throws Throwable from invoked implementations
+     */
     static PyObject subtract(PyObject v, PyObject w) throws Throwable {
         try {
             PyObject r = binary_op1(v, w, Slot.NB.subtract);
@@ -45,7 +72,14 @@ class Number extends Abstract {
         throw operandError("-", v, w);
     }
 
-    /** Python {@code v*w} */
+    /**
+     * {@code v*w} with Python semantics.
+     *
+     * @param v left operand
+     * @param w right operand
+     * @return {@code v*w}
+     * @throws Throwable from invoked implementations
+     */
     static PyObject multiply(PyObject v, PyObject w) throws Throwable {
         try {
             PyObject r = binary_op1(v, w, Slot.NB.multiply);
@@ -129,6 +163,12 @@ class Number extends Abstract {
      * {@code int} subclass, or if the object {@code o} cannot be
      * interpreted as an index (it does not fill {@link NB#index}). This
      * method makes no guarantee about the <i>range</i> of the result.
+     *
+     * @param o operand
+     * @return {@code o} coerced to a Python {@code int}
+     * @throws TypeError if {@code o} cannot be interpreted as an
+     *             {@code int}
+     * @throws Throwable otherwise from invoked implementations
      */
     static PyObject index(PyObject o) throws Throwable {
 
@@ -220,7 +260,15 @@ class Number extends Abstract {
     private static final String CANNOT_FIT =
             "cannot fit '%.200s' into an index-sized integer";
 
-    /** Create a {@code TypeError} for the named binary op. */
+    /**
+     * Create a {@code TypeError} for the named binary operation, along
+     * the lines "unsupported operand type(s) for OP: 'V' and 'W'".
+     *
+     * @param op operation to report
+     * @param v left operand (only {@code v.getType()} is used)
+     * @param w right operand (only {@code w.getType()} is used)
+     * @return exception to throw
+     */
     static PyException operandError(String op, PyObject v, PyObject w) {
         return new TypeError(UNSUPPORTED_TYPES, op,
                 v.getType().getName(), w.getType().getName());

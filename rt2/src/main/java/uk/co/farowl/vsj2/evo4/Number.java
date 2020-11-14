@@ -8,7 +8,13 @@ import uk.co.farowl.vsj2.evo4.Slot.EmptyException;
 /** Compare CPython {@code abstract.h}: {@code Py_Number_*}. */
 class Number extends Abstract {
 
-    /** Python {@code -v} */
+    /**
+     * {@code -v}: unary negative with Python semantics.
+     *
+     * @param v operand
+     * @return {@code -v}
+     * @throws Throwable from invoked implementations
+     */
     static PyObject negative(PyObject v) throws Throwable {
         try {
             return (PyObject) v.getType().op_neg.invokeExact(v);
@@ -17,7 +23,13 @@ class Number extends Abstract {
         }
     }
 
-    /** Python {@code abs(v)} */
+    /**
+     * {@code abs(v)}: absolute value with Python semantics.
+     *
+     * @param v operand
+     * @return {@code -v}
+     * @throws Throwable from invoked implementations
+     */
     static PyObject absolute(PyObject v) throws Throwable {
         try {
             return (PyObject) v.getType().op_abs.invokeExact(v);
@@ -26,38 +38,87 @@ class Number extends Abstract {
         }
     }
 
-    /** Create a {@code TypeError} for a named unary operation. */
+    /**
+     * Create a {@code TypeError} for a named unary operation, along the
+     * lines "bad operand type for OP: 'T'".
+     *
+     * @param op operation to report
+     * @param v actual operand (only {@code v.getType()} is used)
+     * @return exception to throw
+     */
     static PyException operandError(String op, PyObject v) {
         return new TypeError("bad operand type for %s: '%.200s'", op,
                 v.getType().getName());
     }
 
-    /** Python {@code v + w} */
+    /**
+     * {@code v + w} with Python semantics.
+     *
+     * @param v left operand
+     * @param w right operand
+     * @return {@code v + w}
+     * @throws Throwable from invoked implementations
+     */
     static PyObject add(PyObject v, PyObject w) throws Throwable {
         return binary_op(v, w, Slot.op_add);
     }
 
-    /** Python {@code v - w} */
+    /**
+     * {@code v - w} with Python semantics.
+     *
+     * @param v left operand
+     * @param w right operand
+     * @return {@code v - w}
+     * @throws Throwable from invoked implementations
+     */
     static PyObject subtract(PyObject v, PyObject w) throws Throwable {
         return binary_op(v, w, Slot.op_sub);
     }
 
-    /** Python {@code v * w} */
+    /**
+     * {@code v * w} with Python semantics.
+     *
+     * @param v left operand
+     * @param w right operand
+     * @return {@code v * w}
+     * @throws Throwable from invoked implementations
+     */
     static PyObject multiply(PyObject v, PyObject w) throws Throwable {
         return binary_op(v, w, Slot.op_mul);
     }
 
-    /** Python {@code v | w} */
+    /**
+     * {@code v | w} with Python semantics.
+     *
+     * @param v left operand
+     * @param w right operand
+     * @return {@code v | w}
+     * @throws Throwable from invoked implementations
+     */
     static final PyObject or(PyObject v, PyObject w) throws Throwable {
         return binary_op(v, w, Slot.op_or);
     }
 
-    /** Python {@code v & w} */
+    /**
+     * {@code v & w} with Python semantics.
+     *
+     * @param v left operand
+     * @param w right operand
+     * @return {@code v & w}
+     * @throws Throwable from invoked implementations
+     */
     static final PyObject and(PyObject v, PyObject w) throws Throwable {
         return binary_op(v, w, Slot.op_and);
     }
 
-    /** Python {@code v ^ w} */
+    /**
+     * {@code v ^ w} with Python semantics.
+     *
+     * @param v left operand
+     * @param w right operand
+     * @return {@code v ^ w}
+     * @throws Throwable from invoked implementations
+     */
     static final PyObject xor(PyObject v, PyObject w) throws Throwable {
         return binary_op(v, w, Slot.op_xor);
     }
@@ -97,8 +158,7 @@ class Number extends Abstract {
      * @throws Throwable from the implementation of the operation
      */
     private static PyObject binary_op1(PyObject v, PyObject w,
-            Slot binop)
-            throws Slot.EmptyException, Throwable {
+            Slot binop) throws Slot.EmptyException, Throwable {
         PyType vtype = v.getType();
         PyType wtype = w.getType();
 
@@ -146,8 +206,14 @@ class Number extends Abstract {
      * interpreted as an index (it does not fill {@link Slot#op_index}).
      * This method makes no guarantee about the <i>range</i> of the
      * result.
+     *
+     * @param o operand
+     * @return {@code o} coerced to a Python {@code int}
+     * @throws TypeError if {@code o} cannot be interpreted as an
+     *             {@code int}
+     * @throws Throwable otherwise from invoked implementations
      */
-    static PyLong index(PyObject o) throws Throwable {
+    static PyLong index(PyObject o) throws TypeError, Throwable {
 
         PyType itemType = o.getType();
         PyObject result;
@@ -233,8 +299,8 @@ class Number extends Abstract {
      * Returns the {@code o} converted to an integer object. This is the
      * equivalent of the Python expression {@code int(o)}.
      *
-     * @param o
-     * @return
+     * @param o operand
+     * @return {@code int(o)}
      * @throws Throwable
      */
     // Compare with CPython abstract.h :: PyNumber_Long
@@ -323,7 +389,15 @@ class Number extends Abstract {
         }
     }
 
-    /** Create a {@code TypeError} for the named binary op. */
+    /**
+     * Create a {@code TypeError} for the named binary operation, along
+     * the lines "unsupported operand type(s) for OP: 'V' and 'W'".
+     *
+     * @param op operation to report
+     * @param v left operand (only {@code v.getType()} is used)
+     * @param w right operand (only {@code w.getType()} is used)
+     * @return exception to throw
+     */
     static PyException operandError(String op, PyObject v, PyObject w) {
         return new TypeError(UNSUPPORTED_TYPES, op,
                 v.getType().getName(), w.getType().getName());

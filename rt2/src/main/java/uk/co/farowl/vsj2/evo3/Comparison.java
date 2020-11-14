@@ -96,15 +96,23 @@ enum Comparison {
     @Override
     public String toString() { return text; }
 
-    /** The swapped version of this comparison, e.g. LT with GT */
-    Comparison swapped() {
-        return swap[code];
-    }
+    /**
+     * The swapped version of this comparison, e.g. LT with GT.
+     *
+     * @return swapped version of this comparison
+     */
+    Comparison swapped() { return swap[code]; }
 
     private static final Comparison[] swap =
             {GT, GE, EQ, NE, LT, LE, BAD, BAD, IS, IS_NOT, BAD, BAD};
 
-    /** Translate opcode argument to Comparison constant. */
+    /**
+     * Translate CPython {@link Opcode#COMPARE_OP} opcode argument to
+     * Comparison constant.
+     *
+     * @param oparg opcode argument
+     * @return equivalent {@code Comparison} object
+     */
     static Comparison from(int oparg) {
         return oparg >= 0 && oparg < from.length ? from[oparg] : BAD;
     }
@@ -114,10 +122,10 @@ enum Comparison {
 
     /**
      * Translate a comparison result (typically from a call to
-     * {@code Comparable.compareTo()}) into the appropriate boolean,
-     * for example {@code GE.toBool(1)} is {@link Py#True}.
-     * This is only useful for the the six operations LT to GE inclusive,
-     * and for the others we assume c==0 indicates equality.
+     * {@code Comparable.compareTo()}) into the appropriate boolean, for
+     * example {@code GE.toBool(1)} is {@link Py#True}. This is only
+     * useful for the the six operations LT to GE inclusive, and for the
+     * others we assume c==0 indicates equality.
      *
      * @param c comparison result
      * @return boolean equivalent for this operation

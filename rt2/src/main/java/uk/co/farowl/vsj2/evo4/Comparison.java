@@ -164,17 +164,25 @@ enum Comparison {
     @Override
     public String toString() { return text; }
 
-    /** Translate opcode argument to Comparison constant. */
+    /**
+     * Translate CPython {@link Opcode#COMPARE_OP} opcode argument to
+     * Comparison constant.
+     *
+     * @param oparg opcode argument
+     * @return equivalent {@code Comparison} object
+     */
     static Comparison from(int oparg) {
         return oparg >= 0 && oparg < from.length ? from[oparg] : BAD;
     }
 
     private static final Comparison[] from = values();
 
-    /** The swapped version of this comparison, e.g. LT with GT */
-    Comparison swapped() {
-        return swap[this.ordinal()];
-    }
+    /**
+     * The swapped version of this comparison, e.g. LT with GT.
+     *
+     * @return swapped version of this comparison
+     */
+    Comparison swapped() { return swap[this.ordinal()]; }
 
     private static final Comparison[] swap =
             {GT, GE, EQ, NE, LT, LE, BAD, BAD, IS, IS_NOT, BAD, BAD};
