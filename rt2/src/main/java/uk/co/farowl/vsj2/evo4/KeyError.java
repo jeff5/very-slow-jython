@@ -3,6 +3,7 @@ package uk.co.farowl.vsj2.evo4;
 /** The Python {@code KeyError} exception. */
 class KeyError extends LookupError {
 
+    /** The type of Python object this class implements. */
     static final PyType TYPE =
             PyType.fromSpec(new PyType.Spec("KeyError", KeyError.class)
                     .base(LookupError.TYPE));
