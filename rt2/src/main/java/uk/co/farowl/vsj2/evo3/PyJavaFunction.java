@@ -22,6 +22,7 @@ import uk.co.farowl.vsj2.evo3.MethodDef.Flag;
 /** The Python {@code builtin_function_or_method} object. */
 class PyJavaFunction implements PyObject {
 
+    /** The type of Python object this class implements. */
     static final PyType TYPE = new PyType("builtin_function_or_method",
             PyJavaFunction.class);
 

@@ -3,6 +3,7 @@ package uk.co.farowl.vsj2.evo2;
 /** The Python {@code str} object. */
 class PyUnicode implements PyObject {
 
+    /** The type of Python object this class implements. */
     static final PyType TYPE = new PyType("unicode", PyUnicode.class);
 
     @Override

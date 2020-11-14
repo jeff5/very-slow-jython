@@ -3,6 +3,7 @@ package uk.co.farowl.vsj2.evo2;
 /** A {@link PyFrame} for executing CPython 3.8 byte code. */
 class CPythonFrame extends PyFrame {
 
+    /** The type of Python object this class implements. */
     static final PyType TYPE = new PyType("frame", PyCode.class);
 
     @Override

@@ -3,6 +3,7 @@ package uk.co.farowl.vsj2.evo4;
 /** The Python {@code bytes} object. */
 class PyBytes extends AbstractPyObject {
 
+    /** The type of Python object this class implements. */
     static final PyType TYPE = PyType.fromSpec( //
             new PyType.Spec("bytes", PyBytes.class));
     private static final byte[] EMPTY_BYTE_ARRAY = new byte[] {};

@@ -3,6 +3,7 @@ package uk.co.farowl.vsj2.evo4;
 /** The Python {@code str} object. */
 class PyUnicode implements PySequence, Comparable<PyUnicode> {
 
+    /** The type of Python object this class implements. */
     static final PyType TYPE = PyType.fromSpec( //
             new PyType.Spec("str", PyUnicode.class));
     protected PyType type;

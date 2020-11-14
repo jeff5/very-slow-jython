@@ -11,6 +11,7 @@ import uk.co.farowl.vsj2.evo3.PyCode.Trait;
  */
 class PyFunction implements PyObject {
 
+    /** The type of Python object this class implements. */
     static final PyType TYPE = new PyType("function", PyFunction.class);
 
     @Override

@@ -12,6 +12,7 @@ import uk.co.farowl.vsj2.evo4.PyType.Flag;
  */
 class PyFunction extends AbstractPyObject {
 
+    /** The type of Python object this class implements. */
     static final PyType TYPE = PyType
             .fromSpec(new PyType.Spec("function", PyFunction.class)
                     .flagNot(Flag.BASETYPE));

@@ -3,6 +3,7 @@ package uk.co.farowl.vsj2.evo4;
 /** Holder for objects appearing in the closure of a function. */
 class PyCell implements PyObject {
 
+    /** The type of Python object this class implements. */
     static final PyType TYPE = new PyType("cell", PyCell.class);
 
     PyObject obj;

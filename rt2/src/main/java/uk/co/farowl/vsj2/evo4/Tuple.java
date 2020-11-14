@@ -24,6 +24,7 @@ import java.util.List;
  */
 interface Tuple<E extends PyObject> extends List<E>, PyObject {
 
+    /** The type of Python object this class implements. */
     static final PyType TYPE = new PyType("tuple", PyTuple.class);
 
 }

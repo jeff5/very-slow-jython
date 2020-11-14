@@ -5,6 +5,7 @@ import java.lang.invoke.MethodHandle;
 /** The Python {@code builtin_function_or_method} object. */
 class PyJavaFunction implements PyObject {
 
+    /** The type of Python object this class implements. */
     static final PyType TYPE = PyType.fromSpec(new PyType.Spec(
             "builtin_function_or_method", PyJavaFunction.class));
 

@@ -7,6 +7,7 @@ import java.util.StringJoiner;
 /** The Python {@code list} object. */
 class PyList extends ArrayList<PyObject> implements PySequence {
 
+    /** The type of Python object this class implements. */
     static final PyType TYPE = new PyType("list", PyList.class);
 
     @Override

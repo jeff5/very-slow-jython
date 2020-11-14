@@ -12,6 +12,7 @@ import java.util.Set;
 class PyDict extends LinkedHashMap<PyObject, PyObject>
         implements PyObject {
 
+    /** The type of Python object this class implements. */
     static final PyType TYPE = new PyType("dict", PyDict.class);
 
     @Override

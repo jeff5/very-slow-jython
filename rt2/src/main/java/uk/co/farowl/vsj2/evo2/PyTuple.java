@@ -3,6 +3,7 @@ package uk.co.farowl.vsj2.evo2;
 /** The Python {@code tuple} object. */
 class PyTuple implements PyObject {
 
+    /** The type of Python object this class implements. */
     static final PyType TYPE = new PyType("tuple", PyTuple.class);
 
     @Override

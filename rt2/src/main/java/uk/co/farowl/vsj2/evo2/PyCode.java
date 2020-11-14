@@ -9,6 +9,7 @@ import java.util.EnumSet;
  */
 class PyCode implements PyObject {
 
+    /** The type of Python object this class implements. */
     static final PyType TYPE = new PyType("code", PyCode.class);
 
     @Override

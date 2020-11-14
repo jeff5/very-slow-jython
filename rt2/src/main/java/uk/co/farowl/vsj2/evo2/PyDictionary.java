@@ -10,6 +10,7 @@ import java.util.HashMap;
 class PyDictionary extends HashMap<PyObject, PyObject>
         implements PyObject {
 
+    /** The type of Python object this class implements. */
     static final PyType TYPE = new PyType("dict", PyDictionary.class);
 
     @Override

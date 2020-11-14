@@ -3,6 +3,7 @@ package uk.co.farowl.vsj2.evo3;
 /** The Python {@code bool} object. */
 class PyBool extends PyLong {
 
+    /** The type of Python object this class implements. */
     static final PyType TYPE = PyType.fromSpec( //
             new PyType.Spec("bool", PyBool.class) //
                     .base(PyLong.TYPE) //

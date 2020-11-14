@@ -3,6 +3,7 @@ package uk.co.farowl.vsj2.evo2;
 /** The Python {@code bytes} object. */
 class PyBytes implements PyObject {
 
+    /** The type of Python object this class implements. */
     static final PyType TYPE = new PyType("bytes", PyType.class);
 
     @Override
