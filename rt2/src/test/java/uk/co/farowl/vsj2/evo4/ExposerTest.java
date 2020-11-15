@@ -88,7 +88,7 @@ class ExposerTest {
     @Test
     void memberConstruct() {
         Map<String, PyMemberDescr> mds = Exposer.memberDescrs(
-                ObjectWithMembers.TYPE, ObjectWithMembers.LOOKUP);
+                ObjectWithMembers.LOOKUP, ObjectWithMembers.class, ObjectWithMembers.TYPE);
         // Try a few attributes of i
         assertTrue(mds.containsKey("i"));
         PyMemberDescr md = mds.get("i");
@@ -112,7 +112,7 @@ class ExposerTest {
     @Test
     void memberGetValues() {
         Map<String, PyMemberDescr> mds = Exposer.memberDescrs(
-                ObjectWithMembers.TYPE, ObjectWithMembers.LOOKUP);
+                ObjectWithMembers.LOOKUP, ObjectWithMembers.class, ObjectWithMembers.TYPE);
         ObjectWithMembers o = new ObjectWithMembers(42.0);
         ObjectWithMembers p = new ObjectWithMembers(-1.0);
 
@@ -158,7 +158,7 @@ class ExposerTest {
     @Test
     void memberSetValues() throws TypeError, Throwable {
         Map<String, PyMemberDescr> mds = Exposer.memberDescrs(
-                ObjectWithMembers.TYPE, ObjectWithMembers.LOOKUP);
+                ObjectWithMembers.LOOKUP, ObjectWithMembers.class, ObjectWithMembers.TYPE);
         final ObjectWithMembers o = new ObjectWithMembers(42.0);
         final ObjectWithMembers p = new ObjectWithMembers(-1.0);
 
@@ -220,7 +220,7 @@ class ExposerTest {
     @Test
     void memberDeleteValues() throws TypeError, Throwable {
         Map<String, PyMemberDescr> mds = Exposer.memberDescrs(
-                ObjectWithMembers.TYPE, ObjectWithMembers.LOOKUP);
+                ObjectWithMembers.LOOKUP, ObjectWithMembers.class, ObjectWithMembers.TYPE);
         final ObjectWithMembers o = new ObjectWithMembers(42.0);
         final PyType T = ObjectWithMembers.TYPE;
 
@@ -298,7 +298,7 @@ class ExposerTest {
     void memberInDerived() throws TypeError, Throwable {
         // Note we make the table for the super-class
         Map<String, PyMemberDescr> mds = Exposer.memberDescrs(
-                ObjectWithMembers.TYPE, ObjectWithMembers.LOOKUP);
+                ObjectWithMembers.LOOKUP, ObjectWithMembers.class, ObjectWithMembers.TYPE);
         // But the test object is the sub-class
         final DerivedWithMembers o = new DerivedWithMembers(42.0);
 

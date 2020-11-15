@@ -11,25 +11,39 @@ import java.util.Map;
 
 import uk.co.farowl.vsj2.evo4.DataDescriptor.Flag;
 
+/** Methods for tabulating the attributes of classes that define Python types.
+ *
+ */
 class Exposer {
 
     protected static final MethodHandles.Lookup lookup =
             MethodHandles.lookup();
 
     /**
-     * Create a table of {@link PyMemberDescr}s for the given type and
-     * lookup class.
+     * Create a table of {@link PyMemberDescr}s annotated on the given
+     * implementation class, on behalf of the type given.
+     * This type object will become the {@link Descriptor#objclass}
+     * reference of the descriptors created, but is not otherwise accessed, since it is (necessarily)
+     * incomplete at this time.
+     * <p>
+     * Notice this is a map from {@code String} to descriptor, even
+     * though later on we will make a map from keys that are all
+     * {@link PyUnicode}. The purpose is to avoid a circular dependency
+     * in early in the creation of the type system, where exposing
+     * {@code PyUnicode} as {@code str} would require it to exist
+     * already.
      *
-     * @param type to introspect for member definitions
      * @param lookup authorisation to access fields
+     * @param implClass to introspect for member definitions
+     * @param type to introspect for member definitions
      * @return members defined (in the order encountered)
      * @throws InterpreterError on duplicates or unsupported types
      */
-    static Map<String, PyMemberDescr> memberDescrs(PyType type,
-            Lookup lookup) throws InterpreterError {
+    static Map<String, PyMemberDescr> memberDescrs(
+            Lookup lookup, Class<?> implClass, PyType type) throws InterpreterError {
 
         Map<String, PyMemberDescr> defs = new LinkedHashMap<>();
-        Class<?> implClass = type.implClass;
+        if( implClass==null) {implClass = lookup.lookupClass();}
         for (Field f : implClass.getDeclaredFields()) {
             Exposed.Member a =
                     f.getDeclaredAnnotation(Exposed.Member.class);

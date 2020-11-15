@@ -1,7 +1,20 @@
 package uk.co.farowl.vsj2.evo4;
 
 /**
- * The base class of many built-in descriptors.
+ * The base class of many built-in descriptors. Descriptors are a
+ * fundamental component of the Python type system, populating the
+ * dictionary of every type.
+ *
+ * @implNote It must be possible to create an instance of any concrete
+ *           descriptor (a sub-class of this one) in circumstances where
+ *           the only types in existence are {@link PyType#TYPE} and
+ *           {@link PyType#OBJECT_TYPE}, and where these have not yet
+ *           been given their descriptor attributes or operation slots
+ *           ({@code op_*} slots}.
+ *           <p>
+ *           In order to create a descriptor, the JVM need only complete
+ *           the static initialisation of the Java class for that
+ *           descriptor and be able to execute the constructor.
  */
 abstract class Descriptor extends AbstractPyObject
         implements ClassShorthand {

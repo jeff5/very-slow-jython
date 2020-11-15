@@ -13,8 +13,10 @@ import java.util.EnumSet;
  */
 abstract class PyMemberDescr extends DataDescriptor {
 
+    /** The type of Python object this class implements. */
     static final PyType TYPE = PyType.fromSpec(
-            new PyType.Spec("member_descriptor", PyMemberDescr.class));
+            new PyType.Spec("member_descriptor", PyMemberDescr.class)
+                    .flagNot(PyType.Flag.BASETYPE));
 
     /** Reference to the field (offset) to access. */
     // CPython PyMemberDef: int type; int offset;
@@ -97,8 +99,8 @@ abstract class PyMemberDescr extends DataDescriptor {
 
     /**
      * A method to delete {@code del o.name}. This method is called from
-     * {@link #__delete__(PyMemberDescr, PyObject, PyObject)}, after
-     * checks, to implement the type-specific conversion.
+     * {@link #__delete__(PyMemberDescr, PyObject)}, after checks, to
+     * implement the type-specific conversion.
      *
      * @implNote The default implementation is correct for primitive
      *           types (i.e. the majority) in raising {@link TypeError}

@@ -3,16 +3,19 @@
  */
 package uk.co.farowl.vsj2.evo4;
 
+import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.lang.invoke.MethodHandles;
 import java.util.EnumSet;
 
 import org.junit.jupiter.api.Test;
 
+import uk.co.farowl.vsj2.evo4.Exposed.DocString;
+import uk.co.farowl.vsj2.evo4.Exposed.Member;
 import uk.co.farowl.vsj2.evo4.PyType.Flag;
 import uk.co.farowl.vsj2.evo4.PyType.Spec;
 
@@ -262,6 +265,63 @@ class PyTypeTest {
         PyType[] exp = new PyType[] {TYPE_ERROR, EXCEPTION,
                 BASE_EXCEPTION, OBJECT};
         assertArrayEquals(exp, t.getMRO());
+    }
+
+    /**
+     * A test Python object with exposed members.
+     */
+    private static class PyObjectWithMembers implements PyObject {
+
+        static PyType TYPE = PyType.fromSpec( //
+                new PyType.Spec("PyObjectWithMembers",
+                        MethodHandles.lookup(),
+                        PyObjectWithMembers.class));
+
+        @Override
+        public PyType getType() { return TYPE; }
+
+        @Member
+        int i;
+        @Member
+        @DocString("My test x")
+        double x;
+        /** String with change of name. */
+        @Member("text")
+        String t;
+        /** Can be properly deleted without popping up as None */
+        @Member(optional = true)
+        String s;
+
+        /** Read-only access. */
+        @Member(readonly = true)
+        int i2;
+        /** Read-only access since final. */
+        @Member
+        final double x2;
+        /** Read-only access given first. */
+        @Member(readonly = true, value = "text2")
+        String t2;
+
+        PyObjectWithMembers(double value) {
+            x2 = x = value;
+            i2 = i = Math.round((float) value);
+            t2 = t = s = String.format("%d", i);
+        }
+    }
+
+    /**
+     * Test that member descriptors are created and operate correctly
+     * via the default {@link PyType#op_getattribute},
+     * {@link PyType#op_setattr} and {@link PyType#op_delattr}.
+     *
+     * @throws Throwable unexpectedly
+     */
+    @Test
+    void memberDescriptors() throws AttributeError, Throwable {
+        PyObjectWithMembers o = new PyObjectWithMembers(42.0);
+        // Try a few attributes of i
+        PyUnicode i = Py.str("i");
+        assertEquals(Py.val(42), Abstract.getAttr(o, i));
     }
 
 }

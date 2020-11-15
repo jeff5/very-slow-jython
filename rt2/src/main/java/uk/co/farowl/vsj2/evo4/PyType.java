@@ -1,6 +1,9 @@
 package uk.co.farowl.vsj2.evo4;
 
 import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodHandles.Lookup;
+import java.lang.invoke.VarHandle;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
@@ -12,11 +15,29 @@ import java.util.Map;
 import uk.co.farowl.vsj2.evo4.Slot.EmptyException;
 import uk.co.farowl.vsj2.evo4.Slot.Signature;
 
-/** The Python {@code type} object. */
+/**
+ * The Python {@code type} object. Type objects are normally created
+ * (when created from Java) by a call to {@link PyType#fromSpec(Spec)}.
+ */
 class PyType implements PyObject {
-
-    /** Holds each type as it is defined. (Not used in this version.) */
-    static final TypeRegistry TYPE_REGISTRY = new TypeRegistry();
+    /*
+     * The initialisation of an instance of PyType is a delicate
+     * business when it occurs early in the initialisation of the
+     * run-time. The static initialisation of the PyType class is even
+     * more delicate, but fortunately simple: we must bring into
+     * existence type objects for both PyBaseObject ('object') and
+     * PyType ('type').
+     *
+     * Further, these and several other "bootstrap" types are brought
+     * into existence, so that instances may be created on which
+     * getType() would work, before it is possible to create their
+     * dictionaries. Their initialisation is therefore a two-step
+     * process, in which the PyType is cfreated and may be referenced,
+     * and instances may exist,while the object (as a Python type) is
+     * not yet ready for use.
+     *
+     * but these types are not yet given their dictionaries.
+     */
 
     // *** The order of these initialisations is critical
     static final PyType[] EMPTY_TYPE_ARRAY = new PyType[0];
@@ -28,9 +49,24 @@ class PyType implements PyObject {
             new PyType[] {OBJECT_TYPE};
     // *** End critical ordered section
 
+    /**
+     * Particular type of this {@code PyType}. Why is this not always
+     * {@link #TYPE}? Because their are objects (meta-classes) whose
+     * type is {@code type} but which are not {@code type} itself.
+     */
     private final PyType type;
+
+    /** Name of the type. */
     final String name;
+
+    /** The Java class implementing instances of the type. */
     final Class<? extends PyObject> implClass;
+    /**
+     * Characteristics of the type, to determine behaviours (such as
+     * mutability) of instances or the type itself, or to provide quick
+     * answers to frequent questions such as "are instances data
+     * descriptors".
+     */
     EnumSet<Flag> flags;
 
     // Support for class hierarchy
@@ -111,32 +147,100 @@ class PyType implements PyObject {
     MethodHandle op_setitem;
     MethodHandle op_delitem;
 
-    /** Construct a type with given name and {@code object} as base. */
+    /**
+     * Construct a type with given name and {@code object} as base.
+     *
+     * @param name of the new type
+     * @param implClass implementation class
+     */
     PyType(String name, Class<? extends PyObject> implClass) {
-        this(name, implClass, EMPTY_TYPE_ARRAY, Spec.DEFAULT_FLAGS);
+        this(name, implClass, EMPTY_TYPE_ARRAY, Spec.getDefaultFlags());
     }
 
-    /** Construct a type from the given specification. */
+    /**
+     * Construct a type from the given specification. This approach is
+     * preferred to the direct constructor. The type object does not
+     * retain a reference to the specification, once constructed, so
+     * that subsequent alterations have no effect on the {@code PyType}.
+     *
+     * @param spec specification
+     * @return the constructed {@code PyType}
+     */
     static PyType fromSpec(Spec spec) {
-        PyType type = new PyType(spec.name, spec.implClass,
-                spec.getBases(), spec.flags);
-        type.processNamespace(spec.namespace);
+
+        // Construct a type with an empty dictionary
+
+        PyType[] bases = spec.getBases();
+        PyType bestBase = bestBase(bases);
+
+        PyType type = new PyType(spec.name, spec.implClass, bases,
+                spec.flags);
+
+        // Populate the dictionary from the name space
+        // XXX This is still rather crude
+
+        /*
+         * Now if the bootstrap types are all ready, we can fill the
+         * type dictionary (and check for others needing the same). If
+         * not, this type is queued for later.
+         */
+
+        type.fillDictionary(spec);
+
         return type;
     }
 
-    /** Copy a name space into the dictionary of this type. */
-    private void processNamespace(Map<PyObject, PyObject> namespace) {
-        for (Map.Entry<PyObject, PyObject> e : namespace.entrySet()) {
-            PyObject key = e.getKey();
-            if (key instanceof PyUnicode) {
-                dict.put((PyUnicode) key, e.getValue());
-            }
+    /**
+     * Load the dictionary of this type with attributes discovered
+     * through the specification.
+     *
+     * @param spec to apply
+     */
+    private void fillDictionary(Spec spec) {
+        addMembers(spec);
+        // XXX fill slots
+        deduceFlags();
+    }
+
+    /**
+     * Add members to this type discovered through the specification.
+     *
+     * @param spec to apply
+     */
+    private void addMembers(Spec spec) {
+
+        // Discover members through the exposer
+        Map<String, PyMemberDescr> members =
+                Exposer.memberDescrs(spec.lookup, spec.implClass, this);
+
+        // XXX This is still rather crude
+
+        for (Map.Entry<String, PyMemberDescr> e : members.entrySet()) {
+            PyUnicode k = new PyUnicode(e.getKey());
+            PyObject v = e.getValue();
+            dict.put(k, v);
+        }
+
+    }
+
+    /**
+     * The {@link #flags} field caches many characteristics of the type
+     * that we need to consult: we deduce them here.
+     */
+    private void deduceFlags() {
+        if (Slot.op_get.isDefinedFor(this)) {
+            // It's a descriptor
+            flags.add(Flag.IS_DESCR);
+            if (Slot.op_set.isDefinedFor(this)
+                    || Slot.op_delete.isDefinedFor(this))
+                flags.add(Flag.IS_DATA_DESCR);
         }
     }
 
     /**
-     * Construct a {@code type} object with given sub-type and name,
-     * This constructor is a helper to factory methods.
+     * Construct a {@code type} object with given sub-type and name, but
+     * no dictionary. that is, only the first part of construction is
+     * performed. This constructor is a helper to factory methods.
      *
      * @param metatype the sub-type of type we are constructing
      * @param name of that type (with the given metatype)
@@ -150,7 +254,7 @@ class PyType implements PyObject {
         this.type = metatype;
         this.name = name;
         this.implClass = implClass;
-        this.flags = flags;
+        this.flags = EnumSet.copyOf(flags); // in case original changes
 
         // Fix-up base and MRO from bases array
         setMROfromBases(declaredBases);
@@ -182,14 +286,14 @@ class PyType implements PyObject {
         this.type = this;
         this.name = "type";
         this.implClass = PyType.class;
-        this.flags = Spec.DEFAULT_FLAGS;
+        this.flags = Spec.getDefaultFlags();
         /*
          * Now we need the type object for "object", which references
          * this one as its type. Note that PyType.TYPE is not yet set
          * because we have not returned from this constructor.
          */
         PyType objectType = new PyType(this, "object",
-                PyBaseObject.class, null, Spec.DEFAULT_FLAGS);
+                PyBaseObject.class, null, Spec.getDefaultFlags());
 
         // The only base of type is object
         setMROfromBases(new PyType[] {objectType});
@@ -239,8 +343,8 @@ class PyType implements PyObject {
     }
 
     /**
-     * Set all the slots ({@code op_*}) from the
-     * {@link #implClass} and {@link #bases}.
+     * Set all the slots ({@code op_*}) from the {@link #implClass} and
+     * {@link #bases}.
      */
     private void setAllSlots() {
         for (Slot s : Slot.values()) {
@@ -334,17 +438,34 @@ class PyType implements PyObject {
         return true;
     }
 
-    boolean isMutable() { return flags.contains(Flag.MUTABLE); }
-
-    boolean isDataDescr() {
-        // XXX Base on the Trait & that on something in construction.
-        return false;
+    /**
+     * Return whether special methods in this type may be assigned new
+     * meanings after type creation (or may be safely cached).
+     *
+     * @return whether a data descriptor
+     */
+    final boolean isMutable() {
+        return flags.contains(Flag.MUTABLE);
     }
 
-    boolean isNonDataDescr() {
-        // XXX Base on the Trait & that on something in construction.
-        return false;
+    /**
+     * Return whether an instance of this type is a data descriptor
+     * (defines {@code __get__} and at least one of {@code __set__} or
+     * {@code __delete__}.
+     *
+     * @return whether a data descriptor
+     */
+    final boolean isDataDescr() {
+        return flags.contains(Flag.IS_DATA_DESCR);
     }
+
+    /**
+     * Return whether an instance of this type is a descriptor (defines
+     * {@code __get__}).
+     *
+     * @return whether a descriptor
+     */
+    final boolean isDescr() { return flags.contains(Flag.IS_DESCR); }
 
     /** Return the base (core use only). */
     PyType getBase() {
@@ -417,6 +538,12 @@ class PyType implements PyObject {
         void put(String name, PyType type) { registry.put(name, type); }
     }
 
+    /**
+     * Enumeration of the characteristics of a type. These are the
+     * members that appear appear in the {@link PyType#flags} to
+     * determine behaviours or provide quick answers to frequent
+     * questions such as "are you a data descriptor".
+     */
     enum Flag {
         /**
          * Special methods may be assigned new meanings in the
@@ -424,7 +551,7 @@ class PyType implements PyObject {
          */
         MUTABLE,
         /**
-         * An object with this type can change to another type (within
+         * An object of this type can change to another type (within
          * "layout" constraints).
          */
         REMOVABLE,
@@ -432,29 +559,107 @@ class PyType implements PyObject {
          * This type the type allows sub-classing (is acceptable as a
          * base).
          */
-        BASETYPE
+        BASETYPE,
+        /**
+         * An object of this type is a descriptor (defines
+         * {@code __get__}).
+         */
+        IS_DESCR,
+        /**
+         * An object of this type is a data descriptor (defines
+         * {@code __get__} and at least one of {@code __set__} or
+         * {@code __delete__}).
+         */
+        IS_DATA_DESCR
     }
 
-    /** Specification for a type. A data structure with mutators. */
+    /**
+     * A specification for a Python type. A Java class intended as the
+     * implementation of a Python object creates one of these data
+     * structures during static initialisation, and configures it using
+     * the mutators. A fluent interface makes this configuration
+     * readable as a single, long statement.
+     */
     static class Spec {
 
-        final static EnumSet<Flag> DEFAULT_FLAGS =
-                EnumSet.of(Flag.BASETYPE);
-
+        /** Name of the class being specified. */
         final String name;
+
+        /** Delegated authorisation to resolve names. */
+        final Lookup lookup;
+
+        /** The implementation class in which to look up names. */
         Class<? extends PyObject> implClass;
+
+        /** Python types that are bases of the type being specified. */
         private final List<PyType> bases = new LinkedList<>();
-        Map<PyObject, PyObject> namespace = Collections.emptyMap();
-        EnumSet<Flag> flags = EnumSet.copyOf(DEFAULT_FLAGS);
+
+        /**
+         * The {@code Spec} inspects the {@link #implClass} in order to
+         * discover attributes that it describes in this name space,
+         * parallel to executing a class body defined in Python.
+         * Definitions are entered in this name space that may
+         * eventually populate the dictionary of the type.
+         */
+        Map<String, PyObject> namespace = Collections.emptyMap();
+
+        /** Characteristics of the type being specified. */
+        EnumSet<Flag> flags = Spec.getDefaultFlags();
+
+        /**
+         * Create (begin) a specification for a {@link PyType} based on
+         * a specific implementation class. This is the beginning
+         * normally made by built-in classes in their static
+         * initialisation.
+         * <p>
+         * The {@code Spec} will interrogate the implementation class
+         * reflectively to discover attributes the type should have, and
+         * (in many cases) will form {@link MethodHandle}s or
+         * {@link VarHandle}s on qualifying members. The caller supplies
+         * a {@link Lookup} object to make this possible. An
+         * implementation class may declare methods and fields as
+         * {@code private}, and annotate them to be exposed to Python,
+         * as long as the lookup object provided to the {@code Spec}
+         * confers the right to access them.
+         * <p>
+         * In principle, it would be possible for the implementation
+         * class, and the lookup class (see
+         * {@link Lookup#lookupClass()}) to be different from the
+         * caller. Usually they are the same. A {@code Spec} given
+         * private access to members should not be passed to untrusted
+         * code.
+         *
+         * @param name of the type
+         * @param lookup authorising access to defining members
+         * @param implClass in which operations are defined
+         */
+        Spec(String name, Lookup lookup,
+                Class<? extends PyObject> implClass) {
+            this.name = name;
+            this.lookup = lookup;
+            this.implClass = implClass;
+        }
 
         /**
          * Create (begin) a specification for a {@link PyType} based on
          * a specific implementation class. This is the beginning
          * normally made by built-in classes.
+         *
+         * @param name of the type
+         * @param implClass in which operations are defined
          */
         Spec(String name, Class<? extends PyObject> implClass) {
-            this.name = name;
-            this.implClass = implClass;
+            this(name,
+                    /*
+                     * The method is package-accessible, so the lookup
+                     * here should have no more than package access, in
+                     * order to avoid granting the caller access to
+                     * details of the run-time. PRIVATE implicitly drops
+                     * PROTECTED. (Read the Javadoc carefully.)
+                     */
+                    MethodHandles.lookup()
+                            .dropLookupMode(Lookup.PRIVATE),
+                    implClass);
         }
 
         /**
@@ -462,39 +667,51 @@ class PyType implements PyObject {
          * the choice of implementation class. This is the beginning
          * made by {@code type.__new__}.
          */
+        // XXX Does this still work if the lookup is minimal?
         Spec(String name) {
-            this.name = name;
-            this.implClass = PyBaseObject.class;
-        }
-
-        /** Specify a base for the type. */
-        Spec base(PyType b) {
-            bases.add(b);
-            return this;
+            this(name, MethodHandles.publicLookup(),
+                    PyBaseObject.class);
         }
 
         /**
-         * Specify a name space for the type. Normally this is the
-         * result of processing the body of a class declaration. It is
-         * copied into the type dictionary during class creation. Until
-         * then, it is ok to update it.
+         * Specify a base for the type.
+         *
+         * @param base to append to the bases
+         * @return this
          */
-        Spec namespace(Map<PyObject, PyObject> ns) {
-            namespace = ns;
-            return this;
+        Spec base(PyType base) { bases.add(base); return this; }
+
+        /**
+         * A new set of flags with the default values for a type defined
+         * in Java.
+         *
+         * @return new default flags
+         */
+        static EnumSet<Flag> getDefaultFlags() {
+            return EnumSet.of(Flag.BASETYPE);
         }
 
-        /** Specify a characteristic (type flag) to be added. */
-        Spec flag(Flag f) {
-            flags.add(f);
-            return this;
-        }
+        /**
+         * Specify a characteristic (type flag) to be added.
+         *
+         * @param f to add to the current flags
+         * @return this
+         */
+        /*
+         * XXX Better encapsulation to have methods for things we want
+         * to set/unset. Most PyType.flags members should not be
+         * manipulated through the Spec and are derived in construction,
+         * or a a side effect of setting something else.
+         */
+        Spec flag(Flag f) { flags.add(f); return this; }
 
-        /** Specify a characteristic (type flag) to be removed. */
-        Spec flagNot(Flag f) {
-            flags.remove(f);
-            return this;
-        }
+        /**
+         * Specify a characteristic (type flag) to be removed.
+         *
+         * @param f to remove from the current flags
+         * @return this
+         */
+        Spec flagNot(Flag f) { flags.remove(f); return this; }
 
         /** Return the cumulative bases as an array. */
         PyType[] getBases() {
@@ -556,8 +773,24 @@ class PyType implements PyObject {
         }
     }
 
+    /**
+     * Create a new Python {@code type} or execute the built-in
+     * {@code type()}, depending on the number of arguments in
+     * {@code args}. Because {@code type} is a type, calling it for type
+     * enquiry looks initially like a constructor call, except for the
+     * number of arguments. A handle to {@code __new__} populates
+     * {@link Slot#op_new}. It has signature {@link Signature#NEW}.
+     *
+     * @param metatype the subclass of type to be created
+     * @param args supplied positionally to the call in Python
+     * @param kwds supplied as keywords to the call in Python
+     * @return the created type
+     * @throws TypeError if the wrong number of arguments is given or
+     *             there are keywords
+     * @throws Throwable for other errors
+     */
     static PyObject __new__(PyType metatype, PyTuple args, PyDict kwds)
-            throws Throwable {
+            throws TypeError, Throwable {
 
         // Special case: type(x) should return type(x)
         if (isTypeEnquiry(metatype, args, kwds)) {
@@ -580,20 +813,39 @@ class PyType implements PyObject {
                     oNamespace.getType());
         }
 
+        // Construct a type with an empty dictionary
+
         String name = oName.toString();
-        PyObject[] bases = ((PyTuple) oBases).value;
-        PyDict namespace = (PyDict) oNamespace;
 
-        // Specify using provided material
-        Spec spec =
-                new Spec(name).namespace(namespace).flag(Flag.MUTABLE);
-
-        for (PyObject t : bases) {
-            if (t instanceof PyType)
-                spec.base((PyType) t);
+        PyType[] bases;
+        try {
+            int n = ((PyTuple) oBases).size();
+            bases = ((PyTuple) oBases).toArray(new PyType[n]);
+        } catch (ClassCastException cce) {
+            throw new TypeError("bases must be types");
         }
 
-        return PyType.fromSpec(spec);
+        PyType typeBase = bestBase(bases);
+        Class<? extends PyObject> typeImplClass = typeBase.implClass;
+
+        EnumSet<Flag> typeFlags =
+                EnumSet.of(Flag.MUTABLE, Flag.BASETYPE);
+
+        PyType type = new PyType(metatype, name, typeImplClass, bases,
+                typeFlags);
+
+        // Populate the dictionary from the name space
+        // XXX This is still rather crude
+
+        PyDict namespace = (PyDict) oNamespace;
+        for (Map.Entry<PyObject, PyObject> e : namespace.entrySet()) {
+            PyObject k = e.getKey();
+            PyObject v = e.getValue();
+            if (PyUnicode.TYPE.check(k))
+                type.dict.put((PyUnicode) k, v);
+        }
+
+        return type;
     }
 
     private static final String NEW_ARG_MUST_BE =
@@ -846,6 +1098,64 @@ class PyType implements PyObject {
     }
 
     // plumbing --------------------------------------------------
+
+    /**
+     * Given the bases of a new class, choose the {@code type} on which
+     * a sub-class should be implemented.
+     * <p>
+     * When a sub-class is defined in Python, it may have several bases,
+     * each with their own Java implementation. What Java class should
+     * implement the new sub-class? This chosen Java class must be
+     * acceptable as {@code self} to a method (slot functions,
+     * descriptors) inherited from any base. The methods of
+     * {@link PyBaseObject} accept any {@link PyObject}, but all other
+     * implementation classes require an instance of their own type to
+     * be presented.
+     * <p>
+     * A method will accept any Java sub-type of the type of its
+     * declared parameter. We ensure compatibility by choosing that the
+     * implementation Java class of the new sub-type is a Java sub-class
+     * of the implementation types of all the bases (excluding those
+     * implemented on {@link PyBaseObject}).
+     * <p>
+     * This imposes a constraint on the bases, except for those
+     * implemented by PyBaseObject, that their implementations have a
+     * common Java descendant. (The equivalent constraint in CPython is
+     * that the layout of the {@code struct} that represents an instance
+     * of every base should match a truncation of the one chosen.)
+     *
+     * @param bases sub-classed by the new type
+     * @return the acceptable base
+     */
+    // Compare CPython best_base in typeobject.c
+    private static PyType bestBase(PyType[] bases) {
+        // XXX This is a stop-gap answer: revisit in due course.
+        /*
+         * Follow the logic of CPython typeobject.c, but adapted to a
+         * Java context.
+         */
+        if (bases.length == 0)
+            return OBJECT_TYPE;
+        else {
+            return (PyType) bases[0];
+        }
+    }
+
+    /**
+     * Check that all the objects in the tuple are {@code type}, and
+     * return them as an array.
+     */
+    private static PyType[] types(PyTuple tuple, String msg) {
+        PyType[] u = new PyType[tuple.size()];
+        int i = 0;
+        for (PyObject name : tuple) {
+            if (name instanceof PyType)
+                u[i++] = (PyType) name;
+            else
+                throw new TypeError(msg);
+        }
+        return u;
+    }
 
     // Compare CPython _PyType_GetDocFromInternalDoc
     // in typeobject.c
