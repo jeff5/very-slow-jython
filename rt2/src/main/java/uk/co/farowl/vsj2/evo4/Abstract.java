@@ -469,6 +469,8 @@ class Abstract {
             "%s()%s argument must be %s, not '%.200s'";
     protected static final String NOT_MAPPING =
             "%.200s is not a mapping";
+    static final String DESCR_NOT_DEFINING =
+            "Type marked as %.20s descriptor does not define %.50s";
 
     /**
      * Create a {@link TypeError} with a message involving the type of

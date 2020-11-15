@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.lang.invoke.MethodHandles;
 import java.util.EnumSet;
@@ -319,9 +320,43 @@ class PyTypeTest {
     @Test
     void memberDescriptors() throws AttributeError, Throwable {
         PyObjectWithMembers o = new PyObjectWithMembers(42.0);
-        // Try a few attributes of i
         PyUnicode i = Py.str("i");
+        PyLong oi = Py.val(7);
+        PyUnicode t = Py.str("text");
+        PyUnicode t2 = Py.str("text2");
+
+        PyObject s = Py.str("s"); // Note object type
+        String sval = "Gumby";
+        final PyObject os = Py.str(sval);
+
+        // Attributes of o have the expected value
         assertEquals(Py.val(42), Abstract.getAttr(o, i));
+        assertEquals(Py.str("42"), Abstract.getAttr(o, t));
+        assertEquals(Py.str("42"), Abstract.getAttr(o, s));
+        assertEquals(Py.str("42"), Abstract.getAttr(o, t2));
+
+        // Setting affects the primitive member
+        Abstract.setAttr(o, i, oi);
+        assertEquals(7, o.i);
+        assertEquals(oi, Abstract.getAttr(o, i));
+
+        Abstract.setAttr(o, s, os);
+        assertEquals(sval, o.s);
+        assertEquals(os, Abstract.getAttr(o, s));
+
+        // Setting a read-only raises an error
+        assertThrows(AttributeError.class,
+                () -> Abstract.setAttr(o, t2, os));
+
+        // Deletion sets reference types to null
+        Abstract.delAttr(o, t);
+        assertNull(o.t);
+        assertEquals(Py.None, Abstract.getAttr(o, t));
+
+        Abstract.delAttr(o, s);
+        assertNull(o.s);
+        assertThrows(AttributeError.class,
+                () -> Abstract.getAttr(o, s));
     }
 
 }

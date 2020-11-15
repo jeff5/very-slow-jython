@@ -131,13 +131,15 @@ class PyBaseObject extends AbstractPyObject {
                 try {
                     return (PyObject) descrGet.invokeExact(typeAttr,
                             obj, objType);
-                } catch (AttributeError | Slot.EmptyException e) {
+                } catch (Slot.EmptyException e) {
                     /*
-                     * Not found via descriptor: fall through to try the
-                     * instance dictionary, but not the descriptor
-                     * again.
+                     * We do not catch AttributeError: it's definitive.
+                     * The slot shouldn't be empty if the type is marked
+                     * as a descriptor (of any kind).
                      */
-                    descrGet = null;
+                    throw new InterpreterError(
+                            Abstract.DESCR_NOT_DEFINING, "data",
+                            "__get__");
                 }
             }
         }
@@ -168,7 +170,10 @@ class PyBaseObject extends AbstractPyObject {
         }
 
         if (typeAttr != null) {
-            // The attribute obtained from the type is the value.
+            /*
+             * The attribute obtained from the meta-type, and that
+             * turned out not to be a descriptor, is the return value.
+             */
             return typeAttr;
         }
 
