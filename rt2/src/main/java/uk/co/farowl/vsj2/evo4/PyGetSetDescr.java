@@ -165,8 +165,8 @@ class PyGetSetDescr extends DataDescriptor {
     // };
 
     // Compare CPython getset_repr in descrobject.c
-    static PyObject getset_repr(PyGetSetDescr descr) {
-        return descr.descr_repr("<attribute '%s' of '%s' objects>");
+    static PyObject __repr__(PyGetSetDescr descr) {
+        return descr.descrRepr("attribute");
     }
 
     // Compare CPython getset_get in descrobject.c

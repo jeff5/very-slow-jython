@@ -54,6 +54,7 @@ class PyBaseObject extends AbstractPyObject {
      * sometimes reproduces the source-code representation of the
      * object.
      */
+    // Compare CPython object_repr in typeobject.c
     static PyObject __repr__(PyObject self) {
         // XXX Ought to prefix with module from type and add id().
         return Py.str("<'" + self.getType().name + "' object>");
@@ -65,6 +66,7 @@ class PyBaseObject extends AbstractPyObject {
      * definition of the {@code __str__} slot is to invoke the
      * {@code __repr__} slot.
      */
+    // Compare CPython object_str in typeobject.c
     static PyObject __str__(PyObject self) {
         MethodHandle repr = self.getType().op_repr;
         // Be more bullet-proof than usual

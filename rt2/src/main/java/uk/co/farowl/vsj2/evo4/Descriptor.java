@@ -75,14 +75,17 @@ abstract class Descriptor extends AbstractPyObject
     // };
 
     /**
-     * Helper for {@code __repr__} implementation. The format will be
-     * fed {@code this.name} and {@code this.objclass.name}.
+     * Helper for {@code __repr__} implementation. It formats together
+     * the {@code kind} argument ("member", "attribute", "method", or
+     * "slot wrapper"), {@code this.name} and
+     * {@code this.objclass.name}.
      *
-     * @param format with two {@code %s} fields
+     * @param kind description of type (first word in the repr)
      * @return repr as a {@code str}
      */
-    protected PyObject descr_repr(String format) {
-        return PyUnicode.fromFormat(format, name, objclass.name);
+    protected PyUnicode descrRepr(String kind) {
+        return PyUnicode.fromFormat("<%s '%.50s' of '%.100s' objects>",
+                kind, name, objclass.name);
     }
 
     /**
@@ -139,4 +142,6 @@ abstract class Descriptor extends AbstractPyObject
     // descr.objclass, PyDescr_NAME(descr));
     // }
 
+    @Override
+    public String toString() { return Py.defaultToString(this); }
 }
