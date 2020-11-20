@@ -5,7 +5,9 @@ class PyObjectUtil {
 
     /**
      * Convert comparison result (int) to rich comparison result.
-     * Typically, {@code u} is the result of {@link Comparable#compareTo(Object)}.
+     * Typically, {@code u} is the result of
+     * {@link Comparable#compareTo(Object)}.
+     *
      * @param u comparison result
      * @param op kind of rich comparison requested
      * @return rich comparison result (Python {@code bool})

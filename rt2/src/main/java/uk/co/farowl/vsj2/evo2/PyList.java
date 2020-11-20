@@ -14,10 +14,20 @@ class PyList extends ArrayList<PyObject> implements PyObject {
     /** Construct empty. */
     PyList() { super(); }
 
-    /** Construct empty, with specified capacity. */
+    /**
+     * Construct empty, with specified capacity.
+     *
+     * @param capacity initial capacity (not length)
+     */
     PyList(int capacity) { super(capacity); }
 
-    /** Construct from an array slice. */
+    /**
+     * Construct from an array slice.
+     *
+     * @param a array containing objects for the list
+     * @param start index of first element to take
+     * @param count number of elements to take
+     */
     PyList(PyObject a[], int start, int count) {
         super(count);
         for (int i = start; i < start + count; i++) { add(a[i]); }

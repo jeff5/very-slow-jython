@@ -15,7 +15,12 @@ class PyTuple implements PyObject {
         System.arraycopy(value, 0, this.value, 0, value.length);
     }
 
-    /** Construct from an array slice. */
+    /** Construct from an array slice.
+     *
+     * @param a array containing objects for the tuple
+     * @param start index of first element to take
+     * @param count number of elements to take
+     */
     PyTuple(PyObject a[], int start, int count) {
         this.value = new PyObject[count];
         System.arraycopy(a, start, this.value, 0, count);

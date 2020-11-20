@@ -72,8 +72,8 @@ class PyFloat implements PyObject {
         return a != 0.0;
     }
 
-    /** Convert to {@code double} */
-    static double valueOf(PyObject v) {
+    /** Convert to {@code double}  */
+    private static double valueOf(PyObject v) {
         if (v instanceof PyFloat)
             return ((PyFloat) v).value;
         else

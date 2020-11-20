@@ -24,6 +24,11 @@ class PyTuple extends TypedTuple<PyObject> {
     /**
      * As {@link #PyTuple(PyObject[], int, int)} for Python sub-class
      * specifying {@link #type}.
+     *
+     * @param type actual Python type to construct
+     * @param a source of element values
+     * @param start first element to include
+     * @param count number of elements to take
      */
     PyTuple(PyType type, PyObject a[], int start, int count) {
         super(type, PyObject.class, a, start, count);
