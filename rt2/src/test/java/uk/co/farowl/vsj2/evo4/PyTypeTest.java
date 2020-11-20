@@ -15,8 +15,11 @@ import java.util.EnumSet;
 
 import org.junit.jupiter.api.Test;
 
+import uk.co.farowl.vsj2.evo4.Exposed.Deleter;
 import uk.co.farowl.vsj2.evo4.Exposed.DocString;
+import uk.co.farowl.vsj2.evo4.Exposed.Getter;
 import uk.co.farowl.vsj2.evo4.Exposed.Member;
+import uk.co.farowl.vsj2.evo4.Exposed.Setter;
 import uk.co.farowl.vsj2.evo4.PyType.Flag;
 import uk.co.farowl.vsj2.evo4.PyType.Spec;
 
@@ -359,4 +362,127 @@ class PyTypeTest {
                 () -> Abstract.getAttr(o, s));
     }
 
+    /**
+     * A test Python object with fields exposed as getters and setters.
+     */
+    private static class PyObjectWithGetSets implements PyObject {
+
+        static PyType TYPE = PyType.fromSpec( //
+                new PyType.Spec("PyObjectWithGetSets",
+                        MethodHandles.lookup(),
+                        PyObjectWithGetSets.class));
+
+        @Override
+        public PyType getType() { return TYPE; }
+
+        /** Simple integer attribute (get, set). */
+        int i;
+
+        @Getter
+        PyObject i() { return Py.val(i); }
+
+        @Setter
+        void i(PyObject value) throws Throwable {
+            i = Number.asSize(value, null);
+        }
+
+        /** Simple float attribute that is read-only (get). */
+        double x;
+
+        @Getter
+        PyObject x() { return Py.val(x); }
+
+        /** Simple String attribute (get, set) no delete. */
+        String t;
+
+        @Getter("text")
+        PyObject getText() { return Py.str(t); }
+
+        @Setter("text")
+        void setText(PyObject value) {
+            if (value instanceof PyUnicode)
+                t = ((PyUnicode) value).value;
+            else
+                throw Abstract.attrMustBe("text", "a string", value);
+        }
+
+        /** A String field that may be deleted (get, set, delete). */
+        String s;
+
+        // But it returns a special value "" when deleted.
+        @Getter
+        PyObject s() { return s != null ? Py.str(s) : PyUnicode.EMPTY; }
+
+        @Setter
+        void s(PyObject value) throws Throwable {
+            if (value instanceof PyUnicode)
+                s = ((PyUnicode) value).value;
+            else
+                throw Abstract.attrMustBeString("s", value);
+        }
+
+        @Deleter("s")
+        void del_s() { s = null; }
+
+        PyObjectWithGetSets(double value) {
+            x = value;
+            i = Math.round((float) value);
+            t = s = String.format("%d", i);
+        }
+    }
+
+    /**
+     * Test that member descriptors are created and operate correctly
+     * via the default {@link PyType#op_getattribute},
+     * {@link PyType#op_setattr} and {@link PyType#op_delattr}.
+     *
+     * @throws Throwable unexpectedly
+     */
+    @Test
+    void getsetDescriptors() throws Throwable {
+        PyObjectWithGetSets o = new PyObjectWithGetSets(42.0);
+        PyUnicode i = Py.str("i");
+        PyLong oi = Py.val(7);
+        PyUnicode x = Py.str("x");
+        PyUnicode t = Py.str("text");
+
+        PyObject s = Py.str("s"); // Note object type
+        String sval = "Gumby";
+        final PyObject os = Py.str(sval);
+
+        // Attributes of o have the expected value
+        assertEquals(Py.val(42), Abstract.getAttr(o, i));
+        assertEquals(Py.val(42.0), Abstract.getAttr(o, x));
+        assertEquals(Py.str("42"), Abstract.getAttr(o, t));
+        assertEquals(Py.str("42"), Abstract.getAttr(o, s));
+
+        // Setting affects the primitive member
+        Abstract.setAttr(o, i, oi);
+        assertEquals(7, o.i);
+        assertEquals(oi, Abstract.getAttr(o, i));
+
+        Abstract.setAttr(o, s, os);
+        assertEquals(sval, o.s);
+        assertEquals(os, Abstract.getAttr(o, s));
+
+        // Setting a read-only raises an error
+        assertThrows(AttributeError.class,
+                () -> Abstract.setAttr(o, x, os));
+        assertThrows(AttributeError.class,
+                () -> Abstract.delAttr(o, x));
+
+        // Deleting an attribute with set but no delete raises an error
+        assertThrows(AttributeError.class,
+                () -> Abstract.delAttr(o, i));
+        Abstract.setAttr(o, t, os);
+        assertThrows(AttributeError.class,
+                () -> Abstract.delAttr(o, t));
+
+        // Deletion sets this reference type to null internally
+        Abstract.delAttr(o, s);
+        assertNull(o.s);
+        assertEquals(Py.str(""), Abstract.getAttr(o, s)); // special
+    }
+
 }
+

@@ -8,8 +8,8 @@ import java.util.EnumSet;
 
 /**
  * Descriptor for an attribute that has been defined (by a
- * {@code @Member} annotation) to get and optionally set the value, with
- * default type conversions.
+ * {@code @Member} annotations) to get and optionally set or delete the
+ * value, with default type conversions.
  */
 abstract class PyMemberDescr extends DataDescriptor {
 
@@ -200,7 +200,7 @@ abstract class PyMemberDescr extends DataDescriptor {
         descr.delete(obj);
     }
 
-    // XXX @Getter
+    // XXX GetSetDef in CPython, but @Member appropriate in our case
     // Compare CPython member_get_doc in descrobject.c
     static PyObject member_get_doc(PyMemberDescr descr) {
         if (descr.doc == null) { return Py.None; }
@@ -208,8 +208,8 @@ abstract class PyMemberDescr extends DataDescriptor {
     }
 
     /**
-     * Create a {@code MethodDef} with behaviour specific to the class
-     * of object being exposed.
+     * Create a {@code PyMemberDescr} with behaviour specific to the
+     * class of object being exposed.
      *
      * @param objclass Python type that owns the descriptor
      * @param name by which member known externally
@@ -242,7 +242,7 @@ abstract class PyMemberDescr extends DataDescriptor {
         }
     }
 
-    protected static final String UNSUPPORTED_TYPE =
+    private static final String UNSUPPORTED_TYPE =
             "@Member target %.50s has unsupported type %.50s";
 
     private static class _int extends PyMemberDescr {
@@ -289,8 +289,7 @@ abstract class PyMemberDescr extends DataDescriptor {
     }
 
     /** Behaviour for reference types. */
-    private static abstract class Reference
-            extends PyMemberDescr {
+    private static abstract class Reference extends PyMemberDescr {
 
         /**
          * Controls what happens when the attribute implementation is
@@ -349,7 +348,7 @@ abstract class PyMemberDescr extends DataDescriptor {
         protected void set(PyObject obj, PyObject value)
                 throws TypeError, Throwable {
             if (!Abstract.typeCheck(value, PyUnicode.TYPE))
-                throw attrMustBeSet(value, "a string");
+                throw attrMustBe("a string", value);
             String v = value.toString();
             handle.set(obj, v);
         }

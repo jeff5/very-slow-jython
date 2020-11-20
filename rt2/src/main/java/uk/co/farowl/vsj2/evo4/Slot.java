@@ -394,6 +394,19 @@ enum Slot {
         /**
          * Generate a method type in which occurrences of the
          * {@link Self} class are replaced by the given class {@code c}.
+         * When defining the implementation of a special function, it is
+         * convenient to have the type of some arguments (usually just
+         * the first) be the defining class, whereas the method handle
+         * offered to the run-time must be generic ({@code PyObject}).
+         * We therefore specify the expected signature of a slot in
+         * terms of a dummy and provide this method for generating from
+         * it the two signatures needed, the one to which the
+         * implementation is expected to conform, and the one acceptable
+         * to the run-time.
+         *
+         * @param type signature with the dummy {@link Self}
+         * @param c class to substitute for {@link Self}
+         * @return signature after substitution
          */
         static MethodType replaceSelf(MethodType type, Class<?> c) {
             int n = type.parameterCount();
@@ -404,6 +417,5 @@ enum Slot {
             }
             return type;
         }
-
     }
 }

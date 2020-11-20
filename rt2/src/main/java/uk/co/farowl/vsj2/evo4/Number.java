@@ -352,10 +352,12 @@ class Number extends Abstract {
      *
      * @param o to convert
      * @return converted value
-     * @throws Throwable
+     * @throws TypeError if {@code __float__} is defined but does nor
+     *             return a {@code float}
+     * @throws Throwable on other errors
      */
     // Compare CPython abstract.c: PyNumber_Float
-    static PyFloat toFloat(PyObject o) throws Throwable {
+    static PyFloat toFloat(PyObject o) throws TypeError, Throwable {
         /*
          * Ever so similar to PyFloat.asDouble, but returns always
          * exactly a PyFloat, constructed if necessary from the value in

@@ -198,6 +198,7 @@ class PyType implements PyObject {
      */
     private void fillDictionary(Spec spec) {
         addMembers(spec);
+        addGetSets(spec);
         // XXX fill slots
         deduceFlags();
     }
@@ -216,6 +217,27 @@ class PyType implements PyObject {
         // XXX This is still rather crude
 
         for (Map.Entry<String, PyMemberDescr> e : members.entrySet()) {
+            PyUnicode k = new PyUnicode(e.getKey());
+            PyObject v = e.getValue();
+            dict.put(k, v);
+        }
+
+    }
+
+    /**
+     * Add get-set attributes to this type discovered through the specification.
+     *
+     * @param spec to apply
+     */
+    private void addGetSets(Spec spec) {
+
+        // Discover members through the exposer
+        Map<String, PyGetSetDescr> members =
+                Exposer.getsetDescrs(spec.lookup, spec.implClass, this);
+
+        // XXX This is still rather crude
+
+        for (Map.Entry<String, PyGetSetDescr> e : members.entrySet()) {
             PyUnicode k = new PyUnicode(e.getKey());
             PyObject v = e.getValue();
             dict.put(k, v);

@@ -14,8 +14,17 @@ abstract class DataDescriptor extends Descriptor {
      * RESTRICTED forms cause a call to {@code sys.audit} and are here
      * for compatibility with that eventual idea.)
      */
+    // XXX CPython getset has no flags (only member): demote?
     final EnumSet<Flag> flags;
 
+    /**
+     * Create the common part of {@code DataDescriptor} sub-classes.
+     *
+     * @param descrtype actual Python type of descriptor
+     * @param objclass to which the descriptor applies
+     * @param name of the attribute
+     * @param flags characteristics controlling access
+     */
     DataDescriptor(PyType descrtype, PyType objclass, String name,
             EnumSet<Flag> flags) {
         super(descrtype, objclass, name);
@@ -122,14 +131,11 @@ abstract class DataDescriptor extends Descriptor {
      * {@code value}, e.g. "<u>__dict__</u> must be set to <u>a
      * dictionary</u>, not a '<u>list</u>' object".
      *
-     * @param value provided to set this attribute in some object
      * @param kind expected kind of thing
+     * @param value provided to set this attribute in some object
      * @return exception to throw
      */
-    protected TypeError attrMustBeSet(PyObject value, String kind) {
-        String msg = "%.50s must be set to %s, not a '%.50s' object";
-        return new TypeError(msg, name, kind,
-                value.getType().getName());
+    protected TypeError attrMustBe(String kind, PyObject value) {
+        return Abstract.attrMustBe(name, kind, value);
     }
-
 }

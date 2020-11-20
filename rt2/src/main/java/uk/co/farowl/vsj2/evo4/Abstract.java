@@ -199,8 +199,8 @@ class Abstract {
     }
 
     /**
-     * {@code o[key]}  with Python semantics, where {@code o} may be a mapping or a
-     * sequence.
+     * {@code o[key]} with Python semantics, where {@code o} may be a
+     * mapping or a sequence.
      *
      * @param o object to operate on
      * @param key index
@@ -220,8 +220,8 @@ class Abstract {
     }
 
     /**
-     * {@code o[key] = value}  with Python semantics, where {@code o} may be a mapping or
-     * a sequence.
+     * {@code o[key] = value} with Python semantics, where {@code o} may
+     * be a mapping or a sequence.
      *
      * @param o object to operate on
      * @param key index
@@ -243,8 +243,8 @@ class Abstract {
     }
 
     /**
-     * {@code del o[key]} with Python semantics, where {@code o} may be a mapping or a
-     * sequence.
+     * {@code del o[key]} with Python semantics, where {@code o} may be
+     * a mapping or a sequence.
      *
      * @param o object to operate on
      * @param key index at which to delete element
@@ -325,7 +325,7 @@ class Abstract {
         }
     }
 
-    // /** {@code o.name} with Python semantics.  */
+    // /** {@code o.name} with Python semantics. */
     // // Compare CPython PyObject_GetAttrString in object.c
     // static PyObject getAttr(PyObject o, String name)
     // throws AttributeError, Throwable {
@@ -372,7 +372,7 @@ class Abstract {
         }
     }
 
-    // /** {@code o.name} with Python semantics.  */
+    // /** {@code o.name} with Python semantics. */
     // // Compare CPython PyObject_GetAttrString in object.c
     // static void setAttr(PyObject o, String name, PyObject value)
     // throws AttributeError, Throwable {
@@ -616,6 +616,37 @@ class Abstract {
     static AttributeError noAttributeOnType(PyType type, Object name) {
         String fmt = "'%.50s' object has no attribute '%.50s'";
         return new AttributeError(fmt, type.getName(), name);
+    }
+
+    /**
+     * Create a {@link TypeError} with a message along the lines "N must
+     * be set to T, not a X object" involving the name N of the
+     * attribute, any descriptive phrase T and the type X of
+     * {@code value}, e.g. "<u>__dict__</u> must be set to <u>a
+     * dictionary</u>, not a '<u>list</u>' object".
+     *
+     * @param name of the attribute
+     * @param kind expected kind of thing
+     * @param value provided to set this attribute in some object
+     * @return exception to throw
+     */
+    static TypeError attrMustBe(String name, String kind,
+            PyObject value) {
+        String msg = "%.50s must be set to %.50s, not a '%.50s' object";
+        return new TypeError(msg, name, kind,
+                value.getType().getName());
+    }
+
+    /**
+     * Create a {@link TypeError} with a message along the lines "N must
+     * be set to a string, not a X object".
+     *
+     * @param name of the attribute
+     * @param value provided to set this attribute in some object
+     * @return exception to throw
+     */
+    static TypeError attrMustBeString(String name, PyObject value) {
+        return attrMustBe(name, "a string", value);
     }
 
     /**

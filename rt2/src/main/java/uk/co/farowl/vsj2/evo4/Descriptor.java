@@ -1,5 +1,7 @@
 package uk.co.farowl.vsj2.evo4;
 
+import uk.co.farowl.vsj2.evo4.Slot.EmptyException;
+
 /**
  * The base class of many built-in descriptors. Descriptors are a
  * fundamental component of the Python type system, populating the
@@ -25,6 +27,8 @@ abstract class Descriptor extends AbstractPyObject
             "descriptor '%s' of '%.100s' object needs an argument";
     protected static final String DESCRIPTOR_REQUIRES =
             "descriptor '%s' requires a '%.100s' object but received a '%.100s'";
+    /** Single re-used instance of {@link Slot.EmptyException} */
+    protected static final EmptyException EMPTY = new EmptyException();
 
     /**
      * Python {@code type} that defines the attribute being described
