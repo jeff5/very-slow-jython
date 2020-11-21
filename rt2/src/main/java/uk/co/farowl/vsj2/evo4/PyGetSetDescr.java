@@ -6,7 +6,6 @@ import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.invoke.MethodType;
 import java.lang.invoke.WrongMethodTypeException;
 import java.lang.reflect.Method;
-import java.util.EnumSet;
 
 import uk.co.farowl.vsj2.evo4.Exposed.Deleter;
 import uk.co.farowl.vsj2.evo4.Exposed.Getter;
@@ -105,14 +104,12 @@ class PyGetSetDescr extends DataDescriptor {
      * @param get handle on getter method (or {@code null})
      * @param set handle on setter method (or {@code null})
      * @param delete handle on deleter method (or {@code null})
-     * @param flags characterising allowed access
      * @param doc documentation string
      */
     // Compare CPython PyDescr_NewGetSet
     PyGetSetDescr(PyType objclass, String name, MethodHandle get,
-            MethodHandle set, MethodHandle delete, EnumSet<Flag> flags,
-            String doc) {
-        super(TYPE, objclass, name, flags);
+            MethodHandle set, MethodHandle delete, String doc) {
+        super(TYPE, objclass, name);
         this.get = get != null ? get : EMPTY_GETTER;
         this.set = set != null ? set : EMPTY_SETTER;
         this.delete = delete != null ? delete : EMPTY_DELETER;
@@ -359,15 +356,7 @@ class PyGetSetDescr extends DataDescriptor {
             MethodHandle s = unreflect(lookup, SETTER, set);
             MethodHandle d = unreflect(lookup, DELETER, delete);
 
-            // Compute flags from what was defined
-            // XXX Or let set & delete default implementations raise?
-            // XXX CPython getset has no flags (only member)
-            EnumSet<Flag> flags = EnumSet.noneOf(Flag.class);
-            if (set == null && delete == null)
-                flags.add(Flag.READONLY);
-
-            return new PyGetSetDescr(objclass, name, g, s, d, flags,
-                    doc);
+            return new PyGetSetDescr(objclass, name, g, s, d, doc);
         }
 
         /**

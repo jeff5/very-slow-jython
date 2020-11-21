@@ -594,13 +594,13 @@ In Java, this gives rise to a fair few related classes.
 
     Descriptor <|-- DataDescriptor
     abstract class DataDescriptor {
-        flags : EnumSet<Flag>
         {abstract} {method} __set__()
         {abstract} {method} __delete__()
     }
 
     DataDescriptor <|-- PyMemberDescr
     abstract class PyMemberDescr {
+        flags : EnumSet<Flag>
         handle : VarHandle
         doc : String
         {method} __get__()
@@ -685,13 +685,13 @@ is the result of an ``@Member`` annotation applied to a field.
 
     Descriptor <|-- DataDescriptor
     abstract class DataDescriptor {
-        flags : EnumSet<DataDescriptor.Flag>
         {abstract} {method} __set__()
         {abstract} {method} __delete__()
     }
 
     DataDescriptor <|-- PyMemberDescr
     abstract class PyMemberDescr {
+        flags : EnumSet<PyMemberDescr.Flag>
         handle : VarHandle
         doc : String
         {method} __get__()
@@ -702,7 +702,7 @@ is the result of an ``@Member`` annotation applied to a field.
         delete()
     }
 
-    enum DataDescriptor.Flag {
+    enum PyMemberDescr.Flag {
         READONLY
         OPTIONAL
         READ_RESTRICTED
@@ -730,7 +730,7 @@ is the result of an ``@Member`` annotation applied to a field.
         set()
     }
 
-    DataDescriptor .right.> DataDescriptor.Flag
+    PyMemberDescr .right.> PyMemberDescr.Flag
     PyMemberDescr <|-- PyMemberDescr._int
     PyMemberDescr <|-- PyMemberDescr._double
     PyMemberDescr.Reference <|-- PyMemberDescr._String
@@ -861,29 +861,33 @@ Attributes (``PyGetSetDescr``)
 ******************************
 
 During type creation,
-a ``PyGetSetDescr`` that appears in the dictionary of the ``PyType``,
-is created from a ``GetSetDef`` specified by the class.
-A ``GetSetDef`` (``PyGetSetDef`` in CPython),
-like a ``MemberDef``,
-represents a field occurring in instances of a Java class
-that is to be exposed as the attribute of a Python ``object``.
+a ``PyGetSetDescr`` that defines an attribute
+in the dictionary of the ``PyType``,
+is created from annotations that identify
+the get, set and delete methods associated with the attribute by name.
 
-Unlike those of a ``MemberDef``,
-the ``get`` and ``set`` operations of a ``GetSetDef`` are provided by
-accessors that the class containing the attribute must define.
-This offers an unlimited range of possibilities
-for computing or transforming the stored value to expose it,
-while ``MemberDef`` is limited to actual members
-with a type among those predefined.
+The statically-allocated ``PyGetSetDef`` in CPython,
+that ends up as part of the ``PyGetSetDescr``,
+has a counterpart ``GetSetDef`` in the Java implementation.
+However, that exists only while we find all the annotated methods
+(and the documentation string)
+for each attribute in the implementation of a type.
+The ``PyGetSetDescr`` finally holds all the necessary information directly.
+The ``java.lang.reflect.Method`` objects in our ``GetSetDef``
+become ``MethodHandle``\s at that point
+and the ephemeral ``GetSetDef`` is discarded.
 
-In CPython,
-``PyGetSetDef``\s occur in short, statically-defined tables
-containing get, and (optionally) set, C function pointers.
-We might identify the getter and setter methods in Java by annotation,
-and insert ``MethodHandle``\s for the identified ``get`` and ``set``.
-These methods will have been written to convert between
+Unlike those of a ``PyMemberDescr``,
+the ``get``, ``set`` and ``delete`` operations of a ``PyGetSetDescr``
+are provided explicitly by the class containing the attribute.
+These methods must at least convert between
 the internal representation of the attribute
 and one acceptable as a Python object.
+However, the scheme offers an unlimited range of possibilities
+for computing or transforming the stored value to expose it,
+while ``PyMemberDescr`` is limited to actual fields
+with a type among those predefined.
+
 
 ..  uml::
     :caption: Get-Set Descriptor
@@ -891,47 +895,71 @@ and one acceptable as a Python object.
     abstract class Descriptor {
         name
         qualname
+        {abstract} {method} __get__()
     }
     Descriptor -left-> PyType : objclass
 
-    Descriptor <|-- PyGetSetDescr
+    Descriptor <|-- DataDescriptor
+    abstract class DataDescriptor {
+        {abstract} {method} __set__()
+        {abstract} {method} __delete__()
+    }
+
+    DataDescriptor <|-- PyGetSetDescr
     class PyGetSetDescr {
         {method} __get__()
         {method} __set__()
+        {method} __delete__()
+        get : MethodHandle
+        set : MethodHandle
+        delete : MethodHandle
+        doc : String
     }
-    PyGetSetDescr --> GetSetDef : getset
+    PyGetSetDescr <.right. GetSetDef : <<specifies>>
 
     class GetSetDef {
         name
-        get : MethodHandle
-        set : MethodHandle
+        get : Method
+        set : Method
+        delete : Method
+        doc : String
     }
 
 The choice to use ``MethodHandle`` here opens the possibility,
 in a later implementation,
-of making the particular ``get`` or ``set`` method
+of making the particular ``get``, ``set`` or ``delete`` method
 the target of an attribute-access ``CallSite``,
-guarded on the class of the object in which the attribute named is sought.
+guarded on the type of the object in which the attribute named is sought.
 
-The ``__get__`` and ``__set__`` of a ``PyGetSetDescr``
-get and set the field in instances of the defining type
-by invoking the corresponding handles in the attached ``GetSetDef``.
+The ``__get__``, ``__set__`` and ``__delete__`` of a ``PyGetSetDescr``,
+get, set and delete the attribute in instances of the defining type,
+by invoking the corresponding handle.
+The implementation is free
+to make any interpretation it needs of those actions.
+The attribute may be made read-only by simply not specifying a setter,
+and indelible by not specifying a deleter.
+When not defined,
+any of these handles defaults to a method that throws ``Slot.EmptyException``,
+which the surface methods ``__get__``, ``__set__`` and ``__delete__``
+catch to raise an ``AttributeError`` with an informative message.
 
-The member may be made read-only by simply not specifying a setter.
-The ``GetSetDef.set`` handle could then default to throw an exception
-that the descriptor should catch,
-since only it has the information to raise an ``AttributeError``
-with an informative message.
+(In the CPython code base,
+the response to a disallowed deletion is hand-crafted per attribute,
+detecting the value ``NULL`` in the setter method.
+Objects mostly produce ``AttributeError``, but some ``TypeError``,
+and in ``pyexpat.c`` it is ``RuntimeError``.
+This unwelcome variety remains available to us by defining a deleter.)
 
 CPython adds a ``void* closure`` member to its ``PyGetSetDef``,
 and provides it as an extra parameter when calling
 the ``get`` and ``set`` methods of the ``PyGetSetDef``.
 There are no uses of this in the CPython code base,
 and we do not replicate it.
-The closure must be information available when the ``GetSetDef`` is created.
-If a target method needs additional arguments,
+The closure must be information available when the ``PyGetSetDef`` is created,
+that is, statically and independent of the object instance.
+If an operation needs additional information,
 preserving context from that point,
-they could be bound into the method handle as it is produced.
+it could be bound into the defining method.
 
 
 .. _PyMethodDescr:

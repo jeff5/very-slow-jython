@@ -7,12 +7,12 @@ import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-import uk.co.farowl.vsj2.evo4.DataDescriptor.Flag;
 import uk.co.farowl.vsj2.evo4.Exposed.Deleter;
 import uk.co.farowl.vsj2.evo4.Exposed.DocString;
 import uk.co.farowl.vsj2.evo4.Exposed.Getter;
 import uk.co.farowl.vsj2.evo4.Exposed.Setter;
 import uk.co.farowl.vsj2.evo4.PyGetSetDescr.GetSetDef;
+import uk.co.farowl.vsj2.evo4.PyMemberDescr.Flag;
 
 /**
  * Methods for tabulating the attributes of classes that define Python
@@ -75,9 +75,9 @@ class Exposer {
         if (memberAnno != null) {
             name = memberAnno.value();
             if (memberAnno.readonly())
-                flags.add(DataDescriptor.Flag.READONLY);
+                flags.add(Flag.READONLY);
             if (memberAnno.optional())
-                flags.add(DataDescriptor.Flag.OPTIONAL);
+                flags.add(Flag.OPTIONAL);
         }
 
         // May also have DocString annotation

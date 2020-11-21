@@ -11,10 +11,8 @@ import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
-import uk.co.farowl.vsj2.evo4.DataDescriptor.Flag;
 import uk.co.farowl.vsj2.evo4.Exposed.DocString;
 import uk.co.farowl.vsj2.evo4.Exposed.Member;
-import uk.co.farowl.vsj2.evo4.PyType.Spec;
 
 /**
  * Unit tests for the {@link Exposer} and the {@link Descriptor}s it
@@ -101,7 +99,7 @@ class ExposerTest {
         // Now text2
         md = mds.get("text2");
         assertNull(md.doc);
-        assertEquals(EnumSet.of(DataDescriptor.Flag.READONLY),
+        assertEquals(EnumSet.of(PyMemberDescr.Flag.READONLY),
                 md.flags);
     }
 
