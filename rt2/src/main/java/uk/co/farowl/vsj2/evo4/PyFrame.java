@@ -232,7 +232,6 @@ abstract class PyFrame implements PyObject {
      * Set the local variable named by {@code code.varnames[i]}
      *
      * @param i index of variable name in {@code code.varnames}
-     * @param i index of variable name in {@code code.varnames}
      * @param v to assign to variable named {@code code.varnames[i]}
      */
     abstract void setLocal(int i, PyObject v);

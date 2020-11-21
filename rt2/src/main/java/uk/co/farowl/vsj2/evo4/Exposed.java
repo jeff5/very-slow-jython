@@ -10,6 +10,11 @@ import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 
+/**
+ * Annotations that may be placed on elements of a Java class intended
+ * as the implementation of a Python type, and that the {@link Exposer}
+ * will look for when during the definition of a {@link PyType}.
+ */
 interface Exposed {
 
     @Documented
@@ -32,13 +37,24 @@ interface Exposed {
     @Target(FIELD)
     @interface Member {
 
-        /** Exposed name of the member if different from the field. */
+        /**
+         * Exposed name of the member if different from the field.
+         *
+         * @return name of the attribute
+         */
         String value() default "";
 
-        /** Member is read-only. */
+        /** @return true if read-only. */
         boolean readonly() default false;
 
-        /** Member can be deleted and not report as None. */
+        /**
+         * Member can be deleted and subsequently it is an
+         * {@link AttributeError} to get or delete it, until it is set
+         * again. By default, when a member implemented by a reference
+         * type is deleted, it behaves as if set to {@code None}.
+         *
+         * @return true if access following delete will raise an error
+         */
         boolean optional() default false;
     }
 
@@ -58,6 +74,8 @@ interface Exposed {
          * method name.
          *
          * {@link Deleter} in a single descriptor.
+         *
+         * @return name of the attribute
          */
         String value() default "";
     }
@@ -79,6 +97,8 @@ interface Exposed {
          *
          * This name will relate the {@link Getter}, {@link Setter} and
          * {@link Deleter} in a single descriptor.
+         *
+         * @return name of the attribute
          */
         String value() default "";
     }
@@ -100,6 +120,8 @@ interface Exposed {
          *
          * This name will relate the {@link Getter}, {@link Setter} and
          * {@link Deleter} in a single descriptor.
+         *
+         * @return name of the attribute
          */
         String value() default "";
     }

@@ -489,17 +489,17 @@ class PyType implements PyObject {
      */
     final boolean isDescr() { return flags.contains(Flag.IS_DESCR); }
 
-    /** Return the base (core use only). */
+    /** @return the base (core use only). */
     PyType getBase() {
         return base;
     }
 
-    /** Return the bases as an array (core use only). */
+    /** @return the bases as an array (core use only). */
     PyType[] getBases() {
         return bases;
     }
 
-    /** Return the MRO as an array (core use only). */
+    /** @return the MRO as an array (core use only). */
     PyType[] getMRO() {
         return mro;
     }
@@ -688,6 +688,8 @@ class PyType implements PyObject {
          * Create (begin) a specification for a {@link PyType} deferring
          * the choice of implementation class. This is the beginning
          * made by {@code type.__new__}.
+         *
+         * @param name of type
          */
         // XXX Does this still work if the lookup is minimal?
         Spec(String name) {
@@ -769,7 +771,8 @@ class PyType implements PyObject {
      * @param kwargs keyword arguments (empty or {@code null} in a type
      *            enquiry).
      * @return new object (or a type if an enquiry).
-     * @throws Throwable
+     * @throws TypeError when cannot create instances
+     * @throws Throwable from implementation slot functions
      */
     static PyObject __call__(PyType type, PyTuple args, PyDict kwargs)
             throws TypeError, Throwable {

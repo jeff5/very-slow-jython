@@ -45,7 +45,7 @@ class Interpreter {
      * @param code compiled code object
      * @param globals global context dictionary
      * @param locals local variables (may be same as {@code globals})
-     * @return
+     * @return result of evaluation
      */
     PyObject evalCode(PyCode code, PyDict globals, PyObject locals) {
         globals.putIfAbsent(ID.__builtins__, builtinsModule);
@@ -57,6 +57,8 @@ class Interpreter {
     /**
      * Get the current frame or null in there is none. The current frame
      * is the one at the top of the stack in the current ThreadState.
+     *
+     * @return the current frame or null
      */
     static PyFrame getFrame() { return ThreadState.get().frame; }
 

@@ -88,18 +88,32 @@ class PyType implements PyObject {
     MethodHandle mp_subscript;
     MethodHandle mp_ass_subscript;
 
-    /** Construct a type with given name and {@code object} as base. */
+    /**
+     * Construct a type with given name and {@code object} as base.
+     *
+     * @param name of the new type
+     * @param implClass implementation class
+     */
     PyType(String name, Class<? extends PyObject> implClass) {
         this(name, implClass, EMPTY_TYPE_ARRAY, Spec.DEFAULT_FLAGS);
     }
 
-    /** Construct a type {@code object} exactly. */
+    /**
+     * Construct a type {@code object} exactly.
+     *
+     * @return {@code object}
+     */
     static PyType forObject() {
         return new PyType("object", PyBaseObject.class, null,
                 Spec.DEFAULT_FLAGS);
     }
 
-    /** Construct a type from the given specification. */
+    /**
+     * Construct a type from the given specification.
+     *
+     * @param spec specification
+     * @return the constructed {@code PyType}
+     */
     static PyType fromSpec(Spec spec) {
         return new PyType(spec.name, spec.implClass, spec.getBases(),
                 spec.flags);
@@ -187,7 +201,12 @@ class PyType implements PyObject {
             throw new TypeError("cannot update slots of %s", name);
     }
 
-    /** True iff b is a sub-type (on the MRO of) this type. */
+    /**
+     * True iff b is a sub-type (on the MRO of) this type.
+     *
+     * @param b to seek along the MRO
+     * @return true if found
+     */
     boolean isSubTypeOf(PyType b) {
         // Only crudely supported. Later, search the MRO of this for b.
         // Awaits PyType.forClass() factory method.
@@ -198,17 +217,17 @@ class PyType implements PyObject {
 
     boolean isMutable() { return flags.contains(Flag.MUTABLE); }
 
-    /** Return the base (core use only). */
+    /** @return the base (core use only). */
     PyType getBase() {
         return base;
     }
 
-    /** Return the bases as an array (core use only). */
+    /** @return the bases as an array (core use only). */
     PyType[] getBases() {
         return bases;
     }
 
-    /** Return the MRO as an array (core use only). */
+    /** @return the MRO as an array (core use only). */
     PyType[] getMRO() {
         return mro;
     }
@@ -242,39 +261,58 @@ class PyType implements PyObject {
     /** Specification for a type. A data structure with mutators. */
     static class Spec {
 
+        /** Default characteristics of the type. */
         final static EnumSet<Flag> DEFAULT_FLAGS =
                 EnumSet.of(Flag.BASETYPE);
 
+        /** Name of the class being specified. */
         final String name;
-        final Class<? extends PyObject> implClass;
-        final List<PyType> bases = new LinkedList<>();
+
+        /** The implementation class in which to look up names. */
+        Class<? extends PyObject> implClass;
+
+        /** Python types that are bases of the type being specified. */
+        private final List<PyType> bases = new LinkedList<>();
+
+        /** Characteristics of the type being specified. */
         EnumSet<Flag> flags = EnumSet.copyOf(DEFAULT_FLAGS);
 
-        /** Create (begin) a specification for a {@link PyType}. */
+        /**
+         * Create (begin) a specification for a {@link PyType}.
+         *
+         * @param name of the type
+         * @param implClass in which operations are defined
+         */
         Spec(String name, Class<? extends PyObject> implClass) {
             this.name = name;
             this.implClass = implClass;
         }
 
-        /** Specify a base for the type. */
-        Spec base(PyType b) {
-            bases.add(b);
-            return this;
-        }
+        /**
+         * Specify a base for the type.
+         *
+         * @param b base to append to the bases
+         * @return this
+         */
+        Spec base(PyType b) { bases.add(b); return this; }
 
-        /** Specify a characteristic (type flag) to be added. */
-        Spec flag(Flag f) {
-            flags.add(f);
-            return this;
-        }
+        /**
+         * Specify a characteristic (type flag) to be added.
+         *
+         * @param f to add to the current flags
+         * @return this
+         */
+        Spec flag(Flag f) { flags.add(f); return this; }
 
-        /** Specify a characteristic (type flag) to be removed. */
-        Spec flagNot(Flag f) {
-            flags.remove(f);
-            return this;
-        }
+        /**
+         * Specify a characteristic (type flag) to be removed.
+         *
+         * @param f to remove from the current flags
+         * @return this
+         */
+        Spec flagNot(Flag f) { flags.remove(f); return this; }
 
-        /** Return the cumulative bases as an array. */
+        /** @return the cumulative bases as an array. */
         PyType[] getBases() {
             if (bases.isEmpty()) // XXX return empty array (see uses)?
                 return ONLY_OBJECT; // None specified: default
@@ -303,7 +341,7 @@ class PyType implements PyObject {
      * @param kwargs keyword arguments (empty or {@code null} in a type
      *            enquiry).
      * @return new object (or a type if an enquiry).
-     * @throws Throwable
+     * @throws Throwable from implementation slot functions
      */
     static PyObject tp_call(PyType type, PyTuple args, PyDict kwargs)
             throws Throwable {

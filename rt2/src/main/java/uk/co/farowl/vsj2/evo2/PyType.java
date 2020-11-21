@@ -33,7 +33,12 @@ class PyType implements PyObject {
     MethodHandle str;
     MethodHandle richcompare;
 
-    /** Construct a type object with given name and implementation. */
+    /** Construct a type object with given name and implementation.
+     *
+     * @param name of the Python type
+     * @param impl implementation class
+     */
+
     PyType(String name, Class<? extends PyObject> impl) {
         this.name = name;
         this.implClass = impl;
@@ -54,6 +59,10 @@ class PyType implements PyObject {
 
     /**
      * Construct a type object with given name, base and implementation.
+     *
+     * @param name of the Python type
+     * @param base to be identified for the type
+     * @param implClass implementation class
      */
     PyType(String name, PyType base,
             Class<? extends PyObject> implClass) {
@@ -70,7 +79,11 @@ class PyType implements PyObject {
         slot.setSlot(this, mh);
     }
 
-    /** True iff b is a sub-type (on the MRO of) this type. */
+    /** True iff b is a sub-type (on the MRO of) this type.
+     *
+     * @param b to seek along the MRO
+     * @return true if found
+     */
     boolean isSubTypeOf(PyType b) {
         // Only crudely supported. Later, search the MRO of this for b.
         // Awaits PyType.forClass() factory method.
