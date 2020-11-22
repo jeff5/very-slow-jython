@@ -45,7 +45,7 @@ class PyByteCode5 {
         assertEquals(Py.val(5), result);
     }
 
-    @Test
+    // @Test
     void time_factorial_loop() {
         long[] times = new long[NTIMES];
         PyDict globals = Py.dict();

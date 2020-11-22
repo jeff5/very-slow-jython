@@ -1,8 +1,11 @@
 package uk.co.farowl.vsj2.evo4;
 
+import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumSet;
+
+import uk.co.farowl.vsj2.evo4.PyType.Spec;
 
 /**
  * The Python {@code code} object. (Compare {@code PyCodeObject} in
@@ -12,7 +15,8 @@ import java.util.EnumSet;
 abstract class PyCode extends AbstractPyObject {
 
     /** The type {@code code}. */
-    static final PyType TYPE = new PyType("code", PyCode.class);
+    static final PyType TYPE = PyType.fromSpec(
+            new Spec("code", PyCode.class, MethodHandles.lookup()));
 
     /** Characteristics of a PyCode (as CPython co_flags). */
     enum Trait {
@@ -349,9 +353,9 @@ abstract class PyCode extends AbstractPyObject {
 
     // slot functions -------------------------------------------------
 
-    public PyObject __repr__(PyCode self) {
-        return Py.str(
-                String.format("<code %s %s>", self.name, self.traits));
+    @SuppressWarnings("unused")
+    private PyObject __repr__() {
+        return Py.str(String.format("<code %s %s>", name, traits));
     }
 
 }

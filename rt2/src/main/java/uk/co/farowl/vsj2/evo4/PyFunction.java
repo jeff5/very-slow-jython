@@ -1,5 +1,6 @@
 package uk.co.farowl.vsj2.evo4;
 
+import java.lang.invoke.MethodHandles;
 import java.util.Collection;
 import java.util.EnumSet;
 
@@ -14,8 +15,8 @@ class PyFunction extends AbstractPyObject {
 
     /** The type of Python object this class implements. */
     static final PyType TYPE = PyType
-            .fromSpec(new PyType.Spec("function", PyFunction.class)
-                    .flagNot(Flag.BASETYPE));
+            .fromSpec(new PyType.Spec("function", PyFunction.class,
+                    MethodHandles.lookup()).flagNot(Flag.BASETYPE));
 
     /** __code__, the code object */
     PyCode code;
@@ -72,13 +73,15 @@ class PyFunction extends AbstractPyObject {
 
     // slot functions -------------------------------------------------
 
-    static PyObject __repr__(PyFunction func) throws Throwable {
-        return PyUnicode.fromFormat("<function %s>", func.name);
+    @SuppressWarnings("unused")
+    private PyObject __repr__() throws Throwable {
+        return PyUnicode.fromFormat("<function %s>", name);
     }
 
-    static PyObject __call__(PyFunction func, PyTuple args,
-            PyDict kwargs) throws Throwable {
-        PyFrame frame = func.createFrame(args, kwargs);
+    @SuppressWarnings("unused")
+    private PyObject __call__(PyTuple args, PyDict kwargs)
+            throws Throwable {
+        PyFrame frame = createFrame(args, kwargs);
         return frame.eval();
     }
 
@@ -135,9 +138,10 @@ class PyFunction extends AbstractPyObject {
         return frame;
     }
 
-    static PyObject __vectorcall__(PyFunction func, PyObject[] stack,
-            int start, int nargs, PyTuple kwnames) throws Throwable {
-        PyFrame frame = func.createFrame(stack, start, nargs, kwnames);
+    @SuppressWarnings("unused")
+    private PyObject __vectorcall__(PyObject[] stack, int start,
+            int nargs, PyTuple kwnames) throws Throwable {
+        PyFrame frame = createFrame(stack, start, nargs, kwnames);
         return frame.eval();
     }
 

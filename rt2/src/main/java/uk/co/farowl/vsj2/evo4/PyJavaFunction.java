@@ -1,13 +1,15 @@
 package uk.co.farowl.vsj2.evo4;
 
 import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
 
 /** The Python {@code builtin_function_or_method} object. */
 class PyJavaFunction implements PyObject {
 
     /** The type of Python object this class implements. */
-    static final PyType TYPE = PyType.fromSpec(new PyType.Spec(
-            "builtin_function_or_method", PyJavaFunction.class));
+    static final PyType TYPE = PyType.fromSpec( //
+            new PyType.Spec("builtin_function_or_method",
+                    PyJavaFunction.class, MethodHandles.lookup()));
 
     @Override
     public PyType getType() { return TYPE; }
@@ -41,22 +43,20 @@ class PyJavaFunction implements PyObject {
 
     // slot functions -------------------------------------------------
 
-    static PyObject __repr__(PyJavaFunction func) throws Throwable {
-        return func.repr();
-    }
-
-    protected PyUnicode repr() {
+    @SuppressWarnings("unused")
+    private PyObject __repr__() throws Throwable {
         return PyUnicode.fromFormat("<built-in function %s>",
-                this.methodDef.name);
+                methodDef.name);
     }
 
-    static PyObject __call__(PyJavaFunction f, PyTuple args,
-            PyDict kwargs) throws Throwable {
+    @SuppressWarnings("unused")
+    private PyObject __call__(PyTuple args, PyDict kwargs)
+            throws Throwable {
         try {
-            return (PyObject) f.opCall.invokeExact(args, kwargs);
+            return (PyObject) opCall.invokeExact(args, kwargs);
         } catch (MethodDef.BadCallException bce) {
             // After the BCE, check() should always throw.
-            f.methodDef.check(args, kwargs);
+            methodDef.check(args, kwargs);
             // It didn't :( so this is an internal error
             throw new InterpreterError(bce,
                     "Unexplained BadCallException in __call__");

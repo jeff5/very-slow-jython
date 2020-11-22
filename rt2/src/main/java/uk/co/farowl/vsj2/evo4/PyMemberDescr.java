@@ -254,9 +254,8 @@ abstract class PyMemberDescr extends DataDescriptor {
     // };
 
     // Compare CPython member_repr in descrobject.c
-    static PyObject __repr__(PyMemberDescr descr) {
-        return descr.descrRepr("member");
-    }
+    @SuppressWarnings("unused")
+    private PyObject __repr__() { return descrRepr("member"); }
 
     /**
      * {@inheritDoc}

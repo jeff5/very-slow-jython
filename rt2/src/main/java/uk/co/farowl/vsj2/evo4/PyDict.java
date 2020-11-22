@@ -1,5 +1,6 @@
 package uk.co.farowl.vsj2.evo4;
 
+import java.lang.invoke.MethodHandles;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
@@ -13,8 +14,9 @@ class PyDict extends LinkedHashMap<PyObject, PyObject>
         implements Map<PyObject, PyObject>, PyObject {
 
     /** The type of Python object this class implements. */
-    static final PyType TYPE =
-            PyType.fromSpec(new PyType.Spec("dict", PyDict.class));
+    static final PyType TYPE = PyType.fromSpec( //
+            new PyType.Spec("dict", PyDict.class,
+                    MethodHandles.lookup()));
 
     @Override
     public PyType getType() { return TYPE; }
@@ -71,14 +73,15 @@ class PyDict extends LinkedHashMap<PyObject, PyObject>
 
     // slot functions -------------------------------------------------
 
-    static PyObject __repr__(PyDict self) throws Throwable {
-        return Py.str(PyObjectUtil.mapRepr(self));
+    @SuppressWarnings("unused")
+    private PyObject __repr__() throws Throwable {
+        return Py.str(PyObjectUtil.mapRepr(this));
     }
 
-    static PyObject __getitem__(PyDict self, PyObject key)
-            throws Throwable {
+    @SuppressWarnings("unused")
+    private PyObject __getitem__(PyObject key) {
         // This may be over-simplifying things but ... :)
-        return self.get(key);
+        return get(key);
     }
 
     // methods -------------------------------------------------

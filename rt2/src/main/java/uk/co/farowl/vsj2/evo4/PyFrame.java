@@ -1,5 +1,6 @@
 package uk.co.farowl.vsj2.evo4;
 
+import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -70,8 +71,8 @@ import uk.co.farowl.vsj2.evo4.PyCode.Trait;
 abstract class PyFrame implements PyObject {
 
     /** The type {@code frame}. */
-    static final PyType TYPE =
-            PyType.fromSpec(new PyType.Spec("frame", PyFrame.class));
+    static final PyType TYPE = PyType.fromSpec(new PyType.Spec("frame",
+            PyFrame.class, MethodHandles.lookup()));
 
     // Type admits no subclasses.
     @Override
