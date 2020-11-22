@@ -314,20 +314,15 @@ class Number extends Abstract {
         }
 
         else if (Slot.op_int.isDefinedFor(oType)) {
-            /* This should include subclasses of int */
+            // Normalise away subclasses of int
             result = PyLong.fromIntOf(o);
-            if (result.getType() != PyLong.TYPE) {
-                result = new PyLong((PyLong) result);
-            }
-            return result;
+            return PyLong.from((PyLong) result);
         }
 
         else if (Slot.op_index.isDefinedFor(oType)) {
+            // Normalise away subclasses of int
             result = PyLong.fromIndexOrIntOf(o);
-            if (result != null && !(result.getType() == PyLong.TYPE)) {
-                result = new PyLong((PyLong) result);
-            }
-            return result;
+            return PyLong.from((PyLong) result);
         }
 
         // XXX Not implemented: else try the __trunc__ method

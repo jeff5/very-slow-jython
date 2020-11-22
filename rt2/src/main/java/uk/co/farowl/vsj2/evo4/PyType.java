@@ -287,7 +287,7 @@ class PyType implements PyObject {
         setMROfromBases(declaredBases);
 
         // Fill slots from implClass or bases
-        setAllSlots(LOOKUP);
+        setAllSlots(lookup);
     }
 
     /**

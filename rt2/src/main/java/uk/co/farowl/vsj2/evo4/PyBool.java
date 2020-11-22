@@ -1,5 +1,6 @@
 package uk.co.farowl.vsj2.evo4;
 
+import java.lang.invoke.MethodHandles;
 import java.math.BigInteger;
 
 /** The Python {@code bool} object. */
@@ -7,73 +8,81 @@ class PyBool extends PyLong {
 
     /** The type of Python object this class implements. */
     static final PyType TYPE = PyType.fromSpec( //
-            new PyType.Spec("bool", PyBool.class) //
-                    .base(PyLong.TYPE) //
-                    .flagNot(PyType.Flag.BASETYPE));
+            new PyType.Spec("bool", PyBool.class,
+                    MethodHandles.lookup()) //
+                            .base(PyLong.TYPE) //
+                            .flagNot(PyType.Flag.BASETYPE));
 
     // Private so we can guarantee the doubleton. :)
-    private PyBool(boolean value) {
-        super(TYPE, value ? BigInteger.ONE : BigInteger.ZERO);
-    }
+    private PyBool(BigInteger value) { super(TYPE, value); }
 
     /** Python {@code False} object. */
-    static final PyBool False = new PyBool(false);
+    static final PyBool False = new PyBool(BigInteger.ZERO);
 
     /** Python {@code True} object. */
-    static final PyBool True = new PyBool(true);
+    static final PyBool True = new PyBool(BigInteger.ONE);
 
     // slot functions -------------------------------------------------
 
-    static PyObject __repr__(PyBool v) {
-        return Py.str(v.value == BigInteger.ZERO ? "False" : "True");
+    private static final PyUnicode STR_FALSE = Py.str("False");
+    private static final PyUnicode STR_TRUE = Py.str("True");
+
+    @Override
+    protected final PyObject __repr__() {
+        return value == BigInteger.ZERO ? STR_FALSE : STR_TRUE;
     }
 
-    static PyObject __and__(PyBool v, PyObject w) {
+    @Override
+    protected final PyObject __and__(PyObject w) {
         if (w instanceof PyBool)
-            return Py.val(v == True && w == True);
+            return w == True ? this : False;
         else
             // w is not a bool, go arithmetic.
-            return PyLong.__and__(v, w);
+            return super.__and__(w);
     }
 
-    static PyObject __rand__(PyBool w, PyObject v) {
+    @Override
+    protected final PyObject __rand__(PyObject v) {
         if (v instanceof PyBool)
-            return Py.val(v == True && w == True);
+            return v == True ? this : False;
         else
             // v is not a bool, go arithmetic.
-            return PyLong.__rand__(w, v);
+            return super.__rand__(v);
     }
 
-    static PyObject __or__(PyBool v, PyObject w) {
+    @Override
+    protected final PyObject __or__(PyObject w) {
         if (w instanceof PyBool)
-            return Py.val(v == True || w == True);
-        else
-            // v is not a bool, go arithmetic.
-            return PyLong.__or__(v, w);
-    }
-
-    static PyObject __ror__(PyBool w, PyObject v) {
-        if (v instanceof PyBool)
-            return Py.val(v == True || w == True);
-        else
-            // v is not a bool, go arithmetic.
-            return PyLong.__ror__(w, v);
-    }
-
-    static PyObject __xor__(PyBool v, PyObject w) {
-        if (w instanceof PyBool)
-            return Py.val(v != w);
+            return w == False ? this : True;
         else
             // w is not a bool, go arithmetic.
-            return PyLong.__xor__(v, w);
+            return super.__or__(w);
     }
 
-    static PyObject __rxor__(PyBool w, PyObject v) {
+    @Override
+    protected final PyObject __ror__(PyObject v) {
         if (v instanceof PyBool)
-            return Py.val(v != w);
+            return v == False ? this : True;
         else
             // v is not a bool, go arithmetic.
-            return PyLong.__rxor__(w, v);
+            return super.__ror__(v);
     }
 
+    @Override
+    protected final PyObject __xor__(PyObject w) {
+        if (w instanceof PyBool)
+            return w == this ? False : True;
+        else
+            // w is not a bool, go arithmetic.
+            return super.__xor__(w);
+    }
+
+    @Override
+    protected final PyObject __rxor__(PyObject v) {
+        if (v instanceof PyBool)
+            return v == this ? False : True;
+        else
+            // v is not a bool, go arithmetic.
+            return super.__rxor__(v);
+    }
 }

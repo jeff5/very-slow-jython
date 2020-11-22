@@ -1,5 +1,6 @@
 package uk.co.farowl.vsj2.evo4;
 
+import java.lang.invoke.MethodHandles;
 import java.math.BigInteger;
 
 /** The Python {@code float} object. */
@@ -7,7 +8,8 @@ class PyFloat extends AbstractPyObject {
 
     /** The type {@code float}. */
     static final PyType TYPE = PyType.fromSpec( //
-            new PyType.Spec("float", PyFloat.class));
+            new PyType.Spec("float", PyFloat.class,
+                    MethodHandles.lookup()));
 
     static PyFloat ZERO = new PyFloat(0.0);
     final double value;
@@ -31,64 +33,9 @@ class PyFloat extends AbstractPyObject {
 
     // slot functions -------------------------------------------------
 
-    static PyObject __neg__(PyFloat v) { return new PyFloat(-v.value); }
-
-    static PyObject __abs__(PyFloat v) {
-        return new PyFloat(Math.abs(v.value));
-    }
-
-    static PyObject __add__(PyFloat v, PyObject w) {
-        try {
-            return new PyFloat(v.value + valueOf(w));
-        } catch (ClassCastException cce) {
-            return Py.NotImplemented;
-        }
-    }
-
-    static PyObject __radd__(PyFloat w, PyObject v) {
-        try {
-            return new PyFloat(valueOf(v) + w.value);
-        } catch (ClassCastException cce) {
-            return Py.NotImplemented;
-        }
-    }
-
-    static PyObject __sub__(PyFloat v, PyObject w) {
-        try {
-            return new PyFloat(v.value - valueOf(w));
-        } catch (ClassCastException cce) {
-            return Py.NotImplemented;
-        }
-    }
-
-    static PyObject __rsub__(PyFloat w, PyObject v) {
-        try {
-            return new PyFloat(valueOf(v) - w.value);
-        } catch (ClassCastException cce) {
-            return Py.NotImplemented;
-        }
-    }
-
-    static PyObject __mul__(PyFloat v, PyObject w) {
-        try {
-            return new PyFloat(v.value * valueOf(w));
-        } catch (ClassCastException cce) {
-            return Py.NotImplemented;
-        }
-    }
-
-    static PyObject __rmul__(PyFloat w, PyObject v) {
-        try {
-            return new PyFloat(valueOf(v) * w.value);
-        } catch (ClassCastException cce) {
-            return Py.NotImplemented;
-        }
-    }
-
-    static boolean __bool__(PyFloat v) { return v.value != 0.0; }
-
-    static PyObject __new__(PyType type, PyTuple args, PyDict kwargs)
-            throws Throwable {
+    @SuppressWarnings("unused")
+    private static PyObject __new__(PyType type, PyTuple args,
+            PyDict kwargs) throws Throwable {
         PyObject x = null;
         int argsLen = args.size();
         switch (argsLen) {
@@ -115,13 +62,76 @@ class PyFloat extends AbstractPyObject {
             return Number.toFloat(x);
     }
 
-    /** Convert to {@code double} */
-    private static double valueOf(PyObject v) {
-        if (v instanceof PyFloat)
-            return ((PyFloat) v).value;
-        else
-            return ((PyLong) v).value.doubleValue();
+    @SuppressWarnings("unused")
+    private PyObject __neg__() { return new PyFloat(-value); }
+
+    @SuppressWarnings("unused")
+    private PyObject __abs__() { return new PyFloat(Math.abs(value)); }
+
+    @SuppressWarnings("unused")
+    private PyObject __add__(PyObject w) {
+        try {
+            return new PyFloat(value + valueOf(w));
+        } catch (ClassCastException cce) {
+            return Py.NotImplemented;
+        }
     }
+
+    @SuppressWarnings("unused")
+    private PyObject __radd__(PyObject v) {
+        try {
+            return new PyFloat(valueOf(v) + value);
+        } catch (ClassCastException cce) {
+            return Py.NotImplemented;
+        }
+    }
+
+    @SuppressWarnings("unused")
+    private PyObject __sub__(PyObject w) {
+        try {
+            return new PyFloat(value - valueOf(w));
+        } catch (ClassCastException cce) {
+            return Py.NotImplemented;
+        }
+    }
+
+    @SuppressWarnings("unused")
+    private PyObject __rsub__(PyObject v) {
+        try {
+            return new PyFloat(valueOf(v) - value);
+        } catch (ClassCastException cce) {
+            return Py.NotImplemented;
+        }
+    }
+
+    @SuppressWarnings("unused")
+    private PyObject __mul__(PyObject w) {
+        try {
+            return new PyFloat(value * valueOf(w));
+        } catch (ClassCastException cce) {
+            return Py.NotImplemented;
+        }
+    }
+
+    @SuppressWarnings("unused")
+    private PyObject __rmul__(PyObject v) {
+        try {
+            return new PyFloat(valueOf(v) * value);
+        } catch (ClassCastException cce) {
+            return Py.NotImplemented;
+        }
+    }
+
+    @SuppressWarnings("unused")
+    private PyObject __int__() {
+        return new PyLong(bigIntegerFromDouble(value));
+    }
+
+    @SuppressWarnings("unused")
+    private boolean __bool__() { return value != 0.0; }
+
+
+    // Non-slot API -------------------------------------------------
 
     /**
      * Value as a Java {@code double}.
@@ -186,10 +196,6 @@ class PyFloat extends AbstractPyObject {
         return new PyFloat(Double.valueOf(v.toString()));
     }
 
-    static PyObject __int__(PyFloat self) {
-        return new PyLong(bigIntegerFromDouble(self.value));
-    }
-
     /**
      * Convert to Java {@code double} to Java {@code BigInteger} by
      * truncation.
@@ -228,6 +234,8 @@ class PyFloat extends AbstractPyObject {
         }
     }
 
+    // plumbing ------------------------------------------------------
+
     // IEE-754 64-bit floating point parameters
     private static final int SIGNIFICAND_BITS = 53; // inc. implied 1
     private static final int EXPONENT_BITS = 11;
@@ -243,6 +251,14 @@ class PyFloat extends AbstractPyObject {
     // = 0x8000000000000000L;
     private static final long EXPONENT = SIGN - IMPLIED_ONE;
     // = 0x7ff0000000000000L;
+
+    /** Convert supported types to {@code double} */
+    private static double valueOf(PyObject v) {
+        if (v instanceof PyFloat)
+            return ((PyFloat) v).value;
+        else
+            return ((PyLong) v).value.doubleValue();
+    }
 
     static OverflowError cannotConvertInf(String to) {
         String msg = String.format(CANNOT_CONVERT, "infinity", to);

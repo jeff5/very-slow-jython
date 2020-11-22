@@ -1,5 +1,6 @@
 package uk.co.farowl.vsj2.evo4;
 
+import java.lang.invoke.MethodHandles;
 import java.math.BigInteger;
 
 import uk.co.farowl.vsj2.evo4.Slot.EmptyException;
@@ -9,7 +10,8 @@ class PyLong implements PyObject {
 
     /** The type {@code int}. */
     static PyType TYPE = PyType.fromSpec( //
-            new PyType.Spec("int", PyLong.class));
+            new PyType.Spec("int", PyLong.class,
+                    MethodHandles.lookup()));
 
     static PyLong ZERO = new PyLong(BigInteger.ZERO);
     static PyLong ONE = new PyLong(BigInteger.ONE);
@@ -17,20 +19,30 @@ class PyLong implements PyObject {
     private final PyType type;
     final BigInteger value;
 
-    /** Constructor for Python sub-class specifying {@link #type}. */
+    /**
+     * Constructor for Python sub-class specifying {@link #type}.
+     *
+     * @param type actual Python sub-class to being created
+     * @param value of the {@code int}
+     */
     PyLong(PyType type, BigInteger value) {
         this.type = type;
         this.value = value;
     }
 
-    /** Construct a Python {@code long}. */
-    PyLong(BigInteger value) {
-        this(TYPE, value);
-    }
+    /**
+     * Construct a Python {@code int} from a {@code BigInteger}.
+     *
+     * @param value of the {@code int}
+     */
+    PyLong(BigInteger value) { this(TYPE, value); }
 
+    /**
+     * Construct a Python {@code int} from a Java {@code long}.
+     *
+     * @param value of the {@code int}
+     */
     PyLong(long value) { this(BigInteger.valueOf(value)); }
-
-    PyLong(PyLong value) { this(value.value); }
 
     @Override
     public PyType getType() { return type; }
@@ -84,8 +96,8 @@ class PyLong implements PyObject {
 
     // slot functions -------------------------------------------------
 
-    static PyObject __new__(PyType type, PyTuple args, PyDict kwargs)
-            throws Throwable {
+    protected static PyObject __new__(PyType type, PyTuple args,
+            PyDict kwargs) throws Throwable {
         PyObject x = null, obase = null;
         int argsLen = args.size();
         switch (argsLen) {
@@ -129,213 +141,143 @@ class PyLong implements PyObject {
     private static final String NON_STR_EXPLICIT_BASE =
             "int() can't convert non-string with explicit base";
 
-    static PyObject __repr__(PyLong v) {
-        return Py.str(v.value.toString());
-    }
+    protected PyObject __repr__() { return Py.str(value.toString()); }
 
-    static PyObject __neg__(PyLong v) {
-        return new PyLong(v.value.negate());
-    }
+    protected PyObject __neg__() { return new PyLong(value.negate()); }
 
-    static PyObject __abs__(PyLong v) {
-        return new PyLong(v.value.abs());
-    }
+    protected PyObject __abs__() { return new PyLong(value.abs()); }
 
-    static PyObject __add__(PyLong v, PyObject w) {
-        try {
-            return new PyLong(v.value.add(valueOf(w)));
-        } catch (ClassCastException cce) {
-            return Py.NotImplemented;
-        }
-    }
-
-    static PyObject __radd__(PyLong w, PyObject v) {
-        try {
-            return new PyLong(valueOf(v).add(w.value));
-        } catch (ClassCastException cce) {
-            return Py.NotImplemented;
-        }
-    }
-
-    static PyObject __sub__(PyLong v, PyObject w) {
-        try {
-            return new PyLong(v.value.subtract(valueOf(w)));
-        } catch (ClassCastException cce) {
-            return Py.NotImplemented;
-        }
-    }
-
-    static PyObject __rsub__(PyLong w, PyObject v) {
-        try {
-            return new PyLong(valueOf(v).subtract(w.value));
-        } catch (ClassCastException cce) {
-            return Py.NotImplemented;
-        }
-    }
-
-    static PyObject __mul__(PyLong v, PyObject w) {
-        try {
-            return new PyLong(v.value.multiply(valueOf(w)));
-        } catch (ClassCastException cce) {
-            return Py.NotImplemented;
-        }
-    }
-
-    static PyObject __rmul__(PyLong w, PyObject v) {
-        try {
-            return new PyLong(valueOf(v).multiply(w.value));
-        } catch (ClassCastException cce) {
-            return Py.NotImplemented;
-        }
-    }
-
-    static PyObject __and__(PyLong v, PyObject w) {
-        try {
-            return new PyLong(v.value.and(valueOf(w)));
-        } catch (ClassCastException cce) {
-            return Py.NotImplemented;
-        }
-    }
-
-    static PyObject __rand__(PyLong w, PyObject v) {
-        try {
-            return new PyLong(valueOf(v).and(w.value));
-        } catch (ClassCastException cce) {
-            return Py.NotImplemented;
-        }
-    }
-
-    static PyObject __or__(PyLong v, PyObject w) {
-        try {
-            return new PyLong(v.value.or(valueOf(w)));
-        } catch (ClassCastException cce) {
-            return Py.NotImplemented;
-        }
-    }
-
-    static PyObject __ror__(PyLong w, PyObject v) {
-        try {
-            return new PyLong(valueOf(v).or(w.value));
-        } catch (ClassCastException cce) {
-            return Py.NotImplemented;
-        }
-    }
-
-    static PyObject __xor__(PyLong v, PyObject w) {
-        try {
-            return new PyLong(v.value.xor(valueOf(w)));
-        } catch (ClassCastException cce) {
-            return Py.NotImplemented;
-        }
-    }
-
-    static PyObject __rxor__(PyLong w, PyObject v) {
-        try {
-            return new PyLong(valueOf(v).xor(w.value));
-        } catch (ClassCastException cce) {
-            return Py.NotImplemented;
-        }
-    }
-
-    private PyObject cmp(PyObject w, Comparison op) {
-        if (w instanceof PyLong) {
-            return op.toBool(value.compareTo(((PyLong) w).value));
-        } else {
-            return Py.NotImplemented;
-        }
-    }
-
-    static PyObject __lt__new(PyLong v, PyObject w) {
-        return v.cmp(w, Comparison.LT);
-    }
-
-    static PyObject __lt__(PyLong v, PyObject w) {
-        if (w instanceof PyLong) {
-            int u = v.value.compareTo(((PyLong) w).value);
-            return u < 0 ? Py.True : Py.False;
-        } else {
-            return Py.NotImplemented;
-        }
-    }
-
-    static PyObject __le__(PyLong v, PyObject w) {
-        if (w instanceof PyLong) {
-            int u = v.value.compareTo(((PyLong) w).value);
-            return u <= 0 ? Py.True : Py.False;
-        } else {
-            return Py.NotImplemented;
-        }
-    }
-
-    static PyObject __eq__(PyLong v, PyObject w) {
-        if (w instanceof PyLong) {
-            int u = v.value.compareTo(((PyLong) w).value);
-            return u == 0 ? Py.True : Py.False;
-        } else {
-            return Py.NotImplemented;
-        }
-    }
-
-    static PyObject __ne__(PyLong v, PyObject w) {
-        if (w instanceof PyLong) {
-            int u = v.value.compareTo(((PyLong) w).value);
-            return u != 0 ? Py.True : Py.False;
-        } else {
-            return Py.NotImplemented;
-        }
-    }
-
-    static PyObject __gt__(PyLong v, PyObject w) {
-        if (w instanceof PyLong) {
-            int u = v.value.compareTo(((PyLong) w).value);
-            return u > 0 ? Py.True : Py.False;
-        } else {
-            return Py.NotImplemented;
-        }
-    }
-
-    static PyObject __ge__(PyLong v, PyObject w) {
-        if (w instanceof PyLong) {
-            int u = v.value.compareTo(((PyLong) w).value);
-            return u >= 0 ? Py.True : Py.False;
-        } else {
-            return Py.NotImplemented;
-        }
-    }
-
-    static boolean __bool__(PyLong v) {
-        return !BigInteger.ZERO.equals(v.value);
-    }
-
-    static PyObject __index__(PyLong v) {
-        if (v.getType() == TYPE)
-            return v;
+    protected PyObject __add__(PyObject w) {
+        if (w instanceof PyLong)
+            return new PyLong(value.add(((PyLong) w).value));
         else
-            return new PyLong(v.value);
+            return Py.NotImplemented;
     }
 
-    static PyObject __int__(PyLong v) { // identical to __index__
-        if (v.getType() == TYPE)
-            return v;
+    protected PyObject __radd__(PyObject v) {
+        if (v instanceof PyLong)
+            return new PyLong(((PyLong) v).value.add(value));
         else
-            return new PyLong(v.value);
+            return Py.NotImplemented;
     }
 
-    static PyObject __float__(PyLong v) { // return PyFloat
-        return Py.val(v.doubleValue());
+    protected PyObject __sub__(PyObject w) {
+        if (w instanceof PyLong)
+            return new PyLong(value.subtract(((PyLong) w).value));
+        else
+            return Py.NotImplemented;
     }
 
-    /**
-     * Check the argument is a {@code PyLong} and return its value.
-     *
-     * @param v ought to be a {@code PyLong} (or sub-class)
-     * @return the {@link #value} field of {@code v}
-     * @throws ClassCastException if {@code v} is not compatible
-     */
-    private static BigInteger valueOf(PyObject v)
-            throws ClassCastException {
-        return ((PyLong) v).value;
+    protected PyObject __rsub__(PyObject v) {
+        if (v instanceof PyLong)
+            return new PyLong(((PyLong) v).value.subtract(value));
+        else
+            return Py.NotImplemented;
     }
+
+    protected PyObject __mul__(PyObject w) {
+        if (w instanceof PyLong)
+            return new PyLong(value.multiply(((PyLong) w).value));
+        else
+            return Py.NotImplemented;
+    }
+
+    protected PyObject __rmul__(PyObject v) {
+        if (v instanceof PyLong)
+            return new PyLong(((PyLong) v).value.multiply(value));
+        else
+            return Py.NotImplemented;
+    }
+
+    protected PyObject __and__(PyObject w) {
+        if (w instanceof PyLong)
+            return new PyLong(value.and(((PyLong) w).value));
+        else
+            return Py.NotImplemented;
+    }
+
+    protected PyObject __rand__(PyObject v) {
+        if (v instanceof PyLong)
+            return new PyLong(((PyLong) v).value.and(value));
+        else
+            return Py.NotImplemented;
+    }
+
+    protected PyObject __or__(PyObject w) {
+        if (w instanceof PyLong)
+            return new PyLong(value.or(((PyLong) w).value));
+        else
+            return Py.NotImplemented;
+    }
+
+    protected PyObject __ror__(PyObject v) {
+        if (v instanceof PyLong)
+            return new PyLong(((PyLong) v).value.or(value));
+        else
+            return Py.NotImplemented;
+    }
+
+    protected PyObject __xor__(PyObject w) {
+        if (w instanceof PyLong)
+            return new PyLong(value.xor(((PyLong) w).value));
+        else
+            return Py.NotImplemented;
+    }
+
+    protected PyObject __rxor__(PyObject v) {
+        if (v instanceof PyLong)
+            return new PyLong(((PyLong) v).value.xor(value));
+        else
+            return Py.NotImplemented;
+    }
+
+    protected PyObject __lt__(PyObject w) {
+        return cmp(w, Comparison.LT);
+    }
+
+    protected PyObject __le__(PyObject w) {
+        return cmp(w, Comparison.LE);
+    }
+
+    protected PyObject __eq__(PyObject w) {
+        return cmp(w, Comparison.EQ);
+    }
+
+    protected PyObject __ne__(PyObject w) {
+        return cmp(w, Comparison.NE);
+    }
+
+    protected PyObject __gt__(PyObject w) {
+        return cmp(w, Comparison.GT);
+    }
+
+    protected PyObject __ge__(PyObject w) {
+        return cmp(w, Comparison.GE);
+    }
+
+    protected boolean __bool__() {
+        return !BigInteger.ZERO.equals(value);
+    }
+
+    protected PyObject __index__() {
+        if (getType() == TYPE)
+            return this;
+        else
+            return new PyLong(value);
+    }
+
+    protected PyObject __int__() { // identical to __index__
+        if (getType() == TYPE)
+            return this;
+        else
+            return new PyLong(value);
+    }
+
+    protected PyObject __float__() { // return PyFloat
+        return Py.val(doubleValue());
+    }
+
+    // Non-slot API -------------------------------------------------
 
     /**
      * Convert the given object to a {@code PyLong} using the
@@ -343,6 +285,17 @@ class PyLong implements PyObject {
      * either the {@code op_int} slot is not available or the result of
      * the call to {@code op_int} returns something not of type
      * {@code int}.
+     * <p>
+     * The return is not always exactly an {@code int}.
+     * {@code integral.__int__}, which this method wraps, may return any
+     * type: Python sub-classes of {@code int} are tolerated, but with a
+     * deprecation warning. Returns not even a sub-class type
+     * {@code int} raise {@link TypeError}.
+     *
+     * @param integral to convert to {@code int}
+     * @return integer value of argument
+     * @throws TypeError if {@code integral} seems not to be
+     * @throws Throwable from the supporting implementation
      */
     // Compare CPython longobject.c::_PyLong_FromNbInt
     static PyObject fromIntOf(PyObject integral)
@@ -379,18 +332,25 @@ class PyLong implements PyObject {
     /**
      * Convert the given object to a {@code PyLong} using the
      * {@code op_index} or {@code op_int} slots, if available (the
-     * latter is deprecated). Raise {@code TypeError} if either
-     * {@code op_index} and {@code op_int} slots are not available or
-     * the result of the call to {@code op_index} or {@code op_int}
-     * returns something not of type {@code int}. Should be replaced
-     * with {@link Number#index(PyObject)} after the end of the
-     * deprecation period.
+     * latter is deprecated).
+     * <p>
+     * The return is not always exactly an {@code int}.
+     * {@code integral.__index__} or {@code integral.__int__}, which
+     * this method wraps, may return any type: Python sub-classes of
+     * {@code int} are tolerated, but with a deprecation warning.
+     * Returns not even a sub-class type {@code int} raise
+     * {@link TypeError}. This method should be replaced with
+     * {@link Number#index(PyObject)} after the end of the deprecation
+     * period.
      *
-     * @throws Throwable
+     * @param integral to convert to {@code int}
+     * @return integer value of argument
+     * @throws TypeError if {@code integral} seems not to be
+     * @throws Throwable from the supporting implementation
      */
     // Compare CPython longobject.c :: _PyLong_FromNbIndexOrNbInt
     static PyObject fromIndexOrIntOf(PyObject integral)
-            throws Throwable {
+            throws TypeError, Throwable {
         PyType t = integral.getType();
 
         if (t == PyLong.TYPE)
@@ -428,6 +388,10 @@ class PyLong implements PyObject {
     /**
      * Convert a sequence of Unicode digits in the string u to a Python
      * integer value.
+     *
+     * @param u string to convert
+     * @param base in which to interpret it
+     * @return converted value
      */
     // Compare CPython longobject.c :: PyLong_FromUnicodeObject
     static PyLong fromUnicode(PyUnicode u, int base) {
@@ -452,6 +416,36 @@ class PyLong implements PyObject {
     // Compare CPython longobject.c :: PyLong_FromDouble
     PyLong fromDouble(double value) {
         return new PyLong(PyFloat.bigIntegerFromDouble(value));
+    }
+
+    /**
+     * Construct a Python {@code int} from a Python {@code int} or
+     * subclass. If the value has Python type {@code int} return it,
+     * otherwise construct a new instance of exactly {@code int} type.
+     *
+     * @param value of the {@code int}
+     */
+    static PyLong from(PyLong value) {
+        return value.getType() == TYPE ? value : Py.val(value.value);
+    }
+
+    // plumbing ------------------------------------------------------
+
+    /**
+     * Shorthand for implementing comparisons. Note that the return type
+     * is arbitrary because one may define {@code __lt__} etc. to return
+     * anything.
+     *
+     * @param w the right-hand operand
+     * @param op the type of operation
+     * @return result or {@code Py.NotImplemented}
+     */
+    private PyObject cmp(PyObject w, Comparison op) {
+        if (w instanceof PyLong) {
+            return op.toBool(value.compareTo(((PyLong) w).value));
+        } else {
+            return Py.NotImplemented;
+        }
     }
 
 }

@@ -46,31 +46,71 @@ at a point in its development:
 
 ..  code-block:: none
 
-        class PyLong implements PyObject {
-          ...
-          static PyObject __new__(PyType, PyTuple, PyDict) throws Throwable;
-          static PyObject __repr__(PyLong);
-          static PyObject __neg__(PyLong);
-          static PyObject __abs__(PyLong);
-          static PyObject __add__(PyLong, PyObject);
-          static PyObject __radd__(PyLong, PyObject);
-          static PyObject __sub__(PyLong, PyObject);
-          static PyObject __rsub__(PyLong, PyObject);
-          static PyObject __mul__(PyLong, PyObject);
-          static PyObject __rmul__(PyLong, PyObject);
-          ...
-          static PyObject __lt__(PyLong, PyObject);
-          static PyObject __le__(PyLong, PyObject);
-          static PyObject __eq__(PyLong, PyObject);
-          static PyObject __ne__(PyLong, PyObject);
-          static PyObject __ge__(PyLong, PyObject);
-          static PyObject __gt__(PyLong, PyObject);
-          static boolean __bool__(PyLong);
-          static PyObject __index__(PyLong);
-          static PyObject __int__(PyLong);
-          static PyObject __float__(PyLong);
-          ...
+    class PyLong implements PyObject {
+      ...
+      protected static PyObject __new__(PyType, PyTuple, PyDict)
+        throws Throwable;
+      protected PyObject __repr__();
+      protected PyObject __neg__();
+      protected PyObject __abs__();
+      protected PyObject __add__(PyObject);
+      protected PyObject __radd__(PyObject);
+      protected PyObject __sub__(PyObject);
+      protected PyObject __rsub__(PyObject);
+      protected PyObject __mul__(PyObject);
+      protected PyObject __rmul__(PyObject);
+      ...
+      protected PyObject __lt__(PyObject);
+      protected PyObject __le__(PyObject);
+      protected PyObject __eq__(PyObject);
+      protected PyObject __ne__(PyObject);
+      protected PyObject __gt__(PyObject);
+      protected PyObject __ge__(PyObject);
+      protected boolean __bool__();
+      protected PyObject __index__();
+      protected PyObject __int__();
+      protected PyObject __float__();
+      ...
+    }
+
+(Package prefixes have been elided from this listing.)
+Note that these all have access ``protected``.
+This is so that ``PyBool``,
+which Java-extends ``PyLong`` as well as being a Python sub-class,
+can call methods from its parent, for example in ``__and__``:
+
+..  code-block:: java
+
+    class PyBool extends PyLong {
+        // ...
+        @Override
+        protected final PyObject __and__(PyObject w) {
+            if (w instanceof PyBool)
+                return w == True ? this : False;
+            else
+                return super.__and__(w);
         }
+
+Each implementation class supplies a lookup object to ``PyType``,
+granting access to its methods and fields during construction,
+so it is quite possible to make methods and fields private,
+and have them exposed to Python on our own terms.
+
+..  code-block:: none
+
+    Compiled from "PyFloat.java"
+    class PyFloat extends AbstractPyObject {
+      ...
+      private static PyObject __new__(PyType, PyTuple, PyDict)
+        throws Throwable;
+      private PyObject __neg__();
+      private PyObject __abs__();
+      private PyObject __add__(PyObject);
+      private PyObject __radd__(PyObject);
+      ...
+    }
+
+
 
 In Python
 ---------
