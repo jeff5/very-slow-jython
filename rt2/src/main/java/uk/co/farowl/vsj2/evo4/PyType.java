@@ -41,6 +41,8 @@ class PyType implements PyObject {
 
     // *** The order of these initialisations is critical
     static final PyType[] EMPTY_TYPE_ARRAY = new PyType[0];
+    /** Lookup object on this type. */
+    private static Lookup LOOKUP = MethodHandles.lookup();
     /** The type object of {@code type} objects. */
     static final PyType TYPE = new PyType();
     /** The type object of {@code object} objects. */
@@ -154,7 +156,8 @@ class PyType implements PyObject {
      * @param implClass implementation class
      */
     PyType(String name, Class<? extends PyObject> implClass) {
-        this(name, implClass, EMPTY_TYPE_ARRAY, Spec.getDefaultFlags());
+        this(name, implClass, LOOKUP, EMPTY_TYPE_ARRAY,
+                Spec.getDefaultFlags());
     }
 
     /**
@@ -173,8 +176,8 @@ class PyType implements PyObject {
         PyType[] bases = spec.getBases();
         PyType bestBase = bestBase(bases);
 
-        PyType type = new PyType(spec.name, spec.implClass, bases,
-                spec.flags);
+        PyType type = new PyType(spec.name, spec.implClass, spec.lookup,
+                bases, spec.flags);
 
         // Populate the dictionary from the name space
         // XXX This is still rather crude
@@ -225,7 +228,8 @@ class PyType implements PyObject {
     }
 
     /**
-     * Add get-set attributes to this type discovered through the specification.
+     * Add get-set attributes to this type discovered through the
+     * specification.
      *
      * @param spec to apply
      */
@@ -267,12 +271,13 @@ class PyType implements PyObject {
      * @param metatype the sub-type of type we are constructing
      * @param name of that type (with the given metatype)
      * @param implClass implementation class of the type being defined
+     * @param lookup authorisation to access fields
      * @param declaredBases of the type being defined
      * @param flags characteristics of the type being defined
      */
     private PyType(PyType metatype, String name,
-            Class<? extends PyObject> implClass, PyType[] declaredBases,
-            EnumSet<Flag> flags) {
+            Class<? extends PyObject> implClass, Lookup lookup,
+            PyType[] declaredBases, EnumSet<Flag> flags) {
         this.type = metatype;
         this.name = name;
         this.implClass = implClass;
@@ -282,17 +287,24 @@ class PyType implements PyObject {
         setMROfromBases(declaredBases);
 
         // Fill slots from implClass or bases
-        setAllSlots();
+        setAllSlots(LOOKUP);
     }
 
     /**
      * Construct a {@code type} object with given name, provided other
      * values in a long-form constructor. This constructor is a helper
      * to factory methods.
+     *
+     * @param name of that type (with the given metatype)
+     * @param implClass implementation class of the type being defined
+     * @param lookup authorisation to access {@code implClass}
+     * @param declaredBases of the type being defined
+     * @param flags characteristics of the type being defined
      */
     private PyType(String name, Class<? extends PyObject> implClass,
-            PyType[] declaredBases, EnumSet<Flag> flags) {
-        this(TYPE, name, implClass, declaredBases, flags);
+            Lookup lookup, PyType[] declaredBases,
+            EnumSet<Flag> flags) {
+        this(TYPE, name, implClass, lookup, declaredBases, flags);
     }
 
     /**
@@ -314,14 +326,15 @@ class PyType implements PyObject {
          * this one as its type. Note that PyType.TYPE is not yet set
          * because we have not returned from this constructor.
          */
-        PyType objectType = new PyType(this, "object",
-                PyBaseObject.class, null, Spec.getDefaultFlags());
+        PyType objectType =
+                new PyType(this, "object", PyBaseObject.class, LOOKUP,
+                        null, Spec.getDefaultFlags());
 
         // The only base of type is object
         setMROfromBases(new PyType[] {objectType});
 
         // Fill slots from implClass or bases
-        setAllSlots();
+        setAllSlots(LOOKUP);
     }
 
     @Override
@@ -367,11 +380,13 @@ class PyType implements PyObject {
     /**
      * Set all the slots ({@code op_*}) from the {@link #implClass} and
      * {@link #bases}.
+     *
+     * @param lookup authorisation to access {@code implClass}
      */
-    private void setAllSlots() {
+    private void setAllSlots(Lookup lookup) {
         for (Slot s : Slot.values()) {
             final MethodHandle empty = s.getEmpty();
-            MethodHandle mh = s.findInClass(implClass);
+            MethodHandle mh = s.findInClass(implClass, lookup);
             for (int i = 0; mh == empty && i < bases.length; i++) {
                 mh = s.getSlot(bases[i]);
             }
@@ -652,11 +667,11 @@ class PyType implements PyObject {
          * code.
          *
          * @param name of the type
-         * @param lookup authorising access to defining members
          * @param implClass in which operations are defined
+         * @param lookup authorisation to access {@code implClass}
          */
-        Spec(String name, Lookup lookup,
-                Class<? extends PyObject> implClass) {
+        Spec(String name, Class<? extends PyObject> implClass,
+                Lookup lookup) {
             this.name = name;
             this.lookup = lookup;
             this.implClass = implClass;
@@ -671,7 +686,7 @@ class PyType implements PyObject {
          * @param implClass in which operations are defined
          */
         Spec(String name, Class<? extends PyObject> implClass) {
-            this(name,
+            this(name, implClass,
                     /*
                      * The method is package-accessible, so the lookup
                      * here should have no more than package access, in
@@ -680,8 +695,7 @@ class PyType implements PyObject {
                      * PROTECTED. (Read the Javadoc carefully.)
                      */
                     MethodHandles.lookup()
-                            .dropLookupMode(Lookup.PRIVATE),
-                    implClass);
+                            .dropLookupMode(Lookup.PRIVATE));
         }
 
         /**
@@ -693,8 +707,8 @@ class PyType implements PyObject {
          */
         // XXX Does this still work if the lookup is minimal?
         Spec(String name) {
-            this(name, MethodHandles.publicLookup(),
-                    PyBaseObject.class);
+            this(name, PyBaseObject.class,
+                    MethodHandles.publicLookup());
         }
 
         /**
@@ -856,8 +870,9 @@ class PyType implements PyObject {
         EnumSet<Flag> typeFlags =
                 EnumSet.of(Flag.MUTABLE, Flag.BASETYPE);
 
-        PyType type = new PyType(metatype, name, typeImplClass, bases,
-                typeFlags);
+        // XXX Why is this the right lookup? Why need one anyway?
+        PyType type = new PyType(metatype, name, typeImplClass, LOOKUP,
+                bases, typeFlags);
 
         // Populate the dictionary from the name space
         // XXX This is still rather crude

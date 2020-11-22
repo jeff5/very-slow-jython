@@ -27,8 +27,8 @@ class PyGetSetDescr extends DataDescriptor {
 
     static final Lookup LOOKUP = MethodHandles.lookup();
     static final PyType TYPE =
-            PyType.fromSpec(new PyType.Spec("getset_descriptor", LOOKUP,
-                    PyGetSetDescr.class));
+            PyType.fromSpec(new PyType.Spec("getset_descriptor",
+                    PyGetSetDescr.class, LOOKUP));
 
     // We do not have distinct struct PyGetSetDef
     // GetSetDef getset;
@@ -166,23 +166,32 @@ class PyGetSetDescr extends DataDescriptor {
         return descr.descrRepr("attribute");
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * If {@code obj != null} invoke {@link #get} on it to return a
+     * value. {@code obj} must be of type {@link #objclass}. A call made
+     * with {@code obj == null} returns {@code this} descriptor.
+     *
+     * @param type is ignored
+     */
     // Compare CPython getset_get in descrobject.c
-    static PyObject __get__(PyGetSetDescr descr, PyObject obj,
-            PyType type) throws Throwable {
+    @Override
+    PyObject __get__(PyObject obj, PyType type) throws Throwable {
         if (obj == null)
             /*
-             * null 2nd argument to __get__ indicates the descriptor was
-             * found on the target object itself (or a base), see
-             * CPython type_getattro in typeobject.c
+             * obj==null indicates the descriptor was found on the
+             * target object itself (or a base), see CPython
+             * type_getattro in typeobject.c
              */
-            return descr;
+            return this;
         else {
             try {
-                descr.check(obj);
-                return (PyObject) descr.get.invokeExact(obj);
+                check(obj);
+                return (PyObject) get.invokeExact(obj);
             } catch (EmptyException e) {
-                throw new AttributeError(ATTRIBUTE_IS_NOT, descr.name,
-                        descr.objclass.name, "readable");
+                throw new AttributeError(ATTRIBUTE_IS_NOT, name,
+                        objclass.name, "readable");
             }
         }
     }
@@ -202,18 +211,19 @@ class PyGetSetDescr extends DataDescriptor {
     }
 
     // Compare CPython getset_set in descrobject.c
-    static void __set__(PyGetSetDescr descr, PyObject obj,
-            PyObject value) throws TypeError, Throwable {
+    @Override
+    void __set__(PyObject obj, PyObject value)
+            throws TypeError, Throwable {
         if (value == null) {
             // This ought to be an error, but allow for CPython idiom.
-            __delete__(descr, obj);
+            __delete__(obj);
         } else {
             try {
-                descr.checkSet(obj);
-                descr.set.invokeExact(obj, value);
+                checkSet(obj);
+                set.invokeExact(obj, value);
             } catch (EmptyException e) {
-                throw new AttributeError(ATTRIBUTE_IS_NOT, descr.name,
-                        descr.objclass.name, "writable");
+                throw new AttributeError(ATTRIBUTE_IS_NOT, name,
+                        objclass.name, "writable");
             }
         }
     }
@@ -233,14 +243,14 @@ class PyGetSetDescr extends DataDescriptor {
     }
 
     // Compare CPython getset_set in descrobject.c with NULL
-    static void __delete__(PyGetSetDescr descr, PyObject obj)
-            throws TypeError, Throwable {
+    @Override
+    void __delete__(PyObject obj) throws TypeError, Throwable {
         try {
-            descr.checkDelete(obj);
-            descr.delete.invokeExact(obj);
+            checkDelete(obj);
+            delete.invokeExact(obj);
         } catch (EmptyException e) {
-            throw new AttributeError(ATTRIBUTE_IS_NOT, descr.name,
-                    descr.objclass.name, "delible");
+            throw new AttributeError(ATTRIBUTE_IS_NOT, name,
+                    objclass.name, "delible");
         }
     }
 
@@ -383,7 +393,7 @@ class PyGetSetDescr extends DataDescriptor {
                 MethodHandle mh = lookup.unreflect(m);
                 try {
                     /*
-                     * The call site that invokes the handle * (for
+                     * The call site that invokes the handle (for
                      * example in PyGetSetDescr.__get__) will have a
                      * signature involving only {@code PyObject}. We
                      * must therefore add a cast to the method handle

@@ -18,10 +18,13 @@ import uk.co.farowl.vsj2.evo4.Slot.Signature;
  * in Python. This <i>may</i> be {@code object}, in which case the
  * implementation class will be s sub-class in Java of this class.
  * <p>
- * <b>Implementation note:</b> The {@code self} argument of slot
- * functions defined here should have type {@link PyObject} so that
- * method handles copied from the slots of {@code object} function
- * correctly in the type slots of receiving Python objects.
+ *
+ * @implNote The {@code self} argument of slot functions defined here
+ *           should have type {@link PyObject} so that method handles
+ *           copied from the slots of {@code object} function correctly
+ *           in the type slots of receiving Python objects. They must be
+ *           package visible so that {@link PyType} is able to form
+ *           {@code MethodHandle}s to them.
  */
 class PyBaseObject extends AbstractPyObject {
 

@@ -278,8 +278,8 @@ class PyTypeTest {
 
         static PyType TYPE = PyType.fromSpec( //
                 new PyType.Spec("PyObjectWithMembers",
-                        MethodHandles.lookup(),
-                        PyObjectWithMembers.class));
+                        PyObjectWithMembers.class,
+                        MethodHandles.lookup()));
 
         @Override
         public PyType getType() { return TYPE; }
@@ -369,8 +369,8 @@ class PyTypeTest {
 
         static PyType TYPE = PyType.fromSpec( //
                 new PyType.Spec("PyObjectWithGetSets",
-                        MethodHandles.lookup(),
-                        PyObjectWithGetSets.class));
+                        PyObjectWithGetSets.class,
+                        MethodHandles.lookup()));
 
         @Override
         public PyType getType() { return TYPE; }
@@ -485,4 +485,3 @@ class PyTypeTest {
     }
 
 }
-

@@ -8,7 +8,7 @@ Refactoring for ``evo4``
     in the project source,
     and are exercised by unit tests in ``rt2/src/test/java/.../vsj2/evo4``.
 
-Another Re-work of ``PyType``
+Another Re-work of Core Types
 *****************************
 
 Motivation
@@ -18,15 +18,26 @@ In the coming sections we address attribute access,
 including attributes that are functions (methods).
 This cannot be done satisfactorily
 without much stronger support for inheritance than ``evo3`` provides.
-This in turn will lead us to give each type object a dictionary,
+This means it is already time for an ``evo4``.
+
+The need for attributes will lead us to give each type object a dictionary,
 to create descriptors that may be entered into that dictionary,
 and to implement the MRO along which
 the search for any attribute is made.
-This means it is already time for an ``evo4``.
+Thus, quite a lot of core apparatus will be revisited.
 
 Descriptors must be able to represent
 attributes defined in either Java or Python:
 type slots (still ``MethodHandle``\s) will be filled from these descriptors.
+Descriptors also cause us to consider how we will use ``VarHandle``\s.
+
+There are a lot of different descriptor types,
+each a new type of Python object.
+This puts a strain on our ability in ``evo3``
+efficiently to code Java implementations of Python types.
+We will revisit how slots are filled,
+in particular we shall switch to using instance methods
+to define special functions.
 
 
 Scope

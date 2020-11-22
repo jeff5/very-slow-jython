@@ -2,6 +2,7 @@ package uk.co.farowl.vsj2.evo4;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.invoke.MethodType;
 import java.lang.invoke.VarHandle;
 
@@ -171,11 +172,23 @@ enum Slot {
      * that throws {@link EmptyException}.
      *
      * @param c target class
+     * @param lookup authorisation to access {@code c}
      * @return handle to method in {@code c} implementing this slot, or
      *         appropriate "empty" if no such method is accessible.
      */
-    MethodHandle findInClass(Class<?> c) {
-        return Util.findInClass(this, c);
+    MethodHandle findInClass(Class<?> c, Lookup lookup) {
+        try {
+            switch (signature.kind) {
+                case INSTANCE:
+                    return Util.findVirtualInClass(this, c, lookup);
+                case CLASS:
+                case STATIC:
+                    return Util.findStaticInClass(this, c, lookup);
+                default:
+                    // Never happens
+            }
+        } catch (NoSuchMethodException | IllegalAccessException e) {}
+        return getEmpty();
     }
 
     /**
@@ -224,14 +237,60 @@ enum Slot {
     /**
      * Placeholder type, exclusively for use in slot signatures,
      * denoting the class defining the slot function actually bound into
-     * the slot. Wherever the {@code Self} type appears in the slot
-     * signature, the signature of the method looked up in the
-     * implementation will have the defining type, and the method handle
-     * produced will have {@code PyObject}, and a checked cast. The
-     * result is that the defining methods need not include a cast to
-     * their type on the corresponding argument.
+     * the slot. See {@link MethodKind#INSTANCE}.
      */
     interface Self extends PyObject {}
+
+    /**
+     * Placeholder type, exclusively for use in slot signatures,
+     * denoting {@code PyType} but signalling a class method. See
+     * {@link MethodKind#CLASS}.
+     */
+    interface Cls extends PyObject {}
+
+    /**
+     * The kind of special method that satisfies this slot. Almost all
+     * slots are satisfied by an instance method. __new__ is a static
+     * method. In theory, we need class method as a type, but there are
+     * no live examples.
+     */
+    enum MethodKind {
+        /**
+         * The slot is satisfied by Java instance method. The first
+         * parameter type in the declared signature will have been the
+         * placeholder {@code Self}. The operation slot signature will
+         * have {@code PyObject} in that position. When we look up the
+         * Java implementation we will look for a virtual method using a
+         * method type that is the declared type with {@code Self}
+         * removed. When called, the target object has a type assignable
+         * to the receiving type, thanks to a checked cast. The result
+         * is that the defining methods need not include a cast to their
+         * type on the corresponding argument.
+         */
+        INSTANCE,
+        /**
+         * The slot is satisfied by Java static method. The first
+         * parameter type in the declared signature will have been the
+         * placeholder {@code Cls}. The operation slot signature will
+         * have {@code PyType} in that position. When we look up the
+         * Java implementation we will look for a static method using a
+         * method type that is the declared type with {@code Cls}
+         * replaced by {@code PyType}. When called, this type object is
+         * a sub-type (or the same as) the type implemented by the
+         * receiving type.
+         */
+        // At least, that's what would happen if we used it :/
+        CLASS,
+        /**
+         * The slot is satisfied by Java static method. The first
+         * parameter type in the declared signature will have been
+         * something other than {@code Self} or {@code Cls}. The
+         * operation slot signature will be the same. When we look up
+         * the Java implementation we will look for a static method
+         * using the method type as declared type.
+         */
+        STATIC;
+    }
 
     /**
      * An enumeration of the acceptable signatures for slots in a
@@ -268,11 +327,26 @@ enum Slot {
         NEW(O, T, TUPLE, DICT); // (newfunc) op_new
 
         /**
-         * A method handle offered to this slot must be based on this
-         * type, with Self parameters.
+         * The signature was defined with this nominal method type,
+         * which will often include a {@link Self} placeholder
+         * parameter.
          */
         final MethodType type;
-        /** When empty, the slot should hold this handle. */
+        /**
+         * Whether instance, static or class method. This determines the
+         * kind of lookup we must perform on the implementing class.
+         */
+        final MethodKind kind;
+        /**
+         * When we do the lookup, this is the method type we specify,
+         * derived from {@link #type} according to {@link #kind}.
+         */
+        final MethodType methodType;
+        /**
+         * When empty, the slot should hold this handle. The method type
+         * of this handle also tells us the method type by which the
+         * slot must always be invoked, see {@link Slot#getType()}.
+         */
         final MethodHandle empty;
 
         /**
@@ -298,6 +372,17 @@ enum Slot {
             // (with correct parameter types for slot)
             this.empty = MethodHandles.dropArguments(em, 0,
                     invocationType.parameterArray());
+
+            // Prepare the kind of lookup we should do
+            Class<?> p0 = ptypes.length > 0 ? ptypes[0] : null;
+            if (p0 == Self.class) {
+                this.kind = MethodKind.INSTANCE;
+                this.methodType = Util.dropSelf(this.type);
+                // } else if (p0 == Cls.class) { ... CLASS ...
+            } else {
+                this.kind = MethodKind.STATIC;
+                this.methodType = this.empty.type();
+            }
         }
     }
 
@@ -328,8 +413,7 @@ enum Slot {
          * encountered. This means that other constants in Slot are not
          * initialised by the time the constructors need them.
          */
-        private static final MethodHandles.Lookup LOOKUP =
-                MethodHandles.lookup();
+        private static final Lookup LOOKUP = MethodHandles.lookup();
 
         /** Single re-used instance of {@code Slot.EmptyException} */
         static final EmptyException EMPTY = new EmptyException();
@@ -351,58 +435,128 @@ enum Slot {
         }
 
         /**
-         * For a given slot, return a handle to the method in a given
-         * class that implements it, or the default handle (of the
+         * For a given slot, return a handle to the instance method in a
+         * given class that implements it, or the default handle (of the
+         * correct signature) that throws {@link EmptyException}.
+         *
+         * @param slot slot
+         * @param c target class
+         * @param lookup authorisation to access {@code c}
+         * @return handle to method in {@code c} implementing {@code s},
+         *         or appropriate "empty" if no such method is
+         *         accessible.
+         * @throws NoSuchMethodException slot method not found
+         * @throws IllegalAccessException found but inaccessible
+         */
+        static MethodHandle findVirtualInClass(Slot slot, Class<?> c,
+                Lookup lookup)
+                throws IllegalAccessException, NoSuchMethodException {
+            // PyBaseObject has a different approach
+            if (c == PyBaseObject.class)
+                return findInBaseObject(slot, lookup);
+            // The method has the same name in every implementation
+            String name = slot.getMethodName();
+            Signature sig = slot.signature;
+            assert sig.kind == MethodKind.INSTANCE;
+            try {
+                // The standard implementation
+                MethodType mt = sig.methodType;
+                MethodHandle impl = lookup.findVirtual(c, name, mt);
+                // The invocation type remains that of slot.empty
+                return impl.asType(sig.empty.type());
+            } catch (NoSuchMethodException e) {}
+            /*
+             * We have some object implementations in which the
+             * implementation method is actually Java static. Have to
+             * try both implementations for the time being.
+             */
+            // XXX remove try and this block needed only while static
+            MethodType mt = replaceSelf(sig.type, c);
+            MethodHandle impl = lookup.findStatic(c, name, mt);
+            return impl.asType(slot.getType());
+        }
+
+        /**
+         * For a given slot, return a handle to the static method in a
+         * given class that implements it, or the default handle (of the
          * correct signature) that throws {@link EmptyException}.
          *
          * @param slot slot
          * @param c class
+         * @param lookup authorisation to access {@code c}
          * @return handle to method in {@code c} implementing {@code s},
          *         or appropriate "empty" if no such method is
          *         accessible.
+         * @throws NoSuchMethodException slot method not found
+         * @throws IllegalAccessException found but inaccessible
          */
-        static MethodHandle findInClass(Slot slot, Class<?> c) {
+        static MethodHandle findStaticInClass(Slot slot, Class<?> c,
+                Lookup lookup)
+                throws NoSuchMethodException, IllegalAccessException {
             // The method has the same name in every implementation
             String name = slot.getMethodName();
-            MethodType stype = slot.signature.type;
-            try {
-                /*
-                 * Normally, the Self class in slot.signature.type will
-                 * be the target class c
-                 */
-                MethodType mt = replaceSelf(stype, c);
-                MethodHandle impl = LOOKUP.findStatic(c, name, mt);
-                // The invocation type remains that of slot.empty
-                return impl.asType(slot.getType());
-            } catch (NoSuchMethodException
-                    | IllegalAccessException e) {}
-            // Try instead the object-based signature
-            try {
-                /*
-                 * Optionally, the Self class in slot.signature.type may
-                 * be PyObject
-                 */
-                MethodType mt = replaceSelf(stype, PyObject.class);
-                MethodHandle impl = LOOKUP.findStatic(c, name, mt);
-                // The invocation type remains that of slot.empty
-                return impl.asType(slot.getType());
-            } catch (NoSuchMethodException | IllegalAccessException e) {
-                return slot.getEmpty();
-            }
+            Signature sig = slot.signature;
+            assert sig.kind == MethodKind.STATIC;
+            MethodType mt = sig.methodType;
+            MethodHandle impl = lookup.findStatic(c, name, mt);
+            // The invocation type remains that of slot.empty
+            return impl.asType(sig.empty.type());
         }
 
         /**
-         * Generate a method type in which occurrences of the
-         * {@link Self} class are replaced by the given class {@code c}.
-         * When defining the implementation of a special function, it is
-         * convenient to have the type of some arguments (usually just
-         * the first) be the defining class, whereas the method handle
-         * offered to the run-time must be generic ({@code PyObject}).
-         * We therefore specify the expected signature of a slot in
-         * terms of a dummy and provide this method for generating from
-         * it the two signatures needed, the one to which the
-         * implementation is expected to conform, and the one acceptable
-         * to the run-time.
+         * For a given slot, return a handle to the method in
+         * {@link PyBaseObject}{@code .class}, or the default handle (of
+         * the correct signature) that throws {@link EmptyException}.
+         * The declarations of special methods in that class differ from
+         * other implementation classes.
+         *
+         * @param slot slot
+         * @param lookup authorisation to access {@code PyBaseObject}
+         * @return handle to method in {@code PyBaseObject} implementing
+         *         {@code s}, or appropriate "empty" if no such method
+         *         is accessible.
+         * @throws NoSuchMethodException slot method not found
+         * @throws IllegalAccessException found but inaccessible
+         */
+        static MethodHandle findInBaseObject(Slot slot, Lookup lookup)
+                throws NoSuchMethodException, IllegalAccessException {
+            // The method has the same name in every implementation
+            String name = slot.getMethodName();
+            Signature sig = slot.signature;
+            MethodType mt = replaceSelf(sig.type, PyObject.class);
+            MethodHandle impl =
+                    lookup.findStatic(PyBaseObject.class, name, mt);
+            assert impl.type() == sig.empty.type();
+            return impl;
+        }
+
+        /**
+         * Generate a method type in which an initial occurrence of the
+         * {@link Self} class has been replaced by a specified class.
+         * <p>
+         * The type signature of method handles to special functions
+         * (see {@link Signature}) are mostly specified with the dummy
+         * type {@code Self} as the first type parameter. This indicates
+         * that the special method is an instance method. However, the
+         * method handle offered to the run-time must have the generic
+         * ({@code PyObject}) in place of this dummy, since at the call
+         * site, we only know the target is a {@code PyObject}.
+         * <p>
+         * Further, when seeking an implementation of the special method
+         * that is static, the definition will usually have the defining
+         * type in "self" position, and so {@code Lookup.findStatic}
+         * must be provided a type signature in which the lookup class
+         * appears as "self".
+         *
+         * (Exception: {@link PyBaseObject} has to be defined with
+         * static methods and the type PyObject in "self" position, the
+         * same as the run-time expects.)
+         * <p>
+         * This method provides a way to convert {@code Self} to a
+         * specified type in a method type, either the one to which a
+         * static implementation is expected to conform, or the one
+         * acceptable to the run-time. A method type that does not have
+         * {@code Self} at parameter 0 is returned unchanged.
          *
          * @param type signature with the dummy {@link Self}
          * @param c class to substitute for {@link Self}
@@ -410,12 +564,36 @@ enum Slot {
          */
         static MethodType replaceSelf(MethodType type, Class<?> c) {
             int n = type.parameterCount();
-            for (int i = 0; i < n; i++) {
-                if (type.parameterType(i) == Self.class) {
-                    type = type.changeParameterType(i, c);
-                }
-            }
-            return type;
+            if (n > 0 && type.parameterType(0) == Self.class)
+                return type.changeParameterType(0, c);
+            else
+                return type;
+        }
+
+        /**
+         * Generate a method type from which an initial occurrence of
+         * the {@link Self} class has been removed.
+         * <p>
+         * The signature of method handles to special functions (see
+         * {@link Signature}) are mostly specified with the dummy type
+         * {@code Self} as the first type parameter. This indicates that
+         * the special method is an instance method.
+         * <p>
+         * When defining the implementation of a special method that is
+         * an instance method, which is most of them, it is convenient
+         * to make it an instance method in Java. Then the method type
+         * we supply to {@code Lookup.findVirtual} must omit the "self"
+         * parameter. This method generates that method type.
+         *
+         * @param type signature with the dummy {@link Self}
+         * @return signature after removal
+         */
+        static MethodType dropSelf(MethodType type) {
+            int n = type.parameterCount();
+            if (n > 0 && type.parameterType(0) == Self.class)
+                return type.dropParameterTypes(0, 1);
+            else
+                return type;
         }
     }
 }

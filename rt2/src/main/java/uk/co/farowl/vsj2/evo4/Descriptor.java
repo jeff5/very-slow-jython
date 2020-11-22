@@ -60,6 +60,27 @@ abstract class Descriptor extends AbstractPyObject
         this.name = name;
     }
 
+    /**
+     * The {@code __get__} special method of the Python descriptor
+     * protocol, implementing {@code obj.name} or possibly
+     * {@code type.name}.
+     *
+     * @apiNote Different descriptor types may have quite different
+     *          behaviour. In general, a call made with
+     *          {@code obj == null} is seeking a result related to the
+     *          {@code type}, while in one where {@code obj != null},
+     *          {@code obj} must be of type {@link #objclass} and
+     *          {@code type} will be ignored.
+     * @param obj object on which the attribute is sought or
+     *            {@code null}
+     * @param type on which this descriptor was found (may be ignored)
+     * @return attribute value, bound object or this attribute
+     * @throws Throwable from the implementation of the getter
+     */
+    // Compare CPython *_get methods in descrobject.c
+    abstract PyObject __get__(PyObject obj, PyType type)
+            throws Throwable;
+
     // CPython method table (to convert to annotations):
     // private MethodDef descr_methods[] = {
     // {"__reduce__", (PyCFunction)descr_reduce, METH_NOARGS, null},

@@ -166,8 +166,8 @@ abstract class PyMemberDescr extends DataDescriptor {
     /**
      * A method to get {@code o.name}, with conversion from the internal
      * field value if necessary (which will always succeed). This method
-     * is called from {@link #__get__(PyMemberDescr, PyObject, PyType)},
-     * after checks, to implement the type-specific conversion.
+     * is called from {@link #__get__(PyObject, PyType)}, after checks,
+     * to implement the type-specific conversion.
      *
      * @param obj object to access via {@link #handle} (never null)
      * @return field value
@@ -178,8 +178,8 @@ abstract class PyMemberDescr extends DataDescriptor {
     /**
      * A method to set {@code o.name = v}, with conversion to the
      * internal field value if necessary. This method is called from
-     * {@link #__set__(PyMemberDescr, PyObject, PyObject)}, after
-     * checks, to implement the type-specific conversion.
+     * {@link #__set__(PyObject, PyObject)}, after checks, to implement
+     * the type-specific conversion.
      *
      * @param obj object to access via {@link #handle} (never null)
      * @param v value to assign: never null, may be {@code None}
@@ -192,8 +192,8 @@ abstract class PyMemberDescr extends DataDescriptor {
 
     /**
      * A method to delete {@code del o.name}. This method is called from
-     * {@link #__delete__(PyMemberDescr, PyObject)}, after checks, to
-     * implement the type-specific conversion.
+     * {@link #__delete__(PyObject)}, after checks, to implement the
+     * type-specific delete.
      *
      * @implNote The default implementation is correct for primitive
      *           types (i.e. the majority) in raising {@link TypeError}
@@ -258,39 +258,49 @@ abstract class PyMemberDescr extends DataDescriptor {
         return descr.descrRepr("member");
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * If {@code obj != null} call {@link #get} on it to return a value.
+     * {@code obj} must be of type {@link #objclass}. A call made with
+     * {@code obj == null} returns {@code this} descriptor.
+     *
+     * @param type is ignored
+     */
+    @Override
     // Compare CPython member_get in descrobject.c
-    static PyObject __get__(PyMemberDescr descr, PyObject obj,
-            PyType type) {
+    PyObject __get__(PyObject obj, PyType type) {
         if (obj == null)
             /*
-             * null 2nd argument to __get__ indicates the descriptor was
-             * found on the target object itself (or a base), see
-             * CPython type_getattro in typeobject.c
+             * obj==null indicates the descriptor was found on the
+             * target object itself (or a base), see CPython
+             * type_getattro in typeobject.c
              */
-            return descr;
+            return this;
         else {
-            descr.check(obj);
-            return descr.get(obj);
+            check(obj);
+            return get(obj);
         }
     }
 
     // Compare CPython member_set in descrobject.c
-    static void __set__(PyMemberDescr descr, PyObject obj,
-            PyObject value) throws TypeError, Throwable {
+    @Override
+    void __set__(PyObject obj, PyObject value)
+            throws TypeError, Throwable {
         if (value == null) {
             // This ought to be an error, but allow for CPython idiom.
-            __delete__(descr, obj);
+            __delete__(obj);
         } else {
-            descr.checkSet(obj);
-            descr.set(obj, value);
+            checkSet(obj);
+            set(obj, value);
         }
     }
 
     // Compare CPython member_set in descrobject.c with NULL
-    static void __delete__(PyMemberDescr descr, PyObject obj)
-            throws TypeError, Throwable {
-        descr.checkDelete(obj);
-        descr.delete(obj);
+    @Override
+    void __delete__(PyObject obj) throws TypeError, Throwable {
+        checkDelete(obj);
+        delete(obj);
     }
 
     // XXX GetSetDef in CPython, but @Member appropriate in our case

@@ -15,6 +15,30 @@ abstract class DataDescriptor extends Descriptor {
     }
 
     /**
+     * The {@code __set__} special method of the Python descriptor
+     * protocol, implementing {@code obj.name = value}. In general,
+     * {@code obj} must be of type {@link #objclass}.
+     *
+     * @param obj object on which the attribute is sought
+     * @param value to assign (not {@code null})
+     * @throws Throwable from the implementation of the setter
+     */
+    // Compare CPython *_set methods in descrobject.c
+    abstract void __set__(PyObject obj, PyObject value)
+            throws TypeError, Throwable;
+
+    /**
+     * The {@code __delete__} special method of the Python descriptor
+     * protocol, implementing {@code del obj.name}. In general,
+     * {@code obj} must be of type {@link #objclass}.
+     *
+     * @param obj object on which the attribute is sought
+     * @throws Throwable from the implementation of the deleter
+     */
+    // Compare CPython *_set in descrobject.c with NULL
+    abstract void __delete__(PyObject obj) throws TypeError, Throwable;
+
+    /**
      * {@code descr.__set__(obj, value)} has been called on this
      * descriptor. We must check that the descriptor applies to the type
      * of object supplied as the {@code obj} argument. From Python,

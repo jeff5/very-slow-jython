@@ -86,7 +86,8 @@ class ExposerTest {
     @Test
     void memberConstruct() {
         Map<String, PyMemberDescr> mds = Exposer.memberDescrs(
-                ObjectWithMembers.LOOKUP, ObjectWithMembers.class, ObjectWithMembers.TYPE);
+                ObjectWithMembers.LOOKUP, ObjectWithMembers.class,
+                ObjectWithMembers.TYPE);
         // Try a few attributes of i
         assertTrue(mds.containsKey("i"));
         PyMemberDescr md = mds.get("i");
@@ -99,8 +100,7 @@ class ExposerTest {
         // Now text2
         md = mds.get("text2");
         assertNull(md.doc);
-        assertEquals(EnumSet.of(PyMemberDescr.Flag.READONLY),
-                md.flags);
+        assertEquals(EnumSet.of(PyMemberDescr.Flag.READONLY), md.flags);
     }
 
     /**
@@ -110,39 +110,35 @@ class ExposerTest {
     @Test
     void memberGetValues() {
         Map<String, PyMemberDescr> mds = Exposer.memberDescrs(
-                ObjectWithMembers.LOOKUP, ObjectWithMembers.class, ObjectWithMembers.TYPE);
+                ObjectWithMembers.LOOKUP, ObjectWithMembers.class,
+                ObjectWithMembers.TYPE);
         ObjectWithMembers o = new ObjectWithMembers(42.0);
         ObjectWithMembers p = new ObjectWithMembers(-1.0);
 
         // Same PyMemberDescr, different objects
         PyMemberDescr md_i = mds.get("i");
-        assertEquals(Py.val(42), PyMemberDescr.__get__(md_i, o, null));
-        assertEquals(Py.val(-1), PyMemberDescr.__get__(md_i, p, null));
+        assertEquals(Py.val(42), md_i.__get__(o, null));
+        assertEquals(Py.val(-1), md_i.__get__(p, null));
 
         PyMemberDescr md_x = mds.get("x");
-        assertEquals(Py.val(42.0),
-                PyMemberDescr.__get__(md_x, o, null));
+        assertEquals(Py.val(42.0), md_x.__get__(o, null));
 
         PyMemberDescr md_t = mds.get("text");
-        assertEquals(Py.str("-1"),
-                PyMemberDescr.__get__(md_t, p, null));
+        assertEquals(Py.str("-1"), md_t.__get__(p, null));
 
         PyMemberDescr md_s = mds.get("s");
-        assertEquals(Py.str("42"),
-                PyMemberDescr.__get__(md_s, o, null));
+        assertEquals(Py.str("42"), md_s.__get__(o, null));
 
         // Read-only cases work too
         PyMemberDescr md_i2 = mds.get("i2");
-        assertEquals(Py.val(42), PyMemberDescr.__get__(md_i2, o, null));
-        assertEquals(Py.val(-1), PyMemberDescr.__get__(md_i2, p, null));
+        assertEquals(Py.val(42), md_i2.__get__(o, null));
+        assertEquals(Py.val(-1), md_i2.__get__(p, null));
 
         PyMemberDescr md_x2 = mds.get("x2");
-        assertEquals(Py.val(42.0),
-                PyMemberDescr.__get__(md_x2, o, null));
+        assertEquals(Py.val(42.0), md_x2.__get__(o, null));
 
         PyMemberDescr md_t2 = mds.get("text2");
-        assertEquals(Py.str("-1"),
-                PyMemberDescr.__get__(md_t2, p, null));
+        assertEquals(Py.str("-1"), md_t2.__get__(p, null));
     }
 
     /**
@@ -156,7 +152,8 @@ class ExposerTest {
     @Test
     void memberSetValues() throws TypeError, Throwable {
         Map<String, PyMemberDescr> mds = Exposer.memberDescrs(
-                ObjectWithMembers.LOOKUP, ObjectWithMembers.class, ObjectWithMembers.TYPE);
+                ObjectWithMembers.LOOKUP, ObjectWithMembers.class,
+                ObjectWithMembers.TYPE);
         final ObjectWithMembers o = new ObjectWithMembers(42.0);
         final ObjectWithMembers p = new ObjectWithMembers(-1.0);
 
@@ -170,41 +167,36 @@ class ExposerTest {
 
         // Same descriptor applicable to different objects
         PyMemberDescr md_i = mds.get("i");
-        PyMemberDescr.__set__(md_i, o, oi);
-        PyMemberDescr.__set__(md_i, p, oj);
+        md_i.__set__(o, oi);
+        md_i.__set__(p, oj);
         assertEquals(i, o.i);
         assertEquals(j, p.i);
 
         // Set a double
         PyMemberDescr md_x = mds.get("x");
-        PyMemberDescr.__set__(md_x, o, ox);
+        md_x.__set__(o, ox);
         assertEquals(x, o.x, 1e-6);
 
         // Set a String
         PyMemberDescr md_t = mds.get("text");
-        PyMemberDescr.__set__(md_t, p, ot);
+        md_t.__set__(p, ot);
         assertEquals(t, p.t);
 
         // It is a TypeError to set the wrong kind of value
-        assertThrows(TypeError.class,
-                () -> PyMemberDescr.__set__(md_i, o, ot));
-        assertThrows(TypeError.class,
-                () -> PyMemberDescr.__set__(md_t, o, oi));
+        assertThrows(TypeError.class, () -> md_i.__set__(o, ot));
+        assertThrows(TypeError.class, () -> md_t.__set__(o, oi));
 
         // It is an AttributeError to set a read-only attribute
         final PyMemberDescr md_i2 = mds.get("i2");
-        assertThrows(AttributeError.class,
-                () -> PyMemberDescr.__set__(md_i2, o, oi));
-        assertThrows(AttributeError.class,
-                () -> PyMemberDescr.__set__(md_i2, p, oj));
+        assertThrows(AttributeError.class, () -> md_i2.__set__(o, oi));
+        assertThrows(AttributeError.class, () -> md_i2.__set__(p, oj));
 
         final PyMemberDescr md_x2 = mds.get("x2");
-        assertThrows(AttributeError.class,
-                () -> PyMemberDescr.__set__(md_x2, o, ox));
+        assertThrows(AttributeError.class, () -> md_x2.__set__(o, ox));
 
         final PyMemberDescr md_text2 = mds.get("text2");
         assertThrows(AttributeError.class,
-                () -> PyMemberDescr.__set__(md_text2, p, ot));
+                () -> md_text2.__set__(p, ot));
     }
 
     /**
@@ -218,7 +210,8 @@ class ExposerTest {
     @Test
     void memberDeleteValues() throws TypeError, Throwable {
         Map<String, PyMemberDescr> mds = Exposer.memberDescrs(
-                ObjectWithMembers.LOOKUP, ObjectWithMembers.class, ObjectWithMembers.TYPE);
+                ObjectWithMembers.LOOKUP, ObjectWithMembers.class,
+                ObjectWithMembers.TYPE);
         final ObjectWithMembers o = new ObjectWithMembers(42.0);
         final PyType T = ObjectWithMembers.TYPE;
 
@@ -232,31 +225,29 @@ class ExposerTest {
         PyMemberDescr md_t = mds.get("text");
         assertEquals("42", o.t);
         // Deleting it makes it null internally, None externally
-        PyMemberDescr.__delete__(md_t, o);
+        md_t.__delete__(o);
         assertEquals(null, o.t);
-        assertEquals(Py.None, PyMemberDescr.__get__(md_t, o, T));
+        assertEquals(Py.None, md_t.__get__(o, T));
         // We can delete it again (no error) and set it
-        PyMemberDescr.__delete__(md_t, o);
-        PyMemberDescr.__set__(md_t, o, ot);
+        md_t.__delete__(o);
+        md_t.__set__(o, ot);
         assertEquals(t, o.t);
 
         /*
          * The s attribute is a writable, optional String
          */
         PyMemberDescr md_s = mds.get("s");
-        PyMemberDescr.__set__(md_s, o, os);
+        md_s.__set__(o, os);
         assertEquals(s, o.s);
-        assertEquals(os, PyMemberDescr.__get__(md_s, o, T));
+        assertEquals(os, md_s.__get__(o, T));
         // Deleting it makes it null internally, vanish externally
-        PyMemberDescr.__delete__(md_s, o);
+        md_s.__delete__(o);
         assertEquals(null, o.s);
-        assertThrows(AttributeError.class,
-                () -> PyMemberDescr.__get__(md_s, o, T));
+        assertThrows(AttributeError.class, () -> md_s.__get__(o, T));
         // Deleting it again is an error
-        assertThrows(AttributeError.class,
-                () -> PyMemberDescr.__delete__(md_s, o));
+        assertThrows(AttributeError.class, () -> md_s.__delete__(o));
         // But we can set it
-        PyMemberDescr.__set__(md_s, o, ot);
+        md_s.__set__(o, ot);
         assertEquals(t, o.s);
 
         /*
@@ -264,25 +255,21 @@ class ExposerTest {
          */
         // Deleting a primitive is a TypeError
         PyMemberDescr md_i = mds.get("i");
-        assertThrows(TypeError.class,
-                () -> PyMemberDescr.__delete__(md_i, o));
+        assertThrows(TypeError.class, () -> md_i.__delete__(o));
         final PyMemberDescr md_x = mds.get("x");
-        assertThrows(TypeError.class,
-                () -> PyMemberDescr.__delete__(md_x, o));
+        assertThrows(TypeError.class, () -> md_x.__delete__(o));
 
         /*
          * i2, x2, text2 (o.t) are read-only, so cannot be deleted.
          */
         // Deleting a read-only is an AttributeError
         final PyMemberDescr md_i2 = mds.get("i2");
-        assertThrows(AttributeError.class,
-                () -> PyMemberDescr.__delete__(md_i2, o));
+        assertThrows(AttributeError.class, () -> md_i2.__delete__(o));
         final PyMemberDescr md_x2 = mds.get("x2");
-        assertThrows(AttributeError.class,
-                () -> PyMemberDescr.__delete__(md_x2, o));
+        assertThrows(AttributeError.class, () -> md_x2.__delete__(o));
         final PyMemberDescr md_text2 = mds.get("text2");
         assertThrows(AttributeError.class,
-                () -> PyMemberDescr.__delete__(md_text2, o));
+                () -> md_text2.__delete__(o));
     }
 
     /**
@@ -296,7 +283,8 @@ class ExposerTest {
     void memberInDerived() throws TypeError, Throwable {
         // Note we make the table for the super-class
         Map<String, PyMemberDescr> mds = Exposer.memberDescrs(
-                ObjectWithMembers.LOOKUP, ObjectWithMembers.class, ObjectWithMembers.TYPE);
+                ObjectWithMembers.LOOKUP, ObjectWithMembers.class,
+                ObjectWithMembers.TYPE);
         // But the test object is the sub-class
         final DerivedWithMembers o = new DerivedWithMembers(42.0);
 
@@ -309,22 +297,21 @@ class ExposerTest {
 
         // Set then get
         PyMemberDescr md_i = mds.get("i");
-        PyMemberDescr.__set__(md_i, o, oi);
-        assertEquals(oi, PyMemberDescr.__get__(md_i, o, null));
+        md_i.__set__(o, oi);
+        assertEquals(oi, md_i.__get__(o, null));
 
         PyMemberDescr md_x = mds.get("x");
-        PyMemberDescr.__set__(md_x, o, ox);
+        md_x.__set__(o, ox);
         assertEquals(x, o.x, 1e-6);
 
         PyMemberDescr md_t = mds.get("text");
-        PyMemberDescr.__set__(md_t, o, ot);
+        md_t.__set__(o, ot);
         assertEquals(t, o.t);
-        assertEquals(ot, PyMemberDescr.__get__(md_t, o, null));
+        assertEquals(ot, md_t.__get__(o, null));
 
         // Read-only cases throw
         final PyMemberDescr md_i2 = mds.get("i2");
-        assertThrows(AttributeError.class,
-                () -> PyMemberDescr.__set__(md_i2, o, oi));
+        assertThrows(AttributeError.class, () -> md_i2.__set__(o, oi));
     }
 
 }
