@@ -66,8 +66,7 @@ class PyByteCode2 {
     @Test
     void testExceptionRepr() {
         PyException e = new TypeError("test");
-        assertEquals(Py.str("TypeError('test')"),
-                PyException.__repr__(e));
+        assertEquals(Py.str("TypeError('test')"), e.__repr__());
     }
 
     /** Any attempt to use a slot will fail. */

@@ -1,11 +1,15 @@
 package uk.co.farowl.vsj2.evo4;
 
+import java.lang.invoke.MethodHandles;
+
 /** The Python {@code module} object. */
 class PyModule implements PyObject {
 
     /** The type of Python object this class implements. */
     static final PyType TYPE = PyType.fromSpec( //
-            new PyType.Spec("module", PyModule.class));
+            new PyType.Spec("module", PyModule.class,
+                    MethodHandles.lookup()));
+
     protected final PyType type;
 
     /** Name of this module. **/
@@ -17,7 +21,11 @@ class PyModule implements PyObject {
     /**
      * As {@link #PyModule(String)} for Python sub-class specifying
      * {@link #type}.
+     *
+     * @param type actual Python sub-class to being created
+     * @param name of module
      */
+
     PyModule(PyType type, String name) {
         this.type = type;
         this.name = name;
@@ -35,6 +43,8 @@ class PyModule implements PyObject {
 
     /**
      * Add a type by name to the dictionary.
+     *
+     * @param t the type
      */
     void add(PyType t) {
         // XXX should type names be PyUnicode?

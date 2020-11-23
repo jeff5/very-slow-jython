@@ -45,9 +45,8 @@ class BaseException extends RuntimeException implements PyObject {
 
     // slot functions -------------------------------------------------
 
-    static PyObject __repr__(BaseException self) {
+    protected PyObject __repr__() {
         // Somewhat simplified
-        return Py.str(
-                self.getType().name + "('" + self.getMessage() + "')");
+        return Py.str(getType().name + "('" + getMessage() + "')");
     }
 }

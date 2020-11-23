@@ -18,7 +18,12 @@ abstract class AbstractPyObject implements PyObject {
 
     // slot functions -------------------------------------------------
     /*
-     * Do not declare slot functions in this class as it will interfere
-     * with mechanisms for Python inheritance.
+     * It should be possible to declare special (instance) methods in
+     * this class to save work in implementation classes of Python
+     * types. The processing of special methods would treat them as
+     * defined afresh by each exposed implementation (each class that
+     * calls PyType.fromSpec()). This may be undesirable where
+     * sub-classes that are object implementations should instead
+     * Python-inherit their definition.
      */
 }

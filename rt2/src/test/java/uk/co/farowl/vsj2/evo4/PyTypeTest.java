@@ -44,15 +44,13 @@ class PyTypeTest {
         @Override
         public PyType getType() { return TYPE; }
 
-        static PyObject __new__(PyType type, PyTuple args,
+        static PyObject __new__(PyType metatype, PyTuple args,
                 PyDict kwargs) throws Throwable {
             PyLong value = (PyLong) args.get(0);
             return new C0(value.asSize());
         }
 
-        static PyObject __str__(C0 c) {
-            return Py.str(Integer.toString(c.value));
-        }
+        PyObject __str__() { return Py.str(Integer.toString(value)); }
     }
 
     @SuppressWarnings("unused")
@@ -68,8 +66,8 @@ class PyTypeTest {
         @Override
         public PyType getType() { return TYPE; }
 
-        static PyObject __add__(C1 v, PyObject w) {
-            return w instanceof C1 ? new C1(v.value + ((C1) w).value)
+        PyObject __add__(PyObject w) {
+            return w instanceof C1 ? new C1(value + ((C1) w).value)
                     : Py.NotImplemented;
         }
     }
@@ -209,8 +207,7 @@ class PyTypeTest {
      */
     @Test
     void test__call__() throws Throwable {
-        PyObject c = PyType.__call__(C0.TYPE, Py.tuple(Py.val(42)),
-                Py.dict());
+        PyObject c = C0.TYPE.__call__(Py.tuple(Py.val(42)), Py.dict());
         assertEquals(C0.TYPE, c.getType());
     }
 
