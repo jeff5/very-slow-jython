@@ -121,8 +121,10 @@ class TypedTuple<E extends PyObject> extends AbstractList<E>
      * possibly guaranteeing a particular component type (e.g.
      * {@link PyCode#names} returned by {@link PyCode#getNames()}).
      *
+     * @param <T> the type of the elements.
      * @param cls class of elements
      * @param value of the tuple
+     * @return wrapped array
      * @throws ArrayStoreException if any element of {@code value} is
      *             not assignment compatible with {@code cls}
      */

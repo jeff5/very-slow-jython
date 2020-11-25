@@ -208,6 +208,11 @@ class PyLong implements PyObject {
      * either the {@code nb_int} slot is not available or the result of
      * the call to {@code nb_int} returns something not of type
      * {@code int}.
+     *
+     * @param integral to convert to {@code int}
+     * @return integer value of argument
+     * @throws TypeError if {@code integral} seems not to be
+     * @throws Throwable from the supporting implementation
      */
     // Compare CPython longobject.c::_PyLong_FromNbInt
     static PyObject fromNbInt(PyObject integral)
@@ -251,11 +256,14 @@ class PyLong implements PyObject {
      * with {@link Number#index(PyObject)} after the end of the
      * deprecation period.
      *
-     * @throws Throwable
+     * @param integral to convert to {@code int}
+     * @return integer value of argument
+     * @throws TypeError if {@code integral} seems not to be
+     * @throws Throwable from the supporting implementation
      */
     // Compare CPython longobject.c :: _PyLong_FromNbIndexOrNbInt
     static PyObject fromNbIndexOrNbInt(PyObject integral)
-            throws Throwable {
+            throws TypeError, Throwable {
         PyType t = integral.getType();
 
         if (t == PyLong.TYPE)
@@ -293,9 +301,14 @@ class PyLong implements PyObject {
     /**
      * Convert a sequence of Unicode digits in the string u to a Python
      * integer value.
+     *
+     * @param u string to convert
+     * @param base in which to interpret it
+     * @return converted value
+     * @throws ValueError if {@code u} is an invalid literal
      */
     // Compare CPython longobject.c :: PyLong_FromUnicodeObject
-    static PyLong fromUnicode(PyUnicode u, int base) {
+    static PyLong fromUnicode(PyUnicode u, int base) throws ValueError {
         try {
             // XXX maybe check 2<=base<=36 even if Number.asLong does?
             return new PyLong(new BigInteger(u.toString(), base));

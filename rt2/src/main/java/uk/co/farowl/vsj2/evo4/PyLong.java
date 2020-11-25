@@ -392,9 +392,10 @@ class PyLong implements PyObject {
      * @param u string to convert
      * @param base in which to interpret it
      * @return converted value
+     * @throws ValueError if {@code u} is an invalid literal
      */
     // Compare CPython longobject.c :: PyLong_FromUnicodeObject
-    static PyLong fromUnicode(PyUnicode u, int base) {
+    static PyLong fromUnicode(PyUnicode u, int base) throws ValueError {
         try {
             // XXX maybe check 2<=base<=36 even if Number.asLong does?
             return new PyLong(new BigInteger(u.toString(), base));

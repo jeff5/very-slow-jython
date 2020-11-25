@@ -148,20 +148,33 @@ enum Slot {
      * Get the name of the method that, by convention, identifies the
      * corresponding operation in the implementing class. This is not
      * the same as the slot name.
+     *
+     * @return conventional special method name.
      */
     String getMethodName() { return methodName; }
 
-    /** The invocation type of slots of this name. */
+    /**
+     * Return the invocation type of slots of this name.
+     *
+     * @return the invocation type of slots of this name.
+     */
     MethodType getType() {
         return signature.empty.type();
     }
 
-    /** Get the default that fills the slot when it is "empty". */
-    MethodHandle getEmpty() {
-        return signature.empty;
-    }
+    /**
+     * Get the default that fills the slot when it is "empty".
+     *
+     * @return empty method handle for this type of slot
+     */
+    MethodHandle getEmpty() { return signature.empty; }
 
-    /** Test whether this slot is non-empty in the given type. */
+    /**
+     * Test whether this slot is non-empty in the given type.
+     *
+     * @param t type to examine for this slot
+     * @return true iff defined (non-empty)
+     */
     boolean isDefinedFor(PyType t) {
         return (MethodHandle) slotHandle.get(t) != signature.empty;
     }

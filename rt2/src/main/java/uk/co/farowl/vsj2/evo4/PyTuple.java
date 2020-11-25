@@ -8,14 +8,17 @@ import java.util.StringJoiner;
 import uk.co.farowl.vsj2.evo4.PyType.Spec;
 
 /** The Python {@code tuple} object. */
-class PyTuple /* extends TypedTuple<PyObject> */ extends
-        AbstractList<PyObject> implements /* PySequence */ PyObject {
+class PyTuple extends AbstractList<PyObject>
+        implements /* PySequence */ PyObject {
 
-    /** The Python object for {@code tuple}. */
+    /** The Python type object for {@code tuple}. */
     static final PyType TYPE = PyType.fromSpec( //
             new Spec("tuple", PyTuple.class, MethodHandles.lookup()));
 
+    /** The Python type of this instance. */
     protected final PyType type;
+
+    /** The elements of the {@code tuple}. */
     final PyObject[] value;
 
     /**

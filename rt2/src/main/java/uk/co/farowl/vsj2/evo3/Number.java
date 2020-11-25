@@ -325,7 +325,8 @@ class Number extends Abstract {
      *
      * @param o operand
      * @return {@code int(o)}
-     * @throws Throwable
+     * @throws TypeError if {@code o} seems not to be integral
+     * @throws Throwable from the supporting implementations
      */
     // Compare with CPython abstract.h :: PyNumber_Long
     static PyObject asLong(PyObject o) throws Throwable {

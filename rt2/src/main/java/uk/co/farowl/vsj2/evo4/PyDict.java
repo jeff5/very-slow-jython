@@ -26,13 +26,20 @@ class PyDict extends LinkedHashMap<PyObject, PyObject>
 
     /**
      * Specialisation of {@code Map.get} allowing Java {@code String}
-     * keys. Returns {@code null} if the key is not found.
+     * keys.
+     *
+     * @param key whose associated value is to be returned
+     * @return value at {@code key} or {@code null} if not found
      */
     PyObject get(String key) { return this.get(Py.str(key)); }
 
     /**
      * Specialisation of {@code Map.put()} allowing Java {@code String}
      * keys.
+     *
+     * @param key with which the specified value is to be associated
+     * @param value to be associated
+     * @return previous value associated
      */
     PyObject put(String key, PyObject value) {
         return this.put(Py.str(key), value);
@@ -41,15 +48,30 @@ class PyDict extends LinkedHashMap<PyObject, PyObject>
     /**
      * Specialisation of {@code Map.putIfAbsent()} allowing Java
      * {@code String} keys.
+     *
+     * @param key with which the specified value is to be associated
+     * @param value to be associated
+     * @return previous value associated
      */
     PyObject putIfAbsent(String key, PyObject value) {
         return this.putIfAbsent(Py.str(key), value);
     }
 
-    enum MergeMode { PUT, IF_ABSENT, UNIQUE }
+    /** Modes for use with {@link #merge(PyObject, MergeMode)}. */
+    enum MergeMode {
+        PUT, IF_ABSENT, UNIQUE
+    }
 
-    /** Merge the mapping {@code src} into this {@code dict}. */
-    PyObject merge(PyObject src, MergeMode mode) {
+    /**
+     * Merge the mapping {@code src} into this {@code dict}. This
+     * supports the {@code BUILD_MAP_UNPACK_WITH_CALL} opcode.
+     *
+     * @param src to merge in
+     * @param mode what to do about duplicates
+     * @throws KeyError on duplicate key (and {@link MergeMode#UNIQUE})
+     */
+    // Compare CPython dict_merge and _PyDict_MergeEx in dictobject.c
+    void merge(PyObject src, MergeMode mode) throws KeyError {
         // XXX: stop-gap implementation
         if (src instanceof PyDict) {
             Set<Map.Entry<PyObject, PyObject>> entries =
@@ -68,7 +90,6 @@ class PyDict extends LinkedHashMap<PyObject, PyObject>
         } else
             throw new AttributeError("Unsupported mapping type %s",
                     src.getType().getName());
-        return Py.None;
     }
 
     // slot functions -------------------------------------------------
