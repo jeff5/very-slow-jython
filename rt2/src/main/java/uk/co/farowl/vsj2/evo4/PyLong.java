@@ -22,7 +22,7 @@ class PyLong implements PyObject {
     /**
      * Constructor for Python sub-class specifying {@link #type}.
      *
-     * @param type actual Python sub-class to being created
+     * @param type actual Python sub-class being created
      * @param value of the {@code int}
      */
     PyLong(PyType type, BigInteger value) {
@@ -420,10 +420,12 @@ class PyLong implements PyObject {
 
     /**
      * Construct a Python {@code int} from a Python {@code int} or
-     * subclass. If the value has Python type {@code int} return it,
-     * otherwise construct a new instance of exactly {@code int} type.
+     * subclass. If the value has Python type {@code int} exactly return
+     * it, otherwise construct a new instance of exactly {@code int}
+     * type.
      *
-     * @param value of the {@code int}
+     * @param value
+     * @return the same value as exactly {@code PyLong}
      */
     static PyLong from(PyLong value) {
         return value.getType() == TYPE ? value : Py.val(value.value);

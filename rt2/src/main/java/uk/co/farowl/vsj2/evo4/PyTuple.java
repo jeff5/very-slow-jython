@@ -1,24 +1,100 @@
 package uk.co.farowl.vsj2.evo4;
 
+import java.lang.invoke.MethodHandles;
+import java.util.AbstractList;
 import java.util.Collection;
+import java.util.StringJoiner;
+
+import uk.co.farowl.vsj2.evo4.PyType.Spec;
 
 /** The Python {@code tuple} object. */
-class PyTuple extends TypedTuple<PyObject> {
+class PyTuple /* extends TypedTuple<PyObject> */ extends
+        AbstractList<PyObject> implements /* PySequence */ PyObject {
+
+    /** The Python object for {@code tuple}. */
+    static final PyType TYPE = PyType.fromSpec( //
+            new Spec("tuple", PyTuple.class, MethodHandles.lookup()));
+
+    protected final PyType type;
+    final PyObject[] value;
+
+    /**
+     * Potentially unsafe constructor, capable of creating a
+     * "{@code tuple} view" of an array, or a copy. We make a copy (the
+     * safe option) if the caller is <b>not</b> prepared to promise
+     * <b>not</b> to modify the array. The arguments begin with a
+     * claimed element type for the array, or the element type of the
+     * array to create.
+     *
+     * @param type sub-type for which this is being created
+     * @param cls class of elements
+     * @param iPromiseNotToModifyTheArray if {@code true} try to re-use
+     *            the array, otherwise make a copy.
+     * @param value of the tuple
+     * @throws ArrayStoreException if any element of {@code value} is
+     *             not assignment compatible with {@code PyObject}.
+     *             Caller would have to have cast {@code value} to avoid
+     *             static checks.
+     */
+    // @SuppressWarnings("unchecked")
+    private <E extends PyObject> PyTuple(PyType type,
+            boolean iPromiseNotToModifyTheArray, E[] value)
+            throws ArrayStoreException {
+        this.type = type;
+        if (iPromiseNotToModifyTheArray) {
+            // The array may safely be cast to match the requested type.
+            this.value = (PyObject[]) value;
+        } else {
+            // We make a new array .
+            int n = value.length;
+            this.value = new PyObject[n];
+            // The copy may throw ArrayStoreException.
+            System.arraycopy(value, 0, this.value, 0, n);
+        }
+    }
+
+    /**
+     * Unsafely wrap an array of {@code PyObject} (or of a type
+     * assignable to {@code PyObject}) in a "tuple view".
+     * <p>
+     * The method is unsafe insofar as the array becomes embedded as the
+     * value of the tuple. <b>The client therefore promises not to
+     * modify the content.</b> For this reason, this method should only
+     * ever have package visibility.
+     *
+     * @param <E> component type of the array in the new tuple
+     * @param value of the new tuple or {@code null}
+     * @return a tuple with the given contents or {@link #EMPTY}
+     */
+    static <E extends PyObject> PyTuple wrap(E[] value)
+            throws ArrayStoreException {
+        if (value == null)
+            return EMPTY;
+        else
+            return new PyTuple(TYPE, true, value);
+    }
 
     /**
      * As {@link #PyTuple(PyObject...)} for Python sub-class specifying
      * {@link #type}.
+     *
+     * @param type actual Python sub-class to being created
+     * @param value elements of the tuple
      */
-    PyTuple(PyType type, PyObject... value) {
-        super(type, PyObject.class, value);
+    protected PyTuple(PyType type, PyObject... value) {
+        this(type, false, value);
     }
 
     /**
      * As {@link #PyTuple(Collection)} for Python sub-class specifying
      * {@link #type}.
+     *
+     * @param type actual Python sub-class to being created
+     * @param c elements of the tuple
      */
-    PyTuple(PyType type, Collection<? extends PyObject> c) {
-        super(type, PyObject.class, c);
+    protected PyTuple(PyType type, Collection<? extends PyObject> c) {
+        this.type = type;
+        this.value = c.toArray(new PyObject[c.size()]);
     }
 
     /**
@@ -30,8 +106,11 @@ class PyTuple extends TypedTuple<PyObject> {
      * @param start first element to include
      * @param count number of elements to take
      */
-    PyTuple(PyType type, PyObject a[], int start, int count) {
-        super(type, PyObject.class, a, start, count);
+    protected PyTuple(PyType type, PyObject a[], int start, int count) {
+        this.type = type;
+        // We make a new array.
+        this.value = new PyObject[count];
+        System.arraycopy(a, start, this.value, 0, count);
     }
 
     /**
@@ -85,42 +164,7 @@ class PyTuple extends TypedTuple<PyObject> {
     /** Convenient constant for a {@code tuple} with zero elements. */
     static final PyTuple EMPTY = new PyTuple();
 
-    private PyTuple(boolean iPromiseNotToModifyTheArray,
-            PyObject[] value) throws ArrayStoreException {
-        super(TYPE, PyObject.class, iPromiseNotToModifyTheArray, value);
-    }
-
-    /**
-     * Unsafely wrap an array of {@code PyObject} (or of a type
-     * assignable to {@code PyObject}) in a "tuple view".
-     * <p>
-     * The method is unsafe insofar as the array becomes embedded as the
-     * value of the tuple. <b>The client therefore promises not to
-     * modify the content.</b> For this reason, this method should only
-     * ever have package visibility.
-     *
-     * @param <T> component type of the array in the new tuple
-     * @param value of the new tuple or {@code null}
-     * @return a tuple with the given contents or {@link #EMPTY}
-     */
-    static <T extends PyObject> PyTuple wrap(T[] value) {
-        if (value == null)
-            return EMPTY;
-        else
-            return new PyTuple(true, value);
-    }
-
-    // Sequence interface ---------------------------------------------
-
-    PyObject getItem(int i) {
-        try {
-            return get(i);
-        } catch (IndexOutOfBoundsException e) {
-            throw Abstract.indexOutOfRange("tuple");
-        }
-    }
-
-    // slot functions -------------------------------------------------
+    // Special methods -----------------------------------------------
 
     static int __len__(PyTuple self) { return self.size(); }
 
@@ -137,4 +181,35 @@ class PyTuple extends TypedTuple<PyObject> {
             throw Abstract.indexTypeError(self, item);
     }
 
+    // AbstractList methods ------------------------------------------
+
+    @Override
+    public PyObject get(int i) { return value[i]; }
+
+    @Override
+    public int size() { return value.length; }
+
+    // Sequence interface --------------------------------------------
+
+    PyObject getItem(int i) {
+        try {
+            return get(i);
+        } catch (IndexOutOfBoundsException e) {
+            throw Abstract.indexOutOfRange("tuple");
+        }
+    }
+
+    // Plumbing ------------------------------------------------------
+
+    @Override
+    public PyType getType() { return type; }
+
+    @Override
+    public String toString() {
+        // Support the expletive comma "(x,)" for one element.
+        String suffix = value.length == 1 ? ",)" : ")";
+        StringJoiner sj = new StringJoiner(", ", "(", suffix);
+        for (Object v : value) { sj.add(v.toString()); }
+        return sj.toString();
+    }
 }
