@@ -29,8 +29,9 @@ class ExposerTest {
      */
     private static class ObjectWithMembers implements PyObject {
 
-        static PyType TYPE = new PyType("ObjectWithMembers",
-                ObjectWithMembers.class);
+        static PyType TYPE =
+                PyType.fromSpec(new PyType.Spec("ObjectWithMembers",
+                        ObjectWithMembers.class));
 
         @Override
         public PyType getType() { return TYPE; }

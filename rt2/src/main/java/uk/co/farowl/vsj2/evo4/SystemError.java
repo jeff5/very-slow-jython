@@ -4,8 +4,8 @@ package uk.co.farowl.vsj2.evo4;
 class SystemError extends PyException {
 
     /** The type of Python object this class implements. */
-    static final PyType TYPE =
-            new PyType("SystemError", SystemError.class);
+    static final PyType TYPE = PyType.fromSpec(
+            new PyType.Spec("SystemError", SystemError.class));
 
     /**
      * Constructor for sub-class use specifying {@link #type}.

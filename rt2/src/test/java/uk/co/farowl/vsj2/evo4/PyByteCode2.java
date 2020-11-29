@@ -184,14 +184,24 @@ class PyByteCode2 {
         });
     }
 
+    /** Python object implementation for tests */
+    static class TestBasic implements PyObject {
+
+        static final PyType TYPE = PyType.fromSpec( //
+                new Spec("TestBasic", TestBasic.class));
+
+        @Override
+        public PyType getType() { return TYPE; }
+    }
+
     /**
-     * Test that tp_ slots accept only the right type of method handles.
+     * Test that some basic (formerly {@code tp_} slots accept only the right type of method handles.
      */
     @Test
     void testSlotTP() {
-        // Create a type defining none of the reserved names
-        final PyType basic = PyType.fromSpec( //
-                new Spec("0Test", PyObject.class));
+        // Type defining none of the reserved names
+        final PyType basic = TestBasic.TYPE;
+
         assertEquals(Slot.Signature.CALL.empty, basic.op_call,
                 "not EMPTY");
 
@@ -236,9 +246,9 @@ class PyByteCode2 {
      */
     @Test
     void testSlotNB() {
-        // Create a type defining none of the reserved names
-        final PyType number = PyType.fromSpec(//
-                new Spec("1Test", PyObject.class));
+        // Type defining none of the reserved names
+        final PyType number = TestBasic.TYPE;
+
         assertEquals(Slot.Signature.UNARY.empty, number.op_neg,
                 Slot.op_neg.name());
         assertEquals(Slot.Signature.BINARY.empty, number.op_add,
@@ -294,11 +304,8 @@ class PyByteCode2 {
      */
     @Test
     void testSlotSQ() {
-        // Create a type defining none of the reserved names
-        final PyType sequence = PyType.fromSpec(new Spec( //
-                "2Test", PyObject.class));
-        assertEquals(Slot.Signature.LEN.empty, sequence.op_len,
-                "not empty");
+        // Type defining none of the reserved names
+        final PyType sequence = TestBasic.TYPE;
 
         // Make method handles to try
         final MethodHandle length =

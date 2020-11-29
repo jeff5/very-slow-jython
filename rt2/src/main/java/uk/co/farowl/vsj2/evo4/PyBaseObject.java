@@ -31,7 +31,10 @@ class PyBaseObject extends AbstractPyObject {
     /** The type object of {@code object} objects. */
     static final PyType TYPE = PyType.OBJECT_TYPE;
 
-    /** Constructor for Python sub-class specifying {@link #type}. */
+    /** Constructor for Python sub-class specifying {@code type}.
+     *
+     * @param type actual Python sub-class being created
+     */
     protected PyBaseObject(PyType type) {
         super(type);
     }
@@ -81,8 +84,18 @@ class PyBaseObject extends AbstractPyObject {
         return __repr__(self);
     }
 
+    /**
+     * {@link Slot#op_new} has signature {@link Signature#NEW} and
+     * provides object creation.
+     *
+     * @param type actual Python sub-class being created
+     * @param args should be empty
+     * @param kwargs should be empty
+     * @return newly-created implementation object
+     * @throws TypeError if arguments are not empty
+     */
     static PyObject __new__(PyType type, PyTuple args, PyDict kwargs)
-            throws Throwable {
+            throws TypeError {
         // Assert no arguments
         if (args.isEmpty() && (kwargs == null || kwargs.isEmpty())) {
             return new PyBaseObject(type);

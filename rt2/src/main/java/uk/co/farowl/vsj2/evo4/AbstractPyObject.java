@@ -8,6 +8,13 @@ abstract class AbstractPyObject implements PyObject {
 
     private PyType type;
 
+    /**
+     * Constructor specifying the Python type, as returned by
+     * {@link #getType()}. As this is a base for the implementation of
+     * all sorts of Python types, it needs to be told which one it is.
+     *
+     * @param type actual Python type being created
+     */
     protected AbstractPyObject(PyType type) { this.type = type; }
 
     @Override

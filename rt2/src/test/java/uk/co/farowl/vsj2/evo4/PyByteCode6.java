@@ -76,7 +76,8 @@ class PyByteCode6 {
      */
     private static class MyStr extends PyUnicode {
 
-        static final PyType TYPE = new PyType("MyStr", MyStr.class);
+        static final PyType TYPE =
+                PyType.fromSpec(new PyType.Spec("MyStr", MyStr.class));
 
         @Override
         public PyType getType() { return TYPE; }
