@@ -29,8 +29,8 @@ class PyByteCode5 {
         @Override
         public PyType getType() { return TYPE; }
 
-        static PyObject __call__(LenCallable self, PyTuple args,
-                PyDict kwargs) throws Throwable {
+        PyObject __call__(PyTuple args, PyDict kwargs)
+                throws Throwable {
             PyObject v = Sequence.getItem(args, 0);
             return Py.val(Abstract.size(v));
         }

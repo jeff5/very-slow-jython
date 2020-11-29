@@ -158,9 +158,7 @@ enum Slot {
      *
      * @return the invocation type of slots of this name.
      */
-    MethodType getType() {
-        return signature.empty.type();
-    }
+    MethodType getType() { return signature.empty.type(); }
 
     /**
      * Get the default that fills the slot when it is "empty".
@@ -471,22 +469,10 @@ enum Slot {
             String name = slot.getMethodName();
             Signature sig = slot.signature;
             assert sig.kind == MethodKind.INSTANCE;
-            try {
-                // The standard implementation
-                MethodType mt = sig.methodType;
-                MethodHandle impl = lookup.findVirtual(c, name, mt);
-                // The invocation type remains that of slot.empty
-                return impl.asType(sig.empty.type());
-            } catch (NoSuchMethodException e) {}
-            /*
-             * We have some object implementations in which the
-             * implementation method is actually Java static. Have to
-             * try both implementations for the time being.
-             */
-            // XXX remove try and this block needed only while static
-            MethodType mt = replaceSelf(sig.type, c);
-            MethodHandle impl = lookup.findStatic(c, name, mt);
-            return impl.asType(slot.getType());
+            MethodType mt = sig.methodType;
+            MethodHandle impl = lookup.findVirtual(c, name, mt);
+            // The invocation type remains that of slot.empty
+            return impl.asType(sig.empty.type());
         }
 
         /**
@@ -533,10 +519,12 @@ enum Slot {
          */
         static MethodHandle findInBaseObject(Slot slot, Lookup lookup)
                 throws NoSuchMethodException, IllegalAccessException {
-            // The method has the same name in every implementation
+            // The method has this special method name.
             String name = slot.getMethodName();
+            // The signature uses PyObject self to accept any object.
             Signature sig = slot.signature;
             MethodType mt = replaceSelf(sig.type, PyObject.class);
+            // And the method is declared static (for that reason).
             MethodHandle impl =
                     lookup.findStatic(PyBaseObject.class, name, mt);
             assert impl.type() == sig.empty.type();

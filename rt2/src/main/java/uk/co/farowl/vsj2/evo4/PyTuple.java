@@ -169,19 +169,18 @@ class PyTuple extends AbstractList<PyObject>
 
     // Special methods -----------------------------------------------
 
-    static int __len__(PyTuple self) { return self.size(); }
+    int __len__() { return size(); }
 
-    static PyObject __getitem__(PyTuple self, PyObject item)
-            throws Throwable {
+    PyObject __getitem__(PyObject item) throws Throwable {
         PyType itemType = item.getType();
         if (Slot.op_index.isDefinedFor(itemType)) {
             int i = Number.asSize(item, IndexError::new);
-            if (i < 0) { i += self.size(); }
-            return self.getItem(i);
+            if (i < 0) { i += size(); }
+            return getItem(i);
         }
         // else if item is a PySlice { ... }
         else
-            throw Abstract.indexTypeError(self, item);
+            throw Abstract.indexTypeError(this, item);
     }
 
     // AbstractList methods ------------------------------------------

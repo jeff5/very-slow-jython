@@ -32,22 +32,21 @@ class PyByteCode6 {
 
         PyObject x;         // Attribute for test
 
-        static PyObject __getattr__(C self, PyUnicode name)
-                throws Throwable {
+        PyObject __getattr__(PyUnicode name) throws Throwable {
             String n = name.toString();
-            if ("x".equals(n) && self.x != null)
-                return self.x;
+            if ("x".equals(n) && x != null)
+                return x;
             else
-                throw Abstract.noAttributeError(self, name);
+                throw Abstract.noAttributeError(this, name);
         }
 
-        static void __setattr__(C self, PyUnicode name, PyObject value)
+        void __setattr__(PyUnicode name, PyObject value)
                 throws Throwable {
             String n = name.toString();
             if ("x".equals(n))
-                self.x = value;
+                x = value;
             else
-                throw Abstract.noAttributeError(self, name);
+                throw Abstract.noAttributeError(this, name);
         }
 
         static PyObject __new__(PyType cls, PyTuple args,
@@ -177,14 +176,13 @@ class PyByteCode6 {
             Readonly(int foo) { super(foo); type = TYPE; }
 
             @SuppressWarnings("unused")
-            static void __setattr__(Readonly a, PyUnicode name,
-                    PyObject value) throws EmptyException {
+            void __setattr__(PyUnicode name, PyObject value)
+                    throws EmptyException {
                 throw new Slot.EmptyException();
             }
 
             @SuppressWarnings("unused")
-            static void __delattr__(Readonly a, PyUnicode name)
-                    throws EmptyException {
+            void __delattr__(PyUnicode name) throws EmptyException {
                 throw new Slot.EmptyException();
             }
         }
@@ -202,12 +200,11 @@ class PyByteCode6 {
             NoAttrs(int foo) { super(foo); type = TYPE; }
 
             @SuppressWarnings("unused")
-            static PyObject __getattribute__(NoAttrs a, PyUnicode name)
+            PyObject __getattribute__(PyUnicode name)
                     throws EmptyException {
                 throw new Slot.EmptyException();
             }
         }
-
     }
 
     /** Get attribute in a dictionary. */

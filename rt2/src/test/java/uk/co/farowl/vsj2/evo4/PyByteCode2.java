@@ -39,7 +39,7 @@ class PyByteCode2 {
     @Test
     void testTupleToString() {
         assertEquals("()", Py.tuple().toString());
-        PyObject[] x = {Py.val(1),Py.val(2)};
+        PyObject[] x = {Py.val(1), Py.val(2)};
         assertEquals("(1, 2)", Py.tuple(x).toString());
         assertEquals("(1,)", Py.tuple(x[0]).toString());
     }
@@ -99,9 +99,7 @@ class PyByteCode2 {
         @Override
         public PyType getType() { return type; }
 
-        static PyObject __repr__(TestToStringRepr self) {
-            return Py.str("grim!");
-        }
+        PyObject __repr__() { return Py.str("grim!"); }
     }
 
     /**
@@ -124,9 +122,7 @@ class PyByteCode2 {
         @Override
         public PyType getType() { return type; }
 
-        static PyObject __str__(TestToStringStr self) {
-            return Py.str("w00t!");
-        }
+        PyObject __str__() { return Py.str("w00t!"); }
     }
 
     /**
@@ -195,7 +191,8 @@ class PyByteCode2 {
     }
 
     /**
-     * Test that some basic (formerly {@code tp_} slots accept only the right type of method handles.
+     * Test that some basic (formerly {@code tp_} slots accept only the
+     * right type of method handles.
      */
     @Test
     void testSlotTP() {
@@ -346,14 +343,14 @@ class PyByteCode2 {
         // Create a type defining none of the reserved names
         final PyType mapping = PyType.fromSpec(new Spec( //
                 "3Test", PyObject.class));
-        assertEquals(Slot.Signature.BINARY.empty,
-                mapping.op_getitem, "not empty");
-        assertEquals(Slot.Signature.SETITEM.empty,
-                mapping.op_setitem, "not empty");
+        assertEquals(Slot.Signature.BINARY.empty, mapping.op_getitem,
+                "not empty");
+        assertEquals(Slot.Signature.SETITEM.empty, mapping.op_setitem,
+                "not empty");
 
         // Make method handles to try
-        MethodHandle getitem = MethodHandles
-                .empty(Slot.Signature.BINARY.empty.type());
+        MethodHandle getitem =
+                MethodHandles.empty(Slot.Signature.BINARY.empty.type());
         MethodHandle setitem = MethodHandles
                 .empty(Slot.Signature.SETITEM.empty.type());
         MethodHandle bad1 = MethodHandles
@@ -381,8 +378,7 @@ class PyByteCode2 {
 
         // And the slots should be unaffected
         assertEquals(getitem, mapping.op_getitem, "slot modified");
-        assertEquals(setitem, mapping.op_setitem,
-                "slot modified");
+        assertEquals(setitem, mapping.op_setitem, "slot modified");
     }
 
     // --------------------- Generated Tests -----------------------
