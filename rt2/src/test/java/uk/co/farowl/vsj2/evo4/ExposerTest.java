@@ -147,8 +147,8 @@ class ExposerTest {
      * {@link Exposer} creates for fields annotated as {@link Member},
      * and receive an {@link AttributeError} when read-only.
      *
-     * @throws Throwable
-     * @throws TypeError
+     * @throws Throwable unexpectedly
+     * @throws TypeError unexpectedly
      */
     @Test
     void memberSetValues() throws TypeError, Throwable {
@@ -205,8 +205,8 @@ class ExposerTest {
      * {@link Exposer} creates for fields annotated as {@link Member},
      * and receive an {@link AttributeError} when read-only.
      *
-     * @throws Throwable
-     * @throws TypeError
+     * @throws Throwable unexpectedly
+     * @throws TypeError unexpectedly
      */
     @Test
     void memberDeleteValues() throws TypeError, Throwable {
@@ -277,8 +277,8 @@ class ExposerTest {
      * Test that we can get and set values in a Java sub-class via the
      * {@link MemberDef}s the {@link Exposer} creates.
      *
-     * @throws Throwable
-     * @throws TypeError
+     * @throws Throwable unexpectedly
+     * @throws TypeError unexpectedly
      */
     @Test
     void memberInDerived() throws TypeError, Throwable {

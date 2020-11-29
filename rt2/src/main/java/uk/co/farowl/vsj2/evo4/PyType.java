@@ -1163,8 +1163,9 @@ class PyType implements PyObject {
             if (metaAttrType.isDataDescr()) {
                 // metaAttr is a data descriptor so call its __get__.
                 try {
+                    // Note the cast of 'this', to match op_get
                     return (PyObject) descrGet.invokeExact(metaAttr,
-                            this, metatype);
+                            (PyObject) this, metatype);
                 } catch (Slot.EmptyException e) {
                     /*
                      * We do not catch AttributeError: it's definitive.
@@ -1208,8 +1209,8 @@ class PyType implements PyObject {
         if (descrGet != null) {
             // metaAttr may be a non-data descriptor: call __get__.
             try {
-                return (PyObject) descrGet.invokeExact(metaAttr, this,
-                        metatype);
+                return (PyObject) descrGet.invokeExact(metaAttr,
+                        (PyObject) this, metatype);
             } catch (Slot.EmptyException e) {}
         }
 
@@ -1268,8 +1269,8 @@ class PyType implements PyObject {
             if (metaAttrType.isDataDescr()) {
                 // Try descriptor __set__
                 try {
-                    metaAttrType.op_set.invokeExact(metaAttr, this,
-                            value);
+                    metaAttrType.op_set.invokeExact(metaAttr,
+                            (PyObject) this, value);
                     if (special) { updateAfterSetAttr(name); }
                     return;
                 } catch (Slot.EmptyException e) {
@@ -1324,7 +1325,8 @@ class PyType implements PyObject {
             if (metaAttrType.isDataDescr()) {
                 // Try descriptor __delete__
                 try {
-                    metaAttrType.op_delete.invokeExact(metaAttr, this);
+                    metaAttrType.op_delete.invokeExact(metaAttr,
+                            (PyObject) this);
                     if (special) { updateAfterSetAttr(name); }
                     return;
                 } catch (Slot.EmptyException e) {
@@ -1443,12 +1445,13 @@ class PyType implements PyObject {
     /**
      * This class exists simply to drive the creation of descriptor
      * types in the initialisation of the run-time. It is superfluous
-     * once type and object use descriptors.
+     * once type and object use descriptors and {@code str}.
      */
     private static class Example extends AbstractPyObject {
 
         static final PyType TYPE =
                 fromSpec(new Spec("_example", Example.class, LOOKUP));
+        PyUnicode str = PyUnicode.EMPTY;
 
         Example() { super(TYPE); }
 

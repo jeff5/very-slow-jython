@@ -294,11 +294,12 @@ class PyGetSetDescr extends DataDescriptor {
         Method delete;
         String doc;
 
-        /** Obvious constructor. */
-        GetSetDef(String name) {
-            this.name = name;
-
-        }
+        /**
+         * Obvious constructor
+         *
+         * @param name of attribute.
+         */
+        GetSetDef(String name) { this.name = name; }
 
         /**
          * Set the {@link #get} method.

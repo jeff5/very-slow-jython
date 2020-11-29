@@ -3,6 +3,8 @@ package uk.co.farowl.vsj2.evo4;
 import java.lang.invoke.MethodHandle;
 import java.util.Map;
 
+import uk.co.farowl.vsj2.evo4.Exposed.DocString;
+import uk.co.farowl.vsj2.evo4.Exposed.Getter;
 import uk.co.farowl.vsj2.evo4.Slot.Signature;
 
 /**
@@ -16,40 +18,66 @@ import uk.co.farowl.vsj2.evo4.Slot.Signature;
  * The Java implementation class of a type defined in Python will be
  * derived from the implementation class of the "solid base" it inherits
  * in Python. This <i>may</i> be {@code object}, in which case the
- * implementation class will be s sub-class in Java of this class.
+ * implementation class will be a sub-class in Java of this class.
  * <p>
  *
- * @implNote The {@code self} argument of slot functions defined here
- *           should have type {@link PyObject} so that method handles
- *           copied from the slots of {@code object} function correctly
- *           in the type slots of receiving Python objects. They must be
- *           package visible so that {@link PyType} is able to form
- *           {@code MethodHandle}s to them.
+ * @implNote All exposed methods, special methods and attribute get, set
+ *           and delete methods defined here must be declared
+ *           {@code static} in Java, with an explicit
+ *           {@code PyObject self} argument. ({@code __new__} is
+ *           excepted from this rule as it is {@code static} anyway.)
+ *           This is so that methods defined here on {@code object}
+ *           operate correctly on receiving Python objects that are not
+ *           Java subclasses of {@code PyBaseObject}. Methods and fields
+ *           must be package visible so that {@link PyType} is able to
+ *           form {@code MethodHandle}s to them using its default lookup
+ *           object.
  */
 class PyBaseObject extends AbstractPyObject {
 
     /** The type object of {@code object} objects. */
     static final PyType TYPE = PyType.OBJECT_TYPE;
 
-    /** Constructor for Python sub-class specifying {@code type}.
+    /**
+     * Constructor for Python sub-class specifying {@code type}.
      *
      * @param type actual Python sub-class being created
      */
-    protected PyBaseObject(PyType type) {
-        super(type);
-    }
+    protected PyBaseObject(PyType type) { super(type); }
 
     /** Constructor {@code object}. */
     public PyBaseObject() {
         super(TYPE);
     }
 
-    // slot functions -------------------------------------------------
+    // Exposed attributes ---------------------------------------------
 
     /*
-     * The "self" argument of methods defined here should have type
-     * PyObject so that method handles copied from the slots of "object"
-     * function correctly in the type slots of Python objects.
+     * Methods must be static with a "self" argument of type PyObject so
+     * that method handles copied from the slots of "object" function
+     * correctly in the type slots of Python objects.
+     *
+     * It follows that operations performed here must be feasible for
+     * any Python object.
+     */
+
+    /**
+     * Get the object's class.
+     *
+     * @param self target of the operation
+     * @return the object's class
+     */
+    // Compare CPython object_get_class in typeobject.c
+    @Getter("__class__")
+    @DocString("the object's class")
+    static PyObject get_class(PyObject self) { return self.getType(); }
+
+    // Special methods ------------------------------------------------
+
+    /*
+     * Methods must be static with a "self" argument of type PyObject so
+     * that method handles copied from the slots of "object" function
+     * correctly in the type slots of Python objects.
      *
      * It follows that operations performed here must be feasible for
      * any Python object.
@@ -59,6 +87,9 @@ class PyBaseObject extends AbstractPyObject {
      * {@link Slot#op_repr} has signature {@link Signature#UNARY} and
      * sometimes reproduces the source-code representation of the
      * object.
+     *
+     * @param self target of the operation
+     * @return string form
      */
     // Compare CPython object_repr in typeobject.c
     static PyObject __repr__(PyObject self) {
@@ -71,6 +102,9 @@ class PyBaseObject extends AbstractPyObject {
      * returns a human-readable presentation of the object. The default
      * definition of the {@code __str__} slot is to invoke the
      * {@code __repr__} slot.
+     *
+     * @param self target of the operation
+     * @return string form
      */
     // Compare CPython object_str in typeobject.c
     static PyObject __str__(PyObject self) {
