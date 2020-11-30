@@ -26,6 +26,7 @@ class ID {
             intern("__instancecheck__");
     static final PyUnicode __mro_entries__ = intern("__mro_entries__");
     static final PyUnicode __name__ = intern("__name__");
+    static final PyUnicode __neg__ = intern("__neg__");
     static final PyUnicode __qualname__ = intern("__qualname__");
     static final PyUnicode __set__ = intern("__set__");
     static final PyUnicode __str__ = intern("__str__");

@@ -27,9 +27,14 @@ class InheritanceTest {
         @Member
         int count = 0;
 
-        protected A(PyType type) { super(type); }
+        protected A(PyType type, int count) {
+            super(type);
+            this.count = count;
+        }
 
-        protected A() { this(TYPE); }
+        protected A(int count) { this(TYPE, count); }
+
+        PyObject __neg__() { return Py.val(-count); }
     }
 
     /**
@@ -43,7 +48,7 @@ class InheritanceTest {
         static final PyType TYPE = PyType.fromSpec( //
                 new Spec("B", B.class).base(A.TYPE));
 
-        protected B() { super(TYPE); }
+        protected B(int count) { super(TYPE, count); }
     }
 
     /**
@@ -98,20 +103,43 @@ class InheritanceTest {
 
         PyUnicode IDcount = Py.str("count");
 
-        // A inherits from object
-        A a = new A();
+        // A inherits attribute access from object
+        A a = new A(0);
         var count = Abstract.getAttr(a, IDcount);
         assertEquals(Py.val(0), count);
         Abstract.setAttr(a, IDcount, Number.add(count, Py.val(1)));
         assertEquals(Py.val(1), Abstract.getAttr(a, IDcount));
 
         // B inherits from A
-        B b = new B();
+        B b = new B(10);
         count = Abstract.getAttr(b, IDcount);
-        assertEquals(Py.val(0), count);
+        assertEquals(Py.val(10), count);
         Abstract.setAttr(b, IDcount, Number.add(count, Py.val(2)));
-        assertEquals(Py.val(2), Abstract.getAttr(b, IDcount));
+        assertEquals(Py.val(12), Abstract.getAttr(b, IDcount));
+    }
 
+    /**
+     * The classes inherit a special method ({@code SlotWrapperDescr}).
+     * {@code A} defines {@code __neg__} so {@code B} should support
+     * {@link Number#negative(PyObject)}.
+     *
+     * @throws Throwable unexpectedly
+     * @throws AttributeError unexpectedly
+     */
+    @Test
+    void testSpecialMethod() throws AttributeError, Throwable {
+
+        // A implements __neg__
+        A a = new A(5);
+        assertEquals(Py.val(-5), Number.negative(a));
+        // * We need slot-wrapper to find a descriptor here.
+        // * var negA = Abstract.getAttr(A.TYPE, ID.__neg__);
+
+        // B inherits __neg__ from A
+        B b = new B(6);
+        assertEquals(Py.val(-6), Number.negative(b));
+        // * var negB = Abstract.getAttr(B.TYPE, ID.__neg__);
+        // * assertEquals(negA, negB);
     }
 
 }
