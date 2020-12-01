@@ -8,6 +8,8 @@ import uk.co.farowl.vsj2.evo4.Slot.EmptyException;
 /** Compare CPython {@code abstract.h}: {@code Py_Number_*}. */
 class Number extends Abstract {
 
+    private Number() {} // only static methods here
+
     /**
      * {@code -v}: unary negative with Python semantics.
      *

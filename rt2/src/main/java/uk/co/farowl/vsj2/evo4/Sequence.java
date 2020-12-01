@@ -5,6 +5,8 @@ import uk.co.farowl.vsj2.evo4.Slot.EmptyException;
 /** Compare CPython {@code abstract.h}: {@code Py_Sequence_*}. */
 class Sequence extends Abstract {
 
+    private Sequence() {} // only static methods here
+
     /** {@code true} iff {@code s} is a sequence type. */
     static boolean check(PyObject s) {
         return !(s instanceof PyDict)

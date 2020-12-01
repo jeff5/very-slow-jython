@@ -67,4 +67,6 @@ class ID {
             ids.put(name, u = Py.str(name));
         return u;
     }
+
+    private ID() {} // No instances
 }

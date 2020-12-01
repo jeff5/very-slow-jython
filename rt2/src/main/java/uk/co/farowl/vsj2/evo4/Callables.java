@@ -7,6 +7,8 @@ import java.util.Map.Entry;
 /** Compare CPython {@code Objects/call.c}: {@code Py_Object_*}. */
 class Callables extends Abstract {
 
+    private Callables() {} // only static methods here
+
     /**
      * Call an object with the classic call protocol, that is, with an
      * argument tuple and keyword dictionary.

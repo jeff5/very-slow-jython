@@ -45,7 +45,7 @@ class PyBaseObject extends AbstractPyObject {
      */
     protected PyBaseObject(PyType type) { super(type); }
 
-    /** Constructor {@code object}. */
+    /** Constructor for {@code object}. */
     public PyBaseObject() {
         super(TYPE);
     }

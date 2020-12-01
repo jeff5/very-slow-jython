@@ -1,8 +1,10 @@
 package uk.co.farowl.vsj2.evo4;
 
+import java.lang.invoke.MethodHandle;
 import java.util.function.Supplier;
 
 import uk.co.farowl.vsj2.evo4.Slot.EmptyException;
+import uk.co.farowl.vsj2.evo4.ThreadState.RecursionState;
 
 /**
  * The "abstract interface" to operations on Python objects. Methods
@@ -19,15 +21,24 @@ import uk.co.farowl.vsj2.evo4.Slot.EmptyException;
 class Abstract {
 
     /**
+     * There are only static methods here, so no instances should be
+     * created. Formally make the constructor {@code protected} so we
+     * can sub-class. (Otherwise {@code private} would be the right
+     * choice.)
+     */
+    protected Abstract() {}
+
+    /**
      * The equivalent of the Python expression repr(o), and is called by
      * the repr() built-in function.
      *
      * @param o object
      * @return the string representation o
-     * @throws Throwable
+     * @throws TypeError if {@code __repr__} returns a non-string
+     * @throws Throwable from invoked implementation of {@code __repr__}
      */
     // Compare CPython PyObject_Repr in object.c
-    static PyObject repr(PyObject o) throws Throwable {
+    static PyObject repr(PyObject o) throws TypeError, Throwable {
         if (o == null) {
             return Py.str("<null>");
         } else {
@@ -50,7 +61,10 @@ class Abstract {
      *
      * @param o object
      * @return the string representation o
-     * @throws Throwable
+     * @throws TypeError if {@code __str__} or {@code __repr__} returns
+     *             a non-string
+     * @throws Throwable from invoked implementations of {@code __str__}
+     *             or {@code __repr__}
      */
     // Compare CPython PyObject_Str in object.c
     static PyObject str(PyObject o) throws Throwable {
@@ -76,6 +90,11 @@ class Abstract {
     /**
      * Test a value used as condition in a {@code for} or {@code if}
      * statement.
+     *
+     * @param v to test
+     * @return if Python-truthy
+     * @throws Throwable from invoked implementations of
+     *             {@code __bool__} or {@code __len__}
      */
     // Compare CPython PyObject_IsTrue in object.c
     static boolean isTrue(PyObject v) throws Throwable {
@@ -95,15 +114,6 @@ class Abstract {
                 // No op_bool and no length: claim everything is True.
                 return true;
         }
-    }
-
-    /**
-     * Return {@code true} if {@code o} is of Python type {@code type}
-     * or a Python sub-type of {@code type}.
-     */
-    static boolean typeCheck(PyObject o, PyType type) throws Throwable {
-        PyType oType = o.getType();
-        return oType == type || oType.isSubTypeOf(type);
     }
 
     /**
@@ -333,6 +343,54 @@ class Abstract {
     // }
 
     /**
+     * Python {@code o.name}: returning {@code null} when not found (in
+     * place of {@code AttributeError} as would
+     * {@link #getAttr(PyObject, PyUnicode)}). Other exceptions that may
+     * be raised in the process, propagate.
+     *
+     * @param o the object in which to look for the attribute
+     * @param name of the attribute sought
+     * @return the attribute or {@code null}
+     * @throws TypeError if {@code name} is not a Python {@code str}
+     * @throws Throwable on other errors
+     */
+    // Compare CPython _PyObject_LookupAttr in object.c
+    static PyObject lookupAttr(PyObject o, PyObject name)
+            throws TypeError, Throwable {
+        // Corresponds to object.c : PyObject_GetAttr
+        // Decisions are based on types of o and name
+        if (name instanceof PyUnicode) {
+            return lookupAttr(o, (PyUnicode) name);
+        } else {
+            throw attributeNameTypeError(name);
+        }
+    }
+
+    /**
+     * Python {@code o.name} returning {@code null} when not found (in
+     * place of {@code AttributeError} as would
+     * {@link #getAttr(PyObject, PyUnicode)}). Other exceptions that may
+     * be raised in the process, propagate.
+     *
+     * @param o the object in which to look for the attribute
+     * @param name of the attribute sought
+     * @return the attribute or {@code null}
+     * @throws Throwable on other errors than {@code AttributeError}
+     */
+    // Compare CPython _PyObject_LookupAttr in object.c
+    static PyObject lookupAttr(PyObject o, PyUnicode name)
+            throws TypeError, Throwable {
+        // Decisions are based on type of o (that of name is known)
+        try {
+            // Invoke __getattribute__
+            MethodHandle getattro = o.getType().op_getattribute;
+            return (PyObject) getattro.invokeExact(o, name);
+        } catch (EmptyException | AttributeError e) {
+            return null;
+        }
+    }
+
+    /**
      * {@code o.name = value} with Python semantics.
      *
      * @param o object to operate on
@@ -418,6 +476,352 @@ class Abstract {
             throw attributeNameTypeError(name);
         }
     }
+
+    /**
+     * {@code true} iff {@code obj} is not {@code null}, and defines
+     * {@code __isabstractmethod__} to be Python-truthy.
+     *
+     * @param obj to test
+     * @return whether abstract
+     * @throws Throwable on error
+     */
+    // Compare CPython _PyObject_IsAbstract in object.c
+    static boolean isAbstract(PyObject obj) throws Throwable {
+        if (obj == null)
+            return false;
+        else {
+            PyObject abs = lookupAttr(obj, ID.__isabstractmethod__);
+            return abs != null && isTrue(abs);
+        }
+    }
+
+    /**
+     * Get {@code cls.__bases__}, a Python {@code tuple}, by name from
+     * the object invoking {@code __getattribute__}. If {@code cls} does
+     * not define {@code __bases__}, or it is not a {@code tuple},
+     * return {@code null}. In that case, it is customary for the caller
+     * to throw a {@link TypeError}.
+     *
+     * @param cls normally a type object
+     * @return {@code cls.__bases__} or {@code null}
+     * @throws Throwable propagated from {@code __getattribute__}
+     */
+    // Compare CPython abstract_get_bases in abstract.c
+    private static PyTuple getBasesOf(PyObject cls) throws Throwable {
+        // Should return a tuple: convert anything else to null.
+        PyObject bases = lookupAttr(cls, ID.__bases__);
+        // Treat non-tuple as not having the attribute.
+        return bases instanceof PyTuple ? (PyTuple) bases : null;
+    }
+
+    /**
+     * Get {@code inst.__class__}, a Python {@code tuple}, by name from
+     * the object invoking {@code __getattribute__}. If {@code inst}
+     * does not define {@code __class__}, or it is not a {@code type},
+     * return {@code null}.
+     *
+     * @param inst object in which to seek __class__
+     * @return {@code inst.__class__} or {@code null}
+     * @throws Throwable propagated from {@code __getattribute__}
+     */
+    // Compare CPython abstract_get_class in abstract.c
+    private static PyType getClassOf(PyObject inst) throws Throwable {
+        // Should return a type: convert anything else to null.
+        PyObject klass = lookupAttr(inst, ID.__class__);
+        // Treat non-tuple as not having the attribute.
+        return klass instanceof PyType ? (PyType) klass : null;
+    }
+
+    /**
+     * Return {@code true} iff {@code derived} is a Python sub-class of
+     * {@code cls} (including where it is the same class). The answer is
+     * found by traversing the {@code __bases__} tuples recursively,
+     * therefore does not depend on the MRO or respect
+     * {@code __subclasscheck__}.
+     *
+     * @param derived candidate derived type
+     * @param cls type that may be an ancestor of {@code derived}
+     * @return whether {@code derived} is a sub-class of {@code cls}
+     * @throws Throwable from looking up {@code __bases__}
+     */
+    // Compare CPython abstract_issubclass in abstract.c
+    private static boolean isSubclassHelper(PyObject derived,
+            PyObject cls) throws Throwable {
+        while (derived != cls) {
+            // Consider the bases of derived
+            PyTuple bases = getBasesOf(derived);
+            int n;
+            // derived is a subclass of cls if any of its bases is
+            if (bases == null || (n = bases.size()) == 0) {
+                // The __bases__ tuple is missing or empty ...
+                return false;
+            } else if (n == 1) {
+                // The answer is the answer for that single base.
+                derived = bases.get(0);
+            } else {
+                // several bases so work through them in sequence
+                for (int i = 0; i < n; i++) {
+                    if (isSubclassHelper(bases.get(i), cls))
+                        return true;
+                }
+                // And not otherwise
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Return {@code true} iff the type of {@code inst} is an instance
+     * of {@code cls}.
+     *
+     * The answer is found by traversing the {@code __bases__} tuples
+     * recursively, therefore does not depend on the MRO or respect
+     * {@code cls.__subclasscheck__}.
+     *
+     * @param inst object to test
+     * @param cls class or any object defining {@code __bases__}
+     * @return whether {@code inst} is an instance of {@code cls}
+     * @throws Throwable from looking up {@code __bases__}
+     */
+    // Compare CPython recursive_isinstance in abstract.c
+    // and _PyObject_RealIsInstance in abstract.c
+    static boolean recursiveIsInstance(PyObject inst, PyObject cls)
+            throws TypeError, Throwable {
+
+        if (cls instanceof PyType) {
+            // cls is a single type object (therefore a PyType)
+            PyType type = (PyType) cls;
+            PyType instType = inst.getType();
+
+            if (instType == type || instType.isSubTypeOf(type))
+                return true;
+            else {
+                // Maybe inst defines a __class__ attribute.
+                PyType instClass = getClassOf(inst);
+                /*
+                 * If inst.__class__ is defined, and it is not the
+                 * instType we just tested, the result depends on that.
+                 */
+                return instClass != null && instClass != instType
+                        && instClass.isSubTypeOf(type);
+            }
+
+        } else if (getBasesOf(cls) == null) {
+            // cls has no attribute __bases__
+            throw argumentTypeError("isinstance", 2,
+                    "a type or tuple of types", cls);
+
+        } else {
+            /*
+             * cls is an object with a __bases__ attribute, which should
+             * be a tuple of type objects. Test inst.__class__ against
+             * that tuple.
+             */
+            PyObject instClass = getClassOf(inst);
+            return instClass != null
+                    && isSubclassHelper(instClass, cls);
+        }
+    }
+
+    /**
+     * Return {@code true} iff {@code inst} is an instance of the class
+     * {@code cls} or a subclass of {@code cls}.
+     *
+     * If {@code cls} is a {@code tuple}, the check will be done against
+     * every entry in {@code cls}. The result will be {@code true} iff
+     * at least one of the checks returns {@code true}, .
+     *
+     * If {@code cls} has a {@code __instancecheck__()} method, it will
+     * be called to determine the subclass status as described in PEP
+     * 3119. Otherwise, {@code inst} is an instance of {@code cls} if
+     * its class is a subclass of {@code cls}.
+     *
+     * An instance {@code inst} can override what is considered its
+     * class by having a {@code __class__} attribute. An object
+     * {@code cls} can override whether it is considered a class, and
+     * what its base classes are, by having a {@code __bases__}
+     * attribute (which must be a {@code tuple} of base classes).
+     *
+     * @param inst object to test
+     * @param cls class or {@code tuple} of classes to test against
+     * @return {@code isinstance(inst, cls)}
+     * @throws TypeError if {@code cls} is not a class or tuple of
+     *             classes
+     * @throws Throwable propagated from {@code __instancecheck__} or
+     *             other causes
+     */
+    // Compare CPython PyObject_IsInstance in abstract.c
+    boolean isInstance(PyObject inst, PyObject cls)
+            throws TypeError, Throwable {
+
+        PyType clsType;
+
+        if (inst.getType() == cls)
+            // Quick result available
+            return true;
+
+        else if ((clsType = cls.getType()) == PyType.TYPE) {
+            // cls is a (single) Python type, and not a metaclass.
+            return recursiveIsInstance(inst, cls);
+
+        } else if (clsType.isSubTypeOf(PyTuple.TYPE)) {
+            // cls is a tuple of (should be) types
+            try (RecursionState state = ThreadState
+                    .enterRecursiveCall("in __instancecheck__")) {
+                // Result is true if true for any type in cls
+                for (PyObject type : (PyTuple) cls) {
+                    if (isInstance(inst, type))
+                        return true;
+                }
+            }
+            return false;
+
+        } else {
+            // The type of cls should be a sub-type of PyType.TYPE
+            PyObject checker = lookupSpecial(cls, ID.__instancecheck__);
+            if (checker != null) {
+                // cls has an __instancecheck__ to consult.
+                try (RecursionState state = ThreadState
+                        .enterRecursiveCall("in __instancecheck__")) {
+                    return isTrue(
+                            Callables.callFunction(checker, inst));
+                }
+            } else {
+                /*
+                 * cls is not exactly a type or a tuple and has no
+                 * __instancecheck__: treat provisionally as a type.
+                 */
+                return recursiveIsInstance(inst, cls);
+            }
+        }
+    }
+
+    /**
+     * Return {@code true} iff the class {@code derived} is identical to
+     * or derived from the class {@code cls}. The answer is sought along
+     * the MRO if {@code derived} and {@code cls} are both Python
+     * {@code type} objects, or sub-classes, or by traversal of
+     * {@code cls.__bases__} otherwise.
+     *
+     * @param derived candidate derived type.
+     * @param cls type that may be an ancestor of {@code derived}, (but
+     *            not a tuple of such).
+     * @return ẁhether {@code derived} is a sub-class of {@code cls} by
+     *         these criteria.
+     * @throws TypeError if either input has no {@code __bases__} tuple.
+     * @throws Throwable propagated from {@code __subclasscheck__} or
+     *             other causes
+     */
+    // Compare CPython recursive_issubclass in abstract.c
+    // and _PyObject_RealIsSubclass in abstract.c
+    static boolean recursiveIsSubclass(PyObject derived, PyObject cls)
+            throws TypeError, Throwable {
+        if (cls instanceof PyType && derived instanceof PyType) {
+            // Both are PyType so this is relatively easy.
+            return ((PyType) derived).isSubTypeOf((PyType) cls);
+        } else if (getBasesOf(derived) == null)
+            // derived does not have a __bases__, so error
+            throw new TypeError("issubclass", 1, "a class", derived);
+        else if (getBasesOf(cls) == null)
+            // derived does not have a __bases__, so error
+            throw argumentTypeError("issubclass", 2,
+                    "a class or tuple of classes", cls);
+        else
+            // Answer by traversing cls.__bases__ for derived
+            return isSubclassHelper(derived, cls);
+    }
+
+    /**
+     * Return {@code true} iff the class {@code derived} is identical to
+     * or derived from the class {@code cls}. If {@code cls} is a
+     * {@code tuple}, the check will be carried out against every entry
+     * in {@code cls}. The result will be {@code true} only when at
+     * least one of the checks is {@code true}.
+     *
+     * @param derived candidate derived type
+     * @param cls type that may be an ancestor of {@code derived}, or a
+     *            tuple of such
+     * @return {@code issubclass(derived, cls)}
+     * @throws Throwable propagated from {@code __subclasscheck__} or
+     *             other causes
+     */
+    // Compare CPython PyObject_IsSubclass in abstract.c
+    boolean isSubclass(PyObject derived, PyObject cls)
+            throws Throwable {
+        PyType clsType = cls.getType();
+        if (clsType == PyType.TYPE) {
+            // cls is exactly a Python type: avoid __subclasscheck__
+            if (derived == cls)
+                return true;
+            return recursiveIsSubclass(derived, cls);
+
+        } else if (clsType.isSubTypeOf(PyTuple.TYPE)) {
+            try (RecursionState state = ThreadState
+                    .enterRecursiveCall(" in __subclasscheck__")) {
+                for (PyObject item : (PyTuple) cls) {
+                    if (isSubclass(derived, item))
+                        return true;
+                }
+            }
+            return false;
+
+        } else {
+
+            PyObject checker = lookupSpecial(cls, ID.__subclasscheck__);
+
+            if (checker != null) {
+                try (RecursionState state = ThreadState
+                        .enterRecursiveCall(" in __subclasscheck__")) {
+                    return isTrue(
+                            Callables.callFunction(checker, derived));
+                }
+
+            } else {
+                /*
+                 * cls is not exactly a type or a tuple and has no
+                 * __subclasscheck__: treat provisionally as a type.
+                 */
+                return recursiveIsSubclass(derived, cls);
+            }
+        }
+    }
+
+    /**
+     * Method lookup in the type without looking in the instance
+     * dictionary (so we can't use
+     * {@link Abstract#getAttr(PyObject, PyUbicode)}) but still binding
+     * it to the instance. _PyObject_LookupSpecial() returns
+     * {@code null} without raising an exception when the
+     * {@linkplain PyType#lookup(PyObject)} fails;
+     *
+     * @throws Throwable propagated from descriptor {@code __get__} or
+     *             other causes
+     */
+    // Compare CPython _PyObject_LookupSpecial in typeobject.c
+    // XXX consider adding to PyType: here to satisfy local references
+    private PyObject lookupSpecial(PyObject self, PyUnicode name)
+            throws Throwable {
+        PyObject res;
+
+        // Look up attr by name in the type of self
+        res = self.getType().lookup(name);
+        if (res == null) {
+            // CPython error: need alternative look-up not throwing
+            return null;
+        } else {
+            // res might be a descriptor
+            try {
+                // invoke the descriptor's __get__(
+                MethodHandle f = res.getType().op_get;
+                res = (PyObject) f.invokeExact(res, self,
+                        self.getType());
+            } catch (EmptyException e) {}
+        }
+        return res;
+    }
+
+    // Plumbing -------------------------------------------------------
 
     /**
      * Crafted error supporting {@link #getAttr(PyObject, PyUnicode)},

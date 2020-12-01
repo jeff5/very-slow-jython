@@ -171,7 +171,7 @@ class Py {
                 MethodHandle str = type.op_str;
                 PyObject res = (PyObject) str.invoke(o);
                 if (res instanceof PyUnicode)
-                    return ((PyUnicode) res).toString();
+                    return ((PyUnicode) res).value;
             } catch (Throwable e) {}
             // Fall back on pseudo object.__str__
             String name = type != null ? type.name
