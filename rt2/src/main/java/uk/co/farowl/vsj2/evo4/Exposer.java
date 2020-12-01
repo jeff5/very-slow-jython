@@ -26,13 +26,6 @@ class Exposer {
      * object will become the {@link Descriptor#objclass} reference of
      * the descriptors created, but is not otherwise accessed, since it
      * is (necessarily) incomplete at this time.
-     * <p>
-     * Notice this is a map from {@code String} to descriptor, even
-     * though later on we will make a map from keys that are all
-     * {@link PyUnicode}. The purpose is to avoid a circular dependency
-     * in early in the creation of the type system, where exposing
-     * {@code PyUnicode} as {@code str} would require it to exist
-     * already.
      *
      * @param lookup authorisation to access fields
      * @param implClass to introspect for member definitions
@@ -44,7 +37,7 @@ class Exposer {
             Class<?> implClass, PyType type) throws InterpreterError {
 
         Map<String, PyMemberDescr> defs = new LinkedHashMap<>();
-        if (implClass == null) { implClass = lookup.lookupClass(); }
+
         for (Field f : implClass.getDeclaredFields()) {
             Exposed.Member a =
                     f.getDeclaredAnnotation(Exposed.Member.class);
@@ -97,13 +90,6 @@ class Exposer {
      * object will become the {@link Descriptor#objclass} reference of
      * the descriptors created, but is not otherwise accessed, since it
      * is (necessarily) incomplete at this time.
-     * <p>
-     * Notice this is a map from {@code String} to descriptor, even
-     * though later on we will make a map from keys that are all
-     * {@link PyUnicode}. The purpose is to avoid a circular dependency
-     * in early in the creation of the type system, where exposing
-     * {@code PyUnicode} as {@code str} would require it to exist
-     * already.
      *
      * @param lookup authorisation to access methods
      * @param implClass to introspect for getters, setters and deleters
@@ -113,8 +99,6 @@ class Exposer {
      */
     static Map<String, PyGetSetDescr> getsetDescrs(Lookup lookup,
             Class<?> implClass, PyType type) throws InterpreterError {
-
-        if (implClass == null) { implClass = lookup.lookupClass(); }
 
         // Iterate over methods looking for the relevant annotations
         Map<String, GetSetDef> defs = new LinkedHashMap<>();
@@ -276,6 +260,37 @@ class Exposer {
             }
         }
         return null;
+    }
+
+    /**
+     * Create a table of {@link PyWrapperDescr}s defined on the given
+     * implementation class, on behalf of the type given. This type
+     * object will become the {@link Descriptor#objclass} reference of
+     * the descriptors created, but is not otherwise accessed, since it
+     * is (necessarily) incomplete at this time.
+     *
+     * @param lookup authorisation to access methods
+     * @param implClass to introspect for getters, setters and deleters
+     * @param type to which these descriptors apply
+     * @return attributes defined (in the order first encountered)
+     * @throws InterpreterError on duplicates or unsupported types
+     */
+    static Map<String, PyWrapperDescr> wrapperDescrs(Lookup lookup,
+            Class<?> implClass, PyType type) throws InterpreterError {
+
+        // Iterate over methods looking for the relevant annotations
+        Map<String, PyWrapperDescr> descrs = new LinkedHashMap<>();
+        for (Method m : implClass.getDeclaredMethods()) {
+            // If it is a special method, create a wrapper.
+            String name = m.getName();
+            Slot slot = Slot.forMethodName(name);
+            if (slot != null) {
+                descrs.put(name,
+                        slot.makeDescriptor(type, implClass, lookup));
+            }
+        }
+
+        return descrs;
     }
 
     private static final String MEMBER_REPEAT =

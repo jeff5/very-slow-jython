@@ -34,6 +34,11 @@ class PyFloat extends AbstractPyObject {
     // slot functions -------------------------------------------------
 
     @SuppressWarnings("unused")
+    private PyObject __repr__() {
+        return Py.str(Double.toString(value));
+    }
+
+    @SuppressWarnings("unused")
     private static PyObject __new__(PyType type, PyTuple args,
             PyDict kwargs) throws Throwable {
         PyObject x = null;
@@ -129,7 +134,6 @@ class PyFloat extends AbstractPyObject {
 
     @SuppressWarnings("unused")
     private boolean __bool__() { return value != 0.0; }
-
 
     // Non-slot API -------------------------------------------------
 

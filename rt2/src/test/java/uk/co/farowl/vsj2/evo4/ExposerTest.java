@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodHandles.Lookup;
 import java.util.EnumSet;
 import java.util.Map;
 
@@ -29,16 +30,16 @@ class ExposerTest {
      */
     private static class ObjectWithMembers implements PyObject {
 
+        /** Lookup object to support creation of descriptors. */
+        private static final Lookup LOOKUP = MethodHandles
+                .lookup();
+
         static PyType TYPE =
                 PyType.fromSpec(new PyType.Spec("ObjectWithMembers",
-                        ObjectWithMembers.class));
+                        ObjectWithMembers.class, LOOKUP));
 
         @Override
         public PyType getType() { return TYPE; }
-
-        /** Lookup object to support creation of descriptors. */
-        private static final MethodHandles.Lookup LOOKUP = MethodHandles
-                .lookup().dropLookupMode(MethodHandles.Lookup.PRIVATE);
 
         @Member
         int i;
@@ -86,6 +87,7 @@ class ExposerTest {
      */
     @Test
     void memberConstruct() {
+        // Repeat roughly what PyType.fromSpec already did.
         Map<String, PyMemberDescr> mds = Exposer.memberDescrs(
                 ObjectWithMembers.LOOKUP, ObjectWithMembers.class,
                 ObjectWithMembers.TYPE);
@@ -313,6 +315,56 @@ class ExposerTest {
         // Read-only cases throw
         final PyMemberDescr md_i2 = mds.get("i2");
         assertThrows(AttributeError.class, () -> md_i2.__set__(o, oi));
+    }
+
+    private static class PyObjectWithSpecial implements PyObject {
+
+        /** Lookup object to support creation of descriptors. */
+        private static final Lookup LOOKUP = MethodHandles
+                .lookup();
+        static PyType TYPE = PyType.fromSpec( //
+                new PyType.Spec("ObjectWithSpecialMethods",
+                        PyObjectWithSpecial.class, LOOKUP));
+
+
+        int value;
+
+        public PyObjectWithSpecial(int value) { this.value = value; }
+
+        PyObject __neg__() { return Py.val(-value); }
+
+        @Override
+        public PyType getType() { return TYPE; }
+
+    }
+
+    /**
+     * Test that we get working descriptors of type
+     * {@link PyWrapperDescr}s the {@link Exposer} creates for methods
+     * with special names.
+     *
+     * @throws Throwable unexpectedly
+     * @throws AttributeError unexpectedly
+     */
+    @Test
+    void wrapperConstruct() throws AttributeError, Throwable {
+        // Roughly what PyType.fromSpec does in real life.
+        Map<String, PyWrapperDescr> wds = Exposer.wrapperDescrs(
+                PyObjectWithSpecial.LOOKUP, PyObjectWithSpecial.class,
+                PyObjectWithSpecial.TYPE);
+        PyObjectWithSpecial o = new PyObjectWithSpecial(42);
+        PyType t = o.getType();
+        PyType object = PyBaseObject.TYPE;
+
+        // Let it throw if we're wrong. Inherited __str__
+        PyMethodWrapper strDescr =
+                (PyMethodWrapper) Abstract.getAttr(o, ID.__str__);
+        assertEquals(object, strDescr.descr.objclass);
+
+        // Defined __neg__
+        PyMethodWrapper negDescr =
+                (PyMethodWrapper) Abstract.getAttr(o, ID.__neg__);
+        assertEquals(t, negDescr.descr.objclass);
     }
 
 }

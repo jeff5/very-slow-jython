@@ -5,18 +5,33 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.invoke.MethodType;
 import java.lang.invoke.VarHandle;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
- * This {@code enum} provide constants that can be are used to refer to
- * the "slots" within a {@code PyType}. These slots define the behaviour
- * of instances of the Python type it represents.
+ * This {@code enum} provides a set of structured constants that are
+ * used to refer to the special methods of the Python data model.
  * <p>
  * Each constant creates a correspondence between its name, the (slot)
  * name in the {@code PyType} object (because it is the same), the type
  * of the {@code MethodHandle} every occurrence of that slot must
  * contain, and the conventional name by which the implementing class of
- * a type will refer to that method, if it offers an implementation.
+ * a type will refer to that method, if it offers an implementation. It
+ * holds all the run-time system needs to know about the special method
+ * in general, but not any information specific to a particular type.
+ * <p>
+ * In principle, any Python object may support all of the special
+ * methods, through "slots" in the Python type object {@code PyType}.
+ * These slots have identical names to the corresponding constant in
+ * this {@code enum}. The "slots" in the Python type object hold
+ * pointers ({@code MethodHandle}s) to their implementations in Java for
+ * that type, which of course define the behaviour of instances in
+ * Python. Where a special method is absent from the implementation of a
+ * type, a default "empty" handle is provided from the {@code Slot}
+ * constant.
  */
+// Compare CPython struct wrapperbase in descrobject.h
+// also typedef slotdef and slotdefs[] table in typeobject.h
 enum Slot {
 
     op_repr(Signature.UNARY), //
@@ -85,6 +100,8 @@ enum Slot {
     final String methodName;
     /** Name to use in error messages */
     final String opName;
+    /** Name to use in error messages */
+    final String doc;
     /** Reference to field holding this slot in a {@link PyType} */
     final VarHandle slotHandle;
     /** Reference to field holding alternate slot in a {@link PyType} */
@@ -105,20 +122,14 @@ enum Slot {
         this.signature = signature;
         this.slotHandle = Util.slotHandle(this);
         this.altSlotHandle = alt == null ? null : alt.slotHandle;
+        // XXX Need something convenient as in CPython.
+        this.doc = "Doc of " + this.name();
     }
 
     Slot(Signature signature) { this(signature, null, null, null); }
 
     Slot(Signature signature, String opName) {
         this(signature, opName, null, null);
-    }
-
-    Slot(Signature signature, String opName, String methodName) {
-        this(signature, opName, methodName, null);
-    }
-
-    Slot(Signature signature, Slot alt) {
-        this(signature, null, null, alt);
     }
 
     Slot(Signature signature, String opName, Slot alt) {
@@ -142,6 +153,17 @@ enum Slot {
     public java.lang.String toString() {
         return "Slot." + name() + " ( " + methodName + signature.type
                 + " ) [" + signature.name() + "]";
+    }
+
+    /**
+     * Lookup by method name, returning {@code null} if it is not a
+     * recognised name for any slot.
+     *
+     * @param name of a (possible) special method
+     * @return the Slot corresponding, or {@code null}
+     */
+    static Slot forMethodName(String name) {
+        return Util.getMethodNameTable().get(name);
     }
 
     /**
@@ -200,6 +222,22 @@ enum Slot {
             }
         } catch (NoSuchMethodException | IllegalAccessException e) {}
         return getEmpty();
+    }
+
+    /**
+     * Constructs a specialised version of {@link PyWrapperDescr} that
+     * is able to arrange call arguments according to the pattern
+     * expected by this slot.
+     *
+     * @param objclass the Python type declaring the special method
+     * @param c the Java class declaring the special method
+     * @param lookup authorisation to access {@code c}
+     * @return a slot wrapper descriptor
+     */
+    PyWrapperDescr makeDescriptor(PyType objclass, Class<?> c,
+            Lookup lookup) {
+        MethodHandle wrapped = findInClass(c, lookup);
+        return signature.makeDescriptor(objclass, this, wrapped);
     }
 
     /**
@@ -320,22 +358,88 @@ enum Slot {
      * in the C-API names but not here.
      */
     enum Signature implements ClassShorthand {
-        UNARY(O, S), // op_negative, op_invert
-        BINARY(O, S, O), // +, -, u[v]
-        TERNARY(O, S, O, O), // **
-        CALL(O, S, TUPLE, DICT), // u(self, *args, **kwargs)
-        VECTORCALL(O, S, OA, I, I, TUPLE), // u(x, y, ..., a=z)
-        PREDICATE(B, S), // op_bool
-        BINARY_PREDICATE(B, S, O), // op_contains
-        LEN(I, S), // op_length, op_hash
-        SETITEM(V, S, O, O), // (objobjargproc) op_setitem, op_set
-        DELITEM(V, S, O), // (not in CPython) op_delitem, op_delete
-        GETATTR(O, S, U), // (getattrofunc) op_getattr
-        SETATTR(V, S, U, O), // (setattrofunc) op_setattr
-        DELATTR(V, S, U), // (not in CPython) op_delattr
-        DESCRGET(O, S, O, T), // (descrgetfunc) op_get
-        INIT(V, S, TUPLE, DICT), // (initproc) op_init
-        NEW(O, T, TUPLE, DICT); // (newfunc) op_new
+        /**
+         * The signature of e.g. {@link Slot#op_repr} or
+         * {@link Slot#op_neg}.
+         */
+        UNARY(O, S) {
+
+            @Override
+            PyWrapperDescr makeDescriptor(PyType objclass, Slot slot,
+                    MethodHandle wrapped) {
+                return new PyWrapperDescr(objclass, slot, wrapped) {
+
+                    @Override
+                    PyObject callWrapped(PyObject self, PyTuple args,
+                            PyDict kwargs) throws Throwable {
+                        checkArgs(args, 0, kwargs);
+                        return (PyObject) wrapped.invokeExact(self);
+                    }
+                };
+            }
+        },
+
+        // +, -, u[v]
+        BINARY(O, S, O) {
+
+            @Override
+            PyWrapperDescr makeDescriptor(PyType objclass, Slot slot,
+                    MethodHandle wrapped) {
+                return new PyWrapperDescr(objclass, slot, wrapped) {
+
+                    @Override
+                    PyObject callWrapped(PyObject self, PyTuple args,
+                            PyDict kwargs) throws Throwable {
+                        checkArgs(args, 1, kwargs);
+                        return (PyObject) wrapped.invokeExact(self,
+                                args.value[0]);
+                    }
+                };
+            }
+        },
+        // **
+        TERNARY(O, S, O, O),
+        // u(self, *args, **kwargs)
+        CALL(O, S, TUPLE, DICT) {
+
+            @Override
+            PyWrapperDescr makeDescriptor(PyType objclass, Slot slot,
+                    MethodHandle wrapped) {
+                return new PyWrapperDescr(objclass, slot, wrapped) {
+
+                    @Override
+                    PyObject callWrapped(PyObject self, PyTuple args,
+                            PyDict kwargs) throws Throwable {
+                        return (PyObject) wrapped.invokeExact(self,
+                                args, kwargs);
+                    }
+                };
+            }
+        },
+        // u(x, y, ..., a=z)
+        VECTORCALL(O, S, OA, I, I, TUPLE),
+        // Slot#op_bool
+        PREDICATE(B, S),
+        // Slot#op_contains
+        BINARY_PREDICATE(B, S, O),
+        // Slot#op_length, Slot#op_hash
+        LEN(I, S),
+        // (objobjargproc) Slot#op_setitem, Slot#op_set
+        SETITEM(V, S, O, O),
+        // (not in CPython) Slot#op_delitem, Slot#op_delete
+        DELITEM(V, S, O),
+        // (getattrofunc) Slot#op_getattr
+        GETATTR(O, S, U),
+        // (setattrofunc) Slot#op_setattr
+        SETATTR(V, S, U, O),
+        // (not in CPython) Slot#op_delattr
+        DELATTR(V, S, U),
+        // (descrgetfunc) Slot#op_get
+        DESCRGET(O, S, O, T),
+        // (initproc) Slot#op_init
+        INIT(V, S, TUPLE, DICT),
+        // (newfunc) Slot#op_new
+        NEW(O, T, TUPLE, DICT);
 
         /**
          * The signature was defined with this nominal method type,
@@ -395,7 +499,34 @@ enum Slot {
                 this.methodType = this.empty.type();
             }
         }
+
+        /**
+         * Return an instance of sub-class of {@link PyWrapperDescr},
+         * specialised to the particular signature by overriding
+         * {@link PyWrapperDescr#callWrapped(PyObject, PyTuple, PyDict)}.
+         * Each member of {@code Signature} produces the appropriate
+         * sub-class.
+         *
+         * @param objclass the class declaring the special method
+         * @param slot for the generic special method
+         * @param wrapped a handle to an implementation of that slot
+         * @return a slot wrapper descriptor
+         */
+        /* abstract */ PyWrapperDescr makeDescriptor(PyType objclass,
+                Slot slot, MethodHandle wrapped) {
+            return new PyWrapperDescr(objclass, slot, wrapped) {
+
+                @Override
+                PyObject callWrapped(PyObject self, PyTuple args,
+                        PyDict kwargs) throws Throwable {
+                    checkArgs(args, 0, kwargs);
+                    return (PyObject) wrapped.invokeExact(self);
+                }
+            };
+        }
     }
+
+
 
     /**
      * Helper for {@link Slot#setSlot(PyType, MethodHandle)}, when a bad
@@ -428,6 +559,19 @@ enum Slot {
 
         /** Single re-used instance of {@code Slot.EmptyException} */
         static final EmptyException EMPTY = new EmptyException();
+
+        private static Map<String, Slot> methodNameTable = null;
+
+        static Map<String, Slot> getMethodNameTable() {
+            if (methodNameTable == null) {
+                Slot[] slots = Slot.values();
+                methodNameTable = new HashMap<>(2 * slots.length);
+                for (Slot s : slots) {
+                    methodNameTable.put(s.methodName, s);
+                }
+            }
+            return methodNameTable;
+        }
 
         /**
          * Helper for constructors at the point they need a handle for

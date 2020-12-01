@@ -336,16 +336,16 @@ abstract class PyMemberDescr extends DataDescriptor {
             return new _int(objclass, name, vh, flags, doc);
         else if (fieldType == double.class)
             return new _double(objclass, name, vh, flags, doc);
-        else if (fieldType == String.class) {
+        else if (fieldType == String.class)
             return new _String(objclass, name, vh, flags, doc, opt);
-        } else {
+        else
             throw new InterpreterError(UNSUPPORTED_TYPE, name,
+                    field.getDeclaringClass().getName(),
                     fieldType.getSimpleName());
-        }
     }
 
     private static final String UNSUPPORTED_TYPE =
-            "@Member target %.50s has unsupported type %.50s";
+            "@Member target %.50s in %.100s has unsupported type %.50s";
 
     private static class _int extends PyMemberDescr {
 
@@ -449,7 +449,7 @@ abstract class PyMemberDescr extends DataDescriptor {
         @Override
         protected void set(PyObject obj, PyObject value)
                 throws TypeError, Throwable {
-            if (!Abstract.typeCheck(value, PyUnicode.TYPE))
+            if (!PyUnicode.TYPE.check(value))
                 throw attrMustBe("a string", value);
             String v = value.toString();
             handle.set(obj, v);
