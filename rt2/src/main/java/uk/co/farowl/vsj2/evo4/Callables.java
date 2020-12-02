@@ -25,6 +25,10 @@ class Callables extends Abstract {
     static PyObject call(PyObject callable, PyTuple args, PyDict kwargs)
             throws TypeError, Throwable {
 
+        // Speed up the idiom common in called objects:
+        // if (kwargs == null || kwargs.isEmpty()) ...
+        if (kwargs != null && kwargs.isEmpty()) { kwargs = null; }
+
         try {
             /*
              * In CPython, there are specific cases here that look for
@@ -99,7 +103,7 @@ class Callables extends Abstract {
      * @param args positional arguments
      * @param kwargs keyword arguments (normally {@code PyDict})
      * @param stack to receive positional and keyword arguments, must be
-     *            sized {@code nargs + kwargs.size()}.
+     *            sized {@code args.length + kwargs.size()}.
      * @return names of keyword arguments
      */
     // Compare CPython _PyStack_UnpackDict in call.c
