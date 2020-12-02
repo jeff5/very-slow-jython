@@ -64,7 +64,7 @@ class ID {
     static PyUnicode intern(String name) {
         PyUnicode u = ids.get(name);
         if (u == null)
-            ids.put(name, u = Py.str(name));
+            ids.put(name, u = new PyUnicode(name));
         return u;
     }
 

@@ -1,6 +1,7 @@
 package uk.co.farowl.vsj2.evo4;
 
 import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
 
 import uk.co.farowl.vsj2.evo4.Exposed.Getter;
 import uk.co.farowl.vsj2.evo4.PyType.Flag;
@@ -38,9 +39,9 @@ import uk.co.farowl.vsj2.evo4.PyType.Flag;
  */
 abstract class PyWrapperDescr extends Descriptor {
 
-    static final PyType TYPE = PyType.fromSpec(
-            new PyType.Spec("wrapper_descriptor", PyWrapperDescr.class)
-                    .flagNot(Flag.BASETYPE));
+    static final PyType TYPE = PyType.fromSpec( //
+            new PyType.Spec("wrapper_descriptor", PyWrapperDescr.class,
+                    MethodHandles.lookup()).flagNot(Flag.BASETYPE));
 
     /**
      * The {@link Slot} ({@code enum}) describing the generic
@@ -159,18 +160,38 @@ abstract class PyWrapperDescr extends Descriptor {
     protected PyObject __call__(PyTuple args, PyDict kwargs)
             throws TypeError, Throwable {
         // Make sure that the first argument is acceptable as 'self'
-        int argc = args.size();
+        int argc = args.value.length;
         if (argc < 1) {
             throw new TypeError(DESCRIPTOR_NEEDS_ARGUMENT, name,
                     objclass.name);
         }
-        PyObject self = args.get(0);
+        PyObject self = args.value[0];
         if (!Abstract.recursiveIsSubclass(self.getType(), objclass)) {
             throw new TypeError(DESCRIPTOR_REQUIRES, name,
                     objclass.name, self.getType().name);
         }
-        args = new PyTuple(args.value, 1, argc);
+        args = new PyTuple(args.value, 1, argc - 1);
         return callWrapped(self, args, kwargs);
+    }
+
+    // Plumbing ------------------------------------------------------
+
+    /**
+     * Check that no positional or keyword arguments are supplied. This
+     * is for use when implementing
+     * {@link #callWrapped(PyObject, PyTuple, PyDict)}.
+     *
+     * @param args positional argument tuple to be checked
+     * @param kwargs to be checked
+     * @throws TypeError if {@code kwargs} is not {@code null} or empty
+     */
+    final protected void checkNoArgs(PyTuple args, PyDict kwargs)
+            throws TypeError {
+        if (args.value.length != 0)
+            throw new TypeError(TAKES_NO_ARGUMENTS, name,
+                    args.value.length);
+        else if (kwargs != null && kwargs.isEmpty())
+            throw new TypeError(TAKES_NO_KEYWORDS, name);
     }
 
     /**
@@ -179,21 +200,45 @@ abstract class PyWrapperDescr extends Descriptor {
      * {@link #callWrapped(PyObject, PyTuple, PyDict)}.
      *
      * @param args positional argument tuple to be checked
-     * @param nargsExpected expected number of positional args
+     * @param expArgs expected number of positional arguments
      * @param kwargs to be checked
      * @throws TypeError if {@code kwargs} is not {@code null} or empty
      */
-    final protected void checkArgs(PyTuple args, int nargsExpected,
+    final protected void checkArgs(PyTuple args, int expArgs,
             PyDict kwargs) throws TypeError {
-        if (args.size() != nargsExpected)
-            throw new TypeError(
-                    "wrapper %s() takes %d arguments (%d given)", name,
-                    nargsExpected, args.size());
+        int n = args.value.length;
+        if (n != expArgs)
+            throw new TypeError(TAKES_ARGUMENTS, name, expArgs, n);
         else if (kwargs != null && kwargs.isEmpty())
-            return;
-        else
-            throw new TypeError(
-                    "wrapper %s() takes no keyword arguments", name);
+            throw new TypeError(TAKES_NO_KEYWORDS, name);
     }
 
+    /**
+     * Check the number of positional arguments and that no keywords are
+     * supplied. This is for use when implementing
+     * {@link #callWrapped(PyObject, PyTuple, PyDict)}.
+     *
+     * @param args positional argument tuple to be checked
+     * @param minArgs minimum number of positional arguments
+     * @param maxArgs maximum number of positional arguments
+     * @param kwargs to be checked
+     * @throws TypeError if {@code kwargs} is not {@code null} or empty
+     */
+    final protected void checkArgs(PyTuple args, int minArgs,
+            int maxArgs, PyDict kwargs) throws TypeError {
+        int n = args.value.length;
+        if (n < minArgs || n > maxArgs)
+            throw new TypeError(TAKES_ARGUMENTS, name,
+                    String.format("from %d to %d", minArgs, maxArgs),
+                    n);
+        else if (kwargs != null && kwargs.isEmpty())
+            throw new TypeError(TAKES_NO_KEYWORDS, name);
+    }
+
+    private static final String TAKES_NO_ARGUMENTS =
+            "wrapper %s() takes no arguments (%d given)";
+    private static final String TAKES_ARGUMENTS =
+            "wrapper %s() takes %s arguments (%d given)";
+    private static final String TAKES_NO_KEYWORDS =
+            "wrapper %s() takes no keyword arguments";
 }

@@ -61,7 +61,9 @@ class PyType implements PyObject {
                 PyGetSetDescr.class, //
                 PyWrapperDescr.class, //
                 // The keys are PyUnicode
-                PyUnicode.class};
+                PyUnicode.class, //
+                BaseException.class, //
+        };
         // Fill the map from the list.
         for (Class<?> c : bootstrapClasses) {
             bootstrapTasks.put(c, new BootstrapTask());
@@ -148,6 +150,7 @@ class PyType implements PyObject {
     MethodHandle op_gt;
 
     MethodHandle op_iter;
+    MethodHandle op_next;
 
     MethodHandle op_get;
     MethodHandle op_set;
@@ -360,9 +363,21 @@ class PyType implements PyObject {
     }
 
     /**
-     * A record, when it appears indicating that a particular class is
-     * the implementation of a "bootstrap type", and the state of its
-     * initialisation.
+     * A record used to defer the completion of a particular type
+     * object. When so deferred, {@link PyType#fromSpec(Spec)} will
+     * return a type object without filling the dictionary of the type.
+     * The type and the implementation class can be available to Java,
+     * but will not yet function properly as a Python object.
+     * <p>
+     * This only happens while starting up the run-time. The purpose is
+     * to allow Java class initialisation to complete for all of the
+     * types needed to populate type dictionaries ("bootstrap types").
+     * Other classes that request a type object during this time will be
+     * caught up temporarily in the same process.
+     * <p>
+     * A {@code BootstrapTask} stores the {@link PyType} object and the
+     * {@link Spec} for a given type. All the waiting types are
+     * completed as soon as the last of them becomes available.
      */
     private static class BootstrapTask {
 
@@ -428,7 +443,7 @@ class PyType implements PyObject {
         addWrappers(spec);
 
         // XXX Possibly belong elsewhere
-        setAllSlots(spec.lookup);
+        setAllSlots();
         deduceFlags();
     }
 
@@ -542,19 +557,13 @@ class PyType implements PyObject {
     }
 
     /**
-     * Set all the slots ({@code op_*}) from the {@link #implClass} and
-     * {@link #bases}.
-     *
-     * @param lookup authorisation to access {@code implClass}
+     * Set all the slots ({@code op_*}) from the entries in the
+     * dictionaries of this type and its bases.
      */
-    private void setAllSlots(Lookup lookup) {
+    private void setAllSlots() {
         for (Slot s : Slot.values()) {
-            final MethodHandle empty = s.getEmpty();
-            MethodHandle mh = s.findInClass(implClass, lookup);
-            for (int i = 0; mh == empty && i < bases.length; i++) {
-                mh = s.getSlot(bases[i]);
-            }
-            s.setSlot(this, mh);
+            PyObject def = lookup(ID.intern(s.methodName));
+            s.setSlot(this, def);
         }
     }
 

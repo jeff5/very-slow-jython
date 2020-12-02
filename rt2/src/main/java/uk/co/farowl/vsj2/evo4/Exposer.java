@@ -20,6 +20,8 @@ import uk.co.farowl.vsj2.evo4.PyMemberDescr.Flag;
  */
 class Exposer {
 
+    private Exposer() {} // No instances
+
     /**
      * Create a table of {@link PyMemberDescr}s annotated on the given
      * implementation class, on behalf of the type given. This type
@@ -285,8 +287,16 @@ class Exposer {
             String name = m.getName();
             Slot slot = Slot.forMethodName(name);
             if (slot != null) {
-                descrs.put(name,
-                        slot.makeDescriptor(type, implClass, lookup));
+                try {
+                    descrs.put(name, slot.makeDescriptor(type,
+                            implClass, lookup));
+                } catch (NoSuchMethodException
+                        | IllegalAccessException e) {
+                    // Although m exists, we could not form handle to it
+                    throw new InterpreterError(
+                            "cannot get handle to method %s in %s",
+                            name, implClass.getSimpleName());
+                }
             }
         }
 

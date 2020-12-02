@@ -230,7 +230,7 @@ class PyByteCode2 {
             Slot.op_hash.setSlot(basic, ternary);
         });
         assertThrows(InterpreterError.class, () -> { //
-            Slot.op_hash.setSlot(basic, null);
+            Slot.op_hash.setSlot(basic, (MethodHandle) null);
         });
 
         // And the slots should be unaffected
@@ -275,7 +275,7 @@ class PyByteCode2 {
             Slot.op_neg.setSlot(number, ternary);
         });
         assertThrows(InterpreterError.class, () -> { //
-            Slot.op_neg.setSlot(number, null);
+            Slot.op_neg.setSlot(number, (MethodHandle) null);
         });
 
         assertThrows(InterpreterError.class, () -> { //
@@ -288,7 +288,7 @@ class PyByteCode2 {
             Slot.op_add.setSlot(number, ternary);
         });
         assertThrows(InterpreterError.class, () -> { //
-            Slot.op_add.setSlot(number, null);
+            Slot.op_add.setSlot(number, (MethodHandle) null);
         });
 
         // And the slots should have the value set earlier
@@ -328,7 +328,7 @@ class PyByteCode2 {
             Slot.op_len.setSlot(sequence, ternary);
         });
         assertThrows(InterpreterError.class, () -> { //
-            Slot.op_len.setSlot(sequence, null);
+            Slot.op_len.setSlot(sequence, (MethodHandle) null);
         });
 
         // And the slot should be unaffected
@@ -373,7 +373,7 @@ class PyByteCode2 {
             Slot.op_setitem.setSlot(mapping, bad2);
         });
         assertThrows(InterpreterError.class, () -> { //
-            Slot.op_setitem.setSlot(mapping, null);
+            Slot.op_setitem.setSlot(mapping, (MethodHandle) null);
         });
 
         // And the slots should be unaffected

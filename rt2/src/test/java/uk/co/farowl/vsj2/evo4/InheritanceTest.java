@@ -85,12 +85,13 @@ class InheritanceTest {
         assertEquals(type, Abstract.getAttr(object, ID.__class__));
 
         // Test the descriptor in its own right
+        // Python: descr = object.__dict__['__class__']
         PyObject descr = object.getDict(false).get(ID.__class__);
         assertEquals(PyGetSetDescr.TYPE, descr.getType());
-        // * We need slot-wrapper to invoke its __get__.
-        // * PyObject get = Abstract.getAttr(descr, ID.__get__);
-        // * assertEquals(object, Callables.call(get, Py.tuple(o),
-        // null));
+        // Python: get = getattr(descr, '__get__')
+        PyObject get = Abstract.getAttr(descr, ID.__get__);
+        // Python: object == get(o)
+        assertEquals(object, Callables.call(get, Py.tuple(o), null));
 
         // A inherits from object
         PyType classA = A.TYPE;
@@ -205,8 +206,7 @@ class InheritanceTest {
                 (PyWrapperDescr) Abstract.getAttr(typeA, ID.__str__);
         assertSame(object.op_str, typeA.op_str);
         assertSame(strDescr, strDescrA);
-        // * needs slots derived from descriptors
-        // * assertEquals(object.op_str, strDescr.wrapped);
+        assertEquals(object.op_str, strDescr.wrapped);
 
         // A implements __neg__
         A a = new A(5);
@@ -214,9 +214,9 @@ class InheritanceTest {
         PyWrapperDescr negA =
                 (PyWrapperDescr) Abstract.getAttr(A.TYPE, ID.__neg__);
         assertSame(A.TYPE, negA.objclass);
-        // * needs slots derived from descriptors
-        // * assertEquals(A.TYPE.op_neg, negA.wrapped);
-        // * assertSame(A.TYPE.op_neg, negA.wrapped);
+        assertEquals(A.TYPE.op_neg, negA.wrapped);
+        assertSame(A.TYPE.op_neg, negA.wrapped);
+        assertEquals( "<slot wrapper '__neg__' of 'A' objects>"   , negA.toString());
 
         // B inherits __neg__ from A
         B b = new B(6);
@@ -226,9 +226,8 @@ class InheritanceTest {
         // Exposing B *did not* separately expose B.__neg__
         assertSame(negA, negB);
         assertSame(A.TYPE, negB.objclass);
-        // * needs slots derived from descriptors
-        // * assertSame(A.TYPE.op_neg, negB.wrapped);
-        // * assertSame(A.TYPE.op_neg, B.TYPE.op_neg);
+        assertSame(A.TYPE.op_neg, negB.wrapped);
+        assertSame(A.TYPE.op_neg, B.TYPE.op_neg);
     }
 
 }

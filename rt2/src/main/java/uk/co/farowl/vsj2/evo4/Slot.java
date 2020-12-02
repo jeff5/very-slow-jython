@@ -52,6 +52,7 @@ enum Slot {
     op_gt(Signature.BINARY), //
 
     op_iter(Signature.UNARY), //
+    op_next(Signature.UNARY), //
 
     op_get(Signature.DESCRGET), //
     op_set(Signature.SETITEM), //
@@ -98,6 +99,9 @@ enum Slot {
     final Signature signature;
     /** Name of implementation method to bind to this slot. */
     final String methodName;
+    /** Name of implementation method as {@link PyUnicode}. */
+    // XXX Do not provoke type system by setting in constructor.
+    PyUnicode name_strobj;
     /** Name to use in error messages */
     final String opName;
     /** Name to use in error messages */
@@ -206,22 +210,22 @@ enum Slot {
      *
      * @param c target class
      * @param lookup authorisation to access {@code c}
-     * @return handle to method in {@code c} implementing this slot, or
-     *         appropriate "empty" if no such method is accessible.
+     * @return handle to method in {@code c} implementing this slot.
+     * @throws NoSuchMethodException slot method not found
+     * @throws IllegalAccessException found but inaccessible
      */
-    MethodHandle findInClass(Class<?> c, Lookup lookup) {
-        try {
-            switch (signature.kind) {
-                case INSTANCE:
-                    return Util.findVirtualInClass(this, c, lookup);
-                case CLASS:
-                case STATIC:
-                    return Util.findStaticInClass(this, c, lookup);
-                default:
-                    // Never happens
-            }
-        } catch (NoSuchMethodException | IllegalAccessException e) {}
-        return getEmpty();
+    MethodHandle findInClass(Class<?> c, Lookup lookup)
+            throws IllegalAccessException, NoSuchMethodException {
+        switch (signature.kind) {
+            case INSTANCE:
+                return Util.findVirtualInClass(this, c, lookup);
+            case CLASS:
+            case STATIC:
+                return Util.findStaticInClass(this, c, lookup);
+            default:
+                // Never happens
+                return getEmpty();
+        }
     }
 
     /**
@@ -233,9 +237,12 @@ enum Slot {
      * @param c the Java class declaring the special method
      * @param lookup authorisation to access {@code c}
      * @return a slot wrapper descriptor
+     * @throws NoSuchMethodException slot method not found
+     * @throws IllegalAccessException found but inaccessible
      */
     PyWrapperDescr makeDescriptor(PyType objclass, Class<?> c,
-            Lookup lookup) {
+            Lookup lookup)
+            throws IllegalAccessException, NoSuchMethodException {
         MethodHandle wrapped = findInClass(c, lookup);
         return signature.makeDescriptor(objclass, this, wrapped);
     }
@@ -273,6 +280,75 @@ enum Slot {
     void setSlot(PyType t, MethodHandle mh) {
         if (mh == null || !mh.type().equals(getType()))
             throw slotTypeError(this, mh);
+        slotHandle.set(t, mh);
+    }
+
+    /**
+     * Set the contents of this slot in the given type to a
+     * {@code MethodHandle} that calls the object given in a manner
+     * appropriate to its type. This method is used when updating
+     * setting the type slots of a new type from the new type's
+     * dictionary, and when updating them after a change. The object
+     * argument is then the entry found by lookup of this slot's name
+     * (and may be {@code null} if no entry was found.
+     * <p>
+     * Where the object is a {@link PyWrapperDescr}, the wrapped method
+     * handle will be set as by {@link #setSlot(PyType, MethodHandle)}.
+     * The {@link PyWrapperDescr#slot} is not necessarily this slot.
+     * Client Python code can enter any wrapper descriptor against the
+     * name.
+     *
+     * @param t target type object
+     * @param def object defining the handle to set (or {@code null})
+     */
+    // Compare CPython update_one_slot in typeobject.c
+    void setSlot(PyType t, PyObject def) {
+        MethodHandle mh;
+        if (def == null) {
+            // No definition available for the special method
+            if (this == op_next) {
+                // XXX We should special-case __next__
+                /*
+                 * In CPython, this slot is sometimes null=empty, and
+                 * sometimes _PyObject_NextNotImplemented. PyIter_Check
+                 * checks both, but PyIter_Next calls it without
+                 * checking and a null would then cause a crash. We have
+                 * EmptyException for a similar purpose.
+                 */
+            }
+            mh = signature.empty;
+
+        } else if (def instanceof PyWrapperDescr) {
+            // Subject to certain checks, take wrapped handle.
+            PyWrapperDescr wd = (PyWrapperDescr) def;
+            if (wd.slot.signature == signature && t.isSubTypeOf(t)) {
+                mh = wd.wrapped;
+            } else {
+                throw new MissingFeature(
+                        "equivalent of the slot_* functions");
+                // mh = signature.slotCalling(def);
+            }
+
+        } else if (def instanceof PyJavaFunction) {
+            // We should be able to do this efficiently ... ?
+            // PyJavaFunction func = (PyJavaFunction) def;
+            if (this == op_next)
+                throw new MissingFeature(
+                        "special case caller for __new__ wrapper");
+            throw new MissingFeature(
+                    "Efficient handle from PyJavaFunction");
+            // mh = signature.slotCalling(func);
+
+        } else if (def == Py.None && this == op_hash) {
+            throw new MissingFeature("special case __hash__ == None");
+            // mh = PyObject_HashNotImplemented
+
+        } else {
+            throw new MissingFeature(
+                    "equivalent of the slot_* functions");
+            // mh = makeSlotHandle(wd);
+        }
+
         slotHandle.set(t, mh);
     }
 
@@ -358,9 +434,17 @@ enum Slot {
      * in the C-API names but not here.
      */
     enum Signature implements ClassShorthand {
+
+        /*
+         * The makeDescriptor overrides returning anonymous sub-classes
+         * of PyWrapperDescr are fairly ugly. However, sub-classes seem
+         * to be the right solution, and defining them here keeps
+         * information together that belongs together.
+         */
+
         /**
-         * The signature of e.g. {@link Slot#op_repr} or
-         * {@link Slot#op_neg}.
+         * The signature {@code (S)O}, for example {@link Slot#op_repr}
+         * or {@link Slot#op_neg}.
          */
         UNARY(O, S) {
 
@@ -379,7 +463,10 @@ enum Slot {
             }
         },
 
-        // +, -, u[v]
+        /**
+         * The signature {@code (S,O)O}, for example {@link Slot#op_add}
+         * or {@link Slot#op_getitem}.
+         */
         BINARY(O, S, O) {
 
             @Override
@@ -397,8 +484,17 @@ enum Slot {
                 };
             }
         },
+        /**
+         * The signature {@code (S,O,O)O}, used for {@link Slot#op_pow}.
+         */
+        // The signature {@code (S,O,O)O}, used for {@link Slot#op_pow}.
         // **
         TERNARY(O, S, O, O),
+
+        /**
+         * The signature {@code (S,O,TUPLE,DICT)O}, used for
+         * {@link Slot#op_call}.
+         */
         // u(self, *args, **kwargs)
         CALL(O, S, TUPLE, DICT) {
 
@@ -416,28 +512,71 @@ enum Slot {
                 };
             }
         },
+
         // u(x, y, ..., a=z)
         VECTORCALL(O, S, OA, I, I, TUPLE),
+
         // Slot#op_bool
         PREDICATE(B, S),
+
         // Slot#op_contains
         BINARY_PREDICATE(B, S, O),
+
         // Slot#op_length, Slot#op_hash
         LEN(I, S),
+
         // (objobjargproc) Slot#op_setitem, Slot#op_set
         SETITEM(V, S, O, O),
+
         // (not in CPython) Slot#op_delitem, Slot#op_delete
         DELITEM(V, S, O),
+
         // (getattrofunc) Slot#op_getattr
         GETATTR(O, S, U),
+
         // (setattrofunc) Slot#op_setattr
         SETATTR(V, S, U, O),
+
         // (not in CPython) Slot#op_delattr
         DELATTR(V, S, U),
+
         // (descrgetfunc) Slot#op_get
-        DESCRGET(O, S, O, T),
+        DESCRGET(O, S, O, T) {
+
+            @Override
+            PyWrapperDescr makeDescriptor(PyType objclass, Slot slot,
+                    MethodHandle wrapped) {
+                return new PyWrapperDescr(objclass, slot, wrapped) {
+
+                    @Override
+                    PyObject callWrapped(PyObject self, PyTuple args,
+                            PyDict kwargs) throws Throwable {
+                        checkArgs(args, 1, 2, kwargs);
+                        PyObject[] a = args.value;
+                        PyObject obj = a[0];
+                        if (obj == Py.None) { obj = null; }
+                        PyObject type = null;
+                        if (a.length > 1 && type != Py.None) {
+                            type = a[1];
+                        }
+                        if (type == null && obj == null) {
+                            throw new TypeError(
+                                    "__get__(None, None) is invalid");
+                        }
+                        return (PyObject) wrapped.invokeExact(self, obj,
+                                (PyType) type);
+                    }
+                };
+            }
+        },
+
+        /**
+         * The signature {@code (S,O,TUPLE,DICT)V}, used for
+         * {@link Slot#op_init}.
+         */
         // (initproc) Slot#op_init
         INIT(V, S, TUPLE, DICT),
+
         // (newfunc) Slot#op_new
         NEW(O, T, TUPLE, DICT);
 
@@ -512,6 +651,7 @@ enum Slot {
          * @param wrapped a handle to an implementation of that slot
          * @return a slot wrapper descriptor
          */
+        // XXX should be abstract, but only when defined for each
         /* abstract */ PyWrapperDescr makeDescriptor(PyType objclass,
                 Slot slot, MethodHandle wrapped) {
             return new PyWrapperDescr(objclass, slot, wrapped) {
@@ -519,14 +659,12 @@ enum Slot {
                 @Override
                 PyObject callWrapped(PyObject self, PyTuple args,
                         PyDict kwargs) throws Throwable {
-                    checkArgs(args, 0, kwargs);
+                    checkNoArgs(args, kwargs);
                     return (PyObject) wrapped.invokeExact(self);
                 }
             };
         }
     }
-
-
 
     /**
      * Helper for {@link Slot#setSlot(PyType, MethodHandle)}, when a bad
@@ -597,9 +735,7 @@ enum Slot {
          * @param slot slot
          * @param c target class
          * @param lookup authorisation to access {@code c}
-         * @return handle to method in {@code c} implementing {@code s},
-         *         or appropriate "empty" if no such method is
-         *         accessible.
+         * @return handle to method in {@code c} implementing {@code s}
          * @throws NoSuchMethodException slot method not found
          * @throws IllegalAccessException found but inaccessible
          */
@@ -627,9 +763,7 @@ enum Slot {
          * @param slot slot
          * @param c class
          * @param lookup authorisation to access {@code c}
-         * @return handle to method in {@code c} implementing {@code s},
-         *         or appropriate "empty" if no such method is
-         *         accessible.
+         * @return handle to method in {@code c} implementing {@code s}
          * @throws NoSuchMethodException slot method not found
          * @throws IllegalAccessException found but inaccessible
          */
@@ -650,14 +784,15 @@ enum Slot {
          * For a given slot, return a handle to the method in
          * {@link PyBaseObject}{@code .class}, or the default handle (of
          * the correct signature) that throws {@link EmptyException}.
-         * The declarations of special methods in that class differ from
-         * other implementation classes.
+         * The declarations of (non-static) special methods in
+         * {@code PyBaseObject} differ from those other implementation
+         * classes in being declared Java {@code static}, with a
+         * {@code PyObject self}.
          *
          * @param slot slot
          * @param lookup authorisation to access {@code PyBaseObject}
          * @return handle to method in {@code PyBaseObject} implementing
-         *         {@code s}, or appropriate "empty" if no such method
-         *         is accessible.
+         *         {@code s}.
          * @throws NoSuchMethodException slot method not found
          * @throws IllegalAccessException found but inaccessible
          */

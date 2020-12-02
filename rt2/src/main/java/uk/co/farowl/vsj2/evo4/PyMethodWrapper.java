@@ -33,7 +33,7 @@ class PyMethodWrapper extends AbstractPyObject {
 
     /**
      * The target object of the method call that results when
-     * {@link #__call____(PyTuple, PyDict)} is invoked on this object.
+     * {@link #__call__(PyTuple, PyDict)} is invoked on this object.
      * This is exposed to Python as {@code __self__}.
      */
     // XXX implement PyMemberDescr._PyObject
@@ -156,14 +156,14 @@ class PyMethodWrapper extends AbstractPyObject {
     // Special methods ------------------------------------------------
 
     // Compare CPython wrapper_repr in descrobject.c
-    protected PyObject __repr____() {
+    protected PyObject __repr__() {
         return PyUnicode.fromFormat(
                 "<method-wrapper '%s' of %s object at %p>",
                 descr.slot.methodName, self.getType().name, self);
     }
 
     // Compare CPython wrapper_richcompare in descrobject.c
-    protected PyObject __eq____(PyObject b) {
+    protected PyObject __eq__(PyObject b) {
         // Both arguments should be exactly PyMethodWrapper
         if (b instanceof PyMethodWrapper) {
             PyMethodWrapper wb = (PyMethodWrapper) b;
@@ -173,7 +173,7 @@ class PyMethodWrapper extends AbstractPyObject {
     }
 
     // Compare CPython wrapper_richcompare in descrobject.c
-    protected PyObject __ne____(PyObject b) {
+    protected PyObject __ne__(PyObject b) {
         // Both arguments should be exactly PyMethodWrapper
         if (b instanceof PyMethodWrapper) {
             PyMethodWrapper wb = (PyMethodWrapper) b;
@@ -183,7 +183,7 @@ class PyMethodWrapper extends AbstractPyObject {
     }
 
     // Compare CPython wrapper_hash in descrobject.c
-    protected int __hash____() {
+    protected int __hash__() {
         int x = self.hashCode() ^ descr.hashCode();
         return x == -1 ? -2 : x;
     }
@@ -196,8 +196,8 @@ class PyMethodWrapper extends AbstractPyObject {
     // }
 
     // Compare CPython wrapper_call in descrobject.c
-    protected PyObject __call____(PyTuple args, PyDict kwds)
+    protected PyObject __call__(PyTuple args, PyDict kwargs)
             throws Throwable {
-        return descr.callWrapped(self, args, kwds);
+        return descr.callWrapped(self, args, kwargs);
     }
 }

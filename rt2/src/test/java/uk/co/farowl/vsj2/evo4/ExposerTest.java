@@ -1,9 +1,9 @@
 package uk.co.farowl.vsj2.evo4;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
@@ -31,8 +31,7 @@ class ExposerTest {
     private static class ObjectWithMembers implements PyObject {
 
         /** Lookup object to support creation of descriptors. */
-        private static final Lookup LOOKUP = MethodHandles
-                .lookup();
+        private static final Lookup LOOKUP = MethodHandles.lookup();
 
         static PyType TYPE =
                 PyType.fromSpec(new PyType.Spec("ObjectWithMembers",
@@ -94,6 +93,8 @@ class ExposerTest {
         // Try a few attributes of i
         assertTrue(mds.containsKey("i"));
         PyMemberDescr md = mds.get("i");
+        assertEquals("<member 'i' of 'ObjectWithMembers' objects>",
+                md.toString());
         assertNull(md.doc);
         assertTrue(md.flags.isEmpty());
         // Try a few attributes of x
@@ -320,13 +321,10 @@ class ExposerTest {
     private static class PyObjectWithSpecial implements PyObject {
 
         /** Lookup object to support creation of descriptors. */
-        private static final Lookup LOOKUP = MethodHandles
-                .lookup();
+        private static final Lookup LOOKUP = MethodHandles.lookup();
         static PyType TYPE = PyType.fromSpec( //
                 new PyType.Spec("ObjectWithSpecialMethods",
                         PyObjectWithSpecial.class, LOOKUP));
-
-
         int value;
 
         public PyObjectWithSpecial(int value) { this.value = value; }
@@ -335,7 +333,6 @@ class ExposerTest {
 
         @Override
         public PyType getType() { return TYPE; }
-
     }
 
     /**
@@ -352,19 +349,15 @@ class ExposerTest {
         Map<String, PyWrapperDescr> wds = Exposer.wrapperDescrs(
                 PyObjectWithSpecial.LOOKUP, PyObjectWithSpecial.class,
                 PyObjectWithSpecial.TYPE);
-        PyObjectWithSpecial o = new PyObjectWithSpecial(42);
-        PyType t = o.getType();
-        PyType object = PyBaseObject.TYPE;
 
-        // Let it throw if we're wrong. Inherited __str__
-        PyMethodWrapper strDescr =
-                (PyMethodWrapper) Abstract.getAttr(o, ID.__str__);
-        assertEquals(object, strDescr.descr.objclass);
+        // We defined this special method
+        PyWrapperDescr neg = wds.get("__neg__");
 
-        // Defined __neg__
-        PyMethodWrapper negDescr =
-                (PyMethodWrapper) Abstract.getAttr(o, ID.__neg__);
-        assertEquals(t, negDescr.descr.objclass);
+        assertEquals("__neg__", neg.name);
+        assertEquals(PyObjectWithSpecial.TYPE, neg.objclass);
+        assertEquals(
+                "<slot wrapper '__neg__' of 'ObjectWithSpecialMethods' objects>",
+                neg.toString());
     }
 
 }
