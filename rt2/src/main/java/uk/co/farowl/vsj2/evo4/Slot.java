@@ -240,11 +240,11 @@ enum Slot {
      * @throws NoSuchMethodException slot method not found
      * @throws IllegalAccessException found but inaccessible
      */
-    PyWrapperDescr makeDescriptor(PyType objclass, Class<?> c,
+    PyWrapperDescr makeSlotWrapper(PyType objclass, Class<?> c,
             Lookup lookup)
             throws IllegalAccessException, NoSuchMethodException {
         MethodHandle wrapped = findInClass(c, lookup);
-        return signature.makeDescriptor(objclass, this, wrapped);
+        return signature.makeSlotWrapper(objclass, this, wrapped);
     }
 
     /**
@@ -449,7 +449,7 @@ enum Slot {
         UNARY(O, S) {
 
             @Override
-            PyWrapperDescr makeDescriptor(PyType objclass, Slot slot,
+            PyWrapperDescr makeSlotWrapper(PyType objclass, Slot slot,
                     MethodHandle wrapped) {
                 return new PyWrapperDescr(objclass, slot, wrapped) {
 
@@ -470,7 +470,7 @@ enum Slot {
         BINARY(O, S, O) {
 
             @Override
-            PyWrapperDescr makeDescriptor(PyType objclass, Slot slot,
+            PyWrapperDescr makeSlotWrapper(PyType objclass, Slot slot,
                     MethodHandle wrapped) {
                 return new PyWrapperDescr(objclass, slot, wrapped) {
 
@@ -485,7 +485,7 @@ enum Slot {
             }
         },
         /**
-         * The signature {@code (S,O,O)O}, used for {@link Slot#op_pow}.
+         * The signature {@code (S,O,O)O}.
          */
         // The signature {@code (S,O,O)O}, used for {@link Slot#op_pow}.
         // **
@@ -499,7 +499,7 @@ enum Slot {
         CALL(O, S, TUPLE, DICT) {
 
             @Override
-            PyWrapperDescr makeDescriptor(PyType objclass, Slot slot,
+            PyWrapperDescr makeSlotWrapper(PyType objclass, Slot slot,
                     MethodHandle wrapped) {
                 return new PyWrapperDescr(objclass, slot, wrapped) {
 
@@ -544,7 +544,7 @@ enum Slot {
         DESCRGET(O, S, O, T) {
 
             @Override
-            PyWrapperDescr makeDescriptor(PyType objclass, Slot slot,
+            PyWrapperDescr makeSlotWrapper(PyType objclass, Slot slot,
                     MethodHandle wrapped) {
                 return new PyWrapperDescr(objclass, slot, wrapped) {
 
@@ -652,7 +652,7 @@ enum Slot {
          * @return a slot wrapper descriptor
          */
         // XXX should be abstract, but only when defined for each
-        /* abstract */ PyWrapperDescr makeDescriptor(PyType objclass,
+        /* abstract */ PyWrapperDescr makeSlotWrapper(PyType objclass,
                 Slot slot, MethodHandle wrapped) {
             return new PyWrapperDescr(objclass, slot, wrapped) {
 

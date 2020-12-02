@@ -7,7 +7,12 @@ class Sequence extends Abstract {
 
     private Sequence() {} // only static methods here
 
-    /** {@code true} iff {@code s} is a sequence type. */
+    /**
+     * {@code true} iff {@code s} is of sequence type.
+     *
+     * @param s possible sequence
+     * @return {@code true} iff is a sequence
+     */
     static boolean check(PyObject s) {
         return !(s instanceof PyDict)
                 && Slot.op_getitem.isDefinedFor(s.getType());

@@ -260,7 +260,7 @@ class Number extends Abstract {
      * @return {@code int} value of {@code o}
      * @throws TypeError if {@code o} cannot be converted to a Python
      *             {@code int}
-     * @throws Throwable for all sorts of reasons
+     * @throws Throwable on other errors
      */
     static int asSize(PyObject o, Function<String, PyException> exc)
             throws TypeError, Throwable {
@@ -303,10 +303,12 @@ class Number extends Abstract {
      *
      * @param o operand
      * @return {@code int(o)}
-     * @throws Throwable
+     * @throws TypeError if {@code o} cannot be converted to a Python
+     *             {@code int}
+     * @throws Throwable on other errors
      */
     // Compare with CPython abstract.h :: PyNumber_Long
-    static PyObject asLong(PyObject o) throws Throwable {
+    static PyObject asLong(PyObject o) throws TypeError, Throwable {
         PyObject result;
         PyType oType = o.getType();
 

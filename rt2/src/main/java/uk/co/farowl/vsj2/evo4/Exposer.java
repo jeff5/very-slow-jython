@@ -288,7 +288,7 @@ class Exposer {
             Slot slot = Slot.forMethodName(name);
             if (slot != null) {
                 try {
-                    descrs.put(name, slot.makeDescriptor(type,
+                    descrs.put(name, slot.makeSlotWrapper(type,
                             implClass, lookup));
                 } catch (NoSuchMethodException
                         | IllegalAccessException e) {

@@ -32,10 +32,13 @@ class Py {
     static final PyObject NotImplemented =
             new Singleton("NotImplemented") {};
 
-    /** Return the Python {@code type} of an object. */
-    static PyType type(PyObject object) {
-        return object.getType();
-    }
+    /**
+     * Return the Python {@code type} of an object.
+     *
+     * @param object to interrogate
+     * @return the type
+     */
+    static PyType type(PyObject object) { return object.getType(); }
 
     /**
      * Return Python {@code int} for Java {@code long}.
