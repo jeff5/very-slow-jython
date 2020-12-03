@@ -633,15 +633,15 @@ In Java, this gives rise to a fair few related classes.
     }
 
     Descriptor <|-- PyWrapperDescr
-    PyWrapperDescr --> SlotDef : base
+    PyWrapperDescr --> Slot : slot
 
-    class SlotDef {
-        name
-        offset : Slot
+    enum Slot {
+        signature : Signature
+        methodName : String
+        doc : String
         function : SlotFunction
-        wrapper : WrapperFunction
-        doc
-        flags
+        name() : String
+        makeSlotWrapper() : PyWrapperDescr
     }
 
     class PyMethodDescr {
@@ -1265,12 +1265,12 @@ any type whose implementation class ``T`` defines:
 
 ..  code-block:: java
 
-    PyObject __neg__(T self) { ... }
+    PyObject __neg__() { ... }
 
 will define the special method ``__neg__``,
 precisely because its dictionary contains an entry for ``"__neg__"``.
 The entry is an instance of ``PyWrapperDescr``
-that knows how to call the Java method from Python.
+that knows how to call the Java method when executing Python.
 
 Special Method Creation in CPython
 ==================================
@@ -1280,7 +1280,7 @@ a type defined in C, writes its slot function implementations as pointers,
 into an instance of ``PyTypeObject`` during its initialisation.
 Slots the type does not define,
 but may inherit,
-are null initially in the type object
+are initially null in the type object
 
 During type creation,
 CPython examines the slots in the type,
@@ -1329,38 +1329,42 @@ Special Method Creation in Java
 
 In the Java implementation,
 a ``PyWrapperDescr`` that appears in the dictionary of the ``PyType``,
-is created from a single unique table of ``SlotDef`` entries,
+is created by a member of the ``Slot`` object (and ``enum``),
 and information particular to the implementing class.
+
+This ``enum`` replaces the ``slotdef`` table in CPython.
 We differ from CPython slightly in that
 a ``PyWrapperDescr`` is created because a Java method exists
 with the right name and signature,
 and then the slot in the ``PyType`` is filled as a result.
+(CPython does it the other way round:
+fills the type slot, which causes creation of a wrapper.)
+
 The ``PyWrapperDescr`` contains a reference to the target Python type,
 the method name, and a handle to the implementation compatible with the slot.
 
-The class ``SlotDef``
-(variously known as ``wrapperbase`` and ``slotdef`` in CPython)
-is somewhat like our ``Slot`` enum class,
-but there may be more than one per slot.
+A major difference from CPython is that members ``Slot``,
+and special method names defined in the Python data model,
+are in one-to-one correspondence.
+The member ``Slot.op_<name>`` contains the information necessary
+to create a descriptor, type slot and wrapper for ``__<name>__``,
+exclusively and completely.
 
 ..  note::
-    If we can resolve the competition for slots and names that CPython has,
+    We resolved the competition for slots and names that CPython has,
     in favour of a one-to-one alignment of slots and special method names,
-    then ``Slot`` as seen in the ``evo3`` experiments and
-    ``SlotDef`` as we need it can be the same thing.
-
-    We cannot depart from the Python data model to achieve this.
-    But we do not have to reproduce the CPython approach internally,
-    or depart from the data model where CPython does (slightly).
-    Jython 2 seems to do this without violating to the data model,
-    naming its slot functions after the special functions.
+    in the ``evo4`` experiments.
+    Not every slot has been implemented,
+    but enough of the hard cases to provide confidence.
+    Jython 2 also does roughly this without violating the data model,
+    naming its implementation methods after the special functions.
 
 
 CPython Structures
 ------------------
 
-We have an idea to diverge a little from CPython at this point,
-so as a reference we look at how calling a slot wrapper works in CPython.
+Although we diverge a little from CPython,
+as a reference we look at how calling a slot wrapper works in CPython.
 
 In CPython, each ``slotdef`` (also known as ``struct wrapperbase``)
 identifies its slot in the type object by an ``offset`` field,
@@ -1371,13 +1375,14 @@ and some other fields that need not concern us just now.
 The wrapper functions are necessarily independent of the target object type.
 ``function`` is for synthesising a type slot
 from a special method defined in Python,
-while ``wrapper`` does the job at hand: calling a slot from Python.
+while ``wrapper`` does the job at hand:
+calling a special method defined in C from Python.
 
 We can think of ``slotdef`` as an association class
 between notional classes ``TypeSlot`` and ``SpecialFunction``.
 
 ..  uml::
-    :caption: SlotDef is an association class (CPython)
+    :caption: ``slotdef`` is an association class (CPython)
 
     class TypeSlot {
         offset
@@ -1404,7 +1409,7 @@ while a ``SpecialFunction`` is simply present as a name.
 The association of special functions and slots is many-to-many,
 because special functions may compete for slots
 and contribute to more than one.
-(This is a complication we might be able to avoid.)
+(This is the complication we believe we can avoid.)
 
 ..  uml::
     :caption: Special Methods in CPython
@@ -1436,18 +1441,21 @@ and contribute to more than one.
 
 
 When the ``PyWrapperDescrObject d`` (for ``__sub__``, say) is called,
-or a binding ``wrapperobject`` it produced by ``__get__`` is called,
+or a binding ``wrapperobject`` is called
+that it produced by ``__get__`` ,
 the ``d_wrapped`` field of ``d`` provides the required implementation.
 
 Although the descriptor holds this function pointer,
 ``d->d_wrapped`` may not be used directly to satisfy the call.
-Only the ``slotdef`` has the details needed to call it properly:
+Only the ``slotdef`` understands how to call it properly:
 the number, type and arrangement of the arguments.
+This "understanding" is expressed in code.
 
 The ``wrapper`` field in the related ``slotdef``
 points to a function with a standard signature ``(self, args, wrapped)``.
 A ``PyWrapperDescrObject`` is able to call that
-without specific knowledge of the slot type.
+without specific knowledge of the slot type,
+because its signature is always the same.
 In the signature, ``wrapped`` is the particular slot implementation
 the ``PyWrapperDescrObject`` holds.
 (In fact, there are two standard signatures: the other with keywords,
@@ -1462,10 +1470,10 @@ In the case of ``__sub__``,
 the ``slotdef`` represents an unreflected binary operation,
 so ``wrapper`` was set by static initialisation to a generic method
 called ``wrap_binaryfunc_l``.
-This function has a body along the lines ``return (*wrapped)(self, args[0])``.
-The companion function ``wrap_binaryfunc_r``,
+This function has a body equivalent to ``return (*wrapped)(self, args[0])``.
+In the companion function ``wrap_binaryfunc_r``,
 for wrapping reflected operations like ``__rsub__``,
-has a body along the lines ``return (*wrapped)(args[0], self)``,
+it is ``return (*wrapped)(args[0], self)``,
 that is, with the arguments reversed.
 
 All this involves heavy use of pointers and offsets into structures,
@@ -1476,7 +1484,7 @@ Surely Java can offer us a less brutal way?
 A Java Equivalent
 -----------------
 
-The ``SlotDef`` is somewhat the counterpart of ``MethodDef``,
+The ``Slot`` is somewhat the counterpart of ``MethodDef``,
 as described in :ref:`PyMethodDescr`.
 There,
 we proposed that an annotation would identify each function to be exposed.
@@ -1485,15 +1493,14 @@ then descriptors from that table.
 
 Here, the set of possible method names and signatures
 is fixed in advance by the Python data model,
-and so the generation of descriptors for any given class
-may be driven by one central table of ``SlotDef``\s, fixed statically.
-Every entry in that table
-that finds a matching definition in the current Java implementation class,
-should create a new descriptor.
+which means ``Slot`` can be just an ``enum``.
+The generation of descriptors for any given class
+may be driven by enumerating ``Slot``
+and creating a descriptor for each method with the corresponding name.
 
 The name of the descriptor is the name of
-the special function specified by the ``SlotDef``.
-The ``SlotDef`` holds all the information needed
+the special function specified by the ``Slot``.
+The ``Slot`` holds all the information needed
 to create the appropriate ``PyWrapperDescr``
 except for the handle to the implementation.
 That will be supplied during type creation
@@ -1520,40 +1527,53 @@ binding an instance (as in ``(42).__sub__(10)``).
         {abstract} callWrapped()
         wrapped : MethodHandle
     }
-    PyWrapperDescr -right-> SlotDef : base
+    PyWrapperDescr -right-> Slot : slot
 
-    class SlotDef {
-        name
-        doc
+    enum Slot {
+        {static} op_repr
+        {static} op_neg
+        {static} op_add
+        {static} op_call
+        methodName : String
+        doc : String
         function : SlotFunction
-        makeDescriptor() : PyWrapperDescr
+        name() : String
+        makeSlotWrapper() : PyWrapperDescr
     }
 
-    enum Wrapper {
-        BINOP_L
-        BINOP_R
-        CALL
-        makeDescriptor() : PyWrapperDescr
+    enum Signature {
+        {static} UNARY
+        {static} BINARY
+        {static} CALL
+        type : MethodType
+        empty : MethodHandle
+        {abstract} makeSlotWrapper() : PyWrapperDescr
+    }
+    Slot --> Signature : signature
+
+    enum MethodKind {
+        INSTANCE
+        CLASS
+        STATIC
     }
 
     class PyMethodWrapper {
         {method} __call__()
     }
 
-    SlotDef --> Wrapper : wrapper
+    Signature --> MethodKind : kind
 
     PyMethodWrapper --left-> PyObject : self
     PyMethodWrapper --up-> PyWrapperDescr : descr
 
-    Wrapper ..> PyWrapperDescr : <<creates>>
+    Signature ..> PyWrapperDescr : <<creates>>
 
     interface PyObject {
         getType()
     }
 
 The method handle ``PyWrapperDescr.wrapped``
-conforms to the signature of the slot
-provided in the ``Slot`` of the same name.
+conforms to the signature provided in the ``Slot`` of the same name.
 However, ``PyWrapperDescr.__call__`` and ``PyMethodWrapper.__call__``
 require the classic call arguments ``(args, kwargs)``.
 (CPython's ``PyMethodWrapper`` does not support the vector call.
@@ -1567,10 +1587,14 @@ in a pattern characteristic of the broad type of the slot
 This data movement is in ``PyWrapperDescr.callWrapped()`` for both.
 
 We express the specific invocation pattern
-that the ``SlotDef`` understands for that type of slot,
-by means of a pluggable behaviour, the ``enum Wrapper``.
-An enum is appropriate because there is a predetermined variety of patterns.
-The ``Wrapper`` is a factory that creates the appropriate
+by overriding ``PyWrapperDescr.callWrapped()`` in a sub-class
+specific to the ``Signature`` of the attached slot.
+When a special method defined in Java is being exposed during type creation,
+``PyType`` calls ``Slot.makeSlotWrapper`` to obtain a descriptor.
+This method forms a handle for the method implementation,
+then calls ``Signature.makeSlotWrapper``.
+
+Each ``Signature`` in the ``enum`` is a factory for the appropriate
 sub-class of ``PyWrapperDescr``,
 specialising ``callWrapped()`` for the invocation pattern.
 Both a direct call on the descriptor,
@@ -1621,11 +1645,11 @@ The objects that participate in the interaction are these:
     object "intsubMH : MethodHandle" as intsubMH {
         target = PyLong.~__sub__
     }
-    object "subSlot : SlotDef" as subSlot {
+    object "subSlot : Slot" as subSlot {
         name = "__sub__"
     }
 
-    d -right-> subSlot : base
+    d -right-> subSlot : slot
     d -left-> int : objclass
     d --> intsubMH : wrapped
     self --> int : type
@@ -1661,7 +1685,7 @@ The action during ``int.__sub__(42, 10)`` runs like this:
 
 Note that although we show ``d`` simply as a ``PyWrapperDescr``,
 it is actually an instance of a specialised subclass,
-created by the ``SlotDef``.
+requested by the ``Slot`` and constructed by the ``Signature``.
 
 
 Calling a Special Method as a Bound Method
@@ -1690,10 +1714,10 @@ that references the target instance ``self``, and the descriptor.
     object "intsubMH : MethodHandle" as intsubMH {
         target = PyLong.~__sub__
     }
-    object "subSlot : SlotDef" as subSlot
+    object "subSlot : Slot" as subSlot
     object "m : PyMethodWrapper" as m
 
-    d -right-> subSlot : base
+    d -right-> subSlot : slot
     d -left-> int : objclass
     d --> intsubMH : wrapped
     self --> int : type
