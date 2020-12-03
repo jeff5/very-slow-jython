@@ -24,7 +24,7 @@ repositories {
 
 dependencies {
     antlr "org.antlr:antlr4:4.7" // use ANTLR version 4
-    testCompile 'junit:junit:4.13.1'
+    testImplementation 'junit:junit:4.13.1'
 }
 
 
