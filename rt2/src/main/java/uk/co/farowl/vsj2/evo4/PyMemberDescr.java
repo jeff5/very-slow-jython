@@ -340,6 +340,8 @@ abstract class PyMemberDescr extends DataDescriptor {
             return new _double(objclass, name, vh, flags, doc);
         else if (fieldType == String.class)
             return new _String(objclass, name, vh, flags, doc, opt);
+        else if (PyObject.class.isAssignableFrom(fieldType))
+            return new _PyObject(objclass, name, vh, flags, doc, opt);
         else
             throw new InterpreterError(UNSUPPORTED_TYPE, name,
                     field.getDeclaringClass().getName(),
@@ -451,12 +453,60 @@ abstract class PyMemberDescr extends DataDescriptor {
         @Override
         protected void set(PyObject obj, PyObject value)
                 throws TypeError, Throwable {
-            if (!PyUnicode.TYPE.check(value))
+            // Special-case None if *not* an optional attribute
+            if (value == Py.None && !optional) {
+                delete(obj);
+                return;
+            } else if (!PyUnicode.TYPE.check(value))
                 throw attrMustBe("a string", value);
-            String v = value.toString();
-            handle.set(obj, v);
+            else {
+                String v = value.toString();
+                handle.set(obj, v);
+            }
         }
-
     }
 
+    /**
+     * An {@code object} attribute that may be deleted (represented by
+     * {@code null} in Java).
+     */
+    private static class _PyObject extends Reference {
+
+        _PyObject(PyType objclass, String name, VarHandle handle,
+                EnumSet<Flag> flags, String doc, boolean optional) {
+            super(objclass, name, handle, flags, doc, optional);
+        }
+
+        @Override
+        protected PyObject get(PyObject obj) {
+            PyObject value = (PyObject) handle.get(obj);
+            if (value == null) {
+                if (optional)
+                    throw Abstract.noAttributeOnType(objclass, name);
+                else
+                    return Py.None;
+            }
+            return value;
+        }
+
+        @Override
+        protected void set(PyObject obj, PyObject value)
+                throws TypeError, Throwable {
+            // Special-case None if *not* an optional attribute
+            if (value == Py.None && !optional) { delete(obj); return; }
+
+            try {
+                handle.set(obj, value);
+            } catch (ClassCastException cce) {
+                // Here if the type of the field is an object sub-type
+                Class<?> javaType = handle.varType();
+                /*
+                 * This is a surprising place to discover a need to map
+                 * Java classes to Python types. Do without for now.
+                 */
+                String typeName = javaType.getSimpleName();
+                throw attrMustBe(typeName, value);
+            }
+        }
+    }
 }

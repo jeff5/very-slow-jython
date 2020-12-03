@@ -6,6 +6,8 @@ import java.util.StringJoiner;
 /** Miscellaneous static helpers common to built-in objects. */
 class PyObjectUtil {
 
+    private PyObjectUtil() {} // no instances
+
     /**
      * Convenient wrapper for sequence types implementing
      * {@code __mul__}, so that they need only provide a
@@ -45,5 +47,23 @@ class PyObjectUtil {
             sj.add(key + ": " + value);
         }
         return sj.toString();
+    }
+
+    /**
+     * A string along the lines "T object at 0xhhh", where T is the type
+     * of {@code o}. This is for creating default {@code __repr__}
+     * implementations seen around the code base and containing this
+     * form. By implementing it here, we encapsulate the problem of
+     * qualified type name and what "address" or "identity" should mean.
+     *
+     * @param o the object (not its type)
+     * @return string denoting {@code o}
+     */
+    static String toAt(PyObject o) {
+        // For the time being identity means:
+        int id = System.identityHashCode(o);
+        // For the time being type name means:
+        String typeName = o.getType().name;
+        return String.format("%s object at %#x", typeName, id);
     }
 }

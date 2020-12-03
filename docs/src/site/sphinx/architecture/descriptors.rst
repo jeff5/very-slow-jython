@@ -730,10 +730,16 @@ is the result of an ``@Member`` annotation applied to a field.
         set()
     }
 
+    class PyMemberDescr._PyObject {
+        get()
+        set()
+    }
+
     PyMemberDescr .right.> PyMemberDescr.Flag
     PyMemberDescr <|-- PyMemberDescr._int
     PyMemberDescr <|-- PyMemberDescr._double
     PyMemberDescr.Reference <|-- PyMemberDescr._String
+    PyMemberDescr.Reference <|-- PyMemberDescr._PyObject
 
 The ``PyMemberDescr`` descriptor is based on a ``VarHandle``
 designating the field.
@@ -768,6 +774,10 @@ optional properties or further annotations:
         int i2;
         @Member(readonly = true, value = "text2")
         String t2;
+        @Member
+        PyObject obj;
+        @Member
+        PyUnicode strhex;
         // ...
     }
 
@@ -782,8 +792,8 @@ is supported.
 and the set/get functions contain a big case statement.
 The API is used exclusively by member descriptors.)
 
-Deletion, ``None`` and ``null``
-===============================
+Type, Deletion, ``None`` and ``null``
+=====================================
 
 Reference values in Java may be ``null``.
 When we implement an attribute by a Java reference type,
@@ -797,9 +807,12 @@ The only writeable reference amongst CPython member types is ``object``
 (signified by ``T_OBJECT`` in the ``PyMemberDef.type`` field).
 Strings (``STRING_T``) are only supported for reading,
 although the possibility of ``null`` is still accommodated in the code.
-The historic norm is to interpret ``null`` as ``None`` in a ``get``
-but for ``set`` to accept and store ``None`` in the attribute.
-The asymmetry does not seem to bother anyone.
+The historic norm is for ``get`` to interpret ``null`` internally
+as ``None`` externally
+but for ``set`` to accept ``None`` and store  it in the attribute.
+The asymmetry is only a problem to the object containing the field,
+which may (confusingly) distinguish ``null`` and ``None`` internally
+that appear the same to Python.
 
 In CPython it is acceptable to supply a ``null`` value
 to ``set`` an attribute,
@@ -821,38 +834,65 @@ but a ``set`` (non-null value, even ``None``) re-creates it.
     :widths: 15, 10, 10, 10, 10
 
     "``Primitive``",   "``x``",    "``x``",           "type error", "type error"
-    "``T_OBJECT``",    "``x``",    "``x``",           "``None``",   "``null``"
-    "``T_OBJECT``",    "``null``", "``None``",        "``None``",   "``null``"
     "``STRING_T``",    "``x``",    "``str(x)``",      "readonly",   "readonly"
     "``STRING_T``",    "``null``", "``None``",        "readonly",   "readonly"
+    "``T_OBJECT``",    "``x``",    "``x``",           "``None``",   "``null``"
+    "``T_OBJECT``",    "``null``", "``None``",        "``None``",   "``null``"
     "``T_OBJECT_EX``", "``x``",    "``x``",           "``None``",   "``null``"
     "``T_OBJECT_EX``", "``null``", "attribute error", "``None``",   "attribute error"
 
 
-We will allow this behaviour for any supported reference type,
+The normal behaviour for a member that is a ``PyObject``
+will be equivalent to CPython ``T_OBJECT``.
+We will provide ``T_OBJECT_EX`` behaviour for any supported reference type,
 through the flag ``DataDescriptor.OPTIONAL``
 and annotation property ``Member.optional``.
-When ``optional == true``, the attribute may be deleted,
-otherwise ``delete`` sets it to ``null`` appearing as ``None``.
+When ``optional == true``, the attribute may be deleted:
+a subsequent attempt to ``get`` it (or ``delete`` it again) is an error.
+When ``optional == false``, ``delete`` is still a valid operation,
+but sets it to ``null``, which appears through ``get`` as ``None``.
+
+We must also address the question of whether a field may have
+a sub-type ``T`` of ``PyObject``.
+In that case, it would not be possible to ``set`` a value contrary to
+the declared Java type of the field.
+Actions to ``get`` and ``delete`` such a field no new problem,
+except that it would be odd for it to show as ``None`` (when deleted)
+if ``None`` could not be assigned.
+
+When it comes to assigning ``None`` to a member,
+we choose to have consistency between external and internal states.
+a subsequent attempt to ``get`` it (or ``delete`` it again) is an error.
+When ``optional == false``,
+assigning ``None`` is the same as deletion
+(results in ``null`` internally and ``None`` externally).
+When ``optional == true``,
+assigning ``None`` is valid if it is a legitimate value for the member.
+
 
 ..  csv-table:: Interpreting ``null`` and ``None`` in ``get``, ``set`` and ``delete``
     :header: "Field type", "Optional", "Current value", "``get`` returns", "``set None`` effect", "``delete`` effect"
     :widths: 10, 10, 10, 10, 10, 10
 
     "``Primitive``", "``false``", "``x``",    "``x``",           "type error", "attribute error"
-    "``PyObject``",  "``false``", "``x``",    "``x``",           "``None``",   "``null``"
-    "",              "",          "``null``", "``None``",        "``None``",   "``null``"
-    "``String``",    "``false``", "``x``",    "``x``",           "type error", "``null``"
-    "",              "",          "``null``", "``None``",        "type error", "``null``"
+    "``String``",    "``false``", "``x``",    "``x``",           "``null``",   "``null``"
+    "",              "",          "``null``", "``None``",        "``null``",   "``null``"
+    "``PyObject``",  "``false``", "``x``",    "``x``",           "``null``",   "``null``"
+    "",              "",          "``null``", "``None``",        "``null``",   "``null``"
+    "``T``",         "``false``", "``x``",    "``x``",           "``null``",   "``null``"
+    "",              "",          "``null``", "``None``",        "``null``",   "``null``"
+    "``String``",    "``true``",  "``x``",    "``x``",           "type error", "``null``"
+    "",              "",          "``null``", "attribute error", "type error", "attribute error"
     "``PyObject``",  "``true``",  "``x``",    "``x``",           "``None``",   "``null``"
     "",              "",          "``null``", "attribute error", "``None``",   "attribute error"
-    "``String``",    "``true``",  "``x``",    "``x``",           "type error", "``null``"
+    "``T``",         "``true``",  "``x``",    "``x``",           "type error", "``null``"
     "",              "",          "``null``", "attribute error", "type error", "attribute error"
 
 This is consistent with CPython behaviour,
 whilst allowing for more assignable reference types (if we want them).
-Th type errors arise because a String cannot be assigned the value ``None``,
-even though that's what deleted appears to set.
+The type errors arise because a ``String``
+(or ``T`` a proper sub-type of ``PyObject``)
+cannot be assigned the value ``None``.
 
 
 .. _PyGetSetDescr:

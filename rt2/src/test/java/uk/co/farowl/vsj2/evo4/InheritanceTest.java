@@ -3,6 +3,7 @@ package uk.co.farowl.vsj2.evo4;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.Test;
 
@@ -109,13 +110,14 @@ class InheritanceTest {
     }
 
     /**
-     * The classes inherit a {@code Member} attribute.
+     * The classes inherit a {@code Member} attribute
+     * ({@code int count}).
      *
      * @throws Throwable unexpectedly
      * @throws AttributeError unexpectedly
      */
     @Test
-    void testMember() throws AttributeError, Throwable {
+    void testMemberCount() throws AttributeError, Throwable {
 
         PyUnicode countID = Py.str("count");
         int beforeInt = 42, afterInt = beforeInt + 1;
@@ -130,12 +132,12 @@ class InheritanceTest {
 
         // An attribute descriptor is in the dictionary of A
         PyMemberDescr countD =
-                (PyMemberDescr) A.TYPE.getDict(false).get(countID);
+                (PyMemberDescr) A.TYPE.getDict().get(countID);
         assertEquals(A.TYPE, countD.objclass);
         assertEquals("count", countD.name);
 
         // The attribute is not in the dictionary of B
-        assertNull(B.TYPE.getDict(false).get(countID));
+        assertNull(B.TYPE.getDict().get(countID));
 
         // B has a member attribute "count" by inheritance
         B b = new B(10);
@@ -168,12 +170,12 @@ class InheritanceTest {
 
         // An attribute descriptor is in the dictionary of A
         PyGetSetDescr gotD =
-                (PyGetSetDescr) A.TYPE.getDict(false).get(gotID);
+                (PyGetSetDescr) A.TYPE.getDict().get(gotID);
         assertEquals(A.TYPE, gotD.objclass);
         assertEquals("got", gotD.name);
 
         // The attribute is not in the dictionary of B
-        assertNull(B.TYPE.getDict(false).get(gotID));
+        assertNull(B.TYPE.getDict().get(gotID));
 
         // B has a member attribute "got" by inheritance
         B b = new B(10);
@@ -216,7 +218,8 @@ class InheritanceTest {
         assertSame(A.TYPE, negA.objclass);
         assertEquals(A.TYPE.op_neg, negA.wrapped);
         assertSame(A.TYPE.op_neg, negA.wrapped);
-        assertEquals( "<slot wrapper '__neg__' of 'A' objects>"   , negA.toString());
+        assertEquals("<slot wrapper '__neg__' of 'A' objects>",
+                negA.toString());
 
         // B inherits __neg__ from A
         B b = new B(6);
@@ -228,6 +231,42 @@ class InheritanceTest {
         assertSame(A.TYPE, negB.objclass);
         assertSame(A.TYPE.op_neg, negB.wrapped);
         assertSame(A.TYPE.op_neg, B.TYPE.op_neg);
+    }
+
+    /**
+     * Test binding a special method ({@code SlotWrapperDescr}) to base
+     * and subclass objects produces a working method wrapper. {@code A}
+     * defines {@code __neg__} so {@code B} should support it should be
+     * possible to bind the descriptor to and instance of either.
+     *
+     * @throws ClassCastException if descriptor type is wrong
+     * @throws Throwable unexpectedly
+     * @throws AttributeError unexpectedly
+     */
+    @Test
+    void testSpecialMethodBinding()
+            throws ClassCastException, AttributeError, Throwable {
+
+        // A implements __neg__
+        A a = new A(7);
+        PyMethodWrapper nega =
+                (PyMethodWrapper) Abstract.getAttr(a, ID.__neg__);
+        assertSame(A.TYPE.getDict().get(ID.__neg__), nega.descr);
+        assertSame(a, nega.self);
+        assertEquals(a, Abstract.getAttr(nega, ID.__self__));
+        assertTrue(nega.toString()
+                .startsWith("<method-wrapper '__neg__' of A object"));
+        assertEquals(Py.val(-7), Callables.call(nega));
+
+        // B inherits __neg__ from A
+        B b = new B(8);
+        PyMethodWrapper negb =
+                (PyMethodWrapper) Abstract.getAttr(b, ID.__neg__);
+        assertSame(b, negb.self);
+        assertEquals(b, Abstract.getAttr(negb, ID.__self__));
+        assertTrue(negb.toString()
+                .startsWith("<method-wrapper '__neg__' of B object"));
+        assertEquals(Py.val(-8), Callables.call(negb));
     }
 
 }

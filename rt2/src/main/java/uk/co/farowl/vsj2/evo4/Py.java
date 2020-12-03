@@ -172,7 +172,7 @@ class Py {
             try {
                 type = o.getType();
                 MethodHandle str = type.op_str;
-                PyObject res = (PyObject) str.invoke(o);
+                PyObject res = (PyObject) str.invokeExact(o);
                 if (res instanceof PyUnicode)
                     return ((PyUnicode) res).value;
             } catch (Throwable e) {}

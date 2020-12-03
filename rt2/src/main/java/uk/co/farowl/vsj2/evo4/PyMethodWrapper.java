@@ -1,6 +1,7 @@
 package uk.co.farowl.vsj2.evo4;
 
 import uk.co.farowl.vsj2.evo4.Exposed.Getter;
+import uk.co.farowl.vsj2.evo4.Exposed.Member;
 import uk.co.farowl.vsj2.evo4.PyType.Flag;
 
 /**
@@ -29,6 +30,7 @@ class PyMethodWrapper extends AbstractPyObject {
     public PyType getType() { return TYPE; }
 
     /** Descriptor for the method being bound. */
+    @Member
     PyWrapperDescr descr;
 
     /**
@@ -36,8 +38,7 @@ class PyMethodWrapper extends AbstractPyObject {
      * {@link #__call__(PyTuple, PyDict)} is invoked on this object.
      * This is exposed to Python as {@code __self__}.
      */
-    // XXX implement PyMemberDescr._PyObject
-    // @Member("__self__")
+    @Member("__self__")
     final PyObject self;
 
     /**
@@ -157,9 +158,8 @@ class PyMethodWrapper extends AbstractPyObject {
 
     // Compare CPython wrapper_repr in descrobject.c
     protected PyObject __repr__() {
-        return PyUnicode.fromFormat(
-                "<method-wrapper '%s' of %s object at %p>",
-                descr.slot.methodName, self.getType().name, self);
+        return PyUnicode.fromFormat("<method-wrapper '%s' of %s>",
+                descr.slot.methodName, PyObjectUtil.toAt(self));
     }
 
     // Compare CPython wrapper_richcompare in descrobject.c

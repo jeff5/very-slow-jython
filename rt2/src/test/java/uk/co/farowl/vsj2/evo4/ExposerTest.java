@@ -2,6 +2,7 @@ package uk.co.farowl.vsj2.evo4;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -48,9 +49,15 @@ class ExposerTest {
         /** String with change of name. */
         @Member("text")
         String t;
-        /** Can be properly deleted without popping up as None */
+        /** String can be properly deleted without popping up as None */
         @Member(optional = true)
         String s;
+        /** {@code PyObject} member */
+        @Member
+        PyObject obj;
+        /** {@code PyUnicode} member: care needed on set. */
+        @Member
+        PyUnicode strhex;
 
         /** Read-only access. */
         @Member(readonly = true)
@@ -66,8 +73,9 @@ class ExposerTest {
             x2 = x = value;
             i2 = i = Math.round((float) value);
             t2 = t = s = String.format("%d", i);
+            obj = new PyUnicode(Integer.toString(i));
+            strhex = new PyUnicode(Integer.toString(i, 16));
         }
-
     }
 
     /**
@@ -133,6 +141,12 @@ class ExposerTest {
         PyMemberDescr md_s = mds.get("s");
         assertEquals(Py.str("42"), md_s.__get__(o, null));
 
+        PyMemberDescr md_obj = mds.get("obj");  // PyObject
+        assertEquals(Py.str("42"), md_obj.__get__(o, null));
+
+        PyMemberDescr md_strhex = mds.get("strhex");  // PyObject
+        assertEquals(Py.str("2a"), md_strhex.__get__(o, null));
+
         // Read-only cases work too
         PyMemberDescr md_i2 = mds.get("i2");
         assertEquals(Py.val(42), md_i2.__get__(o, null));
@@ -186,9 +200,18 @@ class ExposerTest {
         md_t.__set__(p, ot);
         assertEquals(t, p.t);
 
+        PyMemberDescr md_obj = mds.get("obj");  // PyObject
+        md_obj.__set__(p, ox);
+        assertSame(ox, p.obj);
+
+        PyMemberDescr md_strhex = mds.get("strhex");  // PyUnicode
+        md_strhex.__set__(p, ot);
+        assertSame(ot, p.strhex);
+
         // It is a TypeError to set the wrong kind of value
         assertThrows(TypeError.class, () -> md_i.__set__(o, ot));
         assertThrows(TypeError.class, () -> md_t.__set__(o, oi));
+        assertThrows(TypeError.class, () -> md_strhex.__set__(o, ox));
 
         // It is an AttributeError to set a read-only attribute
         final PyMemberDescr md_i2 = mds.get("i2");
@@ -327,8 +350,10 @@ class ExposerTest {
                         PyObjectWithSpecial.class, LOOKUP));
         int value;
 
+        @SuppressWarnings("unused")
         public PyObjectWithSpecial(int value) { this.value = value; }
 
+        @SuppressWarnings("unused")
         PyObject __neg__() { return Py.val(-value); }
 
         @Override

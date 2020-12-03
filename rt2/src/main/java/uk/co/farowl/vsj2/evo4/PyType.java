@@ -718,6 +718,13 @@ class PyType implements PyObject {
      */
     @Override
     public Map<PyObject, PyObject> getDict(boolean create) {
+        return getDict();
+    }
+
+    /**
+     * The dictionary of a {@code type} in a read-only view.
+     */
+    final Map<PyObject, PyObject> getDict() {
         return Collections.unmodifiableMap(dict);
     }
 

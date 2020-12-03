@@ -93,8 +93,7 @@ class PyBaseObject extends AbstractPyObject {
      */
     // Compare CPython object_repr in typeobject.c
     static PyObject __repr__(PyObject self) {
-        // XXX Ought to prefix with module from type and add id().
-        return Py.str("<'" + self.getType().name + "' object>");
+        return Py.str("<" + PyObjectUtil.toAt(self) + ">");
     }
 
     /**
@@ -112,7 +111,7 @@ class PyBaseObject extends AbstractPyObject {
         // Be more bullet-proof than usual
         try {
             if (repr != null)
-                return (PyObject) repr.invoke(self);
+                return (PyObject) repr.invokeExact(self);
         } catch (Throwable e) {}
         // Fall back on a direct call
         return __repr__(self);

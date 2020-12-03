@@ -14,44 +14,43 @@ class ID {
     private static Map<String, PyUnicode> ids = new HashMap<>();
 
     static final PyUnicode __isabstractmethod__ =
-            intern("__isabstractmethod__");
-    static final PyUnicode __bases__ = intern("__bases__");
-    static final PyUnicode __build_class__ = intern("__build_class__");
-    static final PyUnicode __builtins__ = intern("__builtins__");
-    static final PyUnicode __class__ = intern("__class__");
-    static final PyUnicode __delete__ = intern("__delete__");
-    static final PyUnicode __doc__ = intern("__doc__");
-    static final PyUnicode __get__ = intern("__get__");
-    static final PyUnicode __instancecheck__ =
-            intern("__instancecheck__");
-    static final PyUnicode __mro_entries__ = intern("__mro_entries__");
-    static final PyUnicode __name__ = intern("__name__");
-    static final PyUnicode __neg__ = intern("__neg__");
-    static final PyUnicode __qualname__ = intern("__qualname__");
-    static final PyUnicode __set__ = intern("__set__");
-    static final PyUnicode __str__ = intern("__str__");
-    static final PyUnicode __subclasscheck__ =
-            intern("__subclasscheck__");
+            id("__isabstractmethod__");
+    static final PyUnicode __bases__ = id("__bases__");
+    static final PyUnicode __build_class__ = id("__build_class__");
+    static final PyUnicode __builtins__ = id("__builtins__");
+    static final PyUnicode __class__ = id("__class__");
+    static final PyUnicode __delete__ = id("__delete__");
+    static final PyUnicode __doc__ = id("__doc__");
+    static final PyUnicode __get__ = id("__get__");
+    static final PyUnicode __instancecheck__ = id("__instancecheck__");
+    static final PyUnicode __mro_entries__ = id("__mro_entries__");
+    static final PyUnicode __name__ = id("__name__");
+    static final PyUnicode __neg__ = id("__neg__");
+    static final PyUnicode __qualname__ = id("__qualname__");
+    static final PyUnicode __self__ = id("__self__");
+    static final PyUnicode __set__ = id("__set__");
+    static final PyUnicode __str__ = id("__str__");
+    static final PyUnicode __subclasscheck__ = id("__subclasscheck__");
 
-    static final PyUnicode False = intern("False");
-    static final PyUnicode None = intern("None");
-    static final PyUnicode NotImplemented = intern("NotImplemented");
-    static final PyUnicode True = intern("True");
+    static final PyUnicode False = id("False");
+    static final PyUnicode None = id("None");
+    static final PyUnicode NotImplemented = id("NotImplemented");
+    static final PyUnicode True = id("True");
 
-    static final PyUnicode bool = intern("bool");
-    static final PyUnicode bytes = intern("bytes");
-    static final PyUnicode copy = intern("copy");
-    static final PyUnicode dict = intern("dict");
-    static final PyUnicode get = intern("get");
-    static final PyUnicode getattr = intern("getattr");
-    static final PyUnicode items = intern("items");
-    static final PyUnicode keys = intern("keys");
-    static final PyUnicode list = intern("list");
-    static final PyUnicode object = intern("object");
-    static final PyUnicode str = intern("str");
-    static final PyUnicode tuple = intern("tuple");
-    static final PyUnicode type = intern("type");
-    static final PyUnicode values = intern("values");
+    static final PyUnicode bool = id("bool");
+    static final PyUnicode bytes = id("bytes");
+    static final PyUnicode copy = id("copy");
+    static final PyUnicode dict = id("dict");
+    static final PyUnicode get = id("get");
+    static final PyUnicode getattr = id("getattr");
+    static final PyUnicode items = id("items");
+    static final PyUnicode keys = id("keys");
+    static final PyUnicode list = id("list");
+    static final PyUnicode object = id("object");
+    static final PyUnicode str = id("str");
+    static final PyUnicode tuple = id("tuple");
+    static final PyUnicode type = id("type");
+    static final PyUnicode values = id("values");
 
     /**
      * Find or create, and intern, a Python <code>str</code> for the
@@ -65,6 +64,23 @@ class ID {
         PyUnicode u = ids.get(name);
         if (u == null)
             ids.put(name, u = new PyUnicode(name));
+        return u;
+    }
+
+    /**
+     * Intern a new Python <code>str</code> for the Java String. If one
+     * is defined already, it is an error.
+     *
+     * @param name to intern
+     * @return the Python {@code str} with that value
+     */
+    private static PyUnicode id(String name) {
+        PyUnicode u = new PyUnicode(name);
+        PyUnicode previous = ids.put(name, u);
+        if (previous != null) {
+            throw new InterpreterError("repeat definition of ID.%s",
+                    name);
+        }
         return u;
     }
 
