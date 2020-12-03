@@ -5,8 +5,7 @@ import static java.lang.invoke.MethodHandles.arrayElementSetter;
 import static java.lang.invoke.MethodHandles.collectArguments;
 import static java.lang.invoke.MethodHandles.insertArguments;
 import static java.lang.invoke.MethodHandles.lookup;
-import static org.hamcrest.CoreMatchers.is;
-import static org.junit.Assert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.lang.invoke.ConstantCallSite;
 import java.lang.invoke.MethodHandle;
@@ -26,10 +25,10 @@ import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
-import org.junit.AfterClass;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import uk.co.farowl.vsj1.BigIntegerOperations;
 import uk.co.farowl.vsj1.BinOpCallSite;
@@ -51,11 +50,11 @@ import uk.co.farowl.vsj1.TreePython.keyword;
 import uk.co.farowl.vsj1.TreePython.mod;
 import uk.co.farowl.vsj1.TreePython.operator;
 import uk.co.farowl.vsj1.TreePython.stmt;
-import uk.co.farowl.vsj1.TreePython.type_ignore;
 import uk.co.farowl.vsj1.TreePython.stmt.Assign;
 import uk.co.farowl.vsj1.TreePython.stmt.Expr;
 import uk.co.farowl.vsj1.TreePython.stmt.FunctionDef;
 import uk.co.farowl.vsj1.TreePython.stmt.Return;
+import uk.co.farowl.vsj1.TreePython.type_ignore;
 import uk.co.farowl.vsj1.TreePython.unaryop;
 import uk.co.farowl.vsj1.UnaryOpCallSite;
 
@@ -67,7 +66,7 @@ import uk.co.farowl.vsj1.UnaryOpCallSite;
 @SuppressWarnings("javadoc") // C'mon guys, it's just an old test :)
 public class TestInterp4 {
 
-    @BeforeClass
+    @BeforeAll
     public static void setUpClass() {
         // Built-in types
         Py.registerOps(new IntegerOperations(), Byte.class, Short.class,
@@ -77,7 +76,7 @@ public class TestInterp4 {
         Py.registerOps(new DoubleOperations(), Float.class, Double.class);
     }
 
-    @AfterClass
+    @AfterAll
     public static void tearDownClass() {
         Py.deregisterOps();
     }
@@ -85,7 +84,7 @@ public class TestInterp4 {
     // Visitor to execute the code.
     // Evaluator evaluator;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         // Create a visitor to execute the code.
         // evaluator = new Evaluator();
@@ -584,8 +583,6 @@ public class TestInterp4 {
             return collectArguments(obj, 0, cell);
         }
 
-
-
         /**
          * A method handle that may be invoked with an
          * <code>ExecutionFrame</code> to return a particular variable by
@@ -626,7 +623,7 @@ public class TestInterp4 {
                     throw notSupported("unpacking", assign);
                 }
                 expr target = assign.targets.get(0);
-                String id = ((expr.Name)target).id;
+                String id = ((expr.Name) target).id;
                 if (!(target instanceof expr.Name)) {
                     throw notSupported("assignment to complex lvalue",
                             assign);
@@ -645,7 +642,7 @@ public class TestInterp4 {
                 return null;
             } catch (Throwable e) {
                 expr target = assign.targets.get(0);
-                String id = ((expr.Name)target).id;
+                String id = ((expr.Name) target).id;
                 throw invocationFailure(id + "=", assign, e);
             }
         }
@@ -808,7 +805,7 @@ public class TestInterp4 {
             MethodHandle mh = def.site.dynamicInvoker();
 
             try {
-                mh.invokeExact(this, (Object)func);
+                mh.invokeExact(this, (Object) func);
                 return null;
             } catch (Throwable e) {
                 throw invocationFailure("def " + def.name, def, e);
@@ -843,9 +840,9 @@ public class TestInterp4 {
             Object funcObj = call.func.accept(this);
 
             if (funcObj instanceof PyGetFrame) {
-                return functionCall((PyGetFrame)funcObj, call.args);
+                return functionCall((PyGetFrame) funcObj, call.args);
             } else if (funcObj instanceof PyCallable) {
-                return generalCall((PyCallable)funcObj, call.args);
+                return generalCall((PyCallable) funcObj, call.args);
             } else {
                 throw notSupported("target not callable", call);
             }
@@ -1018,8 +1015,7 @@ public class TestInterp4 {
     }
 
     /** Our equivalent to the Python code object. */
-    @SuppressWarnings("unused")
-    private static class Code {
+    static class Code {
 
         /**
          * This is our equivalent to byte code that holds a sequence of
@@ -2121,7 +2117,7 @@ public class TestInterp4 {
         for (String name : state.keySet()) {
             Object expectedValue = state.get(name);
             Object actualValue = globals.get(name);
-            assertThat(actualValue, is(expectedValue));
+            assertEquals(expectedValue, actualValue);
         }
     }
 
@@ -2235,13 +2231,16 @@ public class TestInterp4 {
     // @formatter:on
 
     // ======= Generated examples ==========
-    /* Generated by variable_access_testgen.py
-     * with worklist: globprog1, globprog2, globprog3, builtin, argprog1, closprog1, closprog2, closprog3, kwargprog, kwargcell
+    /*
+     * Generated by variable_access_testgen.py with worklist: globprog1,
+     * globprog2, globprog3, builtin, argprog1, closprog1, closprog2,
+     * closprog3, kwargprog, kwargcell
      */
 
 // globprog1
 
-    @Test public void globprog1() {
+    @Test
+    public void globprog1() {
         // @formatter:off
         // # Test allocation of "names" (globals)
         // # global d is *not* ref'd at module level
@@ -2292,12 +2291,12 @@ public class TestInterp4 {
         state.put("result", 42);
         state.put("d", 7);
         executeTest(module, state); // globprog1
-}
-
+    }
 
 // globprog2
 
-    @Test public void globprog2() {
+    @Test
+    public void globprog2() {
         // @formatter:off
         // # Test allocation of "names" (globals)
         // # global d is *assigned* at module level
@@ -2350,12 +2349,12 @@ public class TestInterp4 {
         state.put("result", 42);
         state.put("d", 7);
         executeTest(module, state); // globprog2
-}
-
+    }
 
 // globprog3
 
-    @Test public void globprog3() {
+    @Test
+    public void globprog3() {
         // @formatter:off
         // # Test allocation of "names" (globals)
         // # global d *decalred* but not used at module level
@@ -2408,12 +2407,12 @@ public class TestInterp4 {
         state.put("result", 42);
         state.put("d", 7);
         executeTest(module, state); // globprog3
-}
-
+    }
 
 // argprog1
 
-    @Test public void argprog1() {
+    @Test
+    public void argprog1() {
         // @formatter:off
         // # Test allocation of argument lists and locals
         // def p(eins, zwei):
@@ -2515,12 +2514,12 @@ public class TestInterp4 {
         Map<String, Object> state = new HashMap<>();
         state.put("result", 42);
         executeTest(module, state); // argprog1
-}
-
+    }
 
 // closprog1
 
-    @Test public void closprog1() {
+    @Test
+    public void closprog1() {
         // @formatter:off
         // # Program requiring closures made of local variables
         // def p(a, b):
@@ -2600,12 +2599,12 @@ public class TestInterp4 {
         Map<String, Object> state = new HashMap<>();
         state.put("result", 42);
         executeTest(module, state); // closprog1
-}
-
+    }
 
 // closprog2
 
-    @Test public void closprog2() {
+    @Test
+    public void closprog2() {
         // @formatter:off
         // # Program requiring closures from arguments
         // def p(r, i):
@@ -2676,12 +2675,12 @@ public class TestInterp4 {
         Map<String, Object> state = new HashMap<>();
         state.put("result", 42);
         executeTest(module, state); // closprog2
-}
-
+    }
 
 // closprog3
 
-    @Test public void closprog3() {
+    @Test
+    public void closprog3() {
         // @formatter:off
         // # Program requiring closures (mixed)
         // def p(ua, b): #(1,2)
@@ -2789,7 +2788,7 @@ public class TestInterp4 {
         Map<String, Object> state = new HashMap<>();
         state.put("result", 42);
         executeTest(module, state); // closprog3
-}
+    }
 
     // ======= End of generated examples ==========
 }

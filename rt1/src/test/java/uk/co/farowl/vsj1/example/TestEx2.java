@@ -1,14 +1,13 @@
 package uk.co.farowl.vsj1.example;
 
-import static org.hamcrest.CoreMatchers.is;
-import static org.junit.Assert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.Map;
 
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import uk.co.farowl.vsj1.example.TreePythonEx1.Node;
 import uk.co.farowl.vsj1.example.TreePythonEx1.Visitor;
@@ -28,7 +27,7 @@ public class TestEx2 {
     // Visitor to execute the code.
     Evaluator evaluator;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         // Create a visitor to execute the code.
         evaluator = new Evaluator();
@@ -43,7 +42,7 @@ public class TestEx2 {
         evaluator.variables.put("x", 3);
         // Execute the code.
         Object result = tree.accept(evaluator);
-        assertThat(result, is(42));
+        assertEquals(42, result);
     }
 
     @Test
@@ -55,7 +54,7 @@ public class TestEx2 {
         evaluator.variables.put("x", 3.);
         // Execute the code.
         Object result = tree.accept(evaluator);
-        assertThat(result, is(42.));
+        assertEquals(42., result);
     }
 
     @Test
@@ -67,7 +66,7 @@ public class TestEx2 {
         evaluator.variables.put("x", 3);
         // Execute the code.
         Object result = tree.accept(evaluator);
-        assertThat(result, is(42.));
+        assertEquals(42., result);
     }
 
     @Test
@@ -79,7 +78,7 @@ public class TestEx2 {
         evaluator.variables.put("x", 3.);
         // Execute the code.
         Object result = tree.accept(evaluator);
-        assertThat(result, is(42.));
+        assertEquals(42., result);
     }
 
     /**

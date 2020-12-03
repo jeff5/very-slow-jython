@@ -1,12 +1,12 @@
 package uk.co.farowl.vsj1.example;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.HashMap;
 import java.util.Map;
 
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import uk.co.farowl.vsj1.example.TreePythonEx1.Node;
 import uk.co.farowl.vsj1.example.TreePythonEx1.Visitor;
@@ -21,7 +21,7 @@ public class TestEx1 {
     // Visitor to execute the code.
     Evaluator evaluator;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         // Create a visitor to execute the code.
         evaluator = new Evaluator();
@@ -61,8 +61,8 @@ public class TestEx1 {
 
         @Override
         public Object visit_BinOp(expr.BinOp binOp) {
-            Integer u = (Integer)binOp.left.accept(this);
-            Integer v = (Integer)binOp.right.accept(this);
+            Integer u = (Integer) binOp.left.accept(this);
+            Integer v = (Integer) binOp.right.accept(this);
             switch (binOp.op) {
                 case Add:
                     return Integer.valueOf(u + v);

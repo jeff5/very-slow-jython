@@ -1,6 +1,6 @@
 package uk.co.farowl.vsj1.example;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import uk.co.farowl.vsj1.TreePython.AbstractVisitor;
 import uk.co.farowl.vsj1.TreePython.Node;
@@ -122,7 +122,7 @@ public class TestInterp1 {
 
         // The supplied ref data tells us the expected number of tables
         final int N = ref.length;
-        assertEquals("Number of blocks", N, stlist.size());
+        assertEquals(N, stlist.size(), "Number of blocks");
 
         /*
          * The tables in the symbol table list we made from the AST, and
@@ -134,29 +134,29 @@ public class TestInterp1 {
         for (RefSymbol[] block : ref) {
             SymbolTable st = tableIter.next();
             Set<String> symlist = st.get_identifiers();
-            assertEquals("Number of symbols in block", block.length,
-                    symlist.size());
+            assertEquals(block.length, symlist.size(),
+                    "Number of symbols in block");
             for (RefSymbol r : block) {
                 String name = r.name;
                 SymbolTable.Symbol s = st.symbols.get(name);
                 name = st.name + ":" + name;
-                assertEquals(name + " scope", r.scope, s.scope);
-                assertEquals(name + " is_assigned", r.is_assigned,
-                        s.is_assigned());
-                assertEquals(name + " is_declared_global",
-                        r.is_declared_global, s.is_declared_global());
-                assertEquals(name + " is_free", r.is_free, s.is_free());
-                assertEquals(name + " is_global", r.is_global,
-                        s.is_global());
-                assertEquals(name + " is_imported", r.is_imported,
-                        s.is_imported());
-                assertEquals(name + " is_local", r.is_local, s.is_local());
-                assertEquals(name + " is_namespace", r.is_namespace,
-                        s.is_namespace());
-                assertEquals(name + " is_parameter", r.is_parameter,
-                        s.is_parameter());
-                assertEquals(name + " is_referenced", r.is_referenced,
-                        s.is_referenced());
+                assertEquals(r.scope, s.scope, name + " scope");
+                assertEquals(r.is_assigned, s.is_assigned(),
+                        name + " is_assigned");
+                assertEquals(r.is_declared_global, s.is_declared_global(),
+                        name + " is_declared_global");
+                assertEquals(r.is_free, s.is_free(), name + " is_free");
+                assertEquals(r.is_global, s.is_global(),
+                        name + " is_global");
+                assertEquals(r.is_imported, s.is_imported(),
+                        name + " is_imported");
+                assertEquals(r.is_local, s.is_local(), name + " is_local");
+                assertEquals(r.is_namespace, s.is_namespace(),
+                        name + " is_namespace");
+                assertEquals(r.is_parameter, s.is_parameter(),
+                        name + " is_parameter");
+                assertEquals(r.is_referenced, s.is_referenced(),
+                        name + " is_referenced");
             }
         }
     }

@@ -6,9 +6,9 @@ import static java.lang.invoke.MethodHandles.foldArguments;
 import static java.lang.invoke.MethodHandles.guardWithTest;
 import static java.lang.invoke.MethodHandles.identity;
 import static java.lang.invoke.MethodHandles.lookup;
-import static org.hamcrest.CoreMatchers.instanceOf;
-import static org.hamcrest.CoreMatchers.is;
-import static org.junit.Assert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.lang.invoke.CallSite;
 import java.lang.invoke.MethodHandle;
@@ -19,9 +19,9 @@ import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.Map;
 
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import uk.co.farowl.vsj1.example.TreePythonEx5.Node;
 import uk.co.farowl.vsj1.example.TreePythonEx5.Visitor;
@@ -36,7 +36,7 @@ import uk.co.farowl.vsj1.example.TreePythonEx5.operator;
 @SuppressWarnings("javadoc") // Water under the bridge
 public class TestEx5 {
 
-    @BeforeClass
+    @BeforeAll
     public static void setUpClass() {
         // Built-in types
         Runtime.registerTypeFor(Integer.class, new IntegerHandler());
@@ -49,7 +49,7 @@ public class TestEx5 {
     // Visitor to execute the code.
     Evaluator evaluator;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         // Create a visitor to execute the code.
         evaluator = new Evaluator();
@@ -84,12 +84,12 @@ public class TestEx5 {
         Node tree = simple();
         evaluator.variables.put("v", 6);
         evaluator.variables.put("w", 7);
-        assertThat(tree.accept(evaluator), is(42));
+        assertEquals(42, tree.accept(evaluator));
         resetFallbackCalls();
         evaluator.variables.put("v", 3);
         evaluator.variables.put("w", 8);
-        assertThat(tree.accept(evaluator), is(24));
-        assertThat(BinOpCallSite.fallbackCalls, is(0));
+        assertEquals(24, tree.accept(evaluator));
+        assertEquals(0, BinOpCallSite.fallbackCalls);
     }
 
     private Node add() { // v + w
@@ -101,42 +101,44 @@ public class TestEx5 {
         Node tree = add();
         evaluator.variables.put("v", new A());
         evaluator.variables.put("w", new A());
-        assertThat(tree.accept(evaluator), is(instanceOf(A.class)));
+        assertTrue(tree.accept(evaluator) instanceof A);
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test
     public void addAB() {
         evaluator.variables.put("v", new A());
         evaluator.variables.put("w", new B());
-        add().accept(evaluator);
+        assertThrows(IllegalArgumentException.class,
+                () -> add().accept(evaluator));
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test
     public void addBA() {
         evaluator.variables.put("v", new B());
         evaluator.variables.put("w", new A());
-        add().accept(evaluator);
+        assertThrows(IllegalArgumentException.class,
+                () -> add().accept(evaluator));
     }
 
     @Test
     public void addAC() {
         evaluator.variables.put("v", new A());
         evaluator.variables.put("w", new C());
-        assertThat(add().accept(evaluator), is(instanceOf(C.class)));
+        assertTrue(add().accept(evaluator) instanceof C);
     }
 
     @Test
     public void addCA() {
         evaluator.variables.put("v", new C());
         evaluator.variables.put("w", new A());
-        assertThat(add().accept(evaluator), is(instanceOf(C.class)));
+        assertTrue(add().accept(evaluator) instanceof C);
     }
 
     @Test
     public void testInt() {
         evaluator.variables.put("x", 3);
         evaluator.variables.put("y", 3);
-        assertThat(cubic().accept(evaluator), is(42));
+        assertEquals(42, cubic().accept(evaluator));
     }
 
     @Test
@@ -144,7 +146,7 @@ public class TestEx5 {
         // (x*x-2) exercises sub(Double, Integer)
         evaluator.variables.put("x", 3.);
         evaluator.variables.put("y", 3);
-        assertThat(cubic().accept(evaluator), is(42.));
+        assertEquals(42., cubic().accept(evaluator));
     }
 
     @Test
@@ -153,7 +155,7 @@ public class TestEx5 {
         // (x*x-2)*(x+y) exercises mul(Integer, Double) (float.__rmul__)
         evaluator.variables.put("x", 3);
         evaluator.variables.put("y", 3.);
-        assertThat(cubic().accept(evaluator), is(42.));
+        assertEquals(42., cubic().accept(evaluator));
     }
 
     @Test
@@ -161,18 +163,18 @@ public class TestEx5 {
         Node tree = cubic();
         evaluator.variables.put("x", 3);
         evaluator.variables.put("y", 3);
-        assertThat(tree.accept(evaluator), is(42));
+        assertEquals(42, tree.accept(evaluator));
         resetFallbackCalls();
         evaluator.variables.put("x", 4);
         evaluator.variables.put("y", -1);
-        assertThat(tree.accept(evaluator), is(42));
+        assertEquals(42, tree.accept(evaluator));
         evaluator.variables.put("x", 2);
         evaluator.variables.put("y", 19);
-        assertThat(tree.accept(evaluator), is(42));
+        assertEquals(42, tree.accept(evaluator));
         evaluator.variables.put("x", 6);
         evaluator.variables.put("y", 7);
-        assertThat(tree.accept(evaluator), is(442));
-        assertThat(BinOpCallSite.fallbackCalls, is(0));
+        assertEquals(442, tree.accept(evaluator));
+        assertEquals(0, BinOpCallSite.fallbackCalls);
     }
 
     @Test
@@ -180,18 +182,18 @@ public class TestEx5 {
         Node tree = cubic();
         evaluator.variables.put("x", 3.);
         evaluator.variables.put("y", 3);
-        assertThat(tree.accept(evaluator), is(42.));
+        assertEquals(42., tree.accept(evaluator));
         resetFallbackCalls();
         evaluator.variables.put("x", 4.);
         evaluator.variables.put("y", -1);
-        assertThat(tree.accept(evaluator), is(42.));
+        assertEquals(42., tree.accept(evaluator));
         evaluator.variables.put("x", 2.);
         evaluator.variables.put("y", 19);
-        assertThat(tree.accept(evaluator), is(42.));
+        assertEquals(42., tree.accept(evaluator));
         evaluator.variables.put("x", 6.);
         evaluator.variables.put("y", 7);
-        assertThat(tree.accept(evaluator), is(442.));
-        assertThat(BinOpCallSite.fallbackCalls, is(0));
+        assertEquals(442., tree.accept(evaluator));
+        assertEquals(0, BinOpCallSite.fallbackCalls);
     }
 
     @Test
@@ -199,33 +201,33 @@ public class TestEx5 {
         Node tree = cubic();
         evaluator.variables.put("x", 3);
         evaluator.variables.put("y", 3);
-        assertThat(tree.accept(evaluator), is(42));
+        assertEquals(42, tree.accept(evaluator));
 
         resetFallbackCalls();
         evaluator.variables.put("x", 4);
         evaluator.variables.put("y", -1);
-        assertThat(tree.accept(evaluator), is(42));
-        assertThat(BinOpCallSite.fallbackCalls, is(0));
+        assertEquals(42, tree.accept(evaluator));
+        assertEquals(0, BinOpCallSite.fallbackCalls);
 
         // Suddenly y is a float
         evaluator.variables.put("x", 2);
         evaluator.variables.put("y", 19.);
-        assertThat(tree.accept(evaluator), is(42.));
-        assertThat(BinOpCallSite.fallbackCalls, is(2));
+        assertEquals(42., tree.accept(evaluator));
+        assertEquals(2, BinOpCallSite.fallbackCalls);
 
         // And now so is x
         resetFallbackCalls();
         evaluator.variables.put("x", 6.);
         evaluator.variables.put("y", 7.);
-        assertThat(tree.accept(evaluator), is(442.));
-        assertThat(BinOpCallSite.fallbackCalls, is(4));
+        assertEquals(442., tree.accept(evaluator));
+        assertEquals(4, BinOpCallSite.fallbackCalls);
 
         // And now y is an int again
         resetFallbackCalls();
         evaluator.variables.put("x", 6.);
         evaluator.variables.put("y", 7);
-        assertThat(tree.accept(evaluator), is(442.));
-        assertThat(BinOpCallSite.fallbackCalls, is(1));
+        assertEquals(442., tree.accept(evaluator));
+        assertEquals(1, BinOpCallSite.fallbackCalls);
     }
 
     /**

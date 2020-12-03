@@ -1,9 +1,9 @@
 package uk.co.farowl.vsj1.example;
 
 import static java.lang.invoke.MethodHandles.lookup;
-import static org.hamcrest.CoreMatchers.instanceOf;
-import static org.hamcrest.CoreMatchers.is;
-import static org.junit.Assert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles.Lookup;
@@ -11,10 +11,10 @@ import java.math.BigInteger;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.junit.AfterClass;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import uk.co.farowl.vsj1.BigIntegerOperations;
 import uk.co.farowl.vsj1.BinOpCallSite;
@@ -42,7 +42,7 @@ import uk.co.farowl.vsj1.UnaryOpCallSite;
 @SuppressWarnings("javadoc") // C'mon guys, it's just an old test :)
 public class TestEx9 {
 
-    @BeforeClass
+    @BeforeAll
     public static void setUpClass() {
         // Built-in types
         Py.registerOps(new IntegerOperations(), Byte.class, Short.class,
@@ -53,7 +53,7 @@ public class TestEx9 {
         Py.registerOps(new StringOperations(), String.class);
     }
 
-    @AfterClass
+    @AfterAll
     public static void tearDownClass() {
         Py.deregisterOps();
     }
@@ -61,7 +61,7 @@ public class TestEx9 {
     // Visitor to execute the code.
     Evaluator evaluator;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         // Create a visitor to execute the code.
         evaluator = new Evaluator();
@@ -121,43 +121,43 @@ public class TestEx9 {
     public void simpleUnaryInt() {
         Node tree = UnaryOp(USub, Name("v", Load));
         evaluator.variables.put("v", 6);
-        assertThat(tree.accept(evaluator), is(-6));
+        assertEquals(-6, tree.accept(evaluator));
 
         // Test promotion in unary -
         resetFallbackCalls();
         evaluator.variables.put("v", Integer.MIN_VALUE);
-        Long expected = Long.valueOf(-(long)Integer.MIN_VALUE);
-        assertThat(tree.accept(evaluator), is(expected));
-        assertThat(unaryFallbackCalls(), is(0));
+        Long expected = Long.valueOf(-(long) Integer.MIN_VALUE);
+        assertEquals(expected, tree.accept(evaluator));
+        assertEquals(0, unaryFallbackCalls());
     }
 
     @Test
     public void simpleUnaryByte() {
         Node tree = UnaryOp(USub, Name("v", Load));
-        evaluator.variables.put("v", (byte)6);
-        assertThat(tree.accept(evaluator), is(-6));
+        evaluator.variables.put("v", (byte) 6);
+        assertEquals(-6, tree.accept(evaluator));
     }
 
     @Test
     public void simpleUnaryLong() {
         Node tree = UnaryOp(USub, Name("v", Load));
         evaluator.variables.put("v", 6L);
-        assertThat(tree.accept(evaluator), is(-6L));
+        assertEquals(-6L, tree.accept(evaluator));
 
         // Test promotion in unary -
         resetFallbackCalls();
         evaluator.variables.put("v", Long.MIN_VALUE);
         BigInteger expected =
                 BigInteger.valueOf(Long.MAX_VALUE).add(BigInteger.ONE);
-        assertThat(tree.accept(evaluator), is(expected));
-        assertThat(unaryFallbackCalls(), is(0));
+        assertEquals(expected, tree.accept(evaluator));
+        assertEquals(0, unaryFallbackCalls());
     }
 
     @Test
     public void simpleUnaryBigInt() {
         Node tree = UnaryOp(USub, Name("v", Load));
         evaluator.variables.put("v", BigInteger.valueOf(-42));
-        assertThat(tree.accept(evaluator), is(BIG_42));
+        assertEquals(BIG_42, tree.accept(evaluator));
     }
 
     private static final BigInteger BIG_2 = BigInteger.valueOf(2);
@@ -171,29 +171,29 @@ public class TestEx9 {
         Node tree = BinOp(Name("v", Load), Mult, Name("w", Load));
         evaluator.variables.put("v", 6);
         evaluator.variables.put("w", 7);
-        assertThat(tree.accept(evaluator), is(42));
+        assertEquals(42, tree.accept(evaluator));
 
         resetFallbackCalls();
         evaluator.variables.put("v", BIG_21);
         evaluator.variables.put("w", BIG_2);
-        assertThat(tree.accept(evaluator), is(BIG_42));
-        assertThat(binaryFallbackCalls(), is(1));
+        assertEquals(BIG_42, tree.accept(evaluator));
+        assertEquals(1, binaryFallbackCalls());
     }
 
     @Test
     public void testByte() {
         Node tree = uncubic();
-        evaluator.variables.put("x", (byte)3);
-        evaluator.variables.put("y", (byte)3);
-        assertThat(tree.accept(evaluator), is(42));
+        evaluator.variables.put("x", (byte) 3);
+        evaluator.variables.put("y", (byte) 3);
+        assertEquals(42, tree.accept(evaluator));
     }
 
     @Test
     public void testShort() {
         Node tree = uncubic();
-        evaluator.variables.put("x", (short)3);
-        evaluator.variables.put("y", (short)3);
-        assertThat(tree.accept(evaluator), is(42));
+        evaluator.variables.put("x", (short) 3);
+        evaluator.variables.put("y", (short) 3);
+        assertEquals(42, tree.accept(evaluator));
     }
 
     @Test
@@ -201,7 +201,7 @@ public class TestEx9 {
         Node tree = uncubic();
         evaluator.variables.put("x", 3);
         evaluator.variables.put("y", 3);
-        assertThat(tree.accept(evaluator), is(42));
+        assertEquals(42, tree.accept(evaluator));
     }
 
     @Test
@@ -209,7 +209,7 @@ public class TestEx9 {
         Node tree = uncubic();
         evaluator.variables.put("x", 3L);
         evaluator.variables.put("y", 3L);
-        assertThat(tree.accept(evaluator), is(42L));
+        assertEquals(42L, tree.accept(evaluator));
     }
 
     @Test
@@ -217,15 +217,15 @@ public class TestEx9 {
         Node tree = uncubic();
         evaluator.variables.put("x", BIG_3);
         evaluator.variables.put("y", BIG_3);
-        assertThat(tree.accept(evaluator), is(BIG_42));
+        assertEquals(BIG_42, tree.accept(evaluator));
     }
 
     @Test
     public void testByteInt() {
         Node tree = uncubic();
-        evaluator.variables.put("x", (byte)3);
+        evaluator.variables.put("x", (byte) 3);
         evaluator.variables.put("y", 3);
-        assertThat(tree.accept(evaluator), is(42));
+        assertEquals(42, tree.accept(evaluator));
     }
 
     @Test
@@ -233,7 +233,7 @@ public class TestEx9 {
         Node tree = uncubic();
         evaluator.variables.put("x", 3L);
         evaluator.variables.put("y", 3);
-        assertThat(tree.accept(evaluator), is(42L));
+        assertEquals(42L, tree.accept(evaluator));
     }
 
     @Test
@@ -241,15 +241,15 @@ public class TestEx9 {
         Node tree = uncubic();
         evaluator.variables.put("x", BIG_3);
         evaluator.variables.put("y", 3);
-        assertThat(tree.accept(evaluator), is(BIG_42));
+        assertEquals(BIG_42, tree.accept(evaluator));
     }
 
     @Test
     public void testByteLong() {
         Node tree = uncubic();
-        evaluator.variables.put("x", (byte)3);
+        evaluator.variables.put("x", (byte) 3);
         evaluator.variables.put("y", 3L);
-        assertThat(tree.accept(evaluator), is(42L));
+        assertEquals(42L, tree.accept(evaluator));
     }
 
     @Test
@@ -257,7 +257,7 @@ public class TestEx9 {
         Node tree = uncubic();
         evaluator.variables.put("x", 3);
         evaluator.variables.put("y", 3L);
-        assertThat(tree.accept(evaluator), is(42L));
+        assertEquals(42L, tree.accept(evaluator));
     }
 
     @Test
@@ -265,15 +265,15 @@ public class TestEx9 {
         Node tree = uncubic();
         evaluator.variables.put("x", BIG_3);
         evaluator.variables.put("y", 3L);
-        assertThat(tree.accept(evaluator), is(BIG_42));
+        assertEquals(BIG_42, tree.accept(evaluator));
     }
 
     @Test
     public void testByteBigInt() {
         Node tree = uncubic();
-        evaluator.variables.put("x", (byte)2);
+        evaluator.variables.put("x", (byte) 2);
         evaluator.variables.put("y", BIG_19);
-        assertThat(tree.accept(evaluator), is(BIG_42));
+        assertEquals(BIG_42, tree.accept(evaluator));
     }
 
     @Test
@@ -281,7 +281,7 @@ public class TestEx9 {
         Node tree = uncubic();
         evaluator.variables.put("x", 2);
         evaluator.variables.put("y", BIG_19);
-        assertThat(tree.accept(evaluator), is(BIG_42));
+        assertEquals(BIG_42, tree.accept(evaluator));
     }
 
     @Test
@@ -289,15 +289,15 @@ public class TestEx9 {
         Node tree = uncubic();
         evaluator.variables.put("x", 3L);
         evaluator.variables.put("y", BIG_3);
-        assertThat(tree.accept(evaluator), is(BIG_42));
+        assertEquals(BIG_42, tree.accept(evaluator));
     }
 
     @Test
     public void testIntByte() {
         Node tree = uncubic();
         evaluator.variables.put("x", 3);
-        evaluator.variables.put("y", (byte)3);
-        assertThat(tree.accept(evaluator), is(42));
+        evaluator.variables.put("y", (byte) 3);
+        assertEquals(42, tree.accept(evaluator));
     }
 
     @Test
@@ -306,7 +306,7 @@ public class TestEx9 {
         // (x*x-2) exercises sub(Double, Integer)
         evaluator.variables.put("x", 3f);
         evaluator.variables.put("y", BIG_3);
-        assertThat(cubic().accept(evaluator), is(42.));
+        assertEquals(42., cubic().accept(evaluator));
     }
 
     @Test
@@ -315,7 +315,7 @@ public class TestEx9 {
         // (x*x-2) exercises sub(Double, Integer)
         evaluator.variables.put("x", 3d);
         evaluator.variables.put("y", BIG_3);
-        assertThat(cubic().accept(evaluator), is(42.));
+        assertEquals(42., cubic().accept(evaluator));
     }
 
     @Test
@@ -324,7 +324,7 @@ public class TestEx9 {
         // (x*x-2)*(x+y) exercises mul(Integer, Double) (float.__rmul__)
         evaluator.variables.put("x", BIG_3);
         evaluator.variables.put("y", 3f);
-        assertThat(cubic().accept(evaluator), is(42.));
+        assertEquals(42., cubic().accept(evaluator));
     }
 
     @Test
@@ -333,7 +333,7 @@ public class TestEx9 {
         // (x*x-2)*(x+y) exercises mul(Integer, Double) (float.__rmul__)
         evaluator.variables.put("x", BIG_3);
         evaluator.variables.put("y", 3d);
-        assertThat(cubic().accept(evaluator), is(42.));
+        assertEquals(42., cubic().accept(evaluator));
     }
 
     @Test
@@ -341,22 +341,22 @@ public class TestEx9 {
         Node tree = uncubic();
         evaluator.variables.put("x", BIG_3);
         evaluator.variables.put("y", BIG_3);
-        assertThat(tree.accept(evaluator), is(BIG_42));
+        assertEquals(BIG_42, tree.accept(evaluator));
 
         resetFallbackCalls();
         evaluator.variables.put("x", BigInteger.valueOf(4));
         evaluator.variables.put("y", BigInteger.valueOf(-1));
-        assertThat(tree.accept(evaluator), is(BIG_42));
+        assertEquals(BIG_42, tree.accept(evaluator));
 
         evaluator.variables.put("x", BIG_2);
         evaluator.variables.put("y", BIG_19);
-        assertThat(tree.accept(evaluator), is(BIG_42));
+        assertEquals(BIG_42, tree.accept(evaluator));
 
         evaluator.variables.put("x", BigInteger.valueOf(6));
         evaluator.variables.put("y", BigInteger.valueOf(7));
-        assertThat(tree.accept(evaluator), is(BigInteger.valueOf(442)));
-        assertThat(binaryFallbackCalls(), is(0));
-        assertThat(unaryFallbackCalls(), is(0));
+        assertEquals(BigInteger.valueOf(442), tree.accept(evaluator));
+        assertEquals(0, binaryFallbackCalls());
+        assertEquals(0, unaryFallbackCalls());
     }
 
     // @Test
@@ -367,27 +367,27 @@ public class TestEx9 {
         // All calculations are Integer
         evaluator.variables.put("x", 3);
         evaluator.variables.put("y", 3);
-        assertThat(tree.accept(evaluator), is(42));
+        assertEquals(42, tree.accept(evaluator));
 
         // x*x, -x and (-x)-y and promote Byte to Integer
         resetFallbackCalls();
-        evaluator.variables.put("x", (byte)3);
-        evaluator.variables.put("y", (byte)3);
+        evaluator.variables.put("x", (byte) 3);
+        evaluator.variables.put("y", (byte) 3);
         Object result = tree.accept(evaluator);
-        assertThat(result, is(42));
-        assertThat(result, is(instanceOf(Integer.class)));
-        assertThat(binaryFallbackCalls(), is(2));
-        assertThat(unaryFallbackCalls(), is(1));
+        assertEquals(42, result);
+        assertTrue(result instanceof Integer);
+        assertEquals(2, binaryFallbackCalls());
+        assertEquals(1, unaryFallbackCalls());
 
         // x*x, -x and (-x)-y and promote Short to Integer
         resetFallbackCalls();
-        evaluator.variables.put("x", (short)2);
-        evaluator.variables.put("y", (short)19);
+        evaluator.variables.put("x", (short) 2);
+        evaluator.variables.put("y", (short) 19);
         result = tree.accept(evaluator);
-        assertThat(result, is(42));
-        assertThat(result, is(instanceOf(Integer.class)));
-        assertThat(binaryFallbackCalls(), is(2));
-        assertThat(unaryFallbackCalls(), is(1));
+        assertEquals(42, result);
+        assertTrue(result instanceof Integer);
+        assertEquals(2, binaryFallbackCalls());
+        assertEquals(1, unaryFallbackCalls());
     }
 
     @Test
@@ -398,25 +398,25 @@ public class TestEx9 {
         // All calculations are BigInteger
         evaluator.variables.put("x", BIG_3);
         evaluator.variables.put("y", BIG_3);
-        assertThat(tree.accept(evaluator), is(BIG_42));
+        assertEquals(BIG_42, tree.accept(evaluator));
 
         // (-x)-y promotes Byte to BigInteger
         resetFallbackCalls();
-        evaluator.variables.put("y", (byte)3);
+        evaluator.variables.put("y", (byte) 3);
         Object result = tree.accept(evaluator);
-        assertThat(result, is(BIG_42));
-        assertThat(result, is(instanceOf(BigInteger.class)));
-        assertThat(binaryFallbackCalls(), is(1));
-        assertThat(unaryFallbackCalls(), is(0));
+        assertEquals(BIG_42, result);
+        assertTrue(result instanceof BigInteger);
+        assertEquals(1, binaryFallbackCalls());
+        assertEquals(0, unaryFallbackCalls());
 
         // (-x)-y promotes Short to BigInteger
         resetFallbackCalls();
-        evaluator.variables.put("y", (short)3);
+        evaluator.variables.put("y", (short) 3);
         result = tree.accept(evaluator);
-        assertThat(result, is(BIG_42));
-        assertThat(result, is(instanceOf(BigInteger.class)));
-        assertThat(binaryFallbackCalls(), is(1));
-        assertThat(unaryFallbackCalls(), is(0));
+        assertEquals(BIG_42, result);
+        assertTrue(result instanceof BigInteger);
+        assertEquals(1, binaryFallbackCalls());
+        assertEquals(0, unaryFallbackCalls());
 
         // x*x promotes Long to BigInteger (but +, - etc do not)
         resetFallbackCalls();
@@ -424,9 +424,9 @@ public class TestEx9 {
         evaluator.variables.put("y", 100000019L);
         BigInteger expected = new BigInteger("2000000290000008800000042");
         result = tree.accept(evaluator);
-        assertThat(result, is(expected));
-        assertThat(binaryFallbackCalls(), is(4));
-        assertThat(unaryFallbackCalls(), is(2));
+        assertEquals(expected, result);
+        assertEquals(4, binaryFallbackCalls());
+        assertEquals(2, unaryFallbackCalls());
     }
 
     @Test
@@ -434,22 +434,24 @@ public class TestEx9 {
         Node tree = BinOp(Name("x", Load), Add, Name("y", Load));
         evaluator.variables.put("x", "Hello");
         evaluator.variables.put("y", " world!");
-        assertThat(tree.accept(evaluator), is("Hello world!"));
+        assertEquals("Hello world!", tree.accept(evaluator));
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test
     public void stringSubException() {
         Node tree = BinOp(Name("x", Load), Sub, Name("y", Load));
         evaluator.variables.put("x", "Hello");
         evaluator.variables.put("y", " world!");
-        tree.accept(evaluator);
+        assertThrows(IllegalArgumentException.class,
+                () -> tree.accept(evaluator));
     }
 
-    @Test(expected = IllegalArgumentException.class)
+    @Test
     public void stringNegException() {
         Node tree = UnaryOp(USub, Name("x", Load));
         evaluator.variables.put("x", "Hello");
-        tree.accept(evaluator);
+        assertThrows(IllegalArgumentException.class,
+                () -> tree.accept(evaluator));
     }
 
     /**

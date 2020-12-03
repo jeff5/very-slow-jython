@@ -1,8 +1,7 @@
 package uk.co.farowl.asdl.ast;
 
-import static org.hamcrest.CoreMatchers.containsString;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.function.Function;
@@ -10,7 +9,7 @@ import java.util.function.Function;
 import org.antlr.v4.runtime.CharStream;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 import uk.co.farowl.asdl.ASDLLexer;
 import uk.co.farowl.asdl.ASDLParser;
@@ -63,7 +62,7 @@ public class AsdlTreeTest {
     @Test
     public void testProduct() {
         Module module = getModule(source);
-        Product pig = (Product)module.defs.get(0);
+        Product pig = (Product) module.defs.get(0);
         assertNames(pig.members, f -> f.typeName, "int", "string", "pig");
         assertNames(pig.members, f -> f.cardinality.toString(), "SINGLE", "OPTIONAL", "SEQUENCE");
         assertNames(pig.members, f -> f.cardinality.marker, "", "?", "*");
@@ -77,7 +76,7 @@ public class AsdlTreeTest {
     @Test
     public void testSum() {
         Module module = getModule(source);
-        Sum sheep = (Sum)module.defs.get(1);
+        Sum sheep = (Sum) module.defs.get(1);
         assertNames(sheep.constructors, c -> c.name, "Ram", "Ewe");
         assertNames(sheep.attributes, f -> f.typeName, "int", "sheep");
         assertNames(sheep.attributes, f -> f.cardinality.marker, "", "*");
@@ -88,7 +87,7 @@ public class AsdlTreeTest {
     @Test
     public void testConstructors() {
         Module module = getModule(source);
-        Sum sheep = (Sum)module.defs.get(1);
+        Sum sheep = (Sum) module.defs.get(1);
         Constructor ram = sheep.constructors.get(0);
         assertNames(ram.members, f -> f.typeName, "float");
         assertNames(ram.members, f -> f.cardinality.marker, "");
@@ -104,7 +103,7 @@ public class AsdlTreeTest {
     public void testField() {
         String source = wrapField("int     name  ");
         AsdlTree ast = getAST(source);
-        assertThat(ast.toString(), containsString("int name"));
+        assertTrue(ast.toString().contains("int name"));
     }
 
     /** Parse a Field to an AST. */
@@ -112,7 +111,7 @@ public class AsdlTreeTest {
     public void testField2() {
         String source = wrapField("thing     ?name  ");
         AsdlTree ast = getAST(source);
-        assertThat(ast.toString(), containsString("thing? name"));
+        assertTrue(ast.toString().contains("thing? name"));
     }
 
     /** Parse a Field to an AST. */
@@ -120,7 +119,7 @@ public class AsdlTreeTest {
     public void testField3() {
         String source = wrapField("string  *    name  ");
         AsdlTree ast = getAST(source);
-        assertThat(ast.toString(), containsString("string* name"));
+        assertTrue(ast.toString().contains("string* name"));
     }
 
     /** Wrap a field declaration in a product in a module for testing. */

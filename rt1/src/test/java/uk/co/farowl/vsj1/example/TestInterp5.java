@@ -5,8 +5,7 @@ import static java.lang.invoke.MethodHandles.arrayElementSetter;
 import static java.lang.invoke.MethodHandles.collectArguments;
 import static java.lang.invoke.MethodHandles.insertArguments;
 import static java.lang.invoke.MethodHandles.lookup;
-import static org.hamcrest.CoreMatchers.is;
-import static org.junit.Assert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.lang.invoke.ConstantCallSite;
 import java.lang.invoke.MethodHandle;
@@ -26,10 +25,10 @@ import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
-import org.junit.AfterClass;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import uk.co.farowl.vsj1.BigIntegerOperations;
 import uk.co.farowl.vsj1.BinOpCallSite;
@@ -51,11 +50,11 @@ import uk.co.farowl.vsj1.TreePython.keyword;
 import uk.co.farowl.vsj1.TreePython.mod;
 import uk.co.farowl.vsj1.TreePython.operator;
 import uk.co.farowl.vsj1.TreePython.stmt;
-import uk.co.farowl.vsj1.TreePython.type_ignore;
 import uk.co.farowl.vsj1.TreePython.stmt.Assign;
 import uk.co.farowl.vsj1.TreePython.stmt.Expr;
 import uk.co.farowl.vsj1.TreePython.stmt.FunctionDef;
 import uk.co.farowl.vsj1.TreePython.stmt.Return;
+import uk.co.farowl.vsj1.TreePython.type_ignore;
 import uk.co.farowl.vsj1.TreePython.unaryop;
 import uk.co.farowl.vsj1.UnaryOpCallSite;
 
@@ -66,7 +65,7 @@ import uk.co.farowl.vsj1.UnaryOpCallSite;
 @SuppressWarnings("javadoc") // C'mon guys, it's just an old test :)
 public class TestInterp5 {
 
-    @BeforeClass
+    @BeforeAll
     public static void setUpClass() {
         // Built-in types
         Py.registerOps(new IntegerOperations(), Byte.class, Short.class,
@@ -76,7 +75,7 @@ public class TestInterp5 {
         Py.registerOps(new DoubleOperations(), Float.class, Double.class);
     }
 
-    @AfterClass
+    @AfterAll
     public static void tearDownClass() {
         Py.deregisterOps();
     }
@@ -84,7 +83,7 @@ public class TestInterp5 {
     // Visitor to execute the code.
     // Evaluator evaluator;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         // Create a visitor to execute the code.
         // evaluator = new Evaluator();
@@ -1019,8 +1018,7 @@ public class TestInterp5 {
     }
 
     /** Our equivalent to the Python code object. */
-    @SuppressWarnings("unused")
-    private static class Code {
+    static class Code {
 
         /**
          * This is our equivalent to byte code that holds a sequence of
@@ -2106,7 +2104,7 @@ public class TestInterp5 {
         for (String name : state.keySet()) {
             Object expectedValue = state.get(name);
             Object actualValue = globals.get(name);
-            assertThat(actualValue, is(expectedValue));
+            assertEquals(expectedValue, actualValue);
         }
     }
 

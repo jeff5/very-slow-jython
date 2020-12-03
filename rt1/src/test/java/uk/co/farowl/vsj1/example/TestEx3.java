@@ -1,7 +1,6 @@
 package uk.co.farowl.vsj1.example;
 
-import static org.hamcrest.CoreMatchers.is;
-import static org.junit.Assert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -10,8 +9,8 @@ import java.util.HashMap;
 import java.util.Hashtable;
 import java.util.Map;
 
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import uk.co.farowl.vsj1.example.TreePythonEx1.Node;
 import uk.co.farowl.vsj1.example.TreePythonEx1.Visitor;
@@ -31,7 +30,7 @@ public class TestEx3 {
     // Visitor to execute the code.
     Evaluator evaluator;
 
-    @Before
+    @BeforeEach
     public void setUp() {
         // Create a visitor to execute the code.
         evaluator = new Evaluator();
@@ -50,7 +49,7 @@ public class TestEx3 {
         evaluator.variables.put("x", 3);
         // Execute the code.
         Object result = tree.accept(evaluator);
-        assertThat(result, is(42));
+        assertEquals(42, result);
     }
 
     @Test
@@ -66,7 +65,7 @@ public class TestEx3 {
         evaluator.variables.put("x", 3.);
         // Execute the code.
         Object result = tree.accept(evaluator);
-        assertThat(result, is(42.));
+        assertEquals(42., result);
     }
 
     @Test
@@ -82,7 +81,7 @@ public class TestEx3 {
         evaluator.variables.put("x", 3);
         // Execute the code.
         Object result = tree.accept(evaluator);
-        assertThat(result, is(42.));
+        assertEquals(42., result);
     }
 
     @Test
@@ -98,7 +97,7 @@ public class TestEx3 {
         evaluator.variables.put("x", 3.);
         // Execute the code.
         Object result = tree.accept(evaluator);
-        assertThat(result, is(42.));
+        assertEquals(42., result);
     }
 
     /**
@@ -262,40 +261,40 @@ public class TestEx3 {
         }
 
         private static Object add(Object vObj, Object wObj) {
-            Integer v = (Integer)vObj;
+            Integer v = (Integer) vObj;
             Class<?> wclass = wObj.getClass();
             if (wclass == Integer.class) {
-                return v + (Integer)wObj;
+                return v + (Integer) wObj;
             } else {
                 return null;
             }
         }
 
         private static Object sub(Object vObj, Object wObj) {
-            Integer v = (Integer)vObj;
+            Integer v = (Integer) vObj;
             Class<?> wclass = wObj.getClass();
             if (wclass == Integer.class) {
-                return v - (Integer)wObj;
+                return v - (Integer) wObj;
             } else {
                 return null;
             }
         }
 
         private static Object mul(Object vObj, Object wObj) {
-            Integer v = (Integer)vObj;
+            Integer v = (Integer) vObj;
             Class<?> wclass = wObj.getClass();
             if (wclass == Integer.class) {
-                return v * (Integer)wObj;
+                return v * (Integer) wObj;
             } else {
                 return null;
             }
         }
 
         private static Object div(Object vObj, Object wObj) {
-            Integer v = (Integer)vObj;
+            Integer v = (Integer) vObj;
             Class<?> wclass = wObj.getClass();
             if (wclass == Integer.class) {
-                return ((double)v) / (Integer)wObj;
+                return ((double) v) / (Integer) wObj;
             } else {
                 return null;
             }
@@ -326,9 +325,9 @@ public class TestEx3 {
         private static double convertToDouble(Object o) {
             Class<?> c = o.getClass();
             if (c == Double.class) {
-                return ((Double)o).doubleValue();
+                return ((Double) o).doubleValue();
             } else if (c == Integer.class) {
-                return (Integer)o;
+                return (Integer) o;
             } else {
                 throw new IllegalArgumentException();
             }
