@@ -6,7 +6,7 @@ import java.util.function.Function;
 import uk.co.farowl.vsj2.evo4.Slot.EmptyException;
 
 /** Compare CPython {@code abstract.h}: {@code Py_Number_*}. */
-class Number extends Abstract {
+public class Number extends Abstract {
 
     private Number() {} // only static methods here
 
@@ -85,7 +85,7 @@ class Number extends Abstract {
      * @return {@code v * w}
      * @throws Throwable from invoked implementations
      */
-    static PyObject multiply(PyObject v, PyObject w) throws Throwable {
+    public static PyObject multiply(PyObject v, PyObject w) throws Throwable {
         return binary_op(v, w, Slot.op_mul);
     }
 

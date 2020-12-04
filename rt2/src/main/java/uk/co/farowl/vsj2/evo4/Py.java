@@ -4,7 +4,7 @@ import java.lang.invoke.MethodHandle;
 import java.math.BigInteger;
 
 /** Runtime */
-class Py {
+public class Py {
 
     private static class Singleton implements PyObject {
 
@@ -46,7 +46,9 @@ class Py {
      * @param value to represent
      * @return equivalent {@code int}
      */
-    static PyLong val(long value) { return new PyLong(value); }
+    public static PyLong val(long value) {
+        return new PyLong(value);
+    }
 
     /**
      * Return Python {@code int} for Java {@code BigInteger}.
@@ -54,7 +56,9 @@ class Py {
      * @param value to wrap
      * @return equivalent {@code int}
      */
-    static PyLong val(BigInteger value) { return new PyLong(value); }
+    public static PyLong val(BigInteger value) {
+        return new PyLong(value);
+    }
 
     /**
      * Return Python {@code float} for Java {@code double}.
@@ -62,7 +66,9 @@ class Py {
      * @param value to represent
      * @return equivalent {@code float}
      */
-    static PyFloat val(double value) { return new PyFloat(value); }
+    public static PyFloat val(double value) {
+        return new PyFloat(value);
+    }
 
     /**
      * Return Python {@code bool} (one of {@link #True} or
@@ -94,7 +100,7 @@ class Py {
      * @param value to wrap
      * @return equivalent {@code str}
      */
-    static PyUnicode str(String value) {
+    public static PyUnicode str(String value) {
         return new PyUnicode(value);
     }
 

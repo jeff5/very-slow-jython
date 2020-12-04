@@ -18,7 +18,7 @@ import uk.co.farowl.vsj2.evo4.ThreadState.RecursionState;
  * CPython, the methods of all these classes are found in
  * {@code Objects/abstract.c}
  */
-class Abstract {
+public class Abstract {
 
     /**
      * There are only static methods here, so no instances should be

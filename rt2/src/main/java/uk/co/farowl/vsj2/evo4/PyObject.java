@@ -3,7 +3,7 @@ package uk.co.farowl.vsj2.evo4;
 import java.util.Map;
 
 /** All Python object implementations implement this interface. */
-interface PyObject {
+public interface PyObject {
 
     /**
      * The Python {@code type} of this object.

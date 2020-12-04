@@ -8,12 +8,13 @@ rootProject.name = 'very-slow-jython'
 include 'docs'      // narrative of the project
 include 'rt1'       // model interpreter runtime to test our ideas (phase 1)
 include 'rt2'       // ... phase 2
+include 'samples'   // sample applications
 
 // Sub-project build files are named after the sub-project.
 
 rootProject.children.each {
-    println it
     it.buildFileName = it.name + '.gradle'
+    // println "" + it + " : " + it.buildFileName
 }
 
 
