@@ -61,7 +61,7 @@ public class Number extends Abstract {
      * @return {@code v + w}
      * @throws Throwable from invoked implementations
      */
-    static PyObject add(PyObject v, PyObject w) throws Throwable {
+    public static PyObject add(PyObject v, PyObject w) throws Throwable {
         return binary_op(v, w, Slot.op_add);
     }
 

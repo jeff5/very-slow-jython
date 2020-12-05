@@ -1,0 +1,56 @@
+/*
+ * rt2bm subproject (benchmarks for rt2).
+ *
+ * This sub-project builds an application that orchestrates 
+ * microbenchmenrks on the fundamental operations of the Python
+ * run-time system.
+ */
+
+plugins {
+    id 'application'
+}
+
+dependencies {
+    //implementation 'org.ow2.asm:asm:7.2'
+
+    implementation project(':rt2')
+    implementation 'org.openjdk.jmh:jmh-core:1.26'
+    annotationProcessor 'org.openjdk.jmh:jmh-generator-annprocess:1.26'
+}
+
+application {
+    mainClass = 'org.openjdk.jmh.Main'
+}
+
+
+task jmh(type: JavaExec, description: 'JMH Help') {
+    classpath = sourceSets.main.runtimeClasspath
+    main = 'org.openjdk.jmh.Main'
+    args '-h'
+}
+
+task lprof(type: JavaExec, description: 'JMH List profilers') {
+    // Maybe need variants of this task with different filters
+    classpath = sourceSets.main.runtimeClasspath
+    main = 'org.openjdk.jmh.Main'
+
+    args '-lprof'
+}
+
+task numeric(type: JavaExec, description: 'Run benchmarks with JMH') {
+    classpath = sourceSets.main.runtimeClasspath
+    main = 'org.openjdk.jmh.Main'
+
+    // Need variants of this task with different filters
+    // Trailing .* necessary!
+    args '.*Numeric.*'
+
+    args '-f', 1    // number of forked trials
+    args '-wi', 10  // number of warmup iterations per trial
+    args '-w', 1    // seconds per warmup iteration
+    args '-i', 5    // number of measurement iterations per trial
+    args '-r', 1    // seconds per measurement iteration
+
+    // jvmArgs '-Xint' // JVM options added like this
+}
+
