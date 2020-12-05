@@ -1,11 +1,11 @@
 /*
  * rt2 subproject (model interpreter runtime to test our ideas).
- *
  */
 
 plugins {
     id 'java-library'
 }
+
 
 dependencies {
     //implementation 'org.ow2.asm:asm:7.2'
@@ -15,17 +15,25 @@ dependencies {
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.1.0'
 }
 
+
 test {
     useJUnitPlatform {  // JUnit5 as standard
         includeEngines 'junit-jupiter'
     }
 }
 
+
+// Some adjustments to Javadoc to ensure complex tables readable
+
 tasks.withType(Javadoc) {
+
     options.showFromPackage()
+
     // addStringOption inserts one "-" for us :/
+    // CSS adjustments (initially only for table style)
     options.addStringOption("-add-stylesheet",
         "src/main/javadoc/project-styles.css")
+
     // Enable "custom" tags used in JDK Javadoc since JSR-335.
     // https://nipafx.dev/javadoc-tags-apiNote-implSpec-implNote
     options.tags(
