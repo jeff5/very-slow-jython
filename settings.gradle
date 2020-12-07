@@ -4,11 +4,11 @@
 
 rootProject.name = 'very-slow-jython'
 
-
 include 'docs'      // narrative of the project
 include 'rt1'       // model interpreter runtime to test our ideas (phase 1)
 include 'rt2'       // model interpreter runtime phase 2
 include 'rt2bm'     // benchmarks for runtime phase 2
+include 'jy2bm'     // comparable benchmarks for Jython 2
 include 'samples'   // sample applications
 
 // Sub-project build files are named after the sub-project.

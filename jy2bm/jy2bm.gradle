@@ -1,0 +1,59 @@
+/*
+ * jy2bm subproject (the rt2 benchmarks applied to Jython 2).
+ *
+ * This sub-project is intended for comarison with the results of
+ * the experimental run-time system. Direct equivalents do not exist
+ * for the methods, but Jython 2's PyObject effectively provides the
+ * abstract interface tested in rt2bm.
+ */
+
+plugins {
+    id 'application'
+}
+
+dependencies {
+    //implementation 'org.ow2.asm:asm:7.2'
+
+    implementation 'org.python:jython-slim:2.7.2'
+    implementation 'org.openjdk.jmh:jmh-core:1.26'
+    annotationProcessor 'org.openjdk.jmh:jmh-generator-annprocess:1.26'
+}
+
+application {
+    mainClass = 'org.openjdk.jmh.Main'
+}
+
+
+task jmh(type: JavaExec, description: 'JMH Help') {
+    classpath = sourceSets.main.runtimeClasspath
+    main = 'org.openjdk.jmh.Main'
+    args '-h'
+}
+
+
+task lprof(type: JavaExec, description: 'JMH List profilers') {
+    // Maybe need variants of this task with different filters
+    classpath = sourceSets.main.runtimeClasspath
+    main = 'org.openjdk.jmh.Main'
+
+    args '-lprof'
+}
+
+
+task numeric(type: JavaExec, description: 'Run benchmarks with JMH') {
+    classpath = sourceSets.main.runtimeClasspath
+    main = 'org.openjdk.jmh.Main'
+
+    // Need variants of this task with different filters
+    // Trailing .* necessary!
+    args '.*Numeric.*'
+
+    args '-f', 1    // number of forked trials
+    args '-wi', 10  // number of warmup iterations per trial
+    args '-w', 1    // seconds per warmup iteration
+    args '-i', 5    // number of measurement iterations per trial
+    args '-r', 1    // seconds per measurement iteration
+
+    // jvmArgs '-Xint' // JVM options added like this
+}
+
