@@ -1,4 +1,4 @@
-package uk.co.farowl.vsj2bm.evo4;
+package uk.co.farowl.jy2bm;
 
 import java.math.BigInteger;
 import java.util.concurrent.TimeUnit;
@@ -11,12 +11,11 @@ import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.infra.Blackhole;
 
-import uk.co.farowl.vsj2.evo4.Number;
-import uk.co.farowl.vsj2.evo4.Py;
-import uk.co.farowl.vsj2.evo4.PyObject;
+import org.python.core.Py;
+import org.python.core.PyObject;
 
 /**
- * This is a JMH benchmark for selected numeric operations on
+ * This is a JMH benchmark for selected binary numeric operations on
  * {@code int}, small and large (defined as needing 1 and 3 longs
  * internally to {@code BigInteger}).
  *
@@ -28,16 +27,16 @@ import uk.co.farowl.vsj2.evo4.PyObject;
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
 @BenchmarkMode(Mode.AverageTime)
 @State(Scope.Thread)
-public class PyLongNumeric {
+public class PyLongBinary {
 
     static BigInteger V = new BigInteger("6000000000000000000000014");
     static BigInteger W = new BigInteger("7000000000000000000000003");
 
     BigInteger v = BigInteger.valueOf(6), w = BigInteger.valueOf(7);
-    PyObject vo = Py.val(v), wo = Py.val(w);
+    PyObject vo = Py.newLong(v), wo = Py.newLong(w);
 
     BigInteger bigv = V, bigw = W;
-    PyObject bigvo = Py.val(bigv), bigwo = Py.val(bigw);
+    PyObject bigvo = Py.newLong(bigv), bigwo = Py.newLong(bigw);
 
     @Benchmark
     public void nothing(Blackhole bh) {}
@@ -49,7 +48,7 @@ public class PyLongNumeric {
 
     @Benchmark
     public void add(Blackhole bh) throws Throwable {
-        bh.consume(Number.add(vo, wo));
+        bh.consume(vo._add(wo));
     }
 
     @Benchmark
@@ -59,7 +58,7 @@ public class PyLongNumeric {
 
     @Benchmark
     public void addbig(Blackhole bh) throws Throwable {
-        bh.consume(Number.add(bigvo, bigwo));
+        bh.consume(bigvo._add(bigwo));
     }
 
     @Benchmark
@@ -69,7 +68,7 @@ public class PyLongNumeric {
 
     @Benchmark
     public void mul(Blackhole bh) throws Throwable {
-        bh.consume(Number.multiply(vo, wo));
+        bh.consume(vo._mul(wo));
     }
 
     @Benchmark
@@ -79,7 +78,7 @@ public class PyLongNumeric {
 
     @Benchmark
     public void mulbig(Blackhole bh) throws Throwable {
-        bh.consume(Number.multiply(bigvo, bigwo));
+        bh.consume(bigvo._mul(bigwo));
     }
 
     /*
@@ -87,7 +86,7 @@ public class PyLongNumeric {
      * is not material to the benchmark.
      */
     public static void main(String[] args) throws Throwable {
-        PyObject v = Py.val(V), w = Py.val(W);
-        System.out.println(Number.multiply(v, w));
+        PyObject v = Py.newLong(V), w = Py.newLong(W);
+        System.out.println(v._mul(w));
     }
 }

@@ -21,6 +21,7 @@ Contents
     treepython/treepython
     generated-code/generated-code
     architecture/architecture
+    performance/performance
     coding/coding
 
 

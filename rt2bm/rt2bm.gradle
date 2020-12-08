@@ -37,13 +37,13 @@ task lprof(type: JavaExec, description: 'JMH List profilers') {
     args '-lprof'
 }
 
-task numeric(type: JavaExec, description: 'Run benchmarks with JMH') {
+task unary(type: JavaExec, description: 'Unary operations') {
     classpath = sourceSets.main.runtimeClasspath
     main = 'org.openjdk.jmh.Main'
 
     // Need variants of this task with different filters
     // Trailing .* necessary!
-    args '.*Numeric.*'
+    args '.*Unary.*'
 
     args '-f', 1    // number of forked trials
     args '-wi', 10  // number of warmup iterations per trial
@@ -54,3 +54,20 @@ task numeric(type: JavaExec, description: 'Run benchmarks with JMH') {
     // jvmArgs '-Xint' // JVM options added like this
 }
 
+
+task binary(type: JavaExec, description: 'Binary operations') {
+    classpath = sourceSets.main.runtimeClasspath
+    main = 'org.openjdk.jmh.Main'
+
+    // Need variants of this task with different filters
+    // Trailing .* necessary!
+    args '.*Binary.*'
+
+    args '-f', 1    // number of forked trials
+    args '-wi', 10  // number of warmup iterations per trial
+    args '-w', 1    // seconds per warmup iteration
+    args '-i', 5    // number of measurement iterations per trial
+    args '-r', 1    // seconds per measurement iteration
+
+    // jvmArgs '-Xint' // JVM options added like this
+}

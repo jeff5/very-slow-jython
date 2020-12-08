@@ -1,4 +1,4 @@
-package uk.co.farowl.vsj2bm.evo4;
+package uk.co.farowl.jy2bm;
 
 import java.util.concurrent.TimeUnit;
 
@@ -9,13 +9,11 @@ import org.openjdk.jmh.annotations.OutputTimeUnit;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.infra.Blackhole;
-
-import uk.co.farowl.vsj2.evo4.Number;
-import uk.co.farowl.vsj2.evo4.Py;
-import uk.co.farowl.vsj2.evo4.PyObject;
+import org.python.core.Py;
+import org.python.core.PyObject;
 
 /**
- * This is a JMH benchmark for selected numeric operations on
+ * This is a JMH benchmark for selected binary numeric operations on
  * {@code float}, and float mixed with {@code int}.
  *
  * The target class is the abstract interface (as called by the
@@ -26,12 +24,12 @@ import uk.co.farowl.vsj2.evo4.PyObject;
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
 @BenchmarkMode(Mode.AverageTime)
 @State(Scope.Thread)
-public class PyFloatNumeric {
+public class PyFloatBinary {
 
     int iv = 6, iw = 7;
     double v = 1.01 * iv, w = 1.01 * iw;
-    PyObject fvo = Py.val(v), fwo = Py.val(w);
-    PyObject ivo = Py.val(iv), iwo = Py.val(iv);
+    PyObject fvo = Py.newFloat(v), fwo = Py.newFloat(w);
+    PyObject ivo = Py.newLong(iv), iwo = Py.newLong(iv);
 
     @Benchmark
     public void add_float_float_java(Blackhole bh) throws Throwable {
@@ -50,17 +48,17 @@ public class PyFloatNumeric {
 
     @Benchmark
     public void add_float_float(Blackhole bh) throws Throwable {
-        bh.consume(Number.add(fvo, fwo));
+        bh.consume(fvo._add(fwo));
     }
 
     @Benchmark
     public void add_float_int(Blackhole bh) throws Throwable {
-        bh.consume(Number.add(fvo, iwo));
+        bh.consume(fvo._add(iwo));
     }
 
     @Benchmark
     public void add_int_float(Blackhole bh) throws Throwable {
-        bh.consume(Number.add(ivo, fwo));
+        bh.consume(ivo._add(fwo));
     }
 
     @Benchmark
@@ -70,7 +68,7 @@ public class PyFloatNumeric {
 
     @Benchmark
     public void mul_float_float(Blackhole bh) throws Throwable {
-        bh.consume(Number.multiply(fvo, fwo));
+        bh.consume(fvo._mul(fwo));
     }
 
     /*
@@ -78,7 +76,7 @@ public class PyFloatNumeric {
      * is not material to the benchmark.
      */
     public static void main(String[] args) throws Throwable {
-        PyObject v = Py.val(6), w = Py.val(7.01);
-        System.out.println(Number.multiply(v, w));
+        PyObject v = Py.newLong(6), w = Py.newFloat(7.01);
+        System.out.println(v._mul(w));
     }
 }

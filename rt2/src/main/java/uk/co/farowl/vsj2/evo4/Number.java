@@ -17,7 +17,7 @@ public class Number extends Abstract {
      * @return {@code -v}
      * @throws Throwable from invoked implementations
      */
-    static PyObject negative(PyObject v) throws Throwable {
+    public static PyObject negative(PyObject v) throws Throwable {
         try {
             return (PyObject) v.getType().op_neg.invokeExact(v);
         } catch (Slot.EmptyException e) {
@@ -32,7 +32,7 @@ public class Number extends Abstract {
      * @return {@code -v}
      * @throws Throwable from invoked implementations
      */
-    static PyObject absolute(PyObject v) throws Throwable {
+    public static PyObject absolute(PyObject v) throws Throwable {
         try {
             return (PyObject) v.getType().op_abs.invokeExact(v);
         } catch (Slot.EmptyException e) {
