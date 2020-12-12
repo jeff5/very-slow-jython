@@ -4,11 +4,13 @@ import java.util.concurrent.TimeUnit;
 
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
+import org.openjdk.jmh.annotations.Fork;
+import org.openjdk.jmh.annotations.Measurement;
 import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.State;
-import org.openjdk.jmh.infra.Blackhole;
+import org.openjdk.jmh.annotations.Warmup;
 
 import uk.co.farowl.vsj2.evo4.Number;
 import uk.co.farowl.vsj2.evo4.Py;
@@ -16,15 +18,20 @@ import uk.co.farowl.vsj2.evo4.PyObject;
 
 /**
  * This is a JMH benchmark for selected unary numeric operations on
- * {@code float}, and float mixed with {@code int}.
+ * {@code float}.
  *
  * The target class is the abstract interface (as called by the
  * interpreter). Comparison is with the time for an in-line use in Java,
  * of the operation that Python will eventually choose to do the
  * calculation.
  */
-@OutputTimeUnit(TimeUnit.NANOSECONDS)
 @BenchmarkMode(Mode.AverageTime)
+@OutputTimeUnit(TimeUnit.NANOSECONDS)
+
+@Fork(2)
+@Warmup(iterations = 20, time = 1, timeUnit = TimeUnit.SECONDS)
+@Measurement(iterations = 10, time = 1, timeUnit = TimeUnit.SECONDS)
+
 @State(Scope.Thread)
 public class PyFloatUnary {
 
@@ -32,13 +39,18 @@ public class PyFloatUnary {
     PyObject vo = Py.val(v);
 
     @Benchmark
-    public void neg_float_java(Blackhole bh) throws Throwable {
-        bh.consume(-v);
-    }
+    @Fork(4)  // Needs a lot of iterations to resolve short times
+    @Measurement(iterations = 50)
+    public double nothing() { return v; }
 
     @Benchmark
-    public void neg_float(Blackhole bh) throws Throwable {
-        bh.consume(Number.negative(vo));
+    @Fork(4)  // Needs a lot of iterations to resolve short times
+    @Measurement(iterations = 50)
+    public double neg_java() { return -v; }
+
+    @Benchmark
+    public PyObject neg() throws Throwable {
+        return Number.negative(vo);
     }
 
     /*
@@ -49,5 +61,4 @@ public class PyFloatUnary {
         PyObject v = Py.val(42.24);
         System.out.println(Number.negative(v));
     }
-
 }

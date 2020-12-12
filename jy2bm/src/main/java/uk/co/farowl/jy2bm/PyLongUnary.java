@@ -5,15 +5,13 @@ import java.util.concurrent.TimeUnit;
 
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
-import org.openjdk.jmh.annotations.Level;
+import org.openjdk.jmh.annotations.Fork;
+import org.openjdk.jmh.annotations.Measurement;
 import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
 import org.openjdk.jmh.annotations.Scope;
-import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
-import org.openjdk.jmh.annotations.TearDown;
-import org.openjdk.jmh.infra.Blackhole;
-
+import org.openjdk.jmh.annotations.Warmup;
 import org.python.core.Py;
 import org.python.core.PyObject;
 
@@ -27,8 +25,13 @@ import org.python.core.PyObject;
  * of the operation that Python will eventually choose to do the
  * calculation.
  */
-@OutputTimeUnit(TimeUnit.NANOSECONDS)
 @BenchmarkMode(Mode.AverageTime)
+@OutputTimeUnit(TimeUnit.NANOSECONDS)
+
+@Fork(2)
+@Warmup(iterations = 20, time = 1, timeUnit = TimeUnit.SECONDS)
+@Measurement(iterations = 10, time = 1, timeUnit = TimeUnit.SECONDS)
+
 @State(Scope.Thread)
 public class PyLongUnary {
 
@@ -41,33 +44,22 @@ public class PyLongUnary {
     PyObject bigvo = Py.newLong(bigv);
 
     @Benchmark
-    public void nothing(Blackhole bh) {}
+    public BigInteger neg_java() { return v.negate(); }
 
     @Benchmark
-    public void neg_java(Blackhole bh) throws Throwable {
-        bh.consume(v.negate());
-    }
+    public PyObject neg() { return vo.__neg__(); }
 
     @Benchmark
-    public void neg(Blackhole bh) throws Throwable {
-        bh.consume(vo.__neg__());
-    }
+    public BigInteger negbig_java() { return bigv.negate(); }
 
     @Benchmark
-    public void negbig_java(Blackhole bh) throws Throwable {
-        bh.consume(bigv.negate());
-    }
-
-    @Benchmark
-    public void negbig(Blackhole bh) throws Throwable {
-        bh.consume(bigvo.__neg__());
-    }
+    public PyObject negbig() { return bigvo.__neg__(); }
 
     /*
      * main() is useful for following the code path in the debugger, but
      * is not material to the benchmark.
      */
-    public static void main(String[] args) throws Throwable {
+    public static void main(String[] args) {
         PyObject v = Py.newLong(V);
         System.out.println(v.__neg__());
     }

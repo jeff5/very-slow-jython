@@ -5,11 +5,13 @@ import java.util.concurrent.TimeUnit;
 
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
+import org.openjdk.jmh.annotations.Fork;
+import org.openjdk.jmh.annotations.Measurement;
 import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.State;
-import org.openjdk.jmh.infra.Blackhole;
+import org.openjdk.jmh.annotations.Warmup;
 
 import uk.co.farowl.vsj2.evo4.Number;
 import uk.co.farowl.vsj2.evo4.Py;
@@ -25,8 +27,13 @@ import uk.co.farowl.vsj2.evo4.PyObject;
  * of the operation that Python will eventually choose to do the
  * calculation.
  */
-@OutputTimeUnit(TimeUnit.NANOSECONDS)
 @BenchmarkMode(Mode.AverageTime)
+@OutputTimeUnit(TimeUnit.NANOSECONDS)
+
+@Fork(2)
+@Warmup(iterations = 20, time = 1, timeUnit = TimeUnit.SECONDS)
+@Measurement(iterations = 10, time = 1, timeUnit = TimeUnit.SECONDS)
+
 @State(Scope.Thread)
 public class PyLongBinary {
 
@@ -40,46 +47,35 @@ public class PyLongBinary {
     PyObject bigvo = Py.val(bigv), bigwo = Py.val(bigw);
 
     @Benchmark
-    public void nothing(Blackhole bh) {}
+    public BigInteger add_java() { return v.add(w); }
 
     @Benchmark
-    public void add_java(Blackhole bh) throws Throwable {
-        bh.consume(v.add(w));
+    public PyObject add() throws Throwable {
+        return Number.add(vo, wo);
     }
 
     @Benchmark
-    public void add(Blackhole bh) throws Throwable {
-        bh.consume(Number.add(vo, wo));
+    public BigInteger addbig_java() { return bigv.add(bigw); }
+
+    @Benchmark
+    public PyObject addbig() throws Throwable {
+        return Number.add(bigvo, bigwo);
     }
 
     @Benchmark
-    public void addbig_java(Blackhole bh) throws Throwable {
-        bh.consume(bigv.add(bigw));
+    public BigInteger mul_java() { return v.multiply(w); }
+
+    @Benchmark
+    public PyObject mul() throws Throwable {
+        return Number.multiply(vo, wo);
     }
 
     @Benchmark
-    public void addbig(Blackhole bh) throws Throwable {
-        bh.consume(Number.add(bigvo, bigwo));
-    }
+    public BigInteger mulbig_java() { return bigv.multiply(bigw); }
 
     @Benchmark
-    public void mul_java(Blackhole bh) throws Throwable {
-        bh.consume(v.multiply(w));
-    }
-
-    @Benchmark
-    public void mul(Blackhole bh) throws Throwable {
-        bh.consume(Number.multiply(vo, wo));
-    }
-
-    @Benchmark
-    public void mulbig_java(Blackhole bh) throws Throwable {
-        bh.consume(bigv.multiply(bigw));
-    }
-
-    @Benchmark
-    public void mulbig(Blackhole bh) throws Throwable {
-        bh.consume(Number.multiply(bigvo, bigwo));
+    public PyObject mulbig() throws Throwable {
+        return Number.multiply(bigvo, bigwo);
     }
 
     /*

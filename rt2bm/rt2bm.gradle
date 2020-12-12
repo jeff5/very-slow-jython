@@ -45,12 +45,6 @@ task unary(type: JavaExec, description: 'Unary operations') {
     // Trailing .* necessary!
     args '.*Unary.*'
 
-    args '-f', 1    // number of forked trials
-    args '-wi', 10  // number of warmup iterations per trial
-    args '-w', 1    // seconds per warmup iteration
-    args '-i', 5    // number of measurement iterations per trial
-    args '-r', 1    // seconds per measurement iteration
-
     // jvmArgs '-Xint' // JVM options added like this
 }
 
@@ -63,11 +57,7 @@ task binary(type: JavaExec, description: 'Binary operations') {
     // Trailing .* necessary!
     args '.*Binary.*'
 
-    args '-f', 1    // number of forked trials
-    args '-wi', 10  // number of warmup iterations per trial
-    args '-w', 1    // seconds per warmup iteration
-    args '-i', 5    // number of measurement iterations per trial
-    args '-r', 1    // seconds per measurement iteration
 
     // jvmArgs '-Xint' // JVM options added like this
 }
+

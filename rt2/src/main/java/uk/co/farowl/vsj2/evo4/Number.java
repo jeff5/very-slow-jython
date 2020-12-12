@@ -61,7 +61,8 @@ public class Number extends Abstract {
      * @return {@code v + w}
      * @throws Throwable from invoked implementations
      */
-    public static PyObject add(PyObject v, PyObject w) throws Throwable {
+    public static PyObject add(PyObject v, PyObject w)
+            throws Throwable {
         return binary_op(v, w, Slot.op_add);
     }
 
@@ -73,7 +74,8 @@ public class Number extends Abstract {
      * @return {@code v - w}
      * @throws Throwable from invoked implementations
      */
-    static PyObject subtract(PyObject v, PyObject w) throws Throwable {
+    public static PyObject subtract(PyObject v, PyObject w)
+            throws Throwable {
         return binary_op(v, w, Slot.op_sub);
     }
 
@@ -85,7 +87,8 @@ public class Number extends Abstract {
      * @return {@code v * w}
      * @throws Throwable from invoked implementations
      */
-    public static PyObject multiply(PyObject v, PyObject w) throws Throwable {
+    public static PyObject multiply(PyObject v, PyObject w)
+            throws Throwable {
         return binary_op(v, w, Slot.op_mul);
     }
 

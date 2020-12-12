@@ -5,11 +5,13 @@ import java.util.concurrent.TimeUnit;
 
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
+import org.openjdk.jmh.annotations.Fork;
+import org.openjdk.jmh.annotations.Measurement;
 import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.State;
-import org.openjdk.jmh.infra.Blackhole;
+import org.openjdk.jmh.annotations.Warmup;
 
 import uk.co.farowl.vsj2.evo4.Number;
 import uk.co.farowl.vsj2.evo4.Py;
@@ -25,8 +27,13 @@ import uk.co.farowl.vsj2.evo4.PyObject;
  * of the operation that Python will eventually choose to do the
  * calculation.
  */
-@OutputTimeUnit(TimeUnit.NANOSECONDS)
 @BenchmarkMode(Mode.AverageTime)
+@OutputTimeUnit(TimeUnit.NANOSECONDS)
+
+@Fork(2)
+@Warmup(iterations = 20, time = 1, timeUnit = TimeUnit.SECONDS)
+@Measurement(iterations = 10, time = 1, timeUnit = TimeUnit.SECONDS)
+
 @State(Scope.Thread)
 public class PyLongUnary {
 
@@ -39,26 +46,23 @@ public class PyLongUnary {
     PyObject bigvo = Py.val(bigv);
 
     @Benchmark
-    public void nothing(Blackhole bh) {}
-
-    @Benchmark
-    public void neg_java(Blackhole bh) throws Throwable {
-        bh.consume(v.negate());
+    @Fork(10) // Needs a lot of runs to resolve short times
+    @Warmup(iterations = 5) // ... but not long warming up
+    public BigInteger neg_java() {
+        return v.negate();
     }
 
     @Benchmark
-    public void neg(Blackhole bh) throws Throwable {
-        bh.consume(Number.negative(vo));
+    public PyObject neg() throws Throwable {
+        return Number.negative(vo);
     }
 
     @Benchmark
-    public void negbig_java(Blackhole bh) throws Throwable {
-        bh.consume(bigv.negate());
-    }
+    public BigInteger negbig_java() { return bigv.negate(); }
 
     @Benchmark
-    public void negbig(Blackhole bh) throws Throwable {
-        bh.consume(Number.negative(vo));
+    public PyObject negbig() throws Throwable {
+        return Number.negative(vo);
     }
 
     /*

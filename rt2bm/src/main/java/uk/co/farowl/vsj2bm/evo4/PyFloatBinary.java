@@ -4,11 +4,13 @@ import java.util.concurrent.TimeUnit;
 
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
+import org.openjdk.jmh.annotations.Fork;
+import org.openjdk.jmh.annotations.Measurement;
 import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.State;
-import org.openjdk.jmh.infra.Blackhole;
+import org.openjdk.jmh.annotations.Warmup;
 
 import uk.co.farowl.vsj2.evo4.Number;
 import uk.co.farowl.vsj2.evo4.Py;
@@ -23,8 +25,13 @@ import uk.co.farowl.vsj2.evo4.PyObject;
  * of the operation that Python will eventually choose to do the
  * calculation.
  */
-@OutputTimeUnit(TimeUnit.NANOSECONDS)
 @BenchmarkMode(Mode.AverageTime)
+@OutputTimeUnit(TimeUnit.NANOSECONDS)
+
+@Fork(2)
+@Warmup(iterations = 20, time = 1, timeUnit = TimeUnit.SECONDS)
+@Measurement(iterations = 10, time = 1, timeUnit = TimeUnit.SECONDS)
+
 @State(Scope.Thread)
 public class PyFloatBinary {
 
@@ -34,43 +41,61 @@ public class PyFloatBinary {
     PyObject ivo = Py.val(iv), iwo = Py.val(iv);
 
     @Benchmark
-    public void add_float_float_java(Blackhole bh) throws Throwable {
-        bh.consume(v + w);
+    @Fork(4)  // Needs a lot of iterations to resolve short times
+    @Measurement(iterations = 50)
+    public double nothing() { return v; }
+
+    @Benchmark
+    @Fork(4)  // Needs a lot of iterations to resolve short times
+    @Measurement(iterations = 50)
+    public double add_float_float_java() { return v + w; }
+
+    @Benchmark
+    public PyObject add_float_float() throws Throwable {
+        return Number.add(fvo, fwo);
     }
 
     @Benchmark
-    public void add_float_int_java(Blackhole bh) throws Throwable {
-        bh.consume(v + iw);
+    @Fork(4)  // Needs a lot of iterations to resolve short times
+    @Measurement(iterations = 50)
+    public double add_float_int_java() { return v + iw; }
+
+    @Benchmark
+    public PyObject add_float_int() throws Throwable {
+        return Number.add(fvo, iwo);
     }
 
     @Benchmark
-    public void add_int_float_java(Blackhole bh) throws Throwable {
-        bh.consume(iv + w);
+    @Fork(4)  // Needs a lot of iterations to resolve short times
+    @Measurement(iterations = 50)
+    public double add_int_float_java() { return iv + w; }
+
+    @Benchmark
+    public PyObject add_int_float() throws Throwable {
+        return Number.add(ivo, fwo);
     }
 
     @Benchmark
-    public void add_float_float(Blackhole bh) throws Throwable {
-        bh.consume(Number.add(fvo, fwo));
+    @Fork(4)  // Needs a lot of iterations to resolve short times
+    @Measurement(iterations = 50)
+    public double mul_float_float_java() { return v * w; }
+
+    @Benchmark
+    public PyObject mul_float_float() throws Throwable {
+        return Number.multiply(fvo, fwo);
     }
 
     @Benchmark
-    public void add_float_int(Blackhole bh) throws Throwable {
-        bh.consume(Number.add(fvo, iwo));
-    }
+    @Fork(4)  // Needs a lot of iterations to resolve short times
+    @Measurement(iterations = 50)
+    public double quartic_java() { return v * w * (v + w) * (v - w); }
 
     @Benchmark
-    public void add_int_float(Blackhole bh) throws Throwable {
-        bh.consume(Number.add(ivo, fwo));
-    }
-
-    @Benchmark
-    public void mul_float_float_java(Blackhole bh) throws Throwable {
-        bh.consume(v * w);
-    }
-
-    @Benchmark
-    public void mul_float_float(Blackhole bh) throws Throwable {
-        bh.consume(Number.multiply(fvo, fwo));
+    public PyObject quartic() throws Throwable {
+        return Number.multiply(
+                Number.multiply(Number.multiply(fvo, fwo),
+                        Number.add(fvo, fwo)),
+                Number.subtract(fvo, fwo));
     }
 
     /*
