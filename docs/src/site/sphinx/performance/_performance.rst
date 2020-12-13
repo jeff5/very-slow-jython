@@ -1,4 +1,4 @@
-..  performance/performance.rst
+..  performance/_performance.rst
 
 Performance
 ###########

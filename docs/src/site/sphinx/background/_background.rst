@@ -1,4 +1,4 @@
-..  background/background.rst
+..  background/_background.rst
 
 Background to the Very Slow Jython Project
 ##########################################

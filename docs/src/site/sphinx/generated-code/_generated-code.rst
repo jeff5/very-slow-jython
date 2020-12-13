@@ -1,4 +1,4 @@
-..  generated-code/generated-code.rst
+..  generated-code/_generated-code.rst
 
 
 A Generated Code Interpreter

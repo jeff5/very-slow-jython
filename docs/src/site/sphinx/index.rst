@@ -17,12 +17,12 @@ Contents
     :numbered: 3
     :maxdepth: 3
 
-    background/background
-    treepython/treepython
-    generated-code/generated-code
-    architecture/architecture
-    performance/performance
-    coding/coding
+    background/_background
+    treepython/_treepython
+    generated-code/_generated-code
+    performance/_performance
+    architecture/_architecture
+    coding/_coding
 
 
 Indices and tables

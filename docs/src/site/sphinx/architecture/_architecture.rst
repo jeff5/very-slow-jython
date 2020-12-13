@@ -1,4 +1,4 @@
-..  architecture/architecture.rst
+..  architecture/_architecture.rst
 
 
 Architecture
@@ -22,6 +22,7 @@ Hopefully, these give rise to speculations
 and then tested ideas that address them.
 
 ..  toctree::
+    :maxdepth: 2
 
     interpreter-structure
     code-and-frame

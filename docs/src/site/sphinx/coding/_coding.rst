@@ -1,4 +1,4 @@
-..  coding/coding.rst
+..  coding/_coding.rst
 
 
 Writing Code

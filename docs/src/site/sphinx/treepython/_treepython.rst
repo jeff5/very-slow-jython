@@ -1,4 +1,4 @@
-..  treepython/treepthyon.rst
+..  treepython/_treepthyon.rst
 
 
 A Tree-Python Interpreter

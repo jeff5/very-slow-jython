@@ -13,28 +13,23 @@ on ***Read the Docs***.
 
 ## Contents
 
-Without building the project, GitHub does a reasonable job of rendering it,
-except for the [contents](src/site/sphinx/index.rst).
-The main sections are these:
+Without building the project,
+GitHub does a reasonable job of rendering pages but not the navigation.
+The chapters are these:
 
-1. [Background to the Very Slow Jython Project](docs/src/site/sphinx/background/background.rst)
-1. [A Tree-Python Interpreter](docs/src/site/sphinx/treepython/treepython.rst)
-   1. [Some Help from the Reference Interpreter](docs/src/site/sphinx/treepython/ref_interp_help.rst)
-   2. [An Interpreter in Java for the Python AST](docs/src/site/sphinx/treepython/ast_java.rst)
-   3. [Type and Operation Dispatch](docs/src/site/sphinx/treepython/type+dispatch.rst)
-   4. [Simple Statements and Assignments](docs/src/site/sphinx/treepython/simple_statements.rst) 
-1. [A Generated Code Interpreter](docs/src/site/sphinx/generated-code/generated-code.rst)
-   1. [Introduction](docs/src/site/sphinx/generated-code/introduction.rst)
-   2. [An Interpreter for CPython Byte Code](docs/src/site/sphinx/generated-code/interpreter-cpython-byte-code.rst)
-   3. [Type and Arithmetic Operations](docs/src/site/sphinx/generated-code/type-and-arithmetic.rst)
-   4. [Sequences and Indexing](docs/src/site/sphinx/generated-code/sequences-and-indexing.rst)
-   5. [Built-in Inheritance](docs/src/site/sphinx/generated-code/built-in-inheritance.rst)
-   6. [Comparison and Loops](docs/src/site/sphinx/generated-code/comparison-and-loops.rst)
-   7. [Refactoring the Code Base](docs/src/site/sphinx/generated-code/refactor-to-evo3.rst)
+[Contents](docs/src/site/sphinx/index.rst)
 
+1. [Background to the Very Slow Jython Project](docs/src/site/sphinx/background/_background.rst)
+1. [A Tree-Python Interpreter](docs/src/site/sphinx/treepython/_treepython.rst)
+1. [A Generated Code Interpreter](docs/src/site/sphinx/generated-code/_generated-code.rst)
+1. [Performance](docs/src/site/sphinx/performance/_performance.rst)
+1. [Architecture](docs/src/site/sphinx/architecture/_architecture.rst)
+1. [Writing Code](docs/src/site/sphinx/coding/_coding.rst)
 
-1. [Architecture](docs/src/site/sphinx/architecture/architecture.rst)
-   1. [Interpreter Structure](docs/src/site/sphinx/architecture/interpreter-structure.rst)
+However, it is better read at [Read the Docs](https://the-very-slow-jython-project.readthedocs.io),
+which should be up to date thanks to an integration with GitHub.
+Alternatively, it can be built on your own machine.
+
 
 ## Building the Project
 
@@ -53,7 +48,6 @@ The conventional main task:
     .\gradlew --console=plain test
 
 compiles and runs the unit tests that call the code shown in the text.
-
 
 ## Organisation of Sources
 
