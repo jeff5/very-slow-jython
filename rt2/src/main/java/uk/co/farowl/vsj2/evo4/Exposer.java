@@ -10,6 +10,7 @@ import java.util.Map;
 import uk.co.farowl.vsj2.evo4.Exposed.Deleter;
 import uk.co.farowl.vsj2.evo4.Exposed.DocString;
 import uk.co.farowl.vsj2.evo4.Exposed.Getter;
+import uk.co.farowl.vsj2.evo4.Exposed.JavaMethod;
 import uk.co.farowl.vsj2.evo4.Exposed.Setter;
 import uk.co.farowl.vsj2.evo4.PyGetSetDescr.GetSetDef;
 import uk.co.farowl.vsj2.evo4.PyMemberDescr.Flag;
@@ -119,7 +120,8 @@ class Exposer {
             if ((getterAnno) != null) {
                 // There is a Getter annotation: add to definitions
                 if (setterAnno != null || deleterAnno != null)
-                    throw new InterpreterError(GETSET_MULTIPLE, m,
+                    throw new InterpreterError(DEF_MULTIPLE,
+                            "get-set-delete", m,
                             implClass.getSimpleName());
                 // Add to definitions.
                 repeated = addGetter(defs, getterAnno, m);
@@ -127,7 +129,8 @@ class Exposer {
             } else if ((setterAnno) != null) {
                 // There is a Setter annotation
                 if (deleterAnno != null)
-                    throw new InterpreterError(GETSET_MULTIPLE, m,
+                    throw new InterpreterError(DEF_MULTIPLE,
+                            "get-set-delete", m,
                             implClass.getSimpleName());
                 // Add to definitions.
                 repeated = addSetter(defs, setterAnno, m);
@@ -139,7 +142,7 @@ class Exposer {
 
             // If set non-null at any point, indicates a repeat.
             if (repeated != null) {
-                throw new InterpreterError(GETSET_REPEAT, repeated,
+                throw new InterpreterError(DEF_REPEAT, repeated,
                         m.getName(), implClass.getSimpleName());
             }
         }
@@ -147,7 +150,7 @@ class Exposer {
         // For each entry found in the class, construct a descriptor
         Map<String, PyGetSetDescr> descrs = new LinkedHashMap<>();
         for (GetSetDef def : defs.values()) {
-            descrs.put(def.name, def.create(type, lookup));
+            descrs.put(def.name, def.createDescr(type, lookup));
         }
 
         return descrs;
@@ -167,7 +170,7 @@ class Exposer {
     private static String addGetter(Map<String, GetSetDef> defs,
             Exposed.Getter getterAnno, Method m) {
         // Get the entry to which we are adding a getter
-        GetSetDef def = ensureDefined(defs, getterAnno.value(), m);
+        GetSetDef def = ensureGetSetDef(defs, getterAnno.value(), m);
         if (def.setGet(m) != null) {
             // There was one already :(
             return "getter for " + def.name;
@@ -190,7 +193,7 @@ class Exposer {
     private static String addSetter(Map<String, GetSetDef> defs,
             Exposed.Setter setterAnno, Method m) {
         // Get the entry to which we are adding a getter
-        GetSetDef def = ensureDefined(defs, setterAnno.value(), m);
+        GetSetDef def = ensureGetSetDef(defs, setterAnno.value(), m);
         if (def.setSet(m) != null) {
             // There was one already :(
             return "setter for " + def.name;
@@ -213,7 +216,7 @@ class Exposer {
     private static String addDeleter(Map<String, GetSetDef> defs,
             Exposed.Deleter deleterAnno, Method m) {
         // Get the entry to which we are adding a getter
-        GetSetDef def = ensureDefined(defs, deleterAnno.value(), m);
+        GetSetDef def = ensureGetSetDef(defs, deleterAnno.value(), m);
         if (def.setDelete(m) != null) {
             // There was one already :(
             return "deleter for " + def.name;
@@ -231,10 +234,9 @@ class Exposer {
      * @param m method (supplies default name)
      * @return new or found definition
      */
-    private static GetSetDef ensureDefined(Map<String, GetSetDef> defs,
-            String name, Method m) {
+    private static GetSetDef ensureGetSetDef(
+            Map<String, GetSetDef> defs, String name, Method m) {
         if (name == null || name.length() == 0) { name = m.getName(); }
-
         // Ensure there is a GetSetDef for the name.
         GetSetDef def = defs.get(name);
         if (def == null) {
@@ -303,12 +305,79 @@ class Exposer {
         return descrs;
     }
 
+    /**
+     * Create a table of {@link PyMethodDescr}s for methods annotated as
+     * {@link JavaMethod} on the given implementation class, on behalf
+     * of the type given. This type object will become the
+     * {@link Descriptor#objclass} reference of the descriptors created,
+     * but is not otherwise accessed, since it is (necessarily)
+     * incomplete at this time.
+     * <p>
+     * Python knows methods by a simple name while Java allows there to
+     * be multiple definitions separated by signature, and for these to
+     * coexist with inherited definitions. We will have to confront this
+     * overloading when we come to expose "discovered" Java classes as
+     * Python object types. For now, a repeat definition of a name is
+     * considered an error.
+     *
+     * @param lookup authorisation to access fields
+     * @param implClass to introspect for method definitions
+     * @param type to which these descriptors apply
+     * @return methods defined (in the order encountered)
+     * @throws InterpreterError on duplicates or unsupported types
+     */
+    public static Map<String, PyMethodDescr> methodDescrs(Lookup lookup,
+            Class<?> implClass, PyType type) throws InterpreterError {
+
+        Map<String, PyMethodDescr> defs = new LinkedHashMap<>();
+
+        // Iterate over methods looking for the relevant annotations
+        for (Method m : implClass.getDeclaredMethods()) {
+            // Look for all three types now. so as to detect conflicts.
+            JavaMethod a = m.getDeclaredAnnotation(JavaMethod.class);
+            if (a != null) {
+                MethodDef def = getMethodDef(a, m, lookup);
+                PyMethodDescr descr = new PyMethodDescr(type, def);
+                PyMethodDescr previous = defs.put(def.name, descr);
+                if (previous != null) {
+                    // There was one already :(
+                    throw new InterpreterError(DEF_REPEAT, "method",
+                            def.name, implClass.getSimpleName());
+                }
+            }
+        }
+        return defs;
+
+    }
+
+    private static MethodDef getMethodDef(JavaMethod a, Method m,
+            Lookup lookup) {
+
+        // Name is as annotated or is the Java name of the method
+        String name = a.value();
+        if (name == null || name.length() == 0)
+            name = m.getName();
+
+        // May also have DocString annotation
+        String doc = "";
+        Exposed.DocString d = m.getAnnotation(Exposed.DocString.class);
+        if (d != null)
+            doc = d.value();
+
+        try {
+            // From these parts, construct a definition.
+            return new MethodDef(name, m, lookup, doc);
+        } catch (IllegalAccessException e) {
+            throw new InterpreterError(e,
+                    "cannot get method handle for '%s'", m);
+        }
+    }
+
     private static final String MEMBER_REPEAT =
             "Repeated definition of member %.50s in type %.50s";
-    private static final String GETSET_REPEAT =
+    private static final String DEF_REPEAT =
             "Definition of %s repeated at method %.50s in type %.50s";
-    private static final String GETSET_MULTIPLE =
-            "Multiple get-set-delete annotations"
-                    + " on method %.50s in type %.50s";
+    private static final String DEF_MULTIPLE =
+            "Multiple %s annotations on method %.50s in type %.50s";
 
 }

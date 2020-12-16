@@ -358,7 +358,7 @@ class PyGetSetDescr extends DataDescriptor {
          * @return descriptor for access to the field
          * @throws InterpreterError if the method type is not supported
          */
-        PyGetSetDescr create(PyType objclass, Lookup lookup)
+        PyGetSetDescr createDescr(PyType objclass, Lookup lookup)
                 throws InterpreterError {
 
             // Handles on implementation methods (or null)

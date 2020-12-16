@@ -166,9 +166,10 @@ abstract class PyWrapperDescr extends Descriptor {
                     objclass.name);
         }
         PyObject self = args.value[0];
-        if (!Abstract.recursiveIsSubclass(self.getType(), objclass)) {
+        PyType selfType = self.getType();
+        if (!Abstract.recursiveIsSubclass(selfType, objclass)) {
             throw new TypeError(DESCRIPTOR_REQUIRES, name,
-                    objclass.name, self.getType().name);
+                    objclass.name, selfType.name);
         }
         args = new PyTuple(args.value, 1, argc - 1);
         return callWrapped(self, args, kwargs);

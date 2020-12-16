@@ -11,7 +11,7 @@ import java.util.Set;
  * been implemented on top of the Java one.
  */
 class PyDict extends LinkedHashMap<PyObject, PyObject>
-        implements Map<PyObject, PyObject>, PyObject {
+        implements PyObject {
 
     /** The type of Python object this class implements. */
     static final PyType TYPE = PyType.fromSpec( //

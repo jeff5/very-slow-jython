@@ -50,16 +50,37 @@ class PyLong implements PyObject {
     @Override
     public String toString() { return Py.defaultToString(this); }
 
-    int asSize() {
+    /**
+     * Value as a Java {@code int}.
+     *
+     * @return value as Java {@code int}
+     * @throws OverflowError if out of Java {@code int} range
+     */
+    int intValue() {
         try {
             return value.intValueExact();
         } catch (ArithmeticException ae) {
-            throw new OverflowError(INT_TOO_LARGE);
+            throw new OverflowError(INT_TOO_LARGE, "int");
         }
     }
 
     private static String INT_TOO_LARGE =
-            "Python int too large to convert to 'size'";
+            "Python int too large to convert to Java '%s'";
+
+    /**
+     * Value as a Java {@code int}. Same as {@link #intValue()} except
+     * for the error message.
+     *
+     * @return value as Java {@code int}
+     * @throws OverflowError if out of Java {@code int} range
+     */
+    int asSize() {
+        try {
+            return value.intValueExact();
+        } catch (ArithmeticException ae) {
+            throw new OverflowError(INT_TOO_LARGE, "size");
+        }
+    }
 
     /**
      * Value as a Java {@code double} using the round-half-to-even rule.

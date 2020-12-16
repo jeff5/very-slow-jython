@@ -12,7 +12,10 @@ import static uk.co.farowl.vsj2.evo4.ClassShorthand.TUPLE;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.invoke.MethodType;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.EnumSet;
 
 /**
@@ -137,6 +140,11 @@ class MethodDef {
      * Handle of the Java method that implements the function or method.
      * The type of this handle exactly reflects the declared signature.
      */
+    final MethodHandle natural;
+    /**
+     * Handle for the implementation, adapted so that it may be invoked
+     * with {@link PyObject} arguments.
+     */
     final MethodHandle meth;
     /**
      * Combination of {@code Flag} flags, which mostly describe
@@ -194,16 +202,52 @@ class MethodDef {
         BadCallException() { super(null, null, false, false); }
     }
 
-    /** Construct a method definition. */
+    /**
+     * Construct a method definition from a {@code Method} and a lookup
+     * object able to access it.
+     *
+     * @throws IllegalAccessException
+     */
+    MethodDef(String name, Method m, Lookup lookup, String doc)
+            throws IllegalAccessException {
+        this.name =
+                name != null && name.length() > 0 ? name : m.getName();
+        this.doc = doc != null ? doc : "";
+        this.natural = lookup.unreflect(m);
+
+        // Adapt the natural handle to accept and return PyObjects
+        MethodType naturalType = natural.type();
+        MethodHandle meth = MethodHandles.filterArguments(natural, 0,
+                Clinic.argumentFilter(naturalType));
+        MethodHandle rf = Clinic.returnFilter(naturalType);
+        if (rf != null) {
+            meth = MethodHandles.filterReturnValue(meth, rf);
+        }
+
+        // Make all arguments and return exactly PyObject
+        MethodType pureObjectMT = Clinic.purePyObject(meth.type());
+        this.meth = meth.asType(pureObjectMT);
+
+        // Check whether declared as a method (first parameter is self)
+        int modifiers = m.getModifiers();
+        EnumSet<MethodDef.Flag> f =
+                EnumSet.noneOf(MethodDef.Flag.class);
+        if (Modifier.isStatic(modifiers))
+            f.add(MethodDef.Flag.STATIC);
+        this.flags = calcFlags(f);
+    }
+
+    /** Construct a method definition from a {@code MethodHandle}. */
     MethodDef(String name, MethodHandle mh, EnumSet<Flag> flags,
             String doc) {
         this.name = name;
+        this.natural = mh; // XXX stop-gap until constructor replaced
         this.meth = mh;
         this.doc = doc;
         this.flags = calcFlags(flags);
     }
 
-    /** Construct a method definition. */
+    /** Construct a method definition from a {@code MethodHandle}. */
     MethodDef(String name, MethodHandle mh, String doc) {
         this(name, mh, EnumSet.noneOf(Flag.class), doc);
     }
@@ -427,6 +471,21 @@ class MethodDef {
     }
 
     /**
+     * Create a {@code MethodHandle} with the signature {@code (O[])O}
+     * that will make a "vector call" to the method described in this
+     * {@code MethodDef}.
+     *
+     * @return required handle
+     */
+    MethodHandle getVectorHandle() {
+
+        int n = meth.type().parameterCount();
+        MethodHandle vec = meth.asSpreader(MHUtil.OA, n);
+
+        return vec;
+    }
+
+    /**
      * Helpers for {@link MethodDef} used to construct
      * {@code MethodHandle}s.
      */
@@ -436,7 +495,7 @@ class MethodDef {
         private static final MethodDef.BadCallException BADCALL =
                 new MethodDef.BadCallException();
 
-        /** Lookup for resolving handle3s throughout {@code Util} */
+        /** Lookup for resolving handles throughout {@code MHUtil} */
         private static final MethodHandles.Lookup LOOKUP =
                 MethodHandles.lookup();
 

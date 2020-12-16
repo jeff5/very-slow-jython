@@ -56,10 +56,11 @@ class PyType implements PyObject {
         Class<?>[] bootstrapClasses = {
                 // Really special cases
                 PyBaseObject.class, PyType.class,
-                // The entries are descriptors
+                // The entries are descriptors so defer those
                 PyMemberDescr.class, //
                 PyGetSetDescr.class, //
                 PyWrapperDescr.class, //
+                PyMethodDescr.class, //
                 // The keys are PyUnicode
                 PyUnicode.class, //
                 BaseException.class, //
@@ -439,7 +440,7 @@ class PyType implements PyObject {
         // Fill slots from implClass or bases
         addMembers(spec);
         addGetSets(spec);
-        // addMethods(spec);
+        addMethods(spec);
         addWrappers(spec);
 
         // XXX Possibly belong elsewhere
@@ -496,6 +497,24 @@ class PyType implements PyObject {
 
         for (Map.Entry<String, PyWrapperDescr> e : wrappers
                 .entrySet()) {
+            PyUnicode k = new PyUnicode(e.getKey());
+            PyObject v = e.getValue();
+            dict.put(k, v);
+        }
+    }
+
+    /**
+     * Add method attributes to this type discovered through the
+     * specification.
+     *
+     * @param spec to apply
+     */
+    private void addMethods(Spec spec) {
+
+        Map<String, PyMethodDescr> methods =
+                Exposer.methodDescrs(spec.lookup, implClass, this);
+
+        for (Map.Entry<String, PyMethodDescr> e : methods.entrySet()) {
             PyUnicode k = new PyUnicode(e.getKey());
             PyObject v = e.getValue();
             dict.put(k, v);

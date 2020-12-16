@@ -44,7 +44,7 @@ class PyJavaFunction implements PyObject {
     // slot functions -------------------------------------------------
 
     @SuppressWarnings("unused")
-    private PyObject __repr__() throws Throwable {
+    protected PyObject __repr__() throws Throwable {
         return PyUnicode.fromFormat("<built-in function %s>",
                 methodDef.name);
     }

@@ -189,7 +189,7 @@ public class Py {
         }
     }
 
-    // -------------------- Interpreter ----------------------------
+    // Interpreter ---------------------------------------------------
 
     /**
      * Create an interpreter in its default state.
@@ -200,7 +200,7 @@ public class Py {
         return new Interpreter();
     }
 
-    // -------------------- Initialisation ----------------------------
+    // Initialisation ------------------------------------------------
 
     /** Action we might need to initialise the run-time system. */
     static synchronized void initialise() {}

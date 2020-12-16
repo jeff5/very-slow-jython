@@ -22,6 +22,46 @@ interface Exposed {
     @Target(METHOD)
     @interface Function {}
 
+    /**
+     * Identify a method of a Python object as an exposed "Python
+     * classic" method. The signature must one of a small number of
+     * supported types characteristic of the Python "classic"
+     * {@code (*args[, **kwargs])} call. A callable descriptor will be
+     * entered in the dictionary of the type being defined.
+     */
+    @Documented
+    @Retention(RUNTIME)
+    @Target(METHOD)
+    @interface PythonMethod {
+
+        /**
+         * Exposed name of the method if different from the declaration.
+         *
+         * @return name of the method
+         */
+        String value() default "";
+    }
+
+    /**
+     * Identify a method of a Python object as an exposed "Java" method.
+     * The signature must a supported type for which coercions can be
+     * found. A callable descriptor will be entered in the dictionary of
+     * the type being defined capable of coercing the call site
+     * signature to that of the annotated method.
+     */
+    @Documented
+    @Retention(RUNTIME)
+    @Target(METHOD)
+    @interface JavaMethod {
+
+        /**
+         * Exposed name of the method if different from the declaration.
+         *
+         * @return name of the method
+         */
+        String value() default "";
+    }
+
     @Documented
     @Retention(RUNTIME)
     @Target({METHOD, FIELD, TYPE})
@@ -32,6 +72,12 @@ interface Exposed {
     @Target(PARAMETER)
     @interface Args {}
 
+    /**
+     * Identify a field (of supported type) of a Python object as an
+     * exposed member. Get, set and delete operations are provided
+     * automatically on a descriptor that will be entered in the
+     * dictionary of the type being defined.
+     */
     @Documented
     @Retention(RUNTIME)
     @Target(FIELD)
