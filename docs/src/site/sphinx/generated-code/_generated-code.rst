@@ -22,7 +22,9 @@ but take a different approach to implementation.
     refactor-to-evo3
     function-definition-and-call
     refactor-to-evo4
-    classes-and-attributes
+    attribute-access
+    attributes-java
+    attributes-python
 
 ..  I think the chapters might go like this,
     but I'm not certain enough to create the files:

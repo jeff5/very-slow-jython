@@ -1,55 +1,85 @@
-..  generated-code/classes-and-attributes.rst
+..  generated-code/attribute-access.rst
 
 
-Classes and Attributes
-######################
+Access to Attributes
+####################
 
-Access to Attributes: A Trivial Case
-************************************
+We use the term "attribute" to cover anything that would be
+accessed in Python with the "dot" notation.
+It may be imagined that this is mostly a matter of
+looking up a name in a dictionary.
+A dictionary is involved, but which dictionary,
+and what Python does with the thing it finds,
+brings us to the complex topic of :ref:`Descriptors`.
 
-Motivating Example
-==================
+This section looks at how a Python implementation in Java would
+access attributes,
+including those located by a descriptor.
 
-Consider the simple statement ``a = C().x``,
-where we construct an object and access a member.
-We have not yet explored how to define classes and create instances,
-but it is worth looking at the code CPython produces:
+It is difficult to treat this as a journey of discovery.
+Python provides a set of interconnected concepts that
+have to be implemented together,
+which are here progressively revealed.
+The next two sections will look at how to implement descriptors
+for attributes of Python objects implemented in Java or Python.
+The approach to attributes of "found" Java objects
+(objects written without the explicit intention they be Python objects)
+is for yet another section.
+
+We begin our exploration with the question
+of what it means to access an attribute.
+
+
+Exploration
+***********
+
+We start with a built-in type that has an attribute we can get and set.
+It is possible to assign the qualified name of a function
+after it is defined:
 
 ..  code-block:: python
 
-    >>> dis.dis(compile("a = C().x", '<test>', 'exec'))
-      1           0 LOAD_NAME                0 (C)
-                  2 CALL_FUNCTION            0
-                  4 LOAD_ATTR                1 (x)
-                  6 STORE_NAME               2 (a)
-                  8 LOAD_CONST               0 (None)
-                 10 RETURN_VALUE
+    >>> def f(): pass
+    ...
+    >>> f.__qualname__
+    'f'
+    >>> f.__qualname__ = 'Fred'
+    >>> f
+    <function Fred at 0x000001FE3F821CA0>
 
-Since construction is just a function call,
-the only opcode we lack is ``LOAD_ATTR``.
-(We'll implement ``STORE_ATTR`` too.)
+Now look at the code CPython produces as we do that:
 
-However, what kind of function is it that we call?
-The answer, of course, is that it is the ``type`` object ``C`` itself.
-A ``PyType`` must therefore be callable,
-returning a new instance of the associated Java class
-(or of a sub-class) implementing the Python type.
+..  code-block:: python
 
-First, however,
-we turn to the definition of a Python object with attribute operations.
+    >>> dis.dis(compile("f.__qualname__; f.__qualname__='Fred'", '', 'exec'))
+      1           0 LOAD_NAME                0 (f)
+                  2 LOAD_ATTR                1 (__qualname__)
+                  4 POP_TOP
+                  6 LOAD_CONST               0 ('Fred')
+                  8 LOAD_NAME                0 (f)
+                 10 STORE_ATTR               1 (__qualname__)
+                 12 LOAD_CONST               1 (None)
+                 14 RETURN_VALUE
 
-A hand-crafted class will serve the purpose,
-like the one we used in :ref:`a-specialised-callable`,
-if it returns an object capable of "attribute access".
-And we can instantiate it from Java without the associated ``PyType``.
+Evidently the required new opcodes are ``LOAD_ATTR`` and ``STORE_ATTR``.
+No doubt we shall have type slots to support them,
+and a contribution to the abstract object API supporting the interpreter.
+
+The attribute name comes from the constant pool of the code object,
+so it is a ``PyUnicode`` in our terms.
+There is some historical baggage in the CPython API that allows
+string (that is, ``char *``) names to be supplied by C (extension) code,
+but we do not have to reproduce that feature.
 
 
 Slots for Attribute Access
 ==========================
 
-The type must implement two new slots comparable to those in CPython.
-These are ``tp_getattro`` and ``tp_setattro``.
-These slots name the attribute by an object (always a ``str``).
+The type must implement new slots comparable to those in CPython.
+We call them ``op_getattribute``, ``op_getattr`` and ``tp_setattro``.
+We add ``op_delattr`` to the set for reasons we explain shortly.
+These special methods expect the name of the attribute as an object
+(always a ``str``).
 We will strongly type the name argument as ``PyUnicode``,
 adding the following slots and signatures:
 
@@ -57,24 +87,32 @@ adding the following slots and signatures:
 
     enum Slot {
         ...
-        tp_getattro(Signature.GETATTRO, null, "__getattr__"), //
-        tp_setattro(Signature.SETATTRO, null, "__setattr__"), //
+        op_getattribute(Signature.GETATTR),
+        op_getattr(Signature.GETATTR),
+        op_setattr(Signature.SETATTR),
+        op_delattr(Signature.DELATTR),
         ...
         enum Signature implements ClassShorthand {
             ...
-            GETATTRO(O, S, U), // (getattrofunc) tp_getattro
-            SETATTRO(V, S, U, O); // (setattrofunc) tp_setattro
+            GETATTR(O, S, U),
+            SETATTR(V, S, U, O),
+            DELATTR(V, S, U),
 
 ``U`` is a shorthand for ``PyUnicode``, defined in ``ClassShorthand``.
-We also add ``tp_getattro`` and ``tp_setattro`` slots to ``PyType``,
-but no new apparatus is required in that class.
+We also add ``op_getattribute``, ``op_getattr``,
+``op_setattr`` and ``op_delattr`` slots to ``PyType``,
+but no new apparatus is required in that class to accomplish that.
 
-CPython has slots in addition to the ones we reproduce here,
-called ``tp_getattr`` and ``tp_setattr`` (no "o"),
-that name the attribute by a ``char *``.
-These are the legacy of a now deprecated earlier approach
-where attribute access had only that signature.
-We only implement the newer form.
+To understand why Python needs both ``op_getattribute`` and ``op_getattr``,
+see :ref:`getattribute-and-getattr`.
+
+CPython does not have a separate slot for deletion operations:
+it uses the ``tp_setttro`` slot (same as ``op_setattr``)
+with a value to be assigned of ``NULL``.
+However,
+Python defines ``__del__`` operations separately in the data model.
+The tension is the source of some minor complexity in CPython
+that we choose to avoid.
 
 As usual, the new slots are wrapped in abstract methods
 so that we may call them from Java,
@@ -113,29 +151,25 @@ the abstract method wrapping ``tp_getattro`` is like this:
 Note that CPython falls back on the legacy slot ``tp_getattr``.
 We will discuss the ``PyUnicode_Check(name)`` shortly.
 
-There's also a ``PyObject_GetAttrString(PyObject *v, const char *name)``
-that accepts the name as a ``char *`` and tries the legacy slot first.
-If the legacy slot is not defined,
-it creates a temporary ``str`` object and calls ``PyObject_GetAttr``.
-
 
 .. _candidate-getattr:
 
 Candidate ``getAttr``
 ---------------------
 
-As usual, we take advantage of Java to choose a shorter name.
+As usual, we take advantage of Java namespaces to choose a shorter name.
 A candidate ``getAttr`` (strongly typed to ``PyUnicode``) is:
 
 ..  code-block:: java
 
-        /** Python {@code o.name}. */
+        /** {@code o.name} with Python semantics. */
         static PyObject getAttr(PyObject o, PyUnicode name)
                 throws AttributeError, Throwable {
             PyType t = o.getType();
             try {
-                return (PyObject) t.tp_getattro.invokeExact(o, name);
-            } catch (EmptyException e) {
+                // Invoke __getattribute__.
+                return (PyObject) t.op_getattribute.invokeExact(o, name);
+            } catch (EmptyException) {
                 throw noAttributeError(o, name);
             }
         }
@@ -147,7 +181,7 @@ In most contexts,
 we expect it to be known statically that the name is a ``PyUnicode``,
 and so the type check that CPython feels necessary may be avoided.
 In particular,
-this applies to the implementation of the ``LOAD_ATTR`` opcode:
+this benefits the implementation of the ``LOAD_ATTR`` opcode:
 
 ..  code-block:: java
 
@@ -169,38 +203,42 @@ known statically to be ``PyUnicode``.
 ..  code-block:: java
 
         static PyObject getAttr(PyObject o, PyObject name)
-                throws Throwable {
+                throws AttributeError, TypeError, Throwable {
             if (name instanceof PyUnicode) {
                 return getAttr(o, (PyUnicode) name);
             } else {
-                throw new TypeError(ATTR_MUST_BE_STRING_NOT, name);
+                throw attributeNameTypeError(name);
             }
         }
 
 A ``String`` case would be convenient when writing Java code,
 but this is a trap when it comes to efficiency:
 it involves making a ``PyUnicode`` every time we call it.
-(The equivalent is avoided in CPython source for a good reason.)
-We use a call to ``Py.str`` for ephemeral values
+(The equivalent ``char *`` option exists in CPython,
+but the CPython source itself avoids using it.)
+We use an explicit call to ``Py.str`` for ephemeral values
 or constant interned in ``ID`` when built-in names are involved.
 
 There is a ``setAttr`` to complement the candidate ``getAttr``,
 with an easily-guessed implementation.
 
 
-.. _a-custom-class-constructor:
+
+.. _custom-class-attribute-access:
 
 A Custom Class with Attribute Access
 ====================================
+
+******* here
+
 
 A class exhibiting these slots,
 and giving access to a single attribute ``x``,
 is as follows:
 
 ..  code-block:: java
-    :emphasize-lines: 10, 12, 21
+    :emphasize-lines: 9, 11, 20
 
-        @SuppressWarnings("unused")
         private static class C implements PyObject {
 
             static final PyType TYPE =
@@ -251,399 +289,9 @@ that also supports the ``LOAD_ATTR`` opcode:
             assertEquals(Py.val(42), result);
         }
 
-
-Creating an Instance with ``__new__``
-=====================================
-
-Note that the test class ``C`` has a method ``__new__``.
-During class creation,
-a handle to this is placed into slot ``tp_new``.
-We need to arrange that ``C.TYPE`` be callable,
-in other words that a ``PyType`` should be callable in general in Python.
-
-To this end, we give ``PyType`` a ``__call__`` method
-that will invoke the method in that type object's ``__new__``.
-A simplified version of that (enough to make the example work) is:
-
-..  code-block:: java
-
-    class PyType implements PyObject {
-        //...
-
-        static PyObject __call__(PyType type, PyTuple args, PyDict kwargs)
-                throws Throwable {
-            try {
-                // Create the instance with given arguments.
-                MethodHandle n = type.tp_new;
-                PyObject o = (PyObject) n.invokeExact(type, args, kwargs);
-                //...
-                return o;
-            } catch (EmptyException e) {
-                throw new TypeError("cannot create '%.100s' instances",
-                        type.name);
-            }
-        }
-
-The elided code in the body of ``__call__``
-deals with calling ``__init__`` on the new object,
-and also with the possibility that the type being called is ``type``,
-in which case,
-if there is only one argument,
-we are implementing the ``type()`` built-in function.
-We may easily test this for ``C``:
-
-..  code-block:: java
-
-    class PyByteCode6 {
-        // ...
-        @Test
-        void call_type_noargs() throws Throwable {
-            PyObject c = Callables.call(C.TYPE);
-            assertEquals(c.getType(), C.TYPE);
-        }
-
-
-A Glance up the Mountain
-========================
-
-Common built-ins do not provide for attributes added by client code,
-that is,
-they have no instance dictionary.
-However, they have attributes, which may be data or methods.
-
-In the case of methods,
-getting one from an instance may create a binding
-(a sort of Curried function) that is a new callable object.
-Not only that, the slots we rely on extensively (like ``nb_sub``)
-are also exposed as methods (e.g. ``__sub__``)
-that can be called on instances or types.
-
-The manner of defining and accessing these will bring us to
-the rich topic of the :ref:`Descriptors`
-inserted in the dictionary of a type when it is created.
-These in turn are all inseparable from sub-classing and inheritance.
-
-In order to experiment with even the most familiar attributes
-of built-in types therefore,
-we must greatly strengthen class and object creation
-in our toy implementation.
-
-Suddenly, we have a significant climb ahead,
-but we will get there by small steps.
-One might suppose that logical route is to
-develop the means to define classes,
-then to create and use their instances,
-but then we have to go a long way before anything can be tested.
-Instead,
-we shall get instances of various kinds into existence by any means,
-get them working in some of the ways necessary to the language,
-and then ask how we can arrive at that state properly.
-
-
-Class and Instance Improvements
-*******************************
-
-In this section we improve (but do not expect to perfect)
-class and instance creation from Python.
-This is a complex subject,
-too complex to surmount in a single leap,
-but we need to start somewhere.
-
-Orientation
-===========
-
-Currently (from ``evo3``) we have built-in types,
-implemented as Java classes,
-for which the type objects are created by initialising the Java class.
-Somewhere in the static initialisation of the implementation class,
-we call ``PyType.fromSpec`` or the equivalent.
-(The static initialisation of ``PyType`` itself
-creates ``type`` and ``object``.)
-
-We can create instances of these built-in types by:
-
-* calling the constructor from Java (e.g. in a unit test);
-* calling runtime support methods like ``Py.str()`` or ``Py.val()``
-  when building a code object; or
-* executing object-creating opcodes (like ``MAKE_FUNCTION``)
-  or doing arithmetic.
-
-For test purposes, we need to be able to create instances from Python,
-as well as force them into existence from Java.
-A start would be to be able to call ``int()`` or ``str()``,
-to create instances of ``int`` and ``str``.
-For this, we must define the ``__call__`` slot function in ``PyType``,
-so that anything that is a ``type`` can be called to make an instance.
-
-Then we would like to create *classes* in Python,
-which is to say we would like to be able to create instances of ``type``.
-One does not normally do this by calling ``type()``,
-but it is quite possible to do so:
-
-..  code-block:: python
-
-    >>> C = type('C', (str,), {'a':"hello"})
-    >>> C.__mro__
-    (<class '__main__.C'>, <class 'str'>, <class 'object'>)
-    >>> c.a
-    'hello'
-
-Normally though, one executes a ``class`` statement.
-
-
-``__call__`` in ``PyType``
-==========================
-
-``PyType.__call__`` is actually fairly simple,
-but it depends on two other new slots.
-The body of this method invokes the new slot function ``__new__``,
-which returns a new object,
-followed optionally by ``__init__`` on the object itself.
-``__new__`` must be defined or inherited
-by all types we expect to instantiate this way.
-
-..  code-block:: java
-
-    class PyType implements PyObject {
-        //...
-        static PyObject __call__(PyType type, PyTuple args, PyDict kwargs)
-                throws TypeError, Throwable {
-            try {
-                // Create the instance with given arguments.
-                MethodHandle n = type.tp_new;
-                PyObject o = (PyObject) n.invokeExact(type, args, kwargs);
-                // Check for special case type enquiry.
-                if (isTypeEnquiry(type, args, kwargs)) { return o; }
-                // As __new__ may be user-defined, check type as expected.
-                PyType oType = o.getType();
-                if (oType.isSubTypeOf(type)) {
-                    // Initialise the object just returned (if necessary).
-                    if (Slot.tp_init.isDefinedFor(oType))
-                        oType.tp_init.invokeExact(o, args, kwargs);
-                }
-                return o;
-            } catch (EmptyException e) {
-                throw new TypeError("cannot create '%.100s' instances",
-                        type.name);
-            }
-        }
-        //...
-    }
-
-The code must take into account that ``type`` is itself a type,
-but the call ``type(x)`` enquires the type of ``x``,
-rather than being a constructor.
-(The call ``type(name, bases, dict)`` does construct a ``type`` however.)
-This difference is detected from the number of arguments by
-``isTypeEnquiry(type, args, kwargs)``.
-We follow CPython in placing the test after ``__new__`` is invoked.
-``type.__new__`` performs both functions.
-
-
-Slots ``tp_new`` and ``tp_init``
-================================
-
-The slot ``tp_init`` (for ``__init__``) holds no surprises:
-it basically looks like ``tp_call``,
-but returns ``void``.
-
-The Python special method ``__new__``,
-for which ``tp_new`` is the slot,
-leads to an (effectively) static method.
-It therefore does not have the "self type" in its signature,
-but ``T``, standing for ``Class<? extends PyType>``.
-
-..  code-block:: java
-
-    enum Slot {
-        ...
-        tp_init(Signature.INIT), //
-        tp_new(Signature.NEW), //
-
-        enum Signature implements ClassShorthand {
-            ...
-            INIT(V, S, TUPLE, DICT), // (initproc) tp_init
-            NEW(O, T, TUPLE, DICT); // (newfunc) tp_new
-            ...
-        }
-        ...
-    }
-
-These are easily defined,
-but the hard work is to add them to every built-in type.
-Let's start with ``int``.
-
-
-``__new__`` in ``PyLong``
-=========================
-
-The CPython code behind ``int()`` is quite complicated,
-and not very interesting in the present context,
-except to say that it tries the ``nb_int`` and ``nb_index`` slots,
-in the case of single arguments ``int(x)``,
-and a conversion from text for string-like objects.
-For the purpose of exploration,
-the Very Slow Jython code base implements a subset of the functionality.
-
-The following attempt at ``PyLong.__new__`` gives an idea,
-but it does not deal with Python subclasses of ``int``.
-The lines highlighted invoke, directly or indirectly,
-a constructor of ``PyLong``.
-
-..  code-block:: java
-    :emphasize-lines: 8, 15
-
-    static PyObject __new__(PyType type, PyTuple args, PyDict kwargs)
-            throws Throwable {
-        PyObject x = null, obase = null;
-
-        // ... argument processing to x, obase
-
-        if (obase == null)
-            return Number.asLong(x);
-        else {
-            int base = Number.asSize(obase, null);
-            if ((base != 0 && base < 2) || base > 36)
-                throw new ValueError(
-                        "int() base must be >= 2 and <= 36, or 0");
-            else if (x instanceof PyUnicode)
-                return new PyLong(new BigInteger(x.toString(), base));
-            // else if ... support for bytes-like objects
-            else
-                throw new TypeError(NON_STR_EXPLICIT_BASE);
-        }
-    }
-
-The type object for ``int`` can be called from Java.
-The test ``PyByteCode6.intFrom__new__`` does this
-for a few of the possible constructor calls.
-
-..  code-block:: java
-
-    class PyByteCode6 {
-        // ...
-        @Test
-        void intFrom__new__() throws Throwable {
-            PyType intType = PyLong.TYPE;
-            // int()
-            PyObject result = Callables.call(intType);
-            assertEquals(PyLong.ZERO, result);
-            // int(42)
-            result = Callables.call(intType, Py.tuple(Py.val(42)), null);
-            assertEquals(Py.val(42), result);
-            // int("2c", 15)
-            PyTuple args = Py.tuple(Py.str("2c"), Py.val(15));
-            result = Callables.call(intType, args, null);
-            assertEquals(Py.val(42), result);
-        }
-
-In order to make the ``int`` constructor accessible from Python,
-and the same for ``float`` (not detailed here),
-it is only necessary to make them attributes of the ``builtins`` module:
-
-..  code-block:: java
-
-    class BuiltinsModule extends JavaModule implements Exposed {
-
-        BuiltinsModule() {
-            super("builtins");
-            // ...
-            add(ID.intern("float"), PyFloat.TYPE);
-            add(ID.intern("int"), PyLong.TYPE);
-        }
-
-Now we can execute the following fragment within ``PyByteCode6``:
-
-..  code-block:: python
-
-    # Exercise the constructors for int and float
-    i = int(u)
-    x = float(i)
-    y = float(u)
-    j = int(y)
-
-and this is done for a range of arguments ``u`` and ``i``.
-
-
-``__new__`` in ``PyType`` (Provisional)
-=======================================
-
-When we invoke the ``__call__`` special method of ``PyType``,
-and the target ``PyType`` is ``type`` itself,
-the ``__new__`` special method of ``type`` is invoked,
-and we create a new type from the arguments supplied.
-This convoluted situation needs careful thought,
-based on successively approximating the class build process.
-
-Consider the apparently trivial sequence:
-
-..  code-block:: python
-
-    C = type('C', (), {})
-    c = C()
-
-Here we call the constructor of ``type`` objects
-to create a class called ``"C"``,
-that for sanity's sake we assign to the variable ``C``.
-This is to say we call ``type.__call__``,
-and this in turn calls ``type.__new__``.
-The arguments are the name, a tuple of bases and a name space
-that would ordinarily be the result of executing
-the body of a class definition.
-
-We have seen ``type.__call__`` already,
-but a provisional ``type.__new__`` runs like this:
-
-..  code-block:: java
-
-     static PyObject __new__(PyType metatype, PyTuple args, PyDict kwds)
-                throws Throwable {
-
-            // Special case: type(x) should return type(x)
-            if (isTypeEnquiry(metatype, args, kwds)) {
-                return args.get(0).getType();
-            }
-
-            // ... Process arguments to bases, name, namespace ...
-
-            // Specify using provided material
-            Spec spec = new Spec(name).namespace(namespace);
-            for (PyObject t : bases) {
-                if (t instanceof PyType)
-                    spec.base((PyType) t);
-            }
-
-            return PyType.fromSpec(spec);
-     }
-
-After the clause where ``__new__`` checks to see if this is a type enquiry,
-it creates a specification for the type,
-and a type from that.
-In CPython, ``type_new`` is 523 lines long,
-so it is likely we have missed a few details,
-but we do actually get a type object from this.
-
-In the Python snippet,
-we go on to call that type object to get an instance.
-That works too, iof we don't look too hard.
-
-One delicate question is how to choose the (Java) implementation class
-of the new type.
-For a built-in type we construct the ``Spec`` with a knowledge of the
-implementation class.
-The new type is a Python subclass of each of its bases
-(or if that tuple is empty, as it is in the example, just of ``object``).
-It must also be a Java sub-class of their implementation types,
-so that any methods implemented in Java are applicable to it.
-This creates a constraint on the selection of bases
-that is the Java parallel to the dreaded "layout conflict".
-
-Assuming ``PyBaseObject`` appears to work for this simple case,
-but it doesn't get us far:
-``C`` should have an instance dictionary and
-``PyBaseObject`` (i.e. ``object``) doesn't.
-The correct Java class is one that all the bases may extend,
-and which may also have an instance dictionary (or slots, or both).
+In general we shall need to give object instance their dictionaries,
+and absolutely all types have one,
+so we examine that next.
 
 
 .. _instance-dictionary:
@@ -656,8 +304,17 @@ Support in ``PyObject``
 
 It will be a frequent need to get the instance dictionary (in Java) from
 a Python object, to look up attributes in it.
-This includes the case where the object is a type object.
+This includes the case where the object is a ``type`` object.
 So we're going to add that facility to the interface ``PyObject``.
+
+..  note::
+
+    An alternative approach is possible in which only ``getType()``
+    is provided,
+    but the ``PyType`` provides the means to access the instance dictionary
+    (if there is one).
+    This would resemble more fully the CPython ``tp_dictoffset`` slot,
+    and is necessary to the ``Object``\-not-``PyObject`` paradigm.
 
 Now, it would be a mistake here to promise a reference to
 a fully-functional ``PyDict``.
@@ -665,6 +322,7 @@ Some types of object (and ``type`` is one of them),
 insist on controlling access to their members.
 (``PyType`` has a lot of re-computing to do when attributes change,
 so it needs to know when that happens.)
+
 Although every ``type`` object has a ``__dict__`` member,
 it is not as permissive as those found in objects of user-defined type.
 
@@ -686,8 +344,7 @@ it is not as permissive as those found in objects of user-defined type.
     TypeError: 'mappingproxy' object does not support item assignment
 
 We therefore need to accommodate instance "dictionaries"
-that are ``dict``\-like, but may be a read-only proxy to the real,
-potentially modifiable dictionary.
+that are ``dict``\-like, but may be a read-only proxy to the dictionary.
 We now redefine:
 
 ..  code-block:: java
@@ -706,20 +363,21 @@ We now redefine:
         }
     }
 
+The slightly clumsy ``create`` argument is intended to allow objects
+that create their dictionary lazily
+to defer creation until a client intends to write something in it.
+
 An object may implement this additional method
 by handing out an actual instance dictionary (a ``dict``),
-or a proxy that manages access.
+since ``PyDict`` implements ``Map<PyObject, PyObject>``,
+or a proxy that manages access with this interface.
 
 ..  code-block:: java
 
     class PyDict extends LinkedHashMap<PyObject, PyObject>
-            implements Map<PyObject, PyObject>, PyObject {
+            implements PyObject {
         // ...
 
-
-The slightly clumsy ``create`` argument is intended to allow objects
-that create their dictionary lazily,
-to defer creation until a client intends to write something in it.
 
 
 Read-only Dictionary (``PyType``)
@@ -772,19 +430,25 @@ The Mechanism of Attribute Access
 ``__getattribute__`` and ``__getattr__``
 ========================================
 
-In the :ref:`candidate-getattr`,
-we showed a simplified ``getAttr()`` sufficient for the example just past.
-It matches the CPython code, but CPython is hiding a trick.
+Built-in classes in CPython usually fill the ``tp_getattro`` slot
+with ``PyObject_GenericGetAttr`` in ``object.c``,
+directly or by inheritance.
+The slot is exposed as ``__getattribute__``.
 
-All built-in types have a function in their ``tp_getattro`` slot
-that consults the type of target object
+``PyObject_GenericGetAttr`` consults the type of target object
 and the instance dictionary of the object,
 in the order defined by the Python data model.
-This function is ``PyObject_GenericGetAttr`` in ``object.c``.
+
+The situation is similar for Python-defined types.
+In the :ref:`candidate-getattr`,
+we showed a simplified custom ``getAttr()``
+sufficient for the example that preceded it.
+It matches the CPython ``PyObject_GenericGetAttr``,
+but CPython is hiding a trick.
 
 Before Python 2.2,
-the way in which a type defined in Python could customise attribute access,
-was to define the special method ``__getattr__``.
+a type defined in Python would customise attribute access
+by defining the special method ``__getattr__``.
 That method would be called when the built-in mechanism
 failed to resolve the attribute name.
 At Python 2.2,
@@ -808,17 +472,13 @@ in classes defined in Python,
 to a function ``slot_tp_getattr_hook`` that calls ``__getattribute__``,
 and if that raises ``AttributeError`` catches it, and calls ``__getattr__``.
 The CPython trick is that this hook method,
-on finding that ``__getattr__`` is not defined,
+upon once finding that ``__getattr__`` is not defined,
 replaces itself in the slot with a simplified version ``slot_tp_getattro``
 that only looks for ``__getattribute__``.
 If ``__getattr__`` is subsequently added to a class,
-the re-working of the type slots that takes place re-inserts
-``slot_tp_getattr_hook``.
+the re-working of the type slots that follows an attribute change
+re-inserts ``slot_tp_getattr_hook``.
 
-Built-in classes in CPython fill the ``tp_getattro`` slot directly,
-usually with ``PyObject_GenericGetAttr``,
-or by inheritance.
-The slot is exposed as ``__getattribute__``.
 
 ..  _Attribute access in Python 2.2:
     https://docs.python.org/3/whatsnew/2.2.html#attribute-access
@@ -830,26 +490,24 @@ The slot is exposed as ``__getattribute__``.
 A Java Approach
 ---------------
 
-In CPython, So the mechanism we are looking for
+In CPython, the mechanism we are looking for
 has been cleverly folded into the slot function.
 We could do this in the ``MethodHandle``,
 but we choose a greater transparency at the cost of an extra slot.
-We shall have two slots ``tp_getattribute`` and ``tp_getattro``,
+We shall have two slots ``op_getattribute`` and ``op_getattr``,
 and put the mechanism for choosing between them in ``Abstract.getAttr``:
 
 ..  code-block:: java
 
         static PyObject getAttr(PyObject o, PyUnicode name)
                 throws AttributeError, Throwable {
-            // Decisions are based on type of o (that of name is known)
-            PyType t = o.getType();
             try {
                 // Invoke __getattribute__.
-                return (PyObject) t.tp_getattribute.invokeExact(o, name);
+                return (PyObject) t.op_getattribute.invokeExact(o, name);
             } catch (EmptyException | AttributeError e) {
                 try {
                     // Not found or not defined: fall back on __getattr__.
-                    return (PyObject) t.tp_getattro.invokeExact(o, name);
+                    return (PyObject) t.op_getattr.invokeExact(o, name);
                 } catch (EmptyException ignored) {
                     // __getattr__ not defined, original exception stands.
                     if (e instanceof AttributeError) { throw e; }
@@ -858,15 +516,14 @@ and put the mechanism for choosing between them in ``Abstract.getAttr``:
             }
         }
 
-
 This will carry no run-time cost where ``__getattribute__`` succeeds,
 and only a small one if it raises ``AttributeError``
-but ``__getattr__`` not defined.
+and ``__getattr__`` is not defined.
 
 The difference in slots from CPython
 will be visible wherever ``tp_getattro`` is referenced directly.
-In ported code, it should probably be converted to ``tp_getattribute``,
-and it may be appropriate to fall back to ``tp_getattro`` in the code.
+In ported code, it should probably be converted to ``op_getattribute``,
+and it may be appropriate to fall back to ``op_getattr`` in the code.
 All the examples of this are in the implementation of attribute access.
 In our implementation,
 the ``Slot``\s are not API, and so this is an internal matter.
@@ -914,14 +571,14 @@ Implementing ``object.__getattribute__``
 The standard implementation of ``__getattribute__`` is in ``PyBaseObject``.
 The special function (type slot) it produces
 is inherited by almost all built-in and user-defined classes.
-It fills the type slot ``tp_getattribute``.
+It fills the type slot ``op_getattribute``.
 
 The code speaks quite well for itself.
 It is adapted from the CPython ``PyObject_GenericGetAttr`` in ``object.c``,
 taking account of our different approach to error handling,
 and with the removal of some efficiency tricks.
 There is some delicacy around which exceptions should be caught,
-and the next source consulted,
+and the next source be consulted,
 and which should put a definitive end to the attempt.
 
 ..  code-block:: java
@@ -940,19 +597,21 @@ and which should put a definitive end to the attempt.
             if (typeAttr != null) {
                 // Found in the type, it might be a descriptor
                 PyType typeAttrType = typeAttr.getType();
-                descrGet = typeAttrType.tp_descr_get;
+                descrGet = typeAttrType.op_get;
                 if (typeAttrType.isDataDescr()) {
                     // typeAttr is a data descriptor so call its __get__.
                     try {
                         return (PyObject) descrGet.invokeExact(typeAttr,
                                 obj, objType);
-                    } catch (AttributeError | Slot.EmptyException e) {
+                    } catch (Slot.EmptyException e) {
                         /*
-                         * Not found via descriptor: fall through to try the
-                         * instance dictionary, but not the descriptor
-                         * again.
+                         * We do not catch AttributeError: it's definitive.
+                         * The slot shouldn't be empty if the type is marked
+                         * as a descriptor (of any kind).
                          */
-                        descrGet = null;
+                        throw new InterpreterError(
+                                Abstract.DESCR_NOT_DEFINING, "data",
+                                "__get__");
                     }
                 }
             }
@@ -983,14 +642,16 @@ and which should put a definitive end to the attempt.
             }
 
             if (typeAttr != null) {
-                // The attribute obtained from the type is the value.
+                /*
+                 * The attribute obtained from the meta-type, and that
+                 * turned out not to be a descriptor, is the return value.
+                 */
                 return typeAttr;
             }
 
             // All the look-ups and descriptors came to nothing :(
             throw Abstract.noAttributeError(obj, name);
         }
-
 
 
 .. _object-setattr:
@@ -1038,7 +699,7 @@ The standard implementation of ``__setattr__`` is as follows:
                 if (typeAttrType.isDataDescr()) {
                     // Try descriptor __set__
                     try {
-                        typeAttrType.tp_descr_set.invokeExact(typeAttr, obj,
+                        typeAttrType.op_set.invokeExact(typeAttr, obj,
                                 value);
                         return;
                     } catch (Slot.EmptyException e) {
@@ -1087,8 +748,8 @@ Implementing ``object.__delattr__``
 The standard ``object.__delattr__`` is not much different from
 ``object.__setattr__``.
 If we find a data descriptor in the type,
-we call its ``tp_descr_delete`` slot
-in place of ``tp_descr_set`` in ``__setattr__``.
+we call its ``op_delete`` slot
+in place of ``op_set`` in ``__setattr__``.
 Not only have we a distinct slot for ``__delattr__`` in objects,
 we have one for ``__delete__`` in descriptors too.
 
@@ -1121,8 +782,7 @@ but from within the slot function (and with less helpful text).
                 if (typeAttrType.isDataDescr()) {
                     // Try descriptor __delete__
                     try {
-                        typeAttrType.tp_descr_delete.invokeExact(typeAttr,
-                                obj);
+                        typeAttrType.op_delete.invokeExact(typeAttr, obj);
                         return;
                     } catch (Slot.EmptyException e) {
                         // We do not catch AttributeError: it's definitive.
@@ -1167,6 +827,7 @@ but from within the slot function (and with less helpful text).
 
 
 
+
 .. _type-getattribute:
 
 Implementing ``type.__getattribute__``
@@ -1177,20 +838,20 @@ slightly different from that in ``object``,
 and found in ``PyType.__getattribute__``.
 We highlight the differences here.
 
-Types have types, called the meta-type.
+A type has a type, called the meta-type.
 This occasions a change of variable names, even where the code is the same:
 where in ``PyBaseObject`` we had ``obj``, in ``PyType`` we write ``type``,
 and where we had ``typeAttr``, we write ``metaAttr``.
 
 ..  code-block:: java
-    :emphasize-lines: 36, 38-51
+    :emphasize-lines: 39, 41-54
 
     class PyType implements PyObject {
         //...
-        static PyObject __getattribute__(PyType type, PyUnicode name)
+        protected PyObject __getattribute__(PyUnicode name)
                 throws AttributeError, Throwable {
 
-            PyType metatype = type.getType();
+            PyType metatype = getType();
             MethodHandle descrGet = null;
 
             // Look up the name in the type (null if not found).
@@ -1198,19 +859,22 @@ and where we had ``typeAttr``, we write ``metaAttr``.
             if (metaAttr != null) {
                 // Found in the metatype, it might be a descriptor
                 PyType metaAttrType = metaAttr.getType();
-                descrGet = metaAttrType.tp_descr_get;
+                descrGet = metaAttrType.op_get;
                 if (metaAttrType.isDataDescr()) {
                     // metaAttr is a data descriptor so call its __get__.
                     try {
+                        // Note the cast of 'this', to match op_get
                         return (PyObject) descrGet.invokeExact(metaAttr,
-                                type, metatype);
-                    } catch (AttributeError | Slot.EmptyException e) {
+                                (PyObject) this, metatype);
+                    } catch (Slot.EmptyException e) {
                         /*
-                         * Not found via descriptor: fall through to try the
-                         * instance dictionary, but not the descriptor
-                         * again.
+                         * We do not catch AttributeError: it's definitive.
+                         * The slot shouldn't be empty if the type is marked
+                         * as a descriptor (of any kind).
                          */
-                        descrGet = null;
+                        throw new InterpreterError(
+                                Abstract.DESCR_NOT_DEFINING, "data",
+                                "__get__");
                     }
                 }
             }
@@ -1220,7 +884,7 @@ and where we had ``typeAttr``, we write ``metaAttr``.
              * non-data descriptor, or null if the attribute was not found.
              * It's time to give the type's instance dictionary a chance.
              */
-            PyObject attr = type.lookup(name);
+            PyObject attr = lookup(name);
             if (attr != null) {
                 // Found in this type. Try it as a descriptor.
                 try {
@@ -1229,8 +893,8 @@ and where we had ``typeAttr``, we write ``metaAttr``.
                      * descriptors in this step, but have not forgotten we
                      * are dereferencing a type.
                      */
-                    return (PyObject) attr.getType().tp_descr_get
-                            .invokeExact(attr, (PyObject) null, type);
+                    return (PyObject) attr.getType().op_get
+                            .invokeExact(attr, (PyObject) null, this);
                 } catch (Slot.EmptyException e) {
                     // We do not catch AttributeError: it's definitive.
                     // Not a descriptor: the attribute itself.
@@ -1245,18 +909,21 @@ and where we had ``typeAttr``, we write ``metaAttr``.
             if (descrGet != null) {
                 // metaAttr may be a non-data descriptor: call __get__.
                 try {
-                    return (PyObject) descrGet.invokeExact(metaAttr, type,
-                            metatype);
+                    return (PyObject) descrGet.invokeExact(metaAttr,
+                            (PyObject) this, metatype);
                 } catch (Slot.EmptyException e) {}
             }
 
             if (metaAttr != null) {
-                // The attribute obtained from the meta-type is the value.
+                /*
+                 * The attribute obtained from the meta-type, and that
+                 * turned out not to be a descriptor, is the return value.
+                 */
                 return metaAttr;
             }
 
             // All the look-ups and descriptors came to nothing :(
-            throw Abstract.noAttributeError(type, name);
+            throw Abstract.noAttributeError(this, name);
         }
 
 As with regular objects,
@@ -1279,7 +946,7 @@ which returns the method bound to the type.
 Implementing ``type.__setattr__``
 =================================
 
-The definition of `type.__setattr__``
+The definition of ``type.__setattr__``
 is also slightly different from that in ``object``.
 First we must deal with the possibility that
 the type does not allow its attributes to be changed.
@@ -1292,19 +959,19 @@ do allow this.
 
     class PyType implements PyObject {
         //...
-        static void __setattr__(PyType type, PyUnicode name, PyObject value)
+        protected void __setattr__(PyUnicode name, PyObject value)
                 throws AttributeError, Throwable {
 
             // Accommodate CPython idiom that set null means delete.
             if (value == null) {
                 // Do this to help porting. Really this is an error.
-                __delattr__(type, name);
+                __delattr__(name);
                 return;
             }
 
             // Trap immutable types
-            if (!type.flags.contains(Flag.MUTABLE))
-                throw Abstract.cantSetAttributeError(type);
+            if (!flags.contains(Flag.MUTABLE))
+                throw Abstract.cantSetAttributeError(this);
 
             // Force name to actual str , not just a sub-class
             if (name.getClass() != PyUnicode.class) {
@@ -1315,21 +982,21 @@ do allow this.
             boolean special = isDunderName(name);
 
             // Look up the name in the meta-type (null if not found).
-            PyObject metaAttr = type.getType().lookup(name);
+            PyObject metaAttr = getType().lookup(name);
             if (metaAttr != null) {
                 // Found in the meta-type, it might be a descriptor.
                 PyType metaAttrType = metaAttr.getType();
                 if (metaAttrType.isDataDescr()) {
                     // Try descriptor __set__
                     try {
-                        metaAttrType.tp_descr_set.invokeExact(metaAttr,
-                                type, value);
-                        if (special) { type.updateAfterSetAttr(name); }
+                        metaAttrType.op_set.invokeExact(metaAttr,
+                                (PyObject) this, value);
+                        if (special) { updateAfterSetAttr(name); }
                         return;
                     } catch (Slot.EmptyException e) {
                         // We do not catch AttributeError: it's definitive.
                         // Descriptor but no __set__: do not fall through.
-                        throw Abstract.readonlyAttributeError(type, name);
+                        throw Abstract.readonlyAttributeError(this, name);
                     }
                 }
             }
@@ -1339,12 +1006,12 @@ do allow this.
              * the object instance dictionary directly.
              */
             // Use the privileged put
-            type.dict.put(name, value);
-            if (special) { type.updateAfterSetAttr(name); }
+            dict.put(name, value);
+            if (special) { updateAfterSetAttr(name); }
         }
 
 As in ``object.__setattr__``,
-the logic looks for and acts on a data descriptors found in the meta-type,
+the logic looks for and acts on a data descriptor found in the meta-type,
 and then moves to the instance dictionary of the type.
 Things are made simpler by the fact that a type always has a dictionary,
 and we already know that we are allowed to modify it.
@@ -1365,79 +1032,36 @@ and :ref:`type-setattr`.
 
 
 
-.. _class-creation-descr:
+A Glance up the Mountain
+************************
 
-Class Creation with Descriptors
-*******************************
+Common built-ins do not provide for client code
+to add attributes to instances,
+that is, they have no instance dictionary.
+However, they may have attributes, that may be instance data or methods.
 
+In the case of methods,
+getting one from an instance will usually create a binding
+(a sort of Curried function) that is a new callable object.
+Not only that, the slots we rely on extensively (like ``op_sub``)
+are also exposed as methods (e.g. ``__sub__``)
+that can be called on instances or types.
 
+The code we have exhibited for ``__getattribute__``,
+``__setattr__`` and ``__delattr__``,
+relies on the existence of :ref:`Descriptors`.
+We have yet to develop the mechanism for creating descriptors.
 
+Descriptors are inserted in the dictionary of a type when it is created,
+or inherited in the formation of sub-classes.
+Quite different mechanisms are needed for filling slots
+than we have implemented in ``evo3``.
+This in turn is inseparable from sub-classing and inheritance,
+which must also differ from their ``evo3`` realisations.
 
+In order to experiment with even the most familiar attributes
+of built-in types therefore,
+we must greatly strengthen class and object creation and inheritance
+in our toy implementation.
 
-
-
-
-
-Integrating the Parts
-*********************
-
-Defining a Simple Class
-=======================
-
-Class definition turns out to begin with function definition:
-
-..  code-block:: python
-
-    >>> dis.dis(compile("class C : pass", '<test>', 'exec'))
-      1           0 LOAD_BUILD_CLASS
-                  2 LOAD_CONST               0 (<code object C at ... >)
-                  4 LOAD_CONST               1 ('C')
-                  6 MAKE_FUNCTION            0
-                  8 LOAD_CONST               1 ('C')
-                 10 CALL_FUNCTION            2
-                 12 STORE_NAME               0 (C)
-                 14 LOAD_CONST               2 (None)
-                 16 RETURN_VALUE
-
-    Disassembly of <code object C at ...>:
-      1           0 LOAD_NAME                0 (__name__)
-                  2 STORE_NAME               1 (__module__)
-                  4 LOAD_CONST               0 ('C')
-                  6 STORE_NAME               2 (__qualname__)
-                  8 LOAD_CONST               1 (None)
-                 10 RETURN_VALUE
-
-
-We already have everything we need for this trivial example,
-except for the new opcode ``LOAD_BUILD_CLASS``.
-This opcode simply pushes the function ``__builtins__.__build_class__``,
-that by default is in the ``builtins`` module.
-
-The next instructions define a *function* object ``C``,
-whose body is the *class* body
-(defined by the code object also displayed).
-
-Finally,
-the function ``__build_class__`` is called with just two arguments:
-the function object just defined, and the name of ``C``.
-There is not much to the function body in this trivial case,
-but it will get executed (not exactly called as a function),
-within ``__build_class__``.
-What it leaves behind in its ``locals()``,
-essentially populates the dictionary of the type.
-
-
-A First Approximation to ``__build_class__``
-============================================
-
-``__build_class__`` is quite complicated,
-and quite likely we cannot implement it fully
-with the type system as it stands.
-
-
-
-..  code-block:: java
-
-
-..  code-block:: java
-
+Suddenly, we have a significant climb ahead.
