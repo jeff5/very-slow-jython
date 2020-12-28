@@ -5,33 +5,36 @@ package uk.co.farowl.vsj2.evo4;
  * object, used to represent a method defined in Java and bound to a
  * particular target.
  */
-
-class PyJavaMethod extends PyJavaFunction {
-
-    /** The object to which this is bound as target. */
-    final PyObject self;
+class PyJavaMethod extends PyJavaCallable {
 
     // Compare CPython PyCFunction_NewEx in methodobject.c
-    PyJavaMethod(MethodDef methodDef, PyObject self,
-            PyUnicode moduleName) {
-        super(methodDef, moduleName);
-        this.self = self;
-    }
-
     PyJavaMethod(MethodDef methodDef, PyObject self) {
-        this(methodDef, self, null);
+        super(methodDef, self, methodDef.getBoundHandle(self), null);
     }
 
     @Override
-    protected PyUnicode __repr__() {
-        if (self == null)  // || PyModule_Check(self)
-            return PyUnicode.fromFormat("<built-in function %s>",
-                    methodDef.name);
-        else
-            return PyUnicode.fromFormat(
-                    "<built-in method %s of %s object at %s>",
-                    methodDef.name, self.getType().name,
-                    Integer.toHexString(((Object) self).hashCode()));
+    public PyObject __call__(PyTuple args, PyDict kwargs)
+            throws Throwable {
+        // Prepend self to arguments
+        int n = args.size();
+        if (n == 0)
+            args = Py.tuple(self);
+        else {
+            PyObject[] a = new PyObject[n + 1];
+            a[0] = self;
+            System.arraycopy(args.value, 0, a, 1, n);
+            args = Py.tuple(a);
+        }
+        // Make classic call
+        try {
+            return (PyObject) opCall.invokeExact(args, kwargs);
+        } catch (MethodDef.BadCallException bce) {
+            // After the BCE, check() should always throw.
+            methodDef.check(args, kwargs);
+            // It didn't :( so this is an internal error
+            throw new InterpreterError(bce,
+                    "Unexplained BadCallException in __call__");
+        }
     }
 
 }

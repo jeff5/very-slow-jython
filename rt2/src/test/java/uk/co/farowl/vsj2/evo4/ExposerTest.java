@@ -474,7 +474,7 @@ class ExposerTest {
                 PyObjectWithMethods.LOOKUP, PyObjectWithMethods.class,
                 PyObjectWithMethods.TYPE);
 
-        // We defined this classic method
+        // We defined this Java method
         PyMethodDescr length = mds.get("length");
 
         assertNotNull(length);
@@ -490,7 +490,6 @@ class ExposerTest {
      * annotated in the test class {@link PyObjectWithMethods}.
      *
      * @throws Throwable unexpectedly
-     * @throws AttributeError unexpectedly
      */
     @Test
     void methodDescrCall() throws AttributeError, Throwable {
@@ -517,4 +516,88 @@ class ExposerTest {
         result = density.call(a, Py.str("l"));
         assertEquals(0.25, Number.toFloat(result).doubleValue(), 1e-6);
     }
+
+    /**
+     * Test that attribute access on {@link PyMethodDescr}s from the
+     * {@link Exposer} create bound method objects of type
+     * {@link PyJavaMethod}, for methods annotated in the test class
+     * {@link PyObjectWithMethods}.
+     *
+     * @throws Throwable unexpectedly
+     */
+    @Test
+    void boundMethodConstruct() throws AttributeError, Throwable {
+        // Roughly what PyType.fromSpec does in real life.
+        Map<String, PyMethodDescr> mds = Exposer.methodDescrs(
+                PyObjectWithMethods.LOOKUP, PyObjectWithMethods.class,
+                PyObjectWithMethods.TYPE);
+
+        // Create an object of the right type
+        String hello = "Hello World!";
+        PyObjectWithMethods a = new PyObjectWithMethods(hello);
+
+        // We defined this Java method
+        PyMethodDescr length = mds.get("length");
+        PyJavaMethod bm = (PyJavaMethod) length.__get__(a, null);
+
+        assertNotNull(bm);
+        assertEquals(a, bm.self);
+        assertEquals(length.methodDef, bm.methodDef);
+        assertStartsWith(
+                "<built-in method length of PyObjectWithMethods object",
+                bm);
+    }
+
+    /**
+     * Test that we can call {@link PyJavaMethod}s created by attribute
+     * access on methods annotated in the test class
+     * {@link PyObjectWithMethods}.
+     *
+     * @throws Throwable unexpectedly
+     */
+    @Test
+    void boundMethodCall() throws AttributeError, Throwable {
+
+        String hello = "Hello World!";
+        PyObject a = new PyObjectWithMethods(hello);
+        PyObject result;
+
+        // bm = a.length
+        PyJavaMethod bm =
+                (PyJavaMethod) Abstract.getAttr(a, Py.str("length"));
+        assertNotNull(bm);
+        assertEquals(a, bm.self);
+
+        // n = bm() # = 12
+        result = Callables.call(bm);
+        assertEquals(hello.length(), Number.index(result).asSize());
+
+        // m = a.density
+        bm = (PyJavaMethod) Abstract.getAttr(a, Py.str("density"));
+
+        // Force a classic call
+        // result = bm("l") # = 0.25
+        PyTuple args = Py.tuple(Py.str("l"));
+        result = bm.__call__(args, null);
+        assertEquals(0.25, Number.toFloat(result).doubleValue(), 1e-6);
+
+        // Make a vector call
+        // result = bm("l") # = 0.25
+        PyObject[] stack = new PyObject[] {Py.str("l")};
+        result = bm.call(stack, 0, 1, null);
+        assertEquals(0.25, Number.toFloat(result).doubleValue(), 1e-6);
+    }
+
+    // Support methods -----------------------------------------------
+
+    /** Assertion for prefix of a result. */
+    private static void assertStartsWith(String expected,
+            Object actual) {
+        assertNotNull(actual);
+        String actualString = actual.toString();
+        int len = Math.min(expected.length(), actualString.length());
+        String actualPrefix = actualString.substring(0, len);
+        assertEquals(expected, actualPrefix);
+    }
+
 }

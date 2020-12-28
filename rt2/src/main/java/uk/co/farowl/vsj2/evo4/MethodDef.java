@@ -138,12 +138,15 @@ class MethodDef {
     final String name;
     /**
      * Handle of the Java method that implements the function or method.
-     * The type of this handle exactly reflects the declared signature.
+     * The type of this handle exactly reflects the declared signature,
+     * including the "self" argument if not static.
      */
     final MethodHandle natural;
     /**
      * Handle for the implementation, adapted so that it may be invoked
-     * with {@link PyObject} arguments.
+     * with {@link PyObject} arguments. This type of this handle is
+     * {@code (O,O,O,...)O} with the same number of parameters as
+     * {@link #natural}.
      */
     final MethodHandle meth;
     /**
@@ -417,18 +420,16 @@ class MethodDef {
 
     /**
      * Return the number of arguments of a fixed-arity function or
-     * method, not counting self.
+     * method.
      *
-     * @return
+     * @return number of arguments
      */
     int getNargs() {
         if (flags.contains(Flag.VARARGS)
                 || flags.contains(Flag.KEYWORDS))
             throw new InternalError(
                     "MethodDef: number of args not defined");
-        MethodType type = meth.type();
-        int n = type.parameterCount();
-        return flags.contains(Flag.STATIC) ? n : n - 1;
+        return meth.type().parameterCount();
     }
 
     @Override
@@ -478,10 +479,22 @@ class MethodDef {
      * @return required handle
      */
     MethodHandle getVectorHandle() {
-
         int n = meth.type().parameterCount();
         MethodHandle vec = meth.asSpreader(MHUtil.OA, n);
+        return vec;
+    }
 
+    /**
+     * Create a {@code MethodHandle} with the signature {@code (O,O[])O}
+     * that will make a "bound method call" to the method described in
+     * this {@code MethodDef}.
+     *
+     * @return required handle
+     */
+    MethodHandle getBoundHandle(PyObject o) {
+        // XXX Defend against n = 0
+        int n = meth.type().parameterCount();
+        MethodHandle vec = meth.bindTo(o).asSpreader(MHUtil.OA, n - 1);
         return vec;
     }
 

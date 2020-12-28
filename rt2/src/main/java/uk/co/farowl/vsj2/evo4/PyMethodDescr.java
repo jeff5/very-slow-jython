@@ -21,7 +21,7 @@ class PyMethodDescr extends Descriptor implements VectorCallable {
     // CPython: vectorcallfunc vectorcall;
 
     /** Supports vector call methods. */ // MT: (O[])O
-    private final MethodHandle vectorHandle;
+    private final MethodHandle callHandle;
 
     // Compare CPython PyDescr_NewMethod in descrobject.c
     PyMethodDescr(PyType descrtype, PyType objclass, MethodDef method) {
@@ -67,7 +67,7 @@ class PyMethodDescr extends Descriptor implements VectorCallable {
         // method.name);
         // }
 
-        this.vectorHandle = vectorcall;
+        this.callHandle = vectorcall;
     }
 
     PyMethodDescr(PyType objclass, MethodDef method) {
@@ -193,7 +193,7 @@ class PyMethodDescr extends Descriptor implements VectorCallable {
     @Override
     public PyObject call(PyObject... args) throws Throwable {
         // XXX where do we deal with default arguments? Here?
-        return (PyObject) vectorHandle.invokeExact(args);
+        return (PyObject) callHandle.invokeExact(args);
     }
 
     /**
@@ -204,7 +204,7 @@ class PyMethodDescr extends Descriptor implements VectorCallable {
     public PyObject call(PyObject[] args, PyTuple kwnames)
             throws Throwable {
         if (kwnames == null || kwnames.size() == 0) {
-            return (PyObject) vectorHandle.invokeExact(args);
+            return (PyObject) callHandle.invokeExact(args);
         } else {
             throw new MissingFeature("Keywords in vector call");
         }

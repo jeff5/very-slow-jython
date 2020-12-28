@@ -22,8 +22,8 @@ interface VectorCallable {
      * arguments given by position, while {@code args[-m:]} provides the
      * arguments given by keyword.
      *
-     * @implSpec If no keyword arguments are allowed,
-     * the implementation must check {@code kwnames} is null or empty..
+     * @implSpec If no keyword arguments are allowed, the implementation
+     *           must check {@code kwnames} is null or empty..
      * @param args arguments given by position and by keyword
      * @param kwnames names of arguments given by keyword
      * @return result of the invocation
@@ -35,7 +35,7 @@ interface VectorCallable {
      * Call the object with arguments given by position.
      *
      * @implSpec The default implementation calls
-     *            {@link #call(PyObject[], PyTuple) call(args, null)} .
+     *           {@link #call(PyObject[], PyTuple) call(args, null)} .
      * @param args arguments given by position
      * @return result of the invocation
      * @throws Throwable from the implementation
@@ -81,9 +81,9 @@ interface VectorCallable {
     }
 
     /**
-     * @implSpec An object that is a VectorCallable must also support the
-     *           classic call (and with the same result as the direct
-     *           call).
+     * @implSpec An object that is a VectorCallable must also support
+     *           the classic call (and with the same result as the
+     *           direct call).
      *
      * @param args positional arguments
      * @param kwargs keyword argument dictionary or {@code null}
