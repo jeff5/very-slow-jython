@@ -80,8 +80,10 @@ class ThreadState {
         }
 
         /**
-         * Set the recursion l;imit for this thread. The new limit must
+         * Set the recursion limit for this thread. The new limit must
          * be higher than the current depth by about 50.
+         *
+         * @param limit desired for stack depth
          */
         void setRecursionLimit(int limit) {
             int mark = Math.max(limit - 50, 3 * limit / 4);
@@ -100,6 +102,8 @@ class ThreadState {
         /**
          * {@code StackOverflow} has been raised and the stack has not
          * yet recovered.
+         *
+         * @return {@code true} iff in overflowed state
          */
         public boolean isOverflowed() { return overflowed; }
     }
@@ -107,6 +111,9 @@ class ThreadState {
     /**
      * Use as a resource in a try-with-resources construct, around any
      * method body that should count against the limit.
+     *
+     * @param cause describing circumstances of possible overflow
+     * @return current recursion state
      */
     public static RecursionState enterRecursiveCall(String cause) {
         try {
@@ -139,6 +146,8 @@ class ThreadState {
     /**
      * Find or create a {@code ThreadState} representing the current
      * Java {@code Thread}. This is never {@code null}.
+     *
+     * @return current thread state
      */
     static final ThreadState get() { return current.get(); }
 }

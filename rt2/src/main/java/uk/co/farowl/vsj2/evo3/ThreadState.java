@@ -46,6 +46,8 @@ class ThreadState {
     /**
      * Find or create a {@code ThreadState} representing the current
      * Java {@code Thread}. This is never {@code null}.
+     *
+     * @return current thread state
      */
     static final ThreadState get() { return current.get(); }
 }

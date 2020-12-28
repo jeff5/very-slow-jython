@@ -209,7 +209,11 @@ class MethodDef {
      * Construct a method definition from a {@code Method} and a lookup
      * object able to access it.
      *
-     * @throws IllegalAccessException
+     * @param name overriding that declared (if not null)
+     * @param m to wrap
+     * @param lookup granting access to obtian handle on {@code m}
+     * @param doc documentation string
+     * @throws IllegalAccessException if cannot reflect {@code m}
      */
     MethodDef(String name, Method m, Lookup lookup, String doc)
             throws IllegalAccessException {
@@ -240,7 +244,14 @@ class MethodDef {
         this.flags = calcFlags(f);
     }
 
-    /** Construct a method definition from a {@code MethodHandle}. */
+    /**
+     * Construct a method definition from a {@code MethodHandle}.
+     *
+     * @param name of the method
+     * @param mh handle to wrap in the definition
+     * @param flags traits of the method
+     * @param doc documentation string
+     */
     MethodDef(String name, MethodHandle mh, EnumSet<Flag> flags,
             String doc) {
         this.name = name;
@@ -250,7 +261,13 @@ class MethodDef {
         this.flags = calcFlags(flags);
     }
 
-    /** Construct a method definition from a {@code MethodHandle}. */
+    /**
+     * Construct a method definition from a {@code MethodHandle}.
+     *
+     * @param name of the method
+     * @param mh handle to wrap in the definition
+     * @param doc documentation string
+     */
     MethodDef(String name, MethodHandle mh, String doc) {
         this(name, mh, EnumSet.noneOf(Flag.class), doc);
     }
@@ -489,6 +506,7 @@ class MethodDef {
      * that will make a "bound method call" to the method described in
      * this {@code MethodDef}.
      *
+     * @param o to bind as "self"
      * @return required handle
      */
     MethodHandle getBoundHandle(PyObject o) {

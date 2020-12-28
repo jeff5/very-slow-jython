@@ -40,10 +40,11 @@ abstract class PyMemberDescr extends DataDescriptor {
     String doc;
 
     /**
-     * Construct a MemberDef from a client-supplied handle. This allows
-     * all JVM-supported access modes, but you have to make your own
-     * handle.
+     * Construct a {@code PyMemberDescr} from a client-supplied handle.
+     * This allows all JVM-supported access modes, but you have to make
+     * your own handle.
      *
+     * @param objclass Python type containing this member
      * @param name by which the member is known to Python
      * @param handle to the Java member
      * @param flags characteristics controlling access

@@ -85,7 +85,13 @@ class PyFunction extends AbstractPyObject {
         return frame.eval();
     }
 
-    /** Prepare the frame from "classic" arguments. */
+    /**
+     * Prepare the frame from "classic" arguments.
+     *
+     * @param args arguments given by position
+     * @param kwargs arguments given by keyword
+     * @return created and populated frame.
+     */
     protected PyFrame createFrame(PyTuple args, PyDict kwargs) {
 
         PyFrame frame = code.createFrame(interpreter, globals, closure);
@@ -145,7 +151,15 @@ class PyFunction extends AbstractPyObject {
         return frame.eval();
     }
 
-    /** Prepare the frame from CPython vector call arguments. */
+    /**
+     * Prepare the frame from CPython vector call arguments.
+     *
+     * @param stack containing arguments to the call
+     * @param start index of first argument
+     * @param nargs number of arguments
+     * @param kwnames names of trailing keyword arguments
+     * @return created and populated frame.
+     */
     protected PyFrame createFrame(PyObject[] stack, int start,
             int nargs, PyTuple kwnames) {
 
@@ -265,7 +279,12 @@ class PyFunction extends AbstractPyObject {
         return closure != null ? PyTuple.wrap(closure) : Py.None;
     }
 
-    /** Set the {@code __closure__} attribute. */
+    /**
+     * Set the {@code __closure__} attribute.
+     *
+     * @param <E> element type
+     * @param closure elements with which to poulate the closure
+     */
     <E extends PyObject> void setClosure(Collection<E> closure) {
 
         int n = closure == null ? 0 : closure.size();

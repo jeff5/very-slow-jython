@@ -5,7 +5,12 @@ import uk.co.farowl.vsj2.evo3.Slot.EmptyException;
 /** Compare CPython {@code abstract.h}: {@code Py_Sequence_*}. */
 class Sequence extends Abstract {
 
-    /** {@code true} iff {@code s} is a sequence type. */
+    /**
+     * {@code true} iff {@code s} is of sequence type.
+     *
+     * @param s possible sequence
+     * @return {@code true} iff is a sequence
+     */
     static boolean check(PyObject s) {
         return !(s instanceof PyDict)
                 && Slot.sq_item.isDefinedFor(s.getType());

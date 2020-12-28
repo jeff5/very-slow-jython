@@ -258,14 +258,14 @@ class PyMethodDescr extends Descriptor implements VectorCallable {
     /**
      * Examine the arguments to a vector call being made on this
      * descriptor as a <em>method</em> to verify that:
-     * <nl>
+     * <ol>
      * <li>There is at least one argument, {@code self}.</li>
      * <li>{@code self}) is compatible in type with
      * {@link Descriptor#objclass}.</li>
-     * <li>{@code kwnames}</li> is null or empty. (The caller knows
-     * whether this should be enforced and may pass a literal
-     * {@code null}.)
-     * </nl>
+     * <li>{@code kwnames} is null or empty. (The caller knows whether
+     * this should be enforced and may pass a literal
+     * {@code null}.)</li>
+     * </ol>
      *
      * @param stack self, positional and keyword arguments
      * @param start position of arguments in the array
@@ -361,6 +361,7 @@ class PyMethodDescr extends Descriptor implements VectorCallable {
      * @param nargs number of positional arguments, should be 1
      * @param kwnames names of keyword arguments must be empty or null
      * @return the return from the call to {@code this.meth}
+     * @throws Throwable from invoked implementation.
      */
     // Compare CPython method_vectorcall_NOARGS in descrobject.c
     PyObject vectorcall_NOARGS(PyObject[] stack, int start, int nargs,
@@ -389,6 +390,7 @@ class PyMethodDescr extends Descriptor implements VectorCallable {
      * @param nargs number of positional arguments, should be 2
      * @param kwnames names of keyword arguments must be empty or null
      * @return the return from the call to {@code this.meth}
+     * @throws Throwable from invoked implementation.
      */
     // Compare CPython method_vectorcall_O in descrobject.c
     PyObject vectorcall_O(PyObject[] stack, int start, int nargs,

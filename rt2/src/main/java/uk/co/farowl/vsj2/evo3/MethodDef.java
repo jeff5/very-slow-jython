@@ -175,7 +175,14 @@ class MethodDef {
         FASTCALL //
     }
 
-    /** Construct a method definition. */
+    /**
+     * Construct a method definition.
+     *
+     * @param name of the method
+     * @param mh handle to wrap in the definition
+     * @param flags traits of the method
+     * @param doc documentation string
+     */
     MethodDef(String name, MethodHandle mh, EnumSet<Flag> flags,
             String doc) {
         this.name = name;
@@ -184,7 +191,13 @@ class MethodDef {
         this.flags = calcFlags(flags);
     }
 
-    /** Construct a method definition. */
+    /**
+     * Construct a method definition.
+     *
+     * @param name of the method
+     * @param mh handle to wrap in the definition
+     * @param doc documentation string
+     */
     MethodDef(String name, MethodHandle mh, String doc) {
         this(name, mh, EnumSet.noneOf(Flag.class), doc);
     }
@@ -290,7 +303,6 @@ class MethodDef {
         return new InterpreterError(fmt, a);
     }
 
-
     /**
      * Check classic {@code (*args, **kwargs)} call arguments against
      * this MethodDef and throw an exception if if {@code len(args)} or
@@ -357,7 +369,7 @@ class MethodDef {
      * Return the number of arguments of a fixed-arity function or
      * method, not counting self.
      *
-     * @return
+     * @return number of arguments expected
      */
     int getNargs() {
         if (flags.contains(Flag.VARARGS)
