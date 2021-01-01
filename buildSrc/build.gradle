@@ -1,0 +1,19 @@
+/*
+ * $projectDir/buildSrc/build.gradle
+ *
+ * Project build file for buildSrc in The Very Slow Jython Project.
+ */
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    // ASM to generate classes that go in the library
+    implementation 'org.ow2.asm:asm:9.0'
+
+    // JUnit 5 dependencies
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.1.0'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.1.0'
+}
+

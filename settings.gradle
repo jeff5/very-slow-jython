@@ -1,14 +1,18 @@
 /*
- * Settings for multiproject build of very-slow-jython.
+ * $projectDir/settings.gradle
+ *
+ * Settings file for multiproject build of very-slow-jython.
  */
 
 rootProject.name = 'very-slow-jython'
 
 include 'docs'      // narrative of the project
-include 'rt1'       // model interpreter runtime to test our ideas (phase 1)
-include 'rt2'       // model interpreter runtime phase 2
+include 'rt1'       // model runtime phase 1 (using AST)
+include 'rt2'       // model runtime phase 2 (using method handles)
 include 'rt2bm'     // benchmarks for runtime phase 2
-include 'jy2bm'     // comparable benchmarks for Jython 2
+include 'jy2bm'     // benchmarks for Jython 2 (comparison)
+include 'dy2'       // experimental extension to rt2 (using indy)
+include 'dy2bm'     // benchmarks for runtime phase 2 (using indy)
 include 'samples'   // sample applications
 
 // Sub-project build files are named after the sub-project.

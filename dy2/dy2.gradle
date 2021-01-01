@@ -1,0 +1,52 @@
+/*
+ * dy2 subproject (simple use of invokedynamic).
+ *
+ * The output of this project is a set of classes equivalent to certain
+ * Abstract API methods in the run-time system. These equivalents are
+ * generated with ASM and use invokedynamic instructions and call sites.
+ * The theory is that these offer HotSpot the chance to in-line
+ * optimised operations.
+ *
+ * This project aims to get them correct. Project dy2bm tests the theory
+ * using micro-benchmarks.
+ */
+
+plugins {
+    id 'java-library'
+}
+
+// Our locally-rolled calss-generator
+import uk.co.farowl.vsj2dy.generate.DynamicAPITask
+
+
+dependencies {
+    // ASM to generate classes that go in the library
+    //implementation 'org.ow2.asm:asm:9.0'
+
+    // JUnit 5 dependencies
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.1.0'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.1.0'
+}
+
+
+test {
+    useJUnitPlatform {  // JUnit5 as standard
+        includeEngines 'junit-jupiter'
+    }
+}
+
+
+// Task defined in root buildSrc
+task generateDynamicAPI(type: DynamicAPITask) {
+    source = "src/main/dynamicAPI"
+    destinationDir = file("$buildDir/classes/dynamicAPI/main")
+    // Must be set but not actually consulted :(
+    classpath = layout.files("$buildDir/classes/java/main")
+}
+
+
+jar {
+    // Ensure the output of this task get into the JAR
+    from generateDynamicAPI
+}
+

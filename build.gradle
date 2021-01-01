@@ -1,7 +1,7 @@
 /*
- * Build file for The Very Slow Jython Project.
+ * $projectDir/build.gradle
  *
- * This is a multi-project build.
+ * Root project build file for The Very Slow Jython Project.
  */
 
 
@@ -16,11 +16,14 @@ version = '0.3.0-SNAPSHOT'
 
 
 allprojects {
+
     apply plugin: 'java'
     sourceCompatibility = '11'
+
     tasks.withType(JavaCompile) {
         options.encoding = 'UTF-8'
     }
+
     tasks.withType(Javadoc) {
         options.encoding = 'UTF-8'
         options.showFromPackage()
