@@ -21,7 +21,7 @@ public class Number extends Abstract {
         try {
             return (PyObject) v.getType().op_neg.invokeExact(v);
         } catch (Slot.EmptyException e) {
-            throw operandError("unary -", v);
+            throw operandError(Slot.op_neg, v);
         }
     }
 
@@ -36,7 +36,7 @@ public class Number extends Abstract {
         try {
             return (PyObject) v.getType().op_abs.invokeExact(v);
         } catch (Slot.EmptyException e) {
-            throw operandError("abs()", v);
+            throw operandError(Slot.op_abs, v);
         }
     }
 
@@ -48,9 +48,9 @@ public class Number extends Abstract {
      * @param v actual operand (only {@code v.getType()} is used)
      * @return exception to throw
      */
-    static PyException operandError(String op, PyObject v) {
-        return new TypeError("bad operand type for %s: '%.200s'", op,
-                v.getType().getName());
+    static PyException operandError(Slot op, PyObject v) {
+        return new TypeError("bad operand type for %s: '%.200s'",
+                op.opName, v.getType().getName());
     }
 
     /**
@@ -146,7 +146,7 @@ public class Number extends Abstract {
             if (r != Py.NotImplemented)
                 return r;
         } catch (Slot.EmptyException e) {}
-        throw operandError(binop.opName, v, w);
+        throw operandError(binop, v, w);
     }
 
     /**
@@ -394,7 +394,7 @@ public class Number extends Abstract {
     }
 
     /**
-     * Create a {@code TypeError} for the named binary operation, along
+     * Throw a {@code TypeError} for the named binary operation, along
      * the lines "unsupported operand type(s) for OP: 'V' and 'W'".
      *
      * @param op operation to report
@@ -402,8 +402,9 @@ public class Number extends Abstract {
      * @param w right operand (only {@code w.getType()} is used)
      * @return exception to throw
      */
-    static PyException operandError(String op, PyObject v, PyObject w) {
-        return new TypeError(UNSUPPORTED_TYPES, op,
+    // XXX Possibly move to Slot so may bind early.
+    static PyException operandError(Slot op, PyObject v, PyObject w) {
+        return new TypeError(UNSUPPORTED_TYPES, op.opName,
                 v.getType().getName(), w.getType().getName());
     }
 

@@ -1,0 +1,76 @@
+/*
+ * dy2bm subproject (invokedynamic benchmarks for rt2 & dy2).
+ *
+ * This sub-project builds an application that orchestrates 
+ * microbenchmarks on the fundamental operations of the Python
+ * run-time system as they might be when compiled for the JVM.
+ */
+
+plugins {
+    id 'application'
+}
+
+
+dependencies {
+
+    implementation project(path:':dy2') // and :rt2 transitively
+
+    implementation 'org.openjdk.jmh:jmh-core:1.26'
+    annotationProcessor 'org.openjdk.jmh:jmh-generator-annprocess:1.26'
+}
+
+
+compileJava {
+    doFirst {
+        println "Task $name classpath:"
+        classpath.forEach {
+            File element -> println "    $element"
+        }
+    }
+}
+
+
+application {
+    mainClass = 'org.openjdk.jmh.Main'
+}
+
+
+task jmh(type: JavaExec, description: 'JMH Help') {
+    classpath = sourceSets.main.runtimeClasspath
+    main = 'org.openjdk.jmh.Main'
+    args '-h'
+}
+
+
+task lprof(type: JavaExec, description: 'JMH List profilers') {
+    // Maybe need variants of this task with different filters
+    classpath = sourceSets.main.runtimeClasspath
+    main = 'org.openjdk.jmh.Main'
+
+    args '-lprof'
+}
+
+
+task unary(type: JavaExec, description: 'Unary operations') {
+    classpath = sourceSets.main.runtimeClasspath
+    main = 'org.openjdk.jmh.Main'
+
+    // Need variants of this task with different filters
+    // Trailing .* necessary!
+    args '.*Unary.*'
+
+    // jvmArgs '-Xint' // JVM options added like this
+}
+
+
+task binary(type: JavaExec, description: 'Binary operations') {
+    classpath = sourceSets.main.runtimeClasspath
+    main = 'org.openjdk.jmh.Main'
+
+    // Need variants of this task with different filters
+    // Trailing .* necessary!
+    args '.*Binary.*'
+
+    // jvmArgs '-Xint' // JVM options added like this
+}
+

@@ -20,8 +20,10 @@ import org.gradle.api.file.DirectoryProperty;
 import org.gradle.api.tasks.TaskAction;
 import org.gradle.api.tasks.compile.AbstractCompile;
 import org.objectweb.asm.ClassWriter;
+import org.objectweb.asm.Handle;
 import org.objectweb.asm.MethodVisitor;
 import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.Type;
 
 /**
  * Generate classes using ASM from a simple specification for the unary
@@ -186,11 +188,11 @@ public class DynamicAPITask extends AbstractCompile {
         }
 
         private void beginClass() {
-            String name = packagePath + "/" + className;
+            String name = packagePath + '/' + className;
             cw = new ClassWriter(ClassWriter.COMPUTE_MAXS
                     + ClassWriter.COMPUTE_FRAMES);
-            cw.visit(V11, 0, name, null, "java/lang/Object",
-                    new String[] {});
+            cw.visit(V11, ACC_PUBLIC, name, null,
+                    JO_TYPE.getInternalName(), new String[] {});
         }
 
         private void endClass() {
@@ -200,15 +202,15 @@ public class DynamicAPITask extends AbstractCompile {
 
         private void emitUnaryOperation(String name) {
             MethodVisitor mv = cw.visitMethod(ACC_PUBLIC + ACC_STATIC,
-                    name, DESCR_UNARY, null, null);
+                    name, UNARY_TYPE.getDescriptor(), null, null);
 
             // Body of method
             mv.visitCode();
 
-            // return Number.negative(v)
+            // return op(<name>)(v)
             mv.visitVarInsn(ALOAD, 0);
-            mv.visitMethodInsn(INVOKESTATIC, NUMBER_CLASS, "negative",
-                    DESCR_UNARY, false);
+            mv.visitInvokeDynamicInsn(name, UNARY_TYPE.getDescriptor(),
+                    BOOTSTRAP_H);
             mv.visitInsn(ARETURN);
 
             // Stack and frame dimensions computed by the ClassWriter
@@ -216,22 +218,75 @@ public class DynamicAPITask extends AbstractCompile {
             mv.visitEnd();
         }
 
-        // Signatures used in visitMethod
-        private static final String DESCR_UNARY =
-                "(Ljava/lang/PyObject;)Ljava/lang/PyObject;";
-
-        // Static version of the Python abstract API
+        // Strings needed to designate significant packages
         private static final String PYTHON_PKG =
-                "uk/co/farowl/vsj2/evo4/";
-        private static final String NUMBER_CLASS =
-                PYTHON_PKG + "Number";
+                "uk/co/farowl/vsj2/evo4";
+        private static final String LANG_PKG = "java/lang";
+        private static final String INVOKE_PKG = LANG_PKG + "/invoke";
+
+        // Strings needed to designate significant classes
+
+        /** Type Java {@code Object} */
+        private static final Type JO_TYPE =
+                Type.getType(classDescr(LANG_PKG, "Object"));
+        /** Type Python {@code object} ({@code PyObject}) */
+        private static Type PO_TYPE =
+                Type.getType(classDescr(PYTHON_PKG, "PyObject"));
+        private static final Type CALL_SITE_TYPE =
+                Type.getType(classDescr(INVOKE_PKG, "CallSite"));
+        private static final Type LOOKUP_TYPE = Type.getType(
+                classDescr(INVOKE_PKG, "MethodHandles", "Lookup"));
+        private static final Type METHOD_TYPE_TYPE =
+                Type.getType(classDescr(INVOKE_PKG, "MethodType"));
+        private static final Type RT_TYPE =
+                Type.getType(classDescr(PYTHON_PKG, "PyRT"));
+        private static final Type STRING_TYPE =
+                Type.getType(classDescr(LANG_PKG, "String"));
+
+        /** Type of unary operation */
+        private static Type UNARY_TYPE =
+                Type.getMethodType(PO_TYPE, PO_TYPE);
+        /** Type of simple bootstrap */
+        private static Type DESCR_BOOTSTRAP =
+                Type.getMethodType(CALL_SITE_TYPE, LOOKUP_TYPE,
+                        STRING_TYPE, METHOD_TYPE_TYPE);
+
+        /** ASM Handle for PyRT bootstrap */
+        private static Handle BOOTSTRAP_H = new Handle(
+                Opcodes.H_INVOKESTATIC, RT_TYPE.getDescriptor(),
+                "bootstrap", DESCR_BOOTSTRAP.getDescriptor(), false);
+
+        /**
+         * Concatenate package ("a/b/c") and class name ("T", "U")
+         * strings to make a JVM internal class name ("a/b/c/T$U").
+         */
+        private static String internalName(String pkg, String... cls) {
+            StringBuilder b = new StringBuilder(100);
+            b.append(pkg).append('/').append(cls[0]);
+            for (int i = 1; i < cls.length; i++)
+                b.append('$').append(cls[i]);
+            return b.toString();
+        }
+
+        /**
+         * Concatenate package ("a/b/c") and class name ("T", "U")
+         * strings to make a JVM internal class name ("La/b/c/T$U;").
+         */
+        private static String classDescr(String pkg, String... cls) {
+            StringBuilder b = new StringBuilder(100);
+            b.append('L').append(pkg).append('/').append(cls[0])
+                    .append(';');
+            for (int i = 1; i < cls.length; i++)
+                b.append('$').append(cls[i]);
+            return b.toString();
+        }
 
         // Parser support --------------------------------------------
 
         /**
          * Advance to next (or first) line.
          *
-         * @return the {@link Line.Kind} of the new line
+         * @return the {@link DynamicAPITask.Line.Kind} of the new line
          * @throws IOException when reading {@link #source}
          */
         Line.Kind nextLine() throws IOException {

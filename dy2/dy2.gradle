@@ -15,13 +15,13 @@ plugins {
     id 'java-library'
 }
 
-// Our locally-rolled calss-generator
+// Our locally-rolled class-generator
 import uk.co.farowl.vsj2dy.generate.DynamicAPITask
 
 
 dependencies {
-    // ASM to generate classes that go in the library
-    //implementation 'org.ow2.asm:asm:9.0'
+
+    api project(':rt2')
 
     // JUnit 5 dependencies
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.1.0'
@@ -39,14 +39,28 @@ test {
 // Task defined in root buildSrc
 task generateDynamicAPI(type: DynamicAPITask) {
     source = "src/main/dynamicAPI"
-    destinationDir = file("$buildDir/classes/dynamicAPI/main")
+    // Mix output into Java plugin directory :(
+    destinationDir = file("$buildDir/classes/java/main")
     // Must be set but not actually consulted :(
     classpath = layout.files("$buildDir/classes/java/main")
+
+    doFirst {
+        println "Task $name outputs:"
+        outputs.files.forEach {
+            element -> println "    $element"
+        }
+    }
 }
 
 
+artifacts {
+    apiElements(generateDynamicAPI.destinationDirectory)
+}
+
+
+// Ensure the output of generateDynamicAPI gets into the JAR
 jar {
-    // Ensure the output of this task get into the JAR
     from generateDynamicAPI
 }
+
 

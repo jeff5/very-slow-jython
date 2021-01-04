@@ -63,8 +63,8 @@ enum Slot {
 
     op_vectorcall(Signature.VECTORCALL), //
 
-    op_neg(Signature.UNARY), //
-    op_abs(Signature.UNARY), //
+    op_neg(Signature.UNARY, "unary -"), //
+    op_abs(Signature.UNARY, "abs()"), //
 
     // Binary ops: reflected form comes first so we can reference it.
     op_radd(Signature.BINARY, "+"), //
@@ -127,7 +127,7 @@ enum Slot {
         this.slotHandle = Util.slotHandle(this);
         this.altSlotHandle = alt == null ? null : alt.slotHandle;
         // XXX Need something convenient as in CPython.
-        this.doc = "Doc of " + this.name();
+        this.doc = "Doc of " + this.opName;
     }
 
     Slot(Signature signature) { this(signature, null, null, null); }
