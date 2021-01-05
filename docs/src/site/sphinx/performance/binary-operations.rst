@@ -16,6 +16,10 @@ Instead, we focus on a single operation (addition)
 and explore the effect of varying the types of the operands
 (``float`` and ``int``).
 
+The integers in these measurements are arbitrary precision integers
+(``BigInteger`` or a Python type based on it)
+for comparability.
+
 
 VSJ 2 evo 4
 ***********
@@ -28,31 +32,31 @@ where the type of the operand is known statically.
 ..  code:: none
 
     Benchmark                           Mode  Cnt    Score   Error  Units
-    PyFloatBinary.add_float_float       avgt   20   37.261 ± 0.207  ns/op
-    PyFloatBinary.add_float_float_java  avgt  200    5.817 ± 0.031  ns/op
-    PyFloatBinary.add_float_int         avgt   20   47.907 ± 0.229  ns/op
-    PyFloatBinary.add_float_int_java    avgt  200    6.412 ± 0.073  ns/op
-    PyFloatBinary.add_int_float         avgt   20   71.277 ± 2.288  ns/op
-    PyFloatBinary.add_int_float_java    avgt  200    6.625 ± 0.133  ns/op
-    PyFloatBinary.mul_float_float       avgt   20   37.338 ± 0.249  ns/op
-    PyFloatBinary.mul_float_float_java  avgt  200    5.968 ± 0.049  ns/op
-    PyFloatBinary.nothing               avgt  200    5.458 ± 0.037  ns/op
-    PyFloatBinary.quartic               avgt   20  171.266 ± 0.452  ns/op
-    PyFloatBinary.quartic_java          avgt  200    6.816 ± 0.156  ns/op
-    PyLongBinary.add                    avgt   20   58.353 ± 0.474  ns/op
-    PyLongBinary.add_java               avgt   20   30.593 ± 0.774  ns/op
-    PyLongBinary.addbig                 avgt   20   75.304 ± 2.470  ns/op
-    PyLongBinary.addbig_java            avgt   20   37.676 ± 0.265  ns/op
-    PyLongBinary.mul                    avgt   20   76.774 ± 0.889  ns/op
-    PyLongBinary.mul_java               avgt   20   43.494 ± 0.212  ns/op
-    PyLongBinary.mulbig                 avgt   20   85.442 ± 1.011  ns/op
-    PyLongBinary.mulbig_java            avgt   20   55.874 ± 0.517  ns/op
+    PyFloatBinary.add_float_float       avgt   20   37.583 ± 0.436  ns/op
+    PyFloatBinary.add_float_float_java  avgt  200    5.884 ± 0.034  ns/op
+    PyFloatBinary.add_float_int         avgt   20   49.790 ± 0.240  ns/op
+    PyFloatBinary.add_float_int_java    avgt  200   12.914 ± 0.102  ns/op
+    PyFloatBinary.add_int_float         avgt   20   75.128 ± 0.429  ns/op
+    PyFloatBinary.add_int_float_java    avgt  200   13.183 ± 0.049  ns/op
+    PyFloatBinary.mul_float_float       avgt   20   37.640 ± 0.193  ns/op
+    PyFloatBinary.mul_float_float_java  avgt  200    5.835 ± 0.029  ns/op
+    PyFloatBinary.nothing               avgt  200    5.518 ± 0.061  ns/op
+    PyFloatBinary.quartic               avgt   20  169.479 ± 0.608  ns/op
+    PyFloatBinary.quartic_java          avgt  200    6.417 ± 0.103  ns/op
+    PyLongBinary.add                    avgt   20   59.843 ± 1.894  ns/op
+    PyLongBinary.add_java               avgt   20   31.587 ± 1.567  ns/op
+    PyLongBinary.addbig                 avgt   20   71.830 ± 0.624  ns/op
+    PyLongBinary.addbig_java            avgt   20   39.237 ± 0.899  ns/op
+    PyLongBinary.mul                    avgt   20   75.785 ± 0.948  ns/op
+    PyLongBinary.mul_java               avgt   20   43.508 ± 0.213  ns/op
+    PyLongBinary.mulbig                 avgt   20   93.269 ± 6.621  ns/op
+    PyLongBinary.mulbig_java            avgt   20   56.321 ± 0.336  ns/op
 
 The invocation overhead is 28-32ns on this machine for similar types,
 added or multiplied (``int`` with ``int``, ``float`` with ``float``).
-``float + int`` is slower (at 42ns) because of the need to convert
+``float + int`` is slower (at 37ns) perhaps related to the need to convert
 the ``int`` to a ``float``,
-and ``int + float`` even slower (at 64ns) because ``int`` is consulted first,
+and ``int + float`` even slower (at 62ns) because ``int`` is consulted first,
 only to return ``NotImplemented``.
 
 The test fixture that produces this table consists of methods
@@ -62,13 +66,13 @@ that typically look like this (without the JMH annotations):
 
     public class PyFloatBinary {
 
-        int iv = 6, iw = 7;
-        double v = 1.01 * iv, w = 1.01 * iw;
+        BigInteger iv = BigInteger.valueOf(6), iw = BigInteger.valueOf(7);
+        double v = 1.01 * iv.doubleValue(), w = 1.01 * iw.doubleValue();
         PyObject fvo = Py.val(v), fwo = Py.val(w);
         PyObject ivo = Py.val(iv), iwo = Py.val(iv);
 
         public double nothing() { return v; }
-        public double add_float_int_java() { return v + iw; }
+        public double add_float_int_java() { return v + iw.doubleValue(); }
 
         public PyObject add_float_int() throws Throwable {
             return Number.add(fvo, iwo);
@@ -88,7 +92,7 @@ that typically look like this (without the JMH annotations):
 
 We throw in a ``quartic`` calculation to examine how the time scales
 with complexity but no new data fetches.
-This method calls for 5 floating additions and multiplications.
+This method calls for 5 floating operations.
 
 
 Jython 2.7.2
@@ -103,34 +107,35 @@ with Python 3 ``int``.
 ..  code:: none
 
     Benchmark                           Mode  Cnt   Score   Error  Units
-    PyFloatBinary.add_float_float       avgt   20  16.626 ± 0.095  ns/op
-    PyFloatBinary.add_float_float_java  avgt  200   6.076 ± 0.035  ns/op
-    PyFloatBinary.add_float_int         avgt   20  35.413 ± 0.305  ns/op
-    PyFloatBinary.add_float_int_java    avgt  200   6.605 ± 0.137  ns/op
-    PyFloatBinary.add_int_float         avgt   20  38.506 ± 0.190  ns/op
-    PyFloatBinary.add_int_float_java    avgt  200   6.669 ± 0.136  ns/op
-    PyFloatBinary.mul_float_float       avgt   20  16.825 ± 0.083  ns/op
-    PyFloatBinary.mul_float_float_java  avgt  200   5.929 ± 0.033  ns/op
-    PyFloatBinary.nothing               avgt  200   5.540 ± 0.047  ns/op
-    PyFloatBinary.quartic               avgt   20  17.871 ± 0.104  ns/op
-    PyFloatBinary.quartic_java          avgt  200   6.195 ± 0.051  ns/op
-    PyLongBinary.add                    avgt   20  37.074 ± 0.259  ns/op
-    PyLongBinary.add_java               avgt   20  30.670 ± 0.861  ns/op
-    PyLongBinary.addbig                 avgt   20  49.040 ± 0.329  ns/op
-    PyLongBinary.addbig_java            avgt   20  37.973 ± 0.282  ns/op
-    PyLongBinary.mul                    avgt   20  53.386 ± 0.590  ns/op
-    PyLongBinary.mul_java               avgt   20  44.158 ± 0.466  ns/op
-    PyLongBinary.mulbig                 avgt   20  66.596 ± 0.520  ns/op
-    PyLongBinary.mulbig_java            avgt   20  56.113 ± 0.644  ns/op
-    PyLongBinary.nothing                avgt   20   5.711 ± 0.219  ns/op
+    PyFloatBinary.add_float_float       avgt   20  17.086 ± 0.396  ns/op
+    PyFloatBinary.add_float_float_java  avgt  200   5.719 ± 0.035  ns/op
+    PyFloatBinary.add_float_int         avgt   20  36.094 ± 0.227  ns/op
+    PyFloatBinary.add_float_int_java    avgt  200  12.554 ± 0.087  ns/op
+    PyFloatBinary.add_int_float         avgt   20  34.508 ± 0.449  ns/op
+    PyFloatBinary.add_int_float_java    avgt  200  13.114 ± 0.056  ns/op
+    PyFloatBinary.mul_float_float       avgt   20  16.731 ± 0.069  ns/op
+    PyFloatBinary.mul_float_float_java  avgt  200   5.930 ± 0.050  ns/op
+    PyFloatBinary.nothing               avgt  200   5.530 ± 0.050  ns/op
+    PyFloatBinary.quartic               avgt   20  18.168 ± 0.116  ns/op
+    PyFloatBinary.quartic_java          avgt  200   6.550 ± 0.065  ns/op
+    PyLongBinary.add                    avgt   20  37.721 ± 0.496  ns/op
+    PyLongBinary.add_java               avgt   20  29.790 ± 1.104  ns/op
+    PyLongBinary.addbig                 avgt   20  49.441 ± 0.457  ns/op
+    PyLongBinary.addbig_java            avgt   20  38.964 ± 0.198  ns/op
+    PyLongBinary.mul                    avgt   20  53.263 ± 0.202  ns/op
+    PyLongBinary.mul_java               avgt   20  43.607 ± 0.170  ns/op
+    PyLongBinary.mulbig                 avgt   20  68.540 ± 1.227  ns/op
+    PyLongBinary.mulbig_java            avgt   20  55.820 ± 0.165  ns/op
+    PyLongBinary.nothing                avgt   20   5.522 ± 0.119  ns/op
 
 
-The invocation overhead is 9-11ns on this machine for similar types,
+The invocation overhead is 10-13ns on this machine for similar types,
 added or multiplied (``int`` with ``int``, ``float`` with ``float``).
-``float + int`` is slower (at 29ns) because of the need to convert
-the ``int`` to a ``float``,
-but ``int + float`` only a little slower (at 32ns)
-in spite of the need to consult ``int`` first.
+For ``float + int`` and ``int + float``
+the overhead is roughly double (at 24ns)
+perhaps related to the need to convert the ``int`` to a ``float``,
+The need to consult ``int`` first in ``int + float``
+does not seem to have added any overhead.
 
 
 VSJ 2 evo 4 with ``invokedynamic``
@@ -143,30 +148,29 @@ that contain just an ``invokedynamic`` instruction.
 ..  code:: none
 
     Benchmark                           Mode  Cnt   Score   Error  Units
-    PyFloatBinary.add_float_float       avgt   20  15.821 ± 0.480  ns/op
-    PyFloatBinary.add_float_float_java  avgt   20   5.886 ± 0.194  ns/op
-    PyFloatBinary.add_float_int         avgt   20  21.976 ± 0.257  ns/op
-    PyFloatBinary.add_float_int_java    avgt   20   6.161 ± 0.092  ns/op
-    PyFloatBinary.add_int_float         avgt   20  23.296 ± 0.062  ns/op
-    PyFloatBinary.add_int_float_java    avgt   20   6.334 ± 0.297  ns/op
-    PyFloatBinary.mul_float_float       avgt   20  15.171 ± 0.235  ns/op
-    PyFloatBinary.mul_float_float_java  avgt   20   5.726 ± 0.136  ns/op
-    PyFloatBinary.nothing               avgt   20   5.692 ± 0.206  ns/op
-    PyFloatBinary.quartic               avgt   20  48.633 ± 0.509  ns/op
-    PyFloatBinary.quartic_java          avgt   20   6.235 ± 0.149  ns/op
-    PyLongBinary.add                    avgt   20  44.041 ± 0.351  ns/op
-    PyLongBinary.add_java               avgt   20  31.457 ± 0.901  ns/op
-    PyLongBinary.addbig                 avgt   20  53.636 ± 0.444  ns/op
-    PyLongBinary.addbig_java            avgt   20  38.025 ± 0.184  ns/op
-    PyLongBinary.mul                    avgt   20  56.974 ± 0.344  ns/op
-    PyLongBinary.mul_java               avgt   20  44.697 ± 1.237  ns/op
-    PyLongBinary.mulbig                 avgt   20  66.215 ± 0.257  ns/op
-    PyLongBinary.mulbig_java            avgt   20  55.739 ± 0.416  ns/op
+    PyFloatBinary.add_float_float       avgt   20  17.682 ± 0.371  ns/op
+    PyFloatBinary.add_float_float_java  avgt   20   5.686 ± 0.057  ns/op
+    PyFloatBinary.add_float_int         avgt   20  22.065 ± 0.182  ns/op
+    PyFloatBinary.add_float_int_java    avgt   20  12.675 ± 0.081  ns/op
+    PyFloatBinary.add_int_float         avgt   20  24.399 ± 0.743  ns/op
+    PyFloatBinary.add_int_float_java    avgt   20  13.061 ± 0.126  ns/op
+    PyFloatBinary.mul_float_float       avgt   20  16.066 ± 0.509  ns/op
+    PyFloatBinary.mul_float_float_java  avgt   20   5.688 ± 0.073  ns/op
+    PyFloatBinary.nothing               avgt   20   5.597 ± 0.126  ns/op
+    PyFloatBinary.quartic               avgt   20  49.196 ± 0.211  ns/op
+    PyFloatBinary.quartic_java          avgt   20   6.619 ± 0.609  ns/op
+    PyLongBinary.add                    avgt   20  45.005 ± 1.198  ns/op
+    PyLongBinary.add_java               avgt   20  29.224 ± 1.099  ns/op
+    PyLongBinary.addbig                 avgt   20  54.124 ± 0.392  ns/op
+    PyLongBinary.addbig_java            avgt   20  38.736 ± 0.238  ns/op
+    PyLongBinary.mul                    avgt   20  56.878 ± 0.325  ns/op
+    PyLongBinary.mul_java               avgt   20  44.448 ± 0.807  ns/op
+    PyLongBinary.mulbig                 avgt   20  65.876 ± 0.267  ns/op
+    PyLongBinary.mulbig_java            avgt   20  54.934 ± 0.191  ns/op
 
-The invocation overhead is 10-16ns on this machine.
+The invocation overhead is 10-15ns on this machine.
 As before we see some additional cost to convert types during
-``float + int`` and ``int + float``,
-and when ``int`` has to be consulted first.
+``float + int`` and ``int + float``.
 
 As in the unary case,
 the call sites become specialised to invoke ``op_add``,
@@ -229,10 +233,10 @@ showing that there is no in-lining of the separate calls
 that would bring the floating point calculation together in one place.
 
 This is also approximately true of VSJ 2 with ``invokedynamic``:
-the overhead relative to pure Java is 42ns,
-just a little short of 5 times the 9.5ns on ``add_float_float``.
-We speculate that the method handles are not fully in-lined
-because they are too deeply nested.
+the overhead relative to pure Java is 43ns,
+around 3.5 times the 12ns on ``add_float_float`` .
+We speculate that the method handles are partly in-lined
+but are too deeply nested to merge the floating point operations.
 Evidently we do not get the remarkable concurrency seen in ``quartic``
 for Jython 2 and pure Java.
 
@@ -245,7 +249,7 @@ is a function of the Python semantics for binary operations:
 the conditional delegation to the left and right operand
 and the possibility of either returning ``NotImplemented``.
 This is part of the language,
-and we cannot simply do without it.
+and we cannot simply dispense with it.
 
 For built in immutable types, these checks are of no value at run time:
 it is a foregone conclusion that ``float+float`` is always implemented,

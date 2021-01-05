@@ -1,5 +1,6 @@
 package uk.co.farowl.vsj2bm.evo4;
 
+import java.math.BigInteger;
 import java.util.concurrent.TimeUnit;
 
 import org.openjdk.jmh.annotations.Benchmark;
@@ -35,8 +36,8 @@ import uk.co.farowl.vsj2.evo4.PyObject;
 @State(Scope.Thread)
 public class PyFloatBinary {
 
-    int iv = 6, iw = 7;
-    double v = 1.01 * iv, w = 1.01 * iw;
+    BigInteger iv = BigInteger.valueOf(6), iw = BigInteger.valueOf(7);
+    double v = 1.01 * iv.doubleValue(), w = 1.01 * iw.doubleValue();
     PyObject fvo = Py.val(v), fwo = Py.val(w);
     PyObject ivo = Py.val(iv), iwo = Py.val(iv);
 
@@ -58,7 +59,7 @@ public class PyFloatBinary {
     @Benchmark
     @Fork(4)  // Needs a lot of iterations to resolve short times
     @Measurement(iterations = 50)
-    public double add_float_int_java() { return v + iw; }
+    public double add_float_int_java() { return v + iw.doubleValue(); }
 
     @Benchmark
     public PyObject add_float_int() throws Throwable {
@@ -68,7 +69,7 @@ public class PyFloatBinary {
     @Benchmark
     @Fork(4)  // Needs a lot of iterations to resolve short times
     @Measurement(iterations = 50)
-    public double add_int_float_java() { return iv + w; }
+    public double add_int_float_java() { return iv.doubleValue() + w; }
 
     @Benchmark
     public PyObject add_int_float() throws Throwable {

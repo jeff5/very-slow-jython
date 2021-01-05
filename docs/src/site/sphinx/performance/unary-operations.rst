@@ -5,6 +5,9 @@ Unary Operations
 ################
 
 Here we examine times for basic unary operations on ``float`` and ``int``.
+The integers in these measurements are arbitrary precision integers
+(``BigInteger`` or a Python type based on it)
+for comparability.
 
 
 VSJ 2 evo 4
@@ -24,13 +27,13 @@ in a particular implementation.
 ..  code:: none
 
     Benchmark                Mode  Cnt   Score   Error  Units
-    PyFloatUnary.neg         avgt   20  23.618 ± 0.174  ns/op
-    PyFloatUnary.neg_java    avgt  200   5.751 ± 0.380  ns/op
-    PyFloatUnary.nothing     avgt  200   5.537 ± 0.023  ns/op
-    PyLongUnary.neg          avgt   20  34.504 ± 0.420  ns/op
-    PyLongUnary.neg_java     avgt  100  16.509 ± 0.049  ns/op
-    PyLongUnary.negbig       avgt   20  34.553 ± 0.419  ns/op
-    PyLongUnary.negbig_java  avgt   20  16.501 ± 0.118  ns/op
+    PyFloatUnary.neg         avgt   20  23.774 ± 0.229  ns/op
+    PyFloatUnary.neg_java    avgt  200   5.483 ± 0.065  ns/op
+    PyFloatUnary.nothing     avgt  200   5.477 ± 0.044  ns/op
+    PyLongUnary.neg          avgt   20  35.141 ± 0.286  ns/op
+    PyLongUnary.neg_java     avgt  100  16.705 ± 0.048  ns/op
+    PyLongUnary.negbig       avgt   20  34.541 ± 0.171  ns/op
+    PyLongUnary.negbig_java  avgt   20  16.760 ± 0.142  ns/op
 
 The invocation overhead is consistently around 18ns on this machine,
 over the basic cost of the pure Java operation.
@@ -97,13 +100,13 @@ They are implemented as ``BigInteger``.
 ..  code:: none
 
     Benchmark                Mode  Cnt   Score   Error  Units
-    PyFloatUnary.neg         avgt   20  14.686 ± 0.089  ns/op
-    PyFloatUnary.neg_java    avgt  200   5.629 ± 0.056  ns/op
-    PyFloatUnary.nothing     avgt  200   5.541 ± 0.028  ns/op
-    PyLongUnary.neg          avgt   20  24.562 ± 0.122  ns/op
-    PyLongUnary.neg_java     avgt   20  16.775 ± 0.257  ns/op
-    PyLongUnary.negbig       avgt   20  24.907 ± 0.221  ns/op
-    PyLongUnary.negbig_java  avgt   20  16.544 ± 0.051  ns/op
+    PyFloatUnary.neg         avgt   20  15.095 ± 0.090  ns/op
+    PyFloatUnary.neg_java    avgt  200   5.400 ± 0.039  ns/op
+    PyFloatUnary.nothing     avgt  200   5.653 ± 0.058  ns/op
+    PyLongUnary.neg          avgt   20  24.859 ± 0.214  ns/op
+    PyLongUnary.neg_java     avgt   20  16.601 ± 0.144  ns/op
+    PyLongUnary.negbig       avgt   20  24.725 ± 0.142  ns/op
+    PyLongUnary.negbig_java  avgt   20  16.640 ± 0.086  ns/op
 
 We can see that the invocation overhead of the Jython 2 approach
 is 8-9ns on this machine.
@@ -128,13 +131,13 @@ In particular, Python ``int`` is still implemented using ``BigInteger``.
 ..  code:: none
 
     Benchmark                Mode  Cnt   Score   Error  Units
-    PyFloatUnary.neg         avgt   20  14.385 ± 0.171  ns/op
-    PyFloatUnary.neg_java    avgt  200   5.446 ± 0.026  ns/op
-    PyFloatUnary.nothing     avgt  200   5.498 ± 0.038  ns/op
-    PyLongUnary.neg          avgt   20  25.785 ± 0.754  ns/op
-    PyLongUnary.neg_java     avgt  100  16.799 ± 0.116  ns/op
-    PyLongUnary.negbig       avgt   20  25.558 ± 0.828  ns/op
-    PyLongUnary.negbig_java  avgt   20  16.798 ± 0.301  ns/op
+    PyFloatUnary.neg         avgt   20  14.538 ± 0.278  ns/op
+    PyFloatUnary.neg_java    avgt  200   5.588 ± 0.097  ns/op
+    PyFloatUnary.nothing     avgt  200   5.399 ± 0.046  ns/op
+    PyLongUnary.neg          avgt   20  25.133 ± 0.712  ns/op
+    PyLongUnary.neg_java     avgt  100  16.563 ± 0.038  ns/op
+    PyLongUnary.negbig       avgt   20  25.424 ± 0.694  ns/op
+    PyLongUnary.negbig_java  avgt   20  16.508 ± 0.099  ns/op
 
 We can see that the invocation overhead of the dynamic implementations
 relative to pure Java is about 9ns on this machine.
