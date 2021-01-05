@@ -5,3 +5,6 @@ package uk.co.farowl.vsj2dy.evo4
 class AbstractProxy
 
 unary negative
+binary add
+binary subtract
+binary multiply

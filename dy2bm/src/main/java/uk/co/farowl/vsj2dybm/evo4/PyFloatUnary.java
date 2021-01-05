@@ -46,11 +46,6 @@ public class PyFloatUnary {
 
     @Benchmark
     public PyObject neg() throws Throwable {
-        return Number.negative(vo);
-    }
-
-    @Benchmark
-    public PyObject neg_dyn() throws Throwable {
         return AbstractProxy.negative(vo);
     }
 

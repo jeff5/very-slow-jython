@@ -178,6 +178,9 @@ public class DynamicAPITask extends AbstractCompile {
                     case BINARY:
                         // Process method declarations repeatedly
                         assertAfter(Line.Kind.PACKAGE, Line.Kind.CLASS);
+                        name = line.arg[0];
+                        assertNotDuplicate(name);
+                        emitBinaryOperation(name);
                         break;
                     case ERROR:
                         throw new ParseError(line, "not recognised");
@@ -218,6 +221,25 @@ public class DynamicAPITask extends AbstractCompile {
             mv.visitEnd();
         }
 
+        private void emitBinaryOperation(String name) {
+            MethodVisitor mv = cw.visitMethod(ACC_PUBLIC + ACC_STATIC,
+                    name, BINARY_TYPE.getDescriptor(), null, null);
+
+            // Body of method
+            mv.visitCode();
+
+            // return op(<name>)(v, w)
+            mv.visitVarInsn(ALOAD, 0);
+            mv.visitVarInsn(ALOAD, 1);
+            mv.visitInvokeDynamicInsn(name, BINARY_TYPE.getDescriptor(),
+                    BOOTSTRAP_H);
+            mv.visitInsn(ARETURN);
+
+            // Stack and frame dimensions computed by the ClassWriter
+            mv.visitMaxs(0, 0);
+            mv.visitEnd();
+        }
+
         // Strings needed to designate significant packages
         private static final String PYTHON_PKG =
                 "uk/co/farowl/vsj2/evo4";
@@ -243,9 +265,12 @@ public class DynamicAPITask extends AbstractCompile {
         private static final Type STRING_TYPE =
                 Type.getType(classDescr(LANG_PKG, "String"));
 
-        /** Type of unary operation */
+        /** Type of a unary operation */
         private static Type UNARY_TYPE =
                 Type.getMethodType(PO_TYPE, PO_TYPE);
+        /** Type of a binary operation */
+        private static Type BINARY_TYPE =
+                Type.getMethodType(PO_TYPE, PO_TYPE, PO_TYPE);
         /** Type of simple bootstrap */
         private static Type DESCR_BOOTSTRAP =
                 Type.getMethodType(CALL_SITE_TYPE, LOOKUP_TYPE,
@@ -253,20 +278,8 @@ public class DynamicAPITask extends AbstractCompile {
 
         /** ASM Handle for PyRT bootstrap */
         private static Handle BOOTSTRAP_H = new Handle(
-                Opcodes.H_INVOKESTATIC, RT_TYPE.getDescriptor(),
+                Opcodes.H_INVOKESTATIC, RT_TYPE.getInternalName(),
                 "bootstrap", DESCR_BOOTSTRAP.getDescriptor(), false);
-
-        /**
-         * Concatenate package ("a/b/c") and class name ("T", "U")
-         * strings to make a JVM internal class name ("a/b/c/T$U").
-         */
-        private static String internalName(String pkg, String... cls) {
-            StringBuilder b = new StringBuilder(100);
-            b.append(pkg).append('/').append(cls[0]);
-            for (int i = 1; i < cls.length; i++)
-                b.append('$').append(cls[i]);
-            return b.toString();
-        }
 
         /**
          * Concatenate package ("a/b/c") and class name ("T", "U")
@@ -274,11 +287,10 @@ public class DynamicAPITask extends AbstractCompile {
          */
         private static String classDescr(String pkg, String... cls) {
             StringBuilder b = new StringBuilder(100);
-            b.append('L').append(pkg).append('/').append(cls[0])
-                    .append(';');
+            b.append('L').append(pkg).append('/').append(cls[0]);
             for (int i = 1; i < cls.length; i++)
                 b.append('$').append(cls[i]);
-            return b.toString();
+            return b.append(';').toString();
         }
 
         // Parser support --------------------------------------------
