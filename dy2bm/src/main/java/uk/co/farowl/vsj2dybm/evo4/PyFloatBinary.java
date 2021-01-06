@@ -77,11 +77,7 @@ public class PyFloatBinary {
     }
 
     @Benchmark
-// @Fork(4) // Needs a lot of iterations to resolve short times
-// @Measurement(iterations = 50)
-    public double quartic_java() {
-        return v * w * (v + w) * (v - w);
-    }
+    public double quartic_java() { return v * w * (v + w) * (v - w); }
 
     @Benchmark
     public PyObject quartic() throws Throwable {
@@ -108,6 +104,5 @@ public class PyFloatBinary {
         iw = Py.val(6000);
         System.out.println(AbstractProxy.subtract(v, iw));
         System.out.println(AbstractProxy.subtract(iv, w));
-
     }
 }

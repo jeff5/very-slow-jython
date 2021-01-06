@@ -61,3 +61,21 @@ task binary(type: JavaExec, description: 'Binary operations') {
     // jvmArgs '-Xint' // JVM options added like this
 }
 
+
+// Runs the "main loop" useful for exploring optimisation
+task mainloop(type: JavaExec,
+        description: 'Explore generated assembly language') {
+    classpath = sourceSets.main.runtimeClasspath
+    main = 'uk.co.farowl.vsj2bm.evo4.MainLoop'
+
+    // Show optimisation happening
+    jvmArgs '-XX:+UnlockDiagnosticVMOptions'
+    jvmArgs '-XX:+PrintInlining'
+    jvmArgs '-XX:CompileCommand=dontinline,*PyFloatBinary.quartic'
+    //jvmArgs '-XX:+PrintCompilation'
+
+    // Disassembly requires hsdis-amd64.dll in Java bin directory
+    //jvmArgs '-XX:+PrintAssembly'  // Everything (a lot)
+    jvmArgs '-XX:CompileCommand=print,*PyFloatBinary.quartic'
+}
+

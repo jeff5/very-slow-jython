@@ -4,7 +4,7 @@ import java.lang.invoke.MethodHandles;
 import java.math.BigInteger;
 
 /** The Python {@code float} object. */
-class PyFloat extends AbstractPyObject {
+public class PyFloat extends AbstractPyObject {
 
     /** The type {@code float}. */
     static final PyType TYPE = PyType.fromSpec( //
@@ -142,7 +142,7 @@ class PyFloat extends AbstractPyObject {
      *
      * @return value as double
      */
-    double doubleValue() { return value; }
+    public double doubleValue() { return value; }
 
     /**
      * Convert the argument to a Java {@code double} value. If

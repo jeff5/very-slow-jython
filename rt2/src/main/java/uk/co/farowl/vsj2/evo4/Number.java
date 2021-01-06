@@ -359,7 +359,7 @@ public class Number extends Abstract {
      * @throws Throwable on other errors
      */
     // Compare CPython abstract.c: PyNumber_Float
-    static PyFloat toFloat(PyObject o) throws TypeError, Throwable {
+    public static PyFloat toFloat(PyObject o) throws TypeError, Throwable {
         /*
          * Ever so similar to PyFloat.asDouble, but returns always
          * exactly a PyFloat, constructed if necessary from the value in
