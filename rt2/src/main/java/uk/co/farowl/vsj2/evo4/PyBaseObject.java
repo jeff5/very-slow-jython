@@ -43,7 +43,9 @@ class PyBaseObject extends AbstractPyObject {
      *
      * @param type actual Python sub-class being created
      */
-    protected PyBaseObject(PyType type) { super(type); }
+    protected PyBaseObject(PyType type) {
+        super(type);
+    }
 
     /** Constructor for {@code object}. */
     public PyBaseObject() {
@@ -70,7 +72,9 @@ class PyBaseObject extends AbstractPyObject {
     // Compare CPython object_get_class in typeobject.c
     @Getter("__class__")
     @DocString("the object's class")
-    static PyObject get_class(PyObject self) { return self.getType(); }
+    static PyObject get_class(PyObject self) {
+        return self.getType();
+    }
 
     // Special methods ------------------------------------------------
 
@@ -200,11 +204,13 @@ class PyBaseObject extends AbstractPyObject {
          * non-data descriptor, or null if the attribute was not found.
          * It's time to give the object instance dictionary a chance.
          */
-        Map<PyObject, PyObject> dict = obj.getDict(false);
-        PyObject instanceAttr;
-        if (dict != null && (instanceAttr = dict.get(name)) != null) {
-            // Found something
-            return instanceAttr;
+        if (obj instanceof PyObjectDict) {
+            Map<PyObject, PyObject> d = ((PyObjectDict) obj).getDict();
+            PyObject instanceAttr = d.get(name);
+            if (instanceAttr != null) {
+                // Found something
+                return instanceAttr;
+            }
         }
 
         /*
@@ -288,8 +294,16 @@ class PyBaseObject extends AbstractPyObject {
          * There was no data descriptor, so we will place the value in
          * the object instance dictionary directly.
          */
-        Map<PyObject, PyObject> dict = obj.getDict(true);
-        if (dict == null) {
+        if (obj instanceof PyObjectDict) {
+            Map<PyObject, PyObject> d = ((PyObjectDict) obj).getDict();
+            try {
+                // There is a dictionary, and this is a put.
+                d.put(name, value);
+            } catch (UnsupportedOperationException e) {
+                // But the dictionary is unmodifiable
+                throw Abstract.cantSetAttributeError(obj);
+            }
+        } else {
             // Object has no dictionary (and won't support one).
             if (typeAttr == null) {
                 // Neither had the type an entry for the name.
@@ -301,14 +315,6 @@ class PyBaseObject extends AbstractPyObject {
                  * accessed via the instance.
                  */
                 throw Abstract.readonlyAttributeError(obj, name);
-            }
-        } else {
-            try {
-                // There is a dictionary, and this is a put.
-                dict.put(name, value);
-            } catch (UnsupportedOperationException e) {
-                // But the dictionary is unmodifiable
-                throw Abstract.cantSetAttributeError(obj);
             }
         }
     }
@@ -360,8 +366,20 @@ class PyBaseObject extends AbstractPyObject {
          * There was no data descriptor, so we will remove the name from
          * the object instance dictionary directly.
          */
-        Map<PyObject, PyObject> dict = obj.getDict(true);
-        if (dict == null) {
+        if (obj instanceof PyObjectDict) {
+            Map<PyObject, PyObject> d = ((PyObjectDict) obj).getDict();
+            try {
+                // There is a dictionary, and this is a delete.
+                PyObject previous = d.remove(name);
+                if (previous == null) {
+                    // A null return implies it didn't exist
+                    throw Abstract.noAttributeError(obj, name);
+                }
+            } catch (UnsupportedOperationException e) {
+                // But the dictionary is unmodifiable
+                throw Abstract.cantSetAttributeError(obj);
+            }
+        } else {
             // Object has no dictionary (and won't support one).
             if (typeAttr == null) {
                 // Neither has the type an entry for the name.
@@ -373,18 +391,6 @@ class PyBaseObject extends AbstractPyObject {
                  * accessed via the instance.
                  */
                 throw Abstract.readonlyAttributeError(obj, name);
-            }
-        } else {
-            try {
-                // There is a dictionary, and this is a delete.
-                PyObject previous = dict.remove(name);
-                if (previous == null) {
-                    // A null return implies it didn't exist
-                    throw Abstract.noAttributeError(obj, name);
-                }
-            } catch (UnsupportedOperationException e) {
-                // But the dictionary is unmodifiable
-                throw Abstract.cantSetAttributeError(obj);
             }
         }
     }

@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import uk.co.farowl.vsj2.evo4.Exposed.Getter;
 import uk.co.farowl.vsj2.evo4.Slot.EmptyException;
 import uk.co.farowl.vsj2.evo4.Slot.Signature;
 
@@ -20,7 +21,7 @@ import uk.co.farowl.vsj2.evo4.Slot.Signature;
  * The Python {@code type} object. Type objects are normally created
  * (when created from Java) by a call to {@link PyType#fromSpec(Spec)}.
  */
-class PyType implements PyObject {
+class PyType implements PyObjectDict {
     /*
      * The static initialisation of PyType is a delicate business, since
      * it occurs early in the initialisation of the run-time system. The
@@ -606,7 +607,9 @@ class PyType implements PyObject {
     }
 
     @Override
-    public String toString() { return "<class '" + name + "'>"; }
+    public String toString() {
+        return "<class '" + name + "'>";
+    }
 
     public String getName() { return name; }
 
@@ -730,20 +733,11 @@ class PyType implements PyObject {
     }
 
     /**
-     * {@inheritDoc}
-     * <p>
-     * The dictionary of a {@code type} always exists, but is presented
-     * externally only in read-only form.
-     */
-    @Override
-    public Map<PyObject, PyObject> getDict(boolean create) {
-        return getDict();
-    }
-
-    /**
      * The dictionary of a {@code type} in a read-only view.
      */
-    final Map<PyObject, PyObject> getDict() {
+    @Getter("__dict__")
+    @Override
+    public final Map<PyObject, PyObject> getDict() {
         return Collections.unmodifiableMap(dict);
     }
 
@@ -915,7 +909,10 @@ class PyType implements PyObject {
          * @param base to append to the bases
          * @return this
          */
-        Spec base(PyType base) { bases.add(base); return this; }
+        Spec base(PyType base) {
+            bases.add(base);
+            return this;
+        }
 
         /**
          * A new set of flags with the default values for a type defined
@@ -939,7 +936,10 @@ class PyType implements PyObject {
          * manipulated through the Spec and are derived in construction,
          * or as a side effect of setting something else.
          */
-        Spec flag(Flag f) { flags.add(f); return this; }
+        Spec flag(Flag f) {
+            flags.add(f);
+            return this;
+        }
 
         /**
          * Specify a characteristic (type flag) to be removed.
@@ -947,7 +947,10 @@ class PyType implements PyObject {
          * @param f to remove from the current flags
          * @return this
          */
-        Spec flagNot(Flag f) { flags.remove(f); return this; }
+        Spec flagNot(Flag f) {
+            flags.remove(f);
+            return this;
+        }
 
         /**
          * Specify that the Python type being specified will be

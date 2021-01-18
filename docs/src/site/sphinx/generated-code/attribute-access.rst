@@ -5,11 +5,11 @@ Access to Attributes
 ####################
 
 We use the term "attribute" to cover anything that would be
-accessed in Python with the "dot" notation.
+accessed in Python with the dot notation.
 It may be imagined that this is mostly a matter of
 looking up a name in a dictionary.
 A dictionary is involved, but which dictionary,
-and what Python does with the thing it finds,
+and what Python does with the what it finds there,
 brings us to the complex topic of :ref:`Descriptors`.
 
 This section looks at how a Python implementation in Java would
@@ -76,7 +76,7 @@ Slots for Attribute Access
 ==========================
 
 The type must implement new slots comparable to those in CPython.
-We call them ``op_getattribute``, ``op_getattr`` and ``tp_setattro``.
+We call them ``op_getattribute``, ``op_getattr`` and ``op_setattr``.
 We add ``op_delattr`` to the set for reasons we explain shortly.
 These special methods expect the name of the attribute as an object
 (always a ``str``).
@@ -104,7 +104,7 @@ We also add ``op_getattribute``, ``op_getattr``,
 but no new apparatus is required in that class to accomplish that.
 
 To understand why Python needs both ``op_getattribute`` and ``op_getattr``,
-see :ref:`getattribute-and-getattr`.
+see the section :ref:`getattribute-and-getattr`.
 
 CPython does not have a separate slot for deletion operations:
 it uses the ``tp_setttro`` slot (same as ``op_setattr``)
@@ -222,15 +222,16 @@ or constant interned in ``ID`` when built-in names are involved.
 There is a ``setAttr`` to complement the candidate ``getAttr``,
 with an easily-guessed implementation.
 
+So much for the interpreter-side of the mechanism (the abstract API):
+what is on the receiving end of the special function slots?
+We may demonstrate calling the abstract API
+by creating a class that defines the special functions.
 
 
 .. _custom-class-attribute-access:
 
 A Custom Class with Attribute Access
 ====================================
-
-******* here
-
 
 A class exhibiting these slots,
 and giving access to a single attribute ``x``,
@@ -290,7 +291,7 @@ that also supports the ``LOAD_ATTR`` opcode:
         }
 
 In general we shall need to give object instance their dictionaries,
-and absolutely all types have one,
+and absolutely all ``type``\s have one,
 so we examine that next.
 
 
@@ -299,19 +300,19 @@ so we examine that next.
 The Instance Dictionary
 =======================
 
-Support in ``PyObject``
------------------------
+Interface ``PyObjectDict``
+--------------------------
 
 It will be a frequent need to get the instance dictionary (in Java) from
 a Python object, to look up attributes in it.
 This includes the case where the object is a ``type`` object.
-So we're going to add that facility to the interface ``PyObject``.
+So we're going to add an interface ``PyObjectDict``
+that advertises the possibility.
 
 ..  note::
 
-    An alternative approach is possible in which only ``getType()``
-    is provided,
-    but the ``PyType`` provides the means to access the instance dictionary
+    An alternative approach is possible in which
+    the ``PyType`` provides the means to access the instance dictionary
     (if there is one).
     This would resemble more fully the CPython ``tp_dictoffset`` slot,
     and is necessary to the ``Object``\-not-``PyObject`` paradigm.
@@ -345,27 +346,23 @@ it is not as permissive as those found in objects of user-defined type.
 
 We therefore need to accommodate instance "dictionaries"
 that are ``dict``\-like, but may be a read-only proxy to the dictionary.
-We now redefine:
+We now define:
 
 ..  code-block:: java
 
-    interface PyObject {
-
-        /** The Python {@code type} of this object. */
-        PyType getType();
+    public interface PyObjectDict extends PyObject {
 
         /**
          * The dictionary of the instance, (not necessarily a Python
-         * {@code dict} or writable.
+         * {@code dict} or writable. By default, returns {@code null},
+         * meaning no instance dictionary. If the returned {@code Map} is
+         * not writable, it should throw a Java
+         * {@code UnsupportedOperationException} on attempts to modify it.
+         *
+         * @return a mapping to treat like a dictionary
          */
-        default Map<PyObject, PyObject> getDict(boolean create) {
-            return null;
-        }
+        Map<PyObject, PyObject> getDict();
     }
-
-The slightly clumsy ``create`` argument is intended to allow objects
-that create their dictionary lazily
-to defer creation until a client intends to write something in it.
 
 An object may implement this additional method
 by handing out an actual instance dictionary (a ``dict``),
@@ -397,13 +394,13 @@ for example, if ``dict`` is the instance dictionary:
 
 We do this in ``PyType``,
 to prevent clients updating the dictionary directly.
-The ``PyObject`` interface is public API,
+The ``PyObjectDict`` interface is public API,
 as public as the ``__dict__`` attribute,
 and therefore we cannot rely on clients to be well-behaved,
 remembering to police their own use of the dictionary,
 and triggering re-computation of the ``PyType`` after changes.
 
-(It also prevents ``object.__setattr__`` being applied to a type,
+(It also prevents ``object.__setattr__`` being applied to a type object,
 since ``PyBaseObject.__setattr__`` uses this API.)
 
 While built-in types generally do not allow attribute setting,
@@ -585,7 +582,6 @@ and which should put a definitive end to the attempt.
 
     class PyBaseObject extends AbstractPyObject {
         //...
-
         static PyObject __getattribute__(PyObject obj, PyUnicode name)
                 throws AttributeError, Throwable {
 
@@ -621,11 +617,13 @@ and which should put a definitive end to the attempt.
              * non-data descriptor, or null if the attribute was not found.
              * It's time to give the object instance dictionary a chance.
              */
-            Map<PyObject, PyObject> dict = obj.getDict(false);
-            PyObject instanceAttr;
-            if (dict != null && (instanceAttr = dict.get(name)) != null) {
-                // Found something
-                return instanceAttr;
+            if (obj instanceof PyObjectDict) {
+                Map<PyObject, PyObject> d = ((PyObjectDict) obj).getDict();
+                PyObject instanceAttr = d.get(name);
+                if (instanceAttr != null) {
+                    // Found something
+                    return instanceAttr;
+                }
             }
 
             /*
@@ -671,7 +669,7 @@ CPython's synthetic type-slot function chooses which to call
 based on the nullity of the value.
 
 Our approach reflects a design policy of one special function per type slot.
-It simplifies the logic (fewer if statements),
+It simplifies the logic (fewer ``if`` statements),
 although it means a little more code as we have separate methods.
 
 The standard implementation of ``__setattr__`` is as follows:
@@ -680,7 +678,6 @@ The standard implementation of ``__setattr__`` is as follows:
 
     class PyBaseObject extends AbstractPyObject {
         //...
-
         static void __setattr__(PyObject obj, PyUnicode name,
                 PyObject value) throws AttributeError, Throwable {
 
@@ -714,8 +711,16 @@ The standard implementation of ``__setattr__`` is as follows:
              * There was no data descriptor, so we will place the value in
              * the object instance dictionary directly.
              */
-            Map<PyObject, PyObject> dict = obj.getDict(true);
-            if (dict == null) {
+            if (obj instanceof PyObjectDict) {
+                Map<PyObject, PyObject> d = ((PyObjectDict) obj).getDict();
+                try {
+                    // There is a dictionary, and this is a put.
+                    d.put(name, value);
+                } catch (UnsupportedOperationException e) {
+                    // But the dictionary is unmodifiable
+                    throw Abstract.cantSetAttributeError(obj);
+                }
+            } else {
                 // Object has no dictionary (and won't support one).
                 if (typeAttr == null) {
                     // Neither had the type an entry for the name.
@@ -727,14 +732,6 @@ The standard implementation of ``__setattr__`` is as follows:
                      * accessed via the instance.
                      */
                     throw Abstract.readonlyAttributeError(obj, name);
-                }
-            } else {
-                try {
-                    // There is a dictionary, and this is a put.
-                    dict.put(name, value);
-                } catch (UnsupportedOperationException e) {
-                    // But the dictionary is unmodifiable
-                    throw Abstract.cantSetAttributeError(obj);
                 }
             }
         }
@@ -765,7 +762,7 @@ and then find the necessary slot empty.
 This is raises an ``AttributeError``:
 we should not go on to try the instance dictionary.
 In these circumstances CPython also raises an attribute error,
-but from within the slot function (and with less helpful text).
+but from within the slot function (and with a less helpful message).
 
 ..  code-block:: java
 
@@ -796,8 +793,20 @@ but from within the slot function (and with less helpful text).
              * There was no data descriptor, so we will remove the name from
              * the object instance dictionary directly.
              */
-            Map<PyObject, PyObject> dict = obj.getDict(true);
-            if (dict == null) {
+            if (obj instanceof PyObjectDict) {
+                Map<PyObject, PyObject> d = ((PyObjectDict) obj).getDict();
+                try {
+                    // There is a dictionary, and this is a delete.
+                    PyObject previous = d.remove(name);
+                    if (previous == null) {
+                        // A null return implies it didn't exist
+                        throw Abstract.noAttributeError(obj, name);
+                    }
+                } catch (UnsupportedOperationException e) {
+                    // But the dictionary is unmodifiable
+                    throw Abstract.cantSetAttributeError(obj);
+                }
+            } else {
                 // Object has no dictionary (and won't support one).
                 if (typeAttr == null) {
                     // Neither has the type an entry for the name.
@@ -809,18 +818,6 @@ but from within the slot function (and with less helpful text).
                      * accessed via the instance.
                      */
                     throw Abstract.readonlyAttributeError(obj, name);
-                }
-            } else {
-                try {
-                    // There is a dictionary, and this is a delete.
-                    PyObject previous = dict.remove(name);
-                    if (previous == null) {
-                        // A null return implies it didn't exist
-                        throw Abstract.noAttributeError(obj, name);
-                    }
-                } catch (UnsupportedOperationException e) {
-                    // But the dictionary is unmodifiable
-                    throw Abstract.cantSetAttributeError(obj);
                 }
             }
         }
@@ -927,9 +924,9 @@ and where we had ``typeAttr``, we write ``metaAttr``.
         }
 
 As with regular objects,
-the first step is to acceess the type (that is the meta-type),
+the first step is to access the type (that is the meta-type),
 and if we find a data descriptor, act on it.
-The second option is again to look in the instance (that is, the type),
+The second option is again to look in the instance (that is, the ``type``),
 but here we use ``type.lookup(name)``, in place of a dictionary look-up,
 and must also be ready to find a descriptor rather than a plain value.
 
@@ -1050,18 +1047,17 @@ that can be called on instances or types.
 The code we have exhibited for ``__getattribute__``,
 ``__setattr__`` and ``__delattr__``,
 relies on the existence of :ref:`Descriptors`.
-We have yet to develop the mechanism for creating descriptors.
+We have yet to describe the mechanism for creating descriptors.
 
 Descriptors are inserted in the dictionary of a type when it is created,
 or inherited in the formation of sub-classes.
 Quite different mechanisms are needed for filling slots
-than we have implemented in ``evo3``.
-This in turn is inseparable from sub-classing and inheritance,
-which must also differ from their ``evo3`` realisations.
+from those we implemented in ``evo3``.
+This in turn is inseparable from consideration of sub-class and inheritance.
 
 In order to experiment with even the most familiar attributes
 of built-in types therefore,
-we must greatly strengthen class and object creation and inheritance
-in our toy implementation.
+``evo4`` must add or change much of the class and object creation
+found in ``evo3``.
 
 Suddenly, we have a significant climb ahead.

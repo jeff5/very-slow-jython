@@ -46,3 +46,8 @@ tasks.withType(Javadoc) {
         "since", "version", "serialData", "see")
 }
 
+
+tasks.withType(JavaCompile) {
+
+    options.deprecation = true
+}

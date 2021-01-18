@@ -141,7 +141,7 @@ class PyByteCode6 {
     }
 
     /** A class whose instances have a dictionary for attributes. */
-    private static class A implements PyObject {
+    private static class A implements PyObjectDict {
 
         static final PyType TYPE =
                 PyType.fromSpec(new PyType.Spec("00A", A.class));
@@ -159,7 +159,7 @@ class PyByteCode6 {
         }
 
         @Override
-        public Map<PyObject, PyObject> getDict(boolean create) {
+        public Map<PyObject, PyObject> getDict() {
             return dict;
         }
 
@@ -218,22 +218,22 @@ class PyByteCode6 {
     /** Set attribute in an instance dictionary. */
     @Test
     void setAttrInDict() throws Throwable {
-        PyObject a = new A(42);
+        PyObjectDict a = new A(42);
         PyLong v = Py.val(7);
         PyUnicode foo = Py.str("foo");
         Abstract.setAttr(a, foo, v);
-        assertEquals(v, a.getDict(false).get(foo));
+        assertEquals(v, a.getDict().get(foo));
         Abstract.setAttr(a, foo, null); // delete
-        assertEquals(null, a.getDict(false).get(foo));
+        assertEquals(null, a.getDict().get(foo));
     }
 
     /** Delete attribute from an instance dictionary. */
     @Test
     void delAttrInDict() throws Throwable {
-        PyObject a = new A(42);
+        PyObjectDict a = new A(42);
         PyUnicode foo = Py.str("foo");
         Abstract.delAttr(a, foo);
-        assertEquals(null, a.getDict(false).get(foo));
+        assertEquals(null, a.getDict().get(foo));
     }
 
     /** Get non-existent attribute raises {@code AttributeError}. */

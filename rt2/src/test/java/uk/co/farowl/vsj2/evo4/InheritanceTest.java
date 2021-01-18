@@ -87,7 +87,7 @@ class InheritanceTest {
 
         // Test the descriptor in its own right
         // Python: descr = object.__dict__['__class__']
-        PyObject descr = object.getDict(false).get(ID.__class__);
+        PyObject descr = object.getDict().get(ID.__class__);
         assertEquals(PyGetSetDescr.TYPE, descr.getType());
         // Python: get = getattr(descr, '__get__')
         PyObject get = Abstract.getAttr(descr, ID.__get__);
@@ -97,14 +97,14 @@ class InheritanceTest {
         // A inherits from object
         PyType classA = A.TYPE;
         PyObject a = Callables.call(classA);
-        // assertEquals(descr, classA.getDict(false).get(ID.__class__));
+        // assertEquals(descr, classA.getDict().get(ID.__class__));
         assertEquals(classA, Abstract.getAttr(a, ID.__class__));
         assertEquals(type, Abstract.getAttr(classA, ID.__class__));
 
         // B inherits from object
         PyType classB = B.TYPE;
         PyObject b = Callables.call(classB);
-        // assertEquals(descr, classB.getDict(false).get(ID.__class__));
+        // assertEquals(descr, classB.getDict().get(ID.__class__));
         assertEquals(classB, Abstract.getAttr(b, ID.__class__));
         assertEquals(type, Abstract.getAttr(classB, ID.__class__));
     }
