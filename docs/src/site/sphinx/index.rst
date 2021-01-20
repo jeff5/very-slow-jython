@@ -20,6 +20,7 @@ Contents
     background/_background
     treepython/_treepython
     generated-code/_generated-code
+    plain-java-object/_plain-java-object
     performance/_performance
     architecture/_architecture
     coding/_coding

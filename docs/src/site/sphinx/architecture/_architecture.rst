@@ -30,6 +30,7 @@ and then tested ideas that address them.
     compiled-code
     functions-in-java
     descriptors
+    arch-plain-java-object
 
 
 This chapter has diagrams generated with PlantUML
