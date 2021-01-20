@@ -794,7 +794,7 @@ class PyType implements PyObjectDict {
          * An object of this type can change to another type (within
          * "layout" constraints).
          */
-        REMOVABLE,
+        VARIABLE,
         /**
          * This type the type allows sub-classing (is acceptable as a
          * base).

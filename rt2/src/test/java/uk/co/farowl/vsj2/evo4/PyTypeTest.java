@@ -55,7 +55,7 @@ class PyTypeTest {
 
         static PyType TYPE =
                 PyType.fromSpec(new Spec("TestC1", C1.class)
-                        .flag(Flag.MUTABLE).flag(Flag.REMOVABLE));
+                        .flag(Flag.MUTABLE).flag(Flag.VARIABLE));
         int value;
 
         C1(int value) { this.value = value; }
@@ -94,7 +94,7 @@ class PyTypeTest {
         assertEquals(OBJECT, t.getBase());
         assertArrayEquals(new PyType[] {OBJECT}, t.getBases());
         assertEquals(
-                EnumSet.of(Flag.BASETYPE, Flag.MUTABLE, Flag.REMOVABLE),
+                EnumSet.of(Flag.BASETYPE, Flag.MUTABLE, Flag.VARIABLE),
                 t.flags);
     }
 
