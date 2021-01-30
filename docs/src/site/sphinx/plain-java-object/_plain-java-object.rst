@@ -20,6 +20,7 @@ Concepts developed in sub-project ``rt2`` will be heavily re-used.
 ..  toctree::
 
     introduction
+    operations-builtin
 
 
 ..  A reminder of the chapters in the rt2 chapter:

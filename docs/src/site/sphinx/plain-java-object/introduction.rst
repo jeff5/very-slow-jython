@@ -9,12 +9,6 @@ as a Python object,
 starting afresh on a third model run-time system
 in sub-project ``rt3``.
 
-    Code fragments in this section are taken from
-    ``rt3/src/main/java/.../vsj3/evo1``
-    and corresponding test and other directories
-    in the project source.
-
-
 Motivations
 ===========
 
@@ -67,7 +61,7 @@ we add a new concept: the ``Operations`` object.
 (It has been brewing a while.
 It may even be seen as revisiting an idea present in ``rt1``.)
 
-The ``Operations`` object contains the information specific to one Java class,
+The ``Operations`` object contains the information specific to a Java class,
 that allows the run-time system
 to treat an instance of the class as a Python object.
 This includes identification of a Python type object for the instance.
@@ -83,15 +77,16 @@ now belong to ``Operations``.
 
     abstract class Operations { }
     abstract class PyType { }
-    Class "1" -- "1" Operations
+    Class "1" -- "*" Operations
     Operations "*" -- "*" PyType
 
 The relationship of a ``java.lang.Class`` to its ``Operations`` object
 is implemented by a ``ClassValue``.
-The relationship of ``Operations`` to ``PyType``,
-while technically many-to-many,
-is in practice either one-to-one, one-to-many (via the instance),
-or many-to-one.
+
+The relationship of ``PyType`` to ``Operations``,
+is technically many-to-many,
+but actual multiplicities amongst these objects
+depends on the general type of class being described.
 We shall explore in the necessary sub-classes
 and patterns that arise
 in subsequent sections.

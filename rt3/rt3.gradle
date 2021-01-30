@@ -16,11 +16,61 @@ dependencies {
 }
 
 
+def genOutputDir = "$buildDir/generated-src/gen"
+def genJavaDir = "$genOutputDir/java/main"
+def genTestJavaDir = "$genOutputDir/java/test"
+
+
+sourceSets {
+
+    main {
+        java {
+            srcDir genJavaDir
+        }
+    }
+
+    test {
+        java {
+            srcDir genTestJavaDir
+        }
+    }
+}
+
+
+class PythonGenerate extends Exec {
+
+    PythonGenerate() {
+        executable 'python'
+        environment('PYTHONPATH', getProject().file('tools/codegen'))
+    }
+}
+
+
 test {
     useJUnitPlatform {  // JUnit5 as standard
         includeEngines 'junit-jupiter'
     }
 }
+
+
+task generateJava(type: PythonGenerate,
+        description: 'Generate ...' ) {
+
+    def outDir = relativePath("$genJavaDir/uk/co/farowl/vsj3/evo1")
+
+    doFirst {
+        mkdir outDir
+    }
+}
+//compileJava.dependsOn(generateJava)
+
+
+task pythonVersion(type: Exec) {
+    executable 'python'
+    args '-V'
+}
+
+
 
 
 // Some adjustments to Javadoc to ensure complex tables readable
