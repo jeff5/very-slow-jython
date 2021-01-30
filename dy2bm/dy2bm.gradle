@@ -21,12 +21,14 @@ dependencies {
 
 
 compileJava {
+    /*
     doFirst {
         println "Task $name classpath:"
         classpath.forEach {
             File element -> println "    $element"
         }
     }
+    */
 }
 
 

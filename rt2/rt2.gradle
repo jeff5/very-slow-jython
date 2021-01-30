@@ -11,16 +11,10 @@ dependencies {
     //implementation 'org.ow2.asm:asm:9.0'
 
     // JUnit 5 dependencies
-    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.1.0'
-    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.1.0'
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.7.0'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.7.0'
 }
 
-
-test {
-    useJUnitPlatform {  // JUnit5 as standard
-        includeEngines 'junit-jupiter'
-    }
-}
 
 
 // Some adjustments to Javadoc to ensure complex tables readable
