@@ -14,6 +14,7 @@ import uk.co.farowl.vsj3.evo1.Exposed.JavaMethod;
 import uk.co.farowl.vsj3.evo1.Exposed.Setter;
 //import uk.co.farowl.vsj3.evo1.PyGetSetDescr.GetSetDef;
 //import uk.co.farowl.vsj3.evo1.PyMemberDescr.Flag;
+import uk.co.farowl.vsj3.evo1.PyWrapperDescr.WrapperDef;
 
 /**
  * Methods for tabulating the attributes of classes that define Python
@@ -283,23 +284,27 @@ class Exposer {
             Class<?> implClass, PyType type) throws InterpreterError {
 
         // Iterate over methods looking for the relevant annotations
-        Map<String, PyWrapperDescr> descrs = new LinkedHashMap<>();
+        Map<Slot, WrapperDef> defs = new LinkedHashMap<>();
+
         for (Method m : implClass.getDeclaredMethods()) {
             // If it is a special method, create a wrapper.
             String name = m.getName();
             Slot slot = Slot.forMethodName(name);
             if (slot != null) {
-                try {
-                    descrs.put(name, slot.makeSlotWrapper(type,
-                            implClass, lookup));
-                } catch (NoSuchMethodException
-                        | IllegalAccessException e) {
-                    // Although m exists, we could not form handle to it
-                    throw new InterpreterError(
-                            "cannot get handle to method %s in %s",
-                            name, implClass.getSimpleName());
+                WrapperDef def = defs.get(slot);
+                if (def == null) {
+                    def = new WrapperDef(slot);
+                    defs.put(slot, def);
                 }
+                def.add(m);
             }
+        }
+
+        // For each slot having any definitions, construct a descriptor
+        Map<String, PyWrapperDescr> descrs = new LinkedHashMap<>();
+        for (WrapperDef def : defs.values()) {
+            PyWrapperDescr d = def.createDescr(type, lookup);
+            descrs.put(d.name, d);
         }
 
         return descrs;
@@ -333,7 +338,7 @@ class Exposer {
 //
 //        // Iterate over methods looking for the relevant annotations
 //        for (Method m : implClass.getDeclaredMethods()) {
-//            // Look for all three types now. so as to detect conflicts.
+//            // Look for all three types now, so as to detect conflicts.
 //            JavaMethod a = m.getDeclaredAnnotation(JavaMethod.class);
 //            if (a != null) {
 //                MethodDef def = getMethodDef(a, m, lookup);

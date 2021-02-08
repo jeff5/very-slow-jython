@@ -59,10 +59,10 @@ class PyType extends Operations implements PyObjectDict {
                 // Really special cases
                 PyBaseObject.class, PyType.class,
                 // The entries are descriptors so defer those
-                //PyMemberDescr.class, //
-                //PyGetSetDescr.class, //
+                // PyMemberDescr.class, //
+                // PyGetSetDescr.class, //
                 PyWrapperDescr.class, //
-                //PyMethodDescr.class, //
+                // PyMethodDescr.class, //
                 // And sometimes things go wrong :(
                 BaseException.class, //
                 // Types with multiple implementations
@@ -113,8 +113,12 @@ class PyType extends Operations implements PyObjectDict {
     /** Name of the type. */
     final String name;
 
-    /** The Java class implementing instances of the type. */
+    /** The Java class defining operations on instances of the type. */
     final Class<?> implClass;
+
+    /** The Java classes implementing instances of the type. */
+    final Class<?>[] accepted;
+
     /**
      * Characteristics of the type, to determine behaviours (such as
      * mutability) of instances or the type itself, or to provide quick
@@ -143,15 +147,17 @@ class PyType extends Operations implements PyObjectDict {
      *
      * @param metatype the sub-type of type we are constructing
      * @param name of that type (with the given metatype)
-     * @param implClass implementation class of the type being defined
+     * @param implClass definition class of the type being defined
+     * @param accepted canonical and accepted implementation classes
      * @param bases of the type being defined
      * @param flags characteristics of the type being defined
      */
     private PyType(PyType metatype, String name, Class<?> implClass,
-            PyType[] bases, EnumSet<Flag> flags) {
+            Class<?>[] accepted, PyType[] bases, EnumSet<Flag> flags) {
         this.type = metatype;
         this.name = name;
         this.implClass = implClass;
+        this.accepted = accepted;
         this.flags = EnumSet.copyOf(flags); // in case original changes
         // Sets base as well as bases
         this.setBases(bases);
@@ -159,20 +165,20 @@ class PyType extends Operations implements PyObjectDict {
         this.setMROfromBases();
     }
 
-    /**
-     * Partially construct a {@code type} object with given name,
-     * provided other values in a long-form constructor. This
-     * constructor is a helper to factory methods.
-     *
-     * @param name of that type (with the given metatype)
-     * @param implClass implementation class of the type being defined
-     * @param bases of the type being defined
-     * @param flags characteristics of the type being defined
-     */
-    private PyType(String name, Class<?> implClass, PyType[] bases,
-            EnumSet<Flag> flags) {
-        this(TYPE, name, implClass, bases, flags);
-    }
+// /**
+// * Partially construct a {@code type} object with given name,
+// * provided other values in a long-form constructor. This
+// * constructor is a helper to factory methods.
+// *
+// * @param name of that type (with the given metatype)
+// * @param implClass implementation class of the type being defined
+// * @param bases of the type being defined
+// * @param flags characteristics of the type being defined
+// */
+// private PyType(String name, Class<?> implClass, PyType[] bases,
+// EnumSet<Flag> flags) {
+// this(TYPE, name, implClass, bases, flags);
+// }
 
     /**
      * Partially construct a {@code type} object for {@code type}, and
@@ -197,6 +203,7 @@ class PyType extends Operations implements PyObjectDict {
         this.type = this;
         this.name = spec.name;
         this.implClass = spec.implClass();
+        this.accepted = spec.accepted();
         this.flags = spec.flags;
 
         /*
@@ -204,7 +211,7 @@ class PyType extends Operations implements PyObjectDict {
          * need as the base. Again, we need the spec.
          */
         Spec objectSpec = new Spec("object", PyBaseObject.class, LOOKUP)
-                .metaclass(this);
+                .metaclass(this).canonical(Object.class);
         /*
          * This time the constructor will work, as long as we supply the
          * metatype. For consistency, take values from objectSpec.
@@ -231,7 +238,7 @@ class PyType extends Operations implements PyObjectDict {
      */
     private PyType(Spec spec) {
         this(spec.getMetaclass(), spec.name, spec.implClass(),
-                spec.getBases(), spec.flags);
+                spec.accepted(), spec.getBases(), spec.flags);
     }
 
     /**
@@ -389,51 +396,65 @@ class PyType extends Operations implements PyObjectDict {
         // XXX How is inheritance respected?
 
         // Fill slots from implClass or bases
-//        addMembers(spec);
-//        addGetSets(spec);
-//        addMethods(spec);
+        // addMembers(spec);
+        // addGetSets(spec);
+        // addMethods(spec);
         addWrappers(spec);
 
         // XXX Possibly belong elsewhere
-        setAllSlots();
+        //setAllSlots();
+        defineOperations();
         deduceFlags();
     }
 
-//    /**
-//     * Add members to this type discovered through the specification.
-//     *
-//     * @param spec to apply
-//     */
-//    private void addMembers(Spec spec) {
+    /** Define the Operations objects for this type, posting them to the registry. */
+    private void defineOperations() {
+        setAllSlots();
+        Operations.registry.set(accepted[0], this);
+        for (int i=1; i<accepted.length; i++) {
+            // Creating the operations object sets the slots in it
+            Operations.Accepted ops = new Operations.Accepted(this, i);
+            Operations.registry.set(accepted[i], ops);
+        }
+    }
+
+
+
+// /**
+// * Add members to this type discovered through the specification.
+// *
+// * @param spec to apply
+// */
+// private void addMembers(Spec spec) {
 //
-//        Map<String, PyMemberDescr> members =
-//                Exposer.memberDescrs(spec.lookup, implClass, this);
+// Map<String, PyMemberDescr> members =
+// Exposer.memberDescrs(spec.lookup, implClass, this);
 //
-//        for (Map.Entry<String, PyMemberDescr> e : members.entrySet()) {
-//            PyUnicode k = new PyUnicode(e.getKey());
-//            Object v = e.getValue();
-//            dict.put(k, v);
-//        }
+// for (Map.Entry<String, PyMemberDescr> e : members.entrySet()) {
+// PyUnicode k = new PyUnicode(e.getKey());
+// Object v = e.getValue();
+// dict.put(k, v);
+// }
 //
-//    }
+// }
 //
-//    /**
-//     * Add get-set attributes to this type discovered through the
-//     * specification.
-//     *
-//     * @param spec to apply
-//     */
-//    private void addGetSets(Spec spec) {
+// /**
+// * Add get-set attributes to this type discovered through the
+// * specification.
+// *
+// * @param spec to apply
+// */
+// private void addGetSets(Spec spec) {
 //
-//        Map<String, PyGetSetDescr> getsets =
-//                Exposer.getsetDescrs(spec.lookup, implClass, this);
+// Map<String, PyGetSetDescr> getsets =
+// Exposer.getsetDescrs(spec.lookup, implClass, this);
 //
-//        for (Entry<String, PyGetSetDescr> e : getsets.entrySet()) {
-//            PyUnicode k = new PyUnicode(e.getKey());
-//            PyGetSetDescr v = e.getValue();
-//            dict.put(k, v);
-//        }
-//    }
+// for (Entry<String, PyGetSetDescr> e : getsets.entrySet()) {
+// PyUnicode k = new PyUnicode(e.getKey());
+// PyGetSetDescr v = e.getValue();
+// dict.put(k, v);
+// }
+// }
 
     /**
      * Add slot wrapper attributes to this type discovered through the
@@ -454,23 +475,23 @@ class PyType extends Operations implements PyObjectDict {
         }
     }
 
-//    /**
-//     * Add method attributes to this type discovered through the
-//     * specification.
-//     *
-//     * @param spec to apply
-//     */
-//    private void addMethods(Spec spec) {
+// /**
+// * Add method attributes to this type discovered through the
+// * specification.
+// *
+// * @param spec to apply
+// */
+// private void addMethods(Spec spec) {
 //
-//        Map<String, PyMethodDescr> methods =
-//                Exposer.methodDescrs(spec.lookup, implClass, this);
+// Map<String, PyMethodDescr> methods =
+// Exposer.methodDescrs(spec.lookup, implClass, this);
 //
-//        for (Map.Entry<String, PyMethodDescr> e : methods.entrySet()) {
-//            PyUnicode k = new PyUnicode(e.getKey());
-//            Object v = e.getValue();
-//            dict.put(k, v);
-//        }
-//    }
+// for (Map.Entry<String, PyMethodDescr> e : methods.entrySet()) {
+// PyUnicode k = new PyUnicode(e.getKey());
+// Object v = e.getValue();
+// dict.put(k, v);
+// }
+// }
 
     /**
      * The {@link #flags} field caches many characteristics of the type
@@ -500,6 +521,9 @@ class PyType extends Operations implements PyObjectDict {
 
     @Override
     public PyType getType() { return type; }
+
+    @Override
+    Class<?> getJavaClass() { return accepted[0]; }
 
     /**
      * Set {@link #bases} and deduce {@link #base}.
@@ -574,6 +598,20 @@ class PyType extends Operations implements PyObjectDict {
     }
 
     public String getName() { return name; }
+
+    /**
+     * Find the index in the accepted implementations matching the given
+     * class.
+     *
+     * @param impl a class matching one of the implementations
+     * @return its index or 0
+     */
+    int indexOfImpl(Class<?> impl) {
+        for (int i = accepted.length; --i >= 0;) {
+            if (accepted[i].isAssignableFrom(impl)) { return i; }
+        }
+        return -1;
+    }
 
     void setSlot(Slot slot, MethodHandle mh) {
         if (isMutable())
@@ -723,7 +761,7 @@ class PyType extends Operations implements PyObjectDict {
          * CPython wraps this in a cache keyed by (type, name) and
          * sensitive to the "version" of this type. (Version changes
          * when any change occurs, even in a super-class, that would
-         * alter the result of a look-up. We do not reproduce that at
+         * alter the result of a look-up.) We do not reproduce that at
          * present.
          */
 
@@ -791,14 +829,20 @@ class PyType extends Operations implements PyObjectDict {
         /** Delegated authorisation to resolve names. */
         final Lookup lookup;
 
-// /** The implementation class in which to look up names. */
-// final Class<?> implClass;
+        /** The implementation class in which to look up names. */
+        final Class<?> implClass;
 
         /**
-         * The canonical and acceptable implementations of the Python
-         * type will be collected here.
+         * The canonical and accepted implementations of the Python type
+         * will be collected here.
          */
-        private ArrayList<Class<?>> implClasses = new ArrayList<>(1);
+        private ArrayList<Class<?>> accepted = new ArrayList<>(1);
+
+        /**
+         * The accepted implementations of Python types of this type
+         * will be collected here.
+         */
+        private ArrayList<Class<?>> subtypes = new ArrayList<>();
 
         /**
          * The Python type being specified may be represented by a
@@ -845,14 +889,17 @@ class PyType extends Operations implements PyObjectDict {
          */
         Spec(String name, Class<?> implClass, Lookup lookup) {
             this.name = name;
-            this.implClasses.add(implClass);
+            this.implClass = implClass;
+            this.accepted.add(implClass);
             this.lookup = lookup;
         }
 
         /**
          * Create (begin) a specification for a {@link PyType} based on
-         * a specific implementation class. This is the beginning
-         * normally made by built-in classes.
+         * a specific implementation class. The class given also
+         * specifies the canonical implementation class, unless
+         * subsequently overridden with {@link #canonical(Class)}. This
+         * is the beginning normally made by built-in classes.
          *
          * @param name of the type
          * @param implClass in which operations are defined
@@ -871,14 +918,48 @@ class PyType extends Operations implements PyObjectDict {
         }
 
         /**
+         * Specify the canonical implementation class for the type. By
+         * default, if {@link #canonical(Class)} is not called, the
+         * canonical implementation is the class given in the
+         * constructor. This method makes it possible to define
+         * operations in different class from the implementation.
+         * <p>
+         * This is the case for the Python {@code object}, for which the
+         * canonical implementation is Java {@code java.lang.Object}
+         * while operations are defined elsewhere.
+         *
+         * @param impl replacement canonical implementation class
+         * @return {@code this}
+         */
+        Spec canonical(Class<?> impl) {
+            accepted.set(0, impl);
+            return this;
+        }
+
+        /**
          * Specify additional acceptable implementation classes for the
          * type.
          *
          * @param impl classes to append to the list
-         * @return this
+         * @return {@code this}
          */
         Spec accept(Class<?>... impl) {
-            implClasses.addAll(Arrays.asList(impl));
+            accepted.addAll(Arrays.asList(impl));
+            return this;
+        }
+
+        /**
+         * Specify implementation classes accepted in Python sub-types of the
+         * type.
+         * It is possible that a Python sub-type defined in Java
+         * should name as accepted implementations
+         *
+         *
+         * @param impl classes to append to the list
+         * @return {@code this}
+         */
+        Spec acceptFromSubtype(Class<?>... impl) {
+            subtypes.addAll(Arrays.asList(impl));
             return this;
         }
 
@@ -887,7 +968,7 @@ class PyType extends Operations implements PyObjectDict {
          * cumulative and ordered.
          *
          * @param base to append to the bases
-         * @return this
+         * @return {@code this}
          */
         Spec base(PyType base) {
             bases.add(base);
@@ -908,7 +989,7 @@ class PyType extends Operations implements PyObjectDict {
          * Specify a characteristic (type flag) to be added.
          *
          * @param f to add to the current flags
-         * @return this
+         * @return {@code this}
          */
         /*
          * XXX Better encapsulation to have methods for things we want
@@ -925,7 +1006,7 @@ class PyType extends Operations implements PyObjectDict {
          * Specify a characteristic (type flag) to be removed.
          *
          * @param f to remove from the current flags
-         * @return this
+         * @return {@code this}
          */
         Spec flagNot(Flag f) {
             flags.remove(f);
@@ -938,7 +1019,7 @@ class PyType extends Operations implements PyObjectDict {
          * {@code type}, i.e. something other than {@link PyType#TYPE}.
          *
          * @param metaclass to specify (or null for {@code type}
-         * @return this
+         * @return {@code this}
          */
         Spec metaclass(PyType metaclass) {
             this.metaclass = metaclass;
@@ -947,16 +1028,16 @@ class PyType extends Operations implements PyObjectDict {
 
         /** Get the canonical implementation class for the type. */
         Class<?> implClass() {
-            return implClasses.get(0);
+            return implClass;
         }
 
         /**
          * Get all the implementation classes for the type, in order,
-         * the canonical at index 0 and any acceptable ones following.
+         * the canonical at index 0 and additinal accepted ones
+         * following.
          */
-        Class<?>[] implClasses() {
-            return implClasses
-                    .toArray(new Class<?>[implClasses.size()]);
+        Class<?>[] accepted() {
+            return accepted.toArray(new Class<?>[accepted.size()]);
         }
 
         /**

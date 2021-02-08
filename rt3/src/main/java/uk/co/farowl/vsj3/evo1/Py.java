@@ -192,8 +192,16 @@ public class Py {
                     return ((PyUnicode) res).value;
             } catch (Throwable e) {}
             // Fall back on pseudo object.__str__
-            String name = ops != null ? ops.type(o).name
-                    : o.getClass().getSimpleName();
+            String name = "";
+            if (ops != null)
+                name = ops.type(o).name;
+            else {
+                Class<?> c = o.getClass();
+                if (c.isAnonymousClass())
+                    name = c.getName();
+                else
+                    name = c.getSimpleName();
+            }
             return "<" + name + " object>";
         }
     }

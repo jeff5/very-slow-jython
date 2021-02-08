@@ -11,7 +11,7 @@ class PyLong implements CraftedType {
     /** The type {@code int}. */
     static PyType TYPE = PyType.fromSpec( //
             new PyType.Spec("int", PyLong.class, MethodHandles.lookup())
-                    .accept(Integer.class));
+    /* .accept(Integer.class) */);
 
     static PyLong ZERO = new PyLong(BigInteger.ZERO);
     static PyLong ONE = new PyLong(BigInteger.ONE);
@@ -123,7 +123,7 @@ class PyLong implements CraftedType {
             return false;
     }
 
-    // slot functions -------------------------------------------------
+    // special methods ------------------------------------------------
 
     protected static Object __new__(PyType type, PyTuple args,
             PyDict kwargs) throws Throwable {
@@ -178,17 +178,9 @@ class PyLong implements CraftedType {
         return new PyLong(value.negate());
     }
 
-    protected static Object __neg__(Integer self) {
-        int v = self.intValue();
-        if (v != Integer.MIN_VALUE)
-            return -v;
-        else
-            return NEG_INT_MIN;
+    protected static Object __neg__(Boolean self) {
+        return self ? -1 : 0;
     }
-
-    /** {@code -Integer.MIN_VALUE} as a {@code PyLong} */
-    private static PyLong NEG_INT_MIN =
-            new PyLong(-(long) Integer.MIN_VALUE);
 
     protected Object __abs__() {
         return new PyLong(value.abs());
@@ -199,6 +191,78 @@ class PyLong implements CraftedType {
             return new PyLong(value.add(((PyLong) w).value));
         else
             return Py.NotImplemented;
+    }
+
+    protected static Object __add__(Integer v, Integer w) {
+        return result(v.longValue() + w.longValue());
+    }
+
+    protected static Object __add__(Integer v, Boolean w) {
+        if (w) {
+            return v < Integer.MAX_VALUE ? v + 1 : NEG_INT_MIN;
+        } else
+            return v;
+    }
+
+    protected static Object __add__(PyLong self, Object ow) {
+        BigInteger v = self.value, w;
+        if (ow instanceof PyLong)
+            w = ((PyLong) ow).value;
+        else if (ow instanceof Integer)
+            w = BigInteger.valueOf(((Integer) ow).longValue());
+        else if (ow.equals(Boolean.FALSE))
+            return self;
+        else if (ow.equals(Boolean.TRUE))
+            w = BigInteger.ONE;
+        else
+            return Py.NotImplemented;
+        return new PyLong(v.add(w));
+    }
+
+    protected static Object __add__(Integer self, Object ow) {
+        long v = self.longValue();
+        if (ow instanceof PyLong) {
+            BigInteger w = ((PyLong) ow).value;
+            return new PyLong(BigInteger.valueOf(v).add(w));
+        } else if (ow instanceof Integer) {
+            long w = ((Integer) ow).longValue();
+            return result(v + w);
+        } else if (ow.equals(Boolean.FALSE)) {
+            return self;
+        } else if (ow.equals(Boolean.TRUE)) {
+            return result(v + 1);
+        } else
+            return Py.NotImplemented;
+    }
+
+    protected static Object __add__(Boolean self, Object ow) {
+        boolean v = self;
+        if (ow instanceof PyLong) {
+            if (v) {
+                BigInteger w = ((PyLong) ow).value;
+                return new PyLong(BigInteger.ONE.add(w));
+            } else
+                return ow;
+        } else if (ow instanceof Integer) {
+            long w = ((Integer) ow).longValue();
+            return v ? result(1 + w) : ow;
+        } else if (ow.equals(Boolean.FALSE)) {
+            return v ? 0 : 1;
+        } else if (ow.equals(Boolean.TRUE)) {
+            return v ? 1 : 2;
+        } else
+            return Py.NotImplemented;
+    }
+
+    protected static Object __add__(Boolean v, Integer w) {
+        if (v) {
+            return w < Integer.MAX_VALUE ? 1 + w : NEG_INT_MIN;
+        } else
+            return w;
+    }
+
+    protected static Object __add__(Boolean v, Boolean w) {
+        return (v ? 1 : 0) + (w ? 1 : 0);
     }
 
     protected Object __radd__(Object v) {
@@ -323,6 +387,8 @@ class PyLong implements CraftedType {
 // protected Object __float__() { // return PyFloat
 // return Py.val(doubleValue());
 // }
+
+
 
     // Non-slot API -------------------------------------------------
 
@@ -480,6 +546,31 @@ class PyLong implements CraftedType {
     }
 
     // plumbing ------------------------------------------------------
+
+    /** {@code -Integer.MIN_VALUE} as a {@code PyLong} */
+    private static PyLong NEG_INT_MIN =
+            new PyLong(-(long) Integer.MIN_VALUE);
+
+    private static final long BIT31 = 0x8000_0000L;
+    private static final long HIGHMASK = 0xFFFF_FFFF_0000_0000L;
+
+    /**
+     * Given a long value, return an {@code Integer} or a {@code PyLong}
+     * according to size.
+     *
+     * @param r result of some arithmetic as a long
+     * @return suitable object for Python
+     */
+    private static final Object result(long r) {
+        // 0b0...0_0rrr_rrrr_rrrr_rrrr -> Positive Integer
+        // 0b1...1_1rrr_rrrr_rrrr_rrrr -> Negative Integer
+        if (((r + BIT31) & HIGHMASK) == 0L) {
+            return Integer.valueOf((int) r);
+        } else {
+            // Anything else -> PyLong
+            return new PyLong(r);
+        }
+    }
 
     /**
      * Shorthand for implementing comparisons. Note that the return type

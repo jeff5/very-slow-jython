@@ -2,9 +2,22 @@ package uk.co.farowl.vsj3.evo1;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodHandles.Lookup;
+import java.lang.invoke.MethodType;
+import java.lang.invoke.WrongMethodTypeException;
+import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Comparator;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.ListIterator;
+import java.util.StringJoiner;
+import java.util.stream.Collectors;
 
 import uk.co.farowl.vsj3.evo1.Exposed.Getter;
 import uk.co.farowl.vsj3.evo1.PyType.Flag;
+import uk.co.farowl.vsj3.evo1.Slot.MethodKind;
 
 /**
  * A {@link Descriptor} for a particular definition <b>in Java</b> of
@@ -51,11 +64,11 @@ abstract class PyWrapperDescr extends Descriptor {
     final Slot slot;
 
     /**
-     * A handle for the particular implementation (special method) being
-     * wrapped. The method type is that of
+     * A handles for the particular implementations of a special method
+     * being wrapped. The method type of each is that of
      * {@link #slot}{@code .signature}.
      */
-    final MethodHandle wrapped;
+    final MethodHandle[] wrapped;
 
     /**
      * Construct a slot wrapper descriptor, identifying by a method
@@ -67,11 +80,48 @@ abstract class PyWrapperDescr extends Descriptor {
      * @param wrapped a handle to an implementation of that slot
      */
     // Compare CPython PyDescr_NewClassMethod in descrobject.c
+    @Deprecated // XXX Accommodate array of handles instead
     PyWrapperDescr(PyType objclass, Slot slot, MethodHandle wrapped) {
+        super(TYPE, objclass, slot.methodName);
+        this.slot = slot;
+        this.wrapped = new MethodHandle[] {wrapped};
+    }
+
+    /**
+     * Construct a slot wrapper descriptor, identifying by an array of
+     * method handles the implementation methods for the {@code slot} in
+     * {@code objclass}.
+     *
+     * @param objclass the class declaring the special method
+     * @param slot for the generic special method
+     * @param wrapped handles to the implementation of that slot
+     */
+    // Compare CPython PyDescr_NewClassMethod in descrobject.c
+    PyWrapperDescr(PyType objclass, Slot slot, MethodHandle[] wrapped) {
         super(TYPE, objclass, slot.methodName);
         this.slot = slot;
         this.wrapped = wrapped;
     }
+
+// /**
+// * Invoke the wrapped method handle, having arranged the arguments
+// * as expected by a slot. When we create sub-classes of
+// * {@code PyWrapperDescr} to handle different slot signatures, this
+// * is method that accepts arguments in a generic way (from the
+// * interpreter, say) and adapts them to the specific needs of the
+// * method handle {@link #wrapped}.
+// *
+// * @param self target object of the method call
+// *
+// * @param args of the method call
+// * @param kwargs of the method call
+// * @return result of the method call
+// * @throws Throwable from the implementation of the special method
+// */
+// // Compare CPython wrapperdescr_raw_call in descrobject.c
+// @Deprecated
+// abstract Object callWrapped(Object self, PyTuple args,
+// PyDict kwargs) throws Throwable;
 
     /**
      * Invoke the wrapped method handle, having arranged the arguments
@@ -82,14 +132,14 @@ abstract class PyWrapperDescr extends Descriptor {
      * method handle {@link #wrapped}.
      *
      * @param self target object of the method call
-     *
+     * @param index of self amongst accepted implementations
      * @param args of the method call
      * @param kwargs of the method call
      * @return result of the method call
      * @throws Throwable from the implementation of the special method
      */
     // Compare CPython wrapperdescr_raw_call in descrobject.c
-    abstract Object callWrapped(Object self, PyTuple args,
+    abstract Object callWrapped(Object self, int index, PyTuple args,
             PyDict kwargs) throws Throwable;
 
     // Exposed attributes ---------------------------------------------
@@ -161,20 +211,32 @@ abstract class PyWrapperDescr extends Descriptor {
     // Compare CPython wrapperdescr_call in descrobject.c
     protected Object __call__(PyTuple args, PyDict kwargs)
             throws TypeError, Throwable {
-        // Make sure that the first argument is acceptable as 'self'
+        // Split the leading element self from args
         int argc = args.value.length;
         if (argc < 1) {
             throw new TypeError(DESCRIPTOR_NEEDS_ARGUMENT, name,
                     objclass.name);
         }
         Object self = args.value[0];
+        args = new PyTuple(args.value, 1, argc - 1);
+
+        // Work out how to call this descriptor on that object
+        Class<?> selfClass = self.getClass();
+        int index = objclass.indexOfImpl(selfClass);
+
         PyType selfType = PyType.of(self);
-        if (!Abstract.recursiveIsSubclass(selfType, objclass)) {
+
+        // XXX does existence of a match => sub-class?
+
+        // Make sure that the first argument is acceptable as 'self'
+
+        if (index < 0
+                || !Abstract.recursiveIsSubclass(selfType, objclass)) {
             throw new TypeError(DESCRIPTOR_REQUIRES, name,
                     objclass.name, selfType.name);
         }
-        args = new PyTuple(args.value, 1, argc - 1);
-        return callWrapped(self, args, kwargs);
+
+        return callWrapped(self, index, args, kwargs);
     }
 
     // Plumbing ------------------------------------------------------
@@ -244,4 +306,212 @@ abstract class PyWrapperDescr extends Descriptor {
             "wrapper %s() takes %s arguments (%d given)";
     private static final String TAKES_NO_KEYWORDS =
             "wrapper %s() takes no keyword arguments";
+
+    /**
+     * {@code WrapperDef} represents one or more methods of a Java class
+     * that are to be exposed as a single special method of an
+     * {@code object}. The exporting class provides a definitions for
+     * that method that appear here as {@code Method}s with different
+     * signatures.
+     */
+    static class WrapperDef {
+
+        /** The special method being defined. */
+        final Slot slot;
+        /** Collects the methods declared. */
+        final List<Method> methods = new ArrayList<>(1);
+
+        /**
+         * Obvious constructor
+         *
+         * @param name of attribute.
+         */
+        WrapperDef(Slot slot) {
+            this.slot = slot;
+        }
+
+        /**
+         * Add a method implementation. (A test that the signature
+         * matches the slot follows when we construct the
+         * {@link PyWrapperDescr}.)
+         *
+         * @param method to add to {@link #methods}
+         */
+        void add(Method method) {
+            methods.add(method);
+        }
+
+        /**
+         * Create a {@code PyWrapperDescr} from this definition. Note
+         * that a definition describes the methods as declared, and that
+         * there may be any number. This method matches them to the
+         * supported implementations.
+         *
+         * @param objclass Python type that owns the descriptor
+         * @param lookup authorisation to access fields
+         * @return descriptor for access to the field
+         * @throws InterpreterError if the method type is not supported
+         */
+        PyWrapperDescr createDescr(PyType objclass, Lookup lookup)
+                throws InterpreterError {
+
+            // Acceptable methods can be coerced to this signature
+            MethodType slotType = slot.getType();
+            final int L = slotType.parameterCount();
+            assert (L >= 1);
+
+            /*
+             * There could be any number of candidates in the
+             * implementation. An implementation method could match
+             * multiple accepted implementations of the type (e.g.
+             * Number matching Long and Integer).
+             */
+            LinkedList<MethodHandle> candidates = new LinkedList<>();
+            for (Method m : methods) {
+                // Convert m to a handle (if L args and accessible)
+                try {
+                    MethodHandle mh = lookup.unreflect(m);
+                    if (mh.type().parameterCount() == L)
+                        addOrdered(candidates, mh);
+                } catch (IllegalAccessException e) {
+                    throw new InterpreterError(e,
+                            "cannot get method handle for '%s' in '%s'",
+                            m, objclass.implClass);
+                }
+            }
+
+            // We will try to create a handle for each implementation
+            // XXX accommodating static/class here but should we?
+            final boolean instanceMethod =
+                    slot.signature.kind == MethodKind.INSTANCE;
+            final int N = instanceMethod ? objclass.accepted.length : 1;
+            MethodHandle[] wrapped = new MethodHandle[N];
+
+            // Fill the wrapped array with matching method handles
+            for (int i = 0; i < N; i++) {
+                Class<?> acceptedClass = objclass.accepted[i];
+                /*
+                 * Fill wrapped[i] with the method handle where the
+                 * first parameter is the most specific match for class
+                 * accepted[i].
+                 */
+                // Try the candidate method until one matches
+                for (MethodHandle mh : candidates) {
+                    if (!instanceMethod || mh.type().parameterType(0)
+                            .isAssignableFrom(acceptedClass)) {
+                        try {
+                            // must have the expected signature
+                            wrapped[i] = mh.asType(slotType);
+                            break;
+                        } catch (WrongMethodTypeException wmte) {
+                            // Wrong number of args or cannot cast.
+                            throw methodSignatureError(mh);
+                        }
+                    }
+                }
+
+                // We should have a value in each of wrapped[]
+                if (wrapped[i] == null) {
+                    throw new InterpreterError(
+                            "'%s.%s' not defined for %s", objclass.name,
+                            slot.methodName, objclass.accepted[i]);
+                }
+            }
+
+            return slot.signature.makeSlotWrapper(objclass, slot,
+                    wrapped);
+        }
+
+        /**
+         * Create a method handle on the implementation method,
+         * verifying that the method type produced is compatible with
+         * the {@link #slot}. The method may be {@code null}, signifying
+         * a method was not defined, in which case the returned handle
+         * is {@code null}.
+         *
+         * @param lookup authorisation to access fields
+         * @param m implementing method
+         * @return method handle on {@code m}
+         */
+        private MethodHandle unreflect(Lookup lookup, Method m) {
+            try {
+                /*
+                 * This handle reflects the method signature and the
+                 * object operates on should be consistent because it
+                 * implements the descriptor's objclass.
+                 */
+                MethodHandle mh = lookup.unreflect(m);
+                try {
+                    /*
+                     * The call site that invokes the handle will have a
+                     * signature matching the slot, therefore add a cast
+                     * to the method handle obtained from the method.
+                     */
+                    return mh.asType(slot.getType());
+                } catch (WrongMethodTypeException wmte) {
+                    // Wrong number of args or cannot cast.
+                    throw methodSignatureError(mh);
+                }
+            } catch (IllegalAccessException e) {
+                throw new InterpreterError(e,
+                        "cannot get method handle for '%s'", m);
+            }
+        }
+
+        /**
+         * Insert a {@code MethodHandle h} into a list, such that every
+         * handle in the list, of which the first parameter type is
+         * assignable from the first parameter type of {@code h}, will
+         * appear after {@code h} in the list. If there are none such,
+         * {@code h} is added at the end. The resulting list is
+         * partially ordered, and has the property that, in a forward
+         * search for a handle applicable to a given class, the most
+         * specific match is found first.
+         *
+         * @param list to add h into
+         * @param h to insert/add
+         */
+        private void addOrdered(LinkedList<MethodHandle> list,
+                MethodHandle h) {
+            // Type of first parameter of h
+            Class<?> c = h.type().parameterType(0);
+            // We'll work forwards a more general type is found
+            ListIterator<MethodHandle> iter = list.listIterator(0);
+            while (iter.hasNext()) {
+                MethodHandle i = iter.next();
+                Class<?> d = i.type().parameterType(0);
+                if (d.isAssignableFrom(c)) {
+                    /*
+                     * d is more general than c (i is more general than
+                     * h): back up and position just before i.
+                     */
+                    iter.previous();
+                    break;
+                }
+            }
+            // Insert h where the iterator stopped. Could be the end.
+            iter.add(h);
+        }
+
+        /** Convenience function to compose error in unreflect(). */
+        private InterpreterError methodSignatureError(MethodHandle mh) {
+            return new InterpreterError(UNSUPPORTED_SIG,
+                    slot.methodName, mh.type(), slot.opName);
+        }
+
+        private static final String UNSUPPORTED_SIG =
+                "method %.50s has wrong signature %.50s for slot %s";
+
+        @Override
+        public String toString() {
+            return String.format("WrapperDef(%s[%d])", slot.methodName,
+                    methods.size());
+        }
+
+        /** Method name or null (for toString()). */
+        private static String mn(Method m) {
+            return m == null ? "" : m.getName();
+        }
+    }
+
 }

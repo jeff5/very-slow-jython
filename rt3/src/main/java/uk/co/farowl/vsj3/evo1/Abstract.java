@@ -700,9 +700,9 @@ public class Abstract {
     /**
      * Return {@code true} iff the class {@code derived} is identical to
      * or derived from the class {@code cls}. The answer is sought along
-     * the MRO if {@code derived} and {@code cls} are both Python
-     * {@code type} objects, or sub-classes, or by traversal of
-     * {@code cls.__bases__} otherwise.
+     * the MRO of {@code derived} if {@code derived} and {@code cls} are
+     * both Python {@code type} objects, or sub-classes of {@code type},
+     * or by traversal of {@code cls.__bases__} otherwise.
      *
      * @param derived candidate derived type.
      * @param cls type that may be an ancestor of {@code derived}, (but
@@ -717,14 +717,14 @@ public class Abstract {
     // and _PyObject_RealIsSubclass in abstract.c
     static boolean recursiveIsSubclass(Object derived, Object cls)
             throws TypeError, Throwable {
-        if (cls instanceof PyType && derived instanceof PyType) {
+        if (cls instanceof PyType && derived instanceof PyType)
             // Both are PyType so this is relatively easy.
             return ((PyType) derived).isSubTypeOf((PyType) cls);
-        } else if (getBasesOf(derived) == null)
-            // derived does not have a __bases__, so error
+        else if (getBasesOf(derived) == null)
+            // derived is neither PyType nor has __bases__
             throw new TypeError("issubclass", 1, "a class", derived);
         else if (getBasesOf(cls) == null)
-            // derived does not have a __bases__, so error
+            // cls is neither PyType nor has __bases__
             throw argumentTypeError("issubclass", 2,
                     "a class or tuple of classes", cls);
         else

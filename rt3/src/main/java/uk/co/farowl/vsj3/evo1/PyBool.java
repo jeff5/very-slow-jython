@@ -24,7 +24,7 @@ class PyBool extends PyLong {
     /** Python {@code True} object. */
     static final PyBool True = new PyBool(BigInteger.ONE);
 
-    // slot functions -------------------------------------------------
+    // special methods ------------------------------------------------
 
     @Override
     protected final Object __repr__() {
@@ -84,4 +84,5 @@ class PyBool extends PyLong {
             // v is not a bool, go arithmetic.
             return super.__rxor__(v);
     }
+
 }

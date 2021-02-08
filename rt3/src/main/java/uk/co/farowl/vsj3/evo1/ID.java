@@ -29,6 +29,7 @@ class ID {
     static final PyUnicode __name__ = id("__name__");
     static final PyUnicode __neg__ = id("__neg__");
     static final PyUnicode __qualname__ = id("__qualname__");
+    static final PyUnicode __repr__ = id("__repr__");
     static final PyUnicode __self__ = id("__self__");
     static final PyUnicode __set__ = id("__set__");
     static final PyUnicode __str__ = id("__str__");

@@ -41,19 +41,23 @@ class PyMethodWrapper extends AbstractPyObject {
     @Member("__self__")
     final Object self;
 
+    /** Index in {@link #descr} of the proper wrapped handle. */
+    final int index;
+
     /**
      * Bind a slot wrapper descriptor to its target. The result is a
      * callable object e.g. in {@code bark = "Woof!".__mul__},
      * {@code bark} will be an instance of this class, {@code "Woof!}"
      * is {@code self} and {@code str.__mul__} is the descriptor.
      *
-     * @param self to which this method call is bound
      * @param descr for the special method to bind
+     * @param self to which this method call is bound
      */
     PyMethodWrapper(PyWrapperDescr descr, Object self) {
         super(TYPE);
         this.descr = descr;
         this.self = self;
+        this.index = Operations.of(self).getIndex();
     }
 
     // CPython method table (to convert to annotations):
@@ -197,6 +201,6 @@ class PyMethodWrapper extends AbstractPyObject {
     // Compare CPython wrapper_call in descrobject.c
     protected Object __call__(PyTuple args, PyDict kwargs)
             throws Throwable {
-        return descr.callWrapped(self, args, kwargs);
+        return descr.callWrapped(self, index, args, kwargs);
     }
 }
