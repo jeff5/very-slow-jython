@@ -3,6 +3,7 @@ package uk.co.farowl.vsj3.evo1;
 import java.lang.invoke.MethodHandles;
 import java.math.BigInteger;
 
+import uk.co.farowl.vsj3.evo1.PyObjectUtil.NoConversion;
 import uk.co.farowl.vsj3.evo1.Slot.EmptyException;
 
 /** The Python {@code int} object. */
@@ -13,8 +14,8 @@ class PyLong implements CraftedType {
             new PyType.Spec("int", PyLong.class, MethodHandles.lookup())
     /* .accept(Integer.class) */);
 
-    static PyLong ZERO = new PyLong(BigInteger.ZERO);
-    static PyLong ONE = new PyLong(BigInteger.ONE);
+    static Integer ZERO = Integer.valueOf(0);
+    static Integer ONE = Integer.valueOf(0);
 
     private final PyType type;
     final BigInteger value;
@@ -35,6 +36,7 @@ class PyLong implements CraftedType {
      *
      * @param value of the {@code int}
      */
+    // XXX not needed?
     PyLong(BigInteger value) {
         this(TYPE, value);
     }
@@ -95,6 +97,7 @@ class PyLong implements CraftedType {
      * @throws OverflowError if out of double range
      */
     // Compare CPython longobject.c: PyLong_AsDouble
+    @Deprecated // Supersede by asDouble(Object v)
     double doubleValue() throws OverflowError {
         /*
          * BigInteger.doubleValue() rounds half-to-even as required, but
@@ -107,6 +110,22 @@ class PyLong implements CraftedType {
             return x;
     }
 
+    /**
+     * Value as a Java {@code double} using the round-half-to-even rule.
+     *
+     * @return nearest double
+     * @throws OverflowError if out of double range
+     */
+    // Compare CPython longobject.c: PyLong_AsDouble
+    static double asDouble(Object v) {
+        try {
+            return convertToDouble(v);
+        } catch (NoConversion nc) {
+            throw Abstract.requiredTypeError("an integer", v);
+        }
+    }
+
+    @Deprecated
     private static String INT_TOO_LARGE_FLOAT =
             "Python int too large to convert to float";
 
@@ -174,8 +193,12 @@ class PyLong implements CraftedType {
         return Py.str(value.toString());
     }
 
-    protected Object __neg__() {
-        return new PyLong(value.negate());
+    protected static Object __neg__(PyLong self) {
+        return new PyLong(self.value.negate());
+    }
+
+    protected static Object __neg__(Integer self) {
+        return -self;
     }
 
     protected static Object __neg__(Boolean self) {
@@ -388,8 +411,6 @@ class PyLong implements CraftedType {
 // return Py.val(doubleValue());
 // }
 
-
-
     // Non-slot API -------------------------------------------------
 
     /**
@@ -508,10 +529,11 @@ class PyLong implements CraftedType {
      * @throws ValueError if {@code u} is an invalid literal
      */
     // Compare CPython longobject.c :: PyLong_FromUnicodeObject
-    static PyLong fromUnicode(PyUnicode u, int base) throws ValueError {
+    static BigInteger fromUnicode(PyUnicode u, int base)
+            throws ValueError {
         try {
             // XXX maybe check 2<=base<=36 even if Number.asLong does?
-            return new PyLong(new BigInteger(u.toString(), base));
+            return new BigInteger(u.toString(), base);
         } catch (NumberFormatException e) {
             throw new ValueError(
                     "invalid literal for int() with base %d: %.200s",
@@ -588,5 +610,53 @@ class PyLong implements CraftedType {
             return Py.NotImplemented;
         }
     }
+
+    /**
+     * Convert an int to a Java double (or throw {@link NoConversion}),
+     * using the round-half-to-even rule. Conversion to a double may
+     * overflow, raising an exception that is propagated to the caller.
+     * <p>
+     * If the method throws the special exception {@link NoConversion},
+     * the caller must deal with it. Generally it will convert it to an
+     * alternative course of action or an appropriate Python exception.
+     * Binary operations will normally return {@link Py#NotImplemented}
+     * in response.
+     *
+     * @param v to convert
+     * @return converted to {@code double}
+     * @throws NoConversion v is not an {@code int}
+     * @throws OverflowError v is too large to be a {@code float}
+     */
+    // Compare CPython longobject.c: PyLong_AsDouble
+    static double convertToDouble(Object v)
+            throws NoConversion, OverflowError {
+        // Check against supported types, most likely first
+        if (v instanceof Integer)
+            return ((Integer) v).doubleValue();
+        else if (v instanceof BigInteger)
+            return convertToDouble((BigInteger) v);
+        else if (v instanceof PyLong)
+            return convertToDouble(((PyLong) v).value);
+        else if (v instanceof Boolean)
+            return (Boolean) v ? 1.0 : 0.0;
+        throw PyObjectUtil.NO_CONVERSION;
+    }
+
+    private static double convertToDouble(BigInteger v)
+            throws OverflowError {
+        double vv = v.doubleValue();
+        if (Double.isFinite(vv))
+            return vv;
+        else
+            throw tooLarge("Python int", "float");
+    }
+
+    private static OverflowError tooLarge(String from, String to) {
+        String msg = String.format(TOO_LARGE, from, to);
+        return new OverflowError(msg);
+    }
+
+    private static final String TOO_LARGE =
+            "%s too large to convert to %s";
 
 }

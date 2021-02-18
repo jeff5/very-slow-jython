@@ -3,6 +3,7 @@ package uk.co.farowl.vsj3.evo1;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.Collection;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -12,8 +13,8 @@ import uk.co.farowl.vsj3.evo1.Exposed.DocString;
 import uk.co.farowl.vsj3.evo1.Exposed.Getter;
 import uk.co.farowl.vsj3.evo1.Exposed.JavaMethod;
 import uk.co.farowl.vsj3.evo1.Exposed.Setter;
-//import uk.co.farowl.vsj3.evo1.PyGetSetDescr.GetSetDef;
-//import uk.co.farowl.vsj3.evo1.PyMemberDescr.Flag;
+// import uk.co.farowl.vsj3.evo1.PyGetSetDescr.GetSetDef;
+// import uk.co.farowl.vsj3.evo1.PyMemberDescr.Flag;
 import uk.co.farowl.vsj3.evo1.PyWrapperDescr.WrapperDef;
 
 /**
@@ -24,6 +25,7 @@ class Exposer {
 
     private Exposer() {} // No instances
 
+//@formatter:off
 //    /**
 //     * Create a table of {@link PyMemberDescr}s annotated on the given
 //     * implementation class, on behalf of the type given. This type
@@ -266,39 +268,32 @@ class Exposer {
 //        }
 //        return null;
 //    }
+//@formatter:on
 
     /**
      * Create a table of {@link PyWrapperDescr}s defined on the given
-     * implementation class, on behalf of the type given. This type
+     * implementation classes, on behalf of the type given. This type
      * object will become the {@link Descriptor#objclass} reference of
      * the descriptors created, but is not otherwise accessed, since it
      * is (necessarily) incomplete at this time.
      *
      * @param lookup authorisation to access methods
-     * @param implClass to introspect for getters, setters and deleters
+     * @param implClass to introspect for special functions
+     * @param methodClass to introspect additionally (if non-null)
      * @param type to which these descriptors apply
      * @return attributes defined (in the order first encountered)
      * @throws InterpreterError on duplicates or unsupported types
      */
     static Map<String, PyWrapperDescr> wrapperDescrs(Lookup lookup,
-            Class<?> implClass, PyType type) throws InterpreterError {
+            Class<?> implClass, Class<?> methodClass, PyType type)
+            throws InterpreterError {
 
         // Iterate over methods looking for the relevant annotations
         Map<Slot, WrapperDef> defs = new LinkedHashMap<>();
 
-        for (Method m : implClass.getDeclaredMethods()) {
-            // If it is a special method, create a wrapper.
-            String name = m.getName();
-            Slot slot = Slot.forMethodName(name);
-            if (slot != null) {
-                WrapperDef def = defs.get(slot);
-                if (def == null) {
-                    def = new WrapperDef(slot);
-                    defs.put(slot, def);
-                }
-                def.add(m);
-            }
-        }
+        addWrapperDefs(defs, lookup, implClass);
+        if (methodClass != null)
+            addWrapperDefs(defs, lookup, methodClass);
 
         // For each slot having any definitions, construct a descriptor
         Map<String, PyWrapperDescr> descrs = new LinkedHashMap<>();
@@ -310,6 +305,33 @@ class Exposer {
         return descrs;
     }
 
+    /**
+     * Add to a table of {@link WrapperDef}s definitions found in the
+     * given implementation class.
+     *
+     * @param defs to add definitions (in the order first encountered)
+     * @param lookup authorisation to access methods
+     * @param implClass to introspect for special functions
+     */
+    static void addWrapperDefs(Map<Slot, WrapperDef> defs,
+            Lookup lookup, Class<?> implClass) {
+        for (Method m : implClass.getDeclaredMethods()) {
+            // If it is a special method, record the definition.
+            String name = m.getName();
+            Slot slot = Slot.forMethodName(name);
+            if (slot != null) {
+                WrapperDef def = defs.get(slot);
+                if (def == null) {
+                    // A new entry is needed
+                    def = new WrapperDef(slot);
+                    defs.put(slot, def);
+                }
+                def.add(m);
+            }
+        }
+    }
+
+//@formatter:off
 //    /**
 //     * Create a table of {@link PyMethodDescr}s for methods annotated as
 //     * {@link JavaMethod} on the given implementation class, on behalf
@@ -333,6 +355,7 @@ class Exposer {
 //     */
 //    public static Map<String, PyMethodDescr> methodDescrs(Lookup lookup,
 //            Class<?> implClass, PyType type) throws InterpreterError {
+//
 //
 //        Map<String, PyMethodDescr> defs = new LinkedHashMap<>();
 //
@@ -377,6 +400,7 @@ class Exposer {
 //                    "cannot get method handle for '%s'", m);
 //        }
 //    }
+//@formatter:on
 
     private static final String MEMBER_REPEAT =
             "Repeated definition of member %.50s in type %.50s";

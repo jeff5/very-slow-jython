@@ -12,7 +12,6 @@ import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 
 import uk.co.farowl.vsj3.evo1.Exposed.Getter;
 import uk.co.farowl.vsj3.evo1.Slot.EmptyException;
@@ -68,6 +67,7 @@ class PyType extends Operations implements PyObjectDict {
                 // Types with multiple implementations
                 PyUnicode.class, //
                 PyLong.class, //
+                PyFloat.class, //
         };
         // Fill the map from the list.
         for (Class<?> c : bootstrapClasses) {
@@ -402,23 +402,24 @@ class PyType extends Operations implements PyObjectDict {
         addWrappers(spec);
 
         // XXX Possibly belong elsewhere
-        //setAllSlots();
+        // setAllSlots();
         defineOperations();
         deduceFlags();
     }
 
-    /** Define the Operations objects for this type, posting them to the registry. */
+    /**
+     * Define the Operations objects for this type, posting them to the
+     * registry.
+     */
     private void defineOperations() {
         setAllSlots();
         Operations.registry.set(accepted[0], this);
-        for (int i=1; i<accepted.length; i++) {
+        for (int i = 1; i < accepted.length; i++) {
             // Creating the operations object sets the slots in it
             Operations.Accepted ops = new Operations.Accepted(this, i);
             Operations.registry.set(accepted[i], ops);
         }
     }
-
-
 
 // /**
 // * Add members to this type discovered through the specification.
@@ -464,8 +465,8 @@ class PyType extends Operations implements PyObjectDict {
      */
     private void addWrappers(Spec spec) {
 
-        Map<String, PyWrapperDescr> wrappers =
-                Exposer.wrapperDescrs(spec.lookup, implClass, this);
+        Map<String, PyWrapperDescr> wrappers = Exposer.wrapperDescrs(
+                spec.lookup, spec.implClass, spec.methodClass, this);
 
         for (Map.Entry<String, PyWrapperDescr> e : wrappers
                 .entrySet()) {
@@ -523,6 +524,11 @@ class PyType extends Operations implements PyObjectDict {
     public PyType getType() { return type; }
 
     @Override
+    PyType type(Object x) {
+        return this;
+    }
+
+    @Override
     Class<?> getJavaClass() { return accepted[0]; }
 
     /**
@@ -536,7 +542,7 @@ class PyType extends Operations implements PyObjectDict {
     }
 
     /** Set the MRO, but at present only single base. */
-    // XXX note may retain a reference to declaredBases
+    // XXX note may retain a reference todeclaredBases
     private void setMROfromBases() {
 
         int n = bases.length;
@@ -638,18 +644,16 @@ class PyType extends Operations implements PyObjectDict {
     /**
      * {@code true} iff the Python type of {@code o} is exactly
      * {@code this}, not a Python sub-type of {@code this}, nor just any
-     * Java sub-class of {@code PyType}. {@code o} will also be
-     * assignable in Java to the implementation class of this type. This
-     * is likely to be used in the form:<pre>
+     * Java sub-class of {@code PyType}. This is likely to be used in
+     * the form:<pre>
      * if(!PyUnicode.TYPE.checkExact(oName)) throw ...
      *</pre>
      *
      * @param o object to test
      * @return {@code true} iff {@code o} is exactly of this type
      */
-    // Multiple acceptable implementations would invalidate last stmt.
     boolean checkExact(Object o) {
-        return PyType.of(o) == TYPE;
+        return PyType.of(o) == this;
     }
 
     /**
@@ -829,8 +833,20 @@ class PyType extends Operations implements PyObjectDict {
         /** Delegated authorisation to resolve names. */
         final Lookup lookup;
 
-        /** The implementation class in which to look up names. */
+        /** The implementation class in which the spec was created. */
         final Class<?> implClass;
+
+        /**
+         * Additional class in which to look up method names or
+         * {@code null}. See {@link #methods(Class)}
+         */
+        private Class<?> methodClass;
+
+        /**
+         * Additional class in which to look up binary type-specific
+         * methods or {@code null}. See {@link #binops(Class)}.
+         */
+        private Class<?> binopClass;
 
         /**
          * The canonical and accepted implementations of the Python type
@@ -861,13 +877,11 @@ class PyType extends Operations implements PyObjectDict {
 
         /**
          * Create (begin) a specification for a {@link PyType} based on
-         * a specific implementation class and a Python metaclass
-         * (specified as its Java class). This is the beginning normally
-         * made by built-in classes in their static initialisation.
+         * a specified implementation class.
          * <p>
          * {@link PyType#fromSpec(Spec)} will interrogate the
          * implementation class reflectively to discover attributes the
-         * type should have, and (in many cases) will form
+         * type should have, and will form type dictionary entries with
          * {@link MethodHandle}s or {@link VarHandle}s on qualifying
          * members. The caller supplies a {@link Lookup} object to make
          * this possible. An implementation class may declare methods
@@ -875,23 +889,65 @@ class PyType extends Operations implements PyObjectDict {
          * exposed to Python, as long as the lookup object provided to
          * the {@code Spec} confers the right to access them.
          * <p>
-         * A {@code Spec} given private access to members should not be
-         * passed to untrusted code. PyType does not hold onto them
-         * after completing the type object.
+         * A {@code Spec} given private or package access to members
+         * should not be passed to untrusted code. {@code PyType} does
+         * not hold onto the {@code Spec} after completing the type
+         * object.
          * <p>
-         * In principle, it would be possible for the implementation and
-         * the lookup classes (see {code Lookup.lookupClass()}) to be
-         * different from the caller. Usually they are the same.
+         * Additional classes may be given containing the implementation
+         * and the lookup classes (see {code Lookup.lookupClass()}) to
+         * be different from the caller. Usually they are the same.
          *
          * @param name of the type
          * @param implClass in which operations are defined
          * @param lookup authorisation to access {@code implClass}
+         *
+         * @deprecated Use {@link #PyType(String, Lookup)} istead
          */
+        @Deprecated
         Spec(String name, Class<?> implClass, Lookup lookup) {
             this.name = name;
             this.implClass = implClass;
+            this.methodClass = this.binopClass = null;
             this.accepted.add(implClass);
             this.lookup = lookup;
+        }
+
+        /**
+         * Create (begin) a specification for a {@link PyType} based on
+         * the caller as the implementation class. This is the beginning
+         * normally made by built-in classes in their static
+         * initialisation.
+         * <p>
+         * The caller supplies a {@link Lookup} object which must have
+         * been created by the implementation class.
+         * {@link PyType#fromSpec(Spec)} will interrogate the
+         * implementation class reflectively to discover attributes the
+         * type should have, and will form type dictionary entries with
+         * {@link MethodHandle}s or {@link VarHandle}s on qualifying
+         * members. An implementation class may declare methods and
+         * fields as {@code private}, and annotate them to be exposed to
+         * Python, as long as the lookup object provided to the
+         * {@code Spec} confers the right to access them.
+         * <p>
+         * A {@code Spec} given private or package access to members
+         * should not be passed to untrusted code. {@code PyType} does
+         * not hold onto the {@code Spec} after completing the type
+         * object.
+         * <p>
+         * Additional classes may be given containing the implementation
+         * and the lookup classes (see {code Lookup.lookupClass()}) to
+         * be different from the caller. Usually they are the same.
+         *
+         * @param name of the type
+         * @param lookup authorisation to access {@code implClass}
+         */
+        Spec(String name, Lookup lookup) {
+            this.name = name;
+            this.lookup = lookup;
+            this.implClass = lookup.lookupClass();
+            this.methodClass = this.binopClass = null;
+            this.accepted.add(implClass);
         }
 
         /**
@@ -915,6 +971,18 @@ class PyType extends Operations implements PyObjectDict {
                      */
                     MethodHandles.lookup()
                             .dropLookupMode(Lookup.PRIVATE));
+        }
+
+        /**
+         * Specify additional acceptable implementation classes for the
+         * type.
+         *
+         * @param impl classes to append to the list
+         * @return {@code this}
+         */
+        Spec ops(Class<?>... impl) {
+            accepted.addAll(Arrays.asList(impl));
+            return this;
         }
 
         /**
@@ -949,10 +1017,9 @@ class PyType extends Operations implements PyObjectDict {
         }
 
         /**
-         * Specify implementation classes accepted in Python sub-types of the
-         * type.
-         * It is possible that a Python sub-type defined in Java
-         * should name as accepted implementations
+         * Specify implementation classes accepted in Python sub-types
+         * of the type. It is possible that a Python sub-type defined in
+         * Java should name as accepted implementations
          *
          *
          * @param impl classes to append to the list
@@ -1029,6 +1096,69 @@ class PyType extends Operations implements PyObjectDict {
         /** Get the canonical implementation class for the type. */
         Class<?> implClass() {
             return implClass;
+        }
+
+        /**
+         * Set the class additionally defining methods for the type.
+         * This class will be consulted when filling the dictionary of
+         * the type. A separate class is useful when the method
+         * definitions are generated by a script, as for types that
+         * admit multiple realisations in Java.
+         *
+         * @param methodClass class with additional methods
+         * @return {@code this}
+         */
+        Spec methods(Class<?> methodClass) {
+            this.methodClass = methodClass;
+            return this;
+        }
+
+        /**
+         * Get the class additionally defining methods for the type. See
+         * {@link #methods(Class)}.
+         *
+         * @return class additionally defining methods for the type
+         */
+        Class<?> methodClass() {
+            return methodClass;
+        }
+
+        /**
+         * Set the class in which to look up binary type-specific
+         * operations, for example {@code __rsub__(MyObject, Integer)}.
+         * Such signatures are used in call sites.
+         * <p>
+         * Types may ignore this technique if the designer is content
+         * with a {@code __rsub__(MyObject, Object)} that coerces its
+         * right-hand argument on each call. (This method has to exist
+         * to satisfy the Python data model.) The method may be defined
+         * in the {@link #implClass()}, or {@link #methodClass()}
+         * <p>
+         * A separate class is necessary since the method definition for
+         * {@code __rsub__(MyObject, Object)} must sometimes return
+         * {@link Py#NotImplemented}, and we should like to avoid
+         * checking for that in the call site. Rather, the absence of a
+         * definition should indicate that he operation is not defined
+         * for a given pair of types Certain built-ins use the technique
+         * to speed up call sites in JVM byte code compiled from Python.
+         * (The class may be generated by a script.)
+         *
+         * @param binopClass class with binary type-specific methods
+         * @return {@code this}
+         */
+        Spec binops(Class<?> binopClass) {
+            this.binopClass = binopClass;
+            return this;
+        }
+
+        /**
+         * Get the class defining binary type-specific operations for
+         * the type. See {@link #binops(Class)}
+         *
+         * @return class defining binary type-specific operations
+         */
+        Class<?> binopClass() {
+            return binopClass;
         }
 
         /**

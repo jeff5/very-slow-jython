@@ -16,9 +16,12 @@ dependencies {
 }
 
 
-def genOutputDir = "$buildDir/generated-src/gen"
+def genOutputDir = "$buildDir/generated/sources/javaTemplate"
 def genJavaDir = "$genOutputDir/java/main"
 def genTestJavaDir = "$genOutputDir/java/test"
+
+def genInputDir = getProject().file('src/main/javaTemplate')
+def genTestInputDir = getProject().file('src/main/javaTemplate')
 
 
 sourceSets {
@@ -41,7 +44,8 @@ class PythonGenerate extends Exec {
 
     PythonGenerate() {
         executable 'python'
-        environment('PYTHONPATH', getProject().file('tools/codegen'))
+        environment('PYTHONPATH',
+                getProject().file('tools/python/lib'))
     }
 }
 
@@ -53,16 +57,14 @@ test {
 }
 
 
-task generateJava(type: PythonGenerate,
-        description: 'Generate ...' ) {
-
-    def outDir = relativePath("$genJavaDir/uk/co/farowl/vsj3/evo1")
-
-    doFirst {
-        mkdir outDir
-    }
+task generateJavaEvo1(type: PythonGenerate,
+        description: 'Generate object definitions from templates' ) {
+    args getProject().file('tools/python/vsj3evo1/java_object_gen.py')
+    args '--verbose'
+    args genInputDir
+    args genJavaDir
 }
-//compileJava.dependsOn(generateJava)
+compileJava.dependsOn(generateJavaEvo1)
 
 
 task pythonVersion(type: Exec) {
@@ -100,4 +102,5 @@ tasks.withType(Javadoc) {
 tasks.withType(JavaCompile) {
 
     options.deprecation = true
+
 }

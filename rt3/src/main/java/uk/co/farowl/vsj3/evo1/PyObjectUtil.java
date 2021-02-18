@@ -3,6 +3,8 @@ package uk.co.farowl.vsj3.evo1;
 import java.util.Map;
 import java.util.StringJoiner;
 
+import uk.co.farowl.vsj3.evo1.PyObjectUtil.NoConversion;
+
 /** Miscellaneous static helpers common to built-in objects. */
 class PyObjectUtil {
 
@@ -64,4 +66,22 @@ class PyObjectUtil {
         String typeName = PyType.of(o).name;
         return String.format("%s object at %#x", typeName, id);
     }
+
+    /**
+     * The type of exception thrown when an attempt to convert an object
+     * to a common data type fails. This type of exception carries no
+     * stack context, since it is used only as a sort of "alternative
+     * return value".
+     */
+    static class NoConversion extends Exception {
+
+        NoConversion() { super(null, null, false, false); }
+    }
+
+    /**
+     * A statically allocated {@link NoConversion} used in conversion
+     * methods to signal "cannot convert". No stack context is preserved
+     * in the exception.
+     */
+    static final NoConversion NO_CONVERSION = new NoConversion();
 }

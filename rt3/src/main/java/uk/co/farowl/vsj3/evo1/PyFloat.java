@@ -8,11 +8,15 @@ public class PyFloat extends AbstractPyObject {
 
     /** The type {@code float}. */
     static final PyType TYPE = PyType.fromSpec( //
-            new PyType.Spec("float", PyFloat.class,
-                    MethodHandles.lookup()));
+            new PyType.Spec("float", MethodHandles.lookup())
+                    .accept(Double.class).methods(PyFloatMethods.class)
+                    .binops(PyFloatBinops.class));
 
-    static PyFloat ZERO = new PyFloat(0.0);
-    final double value;
+    /** A handy constant for the Python {@code float} zero. */
+    static Double ZERO = Double.valueOf(0.0);
+
+    /** Value of this {@code float} object. */
+    protected final double value;
 
     /** Constructor for Python sub-class specifying {@link #type}. */
     protected PyFloat(PyType type, double value) {
@@ -20,6 +24,7 @@ public class PyFloat extends AbstractPyObject {
         this.value = value;
     }
 
+    // XXX not needed
     PyFloat(double value) {
         this(TYPE, value);
     }
@@ -30,15 +35,11 @@ public class PyFloat extends AbstractPyObject {
             PyFloat other = (PyFloat) obj;
             return other.value == this.value;
         } else
+            // XXX should try more accepted types. Or __eq__?
             return false;
     }
 
-    // slot functions -------------------------------------------------
-
-    @SuppressWarnings("unused")
-    private Object __repr__() {
-        return Py.str(Double.toString(value));
-    }
+    // special methods ------------------------------------------------
 
     @SuppressWarnings("unused")
     private static Object __new__(PyType type, PyTuple args,
@@ -69,80 +70,6 @@ public class PyFloat extends AbstractPyObject {
             return Number.toFloat(x);
     }
 
-    @SuppressWarnings("unused")
-    private Object __neg__() {
-        return new PyFloat(-value);
-    }
-
-    @SuppressWarnings("unused")
-    private Object __abs__() {
-        return new PyFloat(Math.abs(value));
-    }
-
-    @SuppressWarnings("unused")
-    private Object __add__(Object w) {
-        try {
-            return new PyFloat(value + valueOf(w));
-        } catch (ClassCastException cce) {
-            return Py.NotImplemented;
-        }
-    }
-
-    @SuppressWarnings("unused")
-    private Object __radd__(Object v) {
-        try {
-            return new PyFloat(valueOf(v) + value);
-        } catch (ClassCastException cce) {
-            return Py.NotImplemented;
-        }
-    }
-
-    @SuppressWarnings("unused")
-    private Object __sub__(Object w) {
-        try {
-            return new PyFloat(value - valueOf(w));
-        } catch (ClassCastException cce) {
-            return Py.NotImplemented;
-        }
-    }
-
-    @SuppressWarnings("unused")
-    private Object __rsub__(Object v) {
-        try {
-            return new PyFloat(valueOf(v) - value);
-        } catch (ClassCastException cce) {
-            return Py.NotImplemented;
-        }
-    }
-
-    @SuppressWarnings("unused")
-    private Object __mul__(Object w) {
-        try {
-            return new PyFloat(value * valueOf(w));
-        } catch (ClassCastException cce) {
-            return Py.NotImplemented;
-        }
-    }
-
-    @SuppressWarnings("unused")
-    private Object __rmul__(Object v) {
-        try {
-            return new PyFloat(valueOf(v) * value);
-        } catch (ClassCastException cce) {
-            return Py.NotImplemented;
-        }
-    }
-
-    @SuppressWarnings("unused")
-    private Object __int__() {
-        return new PyLong(bigIntegerFromDouble(value));
-    }
-
-    @SuppressWarnings("unused")
-    private boolean __bool__() {
-        return value != 0.0;
-    }
-
     // Non-slot API -------------------------------------------------
 
     /**
@@ -150,44 +77,48 @@ public class PyFloat extends AbstractPyObject {
      *
      * @return value as double
      */
+    // XXX limited value: most floats are Double
     public double doubleValue() {
         return value;
     }
 
     /**
-     * Convert the argument to a Java {@code double} value. If
-     * {@code pyfloat} is not a Python {@code float} try the
-     * {@code __float__()} method, then {@code __index__()}.
+     * Convert the argument to a Java {@code double} value. If {@code o}
+     * is not a Python {@code float} try the {@code __float__()} method,
+     * then {@code __index__()}.
      *
      * @param o to convert
      * @return converted value
-     * @throws Throwable
+     * @throws TypeError
+     * @throws Throwable from {@code __float__)} or {@code __index__}
      */
     // Compare CPython floatobject.c: PyFloat_AsDouble
-    static double asDouble(Object o) throws Throwable {
+    // XXX Needs re-thinking for acceptable types.
+    // Is it different from a convert method of more limited scope?
+    static double asDouble(Object o) throws TypeError, Throwable {
         /*
          * Ever so similar to Number.toFloat, but returns the double
          * value extracted from (potentially) a sub-type of PyFloat, and
          * does not try to convert from strings.
          */
-        Operations ops = Operations.of(o);
-
-        if (ops.isFloatExact()) {
-            return ((PyFloat) o).value;
+        if (PyFloat.TYPE.check(o)) {
+            return ((java.lang.Number) o).doubleValue();
 
         } else {
+            Operations ops = Operations.of(o);
             try {
                 // Try __float__ (if defined)
                 Object res = ops.op_float.invokeExact(o);
-                if (PyFloat.TYPE.checkExact(res)) // Exact type
+                Operations resops = Operations.of(res);
+                if (resops.isFloatExact()) // Exact type
                     return ((PyFloat) res).value;
                 else if (PyFloat.TYPE.check(res)) { // Sub-class
-                    // Warn about this and make a clean PyFloat
+                    // Warn about this and make a clean Python float
                     Abstract.returnDeprecation("__float__", "float",
                             res);
-                    return ((PyFloat) res).doubleValue();
+                    return PyFloat.asDouble(res);
                 } else
-                    // Slot defined but not a PyFloat at all
+                    // Slot defined but not a Python float at all
                     throw Abstract.returnTypeError("__float__", "float",
                             res);
             } catch (Slot.EmptyException e) {}
@@ -265,14 +196,6 @@ public class PyFloat extends AbstractPyObject {
     private static final long EXPONENT = SIGN - IMPLIED_ONE;
     // = 0x7ff0000000000000L;
 
-    /** Convert supported types to {@code double} */
-    private static double valueOf(Object v) {
-        if (v instanceof PyFloat)
-            return ((PyFloat) v).value;
-        else
-            return ((PyLong) v).value.doubleValue();
-    }
-
     static OverflowError cannotConvertInf(String to) {
         String msg = String.format(CANNOT_CONVERT, "infinity", to);
         return new OverflowError(msg);
@@ -285,4 +208,5 @@ public class PyFloat extends AbstractPyObject {
 
     private static final String CANNOT_CONVERT =
             "cannot convert float %s to %s";
+
 }

@@ -12,13 +12,11 @@ import java.util.Map;
  * This {@code enum} provides a set of structured constants that are
  * used to refer to the special methods of the Python data model.
  * <p>
- * Each constant creates a correspondence between its name, the (slot)
- * name in the {@code PyType} object (because it is the same), the type
- * of the {@code MethodHandle} every occurrence of that slot must
- * contain, and the conventional name by which the implementing class of
- * a type will refer to that method, if it offers an implementation. It
- * holds all the run-time system needs to know about the special method
- * in general, but not any information specific to a particular type.
+ * These are structured constants that provide not only the
+ * {@code String} method name, but also a signature, and much
+ * information used internally by the run-time system in the creation of
+ * type objects, the interpretation of code and the creation of call
+ * sites.
  * <p>
  * In principle, any Python object may support all of the special
  * methods, through "slots" in the Python type object {@code PyType}.
@@ -64,7 +62,9 @@ enum Slot {
     op_vectorcall(Signature.VECTORCALL), //
 
     op_neg(Signature.UNARY, "unary -"), //
+    op_pos(Signature.UNARY, "unary +"), //
     op_abs(Signature.UNARY, "abs()"), //
+    op_invert(Signature.UNARY, "unary ~"), //
 
     // Binary ops: reflected form comes first so we can reference it.
     op_radd(Signature.BINARY, "+"), //
@@ -168,7 +168,7 @@ enum Slot {
      * @param name of a (possible) special method
      * @return the Slot corresponding, or {@code null}
      */
-    static Slot forMethodName(String name) {
+    public static Slot forMethodName(String name) {
         return Util.getMethodNameTable().get(name);
     }
 

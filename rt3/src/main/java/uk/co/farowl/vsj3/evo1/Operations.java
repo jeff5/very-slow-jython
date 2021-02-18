@@ -174,6 +174,15 @@ abstract class Operations {
     }
 
     /**
+     * Get the Python type of the object <i>given that</i> this is the
+     * operations object for it.
+     *
+     * @param x subject of the enquiry
+     * @return {@code type(x)}
+     */
+    abstract PyType type(Object x);
+
+    /**
      * Identify by index which Java implementation of the associated
      * type this {@code Operations} object is for. (Some types have
      * multiple acceptable implementations.)
@@ -227,11 +236,6 @@ abstract class Operations {
         MethodHandle guard;
     }
 
-    PyType type(Object x) {
-        // TODO Auto-generated method stub
-        return null;
-    }
-
     Target getTarget(Slot slot, Object v) {
         // TODO Auto-generated method stub
         return null;
@@ -275,6 +279,9 @@ abstract class Operations {
         }
 
         @Override
+        PyType type(Object x) { return type; }
+
+        @Override
         int getIndex() { return index; }
 
         @Override
@@ -286,8 +293,10 @@ abstract class Operations {
          */
         private void setAllSlots() {
             for (Slot s : Slot.values()) {
-                Object def = type.lookup(ID.intern(s.methodName));
-                s.setSlot(this, def);
+                if (s.signature.kind == Slot.MethodKind.INSTANCE) {
+                    Object def = type.lookup(ID.intern(s.methodName));
+                    s.setSlot(this, def);
+                }
             }
         }
     }
@@ -340,8 +349,10 @@ abstract class Operations {
     MethodHandle op_rmul;
 
     MethodHandle op_neg;
-
+    MethodHandle op_pos;
     MethodHandle op_abs;
+    MethodHandle op_invert;
+
     MethodHandle op_bool;
 
     MethodHandle op_and;
