@@ -22,7 +22,7 @@ public class MethodHandleFormationTest {
      * do in fact raise the exception used internally to detect them.
      */
     @SuppressWarnings("unused")
-    //@Test
+    @Test
     void testSlotsEmptyException() {
 
         // Call to handle that fills "empty" UNARY slot.
@@ -64,7 +64,7 @@ public class MethodHandleFormationTest {
     static class BasicallyEmpty implements CraftedType {
 
         static final PyType TYPE = PyType.fromSpec( //
-                new Spec("BasicallyEmpty", BasicallyEmpty.class));
+                new Spec("BasicallyEmpty", MethodHandles.lookup()));
 
         @Override
         public PyType getType() { return TYPE; }
@@ -74,7 +74,7 @@ public class MethodHandleFormationTest {
      * Test that slots applicable to all objects (CPython {@code tp_}
      * slots) accept only the right type of method handles.
      */
-    //@Test
+    @Test
     void basicObjectSlots() {
         // Type defining none of the reserved names
         final PyType basic = BasicallyEmpty.TYPE;
@@ -122,7 +122,7 @@ public class MethodHandleFormationTest {
      * Test that slots applicable to numbers (CPython {@code nb_} slots)
      * accept only the right type of method handles.
      */
-    //@Test
+    @Test
     void numericSlots() {
         // Type defining none of the reserved names
         final PyType number = BasicallyEmpty.TYPE;
@@ -181,7 +181,7 @@ public class MethodHandleFormationTest {
      * Test that slots applicable to sequences (CPython {@code sq_}
      * slots) accept only the right type of method handles.
      */
-    //@Test
+    @Test
     void sequenceSlots() {
         // Type defining none of the reserved names
         final PyType sequence = BasicallyEmpty.TYPE;
@@ -221,7 +221,7 @@ public class MethodHandleFormationTest {
      * Test that slots applicable to mappings (CPython {@code mp_}
      * slots) accept only the right type of method handles.
      */
-    //@Test
+    @Test
     void mappingSlots() {
         // Create a type defining none of the reserved names
         final PyType mapping = PyType.fromSpec(new Spec( //

@@ -358,8 +358,7 @@ class ExposerTest {
         /** Lookup object to support creation of descriptors. */
         private static final Lookup LOOKUP = MethodHandles.lookup();
         static PyType TYPE = PyType.fromSpec( //
-                new PyType.Spec("ObjectWithSpecialMethods",
-                        ObjectWithSpMeth.class, LOOKUP)
+                new PyType.Spec("ObjectWithSpecialMethods", LOOKUP)
                                 .accept(AcceptedSpecial.class));
         int value;
 

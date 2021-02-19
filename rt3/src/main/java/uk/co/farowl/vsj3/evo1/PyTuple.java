@@ -12,7 +12,7 @@ class PyTuple extends AbstractList<Object> implements CraftedType {
 
     /** The Python type object for {@code tuple}. */
     static final PyType TYPE = PyType.fromSpec( //
-            new Spec("tuple", PyTuple.class, MethodHandles.lookup()));
+            new Spec("tuple", MethodHandles.lookup()));
 
     /** The Python type of this instance. */
     protected final PyType type;

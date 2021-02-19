@@ -169,8 +169,8 @@ class PyFloatTemplate(ImplementationTemplate):
     ]
     XTYPES = [
         TypeInfo('Integer', '{}.doubleValue()'),
-        TypeInfo('BigInteger', '{}.doubleValue()'),
-        TypeInfo('PyLong', '{}.doubleValue()'),
+        TypeInfo('BigInteger', 'PyLong.convertToDouble({})'),
+        TypeInfo('PyLong', 'PyLong.convertToDouble({}.value)'),
         TypeInfo('Boolean', '({}.booleanValue() ? 1.0 : 0.0)'),
     ]
     UNARY_OPS = [

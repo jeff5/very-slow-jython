@@ -1149,7 +1149,7 @@ public class Abstract {
      * @return whether {@code obj} has non-empty {@link Slot#op_index}
      */
     static boolean indexCheck(Object obj) {
-        return Slot.op_index.isDefinedFor(PyType.of(obj));
+        return Slot.op_index.isDefinedFor(Operations.of(obj));
     }
 
     /** Throw generic something went wrong internally (last resort). */

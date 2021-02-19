@@ -77,6 +77,7 @@ public class PyFloat extends AbstractPyObject {
      *
      * @return value as double
      */
+    @Deprecated
     // XXX limited value: most floats are Double
     public double doubleValue() {
         return value;

@@ -7,13 +7,9 @@ import java.lang.invoke.MethodType;
 import java.lang.invoke.WrongMethodTypeException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Comparator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.ListIterator;
-import java.util.StringJoiner;
-import java.util.stream.Collectors;
 
 import uk.co.farowl.vsj3.evo1.Exposed.Getter;
 import uk.co.farowl.vsj3.evo1.PyType.Flag;
@@ -53,7 +49,7 @@ import uk.co.farowl.vsj3.evo1.Slot.MethodKind;
 abstract class PyWrapperDescr extends Descriptor {
 
     static final PyType TYPE = PyType.fromSpec( //
-            new PyType.Spec("wrapper_descriptor", PyWrapperDescr.class,
+            new PyType.Spec("wrapper_descriptor",
                     MethodHandles.lookup()).flagNot(Flag.BASETYPE));
 
     /**

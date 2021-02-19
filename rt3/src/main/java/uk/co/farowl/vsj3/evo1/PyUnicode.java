@@ -7,8 +7,7 @@ class PyUnicode implements PySequence, Comparable<PyUnicode> {
 
     /** The type of Python object this class implements. */
     static final PyType TYPE = PyType.fromSpec( //
-            new PyType.Spec("str", PyUnicode.class,
-                    MethodHandles.lookup()));
+            new PyType.Spec("str", MethodHandles.lookup()));
     protected PyType type;
     final String value; // only supporting BMP for now
 

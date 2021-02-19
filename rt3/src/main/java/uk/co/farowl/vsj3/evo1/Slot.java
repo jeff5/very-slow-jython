@@ -202,7 +202,7 @@ enum Slot {
      * @return true iff defined (non-empty)
      */
     @Deprecated // XXX actually, it will fail (when we've ported)
-    boolean isDefinedFor(PyType t) {
+    boolean isDefinedForType(PyType t) {
         return slotHandle.get(t) != signature.empty;
     }
 
@@ -316,7 +316,7 @@ enum Slot {
      * @param mh handle value to assign
      */
     @Deprecated // XXX actually, it will fail (when we've ported)
-    void setSlot(PyType t, MethodHandle mh) {
+    void setSlotOnType(PyType t, MethodHandle mh) {
         if (mh == null || !mh.type().equals(getType()))
             throw slotTypeError(this, mh);
         slotHandle.set(t, mh);
@@ -801,7 +801,7 @@ enum Slot {
     }
 
     /**
-     * Helper for {@link Slot#setSlot(PyType, MethodHandle)}, when a bad
+     * Helper for {@link Slot#setSlotOnType(PyType, MethodHandle)}, when a bad
      * handle is presented.
      *
      * @param slot that the client attempted to set

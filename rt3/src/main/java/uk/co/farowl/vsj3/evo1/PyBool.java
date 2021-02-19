@@ -8,10 +8,9 @@ class PyBool extends PyLong {
 
     /** The type of Python object this class implements. */
     static final PyType TYPE = PyType.fromSpec( //
-            new PyType.Spec("bool", PyBool.class,
-                    MethodHandles.lookup()) //
-                            .base(PyLong.TYPE) //
-                            .flagNot(PyType.Flag.BASETYPE));
+            new PyType.Spec("bool", MethodHandles.lookup()) //
+                    .base(PyLong.TYPE) //
+                    .flagNot(PyType.Flag.BASETYPE));
 
     // Private so we can guarantee the doubleton. :)
     private PyBool(BigInteger value) {

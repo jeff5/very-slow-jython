@@ -598,11 +598,23 @@ class PyType extends Operations implements PyObjectDict {
 
     }
 
+    private void setSlot(Slot slot, MethodHandle mh) {
+        if (isMutable())
+            slot.setSlot(this, mh);
+        else
+            throw new TypeError("cannot update slots of %s", name);
+    }
+
+
     @Override
     public String toString() {
         return "<class '" + name + "'>";
     }
 
+    /** The name of this type.
+     *
+     * @return name of this type
+     */
     public String getName() { return name; }
 
     /**
@@ -617,13 +629,6 @@ class PyType extends Operations implements PyObjectDict {
             if (accepted[i].isAssignableFrom(impl)) { return i; }
         }
         return -1;
-    }
-
-    void setSlot(Slot slot, MethodHandle mh) {
-        if (isMutable())
-            slot.setSlot(this, mh);
-        else
-            throw new TypeError("cannot update slots of %s", name);
     }
 
     /**

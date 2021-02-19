@@ -11,7 +11,7 @@ class PyLong implements CraftedType {
 
     /** The type {@code int}. */
     static PyType TYPE = PyType.fromSpec( //
-            new PyType.Spec("int", PyLong.class, MethodHandles.lookup())
+            new PyType.Spec("int", MethodHandles.lookup())
     /* .accept(Integer.class) */);
 
     static Integer ZERO = Integer.valueOf(0);
@@ -612,9 +612,10 @@ class PyLong implements CraftedType {
     }
 
     /**
-     * Convert an int to a Java double (or throw {@link NoConversion}),
-     * using the round-half-to-even rule. Conversion to a double may
-     * overflow, raising an exception that is propagated to the caller.
+     * Convert an {@code int} to a Java double (or throw
+     * {@link NoConversion}), using the round-half-to-even rule.
+     * Conversion to a double may overflow, raising an exception that is
+     * propagated to the caller.
      * <p>
      * If the method throws the special exception {@link NoConversion},
      * the caller must deal with it. Generally it will convert it to an
@@ -642,8 +643,16 @@ class PyLong implements CraftedType {
         throw PyObjectUtil.NO_CONVERSION;
     }
 
-    private static double convertToDouble(BigInteger v)
-            throws OverflowError {
+    /**
+     * Convert a {@code BigInteger} to a Java double , using the
+     * round-half-to-even rule. Conversion to a double may overflow,
+     * raising an exception that is propagated to the caller.
+     *
+     * @param v to convert
+     * @return converted to {@code double}
+     * @throws OverflowError v is too large to be a {@code float}
+     */
+    static double convertToDouble(BigInteger v) throws OverflowError {
         double vv = v.doubleValue();
         if (Double.isFinite(vv))
             return vv;
