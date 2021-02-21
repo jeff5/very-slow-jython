@@ -162,17 +162,21 @@ class PyLongTemplate(ImplementationTemplate):
 
 class PyFloatTemplate(ImplementationTemplate):
 
-    # Aligns (probably!) with the accepted implementations
-    TYPES = [
-        TypeInfo('Double', '{}.doubleValue()'),
+    # The canonical + adopted implementations in PyFloat.java,
+    # as there are no further accepted self-classes.
+    ACCEPTED_CLASSES = [
         TypeInfo('PyFloat', '{}.value'),
+        TypeInfo('Double', '{}.doubleValue()'),
     ]
-    XTYPES = [
-        TypeInfo('Integer', '{}.doubleValue()'),
-        TypeInfo('BigInteger', 'PyLong.convertToDouble({})'),
-        TypeInfo('PyLong', 'PyLong.convertToDouble({}.value)'),
-        TypeInfo('Boolean', '({}.booleanValue() ? 1.0 : 0.0)'),
+    OPERAND_CLASSES = ACCEPTED_CLASSES + [
+        #TypeInfo('Integer', '{}.doubleValue()'),
+        #TypeInfo('BigInteger', 'PyLong.convertToDouble({})'),
+        #TypeInfo('PyLong', 'PyLong.convertToDouble({}.value)'),
+        #TypeInfo('Boolean', '({}.booleanValue() ? 1.0 : 0.0)'),
     ]
+
+    # Operations may simply be codified as a return expression, since
+    # all operand types may be converted to primitive double.
     UNARY_OPS = [
         OpInfo('__abs__', 'Math.abs({})'),
         OpInfo('__neg__', '-{}'),
@@ -185,8 +189,8 @@ class PyFloatTemplate(ImplementationTemplate):
     BINARY_OPS = [
         OpInfo('__add__', '{} + {}', 'v', 'w'),
         OpInfo('__radd__', '{1} + {0}', 'w', 'v'),
-        # OpInfo('__sub__', '{} - {}', 'v', 'w'),
-        # OpInfo('__rsub__', '{1} - {0}', 'w', 'v'),
+        OpInfo('__sub__', '{} - {}', 'v', 'w'),
+        OpInfo('__rsub__', '{1} - {0}', 'w', 'v'),
     ]
     BINARY_PREDICATE_OPS = [
         OpInfo('__lt__', '{} < {}'),
@@ -198,22 +202,22 @@ class PyFloatTemplate(ImplementationTemplate):
 
         # Emit the unary operations
         for op in self.UNARY_OPS:
-            for t in self.TYPES:
+            for t in self.ACCEPTED_CLASSES:
                 self.special_unary(e, op, t)
 
         # Emit the unary operations
         for op in self.PREDICATE_OPS:
-            for t in self.TYPES:
+            for t in self.ACCEPTED_CLASSES:
                 self.special_predicate(e, op, t)
 
         # Emit the binary operations op(T, Object)
         for op in self.BINARY_OPS:
-            for vt in self.TYPES:
+            for vt in self.ACCEPTED_CLASSES:
                 self.special_binary_object(e, op, vt)
 
         # Emit the binary predicate operations op(T, Object)
         for op in self.BINARY_PREDICATE_OPS:
-            for vt in self.TYPES:
+            for vt in self.ACCEPTED_CLASSES:
                 self.special_binary_predicate_object(e, op, vt)
 
     # Emit methods selectable by a pair of types (for call sites)
@@ -221,10 +225,8 @@ class PyFloatTemplate(ImplementationTemplate):
 
         # Emit the binary operations
         for op in self.BINARY_OPS:
-            for vt in self.TYPES:
-                for wt in self.TYPES:
-                    self.special_binary(e, op, vt, wt)
-                for wt in self.XTYPES:
+            for vt in self.ACCEPTED_CLASSES:
+                for wt in self.OPERAND_CLASSES:
                     self.special_binary(e, op, vt, wt)
 
     def special_unary(self, e, op, t):

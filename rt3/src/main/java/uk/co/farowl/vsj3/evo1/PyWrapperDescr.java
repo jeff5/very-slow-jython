@@ -218,7 +218,7 @@ abstract class PyWrapperDescr extends Descriptor {
 
         // Work out how to call this descriptor on that object
         Class<?> selfClass = self.getClass();
-        int index = objclass.indexOfImpl(selfClass);
+        int index = objclass.indexAccepted(selfClass);
 
         PyType selfType = PyType.of(self);
 
@@ -380,12 +380,12 @@ abstract class PyWrapperDescr extends Descriptor {
             // XXX accommodating static/class here but should we?
             final boolean instanceMethod =
                     slot.signature.kind == MethodKind.INSTANCE;
-            final int N = instanceMethod ? objclass.accepted.length : 1;
+            final int N = instanceMethod ? objclass.operandClasses.length : 1;
             MethodHandle[] wrapped = new MethodHandle[N];
 
             // Fill the wrapped array with matching method handles
             for (int i = 0; i < N; i++) {
-                Class<?> acceptedClass = objclass.accepted[i];
+                Class<?> acceptedClass = objclass.operandClasses[i];
                 /*
                  * Fill wrapped[i] with the method handle where the
                  * first parameter is the most specific match for class
@@ -410,7 +410,7 @@ abstract class PyWrapperDescr extends Descriptor {
                 if (wrapped[i] == null) {
                     throw new InterpreterError(
                             "'%s.%s' not defined for %s", objclass.name,
-                            slot.methodName, objclass.accepted[i]);
+                            slot.methodName, objclass.operandClasses[i]);
                 }
             }
 

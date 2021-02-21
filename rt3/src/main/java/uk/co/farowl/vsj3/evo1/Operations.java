@@ -258,7 +258,7 @@ abstract class Operations {
         final private PyType type;
         /**
          * Index of this implementation in the type (see
-         * {@link PyType#accepted} and {@link PyWrapperDescr#wrapped}
+         * {@link PyType#operandClasses} and {@link PyWrapperDescr#wrapped}
          */
         final private int index;
 
@@ -283,7 +283,7 @@ abstract class Operations {
         int getIndex() { return index; }
 
         @Override
-        Class<?> getJavaClass() { return type.accepted[index]; }
+        Class<?> getJavaClass() { return type.operandClasses[index]; }
 
         /**
          * Set all the slots ({@code op_*}) from the entries in the
@@ -296,6 +296,12 @@ abstract class Operations {
                     s.setSlot(this, def);
                 }
             }
+        }
+
+        @Override
+        public String toString() {
+            String javaName = getJavaClass().getSimpleName();
+            return javaName +" as " + type.toString();
         }
     }
 

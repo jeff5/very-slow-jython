@@ -140,7 +140,7 @@ into:
 
 A ``PyType`` is a particular kind of ``Operations`` object,
 describing the *canonical implementation* (``PyFloat`` in this case).
-The ``Operations`` object for an alternative *accepted implementation*,
+The ``Operations`` object for an alternative *adopted implementation*,
 is not a ``PyType``.
 
 There can only be one descriptor for ``float.__neg__``.
@@ -169,10 +169,10 @@ This last option is the one we use for types like ``float``.
 The operations on ``Double`` have to be ``static`` methods, since
 we can't very well open up ``java.lang.Double`` and add them there!
 Therefore we create new class in which ``static`` methods
-define the operations for *all* accepted implementations.
+define the operations for *all* adopted implementations.
 
 The canonical implementation class will specify, during initialisation,
-the Java classes that are the accepted implementations,
+the Java classes that are the adopted implementations,
 and the name of this extra class defining the methods.
 The canonical class now begins something like this:
 
@@ -182,7 +182,7 @@ The canonical class now begins something like this:
 
         static final PyType TYPE = PyType.fromSpec( //
                 new PyType.Spec("float", MethodHandles.lookup())
-                        .accept(Double.class)
+                        .adopt(Double.class)
                         .methods(PyFloatMethods.class));
 
         static Double ZERO = Double.valueOf(0.0);
@@ -262,7 +262,7 @@ In this way, the site is able to make the same invocation call efficiently,
 next time the same Java class is encountered.
 
 As the site is invoked for different Java classes,
-not need not be just the accepted implementations of a single type,
+not need not be just the adopted implementations of a single type,
 it will build a chain of guarded invocations,
 equivalent to a chain of ``if (v instanceof C) { ... } else ...`` clauses
 each guarding the proper implementation of the unary operation.
@@ -280,7 +280,7 @@ However, we can invoke it as a test like this:
 
     class FloatCallSites {
 
-        /** Test invocation of __neg__ call site on accepted classes. */
+        /** Test invocation of __neg__ call site on adopted classes. */
         @Test
         void site_op_neg() throws Throwable {
 
@@ -309,8 +309,8 @@ An Implication for Bootstrapping
 Note that if a Java class were to be encountered by the run-time
 before its canonical counterpart could register it,
 it would be treated as a "found" Java class,
-and this would prevent it becoming an accepted implementation as intended.
-Types with accepted implementations must initialise before this can happen,
+and this would prevent it becoming an adopted implementation as intended.
+Types with adopted implementations must initialise before this can happen,
 and so we make them bootstrap types.
 A list read from configuration is imaginable
 as an alternative to hard-coding,
@@ -375,11 +375,11 @@ These are reasonable (and the same thing) in Python:
 
 ``True`` is acceptable as an argument to ``int.__neg__`` in Python
 because ``bool`` is a sub-class of ``int``.
-Java ``Boolean`` is not a sub-class of any acceptable implementation,
+Java ``Boolean`` is not a sub-class of any adopted implementation,
 and so no signature of ``__neg__`` is applicable to it.
 
 
-Accepting ``bool``
+Adopting ``bool``
 ------------------
 
 The structure we propose to deal with this is as follows,
@@ -515,16 +515,16 @@ we may design VSJ 3 with them in mind.
     indexed by the implementation (by ``Operations``).
     In ``int.__neg__(42)`` we must invoke index 1.
     Descriptors are inherited by Python sub-classes to which these
-    accepted implementations are largely irrelevant,
+    adopted implementations are largely irrelevant,
     since a sub-class Java extends only the canonical implementation.
 *   When a type implemented in Java,
-    and possessing accepted alternative implementations,
+    and possessing adopted alternative implementations,
     inherits a ``PyWrapperDescr``,
     the method handle array ``wrapped`` in the inherited descriptor
     has entries that match the implementation types of the inherited class,
     and these may not match the accepted implementations of the receiver.
     How may the inherited special method be applied
-    to a sub-class instance that of accepted class?
+    to a sub-class instance that of adopted class?
     This happens all the time for the special case of ``object``,
     where all implementations trivially extend ``Object``.
     Other examples are rare.

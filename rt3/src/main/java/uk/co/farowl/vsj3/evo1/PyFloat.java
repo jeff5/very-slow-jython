@@ -9,7 +9,7 @@ public class PyFloat extends AbstractPyObject {
     /** The type {@code float}. */
     static final PyType TYPE = PyType.fromSpec( //
             new PyType.Spec("float", MethodHandles.lookup())
-                    .accept(Double.class).methods(PyFloatMethods.class)
+                    .adopt(Double.class).methods(PyFloatMethods.class)
                     .binops(PyFloatBinops.class));
 
     /** A handy constant for the Python {@code float} zero. */

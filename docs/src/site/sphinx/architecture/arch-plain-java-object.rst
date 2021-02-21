@@ -43,9 +43,9 @@ This includes identification of a Python type object for the instance.
     Operations <|-- PyType
     Crafted -right-> PyType : type
 
-    class AcceptedOps { }
-    Operations <|-- AcceptedOps
-    AcceptedOps "*" -- "1" PyType
+    class AdoptedOps { }
+    Operations <|-- AdoptedOps
+    AdoptedOps "*" -- "1" PyType
 
 
 The classes ``Crafted`` and ``Other`` are not real classes
@@ -89,7 +89,7 @@ in relation to this model.
 A Java class may be:
 
 #.  the crafted canonical implementation of a Python type.
-#.  an accepted implementation of some Python type.
+#.  an adopted implementation of some Python type.
 #.  the crafted base of Python sub-classes of a Python type.
 #.  a found Java type.
 #.  the crafted base of Python sub-classes of a found Java type.
@@ -100,11 +100,11 @@ It will implement ``PyObject`` and designate its type explicitly.
 It will have static data, annotations and use reserved method names,
 that will be exposed as attributes.
 
-By *accepted* we mean that although we had no opportunity to craft
+By *adopted* we mean that although we had no opportunity to craft
 the class as a ``PyObject``,
-we accept it as an implementation of a Python type
-(as ``java.lang.Integer`` is accepted as an implementation of ``int``).
-The class will be bound to an ``AcceptedOps`` object,
+we adopt it as an implementation of a Python type
+(as ``java.lang.Integer`` is adopted as an implementation of ``int``).
+The class will be bound to an ``AdoptedOps`` object,
 which is not itself a ``PyType``.
 From that we may reach the particular ``PyType`` it implements.
 
@@ -151,8 +151,8 @@ Derived and Variable Type
 -------------------------
 
 
-Accepted Implementation
-=======================
+Adopted Implementation
+======================
 
 Specification
 -------------

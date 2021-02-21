@@ -12,7 +12,7 @@ class PyLong implements CraftedType {
     /** The type {@code int}. */
     static PyType TYPE = PyType.fromSpec( //
             new PyType.Spec("int", MethodHandles.lookup())
-    /* .accept(Integer.class) */);
+                    /*.adopt(BigInteger.class, Integer.class)*/);
 
     static Integer ZERO = Integer.valueOf(0);
     static Integer ONE = Integer.valueOf(0);

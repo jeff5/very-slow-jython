@@ -99,17 +99,16 @@ enum Slot {
     final Signature signature;
     /** Name of implementation method to bind to this slot. */
     final String methodName;
-    /** Name of implementation method as {@link PyUnicode}. */
-    // XXX Do not provoke type system by setting in constructor.
-    // PyUnicode name_strobj;
     /** Name to use in error messages */
     final String opName;
-    /** Name to use in error messages */
+    /** Handle to throw a {@link TypeError} (same signature as slot). */
+    private MethodHandle operandError;
+    /** Description to use in help messages */
     final String doc;
     /** Reference to field holding this slot in a {@link PyType} */
     final VarHandle slotHandle;
-    /** Reference to field holding alternate slot in a {@link PyType} */
-    final VarHandle altSlotHandle;
+    /** The alternate slot e.g. {@code __radd__} in {@code __add__}. */
+    final Slot alt;
 
     /**
      * Constructor for enum constants.
@@ -125,7 +124,7 @@ enum Slot {
         this.methodName = dunder(methodName);
         this.signature = signature;
         this.slotHandle = Util.slotHandle(this);
-        this.altSlotHandle = alt == null ? null : alt.slotHandle;
+        this.alt = alt;
         // XXX Need something convenient as in CPython.
         this.doc = "Doc of " + this.opName;
     }
@@ -196,14 +195,20 @@ enum Slot {
     MethodHandle getEmpty() { return signature.empty; }
 
     /**
-     * Test whether this slot is non-empty in the given type.
+     * Get a handle to throw a {@link TypeError} with a message
+     * conventional for the slot. This handle has the same signature as
+     * the slot, and some data specific to the slot. This is useful when
+     * the target of a call site may have to raise a type error.
      *
-     * @param t type to examine for this slot
-     * @return true iff defined (non-empty)
+     * @return throwing method handle for this type of slot
      */
-    @Deprecated // XXX actually, it will fail (when we've ported)
-    boolean isDefinedForType(PyType t) {
-        return slotHandle.get(t) != signature.empty;
+    MethodHandle getOperandError() {
+        // Not in the constructor so as not to provoke PyType
+        if (operandError == null) {
+            // Possibly racing, but that's harmless
+            operandError = Util.operandError(this);
+        }
+        return operandError;
     }
 
     /**
@@ -243,37 +248,6 @@ enum Slot {
     }
 
     /**
-     * Constructs a specialised version of {@link PyWrapperDescr} that
-     * is able to arrange call arguments according to the pattern
-     * expected by this slot.
-     *
-     * @param objclass the Python type declaring the special method
-     * @param c the Java class declaring the special method
-     * @param lookup authorisation to access {@code c}
-     * @return a slot wrapper descriptor
-     * @throws NoSuchMethodException slot method not found
-     * @throws IllegalAccessException found but inaccessible
-     */
-    @Deprecated // XXX build from WrapperDef instead
-    PyWrapperDescr makeSlotWrapper(PyType objclass, Class<?> c,
-            Lookup lookup)
-            throws IllegalAccessException, NoSuchMethodException {
-        MethodHandle wrapped = findInClass(c, lookup);
-        return signature.makeSlotWrapper(objclass, this, new MethodHandle[] {wrapped});
-    }
-
-    /**
-     * Get the contents of this slot in the given type.
-     *
-     * @param t target type
-     * @return current contents of this slot in {@code t}
-     */
-    @Deprecated // XXX actually, it will fail (when we've ported)
-    MethodHandle getSlot(PyType t) {
-        return (MethodHandle) slotHandle.get(t);
-    }
-
-    /**
      * Get the contents of this slot in the given operations object.
      * Each member of this {@code enum} corresponds to a method handle
      * of the name which must also have the correct signature.
@@ -286,40 +260,16 @@ enum Slot {
     }
 
     /**
-     * Get the contents of the "alternate" slot in the given type. For a
-     * binary operation this is the reflected operation.
-     *
-     * @param t target type
-     * @return current contents of the alternate slot in {@code t}
-     */
-    @Deprecated // XXX actually, it will fail (when we've ported)
-    MethodHandle getAltSlot(PyType t) {
-        return (MethodHandle) altSlotHandle.get(t);
-    }
-
-    /**
      * Get the contents of the "alternate" slot in the given operations
      * object. For a binary operation this is the reflected operation.
      *
      * @param ops target operations object
      * @return current contents of the alternate slot in {@code t}
+     * @throws NullPointerException if there is no alternate
      */
-    MethodHandle getAltSlot(Operations ops) {
-        return (MethodHandle) altSlotHandle.get(ops);
-    }
-
-    /**
-     * Set the contents of this slot in the given type to the
-     * {@code MethodHandle} provided.
-     *
-     * @param t target type object
-     * @param mh handle value to assign
-     */
-    @Deprecated // XXX actually, it will fail (when we've ported)
-    void setSlotOnType(PyType t, MethodHandle mh) {
-        if (mh == null || !mh.type().equals(getType()))
-            throw slotTypeError(this, mh);
-        slotHandle.set(t, mh);
+    MethodHandle getAltSlot(Operations ops)
+            throws NullPointerException {
+        return (MethodHandle) alt.slotHandle.get(ops);
     }
 
     /**
@@ -335,75 +285,7 @@ enum Slot {
         slotHandle.set(ops, mh);
     }
 
-//    /**
-//     * Set the contents of this slot in the given type to a
-//     * {@code MethodHandle} that calls the object given in a manner
-//     * appropriate to its type. This method is used when updating
-//     * setting the type slots of a new type from the new type's
-//     * dictionary, and when updating them after a change. The object
-//     * argument is then the entry found by lookup of this slot's name
-//     * (and may be {@code null} if no entry was found.
-//     * <p>
-//     * Where the object is a {@link PyWrapperDescr}, the wrapped method
-//     * handle will be set as by {@link #setSlot(PyType, MethodHandle)}.
-//     * The {@link PyWrapperDescr#slot} is not necessarily this slot.
-//     * Client Python code can enter any wrapper descriptor against the
-//     * name.
-//     *
-//     * @param t target type object
-//     * @param def object defining the handle to set (or {@code null})
-//     */
-//    // Compare CPython update_one_slot in typeobject.c
-//    @Deprecated // XXX actually, it will fail (when we've ported)
-//    void setSlot(PyType t, Object def) {
-//        MethodHandle mh;
-//        if (def == null) {
-//            // No definition available for the special method
-//            if (this == op_next) {
-//                // XXX We should special-case __next__
-//                /*
-//                 * In CPython, this slot is sometimes null=empty, and
-//                 * sometimes _PyObject_NextNotImplemented. PyIter_Check
-//                 * checks both, but PyIter_Next calls it without
-//                 * checking and a null would then cause a crash. We have
-//                 * EmptyException for a similar purpose.
-//                 */
-//            }
-//            mh = signature.empty;
-//
-//        } else if (def instanceof PyWrapperDescr) {
-//            // Subject to certain checks, take wrapped handle.
-//            PyWrapperDescr wd = (PyWrapperDescr) def;
-//            if (wd.slot.signature == signature && t.isSubTypeOf(t)) {
-//                mh = wd.wrapped[0];
-//            } else {
-//                throw new MissingFeature(
-//                        "equivalent of the slot_* functions");
-//                // mh = signature.slotCalling(def);
-//            }
-//
-//        } else if (def instanceof PyJavaFunction) {
-//            // We should be able to do this efficiently ... ?
-//            // PyJavaFunction func = (PyJavaFunction) def;
-//            if (this == op_next)
-//                throw new MissingFeature(
-//                        "special case caller for __new__ wrapper");
-//            throw new MissingFeature(
-//                    "Efficient handle from PyJavaFunction");
-//            // mh = signature.slotCalling(func);
-//
-//        } else if (def == Py.None && this == op_hash) {
-//            throw new MissingFeature("special case __hash__ == None");
-//            // mh = PyObject_HashNotImplemented
-//
-//        } else {
-//            throw new MissingFeature(
-//                    "equivalent of the slot_* functions");
-//            // mh = makeSlotHandle(wd);
-//        }
-//
-//        slotHandle.set(t, mh);
-//    }
+
 
     /**
      * Set the contents of this slot in the given operations object to a
@@ -444,12 +326,13 @@ enum Slot {
             // Subject to certain checks, take wrapped handle.
             PyWrapperDescr wd = (PyWrapperDescr) def;
 
-            /* wd is an attribute of ops.type(), but since
-             * it may be one by inheritance, the handle we want from it
-             * may be at a different index from ops.index.
+            /*
+             * wd is an attribute of ops.type(), but since it may be one
+             * by inheritance, the handle we want from it may be at a
+             * different index from ops.index.
              */
             Class<?> selfClass = ops.getJavaClass();
-            int index = wd.objclass.indexOfImpl(selfClass);
+            int index = wd.objclass.indexAccepted(selfClass);
             if (wd.slot.signature == signature) { // enough?
                 mh = wd.wrapped[index];
             } else {
@@ -458,6 +341,7 @@ enum Slot {
                 // mh = signature.slotCalling(def);
             }
 
+//@formatter:off
 //        } else if (def instanceof PyJavaFunction) {
 //            // We should be able to do this efficiently ... ?
 //            // PyJavaFunction func = (PyJavaFunction) def;
@@ -467,6 +351,7 @@ enum Slot {
 //            throw new MissingFeature(
 //                    "Efficient handle from PyJavaFunction");
 //            // mh = signature.slotCalling(func);
+//@formatter:on
 
         } else if (def == Py.None && this == op_hash) {
             throw new MissingFeature("special case __hash__ == None");
@@ -611,7 +496,8 @@ enum Slot {
                             PyTuple args, PyDict kwargs)
                             throws Throwable {
                         checkArgs(args, 1, kwargs);
-                        return wrapped[index].invokeExact(self, args.value[0]);
+                        return wrapped[index].invokeExact(self,
+                                args.value[0]);
                     }
                 };
             }
@@ -801,7 +687,7 @@ enum Slot {
     }
 
     /**
-     * Helper for {@link Slot#setSlotOnType(PyType, MethodHandle)}, when a bad
+     * Helper for {@link Slot#setSlot(PyType, MethodHandle)}, when a bad
      * handle is presented.
      *
      * @param slot that the client attempted to set
@@ -864,6 +750,69 @@ enum Slot {
         }
 
         /**
+         * Helper for {@link Slot} and thereby for call sites providing
+         * a method handle that throws a Python exception when invoked,
+         * with an appropriate message for the operation.
+         * <p>
+         * To be concrete, if the slot is a binary operation, the
+         * returned handle may throw something like {@code TypeError:
+         * unsupported operand type(s) for -: 'str' and 'str'}.
+         *
+         * @param slot to mention in the error message
+         * @return a handle that throws the exception
+         */
+        static MethodHandle operandError(Slot slot) {
+            // The type of the method that creates the TypeError
+            MethodType errorMT =
+                    slot.getType().insertParameterTypes(0, Slot.class)
+                            .changeReturnType(PyException.class);
+            // Exception thrower with nominal return type of the slot
+            // thrower = λ(e): throw e
+            MethodHandle thrower = MethodHandles.throwException(
+                    slot.getType().returnType(), PyException.class);
+
+            try {
+                /*
+                 * Look up a method f to create the exception, when
+                 * applied the arguments v, w, ... (types matching the
+                 * slot signature) prepended with this slot. We'll only
+                 * call it if the handle is invoked.
+                 */
+                // error = λ(slot, v, w, ...): f(slot, v, w, ...)
+                MethodHandle error;
+                switch (slot.signature) {
+                    case UNARY:
+                        // Same name, although signature differs ...
+                    case BINARY:
+                        error = LOOKUP.findStatic(Number.class,
+                                "operandError", errorMT);
+                        break;
+                    default:
+                        // error = λ(slot): default(slot, v, w, ...)
+                        error = LOOKUP.findStatic(Util.class,
+                                "defaultOperandError", errorMT);
+                        // error = λ(slot, v, w, ...): default(slot)
+                        error = MethodHandles.dropArguments(error, 0,
+                                slot.getType().parameterArray());
+                }
+
+                // A handle that creates and throws the exception
+                // λ(v, w, ...): throw f(slot, v, w, ...)
+                return MethodHandles.collectArguments(thrower, 0,
+                        error.bindTo(slot));
+
+            } catch (NoSuchMethodException | IllegalAccessException e) {
+                throw new InterpreterError(e,
+                        "creating handle for type error", slot.name());
+            }
+        }
+
+        /** Uninformative exception, mentioning the slot. */
+        static PyException defaultOperandError(Slot op) {
+            return new TypeError("bad operand type for %s", op.opName);
+        }
+
+        /**
          * For a given slot, return a handle to the instance method in a
          * given class that implements it, or the default handle (of the
          * correct signature) that throws {@link EmptyException}.
@@ -875,8 +824,8 @@ enum Slot {
          * @throws NoSuchMethodException slot method not found
          * @throws IllegalAccessException found but inaccessible
          */
-        private static MethodHandle findVirtualInClass(Slot slot, Class<?> c,
-                Lookup lookup)
+        private static MethodHandle findVirtualInClass(Slot slot,
+                Class<?> c, Lookup lookup)
                 throws IllegalAccessException, NoSuchMethodException {
             // PyBaseObject has a different approach
             if (c == PyBaseObject.class)
@@ -903,8 +852,8 @@ enum Slot {
          * @throws NoSuchMethodException slot method not found
          * @throws IllegalAccessException found but inaccessible
          */
-        private static MethodHandle findStaticInClass(Slot slot, Class<?> c,
-                Lookup lookup)
+        private static MethodHandle findStaticInClass(Slot slot,
+                Class<?> c, Lookup lookup)
                 throws NoSuchMethodException, IllegalAccessException {
             // The method has the same name in every implementation
             String name = slot.getMethodName();
@@ -932,7 +881,8 @@ enum Slot {
          * @throws NoSuchMethodException slot method not found
          * @throws IllegalAccessException found but inaccessible
          */
-        private static MethodHandle findInBaseObject(Slot slot, Lookup lookup)
+        private static MethodHandle findInBaseObject(Slot slot,
+                Lookup lookup)
                 throws NoSuchMethodException, IllegalAccessException {
             // The method has this special method name.
             String name = slot.getMethodName();
@@ -978,7 +928,8 @@ enum Slot {
          * @param c class to substitute for {@link Self}
          * @return signature after substitution
          */
-        private static MethodType replaceSelf(MethodType type, Class<?> c) {
+        private static MethodType replaceSelf(MethodType type,
+                Class<?> c) {
             int n = type.parameterCount();
             if (n > 0 && type.parameterType(0) == Self.class)
                 return type.changeParameterType(0, c);

@@ -1,10 +1,14 @@
 package uk.co.farowl.vsj3.evo1;
 
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.WrongMethodTypeException;
 import java.lang.invoke.MethodHandles.Lookup;
+import java.lang.invoke.MethodType;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.Collection;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -16,6 +20,7 @@ import uk.co.farowl.vsj3.evo1.Exposed.Setter;
 // import uk.co.farowl.vsj3.evo1.PyGetSetDescr.GetSetDef;
 // import uk.co.farowl.vsj3.evo1.PyMemberDescr.Flag;
 import uk.co.farowl.vsj3.evo1.PyWrapperDescr.WrapperDef;
+import uk.co.farowl.vsj3.evo1.Slot.Signature;
 
 /**
  * Methods for tabulating the attributes of classes that define Python
@@ -311,11 +316,11 @@ class Exposer {
      *
      * @param defs to add definitions (in the order first encountered)
      * @param lookup authorisation to access methods
-     * @param implClass to introspect for special functions
+     * @param binopsClass to introspect for special functions
      */
     static void addWrapperDefs(Map<Slot, WrapperDef> defs,
-            Lookup lookup, Class<?> implClass) {
-        for (Method m : implClass.getDeclaredMethods()) {
+            Lookup lookup, Class<?> binopsClass) {
+        for (Method m : binopsClass.getDeclaredMethods()) {
             // If it is a special method, record the definition.
             String name = m.getName();
             Slot slot = Slot.forMethodName(name);
@@ -328,6 +333,91 @@ class Exposer {
                 }
                 def.add(m);
             }
+        }
+    }
+
+    /**
+     * Create a table of {@code MethodHandle}s from binary operations
+     * defined in the given class, on behalf of the type given. This
+     * table is 3-dimensional, being indexed by the slot of the method
+     * being defined, which must be a binary operation, and the indices
+     * of the operand classes in the type. These handles are used
+     * privately by the type to create call sites. Although the process
+     * of creating them is similar to making wrapper descriptors, these
+     * structures do not become exposed as descriptors.
+     *
+     * @param lookup authorisation to access methods
+     * @param binops to introspect for binary operations
+     * @param type to which these descriptors apply
+     * @return attributes defined (in the order first encountered)
+     * @throws InterpreterError on duplicates or unsupported types
+     */
+    static Map<Slot, MethodHandle[][]> binopTable(Lookup lookup,
+            Class<?> binops, PyType type) throws InterpreterError {
+
+        // Iterate over methods looking for the relevant annotations
+        Map<Slot, MethodHandle[][]> defs = new HashMap<>();
+
+        for (Method m : binops.getDeclaredMethods()) {
+            // If it is a special method, record the definition.
+            String name = m.getName();
+            Slot slot = Slot.forMethodName(name);
+            if (slot != null && slot.signature == Signature.BINARY) {
+                binopTableAdd(defs, slot, m, lookup, binops, type);
+            }
+        }
+
+        return defs;
+    }
+
+    /**
+     * Add a method handle to the table, verifying that the method type
+     * produced is compatible with the {@link #slot}.
+     *
+     * @return method handle on {@code m}
+     */
+    /**
+     *
+     * @param defs the method table to add to
+     * @param slot being matched
+     * @param m implementing method
+     * @param lookup authorisation to access fields
+     * @param binops class defining class-specific binary operations
+     * @param type to which these belong
+     */
+    static void binopTableAdd(Map<Slot, MethodHandle[][]> defs,
+            Slot slot, Method m, Lookup lookup, Class<?> binops,
+            PyType type) {
+
+        // Get (or create) the table for this slot
+        MethodHandle[][] def = defs.get(slot);
+        final int N = type.acceptedCount + 1;
+        final int M = type.operandClasses.length;
+        if (def == null) {
+            // A new slot has been encountered
+            def = new MethodHandle[N][M];
+            defs.put(slot, def);
+        }
+
+        try {
+            // Convert the method to a handle
+            MethodHandle mh = lookup.unreflect(m);
+            MethodType mt = mh.type();
+            // Cast fails if the signature is incorrect for the slot
+            mh = mh.asType(slot.getType());
+            // Find cell based on argument types (before the cast)
+            int i = type.indexAccepted(mt.parameterType(0));
+            int j = type.indexOperand(mt.parameterType(1));
+            if (i>=0&&i<N&&j>=0&&j<M) {
+            def[i][j] = mh;}
+            /*
+             * The argument to m are not (respectively) an accepted
+             * class and an operand class for thetype. Not an error
+             * (while things are in flux, at least).
+             */
+        } catch (IllegalAccessException | WrongMethodTypeException e) {
+            throw new InterpreterError(e,
+                    "ill-formed or inaccessible binary op '%s'", m);
         }
     }
 

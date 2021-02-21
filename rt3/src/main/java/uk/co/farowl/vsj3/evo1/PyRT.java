@@ -1,18 +1,16 @@
 package uk.co.farowl.vsj3.evo1;
 
 import static java.lang.invoke.MethodHandles.dropArguments;
-import static java.lang.invoke.MethodHandles.insertArguments;
 import static java.lang.invoke.MethodHandles.foldArguments;
 import static java.lang.invoke.MethodHandles.guardWithTest;
 import static java.lang.invoke.MethodHandles.identity;
-import static java.lang.invoke.MethodHandles.constant;
+import static java.lang.invoke.MethodHandles.insertArguments;
 import static java.lang.invoke.MethodHandles.permuteArguments;
 
 import java.lang.invoke.CallSite;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
-
 import java.lang.invoke.MethodType;
 import java.lang.invoke.MutableCallSite;
 
@@ -82,6 +80,13 @@ public class PyRT {
 
     // enum Validity {CLASS, TYPE, INSTANCE, ONCE}
 
+    /**
+     * A call site for unary Python operations. The call site is
+     * constructed from a slot such as {@link Slot#op_neg}. It obtains a
+     * method handle from the {@link Operations} of each distinct class
+     * observed as the argument, and maintains a cache of method handles
+     * guarded on those classes.
+     */
     static class UnaryOpCallSite extends MutableCallSite {
 
         /** Handle to throw {@link TypeError} (op unsupported). */
@@ -136,10 +141,9 @@ public class PyRT {
             MethodHandle resultMH, targetMH;
             /*
              * XXX The logic of the next bit is inadequate for derived
-             * Python types which have the same Java class and
-             * (obviously) different Python types. These may have to
-             * guard on Python type or always indirect (if the type is
-             * mutable).
+             * Python types which have the same Java class and different
+             * Python types. These may have to guard on Python type or
+             * always indirect (if the type is mutable).
              */
             if (op.isDefinedFor(vOps)) {
                 resultMH = op.getSlot(vOps);
@@ -164,34 +168,54 @@ public class PyRT {
 
     }
 
+    /**
+     * A call site for binary Python operations. The call site is
+     * constructed from a slot such as {@link Slot#op_sub} and its
+     * reflection ({@link Slot#op_sub} in the example).
+     *
+     * The call site implements the full semantics of the related
+     * abstract operation, that is it takes care of selecting and
+     * invoking the reflected operation when Python requires it.
+     *
+     * If either the left or right type defines type-specific binary
+     * operations, it will look first for a match with one of those
+     * definitions.
+     *
+     * If that does not succeed, it will use handles in the two
+     * {@link Operations} objects
+     *
+     * It constructs a method handle applicable to each distinct pair of
+     * classes observed as the arguments, and maintains a cache of
+     * method handles guarded on those classes.
+     */
     static class BinaryOpCallSite extends MutableCallSite {
 
-        /** Handle to throw {@link TypeError} (op unsupported). */
-        private static final MethodHandle OPERAND_ERROR;
-        /** Handle that matks an empty binary operation slot. */
+        /** Handle that marks an empty binary operation slot. */
         private static final MethodHandle BINARY_EMPTY =
                 Slot.Signature.BINARY.empty;
 
         private static final MethodHandle fallbackMH;
-        private static final MethodHandle notImplementedMH;
-        public static int fallbackCalls = 0;
+        public int fallbackCalls = 0;
 
         static {
             try {
                 fallbackMH = lookup.findVirtual(BinaryOpCallSite.class,
                         "fallback", BINOP);
-                notImplementedMH = dropArguments(
-                        constant(O, Py.NotImplemented), 0, O, O);
-                // XXX Move to Slot so may generate handle once?
-                OPERAND_ERROR = lookup.findStatic(
-                        BinaryOpCallSite.class, "operandError",
-                        BINOP.insertParameterTypes(0, Slot.class));
             } catch (NoSuchMethodException | IllegalAccessException e) {
                 throw staticInitError(e, BinaryOpCallSite.class);
             }
         }
+
+        /** The abstract operation to be applied by the site. */
         private final Slot op;
 
+        /**
+         * Construct a call site with the given binary operation.
+         *
+         * @param op a binary operation
+         * @throws NoSuchMethodException
+         * @throws IllegalAccessException
+         */
         public BinaryOpCallSite(Slot op)
                 throws NoSuchMethodException, IllegalAccessException {
             super(BINOP);
@@ -200,14 +224,14 @@ public class PyRT {
         }
 
         /**
-         * Compute the result of the call for this particular argument,
-         * and optionally update the site to do this efficiently in
-         * comparable circumstances in the future.
+         * Compute the result of the call for this particular pair of
+         * arguments, and optionally update the site to do this
+         * efficiently for the same classes in the future.
          *
          * @param v left operand
          * @param w right operand
          * @return {@code op(v, w)}
-         * @throws Throwable
+         * @throws Throwable on errors or if not implemented
          */
         @SuppressWarnings("unused")
         private Object fallback(Object v, Object w) throws Throwable {
@@ -218,78 +242,21 @@ public class PyRT {
             PyType wType = wOps.type(w);
             MethodHandle resultMH, targetMH;
             /*
-             * XXX The logic of the next bit is inadequate for derived
-             * Python types which have the same Java class and
-             * (obviously) different Python types. These may have to
-             * guard on Python type or always indirect (if the type is
-             * mutable).
-             */
-            MethodHandle slotv = op.getSlot(vOps);
-            MethodHandle slotw;
-
-            /*
              * CPython would also test: (slotw = rop.getSlot(wType)) ==
-             * slotv as an optimisation , but that's never the case
-             * since we use distinct op and rop slots.
+             * slotv as an optimisation, but that's never the case since
+             * we use distinct op and rop slots.
              */
-            if (wType == vType) // XXX use type not ops
+            if (wType == vType) {
                 // Same types so only try the op slot
-                if (slotv != BINARY_EMPTY) {
-                    resultMH = op.getSlot(vOps);
-                } else {
-                    // Not defined for this type, so will throw
-                    resultMH = notImplementedMH;
-                }
+                resultMH = singleType(vType, vOps, wOps);
 
-            else if (!wType.isSubTypeOf(vType)) {
+            } else if (!wType.isSubTypeOf(vType)) {
                 // Ask left (if not empty) then right.
-                slotw = op.getAltSlot(wOps);
-                if (slotw != BINARY_EMPTY) {
-                    slotw = permuteArguments(slotw, BINOP, 1, 0);
-                    if (slotv != BINARY_EMPTY) {
-                        resultMH = firstImplementer(slotv, slotw);
-                    } else {
-                        resultMH = slotw;
-                    }
-                } else {
-                    if (slotv != BINARY_EMPTY) {
-                        resultMH = slotv;
-                    } else {
-                        resultMH = notImplementedMH;
-                    }
-                }
+                resultMH = leftDominant(vType, vOps, wType, wOps);
 
             } else {
                 // Right is sub-class: ask first (if not empty).
-                slotw = op.getAltSlot(wOps);
-                if (slotw != BINARY_EMPTY) {
-                    slotw = permuteArguments(slotw, BINOP, 1, 0);
-                    if (slotv != BINARY_EMPTY) {
-                        resultMH = firstImplementer(slotv, slotw);
-                    } else {
-                        resultMH = slotw;
-                    }
-                } else {
-                    if (slotv != BINARY_EMPTY) {
-                        resultMH = slotv;
-                    } else {
-                        resultMH = notImplementedMH;
-                    }
-                }
-            }
-
-            /*
-             * Sadly, we're not finished. resultMH is a handle that may
-             * return Py.NotImplemented, which we must turn into an
-             * error message.
-             */
-            if (resultMH == notImplementedMH) {
-                // Easy case: neither slot was defined.
-                resultMH = OPERAND_ERROR.bindTo(op);
-            } else {
-                // Dynamic case: we'll have to call it to find out.
-                resultMH = firstImplementer(resultMH,
-                        OPERAND_ERROR.bindTo(op));
+                resultMH = rightDominant(vType, vOps, wType, wOps);
             }
 
             // MH for guarded invocation (becomes new target)
@@ -303,14 +270,300 @@ public class PyRT {
         }
 
         /**
-         * An adapter for two method handles {@code a} and {@code b}
-         * such that when invoked, first {@code a} is invoked, then if
-         * it returns {@link Py#NotImplemented}, {@code b} is invoked on
-         * the same arguments. {@code b} may also returns
+         * Compute a method handle in the case where both arguments
+         * {@code (v, w)} have the same Python type, although quite
+         * possibly different Java classes (in the case where that type
+         * has multiple implementations). The returned handle may throw
+         * a Python exception when invoked, if that is the correct
+         * behaviour, but will not return {@code NotImplemented}.
+         *
+         * @param type the Python type of {@code v} and {@code w}
+         * @param vOps operations of the Java class of {@code v}
+         * @param wOps operations of the Java class of {@code w}
+         * @return a handle that provides the result (or throws)
+         */
+        private MethodHandle singleType(PyType type, Operations vOps,
+                Operations wOps) {
+            // Does the type define class-specific implementations?
+            MethodHandle[][] binops = type.binopTable.get(op);
+            if (binops != null) {
+                /*
+                 * Are the nominal implementation classes of v, w
+                 * supported as operands? These methods are not allowed
+                 * to return NotImplemented, so if there's a match, it's
+                 * the answer.
+                 */
+                int vi = type.indexAccepted(vOps.getJavaClass());
+                if (vi >= 0) {
+                    int wi = type.indexOperand(wOps.getJavaClass());
+                    if (wi >= 0) { return binops[vi][wi]; }
+                }
+            }
+
+            /*
+             * The type provides no class-specific implementation, so
+             * use the handle in the Operations object. Typically, this
+             * will be strongly-typed on the left implementation class,
+             * but will have to test the right-hand argument against
+             * supported types.
+             */
+            MethodHandle slotv = op.getSlot(vOps);
+
+            if (slotv == BINARY_EMPTY) {
+                // Not defined for this type, so will throw
+                return op.getOperandError();
+            } else {
+                /*
+                 * slotv is a handle that may return Py.NotImplemented,
+                 * which we must turn into an error message.
+                 */
+                return firstImplementer(slotv, op.getOperandError());
+            }
+        }
+
+        /**
+         * Compute a method handle in the case where the left argument
+         * {@code (v)} should be consulted, then the right. The returned
+         * handle may throw a Python exception when invoked, if that is
+         * the correct behaviour, but will not return
+         * {@code NotImplemented}.
+         *
+         * @param vType the Python type of {@code v}
+         * @param vOps operations of the Java class of {@code v}
+         * @param wType the Python type of {@code w}
+         * @param wOps operations of the Java class of {@code w}
+         * @return a handle that provides the result (or throws)
+         */
+        private MethodHandle leftDominant(PyType vType, Operations vOps,
+                PyType wType, Operations wOps) {
+
+            MethodHandle resultMH, slotv, slotw;
+            Slot rop = op.alt;
+
+            // Does vType define class-specific implementations?
+            MethodHandle[][] binops = vType.binopTable.get(op);
+            if (binops != null) {
+                /*
+                 * Are the nominal implementation classes of v, w
+                 * supported as operands? These methods are not allowed
+                 * to return NotImplemented, so if there's a match, it's
+                 * the answer.
+                 */
+                int i = vType.indexAccepted(vOps.getJavaClass());
+                if (i >= 0) {
+                    int j = vType.indexOperand(wOps.getJavaClass());
+                    if (j >= 0) { return binops[i][j]; }
+                }
+            }
+
+            /*
+             * vType provides no class-specific implementation of
+             * op(v,w). Get the handle from the Operations object.
+             */
+            slotv = op.getSlot(vOps);
+
+            // Does wType define class-specific rop implementations?
+            binops = wType.binopTable.get(rop);
+            if (binops != null) {
+                /*
+                 * Are the nominal implementation classes of w, v
+                 * supported as operands? These methods are not allowed
+                 * to return NotImplemented, so if there's a match, it's
+                 * the only alternative to slotv.
+                 */
+                int i = wType.indexAccepted(wOps.getJavaClass());
+                if (i >= 0) {
+                    int j = wType.indexOperand(vOps.getJavaClass());
+                    if (j >= 0) {
+                        // wType provides a rop(w,v) - note ordering
+                        MethodHandle binop = permuteArguments(
+                                binops[i][j], BINOP, 1, 0);
+                        if (slotv == BINARY_EMPTY) {
+                            // It's the only offer, so it's the answer.
+                            return binop;
+                        }
+                        /*
+                         * slotv is also a valid offer, which must be
+                         * given first refusal. Only if slotv returns
+                         * Py.NotImplemented, will we try binops[i][j]
+                         */
+                        return firstImplementer(slotv, binop);
+                    }
+                }
+            }
+
+            /*
+             * wType provides no class-specific implementation of
+             * rop(w,v). Get the handle from the Operations object.
+             */
+            slotw = rop.getSlot(wOps);
+
+            /*
+             * If we haven't returned a handle yet, we now have slotv
+             * and slotw, two apparent offers of a handle to compute the
+             * result for the classes at hand. Either may be empty.
+             * Either may return Py.NotImplemented.
+             */
+            if (slotw == BINARY_EMPTY) {
+                if (slotv == BINARY_EMPTY) {
+                    // Easy case: neither slot was defined. We're done.
+                    return op.getOperandError();
+                } else {
+                    // slotv was the only one defined
+                    resultMH = slotv;
+                }
+            } else {
+                // slotw was defined
+                slotw = permuteArguments(slotw, BINOP, 1, 0);
+                if (slotv == BINARY_EMPTY) {
+                    // slotv was not, so slotw is the only one defined
+                    resultMH = slotw;
+                } else {
+                    // Both were defined, so try them in order
+                    resultMH = firstImplementer(slotv, slotw);
+                }
+            }
+
+            /*
+             * resultMH may still return Py.NotImplemented. We use
+             * firstImplementer to turn that into an error message.
+             * Where we could avoid this, we already returned.
+             */
+            resultMH = firstImplementer(resultMH, op.getOperandError());
+            return resultMH;
+        }
+
+        /**
+         * Compute a method handle in the case where the right argument
+         * {@code (w)} should be consulted, then the left. The returned
+         * handle may throw a Python exception when invoked, if that is
+         * the correct behaviour, but will not return
+         * {@code NotImplemented}.
+         *
+         * @param vType the Python type of {@code v}
+         * @param vOps operations of the Java class of {@code v}
+         * @param wType the Python type of {@code w}
+         * @param wOps operations of the Java class of {@code w}
+         * @return a handle that provides the result (or throws)
+         */
+        private MethodHandle rightDominant(PyType vType,
+                Operations vOps, PyType wType, Operations wOps) {
+
+            MethodHandle resultMH, slotv, slotw;
+            Slot rop = op.alt;
+
+            // Does wType define class-specific rop implementations?
+            MethodHandle[][] binops = wType.binopTable.get(rop);
+            if (binops != null) {
+                /*
+                 * Are the nominal implementation classes of w, v
+                 * supported as operands? These methods are not allowed
+                 * to return NotImplemented, so if there's a match, it's
+                 * the answer.
+                 */
+                int i = wType.indexAccepted(wOps.getJavaClass());
+                if (i >= 0) {
+                    int j = wType.indexOperand(vOps.getJavaClass());
+                    if (j >= 0) {
+                        // wType provides a rop(w,v) - note ordering
+                        MethodHandle mh = permuteArguments(binops[i][j],
+                                BINOP, 1, 0);
+                        return mh;
+                    }
+                }
+            }
+
+            /*
+             * wType provides no class-specific implementation of
+             * rop(w,v). Get the handle from the Operations object.
+             */
+            slotw = rop.getSlot(wOps);
+
+            // Does vType define class-specific implementations?
+            binops = vType.binopTable.get(op);
+            if (binops != null) {
+                /*
+                 * Are the nominal implementation classes of v, w
+                 * supported as operands? These methods are not allowed
+                 * to return NotImplemented, so if there's a match, it's
+                 * the only alternative to slotw.
+                 */
+                int i = vType.indexAccepted(vOps.getJavaClass());
+                if (i >= 0) {
+                    int j = vType.indexOperand(wOps.getJavaClass());
+                    if (j >= 0) {
+                        // vType provides an op(v,w)
+                        MethodHandle mh = permuteArguments(binops[i][j],
+                                BINOP, 1, 0);
+                        if (slotw == BINARY_EMPTY) {
+                            // It's the only offer, so it's the answer.
+                            return mh;
+                        }
+                        /*
+                         * slotw is also a valid offer, which must be
+                         * given first refusal. Only if slotw returns
+                         * Py.NotImplemented, will we try binops[i][j]
+                         */
+                        return firstImplementer(slotw, mh);
+                    }
+                }
+            }
+
+            /*
+             * vType provides no class-specific implementation of
+             * op(v,w). Get the handle from the Operations object.
+             */
+            slotv = op.getSlot(vOps);
+
+            /*
+             * If we haven't returned a handle yet, we now have slotv
+             * and slotw, two apparent offers of a handle to compute the
+             * result for the classes at hand. Either may be empty.
+             * Either may return Py.NotImplemented.
+             */
+            if (slotw == BINARY_EMPTY) {
+                if (slotv == BINARY_EMPTY) {
+                    // Easy case: neither slot was defined. We're done.
+                    return op.getOperandError();
+                } else {
+                    // slotv was the only one defined
+                    resultMH = slotv;
+                }
+            } else {
+                // slotw was defined
+                slotw = permuteArguments(slotw, BINOP, 1, 0);
+                if (slotv == BINARY_EMPTY) {
+                    // slotw is the only one defined
+                    resultMH = slotw;
+                } else {
+                    // Both were defined, so try them in order
+                    resultMH = firstImplementer(slotw, slotv);
+                }
+            }
+
+            /*
+             * resultMH may still return Py.NotImplemented. We use
+             * firstImplementer to turn that into an error message.
+             * Where we could avoid this, we already returned.
+             */
+            resultMH = firstImplementer(resultMH, op.getOperandError());
+            return resultMH;
+        }
+
+        /**
+         * An adapter for two method handles, {@code a} and {@code b},
+         * such that when the returned handle is invoked, first
+         * {@code a} is invoked, and then if it returned
+         * {@link Py#NotImplemented}, {@code b} is invoked on the same
+         * arguments to replace the result. {@code b} may also return
          * {@code NotImplemented} but this gets no special treatment.
          * This corresponds to a central part of the way Python
          * implements binary operations when each operand offers a
          * different implementation.
+         *
+         * @param a to invoke unconditionally
+         * @param b if {@code a} returns {@link Py#NotImplemented}
+         * @return the handle that does these invocations
          */
         private static MethodHandle firstImplementer(MethodHandle a,
                 MethodHandle b) {
@@ -323,12 +576,6 @@ public class PyRT {
             // return λ(v,w): g(a(v, w), v, w)
             return foldArguments(g, a);
         }
-
-        // XXX Possibly move to Slot so may generate handle once.
-        static Object operandError(Slot op, Object v, Object w) {
-            throw Number.operandError(op, v, w);
-        }
-
     }
 
     @SuppressWarnings("unused") // referenced as CLASS_GUARD

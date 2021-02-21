@@ -34,8 +34,8 @@ The particular concerns in the ``rt3`` sub-project are:
 #.  To allow multiple implementations of a single Python type.
     For example we might want BMP and full Unicode implementations
     of the ``str`` type, that are indistinguishable to Python.
-#.  To accept certain Java types as implementations of built-in Python types.
-    For example a ``java.lang.Integer`` may be accepted as a Python ``int``,
+#.  To adopt certain Java types as implementations of built-in Python types.
+    For example a ``java.lang.Integer`` may be adopted as a Python ``int``,
     and the JVM then optimise code
     more effectively than when we use our own ``PyInteger``.
 
