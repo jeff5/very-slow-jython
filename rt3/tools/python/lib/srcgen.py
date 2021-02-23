@@ -78,6 +78,13 @@ class IndentedEmitter:
         self.buf.write(text)
         return self
 
+    def emit_lines(self, lines):
+        """Begin a new line and emit with indented multi-line text."""
+        for line in lines:
+            self.emit_line(line)
+        self.emit_line()
+        return self
+
 
 class JavaConstantEmitter(IndentedEmitter):
     """A class capable of emitting Java constants from Python values.

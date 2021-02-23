@@ -12,7 +12,10 @@ class PyLong implements CraftedType {
     /** The type {@code int}. */
     static PyType TYPE = PyType.fromSpec( //
             new PyType.Spec("int", MethodHandles.lookup())
-                    /*.adopt(BigInteger.class, Integer.class)*/);
+                    .adopt(BigInteger.class, Integer.class)
+                    .accept(Boolean.class) //
+                    .methods(PyLongMethods.class)
+                    .binops(PyLongBinops.class));
 
     static Integer ZERO = Integer.valueOf(0);
     static Integer ONE = Integer.valueOf(0);
@@ -189,223 +192,46 @@ class PyLong implements CraftedType {
     private static final String NON_STR_EXPLICIT_BASE =
             "int() can't convert non-string with explicit base";
 
-    protected Object __repr__() {
-        return Py.str(value.toString());
-    }
-
-    protected static Object __neg__(PyLong self) {
-        return new PyLong(self.value.negate());
-    }
-
-    protected static Object __neg__(Integer self) {
-        return -self;
-    }
-
-    protected static Object __neg__(Boolean self) {
-        return self ? -1 : 0;
-    }
-
-    protected Object __abs__() {
-        return new PyLong(value.abs());
-    }
-
-    protected Object __add__(Object w) {
-        if (w instanceof PyLong)
-            return new PyLong(value.add(((PyLong) w).value));
-        else
-            return Py.NotImplemented;
-    }
-
-    protected static Object __add__(Integer v, Integer w) {
-        return result(v.longValue() + w.longValue());
-    }
-
-    protected static Object __add__(Integer v, Boolean w) {
-        if (w) {
-            return v < Integer.MAX_VALUE ? v + 1 : NEG_INT_MIN;
-        } else
-            return v;
-    }
-
-    protected static Object __add__(PyLong self, Object ow) {
-        BigInteger v = self.value, w;
-        if (ow instanceof PyLong)
-            w = ((PyLong) ow).value;
-        else if (ow instanceof Integer)
-            w = BigInteger.valueOf(((Integer) ow).longValue());
-        else if (ow.equals(Boolean.FALSE))
-            return self;
-        else if (ow.equals(Boolean.TRUE))
-            w = BigInteger.ONE;
-        else
-            return Py.NotImplemented;
-        return new PyLong(v.add(w));
-    }
-
-    protected static Object __add__(Integer self, Object ow) {
-        long v = self.longValue();
-        if (ow instanceof PyLong) {
-            BigInteger w = ((PyLong) ow).value;
-            return new PyLong(BigInteger.valueOf(v).add(w));
-        } else if (ow instanceof Integer) {
-            long w = ((Integer) ow).longValue();
-            return result(v + w);
-        } else if (ow.equals(Boolean.FALSE)) {
-            return self;
-        } else if (ow.equals(Boolean.TRUE)) {
-            return result(v + 1);
-        } else
-            return Py.NotImplemented;
-    }
-
-    protected static Object __add__(Boolean self, Object ow) {
-        boolean v = self;
-        if (ow instanceof PyLong) {
-            if (v) {
-                BigInteger w = ((PyLong) ow).value;
-                return new PyLong(BigInteger.ONE.add(w));
-            } else
-                return ow;
-        } else if (ow instanceof Integer) {
-            long w = ((Integer) ow).longValue();
-            return v ? result(1 + w) : ow;
-        } else if (ow.equals(Boolean.FALSE)) {
-            return v ? 0 : 1;
-        } else if (ow.equals(Boolean.TRUE)) {
-            return v ? 1 : 2;
-        } else
-            return Py.NotImplemented;
-    }
-
-    protected static Object __add__(Boolean v, Integer w) {
-        if (v) {
-            return w < Integer.MAX_VALUE ? 1 + w : NEG_INT_MIN;
-        } else
-            return w;
-    }
-
-    protected static Object __add__(Boolean v, Boolean w) {
-        return (v ? 1 : 0) + (w ? 1 : 0);
-    }
-
-    protected Object __radd__(Object v) {
-        if (v instanceof PyLong)
-            return new PyLong(((PyLong) v).value.add(value));
-        else
-            return Py.NotImplemented;
-    }
-
-    protected Object __sub__(Object w) {
-        if (w instanceof PyLong)
-            return new PyLong(value.subtract(((PyLong) w).value));
-        else
-            return Py.NotImplemented;
-    }
-
-    protected Object __rsub__(Object v) {
-        if (v instanceof PyLong)
-            return new PyLong(((PyLong) v).value.subtract(value));
-        else
-            return Py.NotImplemented;
-    }
-
-    protected Object __mul__(Object w) {
-        if (w instanceof PyLong)
-            return new PyLong(value.multiply(((PyLong) w).value));
-        else
-            return Py.NotImplemented;
-    }
-
-    protected Object __rmul__(Object v) {
-        if (v instanceof PyLong)
-            return new PyLong(((PyLong) v).value.multiply(value));
-        else
-            return Py.NotImplemented;
-    }
-
-    protected Object __and__(Object w) {
-        if (w instanceof PyLong)
-            return new PyLong(value.and(((PyLong) w).value));
-        else
-            return Py.NotImplemented;
-    }
-
-    protected Object __rand__(Object v) {
-        if (v instanceof PyLong)
-            return new PyLong(((PyLong) v).value.and(value));
-        else
-            return Py.NotImplemented;
-    }
-
-    protected Object __or__(Object w) {
-        if (w instanceof PyLong)
-            return new PyLong(value.or(((PyLong) w).value));
-        else
-            return Py.NotImplemented;
-    }
-
-    protected Object __ror__(Object v) {
-        if (v instanceof PyLong)
-            return new PyLong(((PyLong) v).value.or(value));
-        else
-            return Py.NotImplemented;
-    }
-
-    protected Object __xor__(Object w) {
-        if (w instanceof PyLong)
-            return new PyLong(value.xor(((PyLong) w).value));
-        else
-            return Py.NotImplemented;
-    }
-
-    protected Object __rxor__(Object v) {
-        if (v instanceof PyLong)
-            return new PyLong(((PyLong) v).value.xor(value));
-        else
-            return Py.NotImplemented;
-    }
-
-    protected Object __lt__(Object w) {
-        return cmp(w, Comparison.LT);
-    }
-
-    protected Object __le__(Object w) {
-        return cmp(w, Comparison.LE);
-    }
-
-    protected Object __eq__(Object w) {
-        return cmp(w, Comparison.EQ);
-    }
-
-    protected Object __ne__(Object w) {
-        return cmp(w, Comparison.NE);
-    }
-
-    protected Object __gt__(Object w) {
-        return cmp(w, Comparison.GT);
-    }
-
-    protected Object __ge__(Object w) {
-        return cmp(w, Comparison.GE);
-    }
-
-    protected boolean __bool__() {
-        return !BigInteger.ZERO.equals(value);
-    }
-
-    protected Object __index__() {
-        if (getType() == TYPE)
-            return this;
-        else
-            return new PyLong(value);
-    }
-
-    protected Object __int__() { // identical to __index__
-        if (getType() == TYPE)
-            return this;
-        else
-            return new PyLong(value);
-    }
+//
+//@formatter:off
+//    protected Object __lt__(Object w) {
+//        return cmp(w, Comparison.LT);
+//    }
+//
+//    protected Object __le__(Object w) {
+//        return cmp(w, Comparison.LE);
+//    }
+//
+//    protected Object __eq__(Object w) {
+//        return cmp(w, Comparison.EQ);
+//    }
+//
+//    protected Object __ne__(Object w) {
+//        return cmp(w, Comparison.NE);
+//    }
+//
+//    protected Object __gt__(Object w) {
+//        return cmp(w, Comparison.GT);
+//    }
+//
+//    protected Object __ge__(Object w) {
+//        return cmp(w, Comparison.GE);
+//    }
+//
+//    protected Object __index__() {
+//        if (getType() == TYPE)
+//            return this;
+//        else
+//            return new PyLong(value);
+//    }
+//
+//    protected Object __int__() { // identical to __index__
+//        if (getType() == TYPE)
+//            return this;
+//        else
+//            return new PyLong(value);
+//    }
+//@formatter:on
 
 // protected Object __float__() { // return PyFloat
 // return Py.val(doubleValue());

@@ -1,6 +1,6 @@
 package uk.co.farowl.vsj3.evo1;
 
-// $OBJECT_TEMPLATE$ PyFloatTemplate
+// $OBJECT_GENERATOR$ PyFloatGenerator
 
 import uk.co.farowl.vsj3.evo1.PyObjectUtil.NoConversion;
 

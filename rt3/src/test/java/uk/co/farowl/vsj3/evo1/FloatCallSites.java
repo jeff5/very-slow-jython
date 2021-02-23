@@ -157,7 +157,7 @@ class FloatCallSites {
      * test, we need parts of {@code int} to work well enough to refuse
      * the job.
      */
-    //@Test
+    @Test
     void site_sub_mix() throws Throwable {
 
         Object da = Double.valueOf(50), db = newFloat(50);
@@ -191,13 +191,15 @@ class FloatCallSites {
         db = newFloat(456);
         ia = Integer.valueOf(345);
         ib = BigInteger.valueOf(345);
-        for (Object v : List.of(ia, ib)) {
-            for (Object w : List.of(da, db)) {
+        // float - int.
+        for (Object v : List.of(da, db)) {
+            for (Object w : List.of(ia, ib)) {
                 final Object res = invoker.invokeExact(v, w);
                 assertPythonType(PyFloat.TYPE, res);
                 assertEquals(111.0, PyFloat.asDouble(res));
             }
         }
+        // int - float
         for (Object v : List.of(ia, ib)) {
             for (Object w : List.of(da, db)) {
                 final Object res = invoker.invokeExact(v, w);

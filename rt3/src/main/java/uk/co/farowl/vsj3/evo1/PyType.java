@@ -137,16 +137,16 @@ class PyType extends Operations implements PyObjectDict {
      * "other" argument of binary operations</li>
      * </ol>
      */
-    final Class<?>[] operandClasses;
+    final Class<?>[] classes;
 
     /**
-     * The number of {@link #operandClasses} in {@link #operandClasses}
-     * recognised by the run-time as implementations of the type.
+     * The number of {@link #classes} in {@link #classes} recognised by
+     * the run-time as implementations of the type.
      */
     final int implCount;
 
     /**
-     * The number of Java classes in {@link #operandClasses} that are
+     * The number of Java classes in {@link #classes} that are
      * acceptable as {@code self} in methods.
      */
     final int acceptedCount;
@@ -194,9 +194,9 @@ class PyType extends Operations implements PyObjectDict {
         this.name = spec.name;
         this.implClass = spec.implClass();
         this.binopTable = Collections.emptyMap();
-        this.implCount = spec.adoptedCount() + 1;
+        this.implCount = spec.adoptedCount();
         this.acceptedCount = spec.acceptedCount();
-        this.operandClasses = spec.accepted();
+        this.classes = spec.getClasses();
         this.flags = spec.flags;
 
         /*
@@ -233,7 +233,7 @@ class PyType extends Operations implements PyObjectDict {
         this.type = spec.getMetaclass();
         this.name = spec.name;
         this.implClass = spec.implClass();
-        this.operandClasses = spec.accepted();
+        this.classes = spec.getClasses();
         this.implCount = spec.adoptedCount() + 1;
         this.acceptedCount = spec.acceptedCount();
         // in case original changes
@@ -244,9 +244,8 @@ class PyType extends Operations implements PyObjectDict {
         this.setMROfromBases();
         // Create the binary operations table (if there is one)
         Class<?> binops = spec.binopClass();
-        this.binopTable =binops == null ? Collections.emptyMap()
-                : Exposer.binopTable(spec.lookup,
-                        binops, this);
+        this.binopTable = binops == null ? Collections.emptyMap()
+                : Exposer.binopTable(spec.lookup, binops, this);
     }
 
     /**
@@ -420,11 +419,11 @@ class PyType extends Operations implements PyObjectDict {
      */
     private void defineOperations() {
         setAllSlots();
-        Operations.registry.set(operandClasses[0], this);
-        for (int i = 1; i < operandClasses.length; i++) {
+        Operations.registry.set(classes[0], this);
+        for (int i = 1; i < acceptedCount; i++) {
             // Creating the operations object sets the slots in it
             Operations.Accepted ops = new Operations.Accepted(this, i);
-            Operations.registry.set(operandClasses[i], ops);
+            Operations.registry.set(classes[i], ops);
         }
     }
 
@@ -536,7 +535,7 @@ class PyType extends Operations implements PyObjectDict {
     }
 
     @Override
-    Class<?> getJavaClass() { return operandClasses[0]; }
+    Class<?> getJavaClass() { return classes[0]; }
 
     /**
      * Set {@link #bases} and deduce {@link #base}.
@@ -625,14 +624,14 @@ class PyType extends Operations implements PyObjectDict {
     public String getName() { return name; }
 
     /**
-     * Find the index of the given class in the accepted classes
-     * for this type. There is a match if the found class is a
-     * assignable from the given class. In the case that more than one
-     * matches, the highest qualifying index is returned. The "accepted"
-     * implementations consist of:
+     * Find the index of the given class in the accepted classes for
+     * this type. There is a match if the found class is a assignable
+     * from the given class. In the case that more than one matches, the
+     * first qualifying index is returned. The "accepted" classes
+     * consist of:
      * <ol>
      * <li>the canonical class (index zero)</li>
-     * <li>the adopted implementations (like {@code Double} for
+     * <li>other adopted implementations (like {@code Double} for
      * {@code float})</li>
      * <li>the accepted implementations of any sub-classes that are not
      * assignable to the canonical or adopted</li>
@@ -642,8 +641,8 @@ class PyType extends Operations implements PyObjectDict {
      * @return its index or -1
      */
     int indexAccepted(Class<?> c) {
-        for (int i = operandClasses.length; --i >= 0;) {
-            if (operandClasses[i].isAssignableFrom(c)) { return i; }
+        for (int i = 0; i < acceptedCount; i++) {
+            if (classes[i].isAssignableFrom(c)) { return i; }
         }
         return -1;
     }
@@ -652,14 +651,14 @@ class PyType extends Operations implements PyObjectDict {
      * Find the index of the given class in the known operand classes
      * for this type. There is a match if the found class is a
      * assignable from the given class. In the case that more than one
-     * matches, the highest qualifying index is returned.
+     * matches, the first qualifying index is returned.
      *
      * @param c a class matching one of the operand classes
      * @return its index or -1
      */
     int indexOperand(Class<?> c) {
-        for (int i = operandClasses.length; --i >= 0;) {
-            if (operandClasses[i].isAssignableFrom(c)) { return i; }
+        for (int i = 0; i < classes.length; i++) {
+            if (classes[i].isAssignableFrom(c)) { return i; }
         }
         return -1;
     }
@@ -871,7 +870,7 @@ class PyType extends Operations implements PyObjectDict {
         /** Delegated authorisation to resolve names. */
         final Lookup lookup;
 
-        /** The implementation class in which the spec was created. */
+        /** The class in which the {@code Spec} was created. */
         final Class<?> implClass;
 
         /**
@@ -891,19 +890,20 @@ class PyType extends Operations implements PyObjectDict {
          * classes acceptable as {@code self}, and other known operand
          * classes will be collected here.
          */
-        private ArrayList<Class<?>> operandClasses = new ArrayList<>(1);
+        private ArrayList<Class<?>> classes = new ArrayList<>(1);
 
         /**
-         * The number of adopted implementations of the Python type, in
-         * addition to the canonical one. Increment for each adopted
-         * class added.
+         * The number of adopted implementations of the Python type,
+         * including the canonical one. Increment for each adopted class
+         * added.
          */
         private int adoptedCount;
 
         /**
-         * The number of classes, including the canonical and adopted
-         * classes, accepted implementations of the Python type.
-         * Increment for each adopted or accepted class added.
+         * The number of classes, including the (canonical and) adopted
+         * classes, that are accepted as instances of the Python type.
+         * Increment for each adopted or accepted class added. See
+         * {@link #accept(Class...)}.
          */
         private int acceptedCount;
 
@@ -955,9 +955,9 @@ class PyType extends Operations implements PyObjectDict {
         Spec(String name, Class<?> implClass, Lookup lookup) {
             this.name = name;
             this.implClass = implClass;
-            this.methodClass = this.binopClass = null;
-            this.operandClasses.add(implClass);
             this.lookup = lookup;
+            this.methodClass = this.binopClass = null;
+            this.adopt(implClass);
         }
 
         /**
@@ -990,11 +990,7 @@ class PyType extends Operations implements PyObjectDict {
          * @param lookup authorisation to access {@code implClass}
          */
         Spec(String name, Lookup lookup) {
-            this.name = name;
-            this.lookup = lookup;
-            this.implClass = lookup.lookupClass();
-            this.methodClass = this.binopClass = null;
-            this.operandClasses.add(implClass);
+            this(name, lookup.lookupClass(), lookup);
         }
 
         /**
@@ -1007,6 +1003,7 @@ class PyType extends Operations implements PyObjectDict {
          * @param name of the type
          * @param implClass in which operations are defined
          */
+        @Deprecated
         Spec(String name, Class<?> implClass) {
             this(name, implClass,
                     /*
@@ -1021,33 +1018,23 @@ class PyType extends Operations implements PyObjectDict {
         }
 
         /**
-         * Specify additional acceptable implementation classes for the
-         * type.
-         *
-         * @param impl classes to append to the list
-         * @return {@code this}
-         */
-        Spec ops(Class<?>... impl) {
-            operandClasses.addAll(Arrays.asList(impl));
-            return this;
-        }
-
-        /**
          * Specify the canonical implementation class for the type. By
          * default, if {@link #canonical(Class)} is not called, the
-         * canonical implementation is the class given in the
-         * constructor. This method makes it possible to define
-         * operations in different class from the implementation.
+         * canonical implementation is the lookup class given in the
+         * constructor. This method makes it possible to have that
+         * lookup class not be an implementation.
          * <p>
          * This is the case for the Python {@code object}, for which the
          * canonical implementation is Java {@code java.lang.Object}
-         * while operations are defined elsewhere.
+         * while operations are defined elsewhere. Also {@code PyBool}
+         * makes {@code java.lang.Boolean} canonical for Python
+         * {@code bool}).
          *
          * @param impl replacement canonical implementation class
          * @return {@code this}
          */
         Spec canonical(Class<?> impl) {
-            operandClasses.set(0, impl);
+            classes.set(0, impl);
             return this;
         }
 
@@ -1063,13 +1050,13 @@ class PyType extends Operations implements PyObjectDict {
          * {@code m(D self, ...)} where the "self" (first) argument type
          * {@code D} is assignable from {@code C}.
          *
-         * @param impl classes to treat as adopted implementations
+         * @param classes classes to treat as adopted implementations
          * @return {@code this}
          */
-        Spec adopt(Class<?>... impl) {
-            for (Class<?> c : impl) {
+        Spec adopt(Class<?>... classes) {
+            for (Class<?> c : classes) {
                 // Add at the end of the adopted classes
-                operandClasses.add(adoptedCount + 1, c);
+                this.classes.add(adoptedCount, c);
                 adoptedCount++;
                 acceptedCount++;
             }
@@ -1078,12 +1065,12 @@ class PyType extends Operations implements PyObjectDict {
 
         /**
          * Specify Java classes to be accepted as "self" arguments for
-         * the type, in addition to the adopted implementations. The use
-         * of this is to ensure that the canonical and adopted
-         * implementation classes of Python sub-types of the type being
-         * specified are acceptable as "self". Successive calls are
-         * cumulative. Classes assignable to existing accepted classes
-         * are ignored.
+         * the type, in addition to the canonical and adopted
+         * implementations. The use for this is to ensure that the
+         * canonical and adopted implementation classes of Python
+         * sub-types of the type being specified are acceptable as
+         * "self". Successive calls are cumulative. Classes assignable
+         * to existing accepted classes are ignored.
          * <p>
          * For every instance method {@code m} (including special
          * methods) on a Python object, and for for every adopted or
@@ -1098,7 +1085,7 @@ class PyType extends Operations implements PyObjectDict {
             for (Class<?> c : classes) {
                 if (indexOf(c) < 0) {
                     // Add at the end of the accepted classes
-                    operandClasses.add(acceptedCount, c);
+                    this.classes.add(acceptedCount, c);
                     acceptedCount++;
                 }
             }
@@ -1117,7 +1104,7 @@ class PyType extends Operations implements PyObjectDict {
             for (Class<?> c : classes) {
                 if (indexOf(c) < 0) {
                     // Add at the very end
-                    operandClasses.add(c);
+                    this.classes.add(c);
                 }
             }
             return this;
@@ -1125,7 +1112,7 @@ class PyType extends Operations implements PyObjectDict {
 
         /**
          * The number of classes specified as adopted implementations of
-         * the Python type being specified, not counting the canonical
+         * the Python type being specified, including the canonical
          * implementation.
          *
          * @return number of adopted classes
@@ -1136,7 +1123,7 @@ class PyType extends Operations implements PyObjectDict {
 
         /**
          * The number of classes specified as canonical, adopted or
-         * accepted for the Python type being specified.
+         * accepted as {@code self} for the Python type being specified.
          *
          * @return number of accepted classes
          */
@@ -1146,25 +1133,24 @@ class PyType extends Operations implements PyObjectDict {
 
         /**
          * The number of classes specified as canonical, adopted,
-         * accepted or operands for the Python type being specified.
+         * accepted {@code self} or as operands for the Python type
+         * being specified.
          *
          * @return number of all classes to be treated as operands
          */
-        int operandCount() {
-            return operandClasses.size();
+        int classesCount() {
+            return classes.size();
         }
 
         /**
-         * Find c in the known classes.
+         * Find c in the known operand classes.
          *
          * @param c class to find
          * @return index of {@code c} in accepted
          */
         private int indexOf(Class<?> c) {
-            for (int i = operandClasses.size(); --i >= 0;) {
-                if (operandClasses.get(i).isAssignableFrom(c)) {
-                    return i;
-                }
+            for (int i = classes.size(); --i >= 0;) {
+                if (classes.get(i).isAssignableFrom(c)) { return i; }
             }
             return -1;
         }
@@ -1303,13 +1289,12 @@ class PyType extends Operations implements PyObjectDict {
         }
 
         /**
-         * Get all the implementation classes for the type, in order,
-         * the canonical at index 0 and additinal accepted ones
+         * Get all the operand classes for the type, in order, the
+         * canonical at index 0, adopted, accepted and operand classes
          * following.
          */
-        Class<?>[] accepted() {
-            return operandClasses
-                    .toArray(new Class<?>[operandClasses.size()]);
+        Class<?>[] getClasses() {
+            return classes.toArray(new Class<?>[classes.size()]);
         }
 
         /**

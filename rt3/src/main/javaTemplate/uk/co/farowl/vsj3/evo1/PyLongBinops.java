@@ -1,13 +1,15 @@
 package uk.co.farowl.vsj3.evo1;
 
-import java.math.BigInteger;
+// $OBJECT_GENERATOR$ PyLongGenerator
 
-// $OBJECT_GENERATOR$ PyFloatGenerator
+import java.math.BigInteger;
+import static java.math.BigInteger.ZERO;
+import static java.math.BigInteger.ONE;
 
 /**
  * This class contains static methods implementing operations on the
- * Python {@code float} object, supplementary to those defined in
- * {@link PyFloat} and {@link PyFloatMethods}. These exist in order to
+ * Python {@code long} object, supplementary to those defined in
+ * {@link PyLong} and {@link PyLongMethods}. These exist in order to
  * support {@code CallSite} creation.
  * <p>
  * Implementations are not allowed to return {@link Py#NotImplemented}.
@@ -29,9 +31,9 @@ import java.math.BigInteger;
  * {@code b} of {@code Q}. It is the responsibility of the script
  * generating this class to ensure this condition is satisfied.
  */
-class PyFloatBinops {
+class PyLongBinops {
 
-    private PyFloatBinops() {}  // no instances
+    private PyLongBinops() {}  // no instances
 
     // $SPECIAL_BINOPS$ --------------------------------------------
 }

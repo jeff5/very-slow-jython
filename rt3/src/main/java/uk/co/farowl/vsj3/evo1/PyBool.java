@@ -1,87 +1,69 @@
 package uk.co.farowl.vsj3.evo1;
 
 import java.lang.invoke.MethodHandles;
-import java.math.BigInteger;
 
 /** The Python {@code bool} object. */
-class PyBool extends PyLong {
+class PyBool {
 
     /** The type of Python object this class implements. */
     static final PyType TYPE = PyType.fromSpec( //
             new PyType.Spec("bool", MethodHandles.lookup()) //
-                    .base(PyLong.TYPE) //
-                    .flagNot(PyType.Flag.BASETYPE));
+                    .base(PyLong.TYPE).flagNot(PyType.Flag.BASETYPE));
 
-    // Private so we can guarantee the doubleton. :)
-    private PyBool(BigInteger value) {
-        super(TYPE, value);
-    }
-
-    /** Python {@code False} object. */
-    static final PyBool False = new PyBool(BigInteger.ZERO);
-
-    /** Python {@code True} object. */
-    static final PyBool True = new PyBool(BigInteger.ONE);
+    private PyBool() {}  // No instances
 
     // special methods ------------------------------------------------
 
-    @Override
-    protected final Object __repr__() {
-        return value == BigInteger.ZERO ? "False" : "True";
+    static Object __repr__(Boolean self ) {
+        return self ? "True" :"False" ;
     }
 
-    @Override
-    protected final Object __and__(Object w) {
-        if (w instanceof PyBool)
-            return w == True ? this : False;
+    static Object __and__(Boolean v, Object w) {
+        if (w instanceof Boolean)
+            return v && ((Boolean) w);
         else
             // w is not a bool, go arithmetic.
-            return super.__and__(w);
+            return PyLongMethods.__and__(v, w);
     }
 
-    @Override
-    protected final Object __rand__(Object v) {
-        if (v instanceof PyBool)
-            return v == True ? this : False;
+    static Object __rand__(Boolean w, Object v) {
+        if (v instanceof Boolean)
+            return ((Boolean) v) && w;
         else
             // v is not a bool, go arithmetic.
-            return super.__rand__(v);
+            return PyLongMethods.__rand__(w, v);
     }
 
-    @Override
-    protected final Object __or__(Object w) {
-        if (w instanceof PyBool)
-            return w == False ? this : True;
+    static Object __or__(Boolean v, Object w) {
+        if (w instanceof Boolean)
+            return v || ((Boolean) w);
         else
             // w is not a bool, go arithmetic.
-            return super.__or__(w);
+            return PyLongMethods.__or__(v, w);
     }
 
-    @Override
-    protected final Object __ror__(Object v) {
-        if (v instanceof PyBool)
-            return v == False ? this : True;
+    static Object __ror__(Boolean w, Object v) {
+        if (v instanceof Boolean)
+            return ((Boolean) v) || w;
         else
             // v is not a bool, go arithmetic.
-            return super.__ror__(v);
+            return PyLongMethods.__ror__(w, v);
     }
 
-    @Override
-    protected final Object __xor__(Object w) {
-        if (w instanceof PyBool)
-            return w == this ? False : True;
+    static Object __xor__(Boolean v, Object w) {
+        if (w instanceof Boolean)
+            return v != ((Boolean) w);
         else
             // w is not a bool, go arithmetic.
-            return super.__xor__(w);
+            return PyLongMethods.__xor__(v, w);
     }
 
-    @Override
-    protected final Object __rxor__(Object v) {
-        if (v instanceof PyBool)
-            return v == this ? False : True;
+    static Object __rxor__(Boolean w, Object v) {
+        if (v instanceof Boolean)
+            return ((Boolean) v) != w;
         else
             // v is not a bool, go arithmetic.
-            return super.__rxor__(v);
+            return PyLongMethods.__rxor__(w, v);
     }
 
 }

@@ -367,16 +367,34 @@ class Exposer {
             }
         }
 
+        // Check for nulls in the table.
+        for (Map.Entry<Slot, MethodHandle[][]> e : defs.entrySet()) {
+            Slot slot = e.getKey();
+            MethodHandle[][] mhTable = e.getValue();
+            final int N = type.acceptedCount;
+            final int M = type.classes.length;
+            for (int i = 0; i < N; i++) {
+                for (int j = 0; j < M; j++) {
+                    if (mhTable[i][j] == null) {
+                        /*
+                         * There's a gap in the table. Type spec and the
+                         * declared binary ops disagree?
+                         */
+                        throw new InterpreterError(
+                                "binary op not defined: %s(%s, %s)",
+                                slot.methodName,
+                                type.classes[i].getSimpleName(),
+                                type.classes[j].getSimpleName());
+                    }
+                }
+            }
+        }
         return defs;
     }
 
     /**
      * Add a method handle to the table, verifying that the method type
      * produced is compatible with the {@link #slot}.
-     *
-     * @return method handle on {@code m}
-     */
-    /**
      *
      * @param defs the method table to add to
      * @param slot being matched
@@ -391,10 +409,10 @@ class Exposer {
 
         // Get (or create) the table for this slot
         MethodHandle[][] def = defs.get(slot);
-        final int N = type.acceptedCount + 1;
-        final int M = type.operandClasses.length;
+        final int N = type.acceptedCount;
+        final int M = type.classes.length;
         if (def == null) {
-            // A new slot has been encountered
+            // A new special method has been encountered
             def = new MethodHandle[N][M];
             defs.put(slot, def);
         }
@@ -408,13 +426,18 @@ class Exposer {
             // Find cell based on argument types (before the cast)
             int i = type.indexAccepted(mt.parameterType(0));
             int j = type.indexOperand(mt.parameterType(1));
-            if (i>=0&&i<N&&j>=0&&j<M) {
-            def[i][j] = mh;}
-            /*
-             * The argument to m are not (respectively) an accepted
-             * class and an operand class for thetype. Not an error
-             * (while things are in flux, at least).
-             */
+            if (i >= 0 && j >= 0 && i < N && j < M) {
+                def[i][j] = mh;
+            } else {
+                /*
+                 * The arguments to m are not (respectively) an accepted
+                 * class and an operand class for the type. Type spec
+                 * and the declared binary ops disagree?
+                 */
+                throw new InterpreterError(
+                        "unexpected signature of %s.%s: %s", type.name,
+                        slot.methodName, mt);
+            }
         } catch (IllegalAccessException | WrongMethodTypeException e) {
             throw new InterpreterError(e,
                     "ill-formed or inaccessible binary op '%s'", m);

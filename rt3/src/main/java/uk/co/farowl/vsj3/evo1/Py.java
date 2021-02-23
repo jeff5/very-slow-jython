@@ -82,15 +82,16 @@ public class Py {
      * @param value to represent
      * @return equivalent {@code bool}
      */
-    static PyBool val(boolean value) {
+    @Deprecated // Just use Boolean or primitive auto-boxed
+    static Object val(boolean value) {
         return value ? Py.True : Py.False;
     }
 
     /** Python {@code False} object. */
-    static final PyBool False = PyBool.False;
+    static final Object False = false;
 
     /** Python {@code True} object. */
-    static final PyBool True = PyBool.True;
+    static final Object True = true;
 
     /**
      * Return a Python {@code object}.

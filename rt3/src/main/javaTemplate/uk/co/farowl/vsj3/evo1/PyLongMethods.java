@@ -1,79 +1,72 @@
 package uk.co.farowl.vsj3.evo1;
 
 import java.math.BigInteger;
+import static java.math.BigInteger.ZERO;
+import static java.math.BigInteger.ONE;
 
 import uk.co.farowl.vsj3.evo1.PyObjectUtil.NoConversion;
 
-// $OBJECT_TEMPLATE$ PyLongTemplate
+// $OBJECT_GENERATOR$ PyLongGenerator
 
 /**
-* This class contains static methods implementing operations on the
-* Python {@code int} object, supplementary to those defined in
-* {@link PyLong}.
-* <p>
-* These methods may cause creation of descriptors in the dictionary of
-* the type. Those with reserved names in the data model will also fill
-* slots in the {@code Operations} object for the type.
-* <p>
-* Implementations of binary operations defined here will have
-* {@code Object} as their second argument, and should return
-* {@link Py#NotImplemented} when the type in that position is not
-* supported.
-*/
+ * This class contains static methods implementing operations on the
+ * Python {@code int} object, supplementary to those defined in
+ * {@link PyLong}.
+ * <p>
+ * These methods may cause creation of descriptors in the dictionary of
+ * the type. Those with reserved names in the data model will also fill
+ * slots in the {@code Operations} object for the type.
+ * <p>
+ * Implementations of binary operations defined here will have
+ * {@code Object} as their second argument, and should return
+ * {@link Py#NotImplemented} when the type in that position is not
+ * supported.
+ */
 class PyLongMethods {
 
     private PyLongMethods() {}  // no instances
 
-    // $SPECIAL_METHODS$ --------------------------------------------
+    // $SPECIAL_METHODS$ ---------------------------------------------
 
     // plumbing ------------------------------------------------------
 
-//    /**
-//     * Convert an object to a Java long. Conversion to a long may
-//     * raise an exception that is propagated to the caller. If the
-//     * method throws the special exception {@link NoConversion},
-//     * the caller must catch it, and will normally return
-//     * {@link Py#NotImplemented}.
-//     * 
-//     * @param v to convert
-//     * @return converted to {@code long}
-//     * @throws NoConversion v is not a {@code float} or {@code int}
-//     */
-//    private static long convert(Object v) throws NoConversion {
-//        // Check against supported types, most likely first
-//        if (v instanceof Integer)
-//            return ((Integer) v).longValue();
-//        else if (v instanceof BigInteger)
-//            return ((Integer) v).doubleValue();
-//        else if (PyLong.TYPE.check(v))
-//            // BigInteger, PyLong, Boolean, etc.
-//            return BaseLong.asDouble(v);
-//
-//        throw PyObjectUtil.NO_CONVERSION;
-//    }
+    /**
+     * Convert an {@code int} or its sub-class to a Java
+     * {@code BigInteger}. Conversion may raise an exception that is
+     * propagated to the caller. If the Java type of the {@code int} is
+     * declared, generally there is a better option than this method. We
+     * only use it for {@code Object} arguments. If the method throws
+     * the special exception {@link NoConversion}, the caller must catch
+     * it, and will normally return {@link Py#NotImplemented}.
+     * 
+     * @param v to convert
+     * @return converted to {@code BigInteger}
+     * @throws NoConversion v is not an {@code int}
+     */
+    private static BigInteger toBig(Object v) throws NoConversion {
+        // Check against supported types, most likely first
+        if (v instanceof Integer)
+            return BigInteger.valueOf(((Integer) v).longValue());
+        else if (v instanceof BigInteger)
+            return (BigInteger) v;
+        else if (v instanceof Boolean)
+            return (Boolean) v ? ONE : ZERO;
 
-    /** {@code -Integer.MIN_VALUE} as a {@code BigInteger} */
-    private static BigInteger NEG_INT_MIN =
-            BigInteger.valueOf(Integer.MIN_VALUE).negate();
-
-    private static final long BIT31 = 0x8000_0000L;
-    private static final long HIGHMASK = 0xFFFF_FFFF_0000_0000L;
+        throw PyObjectUtil.NO_CONVERSION;
+    }
 
     /**
-     * Given a long value, return an {@code Integer} or a {@code PyLong}
-     * according to size.
-     *
-     * @param r result of some arithmetic as a long
-     * @return suitable object for Python
+     * Reduce a {@code BigInteger} result to {@code Integer} if
+     * possible.
+     * 
+     * @param r to reduce
+     * @return equal value
      */
-    private static final Object result(long r) {
-        // 0b0...0_0rrr_rrrr_rrrr_rrrr -> Positive Integer
-        // 0b1...1_1rrr_rrrr_rrrr_rrrr -> Negative Integer
-        if (((r + BIT31) & HIGHMASK) == 0L) {
-            return Integer.valueOf((int) r);
-        } else {
-            // Anything else -> PyLong
-            return new PyLong(r);
+    private static Object toInt(BigInteger r) {
+        try {
+            return r.intValueExact();
+        } catch (ArithmeticException e) {
+            return r;
         }
     }
 }

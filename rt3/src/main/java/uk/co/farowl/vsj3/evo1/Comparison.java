@@ -20,7 +20,7 @@ enum Comparison {
     LT("<", Slot.op_lt) {
 
         @Override
-        PyBool toBool(int c) {
+        Object toBool(int c) {
             return c < 0 ? Py.True : Py.False;
         }
     },
@@ -29,7 +29,7 @@ enum Comparison {
     LE("<=", Slot.op_le) {
 
         @Override
-        PyBool toBool(int c) {
+        Object toBool(int c) {
             return c <= 0 ? Py.True : Py.False;
         }
     },
@@ -38,7 +38,7 @@ enum Comparison {
     EQ("==", Slot.op_eq) {
 
         @Override
-        PyBool toBool(int c) {
+        Object toBool(int c) {
             return c == 0 ? Py.True : Py.False;
         }
     },
@@ -47,7 +47,7 @@ enum Comparison {
     NE("!=", Slot.op_ne) {
 
         @Override
-        PyBool toBool(int c) {
+        Object toBool(int c) {
             return c != 0 ? Py.True : Py.False;
         }
     },
@@ -56,7 +56,7 @@ enum Comparison {
     GT(">", Slot.op_gt) {
 
         @Override
-        PyBool toBool(int c) {
+        Object toBool(int c) {
             return c > 0 ? Py.True : Py.False;
         }
     },
@@ -65,7 +65,7 @@ enum Comparison {
     GE(">=", Slot.op_ge) {
 
         @Override
-        PyBool toBool(int c) {
+        Object toBool(int c) {
             return c >= 0 ? Py.True : Py.False;
         }
     },
@@ -74,7 +74,7 @@ enum Comparison {
     IN("in", Slot.op_contains) {
 
         @Override
-        PyBool toBool(int c) {
+        Object toBool(int c) {
             return c >= 0 ? Py.True : Py.False;
         }
 
@@ -83,8 +83,7 @@ enum Comparison {
             Operations vOps = Operations.of(v);
             try {
                 MethodHandle contains = slot.getSlot(vOps);
-                boolean r = (boolean) contains.invokeExact(w, v);
-                return r ? PyBool.True : PyBool.False;
+                return (boolean) contains.invokeExact(w, v);
             } catch (Slot.EmptyException e) {
                 throw new TypeError(NOT_CONTAINER, vOps.type(v).name);
             }
@@ -95,7 +94,7 @@ enum Comparison {
     NOT_IN("not in", Slot.op_contains) {
 
         @Override
-        PyBool toBool(int c) {
+        Object toBool(int c) {
             return c < 0 ? Py.True : Py.False;
         }
 
@@ -104,8 +103,7 @@ enum Comparison {
             Operations vOps = Operations.of(v);;
             try {
                 MethodHandle contains = slot.getSlot(vOps);
-                boolean r = (boolean) contains.invokeExact(w, v);
-                return r ? PyBool.False : PyBool.True;
+                return (boolean) contains.invokeExact(w, v);
             } catch (Slot.EmptyException e) {
                 throw new TypeError(NOT_CONTAINER, vOps.type(v).name);
             }
@@ -116,13 +114,13 @@ enum Comparison {
     IS("is") {
 
         @Override
-        PyBool toBool(int c) {
-            return c == 0 ? Py.True : Py.False;
+        Object toBool(int c) {
+            return c == 0;
         }
 
         @Override
         Object apply(Object v, Object w) throws Throwable {
-            return v == w ? PyBool.True : PyBool.False;
+            return v == w;
         }
 
     },
@@ -131,13 +129,13 @@ enum Comparison {
     IS_NOT("is not") {
 
         @Override
-        PyBool toBool(int c) {
-            return c != 0 ? Py.True : Py.False;
+        Object toBool(int c) {
+            return c != 0;
         }
 
         @Override
         Object apply(Object v, Object w) throws Throwable {
-            return v != w ? PyBool.True : PyBool.False;
+            return v != w;
         }
     },
 
@@ -145,7 +143,7 @@ enum Comparison {
     EXC_MATCH("matches") {
 
         @Override
-        PyBool toBool(int c) {
+        Object toBool(int c) {
             return c == 0 ? Py.True : Py.False;
         }
 
@@ -159,7 +157,7 @@ enum Comparison {
     BAD("?") {
 
         @Override
-        PyBool toBool(int c) {
+        Object toBool(int c) {
             return Py.False;
         }
 
@@ -228,7 +226,8 @@ enum Comparison {
      * @return boolean equivalent for this operation
      */
     // Compare CPython object.h::Py_RETURN_RICHCOMPARE
-    abstract PyBool toBool(int c);
+    // XXX or Boolean?
+    abstract Object toBool(int c);
 
     /**
      * Perform this comparison, raising {@code TypeError} when the
@@ -270,9 +269,9 @@ enum Comparison {
         /// Neither object implements this. Base == and != on identity.
         switch (this) {
             case EQ:
-                return Py.val(v == w);
+                return v == w;
             case NE:
-                return Py.val(v != w);
+                return v != w;
             default:
                 throw comparisonTypeError(v, w);
         }
