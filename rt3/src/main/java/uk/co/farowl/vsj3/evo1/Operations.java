@@ -35,18 +35,18 @@ abstract class Operations {
          * <ol>
          * <li>the crafted canonical implementation of a Python
          * type</li>
-         * <li>an acceptable implementation of some Python type</li>
-         * <li>the crafted base of Python sub-classes of a Python
-         * type</li>
+         * <li>an adopted implementation of some Python type</li>
+         * <li>the canonical implementation of the base of Python
+         * sub-classes of a Python type</li>
          * <li>a found Java type</li>
          * <li>the crafted base of Python sub-classes of a found Java
          * type</li>
          * </ol>
          * Cases 1, 3 and 5 may be recognised by marker interfaces on
          * {@code c}. Case 2 may only be distinguished from case 4 only
-         * because classes that are acceptable uncrafted implementations
-         * will have been posted to {@link #opsMap} before the first
-         * call, when their {@link PyType}s were created.
+         * because classes that are adopted implementations will have
+         * been posted to {@link #opsMap} before the first call, when
+         * their {@link PyType}s were created.
          */
         @Override
         protected synchronized Operations computeValue(Class<?> c) {
@@ -278,6 +278,12 @@ abstract class Operations {
 
         @Override
         PyType type(Object x) { return type; }
+
+        @Override
+        boolean isIntExact() { return type == PyLong.TYPE; }
+
+        @Override
+        boolean isFloatExact() { return type == PyFloat.TYPE; }
 
         @Override
         int getIndex() { return index; }

@@ -1,11 +1,13 @@
 package uk.co.farowl.vsj3.evo1;
 
+import java.lang.invoke.MethodHandles;
+
 /** The Python {@code Exception} exception. */
 class PyException extends BaseException {
 
     /** The type of Python object this class implements. */
-    static final PyType TYPE = PyType
-            .fromSpec(new PyType.Spec("Exception", PyException.class)
+    static final PyType TYPE = PyType.fromSpec(
+            new PyType.Spec("Exception", MethodHandles.lookup())
                     .base(BaseException.TYPE));
 
     /**

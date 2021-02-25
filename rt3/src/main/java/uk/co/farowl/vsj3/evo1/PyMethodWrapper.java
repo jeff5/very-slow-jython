@@ -1,5 +1,7 @@
 package uk.co.farowl.vsj3.evo1;
 
+import java.lang.invoke.MethodHandles;
+
 import uk.co.farowl.vsj3.evo1.Exposed.Getter;
 import uk.co.farowl.vsj3.evo1.Exposed.Member;
 import uk.co.farowl.vsj3.evo1.PyType.Flag;
@@ -22,7 +24,7 @@ import uk.co.farowl.vsj3.evo1.PyType.Flag;
 class PyMethodWrapper extends AbstractPyObject {
 
     static final PyType TYPE = PyType.fromSpec(
-            new PyType.Spec("method-wrapper", PyMethodWrapper.class)
+            new PyType.Spec("method-wrapper", MethodHandles.lookup())
                     .flagNot(Flag.BASETYPE));
 
     // No subclasses so always this type
@@ -135,7 +137,6 @@ class PyMethodWrapper extends AbstractPyObject {
     // Compare CPython wrapper_name in descrobject.c
     protected Object __name__() {
         String s = descr.slot.methodName;
-
         return Py.str(s);
     }
 
@@ -171,7 +172,7 @@ class PyMethodWrapper extends AbstractPyObject {
         // Both arguments should be exactly PyMethodWrapper
         if (b instanceof PyMethodWrapper) {
             PyMethodWrapper wb = (PyMethodWrapper) b;
-            return Py.val(descr == wb.descr && self == wb.self);
+            return descr == wb.descr && self == wb.self;
         }
         return Py.NotImplemented;
     }
@@ -181,7 +182,7 @@ class PyMethodWrapper extends AbstractPyObject {
         // Both arguments should be exactly PyMethodWrapper
         if (b instanceof PyMethodWrapper) {
             PyMethodWrapper wb = (PyMethodWrapper) b;
-            return Py.val(descr != wb.descr || self != wb.self);
+            return descr != wb.descr || self != wb.self;
         }
         return Py.NotImplemented;
     }

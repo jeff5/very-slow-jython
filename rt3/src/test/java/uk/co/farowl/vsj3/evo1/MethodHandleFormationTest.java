@@ -225,7 +225,7 @@ public class MethodHandleFormationTest {
     void mappingSlots() {
         // Create a type defining none of the reserved names
         final PyType mapping = PyType.fromSpec(new Spec( //
-                "3Test", Object.class));
+                "3Test", MethodHandles.lookup()));
         assertEquals(Slot.Signature.BINARY.empty, mapping.op_getitem,
                 "not empty");
         assertEquals(Slot.Signature.SETITEM.empty, mapping.op_setitem,

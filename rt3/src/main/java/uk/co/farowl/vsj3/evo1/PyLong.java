@@ -49,6 +49,7 @@ class PyLong implements CraftedType {
      *
      * @param value of the {@code int}
      */
+    // XXX not needed?
     PyLong(long value) {
         this(BigInteger.valueOf(value));
     }
@@ -67,12 +68,31 @@ class PyLong implements CraftedType {
      * @return value as Java {@code int}
      * @throws OverflowError if out of Java {@code int} range
      */
+    // XXX re-think as static
     int intValue() {
         try {
             return value.intValueExact();
         } catch (ArithmeticException ae) {
             throw new OverflowError(INT_TOO_LARGE, "int");
         }
+    }
+
+    /**
+     * Present the value as a Java {@code int} when the argument is
+     * known to be a Python {@code float} or a sub-class of it.
+     *
+     * @param v claimed {@code float}
+     * @return {@code double} valkue
+     * @throws TypeError if {@code v} is not a Python {@code float}
+     */
+    // Compare CPython floatobject.h: PyFloat_AS_DOUBLE
+    static double bigIntegerValue(Object v) throws TypeError {
+        if (v instanceof Double)
+            return ((Double) v).doubleValue();
+        else if (v instanceof PyFloat)
+            return ((PyFloat) v).value;
+        else
+            throw Abstract.requiredTypeError("a float", v);
     }
 
     private static String INT_TOO_LARGE =
@@ -85,6 +105,7 @@ class PyLong implements CraftedType {
      * @return value as Java {@code int}
      * @throws OverflowError if out of Java {@code int} range
      */
+    // XXX re-think as static
     int asSize() {
         try {
             return value.intValueExact();
@@ -132,10 +153,12 @@ class PyLong implements CraftedType {
     private static String INT_TOO_LARGE_FLOAT =
             "Python int too large to convert to float";
 
+    // XXX re-think as static
     int signum() {
         return value.signum();
     }
 
+    // XXX re-think as static
     @Override
     public boolean equals(Object obj) {
         if (obj instanceof PyLong) {
@@ -372,70 +395,55 @@ class PyLong implements CraftedType {
      *
      * @param value to convert
      * @return BigInteger equivalent.
-     * @throws OverflowError when this is a floating infinity
-     * @throws ValueError when this is a floating NaN
+     * @throws OverflowError when {@code value} is a floating infinity
+     * @throws ValueError when {@code value} is a floating NaN
      */
     // Compare CPython longobject.c :: PyLong_FromDouble
-    PyLong fromDouble(double value) {
+    static PyLong fromDouble(double value) {
         return new PyLong(PyFloat.bigIntegerFromDouble(value));
     }
 
     /**
-     * Construct a Python {@code int} from a Python {@code int} or
-     * subclass. If the value has Python type {@code int} exactly return
+     * Return a Python {@code int} from a Python {@code int} or
+     * subclass. If the value has exactly Python type {@code int} return
      * it, otherwise construct a new instance of exactly {@code int}
      * type.
      *
-     * @param value
-     * @return the same value as exactly {@code PyLong}
+     * @param value to represent
+     * @return the same value as exactly {@code int}
+     * @throws TypeError if not a Python {@code int} or sub-class
      */
-    static PyLong from(PyLong value) {
-        return value.getType() == TYPE ? value : Py.val(value.value);
+    static Object from(Object value) throws TypeError {
+        Operations ops = Operations.of(value);
+        if (ops.isIntExact())
+            return value;
+        else if (value instanceof PyLong)
+            return ((PyLong) value).value;
+        else
+            throw Abstract.requiredTypeError("an integer", value);
     }
 
     // plumbing ------------------------------------------------------
 
-    /** {@code -Integer.MIN_VALUE} as a {@code PyLong} */
-    private static PyLong NEG_INT_MIN =
-            new PyLong(-(long) Integer.MIN_VALUE);
-
-    private static final long BIT31 = 0x8000_0000L;
-    private static final long HIGHMASK = 0xFFFF_FFFF_0000_0000L;
-
-    /**
-     * Given a long value, return an {@code Integer} or a {@code PyLong}
-     * according to size.
-     *
-     * @param r result of some arithmetic as a long
-     * @return suitable object for Python
-     */
-    private static final Object result(long r) {
-        // 0b0...0_0rrr_rrrr_rrrr_rrrr -> Positive Integer
-        // 0b1...1_1rrr_rrrr_rrrr_rrrr -> Negative Integer
-        if (((r + BIT31) & HIGHMASK) == 0L) {
-            return Integer.valueOf((int) r);
-        } else {
-            // Anything else -> PyLong
-            return new PyLong(r);
-        }
-    }
-
-    /**
-     * Shorthand for implementing comparisons. Note that the return type
-     * is arbitrary because one may define {@code __lt__} etc. to return
-     * anything.
-     *
-     * @param w the right-hand operand
-     * @param op the type of operation
-     * @return result or {@code Py.NotImplemented}
-     */
-    private Object cmp(Object w, Comparison op) {
-        if (w instanceof PyLong) {
-            return op.toBool(value.compareTo(((PyLong) w).value));
-        } else {
-            return Py.NotImplemented;
-        }
-    }
+//
+//@formatter:off
+//    /**
+//     * Shorthand for implementing comparisons. Note that the return type
+//     * is arbitrary because one may define {@code __lt__} etc. to return
+//     * anything.
+//     *
+//     * @param w the right-hand operand
+//     * @param op the type of operation
+//     * @return result or {@code Py.NotImplemented}
+//     */
+//    private Object cmp(Object w, Comparison op) {
+//        if (w instanceof PyLong) {
+//            return op.toBool(value.compareTo(((PyLong) w).value));
+//        } else {
+//            return Py.NotImplemented;
+//        }
+//    }
+//@formatter:on
 
     /**
      * Convert an {@code int} to a Java double (or throw

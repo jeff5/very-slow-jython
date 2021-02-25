@@ -76,14 +76,21 @@ public class PyFloat extends AbstractPyObject {
     // Non-slot API -------------------------------------------------
 
     /**
-     * Value as a Java {@code double}.
+     * Present the value as a Java {@code double} when the argument is
+     * known to be a Python {@code float} or a sub-class of it.
      *
-     * @return value as double
+     * @param v claimed {@code float}
+     * @return {@code double} value
+     * @throws TypeError if {@code v} is not a Python {@code float}
      */
-    @Deprecated
-    // XXX limited value: most floats are Double
-    public double doubleValue() {
-        return value;
+    // Compare CPython floatobject.h: PyFloat_AS_DOUBLE
+    static double doubleValue(Object v) throws TypeError {
+        if (v instanceof Double)
+            return ((Double) v).doubleValue();
+        else if (v instanceof PyFloat)
+            return ((PyFloat) v).value;
+        else
+            throw Abstract.requiredTypeError("a float", v);
     }
 
     /**
@@ -97,30 +104,28 @@ public class PyFloat extends AbstractPyObject {
      * @throws Throwable from {@code __float__)} or {@code __index__}
      */
     // Compare CPython floatobject.c: PyFloat_AsDouble
-    // XXX Needs re-thinking for acceptable types.
-    // Is it different from a convert method of more limited scope?
     static double asDouble(Object o) throws TypeError, Throwable {
         /*
          * Ever so similar to Number.toFloat, but returns the double
          * value extracted from (potentially) a sub-type of PyFloat, and
          * does not try to convert from strings.
          */
+        Operations ops = Operations.of(o);
+
         if (PyFloat.TYPE.check(o)) {
-            return ((java.lang.Number) o).doubleValue();
+            return PyFloat.doubleValue(o);
 
         } else {
-            Operations ops = Operations.of(o);
             try {
                 // Try __float__ (if defined)
                 Object res = ops.op_float.invokeExact(o);
-                Operations resops = Operations.of(res);
-                if (resops.isFloatExact()) // Exact type
+                PyType resType = PyType.of(res);
+                if (resType == PyFloat.TYPE) // Exact type
                     return ((PyFloat) res).value;
-                else if (PyFloat.TYPE.check(res)) { // Sub-class
+                else if (resType.isSubTypeOf(PyFloat.TYPE)) {
                     // Warn about this and make a clean Python float
-                    Abstract.returnDeprecation("__float__", "float",
-                            res);
-                    return PyFloat.asDouble(res);
+                    PyFloat.asDouble(Abstract.returnDeprecation(
+                            "__float__", "float", res));
                 } else
                     // Slot defined but not a Python float at all
                     throw Abstract.returnTypeError("__float__", "float",
@@ -129,7 +134,7 @@ public class PyFloat extends AbstractPyObject {
 
             // Fall out here if __float__ was not defined
             if (Slot.op_index.isDefinedFor(ops))
-                return Number.index(o).doubleValue();
+                return PyLong.asDouble(Number.index(o));
             else
                 throw Abstract.requiredTypeError("a real number", ops);
         }

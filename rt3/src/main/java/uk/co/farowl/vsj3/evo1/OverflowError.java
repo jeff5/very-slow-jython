@@ -1,11 +1,13 @@
 package uk.co.farowl.vsj3.evo1;
 
+import java.lang.invoke.MethodHandles;
+
 /** The Python {@code OverflowError} exception. */
 class OverflowError extends PyException {
 
     /** The type of Python object this class implements. */
     static final PyType TYPE = PyType.fromSpec(
-            new PyType.Spec("OverflowError", OverflowError.class));
+            new PyType.Spec("OverflowError", MethodHandles.lookup()));
 
     /**
      * Constructor for sub-class use specifying {@link #type}.

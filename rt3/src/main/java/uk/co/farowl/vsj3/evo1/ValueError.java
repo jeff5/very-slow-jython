@@ -1,11 +1,13 @@
 package uk.co.farowl.vsj3.evo1;
 
+import java.lang.invoke.MethodHandles;
+
 /** The Python {@code ValueError} exception. */
 class ValueError extends PyException {
 
     /** The type of Python object this class implements. */
-    static final PyType TYPE = PyType
-            .fromSpec(new PyType.Spec("ValueError", ValueError.class)
+    static final PyType TYPE = PyType.fromSpec(
+            new PyType.Spec("ValueError", MethodHandles.lookup())
                     .base(PyException.TYPE));
 
     /**

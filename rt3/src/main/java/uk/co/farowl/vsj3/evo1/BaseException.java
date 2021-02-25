@@ -1,11 +1,13 @@
 package uk.co.farowl.vsj3.evo1;
 
+import java.lang.invoke.MethodHandles;
+
 /** The Python {@code BaseException} exception. */
 class BaseException extends RuntimeException implements CraftedType {
 
     /** The type of Python object this class implements. */
     static final PyType TYPE = PyType.fromSpec(
-            new PyType.Spec("BaseException", BaseException.class));
+            new PyType.Spec("BaseException", MethodHandles.lookup()));
     private final PyType type;
     final PyTuple args;
 

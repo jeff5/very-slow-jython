@@ -1129,11 +1129,13 @@ public class Abstract {
      * @param f name of function or operation
      * @param t expected type of return
      * @param o actual object returned
+     * @return {@code o}
      */
-    static void returnDeprecation(String f, String t, Object o) {
+    static Object returnDeprecation(String f, String t, Object o) {
         Warnings.format(DeprecationWarning.TYPE, 1,
                 RETURNED_NON_TYPE_DEPRECATION, f, t,
                 PyType.of(o).getName(), t);
+        return o;
     }
 
     private static final String RETURNED_NON_TYPE_DEPRECATION =

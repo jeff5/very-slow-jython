@@ -1,11 +1,13 @@
 package uk.co.farowl.vsj3.evo1;
 
+import java.lang.invoke.MethodHandles;
+
 /** The Python {@code LookupError} exception. */
 class LookupError extends PyException {
 
     /** The type of Python object this class implements. */
-    static final PyType TYPE = PyType
-            .fromSpec(new PyType.Spec("LookupError", LookupError.class)
+    static final PyType TYPE = PyType.fromSpec(
+            new PyType.Spec("LookupError", MethodHandles.lookup())
                     .base(PyException.TYPE));
 
     /**

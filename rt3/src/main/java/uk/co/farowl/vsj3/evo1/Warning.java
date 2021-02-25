@@ -1,11 +1,13 @@
 package uk.co.farowl.vsj3.evo1;
 
+import java.lang.invoke.MethodHandles;
+
 /** The Python {@code Warning} exception. */
 class Warning extends PyException {
 
     /** The type of Python object this class implements. */
-    static final PyType TYPE =
-            PyType.fromSpec(new PyType.Spec("Warning", Warning.class)
+    static final PyType TYPE = PyType
+            .fromSpec(new PyType.Spec("Warning", MethodHandles.lookup())
                     .base(PyException.TYPE));
 
     /**

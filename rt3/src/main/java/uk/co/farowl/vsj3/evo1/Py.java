@@ -1,9 +1,10 @@
 package uk.co.farowl.vsj3.evo1;
 
 import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
 import java.math.BigInteger;
 
-/** Runtime */
+/** Common run-time constants and constructors. */
 public class Py {
 
     private static class Singleton implements CraftedType {
@@ -17,9 +18,10 @@ public class Py {
 
         Singleton(String name) {
             this.name = name;
-            PyType.Spec spec = new PyType.Spec(name, getClass());
-            spec.flagNot(PyType.Flag.BASETYPE);
-            type = PyType.fromSpec(spec);
+            type = PyType.fromSpec(
+                    new PyType.Spec(name, MethodHandles.lookup())
+                            .canonical(getClass())
+                            .flagNot(PyType.Flag.BASETYPE));
         }
 
         @Override
@@ -36,13 +38,13 @@ public class Py {
             new Singleton("NotImplemented") {};
 
     /**
-     * Return the Python {@code type} of an object.
+     * Return Python {@code int} for Java {@code int}.
      *
-     * @param object to interrogate
-     * @return the type
+     * @param value to represent
+     * @return equivalent {@code int}
      */
-    static PyType type(Object object) {
-        return PyType.of(object);
+    public static Integer val(int value) {
+        return value;
     }
 
     /**
@@ -51,8 +53,8 @@ public class Py {
      * @param value to represent
      * @return equivalent {@code int}
      */
-    public static PyLong val(long value) {
-        return new PyLong(value);
+    public static BigInteger val(long value) {
+        return BigInteger.valueOf(value);
     }
 
     /**
@@ -61,8 +63,9 @@ public class Py {
      * @param value to wrap
      * @return equivalent {@code int}
      */
-    public static PyLong val(BigInteger value) {
-        return new PyLong(value);
+    // @Deprecated // Just use BigInteger
+    public static BigInteger val(BigInteger value) {
+        return value;
     }
 
     /**
@@ -71,8 +74,9 @@ public class Py {
      * @param value to represent
      * @return equivalent {@code float}
      */
-    public static PyFloat val(double value) {
-        return new PyFloat(value);
+    // @Deprecated // Just use primitive auto-boxed
+    public static Double val(double value) {
+        return value;
     }
 
     /**
@@ -82,16 +86,16 @@ public class Py {
      * @param value to represent
      * @return equivalent {@code bool}
      */
-    @Deprecated // Just use Boolean or primitive auto-boxed
-    static Object val(boolean value) {
-        return value ? Py.True : Py.False;
+    // @Deprecated // Just use primitive auto-boxed
+    static Boolean val(boolean value) {
+        return value;
     }
 
     /** Python {@code False} object. */
-    static final Object False = false;
+    static final Boolean False = false;
 
     /** Python {@code True} object. */
-    static final Object True = true;
+    static final Boolean True = true;
 
     /**
      * Return a Python {@code object}.
@@ -192,11 +196,14 @@ public class Py {
                 if (res instanceof PyUnicode)
                     return ((PyUnicode) res).value;
             } catch (Throwable e) {}
-            // Fall back on pseudo object.__str__
+
+            // Even object.__str__ not working.
             String name = "";
-            if (ops != null)
+            try {
+                // Got a Python type at all?
                 name = ops.type(o).name;
-            else {
+            } catch (Throwable e) {
+                // Maybe during start-up. Fall back to Java.
                 Class<?> c = o.getClass();
                 if (c.isAnonymousClass())
                     name = c.getName();

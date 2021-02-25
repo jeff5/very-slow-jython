@@ -1,12 +1,14 @@
 package uk.co.farowl.vsj3.evo1;
 
+import java.lang.invoke.MethodHandles;
+
 /** The Python {@code DeprecationWarning} exception. */
 class DeprecationWarning extends Warning {
 
     /** The type of Python object this class implements. */
     static final PyType TYPE =
             PyType.fromSpec(new PyType.Spec("DeprecationWarning",
-                    DeprecationWarning.class).base(Warning.TYPE));
+                    MethodHandles.lookup()).base(Warning.TYPE));
 
     /**
      * Constructor for sub-class use specifying {@link #type}.

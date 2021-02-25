@@ -3,8 +3,6 @@ package uk.co.farowl.vsj3.evo1;
 import java.util.Map;
 import java.util.StringJoiner;
 
-import uk.co.farowl.vsj3.evo1.PyObjectUtil.NoConversion;
-
 /** Miscellaneous static helpers common to built-in objects. */
 class PyObjectUtil {
 

@@ -215,26 +215,24 @@ public class Number extends Abstract {
      *     {@code int}
      * @throws Throwable otherwise from invoked implementations
      */
-    static PyLong index(Object o) throws TypeError, Throwable {
+    static Object index(Object o) throws TypeError, Throwable {
 
         Operations itemOps = Operations.of(o);
-        Object result;
+        Object res;
 
-        if (itemOps.type(o).isSubTypeOf(PyLong.TYPE))
-            return (PyLong) o;
+        if (itemOps.isIntExact())
+            return o;
         else {
             try {
-                result = itemOps.op_index.invokeExact(o);
+                res = itemOps.op_index.invokeExact(o);
                 // Enforce expectations on the return type
-                PyType resultType = PyType.of(result);
-                if (resultType == PyLong.TYPE)
-                    return (PyLong) result;
-                else if (resultType.isSubTypeOf(PyLong.TYPE))
-                    // XXX Sub-types not implemented yet
-                    // CPython issues DeprecationWarning on sub-type.
-                    return (PyLong) result;
+                Operations resOps = Operations.of(res);
+                if (resOps.isIntExact())
+                    return res;
+                else if (resOps.type(res).isSubTypeOf(PyLong.TYPE))
+                    return returnDeprecation("__index__", "int", res);
                 else
-                    throw returnTypeError("__index__", "int", result);
+                    throw returnTypeError("__index__", "int", res);
             } catch (EmptyException e) {
                 throw typeError(CANNOT_INTERPRET_AS_INT, o);
             }
@@ -357,8 +355,7 @@ public class Number extends Abstract {
      * @throws Throwable on other errors
      */
     // Compare CPython abstract.c: PyNumber_Float
-    public static PyFloat toFloat(Object o)
-            throws TypeError, Throwable {
+    public static Object toFloat(Object o) throws TypeError, Throwable {
         /*
          * Ever so similar to PyFloat.asDouble, but returns always
          * exactly a PyFloat, constructed if necessary from the value in
@@ -366,27 +363,28 @@ public class Number extends Abstract {
          */
         Operations ops = Operations.of(o);
 
-        if (PyFloat.TYPE.checkExact(o)) { // XXX base on ops somehow?
-            return (PyFloat) o;
+        if (PyFloat.TYPE.checkExact(o)) {
+            return o;
 
         } else {
             try {
                 // Try __float__ (if defined)
                 Object res = ops.op_float.invokeExact(o);
-                if (PyFloat.TYPE.checkExact(res)) // Exact type
-                    return (PyFloat) res;
-                else if (res instanceof PyFloat) { // Sub-class
-                    // Warn about this and make a clean PyFloat
-                    returnDeprecation("__float__", "float", res);
-                    return Py.val(((PyFloat) res).value);
+                PyType resType = PyType.of(res);
+                if (resType == PyFloat.TYPE) // Exact type
+                    return ((PyFloat) res).value;
+                else if (resType.isSubTypeOf(PyFloat.TYPE)) {
+                    // Warn about this and make a clean Python float
+                    PyFloat.asDouble(returnDeprecation("__float__",
+                            "float", res));
                 } else
-                    // Slot defined but not a PyFloat at all
+                    // Slot defined but not a Python float at all
                     throw returnTypeError("__float__", "float", res);
             } catch (Slot.EmptyException e) {}
 
             // Fall out here if op_float was not defined
             if (Slot.op_index.isDefinedFor(ops))
-                return Py.val(index(o).doubleValue());
+                return PyLong.asDouble(Number.index(o));
             else
                 return PyFloat.fromString(o);
         }
