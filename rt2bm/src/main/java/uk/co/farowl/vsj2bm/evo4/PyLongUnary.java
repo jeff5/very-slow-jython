@@ -62,7 +62,7 @@ public class PyLongUnary {
 
     @Benchmark
     public PyObject negbig() throws Throwable {
-        return Number.negative(vo);
+        return Number.negative(bigvo);
     }
 
     /*

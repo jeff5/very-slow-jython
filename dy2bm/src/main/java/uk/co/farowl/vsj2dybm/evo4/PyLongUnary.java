@@ -64,7 +64,7 @@ public class PyLongUnary {
 
     @Benchmark
     public PyObject negbig() throws Throwable {
-        return AbstractProxy.negative(vo);
+        return AbstractProxy.negative(bigvo);
     }
 
     @Benchmark
