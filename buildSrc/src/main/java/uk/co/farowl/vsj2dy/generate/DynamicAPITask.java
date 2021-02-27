@@ -26,12 +26,28 @@ import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.Type;
 
 /**
- * Generate classes using ASM from a simple specification for the unary
- * and binary arithmetic operations. The idea of this is to generate
- * classes with methods we may call in place of the Python Abstract API,
- * opening the way to a first use of {@code invokedynamic} and call
- * sites that embed Python semantics. We hope to prove that calls to
- * these methods may be in-lined and specialised by Java.
+ * This is a Gradle task to generate classes that implement (some of)
+ * the Python abstract object API. Each class is derived by this task
+ * from a simple specification like:<pre>
+ * # Name the methods to generate here
+ * package uk.co.farowl.vsj2dy.evo4
+ * class AbstractProxy
+ * unary negative
+ * binary add
+ * binary subtract
+ * binary multiply
+ * </pre> Each line specifies the code template to use (which generator
+ * method to call in this task) and a name for the method, which will be
+ * generated using ASM. The generated method body is little more than an
+ * invokedynamic instruction of the same signature. This name is also
+ * embedded as a call site argument used by the run-time to bootstrap
+ * the site.
+ * <p>
+ * The idea of this is to generate classes with methods we may call in
+ * place of the Python Abstract API, opening the way to a first use of
+ * {@code invokedynamic} and call sites that embed Python semantics. We
+ * hope to prove that calls to these methods may be in-lined and
+ * specialised by Java.
  */
 public class DynamicAPITask extends AbstractCompile {
 

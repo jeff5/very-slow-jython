@@ -21,14 +21,16 @@ dependencies {
 
 
 compileJava {
-    /*
+
+    // Diagnostic to confirm (primarily) that the path contains
+    // .../dy2/build/classes/java/main
     doFirst {
         println "Task $name classpath:"
         classpath.forEach {
             File element -> println "    $element"
         }
     }
-    */
+
 }
 
 
@@ -45,7 +47,6 @@ task jmh(type: JavaExec, description: 'JMH Help') {
 
 
 task lprof(type: JavaExec, description: 'JMH List profilers') {
-    // Maybe need variants of this task with different filters
     classpath = sourceSets.main.runtimeClasspath
     main = 'org.openjdk.jmh.Main'
 
@@ -90,5 +91,6 @@ task mainloop(type: JavaExec,
 
     // Disassembly requires hsdis-amd64.dll in Java bin directory
     //jvmArgs '-XX:+PrintAssembly'  // Everything (a lot)
+    // Just the method exhibiting the optimisation hoped for
     jvmArgs '-XX:CompileCommand=print,*PyFloatBinary.quartic'
 }

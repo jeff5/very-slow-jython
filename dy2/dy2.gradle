@@ -44,7 +44,7 @@ task generateDynamicAPI(type: DynamicAPITask) {
         }
     }
 }
-
+classes.dependsOn(generateDynamicAPI)
 
 artifacts {
     apiElements(generateDynamicAPI.destinationDirectory)
