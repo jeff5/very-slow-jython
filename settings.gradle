@@ -14,6 +14,8 @@ include 'jy2bm'     // benchmarks for Jython 2 (comparison)
 include 'dy2'       // experimental extension to rt2 (using indy)
 include 'dy2bm'     // benchmarks for runtime phase 2 (using indy)
 include 'rt3'       // model runtime phase 3 (using java.lang.Object)
+include 'rt3bm'     // benchmarks for runtime phase 3
+include 'dy3bm'     // benchmarks for runtime phase 3 (using indy)
 include 'samples'   // sample applications
 
 // Sub-project build files are named after the sub-project.

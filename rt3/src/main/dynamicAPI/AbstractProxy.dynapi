@@ -1,0 +1,10 @@
+# Name the methods to generate here
+
+package uk.co.farowl.vsj3.evo1
+
+class AbstractProxy
+
+unary negative
+binary add
+binary subtract
+binary multiply

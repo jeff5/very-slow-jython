@@ -225,9 +225,87 @@ is straight out of the textbook in the unary case (some set-up removed):
         //...
 
 
+VSJ 3 evo 1
+***********
+
+VSJ 3 is the "plain Java object" implementation.
+There is no ``PyObject`` that all Python objects extend or implement.
+We associate Python types with classes through a ``ClassValue``,
+that permits a ``BigInteger`` to be recognised directly as an ``int``,
+for example,
+and a ``Double`` as a ``float``.
+
+As in VSJ 2,
+each operation of which an object is capable,
+is accessed through a ``MethodHandle``
+stored in a data structure that describes the Python type.
+Since the Python type is no longer written on the object, in VSJ 3,
+finding the handle is less direct than in VSJ 2,
+and we should expect the extra work
+(a call to ``ClassValue.get()``)
+to show in the time taken to invoke the operation.
+
+..  code:: none
+
+    Benchmark                Mode  Cnt   Score   Error  Units
+    PyFloatUnary.neg         avgt   20  31.125 ± 0.377  ns/op
+    PyFloatUnary.neg_java    avgt  200   5.646 ± 0.050  ns/op
+    PyFloatUnary.nothing     avgt  200   5.773 ± 0.070  ns/op
+    PyLongUnary.neg          avgt   20  26.226 ± 0.809  ns/op
+    PyLongUnary.neg_java     avgt  100   5.441 ± 0.052  ns/op
+    PyLongUnary.negbig       avgt   20  32.605 ± 0.663  ns/op
+    PyLongUnary.negbig_java  avgt   20  16.509 ± 0.109  ns/op
+
+Compared with VSJ 2 evo4,
+the overhead for ``float`` has indeed increased to 25ns (up from around 18ns),
+but in fact we are doing slightly better than VSJ 2 with ``int``.
+This will count when we are interpreting CPython byte code.
+We have no measurements (at the time of writing)
+to tell us whether this is important
+relative to the overhead of the interpreter loop.
+
+The comparison with VSJ 2 is not quite direct,
+since in VSJ 3 we represent ``int`` by ``Integer``,
+if the value is not too big.
+This saves work in ``PyLongUnary.neg``.
+Its comparator ``PyLongUnary.neg_java``
+is written using a primitive Java ``int``.
+
+
+VSJ 3 evo 1 with ``invokedynamic``
+**********************************
+
+VSJ 3 also supports binding the ``MethodHandle``\s
+into ``invokedynamic`` call sites.
+The mechanism for doing so is more complex
+than the one we layered onto VSJ 2,
+but in return we create the possibility of binding versions
+specialised to the argument(s).
+For example, the call site in ``PyLongUnary.neg``
+will be bound to a method with signature ``Object __neg__(Integer)``.
+Binding is a one-time cost (per call site and type).
+
+..  code:: none
+
+    Benchmark                Mode  Cnt   Score   Error  Units
+    PyFloatUnary.neg         avgt   20  12.590 ± 0.108  ns/op
+    PyFloatUnary.neg_java    avgt  200   5.511 ± 0.025  ns/op
+    PyFloatUnary.nothing     avgt  200   5.612 ± 0.053  ns/op
+    PyLongUnary.neg          avgt   20  12.913 ± 0.051  ns/op
+    PyLongUnary.neg_java     avgt  100   5.408 ± 0.053  ns/op
+    PyLongUnary.negbig       avgt   20  16.752 ± 0.341  ns/op
+    PyLongUnary.negbig_java  avgt   20  16.544 ± 0.117  ns/op
+
+For ``float`` and small ``int`` the overhead is just 7ns,
+while for ``int`` big enough to need a ``BigInteger``,
+we there seems to be no overhead at all.
+
 
 Analysis
 ********
+
+Basic Slot Dispatch
+===================
 
 The plain VSJ 2 implementation dispatches through a ``MethodHandle``
 in the following way:
@@ -261,7 +339,7 @@ and specialised for ``PyFloat``.
 At the same time, the ``PyFloat`` constructor call will have been
 in-lined in ``__neg__``.
 The residual time probably consists of a guard
-(a check that ``vo`` is in fact a ``PyFloat``),
+(a check that ``v`` is in fact a ``PyFloat``),
 and a call to ``TYPE.op_neg.invokeExact`` on the optimised handle.
 
 In comparison, Jython 2 dispatch consists of a Java virtual method call
@@ -270,11 +348,19 @@ overridden by ``PyFloat.__neg__``,
 which itself has essentially the same form as in the VSJ 2 implementation.
 This dispatch costs only about 8ns,
 suggesting that the virtual call is fully in-lined,
+and specialised to ``PyFloat``,
 after a simple guard on type.
+
+
+.. _benchmark-invoke-barrier:
+
+The ``invokeExact`` Barrier
+===========================
 
 Jython is significantly quicker than plain VSJ 2.
 It begins to look as if the called implementation of ``Number.negative``
 cannot be in-lined across an ``invokeExact`` call.
+The equivalent path in VSJ 3 displays the same problem.
 Why might this be?
 
 Inlining is not safe here because
@@ -285,25 +371,87 @@ the handle will be re-written
 when ``__neg__`` is defined in the called type or an ancestor.
 In Python this can happen at any time.
 
+This sets a limit to what can be expected of interpreted CPython byte code.
+
+
+Recovery with ``invokedynamic``
+===============================
+
 Turning now to VSJ 2 with ``invokedynamic``,
 performance recovers to equal that of Jython 2,
 suggesting that the JVM is successfully in-lining the method handles
 installed by the ``UnaryOpCallSite``.
 We apply a class-guard that wraps the ``op_neg`` handle,
-but so also must the JVM when it specialises the in-lined call in Jython 2.
-The timimgs tell us ours costs no more than in the Jython 2 case.
+and falls back to a method that will look for the correct handle.
+When the JVM specialises the in-lined call in Jython 2,
+it too must check the specialisation applies to each new argument.
+The timings tell us the checks in VSJ 2 cost no more than those in Jython 2.
 
-The call site we implemented in VSJ 2 with ``invokedynamic`` is incorrect.
-It assumes no re-definition of ``__neg__`` may occur,
-which is true for ``int`` and ``float``,
-but not in general.
-For types that allow re-assignment (a fact the type object must provide),
+By installing the handle on ``__neg__`` as the target of the call site,
+the run-time system implicitly guarantees to the JVM that in-lining is safe.
+We have to use a mutable call site,
+one where the handle may change,
+because a new class may come along at any time and fail the class guard.
+Then we will re-write the target,
+and the JVM will respond by adapting the in-line code.
+
+The call site we implemented in VSJ 2 with ``invokedynamic``
+is incorrect in this respect.
+It assumes no re-definition of ``__neg__`` will occur,
+which is correct for the types in the test but will not do long-term.
+For types that allow re-assignment of special functions
+(something the type object must indicate is a possibility),
 and for types that allow object type to be changed,
 a different handle should be installed
-that always goes via ``op_neg`` in the (current) type object
-as in plain VSJ 2.
-The difference from plain VSJ 2 is that we get to take advantage of
-the short cut for when types are fixed and immutable,
-which is the case for many built-in types.
+that always goes via ``op_neg`` in the type the object (currently) has.
 
+The VSJ 3 call site is designed to allow for mutable types.
+For immutable types like ``int`` and ``float``
+it will install the fast path.
 
+.. _benchmark-unary-class-specific-dispatch:
+
+Dispatch Specific to Java Class
+===============================
+
+The other big difference in VSJ 3 from VSJ 2 is
+the adoption of multiple types as implementations of
+a built-in Python object type.
+Operations are defined separately for each implementing Java class,
+and it is these definitions that the abstract API will invoke.
+
+..  code:: java
+
+    public class Number extends Abstract { // ...
+        public static PyObject negative(PyObject v) throws Throwable {
+            try {
+                return Operations.of(v).op_neg.invokeExact(v);
+            } catch (Slot.EmptyException e) {
+                throw operandError(Slot.op_neg, v);
+            }
+        }
+        // ...
+
+..  code:: java
+
+    class PyFloatMethods { // ...
+
+        static Object __neg__(PyFloat self) { return -self.value; }
+        static Object __neg__(Double self) { return -self.doubleValue(); }
+
+The ``PyFloat`` implementation exists so that
+we may sub-class ``float`` in Python.
+A method is defined for all implementing classes (or for a super-class),
+or it is not defined for the type,
+and the slot will then either be inherited or be empty.
+
+When binding the target for a newly-encountered call into a call site,
+the site will find the definition for that class
+and (for immutable types) bind that directly.
+If the method is not defined,
+it will bind one that raises a Python ``TypeError``.
+
+It is clear in the timings that specialisation and
+the simpler ``MethodHandle``\s
+do reduce the overhead as hoped,
+beating Jython 2 by a small margin.

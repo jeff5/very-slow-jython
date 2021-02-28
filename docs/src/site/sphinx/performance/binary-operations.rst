@@ -180,31 +180,203 @@ because the types of both arguments must be taken into account
 in the specialisation.
 
 
+VSJ 3 evo 1
+***********
+
+VSJ 3 is the "plain Java object" implementation, where
+finding the handle of an operation involves work
+(a call to ``ClassValue.get()``)
+not necessary with the type-labelled ``PyObject``\s of VSJ 2.
+
+..  code:: none
+
+    27/02 18:30
+    Benchmark                            Mode  Cnt    Score   Error  Units
+    PyFloatBinary.add_float_float        avgt   20   54.345 ± 0.835  ns/op
+    PyFloatBinary.add_float_float_java   avgt  200    5.993 ± 0.050  ns/op
+    PyFloatBinary.add_float_int          avgt   20   68.574 ± 1.226  ns/op
+    PyFloatBinary.add_float_int_java     avgt  200    6.851 ± 0.217  ns/op
+    PyFloatBinary.add_int_float          avgt   20   94.763 ± 2.103  ns/op
+    PyFloatBinary.add_int_float_java     avgt  200    6.299 ± 0.062  ns/op
+    PyFloatBinary.addbig_float_int       avgt   20   76.177 ± 0.308  ns/op
+    PyFloatBinary.addbig_float_int_java  avgt   20   17.232 ± 0.136  ns/op
+    PyFloatBinary.addbig_int_float       avgt   20   98.819 ± 0.304  ns/op
+    PyFloatBinary.addbig_int_float_java  avgt   20   20.261 ± 0.094  ns/op
+    PyFloatBinary.mul_float_float        avgt   20   53.369 ± 0.275  ns/op
+    PyFloatBinary.mul_float_float_java   avgt  200    5.995 ± 0.048  ns/op
+    PyFloatBinary.nothing                avgt  200    5.618 ± 0.037  ns/op
+    PyFloatBinary.quartic                avgt   20  257.507 ± 1.100  ns/op
+    PyFloatBinary.quartic_java           avgt  200    6.934 ± 0.132  ns/op
+    PyLongBinary.add                     avgt   20   60.712 ± 0.622  ns/op
+    PyLongBinary.add_java                avgt   20   30.235 ± 0.968  ns/op
+    PyLongBinary.addbig                  avgt   20   85.987 ± 0.794  ns/op
+    PyLongBinary.addbig_java             avgt   20   38.598 ± 0.914  ns/op
+    PyLongBinary.mul                     avgt   20   78.763 ± 1.996  ns/op
+    PyLongBinary.mul_java                avgt   20   43.609 ± 0.212  ns/op
+    PyLongBinary.mulbig                  avgt   20   96.414 ± 0.915  ns/op
+    PyLongBinary.mulbig_java             avgt   20   55.932 ± 0.576  ns/op
+
+
+Compared with VSJ 2 evo4,
+for ``float`` the overhead has indeed increased to 50-90ns
+(up from around 30ns),
+but in fact we are doing about the same as VSJ 2 with ``int``.
+
+Again the comparison with VSJ 2 is not quite direct,
+since in VSJ 3 we represent ``int`` by ``Integer``,
+if the value is not too big.
+The ``int``\s are ``Integer`` in ``add_float_int`` and ``add_int_float``,
+and primitive Java int in their Java counterparts.
+The tests with ``addbig`` or ``mulbig`` in the name use ``BigInteger``.
+
+
+VSJ 3 evo 1 with ``invokedynamic``
+**********************************
+
+When VSJ 3 binds the ``MethodHandle``\s
+into binary ``invokedynamic`` call sites,
+it uses definitions specialised to the types of both operands.
+
+For example, the call site in ``PyFloatBinary.add_int_float``
+will be bound to a method with signature ``Object __add__(Integer, Double)``,
+provided by the implementation of ``float``.
+The fact that ``int`` provides no method with this signature,
+and this can be decided at the time the call site is being bound,
+makes it unnecessary to consult ``int`` during the call itself.
+(This only applies to types where the definition cannot change.)
+
+..  code:: none
+
+    Benchmark                            Mode  Cnt   Score   Error  Units
+    PyFloatBinary.add_float_float        avgt   20  12.733 ± 0.134  ns/op
+    PyFloatBinary.add_float_float_java   avgt   20   5.958 ± 0.166  ns/op
+    PyFloatBinary.add_float_int          avgt   20  16.426 ± 0.146  ns/op
+    PyFloatBinary.add_float_int_java     avgt   20   6.202 ± 0.048  ns/op
+    PyFloatBinary.add_int_float          avgt   20  15.873 ± 0.504  ns/op
+    PyFloatBinary.add_int_float_java     avgt   20   6.238 ± 0.062  ns/op
+    PyFloatBinary.addbig_float_int       avgt   20  24.063 ± 0.674  ns/op
+    PyFloatBinary.addbig_float_int_java  avgt   20  17.575 ± 0.533  ns/op
+    PyFloatBinary.addbig_int_float       avgt   20  24.165 ± 0.470  ns/op
+    PyFloatBinary.addbig_int_float_java  avgt   20  20.554 ± 0.598  ns/op
+    PyFloatBinary.mul_float_float        avgt   20  13.244 ± 0.427  ns/op
+    PyFloatBinary.mul_float_float_java   avgt   20   6.097 ± 0.185  ns/op
+    PyFloatBinary.nothing                avgt   20   5.620 ± 0.111  ns/op
+    PyFloatBinary.quartic                avgt   20  13.152 ± 0.408  ns/op
+    PyFloatBinary.quartic_java           avgt   20   6.308 ± 0.170  ns/op
+    PyLongBinary.add                     avgt   20  15.241 ± 0.049  ns/op
+    PyLongBinary.add_java                avgt   20   5.287 ± 0.158  ns/op
+    PyLongBinary.addbig                  avgt   20  38.518 ± 0.443  ns/op
+    PyLongBinary.addbig_java             avgt   20  38.826 ± 0.374  ns/op
+    PyLongBinary.mul                     avgt   20  14.888 ± 0.621  ns/op
+    PyLongBinary.mul_java                avgt   20   6.102 ± 0.226  ns/op
+    PyLongBinary.mulbig                  avgt   20  56.186 ± 0.538  ns/op
+    PyLongBinary.mulbig_java             avgt   20  55.747 ± 0.456  ns/op
+
+
+
+
 Analysis
 ********
 
-Again we see that Jython 2 is faster than VSJ 2,
+Binary Slot Dispatch
+====================
+
+The semantics of binary operations in Python are complex,
+in particular the way in which the types of both arguments
+must be consulted,
+and types give way to sub-types.
+This is the reason why we explore the combinations
+``float+float``, ``float+int`` and ``int+float`` separately.
+The last of these has the largest overhead,
+since the ``int.__add__`` must be consulted and return ``NotImplemented``,
+before ``float.__add__`` comes up with the answer.
+
+Even in the case ``float+int`` where ``float.__add__`` will succeed,
+code that is ignorant of the particular types
+must check that ``int`` is not a sub-type of it,
+then apply a test for ``NotImplemented``.
+This happens for every addition,
+compared with Java in which the types are statically known,
+and only a handful of instructions need be executed.
+
+
+Greater Strain on In-lining
+===========================
+
+In the binary performance tests,
+we again see that Jython 2 is faster than VSJ 2
+and VSJ 3 using ``invokeExact``,
 supporting the hypothesis that the virtual method calls
-are more successfully in-lined than ``invokeExact``.
-This deficit is mostly made up in VSJ 2 with ``invokedynamic``.
+are more successfully in-lined.
+(See :ref:`benchmark-invoke-barrier`.)
 
 In Jython 2 ``float`` tests,
 the difference made by having ``int`` on the left,
 and returning ``NotImplemented`` each time is not pronounced.
-We speculate that having in-lined the body of ``PyLong.__add__``,
+The assembly code generated by the JVM is long and complex,
+but it appears that having in-lined the body of ``PyLong.__add__``,
 the compiler can see that ``NotImplemented`` is the inevitable result,
 and goes directly to ``PyFloat.__radd__``.
-In VSJ 2, we see quite a big penalty for having ``int`` on the left.
 
-The shortcoming of the call site we implemented in VSJ 2 with ``invokedynamic``
-is also (doubly) present in the binary operation,
-in that it too assumes no re-definition of the operations may occur.
-Here also, this is true for ``int`` and ``float``,
-and does not affect the handles we would generate for them,
-or the benchmark results.
-Again,
-the solution will be to embed a handle that goes via the type object,
-when an operand has mutable character.
+In VSJ 2, we see quite a big penalty for having ``int`` on the left.
+This deficit is only partly made up in VSJ 2 with ``invokedynamic``.
+We speculate that the method handles are only partially in-lined
+because they are too deeply nested for the JVM to do so fully.
+The wrappers that test for ``NotImplemented`` contribute to that depth,
+in addition to the class guards.
+
+The shortcoming we noted in VSJ 2 unary ``invokedynamic`` call sites,
+that they assume no re-definition of the operations may occur,
+is (doubly) present in the binary case,
+but we correct that in VSJ 3.
+
+
+Dispatch Specific to Java Class
+===============================
+
+We saw a small advantage in VSJ 3 from
+:ref:`benchmark-unary-class-specific-dispatch` in the unary case.
+In the binary case,
+we gain enormously from specialisation in a mixed case like ``int+float``.
+After a guard on class,
+the course of events may be plotted completely by the call site:
+it is not necessary (in the case cited) to consult ``int``,
+or to test for ``NotImplemented`` in the handle.
+
+To pull this off,
+we have to supply quite a number of ``static`` implementation methods.
+Each implementation class of ``float`` must be supported
+as the first argument of ``__add__`` and ``__radd__``,
+then combined with each legitimate other operand class for the second.
+
+..  code:: java
+
+    class PyFloatBinops { // ...
+        static Object __add__(PyFloat v, PyFloat w) {
+            return v.value + w.value;
+        }
+        static Object __add__(PyFloat v, Double w) {
+            return v.value + w.doubleValue();
+        }
+        static Object __add__(PyFloat v, Integer w) {
+            return v.value + w.doubleValue();
+        }
+        static Object __add__(PyFloat v, BigInteger w) {
+            return v.value + PyLong.convertToDouble(w);
+        }
+        // ...
+        static Object __add__(Double v, PyFloat w) {
+            return v.doubleValue() + w.value;
+        }
+        // ...
+        static Object __radd__(PyFloat w, PyFloat v) {
+            return v.value + w.value;
+        }
+        // ...
+
+There are many combinations and we use a script to generate them.
+The call site binds in the method for each operand class pair,
+under a double class guard.
 
 
 Thoughts on the quartic test
@@ -223,7 +395,7 @@ is possible when the floating-point operations are adjacent
 (part of the same expression, say).
 
 Jython 2 also achieves a time for ``quartic``
-roughly the same as ``add_float_float``,
+roughly the same as its own ``add_float_float``,
 suggesting the residual overhead (probably two type checks) is paid only once
 and the in-lined code optimised as well as for the native case.
 
@@ -235,33 +407,11 @@ that would bring the floating point calculation together in one place.
 This is also approximately true of VSJ 2 with ``invokedynamic``:
 the overhead relative to pure Java is 43ns,
 around 3.5 times the 12ns on ``add_float_float`` .
-We speculate that the method handles are partly in-lined
-but are too deeply nested to merge the floating point operations.
 Evidently we do not get the remarkable concurrency seen in ``quartic``
 for Jython 2 and pure Java.
 
+Finally in VSJ 3,
+the specialisation to class allows the handles to in-line fully,
+and we are down to 7ns total overhead
+relative to the pure Java expression.
 
-Further Opportunities
-=====================
-
-The complexity in the method handles of VSJ 2 with ``invokedynamic``
-is a function of the Python semantics for binary operations:
-the conditional delegation to the left and right operand
-and the possibility of either returning ``NotImplemented``.
-This is part of the language,
-and we cannot simply dispense with it.
-
-For built in immutable types, these checks are of no value at run time:
-it is a foregone conclusion that ``float+float`` is always implemented,
-and that ``int+float`` will in the end be handled by ``PyFloat.__radd__``.
-Since we know this, we could go directly to the implementation in one bound.
-There could even be a specific ``PyFloat.__radd__(PyLong)`` method
-to receive the call.
-
-Such a strategy would require explicit support in the type system,
-so that a call site could enquire whether and how
-that type likes handle a specified operation on a given other class.
-An implementation of a built-in type
-could take advantage of the mechanism by defining
-additional implementations of the special methods (with distinct signatures)
-optimised for each supported argument type.

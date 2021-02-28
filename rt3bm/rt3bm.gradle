@@ -1,0 +1,102 @@
+/*
+ * rt3bm subproject (benchmarks for rt3).
+ *
+ * This sub-project builds an application that orchestrates 
+ * microbenchmenrks on the fundamental operations of the Python
+ * run-time system.
+ */
+
+plugins {
+    id 'application'
+}
+
+dependencies {
+    implementation project(':rt3')
+    implementation 'org.openjdk.jmh:jmh-core:1.26'
+    annotationProcessor 'org.openjdk.jmh:jmh-generator-annprocess:1.26'
+}
+
+application {
+    mainClass = 'org.openjdk.jmh.Main'
+}
+
+
+task jmh(type: JavaExec, description: 'JMH Help') {
+    classpath = sourceSets.main.runtimeClasspath
+    main = 'org.openjdk.jmh.Main'
+    args '-h'
+}
+
+task lprof(type: JavaExec, description: 'JMH List profilers') {
+    // Maybe need variants of this task with different filters
+    classpath = sourceSets.main.runtimeClasspath
+    main = 'org.openjdk.jmh.Main'
+
+    args '-lprof'
+}
+
+task unary(type: JavaExec, description: 'Unary operations') {
+    classpath = sourceSets.main.runtimeClasspath
+    main = 'org.openjdk.jmh.Main'
+
+    // Need variants of this task with different filters
+    // Trailing .* necessary!
+    args '.*Unary.*'
+
+    // jvmArgs '-Xint' // JVM options added like this
+}
+
+task unaryQuick(type: JavaExec, description: 'Unary operations (quick test)') {
+    classpath = sourceSets.main.runtimeClasspath
+    main = 'org.openjdk.jmh.Main'
+
+    // JMH options
+    args '-f', '1'    // Forks
+    args '-wi', '4'   // Warmup iterations
+    args '-i', '2'    // Iterations in test
+
+    args '.*Unary.*'    // Trailing .* necessary!
+}
+
+
+task binary(type: JavaExec, description: 'Binary operations') {
+    classpath = sourceSets.main.runtimeClasspath
+    main = 'org.openjdk.jmh.Main'
+
+    // Need variants of this task with different filters
+    // Trailing .* necessary!
+    args '.*Binary.*'
+
+    // jvmArgs '-Xint' // JVM options added like this
+}
+
+task binaryQuick(type: JavaExec, description: 'Binary operations (quick test)') {
+    classpath = sourceSets.main.runtimeClasspath
+    main = 'org.openjdk.jmh.Main'
+
+    // JMH options
+    args '-f', '1'    // Forks
+    args '-wi', '4'   // Warmup iterations
+    args '-i', '2'    // Iterations in test
+
+    args '.*Binary.*'
+}
+
+
+// Runs the "main loop" useful for exploring optimisation
+task mainloop(type: JavaExec,
+        description: 'Explore generated assembly language') {
+    classpath = sourceSets.main.runtimeClasspath
+    main = 'uk.co.farowl.vsj3bm.evo1.MainLoop'
+
+    // Show optimisation happening
+    jvmArgs '-XX:+UnlockDiagnosticVMOptions'
+    //jvmArgs '-XX:+PrintInlining'
+    jvmArgs '-XX:CompileCommand=dontinline,*PyFloatBinary.quartic'
+    //jvmArgs '-XX:+PrintCompilation'
+
+    // Disassembly requires hsdis-amd64.dll in Java bin directory
+    //jvmArgs '-XX:+PrintAssembly'  // Everything (a lot)
+    jvmArgs '-XX:CompileCommand=print,*PyFloatBinary.quartic'
+}
+
