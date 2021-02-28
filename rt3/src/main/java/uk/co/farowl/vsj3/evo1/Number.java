@@ -161,39 +161,43 @@ public class Number extends Abstract {
      */
     private static Object binary_op1(Object v, Object w, Slot binop)
             throws Slot.EmptyException, Throwable {
-        PyType vtype = PyType.of(v);
-        PyType wtype = PyType.of(w);
 
-        MethodHandle slotv = binop.getSlot(Operations.of(v));
-        MethodHandle slotw;
+        Operations vOps = Operations.of(v);
+        PyType vtype = vOps.type(v);
+
+        Operations wOps = Operations.of(w);
+        PyType wtype = wOps.type(w);
+
+        MethodHandle slotv, slotw;
 
         /*
          * CPython would also test: (slotw = rbinop.getSlot(wtype)) ==
          * slotv as an optimisation , but that's never the case since we
          * use distinct binop and rbinop slots.
          */
-        if (wtype == vtype)
+        if (wtype == vtype) {
             // Same types so only try the binop slot
+            slotv = binop.getSlot(vOps);
             return slotv.invokeExact(v, w);
 
-        else if (!wtype.isSubTypeOf(vtype)) {
+        } else if (!wtype.isSubTypeOf(vtype)) {
             // Ask left (if not empty) then right.
+            slotv = binop.getSlot(vOps);
             if (slotv != BINARY_EMPTY) {
                 Object r = slotv.invokeExact(v, w);
-                if (r != Py.NotImplemented)
-                    return r;
+                if (r != Py.NotImplemented) { return r; }
             }
-            slotw = binop.getAltSlot(Operations.of(w));
+            slotw = binop.getAltSlot(wOps);
             return slotw.invokeExact(w, v);
 
         } else {
             // Right is sub-class: ask first (if not empty).
-            slotw = binop.getAltSlot(Operations.of(w));
+            slotw = binop.getAltSlot(wOps);
             if (slotw != BINARY_EMPTY) {
                 Object r = slotw.invokeExact(w, v);
-                if (r != Py.NotImplemented)
-                    return r;
+                if (r != Py.NotImplemented) { return r; }
             }
+            slotv = binop.getSlot(vOps);
             return slotv.invokeExact(v, w);
         }
     }
@@ -319,13 +323,13 @@ public class Number extends Abstract {
             // XXX Need test of intiness and indexiness?
             // Normalise away subclasses of int
             result = PyLong.fromIntOf(o);
-            return PyLong.from((PyLong) result);
+            return PyLong.from(result);
         }
 
         else if (Slot.op_index.isDefinedFor(oType)) {
             // Normalise away subclasses of int
             result = PyLong.fromIndexOrIntOf(o);
-            return PyLong.from((PyLong) result);
+            return PyLong.from(result);
         }
 
         // XXX Not implemented: else try the __trunc__ method

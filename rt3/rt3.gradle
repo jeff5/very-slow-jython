@@ -6,6 +6,9 @@ plugins {
     id 'java-library'
 }
 
+// Our locally-rolled class-generator
+import uk.co.farowl.vsj3.generate.evo1.DynamicAPIevo1Task
+
 
 dependencies {
     implementation 'org.ow2.asm:asm:9.0'
@@ -57,6 +60,7 @@ test {
 }
 
 
+// Generate Python object definitions
 task generateJavaEvo1(type: PythonGenerate,
         description: 'Generate object definitions from templates' ) {
     args getProject().file('tools/python/vsj3evo1/java_object_gen.py')
@@ -73,6 +77,16 @@ task pythonVersion(type: Exec) {
 }
 
 
+// Generate (selected) Python abstract object API members
+// Task defined in root buildSrc
+task generateDynamicAPIevo1(type: DynamicAPIevo1Task) {
+    source = "src/main/dynamicAPI"
+    // Mix output into Java plugin directory :(
+    destinationDir = file("$buildDir/classes/java/main")
+    // Must be set but not actually consulted :(
+    classpath = layout.files("$buildDir/classes/java/main")
+}
+classes.dependsOn(generateDynamicAPIevo1)
 
 
 // Some adjustments to Javadoc to ensure complex tables readable

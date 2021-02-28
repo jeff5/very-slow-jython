@@ -63,10 +63,16 @@ class PyLongMethods {
      * @return equal value
      */
     private static Object toInt(BigInteger r) {
-        try {
-            return r.intValueExact();
-        } catch (ArithmeticException e) {
+        /*
+         * Implementation note: r.intValueExact() is for exactly this
+         * purpose, but building the ArithmeticException is a huge cost.
+         * (2900ns is added to a 100ns __add__.) The compiler (as tested
+         * in JDK 11.0.9) doesn't recognise that it can be optimised
+         * away. However, this test is quick.
+         */
+        if (r.bitLength() < 32)
+            return r.intValue();
+        else
             return r;
-        }
     }
 }

@@ -89,9 +89,6 @@ public class PyRT {
      */
     static class UnaryOpCallSite extends MutableCallSite {
 
-        /** Handle to throw {@link TypeError} (op unsupported). */
-        private static final MethodHandle OPERAND_ERROR;
-
         /** Handle to {@link #fallback(Object)} */
         private static final MethodHandle fallbackMH;
         int fallbackCalls = 0;
@@ -99,10 +96,6 @@ public class PyRT {
             try {
                 fallbackMH = lookup.findVirtual(UnaryOpCallSite.class,
                         "fallback", UOP);
-                // XXX Move to Slot so may generate handle once?
-                OPERAND_ERROR = lookup.findStatic(UnaryOpCallSite.class,
-                        "operandError",
-                        UOP.insertParameterTypes(0, Slot.class));
             } catch (NoSuchMethodException | IllegalAccessException e) {
                 throw staticInitError(e, UnaryOpCallSite.class);
             }
@@ -149,7 +142,7 @@ public class PyRT {
                 resultMH = op.getSlot(vOps);
             } else {
                 // Not defined for this type, so will throw
-                resultMH = OPERAND_ERROR.bindTo(op);
+                resultMH = op.getOperandError();
             }
 
             // MH for guarded invocation (becomes new target)
@@ -160,12 +153,6 @@ public class PyRT {
             // Compute the result for this case
             return resultMH.invokeExact(v);
         }
-
-        // XXX Possibly move to Slot so may generate handle once.
-        static Object operandError(Slot op, Object v) {
-            throw Number.operandError(op, v);
-        }
-
     }
 
     /**
@@ -354,13 +341,19 @@ public class PyRT {
                     int j = vType.indexOperand(wOps.getJavaClass());
                     if (j >= 0) { return binops[i][j]; }
                 }
+                /*
+                 * vType provides class-specific implementations of
+                 * op(v,w), but the signature we are looking for is not
+                 * amongst them.
+                 */
+                slotv = BINARY_EMPTY;
+            } else {
+                /*
+                 * vType provides no class-specific implementation of
+                 * op(v,w). Get the handle from the Operations object.
+                 */
+                slotv = op.getSlot(vOps);
             }
-
-            /*
-             * vType provides no class-specific implementation of
-             * op(v,w). Get the handle from the Operations object.
-             */
-            slotv = op.getSlot(vOps);
 
             // Does wType define class-specific rop implementations?
             binops = wType.binopTable.get(rop);
@@ -385,18 +378,24 @@ public class PyRT {
                         /*
                          * slotv is also a valid offer, which must be
                          * given first refusal. Only if slotv returns
-                         * Py.NotImplemented, will we try binops[i][j]
+                         * Py.NotImplemented, will we try binop.
                          */
                         return firstImplementer(slotv, binop);
                     }
                 }
+                /*
+                 * wType provides class-specific implementations of
+                 * rop(w,v), but the signature we are looking for is not
+                 * amongst them.
+                 */
+                slotw = BINARY_EMPTY;
+            } else {
+                /*
+                 * wType provides no class-specific implementation of
+                 * rop(w,v). Get the handle from the Operations object.
+                 */
+                slotw = rop.getSlot(wOps);
             }
-
-            /*
-             * wType provides no class-specific implementation of
-             * rop(w,v). Get the handle from the Operations object.
-             */
-            slotw = rop.getSlot(wOps);
 
             /*
              * If we haven't returned a handle yet, we now have slotv
@@ -471,13 +470,19 @@ public class PyRT {
                         return mh;
                     }
                 }
+                /*
+                 * wType provides class-specific implementations of
+                 * rop(w,v), but the signature we are looking for is not
+                 * amongst them.
+                 */
+                slotw = BINARY_EMPTY;
+            } else {
+                /*
+                 * wType provides no class-specific implementation of
+                 * rop(w,v). Get the handle from the Operations object.
+                 */
+                slotw = rop.getSlot(wOps);
             }
-
-            /*
-             * wType provides no class-specific implementation of
-             * rop(w,v). Get the handle from the Operations object.
-             */
-            slotw = rop.getSlot(wOps);
 
             // Does vType define class-specific implementations?
             binops = vType.binopTable.get(op);
@@ -507,13 +512,19 @@ public class PyRT {
                         return firstImplementer(slotw, mh);
                     }
                 }
+                /*
+                 * vType provides class-specific implementations of
+                 * op(v,w), but the signature we are looking for is not
+                 * amongst them.
+                 */
+                slotv = BINARY_EMPTY;
+            } else {
+                /*
+                 * vType provides no class-specific implementation of
+                 * op(v,w). Get the handle from the Operations object.
+                 */
+                slotv = op.getSlot(vOps);
             }
-
-            /*
-             * vType provides no class-specific implementation of
-             * op(v,w). Get the handle from the Operations object.
-             */
-            slotv = op.getSlot(vOps);
 
             /*
              * If we haven't returned a handle yet, we now have slotv

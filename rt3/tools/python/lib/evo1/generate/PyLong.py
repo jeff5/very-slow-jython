@@ -191,6 +191,10 @@ class PyLongGenerator(ImplementationGenerator):
             lambda x, y: f'{x}.subtract({y})'),
         BinaryOpInfo('__rsub__', lambda x, y: f'{x} - {y}', 
             lambda x, y: f'{x}.subtract({y})', True),
+        BinaryOpInfo('__mul__', lambda x, y: f'{x} * {y}', 
+            lambda x, y: f'{x}.multiply({y})'),
+        BinaryOpInfo('__rmul__', lambda x, y: f'{x} * {y}', 
+            lambda x, y: f'{x}.multiply({y})', True),
 
         BinaryOpInfo('__and__', lambda x, y: f'{x} & {y}', 
             lambda x, y: f'{x}.and({y})'),

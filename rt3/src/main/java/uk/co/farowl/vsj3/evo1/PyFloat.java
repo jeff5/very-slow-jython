@@ -84,7 +84,7 @@ public class PyFloat extends AbstractPyObject {
      * @throws TypeError if {@code v} is not a Python {@code float}
      */
     // Compare CPython floatobject.h: PyFloat_AS_DOUBLE
-    static double doubleValue(Object v) throws TypeError {
+    public static double doubleValue(Object v) throws TypeError {
         if (v instanceof Double)
             return ((Double) v).doubleValue();
         else if (v instanceof PyFloat)

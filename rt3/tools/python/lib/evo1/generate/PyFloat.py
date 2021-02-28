@@ -59,6 +59,8 @@ class PyFloatGenerator(ImplementationGenerator):
         OpInfo('__radd__', '{1} + {0}', 'w', 'v'),
         OpInfo('__sub__', '{} - {}', 'v', 'w'),
         OpInfo('__rsub__', '{1} - {0}', 'w', 'v'),
+        OpInfo('__mul__', '{} * {}', 'v', 'w'),
+        OpInfo('__rmul__', '{1} * {0}', 'w', 'v'),
     ]
     BINARY_PREDICATE_OPS = [
         OpInfo('__lt__', '{} < {}'),
