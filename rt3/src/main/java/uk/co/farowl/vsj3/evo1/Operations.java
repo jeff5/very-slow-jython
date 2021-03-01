@@ -1,8 +1,12 @@
 package uk.co.farowl.vsj3.evo1;
 
 import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodType;
+import java.lang.invoke.WrongMethodTypeException;
 import java.util.Map;
 import java.util.WeakHashMap;
+
+import uk.co.farowl.vsj3.evo1.Slot.Signature;
 
 abstract class Operations {
 
@@ -139,13 +143,138 @@ abstract class Operations {
      */
     static final Registry registry = new Registry();
 
-// private static final ClassValue<Operations> opsCV =
-// new ClassValue<Operations>() {
-//
-// @Override
-// protected Operations computeValue(Class<?> c) {
-// return registry.resolve(c);
-// };
+    /**
+     * A table of binary operations that may be indexed by a pair of
+     * classes (or their {@code Operations} objects). Binary operations,
+     * at the same time as appearing as the {@code op} and {@code rop}
+     * slots, meaning for example {@link Operations#op_add} and
+     * {@link Operations#op_radd}, are optionally given implementations
+     * specialised for the Java classes of their arguments. A
+     * {@code BinopGrid} describes the
+     */
+    static class BinopGrid {
+
+        /** Handle that marks an empty binary operation slot. */
+        protected static final MethodHandle BINARY_EMPTY =
+                Slot.Signature.BINARY.empty;
+
+        /** The (binary) slot for which this is an operation. */
+        final Slot slot;
+        /** the type on which we find this implemented. */
+        final PyType type;
+        /** All the implementations, arrayed by argument class. */
+        final MethodHandle[][] mh;
+
+        /**
+         * Construct a grid for the given operation and type.
+         *
+         * @param slot of the binary operation
+         * @param type in which the definition is being made
+         */
+        BinopGrid(Slot slot, PyType type) {
+            assert slot.signature == Signature.BINARY;
+            this.slot = slot;
+            this.type = type;
+            final int N = type.acceptedCount;
+            final int M = type.classes.length;
+            this.mh = new MethodHandle[N][M];
+        }
+
+        /**
+         * Post the definition for the {@link #slot} applicable to the
+         * classes in the method type. The handle must be the "raw"
+         * handle to the class-specific implementation, while the posted
+         * value (later returned by {@link #get(Class, Class)} will have
+         * the signature {@link Signature#BINARY}.
+         *
+         * @param mh handle to post
+         */
+        void add(MethodHandle mh)
+                throws WrongMethodTypeException, InterpreterError {
+            MethodType mt = mh.type();
+            // Cast fails if the signature is incorrect for the slot
+            mh = mh.asType(slot.getType());
+            // Find cell based on argument types
+            int i = type.indexAccepted(mt.parameterType(0));
+            int j = type.indexOperand(mt.parameterType(1));
+            if (i >= 0 && j >= 0) {
+                this.mh[i][j] = mh;
+            } else {
+                /*
+                 * The arguments to m are not (respectively) an accepted
+                 * class and an operand class for the type. Type spec
+                 * and the declared binary ops disagree?
+                 */
+                throw new InterpreterError(
+                        "unexpected signature of %s.%s: %s", type.name,
+                        slot.methodName, mt);
+            }
+        }
+
+        /**
+         * Check that every valid combination of classes has been added
+         * (therefore leads to a non-null method handle).
+         *
+         * @throws InterpreterError if a {@code null} was found
+         */
+        void checkFilled() throws InterpreterError {
+            final int N = type.acceptedCount;
+            final int M = type.classes.length;
+            for (int i = 0; i < N; i++) {
+                for (int j = 0; j < M; j++) {
+                    if (mh[i][j] == null) {
+                        /*
+                         * There's a gap in the table. Type spec and the
+                         * declared binary ops disagree?
+                         */
+                        throw new InterpreterError(
+                                "binary op not defined: %s(%s, %s)",
+                                slot.methodName,
+                                type.classes[i].getSimpleName(),
+                                type.classes[j].getSimpleName());
+                    }
+                }
+            }
+        }
+
+        /**
+         * Get the method handle of an implementation
+         * {@code Object op(V v, W w)} specialised to the given classes.
+         * If {@code V} is an accepted implementation of this type, and
+         * {@code W} is an operand class, the return will be a handle on
+         * an implementation accepting those classes. If no
+         * implementation is available for those classes (which means
+         * they are not accepted and operand types for the Python type)
+         * an empty slot handle is returned.
+         *
+         * @param accepted class of first argument to method
+         * @param operand class of second argument to method
+         * @return the special-to-class binary operation
+         */
+        MethodHandle get(Class<?> accepted, Class<?> operand) {
+            // Find cell based on argument types
+            int i = type.indexAccepted(accepted);
+            int j = type.indexOperand(operand);
+            if (i >= 0 && j >= 0) {
+                return mh[i][j];
+            } else {
+                return BINARY_EMPTY;
+            }
+        }
+
+        /**
+         * Convenience method allowing look-up equivalent to
+         * {@link #get(Class, Class)}, but using the {@code Operations}
+         * objects as a proxy for the actual classes.
+         *
+         * @param accepted class of first argument to method
+         * @param operand class of second argument to method
+         * @return the special-to-class binary operation
+         */
+        MethodHandle get(Operations accepted, Operations operand) {
+            return get(accepted.getJavaClass(), operand.getJavaClass());
+        }
+    }
 
     /**
      * Map a Java class to the {@code Operations} object that provides
@@ -256,6 +385,7 @@ abstract class Operations {
 
         /** The type of which this is an accepted implementation. */
         final private PyType type;
+
         /**
          * Index of this implementation in the type (see
          * {@link PyType#classes} and {@link PyWrapperDescr#wrapped}
@@ -277,7 +407,9 @@ abstract class Operations {
         }
 
         @Override
-        PyType type(Object x) { return type; }
+        PyType type(Object x) {
+            return type;
+        }
 
         @Override
         boolean isIntExact() { return type == PyLong.TYPE; }
@@ -307,7 +439,7 @@ abstract class Operations {
         @Override
         public String toString() {
             String javaName = getJavaClass().getSimpleName();
-            return javaName +" as " + type.toString();
+            return javaName + " as " + type.toString();
         }
     }
 

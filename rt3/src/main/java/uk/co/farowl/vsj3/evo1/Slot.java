@@ -285,8 +285,6 @@ enum Slot {
         slotHandle.set(ops, mh);
     }
 
-
-
     /**
      * Set the contents of this slot in the given operations object to a
      * {@code MethodHandle} that calls the object given in a manner
@@ -808,6 +806,7 @@ enum Slot {
         }
 
         /** Uninformative exception, mentioning the slot. */
+        @SuppressWarnings("unused")  // reflected in operandError
         static PyException defaultOperandError(Slot op) {
             return new TypeError("bad operand type for %s", op.opName);
         }

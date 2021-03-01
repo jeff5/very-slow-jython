@@ -132,12 +132,6 @@ public class PyRT {
             fallbackCalls += 1;
             Operations vOps = Operations.of(v);
             MethodHandle resultMH, targetMH;
-            /*
-             * XXX The logic of the next bit is inadequate for derived
-             * Python types which have the same Java class and different
-             * Python types. These may have to guard on Python type or
-             * always indirect (if the type is mutable).
-             */
             if (op.isDefinedFor(vOps)) {
                 resultMH = op.getSlot(vOps);
             } else {
@@ -146,6 +140,7 @@ public class PyRT {
             }
 
             // MH for guarded invocation (becomes new target)
+            // XXX Consider only binding if not an error
             MethodHandle guardMH = CLASS_GUARD.bindTo(v.getClass());
             targetMH = guardWithTest(guardMH, resultMH, getTarget());
             setTarget(targetMH);
@@ -247,6 +242,7 @@ public class PyRT {
             }
 
             // MH for guarded invocation (becomes new target)
+            // XXX Consider only binding if not an error
             MethodHandle guardMH = insertArguments(CLASS2_GUARD, 0,
                     v.getClass(), w.getClass());
             targetMH = guardWithTest(guardMH, resultMH, getTarget());
@@ -271,8 +267,11 @@ public class PyRT {
          */
         private MethodHandle singleType(PyType type, Operations vOps,
                 Operations wOps) {
+
+            MethodHandle slotv;
+
             // Does the type define class-specific implementations?
-            MethodHandle[][] binops = type.binopTable.get(op);
+            Operations.BinopGrid binops = type.binopTable.get(op);
             if (binops != null) {
                 /*
                  * Are the nominal implementation classes of v, w
@@ -280,21 +279,18 @@ public class PyRT {
                  * to return NotImplemented, so if there's a match, it's
                  * the answer.
                  */
-                int vi = type.indexAccepted(vOps.getJavaClass());
-                if (vi >= 0) {
-                    int wi = type.indexOperand(wOps.getJavaClass());
-                    if (wi >= 0) { return binops[vi][wi]; }
-                }
+                slotv = binops.get(vOps, wOps);
+                if (slotv != BINARY_EMPTY) { return slotv; }
+            } else {
+                /*
+                 * The type provides no class-specific implementation,
+                 * so use the handle in the Operations object.
+                 * Typically, this will be strongly-typed on the left
+                 * implementation class, but will have to test the
+                 * right-hand argument against supported types.
+                 */
+                slotv = op.getSlot(vOps);
             }
-
-            /*
-             * The type provides no class-specific implementation, so
-             * use the handle in the Operations object. Typically, this
-             * will be strongly-typed on the left implementation class,
-             * but will have to test the right-hand argument against
-             * supported types.
-             */
-            MethodHandle slotv = op.getSlot(vOps);
 
             if (slotv == BINARY_EMPTY) {
                 // Not defined for this type, so will throw
@@ -328,7 +324,7 @@ public class PyRT {
             Slot rop = op.alt;
 
             // Does vType define class-specific implementations?
-            MethodHandle[][] binops = vType.binopTable.get(op);
+            Operations.BinopGrid binops = vType.binopTable.get(op);
             if (binops != null) {
                 /*
                  * Are the nominal implementation classes of v, w
@@ -336,17 +332,14 @@ public class PyRT {
                  * to return NotImplemented, so if there's a match, it's
                  * the answer.
                  */
-                int i = vType.indexAccepted(vOps.getJavaClass());
-                if (i >= 0) {
-                    int j = vType.indexOperand(wOps.getJavaClass());
-                    if (j >= 0) { return binops[i][j]; }
-                }
+                slotv = binops.get(vOps, wOps);
+                if (slotv != BINARY_EMPTY) { return slotv; }
                 /*
                  * vType provides class-specific implementations of
                  * op(v,w), but the signature we are looking for is not
                  * amongst them.
                  */
-                slotv = BINARY_EMPTY;
+                assert (slotv == BINARY_EMPTY);
             } else {
                 /*
                  * vType provides no class-specific implementation of
@@ -364,31 +357,27 @@ public class PyRT {
                  * to return NotImplemented, so if there's a match, it's
                  * the only alternative to slotv.
                  */
-                int i = wType.indexAccepted(wOps.getJavaClass());
-                if (i >= 0) {
-                    int j = wType.indexOperand(vOps.getJavaClass());
-                    if (j >= 0) {
-                        // wType provides a rop(w,v) - note ordering
-                        MethodHandle binop = permuteArguments(
-                                binops[i][j], BINOP, 1, 0);
-                        if (slotv == BINARY_EMPTY) {
-                            // It's the only offer, so it's the answer.
-                            return binop;
-                        }
-                        /*
-                         * slotv is also a valid offer, which must be
-                         * given first refusal. Only if slotv returns
-                         * Py.NotImplemented, will we try binop.
-                         */
-                        return firstImplementer(slotv, binop);
+                slotw = binops.get(wOps, vOps);
+                if (slotw != BINARY_EMPTY) {
+                    // wType provides a rop(w,v) - note ordering
+                    slotw = permuteArguments(slotw, BINOP, 1, 0);
+                    if (slotv == BINARY_EMPTY) {
+                        // It's the only offer, so it's the answer.
+                        return slotw;
                     }
+                    /*
+                     * slotv is also a valid offer, which must be given
+                     * first refusal. Only if slotv returns
+                     * Py.NotImplemented, will we try binop.
+                     */
+                    return firstImplementer(slotv, slotw);
                 }
                 /*
                  * wType provides class-specific implementations of
                  * rop(w,v), but the signature we are looking for is not
                  * amongst them.
                  */
-                slotw = BINARY_EMPTY;
+                assert (slotw == BINARY_EMPTY);
             } else {
                 /*
                  * wType provides no class-specific implementation of
@@ -428,8 +417,7 @@ public class PyRT {
              * firstImplementer to turn that into an error message.
              * Where we could avoid this, we already returned.
              */
-            resultMH = firstImplementer(resultMH, op.getOperandError());
-            return resultMH;
+            return firstImplementer(resultMH, op.getOperandError());
         }
 
         /**
@@ -452,7 +440,7 @@ public class PyRT {
             Slot rop = op.alt;
 
             // Does wType define class-specific rop implementations?
-            MethodHandle[][] binops = wType.binopTable.get(rop);
+            Operations.BinopGrid binops = wType.binopTable.get(rop);
             if (binops != null) {
                 /*
                  * Are the nominal implementation classes of w, v
@@ -460,22 +448,17 @@ public class PyRT {
                  * to return NotImplemented, so if there's a match, it's
                  * the answer.
                  */
-                int i = wType.indexAccepted(wOps.getJavaClass());
-                if (i >= 0) {
-                    int j = wType.indexOperand(vOps.getJavaClass());
-                    if (j >= 0) {
-                        // wType provides a rop(w,v) - note ordering
-                        MethodHandle mh = permuteArguments(binops[i][j],
-                                BINOP, 1, 0);
-                        return mh;
-                    }
+                slotw = binops.get(wOps, vOps);
+                if (slotw != BINARY_EMPTY) {
+                    // wType provides a rop(w,v) - note ordering
+                    return permuteArguments(slotw, BINOP, 1, 0);
                 }
                 /*
                  * wType provides class-specific implementations of
                  * rop(w,v), but the signature we are looking for is not
                  * amongst them.
                  */
-                slotw = BINARY_EMPTY;
+                assert slotw == BINARY_EMPTY;
             } else {
                 /*
                  * wType provides no class-specific implementation of
@@ -493,31 +476,27 @@ public class PyRT {
                  * to return NotImplemented, so if there's a match, it's
                  * the only alternative to slotw.
                  */
-                int i = vType.indexAccepted(vOps.getJavaClass());
-                if (i >= 0) {
-                    int j = vType.indexOperand(wOps.getJavaClass());
-                    if (j >= 0) {
-                        // vType provides an op(v,w)
-                        MethodHandle mh = permuteArguments(binops[i][j],
-                                BINOP, 1, 0);
-                        if (slotw == BINARY_EMPTY) {
-                            // It's the only offer, so it's the answer.
-                            return mh;
-                        }
-                        /*
-                         * slotw is also a valid offer, which must be
-                         * given first refusal. Only if slotw returns
-                         * Py.NotImplemented, will we try binops[i][j]
-                         */
-                        return firstImplementer(slotw, mh);
+                slotv = binops.get(vOps, wOps);
+                if (slotv != BINARY_EMPTY) {
+                    // vType provides an op(v,w)
+                    if (slotw == BINARY_EMPTY) {
+                        // It's the only offer, so it's the answer.
+                        return slotv;
                     }
+                    /*
+                     * slotw is also a valid offer, which must be given
+                     * first refusal. Only if slotw returns
+                     * Py.NotImplemented, will we try slotv.
+                     */
+                    slotw = permuteArguments(slotw, BINOP, 1, 0);
+                    return firstImplementer(slotw, slotv);
                 }
                 /*
                  * vType provides class-specific implementations of
                  * op(v,w), but the signature we are looking for is not
                  * amongst them.
                  */
-                slotv = BINARY_EMPTY;
+                assert slotv == BINARY_EMPTY;
             } else {
                 /*
                  * vType provides no class-specific implementation of
@@ -557,8 +536,7 @@ public class PyRT {
              * firstImplementer to turn that into an error message.
              * Where we could avoid this, we already returned.
              */
-            resultMH = firstImplementer(resultMH, op.getOperandError());
-            return resultMH;
+            return firstImplementer(resultMH, op.getOperandError());
         }
 
         /**

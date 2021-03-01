@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Map;
 
 import uk.co.farowl.vsj3.evo1.Exposed.Getter;
+import uk.co.farowl.vsj3.evo1.Operations.BinopGrid;
 import uk.co.farowl.vsj3.evo1.Slot.EmptyException;
 import uk.co.farowl.vsj3.evo1.Slot.Signature;
 
@@ -123,7 +124,7 @@ class PyType extends Operations implements PyObjectDict {
      * class. {@code null} such a class is not provided in the
      * specification. See {@link Spec#binops(Class)}.
      */
-    final Map<Slot, MethodHandle[][]> binopTable;
+    final Map<Slot, BinopGrid> binopTable;
 
     /**
      * The Java classes appearing as operands in the operations and
@@ -409,7 +410,7 @@ class PyType extends Operations implements PyObjectDict {
         addWrappers(spec);
         // XXX Possibly belong elsewhere
         // setAllSlots();
-        defineOperations();
+        defineOperations(spec);
         deduceFlags();
     }
 
@@ -417,10 +418,10 @@ class PyType extends Operations implements PyObjectDict {
      * Define the Operations objects for this type, posting them to the
      * registry.
      */
-    private void defineOperations() {
+    private void defineOperations(Spec spec) {
         setAllSlots();
         Operations.registry.set(classes[0], this);
-        for (int i = 1; i < acceptedCount; i++) {
+        for (int i = 1; i < spec.adoptedCount(); i++) {
             // Creating the operations object sets the slots in it
             Operations.Accepted ops = new Operations.Accepted(this, i);
             Operations.registry.set(classes[i], ops);
@@ -641,10 +642,12 @@ class PyType extends Operations implements PyObjectDict {
      * @return its index or -1
      */
     int indexAccepted(Class<?> c) {
-        for (int i = 0; i < acceptedCount; i++) {
+        // Try the non-canonical accepted classes first (if any)
+        for (int i = 1; i < acceptedCount; i++) {
             if (classes[i].isAssignableFrom(c)) { return i; }
         }
-        return -1;
+        // Try the canonical class last
+        return classes[0].isAssignableFrom(c) ? 0 : -1;
     }
 
     /**
@@ -657,10 +660,12 @@ class PyType extends Operations implements PyObjectDict {
      * @return its index or -1
      */
     int indexOperand(Class<?> c) {
-        for (int i = 0; i < classes.length; i++) {
+        // Try the non-canonical known operand classes first (if any)
+        for (int i = 1; i < classes.length; i++) {
             if (classes[i].isAssignableFrom(c)) { return i; }
         }
-        return -1;
+        // Try the canonical class last
+        return classes[0].isAssignableFrom(c) ? 0 : -1;
     }
 
     /**
