@@ -14,8 +14,9 @@ final class PyBool {
 
     /** The type of Python object this class implements. */
     static final PyType TYPE = PyType.fromSpec( //
-            new PyType.Spec("bool", MethodHandles.lookup()) //
-                    .base(PyLong.TYPE).flagNot(PyType.Flag.BASETYPE));
+            new PyType.Spec("bool", MethodHandles.lookup())
+                    .canonical(Boolean.class).base(PyLong.TYPE)
+                    .flagNot(PyType.Flag.BASETYPE));
 
     private PyBool() {}  // enforces the doubleton :)
 

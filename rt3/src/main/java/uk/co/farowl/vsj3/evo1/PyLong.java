@@ -78,21 +78,41 @@ class PyLong implements CraftedType {
     }
 
     /**
-     * Present the value as a Java {@code int} when the argument is
-     * known to be a Python {@code float} or a sub-class of it.
+     * Present the value as a Java {@code BigInteger} when the argument
+     * is known to be a Python {@code int} or a sub-class of it.
      *
-     * @param v claimed {@code float}
-     * @return {@code double} valkue
-     * @throws TypeError if {@code v} is not a Python {@code float}
+     * @param v claimed {@code int}
+     * @return {@code BigInteger} value
+     * @throws TypeError if {@code v} is not a Python {@code int}
      */
-    // Compare CPython floatobject.h: PyFloat_AS_DOUBLE
-    static double bigIntegerValue(Object v) throws TypeError {
-        if (v instanceof Double)
-            return ((Double) v).doubleValue();
-        else if (v instanceof PyFloat)
-            return ((PyFloat) v).value;
+    static BigInteger asBigInteger(Object v) throws TypeError {
+        if (v instanceof BigInteger)
+            return (BigInteger) v;
+        else if (v instanceof Integer)
+            return BigInteger.valueOf(((Integer) v).longValue());
+        else if (v instanceof PyLong)
+            return ((PyLong) v).value;
+        else if (v instanceof Boolean)
+            return (Boolean) v ? BigInteger.ONE : BigInteger.ZERO;
         else
-            throw Abstract.requiredTypeError("a float", v);
+            throw Abstract.requiredTypeError("an integer", v);
+    }
+
+    /**
+     * Present the value as a Java {@code int} when the argument is
+     * known to be a Python {@code int} or a sub-class of it.
+     *
+     * @param v claimed {@code int}
+     * @return {@code int} value
+     * @throws TypeError if {@code v} is not a Python {@code int}
+     * @throws OverflowError if {@code v} is out of Java range
+     */
+    static int asInt(Object v) throws TypeError, OverflowError {
+        try {
+            return convertToInt(v);
+        } catch (NoConversion nc) {
+            throw Abstract.requiredTypeError("an integer", v);
+        }
     }
 
     private static String INT_TOO_LARGE =
@@ -169,6 +189,12 @@ class PyLong implements CraftedType {
     }
 
     // special methods ------------------------------------------------
+
+    @SuppressWarnings("unused")
+    private static Object __repr__(Object self) {
+        assert TYPE.check(self);
+        return new PyUnicode(asBigInteger(self).toString());
+    }
 
     protected static Object __new__(PyType type, PyTuple args,
             PyDict kwargs) throws Throwable {
@@ -256,9 +282,28 @@ class PyLong implements CraftedType {
 //    }
 //@formatter:on
 
-// protected Object __float__() { // return PyFloat
-// return Py.val(doubleValue());
-// }
+    @SuppressWarnings("unused")
+    private static Object __float__(Integer self) {
+        return self.doubleValue();
+    }
+
+    @SuppressWarnings("unused")
+    private static Object __float__(BigInteger self)
+            throws OverflowError {
+        return convertToDouble(self);
+    }
+
+    // Called for PyLong subclasses and Boolean
+    @SuppressWarnings("unused")
+    private static Object __float__(Object self) throws OverflowError {
+        assert TYPE.check(self);
+        try {
+            return convertToDouble(self);
+        } catch (NoConversion e) {
+            // This should never be necessary. InterpreterError?
+            throw Abstract.requiredTypeError("an integer", self);
+        }
+    }
 
     // Non-slot API -------------------------------------------------
 
@@ -399,8 +444,8 @@ class PyLong implements CraftedType {
      * @throws ValueError when {@code value} is a floating NaN
      */
     // Compare CPython longobject.c :: PyLong_FromDouble
-    static PyLong fromDouble(double value) {
-        return new PyLong(PyFloat.bigIntegerFromDouble(value));
+    static BigInteger fromDouble(double value) {
+        return PyFloat.bigIntegerFromDouble(value);
     }
 
     /**
@@ -446,16 +491,16 @@ class PyLong implements CraftedType {
 //@formatter:on
 
     /**
-     * Convert an {@code int} to a Java double (or throw
+     * Convert an {@code int} to a Java {@code double} (or throw
      * {@link NoConversion}), using the round-half-to-even rule.
-     * Conversion to a double may overflow, raising an exception that is
-     * propagated to the caller.
+     * Conversion to a {@code double} may overflow, raising an exception
+     * that is propagated to the caller.
      * <p>
      * If the method throws the special exception {@link NoConversion},
-     * the caller must deal with it. Generally it will convert it to an
-     * alternative course of action or an appropriate Python exception.
-     * Binary operations will normally return {@link Py#NotImplemented}
-     * in response.
+     * the caller must deal with it by throwing an appropriate Python
+     * exception or taking an alternative course of action. Binary
+     * operations will normally return {@link Py#NotImplemented} in
+     * response.
      *
      * @param v to convert
      * @return converted to {@code double}
@@ -467,10 +512,13 @@ class PyLong implements CraftedType {
             throws NoConversion, OverflowError {
         // Check against supported types, most likely first
         if (v instanceof Integer)
+            // No loss of precision
             return ((Integer) v).doubleValue();
         else if (v instanceof BigInteger)
+            // Round half-to-even
             return convertToDouble((BigInteger) v);
         else if (v instanceof PyLong)
+            // Round half-to-even
             return convertToDouble(((PyLong) v).value);
         else if (v instanceof Boolean)
             return (Boolean) v ? 1.0 : 0.0;
@@ -484,14 +532,65 @@ class PyLong implements CraftedType {
      *
      * @param v to convert
      * @return converted to {@code double}
-     * @throws OverflowError v is too large to be a {@code float}
+     * @throws OverflowError if too large to be a {@code float}
      */
     static double convertToDouble(BigInteger v) throws OverflowError {
+        /*
+         * According to the code, BigInteger.doubleValue() rounds
+         * half-to-even as required. This differs from conversion from
+         * long which rounds to nearest (JLS 3.0 5.1.2).
+         */
         double vv = v.doubleValue();
-        if (Double.isFinite(vv))
-            return vv;
-        else
+        // On overflow, doubleValue returns ±∞ rather than throwing.
+        if (Double.isInfinite(vv))
             throw tooLarge("Python int", "float");
+        else
+            return vv;
+    }
+
+    /**
+     * Convert a Python {@code int} to a Java {@code int} (or throw
+     * {@link NoConversion}). Conversion to an {@code int} may overflow,
+     * raising an exception that is propagated to the caller.
+     * <p>
+     * If the method throws the special exception {@link NoConversion},
+     * the caller must deal with it by throwing an appropriate Python
+     * exception or taking an alternative course of action.
+     *
+     * @param v to convert
+     * @return converted to {@code double}
+     * @throws NoConversion v is not an {@code int}
+     * @throws OverflowError v is too large to be a {@code float}
+     */
+    // Compare CPython longobject.c: PyLong_AsDouble
+    static int convertToInt(Object v)
+            throws NoConversion, OverflowError {
+        // Check against supported types, most likely first
+        if (v instanceof Integer)
+            return ((Integer) v).intValue();
+        else if (v instanceof BigInteger)
+            return convertToInt((BigInteger) v);
+        else if (v instanceof PyLong)
+            return convertToInt(((PyLong) v).value);
+        else if (v instanceof Boolean)
+            return (Boolean) v ? 1 : 0;
+        throw PyObjectUtil.NO_CONVERSION;
+    }
+
+    /**
+     * Convert a {@code BigInteger} to a Java {@code int}. Conversion to
+     * an {@code int} may overflow, raising an exception that is
+     * propagated to the caller.
+     *
+     * @param v to convert
+     * @return converted to {@code int}
+     * @throws OverflowError if too large to be an {@code int}
+     */
+    static int convertToInt(BigInteger v) throws OverflowError {
+        if (v.bitLength() < 32)
+            return v.intValue();
+        else
+            throw tooLarge("Python int", "int");
     }
 
     private static OverflowError tooLarge(String from, String to) {

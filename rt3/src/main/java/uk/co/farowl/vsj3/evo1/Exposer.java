@@ -17,6 +17,7 @@ import uk.co.farowl.vsj3.evo1.Exposed.DocString;
 import uk.co.farowl.vsj3.evo1.Exposed.Getter;
 import uk.co.farowl.vsj3.evo1.Exposed.JavaMethod;
 import uk.co.farowl.vsj3.evo1.Exposed.Setter;
+import uk.co.farowl.vsj3.evo1.Operations.BinopGrid;
 // import uk.co.farowl.vsj3.evo1.PyGetSetDescr.GetSetDef;
 // import uk.co.farowl.vsj3.evo1.PyMemberDescr.Flag;
 import uk.co.farowl.vsj3.evo1.PyWrapperDescr.WrapperDef;
@@ -352,11 +353,11 @@ class Exposer {
      * @return attributes defined (in the order first encountered)
      * @throws InterpreterError on duplicates or unsupported types
      */
-    static Map<Slot, MethodHandle[][]> binopTable(Lookup lookup,
+    static Map<Slot, BinopGrid> binopTable(Lookup lookup,
             Class<?> binops, PyType type) throws InterpreterError {
 
         // Iterate over methods looking for the relevant annotations
-        Map<Slot, MethodHandle[][]> defs = new HashMap<>();
+        Map<Slot, BinopGrid> defs = new HashMap<>();
 
         for (Method m : binops.getDeclaredMethods()) {
             // If it is a special method, record the definition.
@@ -368,27 +369,8 @@ class Exposer {
         }
 
         // Check for nulls in the table.
-        for (Map.Entry<Slot, MethodHandle[][]> e : defs.entrySet()) {
-            Slot slot = e.getKey();
-            MethodHandle[][] mhTable = e.getValue();
-            final int N = type.acceptedCount;
-            final int M = type.classes.length;
-            for (int i = 0; i < N; i++) {
-                for (int j = 0; j < M; j++) {
-                    if (mhTable[i][j] == null) {
-                        /*
-                         * There's a gap in the table. Type spec and the
-                         * declared binary ops disagree?
-                         */
-                        throw new InterpreterError(
-                                "binary op not defined: %s(%s, %s)",
-                                slot.methodName,
-                                type.classes[i].getSimpleName(),
-                                type.classes[j].getSimpleName());
-                    }
-                }
-            }
-        }
+        for (BinopGrid grid : defs.values()) { grid.checkFilled(); }
+
         return defs;
     }
 
@@ -403,41 +385,20 @@ class Exposer {
      * @param binops class defining class-specific binary operations
      * @param type to which these belong
      */
-    static void binopTableAdd(Map<Slot, MethodHandle[][]> defs,
-            Slot slot, Method m, Lookup lookup, Class<?> binops,
-            PyType type) {
+    static void binopTableAdd(Map<Slot, BinopGrid> defs, Slot slot,
+            Method m, Lookup lookup, Class<?> binops, PyType type) {
 
         // Get (or create) the table for this slot
-        MethodHandle[][] def = defs.get(slot);
-        final int N = type.acceptedCount;
-        final int M = type.classes.length;
+        BinopGrid def = defs.get(slot);
         if (def == null) {
             // A new special method has been encountered
-            def = new MethodHandle[N][M];
+            def = new BinopGrid(slot, type);
             defs.put(slot, def);
         }
 
         try {
             // Convert the method to a handle
-            MethodHandle mh = lookup.unreflect(m);
-            MethodType mt = mh.type();
-            // Cast fails if the signature is incorrect for the slot
-            mh = mh.asType(slot.getType());
-            // Find cell based on argument types (before the cast)
-            int i = type.indexAccepted(mt.parameterType(0));
-            int j = type.indexOperand(mt.parameterType(1));
-            if (i >= 0 && j >= 0 && i < N && j < M) {
-                def[i][j] = mh;
-            } else {
-                /*
-                 * The arguments to m are not (respectively) an accepted
-                 * class and an operand class for the type. Type spec
-                 * and the declared binary ops disagree?
-                 */
-                throw new InterpreterError(
-                        "unexpected signature of %s.%s: %s", type.name,
-                        slot.methodName, mt);
-            }
+            def.add(lookup.unreflect(m));
         } catch (IllegalAccessException | WrongMethodTypeException e) {
             throw new InterpreterError(e,
                     "ill-formed or inaccessible binary op '%s'", m);

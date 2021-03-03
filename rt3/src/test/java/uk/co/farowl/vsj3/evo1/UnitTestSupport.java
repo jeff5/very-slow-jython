@@ -1,0 +1,116 @@
+package uk.co.farowl.vsj3.evo1;
+
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
+
+import java.math.BigInteger;
+
+/**
+ * A base class for unit tests that defines some common convenience
+ * functions for which the need recurs.
+ *
+ */
+class UnitTestSupport {
+
+    /** The {@link PyType} {@code object}. */
+    /*
+     * This is needed to initialise the type system in a controlled way.
+     * Java static initialisation of PyType brings into being the
+     * critical built-in types in a carefully chosen order. If we use a
+     * Python type out of the blue (e.g. call a PyLong static method),
+     * initialising that class to use it causes the type system to
+     * initialise, but the type that caused it will complete its
+     * initialisation last. This subverts the careful ordering of the
+     * Python types in PyType.
+     */
+    static PyType OBJECT = PyType.OBJECT_TYPE;
+
+    /**
+     * Force creation of an actual {@link PyLong}
+     *
+     * @param value to assign
+     * @return from this value.
+     */
+    static PyLong newPyLong(BigInteger value) {
+        return new PyLong(PyLong.TYPE, value);
+    }
+
+    /**
+     * Force creation of an actual {@link PyLong} from Object
+     *
+     * @param value to assign
+     * @return from this value.
+     */
+    static PyLong newPyLong(Object value) {
+        BigInteger vv = BigInteger.ZERO;
+        try {
+            vv = PyLong.asBigInteger(value);
+        } catch (Throwable e) {
+            e.printStackTrace();
+            fail("Failed to create a PyLong");
+        }
+        return newPyLong(vv);
+    }
+
+    /**
+     * Convert test value to double (avoiding
+     * {@link PyFloat#asDouble(Object)}).
+     *
+     * @param v to convert
+     * @return converted value
+     */
+    static double toDouble(Object v) {
+        if (v instanceof Double)
+            return ((Double) v).doubleValue();
+        else if (v instanceof PyFloat)
+            return ((PyFloat) v).value;
+        else if (v instanceof Integer)
+            return ((Integer) v).intValue();
+        else if (v instanceof BigInteger)
+            return ((BigInteger) v).doubleValue();
+        else if (v instanceof PyLong)
+            return ((PyLong) v).value.doubleValue();
+        else if (v instanceof Boolean)
+            return (Boolean) v ? 1. : 0.;
+
+        throw new IllegalArgumentException(
+                String.format("cannot convert '%s' to double", v));
+    }
+
+    /**
+     * Force creation of an actual {@link PyFloat}
+     *
+     * @return from this value.
+     */
+    static PyFloat newPyFloat(double value) {
+        return new PyFloat(PyFloat.TYPE, value);
+    }
+
+    /**
+     * Force creation of an actual {@link PyFloat} from Object
+     *
+     * @return from this value.
+     */
+    static PyFloat newPyFloat(Object value) {
+        double vv = 0.0;
+        try {
+            vv = toDouble(value);
+        } catch (Throwable e) {
+            fail("Failed to create a PyFloat");
+        }
+        return newPyFloat(toDouble(vv));
+    }
+
+    /**
+     * The Python type of {@code o} is the one expected.
+     *
+     * @param expected type
+     * @param o to test
+     */
+    static void assertPythonType(PyType expected, Object o) {
+        assertTrue(expected.checkExact(o),
+                () -> String.format("Java %s not a Python '%s'",
+                        o.getClass().getSimpleName(), expected.name));
+    }
+
+}

@@ -323,16 +323,20 @@ enum Slot {
         } else if (def instanceof PyWrapperDescr) {
             // Subject to certain checks, take wrapped handle.
             PyWrapperDescr wd = (PyWrapperDescr) def;
-
-            /*
-             * wd is an attribute of ops.type(), but since it may be one
-             * by inheritance, the handle we want from it may be at a
-             * different index from ops.index.
-             */
-            Class<?> selfClass = ops.getJavaClass();
-            int index = wd.objclass.indexAccepted(selfClass);
-            if (wd.slot.signature == signature) { // enough?
-                mh = wd.wrapped[index];
+            if (wd.slot.signature == signature) {
+                if (signature.kind == MethodKind.INSTANCE) {
+                    /*
+                     * wd is an attribute of ops.type(), but since it
+                     * may be one by inheritance, the handle we want
+                     * from it may be at a different index from
+                     * ops.index.
+                     */
+                    Class<?> selfClass = ops.getJavaClass();
+                    int index = wd.objclass.indexAccepted(selfClass);
+                    mh = wd.wrapped[index];
+                } else {
+                    mh = wd.wrapped[0];
+                }
             } else {
                 throw new MissingFeature(
                         "equivalent of the slot_* functions");

@@ -166,23 +166,26 @@ class PyLongGenerator(ImplementationGenerator):
     ]
     OBJECT_CLASS = TypeInfo('Object', None, lambda x: f'toBig({x})')
 
-    # Operations have to provide versions in which Integer and
+    # Operations have to provide versions in which long and
     # BigInteger are the common type to which arguments are converted.
 
     UNARY_OPS = [
+        # Arguments are: name, long_op, big_op[, method]
         UnaryOpInfo('__abs__', lambda x: f'Math.abs({x})',
             lambda x: f'{x}.abs()'),
         UnaryOpInfo('__neg__', lambda x: f'-{x}',
             lambda x: f'{x}.negate()'),
     ]
     STRING_OPS = [
-        StringOpInfo('__repr__', lambda x: f'Long.toString({x})',
-            lambda x: f'{x}.toString()'),
+        # Arguments are: name, long_op, big_op[, method]
+        # StringOpInfo('__repr__', lambda x: f'Long.toString({x})',
+        #     lambda x: f'{x}.toString()'),
     ]
 #     PREDICATE_OPS = [
 #         UnaryOpInfo('__bool__', '{} != 0.0'),
 #     ]
     BINARY_OPS = [
+        # Arguments are: name, long_op, big_op[, reflected[, method]]
         BinaryOpInfo('__add__', lambda x, y: f'{x} + {y}', 
             lambda x, y: f'{x}.add({y})'),
         BinaryOpInfo('__radd__', lambda x, y: f'{x} + {y}', 

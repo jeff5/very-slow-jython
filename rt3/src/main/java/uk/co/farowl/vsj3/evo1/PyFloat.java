@@ -112,8 +112,8 @@ public class PyFloat extends AbstractPyObject {
          */
         Operations ops = Operations.of(o);
 
-        if (PyFloat.TYPE.check(o)) {
-            return PyFloat.doubleValue(o);
+        if (TYPE.check(o)) {
+            return doubleValue(o);
 
         } else {
             try {
@@ -121,7 +121,7 @@ public class PyFloat extends AbstractPyObject {
                 Object res = ops.op_float.invokeExact(o);
                 PyType resType = PyType.of(res);
                 if (resType == PyFloat.TYPE) // Exact type
-                    return ((PyFloat) res).value;
+                    return doubleValue(res);
                 else if (resType.isSubTypeOf(PyFloat.TYPE)) {
                     // Warn about this and make a clean Python float
                     PyFloat.asDouble(Abstract.returnDeprecation(
@@ -136,7 +136,7 @@ public class PyFloat extends AbstractPyObject {
             if (Slot.op_index.isDefinedFor(ops))
                 return PyLong.asDouble(Number.index(o));
             else
-                throw Abstract.requiredTypeError("a real number", ops);
+                throw Abstract.requiredTypeError("a real number", o);
         }
     }
 

@@ -207,32 +207,36 @@ abstract class PyWrapperDescr extends Descriptor {
     // Compare CPython wrapperdescr_call in descrobject.c
     protected Object __call__(PyTuple args, PyDict kwargs)
             throws TypeError, Throwable {
-        // Split the leading element self from args
+
         int argc = args.value.length;
-        if (argc < 1) {
+        if (argc > 0) {
+            // Split the leading element self from args
+            Object self = args.value[0];
+            if (argc == 1) {
+                args = PyTuple.EMPTY;
+            } else {
+                args = new PyTuple(args.value, 1, argc - 1);
+            }
+
+            // Work out how to call this descriptor on that object
+            Class<?> selfClass = self.getClass();
+            int index = objclass.indexAccepted(selfClass);
+
+            // Make sure that the first argument is acceptable as 'self'
+            PyType selfType = PyType.of(self);
+            if (index < 0 || !Abstract.recursiveIsSubclass(selfType,
+                    objclass)) {
+                throw new TypeError(DESCRIPTOR_REQUIRES, name,
+                        objclass.name, selfType.name);
+            }
+
+            return callWrapped(self, index, args, kwargs);
+
+        } else {
+            // Not even one argument
             throw new TypeError(DESCRIPTOR_NEEDS_ARGUMENT, name,
                     objclass.name);
         }
-        Object self = args.value[0];
-        args = new PyTuple(args.value, 1, argc - 1);
-
-        // Work out how to call this descriptor on that object
-        Class<?> selfClass = self.getClass();
-        int index = objclass.indexAccepted(selfClass);
-
-        PyType selfType = PyType.of(self);
-
-        // XXX does existence of a match => sub-class?
-
-        // Make sure that the first argument is acceptable as 'self'
-
-        if (index < 0
-                || !Abstract.recursiveIsSubclass(selfType, objclass)) {
-            throw new TypeError(DESCRIPTOR_REQUIRES, name,
-                    objclass.name, selfType.name);
-        }
-
-        return callWrapped(self, index, args, kwargs);
     }
 
     // Plumbing ------------------------------------------------------
@@ -251,7 +255,7 @@ abstract class PyWrapperDescr extends Descriptor {
         if (args.value.length != 0)
             throw new TypeError(TAKES_NO_ARGUMENTS, name,
                     args.value.length);
-        else if (kwargs != null && kwargs.isEmpty())
+        else if (kwargs != null && !kwargs.isEmpty())
             throw new TypeError(TAKES_NO_KEYWORDS, name);
     }
 
@@ -270,7 +274,7 @@ abstract class PyWrapperDescr extends Descriptor {
         int n = args.value.length;
         if (n != expArgs)
             throw new TypeError(TAKES_ARGUMENTS, name, expArgs, n);
-        else if (kwargs != null && kwargs.isEmpty())
+        else if (kwargs != null && !kwargs.isEmpty())
             throw new TypeError(TAKES_NO_KEYWORDS, name);
     }
 
@@ -292,7 +296,7 @@ abstract class PyWrapperDescr extends Descriptor {
             throw new TypeError(TAKES_ARGUMENTS, name,
                     String.format("from %d to %d", minArgs, maxArgs),
                     n);
-        else if (kwargs != null && kwargs.isEmpty())
+        else if (kwargs != null && !kwargs.isEmpty())
             throw new TypeError(TAKES_NO_KEYWORDS, name);
     }
 
@@ -350,6 +354,32 @@ abstract class PyWrapperDescr extends Descriptor {
          */
         PyWrapperDescr createDescr(PyType objclass, Lookup lookup)
                 throws InterpreterError {
+            /*
+             * We will try to create a handle for each implementation of
+             * an instance method, but only one handle for static/class
+             * methods (like __new__). See corresponding logic in
+             * Slot.setSlot(Operations, Object)
+             */
+            if (slot.signature.kind == MethodKind.INSTANCE)
+                return createDescrForInstanceMethod(objclass, lookup);
+            else
+                return createDescrForStaticMethod(objclass, lookup);
+        }
+
+        /**
+         * Create a {@code PyWrapperDescr} from this definition. Note
+         * that a definition describes the methods as declared, and that
+         * there may be any number. This method matches them to the
+         * supported implementations.
+         *
+         * @param objclass Python type that owns the descriptor
+         * @param lookup authorisation to access fields
+         * @return descriptor for access to the field
+         * @throws InterpreterError if the method type is not supported
+         */
+        private PyWrapperDescr createDescrForInstanceMethod(
+                PyType objclass, Lookup lookup)
+                throws InterpreterError {
 
             // Acceptable methods can be coerced to this signature
             MethodType slotType = slot.getType();
@@ -370,17 +400,17 @@ abstract class PyWrapperDescr extends Descriptor {
                     if (mh.type().parameterCount() == L)
                         addOrdered(candidates, mh);
                 } catch (IllegalAccessException e) {
-                    throw new InterpreterError(e,
-                            "cannot get method handle for '%s' in '%s'",
-                            m, objclass.implClass);
+                    throw cannotGetHandle(objclass, m, e);
                 }
             }
 
-            // We will try to create a handle for each implementation
-            // XXX accommodating static/class here but should we?
-            final boolean instanceMethod =
-                    slot.signature.kind == MethodKind.INSTANCE;
-            final int N = instanceMethod ? objclass.acceptedCount : 1;
+            /*
+             * We will try to create a handle for each implementation of
+             * an instance method, but only one handle for static/class
+             * methods (like __new__). See corresponding logic in
+             * Slot.setSlot(Operations, Object)
+             */
+            final int N = objclass.acceptedCount;
             MethodHandle[] wrapped = new MethodHandle[N];
 
             // Fill the wrapped array with matching method handles
@@ -393,7 +423,7 @@ abstract class PyWrapperDescr extends Descriptor {
                  */
                 // Try the candidate method until one matches
                 for (MethodHandle mh : candidates) {
-                    if (!instanceMethod || mh.type().parameterType(0)
+                    if (mh.type().parameterType(0)
                             .isAssignableFrom(acceptedClass)) {
                         try {
                             // must have the expected signature
@@ -419,38 +449,52 @@ abstract class PyWrapperDescr extends Descriptor {
         }
 
         /**
-         * Create a method handle on the implementation method,
-         * verifying that the method type produced is compatible with
-         * the {@link #slot}. The method may be {@code null}, signifying
-         * a method was not defined, in which case the returned handle
-         * is {@code null}.
+         * Create a {@code PyWrapperDescr} from this definition. Note
+         * that a definition describes the methods as declared, and that
+         * there may be any number. This method matches them to the
+         * supported implementations.
          *
+         * @param objclass Python type that owns the descriptor
          * @param lookup authorisation to access fields
-         * @param m implementing method
-         * @return method handle on {@code m}
+         * @return descriptor for access to the field
+         * @throws InterpreterError if the method type is not supported
          */
-        private MethodHandle unreflect(Lookup lookup, Method m) {
+        private PyWrapperDescr createDescrForStaticMethod(
+                PyType objclass, Lookup lookup)
+                throws InterpreterError {
+
+            // Acceptable methods can be coerced to this signature
+            MethodType slotType = slot.getType();
+
+            /*
+             * There should be only one definition of a given name in
+             * the methods list of a static or class method (like
+             * __new__), and it will be accessed only via the operations
+             * of the canonical type. See corresponding logic in
+             * Slot.setSlot(Operations, Object).
+             */
+            if (methods.size() != 1) {
+                throw new InterpreterError(
+                        "multiple definitons of '%s' in '%s'",
+                        slot.methodName, objclass.implClass);
+            }
+
             try {
-                /*
-                 * This handle reflects the method signature and the
-                 * object operates on should be consistent because it
-                 * implements the descriptor's objclass.
-                 */
-                MethodHandle mh = lookup.unreflect(m);
+                // Convert m to a handle (if accessible)
+                MethodHandle mh = lookup.unreflect(methods.get(0));
                 try {
-                    /*
-                     * The call site that invokes the handle will have a
-                     * signature matching the slot, therefore add a cast
-                     * to the method handle obtained from the method.
-                     */
-                    return mh.asType(slot.getType());
+                    // must have the expected signature here
+                    MethodHandle[] wrapped =
+                            new MethodHandle[] {mh.asType(slotType)};
+                    return slot.signature.makeSlotWrapper(objclass,
+                            slot, wrapped);
+
                 } catch (WrongMethodTypeException wmte) {
                     // Wrong number of args or cannot cast.
                     throw methodSignatureError(mh);
                 }
             } catch (IllegalAccessException e) {
-                throw new InterpreterError(e,
-                        "cannot get method handle for '%s'", m);
+                throw cannotGetHandle(objclass, methods.get(0), e);
             }
         }
 
@@ -471,7 +515,7 @@ abstract class PyWrapperDescr extends Descriptor {
                 MethodHandle h) {
             // Type of first parameter of h
             Class<?> c = h.type().parameterType(0);
-            // We'll work forwards a more general type is found
+            // We'll scan until a more general type is found
             ListIterator<MethodHandle> iter = list.listIterator(0);
             while (iter.hasNext()) {
                 MethodHandle i = iter.next();
@@ -489,7 +533,15 @@ abstract class PyWrapperDescr extends Descriptor {
             iter.add(h);
         }
 
-        /** Convenience function to compose error in unreflect(). */
+        /** Convenience function to compose error in createDescr(). */
+        private InterpreterError cannotGetHandle(PyType objclass,
+                Method m, IllegalAccessException e) {
+            return new InterpreterError(e,
+                    "cannot get method handle for '%s' in '%s'", m,
+                    objclass.implClass);
+        }
+
+        /** Convenience function to compose error in createDescr(). */
         private InterpreterError methodSignatureError(MethodHandle mh) {
             return new InterpreterError(UNSUPPORTED_SIG,
                     slot.methodName, mh.type(), slot.opName);

@@ -69,6 +69,7 @@ class PyType extends Operations implements PyObjectDict {
                 // Types with multiple implementations
                 PyUnicode.class, //
                 PyLong.class, //
+                PyBool.class, //
                 PyFloat.class, //
         };
         // Fill the map from the list.
@@ -1168,6 +1169,10 @@ class PyType extends Operations implements PyObjectDict {
          * @return {@code this}
          */
         Spec base(PyType base) {
+            if (base == null)
+                throw new InterpreterError(
+                        "null base specified for %s. (Base not ready?)",
+                        name);
             bases.add(base);
             return this;
         }

@@ -376,7 +376,7 @@ public class Number extends Abstract {
                 Object res = ops.op_float.invokeExact(o);
                 PyType resType = PyType.of(res);
                 if (resType == PyFloat.TYPE) // Exact type
-                    return ((PyFloat) res).value;
+                    return PyFloat.doubleValue(res);
                 else if (resType.isSubTypeOf(PyFloat.TYPE)) {
                     // Warn about this and make a clean Python float
                     PyFloat.asDouble(returnDeprecation("__float__",

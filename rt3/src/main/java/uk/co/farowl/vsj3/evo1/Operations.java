@@ -71,7 +71,7 @@ abstract class Operations {
 
                 if (ops != null) {
                     /*
-                     * Case 2: acceptable implementation of some Python
+                     * Case 2: accepted implementation of some Python
                      * type, or Case 1 if the type is a bootstrap type.
                      */
                     return ops;

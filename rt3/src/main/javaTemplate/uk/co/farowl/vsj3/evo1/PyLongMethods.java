@@ -49,6 +49,8 @@ class PyLongMethods {
             return BigInteger.valueOf(((Integer) v).longValue());
         else if (v instanceof BigInteger)
             return (BigInteger) v;
+        else if (v instanceof PyLong)
+            return ((PyLong) v).value;
         else if (v instanceof Boolean)
             return (Boolean) v ? ONE : ZERO;
 
