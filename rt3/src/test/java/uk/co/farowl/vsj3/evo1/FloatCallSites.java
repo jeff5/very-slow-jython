@@ -26,7 +26,7 @@ class FloatCallSites {
     void site_neg() throws Throwable {
 
         Object dx = Double.valueOf(42.0);
-        Object px = new PyFloat(42.0);
+        Object px = newPyFloat(42.0);
 
         // Bootstrap the call site
         UnaryOpCallSite cs = new UnaryOpCallSite(Slot.op_neg);
@@ -42,7 +42,7 @@ class FloatCallSites {
 
         // Re-invoke (should involve no fall-back)
         dx = Double.valueOf(-1e42);
-        px = new PyFloat(-1e42);
+        px = newPyFloat(-1e42);
         for (Object x : List.of(px, dx)) {
             final Object res = invoker.invokeExact(x);
             assertEquals(1e42, PyFloat.asDouble(res));
@@ -56,7 +56,7 @@ class FloatCallSites {
     void site_repr() throws Throwable {
 
         Object dx = Double.valueOf(42.0);
-        Object px = new PyFloat(42.0);
+        Object px = newPyFloat(42.0);
 
         // Bootstrap the call site
         UnaryOpCallSite cs = new UnaryOpCallSite(Slot.op_repr);
@@ -72,7 +72,7 @@ class FloatCallSites {
 
         // Re-invoke (should involve no fall-back)
         dx = Double.valueOf(-1.25);
-        px = new PyFloat(-1.25);
+        px = newPyFloat(-1.25);
         for (Object x : List.of(px, dx)) {
             final Object res = invoker.invokeExact(x);
             assertEquals("-1.25", res.toString());
@@ -86,7 +86,7 @@ class FloatCallSites {
     void site_invert_error() throws Throwable {
 
         Object dx = Double.valueOf(42.0);
-        Object px = new PyFloat(42.0);
+        Object px = newPyFloat(42.0);
 
         // Bootstrap the call site
         UnaryOpCallSite cs = new UnaryOpCallSite(Slot.op_invert);
@@ -100,7 +100,7 @@ class FloatCallSites {
 
         // Re-invoke (should involve no fall-back)
         dx = Double.valueOf(-1e42);
-        px = new PyFloat(-1e42);
+        px = newPyFloat(-1e42);
         for (Object x : List.of(px, dx)) {
             assertThrows(TypeError.class, () -> invoker.invokeExact(x));
         }
@@ -118,7 +118,7 @@ class FloatCallSites {
     void site_sub() throws Throwable {
 
         Object dv = Double.valueOf(50), dw = Double.valueOf(8);
-        Object pv = newFloat(dv), pw = newFloat(dw);
+        Object pv = newPyFloat(dv), pw = newPyFloat(dw);
 
         // Bootstrap the call site
         BinaryOpCallSite cs = new BinaryOpCallSite(Slot.op_sub);
@@ -137,8 +137,8 @@ class FloatCallSites {
         // Re-invoke (should involve no fall-back)
         dv = Double.valueOf(456);
         dw = Double.valueOf(345);
-        pv = newFloat(dv);
-        pw = newFloat(dw);
+        pv = newPyFloat(dv);
+        pw = newPyFloat(dw);
         for (Object v : List.of(dv, pv)) {
             for (Object w : List.of(dw, pw)) {
                 final Object res = invoker.invokeExact(v, w);
@@ -160,7 +160,7 @@ class FloatCallSites {
     @Test
     void site_sub_mix() throws Throwable {
 
-        Object da = Double.valueOf(50), db = newFloat(50);
+        Object da = Double.valueOf(50), db = newPyFloat(50);
         Object ia = Integer.valueOf(8), ib = BigInteger.valueOf(8);
 
         // Bootstrap the call site
@@ -188,7 +188,7 @@ class FloatCallSites {
 
         // Re-invoke (should involve no fall-back)
         da = Double.valueOf(456);
-        db = newFloat(456);
+        db = newPyFloat(456);
         ia = Integer.valueOf(345);
         ib = BigInteger.valueOf(345);
         // float - int.
@@ -216,7 +216,7 @@ class FloatCallSites {
     void site_or_error() throws Throwable {
 
         Object dv = Double.valueOf(50), dw = Double.valueOf(8);
-        Object pv = newFloat(dv), pw = newFloat(dw);
+        Object pv = newPyFloat(dv), pw = newPyFloat(dw);
 
         // Bootstrap the call site
         BinaryOpCallSite cs = new BinaryOpCallSite(Slot.op_or);
@@ -234,8 +234,8 @@ class FloatCallSites {
         // Re-invoke (should involve no fall-back)
         dv = Double.valueOf(456);
         dw = Double.valueOf(345);
-        pv = newFloat(dv);
-        pw = newFloat(dw);
+        pv = newPyFloat(dv);
+        pw = newPyFloat(dw);
         for (Object v : List.of(dv, pv)) {
             for (Object w : List.of(dw, pw)) {
                 assertThrows(TypeError.class,
@@ -253,7 +253,7 @@ class FloatCallSites {
      *
      * @return from this value.
      */
-    private PyFloat newFloat(double value) {
+    private PyFloat newPyFloat(double value) {
         return new PyFloat(PyFloat.TYPE, value);
     }
 
@@ -262,15 +262,15 @@ class FloatCallSites {
      *
      * @return from this value.
      */
-    private PyFloat newFloat(Object value) {
+    private PyFloat newPyFloat(Object value) {
         double vv = 0.0;
         try {
             vv = PyFloat.asDouble(value);
         } catch (Throwable e) {
             e.printStackTrace();
-            fail("Failed to create a 'float'");
+            fail("Failed to create a PyFloat");
         }
-        return newFloat(vv);
+        return newPyFloat(vv);
     }
 
     /**
