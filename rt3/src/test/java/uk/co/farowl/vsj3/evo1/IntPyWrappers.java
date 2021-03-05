@@ -10,8 +10,8 @@ import org.junit.jupiter.api.Test;
 /**
  * Test of {@link PyWrapperDescr}s formed on built-in Python
  * {@code int}. The accepted implementations are {@link PyLong}
- * subclasses, {@code Integer}, {@code BigInteger}, and Boolean (since
- * {@code bool} subclasses {@code int} in Python).
+ * subclasses, {@code Integer}, {@code BigInteger}, and {@code Boolean}
+ * (since {@code bool} subclasses {@code int} in Python).
  */
 class IntPyWrappers extends UnitTestSupport {
 
@@ -28,14 +28,14 @@ class IntPyWrappers extends UnitTestSupport {
         Integer ix = 42;
         BigInteger bx = BigInteger.valueOf(ix);
         PyLong px = newPyLong(ix);
-        Object r;
 
-        // x is Integer, BigInteger, PyLong
+        // x is PyLong, Integer, BigInteger, Boolean
+        // Boolean is correct here since it has the same __neg__
         for (Object x : List.of(px, ix, bx, false, true)) {
-            r = neg.__call__(Py.tuple(x), null);
+            Object r = neg.__call__(Py.tuple(x), null);
             assertPythonType(PyLong.TYPE, r);
-            int exp = -PyLong.asInt(x);
-            assertEquals(exp, PyLong.asInt(r));
+            int exp = -toInt(x);
+            assertEquals(exp, toInt(r));
         }
     }
 
@@ -52,14 +52,14 @@ class IntPyWrappers extends UnitTestSupport {
         Integer ix = 42;
         BigInteger bx = BigInteger.valueOf(ix);
         PyLong px = newPyLong(ix);
-        Object r;
 
-        // x is Integer, BigInteger, PyLong
+        // x is PyLong, Integer, BigInteger, Boolean
+        // Boolean is ok here since int.__repr__ is applicable
         for (Object x : List.of(px, ix, bx, false, true)) {
-            r = repr.__call__(Py.tuple(x), null);
+            Object r = repr.__call__(Py.tuple(x), null);
             assertPythonType(PyUnicode.TYPE, r);
-            String exp = String.format("%d", PyLong.asInt(x));
-            assertEquals(exp, r.toString());
+            String e = Integer.toString(toInt(x));
+            assertEquals(e, r.toString());
         }
     }
 
@@ -76,11 +76,11 @@ class IntPyWrappers extends UnitTestSupport {
         Integer ix = 42;
         BigInteger bx = BigInteger.valueOf(ix);
         PyLong px = newPyLong(ix);
-        Object r;
 
-        // x is Integer, BigInteger, PyLong
+        // x is PyLong, Integer, BigInteger, Boolean
+        // Boolean is correct here since int.__float__ is applicable
         for (Object x : List.of(px, ix, bx, false, true)) {
-            r = f.__call__(Py.tuple(x), null);
+            Object r = f.__call__(Py.tuple(x), null);
             // The result will be Double
             assertEquals(Double.class, r.getClass());
             double exp = toDouble(x);
@@ -102,17 +102,16 @@ class IntPyWrappers extends UnitTestSupport {
         BigInteger bv = BigInteger.valueOf(iv),
                 bw = BigInteger.valueOf(iw);
         PyLong pv = newPyLong(iv), pw = newPyLong(iw);
-        Object r;
 
         // v is Integer, BigInteger, PyLong, Boolean
         for (Object v : List.of(iv, bv, pv, true, false)) {
-            int vv = PyLong.asInt(v);
+            int vv = toInt(v);
             // w is Integer, BigInteger, PyLong, Boolean
             for (Object w : List.of(iw, bw, pw, true, false)) {
-                r = sub.__call__(Py.tuple(v, w), null);
+                Object r = sub.__call__(Py.tuple(v, w), null);
                 // The result will be Integer (since small enough)
                 assertEquals(Integer.class, r.getClass());
-                int exp = vv - PyLong.asInt(w);
+                int exp = vv - toInt(w);
                 assertEquals(exp, r);
             }
         }
@@ -132,17 +131,76 @@ class IntPyWrappers extends UnitTestSupport {
         BigInteger bv = BigInteger.valueOf(iv),
                 bw = BigInteger.valueOf(iw);
         PyLong pv = newPyLong(iv), pw = newPyLong(iw);
-        Object r;
 
         // v is Integer, BigInteger, PyLong, Boolean
         for (Object v : List.of(iv, bv, pv, true, false)) {
-            int vv = PyLong.asInt(v);
+            int vv = toInt(v);
             // w is Integer, BigInteger, PyLong, Boolean
             for (Object w : List.of(iw, bw, pw, true, false)) {
-                r = rsub.__call__(Py.tuple(w, v), null);
+                Object r = rsub.__call__(Py.tuple(w, v), null);
                 // The result will be Integer (since small enough)
                 assertEquals(Integer.class, r.getClass());
-                int exp = vv - PyLong.asInt(w);
+                int exp = vv - toInt(w);
+                assertEquals(exp, r);
+            }
+        }
+    }
+
+    /**
+     * Test invocation of the {@code __and__} descriptor on accepted
+     * classes. All combinations of the accepted classes must be valid,
+     * including both being {@code bool} with integer result.
+     */
+    @Test
+    void wrap_and() throws Throwable {
+
+        PyWrapperDescr sub =
+                (PyWrapperDescr) PyLong.TYPE.lookup(ID.__and__);
+
+        Integer iv = 47, iw = 58;
+        BigInteger bv = BigInteger.valueOf(iv),
+                bw = BigInteger.valueOf(iw);
+        PyLong pv = newPyLong(iv), pw = newPyLong(iw);
+
+        // v is Integer, BigInteger, PyLong, Boolean
+        for (Object v : List.of(iv, bv, pv, true, false)) {
+            int vv = toInt(v);
+            // w is Integer, BigInteger, PyLong, Boolean
+            for (Object w : List.of(iw, bw, pw, true, false)) {
+                Object r = sub.__call__(Py.tuple(v, w), null);
+                // The result will be Integer (since small enough)
+                assertEquals(Integer.class, r.getClass());
+                int exp = vv & toInt(w);
+                assertEquals(exp, r);
+            }
+        }
+    }
+
+    /**
+     * Test invocation of the {@code __rand__} descriptor on accepted
+     * classes. All combinations of the accepted classes must be valid,
+     * including both being {@code bool} with integer result.
+     */
+    @Test
+    void wrap_rand() throws Throwable {
+
+        PyWrapperDescr rsub =
+                (PyWrapperDescr) PyLong.TYPE.lookup(ID.__rand__);
+
+        Integer iv = 47, iw = 58;
+        BigInteger bv = BigInteger.valueOf(iv),
+                bw = BigInteger.valueOf(iw);
+        PyLong pv = newPyLong(iv), pw = newPyLong(iw);
+
+        // v is Integer, BigInteger, PyLong, Boolean
+        for (Object v : List.of(iv, bv, pv, true, false)) {
+            int vv = toInt(v);
+            // w is Integer, BigInteger, PyLong, Boolean
+            for (Object w : List.of(iw, bw, pw, true, false)) {
+                Object r = rsub.__call__(Py.tuple(w, v), null);
+                // The result will be Integer (since small enough)
+                assertEquals(Integer.class, r.getClass());
+                int exp = vv & toInt(w);
                 assertEquals(exp, r);
             }
         }

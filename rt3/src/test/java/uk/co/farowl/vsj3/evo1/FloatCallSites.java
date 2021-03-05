@@ -2,8 +2,6 @@ package uk.co.farowl.vsj3.evo1;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
 
 import java.lang.invoke.MethodHandle;
 import java.math.BigInteger;
@@ -19,9 +17,11 @@ import uk.co.farowl.vsj3.evo1.PyRT.UnaryOpCallSite;
  * implementations of Python {@code float}.
  *
  */
-class FloatCallSites extends UnitTestSupport  {
+class FloatCallSites extends UnitTestSupport {
 
-    /** Test invocation of {@code __neg__} call site on accepted classes. */
+    /**
+     * Test invocation of {@code __neg__} call site on accepted classes.
+     */
     @Test
     void site_neg() throws Throwable {
 
@@ -51,7 +51,10 @@ class FloatCallSites extends UnitTestSupport  {
                 "fallback calls");
     }
 
-    /** Test invocation of {@code __repr__} call site on accepted classes. */
+    /**
+     * Test invocation of {@code __repr__} call site on accepted
+     * classes.
+     */
     @Test
     void site_repr() throws Throwable {
 
@@ -81,7 +84,7 @@ class FloatCallSites extends UnitTestSupport  {
                 "fallback calls");
     }
 
-    /** Test __invert__ call site throws TypeError. */
+    /** Test {@code __invert__} call site throws TypeError. */
     @Test
     void site_invert_error() throws Throwable {
 
@@ -109,10 +112,9 @@ class FloatCallSites extends UnitTestSupport  {
     }
 
     /**
-     * Test invocation of __sub__ call site on accepted classes. All
-     * combinations of the accepted classes must be valid without
-     * resorting to the reflected operation, since both are accepted
-     * implementations of the *same* type.
+     * Test invocation of {@code __sub__} call site on accepted classes.
+     * All combinations of the accepted classes must be valid, since
+     * both are accepted implementations of the *same* type.
      */
     @Test
     void site_sub() throws Throwable {
@@ -151,11 +153,10 @@ class FloatCallSites extends UnitTestSupport  {
     }
 
     /**
-     * Test invocation of __sub__ call site on mixed types. All
+     * Test invocation of {@code __sub__} call site on mixed types. All
      * combinations of the accepted and (non-accepted) operand classes
-     * must be valid. The reflected operation will be engaged. For this
-     * test, we need parts of {@code int} to work well enough to refuse
-     * the job.
+     * must be valid. For this test, we need parts of {@code int} to work too,
+     * since that type will be consulted about {@code int - float}.
      */
     @Test
     void site_sub_mix() throws Throwable {
@@ -211,7 +212,7 @@ class FloatCallSites extends UnitTestSupport  {
                 "fallback calls");
     }
 
-    /** Test __or__ call site throws TypeError. */
+    /** Test {@code __or__} call site throws TypeError. */
     @Test
     void site_or_error() throws Throwable {
 

@@ -26,6 +26,27 @@ class UnitTestSupport {
     static PyType OBJECT = PyType.OBJECT_TYPE;
 
     /**
+     * Convert test value to int (avoiding
+     * {@link PyLong#asInt(Object)}).
+     *
+     * @param v to convert
+     * @return converted value
+     */
+    static int toInt(Object v) {
+        if (v instanceof Integer)
+            return ((Integer) v).intValue();
+        else if (v instanceof BigInteger)
+            return ((BigInteger) v).intValue();
+        else if (v instanceof PyLong)
+            return ((PyLong) v).value.intValue();
+        else if (v instanceof Boolean)
+            return (Boolean) v ? 1 : 0;
+
+        throw new IllegalArgumentException(
+                String.format("cannot convert '%s' to int", v));
+    }
+
+    /**
      * Force creation of an actual {@link PyLong}
      *
      * @param value to assign

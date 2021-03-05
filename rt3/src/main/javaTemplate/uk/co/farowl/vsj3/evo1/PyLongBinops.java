@@ -5,6 +5,8 @@ package uk.co.farowl.vsj3.evo1;
 import java.math.BigInteger;
 import static java.math.BigInteger.ZERO;
 import static java.math.BigInteger.ONE;
+import static uk.co.farowl.vsj3.evo1.PyLongMethods.toInt;
+
 
 /**
  * This class contains static methods implementing operations on the

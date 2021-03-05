@@ -127,7 +127,7 @@ def binary_method(op:OpInfo, t1:TypeInfo, t2:TypeInfo):
         else:
             return f'''
             static {signature} {{
-                return {expr};
+                return toInt({expr});
             }}
             '''
     else:

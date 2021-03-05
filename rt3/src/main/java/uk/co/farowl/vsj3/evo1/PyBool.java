@@ -23,7 +23,8 @@ final class PyBool {
     // special methods ------------------------------------------------
 
     static Object __repr__(Boolean self) {
-        return self ? "True" : "False";
+        // XXX just return String when feasible
+        return Py.str(self ? "True" : "False");
     }
 
     static Object __and__(Boolean v, Object w) {

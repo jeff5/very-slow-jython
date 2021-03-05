@@ -17,6 +17,8 @@ class ID {
 
     static final PyUnicode __isabstractmethod__ =
             id("__isabstractmethod__");
+    static final PyUnicode __add__ = id("__add__");
+    static final PyUnicode __and__ = id("__and__");
     static final PyUnicode __bases__ = id("__bases__");
     static final PyUnicode __build_class__ = id("__build_class__");
     static final PyUnicode __builtins__ = id("__builtins__");
@@ -27,18 +29,18 @@ class ID {
     static final PyUnicode __get__ = id("__get__");
     static final PyUnicode __instancecheck__ = id("__instancecheck__");
     static final PyUnicode __mro_entries__ = id("__mro_entries__");
+    static final PyUnicode __mul__ = id("__mul__");
     static final PyUnicode __name__ = id("__name__");
     static final PyUnicode __neg__ = id("__neg__");
     static final PyUnicode __new__ = id("__new__");
     static final PyUnicode __qualname__ = id("__qualname__");
     static final PyUnicode __repr__ = id("__repr__");
     static final PyUnicode __radd__ = id("__radd__");
+    static final PyUnicode __rand__ = id("__rand__");
     static final PyUnicode __rmul__ = id("__rmul__");
     static final PyUnicode __rsub__ = id("__rsub__");
     static final PyUnicode __self__ = id("__self__");
     static final PyUnicode __set__ = id("__set__");
-    static final PyUnicode __add__ = id("__add__");
-    static final PyUnicode __mul__ = id("__mul__");
     static final PyUnicode __sub__ = id("__sub__");
     static final PyUnicode __str__ = id("__str__");
     static final PyUnicode __subclasscheck__ = id("__subclasscheck__");

@@ -59,18 +59,19 @@ class PyLongMethods {
 
     /**
      * Reduce a {@code BigInteger} result to {@code Integer} if
-     * possible.
+     * possible. This makes it more likely the next operation will be
+     * 32-bit.
      * 
      * @param r to reduce
      * @return equal value
      */
-    private static Object toInt(BigInteger r) {
+    static Object toInt(BigInteger r) {
         /*
          * Implementation note: r.intValueExact() is for exactly this
          * purpose, but building the ArithmeticException is a huge cost.
          * (2900ns is added to a 100ns __add__.) The compiler (as tested
          * in JDK 11.0.9) doesn't recognise that it can be optimised
-         * away. However, this test is quick.
+         * to a jump. This version of toInt() adds around 5ns.
          */
         if (r.bitLength() < 32)
             return r.intValue();
