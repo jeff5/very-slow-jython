@@ -113,4 +113,13 @@ class UnitTestSupport {
                         o.getClass().getSimpleName(), expected.name));
     }
 
+    /** Assertion  for test that a result is a string beginning a certain way.
+     *
+     * @param expected prefix
+     * @param actual result to match
+     */
+    static void assertStartsWith(String expected, String actual) {
+        assertTrue(actual.startsWith(expected),
+                "should start with " + expected);
+    }
 }

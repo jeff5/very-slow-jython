@@ -29,6 +29,7 @@ class ID {
     static final PyUnicode __mro_entries__ = id("__mro_entries__");
     static final PyUnicode __name__ = id("__name__");
     static final PyUnicode __neg__ = id("__neg__");
+    static final PyUnicode __new__ = id("__new__");
     static final PyUnicode __qualname__ = id("__qualname__");
     static final PyUnicode __repr__ = id("__repr__");
     static final PyUnicode __radd__ = id("__radd__");

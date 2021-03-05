@@ -19,24 +19,24 @@ import uk.co.farowl.vsj3.evo1.PyRT.UnaryOpCallSite;
  * implementations of Python {@code float}.
  *
  */
-class FloatCallSites {
+class FloatCallSites extends UnitTestSupport  {
 
-    /** Test invocation of __neg__ call site on accepted classes. */
+    /** Test invocation of {@code __neg__} call site on accepted classes. */
     @Test
     void site_neg() throws Throwable {
-
-        Object dx = Double.valueOf(42.0);
-        Object px = newPyFloat(42.0);
 
         // Bootstrap the call site
         UnaryOpCallSite cs = new UnaryOpCallSite(Slot.op_neg);
         MethodHandle invoker = cs.dynamicInvoker();
 
+        Double dx = 42.0;
+        PyFloat px = newPyFloat(dx);
+
         // Update and invoke for PyFloat, Double
         for (Object x : List.of(px, dx)) {
-            final Object res = invoker.invokeExact(x);
-            assertPythonType(PyFloat.TYPE, res);
-            assertEquals(-42.0, PyFloat.asDouble(res));
+            Object r = invoker.invokeExact(x);
+            assertPythonType(PyFloat.TYPE, r);
+            assertEquals(-42.0, PyFloat.asDouble(r));
         }
         int baseFallbackCalls = cs.fallbackCalls;
 
@@ -44,29 +44,29 @@ class FloatCallSites {
         dx = Double.valueOf(-1e42);
         px = newPyFloat(-1e42);
         for (Object x : List.of(px, dx)) {
-            final Object res = invoker.invokeExact(x);
-            assertEquals(1e42, PyFloat.asDouble(res));
+            Object r = invoker.invokeExact(x);
+            assertEquals(1e42, PyFloat.asDouble(r));
         }
         assertEquals(baseFallbackCalls, cs.fallbackCalls,
                 "fallback calls");
     }
 
-    /** Test invocation of __repr__ call site on accepted classes. */
+    /** Test invocation of {@code __repr__} call site on accepted classes. */
     @Test
     void site_repr() throws Throwable {
-
-        Object dx = Double.valueOf(42.0);
-        Object px = newPyFloat(42.0);
 
         // Bootstrap the call site
         UnaryOpCallSite cs = new UnaryOpCallSite(Slot.op_repr);
         MethodHandle invoker = cs.dynamicInvoker();
 
+        Double dx = 42.0;
+        PyFloat px = newPyFloat(dx);
+
         // Update and invoke for PyFloat, Double
         for (Object x : List.of(px, dx)) {
-            final Object res = invoker.invokeExact(x);
-            assertPythonType(PyUnicode.TYPE, res);
-            assertEquals("42.0", res.toString());
+            Object r = invoker.invokeExact(x);
+            assertPythonType(PyUnicode.TYPE, r);
+            assertEquals("42.0", r.toString());
         }
         int baseFallbackCalls = cs.fallbackCalls;
 
@@ -74,8 +74,8 @@ class FloatCallSites {
         dx = Double.valueOf(-1.25);
         px = newPyFloat(-1.25);
         for (Object x : List.of(px, dx)) {
-            final Object res = invoker.invokeExact(x);
-            assertEquals("-1.25", res.toString());
+            Object r = invoker.invokeExact(x);
+            assertEquals("-1.25", r.toString());
         }
         assertEquals(baseFallbackCalls, cs.fallbackCalls,
                 "fallback calls");
@@ -85,12 +85,12 @@ class FloatCallSites {
     @Test
     void site_invert_error() throws Throwable {
 
-        Object dx = Double.valueOf(42.0);
-        Object px = newPyFloat(42.0);
-
         // Bootstrap the call site
         UnaryOpCallSite cs = new UnaryOpCallSite(Slot.op_invert);
         MethodHandle invoker = cs.dynamicInvoker();
+
+        Double dx = 42.0;
+        PyFloat px = newPyFloat(dx);
 
         // Update and invoke for PyFloat, Double
         for (Object x : List.of(px, dx)) {
@@ -99,8 +99,8 @@ class FloatCallSites {
         int baseFallbackCalls = cs.fallbackCalls;
 
         // Re-invoke (should involve no fall-back)
-        dx = Double.valueOf(-1e42);
-        px = newPyFloat(-1e42);
+        dx = -1e42;
+        px = newPyFloat(dx);
         for (Object x : List.of(px, dx)) {
             assertThrows(TypeError.class, () -> invoker.invokeExact(x));
         }
@@ -117,33 +117,33 @@ class FloatCallSites {
     @Test
     void site_sub() throws Throwable {
 
-        Object dv = Double.valueOf(50), dw = Double.valueOf(8);
-        Object pv = newPyFloat(dv), pw = newPyFloat(dw);
-
         // Bootstrap the call site
         BinaryOpCallSite cs = new BinaryOpCallSite(Slot.op_sub);
         MethodHandle invoker = cs.dynamicInvoker();
 
+        Double dv = 50.0, dw = 8.0;
+        PyFloat pv = newPyFloat(dv), pw = newPyFloat(dw);
+
         // Update and invoke for Double, PyFloat.
         for (Object v : List.of(dv, pv)) {
             for (Object w : List.of(dw, pw)) {
-                final Object res = invoker.invokeExact(v, w);
-                assertPythonType(PyFloat.TYPE, res);
-                assertEquals(42.0, PyFloat.asDouble(res));
+                Object r = invoker.invokeExact(v, w);
+                assertPythonType(PyFloat.TYPE, r);
+                assertEquals(42.0, PyFloat.asDouble(r));
             }
         }
         int baseFallbackCalls = cs.fallbackCalls;
 
         // Re-invoke (should involve no fall-back)
-        dv = Double.valueOf(456);
-        dw = Double.valueOf(345);
+        dv = 456.0;
+        dw = 345.0;
         pv = newPyFloat(dv);
         pw = newPyFloat(dw);
         for (Object v : List.of(dv, pv)) {
             for (Object w : List.of(dw, pw)) {
-                final Object res = invoker.invokeExact(v, w);
-                assertPythonType(PyFloat.TYPE, res);
-                assertEquals(111.0, PyFloat.asDouble(res));
+                Object r = invoker.invokeExact(v, w);
+                assertPythonType(PyFloat.TYPE, r);
+                assertEquals(111.0, PyFloat.asDouble(r));
             }
         }
         assertEquals(baseFallbackCalls, cs.fallbackCalls,
@@ -170,18 +170,18 @@ class FloatCallSites {
         // Update and invoke for float - int.
         for (Object v : List.of(da, db)) {
             for (Object w : List.of(ia, ib)) {
-                final Object res = invoker.invokeExact(v, w);
-                assertPythonType(PyFloat.TYPE, res);
-                assertEquals(42.0, PyFloat.asDouble(res));
+                Object r = invoker.invokeExact(v, w);
+                assertPythonType(PyFloat.TYPE, r);
+                assertEquals(42.0, PyFloat.asDouble(r));
             }
         }
 
         // Update and invoke for int - float.
         for (Object v : List.of(ia, ib)) {
             for (Object w : List.of(da, db)) {
-                final Object res = invoker.invokeExact(v, w);
-                assertPythonType(PyFloat.TYPE, res);
-                assertEquals(-42.0, PyFloat.asDouble(res));
+                final Object r = invoker.invokeExact(v, w);
+                assertPythonType(PyFloat.TYPE, r);
+                assertEquals(-42.0, PyFloat.asDouble(r));
             }
         }
         int baseFallbackCalls = cs.fallbackCalls;
@@ -194,17 +194,17 @@ class FloatCallSites {
         // float - int.
         for (Object v : List.of(da, db)) {
             for (Object w : List.of(ia, ib)) {
-                final Object res = invoker.invokeExact(v, w);
-                assertPythonType(PyFloat.TYPE, res);
-                assertEquals(111.0, PyFloat.asDouble(res));
+                Object r = invoker.invokeExact(v, w);
+                assertPythonType(PyFloat.TYPE, r);
+                assertEquals(111.0, PyFloat.asDouble(r));
             }
         }
         // int - float
         for (Object v : List.of(ia, ib)) {
             for (Object w : List.of(da, db)) {
-                final Object res = invoker.invokeExact(v, w);
-                assertPythonType(PyFloat.TYPE, res);
-                assertEquals(-111.0, PyFloat.asDouble(res));
+                Object r = invoker.invokeExact(v, w);
+                assertPythonType(PyFloat.TYPE, r);
+                assertEquals(-111.0, PyFloat.asDouble(r));
             }
         }
         assertEquals(baseFallbackCalls, cs.fallbackCalls,
@@ -215,8 +215,8 @@ class FloatCallSites {
     @Test
     void site_or_error() throws Throwable {
 
-        Object dv = Double.valueOf(50), dw = Double.valueOf(8);
-        Object pv = newPyFloat(dv), pw = newPyFloat(dw);
+        Double dv = 50.0, dw = 8.0;
+        PyFloat pv = newPyFloat(dv), pw = newPyFloat(dw);
 
         // Bootstrap the call site
         BinaryOpCallSite cs = new BinaryOpCallSite(Slot.op_or);
@@ -232,8 +232,8 @@ class FloatCallSites {
         int baseFallbackCalls = cs.fallbackCalls;
 
         // Re-invoke (should involve no fall-back)
-        dv = Double.valueOf(456);
-        dw = Double.valueOf(345);
+        dv = 456.0;
+        dw = 345.0;
         pv = newPyFloat(dv);
         pw = newPyFloat(dw);
         for (Object v : List.of(dv, pv)) {
@@ -244,44 +244,5 @@ class FloatCallSites {
         }
         assertEquals(baseFallbackCalls, cs.fallbackCalls,
                 "fallback calls");
-    }
-
-    // plumbing -------------------------------------------------------
-
-    /**
-     * Force creation of an actual {@link PyFloat}
-     *
-     * @return from this value.
-     */
-    private PyFloat newPyFloat(double value) {
-        return new PyFloat(PyFloat.TYPE, value);
-    }
-
-    /**
-     * Force creation of an actual {@link PyFloat} from Object
-     *
-     * @return from this value.
-     */
-    private PyFloat newPyFloat(Object value) {
-        double vv = 0.0;
-        try {
-            vv = PyFloat.asDouble(value);
-        } catch (Throwable e) {
-            e.printStackTrace();
-            fail("Failed to create a PyFloat");
-        }
-        return newPyFloat(vv);
-    }
-
-    /**
-     * The Python type of {@code o} is the one expected.
-     *
-     * @param expected type
-     * @param o to test
-     */
-    private static void assertPythonType(PyType expected, Object o) {
-        assertTrue(expected.checkExact(o),
-                () -> String.format("Java %s not Python '%s'",
-                        o.getClass().getSimpleName(), expected.name));
     }
 }

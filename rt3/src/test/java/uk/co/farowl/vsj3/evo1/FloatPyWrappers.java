@@ -30,9 +30,9 @@ class FloatPyWrappers extends UnitTestSupport {
 
         // Invoke for PyFloat, Double
         for (Object x : List.of(px, dx)) {
-            Object res = neg.__call__(Py.tuple(x), null);
-            assertPythonType(PyFloat.TYPE, res);
-            assertEquals(-42.0, PyFloat.asDouble(res));
+            Object r = neg.__call__(Py.tuple(x), null);
+            assertPythonType(PyFloat.TYPE, r);
+            assertEquals(-42.0, PyFloat.asDouble(r));
         }
     }
 
@@ -52,9 +52,9 @@ class FloatPyWrappers extends UnitTestSupport {
 
         // x is PyFloat, Double
         for (Object x : List.of(px, dx)) {
-            Object res = neg.__call__(Py.tuple(x), Py.dict());
-            assertPythonType(PyFloat.TYPE, res);
-            assertEquals(1e42, PyFloat.asDouble(res));
+            Object r = neg.__call__(Py.tuple(x), Py.dict());
+            assertPythonType(PyFloat.TYPE, r);
+            assertEquals(1e42, PyFloat.asDouble(r));
         }
     }
 
@@ -68,14 +68,14 @@ class FloatPyWrappers extends UnitTestSupport {
         PyWrapperDescr repr =
                 (PyWrapperDescr) PyFloat.TYPE.lookup(ID.__repr__);
 
-        Double dx = 42.;
+        Double dx = 42.0;
         PyFloat px = newPyFloat(dx);
 
         // x is PyFloat, Double
         for (Object x : List.of(px, dx)) {
-            Object res = repr.__call__(Py.tuple(x), null);
-            assertPythonType(PyUnicode.TYPE, res);
-            assertEquals("42.0", res.toString());
+            Object r = repr.__call__(Py.tuple(x), null);
+            assertPythonType(PyUnicode.TYPE, r);
+            assertEquals("42.0", r.toString());
         }
     }
 
@@ -89,7 +89,7 @@ class FloatPyWrappers extends UnitTestSupport {
         PyWrapperDescr sub =
                 (PyWrapperDescr) PyFloat.TYPE.lookup(ID.__sub__);
 
-        Double dv = 50., dw = 8.;
+        Double dv = 50.0, dw = 8.0;
         PyFloat pv = newPyFloat(dv), pw = newPyFloat(dw);
         Integer iw = 8;
 
@@ -100,10 +100,10 @@ class FloatPyWrappers extends UnitTestSupport {
         for (Object v : List.of(dv, pv)) {
             // w is PyFloat, Double, and int types
             for (Object w : wList) {
-                Object res = sub.__call__(Py.tuple(v, w), null);
-                assertPythonType(PyFloat.TYPE, res);
+                Object r = sub.__call__(Py.tuple(v, w), null);
+                assertPythonType(PyFloat.TYPE, r);
                 double exp = dv - PyFloat.asDouble(w);
-                assertEquals(exp, PyFloat.doubleValue(res));
+                assertEquals(exp, PyFloat.doubleValue(r));
             }
         }
     }
@@ -124,9 +124,9 @@ class FloatPyWrappers extends UnitTestSupport {
         // Invoke for Double, PyFloat.
         for (Object v : List.of(dv, pv)) {
             for (Object w : List.of(dw, pw)) {
-                Object res = rsub.__call__(Py.tuple(w, v), null);
-                assertPythonType(PyFloat.TYPE, res);
-                assertEquals(42.0, PyFloat.asDouble(res));
+                Object r = rsub.__call__(Py.tuple(w, v), null);
+                assertPythonType(PyFloat.TYPE, r);
+                assertEquals(42.0, PyFloat.asDouble(r));
             }
         }
     }
@@ -148,9 +148,9 @@ class FloatPyWrappers extends UnitTestSupport {
         // Invoke for float - int.
         for (Object v : List.of(da, db)) {
             for (Object w : List.of(ia, ib)) {
-                Object res = sub.__call__(Py.tuple(v, w), null);
-                assertPythonType(PyFloat.TYPE, res);
-                assertEquals(42.0, PyFloat.asDouble(res));
+                Object r = sub.__call__(Py.tuple(v, w), null);
+                assertPythonType(PyFloat.TYPE, r);
+                assertEquals(42.0, PyFloat.asDouble(r));
             }
         }
     }
@@ -172,9 +172,9 @@ class FloatPyWrappers extends UnitTestSupport {
         // Invoke for int - float.
         for (Object v : List.of(ia, ib)) {
             for (Object w : List.of(da, db)) {
-                Object res = rsub.__call__(Py.tuple(w, v), null);
-                assertPythonType(PyFloat.TYPE, res);
-                assertEquals(-42.0, PyFloat.asDouble(res));
+                Object r = rsub.__call__(Py.tuple(w, v), null);
+                assertPythonType(PyFloat.TYPE, r);
+                assertEquals(-42.0, PyFloat.asDouble(r));
             }
         }
     }
