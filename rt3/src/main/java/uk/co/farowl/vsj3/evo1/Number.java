@@ -140,8 +140,7 @@ public class Number extends Abstract {
             throws TypeError, Throwable {
         try {
             Object r = binary_op1(v, w, binop);
-            if (r != Py.NotImplemented)
-                return r;
+            if (r != Py.NotImplemented) { return r; }
         } catch (Slot.EmptyException e) {}
         throw operandError(binop, v, w);
     }

@@ -139,14 +139,19 @@ public class PyRT {
                 resultMH = op.getOperandError();
             }
 
+            /*
+             * Compute the result for this case. If the operation
+             * throws, it throws here and we do not bind resultMH as a
+             * new target. If it's a one-off, we'll get another go.
+             */
+            Object result = resultMH.invokeExact(v);
+
             // MH for guarded invocation (becomes new target)
-            // XXX Consider only binding if not an error
             MethodHandle guardMH = CLASS_GUARD.bindTo(v.getClass());
             targetMH = guardWithTest(guardMH, resultMH, getTarget());
             setTarget(targetMH);
 
-            // Compute the result for this case
-            return resultMH.invokeExact(v);
+            return result;
         }
     }
 
@@ -241,15 +246,20 @@ public class PyRT {
                 resultMH = rightDominant(vType, vOps, wType, wOps);
             }
 
+            /*
+             * Compute the result for this case. If the operation
+             * throws, it throws here and we do not bind resultMH as a
+             * new target. If it's a one-off, we'll get another go.
+             */
+            Object result = resultMH.invokeExact(v, w);
+
             // MH for guarded invocation (becomes new target)
-            // XXX Consider only binding if not an error
             MethodHandle guardMH = insertArguments(CLASS2_GUARD, 0,
                     v.getClass(), w.getClass());
             targetMH = guardWithTest(guardMH, resultMH, getTarget());
             setTarget(targetMH);
 
-            // Compute the result for this case
-            return resultMH.invokeExact(v, w);
+            return result;
         }
 
         /**
@@ -281,6 +291,11 @@ public class PyRT {
                  */
                 slotv = binops.get(vOps, wOps);
                 if (slotv != BINARY_EMPTY) { return slotv; }
+                /*
+                 * vType provides class-specific implementations of
+                 * op(v,w), but hang on ... both have the same type.
+                 */
+                assert (slotv == BINARY_EMPTY); // XXX error instead?
             } else {
                 /*
                  * The type provides no class-specific implementation,

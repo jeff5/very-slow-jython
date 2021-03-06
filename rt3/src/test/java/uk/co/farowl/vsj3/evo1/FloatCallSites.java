@@ -2,6 +2,7 @@ package uk.co.farowl.vsj3.evo1;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.lang.invoke.MethodHandle;
 import java.math.BigInteger;
@@ -101,13 +102,13 @@ class FloatCallSites extends UnitTestSupport {
         }
         int baseFallbackCalls = cs.fallbackCalls;
 
-        // Re-invoke (should involve no fall-back)
+        // Re-invoke. (There will be further fall-back calls.)
         dx = -1e42;
         px = newPyFloat(dx);
         for (Object x : List.of(px, dx)) {
             assertThrows(TypeError.class, () -> invoker.invokeExact(x));
         }
-        assertEquals(baseFallbackCalls, cs.fallbackCalls,
+        assertTrue(cs.fallbackCalls > baseFallbackCalls,
                 "fallback calls");
     }
 
@@ -155,8 +156,9 @@ class FloatCallSites extends UnitTestSupport {
     /**
      * Test invocation of {@code __sub__} call site on mixed types. All
      * combinations of the accepted and (non-accepted) operand classes
-     * must be valid. For this test, we need parts of {@code int} to work too,
-     * since that type will be consulted about {@code int - float}.
+     * must be valid. For this test, we need parts of {@code int} to
+     * work too, since that type will be consulted about
+     * {@code int - float}.
      */
     @Test
     void site_sub_mix() throws Throwable {
@@ -232,7 +234,7 @@ class FloatCallSites extends UnitTestSupport {
         }
         int baseFallbackCalls = cs.fallbackCalls;
 
-        // Re-invoke (should involve no fall-back)
+        // Re-invoke. (There will be further fall-back calls.)
         dv = 456.0;
         dw = 345.0;
         pv = newPyFloat(dv);
@@ -243,7 +245,7 @@ class FloatCallSites extends UnitTestSupport {
                         () -> invoker.invokeExact(v, w));
             }
         }
-        assertEquals(baseFallbackCalls, cs.fallbackCalls,
+        assertTrue(cs.fallbackCalls > baseFallbackCalls,
                 "fallback calls");
     }
 }
