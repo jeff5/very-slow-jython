@@ -71,12 +71,12 @@ now belong to ``Operations``.
 ..  uml::
     :caption: Plain Java ``Object`` Pattern
 
-    class Object { }
-    class Class { }
+    class Object
+    class Class
     Object -> Class
 
-    abstract class Operations { }
-    abstract class PyType { }
+    abstract class Operations
+    abstract class PyType
     Class "1" -- "*" Operations
     Operations "*" -- "*" PyType
 

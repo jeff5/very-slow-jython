@@ -6,6 +6,7 @@
 
 import os
 import sys
+import subprocess
 
 
 # -- General information about the project --------------------------------
@@ -48,6 +49,10 @@ else:
     plantuml_jar = "/usr/share/plantuml/plantuml.jar"  # Ubuntu
 plantuml = os.getenv('plantuml', ' '.join([java_cmd, '-jar', plantuml_jar]))
 print("plantuml =", plantuml)
+
+# Check versions (especially on RTD)
+subprocess.run(["java", "-jar", plantuml_jar, "-version"],
+               shell=True, check=True)
 
 master_doc = 'index' # The master toctree document.
 
