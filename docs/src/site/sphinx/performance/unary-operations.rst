@@ -10,6 +10,8 @@ The integers in these measurements are arbitrary precision integers
 for comparability.
 
 
+.. _benchmark-unary-vsj2:
+
 VSJ 2 evo 4
 ***********
 
@@ -87,6 +89,8 @@ We give an explanation for this in the section
 :ref:`benchmark-vanishing-time`.
 
 
+.. _benchmark-unary-jython2:
+
 Jython 2.7.2
 ************
 
@@ -111,6 +115,8 @@ They are implemented as ``BigInteger``.
 We can see that the invocation overhead of the Jython 2 approach
 is 8-9ns on this machine.
 
+
+.. _benchmark-unary-vsj2-indy:
 
 VSJ 2 evo 4 with ``invokedynamic``
 **********************************
@@ -225,6 +231,8 @@ is straight out of the textbook in the unary case (some set-up removed):
         //...
 
 
+.. _benchmark-unary-vsj3:
+
 VSJ 3 evo 1
 ***********
 
@@ -271,6 +279,8 @@ This saves work in ``PyLongUnary.neg``.
 Its comparator ``PyLongUnary.neg_java``
 is written using a primitive Java ``int``.
 
+
+.. _benchmark-unary-vsj3-indy:
 
 VSJ 3 evo 1 with ``invokedynamic``
 **********************************

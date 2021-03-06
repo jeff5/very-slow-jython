@@ -21,6 +21,8 @@ The integers in these measurements are arbitrary precision integers
 for comparability.
 
 
+.. _benchmark-binary-vsj2:
+
 VSJ 2 evo 4
 ***********
 
@@ -95,6 +97,8 @@ with complexity but no new data fetches.
 This method calls for 5 floating operations.
 
 
+.. _benchmark-binary-jython2:
+
 Jython 2.7.2
 ************
 
@@ -138,6 +142,8 @@ The need to consult ``int`` first in ``int + float``
 does not seem to have added any overhead.
 
 
+.. _benchmark-binary-vsj2-indy:
+
 VSJ 2 evo 4 with ``invokedynamic``
 **********************************
 
@@ -179,6 +185,8 @@ The call site is quite complicated compared to the unary case
 because the types of both arguments must be taken into account
 in the specialisation.
 
+
+.. _benchmark-binary-vsj3:
 
 VSJ 3 evo 1
 ***********
@@ -230,6 +238,8 @@ and primitive Java int in their Java counterparts.
 The tests with ``addbig`` or ``mulbig`` in the name use ``BigInteger``.
 
 
+.. _benchmark-binary-vsj3-indy:
+
 VSJ 3 evo 1 with ``invokedynamic``
 **********************************
 
@@ -248,30 +258,29 @@ makes it unnecessary to consult ``int`` during the call itself.
 ..  code:: none
 
     Benchmark                            Mode  Cnt   Score   Error  Units
-    PyFloatBinary.add_float_float        avgt   20  12.733 ± 0.134  ns/op
-    PyFloatBinary.add_float_float_java   avgt   20   5.958 ± 0.166  ns/op
-    PyFloatBinary.add_float_int          avgt   20  16.426 ± 0.146  ns/op
-    PyFloatBinary.add_float_int_java     avgt   20   6.202 ± 0.048  ns/op
-    PyFloatBinary.add_int_float          avgt   20  15.873 ± 0.504  ns/op
-    PyFloatBinary.add_int_float_java     avgt   20   6.238 ± 0.062  ns/op
-    PyFloatBinary.addbig_float_int       avgt   20  24.063 ± 0.674  ns/op
-    PyFloatBinary.addbig_float_int_java  avgt   20  17.575 ± 0.533  ns/op
-    PyFloatBinary.addbig_int_float       avgt   20  24.165 ± 0.470  ns/op
-    PyFloatBinary.addbig_int_float_java  avgt   20  20.554 ± 0.598  ns/op
-    PyFloatBinary.mul_float_float        avgt   20  13.244 ± 0.427  ns/op
-    PyFloatBinary.mul_float_float_java   avgt   20   6.097 ± 0.185  ns/op
-    PyFloatBinary.nothing                avgt   20   5.620 ± 0.111  ns/op
-    PyFloatBinary.quartic                avgt   20  13.152 ± 0.408  ns/op
-    PyFloatBinary.quartic_java           avgt   20   6.308 ± 0.170  ns/op
-    PyLongBinary.add                     avgt   20  15.241 ± 0.049  ns/op
-    PyLongBinary.add_java                avgt   20   5.287 ± 0.158  ns/op
-    PyLongBinary.addbig                  avgt   20  38.518 ± 0.443  ns/op
-    PyLongBinary.addbig_java             avgt   20  38.826 ± 0.374  ns/op
-    PyLongBinary.mul                     avgt   20  14.888 ± 0.621  ns/op
-    PyLongBinary.mul_java                avgt   20   6.102 ± 0.226  ns/op
-    PyLongBinary.mulbig                  avgt   20  56.186 ± 0.538  ns/op
-    PyLongBinary.mulbig_java             avgt   20  55.747 ± 0.456  ns/op
-
+    PyFloatBinary.add_float_float        avgt   20  12.522 ± 0.112  ns/op
+    PyFloatBinary.add_float_float_java   avgt   20   6.026 ± 0.148  ns/op
+    PyFloatBinary.add_float_int          avgt   20  16.439 ± 0.144  ns/op
+    PyFloatBinary.add_float_int_java     avgt   20   6.404 ± 0.280  ns/op
+    PyFloatBinary.add_int_float          avgt   20  15.417 ± 0.047  ns/op
+    PyFloatBinary.add_int_float_java     avgt   20   6.563 ± 0.285  ns/op
+    PyFloatBinary.addbig_float_int       avgt   20  24.067 ± 0.245  ns/op
+    PyFloatBinary.addbig_float_int_java  avgt   20  16.972 ± 0.072  ns/op
+    PyFloatBinary.addbig_int_float       avgt   20  23.798 ± 0.128  ns/op
+    PyFloatBinary.addbig_int_float_java  avgt   20  20.342 ± 0.108  ns/op
+    PyFloatBinary.mul_float_float        avgt   20  12.604 ± 0.062  ns/op
+    PyFloatBinary.mul_float_float_java   avgt   20   6.106 ± 0.268  ns/op
+    PyFloatBinary.nothing                avgt   20   5.741 ± 0.080  ns/op
+    PyFloatBinary.quartic                avgt   20  12.925 ± 0.123  ns/op
+    PyFloatBinary.quartic_java           avgt   20   6.746 ± 0.585  ns/op
+    PyLongBinary.add                     avgt   20  15.204 ± 0.172  ns/op
+    PyLongBinary.add_java                avgt   20   5.181 ± 0.173  ns/op
+    PyLongBinary.addbig                  avgt   20  43.007 ± 0.388  ns/op
+    PyLongBinary.addbig_java             avgt   20  38.462 ± 0.245  ns/op
+    PyLongBinary.mul                     avgt   20  15.770 ± 0.099  ns/op
+    PyLongBinary.mul_java                avgt   20   6.080 ± 0.190  ns/op
+    PyLongBinary.mulbig                  avgt   20  61.291 ± 0.453  ns/op
+    PyLongBinary.mulbig_java             avgt   20  56.014 ± 0.636  ns/op
 
 
 
