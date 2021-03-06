@@ -51,8 +51,8 @@ plantuml = os.getenv('plantuml', ' '.join([java_cmd, '-jar', plantuml_jar]))
 print("plantuml =", plantuml)
 
 # Check versions (especially on RTD)
-subprocess.run(["java", "-jar", plantuml_jar, "-version"],
-               shell=True, check=True)
+subprocess.run(["java", "-version"], shell=True, check=True)
+subprocess.run(["java", "-jar", plantuml_jar, "-version"], shell=True, check=True)
 
 master_doc = 'index' # The master toctree document.
 
