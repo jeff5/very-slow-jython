@@ -20,17 +20,11 @@ This includes identification of a Python type object for the instance.
     class Object {
         getClass()
     }
-    class Class { }
     Object -right-> Class
 
-    interface PyObject {
-        getType()
-    }
+    abstract class Crafted
+    abstract class Other
 
-    abstract class Crafted { }
-    abstract class Other { }
-
-    PyObject <|.right. Crafted
     Object <|--- Crafted
     Object <|-- Other
 
@@ -39,11 +33,11 @@ This includes identification of a Python type object for the instance.
     }
     Class -right-> Operations
 
-    class PyType { }
+    class PyType
     Operations <|-- PyType
     Crafted -right-> PyType : type
 
-    class AdoptedOps { }
+    class AdoptedOps
     Operations <|-- AdoptedOps
     AdoptedOps "*" -- "1" PyType
 
@@ -73,7 +67,7 @@ each needing their own instance of (a concrete sub-type of) ``Operations``,
 only one of which can be the ``PyType``.
 Or the Java class may implement many distinct Python types,
 and in that case the ``Operations`` has to go via the instance,
-which must be a ``PyObject``, to get the actual type.
+to get the actual type.
 
 Some responsibilities that seem naturally to belong to ``PyType``,
 belong in fact to ``Operations``,

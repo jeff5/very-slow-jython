@@ -71,14 +71,10 @@ now belong to ``Operations``.
 ..  uml::
     :caption: Plain Java ``Object`` Pattern
 
-    class Object
-    class Class
     Object -> Class
-
     abstract class Operations
-    abstract class PyType
-    Class "1" -- "*" Operations
-    Operations "*" -- "*" PyType
+    Class "*" -- "*" Operations
+    Operations <|-- PyType
 
 The relationship of a ``java.lang.Class`` to its ``Operations`` object
 is implemented by a ``ClassValue``.

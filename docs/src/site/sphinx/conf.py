@@ -8,6 +8,7 @@ import os
 import sys
 import subprocess
 
+# Run a command that might fail, but that doesn't stop the build.
 def run_command(cmd_list):
     print("--Command:", repr(cmd_list))
     try:
@@ -61,9 +62,9 @@ else:
 plantuml = os.getenv('plantuml', ' '.join([java_cmd, '-jar', plantuml_jar]))
 print("plantuml =", plantuml)
 
-# Check versions (especially on RTD)
-run_command(["java", "-Djava.awt.headless=true", "--version"])
-run_command(["java", "-Djava.awt.headless=true", "-jar", plantuml_jar, "-version"])
+# Check versions (intended for RTD, but fails there)
+# run_command(["java", "-Djava.awt.headless=true", "--version"])
+# run_command(["java", "-Djava.awt.headless=true", "-jar", plantuml_jar, "-version"])
 
 master_doc = 'index' # The master toctree document.
 
