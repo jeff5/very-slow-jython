@@ -8,11 +8,22 @@ import os
 import sys
 import subprocess
 
+def run_command(cmd_list):
+    print("--Command:", repr(cmd_list))
+    try:
+        result = subprocess.run(cmd_list, shell=True, check=True, capture_output=True)
+        sys.stdout.write(result.stdout.decode('ascii', 'ignore'))
+    except subprocess.SubprocessError as e:
+        print("--Output:")
+        sys.stdout.write(e.output.decode('ascii', 'ignore'))
+        print("--Stderr:")
+        sys.stdout.write(e.stderr.decode('ascii', 'ignore'))
+        print("---------")
 
 # -- General information about the project --------------------------------
 
 project = u'The Very Slow Jython Project'
-copyright = u'2020, Jeff Allen'
+copyright = u'2021, Jeff Allen'
 author = u'Jeff Allen'
 #language = None
 
@@ -51,8 +62,8 @@ plantuml = os.getenv('plantuml', ' '.join([java_cmd, '-jar', plantuml_jar]))
 print("plantuml =", plantuml)
 
 # Check versions (especially on RTD)
-subprocess.run(["java", "-version"], shell=True, check=True)
-subprocess.run(["java", "-jar", plantuml_jar, "-version"], shell=True, check=True)
+run_command(["java", "-Djava.awt.headless=true", "--version"])
+run_command(["java", "-Djava.awt.headless=true", "-jar", plantuml_jar, "-version"])
 
 master_doc = 'index' # The master toctree document.
 
