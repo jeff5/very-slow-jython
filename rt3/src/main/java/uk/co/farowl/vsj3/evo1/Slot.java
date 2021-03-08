@@ -472,11 +472,11 @@ enum Slot {
                 return new PyWrapperDescr(objclass, slot, wrapped) {
 
                     @Override
-                    Object callWrapped(Object self, int index,
-                            PyTuple args, PyDict kwargs)
+                    Object callWrapped(MethodHandle wrapped,
+                            Object self, PyTuple args, PyDict kwargs)
                             throws Throwable {
                         checkArgs(args, 0, kwargs);
-                        return wrapped[index].invokeExact(self);
+                        return wrapped.invokeExact(self);
                     }
                 };
             }
@@ -494,12 +494,11 @@ enum Slot {
                 return new PyWrapperDescr(objclass, slot, wrapped) {
 
                     @Override
-                    Object callWrapped(Object self, int index,
-                            PyTuple args, PyDict kwargs)
+                    Object callWrapped(MethodHandle wrapped,
+                            Object self, PyTuple args, PyDict kwargs)
                             throws Throwable {
                         checkArgs(args, 1, kwargs);
-                        return wrapped[index].invokeExact(self,
-                                args.value[0]);
+                        return wrapped.invokeExact(self, args.value[0]);
                     }
                 };
             }
@@ -524,11 +523,10 @@ enum Slot {
                 return new PyWrapperDescr(objclass, slot, wrapped) {
 
                     @Override
-                    Object callWrapped(Object self, int index,
-                            PyTuple args, PyDict kwargs)
+                    Object callWrapped(MethodHandle wrapped,
+                            Object self, PyTuple args, PyDict kwargs)
                             throws Throwable {
-                        return wrapped[index].invokeExact(self, args,
-                                kwargs);
+                        return wrapped.invokeExact(self, args, kwargs);
                     }
                 };
             }
@@ -570,8 +568,8 @@ enum Slot {
                 return new PyWrapperDescr(objclass, slot, wrapped) {
 
                     @Override
-                    Object callWrapped(Object self, int index,
-                            PyTuple args, PyDict kwargs)
+                    Object callWrapped(MethodHandle wrapped,
+                            Object self, PyTuple args, PyDict kwargs)
                             throws Throwable {
                         checkArgs(args, 1, 2, kwargs);
                         Object[] a = args.value;
@@ -585,7 +583,7 @@ enum Slot {
                             throw new TypeError(
                                     "__get__(None, None) is invalid");
                         }
-                        return wrapped[index].invokeExact(self, obj,
+                        return wrapped.invokeExact(self, obj,
                                 (PyType) type);
                     }
                 };
@@ -678,11 +676,18 @@ enum Slot {
                 Slot slot, MethodHandle[] wrapped) {
             return new PyWrapperDescr(objclass, slot, wrapped) {
 
+                // @Override
+                // Object callWrapped_old(Object self, int index,
+                // PyTuple args, PyDict kwargs) throws Throwable {
+                // checkNoArgs(args, kwargs);
+                // return wrapped[index].invokeExact(self);
+                // }
+
                 @Override
-                Object callWrapped(Object self, int index, PyTuple args,
-                        PyDict kwargs) throws Throwable {
+                Object callWrapped(MethodHandle wrapped, Object self,
+                        PyTuple args, PyDict kwargs) throws Throwable {
                     checkNoArgs(args, kwargs);
-                    return wrapped[index].invokeExact(self);
+                    return wrapped.invokeExact(self);
                 }
             };
         }

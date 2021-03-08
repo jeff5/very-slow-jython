@@ -64,7 +64,7 @@ abstract class PyWrapperDescr extends Descriptor {
      * being wrapped. The method type of each is that of
      * {@link #slot}{@code .signature}.
      */
-    final MethodHandle[] wrapped;
+    protected final MethodHandle[] wrapped;
 
     /**
      * Construct a slot wrapper descriptor, identifying by a method
@@ -99,44 +99,24 @@ abstract class PyWrapperDescr extends Descriptor {
         this.wrapped = wrapped;
     }
 
-// /**
-// * Invoke the wrapped method handle, having arranged the arguments
-// * as expected by a slot. When we create sub-classes of
-// * {@code PyWrapperDescr} to handle different slot signatures, this
-// * is method that accepts arguments in a generic way (from the
-// * interpreter, say) and adapts them to the specific needs of the
-// * method handle {@link #wrapped}.
-// *
-// * @param self target object of the method call
-// *
-// * @param args of the method call
-// * @param kwargs of the method call
-// * @return result of the method call
-// * @throws Throwable from the implementation of the special method
-// */
-// // Compare CPython wrapperdescr_raw_call in descrobject.c
-// @Deprecated
-// abstract Object callWrapped(Object self, PyTuple args,
-// PyDict kwargs) throws Throwable;
-
     /**
-     * Invoke the wrapped method handle, having arranged the arguments
-     * as expected by a slot. When we create sub-classes of
-     * {@code PyWrapperDescr} to handle different slot signatures, this
-     * is method that accepts arguments in a generic way (from the
-     * interpreter, say) and adapts them to the specific needs of the
-     * method handle {@link #wrapped}.
+     * Invoke the correct method handle for the given target
+     * {@code self}, having arranged the arguments as expected by a
+     * slot. When we create sub-classes of {@code PyWrapperDescr} to
+     * handle different slot signatures, this is the method that accepts
+     * arguments in a generic way (from the interpreter, say) and adapts
+     * them to the specific needs of the wrapped slot.
      *
+     * @param wrapper handle of the method to call
      * @param self target object of the method call
-     * @param index of self amongst accepted implementations
      * @param args of the method call
      * @param kwargs of the method call
      * @return result of the method call
      * @throws Throwable from the implementation of the special method
      */
     // Compare CPython wrapperdescr_raw_call in descrobject.c
-    abstract Object callWrapped(Object self, int index, PyTuple args,
-            PyDict kwargs) throws Throwable;
+    abstract Object callWrapped(MethodHandle wrapper, Object self,
+            PyTuple args, PyDict kwargs) throws Throwable;
 
     // Exposed attributes ---------------------------------------------
 
@@ -204,6 +184,33 @@ abstract class PyWrapperDescr extends Descriptor {
         }
     }
 
+    /**
+     * Return the handle contained in this descriptor for the class of
+     * {@code self} supplied. The caller guarantees that the class is an
+     * accepted implementation of {@link Descriptor#objclass}, according
+     * to its {@link PyType#indexAccepted(Class)}.
+     *
+     * @param selfClass Java class of the {@code self2} argument
+     * @return corresponding handle
+     * @throws TypeError if the class is not accepted by
+     *     {@link Descriptor#objclass}
+     */
+    protected MethodHandle getWrapped(Class<?> selfClass)
+            throws TypeError {
+        // Work out how to call this descriptor on that object
+        int index = objclass.indexAccepted(selfClass);
+        try {
+            return wrapped[index];
+        } catch (ArrayIndexOutOfBoundsException iobe) {
+            /*
+             * The caller guarantees this never happens, so it is an
+             * interpreter error, not just a TYpeError
+             */
+            throw new InterpreterError(DESCRIPTOR_REQUIRES, name,
+                    objclass.name, selfClass.getName());
+        }
+    }
+
     // Compare CPython wrapperdescr_call in descrobject.c
     protected Object __call__(PyTuple args, PyDict kwargs)
             throws TypeError, Throwable {
@@ -218,19 +225,16 @@ abstract class PyWrapperDescr extends Descriptor {
                 args = new PyTuple(args.value, 1, argc - 1);
             }
 
-            // Work out how to call this descriptor on that object
-            Class<?> selfClass = self.getClass();
-            int index = objclass.indexAccepted(selfClass);
-
             // Make sure that the first argument is acceptable as 'self'
             PyType selfType = PyType.of(self);
-            if (index < 0 || !Abstract.recursiveIsSubclass(selfType,
-                    objclass)) {
+            if (!Abstract.recursiveIsSubclass(selfType, objclass)) {
                 throw new TypeError(DESCRIPTOR_REQUIRES, name,
                         objclass.name, selfType.name);
             }
 
-            return callWrapped(self, index, args, kwargs);
+            // Call through the correct wrapped handle
+            MethodHandle wrapped = getWrapped(self.getClass());
+            return callWrapped(wrapped, self, args, kwargs);
 
         } else {
             // Not even one argument

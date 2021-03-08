@@ -1,5 +1,6 @@
 package uk.co.farowl.vsj3.evo1;
 
+import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 
 import uk.co.farowl.vsj3.evo1.Exposed.Getter;
@@ -43,8 +44,8 @@ class PyMethodWrapper extends AbstractPyObject {
     @Member("__self__")
     final Object self;
 
-    /** Index in {@link #descr} of the proper wrapped handle. */
-    final int index;
+    /** The proper wrapped handle cached from {@link #descr}. */
+    private final MethodHandle wrapped;
 
     /**
      * Bind a slot wrapper descriptor to its target. The result is a
@@ -59,7 +60,7 @@ class PyMethodWrapper extends AbstractPyObject {
         super(TYPE);
         this.descr = descr;
         this.self = self;
-        this.index = Operations.of(self).getIndex();
+        this.wrapped = descr.getWrapped(self.getClass());
     }
 
     // CPython method table (to convert to annotations):
@@ -202,6 +203,6 @@ class PyMethodWrapper extends AbstractPyObject {
     // Compare CPython wrapper_call in descrobject.c
     protected Object __call__(PyTuple args, PyDict kwargs)
             throws Throwable {
-        return descr.callWrapped(self, index, args, kwargs);
+        return descr.callWrapped(wrapped, self, args, kwargs);
     }
 }

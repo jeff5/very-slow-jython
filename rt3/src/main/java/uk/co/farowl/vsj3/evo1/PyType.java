@@ -5,17 +5,14 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.invoke.VarHandle;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumSet;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
 import uk.co.farowl.vsj3.evo1.Exposed.Getter;
-import uk.co.farowl.vsj3.evo1.Operations.BinopGrid;
 import uk.co.farowl.vsj3.evo1.Slot.EmptyException;
 import uk.co.farowl.vsj3.evo1.Slot.Signature;
 

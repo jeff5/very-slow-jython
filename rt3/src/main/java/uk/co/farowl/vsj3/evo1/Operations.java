@@ -388,7 +388,7 @@ abstract class Operations {
 
         /**
          * Index of this implementation in the type (see
-         * {@link PyType#classes} and {@link PyWrapperDescr#wrapped}
+         * {@link PyType#indexAccepted(Class)}.
          */
         final private int index;
 
