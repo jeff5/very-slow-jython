@@ -7,7 +7,7 @@ import java.lang.invoke.MethodHandles;
  * Python are {@code False} and {@code True}, represented by Java
  * {@code Boolean.FALSE} and {@code Boolean.TRUE}, and there are no
  * sub-classes. (Rogue instances of Java {@code Boolean} will generally
- * behave as {@code False} and {@code True} but may fail identity
+ * behave as {@code False} or {@code True} but may fail identity
  * tests.)
  */
 final class PyBool {
@@ -15,7 +15,8 @@ final class PyBool {
     /** The type of Python object this class implements. */
     static final PyType TYPE = PyType.fromSpec( //
             new PyType.Spec("bool", MethodHandles.lookup())
-                    .canonical(Boolean.class).base(PyLong.TYPE)
+                    .canonical(Boolean.class) //
+                    .base(PyLong.TYPE) //
                     .flagNot(PyType.Flag.BASETYPE));
 
     private PyBool() {}  // enforces the doubleton :)

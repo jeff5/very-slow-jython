@@ -17,8 +17,8 @@ class PyLong implements CraftedType {
                     .methods(PyLongMethods.class)
                     .binops(PyLongBinops.class));
 
-    static Integer ZERO = Integer.valueOf(0);
-    static Integer ONE = Integer.valueOf(0);
+    static Integer ZERO = 0;
+    static Integer ONE = 1;
 
     private final PyType type;
     final BigInteger value;

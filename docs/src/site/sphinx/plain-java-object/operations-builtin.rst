@@ -854,10 +854,33 @@ are successfully inlined by the JVM. (See :ref:`benchmark-binary-vsj3-indy`.)
 
 Let us repeat the exercise for ``int`` and ``bool``,
 as there are some complications worth examining.
-These complications result because, in Python,
-``bool`` is a sub-class of ``int``,
-and because we would like to identify Python ``True`` and ``False``
-with Java ``Boolean.TRUE`` and ``Boolean.FALSE``.
+These arise from:
+
+* the fact that, in Python, ``bool`` is a sub-class of ``int``, and
+* because we would like to identify Python ``True`` and ``False``
+  with Java ``Boolean.TRUE`` and ``Boolean.FALSE``.
+
+``bool`` inherits methods from ``int``,
+which is to say that ``__neg__``, for example,
+looked up on ``bool`` is found on ``int``.
+
+..  code-block:: python
+
+    >>> bool.__neg__ is int.__neg__
+    True
+
+Our implementation of that method and others in ``int``
+must offer an implementation that can take a ``bool``
+(a Java ``Boolean``)
+as the ``self`` argument.
+These are reasonable (and the same thing) in Python:
+
+..  code-block:: python
+
+    >>> int.__neg__(True)
+    -1
+    >>> -True
+    -1
 
 
 The Unary Operation ``int.__neg__``
@@ -866,37 +889,34 @@ The Unary Operation ``int.__neg__``
 ``PyLong`` is the canonical implementation of ``int``.
 We also allow instances of ``Integer`` and ``BigInteger``
 to represent instances of ``int``.
+At first it seems that
+all we need do is reproduce the pattern we used for ``float``,
+with these three accepted implementations instead of the two in ``float``.
 For each method, including the special methods,
-we shall have to provide implementations applicable to
+we would have to provide implementations applicable to
 ``Integer``, ``BigInteger`` and ``PyLong``.
 
-For __neg__ we should expect to see:
+For ``__neg__`` we should expect to see
+a signature for the canonical and each adopted implementation:
 
 ..  code-block:: java
 
     class PyLongMethods {
         // ...
-        static Object __neg__(Integer self)
-            { return -self.intValue(); }
-        static Object __neg__(BigInteger self)
-            { return self.negate(); }
-        static Object __neg__(PyLong self)
-            { return self.value.negate(); }
+        static Object __neg__(PyLong self) { return self.value.negate(); }
+        static Object __neg__(Integer self) { return -self.intValue(); }
+        static Object __neg__(BigInteger self) { return self.negate(); }
 
-However, there is a complication surrounding ``bool``.
-These are reasonable (and the same thing) in Python:
 
-..  code-block:: python
-
-    >>> -True
-    -1
-    >>> int.__neg__(True)
-    -1
-
-``True`` is acceptable as an argument to ``int.__neg__`` in Python
-because ``bool`` is a sub-class of ``int``.
 Java ``Boolean`` is not a sub-class of any adopted implementation,
-and so no signature of ``__neg__`` is applicable to it.
+and so none of these signatures for ``__neg__`` is applicable to it.
+We are missing:
+
+..  code-block:: java
+
+    class PyLongMethods {
+        // ...
+        static Object __neg__(Boolean self) { return self ? -1 : 0; }
 
 
 Adopting ``Boolean``
@@ -906,7 +926,6 @@ The structure we propose to deal with this is as follows,
 when realised for two kinds of integer `1` and boolean ``True``.
 Although this involves a lot of objects,
 it is very regular in structure.
-
 
 ..  uml::
     :caption: Instance model of ``int`` and ``bool`` finding ``op_neg``
@@ -965,36 +984,67 @@ it is very regular in structure.
     neg --> xneg
     neg --> yneg
     neg --> zneg
-    intType <.left. boolType : <<Python sub-class>>
-    boolType ...> neg : lookup("__neg__")
+    intType <-left- boolType : base
+    boolType ...> neg : lookup("~__neg__")
 
 
 The point to note is that the same ``PyWrapperDescr`` object
 is found by look-up on both ``int`` and ``bool``:
 on ``int`` because it is defined there,
-and on ``bool`` by inheritance along the MRO
-Each Operations object caches the correct handle for its Java class,
+and on ``bool`` by inheritance along the MRO.
+Each ``Operations`` object caches the correct handle for its Java class,
 because the defining type object indicates
 which handle within the ``PyWrapperDescr`` to take.
 
-
-The definition of ``PyLong`` looks like this:
-
-..  code-block:: java
-
-    class PyLong {
-
-
-The definition of ``PyBool`` looks like this:
+The definition of ``PyLong`` begins like this:
 
 ..  code-block:: java
 
-    class PyBool {
+    class PyLong implements CraftedType {
 
+        static PyType TYPE = PyType.fromSpec( //
+                new PyType.Spec("int", MethodHandles.lookup())
+                        .adopt(BigInteger.class, Integer.class)
+                        .accept(Boolean.class) //
+                        .methods(PyLongMethods.class)
+                        .binops(PyLongBinops.class));
 
+Note that ``Boolean`` is *accepted* as a ``self`` argument in ``PyLong``,
+but it is not *adopted*,
+since we do not want a ``Boolean`` to be recognised as an ``int``
+by ``PyType.of()``.
+We also make Boolean an accepted implementation
+in the Python script that generates ``PyLongMethods.java``
+and ``PyLongBinops.java``,
+to obtain the special methods and class-specific implementations
+that would otherwise be missing.
 
+``Boolean`` is *adopted* in ``PyBool``,
+so it will be recognised as a ``bool`` by ``PyType.of()``.
+It is also the canonical and only accepted implementation:
+there are no instances  of ``PyBool`` or sub-classes of ``bool``.
+The definition of ``PyBool`` begins like this:
 
+..  code-block:: java
 
+    final class PyBool {
+
+        static final PyType TYPE = PyType.fromSpec( //
+                new PyType.Spec("bool", MethodHandles.lookup())
+                        .canonical(Boolean.class) //
+                        .base(PyLong.TYPE) //
+                        .flagNot(PyType.Flag.BASETYPE));
+
+All the methods of ``bool`` unique to it are defined in ``PyBool``,
+as they are few and we do not need to generate them by a script.
+
+It is somewhat unsatisfying that
+``PyLong`` should have to know about ``PyBool``
+when the latter is a sub-class.
+It would be complicated to avoid this by a general-purpose method,
+perhaps re-working the definition of a built-in type
+once a built-in sub-type is encountered and not covered by adopted types,
+and we may have here the only case where it would be used.
 
 
 Some Dots on the RADAR
