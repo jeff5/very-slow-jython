@@ -51,6 +51,12 @@ def unary_method(op:"UnaryOpInfo", t:TypeInfo):
             return {op.big_op(t.as_big("self"))};
         }}
         '''
+    elif t.name == "Boolean":
+        return f'''
+        static Object {op.name}({t.name} self) {{
+            return {op.long_op("(self ? 1 : 0)")};
+        }}
+        '''
     else:
         return f'''
         static Object {op.name}({t.name} self) {{
