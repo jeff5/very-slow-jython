@@ -154,7 +154,7 @@ class IntPyWrappers extends UnitTestSupport {
     @Test
     void wrap_and() throws Throwable {
 
-        PyWrapperDescr sub =
+        PyWrapperDescr and =
                 (PyWrapperDescr) PyLong.TYPE.lookup(ID.__and__);
 
         Integer iv = 47, iw = 58;
@@ -167,7 +167,7 @@ class IntPyWrappers extends UnitTestSupport {
             int vv = toInt(v);
             // w is Integer, BigInteger, PyLong, Boolean
             for (Object w : List.of(iw, bw, pw, true, false)) {
-                Object r = sub.__call__(Py.tuple(v, w), null);
+                Object r = and.__call__(Py.tuple(v, w), null);
                 // The result will be Integer (since small enough)
                 assertEquals(Integer.class, r.getClass());
                 int exp = vv & toInt(w);
@@ -184,7 +184,7 @@ class IntPyWrappers extends UnitTestSupport {
     @Test
     void wrap_rand() throws Throwable {
 
-        PyWrapperDescr rsub =
+        PyWrapperDescr rand =
                 (PyWrapperDescr) PyLong.TYPE.lookup(ID.__rand__);
 
         Integer iv = 47, iw = 58;
@@ -197,7 +197,7 @@ class IntPyWrappers extends UnitTestSupport {
             int vv = toInt(v);
             // w is Integer, BigInteger, PyLong, Boolean
             for (Object w : List.of(iw, bw, pw, true, false)) {
-                Object r = rsub.__call__(Py.tuple(w, v), null);
+                Object r = rand.__call__(Py.tuple(w, v), null);
                 // The result will be Integer (since small enough)
                 assertEquals(Integer.class, r.getClass());
                 int exp = vv & toInt(w);
