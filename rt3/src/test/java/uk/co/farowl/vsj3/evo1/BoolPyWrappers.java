@@ -40,8 +40,7 @@ class BoolPyWrappers extends UnitTestSupport {
         for (Object x : List.of(false, true)) {
             Object r = neg.__call__(Py.tuple(x), null);
             assertPythonType(PyLong.TYPE, r);
-            int exp = -toInt(x);
-            assertEquals(exp, toInt(r));
+            assertEquals(-toInt(x), toInt(r));
         }
     }
 
@@ -58,7 +57,7 @@ class BoolPyWrappers extends UnitTestSupport {
             Object r = repr.__call__(Py.tuple(x), null);
             assertPythonType(PyUnicode.TYPE, r);
             String e = x ? "True" : "False";
-            assertEquals(e.toString(), r.toString());
+            assertEquals(e, r.toString());
         }
     }
 
@@ -119,10 +118,8 @@ class BoolPyWrappers extends UnitTestSupport {
         for (Boolean v : List.of(true, false)) {
             for (Boolean w : List.of(true, false)) {
                 Object r = and.__call__(Py.tuple(v, w), null);
-                // The result will be Integer (since small enough)
                 assertEquals(Boolean.class, r.getClass());
-                Boolean exp = v & w;
-                assertEquals(exp, r);
+                assertEquals(v & w, r);
             }
         }
     }
@@ -139,10 +136,8 @@ class BoolPyWrappers extends UnitTestSupport {
                 (PyWrapperDescr) PyBool.TYPE.lookup(ID.__rand__);
 
         for (Boolean v : List.of(true, false)) {
-            int vv = toInt(v);
             for (Boolean w : List.of(true, false)) {
                 Object r = rand.__call__(Py.tuple(w, v), null);
-                // The result will be Integer (since small enough)
                 assertEquals(Boolean.class, r.getClass());
                 assertEquals(v & w, r);
             }
