@@ -1077,7 +1077,7 @@ Some of these were already apparent for VSJ 2 at ``evo4``,
 but since we can see them now,
 we may design VSJ 3 with them in mind.
 
-*   The type of attribute names were strongly typed to ``PyUnicode``
+*   The type of attribute names was strongly typed to ``PyUnicode``
     in the VSJ 2 API to ``__getattribute__``, ``__setattr__``, etc.,
     obviating checks in the code.
     If we allow (prefer, even) ``String`` as ``str``,

@@ -26,7 +26,7 @@ class UnitTestSupport {
     static PyType OBJECT = PyType.OBJECT_TYPE;
 
     /**
-     * Convert test value to int (avoiding
+     * Convert test value to Java {@code int} (avoiding
      * {@link PyLong#asInt(Object)}).
      *
      * @param v to convert
@@ -44,6 +44,22 @@ class UnitTestSupport {
 
         throw new IllegalArgumentException(
                 String.format("cannot convert '%s' to int", v));
+    }
+
+    /**
+     * Convert test value to Java {@code String} (avoiding
+     * {@code __str__} for {@code PyUnicode} and non-crafted types).
+     *
+     * @param v to convert
+     * @return converted value
+     */
+    static String toString(Object v) {
+        if (v instanceof String)
+            return (String) v;
+        else if (v instanceof PyUnicode)
+            return ((PyUnicode) v).value;
+        else
+            return v.toString();
     }
 
     /**
@@ -120,6 +136,15 @@ class UnitTestSupport {
             fail("Failed to create a PyFloat");
         }
         return newPyFloat(toDouble(vv));
+    }
+
+    /**
+     * Force creation of an actual {@link PyUnicode}
+     *
+     * @return from this value.
+     */
+    static PyUnicode newPyUnicode(String value) {
+        return new PyUnicode(PyUnicode.TYPE, value);
     }
 
     /**

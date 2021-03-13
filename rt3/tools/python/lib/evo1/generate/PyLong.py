@@ -179,6 +179,10 @@ class PyLongGenerator(ImplementationGenerator):
         # Arguments are: name, long_op, big_op[, method]
         UnaryOpInfo('__abs__', lambda x: f'Math.abs({x})',
             lambda x: f'{x}.abs()'),
+        UnaryOpInfo('__index__', lambda x: f'{x}',
+            lambda x: f'{x}'),
+        UnaryOpInfo('__int__', lambda x: f'{x}',
+            lambda x: f'{x}'),
         UnaryOpInfo('__neg__', lambda x: f'-{x}',
             lambda x: f'{x}.negate()'),
     ]

@@ -9,7 +9,7 @@ package uk.co.farowl.vsj3.evo1;
  * implementing {@code PySequence}. A proxy class could be created that
  * holds such an object and does implement {@code PySequence}.
  */
-interface PySequence extends CraftedType {
+interface PySequence  {
 
     // /** Get one element from the sequence. */
     // PyObject getItem(int i);
@@ -31,5 +31,5 @@ interface PySequence extends CraftedType {
      * @return repeating sequence
      */
     // <S extends PySequence> S repeat(int n);
-    PySequence repeat(int n);
+    Object repeat(int n);
 }

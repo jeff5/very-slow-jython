@@ -63,23 +63,38 @@ class PyLong implements CraftedType {
     }
 
     /**
-     * Value as a Java {@code int}.
+     * Present the value as a Java {@code int} when the argument is
+     * expected to be a Python {@code int} or a sub-class of it.
      *
-     * @return value as Java {@code int}
-     * @throws OverflowError if out of Java {@code int} range
+     * @param v claimed {@code int}
+     * @return {@code int} value
+     * @throws TypeError if {@code v} is not a Python {@code int}
+     * @throws OverflowError if {@code v} is out of Java range
      */
-    // XXX re-think as static
-    int intValue() {
+    static int asInt(Object v) throws TypeError, OverflowError {
         try {
-            return value.intValueExact();
-        } catch (ArithmeticException ae) {
-            throw new OverflowError(INT_TOO_LARGE, "int");
+            return convertToInt(v);
+        } catch (NoConversion nc) {
+            throw Abstract.requiredTypeError("an integer", v);
         }
     }
 
     /**
+     * Present the value as a Java {@code int} when the argument is
+     * expected to be a Python {@code int} or a sub-class of it.
+     *
+     * @param v claimed {@code int}
+     * @return {@code int} value
+     * @throws TypeError if {@code v} is not a Python {@code int}
+     * @throws OverflowError if {@code v} is out of Java range
+     */
+    static int asSize(Object v) throws TypeError, OverflowError {
+        return asInt(v);
+    }
+
+    /**
      * Present the value as a Java {@code BigInteger} when the argument
-     * is known to be a Python {@code int} or a sub-class of it.
+     * is expected to be a Python {@code int} or a sub-class of it.
      *
      * @param v claimed {@code int}
      * @return {@code BigInteger} value
@@ -96,42 +111,6 @@ class PyLong implements CraftedType {
             return (Boolean) v ? BigInteger.ONE : BigInteger.ZERO;
         else
             throw Abstract.requiredTypeError("an integer", v);
-    }
-
-    /**
-     * Present the value as a Java {@code int} when the argument is
-     * known to be a Python {@code int} or a sub-class of it.
-     *
-     * @param v claimed {@code int}
-     * @return {@code int} value
-     * @throws TypeError if {@code v} is not a Python {@code int}
-     * @throws OverflowError if {@code v} is out of Java range
-     */
-    static int asInt(Object v) throws TypeError, OverflowError {
-        try {
-            return convertToInt(v);
-        } catch (NoConversion nc) {
-            throw Abstract.requiredTypeError("an integer", v);
-        }
-    }
-
-    private static String INT_TOO_LARGE =
-            "Python int too large to convert to Java '%s'";
-
-    /**
-     * Value as a Java {@code int}. Same as {@link #intValue()} except
-     * for the error message.
-     *
-     * @return value as Java {@code int}
-     * @throws OverflowError if out of Java {@code int} range
-     */
-    // XXX re-think as static
-    int asSize() {
-        try {
-            return value.intValueExact();
-        } catch (ArithmeticException ae) {
-            throw new OverflowError(INT_TOO_LARGE, "size");
-        }
     }
 
     /**
@@ -267,19 +246,6 @@ class PyLong implements CraftedType {
 //        return cmp(w, Comparison.GE);
 //    }
 //
-//    protected Object __index__() {
-//        if (getType() == TYPE)
-//            return this;
-//        else
-//            return new PyLong(value);
-//    }
-//
-//    protected Object __int__() { // identical to __index__
-//        if (getType() == TYPE)
-//            return this;
-//        else
-//            return new PyLong(value);
-//    }
 //@formatter:on
 
     @SuppressWarnings("unused")
@@ -562,7 +528,7 @@ class PyLong implements CraftedType {
      * @throws NoConversion v is not an {@code int}
      * @throws OverflowError v is too large to be a {@code float}
      */
-    // Compare CPython longobject.c: PyLong_AsDouble
+    // Compare CPython longobject.c: PyLong_AsSsize_t
     static int convertToInt(Object v)
             throws NoConversion, OverflowError {
         // Check against supported types, most likely first

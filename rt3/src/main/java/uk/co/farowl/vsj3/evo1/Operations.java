@@ -333,8 +333,7 @@ abstract class Operations {
      *
      * @return target is exactly a Python {@code int}
      */
-       // Override in sub-class
-    boolean isIntExact() { return false; }
+    boolean isIntExact() { return this == PyLong.TYPE; }
 
     /**
      * Fast check that the target is exactly a Python {@code float}. We
@@ -343,35 +342,14 @@ abstract class Operations {
      *
      * @return target is exactly a Python {@code float}
      */
-       // Override in sub-class
-    boolean isFloatExact() { return false; }
+    boolean isFloatExact() { return this == PyFloat.TYPE; }
 
     /**
      * Fast check that the target is a data descriptor.
      *
      * @return target is a data descriptor
      */
-       // Override in sub-class
     boolean isDataDescr() { return false; }
-
-    static class Target {
-
-        enum Validity { ONCE, INSTANCE, ALWAYS };
-
-        Validity validity;
-        MethodHandle target;
-        MethodHandle guard;
-    }
-
-    Target getTarget(Slot slot, Object v) {
-        // TODO Auto-generated method stub
-        return null;
-    }
-
-    Target getTarget(Slot slot, Object v, Object w) {
-        // TODO Auto-generated method stub
-        return null;
-    }
 
     // ---------------------------------------------------------------
 
@@ -407,9 +385,7 @@ abstract class Operations {
         }
 
         @Override
-        PyType type(Object x) {
-            return type;
-        }
+        PyType type(Object x) { return type; }
 
         @Override
         boolean isIntExact() { return type == PyLong.TYPE; }

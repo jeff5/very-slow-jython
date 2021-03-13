@@ -218,16 +218,17 @@ public class Number extends Abstract {
      *     {@code int}
      * @throws Throwable otherwise from invoked implementations
      */
+    // Compare with CPython abstract.c :: PyNumber_Index
     static Object index(Object o) throws TypeError, Throwable {
 
-        Operations itemOps = Operations.of(o);
+        Operations ops = Operations.of(o);
         Object res;
 
-        if (itemOps.isIntExact())
+        if (ops.isIntExact())
             return o;
         else {
             try {
-                res = itemOps.op_index.invokeExact(o);
+                res = ops.op_index.invokeExact(o);
                 // Enforce expectations on the return type
                 Operations resOps = Operations.of(res);
                 if (resOps.isIntExact())
@@ -263,6 +264,7 @@ public class Number extends Abstract {
      *     {@code int}
      * @throws Throwable on other errors
      */
+    // Compare with CPython abstract.c :: PyNumber_AsSsize_t
     static int asSize(Object o, Function<String, PyException> exc)
             throws TypeError, Throwable {
 
@@ -272,14 +274,7 @@ public class Number extends Abstract {
 
         try {
             // We're done if PyLong.asSize() returns without error.
-            if (valueType == PyLong.TYPE)
-                return ((PyLong) value).asSize();
-            else if (valueType.isSubTypeOf(PyLong.TYPE))
-                // XXX Sub-types not implemented: maybe can't cast
-                return ((PyLong) value).asSize();
-            else
-                // Number.index guarantees we never reach here
-                return 0;
+            return PyLong.asSize(value);
         } catch (OverflowError e) {
             // Caller may replace overflow with own type of exception
             if (exc == null) {
@@ -295,6 +290,9 @@ public class Number extends Abstract {
                         PyType.of(o).getName());
                 throw exc.apply(msg);
             }
+        } catch (TypeError e) {
+            // Formally necessary but index() guarantees never reached
+            return 0;
         }
     }
 

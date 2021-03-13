@@ -77,7 +77,7 @@ public class PyFloat extends AbstractPyObject {
 
     /**
      * Present the value as a Java {@code double} when the argument is
-     * known to be a Python {@code float} or a sub-class of it.
+     * expected to be a Python {@code float} or a sub-class of it.
      *
      * @param v claimed {@code float}
      * @return {@code double} value

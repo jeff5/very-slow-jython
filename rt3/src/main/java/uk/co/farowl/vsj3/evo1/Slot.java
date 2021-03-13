@@ -542,7 +542,23 @@ enum Slot {
         BINARY_PREDICATE(B, S, O),
 
         // Slot#op_length, Slot#op_hash
-        LEN(I, S),
+        LEN(I, S) {
+
+            @Override
+            PyWrapperDescr makeSlotWrapper(PyType objclass, Slot slot,
+                    MethodHandle[] wrapped) {
+                return new PyWrapperDescr(objclass, slot, wrapped) {
+
+                    @Override
+                    Object callWrapped(MethodHandle wrapped,
+                            Object self, PyTuple args, PyDict kwargs)
+                            throws Throwable {
+                        checkArgs(args, 0, kwargs);
+                        return (int) wrapped.invokeExact(self);
+                    }
+                };
+            }
+        },
 
         // (objobjargproc) Slot#op_setitem, Slot#op_set
         SETITEM(V, S, O, O),
@@ -672,16 +688,11 @@ enum Slot {
          * @return a slot wrapper descriptor
          */
         // XXX should be abstract, but only when defined for each
-        /* abstract */ PyWrapperDescr makeSlotWrapper(PyType objclass,
-                Slot slot, MethodHandle[] wrapped) {
+        /*
+         * abstract
+         */ PyWrapperDescr makeSlotWrapper(PyType objclass, Slot slot,
+                MethodHandle[] wrapped) {
             return new PyWrapperDescr(objclass, slot, wrapped) {
-
-                // @Override
-                // Object callWrapped_old(Object self, int index,
-                // PyTuple args, PyDict kwargs) throws Throwable {
-                // checkNoArgs(args, kwargs);
-                // return wrapped[index].invokeExact(self);
-                // }
 
                 @Override
                 Object callWrapped(MethodHandle wrapped, Object self,

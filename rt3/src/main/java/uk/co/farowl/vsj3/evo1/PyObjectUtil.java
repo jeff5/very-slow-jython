@@ -14,7 +14,7 @@ class PyObjectUtil {
      * {@link PySequence#repeat(int)} implementation. The wrapper takes
      * care of object conversion and errors that arise from it.
      */
-    static PySequence repeat(PySequence self, Object n)
+    static Object repeat(PySequence self, Object n)
             throws TypeError, Throwable {
         if (Number.indexCheck(n)) {
             int count = Number.asSize(n, OverflowError::new);
@@ -29,7 +29,7 @@ class PyObjectUtil {
 
     /**
      * An implementation of {@code dict.__repr__} that may be applied to
-     * any Java {@code Map} between {@code Object}s, in which kets and
+     * any Java {@code Map} between {@code Object}s, in which keys and
      * values are represented as with {@code repr()}.
      *
      * @param map to be reproduced

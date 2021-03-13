@@ -44,7 +44,7 @@ public class Abstract {
             Operations ops = Operations.of(o);
             try {
                 Object res = ops.op_repr.invoke(o);
-                if (res instanceof PyUnicode) {
+                if (PyUnicode.TYPE.check(res)) {
                     return res;
                 } else {
                     throw returnTypeError("__repr__", "string", res);
@@ -797,8 +797,7 @@ public class Abstract {
      *     other causes
      */
     // Compare CPython _PyObject_LookupSpecial in typeobject.c
-    // XXX consider adding to PyType: here to satisfy local
-    // references
+    // XXX consider adding to PyType: here to satisfy local references
     private Object lookupSpecial(Object self, PyUnicode name)
             throws Throwable {
         // Look up attr by name in the type of self

@@ -27,7 +27,9 @@ class ID {
     static final PyUnicode __doc__ = id("__doc__");
     static final PyUnicode __float__ = id("__float__");
     static final PyUnicode __get__ = id("__get__");
+    static final PyUnicode __hash__ = id("__hash__");
     static final PyUnicode __instancecheck__ = id("__instancecheck__");
+    static final PyUnicode __len__ = id("__len__");
     static final PyUnicode __mro_entries__ = id("__mro_entries__");
     static final PyUnicode __mul__ = id("__mul__");
     static final PyUnicode __name__ = id("__name__");
