@@ -220,34 +220,6 @@ class PyLong implements CraftedType {
     private static final String NON_STR_EXPLICIT_BASE =
             "int() can't convert non-string with explicit base";
 
-//
-//@formatter:off
-//    protected Object __lt__(Object w) {
-//        return cmp(w, Comparison.LT);
-//    }
-//
-//    protected Object __le__(Object w) {
-//        return cmp(w, Comparison.LE);
-//    }
-//
-//    protected Object __eq__(Object w) {
-//        return cmp(w, Comparison.EQ);
-//    }
-//
-//    protected Object __ne__(Object w) {
-//        return cmp(w, Comparison.NE);
-//    }
-//
-//    protected Object __gt__(Object w) {
-//        return cmp(w, Comparison.GT);
-//    }
-//
-//    protected Object __ge__(Object w) {
-//        return cmp(w, Comparison.GE);
-//    }
-//
-//@formatter:on
-
     @SuppressWarnings("unused")
     private static Object __float__(Integer self) {
         return self.doubleValue();
@@ -435,26 +407,6 @@ class PyLong implements CraftedType {
     }
 
     // plumbing ------------------------------------------------------
-
-//
-//@formatter:off
-//    /**
-//     * Shorthand for implementing comparisons. Note that the return type
-//     * is arbitrary because one may define {@code __lt__} etc. to return
-//     * anything.
-//     *
-//     * @param w the right-hand operand
-//     * @param op the type of operation
-//     * @return result or {@code Py.NotImplemented}
-//     */
-//    private Object cmp(Object w, Comparison op) {
-//        if (w instanceof PyLong) {
-//            return op.toBool(value.compareTo(((PyLong) w).value));
-//        } else {
-//            return Py.NotImplemented;
-//        }
-//    }
-//@formatter:on
 
     /**
      * Convert an {@code int} to a Java {@code double} (or throw

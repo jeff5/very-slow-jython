@@ -7,8 +7,7 @@ import java.lang.invoke.MethodHandles;
  * Python are {@code False} and {@code True}, represented by Java
  * {@code Boolean.FALSE} and {@code Boolean.TRUE}, and there are no
  * sub-classes. (Rogue instances of Java {@code Boolean} will generally
- * behave as {@code False} or {@code True} but may fail identity
- * tests.)
+ * behave as {@code False} or {@code True} but may fail identity tests.)
  */
 final class PyBool {
 

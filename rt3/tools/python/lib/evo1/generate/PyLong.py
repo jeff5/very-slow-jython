@@ -3,240 +3,421 @@
 # This generator writes PyLongMethods.java and PyLongBinops.java .
 
 from dataclasses import dataclass
+from enum import Enum
 from typing import Callable
 
 from . import ImplementationGenerator
 
+# The method implementations convert operands to a common "working
+# type" in order to perform the central operation. The type varies
+# with the operation and the operand(s). For example, when adding
+# two operands known to be Integer, the common type is LONG (Java
+# long), so that there is no overflow, while bit-wise operations on
+# the same pair may be carried out in an INT.
+#
+# In a unary operation, the wider of the (minimum) operation type
+# and the operand type is used. When mixing types in a binary
+# operation, the widest of the two types and the operation is used.
+class WorkingType(Enum):
+    "Enumerates the types to which operands may be converted."
+    INT = 0
+    LONG = 1
+    BIG = 2
+    DOUBLE = 3
+    STRING = 4
+    OBJECT = 5
 
-BIG_TYPES = {"PyLong", "BigInteger", "Object"}
+# We use pre-defined data classes to describe (Java) types that may
+# appear as operands or return types. We record the name in Java,
+# information about the minimum "width" at which we ought to
+# compute with them, and how to convert them to int, long and big
+# representations.
 
 @dataclass
 class TypeInfo:
+    "Information about a type an templates for conversion to int types"
     # Java name of a Java class ("PyLong", "Integer", etc.)
     name: str
-    # Function that converts that to primitive long
-    as_long: Callable = lambda x: f'{x}.longValue()'
-    # Expression with one {} that converts that to a BigInteger
-    as_big: Callable = lambda x: f'BigInteger.valueOf({x}.longValue())'
+    # An argument of this type implies the working type is at least:
+    min_working_type: WorkingType
+    # There is a template (a function) to generate an expression
+    # that converts *from* this type to each named Java type.
+    # Template for expression that converts to BigInteger
+    as_big: Callable = None
+    # Template for expression that converts to primitive Java long
+    as_long: Callable = None
+    # Template for expression that converts to primitive Java int
+    as_int: Callable = None
 
-def pylong_as_big(x):
-    return f'{x}.value'
+# Useful in cases where an argument is aready the right type
+itself = lambda x: x
 
-def pylong_as_long(x):
-    return f'{x}.value.longValue() /* XXX */'  # Probably a bad idea.
-
-def big_as_long(x):
-    return f'{x}.longValue() /* XXX */'  # Probably a bad idea.
-
-def bool_as_big(x):
-    return f'({x} ? ONE : ZERO)'
-
-def bool_as_long(x):
-    return f'({x} ? 1L : 0L)'
+PY_LONG_CLASS = TypeInfo('PyLong', WorkingType.BIG,
+                    lambda x: f'{x}.value')
+OBJECT_CLASS = TypeInfo('Object', WorkingType.OBJECT,
+                    lambda x: f'toBig({x})')
+BIG_INTEGER_CLASS = TypeInfo('BigInteger', WorkingType.BIG,
+                    itself)
+INTEGER_CLASS = TypeInfo('Integer', WorkingType.INT,
+                    lambda x: f'BigInteger.valueOf({x})',
+                    lambda x: f'((long) {x})',
+                    itself)
+BOOLEAN_CLASS = TypeInfo('Boolean', WorkingType.INT,
+                    lambda x: f'({x} ? ONE : ZERO)',
+                    lambda x: f'({x} ? 1L : 0L)',
+                    lambda x: f'({x} ? 1 : 0)')
+DOUBLE_CLASS = TypeInfo('Double', WorkingType.OBJECT)
 
 
 @dataclass
 class OpInfo:
+    "Base class for describing operations."
     # Name of the operation ("__add__", "__neg__", etc.).
     name: str
-
-
-def missing_unary_method(op, t):
-    return f'// Missing {op.name}({t.name})'
-
-def unary_method(op:"UnaryOpInfo", t:TypeInfo):
-    if t.name in BIG_TYPES:
-        return f'''
-        static Object {op.name}({t.name} self) {{
-            return {op.big_op(t.as_big("self"))};
-        }}
-        '''
-    elif t.name == "Boolean":
-        return f'''
-        static Object {op.name}({t.name} self) {{
-            return {op.long_op("(self ? 1 : 0)")};
-        }}
-        '''
-    else:
-        return f'''
-        static Object {op.name}({t.name} self) {{
-            long r = {op.long_op(t.as_long("self"))};
-            int s = (int) r;
-            return s == r ? s : BigInteger.valueOf(r);
-        }}
-        '''
+    # Implementation of this op implies the working type is at least:
+    return_type: TypeInfo
+    # Implementation of this op implies the working type is at least:
+    min_working_type: WorkingType
 
 
 @dataclass
 class UnaryOpInfo(OpInfo):
-    # Function returning expression using long as common type
-    long_op: Callable
-    # Function returning expression using BigInteger as common type
+    # There is a template (a function) to generate an expression
+    # for each working Java type to which argument may be converted.
+    # Working type is Java BigInteger
     big_op: Callable
-    # Function to compute the method as a string
-    method: Callable = unary_method
-
-
-def string_method(op:"StringOpInfo", t:TypeInfo):
-    # In due course, remove the Py.str() wrapper
-    if t.name in BIG_TYPES:
-        return f'''
-        static Object {op.name}({t.name} self) {{
-            return Py.str({op.big_op(t.as_big("self"))});
-        }}
-        '''
-    else:
-        return f'''
-        static Object {op.name}({t.name} self) {{
-           return Py.str({op.long_op(t.as_long("self"))});
-        }}
-        '''
-
-
-@dataclass
-class StringOpInfo(OpInfo):
-    # Function returning expression using long as common type
+    # Working type is Java long
     long_op: Callable
-    # Function returning expression using BigInteger as common type
-    big_op: Callable
-    # Function to compute the method as a string
-    method: Callable = string_method
+    # Working type is Java int
+    int_op: Callable
 
-
-def missing_binary_method(op:OpInfo, t1:TypeInfo, t2:TypeInfo):
-    return f'// Missing {op.name}({t1.name}, {t2.name})'
-
-def binary_method(op:OpInfo, t1:TypeInfo, t2:TypeInfo):
-
-    if not op.reflected:
-        # signature is Object op(t1 v, t2 w), expr is v op w
-        vt, a1, wt, a2 = t1, 'v', t2, 'w'
-    else:
-        # signature is Object op(t1 w, t2 v), expr is v op w
-        vt, a1, wt, a2 = t2, 'w', t1, 'v'
-    signature = f'Object {op.name}({t1.name} {a1}, {t2.name} {a2})'
-
-    if t1.name in BIG_TYPES or t2.name in BIG_TYPES:
-        expr = f'{op.big_op(vt.as_big("v"), wt.as_big("w"))}'
-        if t2.name == "Object":
-            # An Object argument implies we call toBig: deal with
-            # possibly needless BigInteger and possible exception.
-            return f'''
-            static {signature} {{
-                try {{
-                    return toInt({expr});
-                }} catch (NoConversion e) {{
-                    return Py.NotImplemented;
-                }}
-            }}
-            '''
-        else:
-            return f'''
-            static {signature} {{
-                return toInt({expr});
-            }}
-            '''
-    else:
-        expr = f'{op.long_op(vt.as_long("v"), wt.as_long("w"))}'
-        return f'''
-        static {signature} {{
-            long r = {expr};
-            int s = (int) r;
-            return s == r ? s : BigInteger.valueOf(r);
-        }}
-        '''
 
 @dataclass
 class BinaryOpInfo(OpInfo):
-    # self operator long_op
-    long_op: str
-    # method name in BigInteger
-    big_op: str
-    # True if reflected operation
-    reflected: bool = False
-    # Function to compute the method as a string
-    method: Callable = binary_method
+    # There is a template (a function) to generate the body
+    body_method: Callable
+    # There is a template (a function) to generate an expression
+    # for each working Java type to which arguments may be converted.
+    # Working type is Java BigInteger
+    big_op: Callable
+    # Working type is Java long
+    long_op: Callable
+    # Working type is Java int
+    int_op: Callable
+    # Also create class-specific binop specialisations
+    class_specific: bool = False
 
+
+def unary_method(op:UnaryOpInfo, t:TypeInfo):
+    "Template generating the body of a unary operation."
+    # Decide the width at which to work with this type and op
+    iw = max(op.min_working_type.value, t.min_working_type.value)
+    w = WorkingType(iw)
+    if w == WorkingType.INT:
+        return _unary_method_int(op, t)
+    elif w == WorkingType.LONG:
+        return _unary_method_long(op, t)
+    elif w == WorkingType.BIG:
+        return _unary_method_big(op, t)
+    else:
+        raise ValueError(
+            f"Cannot make method body for {op.name} and {w}")
+
+def _unary_method_int(op:UnaryOpInfo, t:TypeInfo):
+    "Template for unary methods when the working type is INT"
+    return f'''
+        return {op.int_op(t.as_int("self"))};
+    '''
+
+def _unary_method_long(op:UnaryOpInfo, t:TypeInfo):
+    "Template for unary methods when the working type is LONG"
+    return f'''
+        long r = {op.long_op(t.as_long("self"))};
+        int s = (int) r;
+        return s == r ? s : BigInteger.valueOf(r);
+    '''
+
+def _unary_method_big(op:UnaryOpInfo, t:TypeInfo):
+    "Template for unary methods when the working type is BIG"
+    return f'''
+        return {op.big_op(t.as_big("self"))};
+    '''
+
+
+def binary_method(op:BinaryOpInfo, t1:TypeInfo, n1, t2:TypeInfo, n2):
+    "Template generating the body of a binary operation."
+    # Decide the width at which to work with these typse and op
+    iw = max(op.min_working_type.value,
+            t1.min_working_type.value,
+            t2.min_working_type.value)
+    w = WorkingType(iw)
+    if w == WorkingType.INT:
+        return _binary_method_int(op, t1, n1, t2, n2)
+    elif w == WorkingType.LONG:
+        return _binary_method_long(op, t1, n1, t2, n2)
+    elif w == WorkingType.BIG:
+        return _binary_method_big(op, t1, n1, t2, n2)
+    elif w == WorkingType.OBJECT:
+        return _binary_method_obj(op, t1, n1, t2, n2)
+    else:
+        raise ValueError(
+            f"Cannot make method body for {op.name} and {w}")
+
+
+def _binary_method_int(op:BinaryOpInfo, t1:TypeInfo, n1, t2:TypeInfo, n2):
+    return f'''
+        return {op.int_op(t1.as_int(n1), t2.as_int(n2))};
+    '''
+
+def _binary_method_long(op:BinaryOpInfo, t1:TypeInfo, n1, t2:TypeInfo, n2):
+    return f'''
+        long r = {op.long_op(t1.as_long(n1), t2.as_long(n2))};
+        int s = (int) r;
+        return s == r ? s : BigInteger.valueOf(r);
+    '''
+
+def _binary_method_big(op:BinaryOpInfo, t1:TypeInfo, n1, t2:TypeInfo, n2):
+    return f'''
+        return toInt({op.big_op(t1.as_big(n1), t2.as_big(n2))});
+    '''
+
+def _binary_method_obj(op:BinaryOpInfo, t1:TypeInfo, n1, t2:TypeInfo, n2):
+    return f'''
+        try {{
+            return toInt({op.big_op(t1.as_big(n1), t2.as_big(n2))});
+        }} catch (NoConversion e) {{
+            return Py.NotImplemented;
+        }}
+    '''
+
+def comparison(op:BinaryOpInfo, t1:TypeInfo, n1, t2:TypeInfo, n2):
+    "Template generating the body of a comparison operation."
+    iw = max(op.min_working_type.value,
+            t1.min_working_type.value,
+            t2.min_working_type.value)
+    w = WorkingType(iw)
+    if w == WorkingType.INT:
+        return _comparison_int(op, t1, n1, t2, n2)
+    elif w == WorkingType.LONG:
+        return _comparison_long(op, t1, n1, t2, n2)
+    elif w == WorkingType.BIG:
+        return _comparison_big(op, t1, n1, t2, n2)
+    elif w == WorkingType.OBJECT:
+        return _comparison_obj(op, t1, n1, t2, n2)
+    else:
+        raise ValueError(
+            f"Cannot make method body for {op.name} and {w}")
+
+
+def _comparison_int(op:BinaryOpInfo, t1:TypeInfo, n1, t2:TypeInfo, n2):
+    return f'''
+        return {op.int_op(t1.as_int(n1), t2.as_int(n2))};
+    '''
+
+def _comparison_long(op:BinaryOpInfo, t1:TypeInfo, n1, t2:TypeInfo, n2):
+    return f'''
+        return {op.long_op(t1.as_long(n1), t2.as_long(n2))};
+    '''
+
+def _comparison_big(op:BinaryOpInfo, t1:TypeInfo, n1, t2:TypeInfo, n2):
+    return f'''
+        return {op.big_op(t1.as_big(n1), t2.as_big(n2))};
+    '''
+
+def _comparison_obj(op:BinaryOpInfo, t1:TypeInfo, n1, t2:TypeInfo, n2):
+    return f'''
+        try {{
+            return {op.big_op(t1.as_big(n1), t2.as_big(n2))};
+        }} catch (NoConversion e) {{
+            return Py.NotImplemented;
+        }}
+    '''
 
 class PyLongGenerator(ImplementationGenerator):
 
     # The canonical and adopted implementations in PyInteger.java,
     # as there are no further accepted self-classes.
     ACCEPTED_CLASSES = [
-        TypeInfo('PyLong', pylong_as_long, pylong_as_big),
-        TypeInfo('BigInteger', big_as_long, lambda x: x),
-        TypeInfo('Integer'),
-        TypeInfo('Boolean', bool_as_long, bool_as_big),
+        PY_LONG_CLASS,
+        BIG_INTEGER_CLASS,
+        INTEGER_CLASS,
+        BOOLEAN_CLASS,
     ]
     OPERAND_CLASSES = ACCEPTED_CLASSES + [
     ]
-    OBJECT_CLASS = TypeInfo('Object', None, lambda x: f'toBig({x})')
 
     # Operations have to provide versions in which long and
     # BigInteger are the common type to which arguments are converted.
 
     UNARY_OPS = [
-        # Arguments are: name, long_op, big_op[, method]
-        UnaryOpInfo('__abs__', lambda x: f'Math.abs({x})',
-            lambda x: f'{x}.abs()'),
-        UnaryOpInfo('__index__', lambda x: f'{x}',
-            lambda x: f'{x}'),
-        UnaryOpInfo('__int__', lambda x: f'{x}',
-            lambda x: f'{x}'),
-        UnaryOpInfo('__neg__', lambda x: f'-{x}',
-            lambda x: f'{x}.negate()'),
+        # Arguments are: name, min_working_type,
+        # big_op, long_op, int_op[, method]
+        UnaryOpInfo('__abs__', OBJECT_CLASS, WorkingType.LONG,
+            lambda x: f'{x}.abs()',
+            lambda x: f'Math.abs({x})',
+            lambda x: f'Math.abs({x})'),
+        UnaryOpInfo('__index__', OBJECT_CLASS, WorkingType.INT,
+            itself,
+            itself,
+            itself),
+        UnaryOpInfo('__int__', OBJECT_CLASS, WorkingType.INT,
+            itself,
+            itself,
+            itself),
+        UnaryOpInfo('__neg__', OBJECT_CLASS, WorkingType.LONG,
+            lambda x: f'{x}.negate()',
+            lambda x: f'-{x}',
+            lambda x: f'-{x}'),
+        UnaryOpInfo('__float__', OBJECT_CLASS, WorkingType.INT,
+            lambda x: f'PyLong.convertToDouble({x})',
+            lambda x: f'((double) {x})',
+            lambda x: f'((double) {x})'),
+        UnaryOpInfo('__bool__', OBJECT_CLASS, WorkingType.INT,
+            lambda x: f'{x}.signum() != 0',
+            lambda x: f'{x} != 0L',
+            lambda x: f'{x} != 0'),
     ]
-    STRING_OPS = [
-        # Arguments are: name, long_op, big_op[, method]
-        # StringOpInfo('__repr__', lambda x: f'Long.toString({x})',
-        #     lambda x: f'{x}.toString()'),
-    ]
-#     PREDICATE_OPS = [
-#         UnaryOpInfo('__bool__', '{} != 0.0'),
-#     ]
-    BINARY_OPS = [
-        # Arguments are: name, long_op, big_op[, reflected[, method]]
-        BinaryOpInfo('__add__', lambda x, y: f'{x} + {y}', 
-            lambda x, y: f'{x}.add({y})'),
-        BinaryOpInfo('__radd__', lambda x, y: f'{x} + {y}', 
-            lambda x, y: f'{x}.add({y})', True),
-        BinaryOpInfo('__sub__', lambda x, y: f'{x} - {y}', 
-            lambda x, y: f'{x}.subtract({y})'),
-        BinaryOpInfo('__rsub__', lambda x, y: f'{x} - {y}', 
-            lambda x, y: f'{x}.subtract({y})', True),
-        BinaryOpInfo('__mul__', lambda x, y: f'{x} * {y}', 
-            lambda x, y: f'{x}.multiply({y})'),
-        BinaryOpInfo('__rmul__', lambda x, y: f'{x} * {y}', 
-            lambda x, y: f'{x}.multiply({y})', True),
 
-        BinaryOpInfo('__and__', lambda x, y: f'{x} & {y}', 
-            lambda x, y: f'{x}.and({y})'),
-        BinaryOpInfo('__rand__', lambda x, y: f'{x} & {y}', 
-            lambda x, y: f'{x}.and({y})', True),
-        BinaryOpInfo('__or__', lambda x, y: f'{x} | {y}', 
-            lambda x, y: f'{x}.or({y})'),
-        BinaryOpInfo('__ror__', lambda x, y: f'{x} | {y}', 
-            lambda x, y: f'{x}.or({y})', True),
-        BinaryOpInfo('__xor__', lambda x, y: f'{x} ^ {y}', 
-            lambda x, y: f'{x}.xor({y})'),
-        BinaryOpInfo('__rxor__', lambda x, y: f'{x} ^ {y}', 
-            lambda x, y: f'{x}.xor({y})', True),
+    BINARY_OPS = [
+        # Arguments are: name, return_type, working_type,
+        #            body_method,
+        #            big_op, long_op, int_op
+        BinaryOpInfo('__add__', OBJECT_CLASS, WorkingType.LONG,
+            binary_method,
+            lambda x, y: f'{x}.add({y})',
+            lambda x, y: f'{x} + {y}', 
+            lambda x, y: f'{x} + {y}',
+            True),
+        BinaryOpInfo('__radd__', OBJECT_CLASS, WorkingType.LONG,
+            binary_method,
+            lambda x, y: f'{y}.add({x})',
+            lambda x, y: f'{y} + {x}', 
+            lambda x, y: f'{y} + {x}',
+            True),
+        BinaryOpInfo('__sub__', OBJECT_CLASS, WorkingType.LONG,
+            binary_method,
+            lambda x, y: f'{x}.subtract({y})',
+            lambda x, y: f'{x} - {y}', 
+            lambda x, y: f'{x} - {y}',
+            True),
+        BinaryOpInfo('__rsub__', OBJECT_CLASS, WorkingType.LONG,
+            binary_method,
+            lambda x, y: f'{y}.subtract({x})',
+            lambda x, y: f'{y} - {x}', 
+            lambda x, y: f'{y} - {x}',
+            True),
+        BinaryOpInfo('__mul__', OBJECT_CLASS, WorkingType.LONG,
+            binary_method,
+            lambda x, y: f'{x}.multiply({y})',
+            lambda x, y: f'{x} * {y}', 
+            lambda x, y: f'{x} * {y}',
+            True),
+        BinaryOpInfo('__rmul__', OBJECT_CLASS, WorkingType.LONG,
+            binary_method,
+            lambda x, y: f'{y}.multiply({x})',
+            lambda x, y: f'{y} * {x}', 
+            lambda x, y: f'{y} * {x}',
+            True),
+        BinaryOpInfo('__floordiv__', OBJECT_CLASS, WorkingType.LONG,
+            binary_method,
+            lambda x, y: f'{x}.divide({y})',
+            lambda x, y: f'{x} / {y}', 
+            lambda x, y: f'{x} / {y}',
+            True),
+        BinaryOpInfo('__rfloordiv__', OBJECT_CLASS, WorkingType.LONG,
+            binary_method,
+            lambda x, y: f'{y}.divide({x})',
+            lambda x, y: f'{y} / {x}', 
+            lambda x, y: f'{y} / {x}',
+            True),
+#         BinaryOpInfo('__truediv__', OBJECT_CLASS, WorkingType.DOUBLE,
+#             binary_method,
+#             lambda x, y: f'{x} / {y}',
+#             lambda x, y: f'{x} / {y}', 
+#             lambda x, y: f'{x} / {y}',
+#             True),
+#         BinaryOpInfo('__rtruediv__', OBJECT_CLASS, WorkingType.DOUBLE,
+#             binary_method,
+#             lambda x, y: f'{y} / {x}',
+#             lambda x, y: f'{y} / {x}', 
+#             lambda x, y: f'{y} / {x}',
+#             True),
+
+        BinaryOpInfo('__and__', OBJECT_CLASS, WorkingType.INT,
+            binary_method,
+            lambda x, y: f'{x}.and({y})',
+            lambda x, y: f'{x} & {y}', 
+            lambda x, y: f'{x} & {y}',
+            True),
+        BinaryOpInfo('__rand__', OBJECT_CLASS, WorkingType.INT,
+            binary_method,
+            lambda x, y: f'{y}.and({x})',
+            lambda x, y: f'{y} & {x}', 
+            lambda x, y: f'{y} & {x}',
+            True),
+        BinaryOpInfo('__or__', OBJECT_CLASS, WorkingType.INT,
+            binary_method,
+            lambda x, y: f'{x}.or({y})',
+            lambda x, y: f'{x} | {y}', 
+            lambda x, y: f'{x} | {y}',
+            True),
+        BinaryOpInfo('__ror__', OBJECT_CLASS, WorkingType.INT,
+            binary_method,
+            lambda x, y: f'{y}.or({x})',
+            lambda x, y: f'{y} | {x}', 
+            lambda x, y: f'{y} | {x}'),
+        BinaryOpInfo('__xor__', OBJECT_CLASS, WorkingType.INT,
+            binary_method,
+            lambda x, y: f'{x}.xor({y})',
+            lambda x, y: f'{x} ^ {y}', 
+            lambda x, y: f'{x} ^ {y}',
+            True),
+        BinaryOpInfo('__rxor__', OBJECT_CLASS, WorkingType.INT,
+            binary_method,
+            lambda x, y: f'{y}.xor({x})',
+            lambda x, y: f'{y} ^ {x}', 
+            lambda x, y: f'{y} ^ {x}',
+            True),
+
+        BinaryOpInfo('__lt__', OBJECT_CLASS, WorkingType.INT,
+            comparison,
+            lambda x, y: f'{x}.compareTo({y}) < 0',
+            lambda x, y: f'{x} < {y}', 
+            lambda x, y: f'{x} < {y}'),
+        BinaryOpInfo('__le__', OBJECT_CLASS, WorkingType.INT,
+            comparison,
+            lambda x, y: f'{x}.compareTo({y}) <= 0',
+            lambda x, y: f'{x} <= {y}', 
+            lambda x, y: f'{x} <= {y}'),
+        BinaryOpInfo('__eq__', OBJECT_CLASS, WorkingType.INT,
+            comparison,
+            lambda x, y: f'{x}.compareTo({y}) == 0',
+            lambda x, y: f'{x} == {y}', 
+            lambda x, y: f'{x} == {y}'),
+        BinaryOpInfo('__ne__', OBJECT_CLASS, WorkingType.INT,
+            comparison,
+            lambda x, y: f'{x}.compareTo({y}) != 0',
+            lambda x, y: f'{x} != {y}', 
+            lambda x, y: f'{x} != {y}'),
+        BinaryOpInfo('__gt__', OBJECT_CLASS, WorkingType.INT,
+            comparison,
+            lambda x, y: f'{x}.compareTo({y}) > 0',
+            lambda x, y: f'{x} > {y}', 
+            lambda x, y: f'{x} > {y}'),
+        BinaryOpInfo('__ge__', OBJECT_CLASS, WorkingType.INT,
+            comparison,
+            lambda x, y: f'{x}.compareTo({y}) >= 0',
+            lambda x, y: f'{x} >= {y}', 
+            lambda x, y: f'{x} >= {y}'),
     ]
-#     BINARY_PREDICATE_OPS = [
-#         BinaryOpInfo('__lt__', '{} < {}'),
-#         BinaryOpInfo('__eq__', '{} == {}'),
-#     ]
 
     # Emit methods selectable by a single type
     def special_methods(self, e):
 
-        # Emit the string unary operations
-        for op in self.STRING_OPS:
-            for t in self.ACCEPTED_CLASSES:
-                self.special_unary(e, op, t)
-
         # Emit the unary operations
         for op in self.UNARY_OPS:
+            e.emit_line(f'// {"-"*(60-len(op.name))} {op.name}')
+            e.emit_line()
             for t in self.ACCEPTED_CLASSES:
                 self.special_unary(e, op, t)
 
@@ -247,8 +428,10 @@ class PyLongGenerator(ImplementationGenerator):
 
         # Emit the binary operations op(T, Object)
         for op in self.BINARY_OPS:
+            e.emit_line(f'// {"-"*(60-len(op.name))} {op.name}')
+            e.emit_line()
             for vt in self.ACCEPTED_CLASSES:
-                self.special_binary(e, op, vt, self.OBJECT_CLASS)
+                self.special_binary(e, op, vt, OBJECT_CLASS)
 
         # Emit the binary predicate operations op(T, Object)
 #         for op in self.BINARY_PREDICATE_OPS:
@@ -258,11 +441,14 @@ class PyLongGenerator(ImplementationGenerator):
     # Emit methods selectable by a pair of types (for call sites)
     def special_binops(self, e):
 
-        # Emit the binary operations
+        # Emit the binary operations and comparisons
         for op in self.BINARY_OPS:
-            for vt in self.ACCEPTED_CLASSES:
-                for wt in self.OPERAND_CLASSES:
-                    self.special_binary(e, op, vt, wt)
+            if op.class_specific:
+                e.emit_line(f'// {"-"*(60-len(op.name))} {op.name}')
+                e.emit_line()
+                for vt in self.ACCEPTED_CLASSES:
+                    for wt in self.OPERAND_CLASSES:
+                        self.special_binary(e, op, vt, wt)
 
     def left_justify(self, text):
         lines = list()
@@ -283,14 +469,27 @@ class PyLongGenerator(ImplementationGenerator):
             clean.append(line[common:])
         return clean
 
-    def special_unary(self, e, op, t):
-        method = op.method(op, t)
-        method = self.left_justify(method)
-        e.emit_lines(method)
+    def special_unary(self, e, op:UnaryOpInfo, t):
+        e.emit('static ').emit(op.return_type.name).emit(' ')
+        e.emit(op.name).emit('(').emit(t.name).emit(' self) {')
+        with e.indentation():
+            method = unary_method(op, t)
+            method = self.left_justify(method)
+            e.emit_lines(method)
+        e.emit_line('}').emit_line()
 
-    def special_binary(self, e, op, t1, t2):
-        method = op.method(op, t1, t2)
-        method = self.left_justify(method)
-        e.emit_lines(method)
+    def special_binary(self, e, op:BinaryOpInfo, t1, t2):
+        reflected = op.name.startswith('__r') and \
+            op.name not in ("__rrshift__", "__round__", "__repr__")
+        n1, n2 = 'vw' if not reflected else 'wv'
+        e.emit('static ').emit(op.return_type.name).emit(' ')
+        e.emit(op.name).emit('(')
+        e.emit(t1.name).emit(' ').emit(n1).emit(', ')
+        e.emit(t2.name).emit(' ').emit(n2).emit(') {')
+        with e.indentation():
+            method = op.body_method(op, t1, n1, t2, n2)
+            method = self.left_justify(method)
+            e.emit_lines(method)
+        e.emit_line('}').emit_line()
 
 

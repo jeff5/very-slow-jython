@@ -20,8 +20,8 @@ enum Comparison {
     LT("<", Slot.op_lt) {
 
         @Override
-        Object toBool(int c) {
-            return c < 0 ? Py.True : Py.False;
+        boolean toBool(int c) {
+            return c < 0;
         }
     },
 
@@ -29,8 +29,8 @@ enum Comparison {
     LE("<=", Slot.op_le) {
 
         @Override
-        Object toBool(int c) {
-            return c <= 0 ? Py.True : Py.False;
+        boolean toBool(int c) {
+            return c <= 0;
         }
     },
 
@@ -38,8 +38,8 @@ enum Comparison {
     EQ("==", Slot.op_eq) {
 
         @Override
-        Object toBool(int c) {
-            return c == 0 ? Py.True : Py.False;
+        boolean toBool(int c) {
+            return c == 0;
         }
     },
 
@@ -47,8 +47,8 @@ enum Comparison {
     NE("!=", Slot.op_ne) {
 
         @Override
-        Object toBool(int c) {
-            return c != 0 ? Py.True : Py.False;
+        boolean toBool(int c) {
+            return c != 0;
         }
     },
 
@@ -56,8 +56,8 @@ enum Comparison {
     GT(">", Slot.op_gt) {
 
         @Override
-        Object toBool(int c) {
-            return c > 0 ? Py.True : Py.False;
+        boolean toBool(int c) {
+            return c > 0;
         }
     },
 
@@ -65,8 +65,8 @@ enum Comparison {
     GE(">=", Slot.op_ge) {
 
         @Override
-        Object toBool(int c) {
-            return c >= 0 ? Py.True : Py.False;
+        boolean toBool(int c) {
+            return c >= 0;
         }
     },
 
@@ -74,8 +74,8 @@ enum Comparison {
     IN("in", Slot.op_contains) {
 
         @Override
-        Object toBool(int c) {
-            return c >= 0 ? Py.True : Py.False;
+        boolean toBool(int c) {
+            return c >= 0;
         }
 
         @Override
@@ -94,8 +94,8 @@ enum Comparison {
     NOT_IN("not in", Slot.op_contains) {
 
         @Override
-        Object toBool(int c) {
-            return c < 0 ? Py.True : Py.False;
+        boolean toBool(int c) {
+            return c < 0;
         }
 
         @Override
@@ -114,7 +114,7 @@ enum Comparison {
     IS("is") {
 
         @Override
-        Object toBool(int c) {
+        boolean toBool(int c) {
             return c == 0;
         }
 
@@ -129,7 +129,7 @@ enum Comparison {
     IS_NOT("is not") {
 
         @Override
-        Object toBool(int c) {
+        boolean toBool(int c) {
             return c != 0;
         }
 
@@ -143,8 +143,8 @@ enum Comparison {
     EXC_MATCH("matches") {
 
         @Override
-        Object toBool(int c) {
-            return c == 0 ? Py.True : Py.False;
+        boolean toBool(int c) {
+            return c == 0;
         }
 
         @Override
@@ -157,8 +157,8 @@ enum Comparison {
     BAD("?") {
 
         @Override
-        Object toBool(int c) {
-            return Py.False;
+        boolean toBool(int c) {
+            return false;
         }
 
         @Override
@@ -221,13 +221,15 @@ enum Comparison {
      * operations LT to GE inclusive, this is typically wrapped onto a
      * call to {@code Comparable.compareTo()}). For the others we assume
      * c==0 indicates equality.
+     * <p>
+     * Avoid the temptation to use the result of a subtraction here
+     * unless there is no possibility of overflow in the subtraction.
      *
      * @param c comparison result
      * @return boolean equivalent for this operation
      */
     // Compare CPython object.h::Py_RETURN_RICHCOMPARE
-    // XXX or Boolean?
-    abstract Object toBool(int c);
+    abstract boolean toBool(int c);
 
     /**
      * Perform this comparison, raising {@code TypeError} when the
@@ -266,7 +268,7 @@ enum Comparison {
             } catch (EmptyException e) {}
         }
 
-        /// Neither object implements this. Base == and != on identity.
+        // Neither object implements this. Base == and != on identity.
         switch (this) {
             case EQ:
                 return v == w;

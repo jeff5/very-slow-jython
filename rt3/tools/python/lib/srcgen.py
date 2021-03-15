@@ -82,7 +82,6 @@ class IndentedEmitter:
         """Begin a new line and emit with indented multi-line text."""
         for line in lines:
             self.emit_line(line)
-        self.emit_line()
         return self
 
 

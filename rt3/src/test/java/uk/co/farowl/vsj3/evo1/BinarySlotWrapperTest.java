@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test;
 /**
  * Test the {@link PyWrapperDescr}s for binary special functions on a
  * variety of types. Unlike the companion call-site tests, a descriptor
- * is <b>the descriptor in a paticular type</b> The particular
+ * is <b>the descriptor in a particular type</b>. The particular
  * operations are not the focus: we are testing the mechanisms for
  * creating and calling slot wrappers.
  */
