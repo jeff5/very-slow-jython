@@ -144,21 +144,33 @@ def comparison(op:BinaryOpInfo, t1:StrTypeInfo, n1, t2:StrTypeInfo, n2):
         raise ValueError(
             f"Cannot make method body for {op.name} and {w}")
 
+def _comparison_guard(op:BinaryOpInfo, t1:StrTypeInfo, n1, t2:StrTypeInfo, n2):
+    if t2.name == "Object" or t2.name == t1.name:
+        # The objects might be identical, permitting a shortcut
+        name = op.name
+        if name == "__eq__" or name == "__le__" or name == "__ge__":
+            return f'{n1} == {n2} || '
+        elif name == "__ne__" or name == "__lt__" or name == "__gt__":
+            return f'{n1} != {n2} && '
+    return ""
 
 def _comparison_str(op:BinaryOpInfo, t1:StrTypeInfo, n1, t2:StrTypeInfo, n2):
+    guard = _comparison_guard(op, t1, n1, t2, n2)
     return f'''
-        return {op.int_op(t1.as_str(n1), t2.as_str(n2))};
+        return {guard}{op.int_op(t1.as_str(n1), t2.as_str(n2))};
     '''
 
 def _comparison_seq(op:BinaryOpInfo, t1:StrTypeInfo, n1, t2:StrTypeInfo, n2):
+    guard = _comparison_guard(op, t1, n1, t2, n2)
     return f'''
-        return {op.seq_op(t1.as_seq(n1), t2.as_seq(n2))};
+        return {guard}{op.seq_op(t1.as_seq(n1), t2.as_seq(n2))};
     '''
 
 def _comparison_obj(op:BinaryOpInfo, t1:StrTypeInfo, n1, t2:StrTypeInfo, n2):
+    guard = _comparison_guard(op, t1, n1, t2, n2)
     return f'''
         try {{
-            return {op.seq_op(t1.as_seq(n1), t2.as_seq(n2))};
+            return {guard}{op.seq_op(t1.as_seq(n1), t2.as_seq(n2))};
         }} catch (NoConversion e) {{
             return Py.NotImplemented;
         }}
@@ -206,12 +218,12 @@ class PyUnicodeGenerator(ImplementationGenerator):
             lambda x, y: f'{x}.compareTo({y}) <= 0'),
         BinaryOpInfo('__eq__', OBJECT_CLASS, WorkingType.STRING,
             comparison,
-            lambda x, y: f'{x}.compareTo({y}) == 0',
-            lambda x, y: f'{x}.compareTo({y}) == 0'),
+            lambda x, y: f'eq({x}, {y})',
+            lambda x, y: f'eq({x}, {y})'),
         BinaryOpInfo('__ne__', OBJECT_CLASS, WorkingType.STRING,
             comparison,
-            lambda x, y: f'{x}.compareTo({y}) != 0',
-            lambda x, y: f'{x}.compareTo({y}) != 0'),
+            lambda x, y: f'!eq({x}, ({y})',
+            lambda x, y: f'!eq({x}, {y})'),
         BinaryOpInfo('__gt__', OBJECT_CLASS, WorkingType.STRING,
             comparison,
             lambda x, y: f'{x}.compareTo({y}) > 0',

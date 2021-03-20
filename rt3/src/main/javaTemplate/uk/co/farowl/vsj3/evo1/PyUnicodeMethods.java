@@ -3,6 +3,8 @@ package uk.co.farowl.vsj3.evo1;
 import uk.co.farowl.vsj3.evo1.PyObjectUtil.NoConversion;
 import static uk.co.farowl.vsj3.evo1.PyUnicode.adapt;
 
+import java.util.Iterator;
+
 // $OBJECT_GENERATOR$ PyUnicodeGenerator
 
 /**
@@ -23,4 +25,21 @@ class PyUnicodeMethods {
 
     // plumbing ------------------------------------------------------
 
+    /**
+     * Compare sequences for equality. this is a little simpler than
+     * {@code compareTo}.
+     * 
+     * @param a sequence
+     * @param b another
+     * @return whether values equal
+     */
+    private static boolean eq(PySequenceInterface<Integer> a,
+            PySequenceInterface<Integer> b) {
+        // Lengths must be equal
+        if (a.length() != b.length()) { return false; }
+        // Scan the codes points in a and b
+        Iterator<Integer> ib = b.iterator();
+        for (int c : a) { if (c != ib.next()) { return false; } }
+        return true;
+    }
 }

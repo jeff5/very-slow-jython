@@ -179,4 +179,108 @@ class ComparisonSlotWrapperTest extends UnitTestSupport {
             }
         }
     }
+
+    /**
+     * Test invocation of the {@code str.__lt__} descriptor on accepted
+     * {@code str} classes in all combinations.
+     */
+    @Test
+    void str_lt() throws Throwable {
+        str_lt_impl("", "anything", true);
+        str_lt_impl("cat", "dog", true);
+        str_lt_impl("cat", "cats", true);
+        str_lt_impl("dogs", "dog", false);
+        str_lt_impl("", new String(), false);
+    }
+
+    /**
+     * Test invoke of the {@code str.__lt__} descriptor on accepted
+     * {@code str} classes for the given pair of arguments supplied as
+     * {@code String}s.
+     */
+    private void str_lt_impl(String sv, String sw, boolean expected)
+            throws Throwable {
+
+        PyWrapperDescr lt =
+                (PyWrapperDescr) PyUnicode.TYPE.lookup(ID.__lt__);
+
+        // Make PyUnicodes equal to the strings
+        PyUnicode pv = newPyUnicode(sv);
+        // If object-identical strings, do the same with PyUnicode
+        PyUnicode pw = sv == sw ? pv : newPyUnicode(sw);
+        List<Object> wList = List.of(sw, pw);
+
+        for (Object v : List.of(sv, pv)) {
+            // v is less than (or not) everything on wList as expected
+            for (Object w : wList) {
+                Object r = lt.__call__(Py.tuple(v, w), null);
+                assertEquals(Boolean.class, r.getClass());
+                assertEquals(expected, r);
+            }
+        }
+
+        if (expected) {
+            // Repeat with the args reversed, expecting false
+            for (Object v : List.of(sv, pv)) {
+                for (Object w : wList) {
+                    Object r = lt.__call__(Py.tuple(w, v), null);
+                    assertEquals(false, r);
+                }
+            }
+        }
+    }
+
+        /**
+     * Test invocation of the {@code str.__eq__} descriptor on accepted
+     * {@code str} classes in all combinations with {@code str} and
+     * {@code int} operand types.
+     */
+    @Test
+    void str_eq() throws Throwable {
+
+        String sv = "mouse", sw = "mound";
+
+        str_eq_impl(sv, sw, false);
+        str_eq_impl(sv, "house", false);
+        // Lengths differ
+        str_eq_impl(sv, "mouser", false);
+        str_eq_impl("mounds", sw, false);
+        // Zero length
+        str_eq_impl(sv, "", false);
+        str_eq_impl("", sw, false);
+        str_eq_impl("", "", true);
+        str_eq_impl("", new String(), true);
+        // Same object
+        str_eq_impl(sv, sv, true);
+        // Different objects, equal in value
+        str_eq_impl(sv, "house".replace('h', 'm'), true);
+    }
+
+    /**
+     * Test invoke of the {@code str.__eq__} descriptor on accepted
+     * {@code str} classes for the given pair of arguments supplied as
+     * {@code String}s.
+     */
+    private void str_eq_impl(String sv, String sw, boolean expected)
+            throws Throwable {
+
+        PyWrapperDescr eq =
+                (PyWrapperDescr) PyUnicode.TYPE.lookup(ID.__eq__);
+
+        // Make PyUnicodes equal to the strings
+        PyUnicode pv = newPyUnicode(sv);
+        // If object-identical strings, do the same with PyUnicode
+        PyUnicode pw = sv == sw ? pv : newPyUnicode(sw);
+        List<Object> wList = List.of(sw, pw);
+
+        for (Object v : List.of(sv, pv)) {
+            // v is equal (or not) to everything on wList as expected
+            for (Object w : wList) {
+                Object r = eq.__call__(Py.tuple(v, w), null);
+                assertEquals(Boolean.class, r.getClass());
+                assertEquals(expected, r);
+            }
+        }
+    }
+
 }

@@ -222,8 +222,14 @@ class PyUnicode implements PySequenceInterface<Integer>, CraftedType {
         return hash;
     }
 
+    /**
+     * Compare for equality with another Python {@code str}. If the
+     * other object is not a {@code str} return {@code false}. If it is
+     * a {@code str}, compare for equality of the code points.
+     */
     @Override
     public boolean equals(Object obj) {
+        if (obj == this) { return true; }
         try {
             PySequenceInterface<Integer> b = adapt(obj);
             if (this.length() != b.length()) { return false; }
@@ -242,8 +248,7 @@ class PyUnicode implements PySequenceInterface<Integer>, CraftedType {
     @Override
     public int compareTo(PySequenceInterface<Integer> other) {
         Iterator<Integer> ib = other.iterator();
-        for (int i = 0; i < value.length; i++) {
-            int a = value[i];
+        for (int a : value) {
             if (ib.hasNext()) {
                 int b = ib.next();
                 // if a != b, then we've found an answer
