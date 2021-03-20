@@ -48,8 +48,7 @@ class PyFloatGenerator(ImplementationGenerator):
     UNARY_OPS = [
         OpInfo('__abs__', 'Math.abs({})'),
         OpInfo('__neg__', '-{}'),
-        # In due course, just make it a String
-        OpInfo('__repr__', 'Py.str(Double.toString({}))'),
+        OpInfo('__repr__', 'Double.toString({})'),
     ]
     PREDICATE_OPS = [
         OpInfo('__bool__', '{} != 0.0'),

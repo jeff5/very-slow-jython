@@ -172,7 +172,7 @@ class PyLong implements CraftedType {
     @SuppressWarnings("unused")
     private static Object __repr__(Object self) {
         assert TYPE.check(self);
-        return new PyUnicode(asBigInteger(self).toString());
+        return asBigInteger(self).toString();
     }
 
     protected static Object __new__(PyType type, PyTuple args,
@@ -209,8 +209,8 @@ class PyLong implements CraftedType {
             if ((base != 0 && base < 2) || base > 36)
                 throw new ValueError(
                         "int() base must be >= 2 and <= 36, or 0");
-            else if (x instanceof PyUnicode)
-                return new PyLong(new BigInteger(x.toString(), base));
+            else if (PyUnicode.TYPE.check(x))
+                return PyLong.fromUnicode(x, base);
             // else if ... support for bytes-like objects
             else
                 throw new TypeError(NON_STR_EXPLICIT_BASE);
@@ -359,13 +359,15 @@ class PyLong implements CraftedType {
      * @param base in which to interpret it
      * @return converted value
      * @throws ValueError if {@code u} is an invalid literal
+     * @throws TypeError if {@code u} is not a Python {@code str}
      */
     // Compare CPython longobject.c :: PyLong_FromUnicodeObject
-    static BigInteger fromUnicode(PyUnicode u, int base)
-            throws ValueError {
+    static BigInteger fromUnicode(Object u, int base)
+            throws ValueError, TypeError {
         try {
             // XXX maybe check 2<=base<=36 even if Number.asLong does?
-            return new BigInteger(u.toString(), base);
+            String value =  PyUnicode.asString(u);
+            return new BigInteger(value, base);
         } catch (NumberFormatException e) {
             throw new ValueError(
                     "invalid literal for int() with base %d: %.200s",

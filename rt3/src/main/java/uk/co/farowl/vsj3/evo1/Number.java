@@ -331,8 +331,8 @@ public class Number extends Abstract {
 
         // XXX Not implemented: else try the __trunc__ method
 
-        if ((o instanceof PyUnicode))
-            return PyLong.fromUnicode((PyUnicode) o, 10);
+        if (PyUnicode.TYPE.check(o))
+            return PyLong.fromUnicode(o, 10);
 
         // else if ... support for bytes-like objects
         else

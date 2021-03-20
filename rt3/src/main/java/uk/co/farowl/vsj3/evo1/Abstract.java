@@ -39,7 +39,7 @@ public class Abstract {
     // Compare CPython PyObject_Repr in object.c
     static Object repr(Object o) throws TypeError, Throwable {
         if (o == null) {
-            return Py.str("<null>");
+            return "<null>";
         } else {
             Operations ops = Operations.of(o);
             try {

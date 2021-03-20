@@ -290,6 +290,25 @@ class PyUnicode implements PySequenceInterface<Integer>, CraftedType {
         return b.toString();
     }
 
+    /**
+     * Present a Python {@code str} as a Java {@code String}
+     * values or raise a {@link TypeError}. This is for use when the
+     * argument is expected to be a Python {@code str} or a sub-class of
+     * it.
+     *
+     * @param v claimed {@code str}
+     * @return {@code String} value
+     * @throws TypeError if {@code v} is not a Python {@code str}
+     */
+    static String asString(Object v)
+            throws TypeError {
+        if (v instanceof String)
+            return (String) v;
+        else if (v instanceof PyUnicode)
+            return ((PyUnicode) v).toString();
+        throw Abstract.requiredTypeError("a str", v);
+    }
+
     // Sequence interface ---------------------------------------------
 
     @Override

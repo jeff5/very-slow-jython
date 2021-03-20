@@ -112,7 +112,8 @@ public class Py {
      * @param value to wrap
      * @return equivalent {@code str}
      */
-    public static PyUnicode str(String value) {
+    // XXX Deprecate when lookup works with String as str
+    public static Object str(String value) {
         return new PyUnicode(value);
     }
 

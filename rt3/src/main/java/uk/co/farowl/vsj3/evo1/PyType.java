@@ -1608,7 +1608,7 @@ class PyType extends Operations implements PyObjectDict {
 
         // Force name to actual str , not just a sub-class
         if (name.getClass() != PyUnicode.class) {
-            name = Py.str(name.toString());
+            name = new PyUnicode(name.toString());
         }
 
         // Check to see if this is a special name
@@ -1664,7 +1664,7 @@ class PyType extends Operations implements PyObjectDict {
 
         // Force name to actual str , not just a sub-class
         if (name.getClass() != PyUnicode.class) {
-            name = Py.str(name.toString());
+            name = new PyUnicode(name.toString());
         }
 
         // Check to see if this is a special name
