@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from evo1.generate import ImplementationGenerator
 from evo1.generate import PyFloatGenerator
 from evo1.generate import PyLongGenerator
+from evo1.generate import PyUnicodeGenerator
 
 
 class ImplementationTemplateProcessorFactory:

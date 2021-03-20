@@ -57,7 +57,7 @@ class UnitTestSupport {
         if (v instanceof String)
             return (String) v;
         else if (v instanceof PyUnicode)
-            return ((PyUnicode) v).value;
+            return ((PyUnicode) v).toString();
         else
             return v.toString();
     }

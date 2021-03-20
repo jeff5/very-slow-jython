@@ -586,7 +586,8 @@ class PyType extends Operations implements PyObjectDict {
 
     /** name has the form __A__ where A is one or more characters. */
     private static boolean isDunderName(PyUnicode name) {
-        String n = name.value;
+        // XXX This will be inefficient. Is it guaranteed to be String?
+        String n = name.toString();
         final int L = n.length();
         return L > 4 && n.charAt(1) == '_' && n.charAt(0) == '_'
                 && n.charAt(L - 2) == '_' && n.charAt(L - 1) == '_';

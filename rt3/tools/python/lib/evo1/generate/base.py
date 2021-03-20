@@ -2,7 +2,62 @@
 #
 # Module: evo1.generate.base
 
+from dataclasses import dataclass
+from enum import Enum
 from datetime import datetime
+
+
+# The method implementations convert operands to a common "working
+# type" in order to perform the central operation. The type varies
+# with the operation and the operand(s). For example, when adding
+# two operands known to be Integer, the common type is LONG (Java
+# long), so that there is no overflow, while bit-wise operations on
+# the same pair may be carried out in an INT.
+#
+# In a unary operation, the wider of the (minimum) operation type
+# and the operand type is used. When mixing types in a binary
+# operation, the widest of the two types and the operation is used.
+class WorkingType(Enum):
+    "Enumerates the types to which operands may be converted."
+    INT = 0
+    LONG = 1
+    BIG = 2
+    DOUBLE = 3
+    STRING = 4
+    SEQ = 5
+    OBJECT = 6
+
+
+# We use pre-defined data classes to describe (Java) types that may
+# appear as operands or return types. We record the name in Java,
+# information about the minimum "width" at which we ought to
+# compute with them, and how to convert them to int, long and big
+# representations.
+
+@dataclass
+class TypeInfo:
+    "Information about a type an templates for conversion to int types"
+    # Java name of a Java class ("PyLong", "Integer", etc.)
+    name: str
+    # An argument of this type implies the working type is at least:
+    min_working_type: WorkingType
+
+
+# Implementation template scripts extend this dataclass to describe
+# their operations.
+
+@dataclass
+class OpInfo:
+    "Base class for describing operations."
+    # Name of the operation ("__add__", "__neg__", etc.).
+    name: str
+    # Implementation of this op have a return type of:
+    return_type: TypeInfo
+    # Implementation of this op implies the working type is at least:
+    min_working_type: WorkingType
+
+
+# Base class of generators for object implementations
 
 class ImplementationGenerator:
 

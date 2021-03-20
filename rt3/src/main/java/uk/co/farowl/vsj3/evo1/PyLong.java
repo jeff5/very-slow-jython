@@ -476,9 +476,9 @@ class PyLong implements CraftedType {
      * exception or taking an alternative course of action.
      *
      * @param v to convert
-     * @return converted to {@code double}
+     * @return converted to {@code int}
      * @throws NoConversion v is not an {@code int}
-     * @throws OverflowError v is too large to be a {@code float}
+     * @throws OverflowError v is too large to be a Java {@code int}
      */
     // Compare CPython longobject.c: PyLong_AsSsize_t
     static int convertToInt(Object v)
@@ -502,7 +502,7 @@ class PyLong implements CraftedType {
      *
      * @param v to convert
      * @return converted to {@code int}
-     * @throws OverflowError if too large to be an {@code int}
+     * @throws OverflowError if too large to be a Java {@code int}
      */
     static int convertToInt(BigInteger v) throws OverflowError {
         if (v.bitLength() < 32)

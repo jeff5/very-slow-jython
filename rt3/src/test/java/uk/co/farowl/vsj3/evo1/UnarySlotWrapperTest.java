@@ -209,8 +209,9 @@ class UnarySlotWrapperTest extends UnitTestSupport {
         // Invoke for PyUnicode, String
         for (Object x : List.of(ux, sx)) {
             Object r = len.__call__(Py.tuple(x), null);
-            assertPythonType(PyLong.TYPE, r);
-            assertEquals(5, PyLong.asInt(r));
+            // The result will be Integer (since slot returns int)
+            assertEquals(Integer.class, r.getClass());
+            assertEquals(5, r);
         }
     }
 
@@ -231,8 +232,9 @@ class UnarySlotWrapperTest extends UnitTestSupport {
         // Invoke for PyUnicode, String
         for (Object x : List.of(ux, sx)) {
             Object r = hash.__call__(Py.tuple(x), null);
-            assertPythonType(PyLong.TYPE, r);
-            assertEquals(exp, PyLong.asInt(r));
+            // The result will be Integer (since slot returns int)
+            assertEquals(Integer.class, r.getClass());
+            assertEquals(exp,r);
         }
     }
 

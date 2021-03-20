@@ -9,19 +9,39 @@ package uk.co.farowl.vsj3.evo1;
  * implementing {@code PySequence}. A proxy class could be created that
  * holds such an object and does implement {@code PySequence}.
  */
-interface PySequence  {
+interface PySequenceInterface<T>
+        extends Iterable<T>, Comparable<PySequenceInterface<T>>
 
-    // /** Get one element from the sequence. */
-    // PyObject getItem(int i);
+{
+
+    /**
+     * The length of this sequence.
+     *
+     * @return the length of {@code this} sequence
+     */
+    int length();
+
+    /**
+     * Get one element from the sequence.
+     *
+     * @param i index of element to get
+     * @return value at {@code i}th position
+     */
+    T getItem(int i);
 
     // /** Set one element from the sequence (if mutable). */
     // void setItem(int i, PyObject v);
 
-    // /**
-    // * Return a sequence of the target type, concatenating this with a
-    // * sequence of possibly different type.
-    // */
-    // <S extends PySequence> S concat(PyObject other);
+    /**
+     * Return a new sequence a type determined by the implementer, that
+     * is the concatenation of the target object with a sequence of the
+     * same type. It is expected that the returned value be a Python
+     * object.
+     *
+     * @param other to follow values of {@code this} in the result
+     * @return the concatenation {@code this + other}
+     */
+    Object concat(PySequenceInterface<T> other);
 
     /**
      * Return a sequence of the target type, by repeatedly concatenating
@@ -30,6 +50,5 @@ interface PySequence  {
      * @param n number of repeats
      * @return repeating sequence
      */
-    // <S extends PySequence> S repeat(int n);
     Object repeat(int n);
 }

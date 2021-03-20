@@ -3,43 +3,14 @@
 # This generator writes PyLongMethods.java and PyLongBinops.java .
 
 from dataclasses import dataclass
-from enum import Enum
 from typing import Callable
 
-from . import ImplementationGenerator
+from . import ImplementationGenerator, TypeInfo, WorkingType, OpInfo
 
-# The method implementations convert operands to a common "working
-# type" in order to perform the central operation. The type varies
-# with the operation and the operand(s). For example, when adding
-# two operands known to be Integer, the common type is LONG (Java
-# long), so that there is no overflow, while bit-wise operations on
-# the same pair may be carried out in an INT.
-#
-# In a unary operation, the wider of the (minimum) operation type
-# and the operand type is used. When mixing types in a binary
-# operation, the widest of the two types and the operation is used.
-class WorkingType(Enum):
-    "Enumerates the types to which operands may be converted."
-    INT = 0
-    LONG = 1
-    BIG = 2
-    DOUBLE = 3
-    STRING = 4
-    OBJECT = 5
-
-# We use pre-defined data classes to describe (Java) types that may
-# appear as operands or return types. We record the name in Java,
-# information about the minimum "width" at which we ought to
-# compute with them, and how to convert them to int, long and big
-# representations.
 
 @dataclass
-class TypeInfo:
-    "Information about a type an templates for conversion to int types"
-    # Java name of a Java class ("PyLong", "Integer", etc.)
-    name: str
-    # An argument of this type implies the working type is at least:
-    min_working_type: WorkingType
+class IntTypeInfo(TypeInfo):
+    "Information about a type and templates for conversion to int types"
     # There is a template (a function) to generate an expression
     # that converts *from* this type to each named Java type.
     # Template for expression that converts to BigInteger
@@ -49,35 +20,25 @@ class TypeInfo:
     # Template for expression that converts to primitive Java int
     as_int: Callable = None
 
-# Useful in cases where an argument is aready the right type
+
+# Useful in cases where an argument is already the right type
 itself = lambda x: x
 
-PY_LONG_CLASS = TypeInfo('PyLong', WorkingType.BIG,
+PY_LONG_CLASS = IntTypeInfo('PyLong', WorkingType.BIG,
                     lambda x: f'{x}.value')
-OBJECT_CLASS = TypeInfo('Object', WorkingType.OBJECT,
+OBJECT_CLASS = IntTypeInfo('Object', WorkingType.OBJECT,
                     lambda x: f'toBig({x})')
-BIG_INTEGER_CLASS = TypeInfo('BigInteger', WorkingType.BIG,
+BIG_INTEGER_CLASS = IntTypeInfo('BigInteger', WorkingType.BIG,
                     itself)
-INTEGER_CLASS = TypeInfo('Integer', WorkingType.INT,
+INTEGER_CLASS = IntTypeInfo('Integer', WorkingType.INT,
                     lambda x: f'BigInteger.valueOf({x})',
                     lambda x: f'((long) {x})',
                     itself)
-BOOLEAN_CLASS = TypeInfo('Boolean', WorkingType.INT,
+BOOLEAN_CLASS = IntTypeInfo('Boolean', WorkingType.INT,
                     lambda x: f'({x} ? ONE : ZERO)',
                     lambda x: f'({x} ? 1L : 0L)',
                     lambda x: f'({x} ? 1 : 0)')
-DOUBLE_CLASS = TypeInfo('Double', WorkingType.OBJECT)
-
-
-@dataclass
-class OpInfo:
-    "Base class for describing operations."
-    # Name of the operation ("__add__", "__neg__", etc.).
-    name: str
-    # Implementation of this op implies the working type is at least:
-    return_type: TypeInfo
-    # Implementation of this op implies the working type is at least:
-    min_working_type: WorkingType
+DOUBLE_CLASS = IntTypeInfo('Double', WorkingType.OBJECT)
 
 
 @dataclass
@@ -108,7 +69,7 @@ class BinaryOpInfo(OpInfo):
     class_specific: bool = False
 
 
-def unary_method(op:UnaryOpInfo, t:TypeInfo):
+def unary_method(op:UnaryOpInfo, t:IntTypeInfo):
     "Template generating the body of a unary operation."
     # Decide the width at which to work with this type and op
     iw = max(op.min_working_type.value, t.min_working_type.value)
@@ -123,13 +84,13 @@ def unary_method(op:UnaryOpInfo, t:TypeInfo):
         raise ValueError(
             f"Cannot make method body for {op.name} and {w}")
 
-def _unary_method_int(op:UnaryOpInfo, t:TypeInfo):
+def _unary_method_int(op:UnaryOpInfo, t:IntTypeInfo):
     "Template for unary methods when the working type is INT"
     return f'''
         return {op.int_op(t.as_int("self"))};
     '''
 
-def _unary_method_long(op:UnaryOpInfo, t:TypeInfo):
+def _unary_method_long(op:UnaryOpInfo, t:IntTypeInfo):
     "Template for unary methods when the working type is LONG"
     return f'''
         long r = {op.long_op(t.as_long("self"))};
@@ -137,14 +98,14 @@ def _unary_method_long(op:UnaryOpInfo, t:TypeInfo):
         return s == r ? s : BigInteger.valueOf(r);
     '''
 
-def _unary_method_big(op:UnaryOpInfo, t:TypeInfo):
+def _unary_method_big(op:UnaryOpInfo, t:IntTypeInfo):
     "Template for unary methods when the working type is BIG"
     return f'''
         return {op.big_op(t.as_big("self"))};
     '''
 
 
-def binary_method(op:BinaryOpInfo, t1:TypeInfo, n1, t2:TypeInfo, n2):
+def binary_method(op:BinaryOpInfo, t1:IntTypeInfo, n1, t2:IntTypeInfo, n2):
     "Template generating the body of a binary operation."
     # Decide the width at which to work with these typse and op
     iw = max(op.min_working_type.value,
@@ -164,24 +125,24 @@ def binary_method(op:BinaryOpInfo, t1:TypeInfo, n1, t2:TypeInfo, n2):
             f"Cannot make method body for {op.name} and {w}")
 
 
-def _binary_method_int(op:BinaryOpInfo, t1:TypeInfo, n1, t2:TypeInfo, n2):
+def _binary_method_int(op:BinaryOpInfo, t1:IntTypeInfo, n1, t2:IntTypeInfo, n2):
     return f'''
         return {op.int_op(t1.as_int(n1), t2.as_int(n2))};
     '''
 
-def _binary_method_long(op:BinaryOpInfo, t1:TypeInfo, n1, t2:TypeInfo, n2):
+def _binary_method_long(op:BinaryOpInfo, t1:IntTypeInfo, n1, t2:IntTypeInfo, n2):
     return f'''
         long r = {op.long_op(t1.as_long(n1), t2.as_long(n2))};
         int s = (int) r;
         return s == r ? s : BigInteger.valueOf(r);
     '''
 
-def _binary_method_big(op:BinaryOpInfo, t1:TypeInfo, n1, t2:TypeInfo, n2):
+def _binary_method_big(op:BinaryOpInfo, t1:IntTypeInfo, n1, t2:IntTypeInfo, n2):
     return f'''
         return toInt({op.big_op(t1.as_big(n1), t2.as_big(n2))});
     '''
 
-def _binary_method_obj(op:BinaryOpInfo, t1:TypeInfo, n1, t2:TypeInfo, n2):
+def _binary_method_obj(op:BinaryOpInfo, t1:IntTypeInfo, n1, t2:IntTypeInfo, n2):
     return f'''
         try {{
             return toInt({op.big_op(t1.as_big(n1), t2.as_big(n2))});
@@ -190,7 +151,7 @@ def _binary_method_obj(op:BinaryOpInfo, t1:TypeInfo, n1, t2:TypeInfo, n2):
         }}
     '''
 
-def comparison(op:BinaryOpInfo, t1:TypeInfo, n1, t2:TypeInfo, n2):
+def comparison(op:BinaryOpInfo, t1:IntTypeInfo, n1, t2:IntTypeInfo, n2):
     "Template generating the body of a comparison operation."
     iw = max(op.min_working_type.value,
             t1.min_working_type.value,
@@ -209,22 +170,22 @@ def comparison(op:BinaryOpInfo, t1:TypeInfo, n1, t2:TypeInfo, n2):
             f"Cannot make method body for {op.name} and {w}")
 
 
-def _comparison_int(op:BinaryOpInfo, t1:TypeInfo, n1, t2:TypeInfo, n2):
+def _comparison_int(op:BinaryOpInfo, t1:IntTypeInfo, n1, t2:IntTypeInfo, n2):
     return f'''
         return {op.int_op(t1.as_int(n1), t2.as_int(n2))};
     '''
 
-def _comparison_long(op:BinaryOpInfo, t1:TypeInfo, n1, t2:TypeInfo, n2):
+def _comparison_long(op:BinaryOpInfo, t1:IntTypeInfo, n1, t2:IntTypeInfo, n2):
     return f'''
         return {op.long_op(t1.as_long(n1), t2.as_long(n2))};
     '''
 
-def _comparison_big(op:BinaryOpInfo, t1:TypeInfo, n1, t2:TypeInfo, n2):
+def _comparison_big(op:BinaryOpInfo, t1:IntTypeInfo, n1, t2:IntTypeInfo, n2):
     return f'''
         return {op.big_op(t1.as_big(n1), t2.as_big(n2))};
     '''
 
-def _comparison_obj(op:BinaryOpInfo, t1:TypeInfo, n1, t2:TypeInfo, n2):
+def _comparison_obj(op:BinaryOpInfo, t1:IntTypeInfo, n1, t2:IntTypeInfo, n2):
     return f'''
         try {{
             return {op.big_op(t1.as_big(n1), t2.as_big(n2))};
@@ -421,22 +382,12 @@ class PyLongGenerator(ImplementationGenerator):
             for t in self.ACCEPTED_CLASSES:
                 self.special_unary(e, op, t)
 
-        # Emit the unary predicate operations
-#         for op in self.PREDICATE_OPS:
-#             for t in self.ACCEPTED_CLASSES:
-#                 self.special_predicate(e, op, t)
-
         # Emit the binary operations op(T, Object)
         for op in self.BINARY_OPS:
             e.emit_line(f'// {"-"*(60-len(op.name))} {op.name}')
             e.emit_line()
             for vt in self.ACCEPTED_CLASSES:
                 self.special_binary(e, op, vt, OBJECT_CLASS)
-
-        # Emit the binary predicate operations op(T, Object)
-#         for op in self.BINARY_PREDICATE_OPS:
-#             for vt in self.ACCEPTED_CLASSES:
-#                 self.special_binary_predicate_object(e, op, vt)
 
     # Emit methods selectable by a pair of types (for call sites)
     def special_binops(self, e):

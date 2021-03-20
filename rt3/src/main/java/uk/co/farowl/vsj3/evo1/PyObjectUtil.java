@@ -11,14 +11,15 @@ class PyObjectUtil {
     /**
      * Convenient wrapper for sequence types implementing
      * {@code __mul__}, so that they need only provide a
-     * {@link PySequence#repeat(int)} implementation. The wrapper takes
-     * care of object conversion and errors that arise from it.
+     * {@link PySequenceInterface#repeat(int)} implementation. The
+     * wrapper takes care of object conversion and errors that arise
+     * from it.
      */
-    static Object repeat(PySequence self, Object n)
+    static <T> Object repeat(PySequenceInterface<T> seq, Object n)
             throws TypeError, Throwable {
         if (Number.indexCheck(n)) {
             int count = Number.asSize(n, OverflowError::new);
-            return self.repeat(count);
+            return seq.repeat(count);
         } else {
             throw Abstract.typeError(CANT_MULTIPLY, n);
         }
@@ -73,7 +74,9 @@ class PyObjectUtil {
      */
     static class NoConversion extends Exception {
 
-        NoConversion() { super(null, null, false, false); }
+        NoConversion() {
+            super(null, null, false, false);
+        }
     }
 
     /**
