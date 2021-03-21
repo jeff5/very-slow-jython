@@ -40,6 +40,8 @@ BOOLEAN_CLASS = IntTypeInfo('Boolean', WorkingType.INT,
                     lambda x: f'({x} ? 1 : 0)')
 DOUBLE_CLASS = IntTypeInfo('Double', WorkingType.OBJECT)
 
+PRIMITIVE_INT = IntTypeInfo('int', WorkingType.INT)
+
 
 @dataclass
 class UnaryOpInfo(OpInfo):
@@ -211,7 +213,7 @@ class PyLongGenerator(ImplementationGenerator):
     # BigInteger are the common type to which arguments are converted.
 
     UNARY_OPS = [
-        # Arguments are: name, min_working_type,
+        # Arguments are: name, return_type, min_working_type,
         # big_op, long_op, int_op[, method]
         UnaryOpInfo('__abs__', OBJECT_CLASS, WorkingType.LONG,
             lambda x: f'{x}.abs()',
@@ -233,10 +235,14 @@ class PyLongGenerator(ImplementationGenerator):
             lambda x: f'PyLong.convertToDouble({x})',
             lambda x: f'((double) {x})',
             lambda x: f'((double) {x})'),
-        UnaryOpInfo('__bool__', OBJECT_CLASS, WorkingType.INT,
+        UnaryOpInfo('__bool__', OBJECT_CLASS, WorkingType.BOOLEAN,
             lambda x: f'{x}.signum() != 0',
             lambda x: f'{x} != 0L',
             lambda x: f'{x} != 0'),
+        UnaryOpInfo('__hash__', PRIMITIVE_INT, WorkingType.INT,
+            lambda x: f'{x}.hashCode()',
+            lambda x: f'{x}.hashCode()',
+            lambda x: f'{x}'),
     ]
 
     BINARY_OPS = [

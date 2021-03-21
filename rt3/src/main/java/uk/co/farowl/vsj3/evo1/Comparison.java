@@ -255,7 +255,7 @@ enum Comparison {
 
         // Try the forward operation
         try {
-            Object r = slot.getSlot(wOps).invokeExact(v, w);
+            Object r = slot.getSlot(vOps).invokeExact(v, w);
             if (r != Py.NotImplemented) { return r; }
         } catch (EmptyException e) {}
 

@@ -194,8 +194,7 @@ public class Py {
                 ops = Operations.of(o);
                 MethodHandle str = ops.op_str;
                 Object res = str.invokeExact(o);
-                if (res instanceof PyUnicode)
-                    return ((PyUnicode) res).toString();
+                return res.toString();
             } catch (Throwable e) {}
 
             // Even object.__str__ not working.

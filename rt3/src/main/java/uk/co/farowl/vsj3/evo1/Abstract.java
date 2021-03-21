@@ -88,6 +88,24 @@ public class Abstract {
     }
 
     /**
+     * Compute and return the hash value of an object. On failure,
+     * return -1. This is the equivalent of the Python expression
+     * {@code hash(v)}.
+     *
+     * @param v to hash
+     * @return the hash
+     * @throws TypeError if {@code v} is an unhashable type
+     * @throws Throwable on errors within {@code __hash__}
+     */
+    static int hash(Object v) throws TypeError, Throwable {
+        try {
+            return (int) Operations.of(v).op_hash.invokeExact(v);
+        } catch (Slot.EmptyException e) {
+            throw typeError("unhashable type: %s", v);
+        }
+    }
+
+    /**
      * Test a value used as condition in a {@code for} or {@code if}
      * statement.
      *

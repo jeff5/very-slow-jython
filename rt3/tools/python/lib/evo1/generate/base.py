@@ -19,13 +19,14 @@ from datetime import datetime
 # operation, the widest of the two types and the operation is used.
 class WorkingType(Enum):
     "Enumerates the types to which operands may be converted."
-    INT = 0
-    LONG = 1
-    BIG = 2
-    DOUBLE = 3
-    STRING = 4
-    SEQ = 5
-    OBJECT = 6
+    BOOLEAN = 0
+    INT = 1
+    LONG = 2
+    BIG = 3
+    DOUBLE = 4
+    STRING = 5
+    SEQ = 6
+    OBJECT = 7
 
 
 # We use pre-defined data classes to describe (Java) types that may
@@ -51,7 +52,7 @@ class OpInfo:
     "Base class for describing operations."
     # Name of the operation ("__add__", "__neg__", etc.).
     name: str
-    # Implementation of this op have a return type of:
+    # An implementation of this op has a return type of:
     return_type: TypeInfo
     # Implementation of this op implies the working type is at least:
     min_working_type: WorkingType

@@ -21,6 +21,9 @@ class PyUnicode implements PySequenceInterface<Integer>, CraftedType {
      */
     private final int[] value;
 
+    /** Cached hash of the {@code str}, lazily computed in {@link #hashCode()}. Zero if unknown, and nearly always unknown if zero. */
+    private int hash;
+
     /**
      * Construct an instance of {@code PyUnicode}, a {@code str} or a
      * sub-class, from a given array of code points, with the option to
@@ -207,17 +210,20 @@ class PyUnicode implements PySequenceInterface<Integer>, CraftedType {
     @Override
     public int hashCode() {
         // Reproduce on value the hash defined for java.lang.String
-        int hash = 0;
-        for (int c : value) {
-            if (Character.isBmpCodePoint(c)) {
-                // c is represented by itself in a String
-                hash = hash * 31 + c;
-            } else {
-                // c would be represented in a Java String by:
-                int hi = (c >>> 10) + HIGH_SURROGATE_OFFSET;
-                int lo = (c & 0x3ff) + Character.MIN_LOW_SURROGATE;
-                hash = (hash * 31 + hi) * 31 + lo;
+        if (hash == 0 && value.length > 0) {
+            int h = 0;
+            for (int c : value) {
+                if (Character.isBmpCodePoint(c)) {
+                    // c is represented by itself in a String
+                    h = h * 31 + c;
+                } else {
+                    // c would be represented in a Java String by:
+                    int hi = (c >>> 10) + HIGH_SURROGATE_OFFSET;
+                    int lo = (c & 0x3ff) + Character.MIN_LOW_SURROGATE;
+                    h = (h * 31 + hi) * 31 + lo;
+                }
             }
+            hash = h;
         }
         return hash;
     }
