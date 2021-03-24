@@ -223,31 +223,6 @@ enum Slot {
     }
 
     /**
-     * Return for a slot, a handle to the method in a given class that
-     * implements it, or the default handle (of the correct signature)
-     * that throws {@link EmptyException}.
-     *
-     * @param c target class
-     * @param lookup authorisation to access {@code c}
-     * @return handle to method in {@code c} implementing this slot.
-     * @throws NoSuchMethodException slot method not found
-     * @throws IllegalAccessException found but inaccessible
-     */
-    private MethodHandle findInClass(Class<?> c, Lookup lookup)
-            throws IllegalAccessException, NoSuchMethodException {
-        switch (signature.kind) {
-            case INSTANCE:
-                return Util.findVirtualInClass(this, c, lookup);
-            case CLASS:
-            case STATIC:
-                return Util.findStaticInClass(this, c, lookup);
-            default:
-                // Never happens
-                return getEmpty();
-        }
-    }
-
-    /**
      * Get the contents of this slot in the given operations object.
      * Each member of this {@code enum} corresponds to a method handle
      * of the name which must also have the correct signature.
@@ -829,90 +804,6 @@ enum Slot {
         @SuppressWarnings("unused")  // reflected in operandError
         static PyException defaultOperandError(Slot op) {
             return new TypeError("bad operand type for %s", op.opName);
-        }
-
-        /**
-         * For a given slot, return a handle to the instance method in a
-         * given class that implements it, or the default handle (of the
-         * correct signature) that throws {@link EmptyException}.
-         *
-         * @param slot slot
-         * @param c target class
-         * @param lookup authorisation to access {@code c}
-         * @return handle to method in {@code c} implementing {@code s}
-         * @throws NoSuchMethodException slot method not found
-         * @throws IllegalAccessException found but inaccessible
-         */
-        private static MethodHandle findVirtualInClass(Slot slot,
-                Class<?> c, Lookup lookup)
-                throws IllegalAccessException, NoSuchMethodException {
-            // PyBaseObject has a different approach
-            if (c == PyBaseObject.class)
-                return findInBaseObject(slot, lookup);
-            // The method has the same name in every implementation
-            String name = slot.getMethodName();
-            Signature sig = slot.signature;
-            assert sig.kind == MethodKind.INSTANCE;
-            MethodType mt = sig.methodType;
-            MethodHandle impl = lookup.findVirtual(c, name, mt);
-            // The invocation type remains that of slot.empty
-            return impl.asType(sig.empty.type());
-        }
-
-        /**
-         * For a given slot, return a handle to the static method in a
-         * given class that implements it, or the default handle (of the
-         * correct signature) that throws {@link EmptyException}.
-         *
-         * @param slot slot
-         * @param c class
-         * @param lookup authorisation to access {@code c}
-         * @return handle to method in {@code c} implementing {@code s}
-         * @throws NoSuchMethodException slot method not found
-         * @throws IllegalAccessException found but inaccessible
-         */
-        private static MethodHandle findStaticInClass(Slot slot,
-                Class<?> c, Lookup lookup)
-                throws NoSuchMethodException, IllegalAccessException {
-            // The method has the same name in every implementation
-            String name = slot.getMethodName();
-            Signature sig = slot.signature;
-            assert sig.kind == MethodKind.STATIC;
-            MethodType mt = sig.methodType;
-            MethodHandle impl = lookup.findStatic(c, name, mt);
-            // The invocation type remains that of slot.empty
-            return impl.asType(sig.empty.type());
-        }
-
-        /**
-         * For a given slot, return a handle to the method in
-         * {@link PyBaseObject}{@code .class}, or the default handle (of
-         * the correct signature) that throws {@link EmptyException}.
-         * The declarations of (non-static) special methods in
-         * {@code PyBaseObject} differ from those other implementation
-         * classes in being declared Java {@code static}, with a
-         * {@code Object self}.
-         *
-         * @param slot slot
-         * @param lookup authorisation to access {@code PyBaseObject}
-         * @return handle to method in {@code PyBaseObject} implementing
-         *     {@code s}.
-         * @throws NoSuchMethodException slot method not found
-         * @throws IllegalAccessException found but inaccessible
-         */
-        private static MethodHandle findInBaseObject(Slot slot,
-                Lookup lookup)
-                throws NoSuchMethodException, IllegalAccessException {
-            // The method has this special method name.
-            String name = slot.getMethodName();
-            // The signature uses Object self to accept any object.
-            Signature sig = slot.signature;
-            MethodType mt = replaceSelf(sig.type, Object.class);
-            // And the method is declared static (for that reason).
-            MethodHandle impl =
-                    lookup.findStatic(PyBaseObject.class, name, mt);
-            assert impl.type() == sig.empty.type();
-            return impl;
         }
 
         /**
