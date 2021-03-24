@@ -26,7 +26,7 @@ class PyUnicodeMethods {
     // plumbing ------------------------------------------------------
 
     /**
-     * Compare sequences for equality. this is a little simpler than
+     * Compare sequences for equality. This is a little simpler than
      * {@code compareTo}.
      * 
      * @param a sequence
@@ -37,7 +37,7 @@ class PyUnicodeMethods {
             PySequenceInterface<Integer> b) {
         // Lengths must be equal
         if (a.length() != b.length()) { return false; }
-        // Scan the codes points in a and b
+        // Scan the code points in a and b
         Iterator<Integer> ib = b.iterator();
         for (int c : a) { if (c != ib.next()) { return false; } }
         return true;

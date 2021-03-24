@@ -7,7 +7,8 @@ import java.util.Iterator;
 import uk.co.farowl.vsj3.evo1.PyObjectUtil.NoConversion;
 
 /** The Python {@code str} object. */
-class PyUnicode implements PySequenceInterface<Integer>, CraftedType {
+class PyUnicode implements PySequenceInterface<Integer>, CraftedType,
+        PyDict.Key {
 
     /** The type of Python object this class implements. */
     static final PyType TYPE = PyType.fromSpec( //
@@ -21,7 +22,11 @@ class PyUnicode implements PySequenceInterface<Integer>, CraftedType {
      */
     private final int[] value;
 
-    /** Cached hash of the {@code str}, lazily computed in {@link #hashCode()}. Zero if unknown, and nearly always unknown if zero. */
+    /**
+     * Cached hash of the {@code str}, lazily computed in
+     * {@link #hashCode()}. Zero if unknown, and nearly always unknown
+     * if zero.
+     */
     private int hash;
 
     /**
@@ -116,9 +121,31 @@ class PyUnicode implements PySequenceInterface<Integer>, CraftedType {
         return __repr__(b.toString());
     }
 
+    /**
+     * The hash of a {@link PyUnicode} is the same as that of a Java
+     * {@code String} equal to it. This is so that a given Python
+     * {@code str} may be found as a match in hashed data structures,
+     * whichever representation is used for the key or query.
+     */
     @SuppressWarnings("unused")
     private int __hash__() {
-        return hashCode();
+        // Reproduce on value the hash defined for java.lang.String
+        if (hash == 0 && value.length > 0) {
+            int h = 0;
+            for (int c : value) {
+                if (Character.isBmpCodePoint(c)) {
+                    // c is represented by itself in a String
+                    h = h * 31 + c;
+                } else {
+                    // c would be represented in a Java String by:
+                    int hi = (c >>> 10) + HIGH_SURROGATE_OFFSET;
+                    int lo = (c & 0x3ff) + Character.MIN_LOW_SURROGATE;
+                    h = (h * 31 + hi) * 31 + lo;
+                }
+            }
+            hash = h;
+        }
+        return hash;
     }
 
     @SuppressWarnings("unused")
@@ -208,47 +235,62 @@ class PyUnicode implements PySequenceInterface<Integer>, CraftedType {
      * whichever representation is used for the key or query.
      */
     @Override
-    public int hashCode() {
-        // Reproduce on value the hash defined for java.lang.String
-        if (hash == 0 && value.length > 0) {
-            int h = 0;
-            for (int c : value) {
-                if (Character.isBmpCodePoint(c)) {
-                    // c is represented by itself in a String
-                    h = h * 31 + c;
-                } else {
-                    // c would be represented in a Java String by:
-                    int hi = (c >>> 10) + HIGH_SURROGATE_OFFSET;
-                    int lo = (c & 0x3ff) + Character.MIN_LOW_SURROGATE;
-                    h = (h * 31 + hi) * 31 + lo;
-                }
-            }
-            hash = h;
-        }
-        return hash;
+    public int hashCode() throws PyException {
+        if (type == TYPE)
+            /*
+             * XXX It may be fast to specialise here, but the real
+             * motive is that arrive here when filling the dictionaries
+             * of types, long before PyUnicode slots are ready for
+             * PyDict.pythonHash. When we use String keys in types, it
+             * won't be needed. (Maybe.)
+             */
+            return __hash__();
+        else
+            return PyDict.pythonHash(this);
     }
 
     /**
-     * Compare for equality with another Python {@code str}. If the
-     * other object is not a {@code str} return {@code false}. If it is
-     * a {@code str}, compare for equality of the code points.
+     * Compare for equality with another Python {@code str}, or a
+     * {@link PyDict#Key} containing a {@code str}. If the other object
+     * is not a {@code str}, or a {@code Key} containing a {@code str},
+     * return {@code false}. If it is such an object, compare for
+     * equality of the code points.
      */
     @Override
     public boolean equals(Object obj) {
-        if (obj == this) { return true; }
-        try {
-            PySequenceInterface<Integer> b = adapt(obj);
-            if (this.length() != b.length()) { return false; }
-            // Scan the codes points in this and b
-            Iterator<Integer> ib = b.iterator();
-            for (int c : value) {
-                if (c != ib.next()) { return false; }
+        if (type == TYPE) {
+            /*
+             * XXX It may be fast to specialise here, but the real
+             * motive is that we arrive here when filling the
+             * dictionaries of types, long before PyUnicode slots are
+             * ready for PyDict.pythonEquals. When we use String keys in
+             * types, it won't be needed. (Maybe.)
+             */
+            if (obj instanceof PyDict.Key)
+                obj = ((PyDict.Key) obj).get();
+            try {
+                return equals(adapt(obj));
+            } catch (NoConversion e) {
+                return false;
             }
-            return true;
-        } catch (NoConversion e) {
-            // The adapt() failed, so it is not a Python str
-            return false;
-        }
+        } else
+            return PyDict.pythonEquals(this, obj);
+    }
+
+    /**
+     * Compare for equality with a sequence. This is a little simpler
+     * than {@code compareTo}.
+     *
+     * @param b another
+     * @return whether values equal
+     */
+    private boolean equals(PySequenceInterface<Integer> b) {
+        // Lengths must be equal
+        if (length() != b.length()) { return false; }
+        // Scan the codes points in this.value and b
+        Iterator<Integer> ib = b.iterator();
+        for (int c : value) { if (c != ib.next()) { return false; } }
+        return true;
     }
 
     @Override
@@ -297,17 +339,15 @@ class PyUnicode implements PySequenceInterface<Integer>, CraftedType {
     }
 
     /**
-     * Present a Python {@code str} as a Java {@code String}
-     * values or raise a {@link TypeError}. This is for use when the
-     * argument is expected to be a Python {@code str} or a sub-class of
-     * it.
+     * Present a Python {@code str} as a Java {@code String} values or
+     * raise a {@link TypeError}. This is for use when the argument is
+     * expected to be a Python {@code str} or a sub-class of it.
      *
      * @param v claimed {@code str}
      * @return {@code String} value
      * @throws TypeError if {@code v} is not a Python {@code str}
      */
-    static String asString(Object v)
-            throws TypeError {
+    static String asString(Object v) throws TypeError {
         if (v instanceof String)
             return (String) v;
         else if (v instanceof PyUnicode)

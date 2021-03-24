@@ -9,7 +9,6 @@ import java.util.function.Function;
 
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.IndicativeSentencesGeneration;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
@@ -93,9 +92,10 @@ class LookupTest extends UnitTestSupport {
     @BeforeAll
     static void fillIntKeyTuples() {
         intKeyTuples.add(new IntKeyTuple(4));
-        intKeyTuples.add(new IntKeyTuple(5));
-        intKeyTuples.add(new IntKeyTuple(6));
-        intKeyTuples.add(new IntKeyTuple(-12));
+        intKeyTuples.add(new IntKeyTuple(-5));
+        intKeyTuples.add(new IntKeyTuple(Integer.MAX_VALUE));
+        intKeyTuples.add(new IntKeyTuple(Integer.MIN_VALUE));
+        intKeyTuples.add(new IntKeyTuple(Integer.MIN_VALUE + 1));
     }
 
     @Nested
@@ -263,8 +263,7 @@ class LookupTest extends UnitTestSupport {
         /**
          * Test that for a {@code dict} (a {@link PyDict}) {@code int}
          * keys that are equal to {@code bool} values act as equal keys.
-         *  Here we put data in
-         * with a {@code Boolean} key.
+         * Here we put data in with a {@code Boolean} key.
          */
         @Test
         void when_int_key_is_Boolean() {
@@ -278,8 +277,7 @@ class LookupTest extends UnitTestSupport {
 
             // Now try to retrieve as if the values were int 0 and 1
             List<IntKeyTuple> boolKeyTuples =
-                    List.of(new IntKeyTuple(0),
-                            new IntKeyTuple(1));
+                    List.of(new IntKeyTuple(0), new IntKeyTuple(1));
 
             // Retrieve the same value by the various keys
             assertSequentialInts(dict, boolKeyTuples, k -> k.i);
@@ -300,8 +298,9 @@ class LookupTest extends UnitTestSupport {
          * @param keyTuples keys to insert with
          * @param keyImpl specifies which implementation to use
          */
-        private <KT extends KeyTuple> void insertSequentialInts(PyDict dict,
-                List<KT> keyTuples, Function<KT, Object> keyImpl) {
+        private <KT extends KeyTuple> void insertSequentialInts(
+                PyDict dict, List<KT> keyTuples,
+                Function<KT, Object> keyImpl) {
 
             int counter = 100;
 
@@ -328,8 +327,9 @@ class LookupTest extends UnitTestSupport {
          * @param keyTuples keys to retrieve with
          * @param keyImpl specifies which implementation to test
          */
-        private <KT extends KeyTuple> void assertSequentialInts(PyDict dict,
-                List<KT> keyTuples, Function<KT, Object> keyImpl) {
+        private <KT extends KeyTuple> void assertSequentialInts(
+                PyDict dict, List<KT> keyTuples,
+                Function<KT, Object> keyImpl) {
 
             int counter = 100;
 

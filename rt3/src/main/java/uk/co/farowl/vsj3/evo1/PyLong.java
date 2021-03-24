@@ -7,7 +7,7 @@ import uk.co.farowl.vsj3.evo1.PyObjectUtil.NoConversion;
 import uk.co.farowl.vsj3.evo1.Slot.EmptyException;
 
 /** The Python {@code int} object. */
-class PyLong implements CraftedType {
+class PyLong implements CraftedType, PyDict.Key {
 
     /** The type {@code int}. */
     static PyType TYPE = PyType.fromSpec( //
@@ -155,16 +155,6 @@ class PyLong implements CraftedType {
     // XXX re-think as static
     int signum() {
         return value.signum();
-    }
-
-    // XXX re-think as static
-    @Override
-    public boolean equals(Object obj) {
-        if (obj instanceof PyLong) {
-            PyLong other = (PyLong) obj;
-            return other.value.equals(this.value);
-        } else
-            return false;
     }
 
     // special methods ------------------------------------------------
@@ -366,7 +356,7 @@ class PyLong implements CraftedType {
             throws ValueError, TypeError {
         try {
             // XXX maybe check 2<=base<=36 even if Number.asLong does?
-            String value =  PyUnicode.asString(u);
+            String value = PyUnicode.asString(u);
             return new BigInteger(value, base);
         } catch (NumberFormatException e) {
             throw new ValueError(
@@ -406,6 +396,19 @@ class PyLong implements CraftedType {
             return ((PyLong) value).value;
         else
             throw Abstract.requiredTypeError("an integer", value);
+    }
+
+    // PyDict.Key interface ------------------------------------------
+
+    @Override
+    public boolean equals(Object obj) {
+        return PyDict.pythonEquals(this, obj);
+    }
+
+    @Override
+    public int hashCode() throws PyException {
+        // XXX or return value.hashCode() if not a sub-class?
+        return PyDict.pythonHash(this);
     }
 
     // plumbing ------------------------------------------------------

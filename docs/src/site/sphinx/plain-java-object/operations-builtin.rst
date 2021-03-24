@@ -1,5 +1,6 @@
 ..  plain-java-object/operations-builtin.rst
 
+.. _Operations-builtin:
 
 Operations on Built-in Types
 ############################
@@ -46,9 +47,12 @@ and attempt to explain how we may define and access
 a rich set of operations in the plain objects paradigm.
 
 
+.. _Operations-builtin-float:
 
 ``PyType`` and ``Operations`` for ``float``
 *******************************************
+
+.. _Operations-builtin-float-neg:
 
 A Unary Operation ``float.__neg__``
 ===================================
@@ -495,6 +499,7 @@ This works for unary operations on ``float``.
 Whether this is correct yet for all styles of object implementation
 remains to be seen.
 
+.. _Operations-builtin-float-sub:
 
 A Binary Operation ``float.__sub__``
 ====================================
@@ -659,6 +664,7 @@ Despite the complexity, performance is not bad
 When both types are built-in, and cannot change their behaviour,
 we can do much better.
 
+.. _Operations-builtin-class-specific:
 
 Binary Class-Specific Methods
 -----------------------------
@@ -848,6 +854,7 @@ Benchmarks show that the the method handles returned from this logic
 are successfully inlined by the JVM. (See :ref:`benchmark-binary-vsj3-indy`.)
 
 
+.. _Operations-builtin-int:
 
 ``PyType`` and ``Operations`` for ``int`` and ``bool``
 ******************************************************
@@ -882,6 +889,9 @@ These are reasonable (and the same thing) in Python:
     >>> -True
     -1
 
+
+
+.. _Operations-builtin-int-neg:
 
 The Unary Operation ``int.__neg__``
 ===================================
@@ -932,6 +942,8 @@ and providing a suitable expression to promote it to a Java ``long``.
 (The mechanical generation explains the sub-optimal method bodies.
 We assume arithmetic with ``bool`` is not a performance driver.)
 
+
+.. _Operations-builtin-accepting-boolean:
 
 Accepting and Adopting ``Boolean``
 ==================================
@@ -1066,7 +1078,36 @@ We should have to re-work the definition of a built-in type
 once a built-in sub-type is encountered,
 that is not covered by adopted types.
 We may have here the only case where that mechanism would be used in practice,
-so we put up withthe discomfort.
+so we tolerate the discomfort.
+
+
+Continuing on Course
+********************
+
+The reader can no doubt infer from these examples,
+that other methods and other types
+may be implemented in the same way.
+
+Special methods with a leading ``self``,
+are amenable to a single dispatch pattern
+as in :ref:`Operations-builtin-float-neg`.
+Although we saw this in a simple unary operation,
+additional arguments are no obstacle to the pattern.
+The ``invokedynamic`` ``CallSite`` we produce will be specific to
+the signature of the special method,
+but its logic may be essentially that of ``UnaryCallSite``.
+
+The treatment (a form of multiple dispatch)
+we gave to binary operations in :ref:`Operations-builtin-class-specific`
+is reserved for a few types where
+the need for efficient arithmetic justifies the code volume.
+In other types,
+the binary operations may follow the single dispatch pattern,
+which is more compact,
+at the expense of type-testing their second argument.
+In particular,
+the special functions for comparison (``__lt__``, etc.)
+are implemented this way.
 
 
 Some Dots on the RADAR
