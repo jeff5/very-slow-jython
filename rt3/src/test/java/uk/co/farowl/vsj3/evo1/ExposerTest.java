@@ -408,11 +408,11 @@ class ExposerTest {
         PyType type = ObjectWithSpMeth.TYPE;
 
         // Inherited __repr__
-        PyWrapperDescr repr = (PyWrapperDescr) type.lookup(ID.__repr__);
+        PyWrapperDescr repr = (PyWrapperDescr) type.lookup("__repr__");
         assertNotNull(repr);
 
         // We defined this special method
-        PyWrapperDescr neg = (PyWrapperDescr) type.lookup(ID.__neg__);
+        PyWrapperDescr neg = (PyWrapperDescr) type.lookup("__neg__");
         assertNotNull(neg);
 
         assertEquals("__neg__", neg.name);

@@ -27,7 +27,7 @@ class BinarySlotWrapperTest extends UnitTestSupport {
     void float_sub() throws Throwable {
 
         PyWrapperDescr sub =
-                (PyWrapperDescr) PyFloat.TYPE.lookup(ID.__sub__);
+                (PyWrapperDescr) PyFloat.TYPE.lookup("__sub__");
 
         Double dv = 50.0, dw = 8.0;
         PyFloat pv = newPyFloat(dv), pw = newPyFloat(dw);
@@ -58,7 +58,7 @@ class BinarySlotWrapperTest extends UnitTestSupport {
     void float_rsub() throws Throwable {
 
         PyWrapperDescr rsub =
-                (PyWrapperDescr) PyFloat.TYPE.lookup(ID.__rsub__);
+                (PyWrapperDescr) PyFloat.TYPE.lookup("__rsub__");
 
         Object dv = Double.valueOf(50), dw = Double.valueOf(8);
         Object pv = newPyFloat(dv), pw = newPyFloat(dw);
@@ -81,7 +81,7 @@ class BinarySlotWrapperTest extends UnitTestSupport {
     void int_sub() throws Throwable {
 
         PyWrapperDescr sub =
-                (PyWrapperDescr) PyLong.TYPE.lookup(ID.__sub__);
+                (PyWrapperDescr) PyLong.TYPE.lookup("__sub__");
 
         Integer iv = 50, iw = 8;
         BigInteger bv = BigInteger.valueOf(iv),
@@ -110,7 +110,7 @@ class BinarySlotWrapperTest extends UnitTestSupport {
     void int_rsub() throws Throwable {
 
         PyWrapperDescr rsub =
-                (PyWrapperDescr) PyLong.TYPE.lookup(ID.__rsub__);
+                (PyWrapperDescr) PyLong.TYPE.lookup("__rsub__");
 
         Integer iv = 50, iw = 8;
         BigInteger bv = BigInteger.valueOf(iv),
@@ -139,7 +139,7 @@ class BinarySlotWrapperTest extends UnitTestSupport {
     void float_sub_int() throws Throwable {
 
         PyWrapperDescr sub =
-                (PyWrapperDescr) PyFloat.TYPE.lookup(ID.__sub__);
+                (PyWrapperDescr) PyFloat.TYPE.lookup("__sub__");
 
         Object da = Double.valueOf(50), db = newPyFloat(50);
         Object ia = Integer.valueOf(8), ib = BigInteger.valueOf(8);
@@ -165,7 +165,7 @@ class BinarySlotWrapperTest extends UnitTestSupport {
         Object ia = Integer.valueOf(8), ib = BigInteger.valueOf(8);
 
         PyWrapperDescr rsub =
-                (PyWrapperDescr) PyFloat.TYPE.lookup(ID.__rsub__);
+                (PyWrapperDescr) PyFloat.TYPE.lookup("__rsub__");
 
         // Invoke for int - float.
         for (Object v : List.of(ia, ib)) {
@@ -184,11 +184,11 @@ class BinarySlotWrapperTest extends UnitTestSupport {
     void bool_sub() throws Throwable {
 
         PyWrapperDescr sub =
-                (PyWrapperDescr) PyBool.TYPE.lookup(ID.__sub__);
+                (PyWrapperDescr) PyBool.TYPE.lookup("__sub__");
 
         // bool inherits from int
         PyWrapperDescr sub2 =
-                (PyWrapperDescr) PyLong.TYPE.lookup(ID.__sub__);
+                (PyWrapperDescr) PyLong.TYPE.lookup("__sub__");
         assertSame(sub2, sub);
 
         for (Object v : List.of(true, false)) {
@@ -210,11 +210,11 @@ class BinarySlotWrapperTest extends UnitTestSupport {
     void bool_rsub() throws Throwable {
 
         PyWrapperDescr rsub =
-                (PyWrapperDescr) PyBool.TYPE.lookup(ID.__rsub__);
+                (PyWrapperDescr) PyBool.TYPE.lookup("__rsub__");
 
         // bool inherits from int
         PyWrapperDescr rsub2 =
-                (PyWrapperDescr) PyLong.TYPE.lookup(ID.__rsub__);
+                (PyWrapperDescr) PyLong.TYPE.lookup("__rsub__");
         assertSame(rsub2, rsub);
 
         for (Object v : List.of(true, false)) {
@@ -238,7 +238,7 @@ class BinarySlotWrapperTest extends UnitTestSupport {
     void int_and() throws Throwable {
 
         PyWrapperDescr and =
-                (PyWrapperDescr) PyLong.TYPE.lookup(ID.__and__);
+                (PyWrapperDescr) PyLong.TYPE.lookup("__and__");
 
         Integer iv = 47, iw = 58;
         BigInteger bv = BigInteger.valueOf(iv),
@@ -268,7 +268,7 @@ class BinarySlotWrapperTest extends UnitTestSupport {
     void int_rand() throws Throwable {
 
         PyWrapperDescr rand =
-                (PyWrapperDescr) PyLong.TYPE.lookup(ID.__rand__);
+                (PyWrapperDescr) PyLong.TYPE.lookup("__rand__");
 
         Integer iv = 47, iw = 58;
         BigInteger bv = BigInteger.valueOf(iv),
@@ -297,7 +297,7 @@ class BinarySlotWrapperTest extends UnitTestSupport {
     void bool_and() throws Throwable {
 
         PyWrapperDescr and =
-                (PyWrapperDescr) PyBool.TYPE.lookup(ID.__and__);
+                (PyWrapperDescr) PyBool.TYPE.lookup("__and__");
 
         for (Boolean v : List.of(true, false)) {
             for (Boolean w : List.of(true, false)) {
@@ -316,7 +316,7 @@ class BinarySlotWrapperTest extends UnitTestSupport {
     void bool_rand() throws Throwable {
 
         PyWrapperDescr rand =
-                (PyWrapperDescr) PyBool.TYPE.lookup(ID.__rand__);
+                (PyWrapperDescr) PyBool.TYPE.lookup("__rand__");
 
         for (Boolean v : List.of(true, false)) {
             for (Boolean w : List.of(true, false)) {
@@ -328,15 +328,16 @@ class BinarySlotWrapperTest extends UnitTestSupport {
     }
 
     /**
-     * Test invocation of the {@code str.__add__} descriptor on the adopted
-     * implementations of {@code str}. Note that CPython {@code str}
-     * defines {@code str.__add__} but not {@code str.__radd__}.
+     * Test invocation of the {@code str.__add__} descriptor on the
+     * adopted implementations of {@code str}. Note that CPython
+     * {@code str} defines {@code str.__add__} but not
+     * {@code str.__radd__}.
      */
     @Test
     void str_add() throws Throwable {
 
         PyWrapperDescr add =
-                (PyWrapperDescr) PyUnicode.TYPE.lookup(ID.__add__);
+                (PyWrapperDescr) PyUnicode.TYPE.lookup("__add__");
 
         String sv = "pets", sw = "hop";
         PyUnicode uv = newPyUnicode(sv), uw = newPyUnicode(sw);
@@ -354,16 +355,16 @@ class BinarySlotWrapperTest extends UnitTestSupport {
     }
 
     /**
-     * Test invocation of the {@code str.__mul__} descriptor on the adopted
-     * implementations of {@code str} with the accepted implementations
-     * of {@code int}. This is the one that implements
+     * Test invocation of the {@code str.__mul__} descriptor on the
+     * adopted implementations of {@code str} with the accepted
+     * implementations of {@code int}. This is the one that implements
      * {@code "hello" * 3}.
      */
     @Test
     void str_mul() throws Throwable {
 
         PyWrapperDescr mul =
-                (PyWrapperDescr) PyUnicode.TYPE.lookup(ID.__mul__);
+                (PyWrapperDescr) PyUnicode.TYPE.lookup("__mul__");
 
         String sv = "woof!";
         PyUnicode uv = newPyUnicode(sv);
@@ -384,9 +385,9 @@ class BinarySlotWrapperTest extends UnitTestSupport {
     }
 
     /**
-     * Test invocation of the {@code str.__rmul__} descriptor on the adopted
-     * implementations of {@code str} with the accepted implementations
-     * of {@code int}. This is the one that implements
+     * Test invocation of the {@code str.__rmul__} descriptor on the
+     * adopted implementations of {@code str} with the accepted
+     * implementations of {@code int}. This is the one that implements
      * {@code 3 * "hello"}, once {@code int} has realised it doesn't
      * know how.
      */
@@ -394,7 +395,7 @@ class BinarySlotWrapperTest extends UnitTestSupport {
     void str_rmul() throws Throwable {
 
         PyWrapperDescr rmul =
-                (PyWrapperDescr) PyUnicode.TYPE.lookup(ID.__rmul__);
+                (PyWrapperDescr) PyUnicode.TYPE.lookup("__rmul__");
 
         int iv = 3;
         String sw = "woof!";

@@ -136,9 +136,10 @@ abstract class Descriptor extends AbstractPyObject
     private String calculate_qualname()
             throws AttributeError, Throwable {
         Object type_qualname =
-                Abstract.getAttr(objclass, ID.__qualname__);
+                Abstract.getAttr(objclass, "__qualname__");
         if (type_qualname == null)
             return null;
+        // XXX use PyUnicode.TYPE.check()
         if (!(PyType.of(type_qualname).isSubTypeOf(PyUnicode.TYPE))) {
             throw new TypeError(
                     "<descriptor>.__objclass__.__qualname__ is not a unicode object");

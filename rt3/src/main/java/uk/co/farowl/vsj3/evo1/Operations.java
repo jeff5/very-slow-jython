@@ -406,7 +406,7 @@ abstract class Operations {
         private void setAllSlots() {
             for (Slot s : Slot.values()) {
                 if (s.signature.kind == Slot.MethodKind.INSTANCE) {
-                    Object def = type.lookup(ID.intern(s.methodName));
+                    Object def = type.lookup(s.methodName);
                     s.setSlot(this, def);
                 }
             }

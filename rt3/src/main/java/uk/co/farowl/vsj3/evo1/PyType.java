@@ -582,7 +582,7 @@ class PyType extends Operations implements PyObjectDict {
      */
     private void setAllSlots() {
         for (Slot s : Slot.values()) {
-            Object def = lookup(ID.intern(s.methodName));
+            Object def = lookup(s.methodName);
             s.setSlot(this, def);
         }
     }

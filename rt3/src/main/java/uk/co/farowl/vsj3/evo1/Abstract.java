@@ -492,7 +492,7 @@ public class Abstract {
         if (obj == null)
             return false;
         else {
-            Object abs = lookupAttr(obj, ID.__isabstractmethod__);
+            Object abs = lookupAttr(obj, "__isabstractmethod__");
             return abs != null && isTrue(abs);
         }
     }
@@ -511,7 +511,7 @@ public class Abstract {
     // Compare CPython abstract_get_bases in abstract.c
     private static PyTuple getBasesOf(Object cls) throws Throwable {
         // Should return a tuple: convert anything else to null.
-        Object bases = lookupAttr(cls, ID.__bases__);
+        Object bases = lookupAttr(cls, "__bases__");
         // Treat non-tuple as not having the attribute.
         return bases instanceof PyTuple ? (PyTuple) bases : null;
     }
@@ -529,7 +529,7 @@ public class Abstract {
     // Compare CPython abstract_get_class in abstract.c
     private static PyType getClassOf(Object inst) throws Throwable {
         // Should return a type: convert anything else to null.
-        Object klass = lookupAttr(inst, ID.__class__);
+        Object klass = lookupAttr(inst, "__class__");
         // Treat non-tuple as not having the attribute.
         return klass instanceof PyType ? (PyType) klass : null;
     }
@@ -681,7 +681,7 @@ public class Abstract {
 
         } else {
             // The type of cls should be a sub-type of PyType.TYPE
-            Object checker = lookupSpecial(cls, ID.__instancecheck__);
+            Object checker = lookupSpecial(cls, "__instancecheck__");
             if (checker != null) {
                 // cls has an __instancecheck__ to consult.
 // try (RecursionState state = ThreadState
@@ -768,7 +768,7 @@ public class Abstract {
 
         } else {
 
-            Object checker = lookupSpecial(cls, ID.__subclasscheck__);
+            Object checker = lookupSpecial(cls, "__subclasscheck__");
 
             if (checker != null) {
 // try (RecursionState state = ThreadState
@@ -799,7 +799,7 @@ public class Abstract {
      */
     // Compare CPython _PyObject_LookupSpecial in typeobject.c
     // XXX consider adding to PyType: here to satisfy local references
-    private Object lookupSpecial(Object self, PyUnicode name)
+    private Object lookupSpecial(Object self, String name)
             throws Throwable {
         // Look up attr by name in the type of self
         PyType selfType = PyType.of(self);

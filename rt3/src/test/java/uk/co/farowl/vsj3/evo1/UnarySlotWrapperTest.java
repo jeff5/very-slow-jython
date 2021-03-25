@@ -22,7 +22,7 @@ class UnarySlotWrapperTest extends UnitTestSupport {
     void float_neg() throws Throwable {
 
         PyWrapperDescr neg =
-                (PyWrapperDescr) PyFloat.TYPE.lookup(ID.__neg__);
+                (PyWrapperDescr) PyFloat.TYPE.lookup("__neg__");
 
         Double dx = 42.0;
         PyFloat px = newPyFloat(dx);
@@ -44,7 +44,7 @@ class UnarySlotWrapperTest extends UnitTestSupport {
     void float_neg_emptyKwds() throws Throwable {
 
         PyWrapperDescr neg =
-                (PyWrapperDescr) PyFloat.TYPE.lookup(ID.__neg__);
+                (PyWrapperDescr) PyFloat.TYPE.lookup("__neg__");
 
         Double dx = -1e42;
         PyFloat px = newPyFloat(dx);
@@ -65,7 +65,7 @@ class UnarySlotWrapperTest extends UnitTestSupport {
     void int_neg() throws Throwable {
 
         PyWrapperDescr neg =
-                (PyWrapperDescr) PyLong.TYPE.lookup(ID.__neg__);
+                (PyWrapperDescr) PyLong.TYPE.lookup("__neg__");
 
         Integer ix = 42;
         BigInteger bx = BigInteger.valueOf(ix);
@@ -100,8 +100,8 @@ class UnarySlotWrapperTest extends UnitTestSupport {
     void bool_neg() throws Throwable {
 
         PyWrapperDescr neg =
-                (PyWrapperDescr) PyBool.TYPE.lookup(ID.__neg__);
-        assertEquals(PyLong.TYPE.lookup(ID.__neg__), neg);
+                (PyWrapperDescr) PyBool.TYPE.lookup("__neg__");
+        assertEquals(PyLong.TYPE.lookup("__neg__"), neg);
 
         for (Object x : List.of(false, true)) {
             Object r = neg.__call__(Py.tuple(x), null);
@@ -118,7 +118,7 @@ class UnarySlotWrapperTest extends UnitTestSupport {
     void float_repr() throws Throwable {
 
         PyWrapperDescr repr =
-                (PyWrapperDescr) PyFloat.TYPE.lookup(ID.__repr__);
+                (PyWrapperDescr) PyFloat.TYPE.lookup("__repr__");
 
         Double dx = 42.0;
         PyFloat px = newPyFloat(dx);
@@ -139,7 +139,7 @@ class UnarySlotWrapperTest extends UnitTestSupport {
     void int_repr() throws Throwable {
 
         PyWrapperDescr repr =
-                (PyWrapperDescr) PyLong.TYPE.lookup(ID.__repr__);
+                (PyWrapperDescr) PyLong.TYPE.lookup("__repr__");
 
         Integer ix = 42;
         BigInteger bx = BigInteger.valueOf(ix);
@@ -162,7 +162,7 @@ class UnarySlotWrapperTest extends UnitTestSupport {
     void bool_repr() throws Throwable {
 
         PyWrapperDescr repr =
-                (PyWrapperDescr) PyBool.TYPE.lookup(ID.__repr__);
+                (PyWrapperDescr) PyBool.TYPE.lookup("__repr__");
 
         for (Boolean x : List.of(false, true)) {
             Object r = repr.__call__(Py.tuple(x), null);
@@ -180,7 +180,7 @@ class UnarySlotWrapperTest extends UnitTestSupport {
     void str_repr() throws Throwable {
 
         PyWrapperDescr repr =
-                (PyWrapperDescr) PyUnicode.TYPE.lookup(ID.__repr__);
+                (PyWrapperDescr) PyUnicode.TYPE.lookup("__repr__");
 
         String sx = "forty-two";
         PyUnicode ux = newPyUnicode(sx);
@@ -201,7 +201,7 @@ class UnarySlotWrapperTest extends UnitTestSupport {
     void str_len() throws Throwable {
 
         PyWrapperDescr len =
-                (PyWrapperDescr) PyUnicode.TYPE.lookup(ID.__len__);
+                (PyWrapperDescr) PyUnicode.TYPE.lookup("__len__");
 
         String sx = "Hello";
         PyUnicode ux = newPyUnicode(sx);
@@ -223,7 +223,7 @@ class UnarySlotWrapperTest extends UnitTestSupport {
     void str_hash() throws Throwable {
 
         PyWrapperDescr hash =
-                (PyWrapperDescr) PyUnicode.TYPE.lookup(ID.__hash__);
+                (PyWrapperDescr) PyUnicode.TYPE.lookup("__hash__");
 
         String sx = "Hello";
         PyUnicode ux = newPyUnicode(sx);
@@ -234,7 +234,7 @@ class UnarySlotWrapperTest extends UnitTestSupport {
             Object r = hash.__call__(Py.tuple(x), null);
             // The result will be Integer (since slot returns int)
             assertEquals(Integer.class, r.getClass());
-            assertEquals(exp,r);
+            assertEquals(exp, r);
         }
     }
 
@@ -246,7 +246,7 @@ class UnarySlotWrapperTest extends UnitTestSupport {
     void int_float() throws Throwable {
 
         PyWrapperDescr f =
-                (PyWrapperDescr) PyLong.TYPE.lookup(ID.__float__);
+                (PyWrapperDescr) PyLong.TYPE.lookup("__float__");
 
         Integer ix = 42;
         BigInteger bx = BigInteger.valueOf(ix);
