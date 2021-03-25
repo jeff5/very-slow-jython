@@ -366,7 +366,7 @@ class LookupTest extends UnitTestSupport {
         }
 
         /**
-         * Check lookup succeeds for {@code String} and
+         * Check {@code PyType.lookup} succeeds for {@code String} and
          * {@link PyUnicode}.
          *
          * @param type to address
@@ -379,5 +379,70 @@ class LookupTest extends UnitTestSupport {
             assertNotNull(u = type.lookup(newPyUnicode(name)));
             assertEquals(s, u);
         }
+
+        /**
+         * Test that {@link PyType#lookup(String)} and
+         * {@link PyType#lookup(String)} retrieve some well-known
+         * attributes.
+         *
+         * @throws Throwable on failure
+         */
+        @Test
+        void abstract_lookupAttr() throws Throwable {
+            checkLookupAttr(OBJECT, "__getattribute__");
+            checkLookupAttr(PyLong.TYPE, "__neg__");
+            checkLookupAttr(PyUnicode.TYPE, "__add__");
+            checkLookupAttr(PyTuple.TYPE, "__repr__");
+        }
+
+        /**
+         * Check {@code Abstract.lookupAttr} succeeds for {@code String}
+         * and {@link PyUnicode}.
+         *
+         * @param obj to address
+         * @param name to look up
+         * @throws Throwable on errors
+         */
+        private void checkLookupAttr(Object obj, String name)
+                throws Throwable {
+            Object u, s;
+            // lookupAttr signals no match with null
+            assertNotNull(s = Abstract.lookupAttr(obj, name));
+            assertNotNull(
+                    u = Abstract.lookupAttr(obj, newPyUnicode(name)));
+            assertEquals(s, u);
+        }
+
+        /**
+         * Test that {@link PyType#lookup(String)} and
+         * {@link PyType#lookup(String)} retrieve some well-known
+         * attributes.
+         *
+         * @throws Throwable on failure
+         */
+        @Test
+        void abstract_getAttr() throws Throwable {
+            checkGetAttr(OBJECT, "__getattribute__");
+            checkGetAttr(PyLong.TYPE, "__neg__");
+            checkGetAttr(PyUnicode.TYPE, "__add__");
+            checkGetAttr(PyTuple.TYPE, "__repr__");
+        }
+
+        /**
+         * Check {@code Abstract.getAttr} succeeds for {@code String}
+         * and {@link PyUnicode}.
+         *
+         * @param obj to address
+         * @param name to look up
+         * @throws Throwable on failure
+         */
+        private void checkGetAttr(Object obj, String name)
+                throws Throwable {
+            // GetAttr signals no match with and exception
+            Object s = Abstract.getAttr(obj, name);
+            Object u = Abstract.getAttr(obj, newPyUnicode(name));
+            assertEquals(s, u);
+        }
+
     }
 }
