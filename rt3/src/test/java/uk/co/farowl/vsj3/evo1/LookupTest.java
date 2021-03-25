@@ -1,6 +1,7 @@
 package uk.co.farowl.vsj3.evo1;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.math.BigInteger;
 import java.util.LinkedList;
@@ -344,6 +345,39 @@ class LookupTest extends UnitTestSupport {
                 // And the value should equal the counter
                 assertEquals(counter++, value);
             }
+        }
+    }
+
+    @Nested
+    @DisplayName("Expected attributes found")
+    class AttrLookupString {
+
+        /**
+         * Test that {@link PyType#lookup(String)} and
+         * {@link PyType#lookup(String)} retrieve some well-known
+         * attributes.
+         */
+        @Test
+        void type_lookup() {
+            checkTypeLookup(OBJECT, "__getattribute__");
+            checkTypeLookup(PyLong.TYPE, "__neg__");
+            checkTypeLookup(PyUnicode.TYPE, "__add__");
+            checkTypeLookup(PyTuple.TYPE, "__repr__");
+        }
+
+        /**
+         * Check lookup succeeds for {@code String} and
+         * {@link PyUnicode}.
+         *
+         * @param type to address
+         * @param name to look up
+         */
+        private void checkTypeLookup(PyType type, String name) {
+            Object u, s;
+            // Lookup signals no match with null
+            assertNotNull(s = type.lookup(name));
+            assertNotNull(u = type.lookup(newPyUnicode(name)));
+            assertEquals(s, u);
         }
     }
 }

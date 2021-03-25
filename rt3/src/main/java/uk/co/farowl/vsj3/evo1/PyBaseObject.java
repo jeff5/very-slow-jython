@@ -166,7 +166,7 @@ class PyBaseObject extends AbstractPyObject {
      */
     // Compare CPython PyObject_GenericGetAttr in object.c
     // Also _PyObject_GenericGetAttrWithDict without the tricks.
-    static Object __getattribute__(Object obj, PyUnicode name)
+    static Object __getattribute__(Object obj, String name)
             throws AttributeError, Throwable {
 
         PyType objType = PyType.of(obj);
@@ -256,7 +256,7 @@ class PyBaseObject extends AbstractPyObject {
      */
     // Compare CPython PyObject_GenericSetAttr in object.c
     // Also _PyObject_GenericSetAttrWithDict without the extras.
-    static void __setattr__(Object obj, PyUnicode name, Object value)
+    static void __setattr__(Object obj, String name, Object value)
             throws AttributeError, Throwable {
 
         // Accommodate CPython idiom that set null means delete.
@@ -336,7 +336,7 @@ class PyBaseObject extends AbstractPyObject {
      * @throws Throwable on other errors, typically from the descriptor
      */
     // Compare CPython PyObject_GenericSetAttr in object.c
-    static void __delattr__(Object obj, PyUnicode name)
+    static void __delattr__(Object obj, String name)
             throws AttributeError, Throwable {
 
         // Look up the name in the type (null if not found).

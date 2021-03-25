@@ -275,7 +275,7 @@ enum Slot {
      * {@link PyWrapperDescr#slot} is not necessarily this slot: client
      * Python code can enter any wrapper descriptor against the name.
      *
-     * @param ops target type object
+     * @param ops target {@code Operations} (or {@code PyType}).
      * @param def object defining the handle to set (or {@code null})
      */
     // Compare CPython update_one_slot in typeobject.c

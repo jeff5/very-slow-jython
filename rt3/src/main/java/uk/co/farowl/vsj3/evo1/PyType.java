@@ -166,9 +166,12 @@ class PyType extends Operations implements PyObjectDict {
     /**
      * The dictionary of the type is always an ordered {@code Map}. It
      * is only accessible (outside the core) through a
-     * {@code mappingproxy} that renders it read-only.
+     * {@code mappingproxy} that renders it a read-only
+     * {@code dict}-like object. Internally names are stored as
+     * {@code String} for speed and accessed via
+     * {@link #lookup(String)}.
      */
-    private final Map<PyUnicode, Object> dict = new LinkedHashMap<>();
+    private final Map<String, Object> dict = new LinkedHashMap<>();
 
     /**
      * Partially construct a {@code type} object for {@code type}, and
@@ -475,7 +478,7 @@ class PyType extends Operations implements PyObjectDict {
 
         for (Map.Entry<String, PyWrapperDescr> e : wrappers
                 .entrySet()) {
-            PyUnicode k = new PyUnicode(e.getKey());
+            String k = e.getKey();
             Object v = e.getValue();
             dict.put(k, v);
         }
@@ -584,10 +587,8 @@ class PyType extends Operations implements PyObjectDict {
         }
     }
 
-    /** name has the form __A__ where A is one or more characters. */
-    private static boolean isDunderName(PyUnicode name) {
-        // XXX This will be inefficient. Is it guaranteed to be String?
-        String n = name.toString();
+    /** A name has the form __A__ where A is one or more characters. */
+    private static boolean isDunderName(String n) {
         final int L = n.length();
         return L > 4 && n.charAt(1) == '_' && n.charAt(0) == '_'
                 && n.charAt(L - 2) == '_' && n.charAt(L - 1) == '_';
@@ -600,7 +601,7 @@ class PyType extends Operations implements PyObjectDict {
      *
      * @param name of the attribute modified
      */
-    protected void updateAfterSetAttr(PyUnicode name) {
+    protected void updateAfterSetAttr(String name) {
 
     }
 
@@ -800,7 +801,7 @@ class PyType extends Operations implements PyObjectDict {
      */
     // Compare CPython _PyType_Lookup in typeobject.c
     // and find_name_in_mro in typeobject.c
-    Object lookup(PyUnicode name) {
+    Object lookup(String name) {
 
         /*
          * CPython wraps this in a cache keyed by (type, name) and
@@ -822,6 +823,17 @@ class PyType extends Operations implements PyObjectDict {
                 return res;
         }
         return null;
+    }
+
+    /**
+     * Equivalent to {@link #lookup(String)}, accepting
+     * {@link PyUnicode}.
+     *
+     * @param name to look up, must be exactly a {@code str}
+     * @return dictionary entry or null
+     */
+    Object lookup(PyUnicode name) {
+        return lookup(name.toString());
     }
 
     /**
@@ -1461,7 +1473,7 @@ class PyType extends Operations implements PyObjectDict {
             Object k = e.getKey();
             Object v = e.getValue();
             if (PyUnicode.TYPE.check(k))
-                type.dict.put((PyUnicode) k, v);
+                type.dict.put(k.toString(), v);
         }
 
         return type;
@@ -1501,7 +1513,7 @@ class PyType extends Operations implements PyObjectDict {
      * @throws Throwable on other errors, typically from the descriptor
      */
     // Compare CPython type_getattro in typeobject.c
-    protected Object __getattribute__(PyUnicode name)
+    protected Object __getattribute__(String name)
             throws AttributeError, Throwable {
 
         PyType metatype = getType();
@@ -1592,7 +1604,7 @@ class PyType extends Operations implements PyObjectDict {
      * @throws Throwable on other errors, typically from the descriptor
      */
     // Compare CPython type_setattro in typeobject.c
-    protected void __setattr__(PyUnicode name, Object value)
+    protected void __setattr__(String name, Object value)
             throws AttributeError, Throwable {
 
         // Accommodate CPython idiom that set null means delete.
@@ -1605,11 +1617,6 @@ class PyType extends Operations implements PyObjectDict {
         // Trap immutable types
         if (!flags.contains(Flag.MUTABLE))
             throw Abstract.cantSetAttributeError(this);
-
-        // Force name to actual str , not just a sub-class
-        if (name.getClass() != PyUnicode.class) {
-            name = new PyUnicode(name.toString());
-        }
 
         // Check to see if this is a special name
         boolean special = isDunderName(name);
@@ -1655,17 +1662,12 @@ class PyType extends Operations implements PyObjectDict {
      * @throws Throwable on other errors, typically from the descriptor
      */
     // Compare CPython type_setattro in typeobject.c
-    protected void __delattr__(PyUnicode name)
+    protected void __delattr__(String name)
             throws AttributeError, Throwable {
 
         // Trap immutable types
         if (!flags.contains(Flag.MUTABLE))
             throw Abstract.cantSetAttributeError(this);
-
-        // Force name to actual str , not just a sub-class
-        if (name.getClass() != PyUnicode.class) {
-            name = new PyUnicode(name.toString());
-        }
 
         // Check to see if this is a special name
         boolean special = isDunderName(name);
