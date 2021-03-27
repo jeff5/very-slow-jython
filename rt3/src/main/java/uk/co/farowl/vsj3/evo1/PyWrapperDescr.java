@@ -492,7 +492,7 @@ abstract class PyWrapperDescr extends Descriptor {
             if (methods.size() != 1) {
                 throw new InterpreterError(
                         "multiple definitons of '%s' in '%s'",
-                        slot.methodName, objclass.implClass);
+                        slot.methodName, objclass.definingClass);
             }
 
             try {
@@ -554,7 +554,7 @@ abstract class PyWrapperDescr extends Descriptor {
                 Method m, IllegalAccessException e) {
             return new InterpreterError(e,
                     "cannot get method handle for '%s' in '%s'", m,
-                    objclass.implClass);
+                    objclass.definingClass);
         }
 
         /** Convenience function to compose error in createDescr(). */

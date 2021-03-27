@@ -144,8 +144,7 @@ public class Abstract {
      * @return comparison result
      * @throws Throwable from invoked implementations
      */
-    // Compare CPython PyObject_RichCompare, do_richcompare in
-    // object.c
+    // Compare CPython PyObject_RichCompare, do_richcompare in object.c
     static Object richCompare(Object v, Object w, Comparison op)
             throws Throwable {
         return op.apply(v, w);
@@ -669,13 +668,13 @@ public class Abstract {
 
         } else if (clsType.isSubTypeOf(PyTuple.TYPE)) {
             // cls is a tuple of (should be) types
-// try (RecursionState state = ThreadState
-// .enterRecursiveCall("in __instancecheck__")) {
-// Result is true if true for any type in cls
+            // try (RecursionState state = ThreadState
+            // .enterRecursiveCall("in __instancecheck__")) {
+            // Result is true if true for any type in cls
             for (Object type : (PyTuple) cls) {
                 if (isInstance(inst, type))
                     return true;
-// }
+                // }
             }
             return false;
 
@@ -684,10 +683,10 @@ public class Abstract {
             Object checker = lookupSpecial(cls, "__instancecheck__");
             if (checker != null) {
                 // cls has an __instancecheck__ to consult.
-// try (RecursionState state = ThreadState
-// .enterRecursiveCall("in __instancecheck__")) {
+                // try (RecursionState state = ThreadState
+                // .enterRecursiveCall("in __instancecheck__")) {
                 return isTrue(Callables.callFunction(checker, inst));
-// }
+                // }
             } else {
                 /*
                  * cls is not exactly a type or a tuple and has no
@@ -757,13 +756,13 @@ public class Abstract {
             return recursiveIsSubclass(derived, cls);
 
         } else if (clsType.isSubTypeOf(PyTuple.TYPE)) {
-// try (RecursionState state = ThreadState
-// .enterRecursiveCall(" in __subclasscheck__")) {
+            // try (RecursionState state = ThreadState
+            // .enterRecursiveCall(" in __subclasscheck__")) {
             for (Object item : (PyTuple) cls) {
                 if (isSubclass(derived, item))
                     return true;
             }
-// }
+            // }
             return false;
 
         } else {
@@ -771,10 +770,10 @@ public class Abstract {
             Object checker = lookupSpecial(cls, "__subclasscheck__");
 
             if (checker != null) {
-// try (RecursionState state = ThreadState
-// .enterRecursiveCall(" in __subclasscheck__")) {
+                // try (RecursionState state = ThreadState
+                // .enterRecursiveCall(" in __subclasscheck__")) {
                 return isTrue(Callables.callFunction(checker, derived));
-// }
+                // }
 
             } else {
                 /*
@@ -789,7 +788,7 @@ public class Abstract {
     /**
      * Method lookup in the type without looking in the instance
      * dictionary (so we can't use
-     * {@link Abstract#getAttr(Object, PyUbicode)}) but still binding it
+     * {@link Abstract#getAttr(Object, String)}) but still binding it
      * to the instance. _PyObject_LookupSpecial() returns {@code null}
      * without raising an exception when the
      * {@linkplain PyType#lookup(Object)} fails;
@@ -798,7 +797,6 @@ public class Abstract {
      *     other causes
      */
     // Compare CPython _PyObject_LookupSpecial in typeobject.c
-    // XXX consider adding to PyType: here to satisfy local references
     private Object lookupSpecial(Object self, String name)
             throws Throwable {
         // Look up attr by name in the type of self
@@ -810,7 +808,7 @@ public class Abstract {
         } else {
             // res might be a descriptor
             try {
-                // invoke the descriptor's __get__(
+                // invoke the descriptor's __get__
                 MethodHandle f = Operations.of(res).op_get;
                 res = f.invokeExact(res, self, selfType);
             } catch (EmptyException e) {}

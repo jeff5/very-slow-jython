@@ -114,7 +114,7 @@ class PyType extends Operations implements PyObjectDict {
     final String name;
 
     /** The Java class defining operations on instances of the type. */
-    final Class<?> implClass;
+    final Class<?> definingClass;
 
     /**
      * Handle arrays for in which to look up binary class-specific
@@ -194,7 +194,7 @@ class PyType extends Operations implements PyObjectDict {
          */
         this.type = this;
         this.name = spec.name;
-        this.implClass = spec.implClass();
+        this.definingClass = spec.definingClass();
         this.binopTable = Collections.emptyMap();
         this.implCount = spec.adoptedCount();
         this.acceptedCount = spec.acceptedCount();
@@ -234,7 +234,7 @@ class PyType extends Operations implements PyObjectDict {
     private PyType(Spec spec) {
         this.type = spec.getMetaclass();
         this.name = spec.name;
-        this.implClass = spec.implClass();
+        this.definingClass = spec.definingClass();
         this.classes = spec.getClasses();
         this.implCount = spec.adoptedCount() + 1;
         this.acceptedCount = spec.acceptedCount();
@@ -360,7 +360,7 @@ class PyType extends Operations implements PyObjectDict {
          * @param type corresponding (partial) type object
          */
         static void shelve(Spec spec, PyType type) {
-            Class<?> key = spec.implClass();
+            Class<?> key = spec.definingClass();
             BootstrapTask t = bootstrapTasks.get(key);
             if (t == null)
                 // Not present: add an entry.
@@ -473,8 +473,9 @@ class PyType extends Operations implements PyObjectDict {
      */
     private void addWrappers(Spec spec) {
 
-        Map<String, PyWrapperDescr> wrappers = Exposer.wrapperDescrs(
-                spec.lookup, spec.implClass, spec.methodClass, this);
+        Map<String, PyWrapperDescr> wrappers =
+                Exposer.wrapperDescrs(spec.lookup, spec.definingClass(),
+                        spec.methodClass(), this);
 
         for (Map.Entry<String, PyWrapperDescr> e : wrappers
                 .entrySet()) {
@@ -886,8 +887,11 @@ class PyType extends Operations implements PyObjectDict {
         /** Delegated authorisation to resolve names. */
         final Lookup lookup;
 
-        /** The class in which the {@code Spec} was created. */
-        final Class<?> implClass;
+        /**
+         * The defining class for the type being specified, in which the
+         * {@code Spec.lookup} was created.
+         */
+        private final Class<?> definingClass;
 
         /**
          * Additional class in which to look up method names or
@@ -962,18 +966,18 @@ class PyType extends Operations implements PyObjectDict {
          * be different from the caller. Usually they are the same.
          *
          * @param name of the type
-         * @param implClass in which operations are defined
+         * @param definingClass in which operations are defined
          * @param lookup authorisation to access {@code implClass}
          *
-         * @deprecated Use {@link #PyType(String, Lookup)} istead
+         * @deprecated Use {@link #PyType(String, Lookup)} instead
          */
         @Deprecated
-        Spec(String name, Class<?> implClass, Lookup lookup) {
+        Spec(String name, Class<?> definingClass, Lookup lookup) {
             this.name = name;
-            this.implClass = implClass;
+            this.definingClass = definingClass;
             this.lookup = lookup;
             this.methodClass = this.binopClass = null;
-            this.adopt(implClass);
+            this.adopt(definingClass);
         }
 
         /**
@@ -1238,9 +1242,13 @@ class PyType extends Operations implements PyObjectDict {
             return this;
         }
 
-        /** Get the canonical implementation class for the type. */
-        Class<?> implClass() {
-            return implClass;
+        /**
+         * Get the defining class for the type. This is often, and is by
+         * default, the canonical implementation class, but it doesn't
+         * have to be.
+         */
+        Class<?> definingClass() {
+            return definingClass;
         }
 
         /**
@@ -1277,7 +1285,7 @@ class PyType extends Operations implements PyObjectDict {
          * with a {@code __rsub__(MyObject, Object)} that coerces its
          * right-hand argument on each call. (This method has to exist
          * to satisfy the Python data model.) The method may be defined
-         * in the {@link #implClass()}, or {@link #methodClass()}
+         * in the {@link #definingClass()}, or {@link #methodClass()}
          * <p>
          * A separate class is necessary since the method definition for
          * {@code __rsub__(MyObject, Object)} must sometimes return
@@ -1330,7 +1338,7 @@ class PyType extends Operations implements PyObjectDict {
                  * No bases specified: that means 'object' is the
                  * implicit base, unless that's us.
                  */
-                if (implClass() != PyBaseObject.class)
+                if (definingClass() != PyBaseObject.class)
                     return ONLY_OBJECT;         // Normally
                 else
                     return EMPTY_TYPE_ARRAY;    // For 'object'
@@ -1353,7 +1361,7 @@ class PyType extends Operations implements PyObjectDict {
         public String toString() {
             String fmt = "'%s' %s, flags=%s impl=%s";
             return String.format(fmt, name, bases, flags,
-                    implClass().getSimpleName());
+                    definingClass().getSimpleName());
         }
     }
 

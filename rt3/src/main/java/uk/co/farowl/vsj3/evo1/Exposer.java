@@ -284,20 +284,20 @@ class Exposer {
      * is (necessarily) incomplete at this time.
      *
      * @param lookup authorisation to access methods
-     * @param implClass to introspect for special functions
+     * @param definingClass to introspect for special functions
      * @param methodClass to introspect additionally (if non-null)
      * @param type to which these descriptors apply
      * @return attributes defined (in the order first encountered)
      * @throws InterpreterError on duplicates or unsupported types
      */
     static Map<String, PyWrapperDescr> wrapperDescrs(Lookup lookup,
-            Class<?> implClass, Class<?> methodClass, PyType type)
+            Class<?> definingClass, Class<?> methodClass, PyType type)
             throws InterpreterError {
 
         // Iterate over methods looking for the relevant annotations
         Map<Slot, WrapperDef> defs = new LinkedHashMap<>();
 
-        addWrapperDefs(defs, lookup, implClass);
+        addWrapperDefs(defs, lookup, definingClass);
         if (methodClass != null)
             addWrapperDefs(defs, lookup, methodClass);
 
