@@ -359,7 +359,7 @@ class LookupTest extends UnitTestSupport {
          */
         @Test
         void type_lookup() {
-            checkTypeLookup(OBJECT, "__getattribute__");
+            checkTypeLookup(PyBaseObject.TYPE, "__getattribute__");
             checkTypeLookup(PyLong.TYPE, "__neg__");
             checkTypeLookup(PyUnicode.TYPE, "__add__");
             checkTypeLookup(PyTuple.TYPE, "__repr__");
@@ -389,7 +389,7 @@ class LookupTest extends UnitTestSupport {
          */
         @Test
         void abstract_lookupAttr() throws Throwable {
-            checkLookupAttr(OBJECT, "__getattribute__");
+            checkLookupAttr(PyBaseObject.TYPE, "__getattribute__");
             checkLookupAttr(PyLong.TYPE, "__neg__");
             checkLookupAttr(PyUnicode.TYPE, "__add__");
             checkLookupAttr(PyTuple.TYPE, "__repr__");
@@ -422,7 +422,7 @@ class LookupTest extends UnitTestSupport {
          */
         @Test
         void abstract_getAttr() throws Throwable {
-            checkGetAttr(OBJECT, "__getattribute__");
+            checkGetAttr(PyBaseObject.TYPE, "__getattribute__");
             checkGetAttr(PyLong.TYPE, "__neg__");
             checkGetAttr(PyUnicode.TYPE, "__add__");
             checkGetAttr(PyTuple.TYPE, "__repr__");
@@ -443,6 +443,5 @@ class LookupTest extends UnitTestSupport {
             Object u = Abstract.getAttr(obj, newPyUnicode(name));
             assertEquals(s, u);
         }
-
     }
 }

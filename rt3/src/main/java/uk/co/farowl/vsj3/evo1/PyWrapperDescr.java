@@ -211,6 +211,18 @@ abstract class PyWrapperDescr extends Descriptor {
         }
     }
 
+    /**
+     * Call the wrapped method with positional arguments (the first
+     * being the target object) and optionally keywords arguments. THer
+     * arguments, in type and number, must match the signature of the
+     * special function slot.
+     *
+     * @param args positional arguments beginning with {@code self}
+     * @param kwargs keyword arguments
+     * @return result of calling the wrapped method
+     * @throws TypeError if {@code args[0]} is the wrong type
+     * @throws Throwable from the implementation of the special method
+     */
     // Compare CPython wrapperdescr_call in descrobject.c
     protected Object __call__(PyTuple args, PyDict kwargs)
             throws TypeError, Throwable {

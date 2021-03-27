@@ -242,7 +242,7 @@ class Callables extends Abstract {
      * @throws AttributeError
      */
     // Compare CPython _PyObject_CallMethodIdObjArgs in call.c
-    static Object callMethod(Object obj, PyUnicode name, Object... args)
+    static Object callMethod(Object obj, String name, Object... args)
             throws AttributeError, Throwable {
         /*
          * CPython has an optimisation here that, in the case of an

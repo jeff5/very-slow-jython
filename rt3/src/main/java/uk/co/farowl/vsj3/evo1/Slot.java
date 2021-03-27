@@ -542,13 +542,66 @@ enum Slot {
         DELITEM(V, S, O),
 
         // (getattrofunc) Slot#op_getattr
-        GETATTR(O, S, U),
+        GETATTR(O, S, U) {
+
+            @Override
+            PyWrapperDescr makeSlotWrapper(PyType objclass, Slot slot,
+                    MethodHandle[] wrapped) {
+                return new PyWrapperDescr(objclass, slot, wrapped) {
+
+                    @Override
+                    Object callWrapped(MethodHandle wrapped,
+                            Object self, PyTuple args, PyDict kwargs)
+                            throws Throwable {
+                        checkArgs(args, 1, kwargs);
+                        String name = args.value[0].toString();
+                        return wrapped.invokeExact(self, name);
+                    }
+                };
+            }
+        },
 
         // (setattrofunc) Slot#op_setattr
-        SETATTR(V, S, U, O),
+        SETATTR(V, S, U, O) {
+
+            @Override
+            PyWrapperDescr makeSlotWrapper(PyType objclass, Slot slot,
+                    MethodHandle[] wrapped) {
+                return new PyWrapperDescr(objclass, slot, wrapped) {
+
+                    @Override
+                    Object callWrapped(MethodHandle wrapped, Object self,
+                            PyTuple args, PyDict kwargs)
+                            throws Throwable {
+                        checkArgs(args, 2, kwargs);
+                        String name = args.value[0].toString();
+                        wrapped.invokeExact(self, name, args.value[1]);
+                        return Py.None;
+                    }
+                };
+            }
+        },
 
         // (not in CPython) Slot#op_delattr
-        DELATTR(V, S, U),
+        DELATTR(V, S, U) {
+
+            @Override
+            PyWrapperDescr makeSlotWrapper(PyType objclass, Slot slot,
+                    MethodHandle[] wrapped) {
+                return new PyWrapperDescr(objclass, slot, wrapped) {
+
+                    @Override
+                    Object callWrapped(MethodHandle wrapped, Object self,
+                            PyTuple args, PyDict kwargs)
+                            throws Throwable {
+                        checkArgs(args, 1, kwargs);
+                        String name = args.value[0].toString();
+                        wrapped.invokeExact(self, name);
+                        return Py.None;
+                    }
+                };
+            }
+        },
 
         // (descrgetfunc) Slot#op_get
         DESCRGET(O, S, O, T) {

@@ -2,10 +2,11 @@
 
 .. _Hash-dictionary:
 
-The Hash and a Dictionary
-#########################
+Hash, Lookup and Dictionary
+###########################
 
 Both Python and Java use collections that depend on hashes.
+In Python hashed dictionaries are integral to attribute access.
 In both languages,
 it is important for the use of collection types (sets and maps),
 that two objects considered equal should also have the same hash.
@@ -16,6 +17,7 @@ that two objects considered equal should also have the same hash.
     in the project source.
 
 
+.. _Hash-dictionary-str:
 
 The Type ``str``
 ****************
@@ -33,7 +35,7 @@ provides more variety of storage internally (like CPython),
 but not just yet.
 In practice,
 most instances of ``str`` will be represented by ``java.lang.String``,
-and so compact representations would benefit only sub-classes of ``str``.
+and so compact representations would mostly benefit sub-classes of ``str``.
 
 We obtain an accurate interpretation of ``String``
 in mixed operations with ``PyUnicode``
@@ -41,10 +43,14 @@ by wrapping the ``String`` temporarily
 in a Java iterable yielding ``Integer`` elements.
 (``PyUnicode`` is such an iterable already.)
 
-There is potentially a problem in giving a proper interpretation
+There is a dilemma around giving a proper interpretation
 to a ``String`` involving UTF-16 surrogate pairs,
 where what might be preferred for consistency is slow at run-time.
-
+If we could guarantee all strings containing
+supplementary plane characters would appear only as PyUnicode,
+we should not have to be constantly on guard for high-surrogates
+when iterating a ``String``.
+It does not seem possible to guarantee that.
 
 
 .. _Hash-dictionary-plain-object:
@@ -128,6 +134,8 @@ The several implementations of ``int``
 will therefore not report as equal when used as keys in a Java container
 although Python requires it.
 
+
+.. _Hash-dictionary-dict:
 
 Changes to ``dict``
 ===================
@@ -252,5 +260,146 @@ There may be a case for having the ``Operations`` object
 provide a ``PyDict.Key``,
 since it differentiates by Java class within a common type.
 
+
+.. _Hash-dictionary-attr-names:
+
+Attribute Names
+***************
+
+Many Python objects,
+including the ``type`` object,
+allow the programmer to define new attributes.
+It is evident that one is dealing with a dictionary,
+since there is a ``__dict__`` in which the definitions may be seen.
+
+..  code-block:: python
+
+    >>> class C:
+        a = 42
+
+    >>> C.__dict__.keys()
+    dict_keys(['__module__', 'a', '__dict__', '__weakref__', '__doc__'])
+    >>> c = C()
+    >>> c.b = 43
+    >>> c.__dict__
+    {'b': 43}
+
+We may put any type of key in the dictionary of an instance,
+but that doesn't make it an attribute.
+Attributes names have to be strings:
+
+..  code-block:: python
+
+    >>> c.__dict__[True] = 99
+    >>> c.__dict__
+    {'b': 43, True: 99}
+    >>> c.True
+    SyntaxError: invalid syntax
+    >>> getattr(c, True)
+    Traceback (most recent call last):
+      File "<pyshell#162>", line 1, in <module>
+        getattr(c, True)
+    TypeError: getattr(): attribute name must be string
+
+When we access an attribute from program text (as in ``c.b`` above),
+the name is embedded in the code object ``co_names`` table as a ``str``,
+and that value is used in a ``LOAD_ATTR`` opcode,
+which invokes the special method ``__getattribute__``.
+
+..  code-block:: python
+
+    >>> code = compile("c.b", '', 'eval')
+    >>> code.co_names
+    ('c', 'b')
+    >>> from dis import dis
+    >>> dis(code)
+      1           0 LOAD_NAME                0 (c)
+                  2 LOAD_ATTR                1 (b)
+                  4 RETURN_VALUE
+
+Python allows a wide range of non-ASCII identifiers
+to be used in program text (:pep:`3131`).
+Despite examples of `the creative use of supplementary characters`_,
+we work on the assumption that almost all attribute and variable names
+will contain only ASCII or at most basic plane Unicode characters.
+
+We propose therefore to represent names appearing in programme text
+by ``java.lang.String`` objects exclusively.
+The name in attribute access special methods
+``__getattribute__``, ``__getattr__``, ``__setattr__`` and ``__delattr__``
+will be strongly-typed as ``String``.
+(This does not apply to their counterparts ``__getitem__``, etc.,
+which must accept arbitrary objects as their index.)
+
+In all the places where we call attribute access methods,
+including through the ``op_*`` slots of an ``Operations`` object
+in which they are cached,
+we shall be in control of the Java type finally passed.
+Where an object representing a name enters from Python code,
+for example in the ``getattr()`` built-in function,
+or a direct call to ``object.__getattribute__``,
+we may arrange an appropriate conversion at the boundary.
+(It is just ``PyUnicode.toString()``.)
+
+This does not limit the available identifiers in any way.
+Only the *representation* of names is optimised to favour lookup of
+identifiers that use only BMP characters.
+
+.. _the creative use of supplementary characters:
+    https://adamobeng.com/snake
+
+
+.. _Hash-dictionary-type:
+
+The Dictionary of a ``PyType``
+******************************
+
+Every Python ``type`` object contains a mapping
+from attribute names to values,
+which are often descriptors.
+
+This mapping is exposed through ``type.__dict__``,
+but only as a read-only ``mappingproxy``.
+The type *may* allow changes to the set of attributes,
+but only via a mechanism it can police,
+and follow up with changes to internal data if necessary.
+Only ``str`` keys ever appear in this dictionary.
+
+This could be implemented by a regular dictionary (``PyDict``),
+but we take advantage of the greater control we have.
+The *representation* of names exclusively by ``java.lang.String``
+allows us to use a Java implementation directly in ``PyType``,
+specialised to type.
+We avoid the extra apparatus in ``PyDict``
+needed to recognise keys of differing Java class as equal:
+the delegation of ``get`` and ``put``,
+and the wrapping of keys to take control of ``hashCode`` and ``equals``.
+
+..  code-block:: java
+
+    class PyType extends Operations implements PyObjectDict {
+        // ...
+        private final Map<String, Object> dict = new LinkedHashMap<>();
+        // ...
+        Object lookup(String name) {
+            // Look in dictionaries of types in MRO
+            PyType[] mro = getMRO();
+            for (PyType base : mro) {
+                Object res;
+                if ((res = base.dict.get(name)) != null)
+                    return res;
+            }
+            return null;
+        }
+
+        Object lookup(PyUnicode name) {
+            return lookup(name.toString());
+        }
+
+        @Getter("__dict__")
+        @Override
+        public final Map<Object, Object> getDict() {
+            return Collections.unmodifiableMap(dict);
+        }
 
 

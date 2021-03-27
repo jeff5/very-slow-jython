@@ -176,7 +176,7 @@ class PyBaseObject extends AbstractPyObject {
         Object typeAttr = objType.lookup(name);
         if (typeAttr != null) {
             // Found in the type, it might be a descriptor
-            Operations typeAttrOps = Operations.of(typeAttr);;
+            Operations typeAttrOps = Operations.of(typeAttr);
             descrGet = typeAttrOps.op_get;
             if (typeAttrOps.isDataDescr()) {
                 // typeAttr is a data descriptor so call its __get__.
@@ -270,7 +270,7 @@ class PyBaseObject extends AbstractPyObject {
         Object typeAttr = PyType.of(obj).lookup(name);
         if (typeAttr != null) {
             // Found in the type, it might be a descriptor.
-            Operations typeAttrOps = Operations.of(typeAttr);;
+            Operations typeAttrOps = Operations.of(typeAttr);
             if (typeAttrOps.isDataDescr()) {
                 // Try descriptor __set__
                 try {

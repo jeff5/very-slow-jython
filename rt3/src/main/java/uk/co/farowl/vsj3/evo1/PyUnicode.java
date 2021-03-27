@@ -95,7 +95,6 @@ class PyUnicode implements PySequenceInterface<Integer>, CraftedType,
 
     @SuppressWarnings("unused")
     private static int __len__(String self) {
-        // XXX code points or chars?
         return self.codePointCount(0, self.length());
     }
 
