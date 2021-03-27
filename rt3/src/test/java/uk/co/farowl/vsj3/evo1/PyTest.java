@@ -17,25 +17,11 @@ import uk.co.farowl.vsj3.evo1.PyType.Spec;
  */
 public class PyTest {
 
-    /** Test PyUnicode.toString is not recursive, etc. */
-    @Test
-    void testStrToString() {
-        assertEquals("hello", Py.str("hello").toString());
-    }
-
-    /** Test PyLong.toString is its repr. */
-    @Test
-    void testIntToString() {
-        assertEquals("42", Py.val(42).toString());
-        assertEquals("-42", Py.val(-42).toString());
-        assertEquals("1", Py.val(BigInteger.ONE).toString());
-    }
-
     /** Test PyTuple.toString is its repr. */
     @Test
     void testTupleToString() {
         assertEquals("()", Py.tuple().toString());
-        Object[] x = {Py.val(1), Py.val(2)};
+        Object[] x = {1, 2};
         assertEquals("(1, 2)", Py.tuple(x).toString());
         assertEquals("(1,)", Py.tuple(x[0]).toString());
     }
@@ -45,9 +31,9 @@ public class PyTest {
     void testDictToString() {
         PyDict d = Py.dict();
         assertEquals("{}", d.toString());
-        d.put(Py.str("b"), Py.val(1));
+        d.put("b", 1);
         assertEquals("{'b': 1}", d.toString());
-        d.put(Py.str("a"), Py.dict());
+        d.put("a", Py.dict());
         assertEquals("{'b': 1, 'a': {}}", d.toString());
     }
 
@@ -62,7 +48,7 @@ public class PyTest {
     @Test
     void testExceptionRepr() {
         PyException e = new TypeError("test");
-        assertEquals(Py.str("TypeError('test')"), e.__repr__());
+        assertEquals("TypeError('test')", e.__repr__());
     }
 
     /** Every slot will fall back to {@link PyBaseObject}. */
@@ -101,7 +87,7 @@ public class PyTest {
         public PyType getType() { return type; }
 
         Object __repr__() {
-            return Py.str("grim!");
+            return "grim!";
         }
     }
 
@@ -126,7 +112,7 @@ public class PyTest {
         public PyType getType() { return type; }
 
         Object __str__() {
-            return Py.str("w00t!");
+            return "w00t!";
         }
     }
 

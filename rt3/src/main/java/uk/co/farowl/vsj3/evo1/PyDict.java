@@ -108,7 +108,7 @@ class PyDict extends AbstractMap<Object, Object>
 
     @SuppressWarnings("unused")
     private Object __repr__() throws Throwable {
-        return Py.str(PyObjectUtil.mapRepr(this));
+        return PyObjectUtil.mapRepr(this);
     }
 
     @SuppressWarnings("unused")

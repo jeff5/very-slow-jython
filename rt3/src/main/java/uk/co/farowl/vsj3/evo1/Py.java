@@ -42,7 +42,9 @@ public class Py {
      *
      * @param value to represent
      * @return equivalent {@code int}
+     * @deprecated Use primitive auto-boxed or {@code Integer.valueOf}.
      */
+    @Deprecated
     public static Integer val(int value) {
         return value;
     }
@@ -62,8 +64,9 @@ public class Py {
      *
      * @param value to wrap
      * @return equivalent {@code int}
+     * @deprecated Use BigInteger directly.
      */
-    // @Deprecated // Just use BigInteger
+    @Deprecated
     public static BigInteger val(BigInteger value) {
         return value;
     }
@@ -73,8 +76,10 @@ public class Py {
      *
      * @param value to represent
      * @return equivalent {@code float}
+     * @deprecated Use primitive auto-boxed or {@code Double.valueOf}.
      */
     // @Deprecated // Just use primitive auto-boxed
+    @Deprecated
     public static Double val(double value) {
         return value;
     }
@@ -85,8 +90,9 @@ public class Py {
      *
      * @param value to represent
      * @return equivalent {@code bool}
+     * @deprecated Use primitive auto-boxed or {@code Boolean.valueOf}.
      */
-    // @Deprecated // Just use primitive auto-boxed
+    @Deprecated // Just
     static Boolean val(boolean value) {
         return value;
     }
@@ -111,10 +117,11 @@ public class Py {
      *
      * @param value to wrap
      * @return equivalent {@code str}
+     * @deprecated Use {@code String} directly.
      */
-    // XXX Deprecate when lookup works with String as str
+    @Deprecated
     public static Object str(String value) {
-        return new PyUnicode(value);
+        return value;
     }
 
 // /**

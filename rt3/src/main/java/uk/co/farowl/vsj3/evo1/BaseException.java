@@ -25,8 +25,7 @@ class BaseException extends RuntimeException implements CraftedType {
         super(String.format(msg, args));
         this.type = type;
         msg = this.getMessage();
-        this.args = msg.length() > 0 ? new PyTuple(Py.str(msg))
-                : PyTuple.EMPTY;
+        this.args = msg.length() > 0 ? new PyTuple(msg) : PyTuple.EMPTY;
     }
 
     /**
@@ -49,6 +48,6 @@ class BaseException extends RuntimeException implements CraftedType {
 
     protected Object __repr__() {
         // Somewhat simplified
-        return Py.str(getType().name + "('" + getMessage() + "')");
+        return getType().name + "('" + getMessage() + "')";
     }
 }

@@ -26,7 +26,7 @@ public class MethodHandleFormationTest {
     void testSlotsEmptyException() {
 
         // Call to handle that fills "empty" UNARY slot.
-        Object v = new PyLong(100);
+        Object v = 100;
         assertThrows(Slot.EmptyException.class, () -> { //
             Object r = Slot.Signature.UNARY.empty.invokeExact(v);
         });
@@ -43,7 +43,7 @@ public class MethodHandleFormationTest {
         });
 
         // Call to handle that fills "empty" BINARY slot.
-        Object w = new PyLong(200);
+        Object w = 200;
         assertThrows(Slot.EmptyException.class, () -> { //
             Object r = Slot.Signature.BINARY.empty.invokeExact(v, w);
         });
@@ -54,7 +54,7 @@ public class MethodHandleFormationTest {
 
             @Override
             public void execute() throws Throwable {
-                Object i = Py.val(1);
+                Object i = 1;
                 Slot.Signature.SETITEM.empty.invokeExact(u, i, w);
             }
         });

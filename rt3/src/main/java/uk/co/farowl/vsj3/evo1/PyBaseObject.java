@@ -94,7 +94,7 @@ class PyBaseObject extends AbstractPyObject {
      */
     // Compare CPython object_repr in typeobject.c
     static Object __repr__(Object self) {
-        return Py.str("<" + PyObjectUtil.toAt(self) + ">");
+        return "<" + PyObjectUtil.toAt(self) + ">";
     }
 
     /**

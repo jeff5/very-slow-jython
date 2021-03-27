@@ -152,7 +152,7 @@ abstract class Descriptor extends AbstractPyObject
             throws AttributeError, Throwable {
         if (descr.qualname == null)
             descr.qualname = descr.calculate_qualname();
-        return Py.str(descr.qualname);
+        return descr.qualname;
     }
 
     // Incompletely ported from CPython:

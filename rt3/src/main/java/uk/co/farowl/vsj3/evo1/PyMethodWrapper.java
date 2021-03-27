@@ -137,8 +137,7 @@ class PyMethodWrapper extends AbstractPyObject {
     @Getter
     // Compare CPython wrapper_name in descrobject.c
     protected Object __name__() {
-        String s = descr.slot.methodName;
-        return Py.str(s);
+        return descr.slot.methodName;
     }
 
     @Getter

@@ -22,7 +22,7 @@ class Warnings {
          * lineno, module, registry, null, source);
          */
         System.err.print(message);
-        return Py.str("");
+        return "";
     }
 
     /**
