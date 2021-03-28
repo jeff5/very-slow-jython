@@ -1,11 +1,16 @@
 package uk.co.farowl.vsj3.evo1;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.lang.invoke.MethodHandles;
 import java.math.BigInteger;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
+
+import uk.co.farowl.vsj3.evo1.PyType.Flag;
+import uk.co.farowl.vsj3.evo1.PyType.Spec;
 
 /**
  * Test the {@link PyWrapperDescr}s for unary special functions on a
@@ -261,6 +266,78 @@ class UnarySlotWrapperTest extends UnitTestSupport {
             double exp = toDouble(x);
             assertEquals(exp, PyFloat.asDouble(r));
         }
+    }
+
+    /**
+     * Define a Python sub-class of {@code int} in order to test binding
+     * and calling descriptors added to the class but not capable of
+     * being called on instances.
+     * <p>
+     * This isn't exactly how we should make a Python sub-type in
+     * Python, but it allows testing of some behaviour before we master
+     * that.
+     */
+    static class MyInt extends PyLong.Derived {
+
+        static final PyType TYPE = PyType.fromSpec( //
+                new Spec("MyInt", MethodHandles.lookup())
+                        .base(PyLong.TYPE) //
+                        .flag(Flag.MUTABLE));
+
+        MyInt(int value) {
+            super(TYPE, BigInteger.valueOf(value));
+        }
+    }
+
+    /**
+     * Methods are inherited from {@code int} by {@link MyInt}. This
+     * just a sanity check to compare with
+     * {@link UnarySlotWrapperTest#myint_float_neg()}.
+     */
+    @Test
+    void myint_neg() throws AttributeError, Throwable {
+        Object v = new MyInt(42);
+        Object r = Callables.callMethod(v, "__neg__");
+        assertEquals(-42, PyLong.asInt(r));
+    }
+
+    /**
+     * A slot-wrapper descriptor added to a type that does not match the
+     * defining class is allowed but produces TypeError when bound or
+     * called.
+     */
+    // @Test // Disabled until we have slot_* functions
+    void myint_float_neg() throws AttributeError, Throwable {
+
+        // v = MyInt(42)
+        Object v = new MyInt(42);
+
+        // Sanity check: -v the long way round
+        // f = v.__neg__
+        Object f = Abstract.getAttr(v, "__neg__");
+        // r = f() # = -42
+        Object r = Callables.call(f);
+        assertEquals(-42, PyLong.asInt(r));
+
+        // Sanity check: -v the short way
+        r = Number.negative(v);
+        assertEquals(-42, PyLong.asInt(r));
+
+        // Now this should break negation ...
+        // MyInt.__neg__ = float.__neg__
+        Object neg = Abstract.getAttr(PyFloat.TYPE, "__neg__");
+        Abstract.setAttr(MyInt.TYPE, "__neg__", neg);
+
+        // f = v.__neg__
+        // f = Abstract.getAttr(v, "__neg__");
+        // TypeError: descriptor '__neg__' for 'float' objects ...
+        assertThrows(TypeError.class,
+                () -> Abstract.getAttr(v, "__neg__"));
+
+        // r = -v
+        // r = Number.negative(v);
+        // TypeError: descriptor '__neg__' requires a 'float' ...
+        assertThrows(TypeError.class, () -> Number.negative(v));
     }
 
 }

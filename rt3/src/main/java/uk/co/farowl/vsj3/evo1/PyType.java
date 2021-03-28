@@ -604,6 +604,18 @@ class PyType extends Operations implements PyObjectDict {
      */
     protected void updateAfterSetAttr(String name) {
 
+        // XXX What if a slot-wrapper is removed, not replaced?
+        // XXX Should also visit sub-classes
+
+        // If the update is a slot wrapper change, slots must follow.
+        Slot s = Slot.forMethodName(name);
+        if (s != null) {
+            Object def = dict.get(name);
+            for (Class<?> impl : classes) {
+                Operations ops = Operations.forClass(impl);
+                s.setSlot(ops, def);
+            }
+        }
     }
 
     private void setSlot(Slot slot, MethodHandle mh) {

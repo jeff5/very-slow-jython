@@ -2,6 +2,7 @@ package uk.co.farowl.vsj3.evo1;
 
 import java.lang.invoke.MethodHandles;
 import java.math.BigInteger;
+import java.util.Map;
 
 import uk.co.farowl.vsj3.evo1.PyObjectUtil.NoConversion;
 import uk.co.farowl.vsj3.evo1.Slot.EmptyException;
@@ -40,6 +41,7 @@ class PyLong implements CraftedType, PyDict.Key {
      * @param value of the {@code int}
      */
     // XXX not needed?
+    @Deprecated
     PyLong(BigInteger value) {
         this(TYPE, value);
     }
@@ -50,6 +52,7 @@ class PyLong implements CraftedType, PyDict.Key {
      * @param value of the {@code int}
      */
     // XXX not needed?
+    @Deprecated
     PyLong(long value) {
         this(BigInteger.valueOf(value));
     }
@@ -233,8 +236,26 @@ class PyLong implements CraftedType, PyDict.Key {
         }
     }
 
-    // Non-slot API -------------------------------------------------
+    // Python sub-class -----------------------------------------------
+    /**
+     * Instances in Python of sub-classes of 'int', are represented in
+     * Java by instances of this class.
+     */
+    static class Derived extends PyLong
+            implements PyObjectDict {
 
+        protected Derived(PyType type, BigInteger value) {
+            super(type, value);
+        }
+
+        /** The instance dictionary {@code __dict__}. */
+        protected PyDict dict = new PyDict();
+
+        @Override
+        public Map<Object, Object> getDict() { return dict; }
+    }
+
+    // Non-slot API -------------------------------------------------
     /**
      * Convert the given object to a {@code PyLong} using the
      * {@code op_int} slot, if available. Raise {@code TypeError} if
