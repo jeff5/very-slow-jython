@@ -14,6 +14,7 @@ import java.util.ListIterator;
 import uk.co.farowl.vsj3.evo1.Exposed.Getter;
 import uk.co.farowl.vsj3.evo1.PyType.Flag;
 import uk.co.farowl.vsj3.evo1.Slot.MethodKind;
+import uk.co.farowl.vsj3.evo1.Slot.Signature.ArgumentError;
 
 /**
  * A {@link Descriptor} for a particular definition <b>in Java</b> of
@@ -60,63 +61,17 @@ abstract class PyWrapperDescr extends Descriptor {
     final Slot slot;
 
     /**
-     * A handles for the particular implementations of a special method
-     * being wrapped. The method type of each is that of
-     * {@link #slot}{@code .signature}.
-     */
-    protected final MethodHandle[] wrapped;
-
-    /**
-     * Construct a slot wrapper descriptor, identifying by a method
-     * handle the implementation method for the {@code slot} in
+     * Construct a slot wrapper descriptor for the {@code slot} in
      * {@code objclass}.
      *
      * @param objclass the class declaring the special method
      * @param slot for the generic special method
-     * @param wrapped a handle to an implementation of that slot
      */
     // Compare CPython PyDescr_NewClassMethod in descrobject.c
-    @Deprecated // XXX Accommodate array of handles instead
-    PyWrapperDescr(PyType objclass, Slot slot, MethodHandle wrapped) {
+    PyWrapperDescr(PyType objclass, Slot slot) {
         super(TYPE, objclass, slot.methodName);
         this.slot = slot;
-        this.wrapped = new MethodHandle[] {wrapped};
     }
-
-    /**
-     * Construct a slot wrapper descriptor, identifying by an array of
-     * method handles the implementation methods for the {@code slot} in
-     * {@code objclass}.
-     *
-     * @param objclass the class declaring the special method
-     * @param slot for the generic special method
-     * @param wrapped handles to the implementation of that slot
-     */
-    // Compare CPython PyDescr_NewClassMethod in descrobject.c
-    PyWrapperDescr(PyType objclass, Slot slot, MethodHandle[] wrapped) {
-        super(TYPE, objclass, slot.methodName);
-        this.slot = slot;
-        this.wrapped = wrapped;
-    }
-
-    /**
-     * Invoke the correct method handle for the given target
-     * {@code self}, having arranged the arguments as expected by a
-     * slot. When we create sub-classes of {@code PyWrapperDescr} to
-     * handle different slot signatures, this is the method that accepts
-     * arguments in a generic way (from the interpreter, say) and adapts
-     * them to the specific needs of the wrapped slot.
-     *
-     * @param wrapper handle of the method to call
-     * @param self target object of the method call
-     * @param args of the method call
-     * @param kwargs of the method call
-     * @return result of the method call
-     * @throws Throwable from the implementation of the special method
-     */
-    // Compare CPython wrapperdescr_raw_call in descrobject.c
-    abstract Object callWrapped(MethodHandle wrapper, Object self,
-            PyTuple args, PyDict kwargs) throws Throwable;
 
     // Exposed attributes ---------------------------------------------
 
@@ -185,31 +140,17 @@ abstract class PyWrapperDescr extends Descriptor {
     }
 
     /**
-     * Return the handle contained in this descriptor for the class of
-     * {@code self} supplied. The caller guarantees that the class is an
-     * accepted implementation of {@link Descriptor#objclass}, according
-     * to its {@link PyType#indexAccepted(Class)}.
+     * Return the handle contained in this descriptor applicable to the
+     * Java class supplied (typically that of a {@code self} argument
+     * during a call). The {@link Descriptor#objclass} is consulted to
+     * make this determination. If the class is not an accepted
+     * implementation of {@code objclass}, an empty slot handle (with
+     * the correct signature) is returned.
      *
-     * @param selfClass Java class of the {@code self2} argument
-     * @return corresponding handle
-     * @throws TypeError if the class is not accepted by
-     *     {@link Descriptor#objclass}
+     * @param selfClass Java class of the {@code self} argument
+     * @return corresponding handle (or {@code slot.getEmpty()})
      */
-    protected MethodHandle getWrapped(Class<?> selfClass)
-            throws TypeError {
-        // Work out how to call this descriptor on that object
-        int index = objclass.indexAccepted(selfClass);
-        try {
-            return wrapped[index];
-        } catch (ArrayIndexOutOfBoundsException iobe) {
-            /*
-             * The caller guarantees this never happens, so it is an
-             * interpreter error, not just a TYpeError
-             */
-            throw new InterpreterError(DESCRIPTOR_REQUIRES, name,
-                    objclass.name, selfClass.getName());
-        }
-    }
+    abstract MethodHandle getWrapped(Class<?> selfClass);
 
     /**
      * Call the wrapped method with positional arguments (the first
@@ -244,9 +185,7 @@ abstract class PyWrapperDescr extends Descriptor {
                         objclass.name, selfType.name);
             }
 
-            // Call through the correct wrapped handle
-            MethodHandle wrapped = getWrapped(self.getClass());
-            return callWrapped(wrapped, self, args, kwargs);
+            return callWrapped(self, args, kwargs);
 
         } else {
             // Not even one argument
@@ -255,65 +194,58 @@ abstract class PyWrapperDescr extends Descriptor {
         }
     }
 
+    /**
+     * Invoke the method described by this {@code PyWrapperDescr} the
+     * given target {@code self}, and the arguments supplied.
+     *
+     * @param self target object of the method call
+     * @param args of the method call
+     * @param kwargs of the method call
+     * @return result of the method call
+     * @throws TypeError if the arguments do not fit the special method
+     * @throws Throwable from the implementation of the special method
+     */
+    // Compare CPython wrapperdescr_raw_call in descrobject.c
+    Object callWrapped(Object self, PyTuple args, PyDict kwargs)
+            throws Throwable {
+        try {
+            // Call through the correct wrapped handle
+            MethodHandle wrapped = getWrapped(self.getClass());
+            Slot.Signature sig = slot.signature;
+            return sig.callWrapped(wrapped, self, args, kwargs);
+        } catch (ArgumentError ae) {
+            throw signatureTypeError(ae, args);
+        }
+    }
+
     // Plumbing ------------------------------------------------------
 
     /**
-     * Check that no positional or keyword arguments are supplied. This
-     * is for use when implementing
-     * {@link #callWrapped(Object, PyTuple, PyDict)}.
+     * Translate a problem with the number and pattern of arguments, in
+     * a failed attempt to call the wrapped method, to a Python
+     * {@link TypeError}.
      *
-     * @param args positional argument tuple to be checked
-     * @param kwargs to be checked
-     * @throws TypeError if {@code kwargs} is not {@code null} or empty
+     * @param ae expressing the problem
+     * @param args positional arguments (only the number will matter)
+     * @return a {@code TypeError} to throw
      */
-    final protected void checkNoArgs(PyTuple args, PyDict kwargs)
-            throws TypeError {
-        if (args.value.length != 0)
-            throw new TypeError(TAKES_NO_ARGUMENTS, name,
-                    args.value.length);
-        else if (kwargs != null && !kwargs.isEmpty())
-            throw new TypeError(TAKES_NO_KEYWORDS, name);
-    }
-
-    /**
-     * Check the number of positional arguments and that no keywords are
-     * supplied. This is for use when implementing
-     * {@link #callWrapped(Object, PyTuple, PyDict)}.
-     *
-     * @param args positional argument tuple to be checked
-     * @param expArgs expected number of positional arguments
-     * @param kwargs to be checked
-     * @throws TypeError if {@code kwargs} is not {@code null} or empty
-     */
-    final protected void checkArgs(PyTuple args, int expArgs,
-            PyDict kwargs) throws TypeError {
+    private TypeError signatureTypeError(ArgumentError ae,
+            PyTuple args) {
         int n = args.value.length;
-        if (n != expArgs)
-            throw new TypeError(TAKES_ARGUMENTS, name, expArgs, n);
-        else if (kwargs != null && !kwargs.isEmpty())
-            throw new TypeError(TAKES_NO_KEYWORDS, name);
-    }
-
-    /**
-     * Check the number of positional arguments and that no keywords are
-     * supplied. This is for use when implementing
-     * {@link #callWrapped(Object, PyTuple, PyDict)}.
-     *
-     * @param args positional argument tuple to be checked
-     * @param minArgs minimum number of positional arguments
-     * @param maxArgs maximum number of positional arguments
-     * @param kwargs to be checked
-     * @throws TypeError if {@code kwargs} is not {@code null} or empty
-     */
-    final protected void checkArgs(PyTuple args, int minArgs,
-            int maxArgs, PyDict kwargs) throws TypeError {
-        int n = args.value.length;
-        if (n < minArgs || n > maxArgs)
-            throw new TypeError(TAKES_ARGUMENTS, name,
-                    String.format("from %d to %d", minArgs, maxArgs),
-                    n);
-        else if (kwargs != null && !kwargs.isEmpty())
-            throw new TypeError(TAKES_NO_KEYWORDS, name);
+        switch (ae.mode) {
+            case NOARGS:
+                return new TypeError(TAKES_NO_ARGUMENTS, name, n);
+            case NUMARGS:
+                int N = ae.minArgs;
+                return new TypeError(TAKES_ARGUMENTS, name, N, n);
+            case MINMAXARGS:
+                String range = String.format("from %d to %d",
+                        ae.minArgs, ae.maxArgs);
+                return new TypeError(TAKES_ARGUMENTS, name, range, n);
+            case NOKWARGS:
+            default:
+                return new TypeError(TAKES_NO_KEYWORDS, name);
+        }
     }
 
     private static final String TAKES_NO_ARGUMENTS =
@@ -322,6 +254,91 @@ abstract class PyWrapperDescr extends Descriptor {
             "wrapper %s() takes %s arguments (%d given)";
     private static final String TAKES_NO_KEYWORDS =
             "wrapper %s() takes no keyword arguments";
+
+    /**
+     * A {@link PyWrapperDescr} for use when the owning Python type has
+     * just one accepted implementation.
+     */
+    static class Single extends PyWrapperDescr {
+
+        /**
+         * A handle for the particular implementation of a special
+         * method being wrapped. The method type is that of
+         * {@link #slot}{@code .signature}.
+         */
+        protected final MethodHandle wrapped;
+
+        /**
+         * Construct a slot wrapper descriptor, identifying by a method
+         * handle the implementation method for the {@code slot} in
+         * {@code objclass}.
+         *
+         * @param objclass the class declaring the special method
+         * @param slot for the generic special method
+         * @param wrapped a handle to an implementation of that slot
+         */
+        // Compare CPython PyDescr_NewClassMethod in descrobject.c
+        Single(PyType objclass, Slot slot, MethodHandle wrapped) {
+            super(objclass, slot);
+            this.wrapped = wrapped;
+        }
+
+        @Override
+        MethodHandle getWrapped(Class<?> selfClass) {
+            // Make sure that the first argument is acceptable as 'self'
+            if (objclass.getJavaClass().isAssignableFrom(selfClass))
+                return wrapped;
+            else
+                return slot.getEmpty();
+        }
+    }
+
+    /**
+     * A {@link PyWrapperDescr} for use when the owning Python type has
+     * multiple accepted implementation.
+     */
+    static class Multiple extends PyWrapperDescr {
+
+        /**
+         * Handles for the particular implementations of a special
+         * method being wrapped. The method type of each is that of
+         * {@link #slot}{@code .signature}.
+         */
+        protected final MethodHandle[] wrapped;
+
+        /**
+         * Construct a slot wrapper descriptor, identifying by an array
+         * of method handles the implementation methods for the
+         * {@code slot} in {@code objclass}.
+         *
+         * @param objclass the class declaring the special method
+         * @param slot for the generic special method
+         * @param wrapped handles to the implementation of that slot
+         */
+        // Compare CPython PyDescr_NewClassMethod in descrobject.c
+        Multiple(PyType objclass, Slot slot, MethodHandle[] wrapped) {
+            super(objclass, slot);
+            this.wrapped = wrapped;
+        }
+
+        /**
+         * {@inheritDoc}
+         * <p>
+         * The method will check that the type of self matches
+         * {@link Descriptor#objclass}, according to its
+         * {@link PyType#indexAccepted(Class)}.
+         */
+        @Override
+        MethodHandle getWrapped(Class<?> selfClass) {
+            // Work out how to call this descriptor on that object
+            int index = objclass.indexAccepted(selfClass);
+            try {
+                return wrapped[index];
+            } catch (ArrayIndexOutOfBoundsException iobe) {
+                return slot.getEmpty();
+            }
+        }
+    }
 
     /**
      * {@code WrapperDef} represents one or more methods of a Java class
@@ -460,8 +477,22 @@ abstract class PyWrapperDescr extends Descriptor {
                 }
             }
 
-            return slot.signature.makeSlotWrapper(objclass, slot,
-                    wrapped);
+            if (N == 1)
+                /*
+                 * There is only one definition so use the simpler form
+                 * of slot-wrapper. This is the frequent case.
+                 */
+                return new PyWrapperDescr.Single(objclass, slot,
+                        wrapped[0]);
+            else
+                /*
+                 * There are multiple definitions so use the array form
+                 * of slot-wrapper. This is the case for types that have
+                 * multiple accepted implementationns and methods on
+                 * them that are not static or "Object self"..
+                 */
+                return new PyWrapperDescr.Multiple(objclass, slot,
+                        wrapped);
         }
 
         /**
@@ -500,10 +531,8 @@ abstract class PyWrapperDescr extends Descriptor {
                 MethodHandle mh = lookup.unreflect(methods.get(0));
                 try {
                     // must have the expected signature here
-                    MethodHandle[] wrapped =
-                            new MethodHandle[] {mh.asType(slotType)};
-                    return slot.signature.makeSlotWrapper(objclass,
-                            slot, wrapped);
+                    return new PyWrapperDescr.Single(objclass, slot,
+                            mh.asType(slotType));
 
                 } catch (WrongMethodTypeException wmte) {
                     // Wrong number of args or cannot cast.

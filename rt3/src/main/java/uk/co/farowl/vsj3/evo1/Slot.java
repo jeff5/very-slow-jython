@@ -57,7 +57,7 @@ enum Slot {
     op_delete(Signature.DELITEM), //
 
     op_init(Signature.INIT), //
-    op_new(Signature.NEW), //
+    // op_new(Signature.NEW), // perhaps not a slot (static method)
 
     op_vectorcall(Signature.VECTORCALL), //
 
@@ -105,7 +105,7 @@ enum Slot {
     private MethodHandle operandError;
     /** Description to use in help messages */
     final String doc;
-    /** Reference to field holding this slot in a {@link PyType} */
+    /** Reference to field holding this slot in an {@link Operations} */
     final VarHandle slotHandle;
     /** The alternate slot e.g. {@code __radd__} in {@code __add__}. */
     final Slot alt;
@@ -296,23 +296,29 @@ enum Slot {
             mh = signature.empty;
 
         } else if (def instanceof PyWrapperDescr) {
-            // Subject to certain checks, take wrapped handle.
+            /*
+             * When we invoke this slot in ops, the Java class of self
+             * will be assignable to ops.getJavaClass(), since that
+             * class led us to ops. It had better also be compatible
+             * with the method ultimately invoked by the handle we
+             * install. We have no control over what gets into the
+             * dictionary of a type, however, we do know that method in
+             * a PyWrapperDescr are applicable to the accepted
+             * implementations of classes of their defining class. We
+             * check here that ops.getJavaClass() is assignable to an
+             * accepted implementation of the defining type.
+             */
             PyWrapperDescr wd = (PyWrapperDescr) def;
-            if (wd.slot.signature == signature) {
-                if (signature.kind == MethodKind.INSTANCE) {
-                    /*
-                     * wd is an attribute of ops.type(), but since it
-                     * may be one by inheritance, the handle we want
-                     * from it may be at a different index from
-                     * ops.index.
-                     */
-                    Class<?> selfClass = ops.getJavaClass();
-                    int index = wd.objclass.indexAccepted(selfClass);
-                    mh = wd.wrapped[index];
-                } else {
-                    mh = wd.wrapped[0];
-                }
-            } else {
+            mh = wd.getWrapped(ops.getJavaClass());
+            if (wd.slot.signature != signature
+                    || mh == signature.empty) {
+                /*
+                 * wd is not compatible with objects of the type(s) that
+                 * will show up at this slot: for example we have
+                 * inserted float.__add__ into a sub-type of int. Python
+                 * chooses to fail later, when the slot is bound or
+                 * invoked, so insert something that checks.
+                 */
                 throw new MissingFeature(
                         "equivalent of the slot_* functions");
                 // mh = signature.slotCalling(def);
@@ -442,18 +448,10 @@ enum Slot {
         UNARY(O, S) {
 
             @Override
-            PyWrapperDescr makeSlotWrapper(PyType objclass, Slot slot,
-                    MethodHandle[] wrapped) {
-                return new PyWrapperDescr(objclass, slot, wrapped) {
-
-                    @Override
-                    Object callWrapped(MethodHandle wrapped,
-                            Object self, PyTuple args, PyDict kwargs)
-                            throws Throwable {
-                        checkArgs(args, 0, kwargs);
-                        return wrapped.invokeExact(self);
-                    }
-                };
+            Object callWrapped(MethodHandle wrapped, Object self,
+                    PyTuple args, PyDict kwargs) throws Throwable {
+                checkArgs(args, 0, kwargs);
+                return wrapped.invokeExact(self);
             }
         },
 
@@ -464,18 +462,10 @@ enum Slot {
         BINARY(O, S, O) {
 
             @Override
-            PyWrapperDescr makeSlotWrapper(PyType objclass, Slot slot,
-                    MethodHandle[] wrapped) {
-                return new PyWrapperDescr(objclass, slot, wrapped) {
-
-                    @Override
-                    Object callWrapped(MethodHandle wrapped,
-                            Object self, PyTuple args, PyDict kwargs)
-                            throws Throwable {
-                        checkArgs(args, 1, kwargs);
-                        return wrapped.invokeExact(self, args.value[0]);
-                    }
-                };
+            Object callWrapped(MethodHandle wrapped, Object self,
+                    PyTuple args, PyDict kwargs) throws Throwable {
+                checkArgs(args, 1, kwargs);
+                return wrapped.invokeExact(self, args.value[0]);
             }
         },
         /**
@@ -493,17 +483,9 @@ enum Slot {
         CALL(O, S, TUPLE, DICT) {
 
             @Override
-            PyWrapperDescr makeSlotWrapper(PyType objclass, Slot slot,
-                    MethodHandle[] wrapped) {
-                return new PyWrapperDescr(objclass, slot, wrapped) {
-
-                    @Override
-                    Object callWrapped(MethodHandle wrapped,
-                            Object self, PyTuple args, PyDict kwargs)
-                            throws Throwable {
-                        return wrapped.invokeExact(self, args, kwargs);
-                    }
-                };
+            Object callWrapped(MethodHandle wrapped, Object self,
+                    PyTuple args, PyDict kwargs) throws Throwable {
+                return wrapped.invokeExact(self, args, kwargs);
             }
         },
 
@@ -520,18 +502,10 @@ enum Slot {
         LEN(I, S) {
 
             @Override
-            PyWrapperDescr makeSlotWrapper(PyType objclass, Slot slot,
-                    MethodHandle[] wrapped) {
-                return new PyWrapperDescr(objclass, slot, wrapped) {
-
-                    @Override
-                    Object callWrapped(MethodHandle wrapped,
-                            Object self, PyTuple args, PyDict kwargs)
-                            throws Throwable {
-                        checkArgs(args, 0, kwargs);
-                        return (int) wrapped.invokeExact(self);
-                    }
-                };
+            Object callWrapped(MethodHandle wrapped, Object self,
+                    PyTuple args, PyDict kwargs) throws Throwable {
+                checkArgs(args, 0, kwargs);
+                return (int) wrapped.invokeExact(self);
             }
         },
 
@@ -545,19 +519,11 @@ enum Slot {
         GETATTR(O, S, U) {
 
             @Override
-            PyWrapperDescr makeSlotWrapper(PyType objclass, Slot slot,
-                    MethodHandle[] wrapped) {
-                return new PyWrapperDescr(objclass, slot, wrapped) {
-
-                    @Override
-                    Object callWrapped(MethodHandle wrapped,
-                            Object self, PyTuple args, PyDict kwargs)
-                            throws Throwable {
-                        checkArgs(args, 1, kwargs);
-                        String name = args.value[0].toString();
-                        return wrapped.invokeExact(self, name);
-                    }
-                };
+            Object callWrapped(MethodHandle wrapped, Object self,
+                    PyTuple args, PyDict kwargs) throws Throwable {
+                checkArgs(args, 1, kwargs);
+                String name = args.value[0].toString();
+                return wrapped.invokeExact(self, name);
             }
         },
 
@@ -565,20 +531,12 @@ enum Slot {
         SETATTR(V, S, U, O) {
 
             @Override
-            PyWrapperDescr makeSlotWrapper(PyType objclass, Slot slot,
-                    MethodHandle[] wrapped) {
-                return new PyWrapperDescr(objclass, slot, wrapped) {
-
-                    @Override
-                    Object callWrapped(MethodHandle wrapped, Object self,
-                            PyTuple args, PyDict kwargs)
-                            throws Throwable {
-                        checkArgs(args, 2, kwargs);
-                        String name = args.value[0].toString();
-                        wrapped.invokeExact(self, name, args.value[1]);
-                        return Py.None;
-                    }
-                };
+            Object callWrapped(MethodHandle wrapped, Object self,
+                    PyTuple args, PyDict kwargs) throws Throwable {
+                checkArgs(args, 2, kwargs);
+                String name = args.value[0].toString();
+                wrapped.invokeExact(self, name, args.value[1]);
+                return Py.None;
             }
         },
 
@@ -586,20 +544,12 @@ enum Slot {
         DELATTR(V, S, U) {
 
             @Override
-            PyWrapperDescr makeSlotWrapper(PyType objclass, Slot slot,
-                    MethodHandle[] wrapped) {
-                return new PyWrapperDescr(objclass, slot, wrapped) {
-
-                    @Override
-                    Object callWrapped(MethodHandle wrapped, Object self,
-                            PyTuple args, PyDict kwargs)
-                            throws Throwable {
-                        checkArgs(args, 1, kwargs);
-                        String name = args.value[0].toString();
-                        wrapped.invokeExact(self, name);
-                        return Py.None;
-                    }
-                };
+            Object callWrapped(MethodHandle wrapped, Object self,
+                    PyTuple args, PyDict kwargs) throws Throwable {
+                checkArgs(args, 1, kwargs);
+                String name = args.value[0].toString();
+                wrapped.invokeExact(self, name);
+                return Py.None;
             }
         },
 
@@ -607,30 +557,19 @@ enum Slot {
         DESCRGET(O, S, O, T) {
 
             @Override
-            PyWrapperDescr makeSlotWrapper(PyType objclass, Slot slot,
-                    MethodHandle[] wrapped) {
-                return new PyWrapperDescr(objclass, slot, wrapped) {
-
-                    @Override
-                    Object callWrapped(MethodHandle wrapped,
-                            Object self, PyTuple args, PyDict kwargs)
-                            throws Throwable {
-                        checkArgs(args, 1, 2, kwargs);
-                        Object[] a = args.value;
-                        Object obj = a[0];
-                        if (obj == Py.None) { obj = null; }
-                        Object type = null;
-                        if (a.length > 1 && type != Py.None) {
-                            type = a[1];
-                        }
-                        if (type == null && obj == null) {
-                            throw new TypeError(
-                                    "__get__(None, None) is invalid");
-                        }
-                        return wrapped.invokeExact(self, obj,
-                                (PyType) type);
-                    }
-                };
+            Object callWrapped(MethodHandle wrapped, Object self,
+                    PyTuple args, PyDict kwargs) throws Throwable {
+                checkArgs(args, 1, 2, kwargs);
+                Object[] a = args.value;
+                Object obj = a[0];
+                if (obj == Py.None) { obj = null; }
+                Object type = null;
+                if (a.length > 1 && type != Py.None) { type = a[1]; }
+                if (type == null && obj == null) {
+                    throw new TypeError(
+                            "__get__(None, None) is invalid");
+                }
+                return wrapped.invokeExact(self, obj, (PyType) type);
             }
         },
 
@@ -704,31 +643,146 @@ enum Slot {
         }
 
         /**
-         * Return an instance of sub-class of {@link PyWrapperDescr},
-         * specialised to the particular signature by overriding
-         * {@link PyWrapperDescr#callWrapped(Object, PyTuple, PyDict)}.
-         * Each member of {@code Signature} produces the appropriate
-         * sub-class.
+         * The type of (non-Python) exception thrown by invoking slot
+         * with the wrong pattern of arguments. An {@code ArgumentError}
+         * encapsulates what a particular {@link Signature} expected by
+         * way of the number of positional arguments and the presence or
+         * otherwise of keyword arguments. It should be caught by the
+         * immediate caller of
+         * {@link Signature#callWrapped(MethodHandle, Object, PyTuple, PyDict)}
          *
-         * @param objclass the class declaring the special method
-         * @param slot for the generic special method
-         * @param wrapped handles to the implementations of that slot
-         * @return a slot wrapper descriptor
          */
-        // XXX should be abstract, but only when defined for each
-        /*
-         * abstract
-         */ PyWrapperDescr makeSlotWrapper(PyType objclass, Slot slot,
-                MethodHandle[] wrapped) {
-            return new PyWrapperDescr(objclass, slot, wrapped) {
+        static class ArgumentError extends Exception {
 
-                @Override
-                Object callWrapped(MethodHandle wrapped, Object self,
-                        PyTuple args, PyDict kwargs) throws Throwable {
-                    checkNoArgs(args, kwargs);
-                    return wrapped.invokeExact(self);
-                }
-            };
+            enum Mode { NOARGS, NUMARGS, MINMAXARGS, NOKWARGS }
+
+            final Mode mode;
+            final short minArgs, maxArgs;
+
+            private ArgumentError(Mode mode, int minArgs, int maxArgs) {
+                this.mode = mode;
+                this.minArgs = (short) minArgs;
+                this.maxArgs = (short) maxArgs;
+            }
+
+            /**
+             * The mode is {@link Mode#NOARGS} or {@link Mode#NOKWARGS}.
+             * In the latter case, {@link #minArgs} and {@link #maxArgs}
+             * should be ignored.
+             *
+             * @param mode qualifies the sub-type of the problem
+             */
+            ArgumentError(Mode mode) {
+                this(mode, 0, 0);
+            }
+
+            /**
+             * The mode is {@link Mode#NUMARGS}.
+             *
+             * @param numArgs expected number of arguments
+             */
+            ArgumentError(int numArgs) {
+                this(Mode.NUMARGS, numArgs, numArgs);
+            }
+
+            /**
+             * The mode is {@link Mode#MINMAXARGS}.
+             *
+             * @param minArgs minimum expected number of arguments
+             * @param maxArgs maximum expected number of arguments
+             */
+            ArgumentError(int minArgs, int maxArgs) {
+                this(Mode.MINMAXARGS, minArgs, maxArgs);
+            }
+        }
+
+        /**
+         * Check that no positional or keyword arguments are supplied.
+         * This is for use when implementing
+         * {@link #callWrapped(MethodHandle, Object, PyTuple, PyDict)}.
+         *
+         * @param args positional argument tuple to be checked
+         * @param kwargs to be checked
+         * @throws ArgumentError if positional arguments are given or
+         *     {@code kwargs} is not {@code null} or empty
+         */
+        final protected void checkNoArgs(PyTuple args, PyDict kwargs)
+                throws ArgumentError {
+            if (args.value.length != 0)
+                throw new ArgumentError(ArgumentError.Mode.NOARGS);
+            else if (kwargs != null && !kwargs.isEmpty())
+                throw new ArgumentError(ArgumentError.Mode.NOKWARGS);
+        }
+
+        /**
+         * Check the number of positional arguments and that no keywords
+         * are supplied. This is for use when implementing
+         * {@link #callWrapped(MethodHandle, Object, PyTuple, PyDict)}.
+         *
+         * @param args positional argument tuple to be checked
+         * @param expArgs expected number of positional arguments
+         * @param kwargs to be checked
+         * @throws ArgumentError if the wrong number of positional
+         *     arguments are given or {@code kwargs} is not {@code null}
+         *     or empty
+         */
+        final protected void checkArgs(PyTuple args, int expArgs,
+                PyDict kwargs) throws ArgumentError {
+            if (args.value.length != expArgs)
+                throw new ArgumentError(expArgs);
+            else if (kwargs != null && !kwargs.isEmpty())
+                throw new ArgumentError(ArgumentError.Mode.NOKWARGS);
+        }
+
+        /**
+         * Check the number of positional arguments and that no keywords
+         * are supplied. This is for use when implementing
+         * {@link #callWrapped(MethodHandle, Object, PyTuple, PyDict)}.
+         *
+         * @param args positional argument tuple to be checked
+         * @param minArgs minimum number of positional arguments
+         * @param maxArgs maximum number of positional arguments
+         * @param kwargs to be checked
+         * @throws ArgumentError if the wrong number of positional
+         *     arguments are given or {@code kwargs} is not {@code null}
+         *     or empty
+         */
+        final protected void checkArgs(PyTuple args, int minArgs,
+                int maxArgs, PyDict kwargs) throws ArgumentError {
+            int n = args.value.length;
+            if (n < minArgs || n > maxArgs)
+                throw new ArgumentError(minArgs, maxArgs);
+            else if (kwargs != null && !kwargs.isEmpty())
+                throw new ArgumentError(ArgumentError.Mode.NOKWARGS);
+        }
+
+        /**
+         * Invoke the given method handle for the given target
+         * {@code self}, having arranged the arguments as expected by a
+         * slot. We create {@code enum} members of {@code Signature} to
+         * handle different slot signatures, in which this method
+         * accepts arguments in a generic way (from the interpreter,
+         * say) and adapts them to the specific needs of a wrapped
+         * method. The caller guarantees that the wrapped method has the
+         * {@code Signature} to which the call is addressed.
+         *
+         * @param wrapper handle of the method to call
+         * @param self target object of the method call
+         * @param args of the method call
+         * @param kwargs of the method call
+         * @return result of the method call
+         * @throws ArgumentError when the arguments ({@code args},
+         *     {@code kwargs})are not correct for the {@code Signature}
+         * @throws Throwable from the implementation of the special
+         *     method
+         */
+        // Compare CPython wrap_* in typeobject.c
+        // XXX should be abstract, but only when defined for each
+        /* abstract */ Object callWrapped(MethodHandle wrapped,
+                Object self, PyTuple args, PyDict kwargs)
+                throws ArgumentError, Throwable {
+            checkNoArgs(args, kwargs);
+            return wrapped.invokeExact(self);
         }
     }
 

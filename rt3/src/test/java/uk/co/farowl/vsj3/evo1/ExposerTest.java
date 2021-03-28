@@ -359,7 +359,7 @@ class ExposerTest {
         private static final Lookup LOOKUP = MethodHandles.lookup();
         static PyType TYPE = PyType.fromSpec( //
                 new PyType.Spec("ObjectWithSpecialMethods", LOOKUP)
-                                .accept(AcceptedSpecial.class));
+                        .accept(AcceptedSpecial.class));
         int value;
 
         @SuppressWarnings("unused")
@@ -412,7 +412,8 @@ class ExposerTest {
         assertNotNull(repr);
 
         // We defined this special method
-        PyWrapperDescr neg = (PyWrapperDescr) type.lookup("__neg__");
+        PyWrapperDescr.Multiple neg =
+                (PyWrapperDescr.Multiple) type.lookup("__neg__");
         assertNotNull(neg);
 
         assertEquals("__neg__", neg.name);
