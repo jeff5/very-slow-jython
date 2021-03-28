@@ -511,9 +511,12 @@ class PyType extends Operations implements PyObjectDict {
         if (Slot.op_get.isDefinedFor(this)) {
             // It's a descriptor
             flags.add(Flag.IS_DESCR);
-            if (Slot.op_set.isDefinedFor(this)
-                    || Slot.op_delete.isDefinedFor(this))
-                flags.add(Flag.IS_DATA_DESCR);
+        }
+        if (Slot.op_set.isDefinedFor(this)
+                || Slot.op_delete.isDefinedFor(this)) {
+            // It's a data descriptor
+            flags.add(Flag.IS_DESCR);
+            flags.add(Flag.IS_DATA_DESCR);
         }
     }
 
@@ -1553,13 +1556,11 @@ class PyType extends Operations implements PyObjectDict {
                             metatype);
                 } catch (Slot.EmptyException e) {
                     /*
-                     * We do not catch AttributeError: it's definitive.
-                     * The slot shouldn't be empty if the type is marked
-                     * as a descriptor (of any kind).
+                     * Only __set__ or __delete__ was defined. We do not
+                     * catch AttributeError: it's definitive. Suppress
+                     * trying __get__ again.
                      */
-                    throw new InterpreterError(
-                            Abstract.DESCR_NOT_DEFINING, "data",
-                            "__get__");
+                    descrGet = null;
                 }
             }
         }

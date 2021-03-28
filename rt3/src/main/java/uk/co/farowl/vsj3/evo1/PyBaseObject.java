@@ -184,13 +184,11 @@ class PyBaseObject extends AbstractPyObject {
                     return descrGet.invokeExact(typeAttr, obj, objType);
                 } catch (Slot.EmptyException e) {
                     /*
-                     * We do not catch AttributeError: it's definitive.
-                     * The slot shouldn't be empty if the type is marked
-                     * as a descriptor (of any kind).
+                     * Only __set__ or __delete__ was defined. We do not
+                     * catch AttributeError: it's definitive. Suppress
+                     * trying __get__ again.
                      */
-                    throw new InterpreterError(
-                            Abstract.DESCR_NOT_DEFINING, "data",
-                            "__get__");
+                    descrGet = null;
                 }
             }
         }
