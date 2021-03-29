@@ -27,7 +27,6 @@ import uk.co.farowl.vsj3.evo1.Exposed.PythonMethod;
  * produces for the several kinds of annotation that may be applied to
  * Java classes implementing Python types.
  */
-
 class ExposerTest {
 
 // /**
@@ -144,16 +143,16 @@ class ExposerTest {
 // assertEquals(Py.val(42.0), md_x.__get__(o, null));
 //
 // PyMemberDescr md_t = mds.get("text");
-// assertEquals(Py.str("-1"), md_t.__get__(p, null));
+// assertEquals("-1", md_t.__get__(p, null));
 //
 // PyMemberDescr md_s = mds.get("s");
-// assertEquals(Py.str("42"), md_s.__get__(o, null));
+// assertEquals("42", md_s.__get__(o, null));
 //
 // PyMemberDescr md_obj = mds.get("obj"); // Object
-// assertEquals(Py.str("42"), md_obj.__get__(o, null));
+// assertEquals("42", md_obj.__get__(o, null));
 //
 // PyMemberDescr md_strhex = mds.get("strhex"); // Object
-// assertEquals(Py.str("2a"), md_strhex.__get__(o, null));
+// assertEquals("2a", md_strhex.__get__(o, null));
 //
 // // Read-only cases work too
 // PyMemberDescr md_i2 = mds.get("i2");
@@ -164,7 +163,7 @@ class ExposerTest {
 // assertEquals(Py.val(42.0), md_x2.__get__(o, null));
 //
 // PyMemberDescr md_t2 = mds.get("text2");
-// assertEquals(Py.str("-1"), md_t2.__get__(p, null));
+// assertEquals("-1", md_t2.__get__(p, null));
 // }
 //
 // /**
@@ -431,209 +430,202 @@ class ExposerTest {
         assertSame(Object.class, neg1.type().parameterType(0));
     }
 
-// private static class PyObjectWithMethods implements CraftedType {
-//
-// /** Lookup object to support creation of descriptors. */
-// private static final Lookup LOOKUP = MethodHandles.lookup();
-// static PyType TYPE = PyType.fromSpec( //
-// new PyType.Spec("PyObjectWithMethods",
-// PyObjectWithMethods.class, LOOKUP));
-// String value;
-//
-// public PyObjectWithMethods(String value) {
-// this.value = value;
-// }
-//
-// // Methods using Java primitives -----------------------------
-//
-// @JavaMethod
-// int length() {
-// return value.length();
-// }
-//
-// @JavaMethod
-// double density(String ch) {
-// int n = value.length(), count = 0;
-// if (ch.length() != 1) {
-// throw new TypeError("arg must be single character");
-// } else if (n > 0) {
-// char c = ch.charAt(0);
-// for (int i = 0; i < n; i++) {
-// if (value.charAt(i) == c) { count++; }
-// }
-// return ((double) count) / n;
-// } else {
-// return 0.0;
-// }
-// }
-//
-// // Methods using Python only types ---------------------------
-//
-// @PythonMethod
-// Object upper() {
-// return Py.str(value.toUpperCase());
-// }
-//
-// @PythonMethod
-// Object find(PyTuple args) {
-// // No intention of processing arguments robustly
-// Object target = args.get(0);
-// if (target instanceof PyUnicode) {
-// int n = value.indexOf(((PyUnicode) target).value);
-// return Py.val(n);
-// } else {
-// throw new TypeError("target must be string");
-// }
-// }
-//
-// @PythonMethod
-// Object encode(PyTuple args, PyDict kwargs) {
-// // No intention of processing arguments robustly
-// Object encoding = kwargs.get("encoding");
-// if (encoding instanceof PyUnicode) {
-// Charset cs =
-// Charset.forName(((PyUnicode) encoding).value);
-// ByteBuffer bb = cs.encode(value);
-// byte[] b = new byte[bb.limit()];
-// bb.get(b);
-// return null; // return new PyBytes(b);
-// } else {
-// throw new TypeError("encoding must be string");
-// }
-// }
-//
-// @Override
-// public PyType getType() { return TYPE; }
-// }
-//
-// /**
-// * Test that we get working descriptors of type
-// * {@link PyMethodDescr}s from the {@link Exposer} for methods
-// * annotated in the test class {@link PyObjectWithMethods}.
-// *
-// * @throws Throwable unexpectedly
-// * @throws AttributeError unexpectedly
-// */
-// // @Test
-// void methodConstruct() throws AttributeError, Throwable {
-// // Roughly what PyType.fromSpec does in real life.
-// Map<String, PyMethodDescr> mds = Exposer.methodDescrs(
-// PyObjectWithMethods.LOOKUP, PyObjectWithMethods.class,
-// PyObjectWithMethods.TYPE);
-//
-// // We defined this Java method
-// PyMethodDescr length = mds.get("length");
-//
-// assertNotNull(length);
-// assertEquals("length", length.name);
-// assertEquals(PyObjectWithMethods.TYPE, length.objclass);
-// assertEquals(
-// "<method 'length' of 'PyObjectWithMethods' objects>",
-// length.toString());
-// }
-//
-// /**
-// * Test that we can call {@link PyMethodDescr}s directly for methods
-// * annotated in the test class {@link PyObjectWithMethods}.
-// *
-// * @throws Throwable unexpectedly
-// */
-// // @Test
-// void methodDescrCall() throws AttributeError, Throwable {
-//
-// PyType A = PyObjectWithMethods.TYPE;
-// String hello = "Hello World!";
-// Object a = new PyObjectWithMethods(hello);
-// Object result;
-//
-// // length = A.length
-// PyMethodDescr length =
-// (PyMethodDescr) Abstract.getAttr(A, Py.str("length"));
-// assertEquals("length", length.name);
-// assertEquals(A, length.objclass);
-// // n = length(a) # = 12
-// PyTuple args = Py.tuple(a);
-// result = Callables.call(length, args, null);
-// assertEquals(hello.length(), Number.index(result).asSize());
-//
-// // density = A.density(a, "l") # = 0.25
-// PyMethodDescr density =
-// (PyMethodDescr) Abstract.getAttr(A, Py.str("density"));
-// // Make a vector call
-// result = density.call(a, Py.str("l"));
-// assertEquals(0.25, Number.toFloat(result).doubleValue(), 1e-6);
-// }
-//
-// /**
-// * Test that attribute access on {@link PyMethodDescr}s from the
-// * {@link Exposer} create bound method objects of type
-// * {@link PyJavaMethod}, for methods annotated in the test class
-// * {@link PyObjectWithMethods}.
-// *
-// * @throws Throwable unexpectedly
-// */
-// // @Test
-// void boundMethodConstruct() throws AttributeError, Throwable {
-// // Roughly what PyType.fromSpec does in real life.
-// Map<String, PyMethodDescr> mds = Exposer.methodDescrs(
-// PyObjectWithMethods.LOOKUP, PyObjectWithMethods.class,
-// PyObjectWithMethods.TYPE);
-//
-// // Create an object of the right type
-// String hello = "Hello World!";
-// PyObjectWithMethods a = new PyObjectWithMethods(hello);
-//
-// // We defined this Java method
-// PyMethodDescr length = mds.get("length");
-// PyJavaMethod bm = (PyJavaMethod) length.__get__(a, null);
-//
-// assertNotNull(bm);
-// assertEquals(a, bm.self);
-// assertEquals(length.methodDef, bm.methodDef);
-// assertStartsWith(
-// "<built-in method length of PyObjectWithMethods object",
-// bm);
-// }
-//
-// /**
-// * Test that we can call {@link PyJavaMethod}s created by attribute
-// * access on methods annotated in the test class
-// * {@link PyObjectWithMethods}.
-// *
-// * @throws Throwable unexpectedly
-// */
-// // @Test
-// void boundMethodCall() throws AttributeError, Throwable {
-//
-// String hello = "Hello World!";
-// Object a = new PyObjectWithMethods(hello);
-// Object result;
-//
-// // bm = a.length
-// PyJavaMethod bm =
-// (PyJavaMethod) Abstract.getAttr(a, Py.str("length"));
-// assertNotNull(bm);
-// assertEquals(a, bm.self);
-//
-// // n = bm() # = 12
-// result = Callables.call(bm);
-// assertEquals(hello.length(), Number.index(result).asSize());
-//
-// // m = a.density
-// bm = (PyJavaMethod) Abstract.getAttr(a, Py.str("density"));
-//
-// // Force a classic call
-// // result = bm("l") # = 0.25
-// PyTuple args = Py.tuple(Py.str("l"));
-// result = bm.__call__(args, null);
-// assertEquals(0.25, Number.toFloat(result).doubleValue(), 1e-6);
-//
-// // Make a vector call
-// // result = bm("l") # = 0.25
-// Object[] stack = new Object[] {Py.str("l")};
-// result = bm.call(stack, 0, 1, null);
-// assertEquals(0.25, Number.toFloat(result).doubleValue(), 1e-6);
-// }
+    private static class PyObjectWithMethods implements CraftedType {
+
+        /** Lookup object to support creation of descriptors. */
+        private static final Lookup LOOKUP = MethodHandles.lookup();
+        static PyType TYPE = PyType.fromSpec( //
+                new PyType.Spec("PyObjectWithMethods", LOOKUP));
+        String value;
+
+        public PyObjectWithMethods(String value) {
+            this.value = value;
+        }
+
+        // Methods using Java primitives -----------------------------
+
+        @JavaMethod
+        int length() {
+            return value.length();
+        }
+
+        @JavaMethod
+        double density(String ch) {
+            int n = value.length(), count = 0;
+            if (ch.length() != 1) {
+                throw new TypeError("arg must be single character");
+            } else if (n > 0) {
+                char c = ch.charAt(0);
+                for (int i = 0; i < n; i++) {
+                    if (value.charAt(i) == c) { count++; }
+                }
+                return ((double) count) / n;
+            } else {
+                return 0.0;
+            }
+        }
+
+        // Methods using Python only types ---------------------------
+
+        @PythonMethod
+        Object upper() {
+            return value.toUpperCase();
+        }
+
+        @PythonMethod
+        Object find(PyTuple args) {
+            // No intention of processing arguments robustly
+            Object target = args.get(0);
+            return value.indexOf(PyUnicode.asString(target));
+        }
+
+        @PythonMethod
+        Object encode(PyTuple args, PyDict kwargs) {
+            // No intention of processing arguments robustly
+            Object encoding = kwargs.get("encoding");
+            if (PyUnicode.TYPE.check(encoding)) {
+                Charset cs =
+                        Charset.forName(PyUnicode.asString(encoding));
+                ByteBuffer bb = cs.encode(value);
+                byte[] b = new byte[bb.limit()];
+                bb.get(b);
+                return null; // return new PyBytes(b);
+            } else {
+                throw new TypeError("encoding must be string");
+            }
+        }
+
+        @Override
+        public PyType getType() { return TYPE; }
+    }
+
+    /**
+     * Test that we get working descriptors of type
+     * {@link PyMethodDescr}s from the {@link Exposer} for methods
+     * annotated in the test class {@link PyObjectWithMethods}.
+     *
+     * @throws Throwable unexpectedly
+     * @throws AttributeError unexpectedly
+     */
+    // @Test
+    void methodConstruct() throws AttributeError, Throwable {
+        // Roughly what PyType.fromSpec does in real life.
+        Map<String, PyMethodDescr> mds = Exposer.methodDescrs(
+                PyObjectWithMethods.LOOKUP, PyObjectWithMethods.class,
+                PyObjectWithMethods.TYPE);
+
+        // We defined this Java method
+        PyMethodDescr length = mds.get("length");
+
+        assertNotNull(length);
+        assertEquals("length", length.name);
+        assertEquals(PyObjectWithMethods.TYPE, length.objclass);
+        assertEquals(
+                "<method 'length' of 'PyObjectWithMethods' objects>",
+                length.toString());
+    }
+
+    /**
+     * Test that we can call {@link PyMethodDescr}s directly for methods
+     * annotated in the test class {@link PyObjectWithMethods}.
+     *
+     * @throws Throwable unexpectedly
+     */
+    // @Test
+    void methodDescrCall() throws AttributeError, Throwable {
+
+        PyType A = PyObjectWithMethods.TYPE;
+        String hello = "Hello World!";
+        Object a = new PyObjectWithMethods(hello);
+        Object result;
+
+        // length = A.length
+        PyMethodDescr length =
+                (PyMethodDescr) Abstract.getAttr(A, "length");
+        assertEquals("length", length.name);
+        assertEquals(A, length.objclass);
+        // n = length(a) # = 12
+        PyTuple args = Py.tuple(a);
+        result = Callables.call(length, args, null);
+        assertEquals(hello.length(), Number.index(result));
+
+        // density = A.density(a, "l") # = 0.25
+        PyMethodDescr density =
+                (PyMethodDescr) Abstract.getAttr(A, "density");
+        // Make a vector call
+        result = density.call(a, "l");
+        assertEquals(0.25, PyFloat.doubleValue(result), 1e-6);
+    }
+
+    /**
+     * Test that attribute access on {@link PyMethodDescr}s from the
+     * {@link Exposer} create bound method objects of type
+     * {@link PyJavaMethod}, for methods annotated in the test class
+     * {@link PyObjectWithMethods}.
+     *
+     * @throws Throwable unexpectedly
+     */
+    // @Test
+    void boundMethodConstruct() throws AttributeError, Throwable {
+        // Roughly what PyType.fromSpec does in real life.
+        Map<String, PyMethodDescr> mds = Exposer.methodDescrs(
+                PyObjectWithMethods.LOOKUP, PyObjectWithMethods.class,
+                PyObjectWithMethods.TYPE);
+
+        // Create an object of the right type
+        String hello = "Hello World!";
+        PyObjectWithMethods a = new PyObjectWithMethods(hello);
+
+        // We defined this Java method
+        PyMethodDescr length = mds.get("length");
+        PyJavaMethod bm = (PyJavaMethod) length.__get__(a, null);
+
+        assertNotNull(bm);
+        assertEquals(a, bm.self);
+        assertEquals(length.methodDef, bm.methodDef);
+        assertStartsWith(
+                "<built-in method length of PyObjectWithMethods object",
+                bm);
+    }
+
+    /**
+     * Test that we can call {@link PyJavaMethod}s created by attribute
+     * access on methods annotated in the test class
+     * {@link PyObjectWithMethods}.
+     *
+     * @throws Throwable unexpectedly
+     */
+    // @Test
+    void boundMethodCall() throws AttributeError, Throwable {
+
+        String hello = "Hello World!";
+        Object a = new PyObjectWithMethods(hello);
+        Object result;
+
+        // bm = a.length
+        PyJavaMethod bm = (PyJavaMethod) Abstract.getAttr(a, "length");
+        assertNotNull(bm);
+        assertEquals(a, bm.self);
+
+        // n = bm() # = 12
+        result = Callables.call(bm);
+        assertEquals(hello.length(), Number.index(result));
+
+        // m = a.density
+        bm = (PyJavaMethod) Abstract.getAttr(a, "density");
+
+        // Force a classic call
+        // result = bm("l") # = 0.25
+        PyTuple args = Py.tuple("l");
+        result = bm.__call__(args, null);
+        assertEquals(0.25, PyFloat.doubleValue(result), 1e-6);
+
+        // Make a vector call
+        // result = bm("l") # = 0.25
+        Object[] stack = new Object[] {"l"};
+        result = bm.call(stack, 0, 1, null);
+        assertEquals(0.25, PyFloat.doubleValue(result), 1e-6);
+    }
 
     // Support methods -----------------------------------------------
 

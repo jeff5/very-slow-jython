@@ -237,12 +237,12 @@ class PyLong implements CraftedType, PyDict.Key {
     }
 
     // Python sub-class -----------------------------------------------
+
     /**
      * Instances in Python of sub-classes of 'int', are represented in
      * Java by instances of this class.
      */
-    static class Derived extends PyLong
-            implements PyObjectDict {
+    static class Derived extends PyLong implements PyObjectDict {
 
         protected Derived(PyType type, BigInteger value) {
             super(type, value);
@@ -256,6 +256,7 @@ class PyLong implements CraftedType, PyDict.Key {
     }
 
     // Non-slot API -------------------------------------------------
+
     /**
      * Convert the given object to a {@code PyLong} using the
      * {@code op_int} slot, if available. Raise {@code TypeError} if
@@ -537,6 +538,15 @@ class PyLong implements CraftedType, PyDict.Key {
             throw tooLarge("Python int", "int");
     }
 
+    /**
+     * Create an OverflowError with a message along the lines "X too
+     * large to convert to Y", where X is {@code from} and Y is
+     * {@code to}.
+     *
+     * @param from description of type to convert from
+     * @param to description of type to convert to
+     * @return an {@link OverflowError} with that message
+     */
     private static OverflowError tooLarge(String from, String to) {
         String msg = String.format(TOO_LARGE, from, to);
         return new OverflowError(msg);

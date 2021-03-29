@@ -110,12 +110,12 @@ public class PyFloat extends AbstractPyObject {
          * value extracted from (potentially) a sub-type of PyFloat, and
          * does not try to convert from strings.
          */
-        Operations ops = Operations.of(o);
 
         if (TYPE.check(o)) {
             return doubleValue(o);
 
         } else {
+            Operations ops = Operations.of(o);
             try {
                 // Try __float__ (if defined)
                 Object res = ops.op_float.invokeExact(o);

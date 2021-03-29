@@ -407,7 +407,7 @@ class PyType extends Operations implements PyObjectDict {
         // Fill slots from implClass or bases
         // addMembers(spec);
         // addGetSets(spec);
-        // addMethods(spec);
+        addMethods(spec);
         addWrappers(spec);
         // XXX Possibly belong elsewhere
         // setAllSlots();
@@ -485,23 +485,23 @@ class PyType extends Operations implements PyObjectDict {
         }
     }
 
-// /**
-// * Add method attributes to this type discovered through the
-// * specification.
-// *
-// * @param spec to apply
-// */
-// private void addMethods(Spec spec) {
-//
-// Map<String, PyMethodDescr> methods =
-// Exposer.methodDescrs(spec.lookup, implClass, this);
-//
-// for (Map.Entry<String, PyMethodDescr> e : methods.entrySet()) {
-// PyUnicode k = new PyUnicode(e.getKey());
-// Object v = e.getValue();
-// dict.put(k, v);
-// }
-// }
+    /**
+     * Add method attributes to this type discovered through the
+     * specification.
+     *
+     * @param spec to apply
+     */
+    private void addMethods(Spec spec) {
+
+        Map<String, PyMethodDescr> methods =
+                Exposer.methodDescrs(spec.lookup, definingClass, this);
+
+        for (Map.Entry<String, PyMethodDescr> e : methods.entrySet()) {
+            String k = e.getKey();
+            Object v = e.getValue();
+            dict.put(k, v);
+        }
+    }
 
     /**
      * The {@link #flags} field caches many characteristics of the type

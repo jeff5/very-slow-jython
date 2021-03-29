@@ -405,76 +405,74 @@ class Exposer {
         }
     }
 
-//@formatter:off
-//    /**
-//     * Create a table of {@link PyMethodDescr}s for methods annotated as
-//     * {@link JavaMethod} on the given implementation class, on behalf
-//     * of the type given. This type object will become the
-//     * {@link Descriptor#objclass} reference of the descriptors created,
-//     * but is not otherwise accessed, since it is (necessarily)
-//     * incomplete at this time.
-//     * <p>
-//     * Python knows methods by a simple name while Java allows there to
-//     * be multiple definitions separated by signature, and for these to
-//     * coexist with inherited definitions. We will have to confront this
-//     * overloading when we come to expose "discovered" Java classes as
-//     * Python object types. For now, a repeat definition of a name is
-//     * considered an error.
-//     *
-//     * @param lookup authorisation to access fields
-//     * @param implClass to introspect for method definitions
-//     * @param type to which these descriptors apply
-//     * @return methods defined (in the order encountered)
-//     * @throws InterpreterError on duplicates or unsupported types
-//     */
-//    public static Map<String, PyMethodDescr> methodDescrs(Lookup lookup,
-//            Class<?> implClass, PyType type) throws InterpreterError {
-//
-//
-//        Map<String, PyMethodDescr> defs = new LinkedHashMap<>();
-//
-//        // Iterate over methods looking for the relevant annotations
-//        for (Method m : implClass.getDeclaredMethods()) {
-//            // Look for all three types now, so as to detect conflicts.
-//            JavaMethod a = m.getDeclaredAnnotation(JavaMethod.class);
-//            if (a != null) {
-//                MethodDef def = getMethodDef(a, m, lookup);
-//                PyMethodDescr descr = new PyMethodDescr(type, def);
-//                PyMethodDescr previous = defs.put(def.name, descr);
-//                if (previous != null) {
-//                    // There was one already :(
-//                    throw new InterpreterError(DEF_REPEAT, "method",
-//                            def.name, implClass.getSimpleName());
-//                }
-//            }
-//        }
-//        return defs;
-//
-//    }
-//
-//    private static MethodDef getMethodDef(JavaMethod a, Method m,
-//            Lookup lookup) {
-//
-//        // Name is as annotated or is the Java name of the method
-//        String name = a.value();
-//        if (name == null || name.length() == 0)
-//            name = m.getName();
-//
-//        // May also have DocString annotation
-//        String doc = "";
-//        Exposed.DocString d = m.getAnnotation(Exposed.DocString.class);
-//        if (d != null)
-//            doc = d.value();
-//
-//        try {
-//            // From these parts, construct a definition.
-//            return new MethodDef(name, m, lookup, doc);
-//        } catch (IllegalAccessException e) {
-//            throw new InterpreterError(e,
-//                    "cannot get method handle for '%s'", m);
-//        }
-//    }
-//@formatter:on
+    /**
+     * Create a table of {@link PyMethodDescr}s for methods annotated as
+     * {@link JavaMethod} on the given implementation class, on behalf
+     * of the type given. This type object will become the
+     * {@link Descriptor#objclass} reference of the descriptors created,
+     * but is not otherwise accessed, since it is (necessarily)
+     * incomplete at this time.
+     * <p>
+     * Python knows methods by a simple name while Java allows there to
+     * be multiple definitions separated by signature, and for these to
+     * coexist with inherited definitions. We will have to confront this
+     * overloading when we come to expose "discovered" Java classes as
+     * Python object types. For now, a repeat definition of a name is
+     * considered an error.
+     *
+     * @param lookup authorisation to access fields
+     * @param implClass to introspect for method definitions
+     * @param type to which these descriptors apply
+     * @return methods defined (in the order encountered)
+     * @throws InterpreterError on duplicates or unsupported types
+     */
+    public static Map<String, PyMethodDescr> methodDescrs(Lookup lookup,
+            Class<?> implClass, PyType type) throws InterpreterError {
+
+
+        Map<String, PyMethodDescr> defs = new LinkedHashMap<>();
+
+        // Iterate over methods looking for the relevant annotations
+        for (Method m : implClass.getDeclaredMethods()) {
+            // Look for all three types now, so as to detect conflicts.
+            JavaMethod a = m.getDeclaredAnnotation(JavaMethod.class);
+            if (a != null) {
+                MethodDef def = getMethodDef(a, m, lookup);
+                PyMethodDescr descr = new PyMethodDescr(type, def);
+                PyMethodDescr previous = defs.put(def.name, descr);
+                if (previous != null) {
+                    // There was one already :(
+                    throw new InterpreterError(DEF_REPEAT, "method",
+                            def.name, implClass.getSimpleName());
+                }
+            }
+        }
+        return defs;
+
+    }
+
+    private static MethodDef getMethodDef(JavaMethod a, Method m,
+            Lookup lookup) {
+
+        // Name is as annotated or is the Java name of the method
+        String name = a.value();
+        if (name == null || name.length() == 0)
+            name = m.getName();
+
+        // May also have DocString annotation
+        String doc = "";
+        Exposed.DocString d = m.getAnnotation(Exposed.DocString.class);
+        if (d != null)
+            doc = d.value();
+
+        try {
+            // From these parts, construct a definition.
+            return new MethodDef(name, m, lookup, doc);
+        } catch (IllegalAccessException e) {
+            throw new InterpreterError(e,
+                    "cannot get method handle for '%s'", m);
+        }
+    }
 
     private static final String MEMBER_REPEAT =
             "Repeated definition of member %.50s in type %.50s";
