@@ -154,7 +154,7 @@ abstract class PyWrapperDescr extends Descriptor {
 
     /**
      * Call the wrapped method with positional arguments (the first
-     * being the target object) and optionally keywords arguments. THer
+     * being the target object) and optionally keywords arguments. The
      * arguments, in type and number, must match the signature of the
      * special function slot.
      *
@@ -341,16 +341,18 @@ abstract class PyWrapperDescr extends Descriptor {
     }
 
     /**
-     * {@code WrapperDef} represents one or more methods of a Java class
-     * that are to be exposed as a single special method of an
-     * {@code object}. The exporting class provides a definitions for
-     * that method that appear here as {@code Method}s with different
+     * {@code WrapperSpecification} represents
+     *  one or more methods of a Java class
+     * that are to be exposed as a single <b>special method</b> of an
+     * {@code object}. The exporting class provides definitions for
+     * the special method, that appear here as {@code java.lang.reflect.Method}s with different
      * signatures.
      */
-    static class WrapperDef {
+    static class WrapperSpecification extends DescriptorSpecification {
 
         /** The special method being defined. */
         final Slot slot;
+
         /** Collects the methods declared. */
         final List<Method> methods = new ArrayList<>(1);
 
@@ -359,9 +361,12 @@ abstract class PyWrapperDescr extends Descriptor {
          *
          * @param name of attribute.
          */
-        WrapperDef(Slot slot) {
+        WrapperSpecification(Slot slot) {
             this.slot = slot;
         }
+
+        @Override
+        String getType() { return "slot-wrapper"; }
 
         /**
          * Add a method implementation. (A test that the signature
@@ -370,21 +375,23 @@ abstract class PyWrapperDescr extends Descriptor {
          *
          * @param method to add to {@link #methods}
          */
+        @Override
         void add(Method method) {
             methods.add(method);
         }
 
         /**
-         * Create a {@code PyWrapperDescr} from this definition. Note
-         * that a definition describes the methods as declared, and that
+         * Create a {@code PyWrapperDescr} from this specification. Note
+         * that a specification describes the methods as declared, and that
          * there may be any number. This method matches them to the
          * supported implementations.
          *
          * @param objclass Python type that owns the descriptor
-         * @param lookup authorisation to access fields
-         * @return descriptor for access to the field
+         * @param lookup authorisation to access members
+         * @return descriptor for access to the member
          * @throws InterpreterError if the method type is not supported
          */
+        @Override
         PyWrapperDescr createDescr(PyType objclass, Lookup lookup)
                 throws InterpreterError {
             /*
@@ -400,8 +407,8 @@ abstract class PyWrapperDescr extends Descriptor {
         }
 
         /**
-         * Create a {@code PyWrapperDescr} from this definition. Note
-         * that a definition describes the methods as declared, and that
+         * Create a {@code PyWrapperDescr} from this specification. Note
+         * that a specification describes the methods as declared, and that
          * there may be any number. This method matches them to the
          * supported implementations.
          *
@@ -496,8 +503,8 @@ abstract class PyWrapperDescr extends Descriptor {
         }
 
         /**
-         * Create a {@code PyWrapperDescr} from this definition. Note
-         * that a definition describes the methods as declared, and that
+         * Create a {@code PyWrapperDescr} from this specification. Note
+         * that a specification describes the methods as declared, and that
          * there may be any number. This method matches them to the
          * supported implementations.
          *
@@ -597,7 +604,7 @@ abstract class PyWrapperDescr extends Descriptor {
 
         @Override
         public String toString() {
-            return String.format("WrapperDef(%s[%d])", slot.methodName,
+            return String.format("WrapperSpec(%s[%d])", slot.methodName,
                     methods.size());
         }
 
@@ -606,5 +613,4 @@ abstract class PyWrapperDescr extends Descriptor {
             return m == null ? "" : m.getName();
         }
     }
-
 }

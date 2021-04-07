@@ -2,6 +2,20 @@ package uk.co.farowl.vsj3.evo1;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodHandles.Lookup;
+import java.lang.invoke.MethodType;
+import java.lang.invoke.WrongMethodTypeException;
+import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.lang.reflect.Parameter;
+import java.util.LinkedList;
+import java.util.ListIterator;
+
+import uk.co.farowl.vsj3.evo1.Exposed.KeywordOnly;
+import uk.co.farowl.vsj3.evo1.Exposed.Name;
+import uk.co.farowl.vsj3.evo1.Exposed.PositionalOnly;
+import uk.co.farowl.vsj3.evo1.PyType.Flag;
+import uk.co.farowl.vsj3.evo1.Slot.Signature.ArgumentError;
 
 /**
  * Descriptor for a method defined in Java, specified by a
@@ -10,111 +24,127 @@ import java.lang.invoke.MethodHandles;
  * {@link #__get__(Object, PyType) __get__}, which usually creates a
  * {@link PyJavaMethod}.
  */
-class PyMethodDescr extends Descriptor implements VectorCallable {
+abstract class PyMethodDescr extends Descriptor {
 
-    static final PyType TYPE =
-            PyType.fromSpec(new PyType.Spec("method_descriptor",
-                    MethodHandles.lookup()));
+    static final PyType TYPE = PyType.fromSpec(
+            new PyType.Spec("method_descriptor", MethodHandles.lookup())
+                    .flagNot(Flag.BASETYPE));
 
     /** Description of the method as defined in Java. */
     final MethodDef methodDef;
-    // CPython: vectorcallfunc vectorcall;
 
-    /** Supports vector call methods. */ // MT: (O[])O
-    private final MethodHandle callHandle;
-
+    /**
+     * Construct a {@code PyMethodDescr} from its {@link MethodDef}.
+     *
+     * @param objclass owning class
+     * @param method definition (provides name etc.)
+     */
     // Compare CPython PyDescr_NewMethod in descrobject.c
-    PyMethodDescr(PyType descrtype, PyType objclass, MethodDef method) {
-        super(descrtype, objclass, method.name);
-        this.methodDef = method;
-
-        // XXX What does the vectorcall stuff turn into?
-        MethodHandle vectorcall = method.getVectorHandle();
-
-        /*
-         * Following Python, at this point the MethodDef flags are used
-         * to choose a method to install as 'vectorcall', that has the
-         * signature (PyMethodDescr, Object[], int, int, PyTuple )
-         * Object. This is intended as a vector call target. Each method
-         * installed is particular to the actual signature of 'method',
-         * which the flags describe.
-         */
-
-        // Figure out correct vectorcall function to use
-
-        // switch (method.flags & (METH_VARARGS | METH_FASTCALL
-        // | METH_NOARGS | METH_O | METH_KEYWORDS)) {
-        // case METH_VARARGS:
-        // vectorcall = method_vectorcall_VARARGS;
-        // break;
-        // case METH_VARARGS | METH_KEYWORDS:
-        // vectorcall = method_vectorcall_VARARGS_KEYWORDS;
-        // break;
-        // case METH_FASTCALL:
-        // vectorcall = method_vectorcall_FASTCALL;
-        // break;
-        // case METH_FASTCALL | METH_KEYWORDS:
-        // vectorcall = method_vectorcall_FASTCALL_KEYWORDS;
-        // break;
-        // case METH_NOARGS:
-        // vectorcall = method_vectorcall_NOARGS;
-        // break;
-        // case METH_O:
-        // vectorcall = method_vectorcall_O;
-        // break;
-        // default:
-        // throw new SystemError("%s() method: bad call flags",
-        // method.name);
-        // }
-
-        this.callHandle = vectorcall;
-    }
-
     PyMethodDescr(PyType objclass, MethodDef method) {
-        this(TYPE, objclass, method);
+        super(TYPE, objclass, method.name);
+        this.methodDef = method;
     }
 
-    // XXX Think I don't need: have Java constructor.
-    // XXX But what does the vectorcall stuff turn into?
-    // Object PyDescr_NewMethod(PyType type, MethodDef method)
-    // {
-    // /* Figure out correct vectorcall function to use */
-    // MethodHandle vectorcall;
-    // switch (method.flags & (METH_VARARGS | METH_FASTCALL |
-    // METH_NOARGS | METH_O | METH_KEYWORDS))
-    // {
-    // case METH_VARARGS:
-    // vectorcall = method_vectorcall_VARARGS;
-    // break;
-    // case METH_VARARGS | METH_KEYWORDS:
-    // vectorcall = method_vectorcall_VARARGS_KEYWORDS;
-    // break;
-    // case METH_FASTCALL:
-    // vectorcall = method_vectorcall_FASTCALL;
-    // break;
-    // case METH_FASTCALL | METH_KEYWORDS:
-    // vectorcall = method_vectorcall_FASTCALL_KEYWORDS;
-    // break;
-    // case METH_NOARGS:
-    // vectorcall = method_vectorcall_NOARGS;
-    // break;
-    // case METH_O:
-    // vectorcall = method_vectorcall_O;
-    // break;
-    // default:
-    // throw new SystemError(
-    // "%s() method: bad call flags", method.name);
-    // return null;
-    // }
-    //
-    // PyMethodDescr descr = descr_new(PyMethodDescr.TYPE, type,
-    // method.name);
-    // if (descr != null) {
-    // descr.d_method = method;
-    // descr.vectorcall = vectorcall;
-    // }
-    // return descr;
-    // }
+    /**
+     * Return the handle contained in this descriptor applicable to the
+     * Java class supplied (typically that of a {@code self} argument
+     * during a call). The {@link Descriptor#objclass} is consulted to
+     * make this determination. If the class is not an accepted
+     * implementation of {@code objclass}, an empty slot handle (with
+     * the correct signature) is returned.
+     *
+     * @param selfClass Java class of the {@code self} argument
+     * @return corresponding handle (or {@code slot.getEmpty()})
+     */
+    abstract MethodHandle getMethod(Class<?> selfClass);
+
+    /**
+     * A {@link PyMethodDescr} to use for an instance method when the
+     * owning Python type has just one accepted implementation.
+     */
+    static class Single extends PyMethodDescr {
+
+        /**
+         * A handle for the particular implementation of a method. In an
+         * instance method, {@link #method} has type {@code (O, O[])O},
+         * or {@code (O)O}.
+         */
+        protected final MethodHandle method;
+
+        /**
+         * Construct a method descriptor, identifying by a method handle
+         * the implementation method in {@code objclass}.
+         *
+         * @param objclass the class declaring the special method
+         * @param method a handle to an implementation of that slot
+         */
+        // Compare CPython PyDescr_NewMethod in descrobject.c
+        Single(PyType objclass, MethodDef methodDef,
+                MethodHandle method) {
+            super(objclass, methodDef);
+            this.method = method;
+        }
+
+        @Override
+        MethodHandle getMethod(Class<?> selfClass) {
+            // Make sure that the first argument is acceptable as 'self'
+            if (objclass.getJavaClass().isAssignableFrom(selfClass))
+                return method;
+            else
+                // XXX Implement
+                return null;
+        }
+    }
+
+    /**
+     * A {@link PyMethodDescr} to use for an instance method when the
+     * owning Python type has multiple accepted implementation.
+     */
+    static class Multiple extends PyMethodDescr {
+
+        /**
+         * Handles for the particular implementations of a special
+         * method being method. The method type of each is the same. In
+         * an instance method, {@link #method} entries have type
+         * {@code (O, O[])O}, or {@code (O)O}.
+         */
+        protected final MethodHandle[] method;
+
+        /**
+         * Construct a slot wrapper descriptor, identifying by an array
+         * of method handles the implementation methods for the
+         * {@code slot} in {@code objclass}.
+         *
+         * @param objclass the class declaring the special method
+         *
+         * @param method handles to the implementation of that slot
+         */
+        // Compare CPython PyDescr_NewMethod in descrobject.c
+        Multiple(PyType objclass, MethodDef methodDef,
+                MethodHandle[] method) {
+            super(objclass, methodDef);
+            this.method = method;
+        }
+
+        /**
+         * {@inheritDoc}
+         * <p>
+         * The method will check that the type of self matches
+         * {@link Descriptor#objclass}, according to its
+         * {@link PyType#indexAccepted(Class)}.
+         */
+        @Override
+        MethodHandle getMethod(Class<?> selfClass) {
+            // Work out how to call this descriptor on that object
+            int index = objclass.indexAccepted(selfClass);
+            try {
+                return method[index];
+            } catch (ArrayIndexOutOfBoundsException iobe) {
+                // XXX Implement
+                return null;
+            }
+        }
+    }
 
     // CPython get-set table (to convert to annotations):
     // private GetSetDef method_getset[] = {
@@ -130,39 +160,17 @@ class PyMethodDescr extends Descriptor implements VectorCallable {
     // "method_descriptor",
     // sizeof(PyMethodDescr),
     // 0,
-    // (destructor)descr_dealloc, /* tp_dealloc */
-    // offsetof(PyMethodDescr, vectorcall), /* tp_vectorcall_offset
-    // */
-    // 0, /* tp_getattr */
-    // 0, /* tp_setattr */
-    // 0, /* tp_as_async */
+    // offsetof(PyMethodDescr, vectorcall), /* tp_vectorcall_offset */
     // (reprfunc)method_repr, /* tp_repr */
-    // 0, /* tp_as_number */
-    // 0, /* tp_as_sequence */
-    // 0, /* tp_as_mapping */
-    // 0, /* tp_hash */
     // PyVectorcall_Call, /* tp_call */
-    // 0, /* tp_str */
     // PyObject_GenericGetAttr, /* tp_getattro */
-    // 0, /* tp_setattro */
-    // 0, /* tp_as_buffer */
     // Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_GC |
     // _Py_TPFLAGS_HAVE_VECTORCALL |
     // Py_TPFLAGS_METHOD_DESCRIPTOR, /* tp_flags */
-    // 0, /* tp_doc */
-    // descr_traverse, /* tp_traverse */
-    // 0, /* tp_clear */
-    // 0, /* tp_richcompare */
-    // 0, /* tp_weaklistoffset */
-    // 0, /* tp_iter */
-    // 0, /* tp_iternext */
     // descr_methods, /* tp_methods */
     // descr_members, /* tp_members */
     // method_getset, /* tp_getset */
-    // 0, /* tp_base */
-    // 0, /* tp_dict */
     // (descrgetfunc)method_get, /* tp_descr_get */
-    // 0, /* tp_descr_set */
     // };
 
     // Compare CPython method_repr in descrobject.c
@@ -171,42 +179,88 @@ class PyMethodDescr extends Descriptor implements VectorCallable {
     }
 
     /**
-     * Invoke the instance as a vector call constructed from the classic
-     * arguments.
+     * Invoke the Java method this method descriptor points to, using
+     * arguments derived from the classic call arguments supplied,
+     * default arguments and other information described for the method.
      *
-     * @throws Throwable from {@link #call(Object[], PyTuple)}
+     * Call the wrapped method with positional arguments (the first
+     * being the target object) and optionally keywords arguments. The
+     * arguments, in type and number, must match the signature of the
+     * special function slot.
+     *
+     * @param args positional arguments beginning with {@code self}
+     * @param kwargs keyword arguments
+     * @return result of calling the wrapped method
+     * @throws TypeError if {@code args[0]} is the wrong type
+     * @throws Throwable from the implementation of the special method
      */
-    // Compare CPython PyVectorcall_Call in call.c
-    @Override
-    public Object __call__(PyTuple args, PyDict kwargs)
-            throws Throwable {
-        if (kwargs == null || kwargs.size() == 0) {
-            return call(args.value);
+    // Compare CPython wrapperdescr_call in descrobject.c
+    protected Object __call__(PyTuple args, PyDict kwargs)
+            throws TypeError, Throwable {
+
+        int argc = args.value.length;
+        if (argc > 0) {
+            // Split the leading element self from args
+            Object self = args.value[0];
+            if (argc == 1) {
+                args = PyTuple.EMPTY;
+            } else {
+                args = new PyTuple(args.value, 1, argc - 1);
+            }
+
+            // Make sure that the first argument is acceptable as 'self'
+            PyType selfType = PyType.of(self);
+            if (!Abstract.recursiveIsSubclass(selfType, objclass)) {
+                throw new TypeError(DESCRIPTOR_REQUIRES, name,
+                        objclass.name, selfType.name);
+            }
+
+            return callWrapped(self, args, kwargs);
+
         } else {
-            Object[] a = args.value;
-            Object[] stack = new Object[a.length + kwargs.size()];
-            // XXX must order the names as declaration expects
-            PyTuple kwnames = Callables.unpackDict(a, kwargs, stack);
-            return call(stack, kwnames);
+            // Not even one argument
+            throw new TypeError(DESCRIPTOR_NEEDS_ARGUMENT, name,
+                    objclass.name);
+        }
+    }
+
+    /**
+     * Invoke the method described by this {@code PyMethodDescr} the
+     * given target {@code self}, and the arguments supplied.
+     *
+     * @param self target object of the method call
+     * @param args of the method call
+     * @param kwargs of the method call
+     * @return result of the method call
+     * @throws TypeError if the arguments do not fit the method
+     * @throws Throwable from the implementation of the method
+     */
+    // Compare CPython wrapperdescr_raw_call in descrobject.c
+    Object callWrapped(Object self, PyTuple args, PyDict kwargs)
+            throws Throwable {
+        try {
+            // Call through the correct wrapped handle
+            MethodHandle wrapped = getMethod(self.getClass());
+            return methodDef.callMethod(wrapped, self, args, kwargs);
+        } catch (ArgumentError ae) {
+            throw signatureTypeError(ae, args);
         }
     }
 
     // Compare CPython method_call in descrobject.c
-    @Override
     public Object call(Object... args) throws Throwable {
-        // XXX where do we deal with default arguments? Here?
-        return callHandle.invokeExact(args);
+        // XXX Implement
+        return null;
     }
 
     /**
      * @implNote Currently not supporting keyword arguments.
      */
-    @Override
-    // Compare CPython method_call in descrobject.c
     public Object call(Object[] args, PyTuple kwnames)
             throws Throwable {
         if (kwnames == null || kwnames.size() == 0) {
-            return callHandle.invokeExact(args);
+            // XXX Implement
+            return null;
         } else {
             throw new MissingFeature("Keywords in vector call");
         }
@@ -297,6 +351,41 @@ class PyMethodDescr extends Descriptor implements VectorCallable {
                     methodDef.name);
         }
     }
+
+    /**
+     * Translate a problem with the number and pattern of arguments, in
+     * a failed attempt to call the wrapped method, to a Python
+     * {@link TypeError}.
+     *
+     * @param ae expressing the problem
+     * @param args positional arguments (only the number will matter)
+     * @return a {@code TypeError} to throw
+     */
+    private TypeError signatureTypeError(ArgumentError ae,
+            PyTuple args) {
+        int n = args.value.length;
+        switch (ae.mode) {
+            case NOARGS:
+                return new TypeError(TAKES_NO_ARGUMENTS, name, n);
+            case NUMARGS:
+                int N = ae.minArgs;
+                return new TypeError(TAKES_ARGUMENTS, name, N, n);
+            case MINMAXARGS:
+                String range = String.format("from %d to %d",
+                        ae.minArgs, ae.maxArgs);
+                return new TypeError(TAKES_ARGUMENTS, name, range, n);
+            case NOKWARGS:
+            default:
+                return new TypeError(TAKES_NO_KEYWORDS, name);
+        }
+    }
+
+    private static final String TAKES_NO_ARGUMENTS =
+            "method %s() takes no arguments (%d given)";
+    private static final String TAKES_ARGUMENTS =
+            "method %s() takes %s arguments (%d given)";
+    private static final String TAKES_NO_KEYWORDS =
+            "method %s() takes no keyword arguments";
 
 // /* Now the actual vectorcall functions */
 // // Compare CPython method_vectorcall_VARARGS in descrobject.c
@@ -411,4 +500,301 @@ class PyMethodDescr extends Descriptor implements VectorCallable {
 // }
 // }
 
+    /**
+     * {@code MethodDef} represents one or more methods of a Java class
+     * that are to be exposed as a single method of a Python
+     * {@code object}. The exporting class provides definitions for the
+     * method, that appear here as {@code java.lang.reflect.Method}s
+     * with different signatures.
+     */
+    static class MethodSpecification extends DescriptorSpecification {
+
+        /** The name of the method being defined */
+        final String name;
+
+        /**
+         * Names of arguments not including the {@code self} argument of
+         * instance methods. (The names are the arguments to the method
+         * in the first call to {@link #add(Method)}).
+         */
+        String[] argumentNames;
+
+        /**
+         * The number of positional-only arguments (after {@code self}).
+         * (The value reflects the method in the first call to
+         * {@link #add(Method)}).
+         */
+        int posonlyargcount;
+
+        /**
+         * The number of keyword-only arguments. (The value reflects the
+         * method in the first call to {@link #add(Method)}).
+         */
+        int kwonlyargcount;
+
+        boolean isStatic;
+
+        /** @param name of method. */
+        MethodSpecification(String name) {
+            this.name = name;
+        }
+
+        /**
+         * Add a method implementation. (A test that the signature is
+         * acceptable follows when we construct the
+         * {@link PyMethodDescr}.)
+         *
+         * @param method to add to {@link #methods}
+         */
+        @Override
+        void add(Method method) throws InterpreterError {
+            boolean first = methods.isEmpty();
+            super.add(method);
+
+            // Check for defined static (in Java)
+            int modifiers = method.getModifiers();
+            boolean javaStatic = (modifiers & Modifier.STATIC) != 0;
+
+            // Skip "self" that will appear first if static in Java
+            int n = method.getParameterCount() - (javaStatic ? 1 : 0);
+
+            if (first) {
+                // First encounter defines the signature
+                argumentNames = new String[n];
+                // Skip an initial "self" argument name
+                int i = javaStatic ? -1 : 0;
+                // Capture arg names: must compile with -parameters.
+                for (Parameter p : method.getParameters()) {
+                    if (i >= 0) {
+                        argumentNames[i] = processAnnotations(p, i);
+                    }
+                    i += 1;
+                }
+
+            } else if (n != argumentNames.length) {
+                throw new InterpreterError(FURTHER_DEF_ARGS,
+                        method.getName(), n, argumentNames.length);
+            }
+        }
+
+        private static final String FURTHER_DEF_ARGS =
+                "Further definition of '%s' has %d (not %d) arguments";
+
+        /**
+         * Process the <i>i</i> th parameter for its
+         * annotations @{@link Name},
+         *
+         * @{@link PositionalOnly}, and @{@link KeywordOnly}.
+         * @param p to process
+         * @param i index in {@link #argumentNames}
+         * @return the name of the parameter
+         */
+        private String processAnnotations(Parameter p, int i) {
+
+            // Parameter may be the last positional-only argument (/)
+            PositionalOnly pos = p.getAnnotation(PositionalOnly.class);
+            if (pos != null) { posonlyargcount = i + 1; }
+
+            // Parameter may be the first keyword-only argument (*)
+            KeywordOnly kwd = p.getAnnotation(KeywordOnly.class);
+            if (kwd != null && kwonlyargcount == 0) {
+                kwonlyargcount = argumentNames.length - i;
+            }
+
+            Name name = p.getAnnotation(Name.class);
+            return name == null ? p.getName() : name.value();
+        }
+
+        @Override
+        PyMethodDescr createDescr(PyType type, Lookup lookup) {
+
+            // XXX Create a MethodDef and work from that?
+
+            if (isStatic) {
+                throw new MissingFeature("expose method as static");
+            } else {
+                return createDescrForInstanceMethod(type, lookup);
+            }
+        }
+
+        @Override
+        String getType() { return "JavaMethod"; }
+
+        /**
+         * Create a {@code PyMethodDescr} from this specification. Note
+         * that a specification describes the methods as declared, and
+         * that there may be any number. This method matches them to the
+         * supported implementations.
+         *
+         * @param objclass Python type that owns the descriptor
+         * @param lookup authorisation to access fields
+         * @return descriptor for access to the field
+         * @throws InterpreterError if the method type is not supported
+         */
+        private PyMethodDescr createDescrForInstanceMethod(
+                PyType objclass, Lookup lookup)
+                throws InterpreterError {
+
+            // Methods have self + this many args:
+            final int L = argumentNames.length;
+
+            // Specialise the MethodDef according to the signature.
+            String doc = getDoc();
+            MethodDef methodDef;
+            switch (L) {
+                case 0:
+                    // MT = (S)O
+                    methodDef = new MethodDef.NoArgs(name, doc);
+                    break;
+                case 1:
+                    // MT = (S,O)O
+                    methodDef = new MethodDef.OneArg(name,
+                            argumentNames, doc);
+                    break;
+                default:
+                    // MT = (S,O[])O
+                    methodDef = new MethodDef.FixedArgs(name,
+                            argumentNames, doc);
+            }
+
+            /*
+             * There could be any number of candidates in the
+             * implementation. An implementation method could match
+             * multiple accepted implementations of the type (e.g.
+             * Number matching Long and Integer).
+             */
+            LinkedList<MethodHandle> candidates = new LinkedList<>();
+            for (Method m : methods) {
+                // Convert m to a handle (if L args and accessible)
+                try {
+                    MethodHandle mh = lookup.unreflect(m);
+                    if (mh.type().parameterCount() == 1 + L)
+                        addOrdered(candidates, mh);
+                } catch (IllegalAccessException e) {
+                    throw cannotGetHandle(objclass, m, e);
+                }
+            }
+
+            /*
+             * We will try to create a handle for each implementation of
+             * an instance method.
+             */
+            final int N = objclass.acceptedCount;
+            MethodHandle[] method = new MethodHandle[N];
+
+            // Fill the method array with matching method handles
+            for (int i = 0; i < N; i++) {
+                Class<?> acceptedClass = objclass.classes[i];
+                /*
+                 * Fill method[i] with the method handle where the first
+                 * parameter is the most specific match for class
+                 * accepted[i].
+                 */
+                // Try the candidate method until one matches
+                for (MethodHandle mh : candidates) {
+                    MethodType mt = mh.type();
+                    if (mt.parameterType(0)
+                            .isAssignableFrom(acceptedClass)) {
+                        /*
+                         * Each sub-type of MethodDef handles
+                         * callMethod(self, args, kwargs) in its own
+                         * way, and must prepare the arguments of the
+                         * generic method handle to match.
+                         */
+                        try {
+                            method[i] = methodDef.prepare(mh);
+                        } catch (WrongMethodTypeException wmte) {
+                            // Wrong number of args or cannot cast.
+                            throw methodSignatureError(mh);
+                        }
+                        break;
+                    }
+                }
+
+                // We should have a value in each of method[]
+                if (method[i] == null) {
+                    throw new InterpreterError(
+                            "'%s.%s' not defined for %s", objclass.name,
+                            name, objclass.classes[i]);
+                }
+            }
+
+            if (N == 1)
+                /*
+                 * There is only one definition so use the simpler form
+                 * of built-in method. This is the frequent case.
+                 */
+                return new PyMethodDescr.Single(objclass, methodDef,
+                        method[0]);
+
+            else
+                /*
+                 * There are multiple definitions so use the array form
+                 * of built-in method. This is the case for types that
+                 * have multiple accepted implementations and methods on
+                 * them that are not static or "Object self".
+                 */
+                return new PyMethodDescr.Multiple(objclass, methodDef,
+                        method);
+        }
+
+        /**
+         * Insert a {@code MethodHandle h} into a list, such that every
+         * handle in the list, of which the first parameter type is
+         * assignable from the first parameter type of {@code h}, will
+         * appear after {@code h} in the list. If there are none such,
+         * {@code h} is added at the end. The resulting list is
+         * partially ordered, and has the property that, in a forward
+         * search for a handle applicable to a given class, the most
+         * specific match is found first.
+         *
+         * @param list to add h into
+         * @param h to insert/add
+         */
+        private void addOrdered(LinkedList<MethodHandle> list,
+                MethodHandle h) {
+            // Type of first parameter of h
+            Class<?> c = h.type().parameterType(0);
+            // We'll scan until a more general type is found
+            ListIterator<MethodHandle> iter = list.listIterator(0);
+            while (iter.hasNext()) {
+                MethodHandle i = iter.next();
+                Class<?> d = i.type().parameterType(0);
+                if (d.isAssignableFrom(c)) {
+                    /*
+                     * d is more general than c (i is more general than
+                     * h): back up and position just before i.
+                     */
+                    iter.previous();
+                    break;
+                }
+            }
+            // Insert h where the iterator stopped. Could be the end.
+            iter.add(h);
+        }
+
+        /** Convenience function to compose error in createDescr(). */
+        private InterpreterError cannotGetHandle(PyType objclass,
+                Method m, IllegalAccessException e) {
+            return new InterpreterError(e,
+                    "cannot get method handle for '%s' in '%s'", m,
+                    objclass.definingClass);
+        }
+
+        /** Convenience function to compose error in createDescr(). */
+        private InterpreterError methodSignatureError(MethodHandle mh) {
+            return new InterpreterError(UNSUPPORTED_SIG, name,
+                    mh.type());
+        }
+
+        private static final String UNSUPPORTED_SIG =
+                "method %.50s has wrong signature %.50s for spec";
+
+        @Override
+        public String toString() {
+            return String.format("MethodSpec(%s[%d])", name,
+                    methods.size());
+        }
+
+    }
 }

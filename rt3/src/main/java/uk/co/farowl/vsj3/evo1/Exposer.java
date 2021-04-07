@@ -1,26 +1,19 @@
 package uk.co.farowl.vsj3.evo1;
 
-import java.lang.invoke.MethodHandle;
-import java.lang.invoke.WrongMethodTypeException;
+import java.lang.annotation.Annotation;
 import java.lang.invoke.MethodHandles.Lookup;
-import java.lang.invoke.MethodType;
-import java.lang.reflect.Field;
+import java.lang.invoke.WrongMethodTypeException;
 import java.lang.reflect.Method;
-import java.util.Collection;
-import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-import uk.co.farowl.vsj3.evo1.Exposed.Deleter;
-import uk.co.farowl.vsj3.evo1.Exposed.DocString;
-import uk.co.farowl.vsj3.evo1.Exposed.Getter;
 import uk.co.farowl.vsj3.evo1.Exposed.JavaMethod;
-import uk.co.farowl.vsj3.evo1.Exposed.Setter;
 import uk.co.farowl.vsj3.evo1.Operations.BinopGrid;
+import uk.co.farowl.vsj3.evo1.PyMethodDescr.MethodSpecification;
 // import uk.co.farowl.vsj3.evo1.PyGetSetDescr.GetSetDef;
 // import uk.co.farowl.vsj3.evo1.PyMemberDescr.Flag;
-import uk.co.farowl.vsj3.evo1.PyWrapperDescr.WrapperDef;
+import uk.co.farowl.vsj3.evo1.PyWrapperDescr.WrapperSpecification;
 import uk.co.farowl.vsj3.evo1.Slot.Signature;
 
 /**
@@ -29,7 +22,187 @@ import uk.co.farowl.vsj3.evo1.Slot.Signature;
  */
 class Exposer {
 
-    private Exposer() {} // No instances
+    /**
+     * Create a table of {@link Descriptor}s, on behalf of the type
+     * given, from definitions found in the given class and either
+     * annotated for exposure or having the name of a special method.
+     * The type object will become the {@link Descriptor#objclass}
+     * reference of the descriptors created, but is not otherwise
+     * accessed, since it is (necessarily) incomplete at this time.
+     *
+     * @param lookup authorisation to access methods
+     * @param definingClass to introspect for special functions
+     * @param methodClass to introspect additionally (if non-null)
+     * @param type to which these descriptors apply
+     * @return attributes defined (in the order first encountered)
+     * @throws InterpreterError on duplicates or unsupported types
+     */
+    static Map<String, Descriptor> descriptorsFromMethods(Lookup lookup,
+            Class<?> definingClass, Class<?> methodClass, PyType type)
+            throws InterpreterError {
+
+        // XXX Make this a member of an instance of Exposer, per PyType?
+        Map<String, DescriptorSpecification> specs =
+                new LinkedHashMap<>();
+
+        // Scan the defining and methods classes for definitions
+        addMethodSpecs(specs, lookup, definingClass);
+        if (methodClass != null)
+            addMethodSpecs(specs, lookup, methodClass);
+
+        // For each name having a definition, construct a descriptor
+        Map<String, Descriptor> descrs = new LinkedHashMap<>();
+        for (DescriptorSpecification def : specs.values()) {
+            Descriptor d = def.createDescr(type, lookup);
+            // PyMethodDescr d = new PyMethodDescr(type, def);
+            descrs.put(d.name, d);
+        }
+
+        return descrs;
+    }
+
+    /**
+     * Add to a table of {@link DescriptorSpecification}s, definitions
+     * found in the given class and either annotated for exposure or
+     * having the name of a special method.
+     *
+     * @param specs to add definitions (in the order first encountered)
+     * @param lookup authorisation to access methods
+     * @param defsClass to introspect for definitions
+     * @throws InterpreterError on duplicates or unsupported types
+     */
+    private static void addMethodSpecs(
+            Map<String, DescriptorSpecification> specs, Lookup lookup,
+            Class<?> defsClass) throws InterpreterError {
+
+        // Iterate over methods looking for the relevant annotations
+        for (Method m : defsClass.getDeclaredMethods()) {
+
+            // Here we must deal with all supported annotations
+            JavaMethod a = m.getDeclaredAnnotation(JavaMethod.class);
+            if (a != null) { processAnnotation(specs, a, m); }
+
+            // If it is a special method, record the definition.
+            String name = m.getName();
+            Slot slot = Slot.forMethodName(name);
+            if (slot != null) { processSlot(specs, slot, m); }
+        }
+    }
+
+    /**
+     * Process an annotation to a descriptor specification and add it to
+     * the table of specifications by name.
+     * <p>
+     * Python knows methods by a simple name while Java allows there to
+     * be multiple definitions separated by signature, and for these to
+     * coexist with inherited definitions. We will have to confront this
+     * overloading when we come to expose "discovered" Java classes as
+     * Python object types. For now, a repeat definition of a name is
+     * considered an error.
+     *
+     * @param specs table to update
+     * @param anno annotation encountered
+     * @param meth method annotated
+     * @throws InterpreterError on duplicates or unsupported types
+     */
+    static private void processAnnotation(
+            Map<String, DescriptorSpecification> specs, JavaMethod anno,
+            Method meth) throws InterpreterError {
+
+        // The name is as annotated or the "natural" one
+        String name = anno.value();
+        if (name == null || name.length() == 0)
+            name = meth.getName();
+
+        // Find any existing definition
+        DescriptorSpecification descrSpec = specs.get(name);
+        MethodSpecification spec;
+        if (descrSpec == null) {
+            // A new entry is needed
+            spec = new MethodSpecification(name);
+            // XXX getMethodDef(a, m, lookup);
+            specs.put(spec.name, spec);
+        } else if (descrSpec instanceof MethodSpecification) {
+            // Existing entry will be updated
+            spec = (MethodSpecification) descrSpec;
+        } else {
+            // Existing entry is not compatible
+            throw duplicateError(name, descrSpec, meth, anno);
+        }
+        spec.add(meth);
+    }
+
+    /**
+     * Process a method that matches a slot name to a descriptor
+     * specification and add it to the table of specifications by name.
+     *
+     * @param specs table to update
+     * @param slot annotation encountered
+     * @param meth method annotated
+     * @throws {@link InterpreterError} on duplicates or unsupported
+     *     types
+     */
+    static private void processSlot(
+            Map<String, DescriptorSpecification> specs, Slot slot,
+            Method meth) throws InterpreterError {
+
+        String name = slot.methodName;
+        // Find any existing definition
+        DescriptorSpecification descrSpec = specs.get(name);
+        WrapperSpecification spec;
+        if (descrSpec == null) {
+            // A new entry is needed
+            spec = new WrapperSpecification(slot);
+            specs.put(name, spec);
+        } else if (descrSpec instanceof WrapperSpecification) {
+            // Existing entry will be updated
+            spec = (WrapperSpecification) descrSpec;
+        } else {
+            // Existing entry is not compatible
+            throw duplicateError(name, descrSpec, meth, "slot-wrapper");
+        }
+        spec.add(meth);
+    }
+
+    /**
+     * Create an exception with a message along the lines "'NAME',
+     * already exposed as SPEC, cannot be ANNO (method METH)" where the
+     * place-holders are filled from the corresponding arguments (or
+     * their names or type names).
+     *
+     * @param name being defined
+     * @param spec of the inconsistent, existing entry
+     * @param meth method annotated
+     * @param anno troublesome new annotation
+     * @return the required error
+     */
+    static private InterpreterError duplicateError(String name,
+            DescriptorSpecification spec, Method meth,
+            Annotation anno) {
+        return duplicateError(name, spec, meth,
+                anno.annotationType().getSimpleName());
+    }
+
+    /**
+     * Create an exception with a message along the lines "'NAME',
+     * already exposed as SPEC, cannot be TYPE (method METH)" where the
+     * place-holders are filled from the corresponding arguments (or
+     * their names or type names).
+     *
+     * @param name being defined
+     * @param spec of the inconsistent, existing entry
+     * @param meth method annotated
+     * @param type troublesome new entry type
+     * @return the required error
+     */
+    static private InterpreterError duplicateError(String name,
+            DescriptorSpecification spec, Method meth, String type) {
+        return new InterpreterError(ALREADY_EXPOSED, name,
+                spec.getType(), type, meth.getName());
+    }
+
+    private static final String ALREADY_EXPOSED =
+            "'%s', already exposed as %s, cannot be %s (method %s)";
 
 //@formatter:off
 //    /**
@@ -277,67 +450,6 @@ class Exposer {
 //@formatter:on
 
     /**
-     * Create a table of {@link PyWrapperDescr}s defined on the given
-     * implementation classes, on behalf of the type given. This type
-     * object will become the {@link Descriptor#objclass} reference of
-     * the descriptors created, but is not otherwise accessed, since it
-     * is (necessarily) incomplete at this time.
-     *
-     * @param lookup authorisation to access methods
-     * @param definingClass to introspect for special functions
-     * @param methodClass to introspect additionally (if non-null)
-     * @param type to which these descriptors apply
-     * @return attributes defined (in the order first encountered)
-     * @throws InterpreterError on duplicates or unsupported types
-     */
-    static Map<String, PyWrapperDescr> wrapperDescrs(Lookup lookup,
-            Class<?> definingClass, Class<?> methodClass, PyType type)
-            throws InterpreterError {
-
-        // Iterate over methods looking for the relevant annotations
-        Map<Slot, WrapperDef> defs = new LinkedHashMap<>();
-
-        addWrapperDefs(defs, lookup, definingClass);
-        if (methodClass != null)
-            addWrapperDefs(defs, lookup, methodClass);
-
-        // For each slot having any definitions, construct a descriptor
-        Map<String, PyWrapperDescr> descrs = new LinkedHashMap<>();
-        for (WrapperDef def : defs.values()) {
-            PyWrapperDescr d = def.createDescr(type, lookup);
-            descrs.put(d.name, d);
-        }
-
-        return descrs;
-    }
-
-    /**
-     * Add to a table of {@link WrapperDef}s definitions found in the
-     * given implementation class.
-     *
-     * @param defs to add definitions (in the order first encountered)
-     * @param lookup authorisation to access methods
-     * @param binopsClass to introspect for special functions
-     */
-    static void addWrapperDefs(Map<Slot, WrapperDef> defs,
-            Lookup lookup, Class<?> binopsClass) {
-        for (Method m : binopsClass.getDeclaredMethods()) {
-            // If it is a special method, record the definition.
-            String name = m.getName();
-            Slot slot = Slot.forMethodName(name);
-            if (slot != null) {
-                WrapperDef def = defs.get(slot);
-                if (def == null) {
-                    // A new entry is needed
-                    def = new WrapperDef(slot);
-                    defs.put(slot, def);
-                }
-                def.add(m);
-            }
-        }
-    }
-
-    /**
      * Create a table of {@code MethodHandle}s from binary operations
      * defined in the given class, on behalf of the type given. This
      * table is 3-dimensional, being indexed by the slot of the method
@@ -404,81 +516,4 @@ class Exposer {
                     "ill-formed or inaccessible binary op '%s'", m);
         }
     }
-
-    /**
-     * Create a table of {@link PyMethodDescr}s for methods annotated as
-     * {@link JavaMethod} on the given implementation class, on behalf
-     * of the type given. This type object will become the
-     * {@link Descriptor#objclass} reference of the descriptors created,
-     * but is not otherwise accessed, since it is (necessarily)
-     * incomplete at this time.
-     * <p>
-     * Python knows methods by a simple name while Java allows there to
-     * be multiple definitions separated by signature, and for these to
-     * coexist with inherited definitions. We will have to confront this
-     * overloading when we come to expose "discovered" Java classes as
-     * Python object types. For now, a repeat definition of a name is
-     * considered an error.
-     *
-     * @param lookup authorisation to access fields
-     * @param implClass to introspect for method definitions
-     * @param type to which these descriptors apply
-     * @return methods defined (in the order encountered)
-     * @throws InterpreterError on duplicates or unsupported types
-     */
-    public static Map<String, PyMethodDescr> methodDescrs(Lookup lookup,
-            Class<?> implClass, PyType type) throws InterpreterError {
-
-
-        Map<String, PyMethodDescr> defs = new LinkedHashMap<>();
-
-        // Iterate over methods looking for the relevant annotations
-        for (Method m : implClass.getDeclaredMethods()) {
-            // Look for all three types now, so as to detect conflicts.
-            JavaMethod a = m.getDeclaredAnnotation(JavaMethod.class);
-            if (a != null) {
-                MethodDef def = getMethodDef(a, m, lookup);
-                PyMethodDescr descr = new PyMethodDescr(type, def);
-                PyMethodDescr previous = defs.put(def.name, descr);
-                if (previous != null) {
-                    // There was one already :(
-                    throw new InterpreterError(DEF_REPEAT, "method",
-                            def.name, implClass.getSimpleName());
-                }
-            }
-        }
-        return defs;
-
-    }
-
-    private static MethodDef getMethodDef(JavaMethod a, Method m,
-            Lookup lookup) {
-
-        // Name is as annotated or is the Java name of the method
-        String name = a.value();
-        if (name == null || name.length() == 0)
-            name = m.getName();
-
-        // May also have DocString annotation
-        String doc = "";
-        Exposed.DocString d = m.getAnnotation(Exposed.DocString.class);
-        if (d != null)
-            doc = d.value();
-
-        try {
-            // From these parts, construct a definition.
-            return new MethodDef(name, m, lookup, doc);
-        } catch (IllegalAccessException e) {
-            throw new InterpreterError(e,
-                    "cannot get method handle for '%s'", m);
-        }
-    }
-
-    private static final String MEMBER_REPEAT =
-            "Repeated definition of member %.50s in type %.50s";
-    private static final String DEF_REPEAT =
-            "Definition of %s repeated at method %.50s in type %.50s";
-    private static final String DEF_MULTIPLE =
-            "Multiple %s annotations on method %.50s in type %.50s";
-
 }

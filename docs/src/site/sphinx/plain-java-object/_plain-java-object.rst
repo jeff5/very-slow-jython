@@ -22,7 +22,7 @@ Concepts developed in sub-project ``rt2`` will be heavily re-used.
     introduction
     operations-builtin
     hash-dictionary
-
+    built-in-methods
 
 ..  A reminder of the chapters in the rt2 chapter:
     interpreter-cpython-byte-code

@@ -97,9 +97,9 @@ enum Slot {
 
     /** Method signature to match when filling this slot. */
     final Signature signature;
-    /** Name of implementation method to bind to this slot. */
+    /** Name of implementation method to bind e.g. "{@code __add__}". */
     final String methodName;
-    /** Name to use in error messages */
+    /** Name to use in error messages, e.g. "{@code +}" */
     final String opName;
     /** Handle to throw a {@link TypeError} (same signature as slot). */
     private MethodHandle operandError;
@@ -643,12 +643,12 @@ enum Slot {
         }
 
         /**
-         * The type of (non-Python) exception thrown by invoking slot
-         * with the wrong pattern of arguments. An {@code ArgumentError}
-         * encapsulates what a particular {@link Signature} expected by
-         * way of the number of positional arguments and the presence or
-         * otherwise of keyword arguments. It should be caught by the
-         * immediate caller of
+         * The type of (non-Python) exception thrown by invoking a slot
+         * or method with the wrong pattern of arguments. An
+         * {@code ArgumentError} encapsulates what a particular
+         * {@link Signature} expected by way of the number of positional
+         * arguments and the presence or otherwise of keyword arguments.
+         * It should be caught by the immediate caller of
          * {@link Signature#callWrapped(MethodHandle, Object, PyTuple, PyDict)}
          *
          */

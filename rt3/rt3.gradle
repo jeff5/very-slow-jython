@@ -115,6 +115,8 @@ tasks.withType(Javadoc) {
 
 tasks.withType(JavaCompile) {
 
+    // deprecation is noisy
     options.deprecation = true
-
+    // retain parameter names (for use by exposer)
+    options.compilerArgs.add('-parameters')
 }

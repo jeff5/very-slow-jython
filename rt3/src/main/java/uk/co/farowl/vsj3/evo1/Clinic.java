@@ -24,15 +24,17 @@ class Clinic {
 
     private static final Class<?> O = Object.class;
 
+    // Handles for converters from Python to Java types for args
     private static final MethodHandle intArgMH;
     private static final MethodHandle doubleArgMH;
     private static final MethodHandle stringArgMH;
 
+    // Handles for converters from Java types to Python for returns
     private static final MethodHandle voidValueMH;
 
     private static final MethodHandle intValueMH;
     private static final MethodHandle doubleValueMH;
-    private static final MethodHandle stringValueMH;
+    private static final MethodHandle booleanValueMH;
 
     /**
      * Helpers used to construct {@code MethodHandle}s for type
@@ -49,30 +51,14 @@ class Clinic {
 
             voidValueMH = MethodHandles.constant(O, Py.None);
 
-            intValueMH = LOOKUP
-                    .findConstructor(PyLong.class,
-                            MethodType.methodType(void.class,
-                                    long.class))
-                    .asType(MethodType.methodType(O, int.class));
-            doubleValueMH = LOOKUP.findConstructor(PyFloat.class,
-                    MethodType.methodType(void.class, double.class));
-            stringValueMH =
-                    LOOKUP.findStatic(Py.class, "str", MethodType
-                            .methodType(PyUnicode.class, String.class));
+            intValueMH = LOOKUP.findStatic(Integer.class, "valueOf",
+                    MethodType.methodType(Integer.class, int.class));
+            doubleValueMH = LOOKUP.findStatic(Double.class, "valueOf",
+                    MethodType.methodType(Double.class, double.class));
+            booleanValueMH = LOOKUP.findStatic(Boolean.class, "valueOf",
+                    MethodType.methodType(Boolean.class,
+                            boolean.class));
 
-            /*
-             * intValueMH = LOOKUP.findStatic(Py.class, "val",
-             * MethodType.methodType(O, int.class)); doubleValueMH =
-             * LOOKUP.findStatic(Py.class, "val",
-             * MethodType.methodType(O, double.class));
-             */
-
-            /*
-             * intValueMH = LOOKUP.findStatic(Clinic.class, "intValue",
-             * MethodType.methodType(O, int.class)); doubleValueMH =
-             * LOOKUP.findStatic(Clinic.class, "doubleValue",
-             * MethodType.methodType(O, double.class));
-             */
         } catch (NoSuchMethodException | IllegalAccessException e) {
             throw new InterpreterError(e, "during handle lookup");
         }
@@ -82,42 +68,66 @@ class Clinic {
 
     /**
      * Create an array of filters to convert an existing method handle,
-     * with the given type, to one that expects arguments that are all
-     * {@code Object} or a sub-class. The returned array is suitable as
-     * an argument to {@code MethodHandles.filterArguments.}
+     * with the given type, to one that expects arguments (starting at a
+     * given index) that are all {@code Object}. The returned array is
+     * suitable as an argument to {@code MethodHandles.filterArguments}.
+     * (Some elements may be {@code null}, meaning no adapter is
+     * applied.)
      * <p>
      * Where the existing method (described by {@code MethodType mt})
      * expects a primitive type, or a supported reference type (such as
-     * {@code BigInteger}), the handle to a standard conversion will be
-     * supplied. Where the existing method expects a Java {@code Object}
-     * or a sub-class, a {@code null} conversion will be supplied. These
+     * {@code BigInteger}), the handle to a standard conversion
+     * accepting an {@code Object} argument will be supplied. These
      * conversions will throw a Python exception (often
      * {@link TypeError}), when invoked on objects they cannot convert,
      * according to the usual behaviour of Python.
-     *
+     * <p>
+     * Where the existing method expects some other reference type, a
+     * {@code null} conversion will be supplied. If the reference type
+     * is {@code Object}, no problem arises.
+     * <p>
+     * When using this filter to adapt a handle on a purported
+     * implementation of an exposed Python method, types {@code Clinic}
+     * cannot convert will remain unchanged in the {@code MethodType} of
+     * the adapted handle. Such a handle must be invoked with arguments
+     * of exactly matching static type. If (as is likely), in the
+     * invocation context, the arguments will all be statically
+     * {@code Object}, the adapted handle would lead to a Java
+     * {@code WrongMethodTypeException}.
      *
      * @param mt type to adapt.
+     * @param pos index in the type at which to start.
      * @return array of filter-adaptors to expect {@code Object}.
      */
-    static MethodHandle[] argumentFilter(MethodType mt) {
-        final int n = mt.parameterCount();
+    static MethodHandle[] argumentFilter(MethodType mt, int pos) {
+        final int n = mt.parameterCount() - pos;
         MethodHandle[] filter = new MethodHandle[n];
         for (int p = 0; p < n; p++) {
-            Class<?> pt = mt.parameterType(p);
+            Class<?> pt = mt.parameterType(pos + p);
             filter[p] = adaptParameterToObject(pt);
         }
         return filter;
     }
 
     /**
+     * Equivalent to {@code argumentFilter(mt, 0)}
+     *
+     * @param mt type to adapt.
+     * @return array of filter-adaptors to expect {@code Object}.
+     */
+    static MethodHandle[] argumentFilter(MethodType mt) {
+        return argumentFilter(mt, 0);
+    }
+
+    /**
      * Return a filter that will adapt an existing method handle with
      * the given type, to one that the returns {@code Object} or a
-     * sub-class. The handle produced is suitable as an argument to
-     * {@code MethodHandle.filterReturnValue}
+     * sub-class. If not {@code null}, The handle produced is suitable
+     * as an argument to {@code MethodHandle.filterReturnValue}.
      * <p>
-     * This adaptor will often be a constructor for the implementation
+     * This adapter will often be a constructor for the implementation
      * type or equivalent convenience method. If the return type of is
-     * {@code void.class}, the adaptor takes no arguments and produces
+     * {@code void.class}, the adapter takes no arguments and produces
      * {@link Py#None}. .
      * <p>
      * If the return type is already {@code Object} or a sub-class, this
@@ -126,18 +136,11 @@ class Clinic {
      * for this.
      *
      * @param mt type to adapt.
-     * @return {@code null} or a filter-adaptor to return
+     * @return {@code null} or a filter-adapter to return
      *     {@code Object}.
      */
     static MethodHandle returnFilter(MethodType mt) {
         return adaptReturnToObject(mt.returnType());
-    }
-
-    static MethodType purePyObject(MethodType mt) {
-        final int n = mt.parameterCount();
-        Class<?>[] pt = new Class<?>[n];
-        Arrays.fill(pt, O);
-        return MethodType.methodType(O, pt);
     }
 
     // Conversions to Java -------------------------------------------
@@ -169,41 +172,6 @@ class Clinic {
                 "Cannot convert Python object to Java %s",
                 c.getSimpleName());
     }
-
-//    /**
-//     * @param o to convert
-//     * @return Java {@code int} value of an object
-//     * @throws TypeError if not interpretable as integer
-//     * @throws Throwable from {@code o.__int__} if called
-//     */
-//    private static int intArg(Object o) throws TypeError, Throwable {
-//        Class<? extends Object> c = o.getClass();
-//        if (c == PyLong.class) {
-//            return ((PyLong) o).intValue();
-//        } else if (o instanceof PyFloat) {
-//            throw Abstract.requiredTypeError("an integer", o);
-//        } else {
-//            return Number.size(o);
-//        }
-//    }
-
-//    /**
-//     * @param o to convert
-//     * @return Java {@code double} value of an object
-//     * @throws TypeError if not interpretable as a float
-//     * @throws Throwable from {@code o.__float__} if called
-//     */
-//    private static double doubleArg(Object o)
-//            throws TypeError, Throwable {
-//        Class<? extends Object> c = o.getClass();
-//        if (c == PyFloat.class) {
-//            return ((PyFloat) o).doubleValue();
-//        } else if (c == PyLong.class) {
-//            return ((PyLong) o).doubleValue();
-//        } else {
-//            return Number.toFloat(o).doubleValue();
-//        }
-//    }
 
     /**
      * @param o to convert
@@ -239,14 +207,13 @@ class Clinic {
                 return Clinic.intValueMH;
             } else if (c == double.class) {
                 return Clinic.doubleValueMH;
+            } else if (c == boolean.class) {
+                return Clinic.booleanValueMH;
             }
         } else {
-            if (c == String.class) {
-                return Clinic.stringValueMH;
-            } else if (O.isAssignableFrom(c)) {
-                // The value is already some kind of Object
-                return null;
-            }
+            // XXX Possibly special-case certain Java types
+            // The value is already some kind of Object
+            return null;
         }
         throw new InterpreterError(
                 "Cannot convert Java %s to Python object",

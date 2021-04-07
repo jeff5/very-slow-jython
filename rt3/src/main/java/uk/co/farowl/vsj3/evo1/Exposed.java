@@ -62,15 +62,46 @@ interface Exposed {
         String value() default "";
     }
 
+    /**
+     * Specify the documentation string ({@code __doc__}) for a method,
+     * field, etc. defined in Java and exposed to Python.
+     */
     @Documented
     @Retention(RUNTIME)
     @Target({METHOD, FIELD, TYPE})
     @interface DocString { String value(); }
 
+    /**
+     * Override the name of an argument to a method defined in Java, as
+     * it will appear to Python (in generated signatures and error
+     * messages). It is preferable to use a name in Java that
+     * conventional for Python, and is only necessary to annotate one
+     * when the conventional name is impossible (e.g. "new").
+     */
     @Documented
     @Retention(RUNTIME)
     @Target(PARAMETER)
-    @interface Args {}
+    @interface Name { String value(); }
+
+    /**
+     * Declare that the annotated argument is the last positional only
+     * argument. This is equivalent to following it with ", /" in a
+     * Python signature.
+     */
+    @Documented
+    @Retention(RUNTIME)
+    @Target(PARAMETER)
+    @interface PositionalOnly {}
+
+    /**
+     * Declare that the annotated argument is the first keyword only
+     * argument. This is equivalent to preceding it with "*, " in a
+     * Python signature.
+     */
+    @Documented
+    @Retention(RUNTIME)
+    @Target(PARAMETER)
+    @interface KeywordOnly {}
 
     /**
      * Identify a field (of supported type) of a Python object as an

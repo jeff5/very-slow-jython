@@ -509,13 +509,10 @@ class ExposerTest {
      */
     // @Test
     void methodConstruct() throws AttributeError, Throwable {
-        // Roughly what PyType.fromSpec does in real life.
-        Map<String, PyMethodDescr> mds = Exposer.methodDescrs(
-                PyObjectWithMethods.LOOKUP, PyObjectWithMethods.class,
-                PyObjectWithMethods.TYPE);
 
-        // We defined this Java method
-        PyMethodDescr length = mds.get("length");
+        // We defined this Java method: should retrieve a descriptor
+        PyMethodDescr length = (PyMethodDescr) PyObjectWithMethods.TYPE
+                .lookup("length");
 
         assertNotNull(length);
         assertEquals("length", length.name);
@@ -567,17 +564,15 @@ class ExposerTest {
      */
     // @Test
     void boundMethodConstruct() throws AttributeError, Throwable {
-        // Roughly what PyType.fromSpec does in real life.
-        Map<String, PyMethodDescr> mds = Exposer.methodDescrs(
-                PyObjectWithMethods.LOOKUP, PyObjectWithMethods.class,
-                PyObjectWithMethods.TYPE);
 
         // Create an object of the right type
         String hello = "Hello World!";
         PyObjectWithMethods a = new PyObjectWithMethods(hello);
 
-        // We defined this Java method
-        PyMethodDescr length = mds.get("length");
+        // We defined this Java method: should retrieve a descriptor
+        PyMethodDescr length = (PyMethodDescr) PyObjectWithMethods.TYPE
+                .lookup("length");
+        // Get the bound method (bound to a)
         PyJavaMethod bm = (PyJavaMethod) length.__get__(a, null);
 
         assertNotNull(bm);

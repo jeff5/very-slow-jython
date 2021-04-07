@@ -1,195 +1,88 @@
 package uk.co.farowl.vsj3.evo1;
 
-import static java.lang.invoke.MethodHandles.dropArguments;
 import static java.lang.invoke.MethodHandles.filterArguments;
-import static java.lang.invoke.MethodHandles.guardWithTest;
-import static java.lang.invoke.MethodHandles.insertArguments;
-import static java.lang.invoke.MethodHandles.throwException;
-import static uk.co.farowl.vsj3.evo1.ClassShorthand.DICT;
-import static uk.co.farowl.vsj3.evo1.ClassShorthand.I;
-import static uk.co.farowl.vsj3.evo1.ClassShorthand.O;
-import static uk.co.farowl.vsj3.evo1.ClassShorthand.TUPLE;
+import static java.lang.invoke.MethodHandles.filterReturnValue;
+import static java.lang.invoke.MethodType.genericMethodType;
 
 import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
-import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.invoke.MethodType;
-import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
-import java.util.EnumSet;
+import java.lang.invoke.WrongMethodTypeException;
+import java.util.Map;
+
+import uk.co.farowl.vsj3.evo1.Slot.Signature.ArgumentError;
 
 /**
- * A class to describe a built-in function as it is declared. Only
- * certain patterns (signatures) are supported.
- * <table>
- * <caption>Functions</caption>
- *
- * <tr>
- * <th>Flags</th>
- * <th>Arguments</th>
- * </tr>
- *
- * <tr>
- * <td>Fixed arity</td>
- * <td>{@code object, object, ...}</td>
- * <td>1</td>
- * </tr>
- *
- * <tr>
- * <td>VARARGS</td>
- * <td>{@code tuple}</td>
- * </tr>
- *
- * <tr>
- * <td>VARARGS, KEYWORDS</td>
- * <td>{@code tuple, dict}</td>
- * </tr>
- *
- * <tr>
- * <td>FAST, VARARGS</td>
- * <td>{@code object[], int, int}</td>
- * <td>2</td>
- * </tr>
- *
- * <tr>
- * <td>FAST, VARARGS, KEYWORDS</td>
- * <td>{@code object[], int, int, dict}</td>
- * <td>2</td>
- * </tr>
- *
- * <tfoot>
- * <tr>
- * <td colspan=2>
- * <ol>
- * <li>Any number of arguments, including none</li>
- * <li>FAST may offer no advantage in a Java implementation</li>
- * </ol>
- * </td>
- * </tr>
- * </tfoot>
- * </table>
- * <p>
- * By {@code object} is meant here a Java parameter declared exactly as
- * {@code Object}, {@code tuple} is {@code PyTuple}, and {@code dict} is
- * {@code PyDict}. {@code int} means the Java primitive.
- *
- * <p>
- * The FAST versions replicate the convention in CPython that allows
- * direct access to a slice of the interpreter stack, indicated as an
- * array (the stack), a start, and a count of arguments. (In Java we
- * cannot simply pass a {@code Object*} pointer to a location the in
- * array, as CPython does.)
- *
- * <p>
- * All the same possibilities exist for methods (or non-static module
- * functions), but there must be a target object of the type declaring
- * the method, shown here as {@code self}.
- *
- * <table>
- * <caption>Methods</caption>
- *
- * <tr>
- * <th>Flags</th>
- * <th>Arguments</th>
- * </tr>
- *
- * <tr>
- * <td>Fixed arity</td>
- * <td>{@code self, object, object, ...}</td>
- * <td>1</td>
- * </tr>
- *
- * <tr>
- * <td>VARARGS</td>
- * <td>{@code self, tuple}</td>
- * </tr>
- *
- * <tr>
- * <td>VARARGS, KEYWORDS</td>
- * <td>{@code self, tuple, dict}</td>
- * </tr>
- *
- * <tr>
- * <td>FAST, VARARGS</td>
- * <td>{@code self, object[], int, int}</td>
- * <td>2</td>
- * </tr>
- *
- * <tr>
- * <td>FAST, VARARGS, KEYWORDS</td>
- * <td>{@code self, object[], int, int, dict}</td>
- * <td>2</td>
- * </tr>
- *
- * </table>
- *
- * <p>
- * There is no scope for confusion between these signatures, since
- * {@code self} can never actually be {@code Object}. {@code self} could
- * be {@code PyTuple}, and hence a no-argument method of {@code PyTuple}
- * has the same signature as a VARARGS function. However, the former
- * will be an instance method and the latter {@code static}.
+ * A {@code MethodDef} describes a built-in function or method as it is
+ * declared in Java, and provides mechanisms that support calling it
+ * from Python. When an instance method is described by a
+ * {@code MethodDef}, the signature discounts the {@code self} argument,
+ * so that it is is correct for a call to the bound method, but not (in
+ * just this respect) for a call to the descriptor that references it.
+ * This is consistent with CPython.
+ */
+/*
+ * We make a significant departure from CPython, in that we reify the
+ * argument information as fields of this object. This makes the
+ * processing of a call to a built-in function quite like a call to one
+ * defined in Python. In CPython is processed by Argument Clinic into
+ * generated source-code.
  */
 // Compare CPython struct PyMethodDef
-class MethodDef {
+abstract class MethodDef {
 
     /** The name of the built-in function or method */
+    // CPython PyMethodDef: ml_name
     final String name;
-    /**
-     * Handle of the Java method that implements the function or method.
-     * The type of this handle exactly reflects the declared signature,
-     * including the "self" argument if not static.
-     */
-    final MethodHandle natural;
-    /**
-     * Handle for the implementation, adapted so that it may be invoked
-     * with {@link Object} arguments. This type of this handle is
-     * {@code (O,O,O,...)O} with the same number of parameters as
-     * {@link #natural}.
-     */
-    final MethodHandle meth;
-    /**
-     * Combination of {@code Flag} flags, which mostly describe
-     * properties of the function or method, additional to
-     * {@link #meth}.
-     */
-    final EnumSet<Flag> flags;
+
     /** The {@code __doc__} attribute, or {@code null} */
     final String doc;
 
-    /**
-     * Characteristics of the function or method, which it will indicate
-     * in {@link MethodDef#flags} . Only certain combinations are
-     * allowed.
+    /*
+     * Here we depart from CPython in reifying information from the
+     * declaration in Java, and associated annotations. In CPython, this
+     * knowledge is present at run-time in the structure of the code
+     * generated by Argument Clinic, incompletely in the flags of the
+     * PyMethodDef, and textually in the signature that begins the
+     * documentation string.
      */
-    enum Flag {
-        /** A variable-length positional argument list is expected. */
-        VARARGS,
-        /** A keyword dictionary argument is expected. */
-        KEYWORDS, //
-        // CPython Meth_NOARGS and METH_O replaced by Nargs()
-        /** Not currently used */
-        // CLASS cannot be used for functions in modules.
-        CLASS,
+    // XXX Should we do that by holding an ArgParser?
+    /**
+     * The names (and by implication, the number) of arguments in the
+     * order declared, not including "self".
+     */
+    final String[] argnames;
+
+    /** The number of positional-only arguments. */
+    final int posonlyargcount;
+
+    /** The number of keyword-only arguments. */
+    final int kwonlyargcount;
+
+    /** Default values for positional arguments (or {@code null}). */
+    final Object[] defaults;
+
+    /** Default values for keyword arguments (or {@code null}). */
+    final Map<String, Object> kwdefaults;
+
+    /** Whether an instance, static or class method (in Python). */
+    final Kind kind;
+
+    enum Kind {
+        /** The first argument represents a self or module argument. */
+        INSTANCE,
         /** An initial self or module argument is not expected. */
         // In CPython STATIC cannot be used for functions in modules.
         STATIC,
-        /** Not used. */
-        /*
-         * CPython comment: COEXIST allows a method to be entered even
-         * though a slot has already filled the entry. When defined, the
-         * flag allows a separate method, "__contains__" for example, to
-         * coexist with a defined slot like sq_contains.
-         */
-        COEXIST, //
-        /**
-         * A variable-length positional argument list is expected,
-         * presented as a slice of an array. Keywords arguments (if
-         * flagged) are in the same array, identified through a keyword
-         * names tuple.
-         */
-        FASTCALL //
+        /** Not currently used */
+        // In CPython CLASS cannot be used for functions in modules.
+        CLASS
     }
+
+    /** Empty names array. */
+    static final String[] NO_STRINGS = new String[0];
+
+    /** Empty names array. */
+    static final Object[] NO_OBJECTS = new Object[0];
 
     /**
      * The type of exception thrown by invoking
@@ -206,254 +99,100 @@ class MethodDef {
         }
     }
 
-    /**
-     * Construct a method definition from a {@code Method} and a lookup
-     * object able to access it.
-     *
-     * @param name overriding that declared (if not null)
-     * @param m to wrap
-     * @param lookup granting access to obtian handle on {@code m}
-     * @param doc documentation string
-     * @throws IllegalAccessException if cannot reflect {@code m}
-     */
-    MethodDef(String name, Method m, Lookup lookup, String doc)
-            throws IllegalAccessException {
-        this.name =
-                name != null && name.length() > 0 ? name : m.getName();
-        this.doc = doc != null ? doc : "";
-        this.natural = lookup.unreflect(m);
-
-        // Adapt the natural handle to accept and return PyObjects
-        MethodType naturalType = natural.type();
-        MethodHandle meth = MethodHandles.filterArguments(natural, 0,
-                Clinic.argumentFilter(naturalType));
-        MethodHandle rf = Clinic.returnFilter(naturalType);
-        if (rf != null) {
-            meth = MethodHandles.filterReturnValue(meth, rf);
-        }
-
-        // Make all arguments and return exactly Object
-        MethodType pureObjectMT = Clinic.purePyObject(meth.type());
-        this.meth = meth.asType(pureObjectMT);
-
-        // Check whether declared as a method (first parameter is self)
-        int modifiers = m.getModifiers();
-        EnumSet<MethodDef.Flag> f =
-                EnumSet.noneOf(MethodDef.Flag.class);
-        if (Modifier.isStatic(modifiers))
-            f.add(MethodDef.Flag.STATIC);
-        this.flags = calcFlags(f);
-    }
-
-    /**
-     * Construct a method definition from a {@code MethodHandle}.
-     *
-     * @param name of the method
-     * @param mh handle to wrap in the definition
-     * @param flags traits of the method
-     * @param doc documentation string
-     */
-    MethodDef(String name, MethodHandle mh, EnumSet<Flag> flags,
-            String doc) {
+    MethodDef(Kind kind, String name, String[] argnames,
+            int posonlyargcount, int kwonlyargcount, Object[] defaults,
+            Map<String, Object> kwdefaults, String doc) {
+        this.kind = kind;
         this.name = name;
-        this.natural = mh; // XXX stop-gap until constructor replaced
-        this.meth = mh;
-        this.doc = doc;
-        this.flags = calcFlags(flags);
+        this.argnames = argnames == null ? new String[0] : argnames;
+        this.posonlyargcount = posonlyargcount;
+        this.kwonlyargcount = kwonlyargcount;
+        this.defaults = defaults;
+        this.kwdefaults = (kwdefaults == null || kwdefaults.isEmpty())
+                ? null : kwdefaults;
+        this.doc = doc == null ? "" : doc;
+    }
+
+    MethodDef(Kind kind, String name, String[] argnames, String doc) {
+        this(kind, name, argnames, argnames.length, 0, NO_OBJECTS, null,
+                doc);
+    }
+
+    Object callMethod(MethodHandle method, Object self, PyTuple args,
+            PyDict kwargs) throws Throwable {
+
+        // XXX arg parser needed?
+
+        Object[] frame = null; // createFrame(args, kwargs);
+        // method has type (O, O[])O
+        return method.invoke(self, frame);
     }
 
     /**
-     * Construct a method definition from a {@code MethodHandle}.
+     * Each sub-type of {@link MethodDef} implements
+     * {@code callMethod(mh, self, args, kwargs)} in its own way, and
+     * must prepare the method handle to accept the number and type of
+     * arguments it will supply. Typically, the returned handle will
+     * expect a "self" object and an array of objects, but not
+     * universally.
      *
-     * @param name of the method
-     * @param mh handle to wrap in the definition
-     * @param doc documentation string
+     * @param raw the handle to be prepared
+     * @return handle compatible with {@code methodDef}
      */
-    MethodDef(String name, MethodHandle mh, String doc) {
-        this(name, mh, EnumSet.noneOf(Flag.class), doc);
+    final MethodHandle prepare(MethodHandle raw)
+            throws WrongMethodTypeException {
+        /*
+         * To begin with, adapt the arguments after self to expect a
+         * java.lang.Object, if Clinic knows how to convert them.
+         */
+        MethodType mt = raw.type();
+        int pos = 1;
+        MethodHandle[] af = Clinic.argumentFilter(mt, pos);
+        MethodHandle mh = filterArguments(raw, pos, af);
+        MethodHandle rf = Clinic.returnFilter(mt);
+        if (rf != null) { mh = filterReturnValue(mh, rf); }
+        /*
+         * Let the method definition enforce specific constraints and
+         * conversions on the handle.
+         */
+        return prepareSpecific(mh);
     }
 
     /**
-     * By examination of the {@code MethodType} of {@link #meth}, add
-     * flags that are shorthands for key characteristics. Also, validate
-     * that the signature is supported.
+     * This method is called at the end of
+     * {@link #prepare(MethodHandle)}. At this point, the argument
+     * filters {@link Clinic} is able to supply have been applied and
+     * most or all arguments to the right of "self" expect an
+     * {@code Object}.
+     * <p>
+     * The MethodHandle passed to this method will normally have the
+     * signature {@code (S,...)R}, where {@code S} is the defining type
+     * and {@code T} is a reference type derived from the return type,
+     * and the {@code ...} part is often a sequence of {@code O}.
      *
-     * @param flags
-     * @return flags adjusted to match {@link #meth}
-     */
-    private EnumSet<Flag> calcFlags(EnumSet<Flag> flags) {
-        EnumSet<Flag> f = EnumSet.copyOf(flags);
-        MethodType type = meth.type();
-
-        int i = 0, n = type.parameterCount();
-
-        // We'll make up our own mind about these:
-        f.removeAll(
-                EnumSet.of(Flag.VARARGS, Flag.KEYWORDS, Flag.FASTCALL));
-
-        // Skip over "self" if not static
-        if (!f.contains(Flag.STATIC)) {
-            if (n < 1 || !O.isAssignableFrom(type.parameterType(0)))
-                throw sigError(
-                        "first parameter should be a Python type");
-            i = 1;
-        }
-
-        if (i < n) {
-            // There are some arguments: is it VARARGS etc.
-            Class<?> t = type.parameterType(i);
-            if (t == TUPLE) {
-                // tuple must represent a "classic" VARARGS
-                i = calcFlagsClassic(i, f);
-            } else if (t.getComponentType() == O) {
-                // This appears to be a FAST form
-                i = calcFlagsFastcall(i, f);
-            } else {
-                // Fixed arity therefore all Object (after self)
-                while (i < n) {
-                    if ((t = type.parameterType(i++)) != O)
-                        throw sigError(OBJECT_NOT, t);
-                }
-            }
-        }
-
-        // Valid signature and f is the flags we need to describe it
-        return f;
-    }
-
-    /**
-     * Helper to {@link #calcFlags(Flag[])} dealing with classic
-     * {@code (*args, **kwargs)} signature.
-     */
-    private int calcFlagsClassic(int i, EnumSet<Flag> f) {
-        MethodType type = meth.type();
-        int n = type.parameterCount();
-        f.add(Flag.VARARGS);
-        i += 1;
-        if (i < n) {
-            Class<?> k = type.parameterType(i);
-            if (k == DICT) { f.add(Flag.KEYWORDS); i += 1; }
-        }
-        if (i != n)
-            throw sigError(EXCESS_ARGS, n - 1, "*args, **kwargs");
-        return i;
-    }
-
-    /**
-     * Helper to {@link #calcFlags(Flag[])} dealing with fast call
-     * {@code (*args, int, int, **kwnames)} signature.
-     */
-    private int calcFlagsFastcall(int i, EnumSet<Flag> f) {
-        MethodType type = meth.type();
-        int n = type.parameterCount();
-        f.add(Flag.VARARGS);
-        if (i + 2 <= n && type.parameterType(i) == I
-                && type.parameterType(i + 1) == I) {
-            // ... and the int arguments are present.
-            f.add(Flag.FASTCALL);
-            i += 2;
-        } else {
-            throw sigError("start and nargs must follow fast array");
-        }
-        if (i < n) {
-            Class<?> k = type.parameterType(i);
-            if (k == TUPLE) { f.add(Flag.KEYWORDS); i += 1; }
-        }
-        if (i != n)
-            throw sigError(EXCESS_ARGS, n - 1, "*args, **kwargs");
-        return i;
-    }
-
-    /** Construct an exception about the signature. */
-    private InterpreterError sigError(String fmt, Object... args) {
-        fmt = "MethodDef: in signature of %s (%s), " + fmt;
-        Object[] a = new Object[args.length + 2];
-        a[0] = name;
-        a[1] = meth.type();
-        System.arraycopy(args, 0, a, 2, args.length);
-        return new InterpreterError(fmt, a);
-    }
-
-    /**
-     * Check classic {@code (*args, **kwargs)} call arguments against
-     * this MethodDef and throw an exception if if {@code len(args)} or
-     * {@code len(kwargs)} does not match the requirements of the
-     * definition.
+     * the number Each sub-type of {@link MethodDef} implements
+     * {@code callMethod(mh, self, args, kwargs)} in its own way, and
+     * must prepare the method handle to accept the number and type of
+     * arguments it will supply. Typically, the returned handle will
+     * expect a "self" object and an array of objects, but not
+     * universally.
      *
-     * @param args {@code tuple} of positional arguments
-     * @param kwargs keyword {@code dict} or {@code null.}
-     * @throws TypeError for a mismatch
-     * @throws InterpreterError for conditions that should not arise
+     * @param mh the handle to be prepared
+     * @return handle of form {@code (O,...)O} compatible with
+     *     {@code methodDef} where the {@code ...} part is up to the
+     *     specific sub-class
      */
-    void check(PyTuple args, PyDict kwargs)
-            throws TypeError, InterpreterError {
-        if (flags.contains(Flag.FASTCALL)) {
-            if (flags.contains(Flag.KEYWORDS)) {
-                // FAST, VARARGS, KEYWORDS: object[], int, int, dict
-                throw new InterpreterError("Not implemented");
-            } else {
-                // FAST, VARARGS: object[], int, int
-                throw new InterpreterError("Not implemented");
-            }
-        } else if (flags.contains(Flag.KEYWORDS)) {
-            // VARARGS, KEYWORDS: tuple, dict
-            if (kwargs == null)
-                throw new InterpreterError(NULL_KEYWORD_ARGS, name);
-        } else if (flags.contains(Flag.VARARGS)) {
-            // VARARGS: tuple
-            if (kwargs != null && kwargs.size() != 0) {
-                throw new TypeError(NO_KEYWORD_ARGS, name);
-            }
-        } else {
-            // Fixed arity: object, object, ...
-            if (kwargs != null && kwargs.size() != 0) {
-                throw new TypeError(NO_KEYWORD_ARGS, name);
-            }
-            int nargs = getNargs();
-            if (args.value.length != nargs) {
-                String[] msgs = {NO_ARGS, ONE_ARG, N_ARGS};
-                String msg = msgs[Math.min(nargs, 2)];
-                throw new TypeError(msg, name, nargs);
-            }
-        }
-    }
+    abstract MethodHandle prepareSpecific(MethodHandle mh);
 
-    private static final String EXCESS_ARGS =
-            "%d excess argument(s) after %s signature";
-    private static final String OBJECT_NOT =
-            "parameters should be Python objects not %s";
+    private static final String ARG_NOT_CONVERTIBLE =
+            "in %s argument '%s' is not convertible from Object";
 
-    static final String NO_ARGS =
-            "%.200s() takes no arguments (%d given)";
-    static final String ONE_ARG =
-            "%.200s() takes exactly one argument (%d given)";
-    static final String N_ARGS =
-            "%.200s() takes exactly %d arguments (%d given)";
-    static final String NO_KEYWORD_ARGS =
-            "%.200s() takes no keyword arguments";
-    static final String NULL_KEYWORD_ARGS =
-            "%.200s() received null keyword arguments";
-
-    boolean isStatic() { return flags.contains(Flag.STATIC); }
-
-    /**
-     * Return the number of arguments of a fixed-arity function or
-     * method.
-     *
-     * @return number of arguments
-     */
-    int getNargs() {
-        if (flags.contains(Flag.VARARGS)
-                || flags.contains(Flag.KEYWORDS))
-            throw new InternalError(
-                    "MethodDef: number of args not defined");
-        return meth.type().parameterCount();
-    }
+    boolean isStatic() { return kind == Kind.STATIC; }
 
     @Override
     public String toString() {
-        return String.format("MethodDef [name=%s, meth=%s, flags=%s]",
-                name, meth, flags);
+        return String.format("%s [name=%s]", getClass().getSimpleName(),
+                name);
     }
 
     /**
@@ -463,30 +202,10 @@ class MethodDef {
      *
      * @return required handle
      */
+    @Deprecated
     MethodHandle getOpCallHandle() {
-        EnumSet<Flag> f = this.flags;
-
-        if (f.contains(Flag.FASTCALL)) {
-            if (f.contains(Flag.KEYWORDS)) {
-                // FAST, VARARGS, KEYWORDS: object[], int, int, tuple
-                throw new InterpreterError("FASTCALL not implemented");
-            } else {
-                // FAST, VARARGS: object[], int, int
-                throw new InterpreterError("FASTCALL not implemented");
-            }
-
-        } else if (f.contains(Flag.KEYWORDS)) {
-            // VARARGS, KEYWORDS: tuple, dict
-            return MHUtil.wrapKeywords(this);
-
-        } else if (f.contains(Flag.VARARGS)) {
-            // VARARGS: tuple
-            return MHUtil.wrapVarargs(this);
-
-        } else {
-            // Fixed arity: object, object, ...
-            return MHUtil.wrapFixedArity(this);
-        }
+        // XXX implement maybe
+        return null;
     }
 
     /**
@@ -496,10 +215,13 @@ class MethodDef {
      *
      * @return required handle
      */
+    @Deprecated
     MethodHandle getVectorHandle() {
-        int n = meth.type().parameterCount();
-        MethodHandle vec = meth.asSpreader(MHUtil.OA, n);
-        return vec;
+        // XXX implement maybe
+        return null;
+        // int n = meth.type().parameterCount();
+        // MethodHandle vec = meth.asSpreader(MHUtil.OA, n);
+        // return vec;
     }
 
     /**
@@ -510,193 +232,162 @@ class MethodDef {
      * @param o to bind as "self"
      * @return required handle
      */
+    @Deprecated
     MethodHandle getBoundHandle(Object o) {
-        // XXX Defend against n = 0
-        int n = meth.type().parameterCount();
-        MethodHandle vec = meth.bindTo(o).asSpreader(MHUtil.OA, n - 1);
-        return vec;
+        // XXX implement maybe
+        return null;
+        // // XXX Defend against n = 0
+        // int n = meth.type().parameterCount();
+        // MethodHandle vec = meth.bindTo(o).asSpreader(MHUtil.OA, n -
+        // 1);
+        // return vec;
     }
 
     /**
-     * Helpers for {@link MethodDef} used to construct
-     * {@code MethodHandle}s.
+     * All the argument types (from the given position on) in the type
+     * of the given handle should be {@code Object.class}. If they
+     * aren't, it is because no conversion was available in
+     * {@link Clinic#argumentFilter(MethodType, int)}.
+     *
+     * @param mh {@code .type()[pos:]} handle to check
+     * @param pos first element to check
      */
-    private static class MHUtil implements ClassShorthand {
-
-        /** Single re-used instance of {@code BadCallException} */
-        private static final MethodDef.BadCallException BADCALL =
-                new MethodDef.BadCallException();
-
-        /** Lookup for resolving handles throughout {@code MHUtil} */
-        private static final MethodHandles.Lookup LOOKUP =
-                MethodHandles.lookup();
-
-        /**
-         * {@code (PyTuple)Object[]} handle to get value of tuple as
-         * array.
-         */
-        private static final MethodHandle getValue;
-
-        /**
-         * {@code (PyTuple, PyDict)boolean} handle to check
-         * {@code kwargs} is not {@code null}.
-         */
-        private static final MethodHandle notNullGuard;
-
-        /**
-         * {@code (PyTuple, PyDict)boolean} handle to check
-         * {@code kwargs} is {@code null} or empty. <pre>
-         * λ a k : (k==null || k.empty())
-         * </pre>
-         */
-        private static final MethodHandle nullOrEmptyGuard;
-
-        /**
-         * {@code (Object[], PyDict)boolean} handle to check
-         * {@code kwargs} is {@code null} or empty and that an array
-         * ({@code args} innards) has a specific size. <pre>
-         * λ n a k : (k==null || k.empty()) && a.length==n
-         * </pre>
-         */
-        private static final MethodHandle fixedArityGuard;
-
-        static {
-            try {
-                MethodHandle mh;
-                getValue = LOOKUP.findGetter(TUPLE, "value", OA);
-                final MethodType DT = MethodType.methodType(B, DICT);
-                // Used in wrapKeywords
-                mh = LOOKUP.findStatic(MHUtil.class, "notNull", DT);
-                notNullGuard = dropArguments(mh, 0, TUPLE);
-                // Used in wrapVarargs
-                mh = LOOKUP.findStatic(MHUtil.class, "nullOrEmpty", DT);
-                nullOrEmptyGuard = dropArguments(mh, 0, TUPLE);
-                // Used in wrapFixedArity
-                fixedArityGuard = LOOKUP.findStatic(MHUtil.class,
-                        "fixedArityGuard",
-                        MethodType.methodType(B, OA, DICT, I));
-
-            } catch (NoSuchMethodException | IllegalAccessException
-                    | NoSuchFieldException e) {
-                throw new InterpreterError(e, "during handle lookup");
+    protected void checkConvertible(MethodHandle mh, int pos) {
+        MethodType mt = mh.type();
+        int n = mt.parameterCount();
+        for (int i = pos; i < n; i++) {
+            if (mt.parameterType(i) != Object.class) {
+                throw new InterpreterError(ARG_NOT_CONVERTIBLE, name,
+                        argnames[i]);
             }
         }
+    }
 
-        /**
-         * {@code ()Object} handle to throw a
-         * {@link MethodDef.BadCallException}. <pre>
-         * λ : throw BadCallException
-         * </pre>
-         */
-        private static final MethodHandle throwBadCall =
-                throwException(O, MethodDef.BadCallException.class)
-                        .bindTo(BADCALL);
-        /**
-         * {@link #throwBadCall} wrapped as
-         * {@code (Object[], PyDict)Object}
-         */
-        private static final MethodHandle throwBadCallOA =
-                dropArguments(throwBadCall, 0, OA, DICT);
-        /**
-         * {@link #throwBadCall} wrapped as
-         * {@code (PyTuple, PyDict)Object}
-         */
-        private static final MethodHandle throwBadCallTUPLE =
-                dropArguments(throwBadCall, 0, TUPLE, DICT);
+    /**
+     * Check that no positional or keyword arguments are supplied. This
+     * is for use when implementing
+     * {@link #callWrapped(MethodHandle, Object, PyTuple, PyDict)}.
+     *
+     * @param args positional argument tuple to be checked
+     * @param kwargs to be checked
+     * @throws ArgumentError if positional arguments are given or
+     *     {@code kwargs} is not {@code null} or empty
+     */
+    final protected void checkNoArgs(PyTuple args, PyDict kwargs)
+            throws ArgumentError {
+        if (args.value.length != 0)
+            throw new ArgumentError(ArgumentError.Mode.NOARGS);
+        else if (kwargs != null && !kwargs.isEmpty())
+            throw new ArgumentError(ArgumentError.Mode.NOKWARGS);
+    }
 
-        private MHUtil() {}   // No instances needed
+    /**
+     * Check the number of positional arguments and that no keywords are
+     * supplied. This is for use when implementing
+     * {@link #callWrapped(MethodHandle, Object, PyTuple, PyDict)}.
+     *
+     * @param args positional argument tuple to be checked
+     * @param expArgs expected number of positional arguments
+     * @param kwargs to be checked
+     * @throws ArgumentError if the wrong number of positional arguments
+     *     are given or {@code kwargs} is not {@code null} or empty
+     */
+    final protected void checkArgs(PyTuple args, int expArgs,
+            PyDict kwargs) throws ArgumentError {
+        if (args.value.length != expArgs)
+            throw new ArgumentError(expArgs);
+        else if (kwargs != null && !kwargs.isEmpty())
+            throw new ArgumentError(ArgumentError.Mode.NOKWARGS);
+    }
 
-        /**
-         * Convert the method handle in {@code MethodDef def}, which
-         * must describe a KEYWORDS function, to a handle that accepts a
-         * classic {@code (*args, **kwargs)} call, in which the
-         * dictionary must not be {@code null}.
-         *
-         * @param def method definition
-         * @return handle for classic call
-         */
-        static MethodHandle wrapKeywords(MethodDef def) {
-            // f = λ a k : meth(a, k)
-            MethodHandle f = def.meth;
+    /**
+     * Check the number of positional arguments and that no keywords are
+     * supplied. This is for use when implementing
+     * {@link #callWrapped(MethodHandle, Object, PyTuple, PyDict)}.
+     *
+     * @param args positional argument tuple to be checked
+     * @param minArgs minimum number of positional arguments
+     * @param maxArgs maximum number of positional arguments
+     * @param kwargs to be checked
+     * @throws ArgumentError if the wrong number of positional arguments
+     *     are given or {@code kwargs} is not {@code null} or empty
+     */
+    final protected void checkArgs(PyTuple args, int minArgs,
+            int maxArgs, PyDict kwargs) throws ArgumentError {
+        int n = args.value.length;
+        if (n < minArgs || n > maxArgs)
+            throw new ArgumentError(minArgs, maxArgs);
+        else if (kwargs != null && !kwargs.isEmpty())
+            throw new ArgumentError(ArgumentError.Mode.NOKWARGS);
+    }
 
-            // Use the guard to switch between calling and throwing
-            // λ a k : nullOrEmpty ? fa : throw BadCall
-            return guardWithTest(notNullGuard, f, throwBadCallTUPLE);
+    /** A method with signature {@code (S)O}. */
+    static class NoArgs extends MethodDef {
+
+        private static MethodType GENERIC = genericMethodType(1);
+
+        NoArgs(String name, String doc) {
+            super(Kind.INSTANCE, name, NO_STRINGS, doc);
         }
 
-        @SuppressWarnings("unused") // Used reflectively
-        private static boolean notNull(PyDict d) {
-            return d != null;
+        @Override
+        MethodHandle prepareSpecific(MethodHandle mh) {
+            return mh.asType(GENERIC);
         }
 
-        /**
-         * Convert the method handle in {@code MethodDef def}, which
-         * must describe a VARARG-only function, to a handle that
-         * accepts a classic {@code (*args, **kwargs)} call, in which
-         * the dictionary must be {@code null} or empty.
-         *
-         * @param def method definition
-         * @return handle for classic call
-         */
-        static MethodHandle wrapVarargs(MethodDef def) {
-            // f = λ a : meth(a)
-            MethodHandle f = def.meth;
+        @Override
+        Object callMethod(MethodHandle method, Object self,
+                PyTuple args, PyDict kwargs) throws Throwable {
+            checkNoArgs(args, kwargs);
+            return method.invokeExact(self);
+        }
+    }
 
-            // fa = λ a k : meth(a) (i.e. ignoring kwargs)
-            MethodHandle fa = dropArguments(f, 1, DICT);
+    /** A method with signature {@code (S,O)O}. */
+    static class OneArg extends MethodDef {
 
-            // Use the guard to switch between calling and throwing
-            // λ a k : nullOrEmpty ? fa : throw BadCall
-            return guardWithTest(nullOrEmptyGuard, fa,
-                    throwBadCallTUPLE);
+        private static MethodType GENERIC = genericMethodType(2);
+
+        OneArg(String name, String[] argnames, String doc) {
+            super(Kind.INSTANCE, name, argnames, doc);
         }
 
-        @SuppressWarnings("unused") // Used reflectively
-        private static boolean nullOrEmpty(PyDict d) {
-            return d == null || d.size() == 0;
+        @Override
+        MethodHandle prepareSpecific(MethodHandle mh) {
+            checkConvertible(mh, 1);
+            return mh.asType(GENERIC);
         }
 
-        /**
-         * Convert the method handle in {@code MethodDef def}, which
-         * must describe a fixed-arity plain signature, to a handle that
-         * accepts a classic {@code (*args, **kwargs)} call, in which
-         * the dictionary must be {@code null} or empty, and the size of
-         * the tuple match the number of argument.
-         *
-         * @param def method definition
-         * @return handle for classic call
-         */
-        static MethodHandle wrapFixedArity(MethodDef def) {
-            // Number of arguments expected by the def target f
-            int n = def.getNargs();
+        @Override
+        Object callMethod(MethodHandle method, Object self,
+                PyTuple args, PyDict kwargs) throws Throwable {
+            checkArgs(args, 1, kwargs);
+            return method.invoke(self, args.value[0]);
+        }
+    }
 
-            // f = λ u0, u1, ... u(n-1) : meth(u0, u1, ... u(n-1))
-            MethodHandle f = def.meth;
+    /** A method with signature {@code (S,O[])O}. */
+    static class FixedArgs extends MethodDef {
 
-            // fv = λ v k : meth(v[0], v[1], ... v[n-1])
-            MethodHandle fv =
-                    dropArguments(f.asSpreader(OA, n), 1, DICT);
+        private static MethodType GENERIC = genericMethodType(1, true);
 
-            // argsOK = λ v k : (k==null || k.empty()) && v.length==n
-            MethodHandle argsOK =
-                    insertArguments(fixedArityGuard, 2, n);
-
-            // Use the guard to switch between calling and throwing
-            // g = λ v k : argsOK(v,k) ? fv(v,k) : throw BadCall
-            MethodHandle g = guardWithTest(argsOK, fv, throwBadCallOA);
-
-            // λ a k : g(a.value, k)
-            return filterArguments(g, 0, getValue);
+        FixedArgs(String name, String[] argnames, String doc) {
+            super(Kind.INSTANCE, name, argnames, doc);
         }
 
-        /**
-         * Check PyDict argument is {@code null} or empty and that an
-         * array (tuple innards) has a specific size.
-         */
-        @SuppressWarnings("unused") // Used reflectively
-        private static boolean fixedArityGuard(Object[] a, PyDict d,
-                int n) {
-            return (d == null || d.size() == 0) && a.length == n;
+        @Override
+        MethodHandle prepareSpecific(MethodHandle mh) {
+            // All but the self argument will be presented as an array
+            checkConvertible(mh, 1);
+            int n = mh.type().parameterCount() - 1;
+            return mh.asSpreader(Object[].class, n).asType(GENERIC);
+        }
+
+        @Override
+        Object callMethod(MethodHandle method, Object self,
+                PyTuple args, PyDict kwargs) throws Throwable {
+            checkArgs(args, posonlyargcount, kwargs);
+            return method.invoke(self, args.value);
         }
     }
 

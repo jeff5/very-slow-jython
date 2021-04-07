@@ -1,6 +1,5 @@
 package uk.co.farowl.vsj3.evo1;
 
-import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 
 import uk.co.farowl.vsj3.evo1.Exposed.Getter;

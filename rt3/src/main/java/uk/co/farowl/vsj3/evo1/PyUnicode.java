@@ -4,6 +4,8 @@ import java.lang.invoke.MethodHandles;
 import java.util.Arrays;
 import java.util.Iterator;
 
+import uk.co.farowl.vsj3.evo1.Exposed.JavaMethod;
+import uk.co.farowl.vsj3.evo1.Exposed.Name;
 import uk.co.farowl.vsj3.evo1.PyObjectUtil.NoConversion;
 
 /** The Python {@code str} object. */
@@ -222,6 +224,77 @@ class PyUnicode implements PySequenceInterface<Integer>, CraftedType,
     }
 
     // non-slot API ---------------------------------------------------
+
+    @JavaMethod
+    boolean isascii() {
+        for (int c : this) { if (c > 127) { return false; } }
+        return true;
+    }
+
+    @JavaMethod
+    static boolean isascii(String self) {
+        for (int c : new StringAdapter(self)) {
+            if (c > 127) { return false; }
+        }
+        return true;
+    }
+
+    // Simplified version (no count)
+    @JavaMethod
+    String replace(Object old, @Name("new") Object _new) {
+        // Annotations repeat since cannot rely on order processed
+        String oldstr = old.toString();
+        String newstr = _new.toString();
+        return this.toString().replace(oldstr, newstr);
+
+    }
+
+    @JavaMethod
+    static String replace(String self, Object old,
+            @Name("new") Object _new) {
+        // Annotations repeat since cannot rely on order processed
+        String oldstr = old.toString();
+        String newstr = _new.toString();
+        return self.replace(oldstr, newstr);
+    }
+
+    @JavaMethod
+    PyUnicode zfill(int width) {
+        int n = value.length;
+        int m = Math.max(width, n), start = 0, fill = m - n, c;
+        if (fill <= 0) { return this; }
+        int[] buf = new int[m];
+        // If self starts with a sign, preserve it at the front
+        if (n >= 1 && ((c = value[0]) == '-' || c == '+')) {
+            start = 1;
+            buf[0] = c;
+        }
+        // The fill
+        for (int i = start; i < fill + start; i++) { buf[i] = '0'; }
+        // The original without its sign (if any)
+        System.arraycopy(value, start, buf, fill + start, n - start);
+        return new PyUnicode(TYPE, buf);
+    }
+
+    @JavaMethod
+    static String zfill(String self, int width) {
+        int n = self.codePointCount(0, self.length());
+        int m = Math.max(width, n), start = 0, fill = m - n, c;
+        if (fill <= 0) { return self; }
+        StringBuilder buf = new StringBuilder(self.length() + width);
+        // If self starts with a sign, preserve it at the front
+        if (n >= 1 && ((c = self.codePointAt(0)) == '-' || c == '+')) {
+            start = 1;
+            buf.appendCodePoint(c);
+        }
+        // The fill
+        for (int i = 0; i < fill; i++) { buf.append('0'); }
+        // The original without its sign (if any)
+        buf.append(self.substring(start));
+        return buf.toString();
+    }
+
+    // Java-only API --------------------------------------------------
 
     private static final int HIGH_SURROGATE_OFFSET =
             Character.MIN_HIGH_SURROGATE

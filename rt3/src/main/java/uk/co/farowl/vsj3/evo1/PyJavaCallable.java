@@ -112,7 +112,7 @@ class PyJavaCallable implements CraftedType, VectorCallable {
             return opCall.invokeExact(args, kwargs);
         } catch (MethodDef.BadCallException bce) {
             // After the BCE, check() should always throw.
-            methodDef.check(args, kwargs);
+            //methodDef.check(args, kwargs);
             // It didn't :( so this is an internal error
             throw new InterpreterError(bce,
                     "Unexplained BadCallException in __call__");

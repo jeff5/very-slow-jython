@@ -402,13 +402,10 @@ class PyType extends Operations implements PyObjectDict {
      */
     private void fillDictionary(Spec spec) {
 
-        // XXX How is inheritance respected?
-
         // Fill slots from implClass or bases
         // addMembers(spec);
         // addGetSets(spec);
         addMethods(spec);
-        addWrappers(spec);
         // XXX Possibly belong elsewhere
         // setAllSlots();
         defineOperations(spec);
@@ -466,41 +463,17 @@ class PyType extends Operations implements PyObjectDict {
 // }
 
     /**
-     * Add slot wrapper attributes to this type discovered through the
-     * specification.
-     *
-     * @param spec to apply
-     */
-    private void addWrappers(Spec spec) {
-
-        Map<String, PyWrapperDescr> wrappers =
-                Exposer.wrapperDescrs(spec.lookup, spec.definingClass(),
-                        spec.methodClass(), this);
-
-        for (Map.Entry<String, PyWrapperDescr> e : wrappers
-                .entrySet()) {
-            String k = e.getKey();
-            Object v = e.getValue();
-            dict.put(k, v);
-        }
-    }
-
-    /**
-     * Add method attributes to this type discovered through the
-     * specification.
+     * Add methods, get-sets and slot wrappers as attributes to this
+     * type discovered through the specification.
      *
      * @param spec to apply
      */
     private void addMethods(Spec spec) {
 
-        Map<String, PyMethodDescr> methods =
-                Exposer.methodDescrs(spec.lookup, definingClass, this);
-
-        for (Map.Entry<String, PyMethodDescr> e : methods.entrySet()) {
-            String k = e.getKey();
-            Object v = e.getValue();
-            dict.put(k, v);
-        }
+        Map<String, Descriptor> methods =
+                Exposer.descriptorsFromMethods(spec.lookup,
+                        spec.definingClass(), spec.methodClass(), this);
+        dict.putAll(methods);
     }
 
     /**
