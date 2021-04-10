@@ -8,6 +8,9 @@ import java.lang.invoke.VarHandle;
 import java.util.HashMap;
 import java.util.Map;
 
+import uk.co.farowl.vsj3.evo1.MethodDescriptor.ArgumentError;
+import uk.co.farowl.vsj3.evo1.MethodDescriptor.ArgumentError.Mode;
+
 /**
  * This {@code enum} provides a set of structured constants that are
  * used to refer to the special methods of the Python data model.
@@ -449,7 +452,8 @@ enum Slot {
 
             @Override
             Object callWrapped(MethodHandle wrapped, Object self,
-                    PyTuple args, PyDict kwargs) throws Throwable {
+                    PyTuple args, PyDict kwargs)
+                    throws ArgumentError, Throwable {
                 checkArgs(args, 0, kwargs);
                 return wrapped.invokeExact(self);
             }
@@ -463,7 +467,8 @@ enum Slot {
 
             @Override
             Object callWrapped(MethodHandle wrapped, Object self,
-                    PyTuple args, PyDict kwargs) throws Throwable {
+                    PyTuple args, PyDict kwargs)
+                    throws ArgumentError, Throwable {
                 checkArgs(args, 1, kwargs);
                 return wrapped.invokeExact(self, args.value[0]);
             }
@@ -484,7 +489,8 @@ enum Slot {
 
             @Override
             Object callWrapped(MethodHandle wrapped, Object self,
-                    PyTuple args, PyDict kwargs) throws Throwable {
+                    PyTuple args, PyDict kwargs)
+                    throws ArgumentError, Throwable {
                 return wrapped.invokeExact(self, args, kwargs);
             }
         },
@@ -503,7 +509,8 @@ enum Slot {
 
             @Override
             Object callWrapped(MethodHandle wrapped, Object self,
-                    PyTuple args, PyDict kwargs) throws Throwable {
+                    PyTuple args, PyDict kwargs)
+                    throws ArgumentError, Throwable {
                 checkArgs(args, 0, kwargs);
                 return (int) wrapped.invokeExact(self);
             }
@@ -520,7 +527,8 @@ enum Slot {
 
             @Override
             Object callWrapped(MethodHandle wrapped, Object self,
-                    PyTuple args, PyDict kwargs) throws Throwable {
+                    PyTuple args, PyDict kwargs)
+                    throws ArgumentError, Throwable {
                 checkArgs(args, 1, kwargs);
                 String name = args.value[0].toString();
                 return wrapped.invokeExact(self, name);
@@ -532,7 +540,8 @@ enum Slot {
 
             @Override
             Object callWrapped(MethodHandle wrapped, Object self,
-                    PyTuple args, PyDict kwargs) throws Throwable {
+                    PyTuple args, PyDict kwargs)
+                    throws ArgumentError, Throwable {
                 checkArgs(args, 2, kwargs);
                 String name = args.value[0].toString();
                 wrapped.invokeExact(self, name, args.value[1]);
@@ -545,7 +554,8 @@ enum Slot {
 
             @Override
             Object callWrapped(MethodHandle wrapped, Object self,
-                    PyTuple args, PyDict kwargs) throws Throwable {
+                    PyTuple args, PyDict kwargs)
+                    throws ArgumentError, Throwable {
                 checkArgs(args, 1, kwargs);
                 String name = args.value[0].toString();
                 wrapped.invokeExact(self, name);
@@ -558,7 +568,8 @@ enum Slot {
 
             @Override
             Object callWrapped(MethodHandle wrapped, Object self,
-                    PyTuple args, PyDict kwargs) throws Throwable {
+                    PyTuple args, PyDict kwargs)
+                    throws ArgumentError, Throwable {
                 checkArgs(args, 1, 2, kwargs);
                 Object[] a = args.value;
                 Object obj = a[0];
@@ -643,60 +654,6 @@ enum Slot {
         }
 
         /**
-         * The type of (non-Python) exception thrown by invoking a slot
-         * or method with the wrong pattern of arguments. An
-         * {@code ArgumentError} encapsulates what a particular
-         * {@link Signature} expected by way of the number of positional
-         * arguments and the presence or otherwise of keyword arguments.
-         * It should be caught by the immediate caller of
-         * {@link Signature#callWrapped(MethodHandle, Object, PyTuple, PyDict)}
-         *
-         */
-        static class ArgumentError extends Exception {
-
-            enum Mode { NOARGS, NUMARGS, MINMAXARGS, NOKWARGS }
-
-            final Mode mode;
-            final short minArgs, maxArgs;
-
-            private ArgumentError(Mode mode, int minArgs, int maxArgs) {
-                this.mode = mode;
-                this.minArgs = (short) minArgs;
-                this.maxArgs = (short) maxArgs;
-            }
-
-            /**
-             * The mode is {@link Mode#NOARGS} or {@link Mode#NOKWARGS}.
-             * In the latter case, {@link #minArgs} and {@link #maxArgs}
-             * should be ignored.
-             *
-             * @param mode qualifies the sub-type of the problem
-             */
-            ArgumentError(Mode mode) {
-                this(mode, 0, 0);
-            }
-
-            /**
-             * The mode is {@link Mode#NUMARGS}.
-             *
-             * @param numArgs expected number of arguments
-             */
-            ArgumentError(int numArgs) {
-                this(Mode.NUMARGS, numArgs, numArgs);
-            }
-
-            /**
-             * The mode is {@link Mode#MINMAXARGS}.
-             *
-             * @param minArgs minimum expected number of arguments
-             * @param maxArgs maximum expected number of arguments
-             */
-            ArgumentError(int minArgs, int maxArgs) {
-                this(Mode.MINMAXARGS, minArgs, maxArgs);
-            }
-        }
-
-        /**
          * Check that no positional or keyword arguments are supplied.
          * This is for use when implementing
          * {@link #callWrapped(MethodHandle, Object, PyTuple, PyDict)}.
@@ -709,9 +666,9 @@ enum Slot {
         final protected void checkNoArgs(PyTuple args, PyDict kwargs)
                 throws ArgumentError {
             if (args.value.length != 0)
-                throw new ArgumentError(ArgumentError.Mode.NOARGS);
+                throw new ArgumentError(Mode.NOARGS);
             else if (kwargs != null && !kwargs.isEmpty())
-                throw new ArgumentError(ArgumentError.Mode.NOKWARGS);
+                throw new ArgumentError(Mode.NOKWARGS);
         }
 
         /**
@@ -731,7 +688,7 @@ enum Slot {
             if (args.value.length != expArgs)
                 throw new ArgumentError(expArgs);
             else if (kwargs != null && !kwargs.isEmpty())
-                throw new ArgumentError(ArgumentError.Mode.NOKWARGS);
+                throw new ArgumentError(Mode.NOKWARGS);
         }
 
         /**
@@ -753,7 +710,7 @@ enum Slot {
             if (n < minArgs || n > maxArgs)
                 throw new ArgumentError(minArgs, maxArgs);
             else if (kwargs != null && !kwargs.isEmpty())
-                throw new ArgumentError(ArgumentError.Mode.NOKWARGS);
+                throw new ArgumentError(Mode.NOKWARGS);
         }
 
         /**
@@ -766,13 +723,13 @@ enum Slot {
          * method. The caller guarantees that the wrapped method has the
          * {@code Signature} to which the call is addressed.
          *
-         * @param wrapper handle of the method to call
+         * @param wrapped handle of the method to call
          * @param self target object of the method call
          * @param args of the method call
          * @param kwargs of the method call
          * @return result of the method call
          * @throws ArgumentError when the arguments ({@code args},
-         *     {@code kwargs})are not correct for the {@code Signature}
+         *     {@code kwargs}) are not correct for the {@code Signature}
          * @throws Throwable from the implementation of the special
          *     method
          */

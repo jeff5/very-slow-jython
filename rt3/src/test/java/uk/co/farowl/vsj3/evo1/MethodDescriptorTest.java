@@ -36,7 +36,8 @@ class MethodDescriptorTest extends UnitTestSupport {
             assertEquals("isascii", isascii.name);
             assertEquals(PyUnicode.TYPE, isascii.objclass);
 
-            MethodDef md = isascii.methodDef;
+            // Check the parser
+            ArgParser md = isascii.methodDef.argParser;
             assertEquals("isascii", md.name);
             assertEquals(0, md.argnames.length);
         }
@@ -50,10 +51,11 @@ class MethodDescriptorTest extends UnitTestSupport {
             assertEquals("zfill", zfill.name);
             assertEquals(PyUnicode.TYPE, zfill.objclass);
 
-            MethodDef md = zfill.methodDef;
-            assertEquals("zfill", md.name);
-            assertEquals(1, md.argnames.length);
-            assertEquals("width", md.argnames[0]);
+            // Check the parser
+            ArgParser ap = zfill.methodDef.argParser;
+            assertEquals("zfill", ap.name);
+            assertEquals(1, ap.argnames.length);
+            assertEquals("width", ap.argnames[0]);
         }
 
         /**
@@ -67,18 +69,19 @@ class MethodDescriptorTest extends UnitTestSupport {
             assertEquals("replace", replace.name);
             assertEquals(PyUnicode.TYPE, replace.objclass);
 
-            MethodDef md = replace.methodDef;
-            assertEquals("replace", md.name);
-            assertEquals(2, md.argnames.length);
-            assertEquals("old", md.argnames[0]);
-            assertEquals("new", md.argnames[1]);
-            // assertEquals("count", md.argnames[2]);
+            // Check the parser
+            ArgParser ap = replace.methodDef.argParser;;
+            assertEquals("replace", ap.name);
+            assertEquals(2, ap.argnames.length);
+            assertEquals("old", ap.argnames[0]);
+            assertEquals("new", ap.argnames[1]);
+            // assertEquals("count", ap.argnames[2]);
         }
     }
 
     @Nested
     @DisplayName("Call built-in method via descriptor")
-    class LookupBuiltin {
+    class CallBuiltin {
 
         /** An instance method with no arguments. */
         @Test
@@ -112,6 +115,9 @@ class MethodDescriptorTest extends UnitTestSupport {
             }
         }
 
+        /**
+         * An instance method two object arguments and an optional int.
+         */
         @Test
         void str_replace() throws Throwable {
             PyMethodDescr replace =

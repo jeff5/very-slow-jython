@@ -1778,6 +1778,7 @@ class PyType extends Operations implements PyObjectDict {
 
     // Compare CPython _PyType_GetDocFromInternalDoc
     // in typeobject.c
+    // XXX Consider implementing in ArgParser instead
     static Object getDocFromInternalDoc(String name, String doc) {
         // TODO Auto-generated method stub
         return null;
@@ -1785,6 +1786,7 @@ class PyType extends Operations implements PyObjectDict {
 
     // Compare CPython: PyType_GetTextSignatureFromInternalDoc
     // in typeobject.c
+    // XXX Consider implementing in ArgParser instead
     static Object getTextSignatureFromInternalDoc(String name,
             String doc) {
         // TODO Auto-generated method stub

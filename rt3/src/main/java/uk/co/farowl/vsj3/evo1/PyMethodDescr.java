@@ -15,7 +15,6 @@ import uk.co.farowl.vsj3.evo1.Exposed.KeywordOnly;
 import uk.co.farowl.vsj3.evo1.Exposed.Name;
 import uk.co.farowl.vsj3.evo1.Exposed.PositionalOnly;
 import uk.co.farowl.vsj3.evo1.PyType.Flag;
-import uk.co.farowl.vsj3.evo1.Slot.Signature.ArgumentError;
 
 /**
  * Descriptor for a method defined in Java, specified by a
@@ -24,7 +23,15 @@ import uk.co.farowl.vsj3.evo1.Slot.Signature.ArgumentError;
  * {@link #__get__(Object, PyType) __get__}, which usually creates a
  * {@link PyJavaMethod}.
  */
-abstract class PyMethodDescr extends Descriptor {
+/*
+ * We differ from CPython in holding the MethodHandle of the wrapped
+ * method(s) directly in the PyMethodDescr, rather than in the
+ * MethodDef. This is similar to how PyWrapperDescr works. Here as
+ * there, it suits us to sub-class PyMethodDescr to express the
+ * multiplicity of implementations, and to sub-class MethodDef to
+ * express the signature of the method, and its data flow to arguments.
+ */
+abstract class PyMethodDescr extends MethodDescriptor {
 
     static final PyType TYPE = PyType.fromSpec(
             new PyType.Spec("method_descriptor", MethodHandles.lookup())
@@ -56,7 +63,7 @@ abstract class PyMethodDescr extends Descriptor {
      * @param selfClass Java class of the {@code self} argument
      * @return corresponding handle (or {@code slot.getEmpty()})
      */
-    abstract MethodHandle getMethod(Class<?> selfClass);
+    abstract MethodHandle getWrapped(Class<?> selfClass);
 
     /**
      * A {@link PyMethodDescr} to use for an instance method when the
@@ -75,8 +82,9 @@ abstract class PyMethodDescr extends Descriptor {
          * Construct a method descriptor, identifying by a method handle
          * the implementation method in {@code objclass}.
          *
-         * @param objclass the class declaring the special method
-         * @param method a handle to an implementation of that slot
+         * @param objclass the class declaring the method
+         * @param methodDef describing the signature of the method
+         * @param method a handle to an implementation of that method
          */
         // Compare CPython PyDescr_NewMethod in descrobject.c
         Single(PyType objclass, MethodDef methodDef,
@@ -86,12 +94,12 @@ abstract class PyMethodDescr extends Descriptor {
         }
 
         @Override
-        MethodHandle getMethod(Class<?> selfClass) {
+        MethodHandle getWrapped(Class<?> selfClass) {
             // Make sure that the first argument is acceptable as 'self'
             if (objclass.getJavaClass().isAssignableFrom(selfClass))
                 return method;
             else
-                // XXX Implement
+                // XXX Implement empty slot handle
                 return null;
         }
     }
@@ -111,13 +119,13 @@ abstract class PyMethodDescr extends Descriptor {
         protected final MethodHandle[] method;
 
         /**
-         * Construct a slot wrapper descriptor, identifying by an array
-         * of method handles the implementation methods for the
-         * {@code slot} in {@code objclass}.
+         * Construct a method descriptor, identifying by an array of
+         * method handles the implementation methods in
+         * {@code objclass}.
          *
          * @param objclass the class declaring the special method
-         *
-         * @param method handles to the implementation of that slot
+         * @param methodDef describing the signature of the method
+         * @param method handles to the implementation of that method
          */
         // Compare CPython PyDescr_NewMethod in descrobject.c
         Multiple(PyType objclass, MethodDef methodDef,
@@ -134,13 +142,13 @@ abstract class PyMethodDescr extends Descriptor {
          * {@link PyType#indexAccepted(Class)}.
          */
         @Override
-        MethodHandle getMethod(Class<?> selfClass) {
+        MethodHandle getWrapped(Class<?> selfClass) {
             // Work out how to call this descriptor on that object
             int index = objclass.indexAccepted(selfClass);
             try {
                 return method[index];
             } catch (ArrayIndexOutOfBoundsException iobe) {
-                // XXX Implement
+                // XXX Implement empty slot handle
                 return null;
             }
         }
@@ -240,9 +248,9 @@ abstract class PyMethodDescr extends Descriptor {
             throws Throwable {
         try {
             // Call through the correct wrapped handle
-            MethodHandle wrapped = getMethod(self.getClass());
+            MethodHandle wrapped = getWrapped(self.getClass());
             return methodDef.callMethod(wrapped, self, args, kwargs);
-        } catch (ArgumentError ae) {
+        } catch (MethodDescriptor.ArgumentError ae) {
             throw signatureTypeError(ae, args);
         }
     }
@@ -347,45 +355,9 @@ abstract class PyMethodDescr extends Descriptor {
                     objclass.name, selfType.name);
         }
         if (kwnames != null && kwnames.size() != 0) {
-            throw new TypeError("%.200s() takes no keyword arguments",
-                    methodDef.name);
+            throw new TypeError(TAKES_NO_KEYWORDS, methodDef.name);
         }
     }
-
-    /**
-     * Translate a problem with the number and pattern of arguments, in
-     * a failed attempt to call the wrapped method, to a Python
-     * {@link TypeError}.
-     *
-     * @param ae expressing the problem
-     * @param args positional arguments (only the number will matter)
-     * @return a {@code TypeError} to throw
-     */
-    private TypeError signatureTypeError(ArgumentError ae,
-            PyTuple args) {
-        int n = args.value.length;
-        switch (ae.mode) {
-            case NOARGS:
-                return new TypeError(TAKES_NO_ARGUMENTS, name, n);
-            case NUMARGS:
-                int N = ae.minArgs;
-                return new TypeError(TAKES_ARGUMENTS, name, N, n);
-            case MINMAXARGS:
-                String range = String.format("from %d to %d",
-                        ae.minArgs, ae.maxArgs);
-                return new TypeError(TAKES_ARGUMENTS, name, range, n);
-            case NOKWARGS:
-            default:
-                return new TypeError(TAKES_NO_KEYWORDS, name);
-        }
-    }
-
-    private static final String TAKES_NO_ARGUMENTS =
-            "method %s() takes no arguments (%d given)";
-    private static final String TAKES_ARGUMENTS =
-            "method %s() takes %s arguments (%d given)";
-    private static final String TAKES_NO_KEYWORDS =
-            "method %s() takes no keyword arguments";
 
 // /* Now the actual vectorcall functions */
 // // Compare CPython method_vectorcall_VARARGS in descrobject.c
@@ -601,6 +573,8 @@ abstract class PyMethodDescr extends Descriptor {
                 kwonlyargcount = argumentNames.length - i;
             }
 
+            // XXX Also process defaults. (Into an array?)
+
             Name name = p.getAnnotation(Name.class);
             return name == null ? p.getName() : name.value();
         }
@@ -609,6 +583,8 @@ abstract class PyMethodDescr extends Descriptor {
         PyMethodDescr createDescr(PyType type, Lookup lookup) {
 
             // XXX Create a MethodDef and work from that?
+            // XXX Process defaults to array/tuple and map/dict
+
 
             if (isStatic) {
                 throw new MissingFeature("expose method as static");

@@ -1,6 +1,7 @@
 package uk.co.farowl.vsj3.evo1;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -41,6 +42,21 @@ class ArgParser {
     /** The name of the function, mainly for error messages. */
     final String name;
 
+    /**
+     * Names of arguments that could be supplied by position or keyword.
+     * Elements are guaranteed by construction to be of type
+     * {@code str}, and not {@code null} or empty.
+     */
+    final String[] argnames;
+
+    /**
+     * The number of positional or keyword arguments, excluding the
+     * "collector" ({@code *args} and {@code **kwargs}) arguments, and
+     * any data that may follow the legitimate argument names. Equal to
+     * {@code argcount + kwonlyargcount}.
+     */
+    final int regargcount;
+
     /** The number of <b>positional</b> arguments. */
     final int argcount;
 
@@ -50,27 +66,13 @@ class ArgParser {
     /** The number of keyword-only arguments. */
     final int kwonlyargcount;
 
-    /**
-     * The number of positional or keyword arguments, excluding the
-     * "collector" ({@code *args} and {@code **kwargs}) arguments. Equal
-     * to {@code argcount + kwonlyargcount}.
-     */
-    final int regargcount;
-
-    /**
-     * Names of arguments that could be supplied by position or keyword.
-     * Elements are guaranteed by construction to be of type
-     * {@code str}, and not {@code null} or empty.
-     */
-    final String[] argnames;
-
     // Compare function object
 
     /** The (positional) default arguments or {@code null}. */
-    private Object[] defaults;
+    private List<Object> defaults;
 
-    /** The keyword defaults, a dict or {@code null}. */
-    private PyDict kwdefaults;
+    /** The keyword defaults, may be a {@code dict} or {@code null}. */
+    private Map<Object, Object> kwdefaults;
 
     /**
      * The frame has a collector ({@code tuple}) for excess positional
@@ -212,11 +214,11 @@ class ArgParser {
      * in-place (not copied). The client code must therefore ensure that
      * it cannot be modified after the parser has been constructed.
      * <p>
-     * The array may be longer than is necessary: the caller specifies
-     * how much of the array should be treated as regular argument
-     * names, and whether zero, one or two further elements will name
-     * collectors for excess positional or keyword arguments. The rest
-     * of the elements will not be examined by the parser. The
+     * The array of names may be longer than is necessary: the caller
+     * specifies how much of the array should be treated as regular
+     * argument names, and whether zero, one or two further elements
+     * will name collectors for excess positional or keyword arguments.
+     * The rest of the elements will not be examined by the parser. The
      * motivation for this design is to permit efficient construction
      * when the the array of names is the local variable names in a
      * Python {@code code} object.
@@ -356,7 +358,11 @@ class ArgParser {
      * @return this
      */
     ArgParser defaults(Object... values) {
-        defaults = values;
+        if (values == null || values.length == 0) {
+            defaults = null;
+        } else {
+            defaults = Arrays.asList(values);
+        }
         checkShape();
         return this;
     }
@@ -384,13 +390,15 @@ class ArgParser {
     }
 
     /**
-     * Provide the keyword-only defaults as a {@code dict}.
+     * Provide the keyword-only defaults, perhaps as a {@code dict}. If
+     * the argument is empty, it is converted to {@code null}
+     * internally.
      *
-     * @param kwd replacement keyword defaults
+     * @param kwd replacement keyword defaults (or {@code null}
      * @return this
      */
-    ArgParser kwdefaults(PyDict kwd) {
-        kwdefaults = kwd;
+    ArgParser kwdefaults(Map<Object, Object> kwd) {
+        kwdefaults = (kwd == null || kwd.isEmpty()) ? null : kwd;
         return this;
     }
 
@@ -403,7 +411,7 @@ class ArgParser {
      */
     private void checkShape() {
         final int N = regargcount;
-        final int L = defaults == null ? 0 : defaults.length;
+        final int L = defaults == null ? 0 : defaults.size();
         final int K = kwdefaults == null ? 0 : kwdefaults.size();
 
         // XXX LOgic is incorrect following changed semantics
@@ -484,8 +492,8 @@ class ArgParser {
          * "Allowable parameter name" here means the names in
          * {@code argnames[p:q]} where {@code p=posonlyargcount} and
          * {@code q=argcount + kwonlyargcount}. If the name used in the
-         * call is not is not an allowable keyword, then if {@code code}
-         * has the VARKEYWORDS trait, add it to the frame's keyword
+         * call is not is not an allowable keyword, then if this parser
+         * allows for excess keywords, add it to the frame's keyword
          * dictionary, otherwise throw an informative error.
          * <p>
          * In this version, accept the keyword arguments passed as a
@@ -588,9 +596,10 @@ class ArgParser {
          * @param defs default values by position or {@code null}
          * @throws TypeError if there are still missing arguments.
          */
-        void applyDefaults(int nargs, Object[] defs) throws TypeError {
+        void applyDefaults(int nargs, List<Object> defs)
+                throws TypeError {
 
-            int ndefs = defs == null ? 0 : defs.length;
+            int ndefs = defs == null ? 0 : defs.size();
             /*
              * At this stage, the first nargs parameter slots have been
              * filled and some (or all) of the remaining argcount-nargs
@@ -613,7 +622,7 @@ class ArgParser {
              */
             for (int i = nargs, j = Math.max(nargs - m, 0); j < ndefs;
                     i++, j++) {
-                if (getLocal(i) == null) { setLocal(i, defs[j]); }
+                if (getLocal(i) == null) { setLocal(i, defs.get(j)); }
             }
         }
 
@@ -628,7 +637,8 @@ class ArgParser {
          * @param kwdefs default values by keyword or {@code null}
          * @throws TypeError if there are too many or missing arguments.
          */
-        void applyKWDefaults(PyDict kwdefs) throws TypeError {
+        void applyKWDefaults(Map<Object, Object> kwdefs)
+                throws TypeError {
             /*
              * Variables in locals[argcount:end] are keyword-only
              * arguments. If they have not been assigned yet, they take
@@ -673,7 +683,7 @@ class ArgParser {
             boolean posPlural = false;
             int kwGiven = 0;
             String posText, givenText;
-            int defcount = defaults.length;
+            int defcount = defaults.size();
             int end = regargcount;
 
             assert (!hasVarArgs());
@@ -689,7 +699,11 @@ class ArgParser {
                         argcount - defcount, argcount);
             } else {
                 posPlural = (argcount != 1);
-                posText = String.format("%d", argcount);
+                if (argcount == 0) {
+                    posText = "no";
+                } else {
+                    posText = String.format("%d", argcount);
+                }
             }
 
             if (kwGiven > 0) {

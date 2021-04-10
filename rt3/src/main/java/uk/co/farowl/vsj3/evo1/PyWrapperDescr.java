@@ -14,7 +14,6 @@ import java.util.ListIterator;
 import uk.co.farowl.vsj3.evo1.Exposed.Getter;
 import uk.co.farowl.vsj3.evo1.PyType.Flag;
 import uk.co.farowl.vsj3.evo1.Slot.MethodKind;
-import uk.co.farowl.vsj3.evo1.Slot.Signature.ArgumentError;
 
 /**
  * A {@link Descriptor} for a particular definition <b>in Java</b> of
@@ -47,7 +46,7 @@ import uk.co.farowl.vsj3.evo1.Slot.Signature.ArgumentError;
  * attribute with the matching name. The result should be the same but
  * the process is more regular.
  */
-abstract class PyWrapperDescr extends Descriptor {
+abstract class PyWrapperDescr extends MethodDescriptor {
 
     static final PyType TYPE = PyType.fromSpec( //
             new PyType.Spec("wrapper_descriptor",
@@ -217,43 +216,6 @@ abstract class PyWrapperDescr extends Descriptor {
             throw signatureTypeError(ae, args);
         }
     }
-
-    // Plumbing ------------------------------------------------------
-
-    /**
-     * Translate a problem with the number and pattern of arguments, in
-     * a failed attempt to call the wrapped method, to a Python
-     * {@link TypeError}.
-     *
-     * @param ae expressing the problem
-     * @param args positional arguments (only the number will matter)
-     * @return a {@code TypeError} to throw
-     */
-    private TypeError signatureTypeError(ArgumentError ae,
-            PyTuple args) {
-        int n = args.value.length;
-        switch (ae.mode) {
-            case NOARGS:
-                return new TypeError(TAKES_NO_ARGUMENTS, name, n);
-            case NUMARGS:
-                int N = ae.minArgs;
-                return new TypeError(TAKES_ARGUMENTS, name, N, n);
-            case MINMAXARGS:
-                String range = String.format("from %d to %d",
-                        ae.minArgs, ae.maxArgs);
-                return new TypeError(TAKES_ARGUMENTS, name, range, n);
-            case NOKWARGS:
-            default:
-                return new TypeError(TAKES_NO_KEYWORDS, name);
-        }
-    }
-
-    private static final String TAKES_NO_ARGUMENTS =
-            "wrapper %s() takes no arguments (%d given)";
-    private static final String TAKES_ARGUMENTS =
-            "wrapper %s() takes %s arguments (%d given)";
-    private static final String TAKES_NO_KEYWORDS =
-            "wrapper %s() takes no keyword arguments";
 
     /**
      * A {@link PyWrapperDescr} for use when the owning Python type has
