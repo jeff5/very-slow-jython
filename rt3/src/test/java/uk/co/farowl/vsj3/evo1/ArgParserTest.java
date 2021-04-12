@@ -34,6 +34,12 @@ class ArgParserTest {
          * when applied to classic arguments matching its specification.
          */
         abstract void parses_classic_args();
+
+        /**
+         * {@link ArgParser#toString()} matches its specification.
+         */
+        @Test
+        abstract void has_expected_toString();
     }
     @Nested
     @DisplayName("A parser for no arguments")
@@ -62,6 +68,12 @@ class ArgParserTest {
 
             // It's enough that this not throw
             ap.parse(args, kwargs);
+        }
+
+        @Override
+        @Test
+        void has_expected_toString() {
+            assertEquals("func()", ap.toString());
         }
     }
 
@@ -104,11 +116,64 @@ class ArgParserTest {
             Object[] frame = ap.parse(args, kwargs);
             assertArrayEquals(new Object[] {1, 2, 3}, frame);
         }
+
+        @Override
+        @Test
+        void has_expected_toString() {
+            assertEquals("func(a, b, c)", ap.toString());
+        }
+    }
+
+    @Nested
+    @DisplayName("A parser for positional-only arguments")
+    class PositionalOnlyArgs extends Standard {
+
+        ArgParser ap =
+                ArgParser.fromSignature("func", "a", "b", "c", "/");
+
+        @Override
+        @Test
+        void has_expected_fields() {
+            assertEquals("func", ap.name);
+            assertEquals(3, ap.argnames.length);
+            assertEquals(3, ap.argcount);
+            assertEquals(3, ap.posonlyargcount);
+            assertEquals(0, ap.kwonlyargcount);
+            assertEquals(3, ap.regargcount);
+            assertEquals(-1, ap.varArgsIndex);
+            assertEquals(-1, ap.varKeywordsIndex);
+        }
+
+        @Override
+        @Test
+        void parses_classic_args() {
+            PyTuple args = Py.tuple(1, 2, 3);
+            PyDict kwargs = Py.dict();
+
+            Object[] frame = ap.parse(args, kwargs);
+            assertArrayEquals(new Object[] {1, 2, 3}, frame);
+        }
+
+        @Test
+        void raises_TypeError_on_kwargs() {
+            PyTuple args = Py.tuple(1);
+            PyDict kwargs = Py.dict();
+            kwargs.put("c", 3);
+            kwargs.put("b", 2);
+
+            assertThrows(TypeError.class, () -> ap.parse(args, kwargs));
+        }
+
+        @Override
+        @Test
+        void has_expected_toString() {
+            assertEquals("func(a, b, c, /)", ap.toString());
+        }
     }
 
     @Nested
     @DisplayName("A parser for some positional-only arguments")
-    class PositionalOnlyArgs extends Standard {
+    class SomePositionalOnlyArgs extends Standard {
 
         ArgParser ap =
                 ArgParser.fromSignature("func", "a", "b", "/", "c");
@@ -143,6 +208,12 @@ class ArgParserTest {
             kwargs.put("c", 3);
             assertThrows(TypeError.class, () -> ap.parse(args, kwargs));
         }
+
+        @Override
+        @Test
+        void has_expected_toString() {
+            assertEquals("func(a, b, /, c)", ap.toString());
+        }
     }
 
     @Nested
@@ -155,6 +226,8 @@ class ArgParserTest {
                         "a", "b", "c", "d", "e", "f", "g", "h", "i")
                                 .defaults(3, 4, 5, 6) //
                                 .kwdefaults(77, null, 99);
+        private String SIG = "func(a, b, c=3, d=4, /, e=5, f=6, *aa, "
+                + "g=77, h, i=99, **kk)";
 
         @Override
         @Test
@@ -185,6 +258,12 @@ class ArgParserTest {
             Object[] frame = ap.parse(args, kwargs);
             assertArrayEquals(expected, frame);
         }
+
+        @Override
+        @Test
+        void has_expected_toString() {
+            assertEquals(SIG, ap.toString());
+        }
     }
 
     @Nested
@@ -197,6 +276,8 @@ class ArgParserTest {
                 names.length - 2) //
                         .defaults(3, 4, 5, 6) //
                         .kwdefaults(77, null, 99);
+        private String SIG = "func(a, b, c=3, d=4, /, e=5, f=6, *aa, "
+                + "g=77, h, i=99, **kk)";
 
         @Override
         @Test
@@ -250,6 +331,12 @@ class ArgParserTest {
 
             Object[] frame = ap.parse(args, kwargs);
             assertArrayEquals(expected, frame);
+        }
+
+        @Override
+        @Test
+        void has_expected_toString() {
+            assertEquals(SIG, ap.toString());
         }
     }
 }

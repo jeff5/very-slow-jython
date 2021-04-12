@@ -5,6 +5,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.StringJoiner;
 
 /**
  * This class provides a parser for the positional and keyword arguments
@@ -167,6 +168,8 @@ class ArgParser {
         // Total argument count *except* possible varargs, varkwargs
         int N = names.length;
         this.regargcount = N;
+
+        // Fill in other cardinal points
         this.posonlyargcount = posOnly;
         this.kwonlyargcount = kwdOnly;
         this.argcount = N - kwdOnly;
@@ -178,8 +181,8 @@ class ArgParser {
         // Make a new array of the names, including the collectors
         String[] argnames = new String[N];
         this.argnames = argnames;
-
         System.arraycopy(names, 0, argnames, 0, regargcount);
+
         if (hasVarArgs())
             argnames[varArgsIndex] = varargs;
         if (hasVarKeywords())
@@ -326,6 +329,85 @@ class ArgParser {
      */
     boolean hasVarKeywords() {
         return varKeywordsIndex >= 0;
+    }
+
+    @Override
+    public String toString() {
+        return sigString(name);
+    }
+
+    private String sigString(String fname) {
+        StringJoiner sj = new StringJoiner(", ", fname + "(", ")");
+
+        // Keyword only parameters start at k
+        int k = regargcount - kwonlyargcount;
+        // The positional defaults start at d
+        int d = k - (defaults == null ? 0 : defaults.size());
+        // We work through the parameters with index i
+        int i = 0;
+
+        // Positional-only parameters
+        while (i < posonlyargcount) {
+            sj.add(parameterToString(i++, d));
+        }
+
+        // If there were any positional-only parameters ...
+        if (i > 0) {
+            // ... mark the end of them.
+            sj.add("/");
+        }
+
+        // Positional (but not positional-only) parameters
+        while (i < k) { sj.add(parameterToString(i++, d)); }
+
+        // Reached the end of the positional section
+        if (hasVarArgs()) {
+            // Excess from the positional section does to a *args
+            sj.add("*" + argnames[varArgsIndex]);
+        } else if (i < regargcount) {
+            // Mark the end but no *args to catch the excess
+            sj.add("*");
+        }
+
+        // Keyword only parameters begin properly
+        while (i < regargcount) { sj.add(parameterToString(i++)); }
+
+        if (hasVarKeywords()) {
+            // Excess from the keyword section does to a **kwargs
+            sj.add("**" + argnames[varKeywordsIndex]);
+        }
+
+        return sj.toString();
+    }
+
+    /**
+     * Return <i>i</i>th positional parameter name and default value if
+     * available. Helper to {@link #sigString()}.
+     */
+    private String parameterToString(int i, int d) {
+        if (i < d)
+            return argnames[i];
+        else {
+            // A default value is available
+            Object value = defaults.get(i - d);
+            return argnames[i] + "=" + value.toString();
+        }
+    }
+
+    /**
+     * Return <i>i</i>th parameter name and keyword default value if
+     * available. Helper to {@link #sigString()}.
+     */
+    private String parameterToString(int i) {
+        String name = argnames[i];
+        if (kwdefaults != null) {
+            Object value = kwdefaults.get(name);
+            if (value != null) {
+                // A default value is available
+                return argnames[i] + "=" + value.toString();
+            }
+        }
+        return name;
     }
 
     /**
