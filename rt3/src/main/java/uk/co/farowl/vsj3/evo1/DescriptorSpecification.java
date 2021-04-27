@@ -49,6 +49,25 @@ abstract class DescriptorSpecification {
     }
 
     /**
+     * Name the method being defined from a Java perspective, mostly for
+     * use in messages regarding errors in definition.
+     *
+     * @return a name designating the method
+     */
+    String getJavaMethodName() {
+        StringBuilder b = new StringBuilder(64);
+        if (!methods.isEmpty()) {
+            // It shouldn't make a difference, but take the last added.
+            Method method = methods.get(methods.size() - 1);
+            b.append(method.getDeclaringClass().getSimpleName());
+            b.append('.');
+            b.append(method.getName());
+        }
+        return b.toString();
+
+    }
+
+    /**
      * Create a {@code Descriptor} from this definition. Note that a
      * definition describes the methods as declared, and that there may
      * be any number. The implementation of this method creates a

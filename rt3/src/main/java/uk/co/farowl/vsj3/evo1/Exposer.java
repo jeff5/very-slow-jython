@@ -120,7 +120,6 @@ class Exposer {
         if (descrSpec == null) {
             // A new entry is needed
             spec = new MethodSpecification(name);
-            // XXX getMethodDef(a, m, lookup);
             specs.put(spec.name, spec);
         } else if (descrSpec instanceof MethodSpecification) {
             // Existing entry will be updated

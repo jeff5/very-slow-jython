@@ -37,9 +37,9 @@ class MethodDescriptorTest extends UnitTestSupport {
             assertEquals(PyUnicode.TYPE, isascii.objclass);
 
             // Check the parser
-            ArgParser md = isascii.methodDef.argParser;
-            assertEquals("isascii", md.name);
-            assertEquals(0, md.argnames.length);
+            ArgParser ap = isascii.methodDef.argParser;
+            assertEquals("isascii", ap.name);
+            assertEquals(0, ap.regargcount);
         }
 
         /** An instance method with one argument. */
@@ -54,12 +54,13 @@ class MethodDescriptorTest extends UnitTestSupport {
             // Check the parser
             ArgParser ap = zfill.methodDef.argParser;
             assertEquals("zfill", ap.name);
-            assertEquals(1, ap.argnames.length);
+            assertEquals(1, ap.regargcount);
             assertEquals("width", ap.argnames[0]);
         }
 
         /**
-         * An instance method two object arguments and an optional int.
+         * An instance method with two object arguments. (There should
+         * be an optional {@code int} but it isn't implemented.)
          */
         @Test
         void str_replace() throws Throwable {
@@ -70,12 +71,36 @@ class MethodDescriptorTest extends UnitTestSupport {
             assertEquals(PyUnicode.TYPE, replace.objclass);
 
             // Check the parser
-            ArgParser ap = replace.methodDef.argParser;;
+            ArgParser ap = replace.methodDef.argParser;
             assertEquals("replace", ap.name);
-            assertEquals(2, ap.argnames.length);
+            assertEquals(2, ap.regargcount);
             assertEquals("old", ap.argnames[0]);
             assertEquals("new", ap.argnames[1]);
             // assertEquals("count", ap.argnames[2]);
+        }
+
+        /**
+         * An instance method with an int and an optional object
+         * argument.
+         */
+        @Test
+        void str_ljust() throws Throwable {
+            PyMethodDescr ljust =
+                    (PyMethodDescr) PyUnicode.TYPE.lookup("ljust");
+
+            assertEquals("ljust", ljust.name);
+            assertEquals(PyUnicode.TYPE, ljust.objclass);
+
+            // Check the parser
+            ArgParser ap = ljust.methodDef.argParser;
+            String sig = "ljust(width, fillchar=' ', /)";
+            assertEquals(sig, ap.toString());
+
+            assertEquals("ljust", ap.name);
+            assertEquals(2, ap.regargcount);
+            assertEquals("width", ap.argnames[0]);
+            assertEquals("fillchar", ap.argnames[1]);
+            assertEquals(2, ap.posonlyargcount);
         }
     }
 
@@ -116,7 +141,8 @@ class MethodDescriptorTest extends UnitTestSupport {
         }
 
         /**
-         * An instance method two object arguments and an optional int.
+         * An instance method with two object arguments. (There should
+         * be an optional {@code int} but it isn't implemented.)
          */
         @Test
         void str_replace() throws Throwable {
@@ -130,6 +156,31 @@ class MethodDescriptorTest extends UnitTestSupport {
                 Object r = replace.__call__(Py.tuple(o, "ell", "ipp"),
                         null);
                 assertEquals("hippo", r.toString());
+            }
+        }
+
+        /**
+         * An instance method with an int and an optional object
+         * argument.
+         */
+        @Test
+        void str_ljust() throws Throwable {
+            PyMethodDescr ljust =
+                    (PyMethodDescr) PyUnicode.TYPE.lookup("ljust");
+
+            String s = "hello";
+            PyUnicode u = newPyUnicode(s);
+
+            // Test with fill character explicit
+            for (Object o : List.of(s, u)) {
+                Object r = ljust.__call__(Py.tuple(o, 8, "*"), null);
+                assertEquals("hello***", r.toString());
+            }
+
+            // Test with fill character taking default value
+            for (Object o : List.of(s, u)) {
+                Object r = ljust.__call__(Py.tuple(o, 7), null);
+                assertEquals("hello  ", r.toString());
             }
         }
     }

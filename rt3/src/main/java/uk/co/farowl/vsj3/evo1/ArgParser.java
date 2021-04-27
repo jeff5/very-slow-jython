@@ -11,7 +11,8 @@ import java.util.StringJoiner;
  * This class provides a parser for the positional and keyword arguments
  * of built-in functions and methods. The purpose of an argument parser
  * is to provide the body of a function with an array of values,
- * corresponding in order and number to its (logical) arguments.
+ * corresponding in order and number to its parameters (logical
+ * arguments).
  * <p>
  * This parser transforms several argument presentations that occur in a
  * Python implementation, into an array. This array is either created by
@@ -27,7 +28,7 @@ import java.util.StringJoiner;
  * ({@link PyFunction}).
  * <p>
  * The easiest way of specifying a parser (although one that is a little
- * costly to construct) is to list the arguments as they would be
+ * costly to construct) is to list the parameters as they would be
  * declared in Python, including the furniture that marks up the
  * positional-only, keyword-only, positional varargs, and keyword
  * varargs. This is the API offered by
@@ -44,35 +45,50 @@ class ArgParser {
     final String name;
 
     /**
-     * Names of arguments that could be supplied by position or keyword.
-     * Elements are guaranteed by construction to be of type
+     * Names of parameters that could be satisfied by position or
+     * keyword. Elements are guaranteed by construction to be of type
      * {@code str}, and not {@code null} or empty.
+     */
+    /*
+     * Here and elsewhere we use the same names as the Python code, even
+     * though it tends to say "argument" when it could mean that or
+     * "parameter".
      */
     final String[] argnames;
 
     /**
-     * The number of positional or keyword arguments, excluding the
-     * "collector" ({@code *args} and {@code **kwargs}) arguments, and
-     * any data that may follow the legitimate argument names. Equal to
+     * The number of positional or keyword parameters, excluding the
+     * "collector" ({@code *args} and {@code **kwargs}) parameters, and
+     * any data that may follow the legitimate parameter names. Equal to
      * {@code argcount + kwonlyargcount}.
      */
     final int regargcount;
 
-    /** The number of <b>positional</b> arguments. */
+    /** The number of <b>positional</b> parameters. */
     final int argcount;
 
-    /** The number of positional-only arguments. */
+    /** The number of positional-only parameters. */
     final int posonlyargcount;
 
-    /** The number of keyword-only arguments. */
+    /** The number of keyword-only parameters. */
     final int kwonlyargcount;
 
+    /**
+     * The documentation string of the method.
+     */
+    String doc;
     // Compare function object
 
-    /** The (positional) default arguments or {@code null}. */
-    private List<Object> defaults;
+    /**
+     * The (positional) default parameters or {@code null} if there are
+     * none.
+     */
+    private Object[] defaults;
 
-    /** The keyword defaults, may be a {@code dict} or {@code null}. */
+    /**
+     * The keyword defaults, may be a {@code dict} or {@code null} if
+     * there are none.
+     */
     private Map<Object, Object> kwdefaults;
 
     /**
@@ -89,9 +105,10 @@ class ArgParser {
 
     /**
      * Create a parser, for a named function, with defined numbers of
-     * positional-only and keyword-only arguments, and naming the
-     * arguments. Arguments that may only be given by position need not
-     * be named. ("" is acceptable in the names array.)
+     * positional-only and keyword-only parameters, and naming the
+     * parameters. Parameters that may only be satisfied by arguments
+     * given by position need not be named. ("" is acceptable in the
+     * names array.)
      * <p>
      * Overflow of positional and/or keyword arguments into a
      * {@code tuple} or {@code dict} may also be allowed. For example, a
@@ -109,11 +126,11 @@ class ArgParser {
      *                     .kwdefaults(7, null, 9);
      *
      * </pre> Note that "aa" and "kk" are given separately, not amongst
-     * the argument names. In the parsing result array, they will be at
+     * the parameter names. In the parsing result array, they will be at
      * the end. (This is how a CPython frame is laid out.)
      * <p>
      * Defaults are provided, after the parser has been constructed, as
-     * values corresponding to argument names, when right-justified in
+     * values corresponding to parameter names, when right-justified in
      * the space to which they apply. (See diagram below.) Both the
      * positional and keyword defaults are given by position in this
      * formulation. The {@link #kwdefaults(Object...)} call is allowed
@@ -155,9 +172,9 @@ class ArgParser {
      * @param name of the function
      * @param varargs name of the positional collector or {@code null}
      * @param varkw name of the keywords collector or {@code null}
-     * @param posOnly number of positional-only arguments
-     * @param kwdOnly number of keyword-only arguments
-     * @param names of the (non-collector) arguments
+     * @param posOnly number of positional-only parameters
+     * @param kwdOnly number of keyword-only parameters
+     * @param names of the (non-collector) parameters
      */
     ArgParser(String name, String varargs, String varkw, int posOnly,
             int kwdOnly, String... names) {
@@ -165,7 +182,7 @@ class ArgParser {
         // Name of function
         this.name = name;
 
-        // Total argument count *except* possible varargs, varkwargs
+        // Total parameter count *except* possible varargs, varkwargs
         int N = names.length;
         this.regargcount = N;
 
@@ -200,8 +217,8 @@ class ArgParser {
 
     /**
      * Create a parser for a named function, with defined numbers of
-     * positional-only and keyword-only arguments, and argument names in
-     * an array prepared by client code.
+     * positional-only and keyword-only parameters, and parameter names
+     * in an array prepared by client code.
      * <p>
      * The capabilities of this parser, are exactly the same as one
      * defined by
@@ -219,7 +236,7 @@ class ArgParser {
      * <p>
      * The array of names may be longer than is necessary: the caller
      * specifies how much of the array should be treated as regular
-     * argument names, and whether zero, one or two further elements
+     * parameter names, and whether zero, one or two further elements
      * will name collectors for excess positional or keyword arguments.
      * The rest of the elements will not be examined by the parser. The
      * motivation for this design is to permit efficient construction
@@ -229,10 +246,10 @@ class ArgParser {
      * @param name of the function
      * @param varargs whether there is positional collector
      * @param varkw whether there is a keywords collector
-     * @param posOnly number of positional-only arguments
-     * @param kwdOnly number of keyword-only arguments
-     * @param names of the arguments including any collectors (varargs)
-     * @param count number of regular (non-collector) arguments
+     * @param posOnly number of positional-only parameters
+     * @param kwdOnly number of keyword-only parameters
+     * @param names of the parameters including any collectors (varargs)
+     * @param count number of regular (non-collector) parameters
      */
     ArgParser(String name, boolean varargs, boolean varkw, int posOnly,
             int kwdOnly, String[] names, int count) {
@@ -241,7 +258,7 @@ class ArgParser {
         this.name = name;
         this.argnames = names;
 
-        // Total argument count *except* possible varargs, varkwargs
+        // Total parameter count *except* possible varargs, varkwargs
         int N = Math.min(count, names.length);
         this.regargcount = N;
         this.posonlyargcount = posOnly;
@@ -255,16 +272,16 @@ class ArgParser {
 
     /**
      * Create a parser, for a named function, with defined numbers of
-     * positional-only and keyword-only arguments, and naming the
-     * arguments. Arguments that may only be given by position need not
-     * be named. ("" is acceptable in the names array.)
+     * positional-only and keyword-only parameters, and naming the
+     * parameters. Parameters that may only be given by position need
+     * not be named. ("" is acceptable in the names array.)
      *
      * @param name of function
-     * @param decl names of arguments and indicators "/", "*", "**"
+     * @param decl names of parameters and indicators "/", "*", "**"
      */
     static ArgParser fromSignature(String name, String... decl) {
 
-        // Collect the names of the arguments here
+        // Collect the names of the parameters here
         ArrayList<String> args = new ArrayList<>();
         String varargs = null, varkw = null;
 
@@ -272,25 +289,25 @@ class ArgParser {
 
         /*
          * Scan names, looking out for /, * and ** markers. Nameless
-         * arguments are tolerated in the positional-only section.
+         * parameters are tolerated in the positional-only section.
          */
-        for (String arg : decl) {
-            int arglen = arg.length();
-            if (arglen > 0) {
-                if (arg.charAt(0) == '/') {
+        for (String param : decl) {
+            int paramLen = param.length();
+            if (paramLen > 0) {
+                if (param.charAt(0) == '/') {
                     // We found a positional-only end marker /
                     posOnly = args.size();
-                } else if (arg.charAt(0) == '*') {
-                    if (arglen > 1) {
-                        if (arg.charAt(1) == '*') {
+                } else if (param.charAt(0) == '*') {
+                    if (paramLen > 1) {
+                        if (param.charAt(1) == '*') {
                             // Looks like a keywords collector
-                            if (arglen > 2) {
+                            if (paramLen > 2) {
                                 // ... and it has a name.
-                                varkw = arg.substring(2);
+                                varkw = param.substring(2);
                             }
                         } else {
                             // Looks like a positional collector
-                            varargs = arg.substring(1);
+                            varargs = param.substring(1);
                             posCount = args.size();
                         }
                     } else {
@@ -298,8 +315,8 @@ class ArgParser {
                         posCount = args.size();
                     }
                 } else {
-                    // We found a proper name for the argument.
-                    args.add(arg);
+                    // We found a proper name for the parameter.
+                    args.add(param);
                 }
             } else {
                 // We found a "": tolerate for now.
@@ -307,14 +324,21 @@ class ArgParser {
             }
         }
 
-        // Total argument count *except* possible varargs, varkwargs
+        // Total parameter count *except* possible varargs, varkwargs
         int N = args.size();
         if (posCount == 0) { posCount = N; }
+
         String[] names =
                 N == 0 ? NO_STRINGS : args.toArray(new String[N]);
-
         return new ArgParser(name, varargs, varkw, posOnly,
                 N - posCount, names);
+    }
+
+    /**
+     * @return true if default positional arguments are available.
+     */
+    boolean hasDefaults() {
+        return defaults != null;
     }
 
     /**
@@ -322,6 +346,13 @@ class ArgParser {
      */
     boolean hasVarArgs() {
         return varArgsIndex >= 0;
+    }
+
+    /**
+     * @return true if default keyword-only arguments are available.
+     */
+    boolean hasKwdefaults() {
+        return kwdefaults != null;
     }
 
     /**
@@ -342,7 +373,7 @@ class ArgParser {
         // Keyword only parameters start at k
         int k = regargcount - kwonlyargcount;
         // The positional defaults start at d
-        int d = k - (defaults == null ? 0 : defaults.size());
+        int d = k - (defaults == null ? 0 : defaults.length);
         // We work through the parameters with index i
         int i = 0;
 
@@ -362,7 +393,7 @@ class ArgParser {
 
         // Reached the end of the positional section
         if (hasVarArgs()) {
-            // Excess from the positional section does to a *args
+            // Excess from the positional section goes to a *args
             sj.add("*" + argnames[varArgsIndex]);
         } else if (i < regargcount) {
             // Mark the end but no *args to catch the excess
@@ -389,8 +420,8 @@ class ArgParser {
             return argnames[i];
         else {
             // A default value is available
-            Object value = defaults.get(i - d);
-            return argnames[i] + "=" + value.toString();
+            Object value = defaults[i - d];
+            return argnames[i] + "=" + repr(value);
         }
     }
 
@@ -404,10 +435,29 @@ class ArgParser {
             Object value = kwdefaults.get(name);
             if (value != null) {
                 // A default value is available
-                return argnames[i] + "=" + value.toString();
+                return argnames[i] + "=" + repr(value);
             }
         }
         return name;
+    }
+
+    /**
+     * Weak substitute for {@code repr()} that will do for common types
+     * of default argument.
+     *
+     * @param o object to reproduce
+     * @return poorman's {@code repr(o)}
+     */
+    private static String repr(Object o) {
+        if (o instanceof String) {
+            String s = (String) o;
+            if (!s.contains("'"))
+                return "'" + s + "'";
+            else
+                return "\"" + s + "\"";
+        } else {
+            return o.toString();
+        }
     }
 
     /**
@@ -431,19 +481,19 @@ class ArgParser {
     /**
      * Provide the positional defaults. If L values are provided, they
      * correspond to {@code arg[max-L] ... arg[max-1]}, where
-     * {@code max} is the index of the first keyword-only argument, or
-     * the number of arguments if there are no keyword-only arguments.
+     * {@code max} is the index of the first keyword-only parameter, or
+     * the number of parameters if there are no keyword-only parameters.
      * The minimum number of positional arguments will then be
      * {@code max-L}.
      *
-     * @param values
-     * @return this
+     * @param values replacement positional defaults (or {@code null})
+     * @return {@code this}
      */
     ArgParser defaults(Object... values) {
         if (values == null || values.length == 0) {
             defaults = null;
         } else {
-            defaults = Arrays.asList(values);
+            defaults = Arrays.copyOf(values, values.length);
         }
         checkShape();
         return this;
@@ -452,13 +502,14 @@ class ArgParser {
     /**
      * Provide the keyword-only defaults as values. If K values are
      * provided, they correspond to {@code arg[N-K] ... arg[N-1]}, where
-     * {@code N} is the number of regular arguments
-     * ({@link #regargcount}). The number of keyword-only arguments and
-     * positional-only arguments must not together exceed the number of
-     * regular arguments named in the constructor.
+     * {@code N} is the number of regular parameters
+     * ({@link #regargcount}). If the argument is empty, it is converted
+     * to {@code null} internally. The number of keyword-only parameters
+     * and positional-only parameters must not together exceed the
+     * number of regular parameters named in the constructor.
      *
-     * @param values keyword values aligned to the argument names
-     * @return this
+     * @param values keyword values aligned to the parameter names
+     * @return {@code this}
      */
     ArgParser kwdefaults(Object... values) {
         PyDict d = new PyDict();
@@ -468,59 +519,55 @@ class ArgParser {
             if (v != null) { d.put(argnames[p], v); }
         }
         kwdefaults = d;
+        checkShape();
         return this;
     }
 
     /**
-     * Provide the keyword-only defaults, perhaps as a {@code dict}. If
-     * the argument is empty, it is converted to {@code null}
-     * internally.
+     * Provide the keyword-only defaults, perhaps as a {@code dict}.
      *
-     * @param kwd replacement keyword defaults (or {@code null}
-     * @return this
+     * @param kwd replacement keyword defaults (or {@code null})
+     * @return {@code this}
      */
     ArgParser kwdefaults(Map<Object, Object> kwd) {
         kwdefaults = (kwd == null || kwd.isEmpty()) ? null : kwd;
+        checkShape();
         return this;
     }
 
     /**
-     * The number of keyword-only arguments and positional-only
-     * arguments must not together exceed the number of arguments named
-     * in the constructor. (The last two are defined in the
+     * The number of keyword-only parameters and positional-only
+     * parameters must not together exceed the number of parameters
+     * named in the constructor. (The last two are defined in the
      * constructor.) Nor must there be excess default values for the
-     * number of arguments.
+     * number of parameters.
      */
     private void checkShape() {
-        final int N = regargcount;
-        final int L = defaults == null ? 0 : defaults.size();
-        final int K = kwdefaults == null ? 0 : kwdefaults.size();
+        final int N = argcount;
+        final int L = defaults == null ? 0 : defaults.length;
+        final int K = kwonlyargcount;
+        final int W = kwdefaults == null ? 0 : kwdefaults.size();
 
-        // XXX LOgic is incorrect following changed semantics
-        int posArgCount = N - K;
-        int min = posArgCount - L;
+        int min = N - L;
+        int kwmax = N + K - posonlyargcount;
 
         if (min < 0) {
-            throw new InterpreterError(TOO_MANY_DEFAULTS, L,
-                    posArgCount, name);
-        } else if (posArgCount < posonlyargcount) {
-            throw new InterpreterError(TOO_MANY_KWDEFAULTS, K,
-                    posonlyargcount, name);
+            throw new InterpreterError(TOO_MANY_DEFAULTS, L, N, name);
+        } else if (W > kwmax) {
+            throw new InterpreterError(TOO_MANY_KWDEFAULTS, W, kwmax,
+                    name);
         }
     }
 
     private static final String TOO_MANY_DEFAULTS =
             "More defaults (%d given) than "
-                    + "positional arguments (%d allowed) "
+                    + "positional parameters (%d allowed) "
                     + "when specifying '%s'";
 
     private static final String TOO_MANY_KWDEFAULTS =
             "More keyword defaults (%d given) than remain after "
-                    + "positional-only arguments (%d left)"
+                    + "positional-only parameters (%d left)"
                     + "when specifying '%s'";
-
-    static final String MULTIPLE_VALUES =
-            "%.200s(): multiple values for argument '%s'";
 
     /** Get the name of arg i or make one up. */
     private String nameArg(int i) {
@@ -668,9 +715,9 @@ class ArgParser {
          * Fill in missing positional parameters from a from
          * {@code defs}. If any positional parameters are cannot be
          * filled, this is an error. The number of positional arguments
-         * {@code nargs} are provided so we know where to start only for
+         * {@code nargs} is provided so we know where to start only for
          * their number.
-         *
+         * <p>
          * It is harmless (but a waste) to call this when
          * {@code nargs >= argcount}.
          *
@@ -678,16 +725,16 @@ class ArgParser {
          * @param defs default values by position or {@code null}
          * @throws TypeError if there are still missing arguments.
          */
-        void applyDefaults(int nargs, List<Object> defs)
-                throws TypeError {
+        void applyDefaults(int nargs, Object[] defs) throws TypeError {
 
-            int ndefs = defs == null ? 0 : defs.size();
+            int ndefs = defs == null ? 0 : defs.length;
             /*
              * At this stage, the first nargs parameter slots have been
              * filled and some (or all) of the remaining argcount-nargs
-             * positional arguments may have been assigned using keyword
-             * arguments. Meanwhile, defs is available to provide values
-             * for (only) the last defs.length positional arguments.
+             * positional parameters may have been assigned using
+             * keyword arguments. Meanwhile, defs is available to
+             * provide values for (only) the last defs.length positional
+             * parameters.
              */
             // locals[nargs:m] have no default values, where:
             int m = argcount - ndefs;
@@ -704,7 +751,7 @@ class ArgParser {
              */
             for (int i = nargs, j = Math.max(nargs - m, 0); j < ndefs;
                     i++, j++) {
-                if (getLocal(i) == null) { setLocal(i, defs.get(j)); }
+                if (getLocal(i) == null) { setLocal(i, defs[j]); }
             }
         }
 
@@ -723,7 +770,7 @@ class ArgParser {
                 throws TypeError {
             /*
              * Variables in locals[argcount:end] are keyword-only
-             * arguments. If they have not been assigned yet, they take
+             * parameters. If they have not been assigned yet, they take
              * values from dict kwdefs.
              */
             int end = regargcount;
@@ -742,9 +789,9 @@ class ArgParser {
         static final String KEYWORD_NOT_COMPARABLE =
                 "Keyword names %s not comparable.";
         static final String MULTIPLE_VALUES =
-                "%.200s(): multiple values for argument '%s'";
+                "%.200s(): multiple values for parameter '%s'";
         static final String POSITIONAL_ONLY =
-                "%.200s(): positional-only arguments passed by keyword: %s";
+                "%.200s(): positional-only argument%s passed by keyword: %s";
         static final String UNEXPECTED_KEYWORD =
                 "%.200s(): unexpected keyword argument '%s'";
 
@@ -765,7 +812,7 @@ class ArgParser {
             boolean posPlural = false;
             int kwGiven = 0;
             String posText, givenText;
-            int defcount = defaults.size();
+            int defcount = defaults.length;
             int end = regargcount;
 
             assert (!hasVarArgs());
@@ -808,7 +855,7 @@ class ArgParser {
         /**
          * Diagnose an unexpected keyword occurring in a call and
          * represent the problem as an exception. The particular keyword
-         * may incorrectly name a positional argument, or it may be
+         * may incorrectly name a positional parameter, or it may be
          * entirely unexpected (not be a parameter at all). In any case,
          * since this error is going to be fatal to the call, this
          * method looks at <i>all</i> the keywords to see if any are
@@ -819,7 +866,7 @@ class ArgParser {
          * that does not match a legitimate parameter, and there is no
          * {@code **kwargs} dictionary to catch it.
          *
-         * @param name the unexpected keyword encountered in the call
+         * @param kw the unexpected keyword encountered in the call
          * @param kwnames all the keywords used in the call
          * @return TypeError diagnosing the problem
          */
@@ -830,7 +877,7 @@ class ArgParser {
          * return status. Also, when called there is *always* a problem,
          * and therefore an exception.
          */
-        protected TypeError unexpectedKeyword(Object name,
+        protected TypeError unexpectedKeyword(Object kw,
                 Collection<Object> kwnames) throws TypeError {
             /*
              * Compare each of the positional only parameter names with
@@ -850,10 +897,11 @@ class ArgParser {
             if (!names.isEmpty()) {
                 // We caught one or more matches: throw
                 return new TypeError(POSITIONAL_ONLY, name,
+                        names.size() == 1 ? "" : "s",
                         String.join(", ", names));
             } else {
                 // No match, so it is just unexpected altogether
-                return new TypeError(UNEXPECTED_KEYWORD, name, name);
+                return new TypeError(UNEXPECTED_KEYWORD, name, kw);
             }
         }
 

@@ -4,6 +4,7 @@ import java.lang.invoke.MethodHandles;
 import java.util.Arrays;
 import java.util.Iterator;
 
+import uk.co.farowl.vsj3.evo1.Exposed.Default;
 import uk.co.farowl.vsj3.evo1.Exposed.JavaMethod;
 import uk.co.farowl.vsj3.evo1.Exposed.Name;
 import uk.co.farowl.vsj3.evo1.PyObjectUtil.NoConversion;
@@ -225,7 +226,7 @@ class PyUnicode implements PySequenceInterface<Integer>, CraftedType,
 
     // non-slot API ---------------------------------------------------
 
-    @JavaMethod
+    @JavaMethod(primary = false)
     boolean isascii() {
         for (int c : this) { if (c > 127) { return false; } }
         return true;
@@ -239,6 +240,46 @@ class PyUnicode implements PySequenceInterface<Integer>, CraftedType,
         return true;
     }
 
+    @JavaMethod
+    PyUnicode ljust(int width, @Default(" ") String fillchar) {
+        int len = Math.min(fillchar.length(), 4);
+        if (fillchar.codePointCount(0, len) != 1) {
+            throw new TypeError(BAD_FILLCHAR);
+        }
+        int n = value.length;
+        int m = Math.max(width, n), start = 0, fill = m - n;
+        if (fill <= 0) { return this; }
+        int[] buf = new int[m];
+        // The original
+        System.arraycopy(value, start, buf, 0, n);
+        // The fill
+        int fillcp = fillchar.codePointAt(0);
+        for (int i = n; i < m; i++) { buf[i] = fillcp; }
+        return new PyUnicode(TYPE, buf);
+    }
+
+    @JavaMethod(primary = false)
+    static String ljust(String self, int width, String fillchar) {
+        int len = Math.min(fillchar.length(), 4);
+        if (fillchar.codePointCount(0, len) != 1) {
+            throw new TypeError(BAD_FILLCHAR);
+        }
+        int n = self.codePointCount(0, self.length());
+        int m = Math.max(width, n), start = 0, fill = m - n;
+        if (fill <= 0) { return self; }
+        StringBuilder buf =
+                new StringBuilder(self.length() + fill * len);
+        // The original
+        buf.append(self.substring(start));
+        // The fill
+        for (int i = 0; i < fill; i++) { buf.append(fillchar); }
+        return buf.toString();
+
+    }
+
+    private static String BAD_FILLCHAR =
+            "the fill character must be exactly one character long";
+
     // Simplified version (no count)
     @JavaMethod
     String replace(Object old, @Name("new") Object _new) {
@@ -249,9 +290,8 @@ class PyUnicode implements PySequenceInterface<Integer>, CraftedType,
 
     }
 
-    @JavaMethod
-    static String replace(String self, Object old,
-            @Name("new") Object _new) {
+    @JavaMethod(primary = false)
+    static String replace(String self, Object old, Object _new) {
         // Annotations repeat since cannot rely on order processed
         String oldstr = old.toString();
         String newstr = _new.toString();
@@ -276,12 +316,12 @@ class PyUnicode implements PySequenceInterface<Integer>, CraftedType,
         return new PyUnicode(TYPE, buf);
     }
 
-    @JavaMethod
+    @JavaMethod(primary = false)
     static String zfill(String self, int width) {
         int n = self.codePointCount(0, self.length());
         int m = Math.max(width, n), start = 0, fill = m - n, c;
         if (fill <= 0) { return self; }
-        StringBuilder buf = new StringBuilder(self.length() + width);
+        StringBuilder buf = new StringBuilder(m);
         // If self starts with a sign, preserve it at the front
         if (n >= 1 && ((c = self.codePointAt(0)) == '-' || c == '+')) {
             start = 1;

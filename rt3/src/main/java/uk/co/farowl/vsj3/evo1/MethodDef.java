@@ -61,7 +61,13 @@ abstract class MethodDef {
     /** Whether an instance, static or class method (in Python). */
     final Kind kind;
 
+    /**
+     * Enum describing whether a method is an instance, static or class
+     * method (in Python).
+     */
+
     enum Kind {
+        // XXX Same idea in Slot and Exposer: refactor to one Kind.
         /** The first argument represents a self or module argument. */
         INSTANCE,
         /** An initial self or module argument is not expected. */
@@ -74,9 +80,6 @@ abstract class MethodDef {
 
     /** Empty names array. */
     private static final String[] NO_STRINGS = new String[0];
-
-    /** Empty values array. */
-    private static final Object[] NO_OBJECTS = new Object[0];
 
     /**
      * The type of exception thrown by invoking
@@ -94,6 +97,55 @@ abstract class MethodDef {
     }
 
     /**
+     * Create a {@link MethodDef} from the {@link ArgParser} provided.
+     *
+     * @param argParser parser defining the method
+     */
+    MethodDef(ArgParser argParser) {
+        // XXX Consider making MethodDef extend ArgParser
+        this.kind = Kind.INSTANCE;
+        this.name = argParser.name;
+        this.doc = argParser.doc;
+        this.argParser = argParser;
+    }
+
+    /**
+     *
+     * @param kind whether static, etc.
+     * @param name of the method
+     * @param varargs whether there is positional collector
+     * @param varkw whether there is a keywords collector
+     * @param argnames names of the arguments
+     * @param posonlyargcount how many are positional-only
+     * @param kwonlyargcount how many are keyword-only (from the end)
+     * @param defaults positional defaults
+     * @param kwdefaults keyword defaults
+     * @param doc documentation string
+     */
+    MethodDef(Kind kind, String name, boolean varargs, boolean varkw,
+            String[] argnames, int posonlyargcount, int kwonlyargcount,
+            Object[] defaults, Map<Object, Object> kwdefaults,
+            String doc) {
+        this.kind = kind;
+        this.name = name;
+        if (argnames == null) { argnames = NO_STRINGS; }
+
+        this.doc = doc == null ? "" : doc;
+
+        // Currently only supporting:
+        assert (kind == Kind.INSTANCE);
+
+        // XXX note this correct for the bound method (excludes self)
+        // argParser largely duplicates the MethodDef.
+        // XXX Consider making MethodDef extend ArgParser
+        this.argParser =
+                new ArgParser(name, varargs, varkw, posonlyargcount,
+                        kwonlyargcount, argnames, argnames.length)
+                                .defaults(defaults)
+                                .kwdefaults(kwdefaults);
+    }
+
+    /**
      *
      * @param kind whether static, etc.
      * @param name of the method
@@ -107,24 +159,105 @@ abstract class MethodDef {
     MethodDef(Kind kind, String name, String[] argnames,
             int posonlyargcount, int kwonlyargcount, Object[] defaults,
             Map<Object, Object> kwdefaults, String doc) {
-        this.kind = kind;
-        this.name = name;
-        if (argnames == null) { argnames = NO_STRINGS; }
 
-        this.doc = doc == null ? "" : doc;
-
-        // argParser largely duplicates the MethodDef.
-        // XXX note this correct for the bound method (excludes self)
-        // XXX Consider making MethodDef extend ArgParser
-        this.argParser =
-                new ArgParser(name, false, false, posonlyargcount,
-                        kwonlyargcount, argnames, argnames.length)
-                                .defaults(defaults)
-                                .kwdefaults(kwdefaults);
+        this(kind, name, false, false, argnames, posonlyargcount,
+                kwonlyargcount, defaults, kwdefaults, doc);
     }
 
-    MethodDef(Kind kind, String name, String[] argnames, String doc) {
-        this(kind, name, argnames, argnames.length, 0, null, null, doc);
+    /**
+     *
+     * @param name of the method
+     * @param varargs whether there is positional collector
+     * @param varkw whether there is a keywords collector
+     * @param argnames names of the arguments
+     * @param posonlyargcount how many are positional-only
+     * @param kwonlyargcount how many are keyword-only (from the end)
+     * @param defaults positional defaults
+     * @param kwdefaults keyword defaults
+     * @param doc documentation string
+     */
+    static MethodDef forInstance(String name, boolean varargs,
+            boolean varkw, String[] argnames, int regargcount,
+            int posonlyargcount, int kwonlyargcount, Object[] defaults,
+            Map<Object, Object> kwdefaults, String doc) {
+        // XXX note this correct for the bound method (excludes self)
+        // argParser largely duplicates the MethodDef.
+        // XXX Consider making MethodDef extend ArgParser
+        ArgParser argParser =
+                new ArgParser(name, varargs, varkw, posonlyargcount,
+                        kwonlyargcount, argnames, argnames.length);
+
+        return forInstance(argParser, defaults, kwdefaults);
+    }
+
+    /**
+     * Create a {@link MethodDef} from an argument parser. This factory
+     * method chooses a specific sub-class of {@code MethodDef}
+     * reflecting the parameter "pattern" embedded in the argument
+     * parser.
+     *
+     * @param ap the argument parser
+     * @return a corresponding {@code MethodDef}
+     */
+    static MethodDef forInstance(ArgParser ap, Object[] defaults,
+            Map<Object, Object> kwdefaults) {
+        /*
+         * XXX What are the possibilities we can beneficially implement
+         * with distinct code paths? The possible signatures of the
+         * receiving function in CPython are:
+         */
+        // METH_NOARGS: m(self)
+        // METH_O: m(self, a)
+        // METH_FASTCALL: m(self, a, ...)
+        // METH_FASTCALL | METH_KEYWORDS: m(self, a, ..., kwnames)
+        // METH_VARARGS: m(self, *args)
+        // METH_VARARGS | METH_KEYWORDS: m(self, *args, **kwargs)
+        // ... or it's an error.
+        /*
+         * METH_NOARGS and METH_O methods respectively must be called
+         * with exactly zero and one argument after self, or will raise
+         * an error. There is no possibility of defaults making up a
+         * trailing shortfall.
+         *
+         * In other cases argument numbers are not checked in the call,
+         * but in the Argument Clinic wrapper on the method. If it
+         * chooses, the wrapper may supply default values in the program
+         * text, and/or collect excess arguments supplied positionally
+         * in a tuple.
+         *
+         * Only two (with METH_KEYWORDS) allow arguments to be given by
+         * keyword. Where no keyword arguments are allowed, there can be
+         * no keyword-only parameters or keyword defaults. Where
+         * keywords are allowed, the called method may choose to collect
+         * excess keywords arguments in a dictionary.
+         */
+
+        // XXX Decide what MethodDef subclasses are needed.
+        // (Consider the call one might make from Java.)
+
+        if (!ap.hasVarKeywords()) {
+            if (!ap.hasVarArgs()) {
+                if (ap.kwonlyargcount == 0) {
+                    if (ap.posonlyargcount == ap.argcount) {
+                        // All arguments must be given by position
+                        if (ap.argcount == 0) {
+                            return new NoArgs(ap);
+                        } else if (ap.argcount == 1) {
+                            return new OneArg(ap);
+                        } else if (defaults == null) {
+                            return new Positional(ap);
+                        } else {
+                            ap.defaults(defaults);
+                            return new PositionalOptional(ap, defaults);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Fall back to the general case (apply defaults)
+        ap.defaults(defaults).kwdefaults(kwdefaults);
+        return new General(ap);
     }
 
     /**
@@ -141,7 +274,7 @@ abstract class MethodDef {
      * @param wrapped handle of the method to call
      * @param self target object of the method call
      * @param args of the method call
-     * @param kwargs of the method call
+     * @param kwargs of the method call or {@code null} or empty
      * @return result of the method call
      * @throws TypeError when the arguments ({@code args},
      *     {@code kwargs}) are not correct for the {@code MethodType}
@@ -292,7 +425,7 @@ abstract class MethodDef {
      * {@link #callMethod(MethodHandle, Object, PyTuple, PyDict)}.
      *
      * @param args positional argument tuple to be checked
-     * @param kwargs to be checked
+     * @param kwargs to be checked {@code null} or empty
      * @throws TypeError if positional arguments are given or
      *     {@code kwargs} is not {@code null} or empty
      */
@@ -312,7 +445,7 @@ abstract class MethodDef {
      *
      * @param args positional argument tuple to be checked
      * @param expArgs expected number of positional arguments
-     * @param kwargs to be checked
+     * @param kwargs to be checked {@code null} or empty
      * @throws TypeError if the wrong number of positional arguments are
      *     given or {@code kwargs} is not {@code null} or empty
      */
@@ -333,7 +466,7 @@ abstract class MethodDef {
      * @param args positional argument tuple to be checked
      * @param minArgs minimum number of positional arguments
      * @param maxArgs maximum number of positional arguments
-     * @param kwargs to be checked
+     * @param kwargs to be checked {@code null} or empty
      * @throws TypeError if the wrong number of positional arguments are
      *     given or {@code kwargs} is not {@code null} or empty
      */
@@ -352,8 +485,8 @@ abstract class MethodDef {
 
         private static MethodType GENERIC = genericMethodType(1);
 
-        NoArgs(String name, String doc) {
-            super(Kind.INSTANCE, name, NO_STRINGS, doc);
+        NoArgs(ArgParser ap) {
+            super(ap);
         }
 
         @Override
@@ -375,8 +508,8 @@ abstract class MethodDef {
 
         private static MethodType GENERIC = genericMethodType(2);
 
-        OneArg(String name, String[] argnames, String doc) {
-            super(Kind.INSTANCE, name, argnames, doc);
+        OneArg(ArgParser ap) {
+            super(ap);
         }
 
         @Override
@@ -394,13 +527,16 @@ abstract class MethodDef {
         }
     }
 
-    /** A method with signature {@code (S,O[])O}. */
-    static class FixedArgs extends MethodDef {
+    /**
+     * A method with signature {@code (S,O[])O} where the arguments to a
+     * call must match exactly the number of positional parameters.
+     */
+    static class Positional extends MethodDef {
 
         private static MethodType GENERIC = genericMethodType(1, true);
 
-        FixedArgs(String name, String[] argnames, String doc) {
-            super(Kind.INSTANCE, name, argnames, doc);
+        Positional(ArgParser ap) {
+            super(ap);
         }
 
         @Override
@@ -419,4 +555,112 @@ abstract class MethodDef {
             return method.invoke(self, args.value);
         }
     }
+
+    /**
+     * An instance method with signature {@code (S,O[])O}, taking only
+     * positional arguments, and where the {@link MethodDef} provides
+     * default values for some (trailing) parameters.
+     */
+    static class PositionalOptional extends MethodDef {
+
+        private static MethodType GENERIC = genericMethodType(1, true);
+        private final Object[] defaults;
+
+        /**
+         * An instance method with signature {@code (S,O[])O}, taking
+         * only positional arguments, and where the {@link MethodDef}
+         * provides default argument values for some (trailing)
+         * parameters.
+         *
+         * @param name of the method
+         * @param argnames names of the parameters
+         * @param defaults positional default argument values
+         * @param doc documentation string
+         */
+        PositionalOptional(String name, String[] argnames,
+                Object[] defaults, String doc) {
+            super(Kind.INSTANCE, name, argnames, argnames.length, 0,
+                    defaults, null, doc);
+            this.defaults = defaults;
+        }
+
+        PositionalOptional(ArgParser ap, Object[] defaults) {
+            super(ap);
+            this.defaults = defaults;
+        }
+
+        @Override
+        MethodHandle prepareSpecific(MethodHandle mh) {
+            // All but the self argument will be presented as an array
+            checkConvertible(mh, 1);
+            int n = mh.type().parameterCount() - 1;
+            return mh.asSpreader(Object[].class, n).asType(GENERIC);
+        }
+
+        @Override
+        Object callMethod(MethodHandle method, Object self,
+                PyTuple args, PyDict kwargs)
+                throws ArgumentError, Throwable {
+            checkArgs(args, argParser.argcount - defaults.length,
+                    argParser.argcount, kwargs);
+            int n = args.size(), gap = argParser.argcount - n;
+            Object[] frame;
+            if (gap > 0) {
+                // Fill in gap missing argument from defaults
+                frame = new Object[argParser.argcount];
+                System.arraycopy(args.value, 0, frame, 0, n);
+                System.arraycopy(defaults, defaults.length - gap, frame,
+                        n, gap);
+            } else {
+                frame = args.value;
+            }
+            return method.invoke(self, frame);
+        }
+    }
+
+    /**
+     * An instance method with signature {@code (S,TUPLE,DICT)O},
+     * accepting arguments by position or keyword, and where the
+     * {@link MethodDef} provides default values for some parameters by
+     * positional and keyword defaults.
+     */
+    static class General extends MethodDef {
+
+        // TODO adapt code for fully general case.
+
+        private static MethodType GENERIC = genericMethodType(1, true);
+
+        /**
+         * An instance method with signature {@code (S,TUPLE,DICT)O},
+         * arbitrary arguments.
+         *
+         * @param name of the method
+         * @param argnames names of the parameters
+         * @param doc documentation string
+         */
+        General(ArgParser ap) {
+            super(ap);
+        }
+
+        @Override
+        MethodHandle prepareSpecific(MethodHandle mh) {
+            // All but the self argument will be presented as an array
+            checkConvertible(mh, 1);
+            int n = mh.type().parameterCount() - 1;
+            return mh.asSpreader(Object[].class, n).asType(GENERIC);
+        }
+
+        @Override
+        Object callMethod(MethodHandle method, Object self,
+                PyTuple args, PyDict kwargs)
+                throws ArgumentError, Throwable {
+            /*
+             * The general method is to make an array of the args,
+             * kwargs using the full logic of the parser.
+             */
+            Object[] frame = argParser.parse(args, kwargs);
+            return method.invoke(self, frame);
+        }
+    }
+
 }

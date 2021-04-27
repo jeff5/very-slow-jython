@@ -168,7 +168,7 @@ class Callables extends Abstract {
      * @param stack positional and keyword arguments
      * @param start position of arguments in the array
      * @param nargs number of positional arguments
-     * @param kwnames tuple of names (possibly empty or null)
+     * @param kwnames tuple of names (may be {@code null} if empty)
      * @return dictionary or {@code null} if {@code kwnames==null}
      */
     // Compare CPython _PyStack_AsDict in call.c

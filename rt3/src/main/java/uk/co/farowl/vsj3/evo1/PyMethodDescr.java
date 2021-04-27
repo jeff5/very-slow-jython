@@ -1,5 +1,6 @@
 package uk.co.farowl.vsj3.evo1;
 
+import java.lang.annotation.Annotation;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
@@ -8,11 +9,22 @@ import java.lang.invoke.WrongMethodTypeException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Parameter;
+import java.math.BigInteger;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.ListIterator;
+import java.util.Map;
+import java.util.StringJoiner;
 
+import uk.co.farowl.vsj3.evo1.Exposed.Default;
+import uk.co.farowl.vsj3.evo1.Exposed.DocString;
+import uk.co.farowl.vsj3.evo1.Exposed.JavaMethod;
+import uk.co.farowl.vsj3.evo1.Exposed.KeywordCollector;
 import uk.co.farowl.vsj3.evo1.Exposed.KeywordOnly;
 import uk.co.farowl.vsj3.evo1.Exposed.Name;
+import uk.co.farowl.vsj3.evo1.Exposed.PositionalCollector;
 import uk.co.farowl.vsj3.evo1.Exposed.PositionalOnly;
 import uk.co.farowl.vsj3.evo1.PyType.Flag;
 
@@ -76,6 +88,7 @@ abstract class PyMethodDescr extends MethodDescriptor {
          * instance method, {@link #method} has type {@code (O, O[])O},
          * or {@code (O)O}.
          */
+        // Compare CPython PyMethodDescrObject::vectorcall
         protected final MethodHandle method;
 
         /**
@@ -112,10 +125,11 @@ abstract class PyMethodDescr extends MethodDescriptor {
 
         /**
          * Handles for the particular implementations of a special
-         * method being method. The method type of each is the same. In
-         * an instance method, {@link #method} entries have type
-         * {@code (O, O[])O}, or {@code (O)O}.
+         * method. The method type of each is the same. In an instance
+         * method, {@link #method} entries have type {@code (O, O[])O},
+         * or {@code (O)O}.
          */
+        // Compare CPython PyMethodDescrObject::vectorcall
         protected final MethodHandle[] method;
 
         /**
@@ -238,7 +252,7 @@ abstract class PyMethodDescr extends MethodDescriptor {
      *
      * @param self target object of the method call
      * @param args of the method call
-     * @param kwargs of the method call
+     * @param kwargs of the method call (may be {@code null} if empty)
      * @return result of the method call
      * @throws TypeError if the arguments do not fit the method
      * @throws Throwable from the implementation of the method
@@ -256,21 +270,63 @@ abstract class PyMethodDescr extends MethodDescriptor {
     }
 
     // Compare CPython method_call in descrobject.c
-    public Object call(Object... args) throws Throwable {
-        // XXX Implement
-        return null;
+    public Object call(Object self, Object... args) throws Throwable {
+        return call(self, args, null);
     }
 
     /**
-     * @implNote Currently not supporting keyword arguments.
+     * Call with vector semantics: an array of all the argument values
+     * (after the self argument) and a tuple of the names of those given
+     * by keyword.
+     *
+     * @param self target object of the method call
+     * @param args arguments of the method call
+     * @param kwnames tuple of names (may be {@code null} if empty)
+     * @return result of the method call
+     * @throws TypeError if the arguments do not fit the method
+     * @throws Throwable from the implementation of the method
      */
-    public Object call(Object[] args, PyTuple kwnames)
+    public Object call(Object self, Object[] args, PyTuple kwnames)
             throws Throwable {
-        if (kwnames == null || kwnames.size() == 0) {
-            // XXX Implement
-            return null;
+
+        if (self == null) {
+            // Not even the self argument
+            throw new TypeError(DESCRIPTOR_NEEDS_ARGUMENT, name,
+                    objclass.name);
+
         } else {
-            throw new MissingFeature("Keywords in vector call");
+            // Manage the argument vector and names into classic form
+            /*
+             * XXX We wouldn't want to do this long-term, unless the
+             * ultimate receiving method has a classic signature,
+             * because the vector form of the call allow optimisations.
+             */
+            PyTuple argTuple;
+            PyDict kwargs;
+
+            if (args == null || args.length == 0) {
+                // No arguments (easy)
+                argTuple = PyTuple.EMPTY;
+                kwargs = null;
+            } else if (kwnames == null) {
+                // No keyword arguments
+                argTuple = new PyTuple(args);
+                kwargs = null;
+            } else {
+                // Args given by position and keyword
+                int pos = args.length - kwnames.size();
+                kwargs = Callables.stackAsDict(args, 0, pos, kwnames);
+                argTuple = new PyTuple(args, 0, pos);
+            }
+
+            // Make sure that the first argument is acceptable as 'self'
+            PyType selfType = PyType.of(self);
+
+            if (!Abstract.recursiveIsSubclass(selfType, objclass)) {
+                throw new TypeError(DESCRIPTOR_REQUIRES, name,
+                        objclass.name, selfType.name);
+            }
+            return callWrapped(self, argTuple, kwargs);
         }
     }
 
@@ -481,34 +537,100 @@ abstract class PyMethodDescr extends MethodDescriptor {
      */
     static class MethodSpecification extends DescriptorSpecification {
 
-        /** The name of the method being defined */
+        /** The Python name of the method being defined. */
         final String name;
 
         /**
-         * Names of arguments not including the {@code self} argument of
-         * instance methods. (The names are the arguments to the method
+         * Names of parameters not including the {@code self} of
+         * instance methods. (The names are the parameters to the method
          * in the first call to {@link #add(Method)}).
          */
-        String[] argumentNames;
+        String[] parameterNames;
+
+        /**
+         * The number of positional or keyword parameters, excluding the
+         * "collector" ({@code *args} and {@code **kwargs}) arguments.
+         * Its value is {@code Integer.MAX_VALUE} until the primary
+         * definition of the method has been encountered.
+         */
+        int regargcount = Integer.MAX_VALUE;
 
         /**
          * The number of positional-only arguments (after {@code self}).
-         * (The value reflects the method in the first call to
-         * {@link #add(Method)}).
+         * This must be specified in the method declaration marked as
+         * primary if more than one declaration of the same name is
+         * annotated {@link JavaMethod}. Its value is
+         * {@code Integer.MAX_VALUE} until the primary definition of the
+         * method has been encountered, after which it is somewhere
+         * between 0 and {@link #regargcount} inclusive.
          */
-        int posonlyargcount;
+        int posonlyargcount = Integer.MAX_VALUE;
 
         /**
-         * The number of keyword-only arguments. (The value reflects the
-         * method in the first call to {@link #add(Method)}).
+         * The number of keyword-only parameters (equals the number of
+         * positional parameters. This is derived from the
+         * {@link KeywordOnly} annotation. If more than one declaration
+         * of the same name is annotated {@link JavaMethod}, it must be
+         * specified in the method declaration marked as primary.
          */
         int kwonlyargcount;
 
+        /**
+         * Default values supplied on positional parameters (not just
+         * positional-only parameters), or {@code null}.
+         */
+        Object[] defaults = null;
+
+        /**
+         * Default values supplied on keyword-only parameters, or
+         * {@code null}.
+         */
+        Map<Object, Object> kwdefaults = null;
+
+        /**
+         * Position of the excess positional collector in
+         * {@link #parameterNames} or {@code -1} if there isn't one.
+         */
+        int varArgsIndex = -1;
+
+        /**
+         * Position of the excess keywords collector in
+         * {@link #parameterNames} or {@code -1} if there isn't one.
+         */
+        int varKeywordsIndex = -1;
+
+        /** This is a static method (from a Python perspective). */
         boolean isStatic;
+
+        /** Empty names array. */
+        private static final String[] NO_STRINGS = new String[0];
 
         /** @param name of method. */
         MethodSpecification(String name) {
             this.name = name;
+        }
+
+        /**
+         * Check that {@link #processParameters(Method, boolean)} has
+         * been called for a primary definition.
+         */
+        boolean isDefined() {
+            return parameterNames != null
+                    && regargcount <= parameterNames.length;
+        }
+
+        /**
+         * @return true if positional argument collector defined.
+         */
+        boolean hasVarArgs() {
+            return varArgsIndex >= 0;
+        }
+
+        /**
+         * @return true if keyword argument collector defined.
+         */
+        boolean hasVarKeywords() {
+            return varKeywordsIndex >= 0;
         }
 
         /**
@@ -523,7 +645,10 @@ abstract class PyMethodDescr extends MethodDescriptor {
             boolean first = methods.isEmpty();
             super.add(method);
 
-            // Check for defined static (in Java)
+            JavaMethod anno = method.getAnnotation(JavaMethod.class);
+            boolean primary = anno.primary();
+
+            // Check for defined static (in Java, not Python)
             int modifiers = method.getModifiers();
             boolean javaStatic = (modifiers & Modifier.STATIC) != 0;
 
@@ -531,60 +656,390 @@ abstract class PyMethodDescr extends MethodDescriptor {
             int n = method.getParameterCount() - (javaStatic ? 1 : 0);
 
             if (first) {
-                // First encounter defines the signature
-                argumentNames = new String[n];
-                // Skip an initial "self" argument name
-                int i = javaStatic ? -1 : 0;
-                // Capture arg names: must compile with -parameters.
-                for (Parameter p : method.getParameters()) {
-                    if (i >= 0) {
-                        argumentNames[i] = processAnnotations(p, i);
-                    }
-                    i += 1;
-                }
+                /*
+                 * Allocate storage for argument names. We shall store
+                 * the names only if this is also the primary
+                 * definition, (as well as the first), but will always
+                 * check the number of parameters against this size.
+                 */
+                parameterNames = n == 0 ? NO_STRINGS : new String[n];
 
-            } else if (n != argumentNames.length) {
+            } else if (n != parameterNames.length) {
+                // Number of arguments differs.
+                // XXX Is it correct to check the types (after self)?
                 throw new InterpreterError(FURTHER_DEF_ARGS,
-                        method.getName(), n, argumentNames.length);
+                        getJavaMethodName(), n, parameterNames.length);
+            }
+
+            if (primary) {
+                // Primary definition defines the signature
+                if (isDefined())
+                    throw new InterpreterError(ONE_PRIMARY,
+                            getJavaMethodName());
+                /*
+                 * If annotated positionalOnly=false, the method has no
+                 * positional-only parameters. if not so annotated, then
+                 * positionalOnly=true, and all arguments are
+                 * positional-only (until an annotation of a parameter
+                 * with @PositionalOnly puts an end to that).
+                 */
+                if (!anno.positionalOnly()) { posonlyargcount = 0; }
+
+                // THere may be a @DocString annotation
+                DocString docAnno =
+                        method.getAnnotation(DocString.class);
+                if (docAnno != null) { doc = docAnno.value(); }
+
+                /*
+                 * Process the sequence of parameters and their
+                 * annotations.
+                 */
+                processParameters(method, javaStatic);
+
+            } else {
+                // This is not the primary definition
+                disallowAnnotation(method, DocString.class);
+                for (Parameter p : method.getParameters()) {
+                    disallowAnnotations(p);
+                }
             }
         }
 
         private static final String FURTHER_DEF_ARGS =
                 "Further definition of '%s' has %d (not %d) arguments";
 
+        private static final String ONE_PRIMARY =
+                "All but one definition of '%s' should have "
+                        + "element primary=false";
+
         /**
-         * Process the <i>i</i> th parameter for its
-         * annotations @{@link Name},
+         * Scan the parameters of the method being defined looking for
+         * annotations that determine the specification of the method as
+         * exposed to Python, and which are held temporarily by this
+         * {@code MethodSpecification}. Although the annotations do not
+         * all work in isolation, their effect may be summarised:
+         * <table>
+         * <tr>
+         * <th>Annotation</th>
+         * <th>Effect on fields</th>
+         * </tr>
          *
-         * @{@link PositionalOnly}, and @{@link KeywordOnly}.
-         * @param p to process
-         * @param i index in {@link #argumentNames}
-         * @return the name of the parameter
+         * <tr>
+         * <td>&#064;{@link Name}</td>
+         * <td>Renames the parameter where needed (e.g. we want to call
+         * it "new"). This, or the simple parameter name, appear in at
+         * the correct position in {@link #parameterNames}</td>
+         * </tr>
+         *
+         * <tr>
+         * <td>&#064;{@link Default}</td>
+         * <td>Provides the default value in {@link #defaults} or
+         * {@link #kwdefaults}.</td>
+         * </tr>
+         *
+         * <tr>
+         * <td>&#064;{@link PositionalOnly}</td>
+         * <td>Sets {@link #posonlyargcount} to that parameter.</td>
+         * </tr>
+         *
+         * <tr>
+         * <td>&#064;{@link KeywordOnly}</td>
+         * <td>Determines {@link #kwonlyargcount} from a count of this
+         * and the regular (non-collector) arguments following.</td>
+         * </tr>
+         *
+         * <tr>
+         * <td>&#064;{@link PositionalCollector}</td>
+         * <td>Designates the collector of excess arguments given by
+         * position. (Must follow all regular arguments.) Sets
+         * {@link #haveVarargs}.</td>
+         * </tr>
+         *
+         * <tr>
+         * <td>&#064;{@link KeywordCollector}</td>
+         * <td>Designates the collector of excess arguments given by
+         * keyword. (Must follow all regular arguments and any
+         * positional collector.) Sets {@link #haveVarkwargs}.</td>
+         * </tr>
+         * </table>
+         *
+         * @param method being defined
+         * @param skip if {@code true} skip the first parameter
          */
-        private String processAnnotations(Parameter p, int i) {
+        private void processParameters(Method method, boolean skip) {
+            /*
+             * This should have the same logic as
+             * ArgParser.fromSignature, except that in the absence of
+             * a @PositionalOnly annotation, the default is as supplied
+             * by the method annotation (already processed). Rather than
+             * "/" and "*" markers in the parameter sequence, we find
+             * annotations on the parameters themselves.
+             */
 
-            // Parameter may be the last positional-only argument (/)
-            PositionalOnly pos = p.getAnnotation(PositionalOnly.class);
-            if (pos != null) { posonlyargcount = i + 1; }
+            // Collect the names of the arguments here
+            ArrayList<String> paramNames = new ArrayList<>();
 
-            // Parameter may be the first keyword-only argument (*)
-            KeywordOnly kwd = p.getAnnotation(KeywordOnly.class);
-            if (kwd != null && kwonlyargcount == 0) {
-                kwonlyargcount = argumentNames.length - i;
+            // Count regular (non-collector) parameters
+            int count = 0;
+
+            // Collect the default values here
+            ArrayList<Object> posDefaults = null;
+
+            // Indices of specific markers
+            // int posOnlyIndex = Integer.MAX_VALUE;
+            int kwOnlyIndex = Integer.MAX_VALUE;
+
+            /*
+             * Scan parameters, looking out for Name, Default,
+             * PositionalOnly, KeywordOnly, PositionalCollector and
+             * KeywordCollector annotations.
+             */
+            Parameter[] paramArray = method.getParameters();
+            int paramIndex = skip ? 1 : 0;  // Skip "self" parameter
+
+            while (paramIndex < paramArray.length) {
+
+                // The parameter currently being processed
+                Parameter p = paramArray[paramIndex++];
+
+                // index of parameter in Python != paramIndex, possibly
+                int i = paramNames.size();
+
+                // Use a replacement Python name if annotated @Name
+                Name name = p.getAnnotation(Name.class);
+                String paramName =
+                        name == null ? p.getName() : name.value();
+                paramNames.add(paramName);
+
+                // Pick up all the other annotations on p
+                PositionalOnly pos =
+                        p.getAnnotation(PositionalOnly.class);
+                KeywordOnly kwd = p.getAnnotation(KeywordOnly.class);
+                Default def = p.getAnnotation(Default.class);
+                PositionalCollector posColl =
+                        p.getAnnotation(PositionalCollector.class);
+                KeywordCollector kwColl =
+                        p.getAnnotation(KeywordCollector.class);
+
+                // Disallow these on the same parameter
+                notUsedTogether(method, paramName, pos, kwd, posColl,
+                        kwColl);
+                notUsedTogether(method, paramName, def, posColl);
+                notUsedTogether(method, paramName, def, kwColl);
+
+                /*
+                 * We have eliminated the possibility of disallowed
+                 * combinations of annotations, so we can process the
+                 * parameter types as alternatives.
+                 */
+                if (pos != null) {
+                    // p is the (last) @PositionalOnly parameter
+                    posonlyargcount = i + 1;
+
+                } else if (kwd != null
+                        && kwOnlyIndex == Integer.MAX_VALUE) {
+                    // p is the (first) @KeywordOnly parameter
+                    kwOnlyIndex = i;
+
+                } else if (posColl != null) {
+                    // p is the @PositionalCollector
+                    varArgsIndex = i;
+
+                } else if (kwColl != null) {
+                    // p is the @KeywordCollector
+                    varKeywordsIndex = i;
+                }
+
+                /*
+                 * Check for a default value @Default. The value is a
+                 * String we must interpret to Python.
+                 */
+                if (def != null) {
+                    /*
+                     * We know p is not a *Collector parameter, but our
+                     * actions depend on whether it is positional or
+                     * keyword-only.
+                     */
+                    if (i < kwOnlyIndex) {
+                        // p is a positional parameter with a default
+                        if (posDefaults == null)
+                            posDefaults = new ArrayList<>();
+                        posDefaults.add(eval(def.value()));
+                    } else { // i >= kwOnlyIndex
+                        // p is a keyword-only parameter with a default
+                        if (kwdefaults == null)
+                            kwdefaults = new HashMap<Object, Object>();
+                        kwdefaults.put(paramName, eval(def.value()));
+                    }
+
+                } else if (posDefaults != null && i < kwOnlyIndex) {
+                    /*
+                     * Once we have started collecting positional
+                     * default values, all subsequent positional
+                     * parameters must have a default.
+                     */
+                    throw new InterpreterError(MISSING_DEFAULT,
+                            getJavaMethodName(), paramName);
+                }
+
+                /*
+                 * Parameters not having *Collector annotations are
+                 * "regular". Keep count of them, and check we have not
+                 * yet defined either collector.
+                 */
+                if (kwColl == null) {
+                    // Note this also catches positional collector
+                    if (hasVarKeywords())
+                        throw new InterpreterError(FOLLOWS_KW_COLLECTOR,
+                                getJavaMethodName(), paramName);
+                    if (posColl == null) {
+                        if (hasVarArgs())
+                            throw new InterpreterError(
+                                    FOLLOWS_POS_COLLECTOR,
+                                    getJavaMethodName(), paramName);
+                        count = i + 1;
+                    }
+                }
             }
 
-            // XXX Also process defaults. (Into an array?)
+            /*
+             * Some checks and assignments we can only do when we've
+             * seen all the parameters.
+             */
+            regargcount = count;
+            posonlyargcount = Math.min(posonlyargcount, count);
+            kwonlyargcount = count - Math.min(paramIndex, count);
 
-            Name name = p.getAnnotation(Name.class);
-            return name == null ? p.getName() : name.value();
+            if (posDefaults != null) {
+                defaults = posDefaults.toArray();
+            }
+
+            int n = paramNames.size();
+            assert n == parameterNames.length;
+            if (n > 0) { paramNames.toArray(parameterNames); }
         }
+
+        private static final String PARAM = "'%s' parameter '%s' ";
+        private static final String MISSING_DEFAULT =
+                PARAM + "missing default value";
+        private static final String FOLLOWS_POS_COLLECTOR =
+                PARAM + "follows postional argument collector";
+        private static final String FOLLOWS_KW_COLLECTOR =
+                PARAM + "follows keyword argument collector";
+        private static final String ANNOTATIONS_TOGETHER =
+                PARAM + "annotations %s may not appear together";
+
+        /**
+         * Check that only one of the annotations (on a given parameter)
+         * is null.
+         *
+         * @param method within which parameter appears
+         * @param paramName its name
+         * @param anno the annotations to check
+         * @throws InterpreterError if more than one not {@code null}.
+         */
+        private void notUsedTogether(Method method, String paramName,
+                Annotation... anno) throws InterpreterError {
+            // Is there a problem?
+            int count = 0;
+            for (Annotation a : anno) { if (a != null) { count++; } }
+            if (count > 1) {
+                // There is a problem: collect the details.
+                StringJoiner sj = new StringJoiner(",");
+                for (Annotation a : anno) {
+                    String name = a.annotationType().getSimpleName();
+                    if (a != null) { sj.add(name); }
+                }
+                throw new InterpreterError(ANNOTATIONS_TOGETHER,
+                        getJavaMethodName(), paramName, sj);
+            }
+        }
+
+        /**
+         * Poor man's eval() specifically for default values in built-in
+         * methods.
+         */
+        private Object eval(String s) {
+            if (s == null || s.equals("None")) {
+                return Py.None;
+            } else if (s.matches(REGEX_INT)) {
+                // Small integer if we can; big if we can't
+                BigInteger b = new BigInteger(s);
+                try {
+                    return b.intValueExact();
+                } catch (ArithmeticException e) {
+                    return b;
+                }
+            } else if (s.matches(REGEX_FLOAT)) {
+                return Float.valueOf(s);
+            } else if (s.matches(REGEX_STRING)) {
+                return Float.valueOf(s);
+            } else {
+                // A somewhat lazy fall-back
+                return s;
+            }
+        }
+
+        private static String REGEX_INT = "-?\\d+";
+        private static String REGEX_FLOAT =
+                "[-+]?\\d+\\.\\d*((e|E)[-+]?\\d+)?";
+        private static String REGEX_STRING = "('[~']*'|\"[~\"]*\")";
+
+        /**
+         * Check that the method has no annotation of the given type.
+         *
+         * @param method to process
+         * @parame annoClass type of annotation disallowed
+         */
+        private void disallowAnnotation(Method method,
+                Class<? extends Annotation> annoClass) {
+            Annotation a = method.getAnnotation(annoClass);
+            if (a != null) {
+                String annoName = a.annotationType().getSimpleName();
+                throw new InterpreterError(SECONDARY_DEF_ANNO,
+                        getJavaMethodName(), annoName);
+            }
+        }
+
+        private static final String SECONDARY_DEF_ANNO =
+                "Secondary definition of '%s' "
+                        + "has disallowed annotation '%s'";
+
+        /**
+         * Check that the parameter has no annotations
+         * &#064;{@link Name}, &#064;{@link PositionalOnly}, and
+         * &#064;{@link KeywordOnly}.
+         *
+         * @param p to process
+         */
+        private void disallowAnnotations(Parameter p) {
+            for (Class<? extends Annotation> annoClass : DISALLOWED_PAR_ANNOS) {
+                Annotation a = p.getAnnotation(annoClass);
+                if (a != null) {
+                    String annoName =
+                            a.annotationType().getSimpleName();
+                    throw new InterpreterError(SECONDARY_DEF_PAR_ANNO,
+                            getJavaMethodName(), p.getName(), annoName);
+                }
+            }
+        }
+
+        /**
+         * Parameter annotations disallowed on a secondary definition.
+         */
+        private static final List<Class<? extends Annotation>> //
+        DISALLOWED_PAR_ANNOS = List.of(Name.class, PositionalOnly.class,
+                KeywordOnly.class, Default.class);
+
+        private static final String SECONDARY_DEF_PAR_ANNO =
+                "Secondary definition of '%s' parameter '%s' "
+                        + "has disallowed annotation '%s'";
 
         @Override
         PyMethodDescr createDescr(PyType type, Lookup lookup) {
 
             // XXX Create a MethodDef and work from that?
             // XXX Process defaults to array/tuple and map/dict
-
 
             if (isStatic) {
                 throw new MissingFeature("expose method as static");
@@ -599,8 +1054,8 @@ abstract class PyMethodDescr extends MethodDescriptor {
         /**
          * Create a {@code PyMethodDescr} from this specification. Note
          * that a specification describes the methods as declared, and
-         * that there may be any number. This method matches them to the
-         * supported implementations.
+         * that there may be any number of them. This method matches
+         * them to the supported implementations.
          *
          * @param objclass Python type that owns the descriptor
          * @param lookup authorisation to access fields
@@ -611,27 +1066,16 @@ abstract class PyMethodDescr extends MethodDescriptor {
                 PyType objclass, Lookup lookup)
                 throws InterpreterError {
 
+            ArgParser ap = new ArgParser(name, varArgsIndex >= 0,
+                    varKeywordsIndex >= 0, posonlyargcount,
+                    kwonlyargcount, parameterNames, regargcount);
+
             // Methods have self + this many args:
-            final int L = argumentNames.length;
+            final int L = regargcount;
 
             // Specialise the MethodDef according to the signature.
-            String doc = getDoc();
-            MethodDef methodDef;
-            switch (L) {
-                case 0:
-                    // MT = (S)O
-                    methodDef = new MethodDef.NoArgs(name, doc);
-                    break;
-                case 1:
-                    // MT = (S,O)O
-                    methodDef = new MethodDef.OneArg(name,
-                            argumentNames, doc);
-                    break;
-                default:
-                    // MT = (S,O[])O
-                    methodDef = new MethodDef.FixedArgs(name,
-                            argumentNames, doc);
-            }
+            MethodDef methodDef =
+                    MethodDef.forInstance(ap, defaults, kwdefaults);
 
             /*
              * There could be any number of candidates in the
@@ -771,6 +1215,5 @@ abstract class PyMethodDescr extends MethodDescriptor {
             return String.format("MethodSpec(%s[%d])", name,
                     methods.size());
         }
-
     }
 }

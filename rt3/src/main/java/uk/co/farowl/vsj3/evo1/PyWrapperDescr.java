@@ -303,12 +303,11 @@ abstract class PyWrapperDescr extends MethodDescriptor {
     }
 
     /**
-     * {@code WrapperSpecification} represents
-     *  one or more methods of a Java class
-     * that are to be exposed as a single <b>special method</b> of an
-     * {@code object}. The exporting class provides definitions for
-     * the special method, that appear here as {@code java.lang.reflect.Method}s with different
-     * signatures.
+     * {@code WrapperSpecification} represents one or more methods of a
+     * Java class that are to be exposed as a single <b>special
+     * method</b> of an {@code object}. The exporting class provides
+     * definitions for the special method, that appear here as
+     * {@code java.lang.reflect.Method}s with different signatures.
      */
     static class WrapperSpecification extends DescriptorSpecification {
 
@@ -344,8 +343,8 @@ abstract class PyWrapperDescr extends MethodDescriptor {
 
         /**
          * Create a {@code PyWrapperDescr} from this specification. Note
-         * that a specification describes the methods as declared, and that
-         * there may be any number. This method matches them to the
+         * that a specification describes the methods as declared, and
+         * that there may be any number. This method matches them to the
          * supported implementations.
          *
          * @param objclass Python type that owns the descriptor
@@ -370,8 +369,8 @@ abstract class PyWrapperDescr extends MethodDescriptor {
 
         /**
          * Create a {@code PyWrapperDescr} from this specification. Note
-         * that a specification describes the methods as declared, and that
-         * there may be any number. This method matches them to the
+         * that a specification describes the methods as declared, and
+         * that there may be any number. This method matches them to the
          * supported implementations.
          *
          * @param objclass Python type that owns the descriptor
@@ -466,8 +465,8 @@ abstract class PyWrapperDescr extends MethodDescriptor {
 
         /**
          * Create a {@code PyWrapperDescr} from this specification. Note
-         * that a specification describes the methods as declared, and that
-         * there may be any number. This method matches them to the
+         * that a specification describes the methods as declared, and
+         * that there may be any number. This method matches them to the
          * supported implementations.
          *
          * @param objclass Python type that owns the descriptor
