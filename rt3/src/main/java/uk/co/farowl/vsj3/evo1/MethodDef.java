@@ -24,10 +24,10 @@ import uk.co.farowl.vsj3.evo1.MethodDescriptor.ArgumentError;
  */
 /*
  * We make a significant departure from CPython, in that we reify the
- * argument information as fields of this object. This makes the
- * processing of a call to a built-in function quite like a call to one
- * defined in Python. In CPython the information is processed by
- * Argument Clinic into generated source-code.
+ * argument information as a parser that is a member of this object.
+ * This makes the processing of a call to a built-in function quite like
+ * a call to one defined in Python. In CPython the information is
+ * processed by Argument Clinic into generated source-code.
  */
 // Compare CPython struct PyMethodDef
 abstract class MethodDef implements ClassShorthand {

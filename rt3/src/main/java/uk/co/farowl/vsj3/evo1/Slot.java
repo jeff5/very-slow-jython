@@ -376,50 +376,6 @@ enum Slot {
     interface Cls {}
 
     /**
-     * The kind of special method that satisfies this slot. Almost all
-     * slots are satisfied by an instance method. __new__ is a static
-     * method. In theory, we need class method as a type, but there are
-     * no live examples.
-     */
-    enum MethodKind {
-        /**
-         * The slot is satisfied by Java instance method. The first
-         * parameter type in the declared signature will have been the
-         * placeholder {@code Self}. The operation slot signature will
-         * have {@code Object} in that position. When we look up the
-         * Java implementation we will look for a virtual method using a
-         * method type that is the declared type with {@code Self}
-         * removed. When called, the target object has a type assignable
-         * to the receiving type, thanks to a checked cast. The result
-         * is that the defining methods need not include a cast to their
-         * type on the corresponding argument.
-         */
-        INSTANCE,
-        /**
-         * The slot is satisfied by Java static method. The first
-         * parameter type in the declared signature will have been the
-         * placeholder {@code Cls}. The operation slot signature will
-         * have {@code PyType} in that position. When we look up the
-         * Java implementation we will look for a static method using a
-         * method type that is the declared type with {@code Cls}
-         * replaced by {@code PyType}. When called, this type object is
-         * a sub-type (or the same as) the type implemented by the
-         * receiving type.
-         */
-        // At least, that's what would happen if we used it :/
-        CLASS,
-        /**
-         * The slot is satisfied by Java static method. The first
-         * parameter type in the declared signature will have been
-         * something other than {@code Self} or {@code Cls}. The
-         * operation slot signature will be the same. When we look up
-         * the Java implementation we will look for a static method
-         * using the method type as declared type.
-         */
-        STATIC;
-    }
-
-    /**
      * An enumeration of the acceptable signatures for slots in a
      * {@code PyType}. For each {@code MethodHandle} we may place in a
      * slot, we must know in advance the acceptable signature
@@ -601,8 +557,10 @@ enum Slot {
          */
         final MethodType type;
         /**
-         * Whether instance, static or class method. This determines the
-         * kind of lookup we must perform on the implementing class.
+         * The kind of special method that satisfies this slot. Almost all
+         * slots are satisfied by an instance method. __new__ is a static
+         * method. In theory, we need class method as a type, but there are
+         * no live examples.
          */
         final MethodKind kind;
         /**
