@@ -6,9 +6,7 @@ import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.invoke.MethodType;
 import java.lang.invoke.WrongMethodTypeException;
 import java.lang.reflect.Method;
-import java.util.ArrayList;
 import java.util.LinkedList;
-import java.util.List;
 import java.util.ListIterator;
 
 import uk.co.farowl.vsj3.evo1.Exposed.Getter;
@@ -46,7 +44,7 @@ import uk.co.farowl.vsj3.evo1.Slot.MethodKind;
  * attribute with the matching name. The result should be the same but
  * the process is more regular.
  */
-abstract class PyWrapperDescr extends MethodDescriptor {
+public abstract class PyWrapperDescr extends MethodDescriptor {
 
     static final PyType TYPE = PyType.fromSpec( //
             new PyType.Spec("wrapper_descriptor",
@@ -314,9 +312,6 @@ abstract class PyWrapperDescr extends MethodDescriptor {
         /** The special method being defined. */
         final Slot slot;
 
-        /** Collects the methods declared. */
-        final List<Method> methods = new ArrayList<>(1);
-
         /**
          * Obvious constructor
          *
@@ -456,8 +451,8 @@ abstract class PyWrapperDescr extends MethodDescriptor {
                 /*
                  * There are multiple definitions so use the array form
                  * of slot-wrapper. This is the case for types that have
-                 * multiple accepted implementationns and methods on
-                 * them that are not static or "Object self"..
+                 * multiple accepted implementations and methods on them
+                 * that are not static or "Object self".
                  */
                 return new PyWrapperDescr.Multiple(objclass, slot,
                         wrapped);

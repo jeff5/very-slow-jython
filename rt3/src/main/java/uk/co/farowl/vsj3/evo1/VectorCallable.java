@@ -29,6 +29,7 @@ interface VectorCallable {
      * @return result of the invocation
      * @throws Throwable from the implementation
      */
+    // XXX Needs to be callkw or something to disambiguate.
     Object call(Object[] args, PyTuple kwnames) throws Throwable;
 
     /**

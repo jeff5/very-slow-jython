@@ -5,7 +5,7 @@ import java.util.Arrays;
 import java.util.Iterator;
 
 import uk.co.farowl.vsj3.evo1.Exposed.Default;
-import uk.co.farowl.vsj3.evo1.Exposed.JavaMethod;
+import uk.co.farowl.vsj3.evo1.Exposed.PythonMethod;
 import uk.co.farowl.vsj3.evo1.Exposed.Name;
 import uk.co.farowl.vsj3.evo1.PyObjectUtil.NoConversion;
 
@@ -226,13 +226,13 @@ class PyUnicode implements PySequenceInterface<Integer>, CraftedType,
 
     // non-slot API ---------------------------------------------------
 
-    @JavaMethod(primary = false)
+    @PythonMethod(primary = false)
     boolean isascii() {
         for (int c : this) { if (c > 127) { return false; } }
         return true;
     }
 
-    @JavaMethod
+    @PythonMethod
     static boolean isascii(String self) {
         for (int c : new StringAdapter(self)) {
             if (c > 127) { return false; }
@@ -240,7 +240,7 @@ class PyUnicode implements PySequenceInterface<Integer>, CraftedType,
         return true;
     }
 
-    @JavaMethod
+    @PythonMethod
     PyUnicode ljust(int width, @Default(" ") String fillchar) {
         int len = Math.min(fillchar.length(), 4);
         if (fillchar.codePointCount(0, len) != 1) {
@@ -258,7 +258,7 @@ class PyUnicode implements PySequenceInterface<Integer>, CraftedType,
         return new PyUnicode(TYPE, buf);
     }
 
-    @JavaMethod(primary = false)
+    @PythonMethod(primary = false)
     static String ljust(String self, int width, String fillchar) {
         int len = Math.min(fillchar.length(), 4);
         if (fillchar.codePointCount(0, len) != 1) {
@@ -281,7 +281,7 @@ class PyUnicode implements PySequenceInterface<Integer>, CraftedType,
             "the fill character must be exactly one character long";
 
     // Simplified version (no count)
-    @JavaMethod
+    @PythonMethod
     String replace(Object old, @Name("new") Object _new) {
         // Annotations repeat since cannot rely on order processed
         String oldstr = old.toString();
@@ -290,7 +290,7 @@ class PyUnicode implements PySequenceInterface<Integer>, CraftedType,
 
     }
 
-    @JavaMethod(primary = false)
+    @PythonMethod(primary = false)
     static String replace(String self, Object old, Object _new) {
         // Annotations repeat since cannot rely on order processed
         String oldstr = old.toString();
@@ -298,7 +298,7 @@ class PyUnicode implements PySequenceInterface<Integer>, CraftedType,
         return self.replace(oldstr, newstr);
     }
 
-    @JavaMethod
+    @PythonMethod
     PyUnicode zfill(int width) {
         int n = value.length;
         int m = Math.max(width, n), start = 0, fill = m - n, c;
@@ -316,7 +316,7 @@ class PyUnicode implements PySequenceInterface<Integer>, CraftedType,
         return new PyUnicode(TYPE, buf);
     }
 
-    @JavaMethod(primary = false)
+    @PythonMethod(primary = false)
     static String zfill(String self, int width) {
         int n = self.codePointCount(0, self.length());
         int m = Math.max(width, n), start = 0, fill = m - n, c;

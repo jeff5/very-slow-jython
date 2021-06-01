@@ -7,8 +7,8 @@ import java.math.BigInteger;
 
 /**
  * A base class for unit tests that defines some common convenience
- * functions for which the need recurs.
- *
+ * functions for which the need recurs. A unit test that extends this
+ * base will initialise the type system before running.
  */
 class UnitTestSupport {
 
@@ -159,7 +159,9 @@ class UnitTestSupport {
                         o.getClass().getSimpleName(), expected.name));
     }
 
-    /** Assertion  for test that a result is a string beginning a certain way.
+    /**
+     * Assertion for test that a result is a string beginning a certain
+     * way.
      *
      * @param expected prefix
      * @param actual result to match

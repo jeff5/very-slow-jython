@@ -11,8 +11,6 @@ abstract class MethodDescriptor extends Descriptor {
         super(descrtype, objclass, name);
     }
 
-
-
     /**
      * The type of (non-Python) exception thrown by invoking a slot or
      * method with the wrong pattern of arguments. An
@@ -21,7 +19,6 @@ abstract class MethodDescriptor extends Descriptor {
      * the presence or otherwise of keyword arguments. It should be
      * caught by the immediate caller of
      * {@code callWrapped(MethodHandle, Object, PyTuple, PyDict)}
-     *
      */
     static class ArgumentError extends Exception {
 

@@ -2,24 +2,16 @@ package uk.co.farowl.vsj3.evo1;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.nio.ByteBuffer;
 import java.nio.charset.Charset;
-import java.util.EnumSet;
-import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
-import uk.co.farowl.vsj3.evo1.Exposed.DocString;
-import uk.co.farowl.vsj3.evo1.Exposed.JavaMethod;
-import uk.co.farowl.vsj3.evo1.Exposed.Member;
 import uk.co.farowl.vsj3.evo1.Exposed.PythonMethod;
 
 /**
@@ -444,12 +436,12 @@ class ExposerTest {
 
         // Methods using Java primitives -----------------------------
 
-        @JavaMethod
+        @PythonMethod
         int length() {
             return value.length();
         }
 
-        @JavaMethod
+        @PythonMethod
         double density(String ch) {
             int n = value.length(), count = 0;
             if (ch.length() != 1) {

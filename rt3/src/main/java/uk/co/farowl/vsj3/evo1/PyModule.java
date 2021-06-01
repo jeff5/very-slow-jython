@@ -1,9 +1,10 @@
 package uk.co.farowl.vsj3.evo1;
 
 import java.lang.invoke.MethodHandles;
+import java.util.Map;
 
 /** The Python {@code module} object. */
-class PyModule implements CraftedType {
+class PyModule implements CraftedType, PyObjectDict {
 
     /** The type of Python object this class implements. */
     static final PyType TYPE = PyType.fromSpec( //
@@ -15,7 +16,7 @@ class PyModule implements CraftedType {
     final String name;
 
     /** Dictionary (globals) of this module. **/
-    final PyDict dict = new PyDict();
+    final PyDict dict;
 
     /**
      * As {@link #PyModule(String)} for Python sub-class specifying
@@ -28,6 +29,7 @@ class PyModule implements CraftedType {
     PyModule(PyType type, String name) {
         this.type = type;
         this.name = name;
+        this.dict = new PyDict();
     }
 
     /**
@@ -41,6 +43,9 @@ class PyModule implements CraftedType {
 
     @Override
     public PyType getType() { return type; }
+
+    @Override
+    public Map<Object, Object> getDict() { return dict; }
 
     /**
      * Add a type by name to the dictionary.

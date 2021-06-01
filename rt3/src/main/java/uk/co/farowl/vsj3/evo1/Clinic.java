@@ -69,10 +69,10 @@ class Clinic {
     /**
      * Create an array of filters to convert an existing method handle,
      * with the given type, to one that expects arguments (starting at a
-     * given index) that are all {@code Object}. The returned array is
-     * suitable as an argument to {@code MethodHandles.filterArguments}.
-     * (Some elements may be {@code null}, meaning no adapter is
-     * applied.)
+     * given index) that are all {@code Object} in the converted
+     * locations. The returned array is suitable as an argument to
+     * {@code MethodHandles.filterArguments}. (Some elements may be
+     * {@code null}, meaning no adapter is applied.)
      * <p>
      * Where the existing method (described by {@code MethodType mt})
      * expects a primitive type, or a supported reference type (such as

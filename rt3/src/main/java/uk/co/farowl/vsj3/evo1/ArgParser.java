@@ -3,6 +3,7 @@ package uk.co.farowl.vsj3.evo1;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.StringJoiner;
@@ -45,6 +46,19 @@ class ArgParser {
     final String name;
 
     /**
+     * The kind of object (type or module) in which the method is found.
+     * This makes a difference to the signature reported for an instance
+     * method.
+     */
+    final ScopeKind scopeKind;
+
+    /**
+     * The kind of method (instance, static or class) that this parser
+     * works for.
+     */
+    final MethodKind methodKind;
+
+    /**
      * Names of parameters that could be satisfied by position or
      * keyword. Elements are guaranteed by construction to be of type
      * {@code str}, and not {@code null} or empty.
@@ -77,7 +91,6 @@ class ArgParser {
      * The documentation string of the method.
      */
     String doc;
-    // Compare function object
 
     /**
      * The (positional) default parameters or {@code null} if there are
@@ -178,9 +191,28 @@ class ArgParser {
      */
     ArgParser(String name, String varargs, String varkw, int posOnly,
             int kwdOnly, String... names) {
+        this(name, ScopeKind.TYPE, MethodKind.STATIC, varargs, varkw,
+                posOnly, kwdOnly, names);
+    }
+
+    /**
+     * @param name of the function
+     * @param scopeKind whether module, etc.
+     * @param methodKind whether static, etc.
+     * @param varargs name of the positional collector or {@code null}
+     * @param varkw name of the keywords collector or {@code null}
+     * @param posOnly number of positional-only parameters
+     * @param kwdOnly number of keyword-only parameters
+     * @param names of the (non-collector) parameters
+     */
+    ArgParser(String name, ScopeKind scopeKind, MethodKind methodKind,
+            String varargs, String varkw, int posOnly, int kwdOnly,
+            String... names) {
 
         // Name of function
         this.name = name;
+        this.methodKind = methodKind;
+        this.scopeKind = scopeKind;
 
         // Total parameter count *except* possible varargs, varkwargs
         int N = names.length;
@@ -253,9 +285,30 @@ class ArgParser {
      */
     ArgParser(String name, boolean varargs, boolean varkw, int posOnly,
             int kwdOnly, String[] names, int count) {
+        this(name, ScopeKind.TYPE, MethodKind.STATIC, varargs, varkw,
+                posOnly, kwdOnly, names, count);
+    }
+
+    /**
+     * @param name of the function
+     * @param scopeKind whether module, etc.
+     * @param methodKind whether static, etc.
+     * @param varargs whether there is positional collector
+     * @param varkw whether there is a keywords collector
+     * @param posOnly number of positional-only parameters
+     * @param kwdOnly number of keyword-only parameters
+     * @param names of the parameters including any collectors (varargs)
+     * @param count number of regular (non-collector) parameters
+     */
+    ArgParser(String name, ScopeKind scopeKind, MethodKind methodKind,
+            boolean varargs, boolean varkw, int posOnly, int kwdOnly,
+            String[] names, int count) {
 
         // Name of function
         this.name = name;
+        this.methodKind = methodKind;
+        this.scopeKind = scopeKind;
+
         this.argnames = names;
 
         // Total parameter count *except* possible varargs, varkwargs
@@ -330,8 +383,8 @@ class ArgParser {
 
         String[] names =
                 N == 0 ? NO_STRINGS : args.toArray(new String[N]);
-        return new ArgParser(name, varargs, varkw, posOnly,
-                N - posCount, names);
+        return new ArgParser(name, ScopeKind.TYPE, MethodKind.STATIC,
+                varargs, varkw, posOnly, N - posCount, names);
     }
 
     /**
@@ -362,13 +415,27 @@ class ArgParser {
         return varKeywordsIndex >= 0;
     }
 
+    /**
+     * The representation of an {@code ArgParser} is based on the
+     * {@code __text_signature__} attribute of built-in methods (see
+     * {@link #textSignature()}) and the specifications found in CPython
+     * Argument Clinic.
+     */
     @Override
     public String toString() {
-        return sigString(name);
+        return name + textSignature();
     }
 
-    private String sigString(String fname) {
-        StringJoiner sj = new StringJoiner(", ", fname + "(", ")");
+    /**
+     * Return a string representing the argument list of the method. The
+     * string is like that found in the {@code __text_signature__}
+     * attribute of built-in methods.
+     *
+     * @return the signature of the arguments
+     */
+    String textSignature() {
+        StringJoiner sj = new StringJoiner(", ", "(", ")");
+        int empty = sj.length();
 
         // Keyword only parameters start at k
         int k = regargcount - kwonlyargcount;
@@ -377,13 +444,26 @@ class ArgParser {
         // We work through the parameters with index i
         int i = 0;
 
+        // Possible leading argument
+        switch (methodKind) {
+            case INSTANCE:
+                // $module, $self
+                sj.add(scopeKind.selfName);
+                break;
+            case CLASS:
+                sj.add("$type");
+                break;
+            default: // STATIC = no mention
+                break;
+        }
+
         // Positional-only parameters
         while (i < posonlyargcount) {
             sj.add(parameterToString(i++, d));
         }
 
         // If there were any positional-only parameters ...
-        if (i > 0) {
+        if (sj.length() > empty) {
             // ... mark the end of them.
             sj.add("/");
         }
@@ -530,7 +610,12 @@ class ArgParser {
      * @return {@code this}
      */
     ArgParser kwdefaults(Map<Object, Object> kwd) {
-        kwdefaults = (kwd == null || kwd.isEmpty()) ? null : kwd;
+        if (kwd == null || kwd.isEmpty())
+            kwdefaults = null;
+        else {
+            kwdefaults = new HashMap<>();
+            kwdefaults.putAll(kwd);
+        }
         checkShape();
         return this;
     }
@@ -576,8 +661,12 @@ class ArgParser {
         return arg;
     }
 
-    /*
-     * Experiment: base a parser on the mechanics of function call.
+    /**
+     * Abstract wrapper for storage that the enclosing argument parser
+     * should be able to fill elements from the arguments to a Python
+     * call. Typically this frame is a window onto the local variables
+     * of a function invocation (a {@link PyFrame}) that the run-time is
+     * in the process of initialising during a call.
      */
     abstract class FrameWrapper {
 
@@ -990,19 +1079,39 @@ class ArgParser {
         }
     }
 
+    /**
+     * Wrap an existing array that the enclosing argument parser should
+     * be able to fill elements from the arguments to a Python call.
+     * See:
+     * {@link ArgParser#parseToFrame(FrameWrapper, PyTuple, PyDict)}.
+     */
     class ArrayFrameWrapper extends FrameWrapper {
 
         private final Object[] args;
         final int start;
-        final int count;
 
+        /**
+         * Wrap a slice of an existing array. The elements to fill are a
+         * slice of the destination array with specified starting index.
+         * The capacity of the array, betweenthe start index and the
+         * end, must be sufficient to hold the parse result.
+         *
+         * @param args destination array
+         * @param start at which to place first parsed argument
+         */
         ArrayFrameWrapper(Object[] args, int start, int count) {
             super();
             this.args = args;
             this.start = start;
-            this.count = count;
+            assert start + argcount <= args.length;
         }
 
+        /**
+         * /** Wrap an existing array. The capacity of the array must be
+         * sufficient to hold the parse result.
+         *
+         * @param args destination array
+         */
         ArrayFrameWrapper(Object[] args) {
             this(args, 0, args.length);
         }
@@ -1068,4 +1177,6 @@ class ArgParser {
             // Set keyword parameters from default values
             frame.applyKWDefaults(kwdefaults);
     }
+
+
 }

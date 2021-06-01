@@ -17,17 +17,32 @@ import java.lang.annotation.Target;
  */
 interface Exposed {
 
-    @Documented
-    @Retention(RUNTIME)
-    @Target(METHOD)
-    @interface Function {}
-
     /**
-     * Identify a method of a Python object as an exposed "Python
-     * classic" method. The signature must one of a small number of
-     * supported types characteristic of the Python "classic"
-     * {@code (*args[, **kwargs])} call. A callable descriptor will be
-     * entered in the dictionary of the type being defined.
+     * Identify a Python instance method of a type or module defined in
+     * Java and exposed to Python. The signature must be a supported
+     * type for which coercions can be found for its parameters.
+     * <p>
+     * When found in the classes that define a built-in type, this
+     * annotation results in a method definition, then a descriptor in
+     * the dictionary of the type. When found in the class that defines
+     * a built-in module, this annotation results in a method definition
+     * in the module specification, and a bound method in the dictionary
+     * of each module instance created from it.
+     * <p>
+     * Annotations may appear on the parameters of a method annotated
+     * with {@code PythonMethod}. These further describe the method,
+     * defining the parameters as positional-only parameters, or
+     * providing default values. A method may also be annotated with a
+     * documentation string (in the Python sense), by means of the
+     * &#064;{@link DocString} annotation.
+     * <p>
+     * In types that accept multiple implementations, more than one
+     * method of the same name may be annotated {@code PythonMethod}.
+     * Only one may be the primary definition (see
+     * {@link PythonMethod#primary()}, and only in that one are the
+     * documentation string and parameter annotations effective. (It
+     * need not be the first definition.) These annotations on the
+     * primary definition define the signature that Python sees.
      */
     @Documented
     @Retention(RUNTIME)
@@ -40,44 +55,10 @@ interface Exposed {
          * @return name of the method
          */
         String value() default "";
-    }
-
-    /**
-     * Identify a method of a Python object as an exposed "Java" method.
-     * The signature must a be supported type for which coercions can be
-     * found for its parameters. A callable descriptor will be entered
-     * in the dictionary of the type being defined capable of coercing
-     * the call site signature to that of the annotated method.
-     * <p>
-     * Annotations may appear on the parameters of a method annotated
-     * with {@code JavaMethod}, further describe the method, defining
-     * them as positional-only parameters, or providing default values.
-     * A method may also be annotated with a documentation string (in
-     * the Python sense), by means of the &#064;{@link DocString}
-     * annotation.
-     * <p>
-     * In cases where more than one method of the same name, in the same
-     * class, is annotated as a {@code JavaMethod}, only one may be the
-     * primary definition (see {@link JavaMethod#primary()}, and only in
-     * that one are the documentation string and parameter annotations
-     * effective. These annotations on the primary definition define the
-     * signature that Python sees.
-     */
-    @Documented
-    @Retention(RUNTIME)
-    @Target(METHOD)
-    @interface JavaMethod {
-
-        /**
-         * Exposed name of the method if different from the declaration.
-         *
-         * @return name of the method
-         */
-        String value() default "";
 
         /**
          * The element {@code primary=false} is used to indicate that
-         * the annotated method is not the primary definition.
+         * the annotated method is <b>not</b> the primary definition.
          *
          * @return {@code true} (the default) if and only if this is the
          *     primary definition of the method
@@ -102,6 +83,69 @@ interface Exposed {
          * <p>
          * The default {@code positional=true} is the more frequent case
          * for built-in methods, although it is the opposite of the
+         * default for methods defined in Python where it would have to
+         * be expressed as {@code def g(a, b, c, /)}.
+         *
+         * @return {@code true} (the default) if and only if this is the
+         *     primary definition of the method
+         */
+        boolean positionalOnly() default true;
+    }
+
+    /**
+     * Identify a Python static method of a type or module defined in
+     * Java and exposed to Python. The signature must be a supported
+     * type for which coercions can be found for its parameters.
+     * <p>
+     * When found in the classes that define a built-in type, this
+     * annotation results in a method definition, then a
+     * {@code staticmethod} object in the dictionary of the type. When
+     * found in the class that defines a built-in module, this
+     * annotation results in a method definition in the module
+     * specification, and an unbound method in the dictionary of each
+     * module instance created from it.
+     * <p>
+     * Annotations may appear on the parameters of a method annotated
+     * with {@code PythonStaticMethod}. These further describe the
+     * method, defining the parameters as positional-only parameters, or
+     * providing default values. A method may also be annotated with a
+     * documentation string (in the Python sense), by means of the
+     * &#064;{@link DocString} annotation.
+     * <p>
+     * Only one method of the given name, in a given class class, may be
+     * annotated as a {@code PythonStaticMethod}.
+     */
+    @Documented
+    @Retention(RUNTIME)
+    @Target(METHOD)
+    @interface PythonStaticMethod {
+
+        /**
+         * Exposed name of the function if different from the
+         * declaration.
+         *
+         * @return name of the function
+         */
+        String value() default "";
+
+        /**
+         * The element {@code positionalOnly=false} is used to indicate
+         * that the arguments in a call to the annotated method may be
+         * provided by keyword. This provides the call with the
+         * semantics of a function defined in Python, where <pre>
+         * def g(a, b, c):
+         *     print(a, b, c)
+         * </pre> may be called as <pre>
+         * >>> g(b=2, c=3, a=1)
+         * 1 2 3
+         * >>> g(**dict(b=2, c=3, a=1))
+         * 1 2 3
+         * </pre> It is as if we had annotated an imaginary parameter
+         * before the first declared parameter (or {@code self}) with
+         * &#064;{@link PositionalOnly}.
+         * <p>
+         * The default {@code positional=true} is the more frequent case
+         * for built-in function, although it is the opposite of the
          * default for methods defined in Python where it would have to
          * be expressed as {@code def g(a, b, c, /)}.
          *

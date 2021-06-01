@@ -20,7 +20,7 @@ import uk.co.farowl.vsj3.evo1.Slot.Signature;
  * The Python {@code type} object. Type objects are normally created
  * (when created from Java) by a call to {@link PyType#fromSpec(Spec)}.
  */
-class PyType extends Operations implements PyObjectDict {
+public class PyType extends Operations implements PyObjectDict {
     /*
      * The static initialisation of PyType is a delicate business, since
      * it occurs early in the initialisation of the run-time system. The
@@ -426,54 +426,17 @@ class PyType extends Operations implements PyObjectDict {
         }
     }
 
-// /**
-// * Add members to this type discovered through the specification.
-// *
-// * @param spec to apply
-// */
-// private void addMembers(Spec spec) {
-//
-// Map<String, PyMemberDescr> members =
-// Exposer.memberDescrs(spec.lookup, implClass, this);
-//
-// for (Map.Entry<String, PyMemberDescr> e : members.entrySet()) {
-// PyUnicode k = new PyUnicode(e.getKey());
-// Object v = e.getValue();
-// dict.put(k, v);
-// }
-//
-// }
-//
-// /**
-// * Add get-set attributes to this type discovered through the
-// * specification.
-// *
-// * @param spec to apply
-// */
-// private void addGetSets(Spec spec) {
-//
-// Map<String, PyGetSetDescr> getsets =
-// Exposer.getsetDescrs(spec.lookup, implClass, this);
-//
-// for (Entry<String, PyGetSetDescr> e : getsets.entrySet()) {
-// PyUnicode k = new PyUnicode(e.getKey());
-// PyGetSetDescr v = e.getValue();
-// dict.put(k, v);
-// }
-// }
-
     /**
-     * Add methods, get-sets and slot wrappers as attributes to this
-     * type discovered through the specification.
+     * Add methods, get-sets, members and special functions as
+     * attributes to this type, as discovered through the specification.
      *
      * @param spec to apply
      */
     private void addMethods(Spec spec) {
-
-        Map<String, Descriptor> methods =
-                Exposer.descriptorsFromMethods(spec.lookup,
-                        spec.definingClass(), spec.methodClass(), this);
-        dict.putAll(methods);
+        // Add definitions found in the defining class to the type
+        TypeExposer exposer = Exposer.exposeType(this,
+                spec.definingClass, spec.methodClass);
+        exposer.populate(dict, spec.lookup);
     }
 
     /**
@@ -513,6 +476,10 @@ class PyType extends Operations implements PyObjectDict {
         return this;
     }
 
+    /**
+     * Get the (canonical) Java implementation class of this
+     * {@code PyType} object.
+     */
     @Override
     Class<?> getJavaClass() { return classes[0]; }
 

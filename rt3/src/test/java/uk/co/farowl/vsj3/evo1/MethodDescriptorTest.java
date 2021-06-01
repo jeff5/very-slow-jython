@@ -93,7 +93,7 @@ class MethodDescriptorTest extends UnitTestSupport {
 
             // Check the parser
             ArgParser ap = ljust.methodDef.argParser;
-            String sig = "ljust(width, fillchar=' ', /)";
+            String sig = "ljust($self, width, fillchar=' ', /)";
             assertEquals(sig, ap.toString());
 
             assertEquals("ljust", ap.name);
