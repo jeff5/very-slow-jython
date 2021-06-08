@@ -2,16 +2,9 @@ package uk.co.farowl.vsj3.evo1;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.lang.invoke.MethodHandles;
-import java.lang.invoke.MethodHandles.Lookup;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeMap;
-import java.util.TreeSet;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -20,8 +13,6 @@ import org.junit.jupiter.api.Test;
 
 import uk.co.farowl.vsj3.evo1.Exposed.PositionalOnly;
 import uk.co.farowl.vsj3.evo1.Exposed.PythonMethod;
-import uk.co.farowl.vsj3.evo1.Exposed.PythonStaticMethod;
-import uk.co.farowl.vsj3.evo1.ModuleExposerMethodTest.ExampleModule;
 import uk.co.farowl.vsj3.evo1.PyType.Spec;
 
 /**
@@ -343,10 +334,10 @@ class TypeExposerMethodTest {
             PyTuple args = Py.tuple(obj, 1, "2");
             PyDict kwargs = Py.dict();
             kwargs.put("c", 3);
-
             assertThrows(TypeError.class,
                     () -> descr.__call__(args, kwargs));
 
+            // We call obj.m3(*(1, '2'), **dict(c=3))
             PyTuple args2 = Py.tuple(1, "2");
             assertThrows(TypeError.class,
                     () -> func.__call__(args2, kwargs));
@@ -487,7 +478,7 @@ class TypeExposerMethodTest {
         @Override
         @BeforeEach
         void setup() throws AttributeError, Throwable {
-            // descr = Example.m3
+            // descr = Example.m3pk
             setup("m3pk", new ExampleObject2());
             exp = new Object[] {obj, 1, "2", 3};
         }
@@ -586,13 +577,13 @@ class TypeExposerMethodTest {
         /** To set {@code b} by keyword is a {@code TypeError}. */
         // @Test
         void raises_TypeError_on_bad_kwname() throws Throwable {
-            // We call type(obj).m3(obj, 1, c=3, b='2')
+            // We call type(obj).m3p2(obj, 1, c=3, b='2')
             // The attempt to set b by keyword is a TypeError.
             Object[] vec = {obj, 1, 3, "2"};
             PyTuple names = Py.tuple("c", "b");
             assertThrows(TypeError.class, () -> descr.call(vec, names));
 
-            // We call obj.m3(1, c=3, b='2')
+            // We call obj.m3p2(1, c=3, b='2')
             Object[] vec2 = {1, 3, "2"};
             assertThrows(TypeError.class, () -> func.call(vec2, names));
         }
