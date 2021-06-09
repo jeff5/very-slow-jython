@@ -159,8 +159,30 @@ public class PyType extends Operations implements PyObjectDict {
     EnumSet<Flag> flags;
 
     // Support for class hierarchy
-    private PyType base;
+
+    /**
+     * The {@code __bases__} of this type, which are the types named in
+     * heading of the Python {@code class} definition, or just
+     * {@code object} if none are named, or an empty array in the
+     * special case of {@code object} itself.
+     */
     private PyType[] bases;
+    /**
+     * The {@code __base__} of this type. The {@code __base__} is a type
+     * from the {@code __bases__}, but its choice is determined by
+     * implementation details.
+     * <p>
+     * It is the type earliest on the MRO after the current type, whose
+     * implementation contains all the members necessary to implement
+     * the current type.
+     */
+    private PyType base;
+    /**
+     * The {@code __mro__} of this type, that is, the method resolution
+     * order, as defined for Python and constructed by the {@code mro()}
+     * method (which may be overridden), by analysis of the
+     * {@code __bases__}.
+     */
     private PyType[] mro;
 
     /**
@@ -461,8 +483,8 @@ public class PyType extends Operations implements PyObjectDict {
      * class of {@code obj} will normally have been initialised, since
      * an instance exists.
      *
-     * @param obj
-     * @return the Python type
+     * @param obj to inspect
+     * @return the Python type of {@code obj}
      */
     public static PyType of(Object obj) {
         return Operations.forClass(obj.getClass()).type(obj);
@@ -561,13 +583,6 @@ public class PyType extends Operations implements PyObjectDict {
         }
     }
 
-    private void setSlot(Slot slot, MethodHandle mh) {
-        if (isMutable())
-            slot.setSlot(this, mh);
-        else
-            throw new TypeError("cannot update slots of %s", name);
-    }
-
     @Override
     public String toString() {
         return "<class '" + name + "'>";
@@ -655,8 +670,8 @@ public class PyType extends Operations implements PyObjectDict {
     }
 
     /**
-     * True iff this type is a Python sub-type {@code b} (if {@code b}
-     * is on the MRO of this type).
+     * Determine if this type is a Python sub-type of {@code b} (if
+     * {@code b} is on the MRO of this type).
      *
      * @param b to test
      * @return {@code true} if {@code this} is a sub-type of {@code b}
@@ -678,10 +693,16 @@ public class PyType extends Operations implements PyObjectDict {
             return type_is_subtype_base_chain(b);
     }
 
+    /**
+     * Determine if this type is a Python sub-type of {@code b} by
+     * chaining through the {@link #base} property. (This is a fall-back
+     * when {@link #mro} is not valid.)
+     *
+     * @param b to test
+     * @return {@code true} if {@code this} is a sub-type of {@code b}
+     */
     // Compare CPython type_is_subtype_base_chain in typeobject.c
     private boolean type_is_subtype_base_chain(PyType b) {
-        // Only crudely supported. Later, search the MRO of this for b.
-        // Awaits PyType.forClass() factory method.
         PyType t = this;
         while (t != b) {
             t = t.base;
@@ -720,10 +741,18 @@ public class PyType extends Operations implements PyObjectDict {
      */
     final boolean isDescr() { return flags.contains(Flag.IS_DESCR); }
 
-    /** @return the base (core use only). */
-    PyType getBase() {
-        return base;
-    }
+    /**
+     * Get the {@code __base__} of this type. The {@code __base__} is a
+     * type from the MRO, but its choice is determined by implementation
+     * details.
+     * <p>
+     * It is the type earliest on the MRO after the current type, whose
+     * implementation contains all the members necessary to implement
+     * the current type.
+     *
+     * @return the base (core use only).
+     */
+    PyType getBase() { return base; }
 
     /** @return the bases as an array (core use only). */
     PyType[] getBases() {
