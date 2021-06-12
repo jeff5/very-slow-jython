@@ -89,7 +89,6 @@ abstract class PyMethodDescr extends MethodDescriptor {
          *
          * @param objclass the class declaring the method
          * @param methodDef describing the signature of the method
-         * @param method a handle to an implementation of that method
          */
         // Compare CPython PyDescr_NewMethod in descrobject.c
         Single(PyType objclass, MethodDef methodDef) {

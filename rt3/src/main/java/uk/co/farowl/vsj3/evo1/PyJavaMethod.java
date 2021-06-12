@@ -53,6 +53,7 @@ public class PyJavaMethod implements CraftedType, VectorCallable {
      * {@code module} in the case of a module member function.
      *
      * @param def definition from which to construct this method
+     * @param handle to the method defined
      * @param self object to which bound (or {@code null} if a static
      *     method)
      * @param module name of the module supplying the definition
@@ -105,10 +106,10 @@ public class PyJavaMethod implements CraftedType, VectorCallable {
 
     protected Object __repr__() throws Throwable {
         if (self == null || self instanceof PyModule)
-            return PyUnicode.fromFormat("<built-in function %s>",
+            return String.format("<built-in function %s>",
                     methodDef.name);
         else
-            return PyUnicode.fromFormat("<built-in method %s of %s>",
+            return String.format("<built-in method %s of %s>",
                     methodDef.name, PyObjectUtil.toAt(self));
     }
 

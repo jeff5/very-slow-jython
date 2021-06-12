@@ -234,6 +234,11 @@ enum Comparison {
     /**
      * Perform this comparison, raising {@code TypeError} when the
      * requested comparison operator is not supported.
+     *
+     * @param v left operand
+     * @param w right operand
+     * @return comparison result
+     * @throws Throwable from te implementation of the comparison
      */
     // Compare CPython PyObject_RichCompare, do_richcompare in object.c
     Object apply(Object v, Object w) throws Throwable {

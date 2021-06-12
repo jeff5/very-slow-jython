@@ -12,9 +12,9 @@ import uk.co.farowl.vsj3.evo1.Slot.EmptyException;
  * interpreter. (Methods here often correspond closely to a CPython
  * opcode.)
  * <p>
- * See also {@link Number}, {@link Sequence} and {@link Callables} which
- * contain the abstract interface to the corresponding type families. In
- * CPython, the methods of all these classes are found in
+ * See also {@link Number} and {@link Callables} which contain the
+ * abstract interface to the corresponding type families. In CPython,
+ * the methods of all these classes are found in
  * {@code Objects/abstract.c}
  */
 public class Abstract {
@@ -50,7 +50,7 @@ public class Abstract {
                     throw returnTypeError("__repr__", "string", res);
                 }
             } catch (Slot.EmptyException e) {
-                return PyUnicode.fromFormat("<%s object>",
+                return String.format("<%s object>",
                         PyType.of(o).getName());
             }
         }
@@ -347,7 +347,7 @@ public class Abstract {
     /**
      * Python {@code o.name}: returning {@code null} when not found (in
      * place of {@code AttributeError} as would
-     * {@link #getAttr(Object, PyUnicode)}). Other exceptions that may
+     * {@link #getAttr(Object, Object)}). Other exceptions that may
      * be raised in the process, propagate.
      *
      * @param o the object in which to look for the attribute
@@ -373,7 +373,7 @@ public class Abstract {
     /**
      * Python {@code o.name} returning {@code null} when not found (in
      * place of {@code AttributeError} as would
-     * {@link #getAttr(Object, PyUnicode)}). Other exceptions that may
+     * {@link #getAttr(Object, String)}). Other exceptions that may
      * be raised in the process, propagate.
      *
      * @param o the object in which to look for the attribute
@@ -788,8 +788,8 @@ public class Abstract {
     /**
      * Method lookup in the type without looking in the instance
      * dictionary (so we can't use
-     * {@link Abstract#getAttr(Object, String)}) but still binding it
-     * to the instance. _PyObject_LookupSpecial() returns {@code null}
+     * {@link Abstract#getAttr(Object, String)}) but still binding it to
+     * the instance. _PyObject_LookupSpecial() returns {@code null}
      * without raising an exception when the
      * {@linkplain PyType#lookup(Object)} fails;
      *

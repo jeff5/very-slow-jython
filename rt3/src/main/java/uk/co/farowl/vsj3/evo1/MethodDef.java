@@ -172,7 +172,7 @@ abstract class MethodDef implements ClassShorthand {
      * that the wrapped method has the {@code MethodType} to which the
      * call is addressed.
      *
-     * @param wrapped handle of the method to call
+     * @param method handle of the method to call
      * @param self target object of the method call
      * @param args of the method call
      * @param kwargs of the method call or {@code null} or empty
@@ -197,7 +197,7 @@ abstract class MethodDef implements ClassShorthand {
      * that the wrapped method has the {@code MethodType} to which the
      * call is addressed.
      *
-     * @param wrapped handle of the method to call
+     * @param method handle of the method to call
      * @param self target object of the method call
      * @param args of the method call
      * @param names of args given by keyword or {@code null}
@@ -533,8 +533,8 @@ abstract class MethodDef implements ClassShorthand {
          * @param argParser parser defining the method
          * @param raw method handle prepared by sub-class
          */
-        General(ArgParser ap, MethodHandle raw) {
-            super(ap, prep(ap, raw));
+        General(ArgParser argParser, MethodHandle raw) {
+            super(argParser, prep(argParser, raw));
         }
 
         /**

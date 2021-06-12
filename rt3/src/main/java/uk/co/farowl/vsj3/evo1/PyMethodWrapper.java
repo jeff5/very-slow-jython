@@ -158,7 +158,7 @@ class PyMethodWrapper extends AbstractPyObject {
 
     // Compare CPython wrapper_repr in descrobject.c
     protected Object __repr__() {
-        return PyUnicode.fromFormat("<method-wrapper '%s' of %s>",
+        return String.format("<method-wrapper '%s' of %s>",
                 descr.slot.methodName, PyObjectUtil.toAt(self));
     }
 

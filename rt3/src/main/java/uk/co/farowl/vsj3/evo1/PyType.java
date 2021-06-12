@@ -57,10 +57,10 @@ public class PyType extends Operations implements PyObjectDict {
                 // Really special cases
                 PyBaseObject.class, PyType.class,
                 // The entries are descriptors so defer those
-                // PyMemberDescr.class, //
+                PyMemberDescr.class, //
                 // PyGetSetDescr.class, //
                 PyWrapperDescr.class, //
-                // PyMethodDescr.class, //
+                PyMethodDescr.class, //
                 // And sometimes things go wrong :(
                 BaseException.class, //
                 // Types with multiple implementations
@@ -338,18 +338,17 @@ public class PyType extends Operations implements PyObjectDict {
     }
 
     /**
-     * Cause the creation (if necessary) of a PyType for a given Java
-     * class, which must be a canonical implementation, or a "found"
-     * type. This is support for the {@link Operations} object. By side
-     * effect, one or more Operations objects will be registered,
-     * including one for the given class.
+     * Find or (if necessary) cause the creation of a PyType for a given
+     * Java class, which must be a canonical implementation, or a
+     * "found" type. This is support for the {@link Operations} object.
+     * By side effect, one or more Operations objects will be
+     * registered, including one for the given class.
      *
      * @param klass canonical implementation
-     * @return
+     * @return the Python type for the class
      */
     static PyType fromClass(Class<?> klass) {
-        // TODO Auto-generated method stub
-        return null;
+        throw new MissingFeature("Python type for the class");
     }
 
     /**
@@ -561,7 +560,7 @@ public class PyType extends Operations implements PyObjectDict {
     }
 
     /**
-     * Called from {@link #__setattr__(PyUnicode, Object)} after an
+     * Called from {@link #__setattr__(String, Object)} after an
      * attribute has been set or deleted. This gives the type the
      * opportunity to recompute slots and perform any other actions.
      *
@@ -953,7 +952,7 @@ public class PyType extends Operations implements PyObjectDict {
          * @param definingClass in which operations are defined
          * @param lookup authorisation to access {@code implClass}
          *
-         * @deprecated Use {@link #PyType(String, Lookup)} instead
+         * @deprecated Use {@link #Spec(String, Lookup)} instead
          */
         @Deprecated
         Spec(String name, Class<?> definingClass, Lookup lookup) {
@@ -1230,6 +1229,8 @@ public class PyType extends Operations implements PyObjectDict {
          * Get the defining class for the type. This is often, and is by
          * default, the canonical implementation class, but it doesn't
          * have to be.
+         *
+         * @return the defining class for the type
          */
         Class<?> definingClass() {
             return definingClass;
@@ -1304,6 +1305,8 @@ public class PyType extends Operations implements PyObjectDict {
          * Get all the operand classes for the type, in order, the
          * canonical at index 0, adopted, accepted and operand classes
          * following.
+         *
+         * @return a copy of all the operand classes
          */
         Class<?>[] getClasses() {
             return classes.toArray(new Class<?>[classes.size()]);
@@ -1340,10 +1343,10 @@ public class PyType extends Operations implements PyObjectDict {
             return metaclass != null ? metaclass : TYPE;
         }
 
-        // Something helpful in debugging
+        // Something helpful in debugging (__repr__ is different)
         @Override
         public String toString() {
-            String fmt = "'%s' %s, flags=%s impl=%s";
+            String fmt = "'%s' %s, flags=%s def=%s";
             return String.format(fmt, name, bases, flags,
                     definingClass().getSimpleName());
         }
@@ -1352,7 +1355,7 @@ public class PyType extends Operations implements PyObjectDict {
     // Special methods -----------------------------------------------
 
     protected Object __repr__() throws Throwable {
-        return PyUnicode.fromFormat("<class '%s'>", name);
+        return String.format("<class '%s'>", name);
     }
 
     /**
@@ -1396,8 +1399,8 @@ public class PyType extends Operations implements PyObjectDict {
      * {@code type()}, depending on the number of arguments in
      * {@code args}. Because {@code type} is a type, calling it for type
      * enquiry looks initially like a constructor call, except for the
-     * number of arguments. A handle to {@code __new__} populates
-     * {@link Slot#op_new}. It has signature {@link Signature#NEW}.
+     * number of arguments. {@code __new__} is a special method, but not
+     * a slot (there is no {@code Slot.op_new} in this implementation.
      *
      * @param metatype the subclass of type to be created
      * @param args supplied positionally to the call in Python
@@ -1476,9 +1479,9 @@ public class PyType extends Operations implements PyObjectDict {
      * {@link Signature#GETATTR} and provides attribute read access on
      * this type object and its metatype. This is very like
      * {@code object.__getattribute__}
-     * ({@link PyBaseObject#__getattribute__(Object, PyUnicode)}), but
-     * the instance is replaced by a type object, and that object's type
-     * is a meta-type (which is also a {@code type}).
+     * ({@link PyBaseObject#__getattribute__(Object, String)}), but the
+     * instance is replaced by a type object, and that object's type is
+     * a meta-type (which is also a {@code type}).
      * <p>
      * The behavioural difference is that in looking for attributes on a
      * type:
@@ -1586,7 +1589,7 @@ public class PyType extends Operations implements PyObjectDict {
      * and provides attribute write access on this type object. The
      * behaviour is very like the default {@code object.__setattr__}
      * except that it has write access to the type dictionary that is
-     * denied through {@link #getDict(boolean)}.
+     * denied through {@link #getDict()}.
      *
      * @param name of the attribute
      * @param value to give the attribute
@@ -1645,7 +1648,7 @@ public class PyType extends Operations implements PyObjectDict {
      * and provides attribute deletion on this type object. The
      * behaviour is very like the default {@code object.__delattr__}
      * except that it has write access to the type dictionary that is
-     * denied through {@link #getDict(boolean)}.
+     * denied through {@link #getDict()}.
      *
      * @param name of the attribute
      * @throws AttributeError if no such attribute or it is read-only

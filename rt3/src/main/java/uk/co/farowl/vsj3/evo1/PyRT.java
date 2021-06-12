@@ -108,11 +108,8 @@ public class PyRT {
          * Construct a call site with the given unary operation.
          *
          * @param op a unary operation
-         * @throws NoSuchMethodException
-         * @throws IllegalAccessException
          */
-        public UnaryOpCallSite(Slot op)
-        /* throws NoSuchMethodException, IllegalAccessException */ {
+        public UnaryOpCallSite(Slot op) {
             super(UOP);
             this.op = op;
             setTarget(fallbackMH.bindTo(this));
@@ -200,11 +197,8 @@ public class PyRT {
          * Construct a call site with the given binary operation.
          *
          * @param op a binary operation
-         * @throws NoSuchMethodException
-         * @throws IllegalAccessException
          */
-        public BinaryOpCallSite(Slot op)
-                throws NoSuchMethodException, IllegalAccessException {
+        public BinaryOpCallSite(Slot op) {
             super(BINOP);
             this.op = op;
             setTarget(fallbackMH.bindTo(this));

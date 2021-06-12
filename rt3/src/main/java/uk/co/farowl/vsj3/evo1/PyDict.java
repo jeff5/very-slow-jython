@@ -210,6 +210,7 @@ class PyDict extends AbstractMap<Object, Object>
          * Create a key on the given object Python {@code __eq__}
          * definitions on objects offered as keys.
          *
+         * @param key to wrap
          * @throws PyException from {@code __eq__}
          */
         KeyHolder(Object key) {
@@ -260,8 +261,10 @@ class PyDict extends AbstractMap<Object, Object>
     /**
      * Convenience function for Python objects that implement
      * {@link PyDict.Key}, to impose Python semantics for {@code hash()}
-     * on {@code Object.hashCode}. See {@link Key#hashCode(Object)}.
+     * on {@code Object.hashCode}. See {@link PyDict.Key#hashCode()}.
      *
+     * @param key to hash
+     * @return the hash
      * @throws PyException from {@code __hash__} implementations
      */
     public static int pythonHash(Key key) throws PyException {
@@ -282,6 +285,10 @@ class PyDict extends AbstractMap<Object, Object>
      * {@link PyDict.Key}, to impose Python semantics for {@code ==} on
      * {@code Object.equals}. See {@link Key#equals(Object)}.
      *
+     *
+     * @param key to test equal
+     * @param other to test equal
+     * @return whether equal
      * @throws PyException from {@code __eq__} implementations
      */
     public static boolean pythonEquals(Key key, Object other)

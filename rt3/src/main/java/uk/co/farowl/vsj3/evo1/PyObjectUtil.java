@@ -14,6 +14,13 @@ class PyObjectUtil {
      * {@link PySequenceInterface#repeat(int)} implementation. The
      * wrapper takes care of object conversion and errors that arise
      * from it.
+     *
+     * @param <T> target type of sequence
+     * @param seq to repeat
+     * @param n number of repetitions in result
+     * @return the repeating result
+     * @throws TypeError if {@code n} has no {@code __index__}
+     * @throws Throwable from implementation of {@code __index__} etc..
      */
     static <T> Object repeat(PySequenceInterface<T> seq, Object n)
             throws TypeError, Throwable {
@@ -35,7 +42,7 @@ class PyObjectUtil {
      *
      * @param map to be reproduced
      * @return a string like <code>{'a': 2, 'b': 3}</code>
-     * @throws Throwable
+     * @throws Throwable from the {@code repr()} implementation
      */
     static String mapRepr(Map<? extends Object, ?> map)
             throws Throwable {

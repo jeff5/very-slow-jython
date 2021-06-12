@@ -238,8 +238,8 @@ class Callables extends Abstract {
      * @param name identifying the method
      * @param args positional arguments
      * @return result of call
-     * @throws Throwable
-     * @throws AttributeError
+     * @throws AttributeError if the named callable cannot be found
+     * @throws Throwable from the called method
      */
     // Compare CPython _PyObject_CallMethodIdObjArgs in call.c
     static Object callMethod(Object obj, String name, Object... args)

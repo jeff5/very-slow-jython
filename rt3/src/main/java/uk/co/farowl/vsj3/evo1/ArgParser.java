@@ -150,11 +150,9 @@ class ArgParser {
      * to supply {@code null} values at positions it does not define.
      * <p>
      * When parsed to an array, the layout of the argument values, in
-     * relation to fields of the parser will be as follows. <style>
-     * table.lined td {border: 1px solid black; text-align: center;
-     * min-width: 2em;} table.lined {border-collapse: collapse;}
-     * table.lined td.row-label {text-align: left;} </style>
+     * relation to fields of the parser will be as follows.
      * <table class="lined">
+     * <caption>A Python {@code frame}</caption>
      * <tr>
      * <td class="row-label">names</td>
      * <td>a</td>
@@ -331,6 +329,7 @@ class ArgParser {
      *
      * @param name of function
      * @param decl names of parameters and indicators "/", "*", "**"
+     * @return the constructed parser
      */
     static ArgParser fromSignature(String name, String... decl) {
 
@@ -1093,11 +1092,12 @@ class ArgParser {
         /**
          * Wrap a slice of an existing array. The elements to fill are a
          * slice of the destination array with specified starting index.
-         * The capacity of the array, betweenthe start index and the
+         * The capacity of the array, between the start index and the
          * end, must be sufficient to hold the parse result.
          *
          * @param args destination array
          * @param start at which to place first parsed argument
+         * @param count number of elements in the slice
          */
         ArrayFrameWrapper(Object[] args, int start, int count) {
             super();
@@ -1136,6 +1136,10 @@ class ArgParser {
     /**
      * Parse when an args tuple and keyword dictionary are supplied,
      * that is, for a classic call.
+     *
+     * @param frame to populate with argument values
+     * @param args positional arguments given
+     * @param kwargs keyword arguments given
      */
     void parseToFrame(FrameWrapper frame, PyTuple args, PyDict kwargs) {
 
@@ -1177,6 +1181,5 @@ class ArgParser {
             // Set keyword parameters from default values
             frame.applyKWDefaults(kwdefaults);
     }
-
 
 }

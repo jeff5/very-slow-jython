@@ -21,7 +21,12 @@ public class PyFloat extends AbstractPyObject {
     /** Value of this {@code float} object. */
     protected final double value;
 
-    /** Constructor for Python sub-class specifying {@link #type}. */
+    /**
+     * Constructor for Python sub-class specifying {@link #type}.
+     *
+     * @param type actual type
+     * @param value of the {@code float}
+     */
     protected PyFloat(PyType type, double value) {
         super(type);
         this.value = value;
@@ -100,7 +105,7 @@ public class PyFloat extends AbstractPyObject {
      *
      * @param o to convert
      * @return converted value
-     * @throws TypeError
+     * @throws TypeError if o cannot be interpreted as a {@code float}
      * @throws Throwable from {@code __float__)} or {@code __index__}
      */
     // Compare CPython floatobject.c: PyFloat_AsDouble
@@ -142,11 +147,14 @@ public class PyFloat extends AbstractPyObject {
 
     /**
      * Convert a string-like object to a Python {@code float}.
+     *
+     * @param v to convert
+     * @return converted value
      */
     // Compare CPython floatobject.c :: PyFloat_FromString
-    static PyFloat fromString(Object v) {
+    static Double fromString(Object v) {
         // Keep it simple (a lot simpler than in CPython)
-        return new PyFloat(Double.valueOf(v.toString()));
+        return Double.valueOf(v.toString());
     }
 
     /**

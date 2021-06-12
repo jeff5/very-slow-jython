@@ -119,8 +119,9 @@ class PyBaseObject extends AbstractPyObject {
     }
 
     /**
-     * {@link Slot#op_new} has signature {@link Signature#NEW} and
-     * provides object creation.
+     * Create a new Python {@code object}. {@code __new__} is a special
+     * method, but not a slot (there is no {@code Slot.op_new} in this
+     * implementation.
      *
      * @param type actual Python sub-class being created
      * @param args should be empty
