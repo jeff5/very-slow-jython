@@ -27,7 +27,7 @@ import uk.co.farowl.vsj3.evo1.PyType.Spec;
  * using our equivalent of the "vector call", intended to support call
  * sites compiled where Python invokes the method.
  */
-@DisplayName("When exposed by a type")
+@DisplayName("When exposed as a special method")
 class TypeExposerSlotWrapperTest {
 
     /**

@@ -270,7 +270,6 @@ public class Number extends Abstract {
 
         // Convert to Python int or sub-class. (May raise TypeError.)
         Object value = Number.index(o);
-        PyType valueType = PyType.of(value);
 
         try {
             // We're done if PyLong.asSize() returns without error.
@@ -279,7 +278,7 @@ public class Number extends Abstract {
             // Caller may replace overflow with own type of exception
             if (exc == null) {
                 // No handler: default clipping is sufficient.
-                assert valueType.isSubTypeOf(PyLong.TYPE);
+                assert PyType.of(value).isSubTypeOf(PyLong.TYPE);
                 if (((PyLong) value).signum() < 0)
                     return Integer.MIN_VALUE;
                 else

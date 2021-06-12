@@ -363,7 +363,7 @@ class PyUnicode implements PySequenceInterface<Integer>, CraftedType,
 
     /**
      * Compare for equality with another Python {@code str}, or a
-     * {@link PyDict#Key} containing a {@code str}. If the other object
+     * {@link PyDict.Key} containing a {@code str}. If the other object
      * is not a {@code str}, or a {@code Key} containing a {@code str},
      * return {@code false}. If it is such an object, compare for
      * equality of the code points.
@@ -428,7 +428,7 @@ class PyUnicode implements PySequenceInterface<Integer>, CraftedType,
     }
 
     /**
-     * Create a {@code str} from a format and arguments. Not Java
+     * Create a {@code str} from a format and arguments. Note Java
      * {@code String.format} semantics are applied, not the CPython
      * ones.
      *
@@ -436,6 +436,7 @@ class PyUnicode implements PySequenceInterface<Integer>, CraftedType,
      * @param args arguments
      * @return formatted string
      */
+    @Deprecated // XXX possibly want a version with Python semantics
     static PyUnicode fromFormat(String fmt, Object... args) {
         return new PyUnicode(TYPE, String.format(fmt, args));
     }

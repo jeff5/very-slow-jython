@@ -872,9 +872,9 @@ assigning ``None`` is valid if it is a legitimate value for the member.
 
 ..  csv-table:: Interpreting ``null`` and ``None`` in ``get``, ``set`` and ``delete``
     :header: "Field type", "Optional", "Current value", "``get`` returns", "``set None`` effect", "``delete`` effect"
-    :widths: 10, 10, 10, 10, 10, 10
+    :widths: 8, 10, 10, 10, 10, 10
 
-    "``Primitive``", "``false``", "``x``",    "``x``",           "type error", "attribute error"
+    "``Primitive``", "``false``", "``x``",    "``x``",           "type error", "type error"
     "``String``",    "``false``", "``x``",    "``x``",           "``null``",   "``null``"
     "",              "",          "``null``", "``None``",        "``null``",   "``null``"
     "``PyObject``",  "``false``", "``x``",    "``x``",           "``null``",   "``null``"
@@ -893,6 +893,22 @@ whilst allowing for more assignable reference types (if we want them).
 The type errors arise because a ``String``
 (or ``T`` a proper sub-type of ``PyObject``)
 cannot be assigned the value ``None``.
+
+.. note::
+
+    Strongly-typed members present a difficulty to ``set`` operations.
+    Given a Python argument,
+    the conversion may be obvious (to a human),
+    but the ``PyMemberDescr`` will not know it
+    unless specifically sub-classed in advance.
+    We cannot expect to do this for more than a few types.
+
+    The situation is even more fraught
+    where we accept multiple implementations of a Python type.
+    Read-only members are fine, however.
+
+    ``PyGetSetDescr`` (next section) gives us the means we need
+    to master writable attributes strongly typed in Java.
 
 
 .. _PyGetSetDescr:

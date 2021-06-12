@@ -102,8 +102,8 @@ abstract class Descriptor extends AbstractPyObject
      * @param kind description of type (first word in the repr)
      * @return repr as a {@code str}
      */
-    protected PyUnicode descrRepr(String kind) {
-        return PyUnicode.fromFormat("<%s '%.50s' of '%.100s' objects>",
+    protected String descrRepr(String kind) {
+        return String.format("<%s '%.50s' of '%.100s' objects>",
                 kind, name, objclass.name);
     }
 

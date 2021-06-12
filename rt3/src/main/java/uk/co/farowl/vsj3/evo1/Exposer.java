@@ -5,6 +5,7 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.invoke.MethodType;
 import java.lang.invoke.WrongMethodTypeException;
+import java.lang.reflect.Member;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Parameter;
@@ -109,6 +110,7 @@ abstract class Exposer {
      * @param definingClass to introspect for members
      * @param methodClass additional class to introspect for members (or
      *     {@code null})
+     * @return a type exposer able to deliver the attributes
      * @throws InterpreterError on errors of definition
      */
     static TypeExposer exposeType(PyType type, Class<?> definingClass,
@@ -226,24 +228,28 @@ abstract class Exposer {
 
     /**
      * Create an exception with a message along the lines "'NAME',
-     * already exposed as SPEC, cannot be NEW_SPEC (method METH)" where
+     * already exposed as SPEC, cannot be NEW_SPEC (member METH)" where
      * the place-holders are filled from the corresponding arguments (or
      * their names or type names).
      *
      * @param name being defined
-     * @param meth method annotated
+     * @param member field or method annotated
      * @param newSpec of the new entry apparently requested
      * @param priorSpec of the inconsistent, existing entry
      * @return the required error
      */
-    static InterpreterError duplicateError(String name, Method meth,
+    static InterpreterError duplicateError(String name, Member member,
             Spec newSpec, Spec priorSpec) {
+        String priorSpecType = specType(priorSpec);
+        String newSpecType = specType(newSpec);
+        if (priorSpecType.equals(priorSpecType)) {
+            newSpecType = "redefined";
+        }
         return new InterpreterError(ALREADY_EXPOSED, name,
-                nameForAnno(priorSpec), nameForAnno(newSpec),
-                meth.getName());
+                priorSpecType, newSpecType, member.getName());
     }
 
-    private static String nameForAnno(Spec s) {
+    private static String specType(Spec s) {
         Class<? extends Annotation> ac = s.annoClass();
         if (ac == null) {
             // Special methods recognised by name, so no annotation
@@ -254,73 +260,9 @@ abstract class Exposer {
     }
 
     private static final String ALREADY_EXPOSED =
-            "'%s', already exposed as %s, cannot be %s (method %s)";
+            "'%s', already exposed as %s, cannot be %s (member %s)";
 
 //@formatter:off
-//    /**
-//     * Create a table of {@link PyMemberDescr}s annotated on the given
-//     * implementation class, on behalf of the type given. This type
-//     * object will become the {@link Descriptor#objclass} reference of
-//     * the descriptors created, but is not otherwise accessed, since it
-//     * is (necessarily) incomplete at this time.
-//     *
-//     * @param lookup authorisation to access fields
-//     * @param implClass to introspect for member definitions
-//     * @param type to which these descriptors apply
-//     * @return members defined (in the order encountered)
-//     * @throws InterpreterError on duplicates or unsupported types
-//     */
-//    static Map<String, PyMemberDescr> memberDescrs(Lookup lookup,
-//            Class<?> implClass, PyType type) throws InterpreterError {
-//
-//        Map<String, PyMemberDescr> defs = new LinkedHashMap<>();
-//
-//        for (Field f : implClass.getDeclaredFields()) {
-//            Exposed.Member a =
-//                    f.getDeclaredAnnotation(Exposed.Member.class);
-//            if (a != null) {
-//                PyMemberDescr def = getMemberDescr(type, f, lookup);
-//                DataDescriptor previous = defs.put(def.name, def);
-//                if (previous != null) {
-//                    // There was one already :(
-//                    throw new InterpreterError(MEMBER_REPEAT, def.name,
-//                            implClass.getSimpleName());
-//                }
-//            }
-//        }
-//        return defs;
-//    }
-//
-//    /** Build one member descriptor for the given field. */
-//    private static PyMemberDescr getMemberDescr(PyType type, Field f,
-//            Lookup lookup) {
-//
-//        String name = null;
-//
-//        EnumSet<Flag> flags = EnumSet.noneOf(Flag.class);
-//
-//        // Get the exposed name.
-//        Exposed.Member memberAnno =
-//                f.getAnnotation(Exposed.Member.class);
-//        if (memberAnno != null) {
-//            name = memberAnno.value();
-//            if (memberAnno.readonly())
-//                flags.add(Flag.READONLY);
-//            if (memberAnno.optional())
-//                flags.add(Flag.OPTIONAL);
-//        }
-//
-//        // May also have DocString annotation
-//        String doc = "";
-//        Exposed.DocString d = f.getAnnotation(Exposed.DocString.class);
-//        if (d != null)
-//            doc = d.value();
-//
-//        // From all these parts, construct a descriptor.
-//        return PyMemberDescr.forField(type, name, f, lookup, flags,
-//                doc);
-//    }
-//
 //    /**
 //     * Create a table of {@link PyGetSetDescr}s annotated on the given
 //     * implementation class, on behalf of the type given. This type
@@ -584,7 +526,7 @@ abstract class Exposer {
      * <p>
      * When exposing attributes of a Python type, the actual object to
      * be entered in a dictionary of a type or module is obtained by a
-     * call to {@link #asAttribute(Lookup)}.
+     * call to {@link #asAttribute(PyType, Lookup)}.
      */
     abstract static class Spec implements Comparable<Spec> {
 
@@ -618,7 +560,7 @@ abstract class Exposer {
         abstract Object asAttribute(PyType objclass, Lookup lookup)
                 throws InterpreterError;
 
-        /** @return the documentation string */
+        /** @return the documentation string (or {@code null}) */
         String getDoc() {
             return doc;
         }
@@ -664,9 +606,9 @@ abstract class Exposer {
     }
 
     /**
-     * An specialisation of {@link Spec} to describe, through one or
-     * more Java methods, a named, built-in object, during the exposure
-     * process.
+     * A specialisation of {@link Spec} to describe, through one or more
+     * Java methods, a named, built-in method-like object, during the
+     * exposure process.
      */
     static abstract class BaseMethodSpec extends Spec {
 
@@ -861,9 +803,9 @@ abstract class Exposer {
         /**
          * Get the argument parser belonging to this
          * {@link CallableSpec}. The many attributes established by
-         * {@link #add(Method, boolean, boolean, ScopeKind, MethodDef.MethodKind)},
-         * and the parameters of the primary call, determine the
-         * attributes of this {@link CallableSpec}.
+         * {@link #add(Method, boolean, boolean, MethodKind)}, and the
+         * parameters of the primary call, determine the attributes of
+         * this {@link CallableSpec}.
          * <p>
          * After the processing the primary call, the method signature
          * is known, and it is possible to create a parser. Before that,
@@ -905,7 +847,13 @@ abstract class Exposer {
             return MethodDef.forInstance(getParser(), mh);
         }
 
-        /** Convenience function to compose error in getMethodDef(). */
+        /**
+         * Convenience function to compose error in getMethodDef().
+         *
+         * @param m method we were working on
+         * @param e what went wrong
+         * @return an exception to throw
+         */
         protected InterpreterError cannotGetHandle(Method m,
                 IllegalAccessException e) {
             return new InterpreterError(e, CANNOT_GET_HANDLE,
@@ -915,7 +863,12 @@ abstract class Exposer {
         private static final String CANNOT_GET_HANDLE =
                 "cannot get method handle for '%s' in '%s'";
 
-        /** Convenience function to compose error in getMethodDef(). */
+        /**
+         * Convenience function to compose error in getMethodDef().
+         *
+         * @param mh handle from reflected method
+         * @return an exception to throw
+         */
         protected InterpreterError
                 methodSignatureError(MethodHandle mh) {
             return new InterpreterError(UNSUPPORTED_SIG, name,

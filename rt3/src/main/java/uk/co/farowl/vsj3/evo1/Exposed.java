@@ -73,9 +73,9 @@ interface Exposed {
          * def g(a, b, c):
          *     print(a, b, c)
          * </pre> may be called as <pre>
-         * >>> g(b=2, c=3, a=1)
+         * &gt;&gt;&gt; g(b=2, c=3, a=1)
          * 1 2 3
-         * >>> g(**dict(b=2, c=3, a=1))
+         * &gt;&gt;&gt; g(**dict(b=2, c=3, a=1))
          * 1 2 3
          * </pre> It is as if we had annotated an imaginary parameter
          * before the first declared parameter (or {@code self}) with
@@ -136,9 +136,9 @@ interface Exposed {
          * def g(a, b, c):
          *     print(a, b, c)
          * </pre> may be called as <pre>
-         * >>> g(b=2, c=3, a=1)
+         * &gt;&gt;&gt; g(b=2, c=3, a=1)
          * 1 2 3
-         * >>> g(**dict(b=2, c=3, a=1))
+         * &gt;&gt;&gt; g(**dict(b=2, c=3, a=1))
          * 1 2 3
          * </pre> It is as if we had annotated an imaginary parameter
          * before the first declared parameter (or {@code self}) with

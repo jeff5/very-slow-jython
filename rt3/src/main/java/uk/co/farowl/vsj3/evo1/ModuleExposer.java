@@ -15,9 +15,17 @@ import uk.co.farowl.vsj3.evo1.Exposed.PythonStaticMethod;
  */
 class ModuleExposer extends Exposer {
 
+    /**
+     * Construct the {@code ModuleExposer} instance for a particular
+     * module.
+     */
     ModuleExposer() {}
 
-    /** Build the result from the defining class. */
+    /**
+     * Build the result from the defining class.
+     *
+     * @param definingClass to scan for definitions
+     */
     void expose(Class<?> definingClass) {
         // Scan the defining class for definitions
         addMethodSpecs(definingClass);
