@@ -1,12 +1,17 @@
 package uk.co.farowl.vsj3.evo1;
 
 import java.lang.annotation.Annotation;
+import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles.Lookup;
+import java.lang.invoke.MethodType;
+import java.lang.invoke.WrongMethodTypeException;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.EnumSet;
+import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -20,7 +25,9 @@ import uk.co.farowl.vsj3.evo1.Exposed.Member;
 import uk.co.farowl.vsj3.evo1.Exposed.PythonMethod;
 import uk.co.farowl.vsj3.evo1.Exposed.PythonStaticMethod;
 import uk.co.farowl.vsj3.evo1.Exposed.Setter;
+import uk.co.farowl.vsj3.evo1.Operations.BinopGrid;
 import uk.co.farowl.vsj3.evo1.PyMemberDescr.Flag;
+import uk.co.farowl.vsj3.evo1.Slot.Signature;
 
 class TypeExposer extends Exposer {
 
@@ -530,4 +537,278 @@ class TypeExposer extends Exposer {
                     setters.size(), deleters.size());
         }
     }
+
+    /**
+     * Specification in which we assemble information about a Python
+     * special method in advance of creating a special method
+     * descriptor.
+     */
+    static class WrapperSpec extends BaseMethodSpec {
+
+        /** The special method being defined. */
+        final Slot slot;
+
+        WrapperSpec(Slot slot) {
+            super(slot.methodName, ScopeKind.TYPE);
+            this.slot = slot;
+        }
+
+        @Override
+        Object asAttribute(PyType objclass, Lookup lookup)
+                throws InterpreterError {
+            /*
+             * We will try to create a handle for each implementation of
+             * an instance method, but only one handle for static/class
+             * methods (like __new__). See corresponding logic in
+             * Slot.setSlot(Operations, Object)
+             */
+            if (slot.signature.kind == MethodKind.INSTANCE)
+                return createDescrForInstanceMethod(objclass, lookup);
+            else
+                return createDescrForStaticMethod(objclass, lookup);
+        }
+
+        @Override
+        void add(Method method) {
+            super.add(method);
+            // XXX Check the signature instead of in createDescr?
+        }
+
+        @Override
+        Class<? extends Annotation> annoClass() {
+            // Special methods recognised by name, so no annotation
+            return Annotation.class;
+        }
+
+        /**
+         * Create a {@code PyWrapperDescr} from this specification. Note
+         * that a specification describes the methods as declared, and
+         * that there may be any number. This method matches them to the
+         * supported implementations.
+         *
+         * @param objclass Python type that owns the descriptor
+         * @param lookup authorisation to access fields
+         * @return descriptor for access to the field
+         * @throws InterpreterError if the method type is not supported
+         */
+        private PyWrapperDescr createDescrForInstanceMethod(
+                PyType objclass, Lookup lookup)
+                throws InterpreterError {
+
+            // Acceptable methods can be coerced to this signature
+            MethodType slotType = slot.getType();
+            final int L = slotType.parameterCount();
+            assert (L >= 1);
+
+            /*
+             * There could be any number of candidates in the
+             * implementation. An implementation method could match
+             * multiple accepted implementations of the type (e.g.
+             * Number matching Long and Integer).
+             */
+            LinkedList<MethodHandle> candidates = new LinkedList<>();
+            for (Method m : methods) {
+                // Convert m to a handle (if L args and accessible)
+                try {
+                    MethodHandle mh = lookup.unreflect(m);
+                    if (mh.type().parameterCount() == L)
+                        addOrdered(candidates, mh);
+                } catch (IllegalAccessException e) {
+                    throw cannotGetHandle(objclass, m, e);
+                }
+            }
+
+            /*
+             * We will try to create a handle for each implementation of
+             * an instance method, but only one handle for static/class
+             * methods (like __new__). See corresponding logic in
+             * Slot.setSlot(Operations, Object)
+             */
+            final int N = objclass.acceptedCount;
+            MethodHandle[] wrapped = new MethodHandle[N];
+
+            // Fill the wrapped array with matching method handles
+            for (int i = 0; i < N; i++) {
+                Class<?> acceptedClass = objclass.classes[i];
+                /*
+                 * Fill wrapped[i] with the method handle where the
+                 * first parameter is the most specific match for class
+                 * accepted[i].
+                 */
+                // Try the candidate method until one matches
+                for (MethodHandle mh : candidates) {
+                    if (mh.type().parameterType(0)
+                            .isAssignableFrom(acceptedClass)) {
+                        try {
+                            // must have the expected signature
+                            wrapped[i] = mh.asType(slotType);
+                            break;
+                        } catch (WrongMethodTypeException wmte) {
+                            // Wrong number of args or cannot cast.
+                            throw methodSignatureError(mh);
+                        }
+                    }
+                }
+
+                // We should have a value in each of wrapped[]
+                if (wrapped[i] == null) {
+                    throw new InterpreterError(
+                            "'%s.%s' not defined for %s", objclass.name,
+                            slot.methodName, objclass.classes[i]);
+                }
+            }
+
+            if (N == 1)
+                /*
+                 * There is only one definition so use the simpler form
+                 * of slot-wrapper. This is the frequent case.
+                 */
+                return new PyWrapperDescr.Single(objclass, slot,
+                        wrapped[0]);
+            else
+                /*
+                 * There are multiple definitions so use the array form
+                 * of slot-wrapper. This is the case for types that have
+                 * multiple accepted implementations and methods on them
+                 * that are not static or "Object self".
+                 */
+                return new PyWrapperDescr.Multiple(objclass, slot,
+                        wrapped);
+        }
+
+        /**
+         * Create a {@code PyWrapperDescr} from this specification. Note
+         * that a specification describes the methods as declared, and
+         * that there may be any number. This method matches them to the
+         * supported implementations.
+         *
+         * @param objclass Python type that owns the descriptor
+         * @param lookup authorisation to access fields
+         * @return descriptor for access to the field
+         * @throws InterpreterError if the method type is not supported
+         */
+        private PyWrapperDescr createDescrForStaticMethod(
+                PyType objclass, Lookup lookup)
+                throws InterpreterError {
+
+            // Acceptable methods can be coerced to this signature
+            MethodType slotType = slot.getType();
+
+            /*
+             * There should be only one definition of a given name in
+             * the methods list of a static or class method (like
+             * __new__), and it will be accessed only via the operations
+             * of the canonical type. See corresponding logic in
+             * Slot.setSlot(Operations, Object).
+             */
+            if (methods.size() != 1) {
+                throw new InterpreterError(
+                        "multiple definitons of '%s' in '%s'",
+                        slot.methodName, objclass.definingClass);
+            }
+
+            try {
+                // Convert m to a handle (if accessible)
+                MethodHandle mh = lookup.unreflect(methods.get(0));
+                try {
+                    // must have the expected signature here
+                    return new PyWrapperDescr.Single(objclass, slot,
+                            mh.asType(slotType));
+
+                } catch (WrongMethodTypeException wmte) {
+                    // Wrong number of args or cannot cast.
+                    throw methodSignatureError(mh);
+                }
+            } catch (IllegalAccessException e) {
+                throw cannotGetHandle(objclass, methods.get(0), e);
+            }
+        }
+
+        /** Convenience function to compose error in createDescr(). */
+        private InterpreterError cannotGetHandle(PyType objclass,
+                Method m, IllegalAccessException e) {
+            return new InterpreterError(e,
+                    "cannot get method handle for '%s' in '%s'", m,
+                    objclass.definingClass);
+        }
+
+        /** Convenience function to compose error in createDescr(). */
+        private InterpreterError methodSignatureError(MethodHandle mh) {
+            return new InterpreterError(UNSUPPORTED_SIG,
+                    slot.methodName, mh.type(), slot.opName);
+        }
+
+        private static final String UNSUPPORTED_SIG =
+                "method %.50s has wrong signature %.50s for slot %s";
+    }
+
+    /**
+     * Create a table of {@code MethodHandle}s from binary operations
+     * defined in the given class, on behalf of the type given. This
+     * table is 3-dimensional, being indexed by the slot of the method
+     * being defined, which must be a binary operation, and the indices
+     * of the operand classes in the type. These handles are used
+     * privately by the type to create call sites. Although the process
+     * of creating them is similar to making wrapper descriptors, these
+     * structures do not become exposed as descriptors.
+     *
+     * @param lookup authorisation to access methods
+     * @param binops to introspect for binary operations
+     * @param type to which these descriptors apply
+     * @return attributes defined (in the order first encountered)
+     * @throws InterpreterError on duplicates or unsupported types
+     */
+    static Map<Slot, BinopGrid> binopTable(Lookup lookup,
+            Class<?> binops, PyType type) throws InterpreterError {
+
+        // Iterate over methods looking for the relevant annotations
+        Map<Slot, BinopGrid> defs = new HashMap<>();
+
+        for (Method m : binops.getDeclaredMethods()) {
+            // If it is a special method, record the definition.
+            String name = m.getName();
+            Slot slot = Slot.forMethodName(name);
+            if (slot != null && slot.signature == Signature.BINARY) {
+                binopTableAdd(defs, slot, m, lookup, binops, type);
+            }
+        }
+
+        // Check for nulls in the table.
+        for (BinopGrid grid : defs.values()) { grid.checkFilled(); }
+
+        return defs;
+    }
+
+    /**
+     * Add a method handle to the table, verifying that the method type
+     * produced is compatible with the {@link #slot}.
+     *
+     * @param defs the method table to add to
+     * @param slot being matched
+     * @param m implementing method
+     * @param lookup authorisation to access fields
+     * @param binops class defining class-specific binary operations
+     * @param type to which these belong
+     */
+    private static void binopTableAdd(Map<Slot, BinopGrid> defs,
+            Slot slot, Method m, Lookup lookup, Class<?> binops,
+            PyType type) {
+
+        // Get (or create) the table for this slot
+        BinopGrid def = defs.get(slot);
+        if (def == null) {
+            // A new special method has been encountered
+            def = new BinopGrid(slot, type);
+            defs.put(slot, def);
+        }
+
+        try {
+            // Convert the method to a handle
+            def.add(lookup.unreflect(m));
+        } catch (IllegalAccessException | WrongMethodTypeException e) {
+            throw new InterpreterError(e,
+                    "ill-formed or inaccessible binary op '%s'", m);
+        }
+    }
+
 }

@@ -269,7 +269,7 @@ public class PyType extends Operations implements PyObjectDict {
         // Create the binary operations table (if there is one)
         Class<?> binops = spec.binopClass();
         this.binopTable = binops == null ? Collections.emptyMap()
-                : Exposer.binopTable(spec.lookup, binops, this);
+                : TypeExposer.binopTable(spec.lookup, binops, this);
     }
 
     /**
