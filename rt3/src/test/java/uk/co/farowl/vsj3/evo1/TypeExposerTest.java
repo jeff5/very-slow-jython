@@ -14,12 +14,16 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import uk.co.farowl.vsj3.evo1.Exposed.Deleter;
 import uk.co.farowl.vsj3.evo1.Exposed.DocString;
+import uk.co.farowl.vsj3.evo1.Exposed.Getter;
 import uk.co.farowl.vsj3.evo1.Exposed.Member;
 import uk.co.farowl.vsj3.evo1.Exposed.PositionalOnly;
 import uk.co.farowl.vsj3.evo1.Exposed.PythonMethod;
 import uk.co.farowl.vsj3.evo1.Exposed.PythonStaticMethod;
+import uk.co.farowl.vsj3.evo1.Exposed.Setter;
 import uk.co.farowl.vsj3.evo1.Exposer.CallableSpec;
+import uk.co.farowl.vsj3.evo1.TypeExposer.GetSetSpec;
 import uk.co.farowl.vsj3.evo1.TypeExposer.MemberSpec;
 
 /**
@@ -29,7 +33,7 @@ import uk.co.farowl.vsj3.evo1.TypeExposer.MemberSpec;
  * appropriate attribute specifications. This tests a large part of the
  * exposure mechanism, without activating the wider Python type system.
  */
-@DisplayName("When using the type annotation scheme")
+@DisplayName("For a type exposed from a Java definition")
 class TypeExposerTest {
 
     /**
@@ -94,7 +98,7 @@ class TypeExposerTest {
             return Py.tuple(a, b, c);
         }
 
-        // Instance attributes ----------------------------------------
+        // Instance members -------------------------------------------
 
         // Plain int
         @Member
@@ -117,10 +121,6 @@ class TypeExposerTest {
         @Member
         Object obj;
 
-        // String again (?)
-        @Member
-        PyUnicode strhex;
-
         // Read-only by annotation
         @Member(readonly = true)
         int i2;
@@ -132,6 +132,59 @@ class TypeExposerTest {
         // Read-only by annotation given before name change
         @Member(readonly = true, value = "text2")
         String t2;
+
+        // String again (?)
+        @Member(readonly = true)
+        PyUnicode strhex2;
+
+        // Instance attributes ----------------------------------------
+
+        // Read-only (but changes to count updates to foo
+        int count = 0;
+        // Writable, but cannot delete
+        String foo;
+        // Writable, and has delete operation
+        double thingValue;
+
+        @Getter
+        Object count() {
+            return count;
+        }
+
+        @Getter
+        Object foo() {
+            return thingValue;
+        }
+
+        @Setter
+        void foo(Object v) throws TypeError, Throwable {
+            try {
+                foo = (String) v;
+            } catch (ClassCastException cce) {
+                foo = "<invalid>";
+            }
+        }
+
+        @Getter
+        Object thing() {
+             return thingValue;
+        }
+
+        @Setter("thing")
+        void thing(Object v) throws TypeError, Throwable {
+            try {
+                thingValue = (Double) v;
+            } catch (ClassCastException cce) {
+                thingValue = Double.NaN;
+            }
+            count += 1;
+        }
+
+        @Deleter("thing")
+        void deleteThing(Object v) throws TypeError, Throwable {
+            thingValue = Double.NaN;
+            count = 0;
+        }
     }
 
     @Nested
@@ -227,11 +280,11 @@ class TypeExposerTest {
 
             ms = checkMemberOptional(dict, "s");
             ms = checkMember(dict, "obj");
-            ms = checkMember(dict, "strhex");
 
             ms = checkMemberReadonly(dict, "i2");
             ms = checkMemberReadonly(dict, "x2");
             ms = checkMemberReadonly(dict, "text2");
+            ms = checkMemberReadonly(dict, "strhex2");
         }
 
         /**
@@ -290,5 +343,95 @@ class TypeExposerTest {
                 Map<String, MemberSpec> dict, String name) {
             return checkMember(dict, name, true, false);
         }
+
+        @Test
+        @DisplayName("finds the expected get-set attributes")
+        void getGetSets() {
+            // type=null in order not to wake the type system
+            TypeExposer exposer =
+                    Exposer.exposeType(null, Fake.class, null);
+            // Fish out those things that are get-sets
+            Map<String, GetSetSpec> dict = new TreeMap<>();
+            for (Exposer.Spec s : exposer.specs.values()) {
+                if (s instanceof GetSetSpec) {
+                    GetSetSpec gs = (GetSetSpec) s;
+                    dict.put(gs.name, gs);
+                }
+            }
+            checkGetSets(dict);
+        }
+
+        private void checkGetSets(Map<String, GetSetSpec> dict) {
+            assertEquals(3, dict.size());
+            checkGetSet(dict, "foo");
+            checkGetSetOptional(dict, "thing");
+            checkGetSetReadonly(dict, "count");
+        }
+
+        /**
+         * Check that a get-set with the expected properties is in the
+         * dictionary and return the exposer specification object.
+         *
+         * @param dict dictionary
+         * @param name of attribute
+         * @param optional if it should be
+         * @param readonly if it should be
+         * @return the member spec (for further checks)
+         */
+        private GetSetSpec checkGetSet(Map<String, GetSetSpec> dict,
+                String name, boolean optional, boolean readonly) {
+            GetSetSpec gs = dict.get(name);
+            assertNotNull(gs, () -> name + " not found");
+            assertEquals(optional, gs.optional(),
+                    () -> name + " optional");
+            assertEquals(readonly, gs.readonly(),
+                    () -> name + " readonly");
+            if (!readonly) {
+                assertEquals(gs.getters.size(), gs.setters.size(),
+                        () -> name + " setter size mismatch");
+            }
+            if (optional) {
+                assertEquals(gs.getters.size(), gs.deleters.size(),
+                        () -> name + " deleter size mismatch");
+            }
+            return gs;
+        }
+
+        /**
+         * Check that a member with the expected properties is in the
+         * dictionary and return the exposer specification object.
+         *
+         * @param dict dictionary
+         * @param name of member
+         */
+        private GetSetSpec checkGetSet(Map<String, GetSetSpec> dict,
+                String name) {
+            return checkGetSet(dict, name, false, false);
+        }
+
+        /**
+         * Check that a member with the expected properties is in the
+         * dictionary and return the exposer specification object.
+         *
+         * @param dict dictionary
+         * @param name of member
+         */
+        private GetSetSpec checkGetSetReadonly(
+                Map<String, GetSetSpec> dict, String name) {
+            return checkGetSet(dict, name, false, true);
+        }
+
+        /**
+         * Check that a member with the expected properties is in the
+         * dictionary and return the exposer specification object.
+         *
+         * @param dict dictionary
+         * @param name of member
+         */
+        private GetSetSpec checkGetSetOptional(
+                Map<String, GetSetSpec> dict, String name) {
+            return checkGetSet(dict, name, true, false);
+        }
+
     }
 }

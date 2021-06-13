@@ -11,11 +11,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.function.Function;
 
+import uk.co.farowl.vsj3.evo1.Exposed.Deleter;
 import uk.co.farowl.vsj3.evo1.Exposed.DocString;
+import uk.co.farowl.vsj3.evo1.Exposed.Getter;
 import uk.co.farowl.vsj3.evo1.Exposed.Member;
 import uk.co.farowl.vsj3.evo1.Exposed.PythonMethod;
 import uk.co.farowl.vsj3.evo1.Exposed.PythonStaticMethod;
+import uk.co.farowl.vsj3.evo1.Exposed.Setter;
 import uk.co.farowl.vsj3.evo1.PyMemberDescr.Flag;
 
 class TypeExposer extends Exposer {
@@ -30,10 +34,17 @@ class TypeExposer extends Exposer {
 
     /**
      * The table of intermediate descriptions for members. They will
-     * eventually become descriptors in a built-in object type . Every
+     * eventually become descriptors in a built-in object type. Every
      * entry here is also a value in {@link Exposer#specs}.
      */
     final Set<MemberSpec> memberSpecs;
+
+    /**
+     * The table of intermediate descriptions for get-sets. They will
+     * eventually become descriptors in a built-in object type. Every
+     * entry here is also a value in {@link Exposer#specs}.
+     */
+    final Set<GetSetSpec> getSetSpecs;
 
     /**
      * Construct the {@code TypeExposer} instance for a particular
@@ -49,6 +60,7 @@ class TypeExposer extends Exposer {
     TypeExposer(PyType type) {
         this.type = type;
         this.memberSpecs = new TreeSet<>();
+        this.getSetSpecs = new TreeSet<>();
     }
 
     @Override
@@ -63,12 +75,9 @@ class TypeExposer extends Exposer {
      */
     void expose(Class<?> definingClass) {
         // Scan the defining class for exposed and special methods
-        addMethodSpecs(definingClass);
-
+        scanJavaMethods(definingClass);
         // ... and for fields.
-        addFieldSpecs(definingClass);
-
-        // XXX ... and for types defined in the module maybe? :o
+        scanJavaFields(definingClass);
     }
 
     /**
@@ -101,7 +110,7 @@ class TypeExposer extends Exposer {
      * @throws InterpreterError on duplicates or unsupported types
      */
     @Override
-    void addMethodSpecs(Class<?> defsClass) throws InterpreterError {
+    void scanJavaMethods(Class<?> defsClass) throws InterpreterError {
 
         // Iterate over methods looking for those to expose
         for (Method m : defsClass.getDeclaredMethods()) {
@@ -126,10 +135,13 @@ class TypeExposer extends Exposer {
             // m.getDeclaredAnnotation(PythonClassMethod.class);
             // if (pcm != null) { addClassMethodSpec(m, pcm); }
 
-            // XXX Check for getter, setter, deleter method
-            // PythonClassMethod gm =
-            // m.getDeclaredAnnotation(Getter.class);
-            // if (gm != null) { addGetter(m, gm); }
+            // Check for getter, setter, deleter methods
+            Getter get = m.getAnnotation(Getter.class);
+            if (get != null) { addGetter(m, get); }
+            Setter set = m.getAnnotation(Setter.class);
+            if (set != null) { addSetter(m, set); }
+            Deleter del = m.getAnnotation(Deleter.class);
+            if (del != null) { addDeleter(m, del); }
 
             // If it has a special method name record that definition.
             String name = m.getName();
@@ -146,26 +158,76 @@ class TypeExposer extends Exposer {
      * @param slot annotation encountered
      * @throws InterpreterError on duplicates or unsupported types
      */
-    void addWrapperSpec(Method meth, Slot slot)
+    private void addWrapperSpec(Method meth, Slot slot)
             throws InterpreterError {
 
-        String name = slot.methodName;
-        // Find any existing definition
-        Spec spec = specs.get(name);
-        WrapperSpec wrapperSpec;
-        if (spec == null) {
-            // A new entry is needed
-            wrapperSpec = new WrapperSpec(slot);
-            specs.put(name, wrapperSpec);
-        } else if (spec instanceof WrapperSpec) {
-            // Existing entry will be updated
-            wrapperSpec = (WrapperSpec) spec;
-        } else {
-            // Existing entry is not compatible
-            wrapperSpec = new WrapperSpec(slot);
-            throw duplicateError(name, meth, wrapperSpec, spec);
-        }
-        wrapperSpec.add(meth);
+        // For clarity, name lambda expression for cast
+        Function<Spec, WrapperSpec> cast =
+                // Test and cast a found Spec to MethodSpec
+                spec -> spec instanceof WrapperSpec ? (WrapperSpec) spec
+                        : null;
+        // Now use the generic create/update
+        addSpec(meth, slot.methodName, cast,
+                (String ignored) -> new WrapperSpec(slot), ms -> {},
+                WrapperSpec::add);
+    }
+
+    /**
+     * Process a method annotated as an exposed attribute get method,
+     * into a specification, and find a {@link GetSetSpec} to the table
+     * of specifications by name (or add one) to hold it.
+     *
+     * @param m method annotated
+     * @param anno annotation encountered
+     * @throws InterpreterError on duplicates or unsupported types
+     */
+    private void addGetter(Method m, Getter anno) {
+        addSpec(m, anno.value(), TypeExposer::castGetSet,
+                GetSetSpec::new, ms -> { getSetSpecs.add(ms); },
+                GetSetSpec::addGetter);
+    }
+
+    /**
+     * Process a method annotated as an exposed attribute set method,
+     * into a specification, and find a {@link GetSetSpec} to the table
+     * of specifications by name (or add one) to hold it.
+     *
+     *
+     * @param m method annotated
+     * @param anno annotation encountered
+     * @throws InterpreterError on duplicates or unsupported types
+     */
+    private void addSetter(Method m, Setter anno) {
+        addSpec(m, anno.value(), TypeExposer::castGetSet,
+                GetSetSpec::new, ms -> { getSetSpecs.add(ms); },
+                GetSetSpec::addSetter);
+    }
+
+    /**
+     * Process a method annotated as an exposed attribute get method,
+     * into a specification, and find a {@link GetSetSpec} to the table
+     * of specifications by name (or add one) to hold it.
+     *
+     *
+     * @param m method annotated
+     * @param anno annotation encountered
+     * @throws InterpreterError on duplicates or unsupported types
+     */
+    private void addDeleter(Method m, Deleter anno) {
+        addSpec(m, anno.value(), TypeExposer::castGetSet,
+                GetSetSpec::new, ms -> { getSetSpecs.add(ms); },
+                GetSetSpec::addDeleter);
+    }
+
+    /**
+     * Cast an arbitrary {@link Spec} to a {@link GetSetSpec} or return
+     * {@code null}.
+     *
+     * @param spec to cast
+     * @return {@code spec} or {@code null}
+     */
+    static GetSetSpec castGetSet(Spec spec) {
+        return spec instanceof GetSetSpec ? (GetSetSpec) spec : null;
     }
 
     /**
@@ -175,7 +237,7 @@ class TypeExposer extends Exposer {
      * @param defsClass to introspect for field definitions
      * @throws InterpreterError on duplicates or unsupported types
      */
-    void addFieldSpecs(Class<?> defsClass) throws InterpreterError {
+    void scanJavaFields(Class<?> defsClass) throws InterpreterError {
 
         // Iterate over methods looking for those to expose
         for (Field f : defsClass.getDeclaredFields()) {
@@ -371,6 +433,101 @@ class TypeExposer extends Exposer {
                     getClass().getSimpleName(), name,
                     getJavaDeclaration());
         }
+
     }
 
+    /**
+     * A specialisation of {@link Exposer.Spec} to describe a named,
+     * built-in data-like object, during the exposure process.
+     */
+    static class GetSetSpec extends BaseMethodSpec {
+
+        /** Collects the getters declared (often just one). */
+        final List<Method> getters;
+        /** Collects the setters declared (often just one). */
+        final List<Method> setters;
+        /** Collects the deleters declared (often just one). */
+        final List<Method> deleters;
+
+        GetSetSpec(String name) {
+            super(name, ScopeKind.TYPE);
+            this.getters = methods;
+            this.setters = new ArrayList<>(1);
+            this.deleters = new ArrayList<>(1);
+        }
+
+        /**
+         * The attribute may not be set or deleted.
+         *
+         * @return true if set and delete are absent
+         */
+        boolean readonly() {
+            return setters.isEmpty() && deleters.isEmpty();
+        }
+
+        /**
+         * The attribute may be deleted.
+         *
+         * @return true if delete is present
+         */
+        boolean optional() {
+            return !deleters.isEmpty();
+        }
+
+        /**
+         * Add a getter to the collection.
+         *
+         * @param method to add to {@link #getters}
+         */
+        void addGetter(Method method) {
+            // Add to list of methods
+            getters.add(method);
+            // There may be a @DocString annotation
+            maybeAddDoc(method);
+        }
+
+        /**
+         * Add a setter to the collection.
+         *
+         * @param method to add to {@link #setters}
+         */
+        void addSetter(Method method) {
+            // Add to list of methods
+            setters.add(method);
+            // There may be a @DocString annotation
+            maybeAddDoc(method);
+        }
+
+        /**
+         * Add a deleter to the collection.
+         *
+         * @param method to add to {@link #deleters}
+         */
+        void addDeleter(Method method) {
+            // Add to list of methods
+            deleters.add(method);
+            // There may be a @DocString annotation
+            maybeAddDoc(method);
+        }
+
+        @Override
+        Object asAttribute(PyType objclass, Lookup lookup)
+                throws InterpreterError {
+            // TODO Auto-generated method stub
+            return null;
+        }
+
+        @Override
+        Class<? extends Annotation> annoClass() {
+            // XXX Not always :(
+            return Getter.class;
+        }
+
+        @Override
+        public String toString() {
+            return String.format("%s(%s[%d,%d,%d])",
+                    getClass().getSimpleName(), name, getters.size(),
+                    setters.size(), deleters.size());
+        }
+    }
 }

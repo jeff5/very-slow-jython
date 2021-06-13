@@ -26,7 +26,7 @@ import uk.co.farowl.vsj3.evo1.Exposed.PythonStaticMethod;
  * {@link Exposer} to a {@link ModuleDef}. This tests a large part of
  * the exposure mechanism.
  */
-@DisplayName("For a module defined in Java")
+@DisplayName("For a module exposed from a Java definition")
 class ModuleExposerTest extends UnitTestSupport {
 
     /**

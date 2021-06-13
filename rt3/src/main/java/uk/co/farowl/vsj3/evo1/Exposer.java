@@ -19,6 +19,9 @@ import java.util.Map;
 import java.util.Set;
 import java.util.StringJoiner;
 import java.util.TreeSet;
+import java.util.function.BiConsumer;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
 import uk.co.farowl.vsj3.evo1.Exposed.Default;
 import uk.co.farowl.vsj3.evo1.Exposed.DocString;
@@ -132,13 +135,13 @@ abstract class Exposer {
     /**
      * Add to {@link #specs}, definitions found in the given class and
      * annotated for exposure. (Note that the that the override
-     * {@link TypeExposer#addMethodSpecs(Class)} also adds a method if
+     * {@link TypeExposer#scanJavaMethods(Class)} also adds a method if
      * it has a the name of a special method.)
      *
      * @param defsClass to introspect for definitions
      * @throws InterpreterError on duplicates or unsupported types
      */
-    void addMethodSpecs(Class<?> defsClass) throws InterpreterError {
+    void scanJavaMethods(Class<?> defsClass) throws InterpreterError {
 
         // Iterate over methods looking for the relevant annotations
         for (Method m : defsClass.getDeclaredMethods()) {
@@ -160,31 +163,21 @@ abstract class Exposer {
      */
     void addMethodSpec(Method meth, PythonMethod anno)
             throws InterpreterError {
-
-        // The name is as annotated or the "natural" one
-        String name = anno.value();
-        if (name == null || name.length() == 0)
-            name = meth.getName();
-
-        // Find any existing definition
-        Spec spec = specs.get(name);
-        MethodSpec methodSpec;
-        if (spec == null) {
-            // A new entry is needed
-            methodSpec = new MethodSpec(name, kind());
-            specs.put(methodSpec.name, methodSpec);
-            methodSpecs.add(methodSpec);
-        } else if (spec instanceof MethodSpec) {
-            // Existing entry will be updated
-            methodSpec = (MethodSpec) spec;
-        } else {
-            // Existing entry is not compatible
-            methodSpec = new MethodSpec(name, kind());
-            throw duplicateError(name, meth, methodSpec, spec);
-        }
-        // Add the method, processing the signature
-        methodSpec.add(meth, anno.primary(), anno.positionalOnly(),
-                MethodKind.INSTANCE);
+        // For clarity, name lambda expressions for the actions
+        BiConsumer<MethodSpec, Method> addMethod =
+                // Add method m to spec ms
+                (MethodSpec ms, Method m) -> {
+                    ms.add(m, anno.primary(), anno.positionalOnly(),
+                            MethodKind.INSTANCE);
+                };
+        Function<Spec, MethodSpec> cast =
+                // Test and cast a found Spec to MethodSpec
+                spec -> spec instanceof MethodSpec ? (MethodSpec) spec
+                        : null;
+        // Now use the generic create/update
+        addSpec(meth, anno.value(), cast,
+                (String name) -> new MethodSpec(name, kind()),
+                ms -> { methodSpecs.add(ms); }, addMethod);
     }
 
     /**
@@ -199,31 +192,21 @@ abstract class Exposer {
      */
     void addStaticMethodSpec(Method meth, PythonStaticMethod anno)
             throws InterpreterError {
-
-        // The name is as annotated or the "natural" one
-        String name = anno.value();
-        if (name == null || name.length() == 0)
-            name = meth.getName();
-
-        // Find any existing definition
-        Spec spec = specs.get(name);
-        StaticMethodSpec functionSpec;
-        if (spec == null) {
-            // A new entry is needed
-            functionSpec = new StaticMethodSpec(name, kind());
-            specs.put(functionSpec.name, functionSpec);
-            methodSpecs.add(functionSpec);
-        } else if (spec instanceof StaticMethodSpec) {
-            // Existing entry will be updated
-            functionSpec = (StaticMethodSpec) spec;
-        } else {
-            // Existing entry is not compatible
-            functionSpec = new StaticMethodSpec(name, kind());
-            throw duplicateError(name, meth, functionSpec, spec);
-        }
-        // Add the method, processing the signature
-        functionSpec.add(meth, true, anno.positionalOnly(),
-                MethodKind.STATIC);
+        // For clarity, name lambda expressions for the actions
+        BiConsumer<StaticMethodSpec, Method> addMethod =
+                // Add method m to spec ms
+                (StaticMethodSpec ms, Method m) -> {
+                    ms.add(m, true, anno.positionalOnly(),
+                            MethodKind.STATIC);
+                };
+        Function<Spec, StaticMethodSpec> cast =
+                // Test and cast a found Spec to StaticMethodSpec
+                spec -> spec instanceof StaticMethodSpec
+                        ? (StaticMethodSpec) spec : null;
+        // Now use the generic create/update
+        addSpec(meth, anno.value(), cast,
+                (String name) -> new StaticMethodSpec(name, kind()),
+                ms -> { methodSpecs.add(ms); }, addMethod);
     }
 
     /**
@@ -444,6 +427,53 @@ abstract class Exposer {
 //@formatter:on
 
     /**
+     * A helper that avoids repeating nearly the same code for adding
+     * each particular sub-class of {@link Spec} when a method is
+     * encountered. The implementation finds or creates a {@code Spec}
+     * by the given name or method name. It then adds this {@code Spec}
+     * to {@link #specs}. The caller provides a factory method, in case
+     * a new {@code Spec} is needed, a method for adding the Spec to a
+     * type-specific list, and a method for adding the method to the
+     * {@code Spec}.
+     *
+     * @param <MS> the type of {@link Spec} being added or added to.
+     * @param m the method being adding to the {@code MS}
+     * @param name specified in the annotation or {@code null}
+     * @param cast to the {@code MS} if possible or {@code null}
+     * @param makeSpec constructor for an {@code MS}
+     * @param addSpec function to add the {@code MS} to the proper list
+     * @param addMethod function to update the {@code MS} with a method
+     */
+    <MS extends BaseMethodSpec> void addSpec(Method m, String name,
+            Function<Spec, MS> cast, //
+            Function<String, MS> makeSpec, //
+            Consumer<MS> addSpec, //
+            BiConsumer<MS, Method> addMethod) {
+
+        // The name is as annotated or the "natural" one
+        if (name == null || name.length() == 0)
+            name = m.getName();
+
+        // Find any existing definition
+        Spec spec = specs.get(name);
+        MS entry;
+        if (spec == null) {
+            // A new entry is needed
+            entry = makeSpec.apply(name);
+            specs.put(entry.name, entry);
+            addSpec.accept(entry);
+            addMethod.accept(entry, m);
+        } else if ((entry = cast.apply(spec)) != null) {
+            // Existing entry will be updated
+            addMethod.accept(entry, m);
+        } else {
+            // Existing entry is not compatible
+            entry = makeSpec.apply(name);
+            throw duplicateError(name, m, entry, spec);
+        }
+    }
+
+    /**
      * Create a table of {@code MethodHandle}s from binary operations
      * defined in the given class, on behalf of the type given. This
      * table is 3-dimensional, being indexed by the slot of the method
@@ -585,17 +615,22 @@ abstract class Exposer {
         abstract Class<? extends Annotation> annoClass();
 
         /**
-         * Set the document string (but only once).
+         * Check for a &#64;{@link DocString} annotation, and set the
+         * document string (but only once)..
          *
-         * @param doc document string
+         * @param method that may bear the annotation
          * @throws InterpreterError if {@link #doc} is already set
          */
-        void setDoc(String doc) throws InterpreterError {
-            if (this.doc == null) {
-                this.doc = doc;
-            } else {
-                throw new InterpreterError("%s %s documented twice",
-                        annoClass(), getJavaName());
+        void maybeAddDoc(Method method) throws InterpreterError {
+            // There may be a @DocString annotation
+            DocString docAnno = method.getAnnotation(DocString.class);
+            if (docAnno != null) {
+                if (this.doc == null) {
+                    this.doc = docAnno.value();
+                } else {
+                    throw new InterpreterError("%s %s documented twice",
+                            annoClass(), getJavaName());
+                }
             }
         }
 

@@ -28,7 +28,7 @@ class ModuleExposer extends Exposer {
      */
     void expose(Class<?> definingClass) {
         // Scan the defining class for definitions
-        addMethodSpecs(definingClass);
+        scanJavaMethods(definingClass);
         // XXX ... and for fields.
         // XXX ... and for types defined in the module maybe? :o
     }
@@ -70,7 +70,7 @@ class ModuleExposer extends Exposer {
      * @throws InterpreterError on duplicates or unsupported types
      */
     @Override
-    void addMethodSpecs(Class<?> definingClass)
+    void scanJavaMethods(Class<?> definingClass)
             throws InterpreterError {
 
         // Collect exposed functions (Java methods)
