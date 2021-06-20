@@ -64,8 +64,8 @@ abstract class PyMemberDescr extends DataDescriptor {
         try {
             return lookup.unreflectVarHandle(f);
         } catch (IllegalAccessException e) {
-            throw new InterpreterError(e,
-                    "cannot get method handle for '%s'", f);
+            throw new InterpreterError(e, "cannot get handle for '%s'",
+                    f);
         }
 
     }

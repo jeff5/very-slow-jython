@@ -158,10 +158,20 @@ class PyTuple extends AbstractList<Object> implements CraftedType {
      * @return a tuple with the given contents or {@link #EMPTY}
      */
     static <E> PyTuple from(Collection<E> c) {
-        if (c.size() == 0)
-            return EMPTY;
-        else
-            return new PyTuple(c);
+        return c.size() == 0 ? EMPTY : new PyTuple(c);
+    }
+
+    /**
+     * Construct a {@code PyTuple} from the elements of an array, or
+     * if the collection is empty, return {@link #EMPTY}.
+     *
+     * @param <E> component type
+     * @param a value of new tuple
+     * @return a tuple with the given contents or {@link #EMPTY}
+     */
+    static <E> PyTuple from(E[] a) {
+        int n = a.length;
+        return a.length == 0 ? EMPTY : new PyTuple(a, 0, n);
     }
 
     /** Convenient constant for a {@code tuple} with zero elements. */

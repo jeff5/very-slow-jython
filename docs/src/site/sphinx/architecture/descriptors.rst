@@ -924,14 +924,14 @@ the get, set and delete methods associated with the attribute by name.
 
 The statically-allocated ``PyGetSetDef`` in CPython,
 that ends up as part of the ``PyGetSetDescr``,
-has a counterpart ``GetSetDef`` in the Java implementation.
-However, that exists only while we find all the annotated methods
-(and the documentation string)
+has a counterpart ``GetSetSpec`` in the Java implementation.
+However, that exists only while the ``TypeExposer``
+finds the annotated methods
 for each attribute in the implementation of a type.
 The ``PyGetSetDescr`` finally holds all the necessary information directly.
-The ``java.lang.reflect.Method`` objects in our ``GetSetDef``
+The ``java.lang.reflect.Method`` objects in our ``GetSetSpec``
 become ``MethodHandle``\s at that point
-and the ephemeral ``GetSetDef`` is discarded.
+and the ephemeral ``GetSetSpec`` is discarded.
 
 Unlike those of a ``PyMemberDescr``,
 the ``get``, ``set`` and ``delete`` operations of a ``PyGetSetDescr``
@@ -971,15 +971,19 @@ with a type among those predefined.
         delete : MethodHandle
         doc : String
     }
-    PyGetSetDescr <.right. GetSetDef : <<specifies>>
+    PyGetSetDescr <.right. GetSetSpec : <<specifies>>
 
-    class GetSetDef {
-        name
-        get : Method
-        set : Method
-        delete : Method
+    class GetSetSpec {
+        getters : List<Method>
+        setters : List<Method>
+        deleters : List<Method>
+    }
+
+    class Spec {
+        name : String
         doc : String
     }
+    Spec <|-- GetSetSpec
 
 The choice to use ``MethodHandle`` here opens the possibility,
 in a later implementation,
@@ -996,13 +1000,18 @@ The attribute may be made read-only by simply not specifying a setter,
 and indelible by not specifying a deleter.
 When not defined,
 any of these handles defaults to a method that throws ``Slot.EmptyException``,
-which the surface methods ``__get__``, ``__set__`` and ``__delete__``
-catch to raise an ``AttributeError`` with an informative message.
+which the surface methods ``__get__``, ``__set__`` and ``__delete__`` catch,
+and convert to a ``AttributeError`` or a ``TypeError``
+with an informative message.
 
 (In the CPython code base,
-the response to a disallowed deletion is hand-crafted per attribute,
+setting or deleting an attribute that is read-only,
+produces an ``AttributeError``.
+Deleting an attribute that is writable,
+but where deletion is not allowed,
+is hand-crafted per attribute,
 detecting the value ``NULL`` in the setter method.
-Objects mostly produce ``AttributeError``, but some ``TypeError``,
+Objects mostly produce ``TypeError``, but some ``AttributeError``,
 and in ``pyexpat.c`` it is ``RuntimeError``.
 This unwelcome variety remains available to us by defining a deleter.)
 

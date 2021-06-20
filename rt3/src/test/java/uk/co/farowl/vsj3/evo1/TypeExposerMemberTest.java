@@ -53,7 +53,7 @@ class TypeExposerMemberTest extends UnitTestSupport {
         @Member(optional = true)
         String s;
 
-        /** {@code Object} member */
+        /** {@code Object} member (not optional) */
         @Member
         Object obj;
 
@@ -140,7 +140,6 @@ class TypeExposerMemberTest extends UnitTestSupport {
         void descr_has_expected_fields() throws Throwable {
             assertEquals(name, md.name);
             assertEquals(doc, md.doc);
-            // XXX Abstract.getAttr versions of checks?
             String s = String.format(
                     "<member '%s' of 'ObjectWithMembers' objects>",
                     name);

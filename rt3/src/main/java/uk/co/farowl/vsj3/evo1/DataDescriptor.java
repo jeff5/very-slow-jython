@@ -76,17 +76,45 @@ abstract class DataDescriptor extends Descriptor {
     }
 
     /**
+     * Create an {@link AttributeError} with a message along the lines
+     * "attribute 'N' of 'T' objects is not readable" involving the name
+     * N of this attribute and the type T which is
+     * {@link Descriptor#objclass}.
+     *
+     * @return exception to throw
+     */
+    protected AttributeError cannotReadAttr() {
+        String msg =
+                "attribute '%.50s' of '%.100s' objects is not readable";
+        return new AttributeError(msg, name, objclass.getName());
+    }
+
+    /**
+     * Create an {@link AttributeError} with a message along the lines
+     * "attribute 'N' of 'T' objects is not writable" involving the name
+     * N of this attribute and the type T which is
+     * {@link Descriptor#objclass}.
+     *
+     * @return exception to throw
+     */
+    protected AttributeError cannotWriteAttr() {
+        String msg =
+                "attribute '%.50s' of '%.100s' objects is not writable";
+        return new AttributeError(msg, name, objclass.getName());
+    }
+
+    /**
      * Create a {@link TypeError} with a message along the lines "cannot
      * delete attribute N from 'T' objects" involving the name N of this
-     * attribute and the type T which is {@link Descriptor#objclass}
-     * {@code value}, e.g. "cannot delete attribute <u>f_trace_lines</u>
-     * from '<u>frame</u>' objects".
+     * attribute and the type T which is {@link Descriptor#objclass},
+     * e.g. "cannot delete attribute <u>f_trace_lines</u> from
+     * '<u>frame</u>' objects".
      *
      * @return exception to throw
      */
     protected TypeError cannotDeleteAttr() {
         String msg =
-                "cannot delete attribute %.50s from '%.50s' objects";
+                "cannot delete attribute %.50s from '%.100s' objects";
         return new TypeError(msg, name, objclass.getName());
     }
 

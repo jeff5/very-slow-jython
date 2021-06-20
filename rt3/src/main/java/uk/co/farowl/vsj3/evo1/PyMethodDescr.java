@@ -85,7 +85,7 @@ abstract class PyMethodDescr extends MethodDescriptor {
 
         /**
          * Construct a method descriptor, identifying by a method handle
-         * the implementation method in {@code objclass}.
+         * in the definition the implementation of {@code objclass}.
          *
          * @param objclass the class declaring the method
          * @param methodDef describing the signature of the method
@@ -110,22 +110,22 @@ abstract class PyMethodDescr extends MethodDescriptor {
     static class Multiple extends PyMethodDescr {
 
         /**
-         * Handles for the particular implementations of a special
-         * method. The method type of each is the same. In an instance
-         * method, {@link #method} entries have type {@code (O, O[])O},
-         * or {@code (O)O}.
+         * Handles for the particular implementations of a method. The
+         * method type of each is the same. In an instance method,
+         * {@link #method} entries have type {@code (O, O[])O}, or
+         * {@code (O)O}.
          */
         // Compare CPython PyMethodDescrObject::vectorcall
         protected final MethodHandle[] method;
 
         /**
          * Construct a method descriptor, identifying by an array of
-         * method handles the implementation methods in
-         * {@code objclass}.
+         * method handles the method implementation for each accepted
+         * implementation of {@code objclass}.
          *
-         * @param objclass the class declaring the special method
+         * @param objclass the class declaring the method
          * @param methodDef describing the signature of the method
-         * @param method handles to the implementation of that method
+         * @param method handles to the implementations of that method
          */
         // Compare CPython PyDescr_NewMethod in descrobject.c
         Multiple(PyType objclass, MethodDef methodDef,

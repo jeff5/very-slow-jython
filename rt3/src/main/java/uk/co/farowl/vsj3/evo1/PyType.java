@@ -58,7 +58,7 @@ public class PyType extends Operations implements PyObjectDict {
                 PyBaseObject.class, PyType.class,
                 // The entries are descriptors so defer those
                 PyMemberDescr.class, //
-                // PyGetSetDescr.class, //
+                PyGetSetDescr.class, //
                 PyWrapperDescr.class, //
                 PyMethodDescr.class, //
                 // And sometimes things go wrong :(

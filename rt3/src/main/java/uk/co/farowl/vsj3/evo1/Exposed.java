@@ -325,4 +325,16 @@ interface Exposed {
         String value() default "";
     }
 
+    /**
+     * Documentation-only annotation reminding us that <b>the defining
+     * class guarantees not to change the contents.</b> If a new value
+     * is assigned, it will be a new array. It is therefore safe to take
+     * a reference to this array and treat it as frozen (e.g. to expose
+     * it as a tuple). There is no enforcement of this contract at run
+     * time.
+     */
+    @Documented
+    @Target(FIELD)
+    @interface FrozenArray {}
+
 }

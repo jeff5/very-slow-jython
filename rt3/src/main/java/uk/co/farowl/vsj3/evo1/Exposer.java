@@ -25,6 +25,7 @@ import java.util.function.Function;
 
 import uk.co.farowl.vsj3.evo1.Exposed.Default;
 import uk.co.farowl.vsj3.evo1.Exposed.DocString;
+import uk.co.farowl.vsj3.evo1.Exposed.Getter;
 import uk.co.farowl.vsj3.evo1.Exposed.KeywordCollector;
 import uk.co.farowl.vsj3.evo1.Exposed.KeywordOnly;
 import uk.co.farowl.vsj3.evo1.Exposed.Name;
@@ -46,28 +47,18 @@ abstract class Exposer {
     final Map<String, Spec> specs;
 
     /**
-     * The table of intermediate descriptions for methods. They will
-     * become {@link MethodDef}s, and eventually either descriptors in a
-     * built-in object type or methods bound to instances of a module
-     * type. Every entry here is also a value in {@link #specs}.
+     * The table of intermediate descriptions for methods (instance,
+     * static and class). They will become {@link MethodDef}s, and
+     * eventually either descriptors in a built-in object type or
+     * methods bound to instances of a module type. Every entry here is
+     * also a value in {@link #specs}.
      */
     final Set<CallableSpec> methodSpecs;
-
-    /**
-     * The table of intermediate descriptions for static methods. They
-     * will become {@link MethodDef}s, and eventually either
-     * {@code staticmethod} objects in a built-in object type or
-     * functions in instances of a module type.
-     *
-     * Every entry here is also a value in {@link #specs}.
-     */
-    // final Set<StaticMethodSpec> staticMethodSpecs;
 
     /** Construct the base with its table of entries. */
     protected Exposer() {
         this.specs = new HashMap<>();
         this.methodSpecs = new TreeSet<>();
-        // this.staticMethodSpecs = new TreeSet<>();
     }
 
     /** @return which {@link ScopeKind} of {@code Exposer} is this? */
@@ -209,8 +200,8 @@ abstract class Exposer {
 
     /**
      * Create an exception with a message along the lines "'NAME',
-     * already exposed as SPEC, cannot be NEW_SPEC (member METH)" where
-     * the place-holders are filled from the corresponding arguments (or
+     * already exposed as SPEC, cannot be NEW_SPEC" where the
+     * place-holders are filled from the corresponding arguments (or
      * their names or type names).
      *
      * @param name being defined
@@ -221,208 +212,20 @@ abstract class Exposer {
      */
     static InterpreterError duplicateError(String name, Member member,
             Spec newSpec, Spec priorSpec) {
-        String priorSpecType = specType(priorSpec);
-        String newSpecType = specType(newSpec);
-        if (priorSpecType.equals(priorSpecType)) {
+        String memberName = member.getName();
+        String memberString = memberName == name ? ""
+                : " (called '" + memberName + "' in source)";
+        String priorSpecType = priorSpec.annoClassName();
+        String newSpecType = newSpec.annoClassName();
+        if (priorSpecType.equals(newSpecType)) {
             newSpecType = "redefined";
         }
-        return new InterpreterError(ALREADY_EXPOSED, name,
-                priorSpecType, newSpecType, member.getName());
-    }
-
-    private static String specType(Spec s) {
-        Class<? extends Annotation> ac = s.annoClass();
-        if (ac == null) {
-            // Special methods recognised by name, so no annotation
-            return "special method";
-        } else {
-            return ac.getSimpleName();
-        }
+        return new InterpreterError(ALREADY_EXPOSED, name, memberString,
+                priorSpecType, newSpecType);
     }
 
     private static final String ALREADY_EXPOSED =
-            "'%s', already exposed as %s, cannot be %s (member %s)";
-
-//@formatter:off
-//    /**
-//     * Create a table of {@link PyGetSetDescr}s annotated on the given
-//     * implementation class, on behalf of the type given. This type
-//     * object will become the {@link Descriptor#objclass} reference of
-//     * the descriptors created, but is not otherwise accessed, since it
-//     * is (necessarily) incomplete at this time.
-//     *
-//     * @param lookup authorisation to access methods
-//     * @param implClass to introspect for getters, setters and deleters
-//     * @param type to which these descriptors apply
-//     * @return attributes defined (in the order first encountered)
-//     * @throws InterpreterError on duplicates or unsupported types
-//     */
-//    static Map<String, PyGetSetDescr> getsetDescrs(Lookup lookup,
-//            Class<?> implClass, PyType type) throws InterpreterError {
-//
-//        // Iterate over methods looking for the relevant annotations
-//        Map<String, GetSetDef> defs = new LinkedHashMap<>();
-//
-//        for (Method m : implClass.getDeclaredMethods()) {
-//            // Look for all three types now. so as to detect conflicts.
-//            Exposed.Getter getterAnno =
-//                    m.getAnnotation(Exposed.Getter.class);
-//            Exposed.Setter setterAnno =
-//                    m.getAnnotation(Exposed.Setter.class);
-//            Exposed.Deleter deleterAnno =
-//                    m.getAnnotation(Exposed.Deleter.class);
-//            String repeated = null;
-//
-//            // Now process the relevant annotation, if any.
-//            if ((getterAnno) != null) {
-//                // There is a Getter annotation: add to definitions
-//                if (setterAnno != null || deleterAnno != null)
-//                    throw new InterpreterError(DEF_MULTIPLE,
-//                            "get-set-delete", m,
-//                            implClass.getSimpleName());
-//                // Add to definitions.
-//                repeated = addGetter(defs, getterAnno, m);
-//
-//            } else if ((setterAnno) != null) {
-//                // There is a Setter annotation
-//                if (deleterAnno != null)
-//                    throw new InterpreterError(DEF_MULTIPLE,
-//                            "get-set-delete", m,
-//                            implClass.getSimpleName());
-//                // Add to definitions.
-//                repeated = addSetter(defs, setterAnno, m);
-//
-//            } else if ((deleterAnno) != null) {
-//                // There is a Deleter annotation: add to definitions
-//                repeated = addDeleter(defs, deleterAnno, m);
-//            }
-//
-//            // If set non-null at any point, indicates a repeat.
-//            if (repeated != null) {
-//                throw new InterpreterError(DEF_REPEAT, repeated,
-//                        m.getName(), implClass.getSimpleName());
-//            }
-//        }
-//
-//        // For each entry found in the class, construct a descriptor
-//        Map<String, PyGetSetDescr> descrs = new LinkedHashMap<>();
-//        for (GetSetDef def : defs.values()) {
-//            descrs.put(def.name, def.createDescr(type, lookup));
-//        }
-//
-//        return descrs;
-//    }
-//
-//    /**
-//     * Record a {@link Getter} in the table of {@link GetSetDef}s. The
-//     * return from this method is {@code null} for success or a
-//     * {@code String} identifying a duplicate definition.
-//     *
-//     * @param defs table of {@link GetSetDef}s
-//     * @param getterAnno annotation found
-//     * @param m method annotated
-//     * @return {@code null} for success or string naming duplicate
-//     */
-//    // Using an error return simplifies getsetDescrs() internally.
-//    private static String addGetter(Map<String, GetSetDef> defs,
-//            Exposed.Getter getterAnno, Method m) {
-//        // Get the entry to which we are adding a getter
-//        GetSetDef def = ensureGetSetDef(defs, getterAnno.value(), m);
-//        if (def.setGet(m) != null) {
-//            // There was one already :(
-//            return "getter for " + def.name;
-//        }
-//        // May also have DocString annotation to add.
-//        return addDoc(def, m);
-//    }
-//
-//    /**
-//     * Record a {@link Setter} in the table of {@link GetSetDef}s. The
-//     * return from this method is {@code null} for success or a
-//     * {@code String} identifying a duplicate definition.
-//     *
-//     * @param defs table of {@link GetSetDef}s
-//     * @param getterAnno annotation found
-//     * @param m method annotated
-//     * @return {@code null} for success or string naming duplicate
-//     */
-//    // Using an error return simplifies getsetDescrs() internally.
-//    private static String addSetter(Map<String, GetSetDef> defs,
-//            Exposed.Setter setterAnno, Method m) {
-//        // Get the entry to which we are adding a getter
-//        GetSetDef def = ensureGetSetDef(defs, setterAnno.value(), m);
-//        if (def.setSet(m) != null) {
-//            // There was one already :(
-//            return "setter for " + def.name;
-//        }
-//        // May also have DocString annotation to add.
-//        return addDoc(def, m);
-//    }
-//
-//    /**
-//     * Record a {@link Deleter} in the table of {@link GetSetDef}s. The
-//     * return from this method is {@code null} for success or a
-//     * {@code String} identifying a duplicate definition.
-//     *
-//     * @param defs table of {@link GetSetDef}s
-//     * @param deleterAnno annotation found
-//     * @param m method annotated
-//     * @return {@code null} for success or string naming duplicate
-//     */
-//    // Using an error return simplifies getsetDescrs() internally.
-//    private static String addDeleter(Map<String, GetSetDef> defs,
-//            Exposed.Deleter deleterAnno, Method m) {
-//        // Get the entry to which we are adding a getter
-//        GetSetDef def = ensureGetSetDef(defs, deleterAnno.value(), m);
-//        if (def.setDelete(m) != null) {
-//            // There was one already :(
-//            return "deleter for " + def.name;
-//        }
-//        // May also have DocString annotation to add.
-//        return addDoc(def, m);
-//    }
-//
-//    /**
-//     * Add an entry to the table of {@link GetSetDef}s for the given
-//     * name.
-//     *
-//     * @param defs table of {@link GetSetDef}s
-//     * @param name to define
-//     * @param m method (supplies default name)
-//     * @return new or found definition
-//     */
-//    private static GetSetDef ensureGetSetDef(
-//            Map<String, GetSetDef> defs, String name, Method m) {
-//        if (name == null || name.length() == 0) { name = m.getName(); }
-//        // Ensure there is a GetSetDef for the name.
-//        GetSetDef def = defs.get(name);
-//        if (def == null) {
-//            def = new GetSetDef(name);
-//            defs.put(name, def);
-//        }
-//        return def;
-//    }
-//
-//    /**
-//     * Add a doc string if the {@link DocString} annotation is present
-//     * on the given method.
-//     *
-//     * @param def to add it to
-//     * @param m method in question
-//     * @return {@code null} or string indicating an error
-//     */
-//    private static String addDoc(GetSetDef def, Method m) {
-//        Exposed.DocString d = m.getAnnotation(Exposed.DocString.class);
-//        if (d != null) {
-//            String doc = d.value();
-//            if (def.setDoc(doc) != null) {
-//                // There was one already :(
-//                return "doc string for " + def.name;
-//            }
-//        }
-//        return null;
-//    }
-//@formatter:on
+            "'%s'%s, already exposed as %s, cannot be %s";
 
     /**
      * A helper that avoids repeating nearly the same code for adding
@@ -465,8 +268,12 @@ abstract class Exposer {
             // Existing entry will be updated
             addMethod.accept(entry, m);
         } else {
-            // Existing entry is not compatible
+            /*
+             * Existing entry is not compatible, but make a loose entry
+             * on which to base the error message.
+             */
             entry = makeSpec.apply(name);
+            addMethod.accept(entry, m);
             throw duplicateError(name, m, entry, spec);
         }
     }
@@ -563,6 +370,25 @@ abstract class Exposer {
             }
         }
 
+        /**
+         * String version of the kind of specification this is,
+         * expressed as the the type of annotation that gave rise to it.
+         *
+         * @return annotation type name
+         */
+        protected String annoClassName() {
+            Class<? extends Annotation> ac = annoClass();
+            if (ac == null) {
+                // Special methods recognised by name, so no annotation
+                return "special method";
+            } else if (ac == Getter.class) {
+                // Since could also be @Setter or @Deleter
+                return "get-set attribute";
+            } else {
+                return ac.getSimpleName();
+            }
+        }
+
         @Override
         public int compareTo(Spec o) {
             return name.compareTo(o.name);
@@ -650,6 +476,41 @@ abstract class Exposer {
             // Insert h where the iterator stopped. Could be the end.
             iter.add(h);
         }
+
+        /**
+         * Convenience function to compose error when creating a
+         * descriptor or method definition, when the un-reflecting to a
+         * method handle fails.
+         *
+         * @param m method we were working on
+         * @param e what went wrong
+         * @return an exception to throw
+         */
+        protected InterpreterError cannotGetHandle(Method m,
+                IllegalAccessException e) {
+            return new InterpreterError(e, CANNOT_GET_HANDLE,
+                    m.getName(), m.getDeclaringClass());
+        }
+
+        private static final String CANNOT_GET_HANDLE =
+                "cannot get method handle for '%s' in '%s'";
+
+        /**
+         * Convenience function to compose error when creating a
+         * descriptor or method definition and the arguments of the
+         * method handle are unexpected number in type or number.
+         *
+         * @param mh handle from reflected method
+         * @return an exception to throw
+         */
+        protected InterpreterError
+                methodSignatureError(MethodHandle mh) {
+            return new InterpreterError(UNSUPPORTED_SIG, name,
+                    mh.type(), annoClassName());
+        }
+
+        private static final String UNSUPPORTED_SIG =
+                "method %.50s has wrong signature %.50s for %.50s";
     }
 
     /**
@@ -810,37 +671,6 @@ abstract class Exposer {
             }
             return MethodDef.forInstance(getParser(), mh);
         }
-
-        /**
-         * Convenience function to compose error in getMethodDef().
-         *
-         * @param m method we were working on
-         * @param e what went wrong
-         * @return an exception to throw
-         */
-        protected InterpreterError cannotGetHandle(Method m,
-                IllegalAccessException e) {
-            return new InterpreterError(e, CANNOT_GET_HANDLE,
-                    m.getName(), m.getDeclaringClass());
-        }
-
-        private static final String CANNOT_GET_HANDLE =
-                "cannot get method handle for '%s' in '%s'";
-
-        /**
-         * Convenience function to compose error in getMethodDef().
-         *
-         * @param mh handle from reflected method
-         * @return an exception to throw
-         */
-        protected InterpreterError
-                methodSignatureError(MethodHandle mh) {
-            return new InterpreterError(UNSUPPORTED_SIG, name,
-                    mh.type());
-        }
-
-        private static final String UNSUPPORTED_SIG =
-                "method %.50s has wrong signature %.50s for spec";
 
         /**
          * Add a method implementation. (A test that the signature is

@@ -2,6 +2,7 @@ package uk.co.farowl.vsj3.evo1;
 
 import java.lang.annotation.Annotation;
 import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.invoke.MethodType;
 import java.lang.invoke.WrongMethodTypeException;
@@ -520,13 +521,147 @@ class TypeExposer extends Exposer {
         @Override
         Object asAttribute(PyType objclass, Lookup lookup)
                 throws InterpreterError {
-            // TODO Auto-generated method stub
-            return null;
+            if (objclass.acceptedCount == 1)
+                return createDescrSingle(objclass, lookup);
+            else
+                return createDescrMultiple(objclass, lookup);
+        }
+
+        private Object createDescrSingle(PyType objclass,
+                Lookup lookup) {
+            // TODO Stop-gap: do general case first
+            return createDescrMultiple(objclass, lookup);
+        }
+
+        /**
+         * Create a {@code PyGetSetDescr} from this specification. Note
+         * that a specification collects all the methods as declared
+         * with this name (in separate getter, setter and deleter
+         * lists). Normally there is at most one of each.
+         * <p>
+         * Normally also, a Python type has just one Java
+         * implementation. If a type has N accepted implementations,
+         * there should be definitions of the getter, setter, and
+         * deleter methods, if defined at all, applicable to each
+         * accepted implementation. This method matches defined methods
+         * to the supported implementations.
+         *
+         * @param objclass Python type that owns the descriptor
+         * @param lookup authorisation to access fields
+         * @return descriptor for access to the field
+         * @throws InterpreterError if the method type is not supported
+         */
+        private PyGetSetDescr createDescrMultiple(PyType objclass,
+                Lookup lookup) throws InterpreterError {
+
+            // Handles on implementation methods
+            MethodHandle[] g, s = null, d = null;
+            g = unreflect(objclass, lookup, PyGetSetDescr.GETTER,
+                    getters);
+            if (!readonly()) {
+                // We can set this attribute
+                s = unreflect(objclass, lookup, PyGetSetDescr.SETTER,
+                        setters);
+                if (optional()) {
+                    // We can delete this attribute
+                    d = unreflect(objclass, lookup,
+                            PyGetSetDescr.DELETER, deleters);
+                }
+            }
+
+            return new PyGetSetDescr.Multiple(objclass, name, g, s, d,
+                    doc);
+        }
+
+        private MethodHandle[] unreflect(PyType objclass, Lookup lookup,
+                MethodType mt, List<Method> methods)
+                throws InterpreterError {
+
+            /*
+             * In the first stage, translate each method to a handle.
+             * There could be any number of candidates in the defining
+             * classes. There may be a method for each accepted
+             * implementation of the type , or a method may match more
+             * than one (e.g. Number matching Long and Integer). We
+             * build a list with the more type-specific handles (in the
+             * first argument) before the less type-specific.
+             */
+            LinkedList<MethodHandle> candidates = new LinkedList<>();
+            for (Method m : methods) {
+                // Convert m to a handle (if L args and accessible)
+                try {
+                    MethodHandle mh = lookup.unreflect(m);
+                    addOrdered(candidates, mh);
+                } catch (IllegalAccessException e) {
+                    throw cannotGetHandle(m, e);
+                }
+            }
+
+            /*
+             *
+             * We will try to create a handle for each implementation of
+             * an instance method.
+             */
+            final int N = objclass.acceptedCount;
+            MethodHandle[] method = new MethodHandle[N];
+
+            // Fill the method array with matching method handles
+            for (int i = 0; i < N; i++) {
+                Class<?> acceptedClass = objclass.classes[i];
+                /*
+                 * Fill method[i] with the method handle where the first
+                 * parameter is the most specific match for class
+                 * accepted[i].
+                 */
+                // Try the candidate method until one matches
+                for (MethodHandle mh : candidates) {
+                    MethodType mt1 = mh.type();
+                    if (mt1.parameterType(0)
+                            .isAssignableFrom(acceptedClass)) {
+                        /*
+                         * Each sub-type of MethodDef handles
+                         * callMethod(self, args, kwargs) in its own
+                         * way, and must prepare the arguments of the
+                         * generic method handle to match.
+                         */
+                        try {
+                            // XXX not yet supporting Java args
+                            method[i] = mh.asType(mt);
+                        } catch (WrongMethodTypeException wmte) {
+                            // Wrong number of args or cannot cast.
+                            throw methodSignatureError(mh);
+                        }
+                        break;
+                    }
+                }
+
+                // We should have a value in each of method[]
+                if (method[i] == null) {
+                    throw new InterpreterError(
+                            "'%s.%s' not defined for %s", objclass.name,
+                            name, objclass.classes[i]);
+                }
+            }
+
+            /*
+             * There are multiple definitions so use the array form of
+             * built-in method. This is the case for types that have
+             * multiple accepted implementations and methods on them
+             * that are not static or "Object self".
+             */
+            return method;
         }
 
         @Override
         Class<? extends Annotation> annoClass() {
-            // XXX Not always :(
+            // Try annotations in order of popularity
+            if (getters.size() > 0)
+                ; // -> Getter
+            else if (setters.size() > 0)
+                return Setter.class;
+            else if (deleters.size() > 0)
+                return Deleter.class;
+            // Or by default, claim to have a Getter
             return Getter.class;
         }
 
@@ -614,7 +749,7 @@ class TypeExposer extends Exposer {
                     if (mh.type().parameterCount() == L)
                         addOrdered(candidates, mh);
                 } catch (IllegalAccessException e) {
-                    throw cannotGetHandle(objclass, m, e);
+                    throw cannotGetHandle(m, e);
                 }
             }
 
@@ -677,16 +812,14 @@ class TypeExposer extends Exposer {
         }
 
         /**
-         * Create a {@code PyWrapperDescr} from this specification. Note
-         * that a specification describes the methods as declared, and
-         * that there may be any number. This method matches them to the
-         * supported implementations.
+         * Create a {@code PyWrapperDescr} from this specification.
          *
          * @param objclass Python type that owns the descriptor
          * @param lookup authorisation to access fields
          * @return descriptor for access to the field
          * @throws InterpreterError if the method type is not supported
          */
+        // XXX It is questionable whether static slots are needed
         private PyWrapperDescr createDescrForStaticMethod(
                 PyType objclass, Lookup lookup)
                 throws InterpreterError {
@@ -720,26 +853,9 @@ class TypeExposer extends Exposer {
                     throw methodSignatureError(mh);
                 }
             } catch (IllegalAccessException e) {
-                throw cannotGetHandle(objclass, methods.get(0), e);
+                throw cannotGetHandle(methods.get(0), e);
             }
         }
-
-        /** Convenience function to compose error in createDescr(). */
-        private InterpreterError cannotGetHandle(PyType objclass,
-                Method m, IllegalAccessException e) {
-            return new InterpreterError(e,
-                    "cannot get method handle for '%s' in '%s'", m,
-                    objclass.definingClass);
-        }
-
-        /** Convenience function to compose error in createDescr(). */
-        private InterpreterError methodSignatureError(MethodHandle mh) {
-            return new InterpreterError(UNSUPPORTED_SIG,
-                    slot.methodName, mh.type(), slot.opName);
-        }
-
-        private static final String UNSUPPORTED_SIG =
-                "method %.50s has wrong signature %.50s for slot %s";
     }
 
     /**

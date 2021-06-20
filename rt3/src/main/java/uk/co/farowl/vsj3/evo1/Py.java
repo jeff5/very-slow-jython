@@ -151,7 +151,7 @@ public class Py {
      * @return equivalent {@code tuple} object
      */
     static PyTuple tuple(Object... values) {
-        return values.length == 0 ? PyTuple.EMPTY : new PyTuple(values);
+        return PyTuple.from(values);
     }
 
 // /**
