@@ -399,10 +399,8 @@ abstract class Operations {
          */
         private void setAllSlots() {
             for (Slot s : Slot.values()) {
-                if (s.signature.kind == MethodKind.INSTANCE) {
-                    Object def = type.lookup(s.methodName);
-                    s.setSlot(this, def);
-                }
+                Object def = type.lookup(s.methodName);
+                s.setSlot(this, def);
             }
         }
 
@@ -560,9 +558,7 @@ abstract class Operations {
          */
         private void setAllSlots() {
             for (Slot s : Slot.values()) {
-                if (s.signature.kind == MethodKind.INSTANCE) {
-                    s.setSlot(this, indirectSlot(s));
-                }
+                s.setSlot(this, indirectSlot(s));
             }
         }
 
@@ -765,7 +761,7 @@ abstract class Operations {
     MethodHandle op_delete;
 
     MethodHandle op_init;
-    MethodHandle op_new;
+    MethodHandle op_new; // XXX implement as static method
 
     MethodHandle op_vectorcall;
 

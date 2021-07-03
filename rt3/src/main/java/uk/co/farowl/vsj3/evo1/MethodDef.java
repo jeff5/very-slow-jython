@@ -363,7 +363,7 @@ abstract class MethodDef {
         }
     }
 
-    /** A method with signature {@code (S)O}. */
+    /** A method with signature {@code (O)O}. */
     static class NoArgs extends MethodDef {
 
         private static MethodType GENERIC = genericMethodType(1);
@@ -410,7 +410,7 @@ abstract class MethodDef {
         }
     }
 
-    /** A method with signature {@code (S,O)O}. */
+    /** A method with signature {@code (O,O)O}. */
     static class OneArg extends MethodDef {
 
         private static MethodType GENERIC = genericMethodType(2);
@@ -458,7 +458,7 @@ abstract class MethodDef {
     }
 
     /**
-     * A method with signature {@code (S,O[])O} where the arguments to a
+     * A method with signature {@code (O,O[])O} where the arguments to a
      * call must match exactly the number of positional parameters.
      */
     static class Positional extends MethodDef {
@@ -511,17 +511,15 @@ abstract class MethodDef {
     }
 
     /**
-     * An instance method with signature {@code (S,[O])O}, accepting
+     * An instance method with signature {@code (O,[O])O}, accepting
      * arguments by position or keyword, and where the {@link MethodDef}
      * provides default values for some parameters by positional and
      * keyword defaults. The handle leads to the implementation method,
      * supplied as a handle in the constructor, but with casts that
-     * ensure a match with the declared arguments. {@code S} is also of
-     * type {@code O} (meaning {@code Object}) but its treatment depends
-     * on the kind of method (expressed in the argument parser supplied
-     * in the constructor). In an instance method, or a class method,
-     * {@code S} is supplied as the first argument to the implementation
-     * method. In a static method, {@code S} is discarded (and may be
+     * ensure a match with the declared arguments. In an instance
+     * method, or a class method, the first argument is supplied as the
+     * first argument to the implementation method. In a static method,
+     * the first argument is discarded (and may be
      * {@code null}).
      */
     static class General extends MethodDef {
@@ -533,7 +531,7 @@ abstract class MethodDef {
         /**
          * An instance method where the signature of the raw
          * implementation is fully general, limited only by the ,
-         * signature {@code (S, O..., )O}.
+         * signature {@code (O, O..., )O}.
          *
          * @param argParser parser defining the method
          * @param raw method handle prepared by sub-class
@@ -554,7 +552,7 @@ abstract class MethodDef {
         private static MethodHandle prep(ArgParser ap,
                 MethodHandle raw) {
             if (raw == null) {
-                // Give the EMPTY handle the signature (S,[O])O
+                // Give the EMPTY handle the signature (O,[O])O
                 return MethodHandles.dropArguments(EMPTY, 0, O, OA);
             } else {
                 MethodHandle mh;
@@ -576,7 +574,7 @@ abstract class MethodDef {
 
         @Override
         MethodHandle prepare(MethodHandle raw) {
-            // The method handle type must be {@code (S,[O])O}
+            // The method handle type must be {@code (O,[O])O}
             return prep(argParser, raw);
         }
 
@@ -586,7 +584,7 @@ abstract class MethodDef {
                 throws ArgumentError, Throwable {
             assert method.type() == meth.type();
             /*
-             * The method handle type is {@code (S,[O])O}. The parser
+             * The method handle type is {@code (O,[O])O}. The parser
              * will make an array of the args, kwargs, and where
              * allowed, gather excess arguments into a tuple or dict,
              * and fill missing ones from defaults.

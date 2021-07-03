@@ -5,10 +5,9 @@ import static uk.co.farowl.vsj3.evo1.ClassShorthand.DICT;
 import static uk.co.farowl.vsj3.evo1.ClassShorthand.I;
 import static uk.co.farowl.vsj3.evo1.ClassShorthand.O;
 import static uk.co.farowl.vsj3.evo1.ClassShorthand.OA;
-import static uk.co.farowl.vsj3.evo1.ClassShorthand.S;
 import static uk.co.farowl.vsj3.evo1.ClassShorthand.T;
 import static uk.co.farowl.vsj3.evo1.ClassShorthand.TUPLE;
-import static uk.co.farowl.vsj3.evo1.ClassShorthand.U;
+import static uk.co.farowl.vsj3.evo1.ClassShorthand.S;
 import static uk.co.farowl.vsj3.evo1.ClassShorthand.V;
 
 import java.lang.invoke.MethodHandle;
@@ -21,7 +20,6 @@ import java.util.Map;
 
 import uk.co.farowl.vsj3.evo1.MethodDescriptor.ArgumentError;
 import uk.co.farowl.vsj3.evo1.MethodDescriptor.ArgumentError.Mode;
-
 
 /**
  * This {@code enum} provides a set of structured constants that are
@@ -72,7 +70,6 @@ enum Slot {
     op_delete(Signature.DELITEM), //
 
     op_init(Signature.INIT), //
-    // op_new(Signature.NEW), // perhaps not a slot (static method)
 
     op_vectorcall(Signature.VECTORCALL), //
 
@@ -372,20 +369,6 @@ enum Slot {
     }
 
     /**
-     * Placeholder type, exclusively for use in slot signatures,
-     * denoting the class defining the slot function actually bound into
-     * the slot. See {@link MethodKind#INSTANCE}.
-     */
-    interface Self {}
-
-    /**
-     * Placeholder type, exclusively for use in slot signatures,
-     * denoting {@code PyType} but signalling a class method. See
-     * {@link MethodKind#CLASS}.
-     */
-    interface Cls {}
-
-    /**
      * An enumeration of the acceptable signatures for slots in a
      * {@code PyType}. For each {@code MethodHandle} we may place in a
      * slot, we must know in advance the acceptable signature
@@ -401,7 +384,7 @@ enum Slot {
      * for example. Also, C-specifics like {@code Py_ssize_t} are echoed
      * in the C-API names but not here.
      */
-    enum Signature  {
+    enum Signature {
 
         /*
          * The makeDescriptor overrides returning anonymous sub-classes
@@ -411,10 +394,10 @@ enum Slot {
          */
 
         /**
-         * The signature {@code (S)O}, for example {@link Slot#op_repr}
+         * The signature {@code (O)O}, for example {@link Slot#op_repr}
          * or {@link Slot#op_neg}.
          */
-        UNARY(O, S) {
+        UNARY(O, O) {
 
             @Override
             Object callWrapped(MethodHandle wrapped, Object self,
@@ -426,10 +409,10 @@ enum Slot {
         },
 
         /**
-         * The signature {@code (S,O)O}, for example {@link Slot#op_add}
+         * The signature {@code (O,O)O}, for example {@link Slot#op_add}
          * or {@link Slot#op_getitem}.
          */
-        BINARY(O, S, O) {
+        BINARY(O, O, O) {
 
             @Override
             Object callWrapped(MethodHandle wrapped, Object self,
@@ -440,18 +423,16 @@ enum Slot {
             }
         },
         /**
-         * The signature {@code (S,O,O)O}.
+         * The signature {@code (O,O,O)O}.
          */
-        // The signature {@code (S,O,O)O}, used for {@link Slot#op_pow}.
-        // **
-        TERNARY(O, S, O, O),
+        TERNARY(O, O, O, O),
 
         /**
-         * The signature {@code (S,O,TUPLE,DICT)O}, used for
+         * The signature {@code (O,O,TUPLE,DICT)O}, used for
          * {@link Slot#op_call}.
          */
         // u(self, *args, **kwargs)
-        CALL(O, S, TUPLE, DICT) {
+        CALL(O, O, TUPLE, DICT) {
 
             @Override
             Object callWrapped(MethodHandle wrapped, Object self,
@@ -462,16 +443,16 @@ enum Slot {
         },
 
         // u(x, y, ..., a=z)
-        VECTORCALL(O, S, OA, I, I, TUPLE),
+        VECTORCALL(O, O, OA, I, I, TUPLE),
 
         // Slot#op_bool
-        PREDICATE(B, S),
+        PREDICATE(B, O),
 
         // Slot#op_contains
-        BINARY_PREDICATE(B, S, O),
+        BINARY_PREDICATE(B, O, O),
 
         // Slot#op_length, Slot#op_hash
-        LEN(I, S) {
+        LEN(I, O) {
 
             @Override
             Object callWrapped(MethodHandle wrapped, Object self,
@@ -483,13 +464,13 @@ enum Slot {
         },
 
         // (objobjargproc) Slot#op_setitem, Slot#op_set
-        SETITEM(V, S, O, O),
+        SETITEM(V, O, O, O),
 
         // (not in CPython) Slot#op_delitem, Slot#op_delete
-        DELITEM(V, S, O),
+        DELITEM(V, O, O),
 
         // (getattrofunc) Slot#op_getattr
-        GETATTR(O, S, U) {
+        GETATTR(O, O, S) {
 
             @Override
             Object callWrapped(MethodHandle wrapped, Object self,
@@ -502,7 +483,7 @@ enum Slot {
         },
 
         // (setattrofunc) Slot#op_setattr
-        SETATTR(V, S, U, O) {
+        SETATTR(V, O, S, O) {
 
             @Override
             Object callWrapped(MethodHandle wrapped, Object self,
@@ -516,7 +497,7 @@ enum Slot {
         },
 
         // (not in CPython) Slot#op_delattr
-        DELATTR(V, S, U) {
+        DELATTR(V, O, S) {
 
             @Override
             Object callWrapped(MethodHandle wrapped, Object self,
@@ -530,7 +511,7 @@ enum Slot {
         },
 
         // (descrgetfunc) Slot#op_get
-        DESCRGET(O, S, O, T) {
+        DESCRGET(O, O, O, T) {
 
             @Override
             Object callWrapped(MethodHandle wrapped, Object self,
@@ -551,33 +532,16 @@ enum Slot {
         },
 
         /**
-         * The signature {@code (S,O,TUPLE,DICT)V}, used for
+         * The signature {@code (O,O,TUPLE,DICT)V}, used for
          * {@link Slot#op_init}.
          */
         // (initproc) Slot#op_init
-        INIT(V, S, TUPLE, DICT),
-
-        // (newfunc) Slot#op_new
-        NEW(O, T, TUPLE, DICT);
+        INIT(V, O, TUPLE, DICT);
 
         /**
-         * The signature was defined with this nominal method type,
-         * which will often include a {@link Self} placeholder
-         * parameter.
+         * The signature was defined with this nominal method type.
          */
         final MethodType type;
-        /**
-         * The kind of special method that satisfies this slot. Almost
-         * all slots are satisfied by an instance method.
-         * {@code __new__} is a static method. In theory, we need class
-         * method as a type, but there are no live examples.
-         */
-        final MethodKind kind;
-        /**
-         * When we do the lookup, this is the method type we specify,
-         * derived from {@link #type} according to {@link #kind}.
-         */
-        final MethodType methodType;
         /**
          * When empty, the slot should hold this handle. The method type
          * of this handle also tells us the method type by which the
@@ -597,8 +561,6 @@ enum Slot {
         Signature(Class<?> returnType, Class<?>... ptypes) {
             // The signature is recorded exactly as given
             this.type = MethodType.methodType(returnType, ptypes);
-            // In the type of this.empty, replace Self with Object.
-            MethodType invocationType = Util.replaceSelf(this.type, O);
             // em = λ : throw Util.EMPTY
             // (with correct nominal return type for slot)
             MethodHandle em = MethodHandles
@@ -607,17 +569,13 @@ enum Slot {
             // empty = λ u v ... : throw Util.EMPTY
             // (with correct parameter types for slot)
             this.empty = MethodHandles.dropArguments(em, 0,
-                    invocationType.parameterArray());
+                    this.type.parameterArray());
 
             // Prepare the kind of lookup we should do
             Class<?> p0 = ptypes.length > 0 ? ptypes[0] : null;
-            if (p0 == Self.class) {
-                this.kind = MethodKind.INSTANCE;
-                this.methodType = Util.dropSelf(this.type);
-                // } else if (p0 == Cls.class) { ... CLASS ...
-            } else {
-                this.kind = MethodKind.STATIC;
-                this.methodType = this.empty.type();
+            if (p0 != O) {
+                throw new InterpreterError(
+                        "Special methods must be instance methods");
             }
         }
 
@@ -836,73 +794,6 @@ enum Slot {
         @SuppressWarnings("unused")  // reflected in operandError
         static PyException defaultOperandError(Slot op) {
             return new TypeError("bad operand type for %s", op.opName);
-        }
-
-        /**
-         * Generate a method type in which an initial occurrence of the
-         * {@link Self} class has been replaced by a specified class.
-         * <p>
-         * The type signature of method handles to special functions
-         * (see {@link Signature}) are mostly specified with the dummy
-         * type {@code Self} as the first type parameter. This indicates
-         * that the special method is an instance method. However, the
-         * method handle offered to the run-time must have the generic
-         * ({@code Object}) in place of this dummy, since at the call
-         * site, we only know the target is a {@code Object}.
-         * <p>
-         * Further, when seeking an implementation of the special method
-         * that is static, the definition will usually have the defining
-         * type in "self" position, and so {@code Lookup.findStatic}
-         * must be provided a type signature in which the lookup class
-         * appears as "self".
-         *
-         * (Exception: {@link PyBaseObject} has to be defined with
-         * static methods and the type Object in "self" position, the
-         * same as the run-time expects.)
-         * <p>
-         * This method provides a way to convert {@code Self} to a
-         * specified type in a method type, either the one to which a
-         * static implementation is expected to conform, or the one
-         * acceptable to the run-time. A method type that does not have
-         * {@code Self} at parameter 0 is returned unchanged.
-         *
-         * @param type signature with the dummy {@link Self}
-         * @param c class to substitute for {@link Self}
-         * @return signature after substitution
-         */
-        private static MethodType replaceSelf(MethodType type,
-                Class<?> c) {
-            int n = type.parameterCount();
-            if (n > 0 && type.parameterType(0) == Self.class)
-                return type.changeParameterType(0, c);
-            else
-                return type;
-        }
-
-        /**
-         * Generate a method type from which an initial occurrence of
-         * the {@link Self} class has been removed.
-         * <p>
-         * The signature of method handles to special functions (see
-         * {@link Signature}) are mostly specified with the dummy type
-         * {@code Self} as the first type parameter. This indicates that
-         * the special method is an instance method.
-         * <p>
-         * When defining the implementation of a special method that is
-         * an instance method, which is most of them, it is convenient
-         * to make it an instance method in Java. Then the method type
-         * we supply to {@code Lookup.findVirtual} must omit the "self"
-         * parameter. This method generates that method type.
-         *
-         * @param type signature with the dummy {@link Self}
-         * @return signature after removal
-         */
-        static MethodType dropSelf(MethodType type) {
-            int n = type.parameterCount();
-            if (n > 0 && type.parameterType(0) == Self.class)
-                return type.dropParameterTypes(0, 1);
-            else
-                return type;
         }
     }
 }

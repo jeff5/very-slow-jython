@@ -693,14 +693,10 @@ class TypeExposer extends Exposer {
                 throws InterpreterError {
             /*
              * We will try to create a handle for each implementation of
-             * an instance method, but only one handle for static/class
-             * methods (like __new__). See corresponding logic in
+             * a special (instance) method. See corresponding logic in
              * Slot.setSlot(Operations, Object)
              */
-            if (slot.signature.kind == MethodKind.INSTANCE)
-                return createDescrForInstanceMethod(objclass, lookup);
-            else
-                return createDescrForStaticMethod(objclass, lookup);
+            return createDescrForInstanceMethod(objclass, lookup);
         }
 
         @Override
@@ -809,52 +805,6 @@ class TypeExposer extends Exposer {
                  */
                 return new PyWrapperDescr.Multiple(objclass, slot,
                         wrapped);
-        }
-
-        /**
-         * Create a {@code PyWrapperDescr} from this specification.
-         *
-         * @param objclass Python type that owns the descriptor
-         * @param lookup authorisation to access fields
-         * @return descriptor for access to the field
-         * @throws InterpreterError if the method type is not supported
-         */
-        // XXX It is questionable whether static slots are needed
-        private PyWrapperDescr createDescrForStaticMethod(
-                PyType objclass, Lookup lookup)
-                throws InterpreterError {
-
-            // Acceptable methods can be coerced to this signature
-            MethodType slotType = slot.getType();
-
-            /*
-             * There should be only one definition of a given name in
-             * the methods list of a static or class method (like
-             * __new__), and it will be accessed only via the operations
-             * of the canonical type. See corresponding logic in
-             * Slot.setSlot(Operations, Object).
-             */
-            if (methods.size() != 1) {
-                throw new InterpreterError(
-                        "multiple definitons of '%s' in '%s'",
-                        slot.methodName, objclass.definingClass);
-            }
-
-            try {
-                // Convert m to a handle (if accessible)
-                MethodHandle mh = lookup.unreflect(methods.get(0));
-                try {
-                    // must have the expected signature here
-                    return new PyWrapperDescr.Single(objclass, slot,
-                            mh.asType(slotType));
-
-                } catch (WrongMethodTypeException wmte) {
-                    // Wrong number of args or cannot cast.
-                    throw methodSignatureError(mh);
-                }
-            } catch (IllegalAccessException e) {
-                throw cannotGetHandle(methods.get(0), e);
-            }
         }
     }
 

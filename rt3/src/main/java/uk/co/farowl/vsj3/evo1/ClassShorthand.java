@@ -1,8 +1,5 @@
 package uk.co.farowl.vsj3.evo1;
 
-import uk.co.farowl.vsj3.evo1.Slot.Cls;
-import uk.co.farowl.vsj3.evo1.Slot.Self;
-
 /**
  * Some shorthands used to construct method signatures,
  * {@code MethodType}s, etc..
@@ -12,11 +9,7 @@ interface ClassShorthand {
     /** Shorthand for {@code Object.class}. */
     static final Class<Object> O = Object.class;
     /** Shorthand for {@code String.class}. */
-    static final Class<String> U = String.class;
-    /** Shorthand for {@code Self.class} (marker in {@link Slot}). */
-    static final Class<Self> S = Self.class;
-    /** Shorthand for {@code Cls.class} (marker in {@link Slot}). */
-    static final Class<Cls> C = Cls.class;
+    static final Class<String> S = String.class;
     /** Shorthand for {@code int.class}. */
     static final Class<?> I = int.class;
     /** Shorthand for {@code boolean.class}. */
