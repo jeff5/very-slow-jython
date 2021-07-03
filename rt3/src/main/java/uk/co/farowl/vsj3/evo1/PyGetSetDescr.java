@@ -1,5 +1,8 @@
 package uk.co.farowl.vsj3.evo1;
 
+import static uk.co.farowl.vsj3.evo1.ClassShorthand.O;
+import static uk.co.farowl.vsj3.evo1.ClassShorthand.V;
+
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
@@ -10,6 +13,7 @@ import uk.co.farowl.vsj3.evo1.Exposed.Getter;
 import uk.co.farowl.vsj3.evo1.Exposed.Setter;
 import uk.co.farowl.vsj3.evo1.PyType.Flag;
 import uk.co.farowl.vsj3.evo1.Slot.EmptyException;
+
 
 /**
  * Descriptor for an attribute that has been defined by a series of

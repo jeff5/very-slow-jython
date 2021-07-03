@@ -3,6 +3,10 @@ package uk.co.farowl.vsj3.evo1;
 import static java.lang.invoke.MethodHandles.filterArguments;
 import static java.lang.invoke.MethodHandles.filterReturnValue;
 import static java.lang.invoke.MethodType.genericMethodType;
+import static uk.co.farowl.vsj3.evo1.ClassShorthand.DICT;
+import static uk.co.farowl.vsj3.evo1.ClassShorthand.O;
+import static uk.co.farowl.vsj3.evo1.ClassShorthand.OA;
+import static uk.co.farowl.vsj3.evo1.ClassShorthand.TUPLE;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -12,6 +16,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import uk.co.farowl.vsj3.evo1.MethodDescriptor.ArgumentError;
+
 
 /**
  * A {@code MethodDef} describes a built-in function or method as it is
@@ -30,7 +35,7 @@ import uk.co.farowl.vsj3.evo1.MethodDescriptor.ArgumentError;
  * processed by Argument Clinic into generated source-code.
  */
 // Compare CPython struct PyMethodDef
-abstract class MethodDef implements ClassShorthand {
+abstract class MethodDef {
 
     /** The name of the built-in function or method */
     // CPython PyMethodDef: ml_name

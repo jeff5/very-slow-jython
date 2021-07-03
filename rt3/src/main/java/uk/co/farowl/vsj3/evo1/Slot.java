@@ -1,5 +1,16 @@
 package uk.co.farowl.vsj3.evo1;
 
+import static uk.co.farowl.vsj3.evo1.ClassShorthand.B;
+import static uk.co.farowl.vsj3.evo1.ClassShorthand.DICT;
+import static uk.co.farowl.vsj3.evo1.ClassShorthand.I;
+import static uk.co.farowl.vsj3.evo1.ClassShorthand.O;
+import static uk.co.farowl.vsj3.evo1.ClassShorthand.OA;
+import static uk.co.farowl.vsj3.evo1.ClassShorthand.S;
+import static uk.co.farowl.vsj3.evo1.ClassShorthand.T;
+import static uk.co.farowl.vsj3.evo1.ClassShorthand.TUPLE;
+import static uk.co.farowl.vsj3.evo1.ClassShorthand.U;
+import static uk.co.farowl.vsj3.evo1.ClassShorthand.V;
+
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
@@ -10,6 +21,7 @@ import java.util.Map;
 
 import uk.co.farowl.vsj3.evo1.MethodDescriptor.ArgumentError;
 import uk.co.farowl.vsj3.evo1.MethodDescriptor.ArgumentError.Mode;
+
 
 /**
  * This {@code enum} provides a set of structured constants that are
@@ -389,7 +401,7 @@ enum Slot {
      * for example. Also, C-specifics like {@code Py_ssize_t} are echoed
      * in the C-API names but not here.
      */
-    enum Signature implements ClassShorthand {
+    enum Signature  {
 
         /*
          * The makeDescriptor overrides returning anonymous sub-classes

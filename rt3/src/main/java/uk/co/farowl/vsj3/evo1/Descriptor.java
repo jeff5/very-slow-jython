@@ -18,8 +18,7 @@ import uk.co.farowl.vsj3.evo1.Slot.EmptyException;
  *     static initialisation of the Java class for that descriptor and
  *     be able to execute the constructor.
  */
-abstract class Descriptor extends AbstractPyObject
-        implements ClassShorthand {
+abstract class Descriptor extends AbstractPyObject {
 
     protected static final String DESCRIPTOR_DOESNT_APPLY =
             "descriptor '%s' for '%.100s' objects doesn't apply to a '%.100s' object";
@@ -103,8 +102,8 @@ abstract class Descriptor extends AbstractPyObject
      * @return repr as a {@code str}
      */
     protected String descrRepr(String kind) {
-        return String.format("<%s '%.50s' of '%.100s' objects>",
-                kind, name, objclass.name);
+        return String.format("<%s '%.50s' of '%.100s' objects>", kind,
+                name, objclass.name);
     }
 
     /**
@@ -163,7 +162,5 @@ abstract class Descriptor extends AbstractPyObject
     // }
 
     @Override
-    public String toString() {
-        return Py.defaultToString(this);
-    }
+    public String toString() { return Py.defaultToString(this); }
 }
