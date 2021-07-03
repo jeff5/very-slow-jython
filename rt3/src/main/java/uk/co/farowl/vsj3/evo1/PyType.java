@@ -5,6 +5,7 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.invoke.VarHandle;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
@@ -272,6 +273,9 @@ public class PyType extends Operations implements PyObjectDict {
                 : TypeExposer.binopTable(spec.lookup, binops, this);
     }
 
+    @Override
+    public PyType getType() { return type; }
+
     /**
      * Construct a type from the given specification. This approach is
      * preferred to the direct constructor. The type object does not
@@ -300,7 +304,24 @@ public class PyType extends Operations implements PyObjectDict {
          */
         if (bootstrapTasks.isEmpty()) {
             // The bootstrap types have all completed. Make descriptors.
-            type.fillDictionary(spec);
+            try {
+                type.fillDictionary(spec);
+            } catch (Clash clash) {
+                /*
+                 * Another thread beat us to the construction of an
+                 * operations object for (one of) the implementing
+                 * classes, or perhaps we're repeating ourselves.
+                 */
+                Operations ops = clash.existing;
+                if (ops instanceof PyType && Arrays.equals(type.classes,
+                        ((PyType) ops).classes))
+                    // Graciously accept it as the result. (I think.)
+                    type = (PyType) ops;
+                else
+                    // Something bad is happening. -> SystemError?
+                    throw new InterpreterError(clash, "constructing %s",
+                            type);
+            }
 
         } else {
             /*
@@ -324,7 +345,13 @@ public class PyType extends Operations implements PyObjectDict {
                 bootstrapTasks.clear();
 
                 for (BootstrapTask task : tasks) {
-                    task.type.fillDictionary(task.spec);
+                    try {
+                        task.type.fillDictionary(task.spec);
+                    } catch (Clash clash) {
+                        // We're trying to repeat ourselves?
+                        throw new InterpreterError(clash,
+                                "constructing %s", task.type);
+                    }
                 }
 
                 /*
@@ -338,17 +365,22 @@ public class PyType extends Operations implements PyObjectDict {
     }
 
     /**
-     * Find or (if necessary) cause the creation of a PyType for a given
-     * Java class, which must be a canonical implementation, or a
-     * "found" type. This is support for the {@link Operations} object.
-     * By side effect, one or more Operations objects will be
-     * registered, including one for the given class.
+     * Get the Python type corresponding to the given Java class. The
+     * method will find, or if necessary cause the creation of, a
+     * {@link PyType} that represents the type of instances of that Java
+     * class. The Java class given will be initialised, if it has not
+     * been already.
+     * <p>
+     * This is not always a meaningful enquiry: if the given class is
+     * not the implementation of exactly one Python type, an error will
+     * be thrown. This also applies when the call causes creation of one
+     * or more {@link PyType}s and {@link Operations} objects.
      *
-     * @param klass canonical implementation
-     * @return the Python type for the class
+     * @param klass to inspect
+     * @return the Python type of {@code klass}
      */
     static PyType fromClass(Class<?> klass) {
-        throw new MissingFeature("Python type for the class");
+        return Operations.fromClass(klass).uniqueType();
     }
 
     /**
@@ -420,15 +452,13 @@ public class PyType extends Operations implements PyObjectDict {
      * through the specification.
      *
      * @param spec to apply
+     * @throws Clash when an implementation class is already registered
      */
-    private void fillDictionary(Spec spec) {
+    private void fillDictionary(Spec spec) throws Clash {
 
         // Fill slots from implClass or bases
-        // addMembers(spec);
-        // addGetSets(spec);
         addMethods(spec);
-        // XXX Possibly belong elsewhere
-        // setAllSlots();
+        // XXX Possibly belong distinct from fillDictionary
         defineOperations(spec);
         deduceFlags();
     }
@@ -436,14 +466,37 @@ public class PyType extends Operations implements PyObjectDict {
     /**
      * Define the Operations objects for this type, posting them to the
      * registry.
+     *
+     * @throws Clash when an implementation class is already registered
      */
-    private void defineOperations(Spec spec) {
+    private void defineOperations(Spec spec) throws Clash {
+
         setAllSlots();
-        Operations.registry.set(classes[0], this);
-        for (int i = 1; i < spec.adoptedCount(); i++) {
-            // Creating the operations object sets the slots in it
-            Operations.Accepted ops = new Operations.Accepted(this, i);
-            Operations.registry.set(classes[i], ops);
+
+        int n = spec.adoptedCount();
+
+        if (n == 1) {
+            // Simple case: one class and the Operations is the PyType
+            Operations.register(classes[0], this);
+
+        } else {
+            // Multiple implementations must stand or fall together
+            Class<?>[] cls = Arrays.copyOf(classes, n);
+            Operations[] ops = new Operations[n];
+
+            // The first Operations object is this PyType
+            cls[0] = classes[0];
+            ops[0] = this;
+
+            // Create an Operations for each adopted implementation
+            for (int i = 1; i < n; i++) {
+                // Creating the operations object sets its slots
+                ops[i] = new Operations.Accepted(this, i);
+                cls[i] = classes[i];
+            }
+
+            // Register these pairings as a batch
+            Operations.register(cls, ops);
         }
     }
 
@@ -486,16 +539,14 @@ public class PyType extends Operations implements PyObjectDict {
      * @return the Python type of {@code obj}
      */
     public static PyType of(Object obj) {
-        return Operations.forClass(obj.getClass()).type(obj);
+        return Operations.fromClass(obj.getClass()).type(obj);
     }
 
     @Override
-    public PyType getType() { return type; }
+    PyType type(Object x) { return this; }
 
     @Override
-    PyType type(Object x) {
-        return this;
-    }
+    PyType uniqueType() { return this; }
 
     /**
      * Get the (canonical) Java implementation class of this
@@ -576,16 +627,14 @@ public class PyType extends Operations implements PyObjectDict {
         if (s != null) {
             Object def = dict.get(name);
             for (Class<?> impl : classes) {
-                Operations ops = Operations.forClass(impl);
+                Operations ops = Operations.fromClass(impl);
                 s.setSlot(ops, def);
             }
         }
     }
 
     @Override
-    public String toString() {
-        return "<class '" + name + "'>";
-    }
+    public String toString() { return "<class '" + name + "'>"; }
 
     /**
      * The name of this type.
@@ -643,7 +692,7 @@ public class PyType extends Operations implements PyObjectDict {
      * {@code this} (including exactly {@code this} type). This is
      * likely to be used in the form:<pre>
      * if(!PyUnicode.TYPE.check(oName)) throw ...
-     *</pre>
+     * </pre>
      *
      * @param o object to test
      * @return {@code true} iff {@code o} is of a sub-type of this type
@@ -659,14 +708,12 @@ public class PyType extends Operations implements PyObjectDict {
      * Java sub-class of {@code PyType}. This is likely to be used in
      * the form:<pre>
      * if(!PyUnicode.TYPE.checkExact(oName)) throw ...
-     *</pre>
+     * </pre>
      *
      * @param o object to test
      * @return {@code true} iff {@code o} is exactly of this type
      */
-    boolean checkExact(Object o) {
-        return PyType.of(o) == this;
-    }
+    boolean checkExact(Object o) { return PyType.of(o) == this; }
 
     /**
      * Determine if this type is a Python sub-type of {@code b} (if
@@ -816,9 +863,7 @@ public class PyType extends Operations implements PyObjectDict {
      * @param name to look up, must be exactly a {@code str}
      * @return dictionary entry or null
      */
-    Object lookup(PyUnicode name) {
-        return lookup(name.toString());
-    }
+    Object lookup(PyUnicode name) { return lookup(name.toString()); }
 
     /**
      * Enumeration of the characteristics of a type. These are the
@@ -997,27 +1042,19 @@ public class PyType extends Operations implements PyObjectDict {
         }
 
         /**
-         * Create (begin) a specification for a {@link PyType} based on
-         * a specific implementation class. The class given also
-         * specifies the canonical implementation class, unless
-         * subsequently overridden with {@link #canonical(Class)}. This
-         * is the beginning normally made by built-in classes.
+         * Create (begin) a specification for a {@link PyType}
+         * representing a sub-class of a built-in type. The same
+         * implementation class may be used to specify any number of
+         * Python types, instances of which are able to migrate between
+         * these types by {@code __class__} assignment. The
+         * {@link Operations} object of the implementation class will be
+         * an  {@code Operations.}{@link Derived}.
          *
          * @param name of the type
          * @param implClass in which operations are defined
          */
-        @Deprecated
-        Spec(String name, Class<?> implClass) {
-            this(name, implClass,
-                    /*
-                     * The method is package-accessible, so the lookup
-                     * here should have no more than package access, in
-                     * order to avoid granting the caller access to
-                     * details of the run-time. PRIVATE implicitly drops
-                     * PROTECTED. (Read the Javadoc carefully.)
-                     */
-                    MethodHandles.lookup()
-                            .dropLookupMode(Lookup.PRIVATE));
+        Spec(String name, Class<? extends DerivedPyObject> implClass) {
+            this(name, implClass, null);
         }
 
         /**
@@ -1047,11 +1084,8 @@ public class PyType extends Operations implements PyObjectDict {
          * the run-time as having the Python type of this {@code Spec}.
          * Successive calls are cumulative.
          * <p>
-         * For every instance method {@code m} (including special
-         * methods) on a Python object, and for for every adopted or
-         * accepted class {@code C}, there must be an implementation
-         * {@code m(D self, ...)} where the "self" (first) argument type
-         * {@code D} is assignable from {@code C}.
+         * The note in {@link #accept(Class...)} about the availability
+         * of method definitions applies.
          *
          * @param classes classes to treat as adopted implementations
          * @return {@code this}
@@ -1070,16 +1104,28 @@ public class PyType extends Operations implements PyObjectDict {
          * Specify Java classes to be accepted as "self" arguments for
          * the type, in addition to the canonical and adopted
          * implementations. The use for this is to ensure that the
-         * canonical and adopted implementation classes of Python
-         * sub-types of the type being specified are acceptable as
-         * "self". Successive calls are cumulative. Classes assignable
-         * to existing accepted classes are ignored.
+         * implementations of Python sub-types of the type being
+         * specified are acceptable as "self", when defined by unrelated
+         * Java classes. As an example, consider that operations on a
+         * Python {@code int} must have a Java implementation that
+         * accepts a Java {@code Boolean} (Python {@code bool}).
          * <p>
-         * For every instance method {@code m} (including special
-         * methods) on a Python object, and for for every adopted or
-         * accepted class {@code C}, there must be an implementation
-         * {@code m(D self, ...)} where the "self" (first) argument type
-         * {@code D} is assignable from {@code C}.
+         * Successive calls are cumulative. Classes assignable to
+         * existing accepted classes are ignored.
+         * <p>
+         *
+         * @apiNote For every instance method {@code m} (including
+         *     special methods) on a Python object, and for for every
+         *     adopted or accepted class {@code C}, there must be an
+         *     implementation {@code m(D self, ...)} where the "self"
+         *     (first) argument type {@code D} is assignable from
+         *     {@code C}.
+         *     <p>
+         *     Note that this criterion could be satisfied by defining
+         *     just one {@code m(Object self, ...} or by a series of
+         *     specialised implementations, or any combination. When it
+         *     selects an implementation, the run-time chooses the most
+         *     specialised match.
          *
          * @param classes to append to the list
          * @return {@code this}
@@ -1120,9 +1166,7 @@ public class PyType extends Operations implements PyObjectDict {
          *
          * @return number of adopted classes
          */
-        int adoptedCount() {
-            return adoptedCount;
-        }
+        int adoptedCount() { return adoptedCount; }
 
         /**
          * The number of classes specified as canonical, adopted or
@@ -1130,9 +1174,7 @@ public class PyType extends Operations implements PyObjectDict {
          *
          * @return number of accepted classes
          */
-        int acceptedCount() {
-            return acceptedCount;
-        }
+        int acceptedCount() { return acceptedCount; }
 
         /**
          * The number of classes specified as canonical, adopted,
@@ -1141,9 +1183,7 @@ public class PyType extends Operations implements PyObjectDict {
          *
          * @return number of all classes to be treated as operands
          */
-        int classesCount() {
-            return classes.size();
-        }
+        int classesCount() { return classes.size(); }
 
         /**
          * Find c in the known operand classes.
@@ -1232,9 +1272,7 @@ public class PyType extends Operations implements PyObjectDict {
          *
          * @return the defining class for the type
          */
-        Class<?> definingClass() {
-            return definingClass;
-        }
+        Class<?> definingClass() { return definingClass; }
 
         /**
          * Set the class additionally defining methods for the type.
@@ -1257,9 +1295,7 @@ public class PyType extends Operations implements PyObjectDict {
          *
          * @return class additionally defining methods for the type
          */
-        Class<?> methodClass() {
-            return methodClass;
-        }
+        Class<?> methodClass() { return methodClass; }
 
         /**
          * Set the class in which to look up binary class-specific
@@ -1297,9 +1333,7 @@ public class PyType extends Operations implements PyObjectDict {
          * @return class defining binary class-specific operations (or
          *     {@code null})
          */
-        Class<?> binopClass() {
-            return binopClass;
-        }
+        Class<?> binopClass() { return binopClass; }
 
         /**
          * Get all the operand classes for the type, in order, the
@@ -1404,17 +1438,17 @@ public class PyType extends Operations implements PyObjectDict {
      *
      * @param metatype the subclass of type to be created
      * @param args supplied positionally to the call in Python
-     * @param kwds supplied as keywords to the call in Python
+     * @param kwargs supplied as keywords to the call in Python
      * @return the created type
      * @throws TypeError if the wrong number of arguments is given or
      *     there are keywords
      * @throws Throwable for other errors
      */
-    static Object __new__(PyType metatype, PyTuple args, PyDict kwds)
+    static Object __new__(PyType metatype, PyTuple args, PyDict kwargs)
             throws TypeError, Throwable {
 
         // Special case: type(x) should return type(x)
-        if (isTypeEnquiry(metatype, args, kwds)) {
+        if (isTypeEnquiry(metatype, args, kwargs)) {
             return PyType.of(args.get(0));
         }
 

@@ -1,36 +1,84 @@
 package uk.co.farowl.vsj3.evo1;
 
+import static java.lang.invoke.MethodHandles.exactInvoker;
+import static java.lang.invoke.MethodHandles.foldArguments;
+import static java.lang.invoke.MethodHandles.filterReturnValue;
+
 import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.invoke.MethodType;
+import java.lang.invoke.VarHandle.AccessMode;
 import java.lang.invoke.WrongMethodTypeException;
 import java.util.Map;
 import java.util.WeakHashMap;
 
 import uk.co.farowl.vsj3.evo1.Slot.Signature;
 
+import static uk.co.farowl.vsj3.evo1.ClassShorthand.T;
+import static uk.co.farowl.vsj3.evo1.ClassShorthand.O;
+
 abstract class Operations {
 
-    static class Registry extends ClassValue<Operations> {
+    /**
+     * The {@code Operations} object of sub-classes of built-in types.
+     * The slots of this (singleton) redirect through those on the
+     * PyType of the object instance/
+     */
+    static final Operations DERIVED = Derived.getInstance();
+
+    /**
+     * There is only one instance of this class and it is
+     * {@link Operations#registry}.
+     */
+    private static class Registry extends ClassValue<Operations> {
 
         /**
-         * Mapping from Java class to Operations object. This is the map
-         * that backs {@link #registry}. It is also the object on which
-         * updating {@code opsCV} is synchronised. The keys are weak to
-         * allow classes to be unloaded.
+         * Mapping from Java class to {@link Operations} object. This is
+         * the map that backs this {@link Registry}. This map is
+         * protected from concurrent modification by synchronising on
+         * the containing {@code Registry} object. The keys are weak to
+         * allow classes to be unloaded. (Concurrent GC is not a threat
+         * to the consistency of the registry since a class we are
+         * working on cannot be unloaded.)
          */
         private final Map<Class<?>, Operations> opsMap =
                 new WeakHashMap<>();
 
         /**
-         * Post an association from Java class to an {@code Operations}
-         * object that will be bound into {@link #registry} when the
-         * first look-up is made.
+         * Post an association from a Java class to an
+         * {@code Operations} object, that will be bound into
+         * {@link Operations#registry} when a look-up is made.
          *
          * @param c Java class
          * @param ops operations to bind to the class
+         * @throws Clash when the class is already mapped
          */
-        synchronized void set(Class<?> c, Operations ops) {
-            opsMap.put(c, ops);
+        synchronized void set(Class<?> c, Operations ops) throws Clash {
+            Operations old = opsMap.putIfAbsent(c, ops);
+            if (old != null) { throw new Clash(c, old); }
+        }
+
+        /**
+         * Post an association from multiple Java classes to
+         * corresponding {@code Operations} objects, that will be bound
+         * into {@link Operations#registry} when look-ups are made.
+         *
+         * @param c Java class
+         * @param ops operations to bind to the class
+         * @throws Clash when one of the classes is already mapped
+         */
+        synchronized void set(Class<?>[] c, Operations[] ops)
+                throws Clash {
+            int i, n = c.length;
+            for (i = 0; i < n; i++) {
+                Operations old = opsMap.putIfAbsent(c[i], ops[i]);
+                if (old != null) {
+                    // We failed to insert c[i]: erase what we did
+                    for (int j = 0; j < i; j++) { opsMap.remove(c[j]); }
+                    throw new Clash(c[i], old);
+                }
+            }
         }
 
         /**
@@ -40,8 +88,8 @@ abstract class Operations {
          * <li>the crafted canonical implementation of a Python
          * type</li>
          * <li>an adopted implementation of some Python type</li>
-         * <li>the canonical implementation of the base of Python
-         * sub-classes of a Python type</li>
+         * <li>the implementation of the base of Python sub-classes of a
+         * Python type</li>
          * <li>a found Java type</li>
          * <li>the crafted base of Python sub-classes of a found Java
          * type</li>
@@ -54,54 +102,90 @@ abstract class Operations {
          */
         @Override
         protected synchronized Operations computeValue(Class<?> c) {
+
             /*
-             * opsCV contained no mapping for c at the time this thread
-             * called get(). However, this does not mean that another
-             * thread, or even the current one, is not already producing
-             * one.
+             * Operations.registry contained no mapping (as a
+             * ClassValue) for c at the time this thread called get().
+             * We will either find an answer ready in opsMap, or
+             * construct one and post it there.
+             *
+             * It is possible that other threads have already passed
+             * through get() and blocked behind this thread at the
+             * entrance to computeValue(). This synchronisation
+             * guarantees that this thread completes the critical
+             * section before another thread enters.
+             *
+             * Threads entering subsequently, and needing a binding for
+             * the same class c, will therefore find the same value
+             * found or constructed by this thread. Even if the second
+             * thread overtakes this one after the protected region, and
+             * returns first, the class value will bind that same
+             * Operations object.
              */
-            synchronized (opsMap) {
+
+            /*
+             * XXX There is more to say about re-entrancy (this thread)
+             * and concurrency. This design does not mean that another
+             * thread, or even the current one, has not already produced
+             * a competing Operations objects to post.
+             */
+
+            Operations ops = opsMap.get(c);
+
+            if (ops != null) {
                 /*
-                 * We reach here only if c does not already contain a
-                 * mapping to its operations. However, if the type that
-                 * c implements has been built (by PyType) it will be in
-                 * this map.
+                 * An answer already exists, for example because a
+                 * PyType was built (cases 1 & 2), but is not yet in the
+                 * registry class value: our return through get() will
+                 * bind it there for future use.
                  */
-                Operations ops = opsMap.get(c);
+                return ops;
 
-                if (ops != null) {
-                    /*
-                     * Case 2: accepted implementation of some Python
-                     * type, or Case 1 if the type is a bootstrap type.
-                     */
-                    return ops;
+            } else if (DerivedPyObject.class.isAssignableFrom(c)) {
+                // Case 3, 5: one of the derived cases
+                // Ensure c and super-classes statically initialised.
+                ensureInit(c);
+                // Always the same
+                return Derived.getInstance();
 
-                } else if (CraftedType.class.isAssignableFrom(c)) {
-                    // Case 1, 3, 5: one of the crafted cases
-                    // Ensure c statically initialised.
-                    ensureInit(c);
-                    return findOps(c);
+            } else if (CraftedType.class.isAssignableFrom(c)) {
+                // Case 1: one of the crafted cases
+                // Ensure c and super-classes statically initialised.
+                ensureInit(c);
+                // PyType posts results via Operations.register
+                return findOps(c);
 
-                } else {
-                    // Case 4: found Java type
-                    throw new MissingFeature(
-                            "Operations from Java class %s",
-                            c.getName());
-                    // return PyType.opsFromClass(c);
-                }
+            } else {
+                // Case 4: found Java type
+                // XXX Stop gap. Needs specialised exposure.
+                /*
+                 * A Lookup object cannot be provided from here. Access
+                 * to members of c will be determined by package and
+                 * class at he point of use, in relation to c, according
+                 * to Java rules. It follows that descriptors in the
+                 * PyType cannot build method handles in advance of
+                 * constructing the call site.
+                 */
+                PyType.Spec spec = new PyType.Spec(c.getSimpleName(),
+                        MethodHandles.publicLookup().in(c));
+                ops = PyType.fromSpec(spec);
+                // Must post answer to opsMap ourselves?
+                return ops;
             }
         }
 
         /**
-         * Ensure a class is statically initialised. This will normally
-         * create a {@link PyType} and post a result to {@link #opsMap}.
+         * Ensure a class is statically initialised. Static
+         * initialisation will normally create a {@link PyType} and call
+         * {@link #set(Class, Operations)} to post a result to
+         * {@link #opsMap}.
          *
          * @param c to initialise
          */
         private static void ensureInit(Class<?> c) {
             String name = c.getName();
             try {
-                Class.forName(name);
+                Class.forName(name, true, c.getClassLoader());
             } catch (ClassNotFoundException e) {
                 throw new InterpreterError(
                         "failed to initialise class %s", name);
@@ -134,7 +218,6 @@ abstract class Operations {
             }
             return ops;
         }
-
     }
 
     /**
@@ -142,6 +225,350 @@ abstract class Operations {
      * provides instances of the class with Python semantics.
      */
     static final Registry registry = new Registry();
+
+    /**
+     * Register the {@link Operations} object for a Java class.
+     * Subsequent enquiries through {@link #of(Object)} and
+     * {@link #fromClass(Class)} will yield this {@code Operations}
+     * object. This is a one-time action on the JVM-wide registry,
+     * affecting the state of the {@code Class} object: the association
+     * cannot be changed, but the {@code Operations} object may be
+     * mutated (where it allows that). It is an error to attempt to
+     * associate different {@code Operations} with a class already
+     * bound.
+     *
+     * @param c class with which associated
+     * @param ops the operations object
+     * @throws Clash when the class is already mapped
+     */
+    static void register(Class<?> c, Operations ops) throws Clash {
+        Operations.registry.set(c, ops);
+    }
+
+    /**
+     * Register the {@link Operations} objects for multiple Java
+     * classes, as with {@link #register(Class, Operations)}. All
+     * succeed or fail together.
+     *
+     * @param c classes with which associated
+     * @param ops the operations objects
+     * @throws Clash when one of the classes is already mapped
+     */
+    static void register(Class<?>[] c, Operations ops[]) throws Clash {
+        Operations.registry.set(c, ops);
+    }
+
+    /**
+     * Map a Java class to the {@code Operations} object that provides
+     * Python semantics to instances of the class.
+     *
+     * @param c class on which operations are required
+     * @return {@code Operations} providing Python semantics
+     */
+    static Operations fromClass(Class<?> c) {
+        // Normally, this is completely straightforward
+        // TODO deal with re-entrancy and concurrency
+        return registry.get(c);
+    }
+
+    /**
+     * Map an object to the {@code Operations} object that provides it
+     * with Python semantics.
+     *
+     * @param obj on which operations are required
+     * @return {@code Operations} providing Python semantics
+     */
+    static Operations of(Object obj) {
+        return fromClass(obj.getClass());
+    }
+
+    /**
+     * Get the Python type of the object <i>given that</i> this is the
+     * operations object for it.
+     *
+     * @param x subject of the enquiry
+     * @return {@code type(x)}
+     */
+    abstract PyType type(Object x);
+
+    /**
+     * Get the unique Python type for which this is operations object.
+     * This is not always a meaningful enquiry: if this Operations
+     * object is able to serve multiple types, an error will be thrown.
+     *
+     * @return type represented
+     */
+    abstract PyType uniqueType() throws IllegalArgumentException;
+
+    /**
+     * Identify by index which Java implementation of the associated
+     * type this {@code Operations} object is for. (Some types have
+     * multiple acceptable implementations.)
+     *
+     * @return index in the type (0 if canonical)
+     */
+    int getIndex() { return 0; }
+
+    /**
+     * Get the Java implementation class this {@code Operations} object
+     * is for.
+     *
+     * @return class of the implementation
+     */
+    abstract Class<?> getJavaClass();
+
+    /**
+     * Fast check that the target is exactly a Python {@code int}. We
+     * can do this without reference to the object itself, since it is
+     * deducible from the Java class.
+     *
+     * @return target is exactly a Python {@code int}
+     */
+    boolean isIntExact() { return this == PyLong.TYPE; }
+
+    /**
+     * Fast check that the target is exactly a Python {@code float}. We
+     * can do this without reference to the object itself, since it is
+     * deducible from the Java class.
+     *
+     * @return target is exactly a Python {@code float}
+     */
+    boolean isFloatExact() { return this == PyFloat.TYPE; }
+
+    /**
+     * Fast check that the target is a data descriptor.
+     *
+     * @return target is a data descriptor
+     */
+    boolean isDataDescr() { return false; }
+
+    // ---------------------------------------------------------------
+
+    /**
+     * Operations for an accepted implementation (non-canonical
+     * implementation) are represented by an instance of this class. The
+     * operations of a canonical implementation are represented by the
+     * {@link PyType} itself.
+     */
+    static class Accepted extends Operations {
+
+        /** The type of which this is an accepted implementation. */
+        final private PyType type;
+
+        /**
+         * Index of this implementation in the type (see
+         * {@link PyType#indexAccepted(Class)}.
+         */
+        final private int index;
+
+        /**
+         * Create an operations object that is the {@code n}th
+         * implementation of the given type. ({@code n>0} since the
+         * implementation 0 is represented by the type itself.)
+         *
+         * @param type of which this is an accepted implementation
+         * @param n index of this implementation in the type
+         */
+        Accepted(PyType type, int n) {
+            this.type = type;
+            this.index = n;
+            setAllSlots();
+        }
+
+        @Override
+        PyType type(Object x) { return type; }
+
+        @Override
+        PyType uniqueType() { return type; }
+
+        @Override
+        boolean isIntExact() { return type == PyLong.TYPE; }
+
+        @Override
+        boolean isFloatExact() { return type == PyFloat.TYPE; }
+
+        @Override
+        int getIndex() { return index; }
+
+        @Override
+        Class<?> getJavaClass() { return type.classes[index]; }
+
+        /**
+         * Set all the slots ({@code op_*}) from the entries in the
+         * dictionaries of this type and its bases.
+         */
+        private void setAllSlots() {
+            for (Slot s : Slot.values()) {
+                if (s.signature.kind == MethodKind.INSTANCE) {
+                    Object def = type.lookup(s.methodName);
+                    s.setSlot(this, def);
+                }
+            }
+        }
+
+        @Override
+        public String toString() {
+            String javaName = getJavaClass().getSimpleName();
+            return javaName + " as " + type.toString();
+        }
+    }
+
+    /**
+     * Operations for a Python class defined in Python are represented
+     * by an instance of this class. Many Python classes may be
+     * implemented by the same Java class, the actual type being The
+     * canonical implementation is represented by the {@link PyType}
+     * itself.
+     */
+    static class Derived extends Operations {
+
+        /**
+         * {@code MethodHandle} of type {@code (DerivedPyObject)PyType},
+         * to get the actual Python type of a {@link DerivedPyObject}
+         * object.
+         */
+        private static final MethodHandle getType;
+        /**
+         * The type {@code (PyType)MethodHandle} used to cast the method
+         * handle getter in {@link #indirectSlot(Slot)}.
+         */
+        private static final MethodType MT_MH_FROM_TYPE;
+
+        /** Rights to form method handles. */
+        private static final Lookup LOOKUP = MethodHandles.lookup();
+
+        static {
+            try {
+                // Used as a cast in the formation of getMHfromType
+                // (PyType)MethodHandle
+                MT_MH_FROM_TYPE =
+                        MethodType.methodType(MethodHandle.class, T);
+                // Used as a cast in the formation of getType
+                // (PyType)MethodHandle
+                // getType = λ x : x.getType()
+                // .type() = (Object)PyType
+                getType = LOOKUP
+                        .findVirtual(CraftedType.class, "getType",
+                                MethodType.methodType(T))
+                        .asType(MethodType.methodType(T, O));
+            } catch (NoSuchMethodException | IllegalAccessException e) {
+                throw new InterpreterError(e,
+                        "preparing handles in Operations.Derived");
+            }
+        }
+
+        /**
+         * Return a handle of the correct type for the slot, but that
+         * indirects through the type object of the first argument.
+         *
+         * @param s
+         * @return
+         */
+        private static MethodHandle indirectSlot(Slot s) {
+            /*
+             * We form a method handle that can take any Object, and if
+             * it is a CraftedPyObject, navigate to its type object, and
+             * pick out the method handle from Slot s.
+             */
+            // getOpFromType = λ t : s.getSlot(t)
+            // .type() = (PyType)MethodHandle
+            MethodHandle getMHfromType =
+                    s.slotHandle.toMethodHandle(AccessMode.GET)
+                            .asType(MT_MH_FROM_TYPE);
+            // getMHfromObj = λ x : s.getSlot(x.getType())
+            // .type() = (CraftedPyObject)MethodHandle
+            MethodHandle getMHfromObj =
+                    filterReturnValue(getType, getMHfromType);
+            /*
+             * We create an exact invoker, that can take a handle with
+             * the correct signature for Slot s, and invoke it on the
+             * corresponding arguments.
+             */
+            // invoker = λ h x ... : h(x, ...)
+            MethodType mt = s.signature.empty.type();
+            MethodHandle invoker = exactInvoker(mt);
+            /*
+             * Finally we compose the invoker with getMHfromType, to
+             * make a new handle, with the correct signature for Slot s,
+             * that when invoked itself, indirects through the
+             * corresponding handle in the type object.
+             */
+            // λ x ... : (s.getSlot(x.getType(x)) (x, ...)
+            return foldArguments(invoker, getMHfromObj);
+        }
+
+        // XXX Equivalent code
+        private Object invokeIndirect(Slot s, Object self, Object other)
+                throws Throwable {
+            PyType t = ((DerivedPyObject) self).getType();
+            MethodHandle mh = (MethodHandle) s.slotHandle.get(t);
+            return mh.invoke(self, other);
+        }
+
+        private static final Derived instance = new Derived();
+
+        static Derived getInstance() { return instance; }
+
+        // /** The type of which this is an accepted implementation. */
+        // final private Class<? extends PyObjectDerived> javaClass;
+
+        // /**
+        // * Create an operations object that is the implementation of
+        // * potentially many types defined in Python.
+        // *
+        // * @param javaClass the implementation class
+        // */
+        // Derived(Class<? extends PyObjectDerived> javaClass) {
+        // this.javaClass = javaClass;
+        // setAllSlots();
+        // }
+
+        /**
+         * Create an operations object that is the implementation of
+         * potentially many types defined in Python.
+         */
+        Derived() { setAllSlots(); }
+
+        @Override
+        PyType type(Object x) {
+            if (x instanceof DerivedPyObject)
+                return ((DerivedPyObject) x).getType();
+            else
+                throw new InterpreterError(
+                        "object %.50s has wrong Operations type %s", x,
+                        getClass().getSimpleName());
+        }
+
+        @Override
+        PyType uniqueType() {
+            throw new IllegalArgumentException(
+                    "Python type not uniquely defined by Operations");
+        }
+
+        @Override
+        boolean isIntExact() { return false; }
+
+        @Override
+        boolean isFloatExact() { return false; }
+
+        @Override
+        Class<?> getJavaClass() { return null; }
+
+        /**
+         * Set all the slots ({@code op_*}) to entries that will
+         * interrogate the actual type of their target object.
+         */
+        private void setAllSlots() {
+            for (Slot s : Slot.values()) {
+                if (s.signature.kind == MethodKind.INSTANCE) {
+                    s.setSlot(this, indirectSlot(s));
+                }
+            }
+        }
+
+        @Override
+        public String toString() { return "Derived"; }
+    }
 
     /**
      * A table of binary operations that may be indexed by a pair of
@@ -277,145 +704,30 @@ abstract class Operations {
     }
 
     /**
-     * Map a Java class to the {@code Operations} object that provides
-     * Python semantics to instances of the class.
-     *
-     * @param c class on which operations are required
-     * @return {@code Operations} providing Python semantics
+     * Exception reporting that an attempt was made to register a second
+     * {@link Operations} object against a class already in the
+     * registry.
      */
-    static Operations forClass(Class<?> c) {
-        // Normally, this is completely straightforward
-        // TODO deal with re-entrancy and concurrency
-        return registry.get(c);
-    }
-
-    /**
-     * Map an object to the {@code Operations} object that provides it
-     * with Python semantics.
-     *
-     * @param obj on which operations are required
-     * @return {@code Operations} providing Python semantics
-     */
-    static Operations of(Object obj) {
-        return forClass(obj.getClass());
-    }
-
-    /**
-     * Get the Python type of the object <i>given that</i> this is the
-     * operations object for it.
-     *
-     * @param x subject of the enquiry
-     * @return {@code type(x)}
-     */
-    abstract PyType type(Object x);
-
-    /**
-     * Identify by index which Java implementation of the associated
-     * type this {@code Operations} object is for. (Some types have
-     * multiple acceptable implementations.)
-     *
-     * @return index in the type (0 if canonical)
-     */
-    int getIndex() { return 0; }
-
-    /**
-     * Get the Java implementation class this {@code Operations} object
-     * is for.
-     *
-     * @return class of the implementation
-     */
-    abstract Class<?> getJavaClass();
-
-    /**
-     * Fast check that the target is exactly a Python {@code int}. We
-     * can do this without reference to the object itself, since it is
-     * deducible from the Java class.
-     *
-     * @return target is exactly a Python {@code int}
-     */
-    boolean isIntExact() { return this == PyLong.TYPE; }
-
-    /**
-     * Fast check that the target is exactly a Python {@code float}. We
-     * can do this without reference to the object itself, since it is
-     * deducible from the Java class.
-     *
-     * @return target is exactly a Python {@code float}
-     */
-    boolean isFloatExact() { return this == PyFloat.TYPE; }
-
-    /**
-     * Fast check that the target is a data descriptor.
-     *
-     * @return target is a data descriptor
-     */
-    boolean isDataDescr() { return false; }
-
-    // ---------------------------------------------------------------
-
-    /**
-     * Operations for accepted implementations (non-canonical
-     * implementations) are represented by instances of this class. The
-     * canonical implementation is represented by the {@link PyType}
-     * itself.
-     */
-    static class Accepted extends Operations {
-
-        /** The type of which this is an accepted implementation. */
-        final private PyType type;
-
+    static class Clash extends Exception {
+        private static final long serialVersionUID = 1L;
+        /** Class being redefined. */
+        final Class<?> klass;
         /**
-         * Index of this implementation in the type (see
-         * {@link PyType#indexAccepted(Class)}.
+         * The operations object already in the registry for
+         * {@link #klass}
          */
-        final private int index;
+        final Operations existing;
 
-        /**
-         * Create an operations object that is the {@code n}th
-         * implementation of the given type. ({@code n>0} since the
-         * implementation 0 is represented by the type itself.)
-         *
-         * @param type of which this is an accepted implementation
-         * @param n index of this implementation in the type
-         */
-        Accepted(PyType type, int n) {
-            this.type = type;
-            this.index = n;
-            setAllSlots();
+        Clash(Class<?> klass, Operations existing) {
+            // super("repeat type/operations definition for %s", klass);
+            this.klass = klass;
+            this.existing = existing;
         }
 
         @Override
-        PyType type(Object x) { return type; }
-
-        @Override
-        boolean isIntExact() { return type == PyLong.TYPE; }
-
-        @Override
-        boolean isFloatExact() { return type == PyFloat.TYPE; }
-
-        @Override
-        int getIndex() { return index; }
-
-        @Override
-        Class<?> getJavaClass() { return type.classes[index]; }
-
-        /**
-         * Set all the slots ({@code op_*}) from the entries in the
-         * dictionaries of this type and its bases.
-         */
-        private void setAllSlots() {
-            for (Slot s : Slot.values()) {
-                if (s.signature.kind == MethodKind.INSTANCE) {
-                    Object def = type.lookup(s.methodName);
-                    s.setSlot(this, def);
-                }
-            }
-        }
-
-        @Override
-        public String toString() {
-            String javaName = getJavaClass().getSimpleName();
-            return javaName + " as " + type.toString();
+        public String getMessage() {
+            return String.format(
+                    "repeat type/operations definition for %s", klass);
         }
     }
 
@@ -494,5 +806,4 @@ abstract class Operations {
     MethodHandle op_getitem;
     MethodHandle op_setitem;
     MethodHandle op_delitem;
-
 }

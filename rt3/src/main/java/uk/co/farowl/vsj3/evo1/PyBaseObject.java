@@ -9,15 +9,20 @@ import uk.co.farowl.vsj3.evo1.Slot.Signature;
 
 /**
  * The Python {@code object} object: all Python objects by default
- * inherit its Python method implementations. Although all Python
- * objects are sub-types in Python of {@code object}, their
- * implementation classes need not be sub-classes in Java of this one.
- * In particular, many built-in types are not.
+ * inherit its Python method implementations. The canonical
+ * implementation of {@code object} is {@code Object}. This class
+ * provides its Python behaviours.
+ * <p>
+ * Although all Python objects are sub-classes in Python of
+ * {@code object}, their implementation classes will not generally be
+ * sub-classes in Java of this one. In particular, many built-in types
+ * are not.
  * <p>
  * The Java implementation class of a type defined in Python will be
- * derived from the implementation class of the "solid base" it inherits
- * in Python. This <i>may</i> be {@code object}, in which case the
- * implementation class will be a sub-class in Java of this class.
+ * derived from the canonical implementation class of the "solid base"
+ * it inherits in Python. This <i>may</i> be {@code object}, in which
+ * case the implementation class will be a sub-class in Java of this
+ * class.
  * <p>
  *
  * @implNote All exposed methods, special methods and attribute get, set
@@ -26,7 +31,7 @@ import uk.co.farowl.vsj3.evo1.Slot.Signature;
  *     ({@code __new__} is excepted from this rule as it is
  *     {@code static} anyway.) This is so that methods defined here on
  *     {@code object} operate correctly on receiving Python objects
- *     whatever heir Java class. Methods and fields must be package
+ *     whatever their Java class. Methods and fields must be package
  *     visible so that {@link PyType} is able to form
  *     {@code MethodHandle}s to them using its default lookup object.
  */
@@ -40,9 +45,7 @@ class PyBaseObject extends AbstractPyObject {
      *
      * @param type actual Python sub-class being created
      */
-    protected PyBaseObject(PyType type) {
-        super(type);
-    }
+    protected PyBaseObject(PyType type) { super(type); }
 
     /** Constructor for {@code object}. */
     public PyBaseObject() {
@@ -69,9 +72,7 @@ class PyBaseObject extends AbstractPyObject {
     // Compare CPython object_get_class in typeobject.c
     @Getter("__class__")
     @DocString("the object's class")
-    static Object get_class(Object self) {
-        return PyType.of(self);
-    }
+    static Object get_class(Object self) { return PyType.of(self); }
 
     // Special methods ------------------------------------------------
 

@@ -132,9 +132,7 @@ enum Slot {
         this.doc = "Doc of " + this.opName;
     }
 
-    Slot(Signature signature) {
-        this(signature, null, null, null);
-    }
+    Slot(Signature signature) { this(signature, null, null, null); }
 
     Slot(Signature signature, String opName) {
         this(signature, opName, null, null);
@@ -226,9 +224,10 @@ enum Slot {
     }
 
     /**
-     * Get the contents of this slot in the given operations object.
-     * Each member of this {@code enum} corresponds to a method handle
-     * of the name which must also have the correct signature.
+     * Get the {@code MethodHandle} of this slot's operation from the
+     * given operations object. Each member of this {@code enum}
+     * corresponds to a method handle of the same name, which must also
+     * have the correct signature.
      *
      * @param ops target operations object
      * @return current contents of this slot in {@code ops}
@@ -238,8 +237,9 @@ enum Slot {
     }
 
     /**
-     * Get the contents of the "alternate" slot in the given operations
-     * object. For a binary operation this is the reflected operation.
+     * Get the {@code MethodHandle} of this slot's "alternate" operation
+     * from the given operations object. For a binary operation this is
+     * the reflected operation.
      *
      * @param ops target operations object
      * @return current contents of the alternate slot in {@code t}
@@ -251,8 +251,8 @@ enum Slot {
     }
 
     /**
-     * Set the contents of this slot in the given operations object to
-     * the {@code MethodHandle} provided.
+     * Set the {@code MethodHandle} of this slot's operation in the
+     * given operations object.
      *
      * @param ops target type object
      * @param mh handle value to assign
@@ -264,9 +264,9 @@ enum Slot {
     }
 
     /**
-     * Set the contents of this slot in the given operations object to a
-     * {@code MethodHandle} that calls the object given in a manner
-     * appropriate to its type. This method is used when updating
+     * Set the {@code MethodHandle} of this slot's operation in the
+     * given operations object to one that calls the object given in a
+     * manner appropriate to its type. This method is used when updating
      * setting the operation slots of a new type from the new type's
      * dictionary, and when updating them after a change. The object
      * argument is then the entry found by lookup of this slot's name.
@@ -356,9 +356,7 @@ enum Slot {
     static class EmptyException extends Exception {
 
         // Suppression and stack trace disabled since singleton.
-        EmptyException() {
-            super(null, null, false, false);
-        }
+        EmptyException() { super(null, null, false, false); }
     }
 
     /**
@@ -557,10 +555,10 @@ enum Slot {
          */
         final MethodType type;
         /**
-         * The kind of special method that satisfies this slot. Almost all
-         * slots are satisfied by an instance method. __new__ is a static
-         * method. In theory, we need class method as a type, but there are
-         * no live examples.
+         * The kind of special method that satisfies this slot. Almost
+         * all slots are satisfied by an instance method.
+         * {@code __new__} is a static method. In theory, we need class
+         * method as a type, but there are no live examples.
          */
         final MethodKind kind;
         /**
@@ -796,19 +794,19 @@ enum Slot {
                 // error = λ(slot, v, w, ...): f(slot, v, w, ...)
                 MethodHandle error;
                 switch (slot.signature) {
-                    case UNARY:
-                        // Same name, although signature differs ...
-                    case BINARY:
-                        error = LOOKUP.findStatic(Number.class,
-                                "operandError", errorMT);
-                        break;
-                    default:
-                        // error = λ(slot): default(slot, v, w, ...)
-                        error = LOOKUP.findStatic(Util.class,
-                                "defaultOperandError", errorMT);
-                        // error = λ(slot, v, w, ...): default(slot)
-                        error = MethodHandles.dropArguments(error, 0,
-                                slot.getType().parameterArray());
+                case UNARY:
+                    // Same name, although signature differs ...
+                case BINARY:
+                    error = LOOKUP.findStatic(Number.class,
+                            "operandError", errorMT);
+                    break;
+                default:
+                    // error = λ(slot): default(slot, v, w, ...)
+                    error = LOOKUP.findStatic(Util.class,
+                            "defaultOperandError", errorMT);
+                    // error = λ(slot, v, w, ...): default(slot)
+                    error = MethodHandles.dropArguments(error, 0,
+                            slot.getType().parameterArray());
                 }
 
                 // A handle that creates and throws the exception
