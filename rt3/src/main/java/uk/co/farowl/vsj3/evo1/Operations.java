@@ -148,7 +148,7 @@ abstract class Operations {
                 // Always the same
                 return Derived.getInstance();
 
-            } else if (CraftedType.class.isAssignableFrom(c)) {
+            } else if (CraftedPyObject.class.isAssignableFrom(c)) {
                 // Case 1: one of the crafted cases
                 // Ensure c and super-classes statically initialised.
                 ensureInit(c);
@@ -448,7 +448,7 @@ abstract class Operations {
                 // getType = λ x : x.getType()
                 // .type() = (Object)PyType
                 getType = LOOKUP
-                        .findVirtual(CraftedType.class, "getType",
+                        .findVirtual(CraftedPyObject.class, "getType",
                                 MethodType.methodType(T))
                         .asType(MethodType.methodType(T, O));
             } catch (NoSuchMethodException | IllegalAccessException e) {

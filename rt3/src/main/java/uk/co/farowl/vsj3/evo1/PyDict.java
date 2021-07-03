@@ -16,7 +16,7 @@ import uk.co.farowl.vsj3.evo1.PyObjectUtil.NoConversion;
  * been implemented on top of the Java one.
  */
 class PyDict extends AbstractMap<Object, Object>
-        implements CraftedType {
+        implements CraftedPyObject {
 
     /** The type of Python object this class implements. */
     static final PyType TYPE = PyType.fromSpec( //

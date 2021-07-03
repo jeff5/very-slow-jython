@@ -61,7 +61,7 @@ public class MethodHandleFormationTest {
     }
 
     /** Python object implementation for tests */
-    static class BasicallyEmpty implements CraftedType {
+    static class BasicallyEmpty implements CraftedPyObject {
 
         static final PyType TYPE = PyType.fromSpec( //
                 new Spec("BasicallyEmpty", MethodHandles.lookup()));

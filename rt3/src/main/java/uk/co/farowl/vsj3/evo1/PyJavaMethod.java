@@ -8,7 +8,7 @@ import java.lang.invoke.MethodHandles;
  * sub-classes represent either a built-in function or a built-in method
  * bound to a particular object.
  */
-public class PyJavaMethod implements CraftedType, VectorCallable {
+public class PyJavaMethod implements CraftedPyObject, VectorCallable {
 
     /** The type of Python object this class implements. */
     static final PyType TYPE = PyType.fromSpec( //

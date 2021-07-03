@@ -52,7 +52,7 @@ public class PyTest {
     }
 
     /** Every slot will fall back to {@link PyBaseObject}. */
-    private static class HasToString implements CraftedType {
+    private static class HasToString implements CraftedPyObject {
 
         @Override
         public PyType getType() {

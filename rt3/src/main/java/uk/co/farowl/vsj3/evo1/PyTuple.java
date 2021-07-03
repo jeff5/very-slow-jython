@@ -8,7 +8,7 @@ import java.util.StringJoiner;
 import uk.co.farowl.vsj3.evo1.PyType.Spec;
 
 /** The Python {@code tuple} object. */
-class PyTuple extends AbstractList<Object> implements CraftedType {
+class PyTuple extends AbstractList<Object> implements CraftedPyObject {
 
     /** The Python type object for {@code tuple}. */
     static final PyType TYPE = PyType.fromSpec( //

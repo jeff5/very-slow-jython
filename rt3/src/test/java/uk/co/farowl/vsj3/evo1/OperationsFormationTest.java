@@ -35,7 +35,7 @@ class OperationsFormationTest {
      *     pass
      * </pre>
      */
-    static class A implements CraftedType {
+    static class A implements CraftedPyObject {
         static PyType TYPE =
                 PyType.fromSpec(new Spec("A", MethodHandles.lookup()));
         private PyType type;
@@ -74,7 +74,7 @@ class OperationsFormationTest {
     /**
      * Built-in Python {@code class C} that has adopted implementations.
      */
-    static class C implements CraftedType {
+    static class C implements CraftedPyObject {
         static PyType TYPE =
                 PyType.fromSpec(new Spec("C", MethodHandles.lookup())
                         .adopt(C1.class, C2.class)
@@ -91,7 +91,7 @@ class OperationsFormationTest {
     static class C2 {}
 
     /** Built-in Python {@code class BadC} identical to C. */
-    static class BadC implements CraftedType {
+    static class BadC implements CraftedPyObject {
         static PyType TYPE =
                 PyType.fromSpec(new Spec("BadC", MethodHandles.lookup())
                         .adopt(BadC2.class)

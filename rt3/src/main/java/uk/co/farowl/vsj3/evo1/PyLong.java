@@ -8,7 +8,7 @@ import uk.co.farowl.vsj3.evo1.PyObjectUtil.NoConversion;
 import uk.co.farowl.vsj3.evo1.Slot.EmptyException;
 
 /** The Python {@code int} object. */
-class PyLong implements CraftedType, PyDict.Key {
+class PyLong implements CraftedPyObject, PyDict.Key {
 
     /** The type {@code int}. */
     static PyType TYPE = PyType.fromSpec( //

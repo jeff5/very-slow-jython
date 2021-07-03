@@ -7,7 +7,7 @@ import java.math.BigInteger;
 /** Common run-time constants and constructors. */
 public class Py {
 
-    private static class Singleton implements CraftedType {
+    private static class Singleton implements CraftedPyObject {
 
         final PyType type;
 

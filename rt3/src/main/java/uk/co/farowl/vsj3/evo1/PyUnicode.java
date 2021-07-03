@@ -10,7 +10,7 @@ import uk.co.farowl.vsj3.evo1.Exposed.Name;
 import uk.co.farowl.vsj3.evo1.PyObjectUtil.NoConversion;
 
 /** The Python {@code str} object. */
-class PyUnicode implements PySequenceInterface<Integer>, CraftedType,
+class PyUnicode implements PySequenceInterface<Integer>, CraftedPyObject,
         PyDict.Key {
 
     /** The type of Python object this class implements. */

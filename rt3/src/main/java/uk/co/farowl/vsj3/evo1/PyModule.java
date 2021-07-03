@@ -4,7 +4,7 @@ import java.lang.invoke.MethodHandles;
 import java.util.Map;
 
 /** The Python {@code module} object. */
-class PyModule implements CraftedType, PyObjectDict {
+class PyModule implements CraftedPyObject, PyObjectDict {
 
     /** The type of Python object this class implements. */
     static final PyType TYPE = PyType.fromSpec( //

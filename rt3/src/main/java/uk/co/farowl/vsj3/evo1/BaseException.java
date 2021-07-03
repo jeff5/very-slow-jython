@@ -3,7 +3,7 @@ package uk.co.farowl.vsj3.evo1;
 import java.lang.invoke.MethodHandles;
 
 /** The Python {@code BaseException} exception. */
-class BaseException extends RuntimeException implements CraftedType {
+class BaseException extends RuntimeException implements CraftedPyObject {
 
     /** The type of Python object this class implements. */
     static final PyType TYPE = PyType.fromSpec(

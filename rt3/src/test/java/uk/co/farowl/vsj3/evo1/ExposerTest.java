@@ -26,7 +26,7 @@ class ExposerTest {
      * Model canonical implementation to explore exposure of a special
      * method.
      */
-    private static class ObjectWithSpMeth implements CraftedType {
+    private static class ObjectWithSpMeth implements CraftedPyObject {
 
         /** Lookup object to support creation of descriptors. */
         private static final Lookup LOOKUP = MethodHandles.lookup();
@@ -104,7 +104,7 @@ class ExposerTest {
         assertSame(Object.class, neg1.type().parameterType(0));
     }
 
-    private static class PyObjectWithMethods implements CraftedType {
+    private static class PyObjectWithMethods implements CraftedPyObject {
 
         /** Lookup object to support creation of descriptors. */
         private static final Lookup LOOKUP = MethodHandles.lookup();

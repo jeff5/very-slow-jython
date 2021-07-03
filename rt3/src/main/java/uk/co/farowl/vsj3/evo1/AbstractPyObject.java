@@ -4,7 +4,7 @@ package uk.co.farowl.vsj3.evo1;
  * Class that may be used as a base for Python objects (but doesn't have
  * to be) to supply some universally needed methods and the type.
  */
-abstract class AbstractPyObject implements CraftedType {
+abstract class AbstractPyObject implements CraftedPyObject {
 
     private PyType type;
 
