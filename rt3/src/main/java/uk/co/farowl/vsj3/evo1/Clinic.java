@@ -4,7 +4,8 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.invoke.MethodType;
-import java.util.Arrays;
+
+import uk.co.farowl.vsj3.evo1.base.InterpreterError;
 
 /**
  * A collection of methods and {@code MethodHandle}s for converting

@@ -33,6 +33,8 @@ import uk.co.farowl.vsj3.evo1.Exposed.PositionalCollector;
 import uk.co.farowl.vsj3.evo1.Exposed.PositionalOnly;
 import uk.co.farowl.vsj3.evo1.Exposed.PythonMethod;
 import uk.co.farowl.vsj3.evo1.Exposed.PythonStaticMethod;
+import uk.co.farowl.vsj3.evo1.base.InterpreterError;
+import uk.co.farowl.vsj3.evo1.base.MethodKind;
 
 /**
  * An object for tabulating the attributes of classes that define Python

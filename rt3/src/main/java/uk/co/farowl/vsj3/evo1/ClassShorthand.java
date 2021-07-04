@@ -5,9 +5,10 @@ package uk.co.farowl.vsj3.evo1;
  * {@code MethodType}s, etc..
  */
 interface ClassShorthand {
-
     /** Shorthand for {@code Object.class}. */
     static final Class<Object> O = Object.class;
+    /** Shorthand for {@code Class.class}. */
+    static final Class<?> C = Class.class;
     /** Shorthand for {@code String.class}. */
     static final Class<String> S = String.class;
     /** Shorthand for {@code int.class}. */

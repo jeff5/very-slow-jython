@@ -1,4 +1,4 @@
-package uk.co.farowl.vsj3.evo1;
+package uk.co.farowl.vsj3.evo1.base;
 
 /**
  * Thrown when we reach a combination of circumstances in the
@@ -7,7 +7,7 @@ package uk.co.farowl.vsj3.evo1;
  * <p>
  * What does the reference implementation do at this point?
  */
-class MissingFeature extends InterpreterError {
+public class MissingFeature extends InterpreterError {
 
     /**
      * Constructor specifying a message.
@@ -15,7 +15,7 @@ class MissingFeature extends InterpreterError {
      * @param msg a Java format string for the message
      * @param args to insert in the format string
      */
-    protected MissingFeature(String msg, Object... args) {
+    public MissingFeature(String msg, Object... args) {
         super(String.format(msg, args));
     }
 }

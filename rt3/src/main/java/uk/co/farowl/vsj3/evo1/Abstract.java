@@ -4,6 +4,7 @@ import java.lang.invoke.MethodHandle;
 import java.util.function.Supplier;
 
 import uk.co.farowl.vsj3.evo1.Slot.EmptyException;
+import uk.co.farowl.vsj3.evo1.base.InterpreterError;
 
 /**
  * The "abstract interface" to operations on Python objects. Methods

@@ -2,7 +2,6 @@ package uk.co.farowl.vsj3.evo1;
 
 import java.lang.annotation.Annotation;
 import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.invoke.MethodType;
 import java.lang.invoke.WrongMethodTypeException;
@@ -29,6 +28,7 @@ import uk.co.farowl.vsj3.evo1.Exposed.Setter;
 import uk.co.farowl.vsj3.evo1.Operations.BinopGrid;
 import uk.co.farowl.vsj3.evo1.PyMemberDescr.Flag;
 import uk.co.farowl.vsj3.evo1.Slot.Signature;
+import uk.co.farowl.vsj3.evo1.base.InterpreterError;
 
 class TypeExposer extends Exposer {
 

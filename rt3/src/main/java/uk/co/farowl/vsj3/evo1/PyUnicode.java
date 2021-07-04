@@ -5,13 +5,13 @@ import java.util.Arrays;
 import java.util.Iterator;
 
 import uk.co.farowl.vsj3.evo1.Exposed.Default;
-import uk.co.farowl.vsj3.evo1.Exposed.PythonMethod;
 import uk.co.farowl.vsj3.evo1.Exposed.Name;
+import uk.co.farowl.vsj3.evo1.Exposed.PythonMethod;
 import uk.co.farowl.vsj3.evo1.PyObjectUtil.NoConversion;
 
 /** The Python {@code str} object. */
-class PyUnicode implements PySequenceInterface<Integer>, CraftedPyObject,
-        PyDict.Key {
+class PyUnicode implements PySequenceInterface<Integer>,
+        CraftedPyObject, PyDict.Key {
 
     /** The type of Python object this class implements. */
     static final PyType TYPE = PyType.fromSpec( //
@@ -85,16 +85,12 @@ class PyUnicode implements PySequenceInterface<Integer>, CraftedPyObject,
     }
 
     @Deprecated // XXX Private or not needed
-    PyUnicode(char c) {
-        this(TYPE, new int[] {c});
-    }
+    PyUnicode(char c) { this(TYPE, new int[] {c}); }
 
     // slot functions -------------------------------------------------
 
     @SuppressWarnings("unused")
-    private int __len__() {
-        return value.length;
-    }
+    private int __len__() { return value.length; }
 
     @SuppressWarnings("unused")
     private static int __len__(String self) {
@@ -102,14 +98,10 @@ class PyUnicode implements PySequenceInterface<Integer>, CraftedPyObject,
     }
 
     @SuppressWarnings("unused")
-    private Object __str__() {
-        return this;
-    }
+    private Object __str__() { return this; }
 
     @SuppressWarnings("unused")
-    private static Object __str__(String self) {
-        return self;
-    }
+    private static Object __str__(String self) { return self; }
 
     private static Object __repr__(String self) {
         // Ok, it should be more complicated but I'm in a hurry.
@@ -151,9 +143,7 @@ class PyUnicode implements PySequenceInterface<Integer>, CraftedPyObject,
     }
 
     @SuppressWarnings("unused")
-    private static int __hash__(String self) {
-        return self.hashCode();
-    }
+    private static int __hash__(String self) { return self.hashCode(); }
 
     @SuppressWarnings("unused")
     private Object __add__(Object w) {
@@ -471,14 +461,10 @@ class PyUnicode implements PySequenceInterface<Integer>, CraftedPyObject,
     // Sequence interface ---------------------------------------------
 
     @Override
-    public int length() {
-        return value.length;
-    };
+    public int length() { return value.length; };
 
     @Override
-    public Integer getItem(int i) {
-        return Integer.valueOf(value[i]);
-    }
+    public Integer getItem(int i) { return Integer.valueOf(value[i]); }
 
     @Override
     public PyUnicode concat(PySequenceInterface<Integer> other) {
@@ -516,14 +502,10 @@ class PyUnicode implements PySequenceInterface<Integer>, CraftedPyObject,
             private int i = 0;
 
             @Override
-            public boolean hasNext() {
-                return i < value.length;
-            }
+            public boolean hasNext() { return i < value.length; }
 
             @Override
-            public Integer next() {
-                return value[i++];
-            }
+            public Integer next() { return value[i++]; }
         };
     }
 
@@ -562,14 +544,10 @@ class PyUnicode implements PySequenceInterface<Integer>, CraftedPyObject,
 
         final private String s;
 
-        StringAdapter(String s) {
-            this.s = s;
-        }
+        StringAdapter(String s) { this.s = s; }
 
         @Override
-        public int length() {
-            return s.length();
-        };
+        public int length() { return s.length(); };
 
         @Override
         public Integer getItem(int i) {
@@ -593,9 +571,7 @@ class PyUnicode implements PySequenceInterface<Integer>, CraftedPyObject,
         }
 
         @Override
-        public Object repeat(int n) {
-            return s.repeat(n);
-        }
+        public Object repeat(int n) { return s.repeat(n); }
 
         @Override
         public Iterator<Integer> iterator() {
@@ -604,9 +580,7 @@ class PyUnicode implements PySequenceInterface<Integer>, CraftedPyObject,
                 private int i = 0;
 
                 @Override
-                public boolean hasNext() {
-                    return i < s.length();
-                }
+                public boolean hasNext() { return i < s.length(); }
 
                 @Override
                 public Integer next() {

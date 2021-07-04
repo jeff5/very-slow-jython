@@ -1,10 +1,10 @@
-package uk.co.farowl.vsj3.evo1;
+package uk.co.farowl.vsj3.evo1.base;
 
 /**
  * Enum describing whether a method is an instance, static or class
  * method (in Python).
  */
-enum MethodKind {
+public enum MethodKind {
     /**
      * The method must be defined by a Java static method. An initial
      * self or module argument is not expected. (If the writer attempts

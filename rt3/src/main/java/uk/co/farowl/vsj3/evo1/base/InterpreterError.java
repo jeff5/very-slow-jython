@@ -1,4 +1,4 @@
-package uk.co.farowl.vsj3.evo1;
+package uk.co.farowl.vsj3.evo1.base;
 
 /**
  * Internal error thrown when the Python implementation cannot be relied
@@ -6,7 +6,7 @@ package uk.co.farowl.vsj3.evo1;
  * caught in Python code) is not then appropriate. Typically thrown
  * during initialisation or for irrecoverable internal errors.
  */
-class InterpreterError extends RuntimeException {
+public class InterpreterError extends RuntimeException {
 
     /**
      * Constructor specifying a message.
@@ -14,7 +14,7 @@ class InterpreterError extends RuntimeException {
      * @param msg a Java format string for the message
      * @param args to insert in the format string
      */
-    protected InterpreterError(String msg, Object... args) {
+    public InterpreterError(String msg, Object... args) {
         super(String.format(msg, args));
     }
 
@@ -25,7 +25,7 @@ class InterpreterError extends RuntimeException {
      * @param msg a Java format string for the message
      * @param args to insert in the format string
      */
-    protected InterpreterError(Throwable cause, String msg,
+    public InterpreterError(Throwable cause, String msg,
             Object... args) {
         super(String.format(msg, args), cause);
     }

@@ -5,6 +5,7 @@ import java.lang.reflect.Method;
 
 import uk.co.farowl.vsj3.evo1.Exposed.PythonMethod;
 import uk.co.farowl.vsj3.evo1.Exposed.PythonStaticMethod;
+import uk.co.farowl.vsj3.evo1.base.InterpreterError;
 
 /**
  * A {@code ModuleExposer} provides access to the attributes of a module

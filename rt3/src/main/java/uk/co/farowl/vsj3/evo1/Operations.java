@@ -14,6 +14,7 @@ import java.util.Map;
 import java.util.WeakHashMap;
 
 import uk.co.farowl.vsj3.evo1.Slot.Signature;
+import uk.co.farowl.vsj3.evo1.base.InterpreterError;
 
 import static uk.co.farowl.vsj3.evo1.ClassShorthand.T;
 import static uk.co.farowl.vsj3.evo1.ClassShorthand.O;

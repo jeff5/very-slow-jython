@@ -3,6 +3,8 @@ package uk.co.farowl.vsj3.evo1;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 
+import uk.co.farowl.vsj3.evo1.base.MissingFeature;
+
 /**
  * The Python {@code builtin_function_or_method} object. Java
  * sub-classes represent either a built-in function or a built-in method

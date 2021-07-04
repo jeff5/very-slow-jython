@@ -88,10 +88,7 @@ class TypeExposerMemberTest extends UnitTestSupport {
      * produces descriptors we can apply to a sub-class.
      */
     private static class DerivedWithMembers extends ObjectWithMembers {
-
-        DerivedWithMembers(double value) {
-            super(value);
-        }
+        DerivedWithMembers(double value) { super(value); }
     }
 
     /**

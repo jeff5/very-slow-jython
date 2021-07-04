@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 
 import uk.co.farowl.vsj3.evo1.PyType.Spec;
+import uk.co.farowl.vsj3.evo1.base.InterpreterError;
 
 /**
  * A test of the apparatus used to form {@code MethodHandle}s from

@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 
 import uk.co.farowl.vsj3.evo1.Operations.Clash;
 import uk.co.farowl.vsj3.evo1.PyType.Spec;
+import uk.co.farowl.vsj3.evo1.base.InterpreterError;
 
 /**
  * An {@link Operations} object contains information about a Java class

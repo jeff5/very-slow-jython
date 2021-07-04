@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.Set;
 
 import uk.co.farowl.vsj3.evo1.PyObjectUtil.NoConversion;
+import uk.co.farowl.vsj3.evo1.base.InterpreterError;
 
 /**
  * The Python {@code dict} object. The Java API is provided directly by

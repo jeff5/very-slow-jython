@@ -13,6 +13,7 @@ import uk.co.farowl.vsj3.evo1.Exposed.Getter;
 import uk.co.farowl.vsj3.evo1.Exposed.Setter;
 import uk.co.farowl.vsj3.evo1.PyType.Flag;
 import uk.co.farowl.vsj3.evo1.Slot.EmptyException;
+import uk.co.farowl.vsj3.evo1.base.InterpreterError;
 
 
 /**

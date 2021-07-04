@@ -16,6 +16,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import uk.co.farowl.vsj3.evo1.MethodDescriptor.ArgumentError;
+import uk.co.farowl.vsj3.evo1.base.InterpreterError;
+import uk.co.farowl.vsj3.evo1.base.MethodKind;
 
 
 /**

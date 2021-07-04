@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import uk.co.farowl.vsj3.evo1.Exposed.PositionalOnly;
 import uk.co.farowl.vsj3.evo1.Exposed.PythonMethod;
 import uk.co.farowl.vsj3.evo1.Exposed.PythonStaticMethod;
+import uk.co.farowl.vsj3.evo1.base.MethodKind;
 
 /**
  * Test that functions exposed by a Python <b>module</b> defined in
@@ -146,9 +147,7 @@ class ModuleExposerMethodTest {
         static final ModuleDef DEF =
                 new ModuleDef("example", MethodHandles.lookup());
 
-        ExampleModule() {
-            super(DEF);
-        }
+        ExampleModule() { super(DEF); }
 
         /**
          * See {@link StaticNoParams}: no parameters are allowed.
@@ -272,9 +271,7 @@ class ModuleExposerMethodTest {
 
         @Override
         @Test
-        void has_expected_fields() {
-            no_collector_static("f0", 0, 0);
-        }
+        void has_expected_fields() { no_collector_static("f0", 0, 0); }
     }
 
     /**
@@ -362,9 +359,7 @@ class ModuleExposerMethodTest {
 
         @Override
         @Test
-        void has_expected_fields() {
-            no_collector_static("f3", 3, 3);
-        }
+        void has_expected_fields() { no_collector_static("f3", 3, 3); }
     }
 
     /**

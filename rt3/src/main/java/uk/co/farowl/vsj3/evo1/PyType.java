@@ -16,6 +16,7 @@ import java.util.Map;
 import uk.co.farowl.vsj3.evo1.Exposed.Getter;
 import uk.co.farowl.vsj3.evo1.Slot.EmptyException;
 import uk.co.farowl.vsj3.evo1.Slot.Signature;
+import uk.co.farowl.vsj3.evo1.base.InterpreterError;
 
 /**
  * The Python {@code type} object. Type objects are normally created

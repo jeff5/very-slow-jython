@@ -1,31 +1,8 @@
 package uk.co.farowl.vsj3.evo1;
 
-import java.lang.annotation.Annotation;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
-import java.lang.invoke.MethodHandles.Lookup;
-import java.lang.invoke.MethodType;
-import java.lang.invoke.WrongMethodTypeException;
-import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
-import java.lang.reflect.Parameter;
-import java.math.BigInteger;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.ListIterator;
-import java.util.Map;
-import java.util.StringJoiner;
 
-import uk.co.farowl.vsj3.evo1.Exposed.Default;
-import uk.co.farowl.vsj3.evo1.Exposed.DocString;
-import uk.co.farowl.vsj3.evo1.Exposed.PythonMethod;
-import uk.co.farowl.vsj3.evo1.Exposed.KeywordCollector;
-import uk.co.farowl.vsj3.evo1.Exposed.KeywordOnly;
-import uk.co.farowl.vsj3.evo1.Exposed.Name;
-import uk.co.farowl.vsj3.evo1.Exposed.PositionalCollector;
-import uk.co.farowl.vsj3.evo1.Exposed.PositionalOnly;
 import uk.co.farowl.vsj3.evo1.PyType.Flag;
 
 /**

@@ -6,6 +6,8 @@ import static java.lang.invoke.MethodHandles.guardWithTest;
 import static java.lang.invoke.MethodHandles.identity;
 import static java.lang.invoke.MethodHandles.insertArguments;
 import static java.lang.invoke.MethodHandles.permuteArguments;
+import static uk.co.farowl.vsj3.evo1.ClassShorthand.C;
+import static uk.co.farowl.vsj3.evo1.ClassShorthand.O;
 
 import java.lang.invoke.CallSite;
 import java.lang.invoke.MethodHandle;
@@ -14,16 +16,13 @@ import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.invoke.MethodType;
 import java.lang.invoke.MutableCallSite;
 
+import uk.co.farowl.vsj3.evo1.base.InterpreterError;
+
 /**
  * Run-time support for JVM-compiled code (including
  * {@code invokedynamic} call sites).
  */
 public class PyRT {
-
-    /** Shorthand for {@code Object.class}. */
-    private static final Class<?> O = Object.class;
-    /** Shorthand for {@code Class.class}. */
-    private static final Class<?> C = Class.class;
 
     /** A method implementing a unary op has this type. */
     static final MethodType UOP = Slot.Signature.UNARY.empty.type();
@@ -59,20 +58,20 @@ public class PyRT {
         CallSite site;
         // Probably want Slot to be public and use the slot name.
         switch (name) {
-            case "negative":
-                site = new UnaryOpCallSite(Slot.op_neg);
-                break;
-            case "add":
-                site = new BinaryOpCallSite(Slot.op_add);
-                break;
-            case "multiply":
-                site = new BinaryOpCallSite(Slot.op_mul);
-                break;
-            case "subtract":
-                site = new BinaryOpCallSite(Slot.op_sub);
-                break;
-            default:
-                throw new NoSuchMethodException(name);
+        case "negative":
+            site = new UnaryOpCallSite(Slot.op_neg);
+            break;
+        case "add":
+            site = new BinaryOpCallSite(Slot.op_add);
+            break;
+        case "multiply":
+            site = new BinaryOpCallSite(Slot.op_mul);
+            break;
+        case "subtract":
+            site = new BinaryOpCallSite(Slot.op_sub);
+            break;
+        default:
+            throw new NoSuchMethodException(name);
         }
 
         return site;

@@ -6,6 +6,8 @@ import java.lang.invoke.VarHandle;
 import java.lang.reflect.Field;
 import java.util.EnumSet;
 
+import uk.co.farowl.vsj3.evo1.base.InterpreterError;
+
 /**
  * Descriptor for an attribute that has been defined (by a
  * {@code @Member} annotations) to get and optionally set or delete the

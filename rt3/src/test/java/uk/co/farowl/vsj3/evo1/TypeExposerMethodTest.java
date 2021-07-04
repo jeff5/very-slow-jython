@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 import uk.co.farowl.vsj3.evo1.Exposed.PositionalOnly;
 import uk.co.farowl.vsj3.evo1.Exposed.PythonMethod;
 import uk.co.farowl.vsj3.evo1.PyType.Spec;
+import uk.co.farowl.vsj3.evo1.base.MethodKind;
 
 /**
  * Test that methods exposed by a Python <b>type</b> defined in Java,

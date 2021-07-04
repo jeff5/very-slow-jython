@@ -5,9 +5,9 @@ import static uk.co.farowl.vsj3.evo1.ClassShorthand.DICT;
 import static uk.co.farowl.vsj3.evo1.ClassShorthand.I;
 import static uk.co.farowl.vsj3.evo1.ClassShorthand.O;
 import static uk.co.farowl.vsj3.evo1.ClassShorthand.OA;
+import static uk.co.farowl.vsj3.evo1.ClassShorthand.S;
 import static uk.co.farowl.vsj3.evo1.ClassShorthand.T;
 import static uk.co.farowl.vsj3.evo1.ClassShorthand.TUPLE;
-import static uk.co.farowl.vsj3.evo1.ClassShorthand.S;
 import static uk.co.farowl.vsj3.evo1.ClassShorthand.V;
 
 import java.lang.invoke.MethodHandle;
@@ -20,6 +20,8 @@ import java.util.Map;
 
 import uk.co.farowl.vsj3.evo1.MethodDescriptor.ArgumentError;
 import uk.co.farowl.vsj3.evo1.MethodDescriptor.ArgumentError.Mode;
+import uk.co.farowl.vsj3.evo1.base.InterpreterError;
+import uk.co.farowl.vsj3.evo1.base.MissingFeature;
 
 /**
  * This {@code enum} provides a set of structured constants that are
