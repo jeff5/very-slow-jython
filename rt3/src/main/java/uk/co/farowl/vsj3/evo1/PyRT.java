@@ -215,6 +215,18 @@ public class PyRT {
          */
         @SuppressWarnings("unused")
         private Object fallback(Object v, Object w) throws Throwable {
+            /*
+             * XXX There is a problem with the logic of this in cases
+             * where the implementation class of either argument allows
+             * multiple types, typically a class defined in Python. The
+             * site will be guarded on class, but the class does not
+             * lead to a unique type and therefore the choice which to
+             * give the precedence will be unstable. (The op handles
+             * will indirect through the actual type. There is no
+             * comparable problem in the unary case.) The simplest
+             * solution is probably to fall back on a non-dynamic call,
+             * either as a bound-in decision or a one-shot.
+             */
             fallbackCalls += 1;
             Operations vOps = Operations.of(v);
             PyType vType = vOps.type(v);
@@ -376,7 +388,7 @@ public class PyRT {
                     /*
                      * slotv is also a valid offer, which must be given
                      * first refusal. Only if slotv returns
-                     * Py.NotImplemented, will we try binop.
+                     * Py.NotImplemented, will we try slotw.
                      */
                     return firstImplementer(slotv, slotw);
                 }
