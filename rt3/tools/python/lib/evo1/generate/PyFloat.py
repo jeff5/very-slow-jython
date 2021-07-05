@@ -71,21 +71,25 @@ class PyFloatGenerator(ImplementationGenerator):
 
         # Emit the unary operations
         for op in self.UNARY_OPS:
+            self.emit_heading(e, op.name)
             for t in self.ACCEPTED_CLASSES:
                 self.special_unary(e, op, t)
 
         # Emit the unary predicate operations
         for op in self.PREDICATE_OPS:
+            self.emit_heading(e, op.name)
             for t in self.ACCEPTED_CLASSES:
                 self.special_predicate(e, op, t)
 
         # Emit the binary operations op(T, Object)
         for op in self.BINARY_OPS:
+            self.emit_heading(e, op.name)
             for vt in self.ACCEPTED_CLASSES:
                 self.special_binary_object(e, op, vt)
 
         # Emit the binary predicate operations op(T, Object)
         for op in self.BINARY_PREDICATE_OPS:
+            self.emit_heading(e, op.name)
             for vt in self.ACCEPTED_CLASSES:
                 self.special_binary_predicate_object(e, op, vt)
 

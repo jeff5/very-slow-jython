@@ -40,6 +40,7 @@ BOOLEAN_CLASS = IntTypeInfo('Boolean', WorkingType.INT,
                     lambda x: f'({x} ? 1 : 0)')
 DOUBLE_CLASS = IntTypeInfo('Double', WorkingType.OBJECT)
 
+PRIMITIVE_BOOLEAN = IntTypeInfo('boolean', WorkingType.BOOLEAN)
 PRIMITIVE_INT = IntTypeInfo('int', WorkingType.INT)
 
 
@@ -235,7 +236,7 @@ class PyLongGenerator(ImplementationGenerator):
             lambda x: f'PyLong.convertToDouble({x})',
             lambda x: f'((double) {x})',
             lambda x: f'((double) {x})'),
-        UnaryOpInfo('__bool__', OBJECT_CLASS, WorkingType.BOOLEAN,
+        UnaryOpInfo('__bool__', PRIMITIVE_BOOLEAN, WorkingType.BOOLEAN,
             lambda x: f'{x}.signum() != 0',
             lambda x: f'{x} != 0L',
             lambda x: f'{x} != 0'),
@@ -383,15 +384,13 @@ class PyLongGenerator(ImplementationGenerator):
 
         # Emit the unary operations
         for op in self.UNARY_OPS:
-            e.emit_line(f'// {"-"*(60-len(op.name))} {op.name}')
-            e.emit_line()
+            self.emit_heading(e, op.name)
             for t in self.ACCEPTED_CLASSES:
                 self.special_unary(e, op, t)
 
         # Emit the binary operations op(T, Object)
         for op in self.BINARY_OPS:
-            e.emit_line(f'// {"-"*(60-len(op.name))} {op.name}')
-            e.emit_line()
+            self.emit_heading(e, op.name)
             for vt in self.ACCEPTED_CLASSES:
                 self.special_binary(e, op, vt, OBJECT_CLASS)
 
@@ -401,8 +400,7 @@ class PyLongGenerator(ImplementationGenerator):
         # Emit the binary operations and comparisons
         for op in self.BINARY_OPS:
             if op.class_specific:
-                e.emit_line(f'// {"-"*(60-len(op.name))} {op.name}')
-                e.emit_line()
+                self.emit_heading(e, op.name)
                 for vt in self.ACCEPTED_CLASSES:
                     for wt in self.OPERAND_CLASSES:
                         self.special_binary(e, op, vt, wt)

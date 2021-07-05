@@ -712,6 +712,15 @@ class TypeExposer extends Exposer {
         }
 
         /**
+         * {@inheritDoc}
+         * <p>
+         * In this case, we name the slot function, as there is no
+         * annotation.
+         */
+        @Override
+        protected String annoClassName() { return slot.toString(); }
+
+        /**
          * Create a {@code PyWrapperDescr} from this specification. Note
          * that a specification describes the methods as declared, and
          * that there may be any number. This method matches them to the
@@ -772,6 +781,7 @@ class TypeExposer extends Exposer {
                             .isAssignableFrom(acceptedClass)) {
                         try {
                             // must have the expected signature
+                            checkCast(mh, slotType);
                             wrapped[i] = mh.asType(slotType);
                             break;
                         } catch (WrongMethodTypeException wmte) {
@@ -805,6 +815,34 @@ class TypeExposer extends Exposer {
                  */
                 return new PyWrapperDescr.Multiple(objclass, slot,
                         wrapped);
+        }
+
+        /**
+         * Throw a {@code WrongMethodTypeException} if the offered
+         * method (e.g. a special method) cannot be called with
+         * arguments matching the specified type. This makes up for the
+         * fact that {@code MethodHandle.asType} does not do much
+         * checking. This way, we get an error at specification time,
+         * not run-time.
+         *
+         * @param mh handle of method offered
+         * @param slotType required type
+         * @throws WrongMethodTypeException if cannot cast
+         */
+        private void checkCast(MethodHandle mh, MethodType slotType)
+                throws WrongMethodTypeException {
+            MethodType mt = mh.type();
+            int n = mt.parameterCount();
+            if (n != slotType.parameterCount())
+                throw new WrongMethodTypeException();
+            boolean ok = slotType.returnType()
+                    .isAssignableFrom(mt.returnType());
+            if (!ok) { throw new WrongMethodTypeException(); }
+            for (int i = 0; i < n; i++) {
+                ok = slotType.parameterType(i)
+                        .isAssignableFrom(mt.parameterType(i));
+                if (!ok) { throw new WrongMethodTypeException(); }
+            }
         }
     }
 

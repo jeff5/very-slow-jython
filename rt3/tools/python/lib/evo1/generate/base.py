@@ -77,6 +77,11 @@ class ImplementationGenerator:
         e.emit_line(f" * Date: {timestamp}")
         e.emit_line(" */")
 
+    # Emit a rule (comment) above a block of implementations
+    def emit_heading(self, e, name:str):
+        e.emit_line(f'// {"-"*(60-len(name))} {name}')
+        e.emit_line()
+
     # Emit methods selectable by a single type
     def special_methods(self, e):
         pass
