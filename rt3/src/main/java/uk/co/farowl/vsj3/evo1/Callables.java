@@ -1,6 +1,7 @@
 package uk.co.farowl.vsj3.evo1;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Arrays;
 import java.util.Map;
 import java.util.Map.Entry;
 
@@ -28,18 +29,24 @@ class Callables extends Abstract {
     static Object call(Object callable, Object[] args, String[] names)
             throws TypeError, Throwable {
 
-        // Speed up the idiom common in called objects:
-        // if (names == null || names.length != 0) ...
+        // Speed up the common idiom:
+        // if (names == null || names.length == 0) ...
         if (names != null && names.length == 0) { names = null; }
 
+        if (callable instanceof FastCall) {
+            // Take the direct route since __call__ is immutable
+            FastCall fast = (FastCall) callable;
+            if (args == null || args.length == 0) {
+                return fast.call();
+            } else if (names == null) {
+                return fast.call(args);
+            } else {
+                return fast.__call__(args, names);
+            }
+        }
+
         try {
-            /*
-             * In CPython, there are specific cases here that look for
-             * support for vector call and PyCFunction (would be
-             * PyJavaFunction) leading to PyVectorcall_Call or
-             * cfunction_call_varargs respectively on the args, kwargs
-             * arguments.
-             */
+            // Call via the special method (slot function)
             MethodHandle call = Operations.of(callable).op_call;
             return call.invokeExact(callable, args, names);
         } catch (Slot.EmptyException e) {
@@ -169,33 +176,40 @@ class Callables extends Abstract {
     /**
      * Call an object with the vector call protocol. This supports
      * CPython byte code generated according to the conventions in
-     * PEP-590. It differs in detail since one cannot designate, in
-     * Java, a slice of the stack by an address and size.
+     * PEP-590. Unlike its use in CPython, this is <b>not</b> faster
+     * than the standard {@link #call(Object, Object[], String[]) call}
+     * method.
+     * <p>
+     * The {@code stack} argument (which is often the interpreter stack)
+     * contains, at a given offset {@code start}, the {@code npos}
+     * arguments given at given by position, followed by those
+     * {@code len(kwnames)} given by keyword.
      *
      * @param callable target
      * @param stack positional and keyword arguments
      * @param start position of arguments in the array
-     * @param nargs number of <b>positional</b> arguments
-     * @param kwnames names of keyword arguments
+     * @param npos number of <b>positional</b> arguments
+     * @param kwnames names of keyword arguments or {@code null}
      * @return the return from the call to the object
      * @throws TypeError if target is not callable
      * @throws Throwable for errors raised in the function
      */
     // Compare CPython _PyObject_FastCall in call.c
     static Object vectorcall(Object callable, Object[] stack, int start,
-            int nargs, PyTuple kwnames) throws Throwable {
-
-        // Try the vector call slot. Not an offset like CPython's slot.
-        try {
-            MethodHandle call = Operations.of(callable).op_vectorcall;
-            return call.invokeExact(callable, stack, start, nargs,
-                    kwnames);
-        } catch (Slot.EmptyException e) {}
-
-        // Vector call is not supported by the type. Make classic call.
-        PyTuple args = new PyTuple(stack, start, nargs);
-        PyDict kwargs = stackAsDict(stack, start, nargs, kwnames);
-        return call(callable, args, kwargs);
+            int npos, PyTuple kwnames) throws Throwable {
+        int n = kwnames == null ? 0 : kwnames.size();
+        Object[] args =
+                Arrays.copyOfRange(stack, start, start + npos + n);
+        if (n == 0) {
+            // Positional arguments only
+            return call(callable, args, null);
+        } else {
+            // We cannot guarantee that kwnames is a tuple of strings
+            String[] kw = new String[n];
+            Object[] names = kwnames.value;
+            for (int i = 0; i < n; i++) { kw[i] = names[i].toString(); }
+            return call(callable, args, kw);
+        }
     }
 
     /**
@@ -238,14 +252,7 @@ class Callables extends Abstract {
     // Compare CPython PyObject_CallFunctionObjArgs in call.c
     static Object callFunction(Object callable, Object... args)
             throws Throwable {
-        try {
-            // A vector call with no keywords (if supported).
-            MethodHandle call = Operations.of(callable).op_vectorcall;
-            return call.invokeExact(callable, args, 0, args.length,
-                    PyTuple.EMPTY);
-        } catch (Slot.EmptyException e) {}
-
-        return call(callable, args, null);
+        return call(callable, args, NO_KEYWORDS);
     }
 
     /**
@@ -259,14 +266,11 @@ class Callables extends Abstract {
     // Compare CPython _PyObject_CallNoArg in abstract.h
     // and _PyObject_Vectorcall in abstract.h
     static Object call(Object callable) throws Throwable {
-        // Try the vector call slot. Not an offset like CPython's slot.
-        try {
-            MethodHandle call = Operations.of(callable).op_vectorcall;
-            return call.invokeExact(callable, Py.EMPTY_ARRAY, 0, 0,
-                    PyTuple.EMPTY);
-        } catch (Slot.EmptyException e) {}
-
-        // Vector call is not supported by the type. Make classic call.
+        if (callable instanceof FastCall) {
+            // Take the short-cut.
+            return ((FastCall) callable).call();
+        }
+        // Fast call is not supported by the type. Make standard call.
         return call(callable, Py.EMPTY_ARRAY, NO_KEYWORDS);
     }
 
@@ -284,14 +288,6 @@ class Callables extends Abstract {
     // Compare CPython _PyObject_CallMethodIdObjArgs in call.c
     static Object callMethod(Object obj, String name, Object... args)
             throws AttributeError, Throwable {
-        /*
-         * CPython has an optimisation here that, in the case of an
-         * instance method, avoids creating a bound method by returning
-         * the unbound method and a flag that indicates that obj should
-         * be treated as the first argument of the call. The following
-         * code returns a bound method which is correct though it may be
-         * slower.
-         */
         Object callable = getAttr(obj, name);
         return callFunction(callable, args);
     }

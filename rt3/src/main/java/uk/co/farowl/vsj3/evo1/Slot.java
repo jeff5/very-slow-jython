@@ -74,8 +74,6 @@ enum Slot {
 
     op_init(Signature.INIT), //
 
-    op_vectorcall(Signature.VECTORCALL), //
-
     op_neg(Signature.UNARY, "unary -"), //
     op_pos(Signature.UNARY, "unary +"), //
     op_abs(Signature.UNARY, "abs()"), //
@@ -446,10 +444,6 @@ enum Slot {
                 return wrapped.invokeExact(self, args, names);
             }
         },
-
-        // u(x, y, ..., a=z)
-        @Deprecated
-        VECTORCALL(O, O, OA, I, I, TUPLE),
 
         // Slot#op_bool
         PREDICATE(B, O),
