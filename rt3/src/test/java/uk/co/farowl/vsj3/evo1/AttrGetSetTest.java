@@ -1,6 +1,9 @@
 package uk.co.farowl.vsj3.evo1;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.lang.invoke.MethodHandles;
 import java.util.Map;
@@ -53,9 +56,7 @@ class AttrGetSetTest extends UnitTestSupport {
                         MethodHandles.lookup()));
         protected PyType type;
 
-        protected TestBase(PyType type) {
-            super(type);
-        }
+        protected TestBase(PyType type) { super(type); }
 
         @Override
         public PyType getType() { return type; }
@@ -64,9 +65,7 @@ class AttrGetSetTest extends UnitTestSupport {
         abstract static class Derived extends TestBase
                 implements PyObjectDict {
 
-            protected Derived(PyType type) {
-                super(type);
-            }
+            protected Derived(PyType type) { super(type); }
 
             protected PyDict dict = new PyDict();
 
@@ -89,14 +88,10 @@ class AttrGetSetTest extends UnitTestSupport {
                                 .base(TestBase.TYPE) //
                                 .flag(Flag.MUTABLE));
 
-        protected TestSubclass() {
-            super(TYPE);
-        }
+        protected TestSubclass() { super(TYPE); }
 
         @SuppressWarnings("unused")
-        private Object __str__() {
-            return "a string";
-        }
+        private Object __str__() { return "a string"; }
     }
 
     @Nested
@@ -113,7 +108,7 @@ class AttrGetSetTest extends UnitTestSupport {
             // m = (42).__repr__
             PyMethodWrapper m = getattribute(42, "__repr__");
             // "42" == m()
-            assertEquals("42", m.__call__(Py.tuple(), null));
+            assertEquals("42", m.__call__(Py.EMPTY_ARRAY, null));
         }
 
         /**
@@ -126,7 +121,7 @@ class AttrGetSetTest extends UnitTestSupport {
             // m = (51).__sub__
             PyMethodWrapper m = getattribute(51, "__sub__");
             // 42 == m(9)
-            assertEquals(42, m.__call__(Py.tuple(9), null));
+            assertEquals(42, m.__call__(new Object[] {9}, null));
         }
 
         /**
@@ -141,7 +136,7 @@ class AttrGetSetTest extends UnitTestSupport {
             PyMethodWrapper m = getattribute(x, "__str__");
             assertStartsWith("<method-wrapper '__str__'", m.toString());
             // s == m()
-            Object s = m.__call__(Py.tuple(), null);
+            Object s = m.__call__(Py.EMPTY_ARRAY, null);
             assertEquals("a string", s);
         }
 
@@ -158,11 +153,12 @@ class AttrGetSetTest extends UnitTestSupport {
         private PyMethodWrapper getattribute(Object o, String name)
                 throws Throwable {
             PyMethodWrapper m = (PyMethodWrapper) OBJECT_GETATTRIBUTE
-                    .__call__(Py.tuple(o, name), null);
+                    .__call__(new Object[] {o, name}, null);
             assertSame(o, m.self);
             // Check same effect with PyUnicode
-            PyMethodWrapper m2 = (PyMethodWrapper) OBJECT_GETATTRIBUTE
-                    .__call__(Py.tuple(o, newPyUnicode(name)), null);
+            PyMethodWrapper m2 =
+                    (PyMethodWrapper) OBJECT_GETATTRIBUTE.__call__(
+                            new Object[] {o, newPyUnicode(name)}, null);
             assertSame(m.self, m2.self);
             assertSame(m.descr, m2.descr);
             // Return the original
@@ -201,11 +197,11 @@ class AttrGetSetTest extends UnitTestSupport {
          */
         private Object getattribute(Object o, String name)
                 throws Throwable {
-            Object r = OBJECT_GETATTRIBUTE.__call__(Py.tuple(o, name),
-                    null);
+            Object r = OBJECT_GETATTRIBUTE
+                    .__call__(new Object[] {o, name}, null);
             // Check same effect with PyUnicode
-            Object r2 = OBJECT_GETATTRIBUTE
-                    .__call__(Py.tuple(o, newPyUnicode(name)), null);
+            Object r2 = OBJECT_GETATTRIBUTE.__call__(
+                    new Object[] {o, newPyUnicode(name)}, null);
             assertSame(r, r2);
             // Return the original
             return r;
@@ -243,8 +239,8 @@ class AttrGetSetTest extends UnitTestSupport {
          */
         protected Object setattr(Object o, String name, Object value)
                 throws Throwable {
-            return OBJECT_SETATTR.__call__(Py.tuple(o, name, value),
-                    null);
+            return OBJECT_SETATTR
+                    .__call__(new Object[] {o, name, value}, null);
         }
     }
 
@@ -278,9 +274,10 @@ class AttrGetSetTest extends UnitTestSupport {
          */
         protected void delattr(Object o, String name)
                 throws TypeError, Throwable {
-            OBJECT_DELATTR.__call__(Py.tuple(o, name), null);
+            OBJECT_DELATTR.__call__(new Object[] {o, name}, null);
         }
     }
+
     @Nested
     @DisplayName("Get value attribute from a type")
     class GetAttrFromType {
@@ -294,7 +291,7 @@ class AttrGetSetTest extends UnitTestSupport {
             // C = attrGetSetTestSubclass
             PyType C = TestSubclass.TYPE;
             // C.a = 42
-            TYPE_SETATTR.__call__(Py.tuple(C, "a", 42), null);
+            TYPE_SETATTR.__call__(new Object[] {C, "a", 42}, null);
             // r = x.a
             Object r = getattribute(C, "a");
             // r == 42
@@ -312,11 +309,11 @@ class AttrGetSetTest extends UnitTestSupport {
          */
         private Object getattribute(PyType t, String name)
                 throws Throwable {
-            Object r =
-                    TYPE_GETATTRIBUTE.__call__(Py.tuple(t, name), null);
+            Object r = TYPE_GETATTRIBUTE
+                    .__call__(new Object[] {t, name}, null);
             // Check same effect with PyUnicode
-            Object r2 = TYPE_GETATTRIBUTE
-                    .__call__(Py.tuple(t, newPyUnicode(name)), null);
+            Object r2 = TYPE_GETATTRIBUTE.__call__(
+                    new Object[] {t, newPyUnicode(name)}, null);
             assertSame(r, r2);
             // Return the original
             return r;
@@ -354,7 +351,7 @@ class AttrGetSetTest extends UnitTestSupport {
          */
         private Object setattr(PyType t, String name, Object value)
                 throws TypeError, Throwable {
-            return TYPE_SETATTR.__call__(Py.tuple(t, name, value),
+            return TYPE_SETATTR.__call__(new Object[] {t, name, value},
                     null);
         }
     }
@@ -394,7 +391,7 @@ class AttrGetSetTest extends UnitTestSupport {
             // C = attrGetSetTestSubclass
             PyType C = TestSubclass.TYPE;
             // C.a = 42
-            TYPE_SETATTR.__call__(Py.tuple(C, "a", 42), null);
+            TYPE_SETATTR.__call__(new Object[] {C, "a", 42}, null);
             // del x.a
             delattr(C, "a");
             // Check attribute absent
@@ -411,9 +408,10 @@ class AttrGetSetTest extends UnitTestSupport {
          */
         private void delattr(PyType t, String name)
                 throws TypeError, Throwable {
-            TYPE_DELATTR.__call__(Py.tuple(t, name), null);
+            TYPE_DELATTR.__call__(new Object[] {t, name}, null);
         }
     }
+
     @Nested
     @DisplayName("Fail to delete attribute from a type as object")
     class DelAttrOnTypeAsObject extends DelAttrFromInstance {
@@ -433,7 +431,7 @@ class AttrGetSetTest extends UnitTestSupport {
             // C = attrGetSetTestSubclass
             PyType C = TestSubclass.TYPE;
             // C.a = 42
-            TYPE_SETATTR.__call__(Py.tuple(C, "a", 42), null);
+            TYPE_SETATTR.__call__(new Object[] {C, "a", 42}, null);
             // del C.a
             assertThrows(TypeError.class, () -> delattr(C, "a"));
         }

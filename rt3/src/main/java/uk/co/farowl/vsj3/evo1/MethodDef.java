@@ -15,10 +15,8 @@ import java.lang.invoke.WrongMethodTypeException;
 import java.util.ArrayList;
 import java.util.List;
 
-import uk.co.farowl.vsj3.evo1.MethodDescriptor.ArgumentError;
 import uk.co.farowl.vsj3.evo1.base.InterpreterError;
 import uk.co.farowl.vsj3.evo1.base.MethodKind;
-
 
 /**
  * A {@code MethodDef} describes a built-in function or method as it is
@@ -64,7 +62,7 @@ abstract class MethodDef {
      * the description of the signature. Full information on the
      * signature is available from this structure, and it is available
      * to parse the arguments to
-     * {@link #callMethod(MethodHandle, Object, PyTuple, PyDict)} in
+     * {@link #callMethod(MethodHandle, Object, Object[], String[])} in
      * complex sub-classes of {@code MethodDef}. (In simple sub-classes
      * it is only used to generate error messages once simple checks
      * fail.)
@@ -169,34 +167,9 @@ abstract class MethodDef {
 
     /**
      * Invoke the given method handle for the given target {@code self},
-     * and classic arguments ({@code tuple} and {@code dict}) having
-     * arranged the arguments as expected by the method. We create
-     * sub-classes of {@link MethodDef} to represent the finite
-     * repertoire of {@code MethodType}s to which exposed methods may be
-     * converted by the {@link Exposer}. This method accepts arguments
-     * in a generic way (from the interpreter, say) and adapts them to
-     * the specific needs of a wrapped method. The caller guarantees
-     * that the wrapped method has the {@code MethodType} to which the
-     * call is addressed.
-     *
-     * @param method handle of the method to call
-     * @param self target object of the method call
-     * @param args of the method call
-     * @param kwargs of the method call or {@code null} or empty
-     * @return result of the method call
-     * @throws TypeError when the arguments ({@code args},
-     *     {@code kwargs}) are not correct for the {@code MethodType}
-     * @throws Throwable from the implementation of the special method
-     */
-    // Compare CPython wrap_* in typeobject.c
-    abstract Object callMethod(MethodHandle method, Object self,
-            PyTuple args, PyDict kwargs) throws TypeError, Throwable;
-
-    /**
-     * Invoke the given method handle for the given target {@code self},
-     * and vector arguments ({@code Object[]} and {@code dict}) having
-     * arranged the arguments as expected by the method. We create
-     * sub-classes of {@link MethodDef} to represent the finite
+     * and vector arguments ({@code Object[]} and {@code String[]})
+     * having arranged the arguments as expected by the method. We
+     * create sub-classes of {@link MethodDef} to represent the finite
      * repertoire of {@code MethodType}s to which exposed methods may be
      * converted by the {@link Exposer}. This method accepts arguments
      * in a generic way (from the interpreter, say) and adapts them to
@@ -307,61 +280,60 @@ abstract class MethodDef {
     /**
      * Check that no positional or keyword arguments are supplied. This
      * is for use when implementing
-     * {@link #callMethod(MethodHandle, Object, PyTuple, PyDict)}.
+     * {@link #callMethod(MethodHandle, Object, Object[], String[])}.
      *
-     * @param args positional argument tuple to be checked
-     * @param kwargs to be checked {@code null} or empty
+     * @param args arguments to be checked
+     * @param names of keywords to be checked {@code null} or empty
      * @throws TypeError if positional arguments are given or
      *     {@code kwargs} is not {@code null} or empty
      */
-    final protected void checkNoArgs(PyTuple args, PyDict kwargs)
+    final protected void checkNoArgs(Object[] args, String[] names)
             throws TypeError {
-        if (args.value.length != 0
-                || (kwargs != null && !kwargs.isEmpty())) {
+        if (args.length != 0 || (names != null && names.length != 0)) {
             // This will raise the TypeError by a slow path
-            argParser.parse(args, kwargs);
+            argParser.parse(args, names);
         }
     }
 
     /**
      * Check the number of positional arguments and that no keywords are
      * supplied. This is for use when implementing
-     * {@link #callMethod(MethodHandle, Object, PyTuple, PyDict)}.
+     * {@link #callMethod(MethodHandle, Object, Object[], String[])}.
      *
-     * @param args positional argument tuple to be checked
+     * @param args arguments to be checked
      * @param expArgs expected number of positional arguments
-     * @param kwargs to be checked {@code null} or empty
+     * @param names of keywords to be checked {@code null} or empty
      * @throws TypeError if the wrong number of positional arguments are
      *     given or {@code kwargs} is not {@code null} or empty
      */
-    final protected void checkArgs(PyTuple args, int expArgs,
-            PyDict kwargs) throws TypeError {
-        if (args.value.length != expArgs
-                || (kwargs != null && !kwargs.isEmpty())) {
+    final protected void checkArgs(Object[] args, int expArgs,
+            String[] names) throws TypeError {
+        if (args.length != expArgs
+                || (names != null && names.length != 0)) {
             // This will raise the TypeError by a slow path
-            argParser.parse(args, kwargs);
+            argParser.parse(args, names);
         }
     }
 
     /**
      * Check the number of positional arguments and that no keywords are
      * supplied. This is for use when implementing
-     * {@link #callMethod(MethodHandle, Object, PyTuple, PyDict)}.
+     * {@link #callMethod(MethodHandle, Object, Object[], String[])}.
      *
      * @param args positional argument tuple to be checked
      * @param minArgs minimum number of positional arguments
      * @param maxArgs maximum number of positional arguments
-     * @param kwargs to be checked {@code null} or empty
+     * @param names to be checked {@code null} or empty
      * @throws TypeError if the wrong number of positional arguments are
      *     given or {@code kwargs} is not {@code null} or empty
      */
-    final protected void checkArgs(PyTuple args, int minArgs,
-            int maxArgs, PyDict kwargs) throws TypeError {
-        int n = args.value.length;
+    final protected void checkArgs(Object[] args, int minArgs,
+            int maxArgs, String[] names) throws TypeError {
+        int n = args.length;
         if (n < minArgs || n > maxArgs
-                || (kwargs != null && !kwargs.isEmpty())) {
+                || (names != null && names.length != 0)) {
             // This will raise the TypeError by a slow path
-            argParser.parse(args, kwargs);
+            argParser.parse(args, names);
         }
     }
 
@@ -370,9 +342,7 @@ abstract class MethodDef {
 
         private static MethodType GENERIC = genericMethodType(1);
 
-        NoArgs(ArgParser ap, MethodHandle raw) {
-            super(ap, prep(raw));
-        }
+        NoArgs(ArgParser ap, MethodHandle raw) { super(ap, prep(raw)); }
 
         /**
          * Prepare a provided raw method handle, consistent with this
@@ -391,24 +361,14 @@ abstract class MethodDef {
         }
 
         @Override
-        MethodHandle prepare(MethodHandle raw) {
-            return prep(raw);
-        }
-
-        @Override
-        Object callMethod(MethodHandle method, Object self,
-                PyTuple args, PyDict kwargs)
-                throws ArgumentError, Throwable {
-            checkNoArgs(args, kwargs);
-            return method.invokeExact(self);
-        }
+        MethodHandle prepare(MethodHandle raw) { return prep(raw); }
 
         @Override
         Object callMethod(MethodHandle method, Object self,
                 Object[] args, String[] names)
                 throws TypeError, Throwable {
-
-            return null;
+            checkNoArgs(args, names);
+            return method.invokeExact(self);
         }
     }
 
@@ -417,9 +377,7 @@ abstract class MethodDef {
 
         private static MethodType GENERIC = genericMethodType(2);
 
-        OneArg(ArgParser ap, MethodHandle raw) {
-            super(ap, prep(raw));
-        }
+        OneArg(ArgParser ap, MethodHandle raw) { super(ap, prep(raw)); }
 
         /**
          * Prepare a provided raw method handle, consistent with this
@@ -438,24 +396,14 @@ abstract class MethodDef {
         }
 
         @Override
-        MethodHandle prepare(MethodHandle raw) {
-            return prep(raw);
-        }
-
-        @Override
-        Object callMethod(MethodHandle method, Object self,
-                PyTuple args, PyDict kwargs)
-                throws ArgumentError, Throwable {
-            checkArgs(args, 1, kwargs);
-            return method.invoke(self, args.value[0]);
-        }
+        MethodHandle prepare(MethodHandle raw) { return prep(raw); }
 
         @Override
         Object callMethod(MethodHandle method, Object self,
                 Object[] args, String[] names)
                 throws TypeError, Throwable {
-
-            return null;
+            checkArgs(args, 1, names);
+            return method.invoke(self, args[0]);
         }
     }
 
@@ -491,24 +439,14 @@ abstract class MethodDef {
         }
 
         @Override
-        MethodHandle prepare(MethodHandle raw) {
-            return prep(raw);
-        }
-
-        @Override
-        Object callMethod(MethodHandle method, Object self,
-                PyTuple args, PyDict kwargs)
-                throws ArgumentError, Throwable {
-            checkArgs(args, argParser.posonlyargcount, kwargs);
-            return method.invoke(self, args.value);
-        }
+        MethodHandle prepare(MethodHandle raw) { return prep(raw); }
 
         @Override
         Object callMethod(MethodHandle method, Object self,
                 Object[] args, String[] names)
                 throws TypeError, Throwable {
-
-            return null;
+            checkArgs(args, argParser.posonlyargcount, names);
+            return method.invoke(self, args);
         }
     }
 
@@ -521,8 +459,7 @@ abstract class MethodDef {
      * ensure a match with the declared arguments. In an instance
      * method, or a class method, the first argument is supplied as the
      * first argument to the implementation method. In a static method,
-     * the first argument is discarded (and may be
-     * {@code null}).
+     * the first argument is discarded (and may be {@code null}).
      */
     static class General extends MethodDef {
 
@@ -582,26 +519,17 @@ abstract class MethodDef {
 
         @Override
         Object callMethod(MethodHandle method, Object self,
-                PyTuple args, PyDict kwargs)
-                throws ArgumentError, Throwable {
+                Object[] args, String[] names)
+                throws TypeError, Throwable {
             assert method.type() == meth.type();
             /*
              * The method handle type is {@code (O,[O])O}. The parser
-             * will make an array of the args, kwargs, and where
-             * allowed, gather excess arguments into a tuple or dict,
-             * and fill missing ones from defaults.
+             * will make an array of the args, and where allowed, gather
+             * excess arguments into a tuple or dict, and fill missing
+             * ones from defaults.
              */
-            Object[] frame = argParser.parse(args, kwargs);
+            Object[] frame = argParser.parse(args, names);
             return method.invoke(self, frame);
-        }
-
-        @Override
-        Object callMethod(MethodHandle method, Object self,
-                Object[] args, String[] names)
-                throws TypeError, Throwable {
-            // XXX Implement
-
-            return null;
         }
     }
 }

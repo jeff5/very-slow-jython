@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.lang.invoke.MethodHandles;
 import java.math.BigInteger;
+import java.util.Arrays;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -23,9 +24,8 @@ import uk.co.farowl.vsj3.evo1.PyType.Spec;
  * <p>
  * The first test in each case is to examine fields in the
  * {@link PyWrapperDescr} to ensure the expected slot has been
- * identified. Then we call the descriptor using classic arguments, and
- * using our equivalent of the "vector call", intended to support call
- * sites compiled where Python invokes the method.
+ * identified. Then we call the function using the {@code __call__}
+ * special method, and using our "Java call" signatures.
  */
 @DisplayName("When exposed as a special method")
 class TypeExposerSlotWrapperTest {
@@ -53,22 +53,23 @@ class TypeExposerSlotWrapperTest {
         abstract void has_expected_fields();
 
         /**
-         * Apply Python classic arguments matching the method's
-         * specification. The method should obtain the correct result
-         * (and not throw).
+         * Call the slot function using the {@code __call__} special
+         * method with arguments correct for the slot's specification.
+         * The function should obtain the correct result (and not
+         * throw).
          *
-         * @throws Throwable
+         * @throws Throwable unexpectedly
          */
-        abstract void takes_classic_args() throws Throwable;
+        abstract void supports__call__() throws Throwable;
 
         /**
-         * Apply Java call arguments matching the method's
-         * specification. The method should obtain the correct result
-         * (and not throw).
+         * Call the slot function using the Java call interface with
+         * arguments correct for the slot's specification. The function
+         * should obtain the correct result (and not throw).
          *
-         * @throws Throwable
+         * @throws Throwable unexpectedly
          */
-        // abstract void takes_java_args() throws Throwable;
+        abstract void supports_java_call() throws Throwable;
 
         /**
          * Check that the fields of the descriptor match expectations.
@@ -124,9 +125,7 @@ class TypeExposerSlotWrapperTest {
 
         private int value;
 
-        ExampleObject(int value) {
-            this.value = value;
-        }
+        ExampleObject(int value) { this.value = value; }
 
         /** See {@link Test__str__}: a unary operation. */
         String __str__() {
@@ -147,36 +146,6 @@ class TypeExposerSlotWrapperTest {
 
         static PyTuple __add__(ExampleObject2 self, Object other) {
             return Py.tuple(self, other);
-        }
-
-        /**
-         * See {@link PositionalOrKeywordParams}: the parameters are
-         * positional-or-keyword but none are positional-only.
-         */
-        @PythonMethod(positionalOnly = false)
-        PyTuple m3pk(int a, String b, Object c) {
-            return Py.tuple(this, a, b, c);
-        }
-
-        @PythonMethod(primary = false)
-        static PyTuple m3pk(ExampleObject2 self, int a, String b,
-                Object c) {
-            return Py.tuple(self, a, b, c);
-        }
-
-        /**
-         * See {@link SomePositionalOnlyParams}: two parameters are
-         * positional-only as a result of an annotation.
-         */
-        @PythonMethod
-        PyTuple m3p2(int a, @PositionalOnly String b, Object c) {
-            return Py.tuple(this, a, b, c);
-        }
-
-        @PythonMethod(primary = false)
-        static PyTuple m3p2(ExampleObject2 self, int a, String b,
-                Object c) {
-            return Py.tuple(self, a, b, c);
         }
     }
 
@@ -206,42 +175,38 @@ class TypeExposerSlotWrapperTest {
         }
 
         @Override
-        void check(Object result) {
-            assertEquals("<42>", result);
-        }
+        void check(Object result) { assertEquals("<42>", result); }
 
         @Override
         @Test
-        void has_expected_fields() {
-            expect(Slot.op_str);
-        }
+        void has_expected_fields() { expect(Slot.op_str); }
 
         @Override
         @Test
-        void takes_classic_args() throws Throwable {
+        void supports__call__() throws Throwable {
             // We call type(obj).__str__(obj)
-            PyTuple args = Py.tuple(obj);
-            PyDict kwargs = Py.dict();
-            Object r = descr.__call__(args, kwargs);
+            Object[] args = {obj};
+            String[] kwnames = {};
+            Object r = descr.__call__(args, kwnames);
             check(r);
 
             // We call obj.__str__()
-            args = Py.tuple();
-            r = func.__call__(args, kwargs);
+            Object[] args2 = Arrays.copyOfRange(args, 1, args.length);
+            r = func.__call__(args2, kwnames);
             check(r);
         }
 
-        // @Override
-        // @Test
-        // void takes_java_args() throws Throwable {
-        // // We call type(obj).__str__(obj)
-        // Object r = descr.call(obj);
-        // check(r);
-        //
-        // // We call obj.__str__()
-        // r = func.call();
-        // check(r);
-        // }
+        @Override
+        @Test
+        void supports_java_call() throws Throwable {
+            // We call type(obj).__str__(obj)
+            Object r = descr.call(obj);
+            check(r);
+
+            // We call obj.__str__()
+            r = func.call();
+            check(r);
+        }
     }
 
     /**
@@ -282,66 +247,49 @@ class TypeExposerSlotWrapperTest {
 
         @Override
         @Test
-        void has_expected_fields() {
-            expect(Slot.op_add);
-        }
+        void has_expected_fields() { expect(Slot.op_add); }
 
         @Override
         @Test
-        void takes_classic_args() throws Throwable {
-            // We call type(obj).__add__(*(obj, 111), **{})
-            PyTuple args = Py.tuple(obj, 111);
-            PyDict kwargs = Py.dict();
-            Object r = descr.__call__(args, kwargs);
+        void supports__call__() throws Throwable {
+            // We call type(obj).__add__(obj, 111)
+            Object[] args = {obj, 111};
+            String[] kwnames = {};
+            Object r = descr.__call__(args, kwnames);
             check(r);
 
-            // We call obj.__add__(*(111, ), **{})
-            args = Py.tuple(111);
-            r = func.__call__(args, kwargs);
+            // We call obj.__add__(111)
+            Object[] args2 = {111};
+            r = func.__call__(args2, kwnames);
             check(r);
         }
 
         /** To set anything by keyword is a {@code TypeError}. */
         @Test
-        void raises_TypeError_on_kwargs() {
+        void raises_TypeError_on_unexpected_keyword() {
             // We call type(obj).__add__(*(obj,), **dict(other=3))
-            PyTuple args = Py.tuple(obj);
-            PyDict kwargs = Py.dict();
-            kwargs.put("other", 3);
+            Object[] args = {obj, 3};
+            String[] kwargs = {"other"};
             assertThrows(TypeError.class,
                     () -> descr.__call__(args, kwargs));
 
             // We call obj.__add__(*(), **dict(other=3))
-            PyTuple args2 = Py.tuple();
+            Object[] args2 = Arrays.copyOfRange(args, 1, args.length);
             assertThrows(TypeError.class,
                     () -> func.__call__(args2, kwargs));
         }
 
-        // @Override
-        // @Test
-        // void takes_java_args() throws Throwable {
-        // // We call type(obj).__add__(obj, 111)
-        // Object r = (PyTuple) descr.call(obj, 111);
-        // check(r);
-        //
-        // // We call obj.__add__(111)
-        // r = func.call(111);
-        // check(r);
-        // }
+        @Override
+        @Test
+        void supports_java_call() throws Throwable {
+            // We call type(obj).__add__(obj, 111)
+            Object r = descr.call(obj, 111);
+            check(r);
 
-        // /** To set anything by keyword is a {@code TypeError}. */
-        // // @Test
-        // void raises_TypeError_on_java_kwnames() throws Throwable {
-        // // We call type(obj).__add__(obj, other=111)
-        // Object[] vec = {obj, 111};
-        // PyTuple names = Py.tuple("other");
-        // assertThrows(TypeError.class,
-        // () -> descr.call(vec, names));
-        //
-        // // We call obj.__add__(other=111)
-        // vec = new Object[] {111};
-        // assertThrows(TypeError.class, () -> func.call(vec, names));
-        // }
+            // We call obj.__add__(111)
+            r = func.call(111);
+            check(r);
+        }
     }
 
     /**

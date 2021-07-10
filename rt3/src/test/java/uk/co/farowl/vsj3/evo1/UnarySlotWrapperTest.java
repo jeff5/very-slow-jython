@@ -34,7 +34,7 @@ class UnarySlotWrapperTest extends UnitTestSupport {
 
         // Invoke for PyFloat, Double
         for (Object x : List.of(px, dx)) {
-            Object r = neg.__call__(Py.tuple(x), null);
+            Object r = neg.__call__(new Object[] {x}, null);
             assertPythonType(PyFloat.TYPE, r);
             assertEquals(-42.0, PyFloat.asDouble(r));
         }
@@ -56,7 +56,7 @@ class UnarySlotWrapperTest extends UnitTestSupport {
 
         // x is PyFloat, Double
         for (Object x : List.of(px, dx)) {
-            Object r = neg.__call__(Py.tuple(x), Py.dict());
+            Object r = neg.__call__(new Object[] {x}, new String[0]);
             assertPythonType(PyFloat.TYPE, r);
             assertEquals(1e42, PyFloat.asDouble(r));
         }
@@ -79,7 +79,7 @@ class UnarySlotWrapperTest extends UnitTestSupport {
         // x is PyLong, Integer, BigInteger, Boolean
         // Boolean is correct here since it has the same __neg__
         for (Object x : List.of(px, ix, bx, false, true)) {
-            Object r = neg.__call__(Py.tuple(x), null);
+            Object r = neg.__call__(new Object[] {x}, null);
             assertPythonType(PyLong.TYPE, r);
             int exp = -toInt(x);
             assertEquals(exp, toInt(r));
@@ -109,7 +109,7 @@ class UnarySlotWrapperTest extends UnitTestSupport {
         assertEquals(PyLong.TYPE.lookup("__neg__"), neg);
 
         for (Object x : List.of(false, true)) {
-            Object r = neg.__call__(Py.tuple(x), null);
+            Object r = neg.__call__(new Object[] {x}, null);
             assertPythonType(PyLong.TYPE, r);
             assertEquals(-toInt(x), toInt(r));
         }
@@ -130,7 +130,7 @@ class UnarySlotWrapperTest extends UnitTestSupport {
 
         // x is PyFloat, Double
         for (Object x : List.of(px, dx)) {
-            Object r = repr.__call__(Py.tuple(x), null);
+            Object r = repr.__call__(new Object[] {x}, null);
             assertPythonType(PyUnicode.TYPE, r);
             assertEquals("42.0", r.toString());
         }
@@ -153,7 +153,7 @@ class UnarySlotWrapperTest extends UnitTestSupport {
         // x is PyLong, Integer, BigInteger, Boolean
         // Boolean is ok here since int.__repr__ is applicable
         for (Object x : List.of(px, ix, bx, false, true)) {
-            Object r = repr.__call__(Py.tuple(x), null);
+            Object r = repr.__call__(new Object[] {x}, null);
             assertPythonType(PyUnicode.TYPE, r);
             String e = Integer.toString(toInt(x));
             assertEquals(e, r.toString());
@@ -170,7 +170,7 @@ class UnarySlotWrapperTest extends UnitTestSupport {
                 (PyWrapperDescr) PyBool.TYPE.lookup("__repr__");
 
         for (Boolean x : List.of(false, true)) {
-            Object r = repr.__call__(Py.tuple(x), null);
+            Object r = repr.__call__(new Object[] {x}, null);
             assertPythonType(PyUnicode.TYPE, r);
             String e = x ? "True" : "False";
             assertEquals(e, r.toString());
@@ -192,7 +192,7 @@ class UnarySlotWrapperTest extends UnitTestSupport {
 
         // x is PyUnicode, String
         for (Object x : List.of(ux, sx)) {
-            Object r = repr.__call__(Py.tuple(x), null);
+            Object r = repr.__call__(new Object[] {x}, null);
             assertPythonType(PyUnicode.TYPE, r);
             assertEquals("'forty-two'", r.toString());
         }
@@ -213,7 +213,7 @@ class UnarySlotWrapperTest extends UnitTestSupport {
 
         // Invoke for PyUnicode, String
         for (Object x : List.of(ux, sx)) {
-            Object r = len.__call__(Py.tuple(x), null);
+            Object r = len.__call__(new Object[] {x}, null);
             // The result will be Integer (since slot returns int)
             assertEquals(Integer.class, r.getClass());
             assertEquals(5, r);
@@ -236,7 +236,7 @@ class UnarySlotWrapperTest extends UnitTestSupport {
 
         // Invoke for PyUnicode, String
         for (Object x : List.of(ux, sx)) {
-            Object r = hash.__call__(Py.tuple(x), null);
+            Object r = hash.__call__(new Object[] {x}, null);
             // The result will be Integer (since slot returns int)
             assertEquals(Integer.class, r.getClass());
             assertEquals(exp, r);
@@ -260,7 +260,7 @@ class UnarySlotWrapperTest extends UnitTestSupport {
         // x is PyLong, Integer, BigInteger, Boolean
         // Boolean is correct here since int.__float__ is applicable
         for (Object x : List.of(px, ix, bx, false, true)) {
-            Object r = f.__call__(Py.tuple(x), null);
+            Object r = f.__call__(new Object[] {x}, null);
             // The result will be Double
             assertEquals(Double.class, r.getClass());
             double exp = toDouble(x);
@@ -284,13 +284,11 @@ class UnarySlotWrapperTest extends UnitTestSupport {
                         .base(PyLong.TYPE) //
                         .flag(Flag.MUTABLE));
 
-        MyInt(int value) {
-            super(TYPE, BigInteger.valueOf(value));
-        }
+        MyInt(int value) { super(TYPE, BigInteger.valueOf(value)); }
     }
 
     /**
-     * Methods are inherited from {@code int} by {@link MyInt}. This
+     * Methods are inherited from {@code int} by {@link MyInt}. This is
      * just a sanity check to compare with
      * {@link UnarySlotWrapperTest#myint_float_neg()}.
      */

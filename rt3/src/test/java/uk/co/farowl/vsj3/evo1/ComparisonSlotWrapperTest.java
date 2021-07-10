@@ -35,7 +35,7 @@ class ComparisonSlotWrapperTest extends UnitTestSupport {
         for (Object v : List.of(dv, pv)) {
             // w is PyFloat, Double, and int types
             for (Object w : wList) {
-                Object r = lt.__call__(Py.tuple(v, w), null);
+                Object r = lt.__call__(new Object[] {v, w}, null);
                 assertEquals(Boolean.class, r.getClass());
                 assertEquals(false, r);
             }
@@ -48,7 +48,7 @@ class ComparisonSlotWrapperTest extends UnitTestSupport {
         for (Object v : List.of(dv, pv)) {
             // w is PyFloat, Double, and int types
             for (Object w : wList) {
-                Object r = lt.__call__(Py.tuple(v, w), null);
+                Object r = lt.__call__(new Object[] {v, w}, null);
                 assertEquals(Boolean.class, r.getClass());
                 assertEquals(true, r);
             }
@@ -77,7 +77,7 @@ class ComparisonSlotWrapperTest extends UnitTestSupport {
         for (Object v : List.of(dv, pv)) {
             // w is PyFloat, Double, and int types
             for (Object w : wList) {
-                Object r = eq.__call__(Py.tuple(v, w), null);
+                Object r = eq.__call__(new Object[] {v, w}, null);
                 assertEquals(Boolean.class, r.getClass());
                 assertEquals(false, r);
             }
@@ -90,7 +90,7 @@ class ComparisonSlotWrapperTest extends UnitTestSupport {
         for (Object v : List.of(dv, pv)) {
             // w is PyFloat, Double, and int types
             for (Object w : wList) {
-                Object r = eq.__call__(Py.tuple(v, w), null);
+                Object r = eq.__call__(new Object[] {v, w}, null);
                 assertEquals(Boolean.class, r.getClass());
                 assertEquals(true, r);
             }
@@ -116,7 +116,7 @@ class ComparisonSlotWrapperTest extends UnitTestSupport {
         for (Object v : List.of(iv, bv, pv, true)) {
             // w is Integer, BigInteger, PyLong, Boolean
             for (Object w : List.of(iw, bw, pw, false)) {
-                Object r = lt.__call__(Py.tuple(v, w), null);
+                Object r = lt.__call__(new Object[] {v, w}, null);
                 assertEquals(Boolean.class, r.getClass());
                 assertEquals(false, r);
             }
@@ -131,7 +131,7 @@ class ComparisonSlotWrapperTest extends UnitTestSupport {
         for (Object v : List.of(iv, bv, pv, false)) {
             // w is Integer, BigInteger, PyLong, Boolean
             for (Object w : List.of(iw, bw, pw, true)) {
-                Object r = lt.__call__(Py.tuple(v, w), null);
+                Object r = lt.__call__(new Object[] {v, w}, null);
                 assertEquals(Boolean.class, r.getClass());
                 assertEquals(true, r);
             }
@@ -157,7 +157,7 @@ class ComparisonSlotWrapperTest extends UnitTestSupport {
         for (Object v : List.of(iv, bv, pv, true)) {
             // w is Integer, BigInteger, PyLong, Boolean
             for (Object w : List.of(iw, bw, pw, false)) {
-                Object r = eq.__call__(Py.tuple(v, w), null);
+                Object r = eq.__call__(new Object[] {v, w}, null);
                 assertEquals(Boolean.class, r.getClass());
                 assertEquals(false, r);
             }
@@ -173,7 +173,7 @@ class ComparisonSlotWrapperTest extends UnitTestSupport {
         for (Object v : List.of(iv, bv, pv, true)) {
             // w is Integer, BigInteger, PyLong, Boolean
             for (Object w : List.of(iw, bw, pw, true)) {
-                Object r = eq.__call__(Py.tuple(v, w), null);
+                Object r = eq.__call__(new Object[] {v, w}, null);
                 assertEquals(Boolean.class, r.getClass());
                 assertEquals(true, r);
             }
@@ -213,7 +213,7 @@ class ComparisonSlotWrapperTest extends UnitTestSupport {
         for (Object v : List.of(sv, pv)) {
             // v is less than (or not) everything on wList as expected
             for (Object w : wList) {
-                Object r = lt.__call__(Py.tuple(v, w), null);
+                Object r = lt.__call__(new Object[] {v, w}, null);
                 assertEquals(Boolean.class, r.getClass());
                 assertEquals(expected, r);
             }
@@ -223,7 +223,7 @@ class ComparisonSlotWrapperTest extends UnitTestSupport {
             // Repeat with the args reversed, expecting false
             for (Object v : List.of(sv, pv)) {
                 for (Object w : wList) {
-                    Object r = lt.__call__(Py.tuple(w, v), null);
+                    Object r = lt.__call__(new Object[] {w, v}, null);
                     assertEquals(false, r);
                 }
             }
@@ -276,7 +276,7 @@ class ComparisonSlotWrapperTest extends UnitTestSupport {
         for (Object v : List.of(sv, pv)) {
             // v is equal (or not) to everything on wList as expected
             for (Object w : wList) {
-                Object r = eq.__call__(Py.tuple(v, w), null);
+                Object r = eq.__call__(new Object[] {v, w}, null);
                 assertEquals(Boolean.class, r.getClass());
                 assertEquals(expected, r);
             }

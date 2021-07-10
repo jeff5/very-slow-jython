@@ -10,7 +10,7 @@ import uk.co.farowl.vsj3.evo1.base.MissingFeature;
  * sub-classes represent either a built-in function or a built-in method
  * bound to a particular object.
  */
-public class PyJavaMethod implements CraftedPyObject, VectorCallable {
+public class PyJavaMethod implements CraftedPyObject, FastCall {
 
     /** The type of Python object this class implements. */
     static final PyType TYPE = PyType.fromSpec( //
@@ -92,18 +92,6 @@ public class PyJavaMethod implements CraftedPyObject, VectorCallable {
         return Py.defaultToString(this);
     }
 
-    // VectorCallable interface ---------------------------------------
-
-    @Override
-    public Object call(Object[] args, PyTuple kwnames)
-            throws Throwable {
-        if (kwnames == null || kwnames.size() == 0) {
-            return callHandle.invokeExact(self, args);
-        } else {
-            throw new MissingFeature("Keywords in vector call");
-        }
-    }
-
     // slot functions -------------------------------------------------
 
     protected Object __repr__() throws Throwable {
@@ -116,9 +104,9 @@ public class PyJavaMethod implements CraftedPyObject, VectorCallable {
     }
 
     @Override
-    public Object __call__(PyTuple args, PyDict kwargs)
+    public Object __call__(Object[] args, String[] names)
             throws Throwable {
-        return methodDef.callMethod(callHandle, self, args, kwargs);
+        return methodDef.callMethod(callHandle, self, args, names);
     }
 
     // plumbing -------------------------------------------------------

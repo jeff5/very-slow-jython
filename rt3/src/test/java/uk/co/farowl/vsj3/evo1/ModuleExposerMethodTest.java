@@ -23,14 +23,12 @@ import uk.co.farowl.vsj3.evo1.base.MethodKind;
  * correspond to the definition.
  * <p>
  * The first test in each case is to examine the fields in the parser
- * that attaches to the {@link MethodDef}. Then we call the descriptor
- * using classic arguments, and using our equivalent of the "vector
- * call", intended to support call sites compiled where Python invokes
- * the method.
+ * that attaches to the {@link MethodDef}. Then we call the function
+ * using the {@code __call__} special method, and using our "Java call"
+ * signatures.
  * <p>
  * There is a nested test suite for each signature pattern.
  */
-// XXX Tests relying on the vector call (java interface) are disabled
 @DisplayName("A method exposed by a module")
 class ModuleExposerMethodTest {
 
@@ -59,22 +57,43 @@ class ModuleExposerMethodTest {
         abstract void has_expected_fields();
 
         /**
-         * Apply Python classic arguments matching the method's
-         * specification. The method should obtain the correct result
-         * (and not throw).
+         * Call the function using the {@code __call__} special method
+         * with arguments correct for the function's specification. The
+         * function should obtain the correct result (and not throw).
          *
-         * @throws Throwable
+         * @throws Throwable unexpectedly
          */
-        abstract void takes_classic_args() throws Throwable;
+        abstract void supports__call__() throws Throwable;
 
         /**
-         * Apply Java call arguments matching the method's
-         * specification. The method should obtain the correct result
-         * (and not throw).
+         * Call the function using the {@code __call__} special method
+         * with arguments correct for the function's specification, and
+         * explicitly zero or more keywords. The function should obtain
+         * the correct result (and not throw).
          *
-         * @throws Throwable
+         * @throws Throwable unexpectedly
          */
-        abstract void takes_java_args() throws Throwable;
+        abstract void supports_keywords() throws Throwable;
+
+        /**
+         * Call the function using the {@code __call__} special method
+         * and an unexpected keyword: where none is expected, for a
+         * positional argument, or simply an unacceptable name. The
+         * function should throw {@link TypeError}.
+         *
+         * @throws Throwable unexpectedly
+         */
+        abstract void raises_TypeError_on_unexpected_keyword()
+                throws Throwable;
+
+        /**
+         * Call the function using the Java call interface with
+         * arguments correct for the function's specification. The
+         * function should obtain the correct result (and not throw).
+         *
+         * @throws Throwable unexpectedly
+         */
+        abstract void supports_java_call() throws Throwable;
 
         /**
          * Check that the fields of the parser match expectations for a
@@ -236,19 +255,42 @@ class ModuleExposerMethodTest {
 
         @Override
         @Test
-        void takes_classic_args() throws Throwable {
+        void supports__call__() throws Throwable {
             // We call func()
-            PyTuple args = Py.tuple();
-            PyDict kwargs = Py.dict();
+            Object[] args = {};
 
             // The method is declared void (which means return None)
-            Object r = func.__call__(args, kwargs);
+            Object r = func.__call__(args, null);
+            assertEquals(Py.None, r);
+        }
+
+        /** Keywords must be empty. */
+        @Override
+        @Test
+        void supports_keywords() throws Throwable {
+            // We call func()
+            Object[] args = {};
+            String[] names = {};
+
+            // The method is declared void (which means return None)
+            Object r = func.__call__(args, names);
             assertEquals(Py.None, r);
         }
 
         @Override
         @Test
-        void takes_java_args() throws Throwable {
+        void raises_TypeError_on_unexpected_keyword() {
+            // We call func(c=3)
+            Object[] args = {3};
+            String[] names = {"c"}; // Nothing expected
+
+            assertThrows(TypeError.class,
+                    () -> func.__call__(args, names));
+        }
+
+        @Override
+        @Test
+        void supports_java_call() throws Throwable {
             // We call func()
             // The method is declared void (which means return None)
             Object r = func.call();
@@ -298,44 +340,43 @@ class ModuleExposerMethodTest {
 
         @Override
         @Test
-        void takes_classic_args() throws Throwable {
-            // We call func(*(1, '2', 3))
-            PyTuple args = Py.tuple(1, "2", 3);
-            PyDict kwargs = Py.dict();
+        void supports__call__() throws Throwable {
+            // We call func(1, '2', 3)
+            Object[] args = {1, "2", 3};
             // The method reports its arguments as a tuple
-            PyTuple r = (PyTuple) func.__call__(args, kwargs);
+            PyTuple r = (PyTuple) func.__call__(args, null);
             check_result(r);
-        }
-
-        @Test
-        void raises_TypeError_on_kwargs() {
-            // We call func(*(o, 1, '2'), **dict(c=3))
-            Object o = new ExampleModule();
-            PyTuple args = Py.tuple(o, 1, "2");
-            PyDict kwargs = Py.dict();
-            kwargs.put("c", 3);
-
-            assertThrows(TypeError.class,
-                    () -> func.__call__(args, kwargs));
         }
 
         @Override
         @Test
-        void takes_java_args() throws Throwable {
+        void supports_keywords() throws Throwable {
             // We call func(1, '2', 3)
-            PyTuple r = (PyTuple) func.call(1, "2", 3);
+            Object[] args = {1, "2", 3};
+            String[] names = {};
+            // The method reports its arguments as a tuple
+            PyTuple r = (PyTuple) func.__call__(args, names);
             check_result(r);
         }
 
+        @Override
         @Test
-        void raises_TypeError_on_java_kwnames() throws Throwable {
-            // We call func(*(o, 1), **dict(c=3, b='2'))
+        void raises_TypeError_on_unexpected_keyword() {
+            // We call func(o, 1, '2', c=3)
             Object o = new ExampleModule();
-            Object[] vec = {1, 3, "2"};
-            PyTuple names = Py.tuple("c", "b");
+            Object[] args = {o, 1, "2", 3};
+            String[] names = {"c"};
 
             assertThrows(TypeError.class,
-                    () -> func.call(o, vec, names));
+                    () -> func.__call__(args, names));
+        }
+
+        @Override
+        @Test
+        void supports_java_call() throws Throwable {
+            // We call func(1, '2', 3)
+            PyTuple r = (PyTuple) func.call(1, "2", 3);
+            check_result(r);
         }
     }
 
@@ -386,38 +427,40 @@ class ModuleExposerMethodTest {
 
         @Override
         @Test
-        void takes_classic_args() throws Throwable {
-            // We call func(*(1, '2', 3), **{})
-            PyTuple args = Py.tuple(1, "2", 3);
-            PyDict kwargs = Py.dict();
-            PyTuple r = (PyTuple) func.__call__(args, kwargs);
+        void supports__call__() throws Throwable {
+            // We call func(1, '2', 3)
+            Object[] args = {1, "2", 3};
+            String[] names = {};
+            PyTuple r = (PyTuple) func.__call__(args, names);
             check_result(r);
         }
 
+        /** Supply second and third arguments by keyword. */
+        @Override
         @Test
-        void takes_classic_kwargs() throws Throwable {
-            // We call func(*(1,), **{c:3, b:'2')
-            PyTuple args = Py.tuple(1);
-            PyDict kwargs = Py.dict();
-            kwargs.put("c", 3);
-            kwargs.put("b", 2);
-            PyTuple r = (PyTuple) func.__call__(args, kwargs);
+        void supports_keywords() throws Throwable {
+            // We call func(1, c=3, b='2')
+            Object[] args = {1, 3, "2"};
+            String[] names = {"c", "b"};
+            PyTuple r = (PyTuple) func.__call__(args, names);
             check_result(r);
+        }
+
+        /** Get the wrong keyword. */
+        @Override
+        @Test
+        void raises_TypeError_on_unexpected_keyword() throws Throwable {
+            // We call func(1, c=3, b='2', x=4)
+            Object[] args = {1, 3, "2", 4};
+            String[] names = {"c", "b", /* unknown */"x"};
+            assertThrows(TypeError.class,
+                    () -> func.__call__(args, names));
         }
 
         @Override
         @Test
-        void takes_java_args() throws Throwable {
+        void supports_java_call() throws Throwable {
             PyTuple r = (PyTuple) func.call(1, "2", 3);
-            check_result(r);
-        }
-
-        // @Test
-        void takes_java_args_kwnames() throws Throwable {
-            // We call func(*(1,), **{c:3, b:'2')
-            Object[] args = {1, 3, "2"};
-            PyTuple names = Py.tuple("c", "b");
-            PyTuple r = (PyTuple) func.call(args, names);
             check_result(r);
         }
     }
@@ -473,69 +516,45 @@ class ModuleExposerMethodTest {
 
         @Override
         @Test
-        void takes_classic_args() throws Throwable {
-            // We call func(*(1, '2', 3), **{})
-            PyTuple args = Py.tuple(1, "2", 3);
-            PyDict kwargs = Py.dict();
+        void supports__call__() throws Throwable {
+            // We call func(1, '2', 3)
+            Object[] args = {1, "2", 3};
+            String[] names = {};
 
             // The method just parrots its arguments as a tuple
-            PyTuple r = (PyTuple) func.__call__(args, kwargs);
+            PyTuple r = (PyTuple) func.__call__(args, names);
             check_result(r);
         }
 
         /** Supply third argument by keyword. */
+        @Override
         @Test
-        void takes_classic_kwargs() throws Throwable {
-            // We call func(*(1, '2'), **{c:3)
-            PyTuple args = Py.tuple(1, "2");
-            PyDict kwargs = Py.dict();
-            kwargs.put("c", 3);
+        void supports_keywords() throws Throwable {
+            // We call func(1, '2', c=3)
+            Object[] args = {1, "2", 3};
+            String[] names = {"c"};
 
             // The method reports its arguments as a tuple
-            PyTuple r = (PyTuple) func.__call__(args, kwargs);
+            PyTuple r = (PyTuple) func.__call__(args, names);
             check_result(r);
-        }
-
-        /** Supply second and third argument by keyword. */
-        @Test
-        void raises_TypeError_on_bad_kwarg() throws Throwable {
-            // We call func(*(1,), **{c:3, b:'2'})
-            PyTuple args = Py.tuple(1);
-            PyDict kwargs = Py.dict();
-            kwargs.put("c", 3);
-            kwargs.put("b", 2); // error
-
-            assertThrows(TypeError.class,
-                    () -> func.__call__(args, kwargs));
         }
 
         @Override
         @Test
-        void takes_java_args() throws Throwable {
+        void raises_TypeError_on_unexpected_keyword() throws Throwable {
+            // We call func(1, c=3, b='2')
+            Object[] args = {1, 3, "2"};
+            String[] names = {"c", /* positional */"b"};
+            assertThrows(TypeError.class,
+                    () -> func.__call__(args, names));
+        }
+
+        @Override
+        @Test
+        void supports_java_call() throws Throwable {
             // The method reports its arguments as a tuple
             PyTuple r = (PyTuple) func.call(1, "2", 3);
             check_result(r);
-        }
-
-        /** Supply third argument by keyword. */
-        // @Test
-        void takes_java_args_kwnames() throws Throwable {
-            Object[] args = {1, "2", 3};
-            PyTuple names = Py.tuple("c");
-
-            // The method reports its arguments as a tuple
-            PyTuple r = (PyTuple) func.call(args, names);
-            check_result(r);
-        }
-
-        /** Supply second and third argument by keyword. */
-        // @Test
-        void raises_TypeError_on_bad_kwname() throws Throwable {
-            // We call func(*(1,), **dict(c=3, b='2'))
-            Object[] vec = {1, 3, "2"};
-            PyTuple names = Py.tuple("c", "b");
-
-            assertThrows(TypeError.class, () -> func.call(vec, names));
         }
     }
 
@@ -564,5 +583,4 @@ class ModuleExposerMethodTest {
             no_collector_static("f3p2", 3, 2);
         }
     }
-
 }

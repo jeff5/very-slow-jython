@@ -27,4 +27,6 @@ interface ClassShorthand {
     static final Class<PyDict> DICT = PyDict.class;
     /** Shorthand for {@code Object[].class}. */
     static final Class<Object[]> OA = Object[].class;
+    /** Shorthand for {@code String[].class}. */
+    static final Class<String[]> SA = String[].class;
 }

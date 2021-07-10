@@ -159,38 +159,34 @@ abstract class PyMethodDescr extends MethodDescriptor {
     // };
 
     // Compare CPython method_repr in descrobject.c
-    Object __repr__() {
-        return descrRepr("method");
-    }
+    Object __repr__() { return descrRepr("method"); }
 
     /**
      * Invoke the Java method this method descriptor points to, using
-     * arguments derived from the classic call arguments supplied,
-     * default arguments and other information described for the method.
+     * arguments derived from the standard {@code __call__} arguments
+     * supplied, default arguments and other information described for
+     * the method.
      *
-     * Call the wrapped method with positional arguments (the first
-     * being the target object) and optionally keywords arguments. The
-     * arguments, in type and number, must match the signature of the
-     * special function slot.
-     *
-     * @param args positional arguments beginning with {@code self}
-     * @param kwargs keyword arguments
+     * @param args all arguments beginning with {@code self}
+     * @param names of keyword arguments
      * @return result of calling the wrapped method
      * @throws TypeError if {@code args[0]} is the wrong type
      * @throws Throwable from the implementation of the special method
      */
-    // Compare CPython wrapperdescr_call in descrobject.c
-    protected Object __call__(PyTuple args, PyDict kwargs)
+    @Override
+    public Object __call__(Object[] args, String[] names)
             throws TypeError, Throwable {
 
-        int argc = args.value.length;
+        int argc = args.length;
         if (argc > 0) {
             // Split the leading element self from args
-            Object self = args.value[0];
+            Object self = args[0];
+            Object[] newargs;
             if (argc == 1) {
-                args = PyTuple.EMPTY;
+                newargs = Py.EMPTY_ARRAY;
             } else {
-                args = new PyTuple(args.value, 1, argc - 1);
+                newargs = new Object[argc - 1];
+                System.arraycopy(args, 1, newargs, 0, newargs.length);
             }
 
             // Make sure that the first argument is acceptable as 'self'
@@ -200,7 +196,7 @@ abstract class PyMethodDescr extends MethodDescriptor {
                         objclass.name, selfType.name);
             }
 
-            return callWrapped(self, args, kwargs);
+            return callWrapped(self, newargs, names);
 
         } else {
             // Not even one argument
@@ -210,46 +206,42 @@ abstract class PyMethodDescr extends MethodDescriptor {
     }
 
     /**
-     * Invoke the method described by this {@code PyMethodDescr} the
-     * given target {@code self}, and the arguments supplied.
+     * Invoke the method described by this {@code PyMethodDescr} with
+     * the given target {@code self}, and the arguments supplied.
      *
      * @param self target object of the method call
      * @param args of the method call
-     * @param kwargs of the method call (may be {@code null} if empty)
+     * @param names of the keyword arguments (or {@code null} if empty)
      * @return result of the method call
      * @throws TypeError if the arguments do not fit the method
      * @throws Throwable from the implementation of the method
      */
     // Compare CPython wrapperdescr_raw_call in descrobject.c
-    Object callWrapped(Object self, PyTuple args, PyDict kwargs)
+    Object callWrapped(Object self, Object[] args, String[] names)
             throws Throwable {
         try {
             // Call through the correct wrapped handle
             MethodHandle wrapped = getWrapped(self.getClass());
-            return methodDef.callMethod(wrapped, self, args, kwargs);
+            return methodDef.callMethod(wrapped, self, args, names);
         } catch (MethodDescriptor.ArgumentError ae) {
             throw signatureTypeError(ae, args);
         }
     }
 
-    // Compare CPython method_call in descrobject.c
-    public Object call(Object self, Object... args) throws Throwable {
-        return call(self, args, null);
-    }
-
     /**
-     * Call with vector semantics: an array of all the argument values
-     * (after the self argument) and a tuple of the names of those given
-     * by keyword.
+     * Call with self already distinguished, an array of all the
+     * argument values (after the self argument) and an array of the
+     * names of those given by keyword.
      *
      * @param self target object of the method call
      * @param args arguments of the method call
-     * @param kwnames tuple of names (may be {@code null} if empty)
+     * @param names of arguments given by keyword (may be {@code null}
+     *     if empty)
      * @return result of the method call
      * @throws TypeError if the arguments do not fit the method
      * @throws Throwable from the implementation of the method
      */
-    public Object call(Object self, Object[] args, PyTuple kwnames)
+    public Object call(Object self, Object[] args, String[] names)
             throws Throwable {
 
         if (self == null) {
@@ -259,27 +251,12 @@ abstract class PyMethodDescr extends MethodDescriptor {
 
         } else {
             // Manage the argument vector and names into classic form
-            /*
-             * XXX We wouldn't want to do this long-term, unless the
-             * ultimate receiving method has a classic signature,
-             * because the vector form of the call allows optimisation.
-             */
-            PyTuple argTuple;
-            PyDict kwargs;
-
-            if (args == null || args.length == 0) {
+            if (args == null) {
                 // No arguments (easy)
-                argTuple = PyTuple.EMPTY;
-                kwargs = null;
-            } else if (kwnames == null) {
-                // No keyword arguments
-                argTuple = new PyTuple(args);
-                kwargs = null;
-            } else {
-                // Args given by position and keyword
-                int pos = args.length - kwnames.size();
-                kwargs = Callables.stackAsDict(args, 0, pos, kwnames);
-                argTuple = new PyTuple(args, 0, pos);
+                args = Py.EMPTY_ARRAY;
+                names = null;
+            } else if (names != null && names.length == 0) {
+                names = null;
             }
 
             // Make sure that the first argument is acceptable as 'self'
@@ -289,7 +266,7 @@ abstract class PyMethodDescr extends MethodDescriptor {
                 throw new TypeError(DESCRIPTOR_REQUIRES, name,
                         objclass.name, selfType.name);
             }
-            return callWrapped(self, argTuple, kwargs);
+            return callWrapped(self, args, names);
         }
     }
 
@@ -333,13 +310,6 @@ abstract class PyMethodDescr extends MethodDescriptor {
                 methodDef.doc);
     }
 
-    /*
-     * Vectorcall functions for each of the PyMethodDescr calling
-     * conventions.
-     */
-
-    // CPython: typedef void (*funcptr)(void);
-
     /**
      * Examine the arguments to a vector call being made on this
      * descriptor as a <em>method</em> to verify that:
@@ -379,118 +349,4 @@ abstract class PyMethodDescr extends MethodDescriptor {
             throw new TypeError(TAKES_NO_KEYWORDS, methodDef.name);
         }
     }
-
-// /* Now the actual vectorcall functions */
-// // Compare CPython method_vectorcall_VARARGS in descrobject.c
-// Object vectorcall_VARARGS(Object[] stack, int start, int nargs,
-// PyTuple kwnames) throws Throwable {
-// check_args(stack, start, nargs, kwnames);
-// try (RecursionState r = ThreadState
-// .enterRecursiveCall(" while calling a Python object")) {
-// Object argstuple =
-// new PyTuple(stack, start + 1, nargs - 1);
-// MethodHandle meth = methodDef.meth;
-// return meth.invokeExact(stack[0], argstuple);
-// }
-// }
-//
-// // Compare CPython method_vectorcall_VARARGS_KEYWORDS in
-// // descrobject.c
-// Object vectorcall_VARARGS_KEYWORDS(Object[] stack, int start,
-// int nargs, PyTuple kwnames) throws TypeError, Throwable {
-// check_args(stack, start, nargs, null);
-// try (RecursionState r = ThreadState
-// .enterRecursiveCall(" while calling a Python object")) {
-// Object argstuple = new PyTuple(stack, 1, nargs - 1);
-// // Create a temporary dict for keyword arguments
-// PyDict kwargs =
-// Callables.stackAsDict(stack, start, nargs, kwnames);
-// MethodHandle meth = methodDef.meth;
-// return meth.invokeExact(stack[0], argstuple,
-// kwargs);
-// }
-// }
-//
-// // Compare CPython method_vectorcall_FASTCALL in descrobject.c
-// Object vectorcall_FASTCALL(Object[] stack, int start, int nargs,
-// PyTuple kwnames) throws TypeError, Throwable {
-// check_args(stack, start, nargs, kwnames);
-// try (RecursionState r = ThreadState
-// .enterRecursiveCall(" while calling a Python object")) {
-// MethodHandle meth = methodDef.meth;
-// return meth.invokeExact(stack[0], stack, 1,
-// nargs - 1);
-// }
-// }
-//
-// // Compare CPython method_vectorcall_FASTCALL_KEYWORDS in
-// // descrobject.c
-// Object vectorcall_FASTCALL_KEYWORDS(Object[] stack, int start,
-// int nargs, PyTuple kwnames) throws Throwable {
-// check_args(stack, start, nargs, null);
-// try (RecursionState r = ThreadState
-// .enterRecursiveCall(" while calling a Python object")) {
-// MethodHandle meth = methodDef.meth;
-// return meth.invokeExact(stack[0], stack, 1,
-// nargs - 1, kwnames);
-// }
-// }
-//
-// /**
-// * The descriptor is for a method that takes no arguments at the
-// * call site. The argument array slice contains only {@code self}.
-// *
-// * @param stack self, positional and keyword arguments
-// * @param start position of arguments in the array
-// * @param nargs number of positional arguments, should be 1
-// * @param kwnames names of keyword arguments must be empty or null
-// * @return the return from the call to {@code this.meth}
-// * @throws Throwable from invoked implementation.
-// */
-// // Compare CPython method_vectorcall_NOARGS in descrobject.c
-// Object vectorcall_NOARGS(Object[] stack, int start, int nargs,
-// PyTuple kwnames) throws Throwable {
-// check_args(stack, start, nargs, kwnames);
-// try (RecursionState r = ThreadState
-// .enterRecursiveCall(" while calling a Python object")) {
-// if (nargs != 1) {
-// throw new TypeError(
-// "%.200s() takes no arguments (%zd given)",
-// methodDef.name, nargs - 1);
-// }
-// // Invoke with just the target
-// MethodHandle meth = methodDef.meth;
-// return meth.invokeExact(stack[start]);
-// }
-// }
-//
-// /**
-// * The descriptor is for a method that takes exactly one argument at
-// * the call site. The argument array slice contains only
-// * {@code self, arg}.
-// *
-// * @param stack self, positional and keyword arguments
-// * @param start position of arguments in the array
-// * @param nargs number of positional arguments, should be 2
-// * @param kwnames names of keyword arguments must be empty or null
-// * @return the return from the call to {@code this.meth}
-// * @throws Throwable from invoked implementation.
-// */
-// // Compare CPython method_vectorcall_O in descrobject.c
-// Object vectorcall_O(Object[] stack, int start, int nargs,
-// PyTuple kwnames) throws Throwable {
-// check_args(stack, start, nargs, kwnames);
-// try (RecursionState r = ThreadState
-// .enterRecursiveCall(" while calling a Python object")) {
-// if (nargs != 2) {
-// throw new TypeError(
-// "%.200s() takes exactly one argument (%zd given)",
-// methodDef.name, nargs - 1);
-// }
-// // Invoke with the target and one argument
-// MethodHandle meth = methodDef.meth;
-// return meth.invokeExact(stack[0], stack[1]);
-// }
-// }
-
 }

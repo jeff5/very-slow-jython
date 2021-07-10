@@ -2,6 +2,7 @@ package uk.co.farowl.vsj3.evo1;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
+import java.util.Arrays;
 
 import uk.co.farowl.vsj3.evo1.Exposed.Getter;
 import uk.co.farowl.vsj3.evo1.PyType.Flag;
@@ -108,9 +109,7 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
 
     // Compare CPython wrapperdescr_repr in descrobject.c
     @SuppressWarnings("unused")
-    private Object __repr__() {
-        return descrRepr("slot wrapper");
-    }
+    private Object __repr__() { return descrRepr("slot wrapper"); }
 
     // Compare CPython wrapperdescr_get in descrobject.c
     @Override
@@ -149,23 +148,26 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
      * special function slot.
      *
      * @param args positional arguments beginning with {@code self}
-     * @param kwargs keyword arguments
+     * @param names of keywords in the method call
      * @return result of calling the wrapped method
      * @throws TypeError if {@code args[0]} is the wrong type
      * @throws Throwable from the implementation of the special method
      */
     // Compare CPython wrapperdescr_call in descrobject.c
-    protected Object __call__(PyTuple args, PyDict kwargs)
+    @Override
+    public Object __call__(Object[] args, String[] names)
             throws TypeError, Throwable {
 
-        int argc = args.value.length;
+        int argc = args.length;
         if (argc > 0) {
             // Split the leading element self from args
-            Object self = args.value[0];
+            Object self = args[0];
+            Object[] newargs;
             if (argc == 1) {
-                args = PyTuple.EMPTY;
+                newargs = Py.EMPTY_ARRAY;
             } else {
-                args = new PyTuple(args.value, 1, argc - 1);
+                newargs = new Object[argc - 1];
+                System.arraycopy(args, 1, newargs, 0, newargs.length);
             }
 
             // Make sure that the first argument is acceptable as 'self'
@@ -175,7 +177,7 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
                         objclass.name, selfType.name);
             }
 
-            return callWrapped(self, args, kwargs);
+            return callWrapped(self, newargs, names);
 
         } else {
             // Not even one argument
@@ -190,19 +192,19 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
      *
      * @param self target object of the method call
      * @param args of the method call
-     * @param kwargs of the method call
+     * @param names of keywords in the method call
      * @return result of the method call
      * @throws TypeError if the arguments do not fit the special method
      * @throws Throwable from the implementation of the special method
      */
     // Compare CPython wrapperdescr_raw_call in descrobject.c
-    Object callWrapped(Object self, PyTuple args, PyDict kwargs)
+    Object callWrapped(Object self, Object[] args, String[] names)
             throws Throwable {
         try {
             // Call through the correct wrapped handle
             MethodHandle wrapped = getWrapped(self.getClass());
             Slot.Signature sig = slot.signature;
-            return sig.callWrapped(wrapped, self, args, kwargs);
+            return sig.callWrapped(wrapped, self, args, names);
         } catch (ArgumentError ae) {
             throw signatureTypeError(ae, args);
         }

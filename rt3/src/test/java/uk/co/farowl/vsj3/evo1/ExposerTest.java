@@ -18,9 +18,11 @@ import uk.co.farowl.vsj3.evo1.Exposed.PythonMethod;
  * Unit tests for the {@link Exposer} and the {@link Descriptor}s it
  * produces for the several kinds of annotation that may be applied to
  * Java classes implementing Python types.
+ * <p>
+ * This skimpy test may be unnecessary in the light of more thorough
+ * ones on module and type exposure.
  */
 class ExposerTest {
-
 
     /**
      * Model canonical implementation to explore exposure of a special
@@ -36,14 +38,10 @@ class ExposerTest {
         int value;
 
         @SuppressWarnings("unused")
-        public ObjectWithSpMeth(int value) {
-            this.value = value;
-        }
+        public ObjectWithSpMeth(int value) { this.value = value; }
 
         @SuppressWarnings("unused")
-        Object __neg__() {
-            return new ObjectWithSpMeth(-value);
-        }
+        Object __neg__() { return new ObjectWithSpMeth(-value); }
 
         @SuppressWarnings("unused")
         static Object __neg__(AcceptedSpecial v) {
@@ -62,9 +60,7 @@ class ExposerTest {
 
         int value;
 
-        public AcceptedSpecial(int value) {
-            this.value = value;
-        }
+        public AcceptedSpecial(int value) { this.value = value; }
     }
 
     /**
@@ -104,7 +100,8 @@ class ExposerTest {
         assertSame(Object.class, neg1.type().parameterType(0));
     }
 
-    private static class PyObjectWithMethods implements CraftedPyObject {
+    private static class PyObjectWithMethods
+            implements CraftedPyObject {
 
         /** Lookup object to support creation of descriptors. */
         private static final Lookup LOOKUP = MethodHandles.lookup();
@@ -112,16 +109,12 @@ class ExposerTest {
                 new PyType.Spec("PyObjectWithMethods", LOOKUP));
         String value;
 
-        public PyObjectWithMethods(String value) {
-            this.value = value;
-        }
+        public PyObjectWithMethods(String value) { this.value = value; }
 
         // Methods using Java primitives -----------------------------
 
         @PythonMethod
-        int length() {
-            return value.length();
-        }
+        int length() { return value.length(); }
 
         @PythonMethod
         double density(String ch) {
@@ -142,9 +135,7 @@ class ExposerTest {
         // Methods using Python only types ---------------------------
 
         @PythonMethod
-        Object upper() {
-            return value.toUpperCase();
-        }
+        Object upper() { return value.toUpperCase(); }
 
         @PythonMethod
         Object find(PyTuple args) {
@@ -181,7 +172,7 @@ class ExposerTest {
      * @throws Throwable unexpectedly
      * @throws AttributeError unexpectedly
      */
-    // @Test
+    @Test
     void methodConstruct() throws AttributeError, Throwable {
 
         // We defined this Java method: should retrieve a descriptor
@@ -202,7 +193,7 @@ class ExposerTest {
      *
      * @throws Throwable unexpectedly
      */
-    // @Test
+    @Test
     void methodDescrCall() throws AttributeError, Throwable {
 
         PyType A = PyObjectWithMethods.TYPE;
@@ -216,7 +207,7 @@ class ExposerTest {
         assertEquals("length", length.name);
         assertEquals(A, length.objclass);
         // n = length(a) # = 12
-        PyTuple args = Py.tuple(a);
+        Object[] args = {a};
         result = Callables.call(length, args, null);
         assertEquals(hello.length(), Number.index(result));
 
@@ -236,7 +227,7 @@ class ExposerTest {
      *
      * @throws Throwable unexpectedly
      */
-    // @Test
+    @Test
     void boundMethodConstruct() throws AttributeError, Throwable {
 
         // Create an object of the right type
@@ -264,7 +255,7 @@ class ExposerTest {
      *
      * @throws Throwable unexpectedly
      */
-    // @Test
+    @Test
     void boundMethodCall() throws AttributeError, Throwable {
 
         String hello = "Hello World!";
@@ -285,14 +276,8 @@ class ExposerTest {
 
         // Force a classic call
         // result = bm("l") # = 0.25
-        PyTuple args = Py.tuple("l");
+        Object[] args = {"l"};
         result = bm.__call__(args, null);
-        assertEquals(0.25, PyFloat.doubleValue(result), 1e-6);
-
-        // Make a vector call
-        // result = bm("l") # = 0.25
-        Object[] stack = new Object[] {"l"};
-        result = bm.call(stack, 0, 1, null);
         assertEquals(0.25, PyFloat.doubleValue(result), 1e-6);
     }
 

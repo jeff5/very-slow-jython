@@ -9,9 +9,47 @@ class Callables extends Abstract {
 
     private Callables() {} // only static methods here
 
+    // XXX Could this be (String[]) null with advantages?
+    private static final String[] NO_KEYWORDS = new String[0];
+
     /**
-     * Call an object with the classic call protocol, that is, with an
-     * argument tuple and keyword dictionary.
+     * Call an object with the standard {@code __call__} protocol, that
+     * is, with an argument array and keyword name array.
+     *
+     * @param callable target
+     * @param args all the arguments (position then keyword)
+     * @param names of the keyword arguments
+     * @return the return from the call to the object
+     * @throws TypeError if target is not callable
+     * @throws Throwable for errors raised in the function
+     */
+    // Compare CPython PyObject_Call in call.c
+    // Note that CPython allows only exactly tuple and dict.
+    static Object call(Object callable, Object[] args, String[] names)
+            throws TypeError, Throwable {
+
+        // Speed up the idiom common in called objects:
+        // if (names == null || names.length != 0) ...
+        if (names != null && names.length == 0) { names = null; }
+
+        try {
+            /*
+             * In CPython, there are specific cases here that look for
+             * support for vector call and PyCFunction (would be
+             * PyJavaFunction) leading to PyVectorcall_Call or
+             * cfunction_call_varargs respectively on the args, kwargs
+             * arguments.
+             */
+            MethodHandle call = Operations.of(callable).op_call;
+            return call.invokeExact(callable, args, names);
+        } catch (Slot.EmptyException e) {
+            throw typeError(OBJECT_NOT_CALLABLE, callable);
+        }
+    }
+
+    /**
+     * Call an object with the classic CPython call protocol, that is,
+     * with an argument tuple and keyword dictionary.
      *
      * @param callable target
      * @param args positional arguments
@@ -45,10 +83,10 @@ class Callables extends Abstract {
     }
 
     /**
-     * Call an object with the classic call protocol as supported in the
+     * Call an object with the CPython call protocol as supported in the
      * interpreter {@code CALL_FUNCTION_EX} opcode, that is, an argument
      * tuple (or iterable) and keyword dictionary (or iterable of
-     * key-value pairs).
+     * key-value pairs), which may be built by code at the opcode site.
      *
      * @param callable target
      * @param args positional arguments
@@ -58,7 +96,10 @@ class Callables extends Abstract {
      * @throws Throwable for errors raised in the function
      */
     // Compare CPython PyObject_Call in call.c
-    // Note that CPython allows only exactly tuple and dict. (Why?)
+    /*
+     * Note that CPython allows only exactly tuple and dict. (It deals
+     * with iterables in line ov the opcode omplementation.)
+     */
     static Object callEx(Object callable, Object args, Object kwargs)
             throws TypeError, Throwable {
 
@@ -134,7 +175,7 @@ class Callables extends Abstract {
      * @param callable target
      * @param stack positional and keyword arguments
      * @param start position of arguments in the array
-     * @param nargs number of positional arguments
+     * @param nargs number of <b>positional</b> arguments
      * @param kwnames names of keyword arguments
      * @return the return from the call to the object
      * @throws TypeError if target is not callable
@@ -167,7 +208,7 @@ class Callables extends Abstract {
      *
      * @param stack positional and keyword arguments
      * @param start position of arguments in the array
-     * @param nargs number of positional arguments
+     * @param nargs number of <b>positional</b> arguments
      * @param kwnames tuple of names (may be {@code null} if empty)
      * @return dictionary or {@code null} if {@code kwnames==null}
      */
@@ -204,8 +245,7 @@ class Callables extends Abstract {
                     PyTuple.EMPTY);
         } catch (Slot.EmptyException e) {}
 
-        // Vector call is not supported by the type. Make classic call.
-        return call(callable, new PyTuple(args), null);
+        return call(callable, args, null);
     }
 
     /**
@@ -227,7 +267,7 @@ class Callables extends Abstract {
         } catch (Slot.EmptyException e) {}
 
         // Vector call is not supported by the type. Make classic call.
-        return call(callable, PyTuple.EMPTY, null);
+        return call(callable, Py.EMPTY_ARRAY, NO_KEYWORDS);
     }
 
     /**

@@ -4,13 +4,10 @@ package uk.co.farowl.vsj3.evo1;
 abstract class JavaModule extends PyModule {
 
     @Deprecated
-    JavaModule(String name) {
-        super(name);
-    }
+    JavaModule(String name) { super(name); }
 
     JavaModule(ModuleDef def) {
         super(def.name);
         def.addMembers(this);
     }
-
 }

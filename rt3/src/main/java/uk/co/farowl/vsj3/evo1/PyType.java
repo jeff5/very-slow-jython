@@ -1400,26 +1400,26 @@ public class PyType extends Operations implements PyObjectDict {
      * object.
      *
      * @param args argument tuple (length 1 in a type enquiry).
-     * @param kwargs keyword arguments (empty or {@code null} in a type
+     * @param names of keyword arguments (empty or {@code null} in a type
      *     enquiry).
      * @return new object (or a type if an enquiry).
      * @throws TypeError when cannot create instances
      * @throws Throwable from implementation slot functions
      */
-    protected Object __call__(PyTuple args, PyDict kwargs)
+    protected Object __call__(Object[] args, String[] names)
             throws TypeError, Throwable {
         try {
             // Create the instance with given arguments.
-            Object o = op_new.invokeExact(this, args, kwargs);
+            Object o = op_new.invokeExact(this, args, names);
             // Check for special case type enquiry: yes afterwards!
             // (PyType.__new__ performs both functions.)
-            if (isTypeEnquiry(this, args, kwargs)) { return o; }
+            if (isTypeEnquiry(this, args, names)) { return o; }
             // As __new__ may be user-defined, check type as expected.
             Operations ops = Operations.of(o);
             if (ops.type(o).isSubTypeOf(this)) {
                 // Initialise the object just returned (if necessary).
                 if (Slot.op_init.isDefinedFor(ops))
-                    ops.op_init.invokeExact(o, args, kwargs);
+                    ops.op_init.invokeExact(o, args, names);
             }
             return o;
         } catch (EmptyException e) {
@@ -1439,32 +1439,32 @@ public class PyType extends Operations implements PyObjectDict {
      *
      * @param metatype the subclass of type to be created
      * @param args supplied positionally to the call in Python
-     * @param kwargs supplied as keywords to the call in Python
+     * @param names supplied as keywords to the call in Python
      * @return the created type
      * @throws TypeError if the wrong number of arguments is given or
      *     there are keywords
      * @throws Throwable for other errors
      */
-    static Object __new__(PyType metatype, PyTuple args, PyDict kwargs)
+    static Object __new__(PyType metatype, Object[] args, String[] names)
             throws TypeError, Throwable {
 
         // Special case: type(x) should return type(x)
-        if (isTypeEnquiry(metatype, args, kwargs)) {
-            return PyType.of(args.get(0));
+        if (isTypeEnquiry(metatype, args, names)) {
+            return PyType.of(args[0]);
         }
 
         // Type creation call
         Object oBases, oName, oNamespace;
 
-        if (args.size() != 3) {
+        if (args.length != 3) {
             throw new TypeError("type() takes 1 or 3 arguments");
-        } else if (!PyUnicode.TYPE.check(oName = args.get(0))) {
+        } else if (!PyUnicode.TYPE.check(oName = args[0])) {
             throw new TypeError(NEW_ARG_MUST_BE, 0, PyUnicode.TYPE,
                     PyType.of(oName));
-        } else if (!PyTuple.TYPE.check(oBases = args.get(1))) {
+        } else if (!PyTuple.TYPE.check(oBases = args[1])) {
             throw new TypeError(NEW_ARG_MUST_BE, 1, PyTuple.TYPE.name,
                     PyType.of(oBases));
-        } else if (!PyDict.TYPE.check(oNamespace = args.get(2))) {
+        } else if (!PyDict.TYPE.check(oNamespace = args[2])) {
             throw new TypeError(NEW_ARG_MUST_BE, 2, PyDict.TYPE.name,
                     PyType.of(oNamespace));
         }
@@ -1788,10 +1788,10 @@ public class PyType extends Operations implements PyObjectDict {
      * enquiry if {@code type} is {@link PyType#TYPE} and there is just
      * one argument.
      */
-    private static boolean isTypeEnquiry(PyType type, PyTuple args,
-            PyDict kwargs) {
-        return type == TYPE && args.size() == 1
-                && (kwargs == null || kwargs.isEmpty());
+    private static boolean isTypeEnquiry(PyType type, Object[] args,
+            String[] names) {
+        return type == TYPE && args.length == 1
+                && (names == null || names.length == 0);
     }
 
     /**

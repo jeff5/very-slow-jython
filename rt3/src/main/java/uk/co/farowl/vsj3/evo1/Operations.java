@@ -764,6 +764,7 @@ abstract class Operations {
     MethodHandle op_init;
     MethodHandle op_new; // XXX implement as static method
 
+    @Deprecated
     MethodHandle op_vectorcall;
 
     // Number slots table see CPython PyNumberMethods

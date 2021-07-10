@@ -380,7 +380,7 @@ abstract class Exposer {
          */
         protected String annoClassName() {
             Class<? extends Annotation> ac = annoClass();
-            if (ac == null) {
+            if (ac == Annotation.class) {
                 // Special methods recognised by name, so no annotation
                 return "special method";
             } else if (ac == Getter.class) {
@@ -512,7 +512,7 @@ abstract class Exposer {
         }
 
         private static final String UNSUPPORTED_SIG =
-                "method %.50s has wrong signature %.50s for %.50s";
+                "method %.50s has wrong signature %.100s for %.100s";
     }
 
     /**

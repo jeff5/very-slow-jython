@@ -40,7 +40,7 @@ class BinarySlotWrapperTest extends UnitTestSupport {
         for (Object v : List.of(dv, pv)) {
             // w is PyFloat, Double, and int types
             for (Object w : wList) {
-                Object r = sub.__call__(Py.tuple(v, w), null);
+                Object r = sub.__call__(new Object[] {v, w}, null);
                 assertPythonType(PyFloat.TYPE, r);
                 double exp = dv - PyFloat.asDouble(w);
                 assertEquals(exp, PyFloat.doubleValue(r));
@@ -66,7 +66,7 @@ class BinarySlotWrapperTest extends UnitTestSupport {
         // Invoke for Double, PyFloat.
         for (Object v : List.of(dv, pv)) {
             for (Object w : List.of(dw, pw)) {
-                Object r = rsub.__call__(Py.tuple(w, v), null);
+                Object r = rsub.__call__(new Object[] {w, v}, null);
                 assertPythonType(PyFloat.TYPE, r);
                 assertEquals(42.0, PyFloat.asDouble(r));
             }
@@ -93,7 +93,7 @@ class BinarySlotWrapperTest extends UnitTestSupport {
             int vv = toInt(v);
             // w is Integer, BigInteger, PyLong, Boolean
             for (Object w : List.of(iw, bw, pw, true, false)) {
-                Object r = sub.__call__(Py.tuple(v, w), null);
+                Object r = sub.__call__(new Object[] {v, w}, null);
                 // The result will be Integer (since small enough)
                 assertEquals(Integer.class, r.getClass());
                 int exp = vv - toInt(w);
@@ -122,7 +122,7 @@ class BinarySlotWrapperTest extends UnitTestSupport {
             int vv = toInt(v);
             // w is Integer, BigInteger, PyLong, Boolean
             for (Object w : List.of(iw, bw, pw, true, false)) {
-                Object r = rsub.__call__(Py.tuple(w, v), null);
+                Object r = rsub.__call__(new Object[] {w, v}, null);
                 // The result will be Integer (since small enough)
                 assertEquals(Integer.class, r.getClass());
                 int exp = vv - toInt(w);
@@ -147,7 +147,7 @@ class BinarySlotWrapperTest extends UnitTestSupport {
         // Invoke for float - int.
         for (Object v : List.of(da, db)) {
             for (Object w : List.of(ia, ib)) {
-                Object r = sub.__call__(Py.tuple(v, w), null);
+                Object r = sub.__call__(new Object[] {v, w}, null);
                 assertPythonType(PyFloat.TYPE, r);
                 assertEquals(42.0, PyFloat.asDouble(r));
             }
@@ -170,7 +170,7 @@ class BinarySlotWrapperTest extends UnitTestSupport {
         // Invoke for int - float.
         for (Object v : List.of(ia, ib)) {
             for (Object w : List.of(da, db)) {
-                Object r = rsub.__call__(Py.tuple(w, v), null);
+                Object r = rsub.__call__(new Object[] {w, v}, null);
                 assertPythonType(PyFloat.TYPE, r);
                 assertEquals(-42.0, PyFloat.asDouble(r));
             }
@@ -194,7 +194,7 @@ class BinarySlotWrapperTest extends UnitTestSupport {
         for (Object v : List.of(true, false)) {
             int vv = toInt(v);
             for (Object w : List.of(true, false)) {
-                Object r = sub.__call__(Py.tuple(v, w), null);
+                Object r = sub.__call__(new Object[] {v, w}, null);
                 // The result will be Integer
                 assertEquals(Integer.class, r.getClass());
                 int exp = vv - toInt(w);
@@ -220,7 +220,7 @@ class BinarySlotWrapperTest extends UnitTestSupport {
         for (Object v : List.of(true, false)) {
             int vv = toInt(v);
             for (Object w : List.of(true, false)) {
-                Object r = rsub.__call__(Py.tuple(w, v), null);
+                Object r = rsub.__call__(new Object[] {w, v}, null);
                 // The result will be Integer
                 assertEquals(Integer.class, r.getClass());
                 int exp = vv - toInt(w);
@@ -250,7 +250,7 @@ class BinarySlotWrapperTest extends UnitTestSupport {
             int vv = toInt(v);
             // w is Integer, BigInteger, PyLong, Boolean
             for (Object w : List.of(iw, bw, pw, true, false)) {
-                Object r = and.__call__(Py.tuple(v, w), null);
+                Object r = and.__call__(new Object[] {v, w}, null);
                 // The result will be Integer (since small enough)
                 assertEquals(Integer.class, r.getClass());
                 int exp = vv & toInt(w);
@@ -280,7 +280,7 @@ class BinarySlotWrapperTest extends UnitTestSupport {
             int vv = toInt(v);
             // w is Integer, BigInteger, PyLong, Boolean
             for (Object w : List.of(iw, bw, pw, true, false)) {
-                Object r = rand.__call__(Py.tuple(w, v), null);
+                Object r = rand.__call__(new Object[] {w, v}, null);
                 // The result will be Integer (since small enough)
                 assertEquals(Integer.class, r.getClass());
                 int exp = vv & toInt(w);
@@ -301,7 +301,7 @@ class BinarySlotWrapperTest extends UnitTestSupport {
 
         for (Boolean v : List.of(true, false)) {
             for (Boolean w : List.of(true, false)) {
-                Object r = and.__call__(Py.tuple(v, w), null);
+                Object r = and.__call__(new Object[] {v, w}, null);
                 assertEquals(Boolean.class, r.getClass());
                 assertEquals(v & w, r);
             }
@@ -320,7 +320,7 @@ class BinarySlotWrapperTest extends UnitTestSupport {
 
         for (Boolean v : List.of(true, false)) {
             for (Boolean w : List.of(true, false)) {
-                Object r = rand.__call__(Py.tuple(w, v), null);
+                Object r = rand.__call__(new Object[] {w, v}, null);
                 assertEquals(Boolean.class, r.getClass());
                 assertEquals(v & w, r);
             }
@@ -347,7 +347,7 @@ class BinarySlotWrapperTest extends UnitTestSupport {
         for (Object v : List.of(sv, uv)) {
             // w is PyUnicode, String, and int types
             for (Object w : List.of(uw, sw)) {
-                Object r = add.__call__(Py.tuple(v, w), null);
+                Object r = add.__call__(new Object[] {v, w}, null);
                 assertPythonType(PyUnicode.TYPE, r);
                 assertEquals(exp, toString(r));
             }
@@ -377,7 +377,7 @@ class BinarySlotWrapperTest extends UnitTestSupport {
         for (Object v : List.of(sv, uv)) {
             // w is various int types
             for (Object w : wList) {
-                Object r = mul.__call__(Py.tuple(v, w), null);
+                Object r = mul.__call__(new Object[] {v, w}, null);
                 assertPythonType(PyUnicode.TYPE, r);
                 assertEquals(sv.repeat(toInt(w)), toString(r));
             }
@@ -408,7 +408,7 @@ class BinarySlotWrapperTest extends UnitTestSupport {
         for (Object v : vList) {
             // w is PyUnicode, String
             for (Object w : List.of(sw, uw)) {
-                Object r = rmul.__call__(Py.tuple(w, v), null);
+                Object r = rmul.__call__(new Object[] {w, v}, null);
                 assertPythonType(PyUnicode.TYPE, r);
                 assertEquals(sw.repeat(toInt(v)), toString(r));
             }

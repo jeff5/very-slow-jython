@@ -21,7 +21,7 @@ import uk.co.farowl.vsj3.evo1.PyType.Flag;
  */
 // Compare CPython wrapperobject in descrobject.c
 // and _PyMethodWrapper_Type in descrobject.c
-class PyMethodWrapper extends AbstractPyObject {
+class PyMethodWrapper extends AbstractPyObject implements FastCall {
 
     static final PyType TYPE = PyType.fromSpec(
             new PyType.Spec("method-wrapper", MethodHandles.lookup())
@@ -37,8 +37,8 @@ class PyMethodWrapper extends AbstractPyObject {
 
     /**
      * The target object of the method call that results when
-     * {@link #__call__(PyTuple, PyDict)} is invoked on this object.
-     * This is exposed to Python as {@code __self__}.
+     * {@link #__call__(Object[], String[]) __call__} is invoked on this
+     * object. This is exposed to Python as {@code __self__}.
      */
     @Member("__self__")
     final Object self;
@@ -131,9 +131,7 @@ class PyMethodWrapper extends AbstractPyObject {
 
     @Getter
     // Compare CPython wrapper_name in descrobject.c
-    protected Object __name__() {
-        return descr.slot.methodName;
-    }
+    protected Object __name__() { return descr.slot.methodName; }
 
     @Getter
     // Compare CPython wrapper_doc in descrobject.c
@@ -195,8 +193,9 @@ class PyMethodWrapper extends AbstractPyObject {
     // }
 
     // Compare CPython wrapper_call in descrobject.c
-    protected Object __call__(PyTuple args, PyDict kwargs)
+    @Override
+    public Object __call__(Object[] args, String[] names)
             throws Throwable {
-        return descr.callWrapped(self, args, kwargs);
+        return descr.callWrapped(self, args, names);
     }
 }

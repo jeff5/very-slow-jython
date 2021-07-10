@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.lang.invoke.MethodHandles;
+import java.util.Arrays;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -19,14 +20,13 @@ import uk.co.farowl.vsj3.evo1.base.MethodKind;
 /**
  * Test that methods exposed by a Python <b>type</b> defined in Java,
  * using the scheme of annotations defined in {@link Exposed}, result in
- * method descriptors with characteristics that correspond to the
- * definition.
+ * method descriptors with characteristics that correspond to their
+ * definitions.
  * <p>
  * The first test in each case is to examine the fields in the parser
- * that attaches to the {@link MethodDef}. Then we call the descriptor
- * using classic arguments, and using our equivalent of the "vector
- * call", intended to support call sites compiled where Python invokes
- * the method.
+ * that attaches to the {@link MethodDef}. Then we call the function
+ * using the {@code __call__} special method, and using our "fast call"
+ * signatures.
  * <p>
  * There is a nested test suite for each signature pattern.
  */
@@ -60,22 +60,43 @@ class TypeExposerMethodTest {
         abstract void has_expected_fields();
 
         /**
-         * Apply Python classic arguments matching the method's
-         * specification. The method should obtain the correct result
-         * (and not throw).
+         * Call the function using the {@code __call__} special method
+         * with arguments correct for the method's specification. The
+         * method should obtain the correct result (and not throw).
          *
-         * @throws Throwable
+         * @throws Throwable unexpectedly
          */
-        abstract void takes_classic_args() throws Throwable;
+        abstract void supports__call__() throws Throwable;
 
         /**
-         * Apply Java call arguments matching the method's
-         * specification. The method should obtain the correct result
-         * (and not throw).
+         * Call the method using the {@code __call__} special method
+         * with arguments correct for the method's specification, and
+         * explicitly zero or more keywords. The method should obtain
+         * the correct result (and not throw).
          *
-         * @throws Throwable
+         * @throws Throwable unexpectedly
          */
-        abstract void takes_java_args() throws Throwable;
+        abstract void supports_keywords() throws Throwable;
+
+        /**
+         * Call the method using the {@code __call__} special method and
+         * an unexpected keyword: where none is expected, for a
+         * positional argument, or simply an unacceptable name. The
+         * method should throw {@link TypeError}.
+         *
+         * @throws Throwable unexpectedly
+         */
+        abstract void raises_TypeError_on_unexpected_keyword()
+                throws Throwable;
+
+        /**
+         * Call the function using the Java call interface with
+         * arguments correct for the function's specification. The
+         * function should obtain the correct result (and not throw).
+         *
+         * @throws Throwable unexpectedly
+         */
+        abstract void supports_java_call() throws Throwable;
 
         /**
          * Check that the fields of the parser match expectations for a
@@ -251,26 +272,57 @@ class TypeExposerMethodTest {
 
         @Override
         @Test
-        void takes_classic_args() throws Throwable {
+        void supports__call__() throws Throwable {
             // We call type(obj).m0(obj)
-            PyTuple args = Py.tuple(obj);
-            PyDict kwargs = Py.dict();
-            Object r = descr.__call__(args, kwargs);
+            Object[] args = {obj};
+            Object r = descr.__call__(args, null);
             assertEquals(Py.None, r);
 
             // We call obj.m0()
-            args = Py.tuple();
-            r = func.__call__(args, kwargs);
+            args = new Object[0];
+            r = func.__call__(args, null);
             assertEquals(Py.None, r);
         }
 
         @Override
         @Test
-        void takes_java_args() throws Throwable {
+        void supports_keywords() throws Throwable {
+            // We call type(obj).m0(obj)
+            Object[] args = {obj};
+            String[] names = {};
+            Object r = descr.__call__(args, names);
+            assertEquals(Py.None, r);
+
+            // We call obj.m0()
+            args = new Object[0];
+            r = func.__call__(args, names);
+            assertEquals(Py.None, r);
+        }
+
+        /** To set anything by keyword is a {@code TypeError}. */
+        @Override
+        @Test
+        void raises_TypeError_on_unexpected_keyword() {
+            // We call type(obj).m0(obj, c=3)
+            Object[] args = {obj, 3};
+            String[] names = {"c"};
+            assertThrows(TypeError.class,
+                    () -> descr.__call__(args, names));
+
+            // We call obj.m0(c=3)
+            Object[] args2 = Arrays.copyOfRange(args, 1, args.length);
+            assertThrows(TypeError.class,
+                    () -> func.__call__(args2, names));
+        }
+
+        @Override
+        @Test
+        void supports_java_call() throws Throwable {
             // We call type(obj).m0(obj)
             Object r = descr.call(obj);
             assertEquals(Py.None, r);
 
+            // We call obj.m0()
             r = func.call();
             assertEquals(Py.None, r);
         }
@@ -315,38 +367,51 @@ class TypeExposerMethodTest {
 
         @Override
         @Test
-        void takes_classic_args() throws Throwable {
-            // We call type(obj).m3(*(obj, 1, '2', 3), **{})
-            PyTuple args = Py.tuple(obj, 1, "2", 3);
-            PyDict kwargs = Py.dict();
-            PyTuple r = (PyTuple) descr.__call__(args, kwargs);
+        void supports__call__() throws Throwable {
+            // We call type(obj).m3(obj, 1, '2', 3)
+            Object[] args = {obj, 1, "2", 3};
+            PyTuple r = (PyTuple) descr.__call__(args, null);
             check_result(r);
 
-            // We call obj.m3(*(1, '2', 3), **{})
-            args = Py.tuple(1, "2", 3);
-            r = (PyTuple) func.__call__(args, kwargs);
+            // We call obj.m3(1, '2', 3)
+            args = Arrays.copyOfRange(args, 1, args.length);
+            r = (PyTuple) func.__call__(args, null);
             check_result(r);
-        }
-
-        /** To set anything by keyword is a {@code TypeError}. */
-        @Test
-        void raises_TypeError_on_kwargs() {
-            // We call type(obj).m3(*(obj, 1, '2'), **dict(c=3))
-            PyTuple args = Py.tuple(obj, 1, "2");
-            PyDict kwargs = Py.dict();
-            kwargs.put("c", 3);
-            assertThrows(TypeError.class,
-                    () -> descr.__call__(args, kwargs));
-
-            // We call obj.m3(*(1, '2'), **dict(c=3))
-            PyTuple args2 = Py.tuple(1, "2");
-            assertThrows(TypeError.class,
-                    () -> func.__call__(args2, kwargs));
         }
 
         @Override
         @Test
-        void takes_java_args() throws Throwable {
+        void supports_keywords() throws Throwable {
+            // We call type(obj).m3(obj, 1, '2', 3)
+            Object[] args = {obj, 1, "2", 3};
+            String[] names = {};
+            PyTuple r = (PyTuple) descr.__call__(args, names);
+            check_result(r);
+
+            // We call obj.m3(1, '2', 3)
+            args = Arrays.copyOfRange(args, 1, args.length);
+            r = (PyTuple) func.__call__(args, names);
+            check_result(r);
+        }
+
+        @Override
+        @Test
+        void raises_TypeError_on_unexpected_keyword() {
+            // We call type(obj).m3(obj, 1, '2', c=3)
+            Object[] args = {obj, 1, "2", 3};
+            String[] names = {"c"};
+            assertThrows(TypeError.class,
+                    () -> descr.__call__(args, names));
+
+            // We call obj.m3(1, '2', c=3)
+            Object[] args2 = Arrays.copyOfRange(args, 1, args.length);
+            assertThrows(TypeError.class,
+                    () -> func.__call__(args2, names));
+        }
+
+        @Override
+        @Test
+        void supports_java_call() throws Throwable {
             // We call type(obj).m3(obj, 1, '2', 3)
             PyTuple r = (PyTuple) descr.call(obj, 1, "2", 3);
             check_result(r);
@@ -354,19 +419,6 @@ class TypeExposerMethodTest {
             // We call obj.m3(obj, 1, '2', 3)
             r = (PyTuple) func.call(1, "2", 3);
             check_result(r);
-        }
-
-        /** To set anything by keyword is a {@code TypeError}. */
-        // @Test
-        void raises_TypeError_on_java_kwnames() throws Throwable {
-            // We call type(obj).m3(obj, 1, '2', c=3)
-            Object[] vec = {1, "2", 3};
-            PyTuple names = Py.tuple("c");
-            assertThrows(TypeError.class,
-                    () -> descr.call(obj, vec, names));
-
-            // We call obj.m3(1, '2', c=3)
-            assertThrows(TypeError.class, () -> func.call(vec, names));
         }
     }
 
@@ -411,58 +463,58 @@ class TypeExposerMethodTest {
 
         @Override
         @Test
-        void takes_classic_args() throws Throwable {
-            // We call type(obj).m3pk(obj, *(1, '2', 3), **{})
-            PyTuple args = Py.tuple(obj, 1, "2", 3);
-            PyDict kwargs = Py.dict();
-            PyTuple r = (PyTuple) descr.__call__(args, kwargs);
+        void supports__call__() throws Throwable {
+            // We call type(obj).m3pk(obj, 1, '2', 3)
+            Object[] args = {obj, 1, "2", 3};
+            String[] names = {};
+            PyTuple r = (PyTuple) descr.__call__(args, names);
             check_result(r);
 
-            // We call obj.m3pk(*(1, '2', 3))
-            args = Py.tuple(1, "2", 3);
-            r = (PyTuple) func.__call__(args, kwargs);
-            check_result(r);
-        }
-
-        @Test
-        void takes_classic_kwargs() throws Throwable {
-            // We call type(obj).m3pk(*(obj, 1), **{c:3, b:'2')
-            PyTuple args = Py.tuple(obj, 1);
-            PyDict kwargs = Py.dict();
-            kwargs.put("c", 3);
-            kwargs.put("b", 2);
-            PyTuple r = (PyTuple) descr.__call__(args, kwargs);
-            check_result(r);
-
-            // We call obj.m3pk(*(1,), **{c:3, b:'2')
-            args = Py.tuple(1);
-            r = (PyTuple) func.__call__(args, kwargs);
+            // We call obj.m3pk(1, '2', 3)
+            args = Arrays.copyOfRange(args, 1, args.length);
+            r = (PyTuple) func.__call__(args, names);
             check_result(r);
         }
 
         @Override
         @Test
-        void takes_java_args() throws Throwable {
+        void supports_keywords() throws Throwable {
+            // We call type(obj).m3pk(obj, 1, c=3, b='2')
+            Object[] args = {obj, 1, 3, "2"};
+            String[] names = {"c", "b"};
+            PyTuple r = (PyTuple) descr.__call__(args, names);
+            check_result(r);
+
+            // We call obj.m3pk(1, c=3, b='2')
+            args = Arrays.copyOfRange(args, 1, args.length);
+            r = (PyTuple) func.__call__(args, names);
+            check_result(r);
+        }
+
+        @Override
+        @Test
+        void raises_TypeError_on_unexpected_keyword() throws Throwable {
+            // We call type(obj).m3pk(obj, 1, c=3, b='2', x=4)
+            Object[] args = {obj, 1, 3, "2", 4};
+            String[] names = {"c", "b", /* unknown */"x"};
+            assertThrows(TypeError.class,
+                    () -> descr.__call__(args, names));
+
+            // We call obj.m3pk(1, c=3, b='2', x=4)
+            Object[] args2 = Arrays.copyOfRange(args, 1, args.length);
+            assertThrows(TypeError.class,
+                    () -> func.__call__(args2, names));
+        }
+
+        @Override
+        @Test
+        void supports_java_call() throws Throwable {
             // We call type(obj).m3pk(obj, 1, '2', 3)
             PyTuple r = (PyTuple) descr.call(obj, 1, "2", 3);
             check_result(r);
 
             // We call obj.m3pk(1, '2', 3)
             r = (PyTuple) func.call(1, "2", 3);
-            check_result(r);
-        }
-
-        // @Test
-        void takes_java_args_kwnames() throws Throwable {
-            // We call type(obj).m3pk(obj, 1, c=3, b='2')
-            Object[] args = {1, 3, "2"};
-            PyTuple names = Py.tuple("c", "b");
-            PyTuple r = (PyTuple) descr.call(obj, args, names);
-            check_result(r);
-
-            // We call obj.m3pk(1, c=3, b='2')
-            // XXX Needs to be callkw or something to disambiguate.
-            r = (PyTuple) func.call(1, 3, "2", names);
             check_result(r);
         }
     }
@@ -509,50 +561,48 @@ class TypeExposerMethodTest {
 
         @Override
         @Test
-        void takes_classic_args() throws Throwable {
-            // We call type(obj).m3p2(obj, *(1, '2', 3), **{})
-            PyTuple args = Py.tuple(obj, 1, "2", 3);
-            PyDict kwargs = Py.dict();
-            PyTuple r = (PyTuple) descr.__call__(args, kwargs);
+        void supports__call__() throws Throwable {
+            // We call type(obj).m3p2(obj, 1, '2', 3)
+            Object[] args = {obj, 1, "2", 3};
+            String[] names = {};
+            PyTuple r = (PyTuple) descr.__call__(args, names);
             check_result(r);
         }
 
         /** To set {@code c} by keyword is a ok. */
+        @Override
         @Test
-        void takes_classic_kwargs() throws Throwable {
-            // We call type(obj).m3p2(obj, *(1, '2'), **{c:3})
-            PyTuple args = Py.tuple(obj, 1, "2");
-            PyDict kwargs = Py.dict();
-            kwargs.put("c", 3);
-            PyTuple r = (PyTuple) descr.__call__(args, kwargs);
+        void supports_keywords() throws Throwable {
+            // We call type(obj).m3p2(obj, 1, '2', c=3)
+            Object[] args = {obj, 1, "2", 3};
+            String[] names = {"c"};
+            PyTuple r = (PyTuple) descr.__call__(args, names);
             check_result(r);
 
-            // We call obj.m3p2(*(1, '2'), **{c:3})
-            args = Py.tuple(1, "2");
-            r = (PyTuple) func.__call__(args, kwargs);
+            // We call obj.m3p2(1, '2', c=3)
+            args = Arrays.copyOfRange(args, 1, args.length);
+            r = (PyTuple) func.__call__(args, names);
             check_result(r);
-        }
-
-        /** To set {@code b} by keyword is a {@code TypeError}. */
-        @Test
-        void raises_TypeError_on_bad_kwarg() throws Throwable {
-            // We call type(obj).m3p2(*(obj, 1), **{c:3, b:'2'})
-            PyTuple args = Py.tuple(obj, 1);
-            PyDict kwargs = Py.dict();
-            kwargs.put("c", 3);
-            kwargs.put("b", 2); // error
-            assertThrows(TypeError.class,
-                    () -> descr.__call__(args, kwargs));
-
-            // We call obj.m3p2(*(1), **{c:3, b:'2'})
-            PyTuple args2 = Py.tuple(1);
-            assertThrows(TypeError.class,
-                    () -> func.__call__(args2, kwargs));
         }
 
         @Override
         @Test
-        void takes_java_args() throws Throwable {
+        void raises_TypeError_on_unexpected_keyword() throws Throwable {
+            // We call type(obj).m3p2(obj, 1, c=3, b='2')
+            Object[] args = {obj, 1, 3, "2"};
+            String[] names = {"c", /* positional */"b"};
+            assertThrows(TypeError.class,
+                    () -> descr.__call__(args, names));
+
+            // We call obj.m3p2(1, c=3, b='2')
+            Object[] args2 = Arrays.copyOfRange(args, 1, args.length);
+            assertThrows(TypeError.class,
+                    () -> func.__call__(args2, names));
+        }
+
+        @Override
+        @Test
+        void supports_java_call() throws Throwable {
             // We call type(obj).m3p2(obj, 1, '2', 3)
             PyTuple r = (PyTuple) descr.call(obj, 1, "2", 3);
             check_result(r);
@@ -560,33 +610,6 @@ class TypeExposerMethodTest {
             // We call obj.m3p2(1, '2', 3)
             r = (PyTuple) func.call(1, "2", 3);
             check_result(r);
-        }
-
-        /** To set {@code c} by keyword is a ok. */
-        // @Test
-        void takes_java_args_kwnames() throws Throwable {
-            // We call type(obj).m3p2(obj, 1, '2', c=3)
-            PyTuple names = Py.tuple("c");
-            PyTuple r = (PyTuple) descr.call(obj, 1, '2', 3, names);
-            check_result(r);
-
-            // We call obj.m3p2(1, '2', c=3)
-            r = (PyTuple) func.call(1, '2', 3, names);
-            check_result(r);
-        }
-
-        /** To set {@code b} by keyword is a {@code TypeError}. */
-        // @Test
-        void raises_TypeError_on_bad_kwname() throws Throwable {
-            // We call type(obj).m3p2(obj, 1, c=3, b='2')
-            // The attempt to set b by keyword is a TypeError.
-            Object[] vec = {obj, 1, 3, "2"};
-            PyTuple names = Py.tuple("c", "b");
-            assertThrows(TypeError.class, () -> descr.call(vec, names));
-
-            // We call obj.m3p2(1, c=3, b='2')
-            Object[] vec2 = {1, 3, "2"};
-            assertThrows(TypeError.class, () -> func.call(vec2, names));
         }
     }
 

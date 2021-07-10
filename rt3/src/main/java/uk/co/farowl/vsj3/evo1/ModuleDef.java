@@ -73,6 +73,7 @@ public class ModuleDef {
      * Add members defined here to the dictionary of a module instance.
      *
      * @param module to populate
+     * @throws Throwable
      */
     void addMembers(JavaModule module) {
         PyDict d = module.dict;

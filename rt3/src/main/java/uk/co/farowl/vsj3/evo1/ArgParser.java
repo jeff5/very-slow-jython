@@ -109,13 +109,13 @@ class ArgParser {
 
     /**
      * The frame has a collector ({@code tuple}) for excess positional
-     * arguments at this index, if it is {@code >0}.
+     * arguments at this index, if it is {@code >=0}.
      */
     final int varArgsIndex;
 
     /**
      * The frame has a collector ({@code dict}) for excess keyword
-     * arguments at this index, if it is {@code >0}.
+     * arguments at this index, if it is {@code >=0}.
      */
     final int varKeywordsIndex;
 
@@ -392,30 +392,22 @@ class ArgParser {
     /**
      * @return true if default positional arguments are available.
      */
-    boolean hasDefaults() {
-        return defaults != null;
-    }
+    boolean hasDefaults() { return defaults != null; }
 
     /**
      * @return true if there is an excess positional argument collector.
      */
-    boolean hasVarArgs() {
-        return varArgsIndex >= 0;
-    }
+    boolean hasVarArgs() { return varArgsIndex >= 0; }
 
     /**
      * @return true if default keyword-only arguments are available.
      */
-    boolean hasKwdefaults() {
-        return kwdefaults != null;
-    }
+    boolean hasKwdefaults() { return kwdefaults != null; }
 
     /**
      * @return true if there is an excess keyword argument collector.
      */
-    boolean hasVarKeywords() {
-        return varKeywordsIndex >= 0;
-    }
+    boolean hasVarKeywords() { return varKeywordsIndex >= 0; }
 
     /**
      * The representation of an {@code ArgParser} is based on the
@@ -424,9 +416,7 @@ class ArgParser {
      * Argument Clinic.
      */
     @Override
-    public String toString() {
-        return name + textSignature();
-    }
+    public String toString() { return name + textSignature(); }
 
     /**
      * Return a string representing the argument list of the method. The
@@ -448,15 +438,15 @@ class ArgParser {
 
         // Possible leading argument
         switch (methodKind) {
-            case INSTANCE:
-                // $module, $self
-                sj.add(scopeKind.selfName);
-                break;
-            case CLASS:
-                sj.add("$type");
-                break;
-            default: // STATIC = no mention
-                break;
+        case INSTANCE:
+            // $module, $self
+            sj.add(scopeKind.selfName);
+            break;
+        case CLASS:
+            sj.add("$type");
+            break;
+        default: // STATIC = no mention
+            break;
         }
 
         // Positional-only parameters
@@ -540,6 +530,21 @@ class ArgParser {
         } else {
             return o.toString();
         }
+    }
+
+    /**
+     * Parse {@code __call__} arguments and create an array, using the
+     * arguments supplied and the defaults held in the parser.
+     *
+     * @param args all arguments, positional then keyword
+     * @param names of keyword arguments
+     * @return array of parsed arguments
+     */
+    Object[] parse(Object[] args, String[] names) {
+        Object[] a = new Object[argnames.length];
+        FrameWrapper w = new ArrayFrameWrapper(a);
+        parseToFrame(w, args, 0, args.length, names);
+        return a;
     }
 
     /**
@@ -704,6 +709,24 @@ class ArgParser {
         }
 
         /**
+         * Copy positional arguments into local variables, making sure
+         * we don't copy more than have been allowed for in the frame.
+         * Providing too many or too few is not an error at this stage,
+         * as there may be a collector to catch the excess arguments or
+         * positional or keyword defaults to make up the shortfall.
+         *
+         * @param stack positional and keyword arguments
+         * @param start position of arguments in the array
+         * @param nargs number of positional arguments
+         */
+        void setPositionalArguments(Object[] stack, int start,
+                int nargs) {
+            int n = Math.min(nargs, argcount);
+            for (int i = 0, j = start; i < n; i++)
+                setLocal(i, stack[j++]);
+        }
+
+        /**
          * For each of the names used as keywords in the call, match it
          * with an allowable parameter name, and assign that frame-local
          * variable the keyword argument given in the call. If the
@@ -712,8 +735,8 @@ class ArgParser {
          * "Allowable parameter name" here means the names in
          * {@code argnames[p:q]} where {@code p=posonlyargcount} and
          * {@code q=argcount + kwonlyargcount}. If the name used in the
-         * call is not is not an allowable keyword, then if this parser
-         * allows for excess keywords, add it to the frame's keyword
+         * call is not an allowable keyword, then if this parser allows
+         * for excess keywords, add it to the frame's keyword
          * dictionary, otherwise throw an informative error.
          * <p>
          * In this version, accept the keyword arguments passed as a
@@ -749,7 +772,7 @@ class ArgParser {
                     if (kwdict != null)
                         kwdict.put(name, value);
                     else
-                        // No kwdict: everything must match.
+                        // No kwdict: non-match is an error.
                         throw unexpectedKeyword(name, kwargs.keySet());
                 } else {
                     // Keyword found to name allowable variable at index
@@ -761,6 +784,78 @@ class ArgParser {
                                 name);
                 }
             }
+        }
+
+        /**
+         * For each of the names used as keywords in the call, match it
+         * with an allowable parameter name, and assign that frame-local
+         * variable the keyword argument given in the call. If the
+         * variable is not null, this is an error.
+         * <p>
+         * "Allowable parameter name" here means the names in
+         * {@code argnames[p:q]} where {@code p=posonlyargcount} and
+         * {@code q=argcount + kwonlyargcount}. If the name used in the
+         * call is not an allowable keyword, then if this parser allows
+         * for excess keywords, add it to the frame's keyword
+         * dictionary, otherwise throw an informative error.
+         * <p>
+         * In this version, accept the keyword arguments passed as a
+         * dictionary, as in the "classic" {@code (*args, **kwargs)}
+         * call.
+         *
+         * @param stack {@code [kwstart:kwstart+len(kwnames)]} values
+         *     corresponding to {@code kwnames} in order
+         * @param kwstart start position in {@code kwvalues}
+         * @param kwnames keywords used in the call (or
+         *     {@code **kwargs})
+         */
+        void setKeywordArguments(Object[] stack, int kwstart,
+                String[] kwnames) {
+            /*
+             * Create a dictionary for the excess keyword parameters,
+             * and insert it in the local variables at the proper
+             * position.
+             */
+            PyDict kwdict = null;
+            if (varKeywordsIndex >= 0) {
+                kwdict = Py.dict();
+                setLocal(varKeywordsIndex, kwdict);
+            }
+
+            /*
+             * For each of the names in kwnames, search code.varnames
+             * for a match, and either assign the local variable or add
+             * the name-value pair to kwdict.
+             */
+            int kwcount = kwnames == null ? 0 : kwnames.length;
+            for (int i = 0, j = kwstart; i < kwcount; i++) {
+                String key = kwnames[i];
+                Object value = stack[j++];
+                int index = argnamesIndexOf(key);
+
+                if (index < 0) {
+                    // Not found in (allowed slice of) argnames
+                    if (kwdict != null)
+                        // Put unmatched (name, value) in dict.
+                        kwdict.put(key, value);
+                    else
+                        // No kwdict: non-match is an error.
+                        throw unexpectedKeyword(key,
+                                Arrays.asList(kwnames));
+                } else {
+                    // Keyword found to name allowable variable at index
+                    if (getLocal(index) == null)
+                        setLocal(index, value);
+                    else
+                        // Unfortunately, that seat is already taken
+                        throw new TypeError(MULTIPLE_VALUES, name, key);
+                }
+            }
+
+            if (varKeywordsIndex >= 0) {
+                setLocal(varKeywordsIndex, kwdict);
+            }
+
         }
 
         /**
@@ -955,7 +1050,10 @@ class ArgParser {
          * <p>
          * We call this method when any keyword has been encountered
          * that does not match a legitimate parameter, and there is no
-         * {@code **kwargs} dictionary to catch it.
+         * {@code **kwargs} dictionary to catch it. Because Python makes
+         * it possible to supply keyword arguments from a {@code map}
+         * with {@code object} keys, we accept any object as a keyword
+         * name.
          *
          * @param kw the unexpected keyword encountered in the call
          * @param kwnames all the keywords used in the call
@@ -968,8 +1066,8 @@ class ArgParser {
          * return status. Also, when called there is *always* a problem,
          * and therefore an exception.
          */
-        protected TypeError unexpectedKeyword(Object kw,
-                Collection<Object> kwnames) throws TypeError {
+        protected <K> TypeError unexpectedKeyword(Object kw,
+                Collection<K> kwnames) throws TypeError {
             /*
              * Compare each of the positional only parameter names with
              * each of the keyword names given in the call. Collect the
@@ -977,8 +1075,8 @@ class ArgParser {
              */
             List<String> names = new ArrayList<>();
             for (int k = 0; k < posonlyargcount; k++) {
-                Object varname = argnames[k];
-                for (Object keyword : kwnames) {
+                String varname = argnames[k];
+                for (K keyword : kwnames) {
                     if (Abstract.richCompareBool(varname, keyword,
                             Comparison.EQ, null))
                         names.add(keyword.toString());
@@ -1054,25 +1152,25 @@ class ArgParser {
             String joinedNames;
 
             switch (len) {
-                case 0:
-                    // Shouldn't happen but let's avoid trouble
-                    joinedNames = "";
-                    break;
-                case 1:
-                    joinedNames = names.get(0);
-                    break;
-                case 2:
-                    joinedNames = String.format("%s and %s",
-                            names.get(len - 2), names.get(len - 1));
-                    break;
-                default:
-                    String tail = String.format(", %s and %s",
-                            names.get(len - 2), names.get(len - 1));
-                    // Chop off the last two objects in the list.
-                    names.remove(len - 1);
-                    names.remove(len - 2);
-                    // Stitch into a nice comma-separated list.
-                    joinedNames = String.join(", ", names) + tail;
+            case 0:
+                // Shouldn't happen but let's avoid trouble
+                joinedNames = "";
+                break;
+            case 1:
+                joinedNames = names.get(0);
+                break;
+            case 2:
+                joinedNames = String.format("%s and %s",
+                        names.get(len - 2), names.get(len - 1));
+                break;
+            default:
+                String tail = String.format(", %s and %s",
+                        names.get(len - 2), names.get(len - 1));
+                // Chop off the last two objects in the list.
+                names.remove(len - 1);
+                names.remove(len - 2);
+                // Stitch into a nice comma-separated list.
+                joinedNames = String.join(", ", names) + tail;
             }
 
             return new TypeError(
@@ -1120,14 +1218,10 @@ class ArgParser {
         }
 
         @Override
-        Object getLocal(int i) {
-            return args[start + i];
-        }
+        Object getLocal(int i) { return args[start + i]; }
 
         @Override
-        void setLocal(int i, Object v) {
-            args[start + i] = v;
-        }
+        void setLocal(int i, Object v) { args[start + i] = v; }
 
         @Override
         void setPositionalArguments(PyTuple argsTuple) {
@@ -1185,4 +1279,121 @@ class ArgParser {
             frame.applyKWDefaults(kwdefaults);
     }
 
+    /**
+     * Parse when an args array and keyword array are supplied, that is,
+     * for a vector call on a stack slice.
+     *
+     * @param frame to populate with argument values
+     * @param stack all arguments, positional then keyword
+     * @param kwnames of keyword arguments
+     */
+    void parseToFrame(FrameWrapper frame, Object[] stack, int start,
+            int nargs, String[] kwnames) {
+
+        // Number of arguments given by keyword
+        int nkwargs = kwnames == null ? 0 : kwnames.length;
+        // From here on, number of arguments given by position
+        nargs = nargs - nkwargs;
+
+        /*
+         * Here, CPython applies certain criteria for calling a fast
+         * path that (in our terms) calls only setPositionalArguments().
+         * Those that depend only on code or defaults we make when those
+         * attributes are defined.
+         */
+
+        // Set parameters from the positional arguments in the call.
+        frame.setPositionalArguments(stack, start, nargs);
+
+        // Set parameters from the keyword arguments in the call.
+        if (nkwargs > 0)
+            frame.setKeywordArguments(stack, start + nargs, kwnames);
+
+        if (nargs > argcount) {
+
+            if (varArgsIndex >= 0) {
+                // Put the excess positional arguments in the *args
+                frame.setLocal(varArgsIndex, new PyTuple(stack,
+                        start + argcount, nargs - argcount));
+            } else {
+                // Excess positional arguments but nowhere for them.
+                throw frame.tooManyPositional(nargs);
+            }
+
+        } else { // nargs <= code.argcount
+
+            if (varArgsIndex >= 0) {
+                // No excess: set the * parameter in the frame to empty
+                frame.setLocal(varArgsIndex, PyTuple.EMPTY);
+            }
+
+            if (nargs < argcount) {
+                // Set remaining positional parameters from default
+                frame.applyDefaults(nargs, defaults);
+            }
+        }
+
+        if (kwonlyargcount > 0)
+            // Set keyword parameters from default values
+            frame.applyKWDefaults(kwdefaults);
+    }
+
+    /**
+     * Parse when an args array and keyword array are supplied, that is,
+     * for a standard {@code __call__}.
+     *
+     * @param frame to populate with argument values
+     * @param args all arguments, positional then keyword
+     * @param kwnames of keyword arguments
+     */
+    void parseToFrame(FrameWrapper frame, Object[] args,
+            String[] kwnames) {
+
+        // Number of arguments given by keyword
+        int nkwargs = kwnames == null ? 0 : kwnames.length;
+        // Number of arguments given by position
+        int nargs = args.length - nkwargs;
+
+        /*
+         * Here, CPython applies certain criteria for calling a fast
+         * path that (in our terms) calls only setPositionalArguments().
+         * Those that depend only on code or defaults we make when those
+         * attributes are defined.
+         */
+
+        // Set parameters from the positional arguments in the call.
+        frame.setPositionalArguments(args, 0, nargs);
+
+        // Set parameters from the keyword arguments in the call.
+        if (nkwargs > 0)
+            frame.setKeywordArguments(args, nargs, kwnames);
+
+        if (nargs > argcount) {
+
+            if (varArgsIndex >= 0) {
+                // Put the excess positional arguments in the *args
+                frame.setLocal(varArgsIndex,
+                        new PyTuple(args, argcount, nargs - argcount));
+            } else {
+                // Excess positional arguments but nowhere for them.
+                throw frame.tooManyPositional(nargs);
+            }
+
+        } else { // nargs <= code.argcount
+
+            if (varArgsIndex >= 0) {
+                // No excess: set the * parameter in the frame to empty
+                frame.setLocal(varArgsIndex, PyTuple.EMPTY);
+            }
+
+            if (nargs < argcount) {
+                // Set remaining positional parameters from default
+                frame.applyDefaults(nargs, defaults);
+            }
+        }
+
+        if (kwonlyargcount > 0)
+            // Set keyword parameters from default values
+            frame.applyKWDefaults(kwdefaults);
+    }
 }

@@ -5,6 +5,7 @@ import static uk.co.farowl.vsj3.evo1.ClassShorthand.DICT;
 import static uk.co.farowl.vsj3.evo1.ClassShorthand.I;
 import static uk.co.farowl.vsj3.evo1.ClassShorthand.O;
 import static uk.co.farowl.vsj3.evo1.ClassShorthand.OA;
+import static uk.co.farowl.vsj3.evo1.ClassShorthand.SA;
 import static uk.co.farowl.vsj3.evo1.ClassShorthand.S;
 import static uk.co.farowl.vsj3.evo1.ClassShorthand.T;
 import static uk.co.farowl.vsj3.evo1.ClassShorthand.TUPLE;
@@ -403,9 +404,9 @@ enum Slot {
 
             @Override
             Object callWrapped(MethodHandle wrapped, Object self,
-                    PyTuple args, PyDict kwargs)
+                    Object[] args, String[] names)
                     throws ArgumentError, Throwable {
-                checkArgs(args, 0, kwargs);
+                checkArgs(args, 0, names);
                 return wrapped.invokeExact(self);
             }
         },
@@ -418,10 +419,10 @@ enum Slot {
 
             @Override
             Object callWrapped(MethodHandle wrapped, Object self,
-                    PyTuple args, PyDict kwargs)
+                    Object[] args, String[] names)
                     throws ArgumentError, Throwable {
-                checkArgs(args, 1, kwargs);
-                return wrapped.invokeExact(self, args.value[0]);
+                checkArgs(args, 1, names);
+                return wrapped.invokeExact(self, args[0]);
             }
         },
         /**
@@ -430,21 +431,24 @@ enum Slot {
         TERNARY(O, O, O, O),
 
         /**
-         * The signature {@code (O,O,TUPLE,DICT)O}, used for
-         * {@link Slot#op_call}.
+         * The signature {@code (O,O[],S[])O}, used for
+         * {@link Slot#op_call}. Not that in Jython, standard calls are
+         * what CPython refers to as vector calls (although they cannot
+         * use a stack slice as the array).
          */
         // u(self, *args, **kwargs)
-        CALL(O, O, TUPLE, DICT) {
+        CALL(O, O, OA, SA) {
 
             @Override
             Object callWrapped(MethodHandle wrapped, Object self,
-                    PyTuple args, PyDict kwargs)
+                    Object[] args, String[] names)
                     throws ArgumentError, Throwable {
-                return wrapped.invokeExact(self, args, kwargs);
+                return wrapped.invokeExact(self, args, names);
             }
         },
 
         // u(x, y, ..., a=z)
+        @Deprecated
         VECTORCALL(O, O, OA, I, I, TUPLE),
 
         // Slot#op_bool
@@ -458,9 +462,9 @@ enum Slot {
 
             @Override
             Object callWrapped(MethodHandle wrapped, Object self,
-                    PyTuple args, PyDict kwargs)
+                    Object[] args, String[] names)
                     throws ArgumentError, Throwable {
-                checkArgs(args, 0, kwargs);
+                checkArgs(args, 0, names);
                 return (int) wrapped.invokeExact(self);
             }
         },
@@ -476,10 +480,10 @@ enum Slot {
 
             @Override
             Object callWrapped(MethodHandle wrapped, Object self,
-                    PyTuple args, PyDict kwargs)
+                    Object[] args, String[] names)
                     throws ArgumentError, Throwable {
-                checkArgs(args, 1, kwargs);
-                String name = args.value[0].toString();
+                checkArgs(args, 1, names);
+                String name = args[0].toString();
                 return wrapped.invokeExact(self, name);
             }
         },
@@ -489,11 +493,11 @@ enum Slot {
 
             @Override
             Object callWrapped(MethodHandle wrapped, Object self,
-                    PyTuple args, PyDict kwargs)
+                    Object[] args, String[] names)
                     throws ArgumentError, Throwable {
-                checkArgs(args, 2, kwargs);
-                String name = args.value[0].toString();
-                wrapped.invokeExact(self, name, args.value[1]);
+                checkArgs(args, 2, names);
+                String name = args[0].toString();
+                wrapped.invokeExact(self, name, args[1]);
                 return Py.None;
             }
         },
@@ -503,10 +507,10 @@ enum Slot {
 
             @Override
             Object callWrapped(MethodHandle wrapped, Object self,
-                    PyTuple args, PyDict kwargs)
+                    Object[] args, String[] names)
                     throws ArgumentError, Throwable {
-                checkArgs(args, 1, kwargs);
-                String name = args.value[0].toString();
+                checkArgs(args, 1, names);
+                String name = args[0].toString();
                 wrapped.invokeExact(self, name);
                 return Py.None;
             }
@@ -517,14 +521,13 @@ enum Slot {
 
             @Override
             Object callWrapped(MethodHandle wrapped, Object self,
-                    PyTuple args, PyDict kwargs)
+                    Object[] args, String[] names)
                     throws ArgumentError, Throwable {
-                checkArgs(args, 1, 2, kwargs);
-                Object[] a = args.value;
-                Object obj = a[0];
+                checkArgs(args, 1, 2, names);
+                Object obj = args[0];
                 if (obj == Py.None) { obj = null; }
                 Object type = null;
-                if (a.length > 1 && type != Py.None) { type = a[1]; }
+                if (type != Py.None) { type = args[1]; }
                 if (type == null && obj == null) {
                     throw new TypeError(
                             "__get__(None, None) is invalid");
@@ -584,18 +587,18 @@ enum Slot {
         /**
          * Check that no positional or keyword arguments are supplied.
          * This is for use when implementing
-         * {@link #callWrapped(MethodHandle, Object, PyTuple, PyDict)}.
+         * {@link #callWrapped(MethodHandle, Object, Object[], String[])}.
          *
-         * @param args positional argument tuple to be checked
-         * @param kwargs to be checked
+         * @param args positional argument array to be checked
+         * @param names to be checked
          * @throws ArgumentError if positional arguments are given or
-         *     {@code kwargs} is not {@code null} or empty
+         *     {@code names} is not {@code null} or empty
          */
-        final protected void checkNoArgs(PyTuple args, PyDict kwargs)
+        final protected void checkNoArgs(Object[] args, String[] names)
                 throws ArgumentError {
-            if (args.value.length != 0)
+            if (args.length != 0)
                 throw new ArgumentError(Mode.NOARGS);
-            else if (kwargs != null && !kwargs.isEmpty())
+            else if (names != null && names.length != 0)
                 throw new ArgumentError(Mode.NOKWARGS);
         }
 
@@ -606,16 +609,16 @@ enum Slot {
          *
          * @param args positional argument tuple to be checked
          * @param expArgs expected number of positional arguments
-         * @param kwargs to be checked
+         * @param names to be checked
          * @throws ArgumentError if the wrong number of positional
          *     arguments are given or {@code kwargs} is not {@code null}
          *     or empty
          */
-        final protected void checkArgs(PyTuple args, int expArgs,
-                PyDict kwargs) throws ArgumentError {
-            if (args.value.length != expArgs)
+        final protected void checkArgs(Object[] args, int expArgs,
+                String[] names) throws ArgumentError {
+            if (args.length != expArgs)
                 throw new ArgumentError(expArgs);
-            else if (kwargs != null && !kwargs.isEmpty())
+            else if (names != null && names.length != 0)
                 throw new ArgumentError(Mode.NOKWARGS);
         }
 
@@ -627,17 +630,17 @@ enum Slot {
          * @param args positional argument tuple to be checked
          * @param minArgs minimum number of positional arguments
          * @param maxArgs maximum number of positional arguments
-         * @param kwargs to be checked
+         * @param names to be checked
          * @throws ArgumentError if the wrong number of positional
          *     arguments are given or {@code kwargs} is not {@code null}
          *     or empty
          */
-        final protected void checkArgs(PyTuple args, int minArgs,
-                int maxArgs, PyDict kwargs) throws ArgumentError {
-            int n = args.value.length;
+        final protected void checkArgs(Object[] args, int minArgs,
+                int maxArgs, String[] names) throws ArgumentError {
+            int n = args.length;
             if (n < minArgs || n > maxArgs)
                 throw new ArgumentError(minArgs, maxArgs);
-            else if (kwargs != null && !kwargs.isEmpty())
+            else if (names != null && names.length != 0)
                 throw new ArgumentError(Mode.NOKWARGS);
         }
 
@@ -654,19 +657,19 @@ enum Slot {
          * @param wrapped handle of the method to call
          * @param self target object of the method call
          * @param args of the method call
-         * @param kwargs of the method call
+         * @param names of trailing arguments in {@code args}
          * @return result of the method call
          * @throws ArgumentError when the arguments ({@code args},
-         *     {@code kwargs}) are not correct for the {@code Signature}
+         *     {@code names}) are not correct for the {@code Signature}
          * @throws Throwable from the implementation of the special
          *     method
          */
         // Compare CPython wrap_* in typeobject.c
         // XXX should be abstract, but only when defined for each
         /* abstract */ Object callWrapped(MethodHandle wrapped,
-                Object self, PyTuple args, PyDict kwargs)
+                Object self, Object[] args, String[] names)
                 throws ArgumentError, Throwable {
-            checkNoArgs(args, kwargs);
+            checkNoArgs(args, names);
             return wrapped.invokeExact(self);
         }
     }

@@ -5,7 +5,8 @@ package uk.co.farowl.vsj3.evo1;
  * This class provides some common behaviour and support methods that
  * would otherwise be duplicated.
  */
-abstract class MethodDescriptor extends Descriptor {
+abstract class MethodDescriptor extends Descriptor
+        implements FastCall {
 
     MethodDescriptor(PyType descrtype, PyType objclass, String name) {
         super(descrtype, objclass, name);
@@ -22,7 +23,9 @@ abstract class MethodDescriptor extends Descriptor {
      */
     static class ArgumentError extends Exception {
 
-        enum Mode { NOARGS, NUMARGS, MINMAXARGS, NOKWARGS }
+        enum Mode {
+            NOARGS, NUMARGS, MINMAXARGS, NOKWARGS
+        }
 
         final Mode mode;
         final short minArgs, maxArgs;
@@ -40,9 +43,7 @@ abstract class MethodDescriptor extends Descriptor {
          *
          * @param mode qualifies the sub-type of the problem
          */
-        ArgumentError(Mode mode) {
-            this(mode, 0, 0);
-        }
+        ArgumentError(Mode mode) { this(mode, 0, 0); }
 
         /**
          * The mode is {@link Mode#NUMARGS}.
@@ -74,21 +75,21 @@ abstract class MethodDescriptor extends Descriptor {
      * @return a {@code TypeError} to throw
      */
     protected TypeError signatureTypeError(
-            MethodDescriptor.ArgumentError ae, PyTuple args) {
-        int n = args.value.length;
+            MethodDescriptor.ArgumentError ae, Object[] args) {
+        int n = args.length;
         switch (ae.mode) {
-            case NOARGS:
-                return new TypeError(TAKES_NO_ARGUMENTS, name, n);
-            case NUMARGS:
-                int N = ae.minArgs;
-                return new TypeError(TAKES_ARGUMENTS, name, N, n);
-            case MINMAXARGS:
-                String range = String.format("from %d to %d",
-                        ae.minArgs, ae.maxArgs);
-                return new TypeError(TAKES_ARGUMENTS, name, range, n);
-            case NOKWARGS:
-            default:
-                return new TypeError(TAKES_NO_KEYWORDS, name);
+        case NOARGS:
+            return new TypeError(TAKES_NO_ARGUMENTS, name, n);
+        case NUMARGS:
+            int N = ae.minArgs;
+            return new TypeError(TAKES_ARGUMENTS, name, N, n);
+        case MINMAXARGS:
+            String range = String.format("from %d to %d", ae.minArgs,
+                    ae.maxArgs);
+            return new TypeError(TAKES_ARGUMENTS, name, range, n);
+        case NOKWARGS:
+        default:
+            return new TypeError(TAKES_NO_KEYWORDS, name);
         }
     }
 

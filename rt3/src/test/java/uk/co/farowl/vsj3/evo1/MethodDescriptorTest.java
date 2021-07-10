@@ -118,7 +118,7 @@ class MethodDescriptorTest extends UnitTestSupport {
             for (String s : List.of("Hej!", "¡Hola!")) {
                 PyUnicode u = newPyUnicode(s);
                 for (Object o : List.of(s, u)) {
-                    Object r = isascii.__call__(Py.tuple(o), null);
+                    Object r = isascii.__call__(new Object[] {o}, null);
                     assertEquals(even, r);
                 }
                 even = !even;
@@ -135,7 +135,7 @@ class MethodDescriptorTest extends UnitTestSupport {
             PyUnicode u = newPyUnicode(s);
 
             for (Object o : List.of(s, u)) {
-                Object r = zfill.__call__(Py.tuple(o, 6), null);
+                Object r = zfill.__call__(new Object[] {o, 6}, null);
                 assertEquals("-00123", r.toString());
             }
         }
@@ -153,8 +153,8 @@ class MethodDescriptorTest extends UnitTestSupport {
             PyUnicode u = newPyUnicode(s);
 
             for (Object o : List.of(s, u)) {
-                Object r = replace.__call__(Py.tuple(o, "ell", "ipp"),
-                        null);
+                Object r = replace
+                        .__call__(new Object[] {o, "ell", "ipp"}, null);
                 assertEquals("hippo", r.toString());
             }
         }
@@ -173,13 +173,14 @@ class MethodDescriptorTest extends UnitTestSupport {
 
             // Test with fill character explicit
             for (Object o : List.of(s, u)) {
-                Object r = ljust.__call__(Py.tuple(o, 8, "*"), null);
+                Object r =
+                        ljust.__call__(new Object[] {o, 8, "*"}, null);
                 assertEquals("hello***", r.toString());
             }
 
             // Test with fill character taking default value
             for (Object o : List.of(s, u)) {
-                Object r = ljust.__call__(Py.tuple(o, 7), null);
+                Object r = ljust.__call__(new Object[] {o, 7}, null);
                 assertEquals("hello  ", r.toString());
             }
         }
