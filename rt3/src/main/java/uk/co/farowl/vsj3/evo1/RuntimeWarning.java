@@ -4,6 +4,7 @@ import java.lang.invoke.MethodHandles;
 
 /** The Python {@code RuntimeWarning} exception. */
 class RuntimeWarning extends Warning {
+    private static final long serialVersionUID = 1L;
 
     /** The type of Python object this class implements. */
     static final PyType TYPE = PyType.fromSpec(

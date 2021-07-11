@@ -8,6 +8,7 @@ package uk.co.farowl.vsj3.evo1.base;
  * What does the reference implementation do at this point?
  */
 public class MissingFeature extends InterpreterError {
+    private static final long serialVersionUID = 1L;
 
     /**
      * Constructor specifying a message.

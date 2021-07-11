@@ -3,19 +3,29 @@ package uk.co.farowl.vsj3.evo1;
 import java.lang.invoke.MethodHandles;
 
 /** The Python {@code BaseException} exception. */
-class BaseException extends RuntimeException implements CraftedPyObject {
+class BaseException extends RuntimeException
+        implements CraftedPyObject {
+    private static final long serialVersionUID = 1L;
 
     /** The type of Python object this class implements. */
     static final PyType TYPE = PyType.fromSpec(
             new PyType.Spec("BaseException", MethodHandles.lookup()));
     private final PyType type;
-    final PyTuple args;
+    final Object[] args;
 
     @Override
     public PyType getType() { return type; }
 
     /**
-     * Constructor for sub-class use specifying {@link #type}.
+     * Constructor for sub-class use specifying {@link #type}. The
+     * message {@code msg} is a Java format string in which the
+     * constructor arguments {@code args} are used to fill the place
+     * holders. The formatted message is the exception message from the
+     * Java point of view.
+     * <p>
+     * From a Python perspective, the tuple ({@code exception.args}) has
+     * one element, the formatted message, or zero elements if the
+     * message is zero length.
      *
      * @param type object being constructed
      * @param msg a Java format string for the message
@@ -25,7 +35,8 @@ class BaseException extends RuntimeException implements CraftedPyObject {
         super(String.format(msg, args));
         this.type = type;
         msg = this.getMessage();
-        this.args = msg.length() > 0 ? new PyTuple(msg) : PyTuple.EMPTY;
+        this.args =
+                msg.length() > 0 ? new Object[] {msg} : Py.EMPTY_ARRAY;
     }
 
     /**
@@ -40,7 +51,7 @@ class BaseException extends RuntimeException implements CraftedPyObject {
 
     @Override
     public String toString() {
-        String msg = args.size() > 0 ? args.get(0).toString() : "";
+        String msg = args.length > 0 ? args[0].toString() : "";
         return String.format("%s: %s", getType().name, msg);
     }
 

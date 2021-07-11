@@ -3,7 +3,10 @@ package uk.co.farowl.vsj3.evo1;
 import java.util.Map;
 import java.util.StringJoiner;
 
-/** Miscellaneous static helpers common to built-in objects. */
+/**
+ * Miscellaneous static helpers commonly needed to implement Python
+ * objects in Java.
+ */
 class PyObjectUtil {
 
     private PyObjectUtil() {} // no instances
@@ -80,10 +83,9 @@ class PyObjectUtil {
      * return value".
      */
     static class NoConversion extends Exception {
+        private static final long serialVersionUID = 1L;
 
-        NoConversion() {
-            super(null, null, false, false);
-        }
+        private NoConversion() { super(null, null, false, false); }
     }
 
     /**

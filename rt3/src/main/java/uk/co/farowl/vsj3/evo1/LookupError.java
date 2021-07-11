@@ -4,6 +4,7 @@ import java.lang.invoke.MethodHandles;
 
 /** The Python {@code LookupError} exception. */
 class LookupError extends PyException {
+    private static final long serialVersionUID = 1L;
 
     /** The type of Python object this class implements. */
     static final PyType TYPE = PyType.fromSpec(

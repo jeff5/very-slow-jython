@@ -4,6 +4,7 @@ import java.lang.invoke.MethodHandles;
 
 /** The Python {@code KeyError} exception. */
 class KeyError extends LookupError {
+    private static final long serialVersionUID = 1L;
 
     /** The type of Python object this class implements. */
     static final PyType TYPE = PyType.fromSpec(
@@ -23,6 +24,7 @@ class KeyError extends LookupError {
     }
 
     static class Duplicate extends KeyError {
+        private static final long serialVersionUID = 1L;
 
         public Duplicate(Object key) {
             super(key, "duplicate key %s", key.toString());

@@ -7,6 +7,7 @@ package uk.co.farowl.vsj3.evo1.base;
  * during initialisation or for irrecoverable internal errors.
  */
 public class InterpreterError extends RuntimeException {
+    private static final long serialVersionUID = 1L;
 
     /**
      * Constructor specifying a message.
