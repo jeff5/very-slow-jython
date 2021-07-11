@@ -94,24 +94,24 @@ public class MethodHandleFormationTest {
                 .empty(Slot.Signature.TERNARY.empty.type());
 
         // These go quietly
-        Slot.op_hash.setSlot(basic, length);
-        Slot.op_str.setSlot(basic, unary);
+        Slot.op_hash.setHandle(basic, length);
+        Slot.op_str.setHandle(basic, unary);
 
         // These should be prevented
         assertThrows(InterpreterError.class, () -> { //
-            Slot.op_str.setSlot(basic, length);
+            Slot.op_str.setHandle(basic, length);
         });
         assertThrows(InterpreterError.class, () -> { //
-            Slot.op_hash.setSlot(basic, unary);
+            Slot.op_hash.setHandle(basic, unary);
         });
         assertThrows(InterpreterError.class, () -> { //
-            Slot.op_hash.setSlot(basic, binary);
+            Slot.op_hash.setHandle(basic, binary);
         });
         assertThrows(InterpreterError.class, () -> { //
-            Slot.op_hash.setSlot(basic, ternary);
+            Slot.op_hash.setHandle(basic, ternary);
         });
         assertThrows(InterpreterError.class, () -> { //
-            Slot.op_hash.setSlot(basic, (MethodHandle) null);
+            Slot.op_hash.setHandle(basic, (MethodHandle) null);
         });
 
         // And the slots should be unaffected
@@ -143,34 +143,34 @@ public class MethodHandleFormationTest {
         final MethodHandle ternary = MethodHandles
                 .empty(Slot.Signature.TERNARY.empty.type());
         // These go quietly
-        Slot.op_neg.setSlot(number, unary);
-        Slot.op_add.setSlot(number, binary);
+        Slot.op_neg.setHandle(number, unary);
+        Slot.op_add.setHandle(number, binary);
 
         // These should be prevented
         assertThrows(InterpreterError.class, () -> { //
-            Slot.op_neg.setSlot(number, length);
+            Slot.op_neg.setHandle(number, length);
         });
         assertThrows(InterpreterError.class, () -> { //
-            Slot.op_neg.setSlot(number, binary);
+            Slot.op_neg.setHandle(number, binary);
         });
         assertThrows(InterpreterError.class, () -> { //
-            Slot.op_neg.setSlot(number, ternary);
+            Slot.op_neg.setHandle(number, ternary);
         });
         assertThrows(InterpreterError.class, () -> { //
-            Slot.op_neg.setSlot(number, (MethodHandle) null);
+            Slot.op_neg.setHandle(number, (MethodHandle) null);
         });
 
         assertThrows(InterpreterError.class, () -> { //
-            Slot.op_add.setSlot(number, length);
+            Slot.op_add.setHandle(number, length);
         });
         assertThrows(InterpreterError.class, () -> { //
-            Slot.op_add.setSlot(number, unary);
+            Slot.op_add.setHandle(number, unary);
         });
         assertThrows(InterpreterError.class, () -> { //
-            Slot.op_add.setSlot(number, ternary);
+            Slot.op_add.setHandle(number, ternary);
         });
         assertThrows(InterpreterError.class, () -> { //
-            Slot.op_add.setSlot(number, (MethodHandle) null);
+            Slot.op_add.setHandle(number, (MethodHandle) null);
         });
 
         // And the slots should have the value set earlier
@@ -198,20 +198,20 @@ public class MethodHandleFormationTest {
                 .empty(Slot.Signature.TERNARY.empty.type());
 
         // This goes quietly
-        Slot.op_len.setSlot(sequence, length);
+        Slot.op_len.setHandle(sequence, length);
 
         // These should be prevented
         assertThrows(InterpreterError.class, () -> { //
-            Slot.op_len.setSlot(sequence, unary);
+            Slot.op_len.setHandle(sequence, unary);
         });
         assertThrows(InterpreterError.class, () -> { //
-            Slot.op_len.setSlot(sequence, binary);
+            Slot.op_len.setHandle(sequence, binary);
         });
         assertThrows(InterpreterError.class, () -> { //
-            Slot.op_len.setSlot(sequence, ternary);
+            Slot.op_len.setHandle(sequence, ternary);
         });
         assertThrows(InterpreterError.class, () -> { //
-            Slot.op_len.setSlot(sequence, (MethodHandle) null);
+            Slot.op_len.setHandle(sequence, (MethodHandle) null);
         });
 
         // And the slot should be unaffected
@@ -243,21 +243,21 @@ public class MethodHandleFormationTest {
                 .empty(Slot.Signature.GETATTR.empty.type());
 
         // These go quietly
-        Slot.op_getitem.setSlot(mapping, getitem);
-        Slot.op_setitem.setSlot(mapping, setitem);
+        Slot.op_getitem.setHandle(mapping, getitem);
+        Slot.op_setitem.setHandle(mapping, setitem);
 
         // These should be prevented
         assertThrows(InterpreterError.class, () -> { //
-            Slot.op_getitem.setSlot(mapping, bad1);
+            Slot.op_getitem.setHandle(mapping, bad1);
         });
         assertThrows(InterpreterError.class, () -> { //
-            Slot.op_getitem.setSlot(mapping, bad2);
+            Slot.op_getitem.setHandle(mapping, bad2);
         });
         assertThrows(InterpreterError.class, () -> { //
-            Slot.op_setitem.setSlot(mapping, bad2);
+            Slot.op_setitem.setHandle(mapping, bad2);
         });
         assertThrows(InterpreterError.class, () -> { //
-            Slot.op_setitem.setSlot(mapping, (MethodHandle) null);
+            Slot.op_setitem.setHandle(mapping, (MethodHandle) null);
         });
 
         // And the slots should be unaffected

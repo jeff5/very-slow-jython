@@ -5,8 +5,8 @@ import static uk.co.farowl.vsj3.evo1.ClassShorthand.DICT;
 import static uk.co.farowl.vsj3.evo1.ClassShorthand.I;
 import static uk.co.farowl.vsj3.evo1.ClassShorthand.O;
 import static uk.co.farowl.vsj3.evo1.ClassShorthand.OA;
-import static uk.co.farowl.vsj3.evo1.ClassShorthand.SA;
 import static uk.co.farowl.vsj3.evo1.ClassShorthand.S;
+import static uk.co.farowl.vsj3.evo1.ClassShorthand.SA;
 import static uk.co.farowl.vsj3.evo1.ClassShorthand.T;
 import static uk.co.farowl.vsj3.evo1.ClassShorthand.TUPLE;
 import static uk.co.farowl.vsj3.evo1.ClassShorthand.V;
@@ -19,8 +19,7 @@ import java.lang.invoke.VarHandle;
 import java.util.HashMap;
 import java.util.Map;
 
-import uk.co.farowl.vsj3.evo1.MethodDescriptor.ArgumentError;
-import uk.co.farowl.vsj3.evo1.MethodDescriptor.ArgumentError.Mode;
+import uk.co.farowl.vsj3.evo1.ArgumentError.Mode;
 import uk.co.farowl.vsj3.evo1.base.InterpreterError;
 import uk.co.farowl.vsj3.evo1.base.MissingFeature;
 
@@ -267,7 +266,7 @@ enum Slot {
      * @param ops target type object
      * @param mh handle value to assign
      */
-    void setSlot(Operations ops, MethodHandle mh) {
+    void setHandle(Operations ops, MethodHandle mh) {
         if (mh == null || !mh.type().equals(getType()))
             throw slotTypeError(this, mh);
         slotHandle.set(ops, mh);
@@ -284,7 +283,7 @@ enum Slot {
      * <p>
      * Where the object is a {@link PyWrapperDescr}, the wrapped method
      * handle will be set as by
-     * {@link #setSlot(Operations, MethodHandle)}. The
+     * {@link #setHandle(Operations, MethodHandle)}. The
      * {@link PyWrapperDescr#slot} is not necessarily this slot: client
      * Python code can enter any wrapper descriptor against the name.
      *
@@ -292,7 +291,7 @@ enum Slot {
      * @param def object defining the handle to set (or {@code null})
      */
     // Compare CPython update_one_slot in typeobject.c
-    void setSlot(Operations ops, Object def) {
+    void setDefinition(Operations ops, Object def) {
         MethodHandle mh;
         if (def == null) {
             // No definition available for the special method
@@ -364,6 +363,7 @@ enum Slot {
 
     /** The type of exception thrown by invoking an empty slot. */
     static class EmptyException extends Exception {
+        private static final long serialVersionUID = 1L;
 
         // Suppression and stack trace disabled since singleton.
         EmptyException() { super(null, null, false, false); }
@@ -430,7 +430,7 @@ enum Slot {
 
         /**
          * The signature {@code (O,O[],S[])O}, used for
-         * {@link Slot#op_call}. Not that in Jython, standard calls are
+         * {@link Slot#op_call}. Note that in Jython, standard calls are
          * what CPython refers to as vector calls (although they cannot
          * use a stack slice as the array).
          */
@@ -531,11 +531,12 @@ enum Slot {
         },
 
         /**
-         * The signature {@code (O,O,TUPLE,DICT)V}, used for
-         * {@link Slot#op_init}.
+         * The signature {@code (O,O,O[],S[])V}, used for
+         * {@link Slot#op_init}. This is the same as {@link #CALL}
+         * except with {@code void} return.
          */
         // (initproc) Slot#op_init
-        INIT(V, O, TUPLE, DICT);
+        INIT(V, O, OA, SA);
 
         /**
          * The signature was defined with this nominal method type.
@@ -669,8 +670,8 @@ enum Slot {
     }
 
     /**
-     * Helper for {@link Slot#setSlot(PyType, MethodHandle)}, when a bad
-     * handle is presented.
+     * Helper for {@link Slot#setHandle(PyType, MethodHandle)}, when a
+     * bad handle is presented.
      *
      * @param slot that the client attempted to set
      * @param mh offered value found unsuitable

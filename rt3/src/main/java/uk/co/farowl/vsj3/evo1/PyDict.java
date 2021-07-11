@@ -97,7 +97,7 @@ class PyDict extends AbstractMap<Object, Object>
                 else {
                     Object u = putIfAbsent(k, v);
                     if (u != null && mode == MergeMode.UNIQUE)
-                        throw new KeyError(k, "duplicate");
+                        throw new KeyError.Duplicate(k);
                 }
             }
         } else

@@ -401,7 +401,7 @@ abstract class Operations {
         private void setAllSlots() {
             for (Slot s : Slot.values()) {
                 Object def = type.lookup(s.methodName);
-                s.setSlot(this, def);
+                s.setDefinition(this, def);
             }
         }
 
@@ -559,7 +559,7 @@ abstract class Operations {
          */
         private void setAllSlots() {
             for (Slot s : Slot.values()) {
-                s.setSlot(this, indirectSlot(s));
+                s.setHandle(this, indirectSlot(s));
             }
         }
 

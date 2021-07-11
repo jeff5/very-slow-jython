@@ -57,7 +57,8 @@ public class PyType extends Operations implements DictPyObject {
          */
         Class<?>[] bootstrapClasses = {
                 // Really special cases
-                PyBaseObject.class, PyType.class,
+                PyBaseObject.class, //
+                PyType.class,
                 // The entries are descriptors so defer those
                 PyMemberDescr.class, //
                 PyGetSetDescr.class, //
@@ -600,7 +601,7 @@ public class PyType extends Operations implements DictPyObject {
     private void setAllSlots() {
         for (Slot s : Slot.values()) {
             Object def = lookup(s.methodName);
-            s.setSlot(this, def);
+            s.setDefinition(this, def);
         }
     }
 
@@ -629,7 +630,7 @@ public class PyType extends Operations implements DictPyObject {
             Object def = dict.get(name);
             for (Class<?> impl : classes) {
                 Operations ops = Operations.fromClass(impl);
-                s.setSlot(ops, def);
+                s.setDefinition(ops, def);
             }
         }
     }
@@ -1521,7 +1522,7 @@ public class PyType extends Operations implements DictPyObject {
      * The behavioural difference is that in looking for attributes on a
      * type:
      * <ul>
-     * <li>we use {@link #lookup(PyUnicode)} to search along along the
+     * <li>we use {@link #lookup(String)} to search along along the
      * MRO, and</li>
      * <li>if we find a descriptor, we use it.
      * ({@code object.__getattribute__} does not check for descriptors

@@ -206,7 +206,7 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
             Slot.Signature sig = slot.signature;
             return sig.callWrapped(wrapped, self, args, names);
         } catch (ArgumentError ae) {
-            throw signatureTypeError(ae, args);
+            throw typeError(ae, args);
         }
     }
 

@@ -223,8 +223,8 @@ abstract class PyMethodDescr extends MethodDescriptor {
             // Call through the correct wrapped handle
             MethodHandle wrapped = getWrapped(self.getClass());
             return methodDef.callMethod(wrapped, self, args, names);
-        } catch (MethodDescriptor.ArgumentError ae) {
-            throw signatureTypeError(ae, args);
+        } catch (ArgumentError ae) {
+            throw typeError(ae, args);
         }
     }
 
@@ -346,7 +346,7 @@ abstract class PyMethodDescr extends MethodDescriptor {
                     objclass.name, selfType.name);
         }
         if (kwnames != null && kwnames.size() != 0) {
-            throw new TypeError(TAKES_NO_KEYWORDS, methodDef.name);
+            throw new TypeError("takes no keywords", methodDef.name);
         }
     }
 }
