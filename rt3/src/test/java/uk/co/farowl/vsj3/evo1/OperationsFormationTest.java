@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.lang.invoke.MethodHandles;
+import java.util.HashMap;
 import java.util.Map;
 
 import org.junit.jupiter.api.BeforeEach;
@@ -48,11 +49,14 @@ class OperationsFormationTest {
         @Override
         public PyType getType() { return type; }
 
-        static class Derived extends A implements DerivedPyObject {
+        static class Derived extends A
+                implements DerivedPyObject, DictPyObject {
+            protected Map<Object, Object> __dict__;
 
-            protected PyDict __dict__ = new PyDict();
-
-            Derived(PyType type) { super(type); }
+            Derived(PyType type) {
+                super(type);
+                this.__dict__ = new HashMap<>();
+            }
 
             @Override
             public Map<Object, Object> getDict() { return __dict__; }
@@ -116,15 +120,16 @@ class OperationsFormationTest {
      * class {@link J} in Python. There is no {@link PyType}
      * corresponding directly to this class (unless "found").
      */
-    static class JDerived extends J implements DerivedPyObject {
+    static class JDerived extends J
+            implements DerivedPyObject, DictPyObject {
 
         /** The Python type of this instance. */
         private PyType type;
-        protected PyDict __dict__ = new PyDict();
+        protected Map<Object, Object> __dict__;
 
         JDerived(PyType type) {
             this.type = type;
-            this.__dict__ = new PyDict();
+            this.__dict__ = new HashMap<>();
         }
 
         @Override
@@ -347,8 +352,7 @@ class OperationsFormationTest {
             // Define a new type
             // XXX cheating by short-cutting type.__new__
             PyType JTYPE = PyType.fromClass(J.class);
-            Spec specMyJ = new Spec("MyJ", JDerived.class)
-                    .base(JTYPE);
+            Spec specMyJ = new Spec("MyJ", JDerived.class).base(JTYPE);
             PyType typeMyJ = PyType.fromSpec(specMyJ);
 
             // XXX cheating by short-cutting type.__call__

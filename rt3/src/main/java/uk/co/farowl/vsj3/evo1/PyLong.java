@@ -243,7 +243,7 @@ class PyLong implements CraftedPyObject, PyDict.Key {
      * Instances in Python of sub-classes of 'int', are represented in
      * Java by instances of this class.
      */
-    static class Derived extends PyLong implements PyObjectDict {
+    static class Derived extends PyLong implements DictPyObject {
 
         protected Derived(PyType type, BigInteger value) {
             super(type, value);

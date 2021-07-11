@@ -6,8 +6,7 @@ import java.util.Map;
  * Python objects that have instance dictionaries implement this
  * interface.
  */
-public interface PyObjectDict extends CraftedPyObject {
-
+public interface DictPyObject extends CraftedPyObject {
     /**
      * The dictionary of the instance, (not necessarily a Python
      * {@code dict} or writable. If the returned {@code Map} is not

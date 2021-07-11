@@ -5,7 +5,6 @@ package uk.co.farowl.vsj3.evo1;
  * this interface.
  */
 public interface CraftedPyObject {
-
     /**
      * The Python {@code type} of this object.
      *

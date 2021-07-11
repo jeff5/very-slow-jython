@@ -63,7 +63,7 @@ class AttrGetSetTest extends UnitTestSupport {
 
         /** Python sub-classes extend this class. */
         abstract static class Derived extends TestBase
-                implements PyObjectDict {
+                implements DictPyObject {
 
             protected Derived(PyType type) { super(type); }
 

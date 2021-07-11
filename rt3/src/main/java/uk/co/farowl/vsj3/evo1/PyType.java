@@ -22,7 +22,7 @@ import uk.co.farowl.vsj3.evo1.base.InterpreterError;
  * The Python {@code type} object. Type objects are normally created
  * (when created from Java) by a call to {@link PyType#fromSpec(Spec)}.
  */
-public class PyType extends Operations implements PyObjectDict {
+public class PyType extends Operations implements DictPyObject {
     /*
      * The static initialisation of PyType is a delicate business, since
      * it occurs early in the initialisation of the run-time system. The

@@ -200,8 +200,8 @@ class PyBaseObject extends AbstractPyObject {
          * non-data descriptor, or null if the attribute was not found.
          * It's time to give the object instance dictionary a chance.
          */
-        if (obj instanceof PyObjectDict) {
-            Map<Object, Object> d = ((PyObjectDict) obj).getDict();
+        if (obj instanceof DictPyObject) {
+            Map<Object, Object> d = ((DictPyObject) obj).getDict();
             Object instanceAttr = d.get(name);
             if (instanceAttr != null) {
                 // Found something
@@ -289,8 +289,8 @@ class PyBaseObject extends AbstractPyObject {
          * There was no data descriptor, so we will place the value in
          * the object instance dictionary directly.
          */
-        if (obj instanceof PyObjectDict) {
-            Map<Object, Object> d = ((PyObjectDict) obj).getDict();
+        if (obj instanceof DictPyObject) {
+            Map<Object, Object> d = ((DictPyObject) obj).getDict();
             try {
                 // There is a dictionary, and this is a put.
                 d.put(name, value);
@@ -361,8 +361,8 @@ class PyBaseObject extends AbstractPyObject {
          * There was no data descriptor, so we will remove the name from
          * the object instance dictionary directly.
          */
-        if (obj instanceof PyObjectDict) {
-            Map<Object, Object> d = ((PyObjectDict) obj).getDict();
+        if (obj instanceof DictPyObject) {
+            Map<Object, Object> d = ((DictPyObject) obj).getDict();
             try {
                 // There is a dictionary, and this is a delete.
                 Object previous = d.remove(name);
