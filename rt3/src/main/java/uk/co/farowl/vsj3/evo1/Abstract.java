@@ -654,7 +654,7 @@ public class Abstract {
      *     other causes
      */
     // Compare CPython PyObject_IsInstance in abstract.c
-    boolean isInstance(Object inst, Object cls)
+    static boolean isInstance(Object inst, Object cls)
             throws TypeError, Throwable {
 
         PyType clsType;
@@ -748,7 +748,7 @@ public class Abstract {
      *     other causes
      */
     // Compare CPython PyObject_IsSubclass in abstract.c
-    boolean isSubclass(Object derived, Object cls) throws Throwable {
+    static boolean isSubclass(Object derived, Object cls) throws Throwable {
         PyType clsType = PyType.of(cls);
         if (clsType == PyType.TYPE) {
             // cls is exactly a Python type: avoid __subclasscheck__
@@ -798,7 +798,7 @@ public class Abstract {
      *     other causes
      */
     // Compare CPython _PyObject_LookupSpecial in typeobject.c
-    private Object lookupSpecial(Object self, String name)
+    private static Object lookupSpecial(Object self, String name)
             throws Throwable {
         // Look up attr by name in the type of self
         PyType selfType = PyType.of(self);
