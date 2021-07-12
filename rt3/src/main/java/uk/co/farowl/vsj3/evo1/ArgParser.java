@@ -1055,6 +1055,7 @@ class ArgParser {
          * with {@code object} keys, we accept any object as a keyword
          * name.
          *
+         * @param <K> type of element in keyword collection
          * @param kw the unexpected keyword encountered in the call
          * @param kwnames all the keywords used in the call
          * @return TypeError diagnosing the problem
@@ -1067,7 +1068,7 @@ class ArgParser {
          * and therefore an exception.
          */
         protected <K> TypeError unexpectedKeyword(Object kw,
-                Collection<K> kwnames) throws TypeError {
+                Collection<? extends K> kwnames) {
             /*
              * Compare each of the positional only parameter names with
              * each of the keyword names given in the call. Collect the
@@ -1284,8 +1285,11 @@ class ArgParser {
      * for a vector call on a stack slice.
      *
      * @param frame to populate with argument values
-     * @param stack all arguments, positional then keyword
-     * @param kwnames of keyword arguments
+     * @param stack array containing all arguments
+     * @param start of the slice in the stack
+     * @param nargs number of arguments in the slice, whether position
+     *     or keyword
+     * @param kwnames (implying number) of keyword arguments
      */
     void parseToFrame(FrameWrapper frame, Object[] stack, int start,
             int nargs, String[] kwnames) {

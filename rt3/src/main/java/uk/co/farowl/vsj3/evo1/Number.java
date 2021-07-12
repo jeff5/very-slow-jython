@@ -5,7 +5,11 @@ import java.util.function.Function;
 
 import uk.co.farowl.vsj3.evo1.Slot.EmptyException;
 
-/** Compare CPython {@code abstract.h}: {@code Py_Number_*}. */
+/**
+ * Abstract API for operations on numeric types, corresponding to
+ * CPython methods defined in {@code abstract.h} and with names like:
+ * {@code Py_Number_*}.
+ */
 public class Number extends Abstract {
 
     private Number() {} // only static methods here

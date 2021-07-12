@@ -261,6 +261,11 @@ abstract class PyGetSetDescr extends DataDescriptor {
          * {@link Deleter}.
          *
          * @param objclass to which descriptor applies
+         * @param name of attribute
+         * @param get operation
+         * @param set operation
+         * @param delete operation
+         * @param doc documentation string
          */
         // Compare CPython PyDescr_NewGetSet
         Multiple(PyType objclass, String name, MethodHandle[] get,
@@ -393,7 +398,7 @@ abstract class PyGetSetDescr extends DataDescriptor {
     /**
      * {@inheritDoc}
      *
-     * If {@code obj != null} invoke {@link #get} on it to return a
+     * If {@code obj != null} invoke {@code get} on it to return a
      * value. {@code obj} must be of type {@link #objclass}. A call made
      * with {@code obj == null} returns {@code this} descriptor.
      *

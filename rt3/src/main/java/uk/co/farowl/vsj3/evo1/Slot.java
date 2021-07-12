@@ -600,7 +600,7 @@ enum Slot {
         /**
          * Check the number of positional arguments and that no keywords
          * are supplied. This is for use when implementing
-         * {@link #callWrapped(MethodHandle, Object, PyTuple, PyDict)}.
+         * {@link #callWrapped(MethodHandle, Object, Object[], String[])}.
          *
          * @param args positional argument tuple to be checked
          * @param expArgs expected number of positional arguments
@@ -620,7 +620,7 @@ enum Slot {
         /**
          * Check the number of positional arguments and that no keywords
          * are supplied. This is for use when implementing
-         * {@link #callWrapped(MethodHandle, Object, PyTuple, PyDict)}.
+         * {@link #callWrapped(MethodHandle, Object, Object[], String[])}.
          *
          * @param args positional argument tuple to be checked
          * @param minArgs minimum number of positional arguments
