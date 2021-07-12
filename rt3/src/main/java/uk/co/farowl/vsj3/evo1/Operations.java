@@ -762,7 +762,6 @@ abstract class Operations {
     MethodHandle op_delete;
 
     MethodHandle op_init;
-    MethodHandle op_new; // XXX implement as static method
 
     // Number slots table see CPython PyNumberMethods
 

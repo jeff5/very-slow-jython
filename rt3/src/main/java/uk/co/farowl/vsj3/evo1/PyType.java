@@ -1394,41 +1394,43 @@ public class PyType extends Operations implements DictPyObject {
         return String.format("<class '%s'>", name);
     }
 
-    /**
-     * Handle calls to a type object, which will normally be for
-     * construction of an object of that type, except for the special
-     * case {@code type(obj)}, which enquires the Python type of the
-     * object.
-     *
-     * @param args argument tuple (length 1 in a type enquiry).
-     * @param names of keyword arguments (empty or {@code null} in a type
-     *     enquiry).
-     * @return new object (or a type if an enquiry).
-     * @throws TypeError when cannot create instances
-     * @throws Throwable from implementation slot functions
-     */
-    protected Object __call__(Object[] args, String[] names)
-            throws TypeError, Throwable {
-        try {
-            // Create the instance with given arguments.
-            Object o = op_new.invokeExact(this, args, names);
-            // Check for special case type enquiry: yes afterwards!
-            // (PyType.__new__ performs both functions.)
-            if (isTypeEnquiry(this, args, names)) { return o; }
-            // As __new__ may be user-defined, check type as expected.
-            Operations ops = Operations.of(o);
-            if (ops.type(o).isSubTypeOf(this)) {
-                // Initialise the object just returned (if necessary).
-                if (Slot.op_init.isDefinedFor(ops))
-                    ops.op_init.invokeExact(o, args, names);
-            }
-            return o;
-        } catch (EmptyException e) {
-            // this.op_new is empty (not TYPE.op_new)
-            throw new TypeError("cannot create '%.100s' instances",
-                    name);
-        }
-    }
+    // @formatter:off
+    //    /**
+    //     * Handle calls to a type object, which will normally be for
+    //     * construction of an object of that type, except for the special
+    //     * case {@code type(obj)}, which enquires the Python type of the
+    //     * object.
+    //     *
+    //     * @param args argument tuple (length 1 in a type enquiry).
+    //     * @param names of keyword arguments (empty or {@code null} in a type
+    //     *     enquiry).
+    //     * @return new object (or a type if an enquiry).
+    //     * @throws TypeError when cannot create instances
+    //     * @throws Throwable from implementation slot functions
+    //     */
+    //    protected Object __call__(Object[] args, String[] names)
+    //            throws TypeError, Throwable {
+    //        try {
+    //            // Create the instance with given arguments.
+    //            Object o = op_new.invokeExact(this, args, names);
+    //            // Check for special case type enquiry: yes afterwards!
+    //            // (PyType.__new__ performs both functions.)
+    //            if (isTypeEnquiry(this, args, names)) { return o; }
+    //            // As __new__ may be user-defined, check type as expected.
+    //            Operations ops = Operations.of(o);
+    //            if (ops.type(o).isSubTypeOf(this)) {
+    //                // Initialise the object just returned (if necessary).
+    //                if (Slot.op_init.isDefinedFor(ops))
+    //                    ops.op_init.invokeExact(o, args, names);
+    //            }
+    //            return o;
+    //        } catch (EmptyException e) {
+    //            // this.op_new is empty (not TYPE.op_new)
+    //            throw new TypeError("cannot create '%.100s' instances",
+    //                    name);
+    //        }
+    //    }
+     // @formatter:on
 
     /**
      * Create a new Python {@code type} or execute the built-in
