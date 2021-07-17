@@ -209,7 +209,7 @@ class ExposerTest {
         // n = length(a) # = 12
         Object[] args = {a};
         result = Callables.call(length, args, null);
-        assertEquals(hello.length(), Number.index(result));
+        assertEquals(hello.length(), PyNumber.index(result));
 
         // density = A.density(a, "l") # = 0.25
         PyMethodDescr density =
@@ -269,7 +269,7 @@ class ExposerTest {
 
         // n = bm() # = 12
         result = Callables.call(bm);
-        assertEquals(hello.length(), Number.index(result));
+        assertEquals(hello.length(), PyNumber.index(result));
 
         // m = a.density
         bm = (PyJavaMethod) Abstract.getAttr(a, "density");

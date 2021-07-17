@@ -8,11 +8,11 @@ import uk.co.farowl.vsj3.evo1.Slot.EmptyException;
 /**
  * Abstract API for operations on numeric types, corresponding to
  * CPython methods defined in {@code abstract.h} and with names like:
- * {@code Py_Number_*}.
+ * {@code PyNumber_*}.
  */
-public class Number extends Abstract {
+public class PyNumber extends Abstract {
 
-    private Number() {} // only static methods here
+    private PyNumber() {} // only static methods here
 
     /**
      * {@code -v}: unary negative with Python semantics.
@@ -273,7 +273,7 @@ public class Number extends Abstract {
             throws TypeError, Throwable {
 
         // Convert to Python int or sub-class. (May raise TypeError.)
-        Object value = Number.index(o);
+        Object value = PyNumber.index(o);
 
         try {
             // We're done if PyLong.asSize() returns without error.
@@ -283,7 +283,7 @@ public class Number extends Abstract {
             if (exc == null) {
                 // No handler: default clipping is sufficient.
                 assert PyType.of(value).isSubTypeOf(PyLong.TYPE);
-                if (((PyLong) value).signum() < 0)
+                if (PyLong.signum(value) < 0)
                     return Integer.MIN_VALUE;
                 else
                     return Integer.MAX_VALUE;
@@ -301,7 +301,11 @@ public class Number extends Abstract {
 
     /**
      * Returns the {@code o} converted to an integer object. This is the
-     * equivalent of the Python expression {@code int(o)}.
+     * equivalent of the Python expression {@code int(o)}. It will refer
+     * to the {@code __int__}, {@code __index_} and {@code __trunc__}
+     * special methods of {@code o}, in that order, an then (if
+     * {@code o} is string or bytes-like) attempt a conversion from text
+     * assuming decimal base.
      *
      * @param o operand
      * @return {@code int(o)}
@@ -388,7 +392,7 @@ public class Number extends Abstract {
 
             // Fall out here if op_float was not defined
             if (Slot.op_index.isDefinedFor(ops))
-                return PyLong.asDouble(Number.index(o));
+                return PyLong.asDouble(PyNumber.index(o));
             else
                 return PyFloat.fromString(o);
         }

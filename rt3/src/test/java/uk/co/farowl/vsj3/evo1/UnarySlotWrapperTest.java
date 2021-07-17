@@ -318,7 +318,7 @@ class UnarySlotWrapperTest extends UnitTestSupport {
         assertEquals(-42, PyLong.asInt(r));
 
         // Sanity check: -v the short way
-        r = Number.negative(v);
+        r = PyNumber.negative(v);
         assertEquals(-42, PyLong.asInt(r));
 
         // Now this should break negation ...
@@ -335,7 +335,7 @@ class UnarySlotWrapperTest extends UnitTestSupport {
         // r = -v
         // r = Number.negative(v);
         // TypeError: descriptor '__neg__' requires a 'float' ...
-        assertThrows(TypeError.class, () -> Number.negative(v));
+        assertThrows(TypeError.class, () -> PyNumber.negative(v));
     }
 
 }

@@ -191,7 +191,7 @@ class PyUnicode implements PySequenceInterface<Integer>,
     private Object __getitem__(Object item) throws Throwable {
         Operations itemOps = Operations.of(item);
         if (Slot.op_index.isDefinedFor(itemOps)) {
-            int i = Number.asSize(item, IndexError::new);
+            int i = PyNumber.asSize(item, IndexError::new);
             if (i < 0) { i += length(); }
             return getItem(i);
         }
@@ -205,7 +205,7 @@ class PyUnicode implements PySequenceInterface<Integer>,
             throws Throwable {
         Operations itemOps = Operations.of(item);
         if (Slot.op_index.isDefinedFor(itemOps)) {
-            int i = Number.asSize(item, IndexError::new);
+            int i = PyNumber.asSize(item, IndexError::new);
             if (i < 0) { i += self.length(); }
             return self.substring(i, i + 1);
         }

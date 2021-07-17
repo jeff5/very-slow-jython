@@ -27,8 +27,8 @@ class PyObjectUtil {
      */
     static <T> Object repeat(PySequenceInterface<T> seq, Object n)
             throws TypeError, Throwable {
-        if (Number.indexCheck(n)) {
-            int count = Number.asSize(n, OverflowError::new);
+        if (PyNumber.indexCheck(n)) {
+            int count = PyNumber.asSize(n, OverflowError::new);
             return seq.repeat(count);
         } else {
             throw Abstract.typeError(CANT_MULTIPLY, n);

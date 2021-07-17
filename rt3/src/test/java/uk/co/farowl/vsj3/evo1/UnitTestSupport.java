@@ -69,7 +69,7 @@ class UnitTestSupport {
      * @return from this value.
      */
     static PyLong newPyLong(BigInteger value) {
-        return new PyLong(PyLong.TYPE, value);
+        return new PyLong.Derived(PyLong.TYPE, value);
     }
 
     /**

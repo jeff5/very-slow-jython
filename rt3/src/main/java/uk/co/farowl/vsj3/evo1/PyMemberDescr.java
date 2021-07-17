@@ -352,7 +352,7 @@ abstract class PyMemberDescr extends DataDescriptor {
         @Override
         protected void set(Object obj, Object value)
                 throws TypeError, Throwable {
-            int v = Number.asSize(value, null);
+            int v = PyNumber.asSize(value, null);
             handle.set(obj, v);
         }
     }

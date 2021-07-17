@@ -13,7 +13,7 @@ import uk.co.farowl.vsj3.evo1.base.InterpreterError;
  * interpreter. (Methods here often correspond closely to a CPython
  * opcode.)
  * <p>
- * See also {@link Number} and {@link Callables} which contain the
+ * See also {@link PyNumber} and {@link Callables} which contain the
  * abstract interface to the corresponding type families. In CPython,
  * the methods of all these classes are found in
  * {@code Objects/abstract.c}

@@ -75,7 +75,7 @@ public class PyFloat extends AbstractPyObject {
             return new PyFloat(
                     Double.valueOf(x.toString()).doubleValue());
         else
-            return Number.toFloat(x);
+            return PyNumber.toFloat(x);
     }
 
     // Non-slot API -------------------------------------------------
@@ -139,7 +139,7 @@ public class PyFloat extends AbstractPyObject {
 
             // Fall out here if __float__ was not defined
             if (Slot.op_index.isDefinedFor(ops))
-                return PyLong.asDouble(Number.index(o));
+                return PyLong.asDouble(PyNumber.index(o));
             else
                 throw Abstract.requiredTypeError("a real number", o);
         }
@@ -158,7 +158,7 @@ public class PyFloat extends AbstractPyObject {
     }
 
     /**
-     * Convert to Java {@code double} to Java {@code BigInteger} by
+     * Convert a Java {@code double} to Java {@code BigInteger} by
      * truncation.
      *
      * @param value to convert

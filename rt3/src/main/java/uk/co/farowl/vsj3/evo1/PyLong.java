@@ -7,63 +7,37 @@ import java.util.Map;
 import uk.co.farowl.vsj3.evo1.PyObjectUtil.NoConversion;
 import uk.co.farowl.vsj3.evo1.Slot.EmptyException;
 
-/** The Python {@code int} object. */
-class PyLong implements CraftedPyObject, PyDict.Key {
+/**
+ * A Python {@code int} object may be represented by a
+ * {@code java.lang.Integer} or a {@code java.math.BigInteger}. An
+ * instance of a Python sub-class of {@code int}, must be represented by
+ * an instance of (a Java sub-class of) this class.
+ */
+public class PyLong extends AbstractPyObject implements PyDict.Key {
 
     /** The type {@code int}. */
-    static PyType TYPE = PyType.fromSpec( //
+    public static final PyType TYPE = PyType.fromSpec( //
             new PyType.Spec("int", MethodHandles.lookup())
                     .adopt(BigInteger.class, Integer.class)
                     .accept(Boolean.class) //
                     .methods(PyLongMethods.class)
                     .binops(PyLongBinops.class));
 
-    static Integer ZERO = 0;
-    static Integer ONE = 1;
-
-    private final PyType type;
+    /** The value of this Python {@code int} (when sub-classed). */
     final BigInteger value;
 
     /**
      * Constructor for Python sub-class specifying {@link #type}.
      *
-     * @param type actual Python sub-class being created
-     * @param value of the {@code int}
+     * @param subType actual Python sub-class being created
+     * @param v of the {@code int}
      */
-    PyLong(PyType type, BigInteger value) {
-        this.type = type;
-        this.value = value;
+    private PyLong(PyType subType, BigInteger v) {
+        super(subType);
+        value = v;
     }
 
-    /**
-     * Construct a Python {@code int} from a {@code BigInteger}.
-     *
-     * @param value of the {@code int}
-     */
-    // XXX not needed?
-    @Deprecated
-    PyLong(BigInteger value) {
-        this(TYPE, value);
-    }
-
-    /**
-     * Construct a Python {@code int} from a Java {@code long}.
-     *
-     * @param value of the {@code int}
-     */
-    // XXX not needed?
-    @Deprecated
-    PyLong(long value) {
-        this(BigInteger.valueOf(value));
-    }
-
-    @Override
-    public PyType getType() { return type; }
-
-    @Override
-    public String toString() {
-        return Py.defaultToString(this);
-    }
+    // Representations of the value -----------------------------------
 
     /**
      * Present the value as a Java {@code int} when the argument is
@@ -119,26 +93,6 @@ class PyLong implements CraftedPyObject, PyDict.Key {
     /**
      * Value as a Java {@code double} using the round-half-to-even rule.
      *
-     * @return nearest double
-     * @throws OverflowError if out of double range
-     */
-    // Compare CPython longobject.c: PyLong_AsDouble
-    @Deprecated // Supersede by asDouble(Object v)
-    double doubleValue() throws OverflowError {
-        /*
-         * BigInteger.doubleValue() rounds half-to-even as required, but
-         * on overflow returns ±∞ rather than throwing.
-         */
-        double x = value.doubleValue();
-        if (Double.isInfinite(x))
-            throw new OverflowError(INT_TOO_LARGE_FLOAT);
-        else
-            return x;
-    }
-
-    /**
-     * Value as a Java {@code double} using the round-half-to-even rule.
-     *
      * @param v to convert
      * @return nearest double
      * @throws OverflowError if out of double range
@@ -152,114 +106,31 @@ class PyLong implements CraftedPyObject, PyDict.Key {
         }
     }
 
-    @Deprecated
-    private static String INT_TOO_LARGE_FLOAT =
-            "Python int too large to convert to float";
-
-    // XXX re-think as static
-    int signum() {
-        return value.signum();
+    static int signum(Object v) throws TypeError {
+        if (v instanceof BigInteger)
+            return ((BigInteger) v).signum();
+        else if (v instanceof Integer)
+            return Integer.signum((Integer) v);
+        else if (v instanceof PyLong)
+            return ((PyLong) v).value.signum();
+        else if (v instanceof Boolean)
+            return (Boolean) v ? 1 : 0;
+        else
+            throw Abstract.requiredTypeError("an integer", v);
     }
 
-    // special methods ------------------------------------------------
+    // Factories ------------------------------------------------------
 
-    @SuppressWarnings("unused")
-    private static Object __repr__(Object self) {
-        assert TYPE.check(self);
-        return asBigInteger(self).toString();
-    }
-
-    protected static Object __new__(PyType type, PyTuple args,
-            PyDict kwargs) throws Throwable {
-        Object x = null, obase = null;
-        int argsLen = args.size();
-        switch (argsLen) {
-            case 2:
-                obase = args.get(1); // fall through
-            case 1:
-                x = args.get(0); // fall through
-            case 0:
-                break;
-            default:
-                throw new TypeError(
-                        "int() takes at most %d arguments (%d given)",
-                        2, argsLen);
-        }
-
-        // XXX This does not yet deal correctly with the type argument
-
-        if (x == null) {
-            // Zero-arg int() ... unless invalidly like int(base=10)
-            if (obase != null) {
-                throw new TypeError("int() missing string argument");
-            }
-            return ZERO;
-        }
-
-        if (obase == null)
-            return Number.asLong(x);
-        else {
-            int base = Number.asSize(obase, null);
-            if ((base != 0 && base < 2) || base > 36)
-                throw new ValueError(
-                        "int() base must be >= 2 and <= 36, or 0");
-            else if (PyUnicode.TYPE.check(x))
-                return PyLong.fromUnicode(x, base);
-            // else if ... support for bytes-like objects
-            else
-                throw new TypeError(NON_STR_EXPLICIT_BASE);
-        }
-    }
-
-    private static final String NON_STR_EXPLICIT_BASE =
-            "int() can't convert non-string with explicit base";
-
-    @SuppressWarnings("unused")
-    private static Object __float__(Integer self) {
-        return self.doubleValue();
-    }
-
-    @SuppressWarnings("unused")
-    private static Object __float__(BigInteger self)
-            throws OverflowError {
-        return convertToDouble(self);
-    }
-
-    // Called for PyLong subclasses and Boolean
-    @SuppressWarnings("unused")
-    private static Object __float__(Object self) throws OverflowError {
-        assert TYPE.check(self);
-        try {
-            return convertToDouble(self);
-        } catch (NoConversion e) {
-            // This should never be necessary. InterpreterError?
-            throw Abstract.requiredTypeError("an integer", self);
-        }
-    }
-
-    // Python sub-class -----------------------------------------------
-
-    /**
-     * Instances in Python of sub-classes of 'int', are represented in
-     * Java by instances of this class.
+    /*
+     * These methods create Python int from other Python objects, or
+     * from specific Java types. The methods make use of special methods
+     * on the argument and produce Python exceptions when that goes
+     * wrong. Note that they never produce a PyLong, but always Java
+     * Integer or BigInteger. The often correspond to CPython public or
+     * internal API.
      */
-    static class Derived extends PyLong implements DictPyObject {
-
-        protected Derived(PyType type, BigInteger value) {
-            super(type, value);
-        }
-
-        /** The instance dictionary {@code __dict__}. */
-        protected PyDict dict = new PyDict();
-
-        @Override
-        public Map<Object, Object> getDict() { return dict; }
-    }
-
-    // Non-slot API -------------------------------------------------
-
     /**
-     * Convert the given object to a {@code PyLong} using the
+     * Convert the given object to a Python {@code int} using the
      * {@code op_int} slot, if available. Raise {@code TypeError} if
      * either the {@code op_int} slot is not available or the result of
      * the call to {@code op_int} returns something not of type
@@ -279,7 +150,7 @@ class PyLong implements CraftedPyObject, PyDict.Key {
     // Compare CPython longobject.c::_PyLong_FromNbInt
     static Object fromIntOf(Object integral)
             throws TypeError, Throwable {
-        Operations ops = Operations.of(integral);;
+        Operations ops = Operations.of(integral);
 
         if (ops.isIntExact()) {
             // Fast path for the case that we already have an int.
@@ -302,16 +173,16 @@ class PyLong implements CraftedPyObject, PyDict.Key {
                 } else
                     throw Abstract.returnTypeError("__int__", "int", r);
             } catch (EmptyException e) {
-                // Slot __int__ is not defioned for t
+                // __int__ is not defined for t
                 throw Abstract.requiredTypeError("an integer",
                         integral);
             }
     }
 
     /**
-     * Convert the given object to a {@code PyLong} using the
-     * {@code op_index} or {@code op_int} slots, if available (the
-     * latter is deprecated).
+     * Convert the given object to a {@code int} using the
+     * {@code __index__} or {@code __int__} special methods, if
+     * available (the latter is deprecated).
      * <p>
      * The return is not always exactly an {@code int}.
      * {@code integral.__index__} or {@code integral.__int__}, which
@@ -319,7 +190,7 @@ class PyLong implements CraftedPyObject, PyDict.Key {
      * {@code int} are tolerated, but with a deprecation warning.
      * Returns not even a sub-class type {@code int} raise
      * {@link TypeError}. This method should be replaced with
-     * {@link Number#index(Object)} after the end of the deprecation
+     * {@link PyNumber#index(Object)} after the end of the deprecation
      * period.
      *
      * @param integral to convert to {@code int}
@@ -389,19 +260,6 @@ class PyLong implements CraftedPyObject, PyDict.Key {
     }
 
     /**
-     * Create a Python {@code int} from a Java {@code double}.
-     *
-     * @param value to convert
-     * @return BigInteger equivalent.
-     * @throws OverflowError when {@code value} is a floating infinity
-     * @throws ValueError when {@code value} is a floating NaN
-     */
-    // Compare CPython longobject.c :: PyLong_FromDouble
-    static BigInteger fromDouble(double value) {
-        return PyFloat.bigIntegerFromDouble(value);
-    }
-
-    /**
      * Return a Python {@code int} from a Python {@code int} or
      * subclass. If the value has exactly Python type {@code int} return
      * it, otherwise construct a new instance of exactly {@code int}
@@ -421,20 +279,29 @@ class PyLong implements CraftedPyObject, PyDict.Key {
             throw Abstract.requiredTypeError("an integer", value);
     }
 
-    // PyDict.Key interface ------------------------------------------
-
-    @Override
-    public boolean equals(Object obj) {
-        return PyDict.pythonEquals(this, obj);
+    /**
+     * Create a Python {@code int} from a Java {@code double}.
+     *
+     * @param value to convert
+     * @return BigInteger equivalent.
+     * @throws OverflowError when {@code value} is a floating infinity
+     * @throws ValueError when {@code value} is a floating NaN
+     */
+    // Compare CPython longobject.c :: PyLong_FromDouble
+    static BigInteger fromDouble(double value) {
+        // XXX Maybe return Object and Integer if possible
+        return PyFloat.bigIntegerFromDouble(value);
     }
 
-    @Override
-    public int hashCode() throws PyException {
-        // XXX or return value.hashCode() if not a sub-class?
-        return PyDict.pythonHash(this);
-    }
+    // Convert from int (core use) ------------------------------------
 
-    // plumbing ------------------------------------------------------
+    /*
+     * These methods are for use internal to the core, in the
+     * implementation of special functions: they may throw NoConversion
+     * of failure, which must be caught by those implementations. They
+     * convert a Python int, or a specific Java implementation of int,
+     * to a specific Java type.
+     */
 
     /**
      * Convert an {@code int} to a Java {@code double} (or throw
@@ -556,4 +423,114 @@ class PyLong implements CraftedPyObject, PyDict.Key {
     private static final String TOO_LARGE =
             "%s too large to convert to %s";
 
+    // special methods ------------------------------------------------
+
+    protected static Object __new__(PyType subType, Object[] args,
+            String[] kwnames) throws Throwable {
+        Object x = null, obase = null;
+        int argsLen = args.length;
+        switch (argsLen) {
+        case 2:
+            obase = args[1]; // fall through
+        case 1:
+            x = args[0]; // fall through
+        case 0:
+            break;
+        default:
+            throw new TypeError(
+                    "int() takes at most %d arguments (%d given)", 2,
+                    argsLen);
+        }
+
+        // XXX This does not yet deal correctly with the type argument
+
+        if (x == null) {
+            // Zero-arg int() ... unless invalidly like int(base=10)
+            if (obase != null) {
+                throw new TypeError("int() missing string argument");
+            }
+            return 0;
+        }
+
+        if (obase == null)
+            return PyNumber.asLong(x);
+        else {
+            int base = PyNumber.asSize(obase, null);
+            if ((base != 0 && base < 2) || base > 36)
+                throw new ValueError(
+                        "int() base must be >= 2 and <= 36, or 0");
+            else if (PyUnicode.TYPE.check(x))
+                return PyLong.fromUnicode(x, base);
+            // else if ... support for bytes-like objects
+            else
+                throw new TypeError(NON_STR_EXPLICIT_BASE);
+        }
+    }
+
+    private static final String NON_STR_EXPLICIT_BASE =
+            "int() can't convert non-string with explicit base";
+
+    @SuppressWarnings("unused")
+    private static Object __repr__(Object self) {
+        assert TYPE.check(self);
+        return asBigInteger(self).toString();
+    }
+
+    @SuppressWarnings("unused")
+    private static Object __float__(Integer self) {
+        return self.doubleValue();
+    }
+
+    @SuppressWarnings("unused")
+    private static Object __float__(BigInteger self)
+            throws OverflowError {
+        return convertToDouble(self);
+    }
+
+    // Called for PyLong subclasses and Boolean
+    @SuppressWarnings("unused")
+    private static Object __float__(Object self) throws OverflowError {
+        assert TYPE.check(self);
+        try {
+            return convertToDouble(self);
+        } catch (NoConversion e) {
+            // This should never be necessary. InterpreterError?
+            throw Abstract.requiredTypeError("an integer", self);
+        }
+    }
+
+    // Instance methods on PyLong -------------------------------------
+
+    @Override
+    public String toString() { return Py.defaultToString(this); }
+
+    @Override
+    public boolean equals(Object obj) {
+        return PyDict.pythonEquals(this, obj);
+    }
+
+    @Override
+    public int hashCode() throws PyException {
+        // XXX or return value.hashCode() if not a sub-class?
+        return PyDict.pythonHash(this);
+    }
+
+    // Python sub-class -----------------------------------------------
+
+    /**
+     * Instances in Python of sub-classes of 'int', are represented in
+     * Java by instances of this class.
+     */
+    static class Derived extends PyLong implements DictPyObject {
+
+        protected Derived(PyType subType, BigInteger value) {
+            super(subType, value);
+        }
+
+        /** The instance dictionary {@code __dict__}. */
+        protected PyDict dict = new PyDict();
+
+        @Override
+        public Map<Object, Object> getDict() { return dict; }
+    }
 }

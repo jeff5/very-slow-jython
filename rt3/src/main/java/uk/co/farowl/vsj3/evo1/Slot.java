@@ -767,7 +767,7 @@ enum Slot {
                 case UNARY:
                     // Same name, although signature differs ...
                 case BINARY:
-                    error = LOOKUP.findStatic(Number.class,
+                    error = LOOKUP.findStatic(PyNumber.class,
                             "operandError", errorMT);
                     break;
                 default:
