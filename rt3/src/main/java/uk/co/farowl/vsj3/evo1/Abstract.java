@@ -100,7 +100,7 @@ public class Abstract {
      */
     static int hash(Object v) throws TypeError, Throwable {
         try {
-            return (int) Operations.of(v).op_hash.invokeExact(v);
+            return (int)Operations.of(v).op_hash.invokeExact(v);
         } catch (Slot.EmptyException e) {
             throw typeError("unhashable type: %s", v);
         }
@@ -126,9 +126,9 @@ public class Abstract {
             // Ask the object type through the op_bool or op_len slots
             Operations ops = Operations.of(v);
             if (Slot.op_bool.isDefinedFor(ops))
-                return (boolean) ops.op_bool.invokeExact(v);
+                return (boolean)ops.op_bool.invokeExact(v);
             else if (Slot.op_len.isDefinedFor(ops))
-                return 0 != (int) ops.op_len.invokeExact(v);
+                return 0 != (int)ops.op_len.invokeExact(v);
             else
                 // No op_bool and no length: claim everything is True.
                 return true;
@@ -221,7 +221,7 @@ public class Abstract {
     static int size(Object o) throws Throwable {
         // Note that the slot is called op_len but this method, size.
         try {
-            return (int) Operations.of(o).op_len.invokeExact(o);
+            return (int)Operations.of(o).op_len.invokeExact(o);
         } catch (Slot.EmptyException e) {
             throw typeError(HAS_NO_LEN, o);
         }
@@ -348,8 +348,8 @@ public class Abstract {
     /**
      * Python {@code o.name}: returning {@code null} when not found (in
      * place of {@code AttributeError} as would
-     * {@link #getAttr(Object, Object)}). Other exceptions that may
-     * be raised in the process, propagate.
+     * {@link #getAttr(Object, Object)}). Other exceptions that may be
+     * raised in the process, propagate.
      *
      * @param o the object in which to look for the attribute
      * @param name of the attribute sought
@@ -374,8 +374,8 @@ public class Abstract {
     /**
      * Python {@code o.name} returning {@code null} when not found (in
      * place of {@code AttributeError} as would
-     * {@link #getAttr(Object, String)}). Other exceptions that may
-     * be raised in the process, propagate.
+     * {@link #getAttr(Object, String)}). Other exceptions that may be
+     * raised in the process, propagate.
      *
      * @param o the object in which to look for the attribute
      * @param name of the attribute sought
@@ -513,7 +513,7 @@ public class Abstract {
         // Should return a tuple: convert anything else to null.
         Object bases = lookupAttr(cls, "__bases__");
         // Treat non-tuple as not having the attribute.
-        return bases instanceof PyTuple ? (PyTuple) bases : null;
+        return bases instanceof PyTuple ? (PyTuple)bases : null;
     }
 
     /**
@@ -531,7 +531,7 @@ public class Abstract {
         // Should return a type: convert anything else to null.
         Object klass = lookupAttr(inst, "__class__");
         // Treat non-tuple as not having the attribute.
-        return klass instanceof PyType ? (PyType) klass : null;
+        return klass instanceof PyType ? (PyType)klass : null;
     }
 
     /**
@@ -593,7 +593,7 @@ public class Abstract {
 
         if (cls instanceof PyType) {
             // cls is a single type object (therefore a PyType)
-            PyType type = (PyType) cls;
+            PyType type = (PyType)cls;
             PyType instType = PyType.of(inst);
 
             if (instType == type || instType.isSubTypeOf(type))
@@ -672,7 +672,7 @@ public class Abstract {
             // try (RecursionState state = ThreadState
             // .enterRecursiveCall("in __instancecheck__")) {
             // Result is true if true for any type in cls
-            for (Object type : (PyTuple) cls) {
+            for (Object type : (PyTuple)cls) {
                 if (isInstance(inst, type))
                     return true;
                 // }
@@ -720,7 +720,7 @@ public class Abstract {
             throws TypeError, Throwable {
         if (cls instanceof PyType && derived instanceof PyType)
             // Both are PyType so this is relatively easy.
-            return ((PyType) derived).isSubTypeOf((PyType) cls);
+            return ((PyType)derived).isSubTypeOf((PyType)cls);
         else if (getBasesOf(derived) == null)
             // derived is neither PyType nor has __bases__
             throw new TypeError("issubclass", 1, "a class", derived);
@@ -748,7 +748,8 @@ public class Abstract {
      *     other causes
      */
     // Compare CPython PyObject_IsSubclass in abstract.c
-    static boolean isSubclass(Object derived, Object cls) throws Throwable {
+    static boolean isSubclass(Object derived, Object cls)
+            throws Throwable {
         PyType clsType = PyType.of(cls);
         if (clsType == PyType.TYPE) {
             // cls is exactly a Python type: avoid __subclasscheck__
@@ -759,7 +760,7 @@ public class Abstract {
         } else if (clsType.isSubTypeOf(PyTuple.TYPE)) {
             // try (RecursionState state = ThreadState
             // .enterRecursiveCall(" in __subclasscheck__")) {
-            for (Object item : (PyTuple) cls) {
+            for (Object item : (PyTuple)cls) {
                 if (isSubclass(derived, item))
                     return true;
             }
@@ -1158,4 +1159,27 @@ public class Abstract {
         throw new InterpreterError("bad internal call");
     }
 
+    /**
+     * Create an {@link InterpreterError} for use where a Python method
+     * (or special method) implementation receives an argument that
+     * should be impossible in a correct interpreter. This is a sort of
+     * {@link TypeError} against the {@code self} argument, but
+     * occurring where no programming error should be able to induce it
+     * (e.g. coercion fails after we have passed the check that
+     * descriptors make on their {@code obj}, or when invoking a special
+     * method found via an {@link Operations} object.
+     *
+     * @param d expected kind of argument
+     * @param o actual argument (not its type)
+     * @return exception to throw
+     */
+    static InterpreterError impossibleArgumentError(String d,
+            Object o) {
+        return new InterpreterError(IMPOSSIBLE_CLASS, d,
+                o.getClass().getName());
+    }
+
+    private static final String IMPOSSIBLE_CLASS =
+            "expected %.50s argument "
+                    + "but found impossible Java class %s";
 }

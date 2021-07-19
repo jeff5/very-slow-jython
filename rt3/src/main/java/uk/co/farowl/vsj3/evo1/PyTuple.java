@@ -80,7 +80,8 @@ class PyTuple extends AbstractList<Object> implements CraftedPyObject {
      * @param type actual Python sub-class to being created
      * @param value elements of the tuple
      */
-    protected PyTuple(PyType type, Object... value) {
+    @SafeVarargs
+    protected <E> PyTuple(PyType type, E... value) {
         this(type, false, value);
     }
 

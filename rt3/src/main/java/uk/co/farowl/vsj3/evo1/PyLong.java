@@ -37,6 +37,104 @@ public class PyLong extends AbstractPyObject implements PyDict.Key {
         value = v;
     }
 
+    // Instance methods on PyLong -------------------------------------
+
+    @Override
+    public String toString() { return Py.defaultToString(this); }
+
+    @Override
+    public boolean equals(Object obj) {
+        return PyDict.pythonEquals(this, obj);
+    }
+
+    @Override
+    public int hashCode() throws PyException {
+        // XXX or return value.hashCode() if not a sub-class?
+        return PyDict.pythonHash(this);
+    }
+
+    // Constructor from Python ----------------------------------------
+
+    @SuppressWarnings("fallthrough")
+    static Object __new__(PyType subType, Object[] args,
+            String[] kwnames) throws Throwable {
+        Object x = null, obase = null;
+        int argsLen = args.length;
+        switch (argsLen) {
+            case 2:
+                obase = args[1]; // fall through
+            case 1:
+                x = args[0]; // fall through
+            case 0:
+                break;
+            default:
+                throw new TypeError(
+                        "int() takes at most %d arguments (%d given)",
+                        2, argsLen);
+        }
+
+        return __new__impl(subType, x, obase);
+    }
+
+    /**
+     * Implementation of {@code __new__} with classic arguments
+     * unpacked.
+     *
+     * @param subType actual sub-type of int to produce
+     * @param x {@code int}-like or {@code str}-like value or
+     *     {@code null}.
+     * @param obase number base ({@code x} must be {@code str}-like)
+     * @return an {@code int} or sub-class with the right value
+     * @throws Throwable on argument type or other errors
+     */
+    private static Object __new__impl(PyType subType, Object x,
+            Object obase) throws Throwable {
+
+        if (subType != TYPE) {
+            return longSubtypeNew(subType, x, obase);
+        }
+
+        if (x == null) {
+            // Zero-arg int() ... unless invalidly like int(base=10)
+            if (obase != null) {
+                throw new TypeError("int() missing string argument");
+            }
+            return 0;
+        }
+
+        if (obase == null)
+            return PyNumber.asLong(x);
+        else {
+            int base = PyNumber.asSize(obase, null);
+            if (base != 0 && (base < 2 || base > 36))
+                throw new ValueError(
+                        "int() base must be >= 2 and <= 36, or 0");
+            else if (PyUnicode.TYPE.check(x))
+                return PyLong.fromUnicode(x, base);
+            // else if ... support for bytes-like objects
+            else
+                throw new TypeError(NON_STR_EXPLICIT_BASE);
+        }
+    }
+
+    private static final String NON_STR_EXPLICIT_BASE =
+            "int() can't convert non-string with explicit base";
+
+    /**
+     * Wimpy, slow approach to {@code __new__} calls for sub-types of
+     * {@code int}, that will temporarily create a regular {@code int}
+     * from the arguments.
+     *
+     * @throws Throwable on argument type or other errors
+     */
+    private static Object longSubtypeNew(PyType subType, Object x,
+            Object obase) throws Throwable {
+        // Create a regular int from whatever arguments we got.
+        Object v = __new__impl(TYPE, x, obase);
+        // create a sub-type instance from the value in tmp
+        return new PyLong.Derived(subType, PyLong.asBigInteger(v));
+    }
+
     // Representations of the value -----------------------------------
 
     /**
@@ -79,13 +177,13 @@ public class PyLong extends AbstractPyObject implements PyDict.Key {
      */
     static BigInteger asBigInteger(Object v) throws TypeError {
         if (v instanceof BigInteger)
-            return (BigInteger) v;
+            return (BigInteger)v;
         else if (v instanceof Integer)
-            return BigInteger.valueOf(((Integer) v).longValue());
+            return BigInteger.valueOf(((Integer)v).longValue());
         else if (v instanceof PyLong)
-            return ((PyLong) v).value;
+            return ((PyLong)v).value;
         else if (v instanceof Boolean)
-            return (Boolean) v ? BigInteger.ONE : BigInteger.ZERO;
+            return (Boolean)v ? BigInteger.ONE : BigInteger.ZERO;
         else
             throw Abstract.requiredTypeError("an integer", v);
     }
@@ -108,13 +206,13 @@ public class PyLong extends AbstractPyObject implements PyDict.Key {
 
     static int signum(Object v) throws TypeError {
         if (v instanceof BigInteger)
-            return ((BigInteger) v).signum();
+            return ((BigInteger)v).signum();
         else if (v instanceof Integer)
-            return Integer.signum((Integer) v);
+            return Integer.signum((Integer)v);
         else if (v instanceof PyLong)
-            return ((PyLong) v).value.signum();
+            return ((PyLong)v).value.signum();
         else if (v instanceof Boolean)
-            return (Boolean) v ? 1 : 0;
+            return (Boolean)v ? 1 : 0;
         else
             throw Abstract.requiredTypeError("an integer", v);
     }
@@ -274,7 +372,7 @@ public class PyLong extends AbstractPyObject implements PyDict.Key {
         if (ops.isIntExact())
             return value;
         else if (value instanceof PyLong)
-            return ((PyLong) value).value;
+            return ((PyLong)value).value;
         else
             throw Abstract.requiredTypeError("an integer", value);
     }
@@ -326,15 +424,15 @@ public class PyLong extends AbstractPyObject implements PyDict.Key {
         // Check against supported types, most likely first
         if (v instanceof Integer)
             // No loss of precision
-            return ((Integer) v).doubleValue();
+            return ((Integer)v).doubleValue();
         else if (v instanceof BigInteger)
             // Round half-to-even
-            return convertToDouble((BigInteger) v);
+            return convertToDouble((BigInteger)v);
         else if (v instanceof PyLong)
             // Round half-to-even
-            return convertToDouble(((PyLong) v).value);
+            return convertToDouble(((PyLong)v).value);
         else if (v instanceof Boolean)
-            return (Boolean) v ? 1.0 : 0.0;
+            return (Boolean)v ? 1.0 : 0.0;
         throw PyObjectUtil.NO_CONVERSION;
     }
 
@@ -380,13 +478,13 @@ public class PyLong extends AbstractPyObject implements PyDict.Key {
             throws NoConversion, OverflowError {
         // Check against supported types, most likely first
         if (v instanceof Integer)
-            return ((Integer) v).intValue();
+            return ((Integer)v).intValue();
         else if (v instanceof BigInteger)
-            return convertToInt((BigInteger) v);
+            return convertToInt((BigInteger)v);
         else if (v instanceof PyLong)
-            return convertToInt(((PyLong) v).value);
+            return convertToInt(((PyLong)v).value);
         else if (v instanceof Boolean)
-            return (Boolean) v ? 1 : 0;
+            return (Boolean)v ? 1 : 0;
         throw PyObjectUtil.NO_CONVERSION;
     }
 
@@ -425,51 +523,6 @@ public class PyLong extends AbstractPyObject implements PyDict.Key {
 
     // special methods ------------------------------------------------
 
-    protected static Object __new__(PyType subType, Object[] args,
-            String[] kwnames) throws Throwable {
-        Object x = null, obase = null;
-        int argsLen = args.length;
-        switch (argsLen) {
-        case 2:
-            obase = args[1]; // fall through
-        case 1:
-            x = args[0]; // fall through
-        case 0:
-            break;
-        default:
-            throw new TypeError(
-                    "int() takes at most %d arguments (%d given)", 2,
-                    argsLen);
-        }
-
-        // XXX This does not yet deal correctly with the type argument
-
-        if (x == null) {
-            // Zero-arg int() ... unless invalidly like int(base=10)
-            if (obase != null) {
-                throw new TypeError("int() missing string argument");
-            }
-            return 0;
-        }
-
-        if (obase == null)
-            return PyNumber.asLong(x);
-        else {
-            int base = PyNumber.asSize(obase, null);
-            if ((base != 0 && base < 2) || base > 36)
-                throw new ValueError(
-                        "int() base must be >= 2 and <= 36, or 0");
-            else if (PyUnicode.TYPE.check(x))
-                return PyLong.fromUnicode(x, base);
-            // else if ... support for bytes-like objects
-            else
-                throw new TypeError(NON_STR_EXPLICIT_BASE);
-        }
-    }
-
-    private static final String NON_STR_EXPLICIT_BASE =
-            "int() can't convert non-string with explicit base";
-
     @SuppressWarnings("unused")
     private static Object __repr__(Object self) {
         assert TYPE.check(self);
@@ -499,22 +552,6 @@ public class PyLong extends AbstractPyObject implements PyDict.Key {
         }
     }
 
-    // Instance methods on PyLong -------------------------------------
-
-    @Override
-    public String toString() { return Py.defaultToString(this); }
-
-    @Override
-    public boolean equals(Object obj) {
-        return PyDict.pythonEquals(this, obj);
-    }
-
-    @Override
-    public int hashCode() throws PyException {
-        // XXX or return value.hashCode() if not a sub-class?
-        return PyDict.pythonHash(this);
-    }
-
     // Python sub-class -----------------------------------------------
 
     /**
@@ -533,4 +570,7 @@ public class PyLong extends AbstractPyObject implements PyDict.Key {
         @Override
         public Map<Object, Object> getDict() { return dict; }
     }
+
+    // plumbing ------------------------------------------------------
+
 }

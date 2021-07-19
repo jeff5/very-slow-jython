@@ -499,8 +499,8 @@ abstract class Operations {
         // XXX Equivalent code
         private Object invokeIndirect(Slot s, Object self, Object other)
                 throws Throwable {
-            PyType t = ((DerivedPyObject) self).getType();
-            MethodHandle mh = (MethodHandle) s.slotHandle.get(t);
+            PyType t = ((DerivedPyObject)self).getType();
+            MethodHandle mh = (MethodHandle)s.slotHandle.get(t);
             return mh.invoke(self, other);
         }
 
@@ -531,7 +531,7 @@ abstract class Operations {
         @Override
         PyType type(Object x) {
             if (x instanceof DerivedPyObject)
-                return ((DerivedPyObject) x).getType();
+                return ((DerivedPyObject)x).getType();
             else
                 throw new InterpreterError(
                         "object %.50s has wrong Operations type %s", x,

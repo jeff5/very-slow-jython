@@ -242,7 +242,7 @@ enum Slot {
      * @return current contents of this slot in {@code ops}
      */
     MethodHandle getSlot(Operations ops) {
-        return (MethodHandle) slotHandle.get(ops);
+        return (MethodHandle)slotHandle.get(ops);
     }
 
     /**
@@ -256,7 +256,7 @@ enum Slot {
      */
     MethodHandle getAltSlot(Operations ops)
             throws NullPointerException {
-        return (MethodHandle) alt.slotHandle.get(ops);
+        return (MethodHandle)alt.slotHandle.get(ops);
     }
 
     /**
@@ -320,7 +320,7 @@ enum Slot {
              * check here that ops.getJavaClass() is assignable to an
              * accepted implementation of the defining type.
              */
-            PyWrapperDescr wd = (PyWrapperDescr) def;
+            PyWrapperDescr wd = (PyWrapperDescr)def;
             mh = wd.getWrapped(ops.getJavaClass());
             if (wd.slot.signature != signature
                     || mh == signature.empty) {
@@ -459,7 +459,7 @@ enum Slot {
                     Object[] args, String[] names)
                     throws ArgumentError, Throwable {
                 checkArgs(args, 0, names);
-                return (int) wrapped.invokeExact(self);
+                return (int)wrapped.invokeExact(self);
             }
         },
 
@@ -526,7 +526,7 @@ enum Slot {
                     throw new TypeError(
                             "__get__(None, None) is invalid");
                 }
-                return wrapped.invokeExact(self, obj, (PyType) type);
+                return wrapped.invokeExact(self, obj, (PyType)type);
             }
         },
 
@@ -764,19 +764,19 @@ enum Slot {
                 // error = λ(slot, v, w, ...): f(slot, v, w, ...)
                 MethodHandle error;
                 switch (slot.signature) {
-                case UNARY:
-                    // Same name, although signature differs ...
-                case BINARY:
-                    error = LOOKUP.findStatic(PyNumber.class,
-                            "operandError", errorMT);
-                    break;
-                default:
-                    // error = λ(slot): default(slot, v, w, ...)
-                    error = LOOKUP.findStatic(Util.class,
-                            "defaultOperandError", errorMT);
-                    // error = λ(slot, v, w, ...): default(slot)
-                    error = MethodHandles.dropArguments(error, 0,
-                            slot.getType().parameterArray());
+                    case UNARY:
+                        // Same name, although signature differs ...
+                    case BINARY:
+                        error = LOOKUP.findStatic(PyNumber.class,
+                                "operandError", errorMT);
+                        break;
+                    default:
+                        // error = λ(slot): default(slot, v, w, ...)
+                        error = LOOKUP.findStatic(Util.class,
+                                "defaultOperandError", errorMT);
+                        // error = λ(slot, v, w, ...): default(slot)
+                        error = MethodHandles.dropArguments(error, 0,
+                                slot.getType().parameterArray());
                 }
 
                 // A handle that creates and throws the exception

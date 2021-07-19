@@ -488,7 +488,7 @@ abstract class Exposer {
          * @param e what went wrong
          * @return an exception to throw
          */
-        protected InterpreterError cannotGetHandle(Method m,
+        protected static InterpreterError cannotGetHandle(Method m,
                 IllegalAccessException e) {
             return new InterpreterError(e, CANNOT_GET_HANDLE,
                     m.getName(), m.getDeclaringClass());
@@ -1077,7 +1077,7 @@ abstract class Exposer {
                 StringJoiner sj = new StringJoiner(",");
                 for (Annotation a : anno) {
                     String name = a.annotationType().getSimpleName();
-                    if (a != null) { sj.add(name); }
+                    sj.add(name);
                 }
                 throw new InterpreterError(ANNOTATIONS_TOGETHER,
                         getJavaName(), paramName, sj);
@@ -1088,7 +1088,7 @@ abstract class Exposer {
          * Poor man's eval() specifically for default values in built-in
          * methods.
          */
-        private Object eval(String s) {
+        private static Object eval(String s) {
             if (s == null || s.equals("None")) {
                 return Py.None;
             } else if (s.matches(REGEX_INT)) {

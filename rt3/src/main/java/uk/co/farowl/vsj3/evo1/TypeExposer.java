@@ -829,7 +829,7 @@ class TypeExposer extends Exposer {
          * @param slotType required type
          * @throws WrongMethodTypeException if cannot cast
          */
-        private void checkCast(MethodHandle mh, MethodType slotType)
+        private static void checkCast(MethodHandle mh, MethodType slotType)
                 throws WrongMethodTypeException {
             MethodType mt = mh.type();
             int n = mt.parameterCount();
