@@ -2,13 +2,14 @@ package uk.co.farowl.vsj3.evo1;
 
 import java.lang.invoke.MethodHandles;
 
-/** The Python {@code OverflowError} exception. */
-class OverflowError extends ArithmeticError {
+/** The Python {@code ZeroDivisionError} exception. */
+class ZeroDivisionError extends ArithmeticError {
     private static final long serialVersionUID = 1L;
 
     /** The type of Python object this class implements. */
-    static final PyType TYPE = PyType.fromSpec(
-            new PyType.Spec("OverflowError", MethodHandles.lookup()));
+    static final PyType TYPE =
+            PyType.fromSpec(new PyType.Spec("ZeroDivisionError",
+                    MethodHandles.lookup()));
 
     /**
      * Constructor for sub-class use specifying {@link #type}.
@@ -17,7 +18,8 @@ class OverflowError extends ArithmeticError {
      * @param msg a Java format string for the message
      * @param args to insert in the format string
      */
-    protected OverflowError(PyType type, String msg, Object... args) {
+    protected ZeroDivisionError(PyType type, String msg,
+            Object... args) {
         super(type, msg, args);
     }
 
@@ -27,7 +29,7 @@ class OverflowError extends ArithmeticError {
      * @param msg a Java format string for the message
      * @param args to insert in the format string
      */
-    public OverflowError(String msg, Object... args) {
+    public ZeroDivisionError(String msg, Object... args) {
         this(TYPE, msg, args);
     }
 }
