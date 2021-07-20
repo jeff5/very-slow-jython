@@ -1,0 +1,47 @@
+# Build and run tests under Travis CI
+
+# Ubuntu 20.04 (focal) needed to get Python 3.8
+# https://docs.travis-ci.com/user/reference/focal/#python-support
+dist: focal
+
+
+language: java
+
+# Ensure Python 3.8 available (default on focal so do not install)
+before_install:
+# python command means Python 3.8
+#- pyenv install 3.8
+- pyenv global 3.8
+
+
+jobs:
+  include:
+    - name: "openjdk11 on Linux"
+      os: linux
+      jdk: openjdk11
+
+
+# No installation, but check versions here
+install:
+  # Confirm versions and paths (this has been a problem)
+  - echo $PATH
+  - java -version
+  - python -V
+
+
+# Cache artefacts downloaded by Gradle
+# https://guides.gradle.org/executing-gradle-builds-on-travisci/#enable_caching_of_downloaded_artifacts
+# (Caching may be flakey on Windows.)
+before_cache:
+  - rm -f  $HOME/.gradle/caches/modules-2/modules-2.lock
+  - rm -fr $HOME/.gradle/caches/*/plugin-resolution/
+
+cache:
+  directories:
+    - $HOME/.gradle/caches/
+    - $HOME/.gradle/wrapper/
+
+
+# Run the build only on the latest RT approach
+script:
+  - ./gradlew rt3:test
