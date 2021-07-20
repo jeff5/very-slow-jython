@@ -1,24 +1,34 @@
 # Build and run tests under Travis CI
 
-# Ubuntu 20.04 (focal) needed to get Python 3.8
-# https://docs.travis-ci.com/user/reference/focal/#python-support
-dist: focal
-
+# Defaults so need not specify in linux jobs
+os: linux
+dist: focal  # has Python 3.8 as default "python" command
 
 language: java
 
-# Ensure Python 3.8 available (default on focal so do not install)
-before_install:
-# python command means Python 3.8
-#- pyenv install 3.8
-- pyenv global 3.8
-
-
 jobs:
   include:
+    ## These worked (without the pyenv bits). Let's just focus on OSX.
     - name: "openjdk11 on Linux"
-      os: linux
       jdk: openjdk11
+ 
+    - name: "openjdk15 on Linux"
+      jdk: openjdk15
+
+    - name: "openjdk11 on macOS"
+      os: osx
+      osx_image: xcode12.4 # supports jdk key up to 15
+      jdk: openjdk11
+
+      before_install:
+        # Ensure pyenv is in charge of Python versions
+        - pyenv root
+        - export PATH=$(pyenv root)/shims:$PATH
+        # Limited by this list, we pick the latest 3.8 to install
+        - pyenv install --list
+        - pyenv install 3.8.7
+        # Make python command mean that version (used in gradle build)
+        - pyenv global 3.8.7
 
 
 # No installation, but check versions here
@@ -26,7 +36,9 @@ install:
   # Confirm versions and paths (this has been a problem)
   - echo $PATH
   - java -version
+  - which python
   - python -V
+  - ./gradlew --version
 
 
 # Cache artefacts downloaded by Gradle
@@ -42,6 +54,6 @@ cache:
     - $HOME/.gradle/wrapper/
 
 
-# Run the build only on the latest RT approach
+# Run the build only on the latest run-time approach
 script:
   - ./gradlew rt3:test
