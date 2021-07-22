@@ -1,88 +1,581 @@
 package uk.co.farowl.vsj3.evo1;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.lang.invoke.MethodHandles;
 import java.math.BigInteger;
+import java.util.Collections;
 import java.util.List;
 
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.DisplayNameGeneration;
+import org.junit.jupiter.api.DisplayNameGenerator;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-
-import uk.co.farowl.vsj3.evo1.PyType.Flag;
-import uk.co.farowl.vsj3.evo1.PyType.Spec;
 
 /**
  * Test the {@link PyWrapperDescr}s for unary special functions on a
  * variety of types. The particular operations are not the focus: we are
  * testing the mechanisms for creating and calling slot wrappers.
  */
+@DisplayNameGeneration(DisplayNameGenerator.ReplaceUnderscores.class)
 class UnarySlotWrapperTest extends UnitTestSupport {
 
     /**
-     * Test invocation of {@code float.__neg__} descriptor on accepted
-     * {@code float} classes.
+     * Nested test classes, that test a particular slot for a particular
+     * type, implement these as standard. A base class here is just a
+     * way to describe the tests once that we repeat in each nested
+     * case.
      */
-    @Test
-    void float_neg() throws Throwable {
+    abstract static class SlotDetails {
 
-        PyWrapperDescr neg =
-                (PyWrapperDescr) PyFloat.TYPE.lookup("__neg__");
+        // Working variables for the tests
+        /** Name of the special method under test. */
+        String name;
+        /** Unbound slot wrapper to examine or call. */
+        PyWrapperDescr descr;
+        /** The type on which to invoke the special method. */
+        PyType type;
 
-        Double dx = 42.0;
-        PyFloat px = newPyFloat(dx);
-
-        // Invoke for PyFloat, Double
-        for (Object x : List.of(px, dx)) {
-            Object r = neg.__call__(new Object[] {x}, null);
-            assertPythonType(PyFloat.TYPE, r);
-            assertEquals(-42.0, PyFloat.asDouble(r));
+        /**
+         * The slot wrapper should have field values that correctly
+         * reflect the signature and defining class.
+         */
+        @Test
+        void has_expected_fields() {
+            assertEquals(name, descr.name);
+            assertTrue(type.isSubTypeOf(descr.objclass),
+                    "target is sub-type of defining class");
+            // more ...
         }
-    }
 
-    /**
-     * Test invocation of the {@code float.__neg__} descriptor on
-     * accepted {@code float}. classes. Variant intended to test
-     * handling of empty keyword dictionary (rather than {@code null}).
-     */
-    @Test
-    void float_neg_emptyKwds() throws Throwable {
-
-        PyWrapperDescr neg =
-                (PyWrapperDescr) PyFloat.TYPE.lookup("__neg__");
-
-        Double dx = -1e42;
-        PyFloat px = newPyFloat(dx);
-
-        // x is PyFloat, Double
-        for (Object x : List.of(px, dx)) {
-            Object r = neg.__call__(new Object[] {x}, new String[0]);
-            assertPythonType(PyFloat.TYPE, r);
-            assertEquals(1e42, PyFloat.asDouble(r));
+        /**
+         * Helper to set up each test.
+         *
+         * @param type under test
+         * @param name of the special method
+         * @throws AttributeError if method not found
+         * @throws Throwable other errors
+         */
+        void setup(PyType type, String name)
+                throws AttributeError, Throwable {
+            this.name = name;
+            this.type = type;
+            descr = (PyWrapperDescr)type.lookup(name);
+            if (descr == null)
+                throw Abstract.noAttributeOnType(type, name);
         }
-    }
 
-    /**
-     * Test invocation of {@code int.__neg__} descriptor on accepted
-     * {@code int} classes.
-     */
-    @Test
-    void int_neg() throws Throwable {
+        /**
+         * Call the slot wrapper using the {@code __call__} special
+         * method, unbound, with arguments correct for the slot's
+         * specification. The called method should obtain the correct
+         * result (and not throw).
+         *
+         * @throws Throwable unexpectedly
+         */
+        abstract void supports_call() throws Throwable;
 
-        PyWrapperDescr neg =
-                (PyWrapperDescr) PyLong.TYPE.lookup("__neg__");
+        /**
+         * Make a single invocation of {@link #descr} with {@code null}
+         * keywords argument.
+         *
+         * @param x argument on which to invoke (it's unary)
+         * @return result of call
+         * @throws Throwable unexpectedly
+         */
+        Object makeCall(Object x) throws Throwable {
+            return descr.__call__(new Object[] {x}, null);
+        }
 
-        Integer ix = 42;
-        BigInteger bx = BigInteger.valueOf(ix);
-        PyLong px = newPyLong(ix);
+        /**
+         * Make a single invocation of {@link #descr} directly.
+         *
+         * @param x argument on which to invoke (it's unary)
+         * @return result of call
+         * @throws Throwable unexpectedly
+         */
+        Object makeCallKW(Object x) throws Throwable {
+            return descr.__call__(new Object[] {x}, NOKEYWORDS);
+        }
 
-        // x is PyLong, Integer, BigInteger, Boolean
-        // Boolean is correct here since it has the same __neg__
-        for (Object x : List.of(px, ix, bx, false, true)) {
-            Object r = neg.__call__(new Object[] {x}, null);
+        /**
+         * Call the slot wrapper using the {@code __call__} special
+         * method, bound, with arguments correct for the slot's
+         * specification. The called method should obtain the correct
+         * result (and not throw).
+         *
+         * @throws Throwable unexpectedly
+         */
+        abstract void supports_bound_call() throws Throwable;
+
+        /**
+         * Make a single invocation of {@link #descr} having bound it to
+         * the argument.
+         *
+         * @param x argument on which to invoke (it's unary)
+         * @return result of call
+         * @throws Throwable unexpectedly
+         */
+        Object makeBoundCall(Object x) throws Throwable {
+            PyMethodWrapper meth =
+                    (PyMethodWrapper)descr.__get__(x, null);
+            return meth.__call__(NOARGS, null);
+        }
+
+        /**
+         * Make a single invocation of {@link #descr} having bound it to
+         * the argument.
+         *
+         * @param x argument on which to invoke (it's unary)
+         * @return result of call
+         * @throws Throwable unexpectedly
+         */
+        Object makeBoundCallKW(Object x) throws Throwable {
+            PyMethodWrapper meth =
+                    (PyMethodWrapper)descr.__get__(x, null);
+            return meth.__call__(NOARGS, NOKEYWORDS);
+        }
+
+        /**
+         * Call the lot wrapper using the Java call interface with
+         * arguments correct for the slot's specification. The function
+         * should obtain the correct result (and not throw).
+         *
+         * @throws Throwable unexpectedly
+         */
+        abstract void supports_java_call() throws Throwable;
+
+        /**
+         * Make a single invocation of {@link #descr} as a Java call .
+         *
+         * @param x argument on which to invoke (it's unary)
+         * @return result of call
+         * @throws Throwable unexpectedly
+         */
+        Object makeJavaCall(Object x) throws Throwable {
+            return descr.call(x);
+        }
+
+        /**
+         * Check a return value that is expected to be a Python
+         * {@code int}.
+         *
+         * @param exp value expected
+         * @param r return value to test
+         * @throws Throwable unexpectedly
+         */
+        void checkInt(Object exp, Object r) throws Throwable {
             assertPythonType(PyLong.TYPE, r);
-            int exp = -toInt(x);
-            assertEquals(exp, toInt(r));
+            BigInteger e = PyLong.asBigInteger(exp);
+            BigInteger res = PyLong.asBigInteger(r);
+            assertEquals(e, res);
+        }
+
+        /**
+         * Check a return value that is expected to be a Python
+         * {@code str}.
+         *
+         * @param exp value expected
+         * @param r return value to test
+         * @throws Throwable unexpectedly
+         */
+        void checkStr(Object exp, Object r) throws Throwable {
+            assertPythonType(PyUnicode.TYPE, r);
+            assertEquals(exp.toString(), r.toString());
+        }
+
+        /**
+         * Check a return value that is expected to be a Python
+         * {@code float}.
+         *
+         * @param exp value expected
+         * @param r return value to test
+         * @throws Throwable unexpectedly
+         */
+        void checkFloat(Object exp, Object r) throws Throwable {
+            assertPythonType(PyFloat.TYPE, r);
+            double e = PyFloat.asDouble(exp);
+            double res = PyFloat.asDouble(r);
+            assertEquals(e, res);
+        }
+    }
+
+    /**
+     * A class that implements the tests for one combination of slot
+     * wrapper and type. The class specialises its type to the Java
+     * return type {@code R} of the special method under test, and a
+     * Java super-type {@code S} of the {@code self} argument. For a
+     * Python type with just one implementation, {@code S} may be that
+     * implementation type. For a Python type with multiple
+     * implementations, {@code S} must be the common super-type, which
+     * is usually {@code Object}.
+     *
+     * @param <R> the return type of the special method under test
+     * @param <S> the common Java super-type of implementations
+     */
+    abstract class SlotDetailTest<R, S> extends SlotDetails {
+
+        /**
+         * A list of arguments to which the special method under test
+         * will be applied.
+         */
+        private List<S> cases;
+
+        /**
+         * Compute the expected result of a call
+         *
+         * @param x argument to the call under test
+         * @return expected return from call under test
+         */
+        abstract R expected(S x);
+
+        /**
+         * Check the result of a call, potentially failing the test.
+         * Quite often this simply calls one of the base tests
+         * {@link #checkInt(Object, Object)}, etc..
+         *
+         * @param exp value expected
+         * @param r return value to test
+         * @throws Throwable unexpectedly
+         */
+        abstract void check(R exp, Object r) throws Throwable;
+
+        /**
+         * Helper to set up each test.
+         *
+         * @param type under test
+         * @param name of the special method
+         * @throws AttributeError if method not found
+         * @throws Throwable other errors
+         */
+        void setup(PyType type, String name, List<S> cases)
+                throws AttributeError, Throwable {
+            super.setup(type, name);
+            this.cases = cases;
+        }
+
+        @Override
+        @Test
+        void supports_call() throws Throwable {
+            for (S x : cases) {
+                R exp = expected(x);
+                check(exp, makeCall(x));
+            }
+        }
+
+        @Override
+        @Test
+        void supports_bound_call() throws Throwable {
+            for (S x : cases) {
+                R exp = expected(x);
+                check(exp, makeBoundCall(x));
+            }
+        }
+
+        @Override
+        @Test
+        void supports_java_call() throws Throwable {
+            for (S x : cases) {
+                R exp = expected(x);
+                check(exp, makeJavaCall(x));
+            }
+        }
+
+        List<S> getCases() {
+            return Collections.unmodifiableList(cases);
+        }
+    }
+
+    static final Object[] NOARGS = new Object[0];
+    static final String[] NOKEYWORDS = new String[0];
+
+    @Nested
+    @DisplayName("The slot wrapper '__neg__'")
+    class Slot__neg__ {
+
+        final String NAME = "__neg__";
+
+        @Nested
+        @DisplayName("of 'int' objects")
+        class OfInt extends SlotDetailTest<Object, Object> {
+
+            @Override
+            Object expected(Object x) {
+                // Test material is 32 bit. Maybe BigInteger instead?
+                return Integer.valueOf(-toInt(x));
+            }
+
+            @Override
+            void check(Object exp, Object r) throws Throwable {
+                checkInt(exp, r);
+            }
+
+            @BeforeEach
+            void setup() throws AttributeError, Throwable {
+                // x is Integer, BigInteger, PyLong, Boolean
+                Integer ix = 42;
+                super.setup(PyLong.TYPE, NAME,
+                        List.of(ix, BigInteger.valueOf(ix),
+                                newPyLong(ix), false, true));
+            }
+
+            /**
+             * As {@link #supports_call()} but with empty keyword array.
+             */
+            @Test
+            void supports_call_with_keywords() throws Throwable {
+                for (Object x : getCases()) {
+                    Object exp = expected(x);
+                    checkInt(exp, makeBoundCallKW(x));
+                }
+            }
+
+            /**
+             * As {@link #supports_bound_call()} but with empty keyword
+             * array.
+             */
+            @Test
+            void supports_bound_call_with_keywords() throws Throwable {
+                for (Object x : getCases()) {
+                    Object exp = expected(x);
+                    checkInt(exp, makeBoundCallKW(x));
+                }
+            }
+        }
+
+        @Nested
+        @DisplayName("of 'bool' objects")
+        class OfBool extends SlotDetailTest<Object, Boolean> {
+
+            @Override
+            Object expected(Boolean x) { return x ? -1 : 0; }
+
+            @Override
+            void check(Object exp, Object r) throws Throwable {
+                checkInt(exp, r);
+            }
+
+            @BeforeEach
+            void setup() throws AttributeError, Throwable {
+                super.setup(PyBool.TYPE, NAME, List.of(false, true));
+            }
+        }
+
+        @Nested
+        @DisplayName("of 'float' objects")
+        class OfFloat extends SlotDetailTest<Object, Object> {
+
+            private double exp;
+
+            @Override
+            Object expected(Object x) { return exp; }
+
+            @Override
+            void check(Object exp, Object r) throws Throwable {
+                checkFloat(exp, r);
+            }
+
+            @BeforeEach
+            void setup() throws AttributeError, Throwable {
+                // Invoke for Double, PyFloat
+                double dx = 42.0;
+                exp = -dx;
+                super.setup(PyFloat.TYPE, NAME,
+                        List.of(dx, newPyFloat(dx)));
+            }
+        }
+    }
+
+    @Nested
+    @DisplayName("The slot wrapper '__repr__'")
+    class Slot__repr__ {
+
+        final String NAME = "__repr__";
+
+        @Nested
+        @DisplayName("of 'int' objects")
+        class OfInt extends SlotDetailTest<String, Object> {
+
+            @Override
+            String expected(Object x) {
+                return Integer.toString(toInt(x));
+            }
+
+            @Override
+            void check(String exp, Object r) throws Throwable {
+                checkStr(exp, r);
+            }
+
+            @BeforeEach
+            void setup() throws AttributeError, Throwable {
+                // x is Integer, BigInteger, PyLong, Boolean
+                Integer ix = 42;
+                super.setup(PyLong.TYPE, NAME,
+                        List.of(ix, BigInteger.valueOf(ix),
+                                newPyLong(ix), false, true));
+            }
+        }
+
+        @Nested
+        @DisplayName("of 'bool' objects")
+        class OfBool extends SlotDetailTest<String, Boolean> {
+
+            @Override
+            String expected(Boolean x) { return x ? "True" : "False"; }
+
+            @Override
+            void check(String exp, Object r) throws Throwable {
+                checkStr(exp, r);
+            }
+
+            @BeforeEach
+            void setup() throws AttributeError, Throwable {
+                super.setup(PyBool.TYPE, NAME, List.of(false, true));
+            }
+        }
+
+        @Nested
+        @DisplayName("of 'float' objects")
+        class OfFloat extends SlotDetailTest<String, Object> {
+
+            private String exp;
+
+            @Override
+            String expected(Object x) { return exp; }
+
+            @Override
+            void check(String exp, Object r) throws Throwable {
+                checkStr(exp, r);
+            }
+
+            @BeforeEach
+            void setup() throws AttributeError, Throwable {
+                // Invoke for Double, PyFloat
+                double dx = 42.0;
+                exp = "42.0";
+                super.setup(PyFloat.TYPE, NAME,
+                        List.of(dx, newPyFloat(dx)));
+            }
+        }
+
+        @Nested
+        @DisplayName("of 'str' objects")
+        class OfStr extends SlotDetailTest<String, Object> {
+
+            private String exp;
+
+            @Override
+            String expected(Object x) { return exp; }
+
+            @Override
+            void check(String exp, Object r) throws Throwable {
+                checkStr(exp, r);
+            }
+
+            @BeforeEach
+            void setup() throws AttributeError, Throwable {
+                String sx = "forty-two";
+                exp = "'" + sx + "'";
+                super.setup(PyUnicode.TYPE, NAME,
+                        List.of(sx, newPyUnicode(sx)));
+            }
+        }
+    }
+
+    @Nested
+    @DisplayName("The slot wrapper '__hash__'")
+    class Slot__hash__ {
+
+        final String NAME = "__hash__";
+
+        @Nested
+        @DisplayName("of 'int' objects")
+        class OfInt extends SlotDetailTest<Integer, Object> {
+
+            @Override
+            Integer expected(Object x) { return toInt(x); }
+
+            @Override
+            void check(Integer exp, Object r) throws Throwable {
+                checkInt(exp, r);
+            }
+
+            @BeforeEach
+            void setup() throws AttributeError, Throwable {
+                // x is Integer, BigInteger, PyLong, Boolean
+                Integer ix = 42;
+                super.setup(PyLong.TYPE, NAME,
+                        List.of(ix, BigInteger.valueOf(ix),
+                                newPyLong(ix), false, true));
+            }
+        }
+
+        @Nested
+        @DisplayName("of 'bool' objects")
+        class OfBool extends SlotDetailTest<Integer, Boolean> {
+
+            @Override
+            Integer expected(Boolean x) { return x ? 1 : 0; }
+
+            @Override
+            void check(Integer exp, Object r) throws Throwable {
+                checkInt(exp, r);
+            }
+
+            @BeforeEach
+            void setup() throws AttributeError, Throwable {
+                super.setup(PyBool.TYPE, NAME, List.of(false, true));
+            }
+        }
+
+        // XXX Disabled until float.__hash__ implemented
+        //@Nested
+        @DisplayName("of 'float' objects")
+        class OfFloat extends SlotDetailTest<Integer, Object> {
+
+            private Integer exp;
+
+            @Override
+            Integer expected(Object x) { return exp; }
+
+            @Override
+            void check(Integer exp, Object r) throws Throwable {
+                checkInt(exp, r);
+            }
+
+            @BeforeEach
+            void setup() throws AttributeError, Throwable {
+                // Invoke for Double, PyFloat
+                double dx = 42.0;
+                exp = 42; // since equal in Python
+                super.setup(PyFloat.TYPE, NAME,
+                        List.of(dx, newPyFloat(dx)));
+            }
+        }
+
+        @Nested
+        @DisplayName("of 'str' objects")
+        class OfStr extends SlotDetailTest<Integer, Object> {
+
+            private Integer exp;
+
+            @Override
+            Integer expected(Object x) { return exp; }
+
+            @Override
+            void check(Integer exp, Object r) throws Throwable {
+                checkInt(exp, r);
+            }
+
+            @BeforeEach
+            void setup() throws AttributeError, Throwable {
+                String sx = "forty-two";
+                exp = sx.hashCode();
+                super.setup(PyUnicode.TYPE, NAME,
+                        List.of(sx, newPyUnicode(sx)));
+            }
         }
     }
 
@@ -97,245 +590,4 @@ class UnarySlotWrapperTest extends UnitTestSupport {
         Operations boolOps = Operations.of(Boolean.FALSE);
         assertEquals(boolOps, PyBool.TYPE);
     }
-
-    /**
-     * Test invocation of {@code bool.__neg__} descriptor.
-     */
-    @Test
-    void bool_neg() throws Throwable {
-
-        PyWrapperDescr neg =
-                (PyWrapperDescr) PyBool.TYPE.lookup("__neg__");
-        assertEquals(PyLong.TYPE.lookup("__neg__"), neg);
-
-        for (Object x : List.of(false, true)) {
-            Object r = neg.__call__(new Object[] {x}, null);
-            assertPythonType(PyLong.TYPE, r);
-            assertEquals(-toInt(x), toInt(r));
-        }
-    }
-
-    /**
-     * Test invocation of the {@code float.__repr__} descriptor on
-     * accepted {@code float} classes.
-     */
-    @Test
-    void float_repr() throws Throwable {
-
-        PyWrapperDescr repr =
-                (PyWrapperDescr) PyFloat.TYPE.lookup("__repr__");
-
-        Double dx = 42.0;
-        PyFloat px = newPyFloat(dx);
-
-        // x is PyFloat, Double
-        for (Object x : List.of(px, dx)) {
-            Object r = repr.__call__(new Object[] {x}, null);
-            assertPythonType(PyUnicode.TYPE, r);
-            assertEquals("42.0", r.toString());
-        }
-    }
-
-    /**
-     * Test invocation of the {@code int.__repr__} descriptor on
-     * accepted {@code int} classes.
-     */
-    @Test
-    void int_repr() throws Throwable {
-
-        PyWrapperDescr repr =
-                (PyWrapperDescr) PyLong.TYPE.lookup("__repr__");
-
-        Integer ix = 42;
-        BigInteger bx = BigInteger.valueOf(ix);
-        PyLong px = newPyLong(ix);
-
-        // x is PyLong, Integer, BigInteger, Boolean
-        // Boolean is ok here since int.__repr__ is applicable
-        for (Object x : List.of(px, ix, bx, false, true)) {
-            Object r = repr.__call__(new Object[] {x}, null);
-            assertPythonType(PyUnicode.TYPE, r);
-            String e = Integer.toString(toInt(x));
-            assertEquals(e, r.toString());
-        }
-    }
-
-    /**
-     * Test invocation of the {@code bool.__repr__} descriptor.
-     */
-    @Test
-    void bool_repr() throws Throwable {
-
-        PyWrapperDescr repr =
-                (PyWrapperDescr) PyBool.TYPE.lookup("__repr__");
-
-        for (Boolean x : List.of(false, true)) {
-            Object r = repr.__call__(new Object[] {x}, null);
-            assertPythonType(PyUnicode.TYPE, r);
-            String e = x ? "True" : "False";
-            assertEquals(e, r.toString());
-        }
-    }
-
-    /**
-     * Test invocation of the {@code str.__repr__} descriptor on
-     * accepted {@code str} classes.
-     */
-    @Test
-    void str_repr() throws Throwable {
-
-        PyWrapperDescr repr =
-                (PyWrapperDescr) PyUnicode.TYPE.lookup("__repr__");
-
-        String sx = "forty-two";
-        PyUnicode ux = newPyUnicode(sx);
-
-        // x is PyUnicode, String
-        for (Object x : List.of(ux, sx)) {
-            Object r = repr.__call__(new Object[] {x}, null);
-            assertPythonType(PyUnicode.TYPE, r);
-            assertEquals("'forty-two'", r.toString());
-        }
-    }
-
-    /**
-     * Test invocation of {@code str.__len__} descriptor on accepted
-     * {@code str} classes.
-     */
-    @Test
-    void str_len() throws Throwable {
-
-        PyWrapperDescr len =
-                (PyWrapperDescr) PyUnicode.TYPE.lookup("__len__");
-
-        String sx = "Hello";
-        PyUnicode ux = newPyUnicode(sx);
-
-        // Invoke for PyUnicode, String
-        for (Object x : List.of(ux, sx)) {
-            Object r = len.__call__(new Object[] {x}, null);
-            // The result will be Integer (since slot returns int)
-            assertEquals(Integer.class, r.getClass());
-            assertEquals(5, r);
-        }
-    }
-
-    /**
-     * Test invocation of {@code str.__hash__} descriptor on accepted
-     * {@code str} classes.
-     */
-    @Test
-    void str_hash() throws Throwable {
-
-        PyWrapperDescr hash =
-                (PyWrapperDescr) PyUnicode.TYPE.lookup("__hash__");
-
-        String sx = "Hello";
-        PyUnicode ux = newPyUnicode(sx);
-        int exp = sx.hashCode();
-
-        // Invoke for PyUnicode, String
-        for (Object x : List.of(ux, sx)) {
-            Object r = hash.__call__(new Object[] {x}, null);
-            // The result will be Integer (since slot returns int)
-            assertEquals(Integer.class, r.getClass());
-            assertEquals(exp, r);
-        }
-    }
-
-    /**
-     * Test invocation of {@code int.__float__} descriptor on accepted
-     * {@code int} classes.
-     */
-    @Test
-    void int_float() throws Throwable {
-
-        PyWrapperDescr f =
-                (PyWrapperDescr) PyLong.TYPE.lookup("__float__");
-
-        Integer ix = 42;
-        BigInteger bx = BigInteger.valueOf(ix);
-        PyLong px = newPyLong(ix);
-
-        // x is PyLong, Integer, BigInteger, Boolean
-        // Boolean is correct here since int.__float__ is applicable
-        for (Object x : List.of(px, ix, bx, false, true)) {
-            Object r = f.__call__(new Object[] {x}, null);
-            // The result will be Double
-            assertEquals(Double.class, r.getClass());
-            double exp = toDouble(x);
-            assertEquals(exp, PyFloat.asDouble(r));
-        }
-    }
-
-    /**
-     * Define a Python sub-class of {@code int} in order to test binding
-     * and calling descriptors added to the class but not capable of
-     * being called on instances.
-     * <p>
-     * This isn't exactly how we should make a Python sub-type in
-     * Python, but it allows testing of some behaviour before we master
-     * that.
-     */
-    static class MyInt extends PyLong.Derived {
-
-        static final PyType TYPE = PyType.fromSpec( //
-                new Spec("MyInt", MethodHandles.lookup())
-                        .base(PyLong.TYPE) //
-                        .flag(Flag.MUTABLE));
-
-        MyInt(int value) { super(TYPE, BigInteger.valueOf(value)); }
-    }
-
-    /**
-     * Methods are inherited from {@code int} by {@link MyInt}. This is
-     * just a sanity check to compare with
-     * {@link UnarySlotWrapperTest#myint_float_neg()}.
-     */
-    @Test
-    void myint_neg() throws AttributeError, Throwable {
-        Object v = new MyInt(42);
-        Object r = Callables.callMethod(v, "__neg__");
-        assertEquals(-42, PyLong.asInt(r));
-    }
-
-    /**
-     * A slot-wrapper descriptor added to a type that does not match the
-     * defining class is allowed but produces TypeError when bound or
-     * called.
-     */
-    // @Test // Disabled until we have slot_* functions
-    void myint_float_neg() throws AttributeError, Throwable {
-
-        // v = MyInt(42)
-        Object v = new MyInt(42);
-
-        // Sanity check: -v the long way round
-        // f = v.__neg__
-        Object f = Abstract.getAttr(v, "__neg__");
-        // r = f() # = -42
-        Object r = Callables.call(f);
-        assertEquals(-42, PyLong.asInt(r));
-
-        // Sanity check: -v the short way
-        r = PyNumber.negative(v);
-        assertEquals(-42, PyLong.asInt(r));
-
-        // Now this should break negation ...
-        // MyInt.__neg__ = float.__neg__
-        Object neg = Abstract.getAttr(PyFloat.TYPE, "__neg__");
-        Abstract.setAttr(MyInt.TYPE, "__neg__", neg);
-
-        // f = v.__neg__
-        // f = Abstract.getAttr(v, "__neg__");
-        // TypeError: descriptor '__neg__' for 'float' objects ...
-        assertThrows(TypeError.class,
-                () -> Abstract.getAttr(v, "__neg__"));
-
-        // r = -v
-        // r = Number.negative(v);
-        // TypeError: descriptor '__neg__' requires a 'float' ...
-        assertThrows(TypeError.class, () -> PyNumber.negative(v));
-    }
-
 }

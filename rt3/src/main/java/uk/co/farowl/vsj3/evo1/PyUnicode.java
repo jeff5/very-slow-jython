@@ -1,8 +1,10 @@
 package uk.co.farowl.vsj3.evo1;
 
 import java.lang.invoke.MethodHandles;
+import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.Iterator;
+import java.util.Map;
 
 import uk.co.farowl.vsj3.evo1.Exposed.Default;
 import uk.co.farowl.vsj3.evo1.Exposed.Name;
@@ -657,5 +659,24 @@ class PyUnicode implements PySequenceInterface<Integer>,
         else if (v instanceof PyUnicode)
             return (PyUnicode) v;
         throw PyObjectUtil.NO_CONVERSION;
+    }
+
+    // Python sub-class -----------------------------------------------
+
+    /**
+     * Instances in Python of sub-classes of 'int', are represented in
+     * Java by instances of this class.
+     */
+    static class Derived extends PyUnicode implements DictPyObject {
+
+        protected Derived(PyType subType, String value) {
+            super(subType, value);
+        }
+
+        /** The instance dictionary {@code __dict__}. */
+        protected PyDict dict = new PyDict();
+
+        @Override
+        public Map<Object, Object> getDict() { return dict; }
     }
 }

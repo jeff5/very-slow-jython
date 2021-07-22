@@ -2,6 +2,7 @@ package uk.co.farowl.vsj3.evo1;
 
 import java.lang.invoke.MethodHandles;
 import java.math.BigInteger;
+import java.util.Map;
 
 /** The Python {@code float} object. */
 public class PyFloat extends AbstractPyObject {
@@ -49,7 +50,7 @@ public class PyFloat extends AbstractPyObject {
 
     // special methods ------------------------------------------------
 
-    @SuppressWarnings("unused")
+    @SuppressWarnings({"unused", "fallthrough"})
     private static Object __new__(PyType type, PyTuple args,
             PyDict kwargs) throws Throwable {
         Object x = null;
@@ -193,6 +194,25 @@ public class PyFloat extends AbstractPyObject {
             return BigInteger.valueOf(v)
                     .shiftLeft(exponent - (SIGNIFICAND_BITS - 1));
         }
+    }
+
+    // Python sub-class -----------------------------------------------
+
+    /**
+     * Instances in Python of sub-classes of 'float', are represented in
+     * Java by instances of this class.
+     */
+    static class Derived extends PyFloat implements DictPyObject {
+
+        protected Derived(PyType subType, double value) {
+            super(subType, value);
+        }
+
+        /** The instance dictionary {@code __dict__}. */
+        protected PyDict dict = new PyDict();
+
+        @Override
+        public Map<Object, Object> getDict() { return dict; }
     }
 
     // plumbing ------------------------------------------------------

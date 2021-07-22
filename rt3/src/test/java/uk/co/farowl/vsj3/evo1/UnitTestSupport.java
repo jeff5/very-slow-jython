@@ -31,12 +31,14 @@ class UnitTestSupport {
      *
      * @param v to convert
      * @return converted value
+     * @throws ArithmeticError if out of range
+     * @throws IllegalArgumentException if wrong type
      */
-    static int toInt(Object v) {
+    static int toInt(Object v) throws ArithmeticError, IllegalArgumentException {
         if (v instanceof Integer)
             return ((Integer) v).intValue();
         else if (v instanceof BigInteger)
-            return ((BigInteger) v).intValue();
+            return ((BigInteger) v).intValueExact();
         else if (v instanceof PyLong)
             return ((PyLong) v).value.intValue();
         else if (v instanceof Boolean)
@@ -95,6 +97,7 @@ class UnitTestSupport {
      *
      * @param v to convert
      * @return converted value
+     * @throws IllegalArgumentException if wrong type
      */
     static double toDouble(Object v) {
         if (v instanceof Double)
@@ -120,7 +123,7 @@ class UnitTestSupport {
      * @return from this value.
      */
     static PyFloat newPyFloat(double value) {
-        return new PyFloat(PyFloat.TYPE, value);
+        return new PyFloat.Derived(PyFloat.TYPE, value);
     }
 
     /**
@@ -144,7 +147,7 @@ class UnitTestSupport {
      * @return from this value.
      */
     static PyUnicode newPyUnicode(String value) {
-        return new PyUnicode(PyUnicode.TYPE, value);
+        return new PyUnicode.Derived(PyUnicode.TYPE, value);
     }
 
     /**
