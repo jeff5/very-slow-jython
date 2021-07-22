@@ -629,7 +629,7 @@ class TypeExposer extends Exposer {
                             method[i] = mh.asType(mt);
                         } catch (WrongMethodTypeException wmte) {
                             // Wrong number of args or cannot cast.
-                            throw methodSignatureError(mh);
+                            throw methodSignatureError(objclass, mh);
                         }
                         break;
                     }
@@ -786,7 +786,7 @@ class TypeExposer extends Exposer {
                             break;
                         } catch (WrongMethodTypeException wmte) {
                             // Wrong number of args or cannot cast.
-                            throw methodSignatureError(mh);
+                            throw methodSignatureError(objclass, mh);
                         }
                     }
                 }

@@ -23,7 +23,8 @@ public class PyLong extends AbstractPyObject implements PyDict.Key {
                     .methods(PyLongMethods.class)
                     .binops(PyLongBinops.class));
 
-    /** The value of this Python {@code int} (when sub-classed). */
+    /** The value of this Python {@code int} (sub-class instances). */
+    // Has to be package visible for method implementations.
     final BigInteger value;
 
     /**

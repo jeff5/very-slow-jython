@@ -502,17 +502,19 @@ abstract class Exposer {
          * descriptor or method definition and the arguments of the
          * method handle are unexpected number in type or number.
          *
+         * @param type being exposed
          * @param mh handle from reflected method
          * @return an exception to throw
          */
-        protected InterpreterError
-                methodSignatureError(MethodHandle mh) {
+        protected InterpreterError methodSignatureError(PyType type,
+                MethodHandle mh) {
             return new InterpreterError(UNSUPPORTED_SIG, name,
-                    mh.type(), annoClassName());
+                    type.getName(), mh.type(), annoClassName());
         }
 
         private static final String UNSUPPORTED_SIG =
-                "method %.50s has wrong signature %.100s for %.100s";
+                "method %.50s in '%.50s' "
+                        + "has wrong signature %.100s for %.100s";
     }
 
     /**
@@ -1261,7 +1263,7 @@ abstract class Exposer {
                     methodDef = MethodDef.forInstance(ap, mh);
                 } catch (WrongMethodTypeException wmte) {
                     // Wrong number of args or cannot cast.
-                    throw methodSignatureError(mh);
+                    throw methodSignatureError(objclass, mh);
                 }
             }
 
@@ -1352,7 +1354,7 @@ abstract class Exposer {
                             method[i] = methodDef.prepare(mh);
                         } catch (WrongMethodTypeException wmte) {
                             // Wrong number of args or cannot cast.
-                            throw methodSignatureError(mh);
+                            throw methodSignatureError(objclass, mh);
                         }
                         break;
                     }
