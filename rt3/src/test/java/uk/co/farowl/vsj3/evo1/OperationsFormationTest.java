@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.lang.invoke.MethodHandles;
+import java.math.BigInteger;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -365,6 +366,80 @@ class OperationsFormationTest {
 
             // However, the type of an instance is MyA
             assertSame(typeMyJ, ops.type(obj));
+        }
+    }
+
+    @Nested
+    @DisplayName("the adopted Integer class")
+    class IntegerTest extends Base {
+        // Python must get PyType ready before touching any objects.
+        PyType OBJECT = PyType.OBJECT_TYPE;
+
+        @BeforeEach
+        void setup() throws Throwable {
+            setup(Integer.class, "Integer as <class 'int'>");
+        }
+
+        @Override
+        @Test
+        void finds_expected_type() {
+            /*
+             * The Operations object of non-canonical implementation
+             * differs from the type itself, but that type is found for
+             * instances.
+             */
+            assertNotSame(PyLong.TYPE, ops);
+            assertSame(PyLong.TYPE, ops.type(42));
+            assertSame(PyLong.TYPE, ops.type(Integer.MIN_VALUE));
+        }
+    }
+
+    @Nested
+    @DisplayName("the adopted BigInteger class")
+    class BigIntegerTest extends Base {
+        // Python must get PyType ready before touching any objects.
+        PyType OBJECT = PyType.OBJECT_TYPE;
+
+        @BeforeEach
+        void setup() throws Throwable {
+            setup(BigInteger.class, "BigInteger as <class 'int'>");
+        }
+
+        @Override
+        @Test
+        void finds_expected_type() {
+            /*
+             * The Operations object of non-canonical implementation
+             * differs from the type itself, but that type is found for
+             * instances.
+             */
+            assertNotSame(PyLong.TYPE, ops);
+            assertSame(PyLong.TYPE, ops.type(BigInteger.valueOf(42L)));
+            assertSame(PyLong.TYPE, ops.type(BigInteger.TEN));
+        }
+    }
+
+    @Nested
+    @DisplayName("the adopted Boolean class")
+    class BooleanTest extends Base {
+        // Python must get PyType ready before touching any objects.
+        PyType OBJECT = PyType.OBJECT_TYPE;
+
+        @BeforeEach
+        void setup() throws Throwable {
+            setup(Boolean.class, "<class 'bool'>");
+        }
+
+        @Override
+        @Test
+        void finds_expected_type() {
+            /*
+             * The Operations object of the canonical implementation is
+             * the type itself.
+             */
+            assertSame(PyBool.TYPE, ops);
+            assertSame(PyBool.TYPE, ops.type(true));
+            assertSame(PyBool.TYPE, ops.type(Boolean.FALSE));
         }
     }
 }

@@ -578,16 +578,4 @@ class UnarySlotWrapperTest extends UnitTestSupport {
             }
         }
     }
-
-    /**
-     * Test the {@link Operations} object of {@code Boolean} is the type
-     * object {@code bool}.
-     */
-    @Test
-    void boolean_is_canonical() throws Throwable {
-        PyType bool = PyType.of(true);
-        assertEquals(bool, PyBool.TYPE);
-        Operations boolOps = Operations.of(Boolean.FALSE);
-        assertEquals(boolOps, PyBool.TYPE);
-    }
 }
