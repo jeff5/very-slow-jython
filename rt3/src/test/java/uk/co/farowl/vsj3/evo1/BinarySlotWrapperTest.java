@@ -1,11 +1,18 @@
 package uk.co.farowl.vsj3.evo1;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.math.BigInteger;
 import java.util.List;
 
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.DisplayNameGeneration;
+import org.junit.jupiter.api.DisplayNameGenerator;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -15,314 +22,334 @@ import org.junit.jupiter.api.Test;
  * operations are not the focus: we are testing the mechanisms for
  * creating and calling slot wrappers.
  */
+@DisplayNameGeneration(DisplayNameGenerator.ReplaceUnderscores.class)
 class BinarySlotWrapperTest extends UnitTestSupport {
 
-    /**
-     * Test invocation of the {@code float.__sub__} descriptor on
-     * accepted {@code float} classes. All combinations of the accepted
-     * classes with {@code float} and {@code int} operand types must be
-     * valid.
-     */
-    @Test
-    void float_sub() throws Throwable {
+    @Nested
+    @DisplayName("The slot wrapper '__sub__'")
+    class Slot__sub__ extends SlotWrapperTestBase {
 
-        PyWrapperDescr sub =
-                (PyWrapperDescr) PyFloat.TYPE.lookup("__sub__");
+        final String NAME = "__sub__";
 
-        Double dv = 50.0, dw = 8.0;
-        PyFloat pv = newPyFloat(dv), pw = newPyFloat(dw);
-        Integer iw = 8;
+        @Nested
+        @DisplayName("of 'int' objects")
+        class OfInt extends BinaryTest<Object, Object> {
 
-        List<Object> wList = List.of(pw, dw, newPyLong(iw), iw,
-                BigInteger.valueOf(iw), false, true);
+            @Override
+            Object expected(Object s, Object o) {
+                return PyLong.asBigInteger(s)
+                        .subtract(PyLong.asBigInteger(o));
+            }
 
-        // v is Double, PyFloat.
-        for (Object v : List.of(dv, pv)) {
-            // w is PyFloat, Double, and int types
-            for (Object w : wList) {
-                Object r = sub.__call__(new Object[] {v, w}, null);
-                assertPythonType(PyFloat.TYPE, r);
-                double exp = dv - PyFloat.asDouble(w);
-                assertEquals(exp, PyFloat.doubleValue(r));
+            @Override
+            void check(Object exp, Object r) throws Throwable {
+                checkInt(exp, r);
+            }
+
+            @BeforeEach
+            void setup() throws AttributeError, Throwable {
+                Integer iv = 50, iw = 8;
+                // self may be int or bool (since bool sub-classes int)
+                List<Object> vList = List.of(iv, BigInteger.valueOf(iv),
+                        newPyLong(iv), true, false);
+                // other argument accepts same types
+                List<Object> wList = List.of(iw, BigInteger.valueOf(iw),
+                        newPyLong(iw), true, false);
+                super.setup(PyLong.TYPE, NAME, vList, wList);
+            }
+
+            /**
+             * As {@link #supports_call()} but with empty keyword array.
+             */
+            @Test
+            void supports_call_with_keywords() throws Throwable {
+                for (Args args : getCases()) {
+                    Object exp = expected(args.s, args.o);
+                    checkInt(exp, makeBoundCallKW(args.s, args.o));
+                }
+            }
+
+            /**
+             * As {@link #supports_bound_call()} but with empty keyword
+             * array.
+             */
+            @Test
+            void supports_bound_call_with_keywords() throws Throwable {
+                for (Args args : getCases()) {
+                    Object exp = expected(args.s, args.o);
+                    checkInt(exp, makeBoundCallKW(args.s, args.o));
+                }
+            }
+        }
+
+        @Nested
+        @DisplayName("of 'bool' objects")
+        class OfBool extends BinaryTest<Object, Boolean> {
+
+            @Override
+            Object expected(Boolean s, Object o) {
+                return (s ? BigInteger.ONE : BigInteger.ZERO)
+                        .subtract(PyLong.asBigInteger(o));
+            }
+
+            @Override
+            void check(Object exp, Object r) throws Throwable {
+                checkInt(exp, r);  // even bool-bool is int
+            }
+
+            @BeforeEach
+            void setup() throws AttributeError, Throwable {
+                // self will bool (since bool sub-classes int)
+                List<Boolean> vList = List.of(true, false);
+                // other argument accepts int and bool types
+                Integer iw = 42;
+                List<Object> wList = List.of(true, false, iw,
+                        BigInteger.valueOf(iw), newPyLong(iw));
+                super.setup(PyBool.TYPE, NAME, vList, wList);
+            }
+
+            @Test
+            @Override
+            void has_expected_fields() {
+                super.has_expected_fields();
+                // The descriptor should be *exactly* that from int
+                assertSame(PyLong.TYPE.lookup(NAME), descr);
+            }
+        }
+
+        @Nested
+        @DisplayName("of 'float' objects")
+        class OfFloat extends BinaryTest<Object, Object> {
+
+            @Override
+            Object expected(Object s, Object o) {
+                try {
+                    return PyFloat.asDouble(s) - PyFloat.asDouble(o);
+                } catch (Throwable e) {
+                    return fail("unconvertible");
+                }
+            }
+
+            @Override
+            void check(Object exp, Object r) throws Throwable {
+                checkFloat(exp, r);
+            }
+
+            @BeforeEach
+            void setup() throws AttributeError, Throwable {
+                Integer iw = 8;
+                Double dv = 50.0, dw = iw.doubleValue();
+
+                // self argument must be a float
+                List<Object> vList = List.of(dv, newPyFloat(dv));
+                // other argument accepts float, int, bool
+                List<Object> wList = List.of(dw, newPyFloat(dw), iw,
+                        BigInteger.valueOf(iw), newPyLong(iw), false,
+                        true);
+                super.setup(PyFloat.TYPE, NAME, vList, wList);
             }
         }
     }
 
-    /**
-     * Test invocation of the {@code float.__rsub__} descriptor on
-     * accepted {@code float} classes. All combinations of the accepted
-     * classes with {@code float} and {@code int} operand types must be
-     * valid.
-     */
-    @Test
-    void float_rsub() throws Throwable {
+    @Nested
+    @DisplayName("The slot wrapper '__rsub__'")
+    class Slot__rsub__ extends SlotWrapperTestBase {
 
-        PyWrapperDescr rsub =
-                (PyWrapperDescr) PyFloat.TYPE.lookup("__rsub__");
+        final String NAME = "__rsub__";
 
-        Object dv = Double.valueOf(50), dw = Double.valueOf(8);
-        Object pv = newPyFloat(dv), pw = newPyFloat(dw);
+        @Nested
+        @DisplayName("of 'int' objects")
+        class OfInt extends BinaryTest<Object, Object> {
 
-        // Invoke for Double, PyFloat.
-        for (Object v : List.of(dv, pv)) {
-            for (Object w : List.of(dw, pw)) {
-                Object r = rsub.__call__(new Object[] {w, v}, null);
-                assertPythonType(PyFloat.TYPE, r);
-                assertEquals(42.0, PyFloat.asDouble(r));
+            @Override
+            Object expected(Object s, Object o) {
+                return PyLong.asBigInteger(o)
+                        .subtract(PyLong.asBigInteger(s));
+            }
+
+            @Override
+            void check(Object exp, Object r) throws Throwable {
+                checkInt(exp, r);
+            }
+
+            @BeforeEach
+            void setup() throws AttributeError, Throwable {
+                Integer iv = 800, iw = 5000;
+                // self may be int or bool (since bool sub-classes int)
+                List<Object> vList = List.of(iv, BigInteger.valueOf(iv),
+                        newPyLong(iv), true, false);
+                // other argument accepts same types
+                List<Object> wList = List.of(iw, BigInteger.valueOf(iw),
+                        newPyLong(iw), true, false);
+                super.setup(PyLong.TYPE, NAME, vList, wList);
+            }
+        }
+
+        @Nested
+        @DisplayName("of 'bool' objects")
+        class OfBool extends BinaryTest<Object, Boolean> {
+
+            @Override
+            Object expected(Boolean s, Object o) {
+                return PyLong.asBigInteger(o)
+                        .subtract(s ? BigInteger.ONE : BigInteger.ZERO);
+            }
+
+            @Override
+            void check(Object exp, Object r) throws Throwable {
+                checkInt(exp, r);  // even bool-bool is int
+            }
+
+            @BeforeEach
+            void setup() throws AttributeError, Throwable {
+                // self will bool (since bool sub-classes int)
+                List<Boolean> vList = List.of(true, false);
+                // other argument accepts int and bool types
+                Integer iw = 4200;
+                List<Object> wList = List.of(true, false, iw,
+                        BigInteger.valueOf(iw), newPyLong(iw));
+                super.setup(PyBool.TYPE, NAME, vList, wList);
+            }
+
+            @Test
+            @Override
+            void has_expected_fields() {
+                super.has_expected_fields();
+                // The descriptor should be *exactly* that from int
+                assertSame(PyLong.TYPE.lookup(NAME), descr);
+            }
+        }
+
+        @Nested
+        @DisplayName("of 'float' objects")
+        class OfFloat extends BinaryTest<Object, Object> {
+
+            @Override
+            Object expected(Object s, Object o) {
+                try {
+                    return PyFloat.asDouble(o) - PyFloat.asDouble(s);
+                } catch (Throwable e) {
+                    return fail("unconvertible");
+                }
+            }
+
+            @Override
+            void check(Object exp, Object r) throws Throwable {
+                checkFloat(exp, r);
+            }
+
+            @BeforeEach
+            void setup() throws AttributeError, Throwable {
+                Integer iw = 5000;
+                Double dv = 800.0, dw = iw.doubleValue();
+
+                // self argument must be a float
+                List<Object> vList = List.of(dv, newPyFloat(dv));
+                // other argument accepts float, int, bool
+                List<Object> wList = List.of(dw, newPyFloat(dw), iw,
+                        BigInteger.valueOf(iw), newPyLong(iw), false,
+                        true);
+                super.setup(PyFloat.TYPE, NAME, vList, wList);
             }
         }
     }
 
-    /**
-     * Test invocation of the {@code int.__sub__} descriptor on accepted
-     * {@code int} classes in all combinations.
-     */
-    @Test
-    void int_sub() throws Throwable {
+    @Nested
+    @DisplayName("The slot wrapper '__and__'")
+    class Slot__and__ extends SlotWrapperTestBase {
 
-        PyWrapperDescr sub =
-                (PyWrapperDescr) PyLong.TYPE.lookup("__sub__");
+        final String NAME = "__and__";
 
-        Integer iv = 50, iw = 8;
-        BigInteger bv = BigInteger.valueOf(iv),
-                bw = BigInteger.valueOf(iw);
-        PyLong pv = newPyLong(iv), pw = newPyLong(iw);
+        @Nested
+        @DisplayName("of 'int' objects")
+        class OfInt extends BinaryTest<Object, Object> {
 
-        // v is Integer, BigInteger, PyLong, Boolean
-        for (Object v : List.of(iv, bv, pv, true, false)) {
-            int vv = toInt(v);
-            // w is Integer, BigInteger, PyLong, Boolean
-            for (Object w : List.of(iw, bw, pw, true, false)) {
-                Object r = sub.__call__(new Object[] {v, w}, null);
-                // The result will be Integer (since small enough)
-                assertEquals(Integer.class, r.getClass());
-                int exp = vv - toInt(w);
-                assertEquals(exp, r);
+            @Override
+            Object expected(Object s, Object o) {
+                return PyLong.asBigInteger(s)
+                        .and(PyLong.asBigInteger(o));
+            }
+
+            @Override
+            void check(Object exp, Object r) throws Throwable {
+                checkInt(exp, r);
+            }
+
+            @BeforeEach
+            void setup() throws AttributeError, Throwable {
+                Integer iv = 50, iw = 8;
+                // self may be int or bool (since bool sub-classes int)
+                List<Object> vList = List.of(iv, BigInteger.valueOf(iv),
+                        newPyLong(iv), true, false);
+                // other argument accepts same types
+                List<Object> wList = List.of(iw, BigInteger.valueOf(iw),
+                        newPyLong(iw), true, false);
+                super.setup(PyLong.TYPE, NAME, vList, wList);
             }
         }
-    }
 
-    /**
-     * Test invocation of the {@code int.__rsub__} descriptor on
-     * accepted {@code int} classes in all combinations.
-     */
-    @Test
-    void int_rsub() throws Throwable {
+        @Nested
+        @DisplayName("of 'bool' objects")
+        class OfBool extends BinaryTest<Boolean, Boolean> {
 
-        PyWrapperDescr rsub =
-                (PyWrapperDescr) PyLong.TYPE.lookup("__rsub__");
+            @Override
+            Boolean expected(Boolean s, Object o) {
+                return s && s.equals(o);
+            }
 
-        Integer iv = 50, iw = 8;
-        BigInteger bv = BigInteger.valueOf(iv),
-                bw = BigInteger.valueOf(iw);
-        PyLong pv = newPyLong(iv), pw = newPyLong(iw);
+            @Override
+            void check(Boolean exp, Object r) throws Throwable {
+                checkBool(exp, r);
+            }
 
-        // v is Integer, BigInteger, PyLong, Boolean
-        for (Object v : List.of(iv, bv, pv, true, false)) {
-            int vv = toInt(v);
-            // w is Integer, BigInteger, PyLong, Boolean
-            for (Object w : List.of(iw, bw, pw, true, false)) {
-                Object r = rsub.__call__(new Object[] {w, v}, null);
-                // The result will be Integer (since small enough)
-                assertEquals(Integer.class, r.getClass());
-                int exp = vv - toInt(w);
-                assertEquals(exp, r);
+            @BeforeEach
+            void setup() throws AttributeError, Throwable {
+                List<Boolean> vList = List.of(true, false);
+                // other argument tested with bool types only
+                List<Object> wList = List.of(true, false);
+                super.setup(PyBool.TYPE, NAME, vList, wList);
+            }
+
+            @Test
+            @Override
+            void has_expected_fields() {
+                super.has_expected_fields();
+                // The descriptor should not be that from int
+                assertNotSame(PyLong.TYPE.lookup(NAME), descr);
             }
         }
-    }
 
-    /**
-     * Test invocation of the {@code float.__sub__} descriptor on
-     * {@code float - int}.
-     */
-    @Test
-    void float_sub_int() throws Throwable {
+        @Nested
+        @DisplayName("of 'bool' objects with 'int'")
+        class OfBoolInt extends BinaryTest<Object, Boolean> {
 
-        PyWrapperDescr sub =
-                (PyWrapperDescr) PyFloat.TYPE.lookup("__sub__");
-
-        Object da = Double.valueOf(50), db = newPyFloat(50);
-        Object ia = Integer.valueOf(8), ib = BigInteger.valueOf(8);
-
-        // Invoke for float - int.
-        for (Object v : List.of(da, db)) {
-            for (Object w : List.of(ia, ib)) {
-                Object r = sub.__call__(new Object[] {v, w}, null);
-                assertPythonType(PyFloat.TYPE, r);
-                assertEquals(42.0, PyFloat.asDouble(r));
+            @Override
+            Object expected(Boolean s, Object o) {
+                return (s ? BigInteger.ONE : BigInteger.ZERO)
+                        .and(PyLong.asBigInteger(o));
             }
-        }
-    }
 
-    /**
-     * Test invocation of the {@code float.__rsub__} descriptor on on
-     * {@code int - float}.
-     */
-    @Test
-    void float_rsub_int() throws Throwable {
-
-        Object da = Double.valueOf(50), db = newPyFloat(50);
-        Object ia = Integer.valueOf(8), ib = BigInteger.valueOf(8);
-
-        PyWrapperDescr rsub =
-                (PyWrapperDescr) PyFloat.TYPE.lookup("__rsub__");
-
-        // Invoke for int - float.
-        for (Object v : List.of(ia, ib)) {
-            for (Object w : List.of(da, db)) {
-                Object r = rsub.__call__(new Object[] {w, v}, null);
-                assertPythonType(PyFloat.TYPE, r);
-                assertEquals(-42.0, PyFloat.asDouble(r));
+            @Override
+            void check(Object exp, Object r) throws Throwable {
+                checkInt(exp, r);  // bool & int is int
             }
-        }
-    }
 
-    /**
-     * Test invocation of the {@code bool.__sub__} descriptor.
-     */
-    @Test
-    void bool_sub() throws Throwable {
-
-        PyWrapperDescr sub =
-                (PyWrapperDescr) PyBool.TYPE.lookup("__sub__");
-
-        // bool inherits from int
-        PyWrapperDescr sub2 =
-                (PyWrapperDescr) PyLong.TYPE.lookup("__sub__");
-        assertSame(sub2, sub);
-
-        for (Object v : List.of(true, false)) {
-            int vv = toInt(v);
-            for (Object w : List.of(true, false)) {
-                Object r = sub.__call__(new Object[] {v, w}, null);
-                // The result will be Integer
-                assertEquals(Integer.class, r.getClass());
-                int exp = vv - toInt(w);
-                assertEquals(exp, r);
+            @BeforeEach
+            void setup() throws AttributeError, Throwable {
+                // self will bool
+                List<Boolean> vList = List.of(true, false);
+                // other argument is actual int to ensure int result
+                List<Object> wList = List.of(100, 101,
+                        BigInteger.valueOf(102), newPyLong(103));
+                super.setup(PyBool.TYPE, NAME, vList, wList);
             }
-        }
-    }
 
-    /**
-     * Test invocation of the {@code bool.__rsub__} descriptor.
-     */
-    @Test
-    void bool_rsub() throws Throwable {
-
-        PyWrapperDescr rsub =
-                (PyWrapperDescr) PyBool.TYPE.lookup("__rsub__");
-
-        // bool inherits from int
-        PyWrapperDescr rsub2 =
-                (PyWrapperDescr) PyLong.TYPE.lookup("__rsub__");
-        assertSame(rsub2, rsub);
-
-        for (Object v : List.of(true, false)) {
-            int vv = toInt(v);
-            for (Object w : List.of(true, false)) {
-                Object r = rsub.__call__(new Object[] {w, v}, null);
-                // The result will be Integer
-                assertEquals(Integer.class, r.getClass());
-                int exp = vv - toInt(w);
-                assertEquals(exp, r);
-            }
-        }
-    }
-
-    /**
-     * Test invocation of the {@code int.__and__} descriptor on accepted
-     * {@code int} and {@code bool} classes. Even when both arguments
-     * are {@code bool} we must get an integer result.
-     */
-    @Test
-    void int_and() throws Throwable {
-
-        PyWrapperDescr and =
-                (PyWrapperDescr) PyLong.TYPE.lookup("__and__");
-
-        Integer iv = 47, iw = 58;
-        BigInteger bv = BigInteger.valueOf(iv),
-                bw = BigInteger.valueOf(iw);
-        PyLong pv = newPyLong(iv), pw = newPyLong(iw);
-
-        // v is Integer, BigInteger, PyLong, Boolean
-        for (Object v : List.of(iv, bv, pv, true, false)) {
-            int vv = toInt(v);
-            // w is Integer, BigInteger, PyLong, Boolean
-            for (Object w : List.of(iw, bw, pw, true, false)) {
-                Object r = and.__call__(new Object[] {v, w}, null);
-                // The result will be Integer (since small enough)
-                assertEquals(Integer.class, r.getClass());
-                int exp = vv & toInt(w);
-                assertEquals(exp, r);
-            }
-        }
-    }
-
-    /**
-     * Test invocation of the {@code int.__rand__} descriptor on
-     * accepted classes. All combinations of the accepted classes must
-     * be valid, including both being {@code bool} with integer result.
-     */
-    @Test
-    void int_rand() throws Throwable {
-
-        PyWrapperDescr rand =
-                (PyWrapperDescr) PyLong.TYPE.lookup("__rand__");
-
-        Integer iv = 47, iw = 58;
-        BigInteger bv = BigInteger.valueOf(iv),
-                bw = BigInteger.valueOf(iw);
-        PyLong pv = newPyLong(iv), pw = newPyLong(iw);
-
-        // v is Integer, BigInteger, PyLong, Boolean
-        for (Object v : List.of(iv, bv, pv, true, false)) {
-            int vv = toInt(v);
-            // w is Integer, BigInteger, PyLong, Boolean
-            for (Object w : List.of(iw, bw, pw, true, false)) {
-                Object r = rand.__call__(new Object[] {w, v}, null);
-                // The result will be Integer (since small enough)
-                assertEquals(Integer.class, r.getClass());
-                int exp = vv & toInt(w);
-                assertEquals(exp, r);
-            }
-        }
-    }
-
-    /**
-     * Test invocation of the {@code bool.__and__} descriptor. We should
-     * get a {@code bool} result.
-     */
-    @Test
-    void bool_and() throws Throwable {
-
-        PyWrapperDescr and =
-                (PyWrapperDescr) PyBool.TYPE.lookup("__and__");
-
-        for (Boolean v : List.of(true, false)) {
-            for (Boolean w : List.of(true, false)) {
-                Object r = and.__call__(new Object[] {v, w}, null);
-                assertEquals(Boolean.class, r.getClass());
-                assertEquals(v & w, r);
-            }
-        }
-    }
-
-    /**
-     * Test invocation of the {@code bool.__rand__} descriptor. We
-     * should get a {@code bool} result.
-     */
-    @Test
-    void bool_rand() throws Throwable {
-
-        PyWrapperDescr rand =
-                (PyWrapperDescr) PyBool.TYPE.lookup("__rand__");
-
-        for (Boolean v : List.of(true, false)) {
-            for (Boolean w : List.of(true, false)) {
-                Object r = rand.__call__(new Object[] {w, v}, null);
-                assertEquals(Boolean.class, r.getClass());
-                assertEquals(v & w, r);
+            @Test
+            @Override
+            void has_expected_fields() {
+                super.has_expected_fields();
+                // The descriptor should not be that from int
+                assertNotSame(PyLong.TYPE.lookup(NAME), descr);
             }
         }
     }
@@ -337,7 +364,7 @@ class BinarySlotWrapperTest extends UnitTestSupport {
     void str_add() throws Throwable {
 
         PyWrapperDescr add =
-                (PyWrapperDescr) PyUnicode.TYPE.lookup("__add__");
+                (PyWrapperDescr)PyUnicode.TYPE.lookup("__add__");
 
         String sv = "pets", sw = "hop";
         PyUnicode uv = newPyUnicode(sv), uw = newPyUnicode(sw);
@@ -364,7 +391,7 @@ class BinarySlotWrapperTest extends UnitTestSupport {
     void str_mul() throws Throwable {
 
         PyWrapperDescr mul =
-                (PyWrapperDescr) PyUnicode.TYPE.lookup("__mul__");
+                (PyWrapperDescr)PyUnicode.TYPE.lookup("__mul__");
 
         String sv = "woof!";
         PyUnicode uv = newPyUnicode(sv);
@@ -395,7 +422,7 @@ class BinarySlotWrapperTest extends UnitTestSupport {
     void str_rmul() throws Throwable {
 
         PyWrapperDescr rmul =
-                (PyWrapperDescr) PyUnicode.TYPE.lookup("__rmul__");
+                (PyWrapperDescr)PyUnicode.TYPE.lookup("__rmul__");
 
         int iv = 3;
         String sw = "woof!";

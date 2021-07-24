@@ -34,15 +34,16 @@ class UnitTestSupport {
      * @throws ArithmeticError if out of range
      * @throws IllegalArgumentException if wrong type
      */
-    static int toInt(Object v) throws ArithmeticError, IllegalArgumentException {
+    static int toInt(Object v)
+            throws ArithmeticError, IllegalArgumentException {
         if (v instanceof Integer)
-            return ((Integer) v).intValue();
+            return ((Integer)v).intValue();
         else if (v instanceof BigInteger)
-            return ((BigInteger) v).intValueExact();
+            return ((BigInteger)v).intValueExact();
         else if (v instanceof PyLong)
-            return ((PyLong) v).value.intValue();
+            return ((PyLong)v).value.intValue();
         else if (v instanceof Boolean)
-            return (Boolean) v ? 1 : 0;
+            return (Boolean)v ? 1 : 0;
 
         throw new IllegalArgumentException(
                 String.format("cannot convert '%s' to int", v));
@@ -57,9 +58,9 @@ class UnitTestSupport {
      */
     static String toString(Object v) {
         if (v instanceof String)
-            return (String) v;
+            return (String)v;
         else if (v instanceof PyUnicode)
-            return ((PyUnicode) v).toString();
+            return ((PyUnicode)v).toString();
         else
             return v.toString();
     }
@@ -101,17 +102,17 @@ class UnitTestSupport {
      */
     static double toDouble(Object v) {
         if (v instanceof Double)
-            return ((Double) v).doubleValue();
+            return ((Double)v).doubleValue();
         else if (v instanceof PyFloat)
-            return ((PyFloat) v).value;
+            return ((PyFloat)v).value;
         else if (v instanceof Integer)
-            return ((Integer) v).intValue();
+            return ((Integer)v).intValue();
         else if (v instanceof BigInteger)
-            return ((BigInteger) v).doubleValue();
+            return ((BigInteger)v).doubleValue();
         else if (v instanceof PyLong)
-            return ((PyLong) v).value.doubleValue();
+            return ((PyLong)v).value.doubleValue();
         else if (v instanceof Boolean)
-            return (Boolean) v ? 1. : 0.;
+            return (Boolean)v ? 1. : 0.;
 
         throw new IllegalArgumentException(
                 String.format("cannot convert '%s' to double", v));
@@ -151,7 +152,7 @@ class UnitTestSupport {
     }
 
     /**
-     * The Python type of {@code o} is the one expected.
+     * The Python type of {@code o} is exactly the one expected.
      *
      * @param expected type
      * @param o to test
