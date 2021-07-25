@@ -14,7 +14,6 @@ import java.util.List;
 import java.util.Map;
 
 import uk.co.farowl.vsj3.evo1.Exposed.Getter;
-import uk.co.farowl.vsj3.evo1.Slot.EmptyException;
 import uk.co.farowl.vsj3.evo1.Slot.Signature;
 import uk.co.farowl.vsj3.evo1.base.InterpreterError;
 

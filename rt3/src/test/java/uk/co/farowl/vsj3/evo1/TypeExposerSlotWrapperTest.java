@@ -13,8 +13,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-import uk.co.farowl.vsj3.evo1.Exposed.PositionalOnly;
-import uk.co.farowl.vsj3.evo1.Exposed.PythonMethod;
 import uk.co.farowl.vsj3.evo1.PyType.Spec;
 
 /**
@@ -93,10 +91,9 @@ class TypeExposerSlotWrapperTest {
          */
         void setup(String name, Object o)
                 throws AttributeError, Throwable {
-            descr = (PyWrapperDescr) ExampleObject.TYPE.lookup(name);
-            // ap = descr.slot.argParser;
+            descr = (PyWrapperDescr)ExampleObject.TYPE.lookup(name);
             obj = o;
-            func = (PyMethodWrapper) Abstract.getAttr(obj, name);
+            func = (PyMethodWrapper)Abstract.getAttr(o, name);
         }
 
         /**
@@ -111,16 +108,13 @@ class TypeExposerSlotWrapperTest {
     }
 
     /**
-     * A Python type definition that exhibits a range of method
-     * signatures explored in the tests. Methods named {@code m*()} are
-     * instance methods to Python, declared to Java as either instance
-     * methods ({@code this} is {@code self}) or as static methods
-     * ({@code self} is the first parameter).
+     * A Python type definition that defines some special methods to be
+     * found by the exposer.
      */
     static class ExampleObject {
 
-        static PyType TYPE = PyType
-                .fromSpec(new Spec("Example", MethodHandles.lookup())
+        static PyType TYPE = PyType.fromSpec( //
+                new Spec("Example", MethodHandles.lookup()) //
                         .adopt(ExampleObject2.class));
 
         private int value;
@@ -169,9 +163,7 @@ class TypeExposerSlotWrapperTest {
 
         @BeforeEach
         void setup() throws AttributeError, Throwable {
-            // descr = Example.m0
             setup("__str__", new ExampleObject(42));
-            // The method is declared void (which means return None)
         }
 
         @Override
@@ -241,7 +233,7 @@ class TypeExposerSlotWrapperTest {
 
         @Override
         void check(Object result) {
-            Object[] r = ((PyTuple) result).value;
+            Object[] r = ((PyTuple)result).value;
             assertArrayEquals(new Object[] {obj, 111}, r);
         }
 
@@ -267,13 +259,13 @@ class TypeExposerSlotWrapperTest {
         /** To set anything by keyword is a {@code TypeError}. */
         @Test
         void raises_TypeError_on_unexpected_keyword() {
-            // We call type(obj).__add__(*(obj,), **dict(other=3))
+            // We call type(obj).__add__(obj, other=3)
             Object[] args = {obj, 3};
             String[] kwargs = {"other"};
             assertThrows(TypeError.class,
                     () -> descr.__call__(args, kwargs));
 
-            // We call obj.__add__(*(), **dict(other=3))
+            // We call obj.__add__(other=3)
             Object[] args2 = Arrays.copyOfRange(args, 1, args.length);
             assertThrows(TypeError.class,
                     () -> func.__call__(args2, kwargs));

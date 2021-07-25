@@ -5,12 +5,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import static uk.co.farowl.vsj3.evo1.UnitTestSupport.assertPythonType;
 
+import java.lang.invoke.MethodHandle;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
+
+import uk.co.farowl.vsj3.evo1.Slot.Signature;
 
 /**
  *
@@ -33,6 +36,8 @@ class SlotWrapperTestBase {
     String name;
     /** Unbound slot wrapper to examine or call. */
     PyWrapperDescr descr;
+    /** The slot corresp9onding to the descriptor name. */
+    Slot slot;
     /** The type on which to invoke the special method. */
     PyType type;
 
@@ -52,13 +57,25 @@ class SlotWrapperTestBase {
      *
      * @param type under test
      * @param name of the special method
+     * @param signature required of the slot method
+     * @throws IllegalArgumentException if not a slot method name of the
+     *     required signature
      * @throws AttributeError if method not found
      * @throws Throwable other errors
      */
-    void setup(PyType type, String name)
+    void setup(PyType type, String name, Signature signature)
             throws AttributeError, Throwable {
         this.name = name;
         this.type = type;
+
+        this.slot = Slot.forMethodName(name);
+        if (slot == null)
+            throw new IllegalArgumentException(
+                    String.format("'%s' does not name a slot", name));
+        else if (slot.signature != signature)
+            throw new IllegalArgumentException(
+                    String.format("'%s' is not %s", name, signature));
+
         descr = (PyWrapperDescr)type.lookup(name);
         if (descr == null)
             throw Abstract.noAttributeOnType(type, name);
@@ -176,18 +193,30 @@ class SlotWrapperTestBase {
         abstract void supports_bound_call() throws Throwable;
 
         /**
-         * Call the lot wrapper using the Java call interface with
+         * Call the slot wrapper using the Java call interface with
          * arguments correct for the slot's specification. The function
          * should obtain the correct result (and not throw).
          *
          * @throws Throwable unexpectedly
          */
         abstract void supports_java_call() throws Throwable;
+
+        /**
+         * Call the wrapped operation through the {@link Operations}
+         * object for the implementation type, using invokeExact and
+         * arguments correct for the slot's specification. The function
+         * should obtain the correct result (and not throw). (Unlike
+         * CPython, the "wrapper" is not a wrapper on the slot, on the
+         * implementing method for which op_NAME becomes the cache.)
+         *
+         * @throws Throwable unexpectedly
+         */
+        abstract void fills_op_slot() throws Throwable;
     }
 
     /**
      * A class that implements the tests for one combination of a
-     * <b>unary</b> slot wrapper and type, extending {@link BaseTest}.
+     * {@link Signature#UNARY} slot wrapper and type, extending {@link BaseTest}.
      */
     abstract class UnaryTest<R, S> extends BaseTest<R, S> {
 
@@ -218,17 +247,40 @@ class SlotWrapperTestBase {
         abstract void check(R exp, Object r) throws Throwable;
 
         /**
+         * Helper to set up each test specifying the slot signature.
+         *
+         * @param type under test
+         * @param name of the special method
+         * @param signature required of the slot method
+         * @param cases list of values to use as self
+         * @throws IllegalArgumentException if not a slot method name of
+         *     the required signature
+         * @throws AttributeError if method not found
+         * @throws Throwable other errors
+         */
+        void setup(PyType type, String name, Signature signature,
+                List<S> cases) throws IllegalArgumentException,
+                AttributeError, Throwable {
+            SlotWrapperTestBase.this.setup(type, name, signature);
+            this.cases = cases;
+        }
+
+        /**
          * Helper to set up each test.
          *
          * @param type under test
          * @param name of the special method
+         * @param signature required of the slot method
+         * @param cases list of values to use as self
+         * @throws IllegalArgumentException if not a unary slot method
+         *     name
          * @throws AttributeError if method not found
          * @throws Throwable other errors
          */
         void setup(PyType type, String name, List<S> cases)
-                throws AttributeError, Throwable {
-            SlotWrapperTestBase.this.setup(type, name);
-            this.cases = cases;
+                throws IllegalArgumentException, AttributeError,
+                Throwable {
+            setup(type, name, Signature.UNARY, cases);
         }
 
         @Override
@@ -255,6 +307,15 @@ class SlotWrapperTestBase {
             for (S x : cases) {
                 R exp = expected(x);
                 check(exp, makeJavaCall(x));
+            }
+        }
+
+        @Override
+        @Test
+        void fills_op_slot() throws Throwable {
+            for (S x : cases) {
+                R exp = expected(x);
+                check(exp, makeHandleCall(x));
             }
         }
 
@@ -315,7 +376,7 @@ class SlotWrapperTestBase {
         }
 
         /**
-         * Make a single invocation of {@link #descr} as a Java call .
+         * Make a single invocation of {@link #descr} as a Java call.
          *
          * @param x argument on which to invoke (it's unary)
          * @return result of call
@@ -325,11 +386,42 @@ class SlotWrapperTestBase {
             return descr.call(x);
         }
 
+        /**
+         * Make a single invocation of the slot as a method handle.
+         *
+         * @param x argument on which to invoke (it's unary)
+         * @return result of call
+         * @throws Throwable unexpectedly
+         */
+        Object makeHandleCall(Object x) throws Throwable {
+            Operations ops = Operations.of(x);
+            MethodHandle mh = slot.getSlot(ops);
+            return mh.invokeExact(x);
+        }
     }
 
     /**
      * A class that implements the tests for one combination of a
-     * <b>binary</b> slot wrapper and type, extending {@link BaseTest}.
+     * {@link Signature#LEN} slot wrapper and type, extending {@link BaseTest}.
+     */
+    abstract class LenTest<R, S> extends UnaryTest<R, S>  {
+        @Override
+        void setup(PyType type, String name, List<S> cases)
+                throws IllegalArgumentException, AttributeError,
+                Throwable {
+            setup(type, name, Signature.LEN, cases);
+        }
+        @Override
+        Object makeHandleCall(Object x) throws Throwable {
+            Operations ops = Operations.of(x);
+            MethodHandle mh = slot.getSlot(ops);
+            return (int) mh.invokeExact(x);
+        }
+    }
+
+    /**
+     * A class that implements the tests for one combination of a
+     * {@link Signature#BINARY} slot wrapper and type, extending {@link BaseTest}.
      */
     abstract class BinaryTest<R, S> extends BaseTest<R, S> {
 
@@ -385,7 +477,8 @@ class SlotWrapperTestBase {
          */
         void setup(PyType type, String name, List<S> sList,
                 List<Object> oList) throws AttributeError, Throwable {
-            SlotWrapperTestBase.this.setup(type, name);
+            SlotWrapperTestBase.this.setup(type, name,
+                    Signature.BINARY);
             cases = new ArrayList<>();
             for (S s : sList) {
                 for (Object o : oList) { addCase(s, o); }
@@ -416,6 +509,15 @@ class SlotWrapperTestBase {
             for (Args args : cases) {
                 R exp = expected(args.s, args.o);
                 check(exp, makeJavaCall(args.s, args.o));
+            }
+        }
+
+        @Override
+        @Test
+        void fills_op_slot() throws Throwable {
+            for (Args args : cases) {
+                R exp = expected(args.s, args.o);
+                check(exp, makeHandleCall(args.s, args.o));
             }
         }
 
@@ -491,5 +593,18 @@ class SlotWrapperTestBase {
             return descr.call(s, o);
         }
 
+        /**
+         * Make a single invocation of the slot as a method handle.
+         *
+         * @param s self argument on which to invoke
+         * @param o other argument on which to invoke
+         * @return result of call
+         * @throws Throwable unexpectedly
+         */
+        Object makeHandleCall(Object s, Object o) throws Throwable {
+            Operations ops = Operations.of(s);
+            MethodHandle mh = slot.getSlot(ops);
+            return mh.invokeExact(s, o);
+        }
     }
 }

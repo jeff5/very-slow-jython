@@ -137,11 +137,10 @@ class UnarySlotWrapperTest extends UnitTestSupport {
 
             @BeforeEach
             void setup() throws AttributeError, Throwable {
-                // x is Integer, BigInteger, PyLong, Boolean
+                // x is Integer, BigInteger, PyLong but not Boolean
                 Integer ix = 42;
-                super.setup(PyLong.TYPE, NAME,
-                        List.of(ix, BigInteger.valueOf(ix),
-                                newPyLong(ix), false, true));
+                super.setup(PyLong.TYPE, NAME, List.of(ix,
+                        BigInteger.valueOf(ix), newPyLong(ix)));
             }
         }
 
@@ -219,7 +218,7 @@ class UnarySlotWrapperTest extends UnitTestSupport {
 
         @Nested
         @DisplayName("of 'int' objects")
-        class OfInt extends UnaryTest<Integer, Object> {
+        class OfInt extends LenTest<Integer, Object> {
 
             @Override
             Integer expected(Object x) { return toInt(x); }
@@ -241,7 +240,7 @@ class UnarySlotWrapperTest extends UnitTestSupport {
 
         @Nested
         @DisplayName("of 'bool' objects")
-        class OfBool extends UnaryTest<Integer, Boolean> {
+        class OfBool extends LenTest<Integer, Boolean> {
 
             @Override
             Integer expected(Boolean x) { return x ? 1 : 0; }
@@ -260,7 +259,7 @@ class UnarySlotWrapperTest extends UnitTestSupport {
         // XXX Disabled until float.__hash__ implemented
         // @Nested
         @DisplayName("of 'float' objects")
-        class OfFloat extends UnaryTest<Integer, Object> {
+        class OfFloat extends LenTest<Integer, Object> {
 
             private Integer exp;
 
@@ -284,7 +283,7 @@ class UnarySlotWrapperTest extends UnitTestSupport {
 
         @Nested
         @DisplayName("of 'str' objects")
-        class OfStr extends UnaryTest<Integer, Object> {
+        class OfStr extends LenTest<Integer, Object> {
 
             private Integer exp;
 
