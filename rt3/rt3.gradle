@@ -19,6 +19,14 @@ dependencies {
 }
 
 
+test {
+    useJUnitPlatform {  // JUnit5 as standard (needed?)
+        includeEngines 'junit-jupiter'
+    }
+}
+
+// Sources and destinations when generating Java object implementations
+
 def genOutputDir = "$buildDir/generated/sources/javaTemplate"
 def genJavaDir = "$genOutputDir/java/main"
 def genTestJavaDir = "$genOutputDir/java/test"
@@ -43,25 +51,20 @@ sourceSets {
 }
 
 
-class PythonGenerate extends Exec {
+// A task that runs Python with the tools library on the path
 
-    PythonGenerate() {
+class PythonExec extends Exec {
+
+    PythonExec() {
         executable 'python'
-        environment('PYTHONPATH',
-                getProject().file('tools/python/lib'))
-    }
-}
-
-
-test {
-    useJUnitPlatform {  // JUnit5 as standard
-        includeEngines 'junit-jupiter'
+        environment('PYTHONPATH', getProject().file('tools/python/lib'))
     }
 }
 
 
 // Generate Python object definitions
-task generateJavaEvo1(type: PythonGenerate,
+
+task generateJavaEvo1(type: PythonExec,
         description: 'Generate object definitions from templates' ) {
     args getProject().file('tools/python/vsj3evo1/java_object_gen.py')
     args '--verbose'
@@ -71,10 +74,12 @@ task generateJavaEvo1(type: PythonGenerate,
 compileJava.dependsOn(generateJavaEvo1)
 
 
-task pythonVersion(type: Exec) {
-    executable 'python'
+// Report the version of Python available
+
+task pythonVersion(type: PythonExec) {
     args '-V'
 }
+generateJavaEvo1.dependsOn(pythonVersion)
 
 
 // Generate (selected) Python abstract object API members

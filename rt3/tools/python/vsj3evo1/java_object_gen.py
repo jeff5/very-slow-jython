@@ -25,14 +25,14 @@ from evo1.generate import PyUnicodeGenerator
 class ImplementationTemplateProcessorFactory:
     "Class creating a processor for object templates"
 
-    def __init__(self, source_dir, dest_dir, verbose=False):
+    def __init__(self, source_dir, dest_dir, error, verbose=False):
         "Create a factory specifying source and destination roots"
         self.src_dir = os.path.relpath(source_dir)
         self.dst_dir = os.path.relpath(dest_dir)
         self.verbose = verbose
         # Check source directory
         if not os.path.isdir(self.src_dir):
-            parser.error(f'no such directory {self.src_dir}')
+            error(f'no such directory {self.src_dir}')
         # Ensure destination directory
         if not os.path.isdir(self.dst_dir):
             os.makedirs(self.dst_dir, exist_ok=True)
@@ -135,11 +135,12 @@ def get_parser():
 
 def main():
     # Parse the command line to argparse arguments
-    args = get_parser().parse_args()
+    parser = get_parser()
+    args = parser.parse_args()
 
     # Embed results of parse into factory
     factory = ImplementationTemplateProcessorFactory(
-            args.source_dir, args.dest_dir, args.verbose)
+            args.source_dir, args.dest_dir, parser.error, args.verbose)
 
     # Process all Java files in the template tree at args.source_dir
     src_dir = args.source_dir

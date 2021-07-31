@@ -177,16 +177,11 @@ public class PyLong extends AbstractPyObject implements PyDict.Key {
      * @throws TypeError if {@code v} is not a Python {@code int}
      */
     static BigInteger asBigInteger(Object v) throws TypeError {
-        if (v instanceof BigInteger)
-            return (BigInteger)v;
-        else if (v instanceof Integer)
-            return BigInteger.valueOf(((Integer)v).longValue());
-        else if (v instanceof PyLong)
-            return ((PyLong)v).value;
-        else if (v instanceof Boolean)
-            return (Boolean)v ? BigInteger.ONE : BigInteger.ZERO;
-        else
+        try {
+            return convertToBigInteger(v);
+        } catch (NoConversion nc) {
             throw Abstract.requiredTypeError("an integer", v);
+        }
     }
 
     /**
@@ -506,6 +501,31 @@ public class PyLong extends AbstractPyObject implements PyDict.Key {
     }
 
     /**
+     * Convert a Python {@code int} to a Java {@code BigInteger} (or
+     * throw {@link NoConversion}).
+     * <p>
+     * If the method throws the special exception {@link NoConversion},
+     * the caller must deal with it by throwing an appropriate Python
+     * exception or taking an alternative course of action.
+     *
+     * @param v claimed {@code int}
+     * @return converted to {@code BigInteger}
+     * @throws NoConversion if {@code v} is not a Python {@code int}
+     */
+    static BigInteger convertToBigInteger(Object v)
+            throws NoConversion {
+        if (v instanceof BigInteger)
+            return (BigInteger)v;
+        else if (v instanceof Integer)
+            return BigInteger.valueOf(((Integer)v).longValue());
+        else if (v instanceof PyLong)
+            return ((PyLong)v).value;
+        else if (v instanceof Boolean)
+            return (Boolean)v ? BigInteger.ONE : BigInteger.ZERO;
+        throw PyObjectUtil.NO_CONVERSION;
+    }
+
+    /**
      * Create an OverflowError with a message along the lines "X too
      * large to convert to Y", where X is {@code from} and Y is
      * {@code to}.
@@ -514,7 +534,7 @@ public class PyLong extends AbstractPyObject implements PyDict.Key {
      * @param to description of type to convert to
      * @return an {@link OverflowError} with that message
      */
-    private static OverflowError tooLarge(String from, String to) {
+    static OverflowError tooLarge(String from, String to) {
         String msg = String.format(TOO_LARGE, from, to);
         return new OverflowError(msg);
     }

@@ -6,6 +6,9 @@ import java.math.BigInteger;
 import static java.math.BigInteger.ZERO;
 import static java.math.BigInteger.ONE;
 import static uk.co.farowl.vsj3.evo1.PyLongMethods.toInt;
+import static uk.co.farowl.vsj3.evo1.PyLongMethods.divide;
+import static uk.co.farowl.vsj3.evo1.PyLongMethods.modulo;
+import static uk.co.farowl.vsj3.evo1.PyLongMethods.trueDivide;
 
 
 /**

@@ -122,7 +122,7 @@ class JavaConstantEmitter(IndentedEmitter):
 
     def java_arglist(self, handler, a, suffix=""):
         """Emit comma-separated Java values using the given handler.
-        
+
         The handler is a function f(obj, suffix="") that emits the
         individual argument. It must be capable of converting all types
         that may be supplied in a.
@@ -139,7 +139,7 @@ class JavaConstantEmitter(IndentedEmitter):
 
     def java_array(self, handler, a, suffix=""):
         """Emit a Java array of elements emitted by the given handler.
-        
+
         The handler is a function f(obj, suffix="") that emits the
         individual element. Since Java arrays are homogeneous, it
         will often be a single bound method emitting a compatible value
