@@ -3,6 +3,7 @@ package uk.co.farowl.vsj3.evo1;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static uk.co.farowl.vsj3.evo1.PyLongMethods.divide;
 import static uk.co.farowl.vsj3.evo1.PyLongMethods.modulo;
+import static uk.co.farowl.vsj3.evo1.PyLongMethods.divmod;
 
 import java.math.BigInteger;
 import java.util.LinkedList;
@@ -117,8 +118,27 @@ class IntegerDivisionTest extends UnitTestSupport {
      */
     private static void singleModulo(int x, int y) {
         int ref = refRemainder(x, y);
-        int q = PyLong.asInt(modulo(x, y));
-        assertEquals(ref, q, () -> String.format("r(%d,%d)", x, y));
+        int r = PyLong.asInt(modulo(x, y));
+        assertEquals(ref, r, () -> String.format("r(%d,%d)", x, y));
+    }
+
+    /**
+     * Compare {@code divmod(x,y)} computed by class under test and
+     * reference means.
+     *
+     * @param x dividend
+     * @param y divisor
+     */
+    private static void singleDivMod(int x, int y) {
+        Object ref_q = refDivideObject(x, y);
+        int ref_r = refRemainder(x, y);
+
+        PyTuple qr = divmod(x, y);
+        Object q = qr.get(0);
+        int r = PyLong.asInt(qr.get(1));
+
+        assertEquals(ref_q, q, () -> String.format("q(%d,%d)", x, y));
+        assertEquals(ref_r, r, () -> String.format("r(%d,%d)", x, y));
     }
 
     /**
@@ -168,6 +188,14 @@ class IntegerDivisionTest extends UnitTestSupport {
     void testModulo() {
         for (int y : YVALUES) {
             for (int x : XVALUES) { singleModulo(x, y); }
+        }
+    }
+
+    /** Test division and modulus combined in 4 quadrants. */
+    @Test
+    void testDivMod() {
+        for (int y : YVALUES) {
+            for (int x : XVALUES) { singleDivMod(x, y); }
         }
     }
 }

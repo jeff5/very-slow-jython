@@ -249,6 +249,63 @@ class PyLongMethods {
     }
 
     /**
+     * {@code divmod(x,y)} with {@code int} arguments, following the
+     * Python sign convention.
+     *
+     * @param x dividend
+     * @param y divisor
+     * @return quotient and remainder
+     */
+    static PyTuple divmod(int x, int y) {
+        try {
+            /*
+             * Compute the quotient as in divide(x,y), as an int (except
+             * in a corner-case), and the remainder from it.
+             */
+            int q;
+            if (x << 1 != 0) { // x !=0 and x != Integer.MIN_VALUE
+                // x>>31 is 0 or -1 according to the sign of x
+                int u = x >> 31;
+                // y>>31 is 0 or -1 according to the sign of y
+                int v = y >> 31;
+                int a = v - u; // -1, 0 or 1
+                int b = v ^ u; // 0 or -1
+                // Q(x+a,y) + b where a = 1, 0, -1 and b = 0, -1
+                q = (x + a) / y + b;
+            } else {
+                // Special cases where the formula above fails:
+                // x ==0 or x == Integer.MIN_VALUE
+                if (y < -1 || x == 0)
+                    // Java and Python agree
+                    q = x / y;
+                else if (y >= 0)  // and x == Integer.MIN_VALUE
+                    // Opposite signs: use adjusted formula
+                    q = (x + 1) / y - 1;
+                else
+                    // y == -1 and x == Integer.MIN_VALUE
+                    return Py.tuple(MINUS_INT_MIN, 0);
+            }
+            return Py.tuple(q, x - q * y);
+        } catch (ArithmeticException ae) {
+            // This can only be because y==0
+            throw zeroDivisionError();
+        }
+    }
+
+    /**
+     * {@code divmod(x,y)} with {@code BigInteger} arguments, following
+     * the Python sign convention.
+     *
+     * @param x dividend
+     * @param y divisor
+     * @return quotient and remainder
+     */
+    static PyTuple divmod(BigInteger x, BigInteger y) {
+        BigInteger q = divide(x, y);
+        return Py.tuple(q, x.subtract(q.multiply(y)));
+    }
+
+    /**
      * Python true-division of {@code BigInteger} arguments.
      *
      * @param x dividend
@@ -279,6 +336,7 @@ class PyLongMethods {
         return q;
     }
 
+    // Helper for trueDivide (from Jython 2, so no comments)
     private static final double scaledDoubleValue(BigInteger val,
             int[] exp) {
         double x = 0;

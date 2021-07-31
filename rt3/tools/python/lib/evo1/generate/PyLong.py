@@ -279,6 +279,7 @@ class PyLongGenerator(ImplementationGenerator):
         # Arguments are: name, return_type, working_type,
         #            body_method,
         #            big_op, long_op, int_op
+        #            with_class_specific_binops
         BinaryOpInfo('__add__', OBJECT_CLASS, WorkingType.LONG,
             binary_intmethod,
             lambda x, y: f'{x}.add({y})',
@@ -338,6 +339,19 @@ class PyLongGenerator(ImplementationGenerator):
             lambda x, y: f'modulo({y}, {x})',
             lambda x, y: f'modulo({y}, {x})',
             lambda x, y: f'modulo({y}, {x})',
+            True),
+
+        BinaryOpInfo('__divmod__', OBJECT_CLASS, WorkingType.INT,
+            binary_method,
+            lambda x, y: f'divmod({x}, {y})',
+            lambda x, y: f'divmod({x}, {y})',
+            lambda x, y: f'divmod({x}, {y})',
+            True),
+        BinaryOpInfo('__rdivmod__', OBJECT_CLASS, WorkingType.INT,
+            binary_method,
+            lambda x, y: f'divmod({y}, {x})',
+            lambda x, y: f'divmod({y}, {x})',
+            lambda x, y: f'divmod({y}, {x})',
             True),
 
         BinaryOpInfo('__truediv__', OBJECT_CLASS, WorkingType.INT,
