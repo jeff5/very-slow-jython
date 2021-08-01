@@ -1,14 +1,12 @@
 package uk.co.farowl.vsj3.evo1;
 
 import static uk.co.farowl.vsj3.evo1.ClassShorthand.B;
-import static uk.co.farowl.vsj3.evo1.ClassShorthand.DICT;
 import static uk.co.farowl.vsj3.evo1.ClassShorthand.I;
 import static uk.co.farowl.vsj3.evo1.ClassShorthand.O;
 import static uk.co.farowl.vsj3.evo1.ClassShorthand.OA;
 import static uk.co.farowl.vsj3.evo1.ClassShorthand.S;
 import static uk.co.farowl.vsj3.evo1.ClassShorthand.SA;
 import static uk.co.farowl.vsj3.evo1.ClassShorthand.T;
-import static uk.co.farowl.vsj3.evo1.ClassShorthand.TUPLE;
 import static uk.co.farowl.vsj3.evo1.ClassShorthand.V;
 
 import java.lang.invoke.MethodHandle;
@@ -46,66 +44,411 @@ import uk.co.farowl.vsj3.evo1.base.MissingFeature;
 // Compare CPython struct wrapperbase in descrobject.h
 // also typedef slotdef and slotdefs[] table in typeobject.h
 enum Slot {
+    /*
+     * The order of the members is not significant, but we take it from
+     * the slotdefs[] table for definiteness. We do not have quite the
+     * same entries, and no duplicates. There may yet be special methods
+     * here that need not be cached, and maybe properties it would be
+     * useful to add.
+     */
+    /**
+     * Defines {@link Operations#op_repr}, support for built-in
+     * {@code repr()}, with signature {@link Signature#UNARY}.
+     */
+    op_repr(Signature.UNARY),
+    /**
+     * Defines {@link Operations#op_hash}, support for object hashing,
+     * with signature {@link Signature#LEN}.
+     */
+    op_hash(Signature.LEN),
+    /**
+     * Defines {@link Operations#op_call}, support for calling an
+     * object, with signature {@link Signature#CALL}.
+     */
+    op_call(Signature.CALL),
+    /**
+     * Defines {@link Operations#op_str}, support for built-in
+     * {@code str()}, with signature {@link Signature#UNARY}.
+     */
+    op_str(Signature.UNARY),
 
-    op_repr(Signature.UNARY), //
-    op_hash(Signature.LEN), //
-    op_call(Signature.CALL), //
-    op_str(Signature.UNARY), //
+    /**
+     * Defines {@link Operations#op_getattribute}, attribute get, with
+     * signature {@link Signature#GETATTR}.
+     */
+    op_getattribute(Signature.GETATTR),
+    /**
+     * Defines {@link Operations#op_getattr}, attribute get, with
+     * signature {@link Signature#GETATTR}.
+     */
+    op_getattr(Signature.GETATTR),
+    /**
+     * Defines {@link Operations#op_setattr}, attribute set, with
+     * signature {@link Signature#SETATTR}.
+     */
+    op_setattr(Signature.SETATTR),
+    /**
+     * Defines {@link Operations#op_delattr}, attribute deletion, with
+     * signature {@link Signature#DELATTR}.
+     */
+    op_delattr(Signature.DELATTR),
 
-    op_getattribute(Signature.GETATTR), //
-    op_getattr(Signature.GETATTR), //
-    op_setattr(Signature.SETATTR), //
-    op_delattr(Signature.DELATTR), //
+    /**
+     * Defines {@link Operations#op_lt}, the {@code <} operation, with
+     * signature {@link Signature#BINARY}.
+     */
+    op_lt(Signature.BINARY, "<"),
+    /**
+     * Defines {@link Operations#op_le}, the {@code <=} operation, with
+     * signature {@link Signature#BINARY}.
+     */
+    op_le(Signature.BINARY, "<="),
+    /**
+     * Defines {@link Operations#op_eq}, the {@code ==} operation, with
+     * signature {@link Signature#BINARY}.
+     */
+    op_eq(Signature.BINARY, "=="),
+    /**
+     * Defines {@link Operations#op_ne}, the {@code !=} operation, with
+     * signature {@link Signature#BINARY}.
+     */
+    op_ne(Signature.BINARY, "!="),
+    /**
+     * Defines {@link Operations#op_gt}, the {@code >} operation, with
+     * signature {@link Signature#BINARY}.
+     */
+    op_gt(Signature.BINARY, ">"),
+    /**
+     * Defines {@link Operations#op_ge}, the {@code >=} operation, with
+     * signature {@link Signature#BINARY}.
+     */
+    op_ge(Signature.BINARY, ">="),
 
-    op_lt(Signature.BINARY), //
-    op_le(Signature.BINARY), //
-    op_eq(Signature.BINARY), //
-    op_ne(Signature.BINARY), //
-    op_ge(Signature.BINARY), //
-    op_gt(Signature.BINARY), //
+    /**
+     * Defines {@link Operations#op_iter}, get an iterator, with
+     * signature {@link Signature#UNARY}.
+     */
+    op_iter(Signature.UNARY), // unexplored territory
+    /**
+     * Defines {@link Operations#op_next}, advance an iterator, with
+     * signature {@link Signature#UNARY}.
+     */
+    op_next(Signature.UNARY), // unexplored territory
 
-    op_iter(Signature.UNARY), //
-    op_next(Signature.UNARY), //
+    /**
+     * Defines {@link Operations#op_get}, descriptor {@code __get__},
+     * with signature {@link Signature#DESCRGET}.
+     */
+    op_get(Signature.DESCRGET),
+    /**
+     * Defines {@link Operations#op_set}, descriptor {@code __set__},
+     * with signature {@link Signature#SETITEM}.
+     */
+    op_set(Signature.SETITEM),
+    /**
+     * Defines {@link Operations#op_delete}, descriptor
+     * {@code __delete__}, with signature {@link Signature#DELITEM}.
+     */
+    op_delete(Signature.DELITEM),
 
-    op_get(Signature.DESCRGET), //
-    op_set(Signature.SETITEM), //
-    op_delete(Signature.DELITEM), //
+    /**
+     * Defines {@link Operations#op_init}, object {@code __init__}, with
+     * signature {@link Signature#INIT}.
+     */
+    op_init(Signature.INIT),
+    // __new__ is not a slot
+    // __del__ is not a slot
 
-    op_init(Signature.INIT), //
-
-    op_neg(Signature.UNARY, "unary -"), //
-    op_pos(Signature.UNARY, "unary +"), //
-    op_abs(Signature.UNARY, "abs()"), //
-    op_invert(Signature.UNARY, "unary ~"), //
+    /**
+     * Defines {@link Operations#op_await}, with signature
+     * {@link Signature#UNARY}.
+     */
+    op_await(Signature.UNARY), // unexplored territory
+    /**
+     * Defines {@link Operations#op_aiter}, with signature
+     * {@link Signature#UNARY}.
+     */
+    op_aiter(Signature.UNARY), // unexplored territory
+    /**
+     * Defines {@link Operations#op_anext}, with signature
+     * {@link Signature#UNARY}.
+     */
+    op_anext(Signature.UNARY), // unexplored territory
 
     // Binary ops: reflected form comes first so we can reference it.
-    op_radd(Signature.BINARY, "+"), //
-    op_rsub(Signature.BINARY, "-"), //
-    op_rmul(Signature.BINARY, "*"), //
-    op_rand(Signature.BINARY, "&"), //
-    op_rxor(Signature.BINARY, "^"), //
-    op_ror(Signature.BINARY, "|"), //
+    /**
+     * Defines {@link Operations#op_radd}, the reflected {@code +}
+     * operation, with signature {@link Signature#BINARY}.
+     */
+    op_radd(Signature.BINARY, "+"),
+    /**
+     * Defines {@link Operations#op_rsub}, the reflected {@code -}
+     * operation, with signature {@link Signature#BINARY}.
+     */
+    op_rsub(Signature.BINARY, "-"),
+    /**
+     * Defines {@link Operations#op_rmul}, the reflected {@code *}
+     * operation, with signature {@link Signature#BINARY}.
+     */
+    op_rmul(Signature.BINARY, "*"),
+    /**
+     * Defines {@link Operations#op_rmod}, the reflected {@code %}
+     * operation, with signature {@link Signature#BINARY}.
+     */
+    op_rmod(Signature.BINARY, "%"),
+    /**
+     * Defines {@link Operations#op_rdivmod}, the reflected
+     * {@code divmod} operation, with signature
+     * {@link Signature#BINARY}.
+     */
+    op_rdivmod(Signature.BINARY, "divmod()"),
+    /**
+     * Defines {@link Operations#op_rpow}, the reflected {@code pow}
+     * operation, with signature {@link Signature#BINARY} (not
+     * {@link Signature#TERNARY} since only an infix operation can be
+     * reflected).
+     */
+    op_rpow(Signature.BINARY, "**"), // unexplored territory
+    /**
+     * Defines {@link Operations#op_rlshift}, the reflected {@code <<}
+     * operation, with signature {@link Signature#BINARY}.
+     */
+    op_rlshift(Signature.BINARY, "<<"),
+    /**
+     * Defines {@link Operations#op_rrshift}, the reflected {@code >>}
+     * operation, with signature {@link Signature#BINARY}.
+     */
+    op_rrshift(Signature.BINARY, ">>"),
+    /**
+     * Defines {@link Operations#op_rand}, the reflected {@code &}
+     * operation, with signature {@link Signature#BINARY}.
+     */
+    op_rand(Signature.BINARY, "&"),
+    /**
+     * Defines {@link Operations#op_rxor}, the reflected {@code ^}
+     * operation, with signature {@link Signature#BINARY}.
+     */
+    op_rxor(Signature.BINARY, "^"),
+    /**
+     * Defines {@link Operations#op_ror}, the reflected {@code |}
+     * operation, with signature {@link Signature#BINARY}.
+     */
+    op_ror(Signature.BINARY, "|"),
+    /**
+     * Defines {@link Operations#op_rfloordiv}, the reflected {@code //}
+     * operation, with signature {@link Signature#BINARY}.
+     */
+    op_rfloordiv(Signature.BINARY, "//"),
+    /**
+     * Defines {@link Operations#op_rtruediv}, the reflected {@code /}
+     * operation, with signature {@link Signature#BINARY}.
+     */
+    op_rtruediv(Signature.BINARY, "/"),
+    /**
+     * Defines {@link Operations#op_rmatmul}, the reflected {@code @}
+     * operation, with signature {@link Signature#BINARY}.
+     */
+    op_rmatmul(Signature.BINARY, "@"),
 
-    op_add(Signature.BINARY, "+", op_radd), //
-    op_sub(Signature.BINARY, "-", op_rsub), //
-    op_mul(Signature.BINARY, "*", op_rmul), //
-    op_and(Signature.BINARY, "&", op_rand), //
-    op_xor(Signature.BINARY, "^", op_rxor), //
-    op_or(Signature.BINARY, "|", op_ror), //
+    /**
+     * Defines {@link Operations#op_add}, the {@code +} operation, with
+     * signature {@link Signature#BINARY}.
+     */
+    op_add(Signature.BINARY, "+", op_radd),
+    /**
+     * Defines {@link Operations#op_sub}, the {@code -} operation, with
+     * signature {@link Signature#BINARY}.
+     */
+    op_sub(Signature.BINARY, "-", op_rsub),
+    /**
+     * Defines {@link Operations#op_mul}, the {@code *} operation, with
+     * signature {@link Signature#BINARY}.
+     */
+    op_mul(Signature.BINARY, "*", op_rmul),
+    /**
+     * Defines {@link Operations#op_mod}, the {@code %} operation, with
+     * signature {@link Signature#BINARY}.
+     */
+    op_mod(Signature.BINARY, "%", op_rmod),
+    /**
+     * Defines {@link Operations#op_divmod}, the {@code divmod}
+     * operation, with signature {@link Signature#BINARY}.
+     */
+    op_divmod(Signature.BINARY, "divmod()", op_rdivmod),
+    /**
+     * Defines {@link Operations#op_pow}, the {@code pow} operation,
+     * with signature {@link Signature#TERNARY}.
+     */
+    op_pow(Signature.TERNARY, "**", op_rpow), // unexplored territory
 
-    /** Handle to {@code __bool__} with {@link Signature#PREDICATE} */
-    op_bool(Signature.PREDICATE), //
-    op_int(Signature.UNARY), //
-    op_float(Signature.UNARY), //
-    op_index(Signature.UNARY), //
+    /**
+     * Defines {@link Operations#op_neg}, the unary {@code -} operation,
+     * with signature {@link Signature#UNARY}.
+     */
+    op_neg(Signature.UNARY, "unary -"),
+    /**
+     * Defines {@link Operations#op_pos}, the unary {@code +} operation,
+     * with signature {@link Signature#UNARY}.
+     */
+    op_pos(Signature.UNARY, "unary +"),
+    /**
+     * Defines {@link Operations#op_abs}, the {@code abs()} operation,
+     * with signature {@link Signature#UNARY}.
+     */
+    op_abs(Signature.UNARY, "abs()"),
+    /**
+     * Defines {@link Operations#op_bool}, conversion to a truth value,
+     * with signature {@link Signature#PREDICATE}.
+     */
+    op_bool(Signature.PREDICATE),
+    /**
+     * Defines {@link Operations#op_invert}, the unary {@code ~}
+     * operation, with signature {@link Signature#UNARY}.
+     */
+    op_invert(Signature.UNARY, "unary ~"),
 
-    op_len(Signature.LEN), //
+    /**
+     * Defines {@link Operations#op_lshift}, the {@code <<} operation,
+     * with signature {@link Signature#BINARY}.
+     */
+    op_lshift(Signature.BINARY, "<<", op_rlshift),
+    /**
+     * Defines {@link Operations#op_rshift}, the {@code >>} operation,
+     * with signature {@link Signature#BINARY}.
+     */
+    op_rshift(Signature.BINARY, ">>", op_rrshift),
+    /**
+     * Defines {@link Operations#op_and}, the {@code &} operation, with
+     * signature {@link Signature#BINARY}.
+     */
+    op_and(Signature.BINARY, "&", op_rand),
+    /**
+     * Defines {@link Operations#op_xor}, the {@code ^} operation, with
+     * signature {@link Signature#BINARY}.
+     */
+    op_xor(Signature.BINARY, "^", op_rxor),
+    /**
+     * Defines {@link Operations#op_or}, the {@code |} operation, with
+     * signature {@link Signature#BINARY}.
+     */
+    op_or(Signature.BINARY, "|", op_ror),
 
-    op_contains(Signature.BINARY_PREDICATE), //
+    /**
+     * Defines {@link Operations#op_int}, conversion to an integer
+     * value, with signature {@link Signature#UNARY}.
+     */
+    op_int(Signature.UNARY),
+    /**
+     * Defines {@link Operations#op_float}, conversion to a float value,
+     * with signature {@link Signature#UNARY}.
+     */
+    op_float(Signature.UNARY),
 
-    op_getitem(Signature.BINARY), //
-    op_setitem(Signature.SETITEM), //
-    op_delitem(Signature.DELITEM);
+    /**
+     * Defines {@link Operations#op_iadd}, the {@code +=} operation,
+     * with signature {@link Signature#BINARY}.
+     */
+    op_iadd(Signature.BINARY, "+="), // in-place: unexplored territory
+    /**
+     * Defines {@link Operations#op_isub}, the {@code -=} operation,
+     * with signature {@link Signature#BINARY}.
+     */
+    op_isub(Signature.BINARY, "-="),
+    /**
+     * Defines {@link Operations#op_imul}, the {@code *=} operation,
+     * with signature {@link Signature#BINARY}.
+     */
+    op_imul(Signature.BINARY, "*="),
+    /**
+     * Defines {@link Operations#op_imod}, the {@code %=} operation,
+     * with signature {@link Signature#BINARY}.
+     */
+    op_imod(Signature.BINARY, "%="),
+    /**
+     * Defines {@link Operations#op_iand}, the {@code &=} operation,
+     * with signature {@link Signature#BINARY}.
+     */
+    op_iand(Signature.BINARY, "&="),
+    /**
+     * Defines {@link Operations#op_ixor}, the {@code ^=} operation,
+     * with signature {@link Signature#BINARY}.
+     */
+    op_ixor(Signature.BINARY, "^="),
+    /**
+     * Defines {@link Operations#op_ior}, the {@code |=} operation, with
+     * signature {@link Signature#BINARY}.
+     */
+    op_ior(Signature.BINARY, "|="),
+
+    /**
+     * Defines {@link Operations#op_floordiv}, the {@code //} operation,
+     * with signature {@link Signature#BINARY}.
+     */
+    op_floordiv(Signature.BINARY, "//", op_rfloordiv),
+    /**
+     * Defines {@link Operations#op_truediv}, the {@code /} operation,
+     * with signature {@link Signature#BINARY}.
+     */
+    op_truediv(Signature.BINARY, "/", op_rtruediv),
+    /**
+     * Defines {@link Operations#op_ifloordiv}, the {@code //=}
+     * operation, with signature {@link Signature#BINARY}.
+     */
+    op_ifloordiv(Signature.BINARY, "//="),
+    /**
+     * Defines {@link Operations#op_itruediv}, the {@code /=} operation,
+     * with signature {@link Signature#BINARY}.
+     */
+    op_itruediv(Signature.BINARY, "/="),
+
+    /**
+     * Defines {@link Operations#op_index}, conversion to an index
+     * value, with signature {@link Signature#UNARY}.
+     */
+    op_index(Signature.UNARY),
+
+    /**
+     * Defines {@link Operations#op_matmul}, the {@code @} (matrix
+     * multiply) operation, with signature {@link Signature#BINARY}.
+     */
+    op_matmul(Signature.BINARY, "@", op_rmatmul),
+    /**
+     * Defines {@link Operations#op_imatmul}, the {@code @=} (matrix
+     * multiply in place) operation, with signature
+     * {@link Signature#BINARY}.
+     */
+    op_imatmul(Signature.BINARY, "@="),
+
+    /*
+     * Note that CPython repeats for "mappings" the following "sequence"
+     * slots, and slots for __add_ and __mul__, but that we do not need
+     * to.
+     */
+    /**
+     * Defines {@link Operations#op_len}, support for built-in
+     * {@code len()}, with signature {@link Signature#LEN}.
+     */
+    op_len(Signature.LEN, "len()"),
+    /**
+     * Defines {@link Operations#op_getitem}, get at index, with
+     * signature {@link Signature#BINARY}.
+     */
+    op_getitem(Signature.BINARY),
+    /**
+     * Defines {@link Operations#op_setitem}, set at index, with
+     * signature {@link Signature#SETITEM}.
+     */
+    op_setitem(Signature.SETITEM),
+    /**
+     * Defines {@link Operations#op_delitem}, delete from index, with
+     * signature {@link Signature#DELITEM}.
+     */
+    op_delitem(Signature.DELITEM),
+    /**
+     * Defines {@link Operations#op_contains}, the {@code in} operation,
+     * with signature {@link Signature#BINARY_PREDICATE}.
+     */
+    op_contains(Signature.BINARY_PREDICATE);
 
     /** Method signature to match when filling this slot. */
     final Signature signature;
@@ -370,20 +713,61 @@ enum Slot {
     }
 
     /**
-     * An enumeration of the acceptable signatures for slots in a
-     * {@code PyType}. For each {@code MethodHandle} we may place in a
-     * slot, we must know in advance the acceptable signature
-     * ({@code MethodType}), and the slot when empty must contain a
-     * handle with this signature to a method that will raise
-     * {@link EmptyException}, Each {@code enum} constant here gives a
-     * symbolic name to that {@code MethodType}, and provides an
-     * {@code empty} handle.
+     * An enumeration of the acceptable signatures for slots in an {link
+     * Operations} object. For each {@code MethodHandle} we may place in
+     * a slot of the {@code Operations} object, we must know in advance
+     * the acceptable signature (the {@code MethodType}), and the slot
+     * when empty must contain a handle with this signature to a method
+     * that will raise {@link EmptyException}. Each {@code enum}
+     * constant here gives a symbolic name to that {@code MethodType},
+     * and provides the handle used when a slot of that type is empty.
      * <p>
      * Names are equivalent to {@code typedef}s provided in CPython
-     * {@code Include/object.h}, but not the same. We do not need quite
-     * the same signatures as CPython: we do not return integer status,
-     * for example. Also, C-specifics like {@code Py_ssize_t} are echoed
-     * in the C-API names but not here.
+     * {@code Include/object.h}, but are not exactly the same. We do not
+     * need quite the same signatures as CPython: we do not return
+     * integer status, for example. Also, C-specifics like
+     * {@code Py_ssize_t} are echoed in the C-API names but not here.
+     * <p>
+     * The shorthand notation we use to describe a signature, for
+     * example {@code (O,O[],S[])O}, essentially specifies a
+     * {@code MethodType}, and may be decoded as follows.
+     * <table>
+     * <tr>
+     * <th>Shorthand</th>
+     * <th>Java class</th>
+     * </tr>
+     * <tr>
+     * <td>{@link ClassShorthand#B B}</td>
+     * <td>{@code boolean.class}</td>
+     * </tr>
+     * <tr>
+     * <td>{@link ClassShorthand#I I}</td>
+     * <td>{@code int.class}</td>
+     * </tr>
+     * <tr>
+     * <td>{@link ClassShorthand#O O}</td>
+     * <td>{@code Object.class}</td>
+     * </tr>
+     * <tr>
+     * <td>{@link ClassShorthand#S S}</td>
+     * <td>{@code String.class}</td>
+     * </tr>
+     * <tr>
+     * <td>{@link ClassShorthand#T T}</td>
+     * <td>{@link PyType PyType.class}</td>
+     * </tr>
+     * <tr>
+     * <td>{@link ClassShorthand#T V}</td>
+     * <td>{@code void.class}</td>
+     * </tr>
+     * <tr>
+     * <td>{@code []}</td>
+     * <td>array of</td>
+     * </tr>
+     * <tr>
+     * </tr>
+     * <caption>Signature shorthands</caption>
+     * </table>
      */
     enum Signature {
 
@@ -398,6 +782,7 @@ enum Slot {
          * The signature {@code (O)O}, for example {@link Slot#op_repr}
          * or {@link Slot#op_neg}.
          */
+        // In CPython: unaryfunc
         UNARY(O, O) {
 
             @Override
@@ -413,6 +798,7 @@ enum Slot {
          * The signature {@code (O,O)O}, for example {@link Slot#op_add}
          * or {@link Slot#op_getitem}.
          */
+        // In CPython: binaryfunc
         BINARY(O, O, O) {
 
             @Override
@@ -424,8 +810,9 @@ enum Slot {
             }
         },
         /**
-         * The signature {@code (O,O,O)O}.
+         * The signature {@code (O,O,O)O}, used for {@link Slot#op_pow}.
          */
+        // In CPython: ternaryfunc
         TERNARY(O, O, O, O),
 
         /**
@@ -434,7 +821,7 @@ enum Slot {
          * what CPython refers to as vector calls (although they cannot
          * use a stack slice as the array).
          */
-        // u(self, *args, **kwargs)
+        // Not in CPython
         CALL(O, O, OA, SA) {
 
             @Override
@@ -445,13 +832,25 @@ enum Slot {
             }
         },
 
-        // Slot#op_bool
+        /**
+         * The signature {@code (O)B}, used for {@link Slot#op_bool}.
+         */
+        // In CPython: inquiry
         PREDICATE(B, O),
 
-        // Slot#op_contains
+        /**
+         * The signature {@code (O,O)B}, used for
+         * {@link Slot#op_contains}. It is not used for comparisons,
+         * because they may return an arbitrary object (e.g. in
+         * {@code numpy} array comparison).
+         */
         BINARY_PREDICATE(B, O, O),
 
-        // Slot#op_length, Slot#op_hash
+        /**
+         * The signature {@code (O)I}, used for {@link Slot#op_hash} and
+         * {@link Slot#op_len}.
+         */
+        // In CPython: lenfunc
         LEN(I, O) {
 
             @Override
@@ -463,13 +862,27 @@ enum Slot {
             }
         },
 
-        // (objobjargproc) Slot#op_setitem, Slot#op_set
+        /**
+         * The signature {@code (O,O,O)V}, used for
+         * {@link Slot#op_setitem} and {@link Slot#op_set}. The
+         * arguments have quite different meanings in each.
+         */
+        // In CPython: objobjargproc
         SETITEM(V, O, O, O),
 
-        // (not in CPython) Slot#op_delitem, Slot#op_delete
+        /**
+         * The signature {@code (O,O)V}, used for
+         * {@link Slot#op_delitem} and {@link Slot#op_delete}. The
+         * arguments have quite different meanings in each.
+         */
+        // Not in CPython
         DELITEM(V, O, O),
 
-        // (getattrofunc) Slot#op_getattr
+        /**
+         * The signature {@code (O,O)S}, used for
+         * {@link Slot#op_getattr}.
+         */
+        // In CPython: getattrofunc
         GETATTR(O, O, S) {
 
             @Override
@@ -482,7 +895,11 @@ enum Slot {
             }
         },
 
-        // (setattrofunc) Slot#op_setattr
+        /**
+         * The signature {@code (O,S,O)V}, used for
+         * {@link Slot#op_setattr}.
+         */
+        // In CPython: setattrofunc
         SETATTR(V, O, S, O) {
 
             @Override
@@ -496,7 +913,11 @@ enum Slot {
             }
         },
 
-        // (not in CPython) Slot#op_delattr
+        /**
+         * The signature {@code (O,S)V}, used for
+         * {@link Slot#op_delattr}.
+         */
+        // Not in CPython
         DELATTR(V, O, S) {
 
             @Override
@@ -510,7 +931,10 @@ enum Slot {
             }
         },
 
-        // (descrgetfunc) Slot#op_get
+        /**
+         * The signature {@code (O,O,T)O}, used for {@link Slot#op_get}.
+         */
+        // In CPython: descrgetfunc
         DESCRGET(O, O, O, T) {
 
             @Override
@@ -535,7 +959,7 @@ enum Slot {
          * {@link Slot#op_init}. This is the same as {@link #CALL}
          * except with {@code void} return.
          */
-        // (initproc) Slot#op_init
+        // In CPython: initproc
         INIT(V, O, OA, SA);
 
         /**

@@ -1,8 +1,10 @@
 package uk.co.farowl.vsj3.evo1;
 
 import static java.lang.invoke.MethodHandles.exactInvoker;
-import static java.lang.invoke.MethodHandles.foldArguments;
 import static java.lang.invoke.MethodHandles.filterReturnValue;
+import static java.lang.invoke.MethodHandles.foldArguments;
+import static uk.co.farowl.vsj3.evo1.ClassShorthand.O;
+import static uk.co.farowl.vsj3.evo1.ClassShorthand.T;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -16,15 +18,29 @@ import java.util.WeakHashMap;
 import uk.co.farowl.vsj3.evo1.Slot.Signature;
 import uk.co.farowl.vsj3.evo1.base.InterpreterError;
 
-import static uk.co.farowl.vsj3.evo1.ClassShorthand.T;
-import static uk.co.farowl.vsj3.evo1.ClassShorthand.O;
-
+/**
+ * An {@code Operations} object provides behaviour to a Java object by
+ * defining, for its Java class, a {@code MethodHandle} on the
+ * implementation of each special method required by the implementation
+ * and enumerated in {@link Slot}. (This is almost the same as the set
+ * of special methods defined by the Python data model.)
+ * <p>
+ * The run-time system will form a mapping from each Java class to an
+ * instance of (a specific sub-class of) {@code Operations}. Apart from
+ * a small collection of bootstrap classes (all of them built-in types),
+ * this mapping will be developed as the classes are encountered through
+ * the use of instances of them in Python code.
+ * <p>
+ * In cases where the behaviour depends on the Python type as well as
+ * the Java class, this is taken care of within the handle embedded in
+ * the {@code Operations} object for the Java class.
+ */
 abstract class Operations {
 
     /**
      * The {@code Operations} object of sub-classes of built-in types.
      * The slots of this (singleton) redirect through those on the
-     * PyType of the object instance/
+     * PyType of the object instance.
      */
     static final Operations DERIVED = Derived.getInstance();
 
@@ -496,14 +512,6 @@ abstract class Operations {
             return foldArguments(invoker, getMHfromObj);
         }
 
-        // XXX Equivalent code
-        private Object invokeIndirect(Slot s, Object self, Object other)
-                throws Throwable {
-            PyType t = ((DerivedPyObject)self).getType();
-            MethodHandle mh = (MethodHandle)s.slotHandle.get(t);
-            return mh.invoke(self, other);
-        }
-
         private static final Derived instance = new Derived();
 
         static Derived getInstance() { return instance; }
@@ -736,68 +744,393 @@ abstract class Operations {
     // ---------------------------------------------------------------
 
     // Cache of the standard type slots. See CPython PyType.
+    // Same order as enum Slot (although only names are important).
 
+    /**
+     * Handle on special method {@code __repr__}, described by
+     * {@link Slot#op_repr}.
+     */
     MethodHandle op_repr;
+    /**
+     * Handle on special method {@code __hash__}, described by
+     * {@link Slot#op_hash}.
+     */
     MethodHandle op_hash;
+    /**
+     * Handle on special method {@code __call__}, described by
+     * {@link Slot#op_call}.
+     */
     MethodHandle op_call;
+    /**
+     * Handle on special method {@code __str__}, described by
+     * {@link Slot#op_str}.
+     */
     MethodHandle op_str;
 
+    /**
+     * Handle on special method {@code __getattribute__}, described by
+     * {@link Slot#op_getattribute}.
+     */
     MethodHandle op_getattribute;
+    /**
+     * Handle on special method {@code __getattr__}, described by
+     * {@link Slot#op_getattr}.
+     */
     MethodHandle op_getattr;
+    /**
+     * Handle on special method {@code __setattr__}, described by
+     * {@link Slot#op_setattr}.
+     */
     MethodHandle op_setattr;
+    /**
+     * Handle on special method {@code __delattr__}, described by
+     * {@link Slot#op_delattr}.
+     */
     MethodHandle op_delattr;
 
+    /**
+     * Handle on special method {@code __lt__}, described by
+     * {@link Slot#op_lt}.
+     */
     MethodHandle op_lt;
+    /**
+     * Handle on special method {@code __le__}, described by
+     * {@link Slot#op_le}.
+     */
     MethodHandle op_le;
+    /**
+     * Handle on special method {@code __eq__}, described by
+     * {@link Slot#op_eq}.
+     */
     MethodHandle op_eq;
+    /**
+     * Handle on special method {@code __ne__}, described by
+     * {@link Slot#op_ne}.
+     */
     MethodHandle op_ne;
-    MethodHandle op_ge;
+    /**
+     * Handle on special method {@code __gt__}, described by
+     * {@link Slot#op_gt}.
+     */
     MethodHandle op_gt;
+    /**
+     * Handle on special method {@code __ge__}, described by
+     * {@link Slot#op_ge}.
+     */
+    MethodHandle op_ge;
 
+    /**
+     * Handle on special method {@code __iter__}, described by
+     * {@link Slot#op_iter}.
+     */
     MethodHandle op_iter;
+    /**
+     * Handle on special method {@code __next__}, described by
+     * {@link Slot#op_next}.
+     */
     MethodHandle op_next;
 
+    /**
+     * Handle on special method {@code __get__}, described by
+     * {@link Slot#op_get}.
+     */
     MethodHandle op_get;
+    /**
+     * Handle on special method {@code __set__}, described by
+     * {@link Slot#op_set}.
+     */
     MethodHandle op_set;
+    /**
+     * Handle on special method {@code __delete__}, described by
+     * {@link Slot#op_delete}.
+     */
     MethodHandle op_delete;
 
+    /**
+     * Handle on special method {@code __init__}, described by
+     * {@link Slot#op_init}.
+     */
     MethodHandle op_init;
 
-    // Number slots table see CPython PyNumberMethods
+    /**
+     * Handle on special method {@code __await__}, described by
+     * {@link Slot#op_await}.
+     */
+    MethodHandle op_await;
+    /**
+     * Handle on special method {@code __aiter__}, described by
+     * {@link Slot#op_aiter}.
+     */
+    MethodHandle op_aiter;
+    /**
+     * Handle on special method {@code __anext__}, described by
+     * {@link Slot#op_anext}.
+     */
+    MethodHandle op_anext;
 
-    MethodHandle op_add;
+    /**
+     * Handle on special method {@code __radd__}, described by
+     * {@link Slot#op_radd}.
+     */
     MethodHandle op_radd;
-    MethodHandle op_sub;
+    /**
+     * Handle on special method {@code __rsub__}, described by
+     * {@link Slot#op_rsub}.
+     */
     MethodHandle op_rsub;
-    MethodHandle op_mul;
+    /**
+     * Handle on special method {@code __rmul__}, described by
+     * {@link Slot#op_rmul}.
+     */
     MethodHandle op_rmul;
+    /**
+     * Handle on special method {@code __rmod__}, described by
+     * {@link Slot#op_rmod}.
+     */
+    MethodHandle op_rmod;
+    /**
+     * Handle on special method {@code __rdivmod__}, described by
+     * {@link Slot#op_rdivmod}.
+     */
+    MethodHandle op_rdivmod;
+    /**
+     * Handle on special method {@code __rpow__}, described by
+     * {@link Slot#op_rpow}.
+     */
+    MethodHandle op_rpow;
+    /**
+     * Handle on special method {@code __rlshift__}, described by
+     * {@link Slot#op_rlshift}.
+     */
+    MethodHandle op_rlshift;
+    /**
+     * Handle on special method {@code __rrshift__}, described by
+     * {@link Slot#op_rrshift}.
+     */
+    MethodHandle op_rrshift;
+    /**
+     * Handle on special method {@code __rand__}, described by
+     * {@link Slot#op_rand}.
+     */
+    MethodHandle op_rand;
+    /**
+     * Handle on special method {@code __rxor__}, described by
+     * {@link Slot#op_rxor}.
+     */
+    MethodHandle op_rxor;
+    /**
+     * Handle on special method {@code __ror__}, described by
+     * {@link Slot#op_ror}.
+     */
+    MethodHandle op_ror;
+    /**
+     * Handle on special method {@code __rfloordiv__}, described by
+     * {@link Slot#op_rfloordiv}.
+     */
+    MethodHandle op_rfloordiv;
+    /**
+     * Handle on special method {@code __rtruediv__}, described by
+     * {@link Slot#op_rtruediv}.
+     */
+    MethodHandle op_rtruediv;
+    /**
+     * Handle on special method {@code __rmatmul__}, described by
+     * {@link Slot#op_rmatmul}.
+     */
+    MethodHandle op_rmatmul;
 
+    /**
+     * Handle on special method {@code __add__}, described by
+     * {@link Slot#op_add}.
+     */
+    MethodHandle op_add;
+    /**
+     * Handle on special method {@code __sub__}, described by
+     * {@link Slot#op_sub}.
+     */
+    MethodHandle op_sub;
+    /**
+     * Handle on special method {@code __mul__}, described by
+     * {@link Slot#op_mul}.
+     */
+    MethodHandle op_mul;
+    /**
+     * Handle on special method {@code __mod__}, described by
+     * {@link Slot#op_mod}.
+     */
+    MethodHandle op_mod;
+    /**
+     * Handle on special method {@code __divmod__}, described by
+     * {@link Slot#op_divmod}.
+     */
+    MethodHandle op_divmod;
+    /**
+     * Handle on special method {@code __pow__}, described by
+     * {@link Slot#op_pow}.
+     */
+    MethodHandle op_pow;
+
+    /**
+     * Handle on special method {@code __neg__}, described by
+     * {@link Slot#op_neg}.
+     */
     MethodHandle op_neg;
+    /**
+     * Handle on special method {@code __pos__}, described by
+     * {@link Slot#op_pos}.
+     */
     MethodHandle op_pos;
+    /**
+     * Handle on special method {@code __abs__}, described by
+     * {@link Slot#op_abs}.
+     */
     MethodHandle op_abs;
+    /**
+     * Handle on special method {@code __invert__}, described by
+     * {@link Slot#op_invert}.
+     */
     MethodHandle op_invert;
 
+    /**
+     * Handle on special method {@code __bool__}, described by
+     * {@link Slot#op_bool}.
+     */
     MethodHandle op_bool;
 
+    /**
+     * Handle on special method {@code __lshift__}, described by
+     * {@link Slot#op_lshift}.
+     */
+    MethodHandle op_lshift;
+    /**
+     * Handle on special method {@code __rshift__}, described by
+     * {@link Slot#op_rshift}.
+     */
+    MethodHandle op_rshift;
+    /**
+     * Handle on special method {@code __and__}, described by
+     * {@link Slot#op_and}.
+     */
     MethodHandle op_and;
-    MethodHandle op_rand;
+    /**
+     * Handle on special method {@code __xor__}, described by
+     * {@link Slot#op_xor}.
+     */
     MethodHandle op_xor;
-    MethodHandle op_rxor;
+    /**
+     * Handle on special method {@code __or__}, described by
+     * {@link Slot#op_or}.
+     */
     MethodHandle op_or;
-    MethodHandle op_ror;
 
+    /**
+     * Handle on special method {@code __int__}, described by
+     * {@link Slot#op_int}.
+     */
     MethodHandle op_int;
+    /**
+     * Handle on special method {@code __float__}, described by
+     * {@link Slot#op_float}.
+     */
     MethodHandle op_float;
 
+    /**
+     * Handle on special method {@code __iadd__}, described by
+     * {@link Slot#op_iadd}.
+     */
+    MethodHandle op_iadd;
+    /**
+     * Handle on special method {@code __isub__}, described by
+     * {@link Slot#op_isub}.
+     */
+    MethodHandle op_isub;
+    /**
+     * Handle on special method {@code __imul__}, described by
+     * {@link Slot#op_imul}.
+     */
+    MethodHandle op_imul;
+    /**
+     * Handle on special method {@code __imod__}, described by
+     * {@link Slot#op_imod}.
+     */
+    MethodHandle op_imod;
+    /**
+     * Handle on special method {@code __iand__}, described by
+     * {@link Slot#op_iand}.
+     */
+    MethodHandle op_iand;
+    /**
+     * Handle on special method {@code __ixor__}, described by
+     * {@link Slot#op_ixor}.
+     */
+    MethodHandle op_ixor;
+    /**
+     * Handle on special method {@code __ior__}, described by
+     * {@link Slot#op_ior}.
+     */
+    MethodHandle op_ior;
+
+    /**
+     * Handle on special method {@code __floordiv__}, described by
+     * {@link Slot#op_floordiv}.
+     */
+    MethodHandle op_floordiv;
+    /**
+     * Handle on special method {@code __truediv__}, described by
+     * {@link Slot#op_truediv}.
+     */
+    MethodHandle op_truediv;
+    /**
+     * Handle on special method {@code __ifloordiv__}, described by
+     * {@link Slot#op_ifloordiv}.
+     */
+    MethodHandle op_ifloordiv;
+    /**
+     * Handle on special method {@code __itruediv__}, described by
+     * {@link Slot#op_itruediv}.
+     */
+    MethodHandle op_itruediv;
+
+    /**
+     * Handle on special method {@code __index__}, described by
+     * {@link Slot#op_index}.
+     */
     MethodHandle op_index;
 
-    // Sequence slots table see CPython PySequenceMethods
-    // Mapping slots table see CPython PyMappingMethods
+    /**
+     * Handle on special method {@code __matmul__}, described by
+     * {@link Slot#op_matmul}.
+     */
+    MethodHandle op_matmul;
+    /**
+     * Handle on special method {@code __imatmul__}, described by
+     * {@link Slot#op_imatmul}.
+     */
+    MethodHandle op_imatmul;
 
+    /**
+     * Handle on special method {@code __len__}, described by
+     * {@link Slot#op_len}.
+     */
     MethodHandle op_len;
-    MethodHandle op_contains;
-
+    /**
+     * Handle on special method {@code __getitem__}, described by
+     * {@link Slot#op_getitem}.
+     */
     MethodHandle op_getitem;
+    /**
+     * Handle on special method {@code __setitem__}, described by
+     * {@link Slot#op_setitem}.
+     */
     MethodHandle op_setitem;
+    /**
+     * Handle on special method {@code __delitem__}, described by
+     * {@link Slot#op_delitem}.
+     */
     MethodHandle op_delitem;
+    /**
+     * Handle on special method {@code __contains__}, described by
+     * {@link Slot#op_contains}.
+     */
+    MethodHandle op_contains;
 }
