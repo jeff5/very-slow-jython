@@ -25,11 +25,7 @@ import org.junit.jupiter.api.Test;
  * every abstract method once in some type.
  */
 @DisplayName("The API class Abstract")
-class AbstractAPITest {
-
-    /** A shorthand for the Python {@code object} type. */
-    // This is a sneaky trick to initialise the type system.
-    static PyType OBJECT = PyBaseObject.TYPE;
+class AbstractAPITest extends UnitTestSupport {
 
     /** A shorthand for the Python {@code int} type. */
     static PyType INT = PyLong.TYPE;

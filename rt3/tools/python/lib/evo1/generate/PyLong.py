@@ -257,6 +257,10 @@ class PyLongGenerator(ImplementationGenerator):
             itself,
             itself,
             itself),
+        UnaryOpInfo('__invert__', OBJECT_CLASS, WorkingType.INT,
+            lambda x: f'{x}.not()',
+            lambda x: f'~{x}',
+            lambda x: f'~{x}'),
         UnaryOpInfo('__neg__', OBJECT_CLASS, WorkingType.LONG,
             lambda x: f'{x}.negate()',
             lambda x: f'-{x}',
@@ -366,6 +370,34 @@ class PyLongGenerator(ImplementationGenerator):
             lambda x, y: f'trueDivide({y}, {x})',
             lambda x, y: f'(double){y} / (double){x}',
             True),
+
+        # These produce very poor code, because the shift is promoted
+        # needlessly to a BigInteger. The int << shift is probably
+        # incorrect.
+        # BinaryOpInfo('__lshift__', OBJECT_CLASS, WorkingType.BIG,
+        #     binary_intmethod,
+        #     lambda x, y: f'{x}.shiftLeft(toShift({y}))',
+        #     lambda x, y: f'{x} << toShift({y})', 
+        #     lambda x, y: f'{x} << toShift({y})',
+        #     True),
+        # BinaryOpInfo('__rlshift__', OBJECT_CLASS, WorkingType.BIG,
+        #     binary_intmethod,
+        #     lambda x, y: f'{y}.shiftLeft(toShift({x}))',
+        #     lambda x, y: f'{y} << toShift({x})', 
+        #     lambda x, y: f'{y} << toShift({x})',
+        #     True),
+        # BinaryOpInfo('__rshift__', OBJECT_CLASS, WorkingType.BIG,
+        #     binary_intmethod,
+        #     lambda x, y: f'{x}.shiftRight(toShift({y}))',
+        #     lambda x, y: f'{x} >> toShift({y})', 
+        #     lambda x, y: f'{x} >> toShift({y})',
+        #     True),
+        # BinaryOpInfo('__rrshift__', OBJECT_CLASS, WorkingType.BIG,
+        #     binary_intmethod,
+        #     lambda x, y: f'{y}.shiftRight(toShift({x}))',
+        #     lambda x, y: f'{y} >> toShift({x})', 
+        #     lambda x, y: f'{y} >> toShift({x})',
+        #     True),
 
         BinaryOpInfo('__and__', OBJECT_CLASS, WorkingType.INT,
             binary_intmethod,
@@ -491,7 +523,7 @@ class PyLongGenerator(ImplementationGenerator):
 
     def special_binary(self, e, op:BinaryOpInfo, t1, t2):
         reflected = op.name.startswith('__r') and \
-            op.name not in ("__rrshift__", "__round__", "__repr__")
+            op.name not in ("__rshift__", "__round__", "__repr__")
         n1, n2 = 'vw' if not reflected else 'wv'
         e.emit('static ').emit(op.return_type.name).emit(' ')
         e.emit(op.name).emit('(')

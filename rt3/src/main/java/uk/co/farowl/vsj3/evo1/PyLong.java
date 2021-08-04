@@ -363,6 +363,7 @@ public class PyLong extends AbstractPyObject implements PyDict.Key {
      * @return the same value as exactly {@code int}
      * @throws TypeError if not a Python {@code int} or sub-class
      */
+    // Compare CPython longobject.c :: long_long
     static Object from(Object value) throws TypeError {
         Operations ops = Operations.of(value);
         if (ops.isIntExact())
@@ -548,29 +549,6 @@ public class PyLong extends AbstractPyObject implements PyDict.Key {
     private static Object __repr__(Object self) {
         assert TYPE.check(self);
         return asBigInteger(self).toString();
-    }
-
-    @SuppressWarnings("unused")
-    private static Object __float__(Integer self) {
-        return self.doubleValue();
-    }
-
-    @SuppressWarnings("unused")
-    private static Object __float__(BigInteger self)
-            throws OverflowError {
-        return convertToDouble(self);
-    }
-
-    // Called for PyLong subclasses and Boolean
-    @SuppressWarnings("unused")
-    private static Object __float__(Object self) throws OverflowError {
-        assert TYPE.check(self);
-        try {
-            return convertToDouble(self);
-        } catch (NoConversion e) {
-            // This should never be necessary. InterpreterError?
-            throw Abstract.requiredTypeError("an integer", self);
-        }
     }
 
     // Python sub-class -----------------------------------------------

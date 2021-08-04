@@ -260,7 +260,6 @@ public class PyNumber extends Abstract {
      * </pre>
      *
      * @param o the object to convert to an {@code int}
-     *
      * @param exc {@code null} or function of {@code String} returning
      *     the exception to use for overflow.
      * @return {@code int} value of {@code o}
