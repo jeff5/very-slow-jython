@@ -1,4 +1,9 @@
+// Copyright (c)2021 Jython Developers.
+// Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj3.evo1;
+
+import static java.math.BigInteger.ONE;
+import static java.math.BigInteger.ZERO;
 
 import java.lang.invoke.MethodHandles;
 import java.math.BigInteger;
@@ -6,6 +11,7 @@ import java.util.Map;
 
 import uk.co.farowl.vsj3.evo1.PyObjectUtil.NoConversion;
 import uk.co.farowl.vsj3.evo1.Slot.EmptyException;
+import uk.co.farowl.vsj3.evo1.base.InterpreterError;
 
 /**
  * A Python {@code int} object may be represented by a
@@ -388,6 +394,37 @@ public class PyLong extends AbstractPyObject implements PyDict.Key {
         return PyFloat.bigIntegerFromDouble(value);
     }
 
+    // special methods ------------------------------------------------
+
+    @SuppressWarnings("unused")
+    private static Object __repr__(Object self) {
+        assert TYPE.check(self);
+        return asBigInteger(self).toString();
+    }
+
+    // __str__: let object.__str__ handle it (calls __repr__)
+
+    // Python sub-class -----------------------------------------------
+
+    /**
+     * Instances in Python of sub-classes of 'int', are represented in
+     * Java by instances of this class.
+     */
+    static class Derived extends PyLong implements DictPyObject {
+
+        protected Derived(PyType subType, BigInteger value) {
+            super(subType, value);
+        }
+
+        /** The instance dictionary {@code __dict__}. */
+        protected PyDict dict = new PyDict();
+
+        @Override
+        public Map<Object, Object> getDict() { return dict; }
+    }
+
+    // plumbing ------------------------------------------------------
+
     // Convert from int (core use) ------------------------------------
 
     /*
@@ -503,7 +540,10 @@ public class PyLong extends AbstractPyObject implements PyDict.Key {
 
     /**
      * Convert a Python {@code int} to a Java {@code BigInteger} (or
-     * throw {@link NoConversion}).
+     * throw {@link NoConversion}). Conversion may raise an exception
+     * that is propagated to the caller. If the Java type of the
+     * {@code int} is declared, generally there is a better option than
+     * this method. We only use it for {@code Object} arguments.
      * <p>
      * If the method throws the special exception {@link NoConversion},
      * the caller must deal with it by throwing an appropriate Python
@@ -522,7 +562,7 @@ public class PyLong extends AbstractPyObject implements PyDict.Key {
         else if (v instanceof PyLong)
             return ((PyLong)v).value;
         else if (v instanceof Boolean)
-            return (Boolean)v ? BigInteger.ONE : BigInteger.ZERO;
+            return (Boolean)v ? ONE : ZERO;
         throw PyObjectUtil.NO_CONVERSION;
     }
 
@@ -543,33 +583,17 @@ public class PyLong extends AbstractPyObject implements PyDict.Key {
     private static final String TOO_LARGE =
             "%s too large to convert to %s";
 
-    // special methods ------------------------------------------------
-
-    @SuppressWarnings("unused")
-    private static Object __repr__(Object self) {
-        assert TYPE.check(self);
-        return asBigInteger(self).toString();
-    }
-
-    // Python sub-class -----------------------------------------------
-
     /**
-     * Instances in Python of sub-classes of 'int', are represented in
-     * Java by instances of this class.
+     * We received an argument that should be impossible in a correct
+     * interpreter. We use this when conversion of an
+     * {@code Object self} argument may theoretically fail, but we know
+     * that we should only reach that point by paths that guarantee
+     * {@code self`} to be some kind on {@code int}.
+     *
+     * @param o actual argument
+     * @return exception to throw
      */
-    static class Derived extends PyLong implements DictPyObject {
-
-        protected Derived(PyType subType, BigInteger value) {
-            super(subType, value);
-        }
-
-        /** The instance dictionary {@code __dict__}. */
-        protected PyDict dict = new PyDict();
-
-        @Override
-        public Map<Object, Object> getDict() { return dict; }
+    private static InterpreterError impossible(Object o) {
+        return Abstract.impossibleArgumentError("int", o);
     }
-
-    // plumbing ------------------------------------------------------
-
 }
