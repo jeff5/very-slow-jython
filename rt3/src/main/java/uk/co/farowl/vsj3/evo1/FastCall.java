@@ -11,10 +11,13 @@ package uk.co.farowl.vsj3.evo1;
 interface FastCall {
 
     /**
-     * @implSpec An object that is a {@link FastCall} must support the
-     *     classic call (and with the same result as the direct call).
+     * Invoke the target object with standard arguments
+     * ({@code Object[]} and {@code String[]}).
      *
-     * @param args all arguments given positional then keyword
+     * @implSpec An object that is a {@link FastCall} must support the
+     *     standard call (and with the same result as the direct call).
+     *
+     * @param args all arguments given, positional then keyword
      * @param names of keyword arguments or {@code null}
      * @return result of the invocation
      * @throws Throwable from the implementation
@@ -35,6 +38,6 @@ interface FastCall {
     }
 
     // The idea is to provide a series of specialisations e.g.
-    // default Object call(arg0, arg1, arg2) {  ... };
+    // default Object call(arg0, arg1, arg2) { ... };
     // Implementations then override the one they like and __call__.
 }

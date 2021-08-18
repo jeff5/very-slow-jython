@@ -43,7 +43,7 @@ abstract class MethodDef {
 
     /** A handle to the implementation of the function or method. */
     // CPython PyMethodDef: ml_meth
-    final MethodHandle meth;
+    final MethodHandle method;
 
     /** The {@code __doc__} attribute, or {@code null} */
     final String doc;
@@ -73,7 +73,7 @@ abstract class MethodDef {
      * A handle with signature {@code ()O} that throws a single re-used
      * instance of {@code Slot.EmptyException}. We use this in sub-class
      * constructors when given a {@code null} raw method handle, to
-     * ensure it is always safe to invoke {@link MethodDef#meth}. If the
+     * ensure it is always safe to invoke {@link MethodDef#method}. If the
      * signature is to be believed, {@code EMPTY} returns
      * {@code Object}, although it never actually returns at all.
      */
@@ -91,7 +91,7 @@ abstract class MethodDef {
     MethodDef(ArgParser argParser, MethodHandle meth) {
         this.name = argParser.name;
         assert meth != null;  // Check sub-class constructor
-        this.meth = meth;
+        this.method = meth;
         this.doc = argParser.doc;
         this.argParser = argParser;
     }
@@ -177,7 +177,7 @@ abstract class MethodDef {
      * that the wrapped method has the {@code MethodType} to which the
      * call is addressed.
      *
-     * @param method handle of the method to call
+     * @param mh handle of the method to call
      * @param self target object of the method call
      * @param args of the method call
      * @param names of args given by keyword or {@code null}
@@ -187,7 +187,7 @@ abstract class MethodDef {
      * @throws Throwable from the implementation of the special method
      */
     // Compare CPython wrap_* in typeobject.c
-    abstract Object callMethod(MethodHandle method, Object self,
+    abstract Object callMethod(MethodHandle mh, Object self,
             Object[] args, String[] names) throws TypeError, Throwable;
 
     /**
@@ -212,8 +212,7 @@ abstract class MethodDef {
      * @param pos index in the type at which to start.
      * @return handle compatible with {@code methodDef}
      */
-    static final MethodHandle adapt(MethodHandle raw, int pos)
-            throws WrongMethodTypeException {
+    static final MethodHandle adapt(MethodHandle raw, int pos) {
         /*
          * To begin with, adapt the arguments after self to expect a
          * java.lang.Object, if Clinic knows how to convert them.
@@ -233,7 +232,7 @@ abstract class MethodDef {
     /**
      * From the given argument parser, create a method type that
      * reflects it. This is a helper for constructors of sub-classes of
-     * {@link MethodDef} where they need the type to which {@link #meth}
+     * {@link MethodDef} where they need the type to which {@link #method}
      * should conform.
      *
      * @param ap argument parser to interrogate
@@ -350,7 +349,7 @@ abstract class MethodDef {
          * matches the type {@link #GENERIC}.
          *
          * @param raw handle representing the Java implementation
-         * @return handle suitable to be {@link MethodDef#meth}
+         * @return handle suitable to be {@link MethodDef#method}
          */
         private static MethodHandle prep(MethodHandle raw) {
             if (raw == null)
@@ -364,11 +363,11 @@ abstract class MethodDef {
         MethodHandle prepare(MethodHandle raw) { return prep(raw); }
 
         @Override
-        Object callMethod(MethodHandle method, Object self,
+        Object callMethod(MethodHandle mh, Object self,
                 Object[] args, String[] names)
                 throws TypeError, Throwable {
             checkNoArgs(args, names);
-            return method.invokeExact(self);
+            return mh.invokeExact(self);
         }
     }
 
@@ -385,7 +384,7 @@ abstract class MethodDef {
          * matches the type {@link #GENERIC}.
          *
          * @param raw handle representing the Java implementation
-         * @return handle suitable to be {@link MethodDef#meth}
+         * @return handle suitable to be {@link MethodDef#method}
          */
         private static MethodHandle prep(MethodHandle raw) {
             if (raw == null)
@@ -399,11 +398,11 @@ abstract class MethodDef {
         MethodHandle prepare(MethodHandle raw) { return prep(raw); }
 
         @Override
-        Object callMethod(MethodHandle method, Object self,
+        Object callMethod(MethodHandle mh, Object self,
                 Object[] args, String[] names)
                 throws TypeError, Throwable {
             checkArgs(args, 1, names);
-            return method.invoke(self, args[0]);
+            return mh.invoke(self, args[0]);
         }
     }
 
@@ -425,7 +424,7 @@ abstract class MethodDef {
          * matches the type {@link #GENERIC}.
          *
          * @param raw handle representing the Java implementation
-         * @return handle suitable to be {@link MethodDef#meth}
+         * @return handle suitable to be {@link MethodDef#method}
          */
         private static MethodHandle prep(MethodHandle raw) {
             if (raw == null)
@@ -442,11 +441,11 @@ abstract class MethodDef {
         MethodHandle prepare(MethodHandle raw) { return prep(raw); }
 
         @Override
-        Object callMethod(MethodHandle method, Object self,
+        Object callMethod(MethodHandle mh, Object self,
                 Object[] args, String[] names)
                 throws TypeError, Throwable {
             checkArgs(args, argParser.posonlyargcount, names);
-            return method.invoke(self, args);
+            return mh.invoke(self, args);
         }
     }
 
@@ -486,7 +485,7 @@ abstract class MethodDef {
          *
          * @param ap to which the handle is made to conform
          * @param raw handle representing the Java implementation
-         * @return handle suitable to be {@link MethodDef#meth}
+         * @return handle suitable to be {@link MethodDef#method}
          */
         private static MethodHandle prep(ArgParser ap,
                 MethodHandle raw) {
@@ -518,10 +517,10 @@ abstract class MethodDef {
         }
 
         @Override
-        Object callMethod(MethodHandle method, Object self,
+        Object callMethod(MethodHandle mh, Object self,
                 Object[] args, String[] names)
                 throws TypeError, Throwable {
-            assert method.type() == meth.type();
+            assert mh.type() == method.type();
             /*
              * The method handle type is {@code (O,[O])O}. The parser
              * will make an array of the args, and where allowed, gather
@@ -529,7 +528,7 @@ abstract class MethodDef {
              * ones from defaults.
              */
             Object[] frame = argParser.parse(args, names);
-            return method.invoke(self, frame);
+            return mh.invoke(self, frame);
         }
     }
 }

@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.awt.Window.Type;
 import java.lang.invoke.MethodHandles;
 import java.util.Arrays;
 
@@ -14,6 +15,7 @@ import org.junit.jupiter.api.Test;
 
 import uk.co.farowl.vsj3.evo1.Exposed.PositionalOnly;
 import uk.co.farowl.vsj3.evo1.Exposed.PythonMethod;
+import uk.co.farowl.vsj3.evo1.Exposed.Default;
 import uk.co.farowl.vsj3.evo1.PyType.Spec;
 import uk.co.farowl.vsj3.evo1.base.MethodKind;
 
@@ -158,10 +160,10 @@ class TypeExposerMethodTest {
          */
         void setup(String name, Object o)
                 throws AttributeError, Throwable {
-            descr = (PyMethodDescr) ExampleObject.TYPE.lookup(name);
-            ap = descr.methodDef.argParser;
+            descr = (PyMethodDescr)PyType.of(o).lookup(name);
+            ap = descr.argParser;
             obj = o;
-            func = (PyJavaMethod) Abstract.getAttr(obj, name);
+            func = (PyJavaMethod)Abstract.getAttr(obj, name);
         }
 
         /**
@@ -184,6 +186,71 @@ class TypeExposerMethodTest {
      * methods ({@code this} is {@code self}) or as static methods
      * ({@code self} is the first parameter).
      */
+    static class SimpleObject {
+
+        static PyType TYPE = PyType
+                .fromSpec(new Spec("Simple", MethodHandles.lookup()));
+
+        /**
+         * See {@link NoParams}: no parameters are allowed (after
+         * {@code self}).
+         */
+        @PythonMethod
+        void m0() {}
+
+        /** See {@link OnePos}: a single positional parameter */
+        @PythonMethod
+        PyTuple m1(double a) { return Py.tuple(this, a); }
+
+        /**
+         * See {@link PositionalByDefault}: the parameters are
+         * positional-only as a result of the default exposure. Use
+         * static style, arbitrarily.
+         */
+        @PythonMethod
+        static PyTuple m3(SimpleObject self, int a, String b,
+                Object c) {
+            return Py.tuple(self, a, b, c);
+        }
+
+        /**
+         * See {@link PositionalWithDefaults}: the parameters are
+         * positional-only as a result of the default exposure. Use
+         * static style, arbitrarily.
+         */
+        @PythonMethod
+        static PyTuple m3pd(SimpleObject self, int a,
+                @Default("2") String b, @Default("3") Object c) {
+            return Py.tuple(self, a, b, c);
+        }
+
+        /**
+         * See {@link PositionalOrKeywordParams}: the parameters are
+         * positional-or-keyword but none are positional-only.
+         */
+        @PythonMethod(positionalOnly = false)
+        PyTuple m3pk(int a, String b, Object c) {
+            return Py.tuple(this, a, b, c);
+        }
+
+        /**
+         * See {@link SomePositionalOnlyParams}: two parameters are
+         * positional-only as a result of an annotation.
+         */
+        @PythonMethod
+        PyTuple m3p2(int a, @PositionalOnly String b, Object c) {
+            return Py.tuple(this, a, b, c);
+        }
+    }
+
+    /**
+     * A Python type definition that exhibits a range of method
+     * signatures explored in the tests, and has a an adopted
+     * implementation {@link ExampleObject2}. Methods named {@code m*()}
+     * are instance methods to Python, declared to Java as either
+     * instance methods ({@code this} is {@code self}) or as static
+     * methods ({@code self} is the first parameter).
+     */
     static class ExampleObject {
 
         static PyType TYPE = PyType
@@ -197,11 +264,21 @@ class TypeExposerMethodTest {
         @PythonMethod(primary = false)
         void m0() {}
 
+        @SuppressWarnings("unused")
         @PythonMethod
         static void m0(ExampleObject2 self) {}
 
+        /** See {@link OnePos}: a single positional parameter */
+        @PythonMethod
+        PyTuple m1(double a) { return Py.tuple(this, a); }
+
+        @PythonMethod(primary = false)
+        static PyTuple m1(ExampleObject2 self, double a) {
+            return Py.tuple(self, a);
+        }
+
         /**
-         * See {@link DefaultPositionalParams}: the parameters are
+         * See {@link PositionalByDefault}: the parameters are
          * positional-only as a result of the default exposure.
          */
         @PythonMethod
@@ -211,6 +288,24 @@ class TypeExposerMethodTest {
 
         @PythonMethod(primary = false)
         static PyTuple m3(ExampleObject2 self, int a, String b,
+                Object c) {
+            return Py.tuple(self, a, b, c);
+        }
+
+        /**
+         * See {@link PositionalWithDefaults}: the parameters are
+         * positional-only as a result of the default exposure. Use
+         * static style, arbitrarily.
+         */
+        @PythonMethod
+        PyTuple m3pd(int a, @Default("2") String b,
+                @Default("3") Object c) {
+            return Py.tuple(this, a, b, c);
+        }
+
+        /** Secondary definition does not repeat annotations. */
+        @PythonMethod(primary = false)
+        static PyTuple m3pd(ExampleObject2 self, int a, String b,
                 Object c) {
             return Py.tuple(self, a, b, c);
         }
@@ -250,17 +345,21 @@ class TypeExposerMethodTest {
      * Class cited as an "adopted implementation" of
      * {@link ExampleObject}
      */
-    static class ExampleObject2 {}
+    static class ExampleObject2 {
+        // Ensure canonical counterpart is initialised
+        @SuppressWarnings("unused")
+        private static PyType CANONICAL = ExampleObject.TYPE;
+    }
 
-    /** {@link ExampleObject#m0()} accepts no arguments. */
+    /** {@link SimpleObject#m0()} accepts no arguments. */
     @Nested
     @DisplayName("with no parameters")
     class NoParams extends Standard {
 
         @BeforeEach
         void setup() throws AttributeError, Throwable {
-            // descr = Example.m0
-            setup("m0", new ExampleObject());
+            // descr = Simple.m0
+            setup("m0", new SimpleObject());
             // The method is declared void (which means return None)
         }
 
@@ -329,11 +428,27 @@ class TypeExposerMethodTest {
     }
 
     /**
+     * {@link NoParams} with {@link ExampleObject} as the
+     * implementation.
+     */
+    @Nested
+    @DisplayName("with no parameters" + " (canonical)")
+    class NoParams1 extends NoParams {
+
+        @Override
+        @BeforeEach
+        void setup() throws AttributeError, Throwable {
+            // descr = Example.m0
+            setup("m0", new ExampleObject());
+        }
+    }
+
+    /**
      * {@link NoParams} with {@link ExampleObject2} as the
      * implementation.
      */
     @Nested
-    @DisplayName("with no parameters" + " (type 2 impl)")
+    @DisplayName("with no parameters" + " (adopted)")
     class NoParams2 extends NoParams {
 
         @Override
@@ -345,17 +460,131 @@ class TypeExposerMethodTest {
     }
 
     /**
-     * {@link ExampleObject#m3(int, String, Object)} accepts 3 arguments
+     * {@link SimpleObject#m1(float)} accepts 1 argument
+     * that <b>must</b> be given by position.
+     */
+    @Nested
+    @DisplayName("with a single positional-only parameter by default")
+    class OnePos extends Standard {
+
+        @BeforeEach
+        void setup() throws AttributeError, Throwable {
+            // descr = Simple.m1
+            setup("m1", new SimpleObject());
+            exp = new Object[] {obj, 42.0};
+        }
+
+        @Override
+        @Test
+        void has_expected_fields() {
+            no_collector_instance("m1", 1, 1);
+        }
+
+        @Override
+        @Test
+        void supports__call__() throws Throwable {
+            // We call type(obj).m1(obj, 42.0)
+            Object[] args = {obj, 42.0};
+            PyTuple r = (PyTuple)descr.__call__(args, null);
+            check_result(r);
+
+            // We call obj.m1(42.0)
+            args = Arrays.copyOfRange(args, 1, args.length);
+            r = (PyTuple)func.__call__(args, null);
+            check_result(r);
+        }
+
+        @Override
+        @Test
+        void supports_keywords() throws Throwable {
+            // We call type(obj).m1(obj, 42.0)
+            Object[] args = {obj, 42.0};
+            String[] names = {};
+            PyTuple r = (PyTuple)descr.__call__(args, names);
+            check_result(r);
+
+            // We call obj.m1(42.0)
+            args = Arrays.copyOfRange(args, 1, args.length);
+            r = (PyTuple)func.__call__(args, names);
+            check_result(r);
+        }
+
+        @Override
+        @Test
+        void raises_TypeError_on_unexpected_keyword() {
+            // We call type(obj).m1(obj, a=42.0)
+            Object[] args = {obj, 42.0};
+            String[] names = {"a"};
+            assertThrows(TypeError.class,
+                    () -> descr.__call__(args, names));
+
+            // We call obj.m1(a=42.0)
+            Object[] args2 = Arrays.copyOfRange(args, 1, args.length);
+            assertThrows(TypeError.class,
+                    () -> func.__call__(args2, names));
+        }
+
+        @Override
+        @Test
+        void supports_java_call() throws Throwable {
+            // We call type(obj).m1(obj, 42.0)
+            PyTuple r = (PyTuple)descr.call(obj, 42.0);
+            check_result(r);
+
+            // We call obj.m1(obj, 42.0)
+            r = (PyTuple)func.call(42.0);
+            check_result(r);
+        }
+    }
+
+    /**
+     * {@link OnePos} with {@link ExampleObject} as the
+     * implementation.
+     */
+    @Nested
+    @DisplayName("with a single positional-only parameter by default"
+            + " (canonical)")
+    class OnePos1 extends OnePos {
+
+        @Override
+        @BeforeEach
+        void setup() throws AttributeError, Throwable {
+            // descr = Example.m1
+            setup("m1", new ExampleObject());
+            exp = new Object[] {obj, 42.0};
+        }
+    }
+
+    /**
+     * {@link OnePos} with {@link ExampleObject2} as the
+     * implementation.
+     */
+    @Nested
+    @DisplayName("with a single positional-only parameter by default"
+            + " (adopted)")
+    class OnePos2 extends OnePos {
+
+        @Override
+        @BeforeEach
+        void setup() throws AttributeError, Throwable {
+            // descr = Example.m1
+            setup("m1", new ExampleObject2());
+            exp = new Object[] {obj, 42.0};
+        }
+    }
+
+    /**
+     * {@link SimpleObject#m3(int, String, Object)} accepts 3 arguments
      * that <b>must</b> be given by position.
      */
     @Nested
     @DisplayName("with positional-only parameters by default")
-    class DefaultPositionalParams extends Standard {
+    class PositionalByDefault extends Standard {
 
         @BeforeEach
         void setup() throws AttributeError, Throwable {
-            // descr = Example.m3
-            setup("m3", new ExampleObject());
+            // descr = Simple.m3
+            setup("m3", new SimpleObject());
             exp = new Object[] {obj, 1, "2", 3};
         }
 
@@ -370,12 +599,12 @@ class TypeExposerMethodTest {
         void supports__call__() throws Throwable {
             // We call type(obj).m3(obj, 1, '2', 3)
             Object[] args = {obj, 1, "2", 3};
-            PyTuple r = (PyTuple) descr.__call__(args, null);
+            PyTuple r = (PyTuple)descr.__call__(args, null);
             check_result(r);
 
             // We call obj.m3(1, '2', 3)
             args = Arrays.copyOfRange(args, 1, args.length);
-            r = (PyTuple) func.__call__(args, null);
+            r = (PyTuple)func.__call__(args, null);
             check_result(r);
         }
 
@@ -385,12 +614,12 @@ class TypeExposerMethodTest {
             // We call type(obj).m3(obj, 1, '2', 3)
             Object[] args = {obj, 1, "2", 3};
             String[] names = {};
-            PyTuple r = (PyTuple) descr.__call__(args, names);
+            PyTuple r = (PyTuple)descr.__call__(args, names);
             check_result(r);
 
             // We call obj.m3(1, '2', 3)
             args = Arrays.copyOfRange(args, 1, args.length);
-            r = (PyTuple) func.__call__(args, names);
+            r = (PyTuple)func.__call__(args, names);
             check_result(r);
         }
 
@@ -413,23 +642,41 @@ class TypeExposerMethodTest {
         @Test
         void supports_java_call() throws Throwable {
             // We call type(obj).m3(obj, 1, '2', 3)
-            PyTuple r = (PyTuple) descr.call(obj, 1, "2", 3);
+            PyTuple r = (PyTuple)descr.call(obj, 1, "2", 3);
             check_result(r);
 
             // We call obj.m3(obj, 1, '2', 3)
-            r = (PyTuple) func.call(1, "2", 3);
+            r = (PyTuple)func.call(1, "2", 3);
             check_result(r);
         }
     }
 
     /**
-     * {@link DefaultPositionalParams} with {@link ExampleObject2} as
-     * the implementation.
+     * {@link PositionalByDefault} with {@link ExampleObject} as the
+     * implementation.
      */
     @Nested
     @DisplayName("with positional-only parameters by default"
-            + " (type 2 impl)")
-    class DefaultPositionalParams2 extends DefaultPositionalParams {
+            + " (canonical)")
+    class PositionalByDefault1 extends PositionalByDefault {
+
+        @Override
+        @BeforeEach
+        void setup() throws AttributeError, Throwable {
+            // descr = Example.m3
+            setup("m3", new ExampleObject());
+            exp = new Object[] {obj, 1, "2", 3};
+        }
+    }
+
+    /**
+     * {@link PositionalByDefault} with {@link ExampleObject2} as the
+     * implementation.
+     */
+    @Nested
+    @DisplayName("with positional-only parameters by default"
+            + " (adopted)")
+    class PositionalByDefault2 extends PositionalByDefault {
 
         @Override
         @BeforeEach
@@ -441,7 +688,122 @@ class TypeExposerMethodTest {
     }
 
     /**
-     * {@link ExampleObject#m3pk(int, String, Object)} accepts 3
+     * {@link SimpleObject#m3pd(int, String, Object)} accepts 3
+     * arguments that <b>must</b> be given by position but two have
+     * defaults.
+     */
+    @Nested
+    @DisplayName("with positional-only parameters and default values")
+    class PositionalWithDefaults extends Standard {
+
+        @BeforeEach
+        void setup() throws AttributeError, Throwable {
+            // descr = Simple.m3pd
+            setup("m3pd", new SimpleObject());
+            exp = new Object[] {obj, 1, "2", 3};
+        }
+
+        @Override
+        @Test
+        void has_expected_fields() {
+            no_collector_instance("m3pd", 3, 3);
+        }
+
+        @Override
+        @Test
+        void supports__call__() throws Throwable {
+            // We call type(obj).m3pd(obj, 1)
+            Object[] args = {obj, 1};
+            PyTuple r = (PyTuple)descr.__call__(args, null);
+            check_result(r);
+
+            // We call obj.m3pd(1)
+            args = Arrays.copyOfRange(args, 1, args.length);
+            r = (PyTuple)func.__call__(args, null);
+            check_result(r);
+        }
+
+        @Override
+        @Test
+        void supports_keywords() throws Throwable {
+            // We call type(obj).m3pd(obj, 1)
+            Object[] args = {obj, 1};
+            String[] names = {};
+            PyTuple r = (PyTuple)descr.__call__(args, names);
+            check_result(r);
+
+            // We call obj.m3pd(1)
+            args = Arrays.copyOfRange(args, 1, args.length);
+            r = (PyTuple)func.__call__(args, names);
+            check_result(r);
+        }
+
+        @Override
+        @Test
+        void raises_TypeError_on_unexpected_keyword() {
+            // We call type(obj).m3pd(obj, 1, c=3)
+            Object[] args = {obj, 1, 3};
+            String[] names = {"c"};
+            assertThrows(TypeError.class,
+                    () -> descr.__call__(args, names));
+
+            // We call obj.m3pd(1, c=3)
+            Object[] args2 = Arrays.copyOfRange(args, 1, args.length);
+            assertThrows(TypeError.class,
+                    () -> func.__call__(args2, names));
+        }
+
+        @Override
+        @Test
+        void supports_java_call() throws Throwable {
+            // We call type(obj).m3pd(obj, 1)
+            PyTuple r = (PyTuple)descr.call(obj, 1);
+            check_result(r);
+
+            // We call obj.m3pd(obj, 1)
+            r = (PyTuple)func.call(1);
+            check_result(r);
+        }
+    }
+
+    /**
+     * {@link PositionalWithDefaults} with {@link ExampleObject} as the
+     * implementation.
+     */
+    @Nested
+    @DisplayName("with positional-only parameters and default values"
+            + " (canonical)")
+    class PositionalWithDefaults1 extends PositionalWithDefaults {
+
+        @Override
+        @BeforeEach
+        void setup() throws AttributeError, Throwable {
+            // descr = Example.m3pd
+            setup("m3pd", new ExampleObject());
+            exp = new Object[] {obj, 1, "2", 3};
+        }
+    }
+
+    /**
+     * {@link PositionalWithDefaults} with {@link ExampleObject2} as the
+     * implementation.
+     */
+    @Nested
+    @DisplayName("with positional-only parameters and default values"
+            + " (adopted)")
+    class PositionalWithDefaults2 extends PositionalWithDefaults {
+
+        @Override
+        @BeforeEach
+        void setup() throws AttributeError, Throwable {
+            // descr = Example.m3pd
+            setup("m3pd", new ExampleObject2());
+            exp = new Object[] {obj, 1, "2", 3};
+        }
+    }
+
+    /**
+     * {@link SimpleObject#m3pk(int, String, Object)} accepts 3
      * arguments that may be given by position or keyword.
      */
     @Nested
@@ -450,8 +812,8 @@ class TypeExposerMethodTest {
 
         @BeforeEach
         void setup() throws AttributeError, Throwable {
-            // descr = Example.m3pk
-            setup("m3pk", new ExampleObject());
+            // descr = Simple.m3pk
+            setup("m3pk", new SimpleObject());
             exp = new Object[] {obj, 1, "2", 3};
         }
 
@@ -467,12 +829,12 @@ class TypeExposerMethodTest {
             // We call type(obj).m3pk(obj, 1, '2', 3)
             Object[] args = {obj, 1, "2", 3};
             String[] names = {};
-            PyTuple r = (PyTuple) descr.__call__(args, names);
+            PyTuple r = (PyTuple)descr.__call__(args, names);
             check_result(r);
 
             // We call obj.m3pk(1, '2', 3)
             args = Arrays.copyOfRange(args, 1, args.length);
-            r = (PyTuple) func.__call__(args, names);
+            r = (PyTuple)func.__call__(args, names);
             check_result(r);
         }
 
@@ -482,12 +844,12 @@ class TypeExposerMethodTest {
             // We call type(obj).m3pk(obj, 1, c=3, b='2')
             Object[] args = {obj, 1, 3, "2"};
             String[] names = {"c", "b"};
-            PyTuple r = (PyTuple) descr.__call__(args, names);
+            PyTuple r = (PyTuple)descr.__call__(args, names);
             check_result(r);
 
             // We call obj.m3pk(1, c=3, b='2')
             args = Arrays.copyOfRange(args, 1, args.length);
-            r = (PyTuple) func.__call__(args, names);
+            r = (PyTuple)func.__call__(args, names);
             check_result(r);
         }
 
@@ -510,12 +872,30 @@ class TypeExposerMethodTest {
         @Test
         void supports_java_call() throws Throwable {
             // We call type(obj).m3pk(obj, 1, '2', 3)
-            PyTuple r = (PyTuple) descr.call(obj, 1, "2", 3);
+            PyTuple r = (PyTuple)descr.call(obj, 1, "2", 3);
             check_result(r);
 
             // We call obj.m3pk(1, '2', 3)
-            r = (PyTuple) func.call(1, "2", 3);
+            r = (PyTuple)func.call(1, "2", 3);
             check_result(r);
+        }
+    }
+
+    /**
+     * {@link PositionalOrKeywordParams} with {@link ExampleObject} as
+     * the implementation.
+     */
+    @Nested
+    @DisplayName("with positional-or-keyword parameters"
+            + " (canonical)")
+    class PositionalOrKeywordParams1 extends PositionalOrKeywordParams {
+
+        @Override
+        @BeforeEach
+        void setup() throws AttributeError, Throwable {
+            // descr = Example.m3pk
+            setup("m3pk", new ExampleObject());
+            exp = new Object[] {obj, 1, "2", 3};
         }
     }
 
@@ -524,8 +904,7 @@ class TypeExposerMethodTest {
      * the implementation.
      */
     @Nested
-    @DisplayName("with positional-or-keyword parameters"
-            + " (type 2 impl)")
+    @DisplayName("with positional-or-keyword parameters" + " (adopted)")
     class PositionalOrKeywordParams2 extends PositionalOrKeywordParams {
 
         @Override
@@ -538,7 +917,7 @@ class TypeExposerMethodTest {
     }
 
     /**
-     * {@link ExampleObject#m3p2(int, String, Object)} accepts 3
+     * {@link SimpleObject#m3p2(int, String, Object)} accepts 3
      * arguments, two of which may be given by position only, and the
      * last by either position or keyword.
      */
@@ -548,8 +927,8 @@ class TypeExposerMethodTest {
 
         @BeforeEach
         void setup() throws AttributeError, Throwable {
-            // descr = Example.m3p2
-            setup("m3p2", new ExampleObject());
+            // descr = Simple.m3p2
+            setup("m3p2", new SimpleObject());
             exp = new Object[] {obj, 1, "2", 3};
         }
 
@@ -565,7 +944,7 @@ class TypeExposerMethodTest {
             // We call type(obj).m3p2(obj, 1, '2', 3)
             Object[] args = {obj, 1, "2", 3};
             String[] names = {};
-            PyTuple r = (PyTuple) descr.__call__(args, names);
+            PyTuple r = (PyTuple)descr.__call__(args, names);
             check_result(r);
         }
 
@@ -576,12 +955,12 @@ class TypeExposerMethodTest {
             // We call type(obj).m3p2(obj, 1, '2', c=3)
             Object[] args = {obj, 1, "2", 3};
             String[] names = {"c"};
-            PyTuple r = (PyTuple) descr.__call__(args, names);
+            PyTuple r = (PyTuple)descr.__call__(args, names);
             check_result(r);
 
             // We call obj.m3p2(1, '2', c=3)
             args = Arrays.copyOfRange(args, 1, args.length);
-            r = (PyTuple) func.__call__(args, names);
+            r = (PyTuple)func.__call__(args, names);
             check_result(r);
         }
 
@@ -604,12 +983,29 @@ class TypeExposerMethodTest {
         @Test
         void supports_java_call() throws Throwable {
             // We call type(obj).m3p2(obj, 1, '2', 3)
-            PyTuple r = (PyTuple) descr.call(obj, 1, "2", 3);
+            PyTuple r = (PyTuple)descr.call(obj, 1, "2", 3);
             check_result(r);
 
             // We call obj.m3p2(1, '2', 3)
-            r = (PyTuple) func.call(1, "2", 3);
+            r = (PyTuple)func.call(1, "2", 3);
             check_result(r);
+        }
+    }
+
+    /**
+     * {@link PositionalOrKeywordParams} with {@link ExampleObject} as
+     * the implementation.
+     */
+    @Nested
+    @DisplayName("with two positional-only parameters" + " (canonical)")
+    class SomePositionalOnlyParams1 extends SomePositionalOnlyParams {
+
+        @Override
+        @BeforeEach
+        void setup() throws AttributeError, Throwable {
+            // descr = Example.m3p2
+            setup("m3p2", new ExampleObject());
+            exp = new Object[] {obj, 1, "2", 3};
         }
     }
 
@@ -618,8 +1014,7 @@ class TypeExposerMethodTest {
      * the implementation.
      */
     @Nested
-    @DisplayName("with two positional-only parameters"
-            + " (type 2 impl)")
+    @DisplayName("with two positional-only parameters" + " (adopted)")
     class SomePositionalOnlyParams2 extends SomePositionalOnlyParams {
 
         @Override
@@ -630,5 +1025,4 @@ class TypeExposerMethodTest {
             exp = new Object[] {obj, 1, "2", 3};
         }
     }
-
 }

@@ -6,11 +6,11 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * A {@code ModuleDef} stands in relation to the Java classes that
+ * A {@code ModuleDef} is a definition from which instances of a
+ * module may be made. It stands in relation to the Java classes that
  * define Python modules, somewhat in the way a Python {@code type}
  * object stands in relation to the Java classes that define Python
- * objects. It is a definition from which instances of the module may be
- * made.
+ * objects.
  * <p>
  * What we most often encounter as "a module", a Python source file, is
  * actually just a definition from which a module object may be made.
@@ -19,7 +19,7 @@ import java.util.List;
  * module in each interpreter. There must therefore be a factory object
  * that has access to the definition of the module, but is able to
  * instantiate it (equivalent to executing the body of a module defined
- * in Python).
+ * in Python). A {@code ModuleDef} is that factory.
  * <p>
  * This initialisation cannot be identified with the static
  * initialisation of the Java class, since that cannot be repeated, but

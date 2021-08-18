@@ -37,7 +37,7 @@ class MethodDescriptorTest extends UnitTestSupport {
             assertEquals(PyUnicode.TYPE, isascii.objclass);
 
             // Check the parser
-            ArgParser ap = isascii.methodDef.argParser;
+            ArgParser ap = isascii.argParser;
             assertEquals("isascii", ap.name);
             assertEquals(0, ap.regargcount);
         }
@@ -52,7 +52,7 @@ class MethodDescriptorTest extends UnitTestSupport {
             assertEquals(PyUnicode.TYPE, zfill.objclass);
 
             // Check the parser
-            ArgParser ap = zfill.methodDef.argParser;
+            ArgParser ap = zfill.argParser;
             assertEquals("zfill", ap.name);
             assertEquals(1, ap.regargcount);
             assertEquals("width", ap.argnames[0]);
@@ -71,7 +71,7 @@ class MethodDescriptorTest extends UnitTestSupport {
             assertEquals(PyUnicode.TYPE, replace.objclass);
 
             // Check the parser
-            ArgParser ap = replace.methodDef.argParser;
+            ArgParser ap = replace.argParser;
             assertEquals("replace", ap.name);
             assertEquals(2, ap.regargcount);
             assertEquals("old", ap.argnames[0]);
@@ -92,7 +92,7 @@ class MethodDescriptorTest extends UnitTestSupport {
             assertEquals(PyUnicode.TYPE, ljust.objclass);
 
             // Check the parser
-            ArgParser ap = ljust.methodDef.argParser;
+            ArgParser ap = ljust.argParser;
             String sig = "ljust($self, width, fillchar=' ', /)";
             assertEquals(sig, ap.toString());
 

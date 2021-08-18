@@ -9,6 +9,9 @@ import static uk.co.farowl.vsj3.evo1.ClassShorthand.SA;
 import static uk.co.farowl.vsj3.evo1.ClassShorthand.T;
 import static uk.co.farowl.vsj3.evo1.ClassShorthand.V;
 
+import static uk.co.farowl.vsj3.evo1.MethodDescriptor.checkNoArgs;
+import static uk.co.farowl.vsj3.evo1.MethodDescriptor.checkArgs;
+
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
@@ -17,7 +20,6 @@ import java.lang.invoke.VarHandle;
 import java.util.HashMap;
 import java.util.Map;
 
-import uk.co.farowl.vsj3.evo1.ArgumentError.Mode;
 import uk.co.farowl.vsj3.evo1.base.InterpreterError;
 import uk.co.farowl.vsj3.evo1.base.MissingFeature;
 
@@ -1001,66 +1003,6 @@ enum Slot {
                 throw new InterpreterError(
                         "Special methods must be instance methods");
             }
-        }
-
-        /**
-         * Check that no positional or keyword arguments are supplied.
-         * This is for use when implementing
-         * {@link #callWrapped(MethodHandle, Object, Object[], String[])}.
-         *
-         * @param args positional argument array to be checked
-         * @param names to be checked
-         * @throws ArgumentError if positional arguments are given or
-         *     {@code names} is not {@code null} or empty
-         */
-        final protected void checkNoArgs(Object[] args, String[] names)
-                throws ArgumentError {
-            if (args.length != 0)
-                throw new ArgumentError(Mode.NOARGS);
-            else if (names != null && names.length != 0)
-                throw new ArgumentError(Mode.NOKWARGS);
-        }
-
-        /**
-         * Check the number of positional arguments and that no keywords
-         * are supplied. This is for use when implementing
-         * {@link #callWrapped(MethodHandle, Object, Object[], String[])}.
-         *
-         * @param args positional argument tuple to be checked
-         * @param expArgs expected number of positional arguments
-         * @param names to be checked
-         * @throws ArgumentError if the wrong number of positional
-         *     arguments are given or {@code kwargs} is not {@code null}
-         *     or empty
-         */
-        final protected void checkArgs(Object[] args, int expArgs,
-                String[] names) throws ArgumentError {
-            if (args.length != expArgs)
-                throw new ArgumentError(expArgs);
-            else if (names != null && names.length != 0)
-                throw new ArgumentError(Mode.NOKWARGS);
-        }
-
-        /**
-         * Check the number of positional arguments and that no keywords
-         * are supplied. This is for use when implementing
-         * {@link #callWrapped(MethodHandle, Object, Object[], String[])}.
-         *
-         * @param args positional argument tuple to be checked
-         * @param minArgs minimum number of positional arguments
-         * @param maxArgs maximum number of positional arguments
-         * @param names to be checked
-         * @throws ArgumentError if the wrong number of positional
-         *     arguments are given or {@code kwargs} is not {@code null}
-         *     or empty
-         */
-        final protected void checkArgs(Object[] args, int minArgs,
-                int maxArgs, String[] names) throws ArgumentError {
-            int n = args.length;
-            if (n < minArgs || n > maxArgs)
-                throw new ArgumentError(minArgs, maxArgs);
-            else if (names != null && names.length != 0)
-                throw new ArgumentError(Mode.NOKWARGS);
         }
 
         /**

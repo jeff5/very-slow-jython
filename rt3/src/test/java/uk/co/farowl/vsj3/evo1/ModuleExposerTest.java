@@ -136,7 +136,7 @@ class ModuleExposerTest extends UnitTestSupport {
         }
     }
 
-    private void checkMethodDefArray(MethodDef[] mdArray) {
+    private static void checkMethodDefArray(MethodDef[] mdArray) {
         assertNotNull(mdArray);
 
         Map<String, MethodDef> mds = new TreeMap<>();
@@ -150,7 +150,7 @@ class ModuleExposerTest extends UnitTestSupport {
         assertEquals(expected, mds.keySet(), "contains expected names");
     }
 
-    private void checkMethodSignatures(Map<Object, Object> dict) {
+    private static void checkMethodSignatures(Map<Object, Object> dict) {
         assertNotNull(dict);
 
         checkSignature(dict, "f0()");
@@ -170,13 +170,13 @@ class ModuleExposerTest extends UnitTestSupport {
      * @param dict dictionary
      * @param spec signature
      */
-    private void checkSignature(Map<Object, Object> dict, String spec) {
+    private static void checkSignature(Map<Object, Object> dict, String spec) {
         int k = spec.indexOf('(');
         assertTrue(k>0);
         String name = spec.substring(0, k);
         String expect = spec.substring(k);
         PyJavaMethod pjm = (PyJavaMethod) dict.get(name);
-        assertEquals(expect, pjm.methodDef.argParser.textSignature());
+        assertEquals(expect, pjm.argParser.textSignature());
     }
 
 }

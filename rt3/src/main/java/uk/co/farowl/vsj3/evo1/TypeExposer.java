@@ -738,7 +738,7 @@ class TypeExposer extends Exposer {
             // Acceptable methods can be coerced to this signature
             MethodType slotType = slot.getType();
             final int L = slotType.parameterCount();
-            assert (L >= 1);
+            assert L >= 1;
 
             /*
              * There could be any number of candidates in the
@@ -829,8 +829,8 @@ class TypeExposer extends Exposer {
          * @param slotType required type
          * @throws WrongMethodTypeException if cannot cast
          */
-        private static void checkCast(MethodHandle mh, MethodType slotType)
-                throws WrongMethodTypeException {
+        private static void checkCast(MethodHandle mh,
+                MethodType slotType) throws WrongMethodTypeException {
             MethodType mt = mh.type();
             int n = mt.parameterCount();
             if (n != slotType.parameterCount())

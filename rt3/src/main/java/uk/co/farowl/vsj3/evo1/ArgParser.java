@@ -45,6 +45,9 @@ class ArgParser {
     /** Empty names array. */
     private static final String[] NO_STRINGS = new String[0];
 
+    /** Empty object array. */
+    private static final Object[] NO_OBJECTS = new Object[0];
+
     /** The name of the function, mainly for error messages. */
     final String name;
 
@@ -395,6 +398,17 @@ class ArgParser {
     boolean hasDefaults() { return defaults != null; }
 
     /**
+     * @return a copy of default positional arguments (or empty array).
+     */
+    Object[] getDefaults() {
+        if (defaults == null) {
+            return NO_OBJECTS;
+        } else {
+            return Arrays.copyOf(defaults, defaults.length);
+        }
+    }
+
+    /**
      * @return true if there is an excess positional argument collector.
      */
     boolean hasVarArgs() { return varArgsIndex >= 0; }
@@ -438,15 +452,15 @@ class ArgParser {
 
         // Possible leading argument
         switch (methodKind) {
-        case INSTANCE:
-            // $module, $self
-            sj.add(scopeKind.selfName);
-            break;
-        case CLASS:
-            sj.add("$type");
-            break;
-        default: // STATIC = no mention
-            break;
+            case INSTANCE:
+                // $module, $self
+                sj.add(scopeKind.selfName);
+                break;
+            case CLASS:
+                sj.add("$type");
+                break;
+            default: // STATIC = no mention
+                break;
         }
 
         // Positional-only parameters
@@ -522,7 +536,7 @@ class ArgParser {
      */
     private static String repr(Object o) {
         if (o instanceof String) {
-            String s = (String) o;
+            String s = (String)o;
             if (!s.contains("'"))
                 return "'" + s + "'";
             else
@@ -998,7 +1012,7 @@ class ArgParser {
             boolean posPlural = false;
             int kwGiven = 0;
             String posText, givenText;
-            int defcount = defaults.length;
+            int defcount = defaults == null ? 0 : defaults.length;
             int end = regargcount;
 
             assert (!hasVarArgs());
@@ -1153,25 +1167,25 @@ class ArgParser {
             String joinedNames;
 
             switch (len) {
-            case 0:
-                // Shouldn't happen but let's avoid trouble
-                joinedNames = "";
-                break;
-            case 1:
-                joinedNames = names.get(0);
-                break;
-            case 2:
-                joinedNames = String.format("%s and %s",
-                        names.get(len - 2), names.get(len - 1));
-                break;
-            default:
-                String tail = String.format(", %s and %s",
-                        names.get(len - 2), names.get(len - 1));
-                // Chop off the last two objects in the list.
-                names.remove(len - 1);
-                names.remove(len - 2);
-                // Stitch into a nice comma-separated list.
-                joinedNames = String.join(", ", names) + tail;
+                case 0:
+                    // Shouldn't happen but let's avoid trouble
+                    joinedNames = "";
+                    break;
+                case 1:
+                    joinedNames = names.get(0);
+                    break;
+                case 2:
+                    joinedNames = String.format("%s and %s",
+                            names.get(len - 2), names.get(len - 1));
+                    break;
+                default:
+                    String tail = String.format(", %s and %s",
+                            names.get(len - 2), names.get(len - 1));
+                    // Chop off the last two objects in the list.
+                    names.remove(len - 1);
+                    names.remove(len - 2);
+                    // Stitch into a nice comma-separated list.
+                    joinedNames = String.join(", ", names) + tail;
             }
 
             return new TypeError(

@@ -3,8 +3,6 @@ package uk.co.farowl.vsj3.evo1;
 import java.lang.annotation.Annotation;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles.Lookup;
-import java.lang.invoke.MethodType;
-import java.lang.invoke.WrongMethodTypeException;
 import java.lang.reflect.Member;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -1187,112 +1185,29 @@ abstract class Exposer {
          * {@inheritDoc}
          * <p>
          * In a type, the attribute must be represented by a descriptor
-         * for the Python method from this specification.
+         * for the Python method from this specification. This method
+         * create a {@code PyMethodDescr} from the specification.
          * <p>
-         * Note that specification may have collected multiple Java
-         * definitions of the same name. This method creates a
-         * descriptor that matches them to the accepted implementations
-         * of the owning class.
+         * Note that a specification describes the methods as declared,
+         * and that there may be any number of them, even if there is
+         * only one implementation of the target type. The specification
+         * may therefore have collected multiple Java definitions of the
+         * same name.
          *
-         * @return descriptor for access to the methods
-         * @throws InterpreterError if the method type is not supported
-         */
-        @Override
-        PyMethodDescr asAttribute(PyType objclass, Lookup lookup) {
-            if (objclass.acceptedCount == 1)
-                return createDescrSingle(objclass, lookup);
-            else
-                return createDescrMultiple(objclass, lookup);
-        }
-
-        /**
-         * Create a {@code PyMethodDescr} from this specification when
-         * there is only one defining method.
+         * This method creates a descriptor that matches them to the
+         * accepted implementations of the owning class. The descriptor
+         * returned will contain one method handle for each accepted
+         * Java implementation of the owning Python class, chosen most
+         * closely to match the Java class of {@code self}.
          *
          * @param objclass Python type that owns the descriptor
          * @param lookup authorisation to access members
-         * @return descriptor for the method
+         * @return descriptor for access to the method
          * @throws InterpreterError if the method type is not supported
          */
-        private PyMethodDescr createDescrSingle(PyType objclass,
-                Lookup lookup) throws InterpreterError {
-
-            assert methods.size() == 1;
-
-            // Construct a parser for call arguments
-            ArgParser ap = new ArgParser(name, scopeKind,
-                    MethodKind.INSTANCE, varArgsIndex >= 0,
-                    varKeywordsIndex >= 0, posonlyargcount,
-                    kwonlyargcount, parameterNames, regargcount);
-            ap.defaults(defaults).kwdefaults(kwdefaults);
-
-            // MethodHandles have self + this many args:
-            final int L = parameterNames.length;
-
-            // Unreflect m to its raw/natural method handle
-
-            // Check a sufficient raw match (Clinic?)
-
-            // Form a MethodDef from the parser and handle
-            // * Choose specialisation
-            // * Prepare handle in MethodDef from raw handle
-
-            // Form a descriptor from objclass and method def
-
-            Method m = methods.get(0);
-            MethodHandle mh = null;
-            // Convert m to a handle (if L args and accessible)
-            try {
-                mh = lookup.unreflect(m);
-                if (mh.type().parameterCount() != 1 + L) { mh = null; }
-            } catch (IllegalAccessException e) {
-                throw cannotGetHandle(m, e);
-            }
-
-            MethodDef methodDef = null;
-
-            Class<?> acceptedClass = objclass.getJavaClass();
-            MethodType mt = mh.type();
-            if (mt.parameterType(0).isAssignableFrom(acceptedClass)) {
-                /*
-                 * Each sub-type of MethodDef handles callMethod(self,
-                 * args, kwargs) in its own way, and must prepare the
-                 * arguments of the generic method handle to match.
-                 */
-                try {
-                    methodDef = MethodDef.forInstance(ap, mh);
-                } catch (WrongMethodTypeException wmte) {
-                    // Wrong number of args or cannot cast.
-                    throw methodSignatureError(objclass, mh);
-                }
-            }
-
-            // We should have a value in method
-            if (methodDef == null) {
-                throw new InterpreterError("'%s.%s' not defined for %s",
-                        objclass.name, name, objclass.getJavaClass());
-            }
-
-            /*
-             * There is only one definition so use the simpler form of
-             * built-in method. This is the frequent case.
-             */
-            return new PyMethodDescr.Single(objclass, methodDef);
-        }
-
-        /**
-         * Create a {@code PyMethodDescr} from this specification. Note
-         * that a specification describes the methods as declared, and
-         * that there may be any number of them. This method matches
-         * them to the supported implementations.
-         *
-         * @param objclass Python type that owns the descriptor
-         * @param lookup authorisation to access fields
-         * @return descriptor for access to the field
-         * @throws InterpreterError if the method type is not supported
-         */
-        private PyMethodDescr createDescrMultiple(PyType objclass,
-                Lookup lookup) throws InterpreterError {
+        @Override
+        PyMethodDescr asAttribute(PyType objclass, Lookup lookup)
+                throws InterpreterError {
 
             ArgParser ap = new ArgParser(name, scopeKind,
                     MethodKind.INSTANCE, varArgsIndex >= 0,
@@ -1303,13 +1218,10 @@ abstract class Exposer {
             // Methods have self + this many args:
             final int L = regargcount;
 
-            // Specialise the MethodDef according to the signature.
-            MethodDef methodDef = MethodDef.forInstance(ap, null);
-
             /*
              * There could be any number of candidates in the
-             * implementation. An implementation method could match
-             * multiple accepted implementations of the type (e.g.
+             * implementation. An implementation method "self" could
+             * match multiple accepted implementations of the type (e.g.
              * Number matching Long and Integer).
              */
             LinkedList<MethodHandle> candidates = new LinkedList<>();
@@ -1324,58 +1236,7 @@ abstract class Exposer {
                 }
             }
 
-            /*
-             * We will try to create a handle for each implementation of
-             * an instance method.
-             */
-            final int N = objclass.acceptedCount;
-            MethodHandle[] method = new MethodHandle[N];
-
-            // Fill the method array with matching method handles
-            for (int i = 0; i < N; i++) {
-                Class<?> acceptedClass = objclass.classes[i];
-                /*
-                 * Fill method[i] with the method handle where the first
-                 * parameter is the most specific match for class
-                 * accepted[i].
-                 */
-                // Try the candidate method until one matches
-                for (MethodHandle mh : candidates) {
-                    MethodType mt = mh.type();
-                    if (mt.parameterType(0)
-                            .isAssignableFrom(acceptedClass)) {
-                        /*
-                         * Each sub-type of MethodDef handles
-                         * callMethod(self, args, kwargs) in its own
-                         * way, and must prepare the arguments of the
-                         * generic method handle to match.
-                         */
-                        try {
-                            method[i] = methodDef.prepare(mh);
-                        } catch (WrongMethodTypeException wmte) {
-                            // Wrong number of args or cannot cast.
-                            throw methodSignatureError(objclass, mh);
-                        }
-                        break;
-                    }
-                }
-
-                // We should have a value in each of method[]
-                if (method[i] == null) {
-                    throw new InterpreterError(
-                            "'%s.%s' not defined for %s", objclass.name,
-                            name, objclass.classes[i]);
-                }
-            }
-
-            /*
-             * There are multiple definitions so use the array form of
-             * built-in method. This is the case for types that have
-             * multiple accepted implementations and methods on them
-             * that are not static or "Object self".
-             */
-            return new PyMethodDescr.Multiple(objclass, methodDef,
-                    method);
+            return PyMethodDescr.fromParser(objclass, ap, candidates);
         }
     }
 

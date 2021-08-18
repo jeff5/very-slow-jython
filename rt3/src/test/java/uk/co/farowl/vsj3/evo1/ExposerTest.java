@@ -241,8 +241,9 @@ class ExposerTest {
         PyJavaMethod bm = (PyJavaMethod) length.__get__(a, null);
 
         assertNotNull(bm);
-        assertEquals(a, bm.self);
-        assertEquals(length.methodDef, bm.methodDef);
+        assertSame(a, bm.self);
+        assertSame(length.argParser, bm.argParser);
+        assertSame(length.getWrapped(a.getClass()), bm.callHandle);
         assertStartsWith(
                 "<built-in method length of PyObjectWithMethods object",
                 bm);

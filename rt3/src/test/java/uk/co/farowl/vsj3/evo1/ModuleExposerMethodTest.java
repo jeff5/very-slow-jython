@@ -244,7 +244,7 @@ class ModuleExposerMethodTest {
         void setup() throws AttributeError, Throwable {
             // func = module.m0
             func = (PyJavaMethod) Abstract.getAttr(module, "m0");
-            ap = func.methodDef.argParser;
+            ap = func.argParser;
         }
 
         @Override
@@ -308,7 +308,7 @@ class ModuleExposerMethodTest {
         void setup() throws AttributeError, Throwable {
             // func = module.f0
             func = (PyJavaMethod) Abstract.getAttr(module, "f0");
-            ap = func.methodDef.argParser;
+            ap = func.argParser;
         }
 
         @Override
@@ -328,7 +328,7 @@ class ModuleExposerMethodTest {
         void setup() throws AttributeError, Throwable {
             // func = module.m3
             func = (PyJavaMethod) Abstract.getAttr(module, "m3");
-            ap = func.methodDef.argParser;
+            ap = func.argParser;
             exp = new Object[] {module, 1, "2", 3};
         }
 
@@ -394,7 +394,7 @@ class ModuleExposerMethodTest {
         void setup() throws AttributeError, Throwable {
             // func = module.f3
             func = (PyJavaMethod) Abstract.getAttr(module, "f3");
-            ap = func.methodDef.argParser;
+            ap = func.argParser;
             exp = new Object[] {1, "2", 3};
         }
 
@@ -415,7 +415,7 @@ class ModuleExposerMethodTest {
         void setup() throws AttributeError, Throwable {
             // func = module.m3pk
             func = (PyJavaMethod) Abstract.getAttr(module, "m3pk");
-            ap = func.methodDef.argParser;
+            ap = func.argParser;
             exp = new Object[] {module, 1, "2", 3};
         }
 
@@ -479,7 +479,7 @@ class ModuleExposerMethodTest {
         void setup() throws AttributeError, Throwable {
             // func = module.f3pk
             func = (PyJavaMethod) Abstract.getAttr(module, "f3pk");
-            ap = func.methodDef.argParser;
+            ap = func.argParser;
             exp = new Object[] {1, "2", 3};
         }
 
@@ -504,7 +504,7 @@ class ModuleExposerMethodTest {
         void setup() throws AttributeError, Throwable {
             // func = module.m3p2
             func = (PyJavaMethod) Abstract.getAttr(module, "m3p2");
-            ap = func.methodDef.argParser;
+            ap = func.argParser;
             exp = new Object[] {module, 1, "2", 3};
         }
 
@@ -573,7 +573,7 @@ class ModuleExposerMethodTest {
         void setup() throws AttributeError, Throwable {
             // func = module.f3p2
             func = (PyJavaMethod) Abstract.getAttr(module, "f3p2");
-            ap = func.methodDef.argParser;
+            ap = func.argParser;
             exp = new Object[] {1, "2", 3};
         }
 
