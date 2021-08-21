@@ -77,6 +77,7 @@ class PyTuple extends AbstractList<Object> implements CraftedPyObject {
      * As {@link #PyTuple(Object...)} for Python sub-class specifying
      * {@link #type}.
      *
+     * @param <E> element type of the {@code tuple} internally
      * @param type actual Python sub-class to being created
      * @param value elements of the tuple
      */

@@ -223,7 +223,7 @@ abstract class PyMethodDescr extends MethodDescriptor {
      * {@code objclass}, an empty slot handle (with the correct
      * signature) is returned.
      *
-     * @param selfClass Java class of the {@code self} argument
+     * @param self the {@code self} argument in some call
      * @return corresponding handle (or one that throws
      *     {@link EmptyException})
      */

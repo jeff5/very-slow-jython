@@ -142,7 +142,7 @@ enum MethodSignature {
      *
      * @param ap to which the handle is made to conform
      * @param raw handle representing the Java implementation
-     * @return handle suitable to be {@link MethodDef#method}
+     * @return handle consistent with this {@code MethodSignature}
      */
     MethodHandle prepare(ArgParser ap, MethodHandle raw) {
         assert raw != null;
