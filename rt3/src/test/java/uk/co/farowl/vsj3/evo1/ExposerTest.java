@@ -243,7 +243,7 @@ class ExposerTest {
         assertNotNull(bm);
         assertSame(a, bm.self);
         assertSame(length.argParser, bm.argParser);
-        assertSame(length.getWrapped(a.getClass()), bm.callHandle);
+        assertSame(length.getHandle(a), bm.handle);
         assertStartsWith(
                 "<built-in method length of PyObjectWithMethods object",
                 bm);

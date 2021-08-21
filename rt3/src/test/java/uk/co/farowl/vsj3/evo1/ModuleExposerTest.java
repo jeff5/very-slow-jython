@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.util.List;
@@ -19,6 +20,7 @@ import org.junit.jupiter.api.Test;
 import uk.co.farowl.vsj3.evo1.Exposed.PositionalOnly;
 import uk.co.farowl.vsj3.evo1.Exposed.PythonMethod;
 import uk.co.farowl.vsj3.evo1.Exposed.PythonStaticMethod;
+import uk.co.farowl.vsj3.evo1.ModuleDef.MethodDef;
 
 /**
  * Test that a Python <b>module</b> defined in Java, using the scheme of
@@ -114,8 +116,8 @@ class ModuleExposerTest extends UnitTestSupport {
         @Test
         @DisplayName("produces a MethodDef array")
         void createMethodDef() {
-            ModuleDef md = new ModuleDef("example", FakeModule.LOOKUP);
-            checkMethodDefArray(md.getMethods());
+            ModuleDef def = new ModuleDef("example", FakeModule.LOOKUP);
+            checkMethodDefArray(def.getMethods());
         }
     }
 
@@ -126,21 +128,24 @@ class ModuleExposerTest extends UnitTestSupport {
         @Test
         @DisplayName("has expected method signatures")
         void hasMethods() {
-            ModuleDef md = new ModuleDef("example", FakeModule.LOOKUP);
-            PyModule mod = new PyModule(md.name);
-            for (MethodDef def : md.getMethods()) {
-                PyJavaMethod m = new PyJavaMethod(def, mod, md.name);
-                mod.dict.put(def.name, m);
+            ModuleDef def = new ModuleDef("example", FakeModule.LOOKUP);
+            PyModule module = new PyModule(def.name);
+            for (MethodDef md : def.getMethods()) {
+                ArgParser ap = md.argParser;
+                MethodHandle mh = md.handle;
+                PyJavaMethod m = PyJavaMethod.fromParser(ap, mh, module,
+                        def.name);
+                module.dict.put(md.argParser.name, m);
             }
-            checkMethodSignatures(mod.dict);
+            checkMethodSignatures(module.dict);
         }
     }
 
-    private static void checkMethodDefArray(MethodDef[] mdArray) {
-        assertNotNull(mdArray);
+    private static void checkMethodDefArray(MethodDef[] defs) {
+        assertNotNull(defs);
 
         Map<String, MethodDef> mds = new TreeMap<>();
-        for (MethodDef md : mdArray) { mds.put(md.name, md); }
+        for (MethodDef def : defs) { mds.put(def.argParser.name, def); }
 
         Set<String> expected = new TreeSet<>();
         expected.addAll(List.of( //
@@ -150,7 +155,8 @@ class ModuleExposerTest extends UnitTestSupport {
         assertEquals(expected, mds.keySet(), "contains expected names");
     }
 
-    private static void checkMethodSignatures(Map<Object, Object> dict) {
+    private static void
+            checkMethodSignatures(Map<Object, Object> dict) {
         assertNotNull(dict);
 
         checkSignature(dict, "f0()");
@@ -170,12 +176,13 @@ class ModuleExposerTest extends UnitTestSupport {
      * @param dict dictionary
      * @param spec signature
      */
-    private static void checkSignature(Map<Object, Object> dict, String spec) {
+    private static void checkSignature(Map<Object, Object> dict,
+            String spec) {
         int k = spec.indexOf('(');
-        assertTrue(k>0);
+        assertTrue(k > 0);
         String name = spec.substring(0, k);
         String expect = spec.substring(k);
-        PyJavaMethod pjm = (PyJavaMethod) dict.get(name);
+        PyJavaMethod pjm = (PyJavaMethod)dict.get(name);
         assertEquals(expect, pjm.argParser.textSignature());
     }
 

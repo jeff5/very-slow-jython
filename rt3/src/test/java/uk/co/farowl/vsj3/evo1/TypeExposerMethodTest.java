@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import java.awt.Window.Type;
 import java.lang.invoke.MethodHandles;
 import java.util.Arrays;
 
@@ -13,9 +12,9 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
+import uk.co.farowl.vsj3.evo1.Exposed.Default;
 import uk.co.farowl.vsj3.evo1.Exposed.PositionalOnly;
 import uk.co.farowl.vsj3.evo1.Exposed.PythonMethod;
-import uk.co.farowl.vsj3.evo1.Exposed.Default;
 import uk.co.farowl.vsj3.evo1.PyType.Spec;
 import uk.co.farowl.vsj3.evo1.base.MethodKind;
 
@@ -26,9 +25,9 @@ import uk.co.farowl.vsj3.evo1.base.MethodKind;
  * definitions.
  * <p>
  * The first test in each case is to examine the fields in the parser
- * that attaches to the {@link MethodDef}. Then we call the function
- * using the {@code __call__} special method, and using our "fast call"
- * signatures.
+ * that attaches to the {@link ModuleDef.MethodDef}. Then we call the
+ * function using the {@code __call__} special method, and using our
+ * "fast call" signatures.
  * <p>
  * There is a nested test suite for each signature pattern.
  */
@@ -460,8 +459,8 @@ class TypeExposerMethodTest {
     }
 
     /**
-     * {@link SimpleObject#m1(float)} accepts 1 argument
-     * that <b>must</b> be given by position.
+     * {@link SimpleObject#m1(float)} accepts 1 argument that
+     * <b>must</b> be given by position.
      */
     @Nested
     @DisplayName("with a single positional-only parameter by default")
@@ -538,8 +537,7 @@ class TypeExposerMethodTest {
     }
 
     /**
-     * {@link OnePos} with {@link ExampleObject} as the
-     * implementation.
+     * {@link OnePos} with {@link ExampleObject} as the implementation.
      */
     @Nested
     @DisplayName("with a single positional-only parameter by default"
@@ -556,8 +554,7 @@ class TypeExposerMethodTest {
     }
 
     /**
-     * {@link OnePos} with {@link ExampleObject2} as the
-     * implementation.
+     * {@link OnePos} with {@link ExampleObject2} as the implementation.
      */
     @Nested
     @DisplayName("with a single positional-only parameter by default"

@@ -1,5 +1,7 @@
 package uk.co.farowl.vsj3.evo1;
 
+import static java.lang.invoke.MethodHandles.filterArguments;
+import static java.lang.invoke.MethodHandles.filterReturnValue;
 import static uk.co.farowl.vsj3.evo1.ClassShorthand.O;
 import static uk.co.farowl.vsj3.evo1.ClassShorthand.OA;
 
@@ -8,22 +10,24 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 
 import uk.co.farowl.vsj3.evo1.Slot.EmptyException;
+import uk.co.farowl.vsj3.evo1.base.MethodKind;
 
 /**
  * The {@code enum MethodSignature} enumerates the method signatures for
  * which an optimised implementation is possible. There are sub-classes
  * of {@link PyJavaMethod} and {@link PyMethodDescr} corresponding to
- * (at least some of) these values. The {@code enum} is used internally
- * to choose between these sub-classes.
+ * these values. It is not required that each value have a distinct
+ * optimised sub-class. This {@code enum} is used internally to choose
+ * between these sub-classes.
  */
 // Compare CPython METH_* constants in methodobject.h
 enum MethodSignature {
-    NOARGS(O), // No arguments allowed after self (METH_NOARGS)
-    O1(O, O),     // One argument allowed after self (METH_O)
-    O2(O, O, O), // Two arguments allowed after self
-    O3(O, O, O, O), // Three arguments allowed after self
-    POSITIONAL(O, OA), // Only positional arguments allowed
-    GENERAL(O, OA); // Full generality of ArgParser allowed
+    NOARGS(O),          // No arguments allowed after self (METH_NOARGS)
+    O1(O, O),           // One argument allowed after self (METH_O)
+    O2(O, O, O),        // Two arguments allowed after self
+    O3(O, O, O, O),     // Three arguments allowed after self
+    POSITIONAL(O, OA),  // Only positional arguments allowed
+    GENERAL(O, OA);     // Full generality of ArgParser allowed
 
     /** The type of method handles matching this method signature. */
     final MethodType methodType;
@@ -68,10 +72,10 @@ enum MethodSignature {
      * Note that in a {@link PyMethodDescr}, the {@link ArgParser}
      * describes the arguments after {@code self}, even if the
      * implementation is declared {@code static} in Java, so that the
-     * {@code self} argument is explicit. .
+     * {@code self} argument is explicit.
      *
      * @param ap argument parser describing the method
-     * @return
+     * @return a chosen {@code MethodSignature}
      */
     static MethodSignature fromParser(ArgParser ap) {
         if (ap.hasVarArgs() || ap.hasVarKeywords()) {
@@ -91,6 +95,19 @@ enum MethodSignature {
             // Arguments may only be given by position
             return positional(ap.regargcount);
         }
+    }
+
+    /**
+     * Choose a {@code MethodSignature} based on a {@code MethodType}.
+     *
+     * @param mt to look for
+     * @return a chosen {@code MethodSignature}
+     */
+    static MethodSignature from(MethodType mt) {
+        for (MethodSignature ms : MethodSignature.values()) {
+            if (ms.empty.type().equals(mt)) { return ms; }
+        }
+        return GENERAL;
     }
 
     /**
@@ -116,5 +133,60 @@ enum MethodSignature {
             default:
                 return POSITIONAL;
         }
+    }
+
+    /**
+     * Prepare a raw method handle, consistent with this
+     * {@code MethodSignature}, so that it matches the type implied by
+     * the parser, and may be called in an optimised way.
+     *
+     * @param ap to which the handle is made to conform
+     * @param raw handle representing the Java implementation
+     * @return handle suitable to be {@link MethodDef#method}
+     */
+    MethodHandle prepare(ArgParser ap, MethodHandle raw) {
+        assert raw != null;
+        MethodHandle mh;
+        if (ap.methodKind == MethodKind.STATIC) {
+            // No self parameter: start at zero
+            mh = adapt(raw, 0);
+            // Discard the self argument that we pass
+            mh = MethodHandles.dropArguments(mh, 0, O);
+        } else {
+            // Skip self parameter: start at one
+            mh = adapt(raw, 1);
+        }
+        if (useArray) {
+            // We will present the last n args as an array
+            int n = ap.argnames.length;
+            mh = mh.asSpreader(OA, n);
+        }
+        return mh.asType(methodType);
+    }
+
+    /**
+     * Adapt an arbitrary method handle to one that expects arguments
+     * from a given position onwards to be {@code Object}, and returns
+     * {@code Object}, using the conversions defined in {@link Clinic}.
+     *
+     * @param raw the handle to be prepared (or null for empty)
+     * @param pos index in the type at which to start.
+     * @return handle compatible with {@code methodDef}
+     */
+    static final MethodHandle adapt(MethodHandle raw, int pos) {
+        /*
+         * To begin with, adapt the arguments after self to expect a
+         * java.lang.Object, if Clinic knows how to convert them.
+         */
+        MethodType mt = raw.type();
+        MethodHandle[] af = Clinic.argumentFilter(mt, pos);
+        MethodHandle mh = filterArguments(raw, pos, af);
+        MethodHandle rf = Clinic.returnFilter(mt);
+        if (rf != null) { mh = filterReturnValue(mh, rf); }
+        /*
+         * Let the method definition enforce specific constraints and
+         * conversions on the handle.
+         */
+        return mh;
     }
 }

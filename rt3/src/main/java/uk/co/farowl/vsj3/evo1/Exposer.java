@@ -31,6 +31,7 @@ import uk.co.farowl.vsj3.evo1.Exposed.PositionalCollector;
 import uk.co.farowl.vsj3.evo1.Exposed.PositionalOnly;
 import uk.co.farowl.vsj3.evo1.Exposed.PythonMethod;
 import uk.co.farowl.vsj3.evo1.Exposed.PythonStaticMethod;
+import uk.co.farowl.vsj3.evo1.ModuleDef.MethodDef;
 import uk.co.farowl.vsj3.evo1.base.InterpreterError;
 import uk.co.farowl.vsj3.evo1.base.MethodKind;
 
@@ -161,7 +162,7 @@ abstract class Exposer {
                 };
         Function<Spec, MethodSpec> cast =
                 // Test and cast a found Spec to MethodSpec
-                spec -> spec instanceof MethodSpec ? (MethodSpec) spec
+                spec -> spec instanceof MethodSpec ? (MethodSpec)spec
                         : null;
         // Now use the generic create/update
         addSpec(meth, anno.value(), cast,
@@ -191,7 +192,7 @@ abstract class Exposer {
         Function<Spec, StaticMethodSpec> cast =
                 // Test and cast a found Spec to StaticMethodSpec
                 spec -> spec instanceof StaticMethodSpec
-                        ? (StaticMethodSpec) spec : null;
+                        ? (StaticMethodSpec)spec : null;
         // Now use the generic create/update
         addSpec(meth, anno.value(), cast,
                 (String name) -> new StaticMethodSpec(name, kind()),
@@ -390,9 +391,7 @@ abstract class Exposer {
         }
 
         @Override
-        public int compareTo(Spec o) {
-            return name.compareTo(o.name);
-        }
+        public int compareTo(Spec o) { return name.compareTo(o.name); }
     }
 
     /**
@@ -415,9 +414,7 @@ abstract class Exposer {
          *
          * @param method to add to {@link #methods}
          */
-        void add(Method method) {
-            methods.add(method);
-        }
+        void add(Method method) { methods.add(method); }
 
         /** @return a name designating the method */
         @Override
@@ -616,9 +613,7 @@ abstract class Exposer {
         /**
          * @return true if positional argument collector defined.
          */
-        private boolean hasVarArgs() {
-            return varArgsIndex >= 0;
-        }
+        private boolean hasVarArgs() { return varArgsIndex >= 0; }
 
         /**
          * @return true if keyword argument collector defined.
@@ -655,14 +650,15 @@ abstract class Exposer {
         /**
          * Produce a method definition from this specification that
          * references a method handle on the (single) defining method
-         * and the parser created from this specification.
+         * and the parser created from this specification. This is used
+         * in the construction of a module defined in Java (a
+         * {@link ModuleDef}).
          *
          * @param lookup authorisation to access methods
          * @return corresponding method definition
          * @throws InterpreterError on lookup prohibited
          */
         MethodDef getMethodDef(Lookup lookup) throws InterpreterError {
-            // Specialise the MethodDef according to the signature.
             assert methods.size() == 1;
             Method m = methods.get(0);
             MethodHandle mh;
@@ -671,7 +667,7 @@ abstract class Exposer {
             } catch (IllegalAccessException e) {
                 throw cannotGetHandle(m, e);
             }
-            return MethodDef.forInstance(getParser(), mh);
+            return new MethodDef(getParser(), mh);
         }
 
         /**
@@ -1242,8 +1238,8 @@ abstract class Exposer {
 
     /**
      * Specification in which we assemble information about a Python
-     * static method in advance of creating a method definition or
-     * method object.
+     * static method in advance of creating a method definition
+     * {@link MethodDef} or method descriptor {@link PyMethodDescr}.
      */
     static class StaticMethodSpec extends CallableSpec {
 

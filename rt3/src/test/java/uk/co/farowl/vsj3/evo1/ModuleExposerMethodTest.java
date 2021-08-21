@@ -23,7 +23,7 @@ import uk.co.farowl.vsj3.evo1.base.MethodKind;
  * correspond to the definition.
  * <p>
  * The first test in each case is to examine the fields in the parser
- * that attaches to the {@link MethodDef}. Then we call the function
+ * that attaches to the {@link ModuleDef.MethodDef}. Then we call the function
  * using the {@code __call__} special method, and using our "Java call"
  * signatures.
  * <p>
