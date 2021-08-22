@@ -6,11 +6,12 @@ import java.lang.reflect.Method;
 import uk.co.farowl.vsj3.evo1.Exposed.PythonMethod;
 import uk.co.farowl.vsj3.evo1.Exposed.PythonStaticMethod;
 import uk.co.farowl.vsj3.evo1.base.InterpreterError;
+import uk.co.farowl.vsj3.evo1.ModuleDef.MethodDef;
 
 /**
  * A {@code ModuleExposer} provides access to the attributes of a module
  * defined in Java (a built-in or extension module). These are primarily
- * the {@link ModuleDef.MethodDef}s derived from annotated methods in the defining
+ * the {@link MethodDef}s derived from annotated methods in the defining
  * class. It is normally obtained by a call to
  * {@link Exposer#exposeModule(Class)}.
  */
@@ -35,17 +36,15 @@ class ModuleExposer extends Exposer {
     }
 
     @Override
-    ScopeKind kind() {
-        return ScopeKind.MODULE;
-    }
+    ScopeKind kind() { return ScopeKind.MODULE; }
 
     /**
      * From the methods discovered by introspection of the class, return
-     * an array of {@link ModuleDef.MethodDef}s. This array will normally be part
+     * an array of {@link MethodDef}s. This array will normally be part
      * of a {@link ModuleDef} from which the dictionary of each instance
      * of the module will be created.
      *
-     * A {@link ModuleDef.MethodDef} relies on {@code MethodHandle}, so a lookup
+     * A {@link MethodDef} relies on {@code MethodHandle}, so a lookup
      * object must be provided with the necessary access to the defining
      * class.
      *
@@ -53,8 +52,8 @@ class ModuleExposer extends Exposer {
      * @return method definitions
      * @throws InterpreterError on lookup prohibited
      */
-    ModuleDef.MethodDef[] getMethodDefs(Lookup lookup) throws InterpreterError {
-        ModuleDef.MethodDef[] a = new ModuleDef.MethodDef[methodSpecs.size()];
+    MethodDef[] getMethodDefs(Lookup lookup) throws InterpreterError {
+        MethodDef[] a = new MethodDef[methodSpecs.size()];
         int i = 0;
         for (CallableSpec ms : methodSpecs) {
             a[i++] = ms.getMethodDef(lookup);

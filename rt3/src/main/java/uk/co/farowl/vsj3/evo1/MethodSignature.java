@@ -22,28 +22,44 @@ import uk.co.farowl.vsj3.evo1.base.MethodKind;
  */
 // Compare CPython METH_* constants in methodobject.h
 enum MethodSignature {
-    NOARGS(O),          // No arguments allowed after self (METH_NOARGS)
-    O1(O, O),           // One argument allowed after self (METH_O)
-    O2(O, O, O),        // Two arguments allowed after self
-    O3(O, O, O, O),     // Three arguments allowed after self
-    POSITIONAL(O, OA),  // Only positional arguments allowed
-    GENERAL(O, OA);     // Full generality of ArgParser allowed
+    // Constructors describe the parameters after self
+    NOARGS(),       // No arguments allowed after self (METH_NOARGS)
+    O1(O),          // One argument allowed after self (METH_O)
+    O2(O, O),       // Two arguments allowed after self
+    O3(O, O, O),    // Three arguments allowed after self
+    POSITIONAL(OA), // Only positional arguments allowed
+    GENERAL(OA);    // Full generality of ArgParser allowed
 
-    /** The type of method handles matching this method signature. */
-    final MethodType methodType;
+    /**
+     * The type of method handles matching this method signature when it
+     * describes a bound or static method. For {@code POSITIONAL} this
+     * is the type {@code (O[])O}.
+     */
+    final MethodType boundType;
+
+    /**
+     * The type of method handles matching this method signature when it
+     * describes an instance method. This differs from
+     * {@link #boundType} by a preceding {@code O}. For
+     * {@code POSITIONAL} this is the type {@code (O, O[])O}.
+     */
+    final MethodType instanceType;
+
     /**
      * Handle to throw a {@link Slot.EmptyException}, and having the
-     * signature {@code (O,[O])O}.
+     * signature {@code instanceType} for this {@code MethodSignature}.
      */
     final MethodHandle empty;
+
     /** The second parameter is an object array. */
-    final boolean useArray;
+    private final boolean useArray;
 
     private MethodSignature(Class<?>... ptypes) {
-        this.methodType = MethodType.methodType(O, ptypes);
+        this.boundType = MethodType.methodType(O, ptypes);
+        this.instanceType = boundType.insertParameterTypes(0, O);
         this.empty = MethodHandles.dropArguments(Util.THROW_EMPTY, 0,
-                ptypes);
-        this.useArray = ptypes.length >= 2 && ptypes[1] == OA;
+                instanceType.parameterArray());
+        this.useArray = ptypes.length >= 1 && ptypes[0] == OA;
     }
 
     /** Handle utilities, supporting signature creation. */
@@ -161,7 +177,37 @@ enum MethodSignature {
             int n = ap.argnames.length;
             mh = mh.asSpreader(OA, n);
         }
-        return mh.asType(methodType);
+        return mh.asType(instanceType);
+    }
+
+    /**
+     * Prepare and bind a provided raw method handle, consistent with
+     * this {@code MethodSignature}, so that it matches the type implied
+     * by the parser, and may be called in an optimised way. This has
+     * the right semantics for methods in a {@link JavaModule}, where
+     * {@code ap.methodKind==STATIC} means there is no {@code module}
+     * argument to bind.
+     *
+     * @param ap to which the handle is made to conform
+     * @param raw handle representing the Java implementation
+     * @param self to bind as the first argument if not Python static
+     * @return handle consistent with this {@code MethodSignature}
+     */
+    MethodHandle prepareBound(ArgParser ap, MethodHandle raw,
+            Object self) {
+        assert raw != null;
+        assert ap.methodKind != MethodKind.CLASS;
+        if (ap.methodKind != MethodKind.STATIC) {
+            // The type must match here
+            raw = raw.bindTo(self);
+        }
+        MethodHandle mh = adapt(raw, 0);
+        if (useArray) {
+            // We will present the last n args as an array
+            int n = ap.argnames.length;
+            mh = mh.asSpreader(OA, n);
+        }
+        return mh.asType(boundType);
     }
 
     /**

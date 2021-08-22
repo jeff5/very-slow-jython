@@ -105,22 +105,30 @@ public abstract class PyJavaMethod
          */
         MethodSignature sig = MethodSignature.fromParser(ap);
 
+        assert ap.methodKind != MethodKind.CLASS;
+
         /*
          * In each case, we must prepare a method handle of the chosen
          * shape.
          */
         switch (sig) {
             case NOARGS:
-                method = MethodSignature.NOARGS.prepare(ap, method);
+                method = MethodSignature.NOARGS.prepareBound(ap, method,
+                        self);
                 return new NoArgs(ap, method, self, module);
             case O1:
+                method = MethodSignature.O1.prepareBound(ap, method,
+                        self);
+                return new O1(ap, method, self, module);
             case O2:
             case O3:
             case POSITIONAL:
-                method = MethodSignature.POSITIONAL.prepare(ap, method);
+                method = MethodSignature.POSITIONAL.prepareBound(ap,
+                        method, self);
                 return new Positional(ap, method, self, module);
             default:
-                method = MethodSignature.GENERAL.prepare(ap, method);
+                method = MethodSignature.GENERAL.prepareBound(ap,
+                        method, self);
                 return new General(ap, method, self, module);
         }
     }
@@ -135,19 +143,19 @@ public abstract class PyJavaMethod
      * @param descr descriptor
      * @param self object to which bound (or {@code null} if a static
      *     method)
-     * @return A Java method object supporting the signature
+     * @return a Java method object supporting the signature
      */
     // Compare CPython PyCFunction_NewEx in methodobject.c
     static PyJavaMethod from(PyMethodDescr descr, Object self) {
         ArgParser ap = descr.argParser;
-        // self may be null only when the method is static
-        assert ap.methodKind == MethodKind.STATIC || self != null;
-        // And when it is static, null is acceptable here:
-        MethodHandle handle = descr.getHandle(self);
+        assert ap.methodKind == MethodKind.INSTANCE;
+        MethodHandle handle = descr.getHandle(self).bindTo(self);
         // We must support the same optimisations as PyMethodDescr
         switch (descr.signature) {
             case NOARGS:
                 return new NoArgs(ap, handle, self, null);
+            case O1:
+                return new O1(ap, handle, self, null);
             case POSITIONAL:
                 return new Positional(ap, handle, self, null);
             case GENERAL:
@@ -276,13 +284,13 @@ public abstract class PyJavaMethod
         Object callBound(Object[] args, String[] names)
                 throws TypeError, Throwable {
             /*
-             * The method handle type is {@code (O,[O])O}. The parser
-             * will make an array of the args, and where allowed, gather
+             * The method handle type is {@code ([O])O}. The parser will
+             * make an array of the args, and where allowed, gather
              * excess arguments into a tuple or dict, and fill missing
              * ones from defaults.
              */
             Object[] frame = argParser.parse(args, names);
-            return handle.invokeExact(self, frame);
+            return handle.invokeExact(frame);
         }
     }
 
@@ -308,9 +316,46 @@ public abstract class PyJavaMethod
         @Override
         Object callBound(Object[] args, String[] names)
                 throws Throwable {
-            // The method handle type is {@code (O)O}.
+            // The method handle type is {@code ()O}.
             checkNoArgs(args, names);
-            return handle.invokeExact(self);
+            return handle.invokeExact();
+        }
+    }
+
+    /**
+     * The implementation signature accepts one positional arguments,
+     * with potentially a default value, specified by the parser.
+     */
+    private static class O1 extends PyJavaMethod {
+
+        /** Default values of the trailing arguments. */
+        private final Object[] defaults;
+
+        /**
+         * Construct a method object, identifying the implementation by
+         * a parser and a method handle.
+         *
+         * @param argParser describing the signature of the method
+         * @param handle a prepared prepared to the method defined
+         * @param self object to which bound (or {@code null} if a
+         *     static method)
+         * @param module name of the module supplying the definition (or
+         *     {@code null} if representing a bound method of a type)
+         */
+        O1(ArgParser argParser, MethodHandle handle, Object self,
+                String module) {
+            super(argParser, handle, self, module);
+            this.defaults = argParser.getDefaults();
+            assert defaults.length <= 1;
+        }
+
+        @Override
+        Object callBound(Object[] args, String[] names)
+                throws TypeError, Throwable {
+            // The method handle type is {@code (O)O}.
+            checkArgs(args, 1 - defaults.length, 1, names);
+            return handle.invokeExact(
+                    (args.length == 1 ? args : defaults)[0]);
         }
     }
 
@@ -319,11 +364,10 @@ public abstract class PyJavaMethod
      * arguments, with potential trailing defaults, specified by the
      * parser.
      */
-
     private static class Positional extends PyJavaMethod {
 
         /** Default values of the trailing arguments. */
-        protected final Object[] defaults;
+        private final Object[] defaults;
 
         /**
          * Construct a method object, identifying the implementation by
@@ -345,19 +389,19 @@ public abstract class PyJavaMethod
         @Override
         Object callBound(Object[] args, String[] names)
                 throws TypeError, Throwable {
-            // The method handle type is {@code (O,O[])O}.
+            // The method handle type is {@code (O[])O}.
             int max = argParser.argcount;
             int min = max - defaults.length;
             checkArgs(args, min, max, names);
             // May need to fill a gap from defaults
             int n = args.length, gap = max - n;
             if (gap == 0) {
-                return handle.invokeExact(self, args);
+                return handle.invokeExact(args);
             } else {
                 Object[] frame = new Object[max];
                 System.arraycopy(args, 0, frame, 0, n);
                 System.arraycopy(defaults, n - min, frame, n, gap);
-                return handle.invokeExact(self, frame);
+                return handle.invokeExact(frame);
             }
         }
     }

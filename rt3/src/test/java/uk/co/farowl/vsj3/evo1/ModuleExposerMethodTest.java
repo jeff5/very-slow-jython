@@ -23,9 +23,9 @@ import uk.co.farowl.vsj3.evo1.base.MethodKind;
  * correspond to the definition.
  * <p>
  * The first test in each case is to examine the fields in the parser
- * that attaches to the {@link ModuleDef.MethodDef}. Then we call the function
- * using the {@code __call__} special method, and using our "Java call"
- * signatures.
+ * that attaches to the {@link ModuleDef.MethodDef}. Then we call the
+ * function using the {@code __call__} special method, and using our
+ * "Java call" signatures.
  * <p>
  * There is a nested test suite for each signature pattern.
  */
@@ -181,6 +181,20 @@ class ModuleExposerMethodTest {
         void m0() {}
 
         /**
+         * See {@link StaticOneParam}: the parameter is positional-only
+         * as a result of the default exposure.
+         */
+        @PythonStaticMethod
+        static PyTuple f1(double a) { return Py.tuple(a); }
+
+        /**
+         * See {@link OneParam}: the parameter is positional-only as a
+         * result of the default exposure.
+         */
+        @PythonMethod
+        PyTuple m1(double a) { return Py.tuple(this, a); }
+
+        /**
          * See {@link StaticDefaultPositionalParams}: the parameters are
          * positional-only as a result of the default exposure.
          */
@@ -243,7 +257,7 @@ class ModuleExposerMethodTest {
         @BeforeEach
         void setup() throws AttributeError, Throwable {
             // func = module.m0
-            func = (PyJavaMethod) Abstract.getAttr(module, "m0");
+            func = (PyJavaMethod)Abstract.getAttr(module, "m0");
             ap = func.argParser;
         }
 
@@ -307,13 +321,99 @@ class ModuleExposerMethodTest {
         @BeforeEach
         void setup() throws AttributeError, Throwable {
             // func = module.f0
-            func = (PyJavaMethod) Abstract.getAttr(module, "f0");
+            func = (PyJavaMethod)Abstract.getAttr(module, "f0");
             ap = func.argParser;
         }
 
         @Override
         @Test
         void has_expected_fields() { no_collector_static("f0", 0, 0); }
+    }
+
+    /**
+     * {@link ExampleModule#m1(double)} accepts one argument that
+     * <b>must</b> be given by position.
+     */
+    @Nested
+    @DisplayName("with one positional-only parameter")
+    class OneParam extends Standard {
+
+        @BeforeEach
+        void setup() throws AttributeError, Throwable {
+            // func = module.m1
+            func = (PyJavaMethod)Abstract.getAttr(module, "m1");
+            ap = func.argParser;
+            exp = new Object[] {module, 42.0};
+        }
+
+        @Override
+        @Test
+        void has_expected_fields() {
+            no_collector_instance("m1", 1, 1);
+        }
+
+        @Override
+        @Test
+        void supports__call__() throws Throwable {
+            // We call func(42.0)
+            Object[] args = {42.0};
+            // The method reports its arguments as a tuple
+            PyTuple r = (PyTuple)func.__call__(args, null);
+            check_result(r);
+        }
+
+        @Override
+        @Test
+        void supports_keywords() throws Throwable {
+            // We call func(42.0)
+            Object[] args = {42.0};
+            String[] names = {};
+            // The method reports its arguments as a tuple
+            PyTuple r = (PyTuple)func.__call__(args, names);
+            check_result(r);
+        }
+
+        @Override
+        @Test
+        void raises_TypeError_on_unexpected_keyword() {
+            // We call func(o, a=42.0)
+            Object o = new ExampleModule();
+            Object[] args = {o, 42.0};
+            String[] names = {"a"};
+
+            assertThrows(TypeError.class,
+                    () -> func.__call__(args, names));
+        }
+
+        @Override
+        @Test
+        void supports_java_call() throws Throwable {
+            // We call func(42.0)
+            PyTuple r = (PyTuple)func.call(42.0);
+            check_result(r);
+        }
+    }
+
+    /**
+     * {@link ExampleModule#f1(double)} accepts one argument that
+     * <b>must</b> be given by position.
+     */
+    @Nested
+    @DisplayName("static, with one positional-only parameter")
+    class StaticOneParam extends OneParam {
+
+        @Override
+        @BeforeEach
+        void setup() throws AttributeError, Throwable {
+            // func = module.f1
+            func = (PyJavaMethod)Abstract.getAttr(module, "f1");
+            ap = func.argParser;
+            exp = new Object[] {42.0};
+        }
+
+        @Override
+        @Test
+        void has_expected_fields() { no_collector_static("f1", 1, 1); }
     }
 
     /**
@@ -327,7 +427,7 @@ class ModuleExposerMethodTest {
         @BeforeEach
         void setup() throws AttributeError, Throwable {
             // func = module.m3
-            func = (PyJavaMethod) Abstract.getAttr(module, "m3");
+            func = (PyJavaMethod)Abstract.getAttr(module, "m3");
             ap = func.argParser;
             exp = new Object[] {module, 1, "2", 3};
         }
@@ -344,7 +444,7 @@ class ModuleExposerMethodTest {
             // We call func(1, '2', 3)
             Object[] args = {1, "2", 3};
             // The method reports its arguments as a tuple
-            PyTuple r = (PyTuple) func.__call__(args, null);
+            PyTuple r = (PyTuple)func.__call__(args, null);
             check_result(r);
         }
 
@@ -355,7 +455,7 @@ class ModuleExposerMethodTest {
             Object[] args = {1, "2", 3};
             String[] names = {};
             // The method reports its arguments as a tuple
-            PyTuple r = (PyTuple) func.__call__(args, names);
+            PyTuple r = (PyTuple)func.__call__(args, names);
             check_result(r);
         }
 
@@ -375,7 +475,7 @@ class ModuleExposerMethodTest {
         @Test
         void supports_java_call() throws Throwable {
             // We call func(1, '2', 3)
-            PyTuple r = (PyTuple) func.call(1, "2", 3);
+            PyTuple r = (PyTuple)func.call(1, "2", 3);
             check_result(r);
         }
     }
@@ -393,7 +493,7 @@ class ModuleExposerMethodTest {
         @BeforeEach
         void setup() throws AttributeError, Throwable {
             // func = module.f3
-            func = (PyJavaMethod) Abstract.getAttr(module, "f3");
+            func = (PyJavaMethod)Abstract.getAttr(module, "f3");
             ap = func.argParser;
             exp = new Object[] {1, "2", 3};
         }
@@ -414,7 +514,7 @@ class ModuleExposerMethodTest {
         @BeforeEach
         void setup() throws AttributeError, Throwable {
             // func = module.m3pk
-            func = (PyJavaMethod) Abstract.getAttr(module, "m3pk");
+            func = (PyJavaMethod)Abstract.getAttr(module, "m3pk");
             ap = func.argParser;
             exp = new Object[] {module, 1, "2", 3};
         }
@@ -431,7 +531,7 @@ class ModuleExposerMethodTest {
             // We call func(1, '2', 3)
             Object[] args = {1, "2", 3};
             String[] names = {};
-            PyTuple r = (PyTuple) func.__call__(args, names);
+            PyTuple r = (PyTuple)func.__call__(args, names);
             check_result(r);
         }
 
@@ -442,7 +542,7 @@ class ModuleExposerMethodTest {
             // We call func(1, c=3, b='2')
             Object[] args = {1, 3, "2"};
             String[] names = {"c", "b"};
-            PyTuple r = (PyTuple) func.__call__(args, names);
+            PyTuple r = (PyTuple)func.__call__(args, names);
             check_result(r);
         }
 
@@ -460,7 +560,7 @@ class ModuleExposerMethodTest {
         @Override
         @Test
         void supports_java_call() throws Throwable {
-            PyTuple r = (PyTuple) func.call(1, "2", 3);
+            PyTuple r = (PyTuple)func.call(1, "2", 3);
             check_result(r);
         }
     }
@@ -478,7 +578,7 @@ class ModuleExposerMethodTest {
         @BeforeEach
         void setup() throws AttributeError, Throwable {
             // func = module.f3pk
-            func = (PyJavaMethod) Abstract.getAttr(module, "f3pk");
+            func = (PyJavaMethod)Abstract.getAttr(module, "f3pk");
             ap = func.argParser;
             exp = new Object[] {1, "2", 3};
         }
@@ -503,7 +603,7 @@ class ModuleExposerMethodTest {
         @BeforeEach
         void setup() throws AttributeError, Throwable {
             // func = module.m3p2
-            func = (PyJavaMethod) Abstract.getAttr(module, "m3p2");
+            func = (PyJavaMethod)Abstract.getAttr(module, "m3p2");
             ap = func.argParser;
             exp = new Object[] {module, 1, "2", 3};
         }
@@ -522,7 +622,7 @@ class ModuleExposerMethodTest {
             String[] names = {};
 
             // The method just parrots its arguments as a tuple
-            PyTuple r = (PyTuple) func.__call__(args, names);
+            PyTuple r = (PyTuple)func.__call__(args, names);
             check_result(r);
         }
 
@@ -535,7 +635,7 @@ class ModuleExposerMethodTest {
             String[] names = {"c"};
 
             // The method reports its arguments as a tuple
-            PyTuple r = (PyTuple) func.__call__(args, names);
+            PyTuple r = (PyTuple)func.__call__(args, names);
             check_result(r);
         }
 
@@ -553,7 +653,7 @@ class ModuleExposerMethodTest {
         @Test
         void supports_java_call() throws Throwable {
             // The method reports its arguments as a tuple
-            PyTuple r = (PyTuple) func.call(1, "2", 3);
+            PyTuple r = (PyTuple)func.call(1, "2", 3);
             check_result(r);
         }
     }
@@ -572,7 +672,7 @@ class ModuleExposerMethodTest {
         @BeforeEach
         void setup() throws AttributeError, Throwable {
             // func = module.f3p2
-            func = (PyJavaMethod) Abstract.getAttr(module, "f3p2");
+            func = (PyJavaMethod)Abstract.getAttr(module, "f3p2");
             ap = func.argParser;
             exp = new Object[] {1, "2", 3};
         }

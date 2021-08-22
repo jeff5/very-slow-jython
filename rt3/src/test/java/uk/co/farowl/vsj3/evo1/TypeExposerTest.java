@@ -147,33 +147,27 @@ class TypeExposerTest {
         double thingValue;
 
         @Getter
-        Object count() {
-            return count;
-        }
+        Object count() { return count; }
 
         @Getter
-        Object foo() {
-            return thingValue;
-        }
+        Object foo() { return thingValue; }
 
         @Setter
         void foo(Object v) throws TypeError, Throwable {
             try {
-                foo = (String) v;
+                foo = (String)v;
             } catch (ClassCastException cce) {
                 foo = "<invalid>";
             }
         }
 
         @Getter
-        Object thing() {
-             return thingValue;
-        }
+        Object thing() { return thingValue; }
 
         @Setter("thing")
         void thing(Object v) throws TypeError, Throwable {
             try {
-                thingValue = (Double) v;
+                thingValue = (Double)v;
             } catch (ClassCastException cce) {
                 thingValue = Double.NaN;
             }
@@ -209,7 +203,7 @@ class TypeExposerTest {
             Map<String, ArgParser> dict = new TreeMap<>();
             for (Exposer.Spec s : exposer.specs.values()) {
                 if (s instanceof CallableSpec) {
-                    CallableSpec ms = (CallableSpec) s;
+                    CallableSpec ms = (CallableSpec)s;
                     dict.put(ms.name, ms.getParser());
                 }
             }
@@ -258,7 +252,7 @@ class TypeExposerTest {
             Map<String, MemberSpec> dict = new TreeMap<>();
             for (Exposer.Spec s : exposer.specs.values()) {
                 if (s instanceof MemberSpec) {
-                    MemberSpec ms = (MemberSpec) s;
+                    MemberSpec ms = (MemberSpec)s;
                     dict.put(ms.name, ms);
                 }
             }
@@ -354,7 +348,7 @@ class TypeExposerTest {
             Map<String, GetSetSpec> dict = new TreeMap<>();
             for (Exposer.Spec s : exposer.specs.values()) {
                 if (s instanceof GetSetSpec) {
-                    GetSetSpec gs = (GetSetSpec) s;
+                    GetSetSpec gs = (GetSetSpec)s;
                     dict.put(gs.name, gs);
                 }
             }

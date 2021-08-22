@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -48,6 +49,14 @@ class ModuleExposerTest extends UnitTestSupport {
         // Signature: ($module, /)
         @PythonMethod
         void m0() {}
+
+        // Signature: (a)
+        @PythonStaticMethod
+        static PyTuple f1(double a) {return Py.tuple(a);}
+
+        // Signature: ($module, a, /)
+        @PythonMethod
+        PyTuple m1(double a) {return Py.tuple(a);}
 
         // Signature: (a, b, c, /)
         @PythonStaticMethod
@@ -128,16 +137,26 @@ class ModuleExposerTest extends UnitTestSupport {
         @Test
         @DisplayName("has expected method signatures")
         void hasMethods() {
+            /*
+             * As FakeModule is not a PyModule, we must work a bit
+             * harder to take care of things normally automatic. Make a
+             * ModuleDef to hold the MethodDefs from the Exposer.
+             */
             ModuleDef def = new ModuleDef("example", FakeModule.LOOKUP);
-            PyModule module = new PyModule(def.name);
+            // An instance of the "module" to bind in PyJavaMethods
+            FakeModule fake = new FakeModule();
+            // A map to stand in for the module dictionary to hold them
+            Map<Object, Object> dict = new HashMap<>();
+            // Which we now fill ...
             for (MethodDef md : def.getMethods()) {
                 ArgParser ap = md.argParser;
                 MethodHandle mh = md.handle;
-                PyJavaMethod m = PyJavaMethod.fromParser(ap, mh, module,
-                        def.name);
-                module.dict.put(md.argParser.name, m);
+                PyJavaMethod m =
+                        PyJavaMethod.fromParser(ap, mh, fake, def.name);
+                dict.put(md.argParser.name, m);
             }
-            checkMethodSignatures(module.dict);
+            // And here we check what's in it
+            checkMethodSignatures(dict);
         }
     }
 
@@ -149,8 +168,8 @@ class ModuleExposerTest extends UnitTestSupport {
 
         Set<String> expected = new TreeSet<>();
         expected.addAll(List.of( //
-                "f0", "f3", "f3pk", "f3p2", //
-                "m0", "m3", "m3pk", "m3p2"));
+                "f0", "f1", "f3", "f3pk", "f3p2", //
+                "m0", "m1", "m3", "m3pk", "m3p2"));
 
         assertEquals(expected, mds.keySet(), "contains expected names");
     }
@@ -161,6 +180,8 @@ class ModuleExposerTest extends UnitTestSupport {
 
         checkSignature(dict, "f0()");
         checkSignature(dict, "m0($module, /)");
+        checkSignature(dict, "f1(a, /)");
+        checkSignature(dict, "m1($module, a, /)");
         checkSignature(dict, "f3(a, b, c, /)");
         checkSignature(dict, "m3($module, a, b, c, /)");
         checkSignature(dict, "f3pk(a, b, c)");

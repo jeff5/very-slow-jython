@@ -122,11 +122,12 @@ abstract class PyMethodDescr extends MethodDescriptor {
      * @param objclass owning class
      * @param ap argument parser (provides name etc.)
      * @param candidates method handles for the implementations
-     * @return A method descriptor supporting the signature
+     * @return a method descriptor supporting the signature
      */
     // Compare CPython PyDescr_NewMethod in descrobject.c
     static PyMethodDescr fromParser(PyType objclass, ArgParser ap,
             List<MethodHandle> candidates) {
+        assert ap.methodKind == MethodKind.INSTANCE;
         /*
          * Note this is a recommendation on the assumption all
          * optimisations are supported. The actual choice is made in the
