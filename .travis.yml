@@ -12,8 +12,8 @@ jobs:
     - name: "openjdk11 on Linux"
       jdk: openjdk11
  
-    - name: "openjdk17 on Linux"
-      jdk: openjdk17
+    - name: "openjdk16 on Linux"
+      jdk: openjdk16
 
 # No installation, but check versions here
 install:
