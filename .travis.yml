@@ -12,8 +12,10 @@ jobs:
     - name: "openjdk11 on Linux"
       jdk: openjdk11
  
-    - name: "openjdk16 on Linux"
-      jdk: openjdk16
+    # Installed Gradle/Groovy limits us to Java 15.
+    # Unsupported class file major version 60 (on Java 16).
+    - name: "openjdk15 on Linux"
+      jdk: openjdk15
 
 # No installation, but check versions here
 install:
