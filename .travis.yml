@@ -8,17 +8,12 @@ language: java
 
 jobs:
   include:
-    ## These worked (without the pyenv bits). Let's just focus on OSX.
+
     - name: "openjdk11 on Linux"
       jdk: openjdk11
  
     - name: "openjdk15 on Linux"
       jdk: openjdk15
-
-    - name: "openjdk11 on macOS"
-      os: osx
-      osx_image: xcode12.4 # supports jdk key up to 15
-      jdk: openjdk11
 
       before_install:
         # Ensure pyenv is in charge of Python versions
@@ -56,4 +51,4 @@ cache:
 
 # Run the build only on the latest run-time approach
 script:
-  - ./gradlew rt3:test
+  - ./gradlew --no-daemon rt3:test
