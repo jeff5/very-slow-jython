@@ -12,19 +12,8 @@ jobs:
     - name: "openjdk11 on Linux"
       jdk: openjdk11
  
-    - name: "openjdk15 on Linux"
-      jdk: openjdk15
-
-      before_install:
-        # Ensure pyenv is in charge of Python versions
-        - pyenv root
-        - export PATH=$(pyenv root)/shims:$PATH
-        # Limited by this list, we pick the latest 3.8 to install
-        - pyenv install --list
-        - pyenv install 3.8.7
-        # Make python command mean that version (used in gradle build)
-        - pyenv global 3.8.7
-
+    - name: "openjdk17 on Linux"
+      jdk: openjdk17
 
 # No installation, but check versions here
 install:
