@@ -1,5 +1,8 @@
 # PyLong.py: A generator for Java files that define the Python float
 
+# Copyright (c)2021 Jython Developers.
+# Licensed to PSF under a contributor agreement.
+
 # This generator writes PyLongMethods.java and PyLongBinops.java .
 
 from dataclasses import dataclass

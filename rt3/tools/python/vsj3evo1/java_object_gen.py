@@ -16,10 +16,10 @@ from re import match
 from contextlib import closing
 from dataclasses import dataclass
 
-from evo1.generate import ImplementationGenerator
-from evo1.generate import PyFloatGenerator
-from evo1.generate import PyLongGenerator
-from evo1.generate import PyUnicodeGenerator
+from evo1 import ImplementationGenerator
+from evo1 import PyFloatGenerator
+from evo1 import PyLongGenerator
+from evo1 import PyUnicodeGenerator
 
 
 class ImplementationTemplateProcessorFactory:
