@@ -1,6 +1,9 @@
+// Copyright (c)2021 Jython Developers.
+// Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj3.evo1;
 
 import java.math.BigInteger;
+import static uk.co.farowl.vsj3.evo1.PyLong.convertToDouble;
 
 // $OBJECT_GENERATOR$ PyFloatGenerator
 

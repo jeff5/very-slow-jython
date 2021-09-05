@@ -12,7 +12,9 @@ from . import ImplementationGenerator, TypeInfo, WorkingType, OpInfo
 class IntTypeInfo(TypeInfo):
     "Information about a type and templates for conversion to int types"
     # There is a template (a function) to generate an expression
-    # that converts *from* this type to each named Java type.
+    # that converts *from* this type to each named Java type that may be
+    # a "working type" when implementing an operation.
+
     # Template for expression that converts to BigInteger
     as_big: Callable = None
     # Template for expression that converts to primitive Java long
@@ -24,6 +26,10 @@ class IntTypeInfo(TypeInfo):
 # Useful in cases where an argument is already the right type
 itself = lambda x: x
 
+# A constant IntTypeInfo for each argument type that we might have to
+# convert to a "working type" when implementing an operation.
+# Arguments are: name, min_working_type,
+#            as_big, as_long, as_int
 PY_LONG_CLASS = IntTypeInfo('PyLong', WorkingType.BIG,
                     lambda x: f'{x}.value')
 OBJECT_CLASS = IntTypeInfo('Object', WorkingType.OBJECT,
@@ -46,8 +52,9 @@ PRIMITIVE_INT = IntTypeInfo('int', WorkingType.INT)
 
 @dataclass
 class UnaryOpInfo(OpInfo):
-    # There is a template (a function) to generate an expression
-    # for each working Java type to which argument may be converted.
+    # There is a template (a function) to generate an expression for
+    # each Java working type in which the result may be evaluated.
+
     # Working type is Java BigInteger
     big_op: Callable
     # Working type is Java long
@@ -58,16 +65,19 @@ class UnaryOpInfo(OpInfo):
 
 @dataclass
 class BinaryOpInfo(OpInfo):
-    # There is a template (a function) to generate the body
+    # There is a template (a function) to generate the method body
     body_method: Callable
-    # There is a template (a function) to generate an expression
-    # for each working Java type to which arguments may be converted.
+
+    # There is a template (a function) to generate an expression for
+    # each Java working type in which the result may be evaluated.
+
     # Working type is Java BigInteger
     big_op: Callable
     # Working type is Java long
     long_op: Callable
     # Working type is Java int
     int_op: Callable
+
     # Also create class-specific binop specialisations
     class_specific: bool = False
 
@@ -112,7 +122,7 @@ def binary_intmethod(op:BinaryOpInfo,
                      t1:IntTypeInfo, n1,
                      t2:IntTypeInfo, n2):
     "Template generating the body of a binary operation with int result."
-    # Decide the width at which to work with these typse and op
+    # Decide the width at which to work with these types and op
     iw = max(op.min_working_type.value,
             t1.min_working_type.value,
             t2.min_working_type.value)
@@ -172,7 +182,7 @@ def binary_method(op:BinaryOpInfo,
                   t1:IntTypeInfo, n1,
                   t2:IntTypeInfo, n2):
     "Template generating the body of a binary operation result."
-    # Decide the width at which to work with these typse and op
+    # Decide the width at which to work with these types and op
     iw = max(op.min_working_type.value,
             t1.min_working_type.value,
             t2.min_working_type.value)
@@ -244,7 +254,7 @@ class PyLongGenerator(ImplementationGenerator):
 
     UNARY_OPS = [
         # Arguments are: name, return_type, min_working_type,
-        # big_op, long_op, int_op[, method]
+        # big_op, long_op, int_op
         UnaryOpInfo('__abs__', OBJECT_CLASS, WorkingType.LONG,
             lambda x: f'{x}.abs()',
             lambda x: f'Math.abs({x})',
@@ -282,7 +292,7 @@ class PyLongGenerator(ImplementationGenerator):
     BINARY_OPS = [
         # Arguments are: name, return_type, working_type,
         #            body_method,
-        #            big_op, long_op, int_op
+        #            big_op, long_op, int_op,
         #            with_class_specific_binops
         BinaryOpInfo('__add__', OBJECT_CLASS, WorkingType.LONG,
             binary_intmethod,
@@ -493,25 +503,6 @@ class PyLongGenerator(ImplementationGenerator):
                     for wt in self.OPERAND_CLASSES:
                         self.special_binary(e, op, vt, wt)
 
-    def left_justify(self, text):
-        lines = list()
-        # Find common leading indent
-        common = 999
-        for line in text.splitlines():
-            # Discard trailing space
-            line = line.rstrip()
-            # Discard empty lines
-            if (n:=len(line)) > 0:
-                space = n - len(line.lstrip())
-                if space < common: common = space
-                lines.append(line)
-        if common == 999: common = 0
-        # Remove this common prefix
-        clean = list()
-        for line in lines:
-            clean.append(line[common:])
-        return clean
-
     def special_unary(self, e, op:UnaryOpInfo, t):
         e.emit('static ').emit(op.return_type.name).emit(' ')
         e.emit(op.name).emit('(').emit(t.name).emit(' self) {')
@@ -521,6 +512,10 @@ class PyLongGenerator(ImplementationGenerator):
             e.emit_lines(method)
         e.emit_line('}').emit_line()
 
+    # Emit one binary operation, for example:
+    #    private static Object __add__(Integer v, BigInteger w) {
+    #        return v + toInt(w);
+    #    }
     def special_binary(self, e, op:BinaryOpInfo, t1, t2):
         reflected = op.name.startswith('__r') and \
             op.name not in ("__rshift__", "__round__", "__repr__")
@@ -534,5 +529,4 @@ class PyLongGenerator(ImplementationGenerator):
             method = self.left_justify(method)
             e.emit_lines(method)
         e.emit_line('}').emit_line()
-
 

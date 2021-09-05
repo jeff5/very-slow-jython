@@ -2,7 +2,6 @@ package uk.co.farowl.vsj3.evo1;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
-
 import static uk.co.farowl.vsj3.evo1.UnitTestSupport.assertPythonType;
 
 import java.lang.invoke.MethodHandle;
@@ -216,7 +215,8 @@ class SlotWrapperTestBase {
 
     /**
      * A class that implements the tests for one combination of a
-     * {@link Signature#UNARY} slot wrapper and type, extending {@link BaseTest}.
+     * {@link Signature#UNARY} slot wrapper and type, extending
+     * {@link BaseTest}.
      */
     abstract class UnaryTest<R, S> extends BaseTest<R, S> {
 
@@ -402,26 +402,29 @@ class SlotWrapperTestBase {
 
     /**
      * A class that implements the tests for one combination of a
-     * {@link Signature#LEN} slot wrapper and type, extending {@link BaseTest}.
+     * {@link Signature#LEN} slot wrapper and type, extending
+     * {@link BaseTest}.
      */
-    abstract class LenTest<R, S> extends UnaryTest<R, S>  {
+    abstract class LenTest<R, S> extends UnaryTest<R, S> {
         @Override
         void setup(PyType type, String name, List<S> cases)
                 throws IllegalArgumentException, AttributeError,
                 Throwable {
             setup(type, name, Signature.LEN, cases);
         }
+
         @Override
         Object makeHandleCall(Object x) throws Throwable {
             Operations ops = Operations.of(x);
             MethodHandle mh = slot.getSlot(ops);
-            return (int) mh.invokeExact(x);
+            return (int)mh.invokeExact(x);
         }
     }
 
     /**
      * A class that implements the tests for one combination of a
-     * {@link Signature#BINARY} slot wrapper and type, extending {@link BaseTest}.
+     * {@link Signature#BINARY} slot wrapper and type, extending
+     * {@link BaseTest}.
      */
     abstract class BinaryTest<R, S> extends BaseTest<R, S> {
 

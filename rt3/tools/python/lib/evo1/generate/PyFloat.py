@@ -1,69 +1,252 @@
 # PyFloat.py: A generator for Java files that define the Python float
 
+# This generator writes PyFloatMethods.java and PyFloatBinops.java .
 
 from dataclasses import dataclass
+from typing import Callable
 
-from . import ImplementationGenerator
-
-@dataclass
-class TypeInfo:
-    # Java name of a Java class ("PyFloat", "Integer", etc.)
-    name: str
-    # Expression with one {} that converts that to primitive double
-    conv: str
-
+from . import ImplementationGenerator, TypeInfo, WorkingType, OpInfo
 
 @dataclass
-class OpInfo:
-    # Name of the operation ("__add__", "__neg__").
-    name: str
-    # Expression for the result
-    expr: str
-    # self operand name
-    self: str = 'self'
-    # other operand name (binary)
-    other: str = 'other'
+class FloatTypeInfo(TypeInfo):
+    "Information about a type and templates for conversion to float types"
+    # There is a template (a function) to generate an expression
+    # that converts *from* this type to each named Java type that may be
+    # a "working type" when implementing an operation.
+
+    # That's only 'double', but conceivably primitive 'float' later.
+
+    # Template for expression that converts to primitive double
+    as_double: str = None
+
+
+# Useful in cases where an argument is already the right type
+itself = lambda x: x
+
+# A constant FloatTypeInfo for each argument type that we might have to
+# convert to a "working type" when implementing an operation.
+# Arguments are: name, min_working_type,
+#            as_double
+PY_FLOAT_CLASS = FloatTypeInfo('PyFloat', WorkingType.DOUBLE,
+                    lambda x: f'{x}.value')
+OBJECT_CLASS = FloatTypeInfo('Object', WorkingType.OBJECT,
+                    lambda x: f'toDouble({x})')
+DOUBLE_CLASS = FloatTypeInfo('Double', WorkingType.DOUBLE,
+                    itself)
+
+# Accepted types that may appear as the other operand in binary
+# operations specialised to both types.
+PY_LONG_CLASS = FloatTypeInfo('PyLong', WorkingType.DOUBLE,
+                    lambda x: f'convertToDouble({x}.value)')
+BIG_INTEGER_CLASS = FloatTypeInfo('BigInteger', WorkingType.DOUBLE,
+                    lambda x: f'convertToDouble({x})')
+INTEGER_CLASS = FloatTypeInfo('Integer', WorkingType.DOUBLE,
+                    lambda x: f'{x}.doubleValue()')
+BOOLEAN_CLASS = FloatTypeInfo('Boolean', WorkingType.DOUBLE,
+                    lambda x: f'({x} ? 1.0 : 0.0)')
+
+# A constant FloatTypeInfo for types appearing as return types only.
+#(No conversion to a working type is expected.)
+# convert to a "working type" when implementing an operation.
+PRIMITIVE_BOOLEAN = FloatTypeInfo('boolean', WorkingType.BOOLEAN)
+PRIMITIVE_INT = FloatTypeInfo('int', WorkingType.INT)
+PRIMITIVE_DOUBLE = FloatTypeInfo('double', WorkingType.DOUBLE)
+
+
+@dataclass
+class UnaryOpInfo(OpInfo):
+    # There is a template (a function) to generate an expression for
+    # each Java working type in which the result may be evaluated.
+
+    # That's only 'double', but conceivably primitive 'float' later.
+
+    # Template for when the working type is Java double
+    double_op: Callable
+
+
+@dataclass
+class BinaryOpInfo(OpInfo):
+    # There is a template (a function) to generate the body
+    body_method: Callable
+
+    # There is a template (a function) to generate an expression for
+    # each Java working type in which the result may be evaluated.
+
+
+    # That's only 'double', but conceivably primitive 'float' later.
+
+    # Template for when the working type is Java double
+    double_op: Callable
+
+    # Also create class-specific binop specialisations
+    class_specific: bool = False
+
+
+def unary_method(op:UnaryOpInfo, t:FloatTypeInfo):
+    "Template generating the body of a unary operation."
+    # Decide the width at which to work with this type and op
+    iw = max(op.min_working_type.value, t.min_working_type.value)
+    w = WorkingType(iw)
+    if w == WorkingType.DOUBLE:
+        return _unary_method_double(op, t)
+    else:
+        raise ValueError(
+            f"Cannot make method body for {op.name} and {w}")
+
+def _unary_method_double(op:UnaryOpInfo, t:FloatTypeInfo):
+    "Template for unary methods when the working type is DOUBLE"
+    return f'''
+        return {op.double_op(t.as_double("self"))};
+    '''
+
+
+def binary_floatmethod(op:BinaryOpInfo,
+                     t1:FloatTypeInfo, n1,
+                     t2:FloatTypeInfo, n2):
+    "Template generating the body of a binary operation with float result."
+    # Decide the width at which to work with these types and op
+    iw = max(op.min_working_type.value,
+            t1.min_working_type.value,
+            t2.min_working_type.value)
+    w = WorkingType(iw)
+    if w == WorkingType.DOUBLE:
+        return _binary_floatmethod_double(op, t1, n1, t2, n2)
+    elif w == WorkingType.OBJECT:
+        return _binary_floatmethod_obj(op, t1, n1, t2, n2)
+    else:
+        raise ValueError(
+            f"Cannot make method body for {op.name} and {w}")
+
+def _binary_floatmethod_double(op:BinaryOpInfo,
+                          t1:FloatTypeInfo, n1,
+                          t2:FloatTypeInfo, n2):
+    "Template for binary float methods when the working type is DOUBLE"
+    return f'''
+        return {op.double_op(t1.as_double(n1), t2.as_double(n2))};
+    '''
+
+def _binary_floatmethod_obj(op:BinaryOpInfo,
+                          t1:FloatTypeInfo, n1,
+                          t2:FloatTypeInfo, n2):
+    "Template for binary int methods when the working type is OBJECT"
+    return f'''
+        try {{
+            return {op.double_op(t1.as_double(n1), t2.as_double(n2))};
+        }} catch (NoConversion e) {{
+            return Py.NotImplemented;
+        }}
+    '''
+
+
+def binary_method(op:BinaryOpInfo,
+                  t1:FloatTypeInfo, n1,
+                  t2:FloatTypeInfo, n2):
+    "Template generating the body of a binary operation result."
+    # Decide the width at which to work with these types and op
+    iw = max(op.min_working_type.value,
+            t1.min_working_type.value,
+            t2.min_working_type.value)
+    w = WorkingType(iw)
+    if w == WorkingType.DOUBLE:
+        return _binary_method_double(op, t1, n1, t2, n2)
+    elif w == WorkingType.OBJECT:
+        return _binary_method_obj(op, t1, n1, t2, n2)
+    else:
+        raise ValueError(
+            f"Cannot make method body for {op.name} and {w}")
+
+def _binary_method_double(op:BinaryOpInfo,
+                       t1:FloatTypeInfo, n1,
+                       t2:FloatTypeInfo, n2):
+    "Template for binary methods when the working type is DOUBLE"
+    return f'''
+        return {op.double_op(t1.as_double(n1), t2.as_double(n2))};
+    '''
+
+def _binary_method_obj(op:BinaryOpInfo,
+                       t1:FloatTypeInfo, n1,
+                       t2:FloatTypeInfo, n2):
+    "Template for binary methods when the working type is OBJECT"
+    return f'''
+        try {{
+            return {op.double_op(t1.as_double(n1), t2.as_double(n2))};
+        }} catch (NoConversion e) {{
+            return Py.NotImplemented;
+        }}
+    '''
 
 
 class PyFloatGenerator(ImplementationGenerator):
 
-    # The canonical and adopted implementations in PyFloat.java,
-    # as there are no further accepted self-classes.
-    ACCEPTED_CLASSES = [
-        TypeInfo('PyFloat', '{}.value'),
-        TypeInfo('Double', '{}.doubleValue()'),
-    ]
+    # The canonical and adopted implementations in PyFloat.java.
+    ACCEPTED_CLASSES = [PY_FLOAT_CLASS, DOUBLE_CLASS]
 
-    # These classes, the accepted types of int,  may occur as the
-    # second operand in binary operations. Order is not significant.
+    # These classes may occur as the second operand in binary
+    # operations. Order is not significant.
     OPERAND_CLASSES = ACCEPTED_CLASSES + [
-        TypeInfo('Integer', '{}.doubleValue()'),
-        TypeInfo('BigInteger', 'PyLong.convertToDouble({})'),
-        TypeInfo('PyLong', 'PyLong.convertToDouble({}.value)'),
-        TypeInfo('Boolean', '({}.booleanValue() ? 1.0 : 0.0)'),
+        # XXX Consider *not* specialising ...
+        # Although PyLong and BigInteger are accepted operands, we
+        # decline to specialise, since the implementation would be
+        # equivalent to the one in  PyFloatMethods.
+        PY_LONG_CLASS,
+        BIG_INTEGER_CLASS,
+        INTEGER_CLASS,
+        BOOLEAN_CLASS,
     ]
 
     # Operations may simply be codified as a return expression, since
     # all operand types may be converted to primitive double.
+
     UNARY_OPS = [
-        OpInfo('__abs__', 'Math.abs({})'),
-        OpInfo('__neg__', '-{}'),
-        OpInfo('__repr__', 'Double.toString({})'),
-    ]
-    PREDICATE_OPS = [
-        OpInfo('__bool__', '{} != 0.0'),
+        # Arguments are: name, return_type, min_working_type,
+        # double_op
+        UnaryOpInfo('__abs__', OBJECT_CLASS, WorkingType.DOUBLE,
+            lambda x: f'Math.abs({x})'),
+        UnaryOpInfo('__neg__', OBJECT_CLASS, WorkingType.DOUBLE,
+            lambda x: f'-{x}'),
+        UnaryOpInfo('__bool__', PRIMITIVE_BOOLEAN, WorkingType.DOUBLE,
+            lambda x: f'{x} != 0.0'),
+        UnaryOpInfo('__hash__', PRIMITIVE_INT, WorkingType.DOUBLE,
+            lambda x: f'Double.hashCode({x})'),
     ]
     BINARY_OPS = [
-        OpInfo('__add__', '{} + {}', 'v', 'w'),
-        OpInfo('__radd__', '{1} + {0}', 'w', 'v'),
-        OpInfo('__sub__', '{} - {}', 'v', 'w'),
-        OpInfo('__rsub__', '{1} - {0}', 'w', 'v'),
-        OpInfo('__mul__', '{} * {}', 'v', 'w'),
-        OpInfo('__rmul__', '{1} * {0}', 'w', 'v'),
-    ]
-    BINARY_PREDICATE_OPS = [
-        OpInfo('__lt__', '{} < {}'),
-        OpInfo('__eq__', '{} == {}'),
+        # Arguments are: name, return_type, working_type,
+        #            body_method,
+        #            double_op,
+        #            with_class_specific_binops
+        BinaryOpInfo('__add__', OBJECT_CLASS, WorkingType.DOUBLE,
+            binary_floatmethod,
+            lambda x, y: f'{x} + {y}',
+            True),
+        BinaryOpInfo('__radd__', OBJECT_CLASS, WorkingType.DOUBLE,
+            binary_floatmethod,
+            lambda x, y: f'{y} + {x}',
+            True),
+        BinaryOpInfo('__sub__', OBJECT_CLASS, WorkingType.DOUBLE,
+            binary_floatmethod,
+            lambda x, y: f'{x} - {y}',
+            True),
+        BinaryOpInfo('__rsub__', OBJECT_CLASS, WorkingType.DOUBLE,
+            binary_floatmethod,
+            lambda x, y: f'{y} - {x}',
+            True),
+        BinaryOpInfo('__mul__', OBJECT_CLASS, WorkingType.DOUBLE,
+            binary_floatmethod,
+            lambda x, y: f'{x} * {y}',
+            True),
+        BinaryOpInfo('__rmul__', OBJECT_CLASS, WorkingType.DOUBLE,
+            binary_floatmethod,
+            lambda x, y: f'{y} * {x}',
+            True),
+        BinaryOpInfo('__lt__', OBJECT_CLASS, WorkingType.DOUBLE,
+            binary_method,
+            lambda x, y: f'{x} < {y}'),
+        BinaryOpInfo('__le__', OBJECT_CLASS, WorkingType.DOUBLE,
+            binary_method,
+            lambda x, y: f'{x} <= {y}'),
+        BinaryOpInfo('__eq__', OBJECT_CLASS, WorkingType.DOUBLE,
+            binary_method,
+            lambda x, y: f'{x} == {y}'),
     ]
 
     # Emit methods selectable by a single type
@@ -75,106 +258,47 @@ class PyFloatGenerator(ImplementationGenerator):
             for t in self.ACCEPTED_CLASSES:
                 self.special_unary(e, op, t)
 
-        # Emit the unary predicate operations
-        for op in self.PREDICATE_OPS:
-            self.emit_heading(e, op.name)
-            for t in self.ACCEPTED_CLASSES:
-                self.special_predicate(e, op, t)
-
         # Emit the binary operations op(T, Object)
         for op in self.BINARY_OPS:
             self.emit_heading(e, op.name)
             for vt in self.ACCEPTED_CLASSES:
-                self.special_binary_object(e, op, vt)
-
-        # Emit the binary predicate operations op(T, Object)
-        for op in self.BINARY_PREDICATE_OPS:
-            self.emit_heading(e, op.name)
-            for vt in self.ACCEPTED_CLASSES:
-                self.special_binary_predicate_object(e, op, vt)
+                self.special_binary(e, op, vt, OBJECT_CLASS)
 
     # Emit methods selectable by a pair of types (for call sites)
     def special_binops(self, e):
 
-        # Emit the binary operations
+        # Emit the binary operations and comparisons
         for op in self.BINARY_OPS:
-            for vt in self.ACCEPTED_CLASSES:
-                for wt in self.OPERAND_CLASSES:
-                    self.special_binary(e, op, vt, wt)
+            if op.class_specific:
+                self.emit_heading(e, op.name)
+                for vt in self.ACCEPTED_CLASSES:
+                    for wt in self.OPERAND_CLASSES:
+                        self.special_binary(e, op, vt, wt)
 
-    def special_unary(self, e, op, t):
-        e.emit_line('static Object ')
+    def special_unary(self, e, op:UnaryOpInfo, t):
+        e.emit('static ').emit(op.return_type.name).emit(' ')
         e.emit(op.name).emit('(').emit(t.name).emit(' self) {')
-        # This is how we convert self to a double
-        dbl = t.conv.format('self')
-        # This is the action specific to the operation
-        expr = op.expr.format(dbl)
         with e.indentation():
-            e.emit_line('return ').emit(expr).emit(';')
-        e.emit_line('}').emit_line()
-
-    def special_predicate(self, e, op, t):
-        e.emit_line('static boolean ')
-        e.emit("{}({} {}) {{".format(op.name, t.name, op.self))
-        # This is how we convert self to a double
-        dbl = t.conv.format(op.self)
-        # This is the action specific to the operation
-        expr = op.expr.format(dbl)
-        with e.indentation():
-            e.emit_line('return ').emit(expr).emit(';')
-        e.emit_line('}').emit_line()
-
-    def special_binary_object(self, e, op, st):
-        e.emit_line('static Object ')
-        e.emit("{}({} {}, Object {}) {{".format(
-            op.name, st.name, op.self, op.other))
-        with e.indentation():
-            # This is how we convert self to a double
-            sdbl = st.conv.format(op.self)
-            # This is how we convert Object other to a double
-            odbl = "convert({})".format(op.other)
-            # This is the action specific to the operation
-            e.emit_line("try {")
-            with e.indentation():
-                expr = op.expr.format(sdbl, odbl)
-                e.emit_line('return ').emit(expr).emit(';')
-            e.emit_line('} catch (NoConversion e) ')
-            e.emit('{ return Py.NotImplemented; ').emit('}')
-        e.emit_line('}').emit_line()
-
-    def special_binary_predicate_object(self, e, op, st):
-        e.emit_line('static Object ')
-        e.emit("{}({} {}, Object {}) {{".format(
-            op.name, st.name, op.self, op.other))
-        with e.indentation():
-            # This is how we convert self to a double
-            sdbl = st.conv.format(op.self)
-            # This is how we convert Object other to a double
-            odbl = "convert({})".format(op.other)
-            # This is the action specific to the operation
-            e.emit_line("try {")
-            with e.indentation():
-                expr = op.expr.format(sdbl, odbl)
-                e.emit_line('return ').emit(expr).emit(';')
-            e.emit_line('} catch (NoConversion e) ')
-            e.emit('{ return Py.NotImplemented; ').emit('}')
+            method = unary_method(op, t)
+            method = self.left_justify(method)
+            e.emit_lines(method)
         e.emit_line('}').emit_line()
 
     # Emit one binary operation, for example:
     #    private static Object __add__(Double v, Integer w) {
     #        return v.doubleValue() + w.doubleValue();
     #    }
-    def special_binary(self, e, op, st, ot):
-        e.emit_line('static Object ')
-        e.emit("{}({} {}, {} {}) {{".format(
-            op.name, st.name, op.self, ot.name, op.other))
+    def special_binary(self, e, op:BinaryOpInfo, t1, t2):
+        reflected = op.name.startswith('__r') and \
+            op.name not in ("__rshift__", "__round__", "__repr__")
+        n1, n2 = 'vw' if not reflected else 'wv'
+        e.emit('static ').emit(op.return_type.name).emit(' ')
+        e.emit(op.name).emit('(')
+        e.emit(t1.name).emit(' ').emit(n1).emit(', ')
+        e.emit(t2.name).emit(' ').emit(n2).emit(') {')
         with e.indentation():
-            # This is how we convert self to a double
-            sdbl = st.conv.format(op.self)
-            # This is how we convert other to a double
-            odbl = ot.conv.format(op.other)
-            # This is the action specific to the operation
-            expr = op.expr.format(sdbl, odbl)
-            e.emit_line('return ').emit(expr).emit(';')
+            method = op.body_method(op, t1, n1, t2, n2)
+            method = self.left_justify(method)
+            e.emit_lines(method)
         e.emit_line('}').emit_line()
 

@@ -1,3 +1,5 @@
+// Copyright (c)2021 Jython Developers.
+// Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj3.evo1;
 
 import java.lang.invoke.MethodHandles;
@@ -5,6 +7,7 @@ import java.math.BigInteger;
 import java.util.Map;
 
 import uk.co.farowl.vsj3.evo1.PyObjectUtil.NoConversion;
+import static uk.co.farowl.vsj3.evo1.PyFloatMethods.toDouble;
 
 /** The Python {@code float} object. */
 public class PyFloat extends AbstractPyObject {
@@ -83,10 +86,25 @@ public class PyFloat extends AbstractPyObject {
             return PyNumber.toFloat(x);
     }
 
+    @SuppressWarnings("unused")
+    private static Object __repr__(Object self)  {
+        assert TYPE.check(self);
+        try {
+            // XXX not really what Python needs (awaits formatting
+            // methods)
+            return Double.toString(toDouble(self));
+        } catch (NoConversion nc) {
+            throw Abstract.impossibleArgumentError("float", self);
+        }
+    }
+
+    // __str__: let object.__str__ handle it (calls __repr__)
+
+
     static Object __pow__(Object left, Object right, Object modulus) {
         try {
             if (modulus == null || modulus == Py.None) {
-                return pow(convert(left), convert(right));
+                return pow(toDouble(left), toDouble(right));
             } else {
                 // Note that we also call __pow__ from PyLong.__pow__
                 throw new TypeError(POW_3RD_ARGUMENT);
@@ -102,7 +120,7 @@ public class PyFloat extends AbstractPyObject {
 
     static Object __rpow__(Object right, Object left) {
         try {
-            return pow(convert(left), convert(right));
+            return pow(toDouble(left), toDouble(right));
         } catch (NoConversion e) {
             return Py.NotImplemented;
         }
@@ -274,20 +292,6 @@ public class PyFloat extends AbstractPyObject {
 
     private static final String CANNOT_CONVERT =
             "cannot convert float %s to %s";
-
-    // XXX in PyFloatMethods. Is it well-named?
-    private static double convert(Object v)
-            throws NoConversion, OverflowError {
-        // Check against supported types, most likely first
-        if (v instanceof Double)
-            return ((Double) v).doubleValue();
-        else if (v instanceof PyFloat)
-            return ((PyFloat) v).value;
-        else
-            // BigInteger, PyLong, Boolean, etc.
-            // or throw PyObjectUtil.NO_CONVERSION;
-            return PyLong.convertToDouble(v);
-    }
 
     /**
      * Exponentiation with Python semantics.

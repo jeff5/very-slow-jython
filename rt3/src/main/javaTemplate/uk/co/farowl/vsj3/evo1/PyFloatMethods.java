@@ -1,3 +1,5 @@
+// Copyright (c)2021 Jython Developers.
+// Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj3.evo1;
 
 // $OBJECT_GENERATOR$ PyFloatGenerator
@@ -39,7 +41,7 @@ class PyFloatMethods {
      * @throws OverflowError v is an {@code int} too large to be a
      *     {@code float}
      */
-    private static double convert(Object v)
+    static double toDouble(Object v)
             throws NoConversion, OverflowError {
         // Check against supported types, most likely first
         if (v instanceof Double)
