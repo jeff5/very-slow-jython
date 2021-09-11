@@ -4,6 +4,10 @@ package uk.co.farowl.vsj3.evo1;
 
 import java.math.BigInteger;
 import static uk.co.farowl.vsj3.evo1.PyLong.convertToDouble;
+import static uk.co.farowl.vsj3.evo1.PyFloatMethods.nonzero;
+import static uk.co.farowl.vsj3.evo1.PyFloatMethods.DIV_ZERO;
+import static uk.co.farowl.vsj3.evo1.PyFloatMethods.MOD_ZERO;
+import static uk.co.farowl.vsj3.evo1.PyFloatMethods.divmod;
 
 // $OBJECT_GENERATOR$ PyFloatGenerator
 

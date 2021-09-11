@@ -588,7 +588,7 @@ public class PyLong extends AbstractPyObject implements PyDict.Key {
      * interpreter. We use this when conversion of an
      * {@code Object self} argument may theoretically fail, but we know
      * that we should only reach that point by paths that guarantee
-     * {@code self`} to be some kind on {@code int}.
+     * {@code self`} to be some kind on {@code float}.
      *
      * @param o actual argument
      * @return exception to throw

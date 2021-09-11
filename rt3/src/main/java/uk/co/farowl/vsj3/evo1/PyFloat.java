@@ -7,6 +7,8 @@ import java.math.BigInteger;
 import java.util.Map;
 
 import uk.co.farowl.vsj3.evo1.PyObjectUtil.NoConversion;
+import uk.co.farowl.vsj3.evo1.base.InterpreterError;
+
 import static uk.co.farowl.vsj3.evo1.PyFloatMethods.toDouble;
 
 /** The Python {@code float} object. */
@@ -20,14 +22,14 @@ public class PyFloat extends AbstractPyObject {
                     .methods(PyFloatMethods.class)
                     .binops(PyFloatBinops.class));
 
-    /** A handy constant for the Python {@code float} zero. */
+    /** A constant for the Python {@code float} zero. */
     static Double ZERO = Double.valueOf(0.0);
 
-    /** A handy constant for the Python {@code float} one. */
+    /** A constant for the Python {@code float} one. */
     static Double ONE = Double.valueOf(1.0);
 
     /** Value of this {@code float} object. */
-    protected final double value;
+    final double value;
 
     /**
      * Constructor for Python sub-class specifying {@link #type}.
@@ -35,27 +37,38 @@ public class PyFloat extends AbstractPyObject {
      * @param type actual type
      * @param value of the {@code float}
      */
-    protected PyFloat(PyType type, double value) {
+    PyFloat(PyType type, double value) {
         super(type);
         this.value = value;
     }
 
-    // XXX not needed
-    PyFloat(double value) {
-        this(TYPE, value);
-    }
+    // Instance methods on PyFloat -------------------------------------
+
+    @Override
+    public String toString() { return Py.defaultToString(this); }
+
+    // @Override
+    // public boolean equals(Object obj) {
+    // return PyDict.pythonEquals(this, obj);
+    // }
 
     @Override
     public boolean equals(Object obj) {
+        // XXX Use Dict.pythonEquals when available
         if (obj instanceof PyFloat) {
-            PyFloat other = (PyFloat) obj;
+            PyFloat other = (PyFloat)obj;
             return other.value == this.value;
         } else
             // XXX should try more accepted types. Or __eq__?
             return false;
     }
 
-    // special methods ------------------------------------------------
+    // @Override
+    // public int hashCode() throws PyException {
+    // return PyDict.pythonHash(this);
+    // }
+
+    // Constructor from Python ----------------------------------------
 
     @SuppressWarnings({"unused", "fallthrough"})
     private static Object __new__(PyType type, PyTuple args,
@@ -80,14 +93,16 @@ public class PyFloat extends AbstractPyObject {
         else if (x instanceof PyFloat)
             return x;
         else if (x instanceof PyUnicode)
-            return new PyFloat(
+            return new PyFloat(TYPE,
                     Double.valueOf(x.toString()).doubleValue());
         else
             return PyNumber.toFloat(x);
     }
 
+    // Special methods ------------------------------------------------
+
     @SuppressWarnings("unused")
-    private static Object __repr__(Object self)  {
+    private static Object __repr__(Object self) {
         assert TYPE.check(self);
         try {
             // XXX not really what Python needs (awaits formatting
@@ -99,7 +114,6 @@ public class PyFloat extends AbstractPyObject {
     }
 
     // __str__: let object.__str__ handle it (calls __repr__)
-
 
     static Object __pow__(Object left, Object right, Object modulus) {
         try {
@@ -114,10 +128,6 @@ public class PyFloat extends AbstractPyObject {
         }
     }
 
-    private static final String POW_3RD_ARGUMENT =
-            "pow() 3rd argument not allowed "
-                    + "unless all arguments are integers";
-
     static Object __rpow__(Object right, Object left) {
         try {
             return pow(toDouble(left), toDouble(right));
@@ -125,6 +135,10 @@ public class PyFloat extends AbstractPyObject {
             return Py.NotImplemented;
         }
     }
+
+    private static final String POW_3RD_ARGUMENT =
+            "pow() 3rd argument not allowed "
+                    + "unless all arguments are integers";
 
     // Non-slot API -------------------------------------------------
 
@@ -139,9 +153,9 @@ public class PyFloat extends AbstractPyObject {
     // Compare CPython floatobject.h: PyFloat_AS_DOUBLE
     public static double doubleValue(Object v) throws TypeError {
         if (v instanceof Double)
-            return ((Double) v).doubleValue();
+            return ((Double)v).doubleValue();
         else if (v instanceof PyFloat)
-            return ((PyFloat) v).value;
+            return ((PyFloat)v).value;
         else
             throw Abstract.requiredTypeError("a float", v);
     }
@@ -205,44 +219,6 @@ public class PyFloat extends AbstractPyObject {
         return Double.valueOf(v.toString());
     }
 
-    /**
-     * Convert a Java {@code double} to Java {@code BigInteger} by
-     * truncation.
-     *
-     * @param value to convert
-     * @return BigInteger equivalent.
-     * @throws OverflowError when this is a floating infinity
-     * @throws ValueError when this is a floating NaN
-     */
-    // Somewhat like CPython longobject.c :: PyLong_FromDouble
-    static BigInteger bigIntegerFromDouble(double value)
-            throws OverflowError, ValueError {
-
-        long raw = Double.doubleToRawLongBits(value);
-        long e = (raw & EXPONENT) >>> (SIGNIFICAND_BITS - 1);
-        int exponent = ((int) e) - EXPONENT_BIAS;
-
-        if (exponent < 63)
-            // Give the job to the hardware.
-            return BigInteger.valueOf((long) value);
-
-        else if (exponent > 1023) {
-            // raw exponent was 0x7ff
-            if ((raw & FRACTION) == 0)
-                throw cannotConvertInf("integer");
-            else
-                throw cannotConvertNaN("integer");
-
-        } else {
-            // Get the signed version of the significand
-            long significand = IMPLIED_ONE | raw & FRACTION;
-            long v = (raw & SIGN) == 0L ? significand : -significand;
-            // Shift (left or right) according to the exponent
-            return BigInteger.valueOf(v)
-                    .shiftLeft(exponent - (SIGNIFICAND_BITS - 1));
-        }
-    }
-
     // Python sub-class -----------------------------------------------
 
     /**
@@ -264,28 +240,65 @@ public class PyFloat extends AbstractPyObject {
 
     // plumbing ------------------------------------------------------
 
+    /**
+     * Convert a Java {@code double} to Java {@code BigInteger} by
+     * truncation.
+     *
+     * @param value to convert
+     * @return BigInteger equivalent.
+     * @throws OverflowError when this is a floating infinity
+     * @throws ValueError when this is a floating NaN
+     */
+    // Somewhat like CPython longobject.c :: PyLong_FromDouble
+    static BigInteger bigIntegerFromDouble(double value)
+            throws OverflowError, ValueError {
+
+        long raw = Double.doubleToRawLongBits(value);
+        long e = (raw & EXPONENT) >>> SIGNIFICAND_BITS;
+        int exponent = ((int)e) - EXPONENT_BIAS;
+
+        if (exponent < 63)
+            // Give the job to the hardware.
+            return BigInteger.valueOf((long)value);
+
+        else if (exponent > 1023) {
+            // raw exponent was 0x7ff
+            if ((raw & SIGNIFICAND) == 0)
+                throw cannotConvertInf("integer");
+            else
+                throw cannotConvertNaN("integer");
+
+        } else {
+            // Get the signed version of the significand
+            long significand = IMPLIED_ONE | raw & SIGNIFICAND;
+            long v = (raw & SIGN) == 0L ? significand : -significand;
+            // Shift (left or right) according to the exponent
+            return BigInteger.valueOf(v)
+                    .shiftLeft(exponent - SIGNIFICAND_BITS);
+        }
+    }
+
     // IEE-754 64-bit floating point parameters
-    private static final int SIGNIFICAND_BITS = 53; // inc. implied 1
+    private static final int SIGNIFICAND_BITS = 52; // exc. implied 1
     private static final int EXPONENT_BITS = 11;
     private static final int EXPONENT_BIAS = 1023;
 
     // Masks derived from the 64-bit floating point parameters
-    private static final long IMPLIED_ONE =
-            1L << (SIGNIFICAND_BITS - 1);
+    private static final long IMPLIED_ONE = 1L << SIGNIFICAND_BITS;
     // = 0x0010000000000000L
-    private static final long FRACTION = IMPLIED_ONE - 1;
+    private static final long SIGNIFICAND = IMPLIED_ONE - 1;
     // = 0x000fffffffffffffL
     private static final long SIGN = IMPLIED_ONE << EXPONENT_BITS;
     // = 0x8000000000000000L;
     private static final long EXPONENT = SIGN - IMPLIED_ONE;
     // = 0x7ff0000000000000L;
 
-    static OverflowError cannotConvertInf(String to) {
+    private static OverflowError cannotConvertInf(String to) {
         String msg = String.format(CANNOT_CONVERT, "infinity", to);
         return new OverflowError(msg);
     }
 
-    static ValueError cannotConvertNaN(String to) {
+    private static ValueError cannotConvertNaN(String to) {
         String msg = String.format(CANNOT_CONVERT, "NaN", to);
         return new ValueError(msg);
     }
@@ -346,5 +359,19 @@ public class PyFloat extends AbstractPyObject {
 
         // In all other cases we can entrust the calculation to Java.
         return Math.pow(v, w);
+    }
+
+    /**
+     * We received an argument that should be impossible in a correct
+     * interpreter. We use this when conversion of an
+     * {@code Object self} argument may theoretically fail, but we know
+     * that we should only reach that point by paths that guarantee
+     * {@code self`} to be some kind on {@code float}.
+     *
+     * @param o actual argument
+     * @return exception to throw
+     */
+    private static InterpreterError impossible(Object o) {
+        return Abstract.impossibleArgumentError("float", o);
     }
 }

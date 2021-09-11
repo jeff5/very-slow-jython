@@ -124,7 +124,13 @@ def _unary_method_big(op:UnaryOpInfo, t:IntTypeInfo):
 def binary_intmethod(op:BinaryOpInfo,
                      t1:IntTypeInfo, n1,
                      t2:IntTypeInfo, n2):
-    "Template generating the body of a binary operation with int result."
+    """Template for a binary operation with int result.
+
+    Argument coercions are made according to their static type then
+    the operation is applied which must yield a result in the working
+    type. Processing is applied to that result to choose an integer
+    representation. This is only appropriate where the return from the
+    generated method should be a Python int (e.g. not comparisons)."""
     # Decide the width at which to work with these types and op
     iw = max(op.min_working_type.value,
             t1.min_working_type.value,
@@ -184,7 +190,11 @@ def _binary_intmethod_obj(op:BinaryOpInfo,
 def binary_method(op:BinaryOpInfo,
                   t1:IntTypeInfo, n1,
                   t2:IntTypeInfo, n2):
-    "Template generating the body of a binary operation result."
+    """Template for a binary operation with any result type.
+
+    Argument coercions are made according to their static type then
+    the operation is applied and the result returned without further
+    processing."""
     # Decide the width at which to work with these types and op
     iw = max(op.min_working_type.value,
             t1.min_working_type.value,

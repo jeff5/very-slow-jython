@@ -74,8 +74,6 @@ class BinaryOpInfo(OpInfo):
 
     # There is a template (a function) to generate an expression for
     # each Java working type in which the result may be evaluated.
-
-
     # That's only 'double', but conceivably primitive 'float' later.
 
     # Template for when the working type is Java double
@@ -106,7 +104,13 @@ def _unary_method_double(op:UnaryOpInfo, t:FloatTypeInfo):
 def binary_floatmethod(op:BinaryOpInfo,
                      t1:FloatTypeInfo, n1,
                      t2:FloatTypeInfo, n2):
-    "Template generating the body of a binary operation with float result."
+    """Template for a binary operation with float result.
+
+    Argument coercions are made according to their static type then
+    the operation is applied which must yield a result in the working
+    type. This is only appropriate where the return from the generated
+    method should be a Python float (e.g. not comparisons, __divmod__).
+    """
     # Decide the width at which to work with these types and op
     iw = max(op.min_working_type.value,
             t1.min_working_type.value,
@@ -131,7 +135,7 @@ def _binary_floatmethod_double(op:BinaryOpInfo,
 def _binary_floatmethod_obj(op:BinaryOpInfo,
                           t1:FloatTypeInfo, n1,
                           t2:FloatTypeInfo, n2):
-    "Template for binary int methods when the working type is OBJECT"
+    "Template for binary float methods when the working type is OBJECT"
     return f'''
         try {{
             return {op.double_op(t1.as_double(n1), t2.as_double(n2))};
@@ -144,7 +148,11 @@ def _binary_floatmethod_obj(op:BinaryOpInfo,
 def binary_method(op:BinaryOpInfo,
                   t1:FloatTypeInfo, n1,
                   t2:FloatTypeInfo, n2):
-    "Template generating the body of a binary operation result."
+    """Template for a binary operation with any result type.
+
+    Argument coercions are made according to their static type then
+    the operation is applied and the result returned without further
+    processing."""
     # Decide the width at which to work with these types and op
     iw = max(op.min_working_type.value,
             t1.min_working_type.value,
@@ -207,6 +215,8 @@ class PyFloatGenerator(ImplementationGenerator):
             lambda x: f'Math.abs({x})'),
         UnaryOpInfo('__neg__', OBJECT_CLASS, WorkingType.DOUBLE,
             lambda x: f'-{x}'),
+        UnaryOpInfo('__pos__', OBJECT_CLASS, WorkingType.DOUBLE,
+            lambda x: f'{x}'),
         UnaryOpInfo('__bool__', PRIMITIVE_BOOLEAN, WorkingType.DOUBLE,
             lambda x: f'{x} != 0.0'),
         UnaryOpInfo('__hash__', PRIMITIVE_INT, WorkingType.DOUBLE,
@@ -241,6 +251,41 @@ class PyFloatGenerator(ImplementationGenerator):
             binary_floatmethod,
             lambda x, y: f'{y} * {x}',
             True),
+
+        BinaryOpInfo('__truediv__', OBJECT_CLASS, WorkingType.DOUBLE,
+            binary_floatmethod,
+            lambda x, y: f'{x} / nonzero({y}, DIV_ZERO)',
+            True),
+        BinaryOpInfo('__rtruediv__', OBJECT_CLASS, WorkingType.DOUBLE,
+            binary_floatmethod,
+            lambda x, y: f'{y} / nonzero({x}, DIV_ZERO)',
+            True),
+        BinaryOpInfo('__floordiv__', OBJECT_CLASS, WorkingType.DOUBLE,
+            binary_floatmethod,
+            lambda x, y: f'Math.floor({x} / nonzero({y}, DIV_ZERO))',
+            True),
+        BinaryOpInfo('__rfloordiv__', OBJECT_CLASS, WorkingType.DOUBLE,
+            binary_floatmethod,
+            lambda x, y: f'Math.floor({y} / nonzero({x}, DIV_ZERO))',
+            True),
+        BinaryOpInfo('__mod__', OBJECT_CLASS, WorkingType.DOUBLE,
+            binary_floatmethod,
+            lambda x, y: f'{x} % nonzero({y}, MOD_ZERO)',
+            True),
+        BinaryOpInfo('__rmod__', OBJECT_CLASS, WorkingType.DOUBLE,
+            binary_floatmethod,
+            lambda x, y: f'{y} % nonzero({x}, MOD_ZERO)',
+            True),
+
+        BinaryOpInfo('__divmod__', OBJECT_CLASS, WorkingType.DOUBLE,
+            binary_method,
+            lambda x, y: f'divmod({x}, {y})',
+            True),
+        BinaryOpInfo('__rdivmod__', OBJECT_CLASS, WorkingType.DOUBLE,
+            binary_method,
+            lambda x, y: f'divmod({y}, {x})',
+            True),
+
         BinaryOpInfo('__lt__', OBJECT_CLASS, WorkingType.DOUBLE,
             binary_method,
             lambda x, y: f'{x} < {y}'),
@@ -250,6 +295,15 @@ class PyFloatGenerator(ImplementationGenerator):
         BinaryOpInfo('__eq__', OBJECT_CLASS, WorkingType.DOUBLE,
             binary_method,
             lambda x, y: f'{x} == {y}'),
+        BinaryOpInfo('__ne__', OBJECT_CLASS, WorkingType.DOUBLE,
+            binary_method,
+            lambda x, y: f'{x} != {y}'),
+        BinaryOpInfo('__gt__', OBJECT_CLASS, WorkingType.DOUBLE,
+            binary_method,
+            lambda x, y: f'{x} > {y}'),
+        BinaryOpInfo('__ge__', OBJECT_CLASS, WorkingType.DOUBLE,
+            binary_method,
+            lambda x, y: f'{x} >= {y}'),
     ]
 
     # Emit methods selectable by a single type
