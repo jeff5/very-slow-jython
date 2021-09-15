@@ -361,6 +361,117 @@ public class PyFloat extends AbstractPyObject {
         return Math.pow(v, w);
     }
 
+    /** Used as error message text for division by zero. */
+    static final String DIV_ZERO = "float division by zero";
+    /** Used as error message text for modulo zero. */
+    static final String MOD_ZERO = "float modulo zero";
+
+    /**
+     * Convenience function to throw a {@link ZeroDivisionError} if the
+     * argument is zero. (Java float arithmetic does not throw whatever
+     * the arguments.)
+     *
+     * @param v value to check is not zero
+     * @param msg for exception if {@code v==0.0}
+     * @return {@code v}
+     */
+    static double nonzero(double v, String msg) {
+        if (v == 0.0) { throw new ZeroDivisionError(msg); }
+        return v;
+    }
+
+    /**
+     * Convenience function to throw a {@link ZeroDivisionError} if the
+     * argument is zero. (Java float arithmetic does not throw whatever
+     * the arguments.)
+     *
+     * @param v value to check is not zero
+     * @return {@code v}
+     */
+    static double nonzero(double v) {
+        if (v == 0.0) { throw new ZeroDivisionError(DIV_ZERO); }
+        return v;
+    }
+
+    /**
+     * Test that two {@code double}s have the same sign.
+     *
+     * @param u a double
+     * @param v another double
+     * @return if signs equal (works for signed zeros, etc.)
+     */
+    private static boolean sameSign(double u, double v) {
+        long uBits = Double.doubleToRawLongBits(u);
+        long vBits = Double.doubleToRawLongBits(v);
+        return ((uBits ^ vBits) & SIGN) == 0L;
+    }
+
+    /**
+     * Inner method for {@code __floordiv__} and {@code __rfloordiv__}.
+     *
+     * @param x operand
+     * @param y operand
+     * @return {@code x//y}
+     */
+    static final double floordiv(double x, double y) {
+        // Java and Python agree a lot of the time (after floor()).
+        // Also, Java / never throws: it just returns nan or inf.
+        // So we ask Java first, then adjust the answer.
+        double z = x / y;
+        if (Double.isFinite(z)) {
+            // Finite result: only need floor ...
+            if (Double.isInfinite(y) && x != 0.0 && !sameSign(x, y))
+                // ... except in this messy corner case :(
+                return -1.;
+            return Math.floor(z);
+        } else {
+            // Non-finite result: Java & Python differ
+            if (y == 0.) {
+                throw new ZeroDivisionError(DIV_ZERO);
+            } else {
+                return Double.NaN;
+            }
+        }
+    }
+
+    /**
+     * Inner method for {@code __mod__} and {@code __rmod__}.
+     *
+     * @param x operand
+     * @param y operand
+     * @return {@code x%y}
+     */
+    static final double mod(double x, double y) {
+        // Java and Python agree a lot of the time.
+        // Also, Java % never throws: it just returns nan.
+        // So we ask Java first, then adjust the answer.
+        double z = x % y;
+        if (Double.isNaN(z)) {
+            if (y == 0.) { throw new ZeroDivisionError(MOD_ZERO); }
+            // Otherwise nan is fine
+        } else if (!sameSign(z, y)) {
+            // z is finite (and x), but only correct if signs match
+            if (z == 0.) {
+                z = Math.copySign(z, y);
+            } else {
+                z = z + y;
+            }
+        }
+        return z;
+    }
+
+    /**
+     * Inner method for {@code __divmod__} and {@code __rdivmod__}.
+     *
+     * @param x operand
+     * @param y operand
+     * @return {@code tuple} of {@code (x//y, x%y)}
+     */
+    static final PyTuple divmod(double x, double y) {
+        // Possibly not the most efficient
+        return new PyTuple(floordiv(x, y), mod(x, y));
+    }
+
     /**
      * We received an argument that should be impossible in a correct
      * interpreter. We use this when conversion of an
