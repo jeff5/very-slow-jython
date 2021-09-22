@@ -1150,6 +1150,7 @@ public class Abstract {
      * @param obj to test
      * @return whether {@code obj} has non-empty {@link Slot#op_index}
      */
+    // Compare CPython PyIndex_Check in abstract.c
     static boolean indexCheck(Object obj) {
         return Slot.op_index.isDefinedFor(Operations.of(obj));
     }
