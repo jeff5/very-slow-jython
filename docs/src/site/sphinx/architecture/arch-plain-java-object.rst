@@ -284,8 +284,13 @@ In the simplest case, there is only one implementation class,
 that has been crafted to represent one Python type,
 where the association of an instance to the type cannot be changed,
 i.e. the ``__class__`` attribute may not be written.
-In this case,
-the ``Operations`` object is itself the ``PyType``.
+The built-in type ``bytes`` makes a good example.
+
+Example of ``len(b'abc')``
+--------------------------
+
+We'll consider how a call is made on ``bytes.__len__``,
+which is implemented in Java by ``PyBytes.__len__``.
 
 ..  uml::
     :caption: ``bytes`` has a single implementation class
@@ -293,18 +298,128 @@ the ``Operations`` object is itself the ``PyType``.
     object "b'abc' : PyBytes" as x
     object "PyBytes : Class" as PyBytes.class
     object "bytes : PyType" as bytes
+    object " : MethodHandle" as mh {
+        method = __len__
+        type = (Object)int
+    }
     bytes --> bytes : type
+    bytes --> mh : op_len
+    mh --> PyBytes.class : target
 
     x -up-> PyBytes.class : <<class>>
     PyBytes.class -right-> bytes : ops
 
-A type enquiry ``type(b'abc')`` would request the ``Operations`` object
-via the Java class,
-and be returned the ``PyType``.
-``PyType`` extends ``Operations``,
-so it can implement ``PyType Operations.type(Object)``
-to return itself (``this``), irrespective of the argument.
+In this case,
+the ``Operations`` object is itself the ``PyType``.
+How this mapping is created,
+and how the method handle is formed around ``PyBytes.__len__()``,
+is a long story.
+For the time being,
+the reader should accept that these structures have been set up.
 
+Suppose that,
+in the context of this object structure,
+some program needs to ask the length (size) of ``x = b'abc'``.
+The program calls the ``len()`` built-in function,
+which must find and call ``__len__`` as defined for ``bytes``.
+
+Abstract API
+''''''''''''
+
+The design for using the special method slots follows that of CPython.
+There is an abstract object API
+that wraps invocations of the method handles in error-handling
+and other logic.
+For us, the implementation is through static methods in class ``Abstract``.
+The wrapping of ``__len__`` looks like this:
+
+..  code-block:: java
+
+    public class Abstract {
+    // ...
+        // Compare CPython PyObject_Size in abstract.c
+        static int size(Object o) throws Throwable {
+            try {
+                return (int)Operations.of(o).op_len.invokeExact(o);
+            } catch (Slot.EmptyException e) {
+                throw typeError(HAS_NO_LEN, o);
+            }
+        }
+    // ...
+    }
+
+The implementation only has to look up
+the operations object for the argument ``o``,
+and invoke the method handle found in the particular slot.
+Slots that are "empty",
+meaning that the corresponding special method is not defined,
+are not ``null``,
+but contain a handle to a method that throws the ``EmptyException``.
+That way, we need not look before we leap,
+and the error-handling logic may be kept out of the main path.
+
+Our slots are named ``op_something``,
+where the corresponding method is named ``__something__``.
+This is more regular than CPython and we do not have quite the same ones.
+They have package-private visibility.
+We use ``invokeExact`` so that Java does not waste time on type coercion
+with Java semantics.
+
+Slots must be invoked with the correct number and type of arguments,
+and with the correct expected return type
+(here expressed in the cast to ``int``).
+This correctness is a run-time check in ``invokeExact``,
+but when we form call sites,
+correctness is guaranteed when binding the target method.
+The allowable signature for each slot is defined by ``enum Slot``,
+which also provides some services for manipulating them.
+
+Sequence of calls
+'''''''''''''''''
+
+A call to ``Abstract.size()`` on a Python ``bytes``
+proceeds like this:
+
+..  uml::
+
+    hide footbox
+
+    boundary "len()" as prog
+    control "Abstract" as api
+    participant "Operations" as ops
+    participant "bytes : PyType" as bytes
+    participant "mh : MethodHandle\n = PyBytes.~__len__" as mh
+    participant "x : PyBytes\n = b'abc'" as x
+
+    prog -> api ++ : size(x)
+        api -> ops ++ : of(x)
+            ops -> x ++ : getClass()
+                return PyBytes.class
+            ops -> ops ++ : fromClass(PyBytes.class)
+                return bytes
+            return bytes
+        api -> bytes ++ : .op_len
+            return mh
+        api -> mh ++ : invokeExact(x)
+            mh -> x ++ : ~__len__()
+                return 3
+            return 3
+        return 3
+    prog -> prog : Integer.valueOf(3)
+
+``Operations`` provides a static ``Operations.of()``, where we consult
+the ``ClassValue`` that maps to the ``Operations`` object for ``PyBytes``.
+In this case,
+the return happens also to be the type object ``bytes`` itself.
+
+The signature of ``Abstract.size``,
+specified by ``Signature.LEN``
+(to which any ``Operations.op_len`` must conform)
+requires it to return a primitive Java ``int``.
+``len()`` must return a Python object,
+so there is a final step in which
+we wrap the result as a ``java.lang.Integer``.
+Java will do this implicitly in most circumstances.
 
 Mutable Type
 ------------
