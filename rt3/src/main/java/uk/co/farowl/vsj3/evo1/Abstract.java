@@ -211,88 +211,6 @@ public class Abstract {
     }
 
     /**
-     * {@code len(o)} with Python semantics.
-     *
-     * @param o to operate on
-     * @return {@code len(o)}
-     * @throws Throwable from invoked method implementations
-     */
-    // Compare CPython PyObject_Size in abstract.c
-    static int size(Object o) throws Throwable {
-        // Note that the slot is called op_len but this method, size.
-        try {
-            return (int)Operations.of(o).op_len.invokeExact(o);
-        } catch (Slot.EmptyException e) {
-            throw typeError(HAS_NO_LEN, o);
-        }
-    }
-
-    /**
-     * {@code o[key]} with Python semantics, where {@code o} may be a
-     * mapping or a sequence.
-     *
-     * @param o object to operate on
-     * @param key index
-     * @return {@code o[key]}
-     * @throws TypeError when {@code o} does not allow subscripting
-     * @throws Throwable from invoked method implementations
-     */
-    // Compare CPython PyObject_GetItem in abstract.c
-    static Object getItem(Object o, Object key) throws Throwable {
-        // Decisions are based on types of o and key
-        try {
-            Operations ops = Operations.of(o);
-            return ops.op_getitem.invokeExact(o, key);
-        } catch (EmptyException e) {
-            throw typeError(NOT_SUBSCRIPTABLE, o);
-        }
-    }
-
-    /**
-     * {@code o[key] = value} with Python semantics, where {@code o} may
-     * be a mapping or a sequence.
-     *
-     * @param o object to operate on
-     * @param key index
-     * @param value to put at index
-     * @throws TypeError when {@code o} does not allow subscripting
-     * @throws Throwable from invoked method implementations
-     */
-    // Compare CPython PyObject_SetItem in abstract.c
-    static void setItem(Object o, Object key, Object value)
-            throws Throwable {
-        // Decisions are based on types of o and key
-        Operations ops = Operations.of(o);
-        try {
-            ops.op_setitem.invokeExact(o, key, value);
-            return;
-        } catch (EmptyException e) {
-            throw typeError(DOES_NOT_SUPPORT_ITEM, o, "assignment");
-        }
-    }
-
-    /**
-     * {@code del o[key]} with Python semantics, where {@code o} may be
-     * a mapping or a sequence.
-     *
-     * @param o object to operate on
-     * @param key index at which to delete element
-     * @throws TypeError when {@code o} does not allow subscripting
-     * @throws Throwable from invoked method implementations
-     */
-    // Compare CPython PyObject_DelItem in abstract.c
-    static void delItem(Object o, Object key) throws Throwable {
-        // Decisions are based on types of o and key
-        Operations ops = Operations.of(o);
-        try {
-            ops.op_delitem.invokeExact(o, key);
-            return;
-        } catch (EmptyException e) {
-            throw typeError(DOES_NOT_SUPPORT_ITEM, o, "deletion");
-        }
-    }
-
-    /**
      * {@code o.name} with Python semantics.
      *
      * @param o object to operate on
@@ -856,14 +774,8 @@ public class Abstract {
 
     // Convenience functions constructing errors --------------------
 
-    protected static final String HAS_NO_LEN =
-            "object of type '%.200s' has no len()";
-    private static final String NOT_SUBSCRIPTABLE =
-            "'%.200s' object is not subscriptable";
     private static final String IS_REQUIRED_NOT =
             "%.200s is required, not '%.100s'";
-    protected static final String DOES_NOT_SUPPORT_ITEM =
-            "'%.200s' object does not support item %s";
     private static final String RETURNED_NON_TYPE =
             "%.200s returned non-%.200s (type %.200s)";
     private static final String ARGUMENT_MUST_BE =

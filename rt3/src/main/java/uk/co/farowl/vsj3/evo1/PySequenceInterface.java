@@ -6,14 +6,12 @@ package uk.co.farowl.vsj3.evo1;
  * This interface cannot be used as a marker for objects that implement
  * the sequence protocol because it is perfectly possible for a
  * user-defined Python type to do so without its Java implementation
- * implementing {@code PySequence}. A proxy class could be created that
- * holds such an object and does implement {@code PySequence}.
+ * implementing {@code PySequenceInterface}. A proxy class could be
+ * created that holds such an object and does implement
+ * {@code PySequenceInterface}.
  */
 interface PySequenceInterface<T>
-        extends Iterable<T>, Comparable<PySequenceInterface<T>>
-
-{
-
+        extends Iterable<T>, Comparable<PySequenceInterface<T>> {
     /**
      * The length of this sequence.
      *
@@ -33,9 +31,9 @@ interface PySequenceInterface<T>
     // void setItem(int i, PyObject v);
 
     /**
-     * Return a new sequence a type determined by the implementer, that
-     * is the concatenation of the target object with a sequence of the
-     * same type. It is expected that the returned value be a Python
+     * Return a new sequence of a type determined by the implementer,
+     * that is the concatenation of the target object with a sequence of
+     * the same type. It is expected that the returned value be a Python
      * object.
      *
      * @param other to follow values of {@code this} in the result

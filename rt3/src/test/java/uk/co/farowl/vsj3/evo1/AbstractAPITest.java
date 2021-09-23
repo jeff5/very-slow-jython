@@ -152,7 +152,7 @@ class AbstractAPITest extends UnitTestSupport {
         void supports_getItem() throws Throwable {
             // You can't do this with an int
             assertThrows(TypeError.class,
-                    () -> Abstract.getItem(small, 0));
+                    () -> PySequence.getItem(small, 0));
         }
 
         @Override
@@ -160,7 +160,7 @@ class AbstractAPITest extends UnitTestSupport {
         void supports_setItem() throws Throwable {
             // You can't do this with an int
             assertThrows(TypeError.class,
-                    () -> Abstract.setItem(small, 0, large));
+                    () -> PySequence.setItem(small, 0, large));
         }
 
         @Override
@@ -168,7 +168,7 @@ class AbstractAPITest extends UnitTestSupport {
         void supports_delItem() throws Throwable {
             // You can't do this with an int
             assertThrows(TypeError.class,
-                    () -> Abstract.delItem(small, 0));
+                    () -> PySequence.delItem(small, 0));
         }
 
         @Override

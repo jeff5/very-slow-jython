@@ -3,12 +3,16 @@ package uk.co.farowl.vsj3.evo1;
 import java.lang.invoke.MethodHandles;
 import java.util.AbstractList;
 import java.util.Collection;
+import java.util.Iterator;
 import java.util.StringJoiner;
 
 import uk.co.farowl.vsj3.evo1.PyType.Spec;
+import uk.co.farowl.vsj3.evo1.base.InterpreterError;
+import static uk.co.farowl.vsj3.evo1.Abstract.richCompareBool;
 
 /** The Python {@code tuple} object. */
-class PyTuple extends AbstractList<Object> implements CraftedPyObject {
+class PyTuple extends AbstractList<Object>
+        implements PySequenceInterface<Object>, CraftedPyObject {
 
     /** The Python type object for {@code tuple}. */
     static final PyType TYPE = PyType.fromSpec( //
@@ -121,18 +125,14 @@ class PyTuple extends AbstractList<Object> implements CraftedPyObject {
      *
      * @param value source of element values for this {@code tuple}
      */
-    PyTuple(Object... value) {
-        this(TYPE, value);
-    }
+    PyTuple(Object... value) { this(TYPE, value); }
 
     /**
      * Construct a {@code PyTuple} from the elements of a collection.
      *
      * @param c source of element values for this {@code tuple}
      */
-    PyTuple(Collection<?> c) {
-        this(TYPE, c);
-    }
+    PyTuple(Collection<?> c) { this(TYPE, c); }
 
     /**
      * Construct a {@code PyTuple} from an array of {@link Object}s or
@@ -164,8 +164,8 @@ class PyTuple extends AbstractList<Object> implements CraftedPyObject {
     }
 
     /**
-     * Construct a {@code PyTuple} from the elements of an array, or
-     * if the collection is empty, return {@link #EMPTY}.
+     * Construct a {@code PyTuple} from the elements of an array, or if
+     * the collection is empty, return {@link #EMPTY}.
      *
      * @param <E> component type
      * @param a value of new tuple
@@ -181,9 +181,17 @@ class PyTuple extends AbstractList<Object> implements CraftedPyObject {
 
     // Special methods -----------------------------------------------
 
-    int __len__() {
-        return size();
+    @SuppressWarnings("unused")
+    private Object __mul__(Object n) throws Throwable {
+        return PyObjectUtil.repeat(this, n);
     }
+
+    @SuppressWarnings("unused")
+    private Object __rmul__(Object n) throws Throwable {
+        return __mul__(n);
+    }
+
+    int __len__() { return size(); }
 
     Object __getitem__(Object item) throws Throwable {
         Operations itemOps = Operations.of(item);
@@ -200,22 +208,113 @@ class PyTuple extends AbstractList<Object> implements CraftedPyObject {
     // AbstractList methods ------------------------------------------
 
     @Override
-    public Object get(int i) {
-        return value[i];
-    }
+    public Object get(int i) { return value[i]; }
 
     @Override
-    public int size() {
-        return value.length;
-    }
+    public int size() { return value.length; }
 
     // Sequence interface --------------------------------------------
 
-    Object getItem(int i) {
+    @Override
+    public int length() { return value.length; };
+
+    @Override
+    public Object getItem(int i) {
         try {
             return get(i);
         } catch (IndexOutOfBoundsException e) {
             throw Abstract.indexOutOfRange("tuple");
+        }
+    }
+
+    @Override
+    public PyTuple concat(PySequenceInterface<Object> other) {
+        int n = length(), m = other.length();
+        Object[] b = new Object[n + m];
+        System.arraycopy(value, 0, b, 0, n);
+        for (Object x : other) { b[n++] = x; }
+        return new PyTuple(TYPE, true, b);
+    }
+
+    @Override
+    public Object repeat(int n) {
+        if (n == 0)
+            return EMPTY;
+        else if (n == 1)
+            return this;
+        else {
+            try {
+                int m = value.length;
+                Object[] b = new Object[n * m];
+                for (int i = 0, p = 0; i < n; i++, p += m) {
+                    System.arraycopy(value, 0, b, p, m);
+                }
+                return new PyTuple(TYPE, true, b);
+            } catch (OutOfMemoryError e) {
+                throw new OverflowError("repeated bytes are too long");
+            }
+        }
+    }
+
+    @Override
+    public Iterator<Object> iterator() {
+        return new Iterator<Object>() {
+
+            private int i = 0;
+
+            @Override
+            public boolean hasNext() { return i < value.length; }
+
+            @Override
+            public Object next() { return value[i++]; }
+        };
+    }
+
+    /**
+     * @throws ClassCastException if {@code other} is not a
+     *     {@code PyTuple}
+     */
+    @Override
+    public int compareTo(PySequenceInterface<Object> other)
+            throws ClassCastException, PyException {
+        try {
+            // Tuple is comparable only with another tuple
+            Object[] otherValue = ((PyTuple)other).value;
+            int N = value.length, M = otherValue.length, i = 0;
+
+            for (i = 0; i < N; i++) {
+                Object a = value[i];
+                if (i < M) {
+                    Object b = otherValue[i];
+                    // if a != b, then we've found an answer
+                    if (!richCompareBool(a, b, Comparison.EQ)) {
+                        if (richCompareBool(a, b, Comparison.GT))
+                            return 1;
+                        else
+                            return -1;
+                    }
+                } else
+                    // value has not run out, but other has. We win.
+                    return 1;
+            }
+
+            /*
+             * The arrays matched over the length of value. The other is
+             * the winner if it still has elements. Otherwise it's a
+             * tie.
+             */
+            return i < M ? -1 : 0;
+        } catch (PyException e) {
+            throw e;
+        } catch (Throwable t) {
+            /*
+             * Contract of Comparable prohibits propagation of checked
+             * exceptions, but richCompareBool in principle throws
+             * anything.
+             */
+            // XXX perhaps need a PyException to wrap Java Throwable
+            throw new InterpreterError(t,
+                    "non-Python exeption in comparison");
         }
     }
 
