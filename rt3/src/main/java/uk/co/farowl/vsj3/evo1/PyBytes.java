@@ -4,10 +4,17 @@ import java.lang.invoke.MethodHandles;
 import java.util.AbstractList;
 import java.util.Arrays;
 import java.util.Iterator;
+import java.util.Spliterator;
+import java.util.Spliterators;
+import java.util.function.IntConsumer;
+import java.util.stream.IntStream;
+import java.util.stream.StreamSupport;
+
+import uk.co.farowl.vsj3.evo1.PyObjectUtil.NoConversion;
 
 /** The Python {@code bytes} object. */
 class PyBytes extends AbstractList<Integer>
-        implements PySequenceInterface<Integer>, CraftedPyObject {
+        implements PySequenceInterface.OfInt, CraftedPyObject {
 
     /** The type of Python object this class implements. */
     static final PyType TYPE = PyType.fromSpec( //
@@ -95,9 +102,26 @@ class PyBytes extends AbstractList<Integer>
      */
     PyBytes(int... value) { this(TYPE, value); }
 
-    // Special methods -----------------------------------------------
+    // Special methods ------------------------------------------------
 
     @SuppressWarnings("unused")
+    private Object __add__(Object other) {
+        try {
+            return concatBytes(this, adapt(other));
+        } catch (NoConversion e) {
+            return Py.NotImplemented;
+        }
+    }
+
+    @SuppressWarnings("unused")
+    private Object __radd__(Object other) {
+        try {
+            return concatBytes(adapt(other), this);
+        } catch (NoConversion e) {
+            return Py.NotImplemented;
+        }
+    }
+
     private Object __mul__(Object n) throws Throwable {
         return PyObjectUtil.repeat(this, n);
     }
@@ -112,18 +136,15 @@ class PyBytes extends AbstractList<Integer>
 
     @SuppressWarnings("unused")
     private Object __getitem__(Object item) throws Throwable {
-        Operations itemOps = Operations.of(item);
-        if (Slot.op_index.isDefinedFor(itemOps)) {
-            int i = PyNumber.asSize(item, IndexError::new);
-            if (i < 0) { i += value.length; }
-            return getItem(i);
+        if (Abstract.indexCheck(item)) {
+            return PyObjectUtil.getItem(this, item);
         }
         // else if item is a PySlice { ... }
         else
             throw Abstract.indexTypeError(this, item);
     }
 
-    // AbstractList methods ------------------------------------------
+    // AbstractList methods -------------------------------------------
 
     @Override
     public Integer get(int i) { return 0xff & value[i]; }
@@ -131,10 +152,23 @@ class PyBytes extends AbstractList<Integer>
     @Override
     public int size() { return value.length; }
 
-    // Sequence interface --------------------------------------------
+    // PySequenceInterface.OfInt interface ----------------------------
+
+    @Override
+    public PyType getType() { return type; }
 
     @Override
     public int length() { return value.length; };
+
+    @Override
+    public Spliterator.OfInt spliterator() {
+        return new BytesSpliterator();
+    }
+
+    @Override
+    public IntStream asIntStream() {
+        return StreamSupport.intStream(spliterator(), false);
+    }
 
     @Override
     public Integer getItem(int i) {
@@ -147,30 +181,31 @@ class PyBytes extends AbstractList<Integer>
 
     @Override
     public PyBytes concat(PySequenceInterface<Integer> other) {
-        int n = length(), m = other.length();
+        int n = value.length, m = other.length();
         byte[] b = new byte[n + m];
+        // Copy the data from this array
         System.arraycopy(value, 0, b, 0, n);
-        for (int x : other) { b[n++] = (byte)(0xff & x); }
+        // Append the data from the other stream
+        IntStream s = other instanceof PySequenceInterface.OfInt
+                ? ((PySequenceInterface.OfInt)other).asIntStream()
+                : other.asStream().mapToInt(Integer::valueOf);
+        s.forEach(new ByteStore(b, n));
         return new PyBytes(TYPE, true, b);
     }
 
     @Override
-    public Object repeat(int n) {
+    public Object repeat(int n) throws OutOfMemoryError {
         if (n == 0)
             return EMPTY;
         else if (n == 1)
             return this;
         else {
-            try {
-                int m = value.length;
-                byte[] b = new byte[n * m];
-                for (int i = 0, p = 0; i < n; i++, p += m) {
-                    System.arraycopy(value, 0, b, p, m);
-                }
-                return new PyBytes(TYPE, true, b);
-            } catch (OutOfMemoryError e) {
-                throw new OverflowError("repeated bytes are too long");
+            int m = value.length;
+            byte[] b = new byte[n * m];
+            for (int i = 0, p = 0; i < n; i++, p += m) {
+                System.arraycopy(value, 0, b, p, m);
             }
+            return new PyBytes(TYPE, true, b);
         }
     }
 
@@ -210,8 +245,89 @@ class PyBytes extends AbstractList<Integer>
         return ib.hasNext() ? -1 : 0;
     }
 
-    // Plumbing ------------------------------------------------------
+    // Plumbing -------------------------------------------------------
 
-    @Override
-    public PyType getType() { return type; }
+    private static PyBytes concatBytes(PySequenceInterface.OfInt v,
+            PySequenceInterface.OfInt w) {
+        try {
+            int n = v.length(), m = w.length();
+            byte[] b = new byte[n + m];
+            IntStream.concat(v.asIntStream(), w.asIntStream())
+                    .forEach(new ByteStore(b, 0));
+            return new PyBytes(TYPE, true, b);
+        } catch (OutOfMemoryError e) {
+            throw concatenatedOverflow();
+        }
+    }
+
+    /**
+     * Inner class defining the return type of
+     * {@link PyBytes#spliterator()}. We need this only because
+     * {@link #tryAdvance(IntConsumer) tryAdvance} deals in java
+     * {@code int}s, while our array is {@code byte[]}. There is no
+     * ready-made {@code Spliterator.OfByte}, and if there were, it
+     * would return signed values.
+     */
+    private class BytesSpliterator
+            extends Spliterators.AbstractIntSpliterator {
+
+        static final int flags = Spliterator.IMMUTABLE
+                | Spliterator.SIZED | Spliterator.ORDERED;
+        private int i = 0;
+
+        BytesSpliterator() { super(value.length, flags); }
+
+        @Override
+        public boolean tryAdvance(IntConsumer action) {
+            if (i < value.length) {
+                action.accept(0xff & value[i++]);
+                return true;
+            } else
+                return false;
+        }
+    }
+
+    /**
+     * A consumer of primitive int values that stores them in an array
+     * given it at construction.
+     */
+    private static class ByteStore implements IntConsumer {
+
+        private final byte[] b;
+        private int i = 0;
+
+        ByteStore(byte[] bytes, int start) {
+            this.b = bytes;
+            this.i = start;
+        }
+
+        @Override
+        public void accept(int value) { b[i++] = (byte)value; }
+    }
+
+    /**
+     * Adapt a Python object to a sequence of Java {@code int} values or
+     * throw an exception. If the method throws the special exception
+     * {@link NoConversion}, the caller must catch it and deal with it,
+     * perhaps by throwing a {@link TypeError}. A binary operation will
+     * normally return {@link Py#NotImplemented} in that case.
+     * <p>
+     * Note that implementing {@link PySequenceInterface.OfInt} is not
+     * enough, which other types may, but be incompatible in Python.
+     *
+     * @param v to wrap or return
+     * @return adapted to a sequence
+     * @throws NoConversion if {@code v} is not a Python {@code str}
+     */
+    static PySequenceInterface.OfInt adapt(Object v)
+            throws NoConversion {
+        // Check against supported types, most likely first
+        if (v instanceof PyBytes /* || v instanceof PyByteArray */)
+            return (PySequenceInterface.OfInt)v;
+        throw PyObjectUtil.NO_CONVERSION;
+    }
+
+    private static OverflowError concatenatedOverflow() {
+        return PyObjectUtil.concatenatedOverflow(EMPTY);
+    }
 }

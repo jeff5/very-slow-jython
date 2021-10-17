@@ -1,19 +1,37 @@
 package uk.co.farowl.vsj3.evo1;
 
 import java.lang.invoke.MethodHandles;
-import java.math.BigInteger;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.Spliterator;
+import java.util.Spliterators;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 import uk.co.farowl.vsj3.evo1.Exposed.Default;
 import uk.co.farowl.vsj3.evo1.Exposed.Name;
 import uk.co.farowl.vsj3.evo1.Exposed.PythonMethod;
 import uk.co.farowl.vsj3.evo1.PyObjectUtil.NoConversion;
+import uk.co.farowl.vsj3.evo1.base.InterpreterError;
 
-/** The Python {@code str} object. */
-class PyUnicode implements PySequenceInterface<Integer>,
-        CraftedPyObject, PyDict.Key {
+/**
+ * The Python {@code str} object is implemented by both
+ * {@code PyUnicode} and {@code String}. Most strings used as names
+ * (keys) and text is quite satisfactorily represented by Java
+ * {@code String}. All operations will produce the same result for
+ * Python, whichever representation is used.
+ * <p>
+ * Java {@code String}s are compact, but where they contain non-BMP
+ * characters, these are represented by a pair of code units, which
+ * makes certain operations (such as indexing) expensive, but not those
+ * involving sequential access. By contrast, a {@code PyUnicode} is
+ * time-efficient, but each character occupies one {@code int}.
+ */
+class PyUnicode implements PySequenceInterface.OfInt, CraftedPyObject,
+        PyDict.Key {
 
     /** The type of Python object this class implements. */
     static final PyType TYPE = PyType.fromSpec( //
@@ -89,6 +107,54 @@ class PyUnicode implements PySequenceInterface<Integer>,
     @Deprecated // XXX Private or not needed
     PyUnicode(char c) { this(TYPE, new int[] {c}); }
 
+    // Factory methods ------------------------------------------------
+    // These may return a Java String or a PyUnicode
+
+    /**
+     * Return a Python {@code str} representing the single character
+     * with the given code point. The return may be a Java
+     * {@code String} (for BMP code points) or a {@code PyUnicode}.
+     *
+     * @param cp to code point convert
+     * @return a Python {@code str}
+     */
+    public static Object fromCodePoint(int cp) {
+        // We really need to know how the string will be used :(
+        if (Character.charCount(cp) == 1)
+            return Character.toString((char)cp);
+        else
+            return new PyUnicode(TYPE, true, new int[] {cp});
+    }
+
+    /**
+     * Return a Python {@code str} representing the same sequence of
+     * characters as the given Java {@code String}, but as a PyUnicode
+     * if it contains non-BMP code points.
+     *
+     * @param cp to code point convert
+     * @return a Python {@code str}
+     */
+    public static Object fromJavaString(String s) {
+        if (isBMP(s))
+            return s;
+        else
+            return new PyUnicode(TYPE, true, s.codePoints().toArray());
+    }
+
+    /**
+     * Test whether a string contains no characters above the BMP range,
+     * that is, any characters that require surrogate pairs to represent
+     * them. The method returns {@code true} if and only if the string
+     * consists entirely of BMP characters or is empty.
+     *
+     * @param s the string to test
+     * @return whether contains no non-BMP characters
+     */
+    private static boolean isBMP(String s) {
+        return s.codePoints().dropWhile(Character::isBmpCodePoint)
+                .findFirst().isEmpty();
+    }
+
     // slot functions -------------------------------------------------
 
     @SuppressWarnings("unused")
@@ -148,21 +214,36 @@ class PyUnicode implements PySequenceInterface<Integer>,
     private static int __hash__(String self) { return self.hashCode(); }
 
     @SuppressWarnings("unused")
-    private Object __add__(Object w) {
-        try {
-            return concat(adapt(w));
-        } catch (NoConversion e) {
-            return Py.NotImplemented;
+    private Object __add__(Object ow) throws Throwable {
+        if (ow instanceof PyUnicode) {
+            try {
+                PyUnicode w = (PyUnicode)ow;
+                int L = value.length, M = w.value.length;
+                int[] r = new int[L + M];
+                System.arraycopy(value, 0, r, 0, L);
+                System.arraycopy(w.value, 0, r, L, M);
+                return new PyUnicode(TYPE, true, r);
+            } catch (OutOfMemoryError e) {
+                throw concatenatedOverflow();
+            }
+        } else {
+            try {
+                return PyObjectUtil.concat(this, adapt(ow));
+            } catch (NoConversion e) {
+                return Py.NotImplemented;
+            }
         }
     }
 
     @SuppressWarnings("unused")
-    private static Object __add__(String v, Object w) {
+    private static Object __add__(String v, Object ow) {
         try {
-            if (w instanceof String)
-                return v.concat((String) w);
-            else
-                return adapt(v).concat(adapt(w));
+            if (ow instanceof String) {
+                return concat(v, (String)ow);
+            } else {
+                IntStream s = adapt(ow).asIntStream();
+                return concatUnicode(v.codePoints(), s);
+            }
         } catch (NoConversion e) {
             return Py.NotImplemented;
         }
@@ -174,8 +255,7 @@ class PyUnicode implements PySequenceInterface<Integer>,
 
     private static Object __mul__(String self, Object n)
             throws Throwable {
-        PySequenceInterface<Integer> s = new StringAdapter(self);
-        return PyObjectUtil.repeat(s, n);
+        return PyObjectUtil.repeat(new StringAdapter(self), n);
     }
 
     @SuppressWarnings("unused")
@@ -191,11 +271,9 @@ class PyUnicode implements PySequenceInterface<Integer>,
 
     @SuppressWarnings("unused")
     private Object __getitem__(Object item) throws Throwable {
-        Operations itemOps = Operations.of(item);
-        if (Slot.op_index.isDefinedFor(itemOps)) {
-            int i = PyNumber.asSize(item, IndexError::new);
-            if (i < 0) { i += length(); }
-            return getItem(i);
+        if (Abstract.indexCheck(item)) {
+            Integer cp = PyObjectUtil.getItem(this, item);
+            return PyUnicode.fromCodePoint(cp);
         }
         // else if item is a PySlice { ... }
         else
@@ -205,11 +283,9 @@ class PyUnicode implements PySequenceInterface<Integer>,
     @SuppressWarnings("unused")
     private static Object __getitem__(String self, Object item)
             throws Throwable {
-        Operations itemOps = Operations.of(item);
-        if (Slot.op_index.isDefinedFor(itemOps)) {
-            int i = PyNumber.asSize(item, IndexError::new);
-            if (i < 0) { i += self.length(); }
-            return self.substring(i, i + 1);
+        if (Abstract.indexCheck(item)) {
+            Integer cp = PyObjectUtil.getItem(adapt(self), item);
+            return PyUnicode.fromCodePoint(cp);
         }
         // else if item is a PySlice { ... }
         else
@@ -371,7 +447,7 @@ class PyUnicode implements PySequenceInterface<Integer>,
              * types, it won't be needed. (Maybe.)
              */
             if (obj instanceof PyDict.Key)
-                obj = ((PyDict.Key) obj).get();
+                obj = ((PyDict.Key)obj).get();
             try {
                 return equals(adapt(obj));
             } catch (NoConversion e) {
@@ -454,38 +530,46 @@ class PyUnicode implements PySequenceInterface<Integer>,
      */
     static String asString(Object v) throws TypeError {
         if (v instanceof String)
-            return (String) v;
+            return (String)v;
         else if (v instanceof PyUnicode)
-            return ((PyUnicode) v).toString();
+            return ((PyUnicode)v).toString();
         throw Abstract.requiredTypeError("a str", v);
     }
 
-    // Sequence interface ---------------------------------------------
+    // PySequenceInterface.OfInt interface ----------------------------
 
     @Override
-    public int length() { return value.length; };
+    public int length() { return value.length; }
 
     @Override
-    public Integer getItem(int i) { return Integer.valueOf(value[i]); }
-
-    @Override
-    public PyUnicode concat(PySequenceInterface<Integer> other) {
-        int n = length(), m = other.length();
-        int[] b = new int[n + m];
-        System.arraycopy(value, 0, b, 0, n);
-        for (int x : other) { b[n++] = x; }
-        return new PyUnicode(TYPE, true, b);
+    public Integer getItem(int i) {
+        // XXX test range of i?
+        return Integer.valueOf(value[i]);
     }
 
     @Override
-    public Object repeat(int n) {
+    public PyUnicode concat(PySequenceInterface<Integer> other)
+            throws OutOfMemoryError {
+        return concatUnicode(asIntStream(),
+                other.asStream().mapToInt(Integer::intValue));
+    }
+
+    @Override
+    public Spliterator.OfInt spliterator() {
+        final int flags = Spliterator.IMMUTABLE | Spliterator.SIZED
+                | Spliterator.ORDERED;
+        return Spliterators.spliterator(value, flags);
+    }
+
+    @Override
+    public Object repeat(int n) throws OutOfMemoryError {
+        int m = value.length;
         if (n == 0)
             return "";
-        else if (n == 1)
+        else if (n == 1 || m == 0)
             return this;
         else {
             try {
-                int m = value.length;
                 int[] b = new int[n * m];
                 for (int i = 0, p = 0; i < n; i++, p += m) {
                     System.arraycopy(value, 0, b, p, m);
@@ -511,9 +595,14 @@ class PyUnicode implements PySequenceInterface<Integer>,
         };
     }
 
-    // Plumbing -------------------------------------------------------
+    @Override
+    public IntStream asIntStream() {
+        int flags = Spliterator.IMMUTABLE | Spliterator.SIZED;
+        Spliterator.OfInt s = Spliterators.spliterator(value, flags);
+        return StreamSupport.intStream(s, false);
+    }
 
-    static PyUnicode EMPTY = new PyUnicode(TYPE, "");
+    // Plumbing -------------------------------------------------------
 
     /**
      * Convert a Python {@code str} to a Java {@code str} (or throw
@@ -530,9 +619,9 @@ class PyUnicode implements PySequenceInterface<Integer>,
     // Compare CPython unicodeobject.c:
     static String convertToString(Object v) throws NoConversion {
         if (v instanceof String)
-            return (String) v;
+            return (String)v;
         else if (v instanceof PyUnicode)
-            return ((PyUnicode) v).toString();
+            return ((PyUnicode)v).toString();
         throw PyObjectUtil.NO_CONVERSION;
     }
 
@@ -542,38 +631,50 @@ class PyUnicode implements PySequenceInterface<Integer>,
      * surrogate pairs.
      */
     private static class StringAdapter
-            implements PySequenceInterface<Integer> {
+            implements PySequenceInterface.OfInt {
+        /** Value of the str encoded as a Java {@code String}. */
+        private final String s;
+        /** Length in code points deduced from the {@code String}. */
+        private final int len;
 
-        final private String s;
+        /**
+         * Adapt a String so we can iterate or stream its code points.
+         *
+         * @param s to adapt
+         */
+        StringAdapter(String s) {
+            this.s = s;
+            len = s.codePointCount(0, s.length());
+        }
 
-        StringAdapter(String s) { this.s = s; }
+        /**
+         * Return {@code true} iff the string contains only basic plane
+         * characters or, possibly, isolated surrogates. All
+         * {@code char}s may be treated as code points.
+         *
+         * @return contains only BMP characters orisolated surrogates
+         */
+        private boolean isBMP() { return len == s.length(); }
 
         @Override
-        public int length() { return s.length(); };
+        public int length() { return len; };
 
         @Override
         public Integer getItem(int i) {
-            // Treating surrogate pairs as two characters
-            return Integer.valueOf(s.charAt(i));
-        }
-
-        @Override
-        public Object concat(PySequenceInterface<Integer> other) {
-            boolean isBMP = true;
-            StringBuilder b = new StringBuilder(s);
-            for (int c : other) {
-                if (Character.isBmpCodePoint(c)) {
-                    b.append((char) c);
-                } else {
-                    isBMP = false;
-                    b.appendCodePoint(c);
+            if (isBMP()) {
+                // Treating surrogates as characters
+                return Integer.valueOf(s.charAt(i));
+            } else {
+                // We have to count from the start
+                try {
+                    Stream<Integer> cps = asStream().skip(i);
+                    return cps.findFirst().orElseThrow();
+                } catch (NoSuchElementException nse) {
+                    // getItem should only be called with checked i
+                    throw new InterpreterError(nse, "index=%d", i);
                 }
             }
-            return isBMP ? b.toString() : new PyUnicode(b.toString());
         }
-
-        @Override
-        public Object repeat(int n) { return s.repeat(n); }
 
         @Override
         public Iterator<Integer> iterator() {
@@ -589,8 +690,46 @@ class PyUnicode implements PySequenceInterface<Integer>,
                     // Treating surrogate pairs as two characters
                     return getItem(i++);
                 }
-
             };
+        }
+
+        @Override
+        public Spliterator.OfInt spliterator() {
+            return s.codePoints().spliterator();
+        }
+
+        @Override
+        public IntStream asIntStream() { return s.codePoints(); }
+
+        @Override
+        public Object concat(PySequenceInterface<Integer> other) {
+            /*
+             * other is not a StringAdapter or we would have taken a
+             * short-cut already. Therefore the result is going to be a
+             * PyUnicode.
+             */
+            return concatUnicode(asIntStream(),
+                    other.asStream().mapToInt(Integer::intValue));
+        }
+
+        @Override
+        public Object repeat(int n) throws OutOfMemoryError {
+            if (n == 0)
+                return "";
+            else if (n == 1 || len == 0)
+                return s;
+            else if (Character.isLowSurrogate(s.charAt(0))
+                    && Character.isHighSurrogate(s.charAt(len - 1)))
+                /*
+                 * s ends with a high surrogate and starts with a low
+                 * surrogate, so simply concatenated to itself by
+                 * String.repeat, these would merge into one character.
+                 * Only a PyUnicode properly represents the result.
+                 */
+                return (new PyUnicode(TYPE, s)).repeat(n);
+            else
+                // Java String repeat will do fine
+                return s.repeat(n);
         }
 
         @Override
@@ -617,6 +756,9 @@ class PyUnicode implements PySequenceInterface<Integer>,
              */
             return ib.hasNext() ? -1 : 0;
         }
+
+        @Override
+        public PyType getType() { return TYPE; }
     }
 
     /**
@@ -633,32 +775,95 @@ class PyUnicode implements PySequenceInterface<Integer>,
             throws TypeError {
         // Check against supported types, most likely first
         if (v instanceof String)
-            return new StringAdapter((String) v);
+            return new StringAdapter((String)v);
         else if (v instanceof PyUnicode)
-            return (PyUnicode) v;
+            return (PyUnicode)v;
         throw Abstract.requiredTypeError("a str", v);
     }
 
     /**
-     * Adapt a Python {@code str} to a sequence of Java {@code Integer}
+     * Adapt a Python {@code str} to a sequence of Java {@code int}
      * values or throw an exception. If the method throws the special
      * exception {@link NoConversion}, the caller must catch it and deal
      * with it, perhaps by throwing a {@link TypeError}. A binary
      * operation will normally return {@link Py#NotImplemented} in that
      * case.
+     * <p>
+     * Note that implementing {@link PySequenceInterface.OfInt} is not
+     * enough, which other types may, but be incompatible in Python.
      *
      * @param v to wrap or return
      * @return adapted to a sequence
      * @throws NoConversion if {@code v} is not a Python {@code str}
      */
-    static PySequenceInterface<Integer> adapt(Object v)
+    static PySequenceInterface.OfInt adapt(Object v)
             throws NoConversion {
         // Check against supported types, most likely first
         if (v instanceof String)
-            return new StringAdapter((String) v);
+            return new StringAdapter((String)v);
         else if (v instanceof PyUnicode)
-            return (PyUnicode) v;
+            return (PySequenceInterface.OfInt)v;
         throw PyObjectUtil.NO_CONVERSION;
+    }
+
+    /**
+     * Concatenate two {@code String} representations of {@code str}
+     * into a {@code PyUnicode}. This method almost always calls
+     * {@code String.concat(v, w)} and almost always returns a
+     * {@code String}. There is a delicate case where {@code v} ends
+     * with a high surrogate and {@code w} starts with a low surrogate.
+     * Simply concatenated, these merge into one character. Only a
+     * PyUnicode properly represents the result in that case.
+     *
+     * @param v first string to concatenate
+     * @param w second string to concatenate
+     * @return the concatenation {@code v + w}
+     */
+    private static Object concat(String v, String w) {
+        /*
+         * Since we have to guard against empty strings, we may as well
+         * take the optimisation these paths invite.
+         */
+        int vlen = v.length();
+        if (vlen == 0)
+            return w;
+        else if (w.length() == 0)
+            return v;
+        else if (Character.isLowSurrogate(w.charAt(0))
+                && Character.isHighSurrogate(v.charAt(vlen - 1)))
+            // Only a PyUnicode properly represents the result
+            return concatUnicode(v.codePoints(), w.codePoints());
+        else {
+            try {
+                // Java String concatenation will do fine
+                return v.concat(w);
+            } catch (OutOfMemoryError e) {
+                throw concatenatedOverflow();
+            }
+        }
+    }
+
+    /**
+     * Concatenate two streams of code points into a {@code PyUnicode}.
+     *
+     * @param v first string to concatenate
+     * @param w second string to concatenate
+     * @return the concatenation {@code v + w}
+     */
+    private static PyUnicode concatUnicode(IntStream v, IntStream w) {
+        try {
+            return new PyUnicode(TYPE, true,
+                    IntStream.concat(v, w).toArray());
+        } catch (OutOfMemoryError e) {
+            throw concatenatedOverflow();
+        }
+    }
+
+    // A better spelling of PyUnicode.EMPTY is usually ""
+    private static PyUnicode EMPTY = new PyUnicode(TYPE, "");
+
+    private static OverflowError concatenatedOverflow() {
+        return PyObjectUtil.concatenatedOverflow(EMPTY);
     }
 
     // Python sub-class -----------------------------------------------
@@ -670,6 +875,10 @@ class PyUnicode implements PySequenceInterface<Integer>,
     static class Derived extends PyUnicode implements DictPyObject {
 
         protected Derived(PyType subType, String value) {
+            super(subType, value);
+        }
+
+        protected Derived(PyType subType, int[] value) {
             super(subType, value);
         }
 

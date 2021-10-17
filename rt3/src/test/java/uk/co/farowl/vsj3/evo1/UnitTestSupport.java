@@ -145,11 +145,24 @@ class UnitTestSupport {
     }
 
     /**
-     * Force creation of an actual {@link PyUnicode}
+     * Force creation of an actual {@link PyUnicode} from a
+     * {@code String} to be treated as in the usual Java encoding.
+     * Surrogate pairs will be interpreted as their characters, unless
+     * lone.
      *
      * @return from this value.
      */
     static PyUnicode newPyUnicode(String value) {
+        return new PyUnicode.Derived(PyUnicode.TYPE, value);
+    }
+
+    /**
+     * Force creation of an actual {@link PyUnicode} from an array of
+     * code points, which could include surrogates, even in pairs.
+     *
+     * @return from this value.
+     */
+    static PyUnicode newPyUnicode(int[] value) {
         return new PyUnicode.Derived(PyUnicode.TYPE, value);
     }
 

@@ -1,14 +1,18 @@
 package uk.co.farowl.vsj3.evo1;
 
+import static uk.co.farowl.vsj3.evo1.Abstract.richCompareBool;
+
 import java.lang.invoke.MethodHandles;
 import java.util.AbstractList;
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.Spliterator;
+import java.util.Spliterators;
 import java.util.StringJoiner;
 
+import uk.co.farowl.vsj3.evo1.PyObjectUtil.NoConversion;
 import uk.co.farowl.vsj3.evo1.PyType.Spec;
 import uk.co.farowl.vsj3.evo1.base.InterpreterError;
-import static uk.co.farowl.vsj3.evo1.Abstract.richCompareBool;
 
 /** The Python {@code tuple} object. */
 class PyTuple extends AbstractList<Object>
@@ -182,6 +186,23 @@ class PyTuple extends AbstractList<Object>
     // Special methods -----------------------------------------------
 
     @SuppressWarnings("unused")
+    private Object __add__(Object other) throws Throwable {
+        try {
+            return PyObjectUtil.concat(this, adapt(other));
+        } catch (NoConversion e) {
+            return Py.NotImplemented;
+        }
+    }
+
+    @SuppressWarnings("unused")
+    private Object __radd__(Object other) throws Throwable {
+        try {
+            return PyObjectUtil.concat(adapt(other), this);
+        } catch (NoConversion e) {
+            return Py.NotImplemented;
+        }
+    }
+
     private Object __mul__(Object n) throws Throwable {
         return PyObjectUtil.repeat(this, n);
     }
@@ -194,11 +215,8 @@ class PyTuple extends AbstractList<Object>
     int __len__() { return size(); }
 
     Object __getitem__(Object item) throws Throwable {
-        Operations itemOps = Operations.of(item);
-        if (Slot.op_index.isDefinedFor(itemOps)) {
-            int i = PyNumber.asSize(item, IndexError::new);
-            if (i < 0) { i += size(); }
-            return getItem(i);
+        if (Abstract.indexCheck(item)) {
+            return PyObjectUtil.getItem(this, item);
         }
         // else if item is a PySlice { ... }
         else
@@ -219,6 +237,13 @@ class PyTuple extends AbstractList<Object>
     public int length() { return value.length; };
 
     @Override
+    public Spliterator<Object> spliterator() {
+        final int flags = Spliterator.IMMUTABLE | Spliterator.SIZED
+                | Spliterator.ORDERED;
+        return Spliterators.spliterator(value, flags);
+    }
+
+    @Override
     public Object getItem(int i) {
         try {
             return get(i);
@@ -237,22 +262,18 @@ class PyTuple extends AbstractList<Object>
     }
 
     @Override
-    public Object repeat(int n) {
+    public Object repeat(int n) throws OutOfMemoryError {
         if (n == 0)
             return EMPTY;
-        else if (n == 1)
+        else if (n == 1 || value.length==0)
             return this;
         else {
-            try {
-                int m = value.length;
-                Object[] b = new Object[n * m];
-                for (int i = 0, p = 0; i < n; i++, p += m) {
-                    System.arraycopy(value, 0, b, p, m);
-                }
-                return new PyTuple(TYPE, true, b);
-            } catch (OutOfMemoryError e) {
-                throw new OverflowError("repeated bytes are too long");
+            int m = value.length;
+            Object[] b = new Object[n * m];
+            for (int i = 0, p = 0; i < n; i++, p += m) {
+                System.arraycopy(value, 0, b, p, m);
             }
+            return new PyTuple(TYPE, true, b);
         }
     }
 
@@ -330,5 +351,24 @@ class PyTuple extends AbstractList<Object>
         StringJoiner sj = new StringJoiner(", ", "(", suffix);
         for (Object v : value) { sj.add(v.toString()); }
         return sj.toString();
+    }
+
+    /**
+     * Adapt a Python object to a sequence of Java {@code Object}s or
+     * throw an exception. If the method throws the special exception
+     * {@link NoConversion}, the caller must catch it and deal with it,
+     * perhaps by throwing a {@link TypeError}. A binary operation will
+     * normally return {@link Py#NotImplemented} in that case.
+     *
+     * @param v to wrap or return
+     * @return adapted to a sequence
+     * @throws NoConversion if {@code v} is not a Python {@code str}
+     */
+    static PySequenceInterface<Object> adapt(Object v)
+            throws NoConversion {
+        // Check against supported types, most likely first
+        if (v instanceof PyTuple )
+            return (PyTuple)v;
+        throw PyObjectUtil.NO_CONVERSION;
     }
 }

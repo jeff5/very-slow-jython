@@ -32,6 +32,7 @@ public class PySequence extends Abstract {
      * {@code o * count} with Python semantics.
      *
      * @param o object to operate on
+     * @param count number of repetitions
      * @return {@code o*count}
      * @throws Throwable from invoked method implementations
      */
@@ -39,6 +40,20 @@ public class PySequence extends Abstract {
     public static Object repeat(Object o, int count) throws Throwable {
         // There is no equivalent slot to sq_repeat
         return PyNumber.multiply(o, count);
+    }
+
+    /**
+     * {@code v + w} for sequences with Python semantics.
+     *
+     * @param v first object to concatenate
+     * @param w second object to concatenate
+     * @return {@code v + w}
+     * @throws Throwable from invoked method implementations
+     */
+    // Compare CPython PySequence_Concat in abstract.c
+    public static Object concat(Object v, Object w) throws Throwable {
+        // There is no equivalent slot to sq_concat
+        return PyNumber.add(v, w);
     }
 
     /**

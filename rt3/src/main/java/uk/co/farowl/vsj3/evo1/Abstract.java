@@ -800,19 +800,33 @@ public class Abstract {
 
     /**
      * Create a {@link TypeError} with a message along the lines "T
-     * indices must be integers or slices, not X" involving the type
-     * name T of a target and the type X of {@code o} presented as an
-     * index, e.g. "list indices must be integers or slices, not str".
+     * indices must be integers or slices, not X" involving the a target
+     * type T and a purported index type X presented, e.g. "list indices
+     * must be integers or slices, not str".
      *
-     * @param t target of function or operation
-     * @param o actual object presented as an index
+     * @param t type of target of function or operation
+     * @param x type of object presented as an index
      * @return exception to throw
      */
-    static TypeError indexTypeError(Object t, Object o) {
+    static TypeError indexTypeError(PyType t, PyType x) {
         String fmt =
                 "%.200s indices must be integers or slices, not %.200s";
-        return new TypeError(fmt, PyType.of(t).getName(),
-                PyType.of(o).getName());
+        return new TypeError(fmt, t.getName(), x.getName());
+    }
+
+    /**
+     * Create a {@link TypeError} with a message along the lines "T
+     * indices must be integers or slices, not X" involving the type
+     * name T of a target {@code o} and the type name X of {@code i}
+     * presented as an index, e.g. "list indices must be integers or
+     * slices, not str".
+     *
+     * @param o target of function or operation
+     * @param i actual object presented as an index
+     * @return exception to throw
+     */
+    static TypeError indexTypeError(Object o, Object i) {
+        return indexTypeError(PyType.of(o), PyType.of(i));
     }
 
     /**
