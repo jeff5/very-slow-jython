@@ -208,6 +208,18 @@ public class PyNumber extends Abstract {
     private static final MethodHandle BINARY_EMPTY =
             Slot.Signature.BINARY.empty;
 
+
+    /**
+     * True iff the object has a slot for conversion to the index type.
+     *
+     * @param obj to test
+     * @return whether {@code obj} has non-empty {@link Slot#op_index}
+     */
+    // Compare CPython PyIndex_Check in abstract.c
+    protected static boolean indexCheck(Object obj) {
+        return Slot.op_index.isDefinedFor(Operations.of(obj));
+    }
+
     /**
      * Return a Python {@code int} (or subclass) from the object
      * {@code o}. Raise {@code TypeError} if the result is not a Python

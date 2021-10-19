@@ -136,7 +136,7 @@ class PyBytes extends AbstractList<Integer>
 
     @SuppressWarnings("unused")
     private Object __getitem__(Object item) throws Throwable {
-        if (Abstract.indexCheck(item)) {
+        if (PyNumber.indexCheck(item)) {
             return PyObjectUtil.getItem(this, item);
         }
         // else if item is a PySlice { ... }

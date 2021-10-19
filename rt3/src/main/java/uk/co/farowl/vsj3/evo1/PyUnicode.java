@@ -271,7 +271,7 @@ class PyUnicode implements PySequenceInterface.OfInt, CraftedPyObject,
 
     @SuppressWarnings("unused")
     private Object __getitem__(Object item) throws Throwable {
-        if (Abstract.indexCheck(item)) {
+        if (PyNumber.indexCheck(item)) {
             Integer cp = PyObjectUtil.getItem(this, item);
             return PyUnicode.fromCodePoint(cp);
         }
@@ -283,7 +283,7 @@ class PyUnicode implements PySequenceInterface.OfInt, CraftedPyObject,
     @SuppressWarnings("unused")
     private static Object __getitem__(String self, Object item)
             throws Throwable {
-        if (Abstract.indexCheck(item)) {
+        if (PyNumber.indexCheck(item)) {
             Integer cp = PyObjectUtil.getItem(adapt(self), item);
             return PyUnicode.fromCodePoint(cp);
         }

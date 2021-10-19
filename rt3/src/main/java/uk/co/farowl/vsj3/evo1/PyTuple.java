@@ -215,7 +215,7 @@ class PyTuple extends AbstractList<Object>
     int __len__() { return size(); }
 
     Object __getitem__(Object item) throws Throwable {
-        if (Abstract.indexCheck(item)) {
+        if (PyNumber.indexCheck(item)) {
             return PyObjectUtil.getItem(this, item);
         }
         // else if item is a PySlice { ... }

@@ -1070,17 +1070,6 @@ public class Abstract {
                     + "subclass of %s is deprecated, and may be "
                     + "removed in a future version of Python.";
 
-    /**
-     * True iff the object has a slot for conversion to the index type.
-     *
-     * @param obj to test
-     * @return whether {@code obj} has non-empty {@link Slot#op_index}
-     */
-    // Compare CPython PyIndex_Check in abstract.c
-    static boolean indexCheck(Object obj) {
-        return Slot.op_index.isDefinedFor(Operations.of(obj));
-    }
-
     /** Throw generic something went wrong internally (last resort). */
     static void badInternalCall() {
         throw new InterpreterError("bad internal call");

@@ -60,7 +60,7 @@ class PyObjectUtil {
      */
     static <T> Object repeat(PySequenceInterface<T> seq, Object n)
             throws TypeError, Throwable {
-        if (Abstract.indexCheck(n)) {
+        if (PyNumber.indexCheck(n)) {
             int count = PyNumber.asSize(n, OverflowError::new);
             try {
                 return seq.repeat(count);
