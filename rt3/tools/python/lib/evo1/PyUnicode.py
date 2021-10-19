@@ -1,6 +1,6 @@
-# PyLong.py: A generator for Java files that define the Python float
+# PyUnicode.py: A generator for Java files that define the Python str
 
-# This generator writes PyLongMethods.java and PyLongBinops.java .
+# This generator writes PyUnicodeMethods.java and PyUnicodeBinops.java .
 
 # At the time of this writing, only the comparison operations are
 # generated. Unlike arithmetic types, str does not have a large

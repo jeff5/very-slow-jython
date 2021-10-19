@@ -102,7 +102,7 @@ interface PySequenceInterface<T>
         /**
          * Provide a stream specialised to primitive {@code int}.
          *
-         * @return
+         * @return a stream of primitive {@code int}
          */
         IntStream asIntStream();
 

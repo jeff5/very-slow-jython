@@ -155,7 +155,7 @@ class PyUnicode implements PySequenceInterface.OfInt, CraftedPyObject,
                 .findFirst().isEmpty();
     }
 
-    // slot functions -------------------------------------------------
+    // Special methods ------------------------------------------------
 
     @SuppressWarnings("unused")
     private int __len__() { return value.length; }
@@ -292,7 +292,7 @@ class PyUnicode implements PySequenceInterface.OfInt, CraftedPyObject,
             throw Abstract.indexTypeError(self, item);
     }
 
-    // non-slot API ---------------------------------------------------
+    // Methods --------------------------------------------------------
 
     @PythonMethod(primary = false)
     boolean isascii() {
