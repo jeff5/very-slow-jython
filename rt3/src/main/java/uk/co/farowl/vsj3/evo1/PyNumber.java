@@ -268,7 +268,7 @@ public class PyNumber extends Abstract {
      * the message is formulated by this method and the type of
      * exception by the caller. (Arcane, but it's what CPython does.) A
      * recommended idiom for this is<pre>
-     *      int k = Number.asSize(key, IndexError::new);
+     *      int k = PyNumber.asSize(key, IndexError::new);
      * </pre>
      *
      * @param o the object to convert to an {@code int}
@@ -304,9 +304,6 @@ public class PyNumber extends Abstract {
                         PyType.of(o).getName());
                 throw exc.apply(msg);
             }
-        } catch (TypeError e) {
-            // Formally necessary but index() guarantees never reached
-            return 0;
         }
     }
 
