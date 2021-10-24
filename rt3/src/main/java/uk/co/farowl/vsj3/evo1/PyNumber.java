@@ -208,7 +208,6 @@ public class PyNumber extends Abstract {
     private static final MethodHandle BINARY_EMPTY =
             Slot.Signature.BINARY.empty;
 
-
     /**
      * True iff the object has a slot for conversion to the index type.
      *
@@ -303,6 +302,37 @@ public class PyNumber extends Abstract {
                 String msg = String.format(CANNOT_FIT,
                         PyType.of(o).getName());
                 throw exc.apply(msg);
+            }
+        }
+    }
+
+    /**
+     * Extract a slice index from a Python {@code int} or an object
+     * defining {@code __index__}, and return it as a Java {@code int}.
+     * So that the call need not be guarded by {@code v!=Py.None}, which
+     * is a common occurrence in the contexts where it is used, we
+     * special-case {@code None} to return a supplied default value. We
+     * silently reduce values larger than {@link Integer#MAX_VALUE} to
+     * {@code Integer.MAX_VALUE}, and silently boost values less than
+     * {@link Integer#MIN_VALUE} to {@code Integer.MIN_VALUE}.
+     *
+     * @param v to convert
+     * @param defaultValue to return when {@code v==Py.None}
+     * @return normalised value as a Java {@code int}
+     * @throws TypeError if {@code v!=None} has no {@code __index__}
+     * @throws Throwable from the implementation of {@code __index__}
+     */
+    // Compare CPython _PyEval_SliceIndex in eval.c and where called
+    static int sliceIndex(Object v, int defaultValue)
+            throws TypeError, Throwable {
+        if (v == Py.None) {
+            return defaultValue;
+        } else {
+            if (PyNumber.indexCheck(v)) {
+                return asSize(v, null);
+            } else {
+                throw new TypeError("slice indices must be integers or "
+                        + "None or have an __index__ method");
             }
         }
     }

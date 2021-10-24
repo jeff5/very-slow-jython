@@ -16,9 +16,9 @@ class PyObjectUtil {
     /**
      * Convenient wrapper for sequence types implementing
      * {@code __getitem__}, so that they need only provide a
-     * {@link PySequenceInterface#getItem(int)} implementation. The
-     * wrapper takes care of index argument processing and range checks,
-     * and errors that arise from it.
+     * {@link PySequence.Of#getItem(int)} implementation. The wrapper
+     * takes care of index argument processing and range checks, and
+     * errors that arise from it.
      * <p>
      * This method only deals with simple item indices that may be
      * converted to an {@code int}. Slices must be detected by the
@@ -31,7 +31,7 @@ class PyObjectUtil {
      * @throws TypeError if {@code n} has no {@code __index__}
      * @throws Throwable from implementation of {@code __index__} etc..
      */
-    static <T> T getItem(PySequenceInterface<T> seq, Object item)
+    static <T> T getItem(PySequence.Of<T> seq, Object item)
             throws Throwable {
         final int L = seq.length();
         int i = PyNumber.asSize(item, IndexError::new);
@@ -47,9 +47,8 @@ class PyObjectUtil {
     /**
      * Convenient wrapper for sequence types implementing
      * {@code __mul__}, so that they need only provide a
-     * {@link PySequenceInterface#repeat(int)} implementation. The
-     * wrapper takes care of object conversion and errors that arise
-     * from it.
+     * {@link PySequence.Of#repeat(int)} implementation. The wrapper
+     * takes care of object conversion and errors that arise from it.
      *
      * @param <T> target type of sequence
      * @param seq to repeat
@@ -58,7 +57,7 @@ class PyObjectUtil {
      * @throws TypeError if {@code n} has no {@code __index__}
      * @throws Throwable from implementation of {@code __index__} etc..
      */
-    static <T> Object repeat(PySequenceInterface<T> seq, Object n)
+    static <T> Object repeat(PySequence.Of<T> seq, Object n)
             throws TypeError, Throwable {
         if (PyNumber.indexCheck(n)) {
             int count = PyNumber.asSize(n, OverflowError::new);
@@ -75,9 +74,9 @@ class PyObjectUtil {
     /**
      * Convenient wrapper for sequence types implementing
      * {@code __add__}, so that they need only provide a
-     * {@link PySequenceInterface#concat(PySequenceInterface<T>)}
-     * implementation. The wrapper takes care of object conversion and
-     * errors that arise from it.
+     * {@link PySequence.Of#concat(PySequence.Of<T>)} implementation.
+     * The wrapper takes care of object conversion and errors that arise
+     * from it.
      *
      * @param <T> target type of sequence
      * @param v left operand
@@ -85,8 +84,8 @@ class PyObjectUtil {
      * @return the concatenated result
      * @throws Throwable from implementation.
      */
-    static <T> Object concat(PySequenceInterface<T> v,
-            PySequenceInterface<T> w) throws TypeError, Throwable {
+    static <T> Object concat(PySequence.Of<T> v, PySequence.Of<T> w)
+            throws TypeError, Throwable {
         try {
             return v.concat(w);
         } catch (OutOfMemoryError e) {
@@ -162,7 +161,7 @@ class PyObjectUtil {
      * @return an exception to throw
      */
     static <T> OverflowError
-            concatenatedOverflow(PySequenceInterface<T> seq) {
+            concatenatedOverflow(PySequence.Of<T> seq) {
         return new OverflowError("concatenated %s is too long",
                 seq.getType().getName());
     }
@@ -174,8 +173,7 @@ class PyObjectUtil {
      * @param seq the sequence operated on
      * @return an exception to throw
      */
-    static <T> OverflowError
-            repeatedOverflow(PySequenceInterface<T> seq) {
+    static <T> OverflowError repeatedOverflow(PySequence.Of<T> seq) {
         return new OverflowError("repeated %s is too long",
                 seq.getType().getName());
     }

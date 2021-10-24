@@ -15,6 +15,7 @@ import uk.co.farowl.vsj3.evo1.Exposed.Default;
 import uk.co.farowl.vsj3.evo1.Exposed.Name;
 import uk.co.farowl.vsj3.evo1.Exposed.PythonMethod;
 import uk.co.farowl.vsj3.evo1.PyObjectUtil.NoConversion;
+import uk.co.farowl.vsj3.evo1.PySlice.Indices;
 import uk.co.farowl.vsj3.evo1.base.InterpreterError;
 
 /**
@@ -30,8 +31,8 @@ import uk.co.farowl.vsj3.evo1.base.InterpreterError;
  * involving sequential access. By contrast, a {@code PyUnicode} is
  * time-efficient, but each character occupies one {@code int}.
  */
-class PyUnicode implements PySequenceInterface.OfInt, CraftedPyObject,
-        PyDict.Key {
+class PyUnicode
+        implements PySequence.OfInt, CraftedPyObject, PyDict.Key {
 
     /** The type of Python object this class implements. */
     static final PyType TYPE = PyType.fromSpec( //
@@ -270,7 +271,7 @@ class PyUnicode implements PySequenceInterface.OfInt, CraftedPyObject,
     }
 
     @SuppressWarnings("unused")
-    private Object __getitem__(Object item) throws Throwable {
+    private Object __getitem__old(Object item) throws Throwable {
         if (PyNumber.indexCheck(item)) {
             Integer cp = PyObjectUtil.getItem(this, item);
             return PyUnicode.fromCodePoint(cp);
@@ -281,7 +282,7 @@ class PyUnicode implements PySequenceInterface.OfInt, CraftedPyObject,
     }
 
     @SuppressWarnings("unused")
-    private static Object __getitem__(String self, Object item)
+    private static Object __getitem__old(String self, Object item)
             throws Throwable {
         if (PyNumber.indexCheck(item)) {
             Integer cp = PyObjectUtil.getItem(adapt(self), item);
@@ -290,6 +291,56 @@ class PyUnicode implements PySequenceInterface.OfInt, CraftedPyObject,
         // else if item is a PySlice { ... }
         else
             throw Abstract.indexTypeError(self, item);
+    }
+
+    private class UnicodeDelegate
+            extends PySequence.Delegate<Object, Object> {
+
+        @Override
+        public int length() { return value.length; }
+
+        @Override
+        public PyType getType() { return TYPE; }
+
+        @Override
+        public String getTypeName() { return "string"; }
+
+        @Override
+        public Object getImpl(int i) {
+            return PyUnicode.fromCodePoint(value[i]);
+        }
+
+        @Override
+        public Object getImpl(Indices slice) {
+            int[] v;
+            if (slice.step == 1)
+                v = Arrays.copyOfRange(value, slice.start, slice.stop);
+            else {
+                v = new int[slice.slicelength];
+                int i = slice.start;
+                for (int j = 0; j < slice.slicelength; j++) {
+                    v[j] = value[i];
+                    i += slice.step;
+                }
+            }
+            return new PyUnicode(TYPE, true, v);
+        }
+    }
+
+    UnicodeDelegate unicodeDelegate = new UnicodeDelegate();
+
+    @SuppressWarnings("unused")
+    private Object __getitem__(Object item) throws Throwable {
+        return unicodeDelegate.__getitem__(item);
+    }
+
+
+    @SuppressWarnings("unused")
+    private static Object __getitem__(String self, Object item)
+            throws Throwable {
+        // PySequence.IndexDelegate<Object, Object> delegate = adapt(self);
+        var delegate = adapt(self);
+        return delegate.__getitem__(item);
     }
 
     // Methods --------------------------------------------------------
@@ -464,7 +515,7 @@ class PyUnicode implements PySequenceInterface.OfInt, CraftedPyObject,
      * @param b another
      * @return whether values equal
      */
-    private boolean equals(PySequenceInterface<Integer> b) {
+    private boolean equals(PySequence.Of<Integer> b) {
         // Lengths must be equal
         if (length() != b.length()) { return false; }
         // Scan the codes points in this.value and b
@@ -474,7 +525,7 @@ class PyUnicode implements PySequenceInterface.OfInt, CraftedPyObject,
     }
 
     @Override
-    public int compareTo(PySequenceInterface<Integer> other) {
+    public int compareTo(PySequence.Of<Integer> other) {
         Iterator<Integer> ib = other.iterator();
         for (int a : value) {
             if (ib.hasNext()) {
@@ -536,7 +587,7 @@ class PyUnicode implements PySequenceInterface.OfInt, CraftedPyObject,
         throw Abstract.requiredTypeError("a str", v);
     }
 
-    // PySequenceInterface.OfInt interface ----------------------------
+    // PySequence.OfInt interface -------------------------------------
 
     @Override
     public int length() { return value.length; }
@@ -548,7 +599,7 @@ class PyUnicode implements PySequenceInterface.OfInt, CraftedPyObject,
     }
 
     @Override
-    public PyUnicode concat(PySequenceInterface<Integer> other)
+    public PyUnicode concat(PySequence.Of<Integer> other)
             throws OutOfMemoryError {
         return concatUnicode(asIntStream(),
                 other.asStream().mapToInt(Integer::intValue));
@@ -626,14 +677,18 @@ class PyUnicode implements PySequenceInterface.OfInt, CraftedPyObject,
     }
 
     /**
-     * Wrap a Java {@code String} as a sequence. The {@code char}s of
-     * the {@code String} are treated individually, not interpreted as
-     * surrogate pairs.
+     * Wrap a Java {@code String} as a {@link IndexDelegate}, which is
+     * also a an iterable of {@code int}. If the {@code String} includes
+     * surrogate pairs of {@code char}s, these are interpreted as a
+     * single Python code point.
      */
-    private static class StringAdapter
-            implements PySequenceInterface.OfInt {
+    static class StringAdapter
+            extends PySequence.Delegate<Object, Object>
+            implements PySequence.OfInt {
+
         /** Value of the str encoded as a Java {@code String}. */
         private final String s;
+
         /** Length in code points deduced from the {@code String}. */
         private final int len;
 
@@ -652,12 +707,17 @@ class PyUnicode implements PySequenceInterface.OfInt, CraftedPyObject,
          * characters or, possibly, isolated surrogates. All
          * {@code char}s may be treated as code points.
          *
-         * @return contains only BMP characters orisolated surrogates
+         * @return contains only BMP characters or isolated surrogates
          */
         private boolean isBMP() { return len == s.length(); }
 
         @Override
         public int length() { return len; };
+
+        @Override
+        public Object getImpl(int i) {
+            return PyUnicode.fromCodePoint(getItem(i));
+        }
 
         @Override
         public Integer getItem(int i) {
@@ -674,6 +734,45 @@ class PyUnicode implements PySequenceInterface.OfInt, CraftedPyObject,
                     throw new InterpreterError(nse, "index=%d", i);
                 }
             }
+        }
+
+        @Override
+        public Object getImpl(Indices slice) throws Throwable {
+            if (slice.step == 1 && isBMP()) {
+                return s.substring(slice.start, slice.stop);
+            } else {
+                /*
+                 * If the code points are not all BMP, it is less work
+                 * in future if we use a PyUnicode. If step != 1, there
+                 * is the possibility of creating an unintended
+                 * surrogate pair, so only a PyUnicode should be trusted
+                 * to represent the result.
+                 */
+                int[] v = getSlice(slice);
+                return new PyUnicode(TYPE, true, v);
+            }
+        }
+
+        public int[] getSlice(PySlice.Indices slice) {
+            int L = slice.slicelength, i = slice.start;
+            int[] r = new int[L];
+            if (isBMP()) {
+                // Treating surrogates as characters
+                for (int j = 0; j < L; j++) {
+                    r[j] = s.charAt(i);
+                    i += slice.step;
+                }
+            } else {
+                // We have to count from the start
+                Iterator<Integer> cps = iterator();
+                int j = 0;
+                while (j++ < slice.start) { cps.next(); }
+                for (j = 0; j < L; j++) {
+                    r[j] = cps.next();
+                    for (int k = 1; k < slice.step; k++) { cps.next(); }
+                }
+            }
+            return r;
         }
 
         @Override
@@ -702,7 +801,7 @@ class PyUnicode implements PySequenceInterface.OfInt, CraftedPyObject,
         public IntStream asIntStream() { return s.codePoints(); }
 
         @Override
-        public Object concat(PySequenceInterface<Integer> other) {
+        public Object concat(PySequence.Of<Integer> other) {
             /*
              * other is not a StringAdapter or we would have taken a
              * short-cut already. Therefore the result is going to be a
@@ -733,7 +832,7 @@ class PyUnicode implements PySequenceInterface.OfInt, CraftedPyObject,
         }
 
         @Override
-        public int compareTo(PySequenceInterface<Integer> other) {
+        public int compareTo(PySequence.Of<Integer> other) {
             int n = s.length();
             Iterator<Integer> ib = other.iterator();
             // Not treating surrogate pairs as one code point
@@ -759,6 +858,9 @@ class PyUnicode implements PySequenceInterface.OfInt, CraftedPyObject,
 
         @Override
         public PyType getType() { return TYPE; }
+
+        @Override
+        public String getTypeName() { return "string"; }
     }
 
     /**
@@ -771,8 +873,7 @@ class PyUnicode implements PySequenceInterface.OfInt, CraftedPyObject,
      * @return {@code int} value
      * @throws TypeError if {@code v} is not a Python {@code str}
      */
-    static PySequenceInterface<Integer> asSeq(Object v)
-            throws TypeError {
+    static PySequence.Of<Integer> asSeq(Object v) throws TypeError {
         // Check against supported types, most likely first
         if (v instanceof String)
             return new StringAdapter((String)v);
@@ -789,21 +890,29 @@ class PyUnicode implements PySequenceInterface.OfInt, CraftedPyObject,
      * operation will normally return {@link Py#NotImplemented} in that
      * case.
      * <p>
-     * Note that implementing {@link PySequenceInterface.OfInt} is not
-     * enough, which other types may, but be incompatible in Python.
+     * Note that implementing {@link PySequence.OfInt} is not enough,
+     * which other types may, but be incompatible in Python.
      *
      * @param v to wrap or return
      * @return adapted to a sequence
      * @throws NoConversion if {@code v} is not a Python {@code str}
      */
-    static PySequenceInterface.OfInt adapt(Object v)
-            throws NoConversion {
+    static PySequence.OfInt adapt(Object v) throws NoConversion {
         // Check against supported types, most likely first
         if (v instanceof String)
             return new StringAdapter((String)v);
         else if (v instanceof PyUnicode)
-            return (PySequenceInterface.OfInt)v;
+            return (PySequence.OfInt)v;
         throw PyObjectUtil.NO_CONVERSION;
+    }
+
+    /**
+     * Short-cut {@link #adapt(Object)} when type statically known.
+     * @param v to wrap
+     * @return new StringAdapter(v)
+     */
+    static StringAdapter adapt(String v) {
+            return new StringAdapter(v);
     }
 
     /**

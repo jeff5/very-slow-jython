@@ -14,7 +14,7 @@ import uk.co.farowl.vsj3.evo1.PyObjectUtil.NoConversion;
 
 /** The Python {@code bytes} object. */
 class PyBytes extends AbstractList<Integer>
-        implements PySequenceInterface.OfInt, CraftedPyObject {
+        implements PySequence.OfInt, CraftedPyObject {
 
     /** The type of Python object this class implements. */
     static final PyType TYPE = PyType.fromSpec( //
@@ -152,7 +152,7 @@ class PyBytes extends AbstractList<Integer>
     @Override
     public int size() { return value.length; }
 
-    // PySequenceInterface.OfInt interface ----------------------------
+    // PySequence.OfInt interface ----------------------------
 
     @Override
     public PyType getType() { return type; }
@@ -180,14 +180,14 @@ class PyBytes extends AbstractList<Integer>
     }
 
     @Override
-    public PyBytes concat(PySequenceInterface<Integer> other) {
+    public PyBytes concat(PySequence.Of<Integer> other) {
         int n = value.length, m = other.length();
         byte[] b = new byte[n + m];
         // Copy the data from this array
         System.arraycopy(value, 0, b, 0, n);
         // Append the data from the other stream
-        IntStream s = other instanceof PySequenceInterface.OfInt
-                ? ((PySequenceInterface.OfInt)other).asIntStream()
+        IntStream s = other instanceof PySequence.OfInt
+                ? ((PySequence.OfInt)other).asIntStream()
                 : other.asStream().mapToInt(Integer::valueOf);
         s.forEach(new ByteStore(b, n));
         return new PyBytes(TYPE, true, b);
@@ -224,7 +224,7 @@ class PyBytes extends AbstractList<Integer>
     }
 
     @Override
-    public int compareTo(PySequenceInterface<Integer> other) {
+    public int compareTo(PySequence.Of<Integer> other) {
         Iterator<Integer> ib = other.iterator();
         for (int a : value) {
             if (ib.hasNext()) {
@@ -247,8 +247,8 @@ class PyBytes extends AbstractList<Integer>
 
     // Plumbing -------------------------------------------------------
 
-    private static PyBytes concatBytes(PySequenceInterface.OfInt v,
-            PySequenceInterface.OfInt w) {
+    private static PyBytes concatBytes(PySequence.OfInt v,
+            PySequence.OfInt w) {
         try {
             int n = v.length(), m = w.length();
             byte[] b = new byte[n + m];
@@ -312,18 +312,18 @@ class PyBytes extends AbstractList<Integer>
      * perhaps by throwing a {@link TypeError}. A binary operation will
      * normally return {@link Py#NotImplemented} in that case.
      * <p>
-     * Note that implementing {@link PySequenceInterface.OfInt} is not
+     * Note that implementing {@link PySequence.OfInt} is not
      * enough, which other types may, but be incompatible in Python.
      *
      * @param v to wrap or return
      * @return adapted to a sequence
      * @throws NoConversion if {@code v} is not a Python {@code str}
      */
-    static PySequenceInterface.OfInt adapt(Object v)
+    static PySequence.OfInt adapt(Object v)
             throws NoConversion {
         // Check against supported types, most likely first
         if (v instanceof PyBytes /* || v instanceof PyByteArray */)
-            return (PySequenceInterface.OfInt)v;
+            return (PySequence.OfInt)v;
         throw PyObjectUtil.NO_CONVERSION;
     }
 

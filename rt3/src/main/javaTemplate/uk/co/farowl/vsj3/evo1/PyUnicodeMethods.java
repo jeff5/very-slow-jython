@@ -33,8 +33,7 @@ class PyUnicodeMethods {
      * @param b another
      * @return whether values equal
      */
-    private static boolean eq(PySequenceInterface.OfInt a,
-            PySequenceInterface.OfInt b) {
+    private static boolean eq(PySequence.OfInt a, PySequence.OfInt b) {
         // Lengths must be equal
         if (a.length() != b.length()) { return false; }
         // Scan the code points in a and b

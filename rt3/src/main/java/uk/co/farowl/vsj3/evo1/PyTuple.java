@@ -16,7 +16,7 @@ import uk.co.farowl.vsj3.evo1.base.InterpreterError;
 
 /** The Python {@code tuple} object. */
 class PyTuple extends AbstractList<Object>
-        implements PySequenceInterface<Object>, CraftedPyObject {
+        implements PySequence.Of<Object>, CraftedPyObject {
 
     /** The Python type object for {@code tuple}. */
     static final PyType TYPE = PyType.fromSpec( //
@@ -253,7 +253,7 @@ class PyTuple extends AbstractList<Object>
     }
 
     @Override
-    public PyTuple concat(PySequenceInterface<Object> other) {
+    public PyTuple concat(PySequence.Of<Object> other) {
         int n = length(), m = other.length();
         Object[] b = new Object[n + m];
         System.arraycopy(value, 0, b, 0, n);
@@ -296,7 +296,7 @@ class PyTuple extends AbstractList<Object>
      *     {@code PyTuple}
      */
     @Override
-    public int compareTo(PySequenceInterface<Object> other)
+    public int compareTo(PySequence.Of<Object> other)
             throws ClassCastException, PyException {
         try {
             // Tuple is comparable only with another tuple
@@ -364,7 +364,7 @@ class PyTuple extends AbstractList<Object>
      * @return adapted to a sequence
      * @throws NoConversion if {@code v} is not a Python {@code str}
      */
-    static PySequenceInterface<Object> adapt(Object v)
+    static PySequence.Of<Object> adapt(Object v)
             throws NoConversion {
         // Check against supported types, most likely first
         if (v instanceof PyTuple )
