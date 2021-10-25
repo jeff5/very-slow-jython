@@ -1,3 +1,5 @@
+// Copyright (c)2021 Jython Developers.
+// Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj3.evo1;
 
 import java.lang.invoke.MethodHandles;
@@ -47,6 +49,12 @@ class PyUnicode
     private final int[] value;
 
     /**
+     * Helper to implement {@code __getitem__} and other index-related
+     * operations.
+     */
+    private UnicodeDelegate unicodeDelegate = new UnicodeDelegate();
+
+    /**
      * Cached hash of the {@code str}, lazily computed in
      * {@link #hashCode()}. Zero if unknown, and nearly always unknown
      * if zero.
@@ -58,8 +66,8 @@ class PyUnicode
      * sub-class, from a given array of code points, with the option to
      * re-use that array as the implementation. If the actual array is
      * is re-used the caller must give up ownership and never modify it
-     * after the call. See {@link #concat(PySequenceInterface)} for a
-     * correct use.
+     * after the call. See {@link #fromCodePoint(int)} for a correct
+     * use.
      *
      * @param type actual type the instance should have
      * @param iPromiseNotToModify if {@code true}, the array becomes the
@@ -271,74 +279,15 @@ class PyUnicode
     }
 
     @SuppressWarnings("unused")
-    private Object __getitem__old(Object item) throws Throwable {
-        if (PyNumber.indexCheck(item)) {
-            Integer cp = PyObjectUtil.getItem(this, item);
-            return PyUnicode.fromCodePoint(cp);
-        }
-        // else if item is a PySlice { ... }
-        else
-            throw Abstract.indexTypeError(this, item);
-    }
-
-    @SuppressWarnings("unused")
-    private static Object __getitem__old(String self, Object item)
-            throws Throwable {
-        if (PyNumber.indexCheck(item)) {
-            Integer cp = PyObjectUtil.getItem(adapt(self), item);
-            return PyUnicode.fromCodePoint(cp);
-        }
-        // else if item is a PySlice { ... }
-        else
-            throw Abstract.indexTypeError(self, item);
-    }
-
-    private class UnicodeDelegate
-            extends PySequence.Delegate<Object, Object> {
-
-        @Override
-        public int length() { return value.length; }
-
-        @Override
-        public PyType getType() { return TYPE; }
-
-        @Override
-        public String getTypeName() { return "string"; }
-
-        @Override
-        public Object getImpl(int i) {
-            return PyUnicode.fromCodePoint(value[i]);
-        }
-
-        @Override
-        public Object getImpl(Indices slice) {
-            int[] v;
-            if (slice.step == 1)
-                v = Arrays.copyOfRange(value, slice.start, slice.stop);
-            else {
-                v = new int[slice.slicelength];
-                int i = slice.start;
-                for (int j = 0; j < slice.slicelength; j++) {
-                    v[j] = value[i];
-                    i += slice.step;
-                }
-            }
-            return new PyUnicode(TYPE, true, v);
-        }
-    }
-
-    UnicodeDelegate unicodeDelegate = new UnicodeDelegate();
-
-    @SuppressWarnings("unused")
     private Object __getitem__(Object item) throws Throwable {
         return unicodeDelegate.__getitem__(item);
     }
 
-
     @SuppressWarnings("unused")
     private static Object __getitem__(String self, Object item)
             throws Throwable {
-        // PySequence.IndexDelegate<Object, Object> delegate = adapt(self);
+        // PySequence.IndexDelegate<Object, Object> delegate =
+        // adapt(self);
         var delegate = adapt(self);
         return delegate.__getitem__(item);
     }
@@ -864,6 +813,48 @@ class PyUnicode
     }
 
     /**
+     * A class to act as the delegate implementing {@code __getitem__}
+     * and other index-related operations. By inheriting {@link Delegate
+     * PySequence.Delegate} privately in this inner class, we obtain
+     * boilerplate implementation code for slice transltion and range
+     * checks, and need specify the work specific to {@link PyUnicode}
+     * instances.
+     */
+    private class UnicodeDelegate
+            extends PySequence.Delegate<Object, Object> {
+
+        @Override
+        public int length() { return value.length; }
+
+        @Override
+        public PyType getType() { return TYPE; }
+
+        @Override
+        public String getTypeName() { return "string"; }
+
+        @Override
+        public Object getImpl(int i) {
+            return PyUnicode.fromCodePoint(value[i]);
+        }
+
+        @Override
+        public Object getImpl(Indices slice) {
+            int[] v;
+            if (slice.step == 1)
+                v = Arrays.copyOfRange(value, slice.start, slice.stop);
+            else {
+                v = new int[slice.slicelength];
+                int i = slice.start;
+                for (int j = 0; j < slice.slicelength; j++) {
+                    v[j] = value[i];
+                    i += slice.step;
+                }
+            }
+            return new PyUnicode(TYPE, true, v);
+        }
+    }
+
+    /**
      * Adapt a Python {@code str} to a sequence of Java {@code Integer}
      * values or raise a {@link TypeError}. This is for use when the
      * argument is expected to be a Python {@code str} or a sub-class of
@@ -908,11 +899,12 @@ class PyUnicode
 
     /**
      * Short-cut {@link #adapt(Object)} when type statically known.
+     *
      * @param v to wrap
      * @return new StringAdapter(v)
      */
     static StringAdapter adapt(String v) {
-            return new StringAdapter(v);
+        return new StringAdapter(v);
     }
 
     /**

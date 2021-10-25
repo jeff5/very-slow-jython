@@ -132,8 +132,28 @@ class PyDict extends AbstractMap<Object, Object>
     // Non-Python API -------------------------------------------------
 
     /**
-     * An object with this interface defines {@code hashCode()} and
-     * {@code equals()} to have Python semantics.
+     * A {@code PyDict} is a {@code Map<Object, Object>}, but contains a
+     * private implementation of {@code java.utilMap<Key, Object>}. We
+     * use this class {@code Key} so that when
+     * Java needs key hashes or comparisons, it receives the hash or
+     * comparison that Python would produce. An object with the
+     * {@code Key} interface defines the standard Java
+     * {@code hashCode()} and {@code equals()} to return the answers
+     * Python would give for {@code __hash__} and {@code __eq__}.
+     * <p>
+     * Some implementations of Python objects (e.g. the {@link PyUnicode}
+     * implementation of {@code str}) implement {@code PyDict.Key}, and can give Python
+     * semantics to hash and comparison directly. Other implementations (e.g. a
+     * Java {@code String} implementation of {@code str}) have to be
+     * wrapped in a {@link KeyHolder} that implements
+     * {@code PyDict.Key}. Conversely, when any method requires the keys
+     * of a Python {@code dict}, the {@code Key} must yield up the
+     * original Python object it contains.
+     * <p>
+     * An implementation of a Python type that allows Python sub-classes
+     * must respect re-definition of the corresponding special methods.
+     * This is best done by by calling abstract API
+     * {@link Abstract#hash(Object)}, etc..
      */
     interface Key {
 
