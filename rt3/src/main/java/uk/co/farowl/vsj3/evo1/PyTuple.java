@@ -4,6 +4,7 @@ import static uk.co.farowl.vsj3.evo1.Abstract.richCompareBool;
 
 import java.lang.invoke.MethodHandles;
 import java.util.AbstractList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.Spliterator;
@@ -11,12 +12,13 @@ import java.util.Spliterators;
 import java.util.StringJoiner;
 
 import uk.co.farowl.vsj3.evo1.PyObjectUtil.NoConversion;
+import uk.co.farowl.vsj3.evo1.PySequence.Of;
+import uk.co.farowl.vsj3.evo1.PySlice.Indices;
 import uk.co.farowl.vsj3.evo1.PyType.Spec;
 import uk.co.farowl.vsj3.evo1.base.InterpreterError;
 
 /** The Python {@code tuple} object. */
-class PyTuple extends AbstractList<Object>
-        implements PySequence.Of<Object>, CraftedPyObject {
+class PyTuple extends AbstractList<Object> implements CraftedPyObject {
 
     /** The Python type object for {@code tuple}. */
     static final PyType TYPE = PyType.fromSpec( //
@@ -27,6 +29,9 @@ class PyTuple extends AbstractList<Object>
 
     /** The elements of the {@code tuple}. */
     final Object[] value;
+
+    /** Implementation help for sequence methods. */
+    private TupleAdapter delegate = new TupleAdapter();
 
     /**
      * Potentially unsafe constructor, capable of creating a
@@ -186,41 +191,30 @@ class PyTuple extends AbstractList<Object>
     // Special methods -----------------------------------------------
 
     @SuppressWarnings("unused")
-    private Object __add__(Object other) throws Throwable {
-        try {
-            return PyObjectUtil.concat(this, adapt(other));
-        } catch (NoConversion e) {
-            return Py.NotImplemented;
-        }
+    private Object __add__(Object w) throws Throwable {
+        return delegate.__add__(w);
     }
 
     @SuppressWarnings("unused")
-    private Object __radd__(Object other) throws Throwable {
-        try {
-            return PyObjectUtil.concat(adapt(other), this);
-        } catch (NoConversion e) {
-            return Py.NotImplemented;
-        }
+    private Object __radd__(Object v) throws Throwable {
+        return delegate.__radd__(v);
     }
 
+    @SuppressWarnings("unused")
     private Object __mul__(Object n) throws Throwable {
-        return PyObjectUtil.repeat(this, n);
+        return delegate.__mul__(n);
     }
 
     @SuppressWarnings("unused")
     private Object __rmul__(Object n) throws Throwable {
-        return __mul__(n);
+        return delegate.__mul__(n);
     }
 
     int __len__() { return size(); }
 
-    Object __getitem__(Object item) throws Throwable {
-        if (PyNumber.indexCheck(item)) {
-            return PyObjectUtil.getItem(this, item);
-        }
-        // else if item is a PySlice { ... }
-        else
-            throw Abstract.indexTypeError(this, item);
+    @SuppressWarnings("unused")
+    private Object __getitem__(Object item) throws Throwable {
+        return delegate.__getitem__(item);
     }
 
     // AbstractList methods ------------------------------------------
@@ -230,52 +224,6 @@ class PyTuple extends AbstractList<Object>
 
     @Override
     public int size() { return value.length; }
-
-    // Sequence interface --------------------------------------------
-
-    @Override
-    public int length() { return value.length; };
-
-    @Override
-    public Spliterator<Object> spliterator() {
-        final int flags = Spliterator.IMMUTABLE | Spliterator.SIZED
-                | Spliterator.ORDERED;
-        return Spliterators.spliterator(value, flags);
-    }
-
-    @Override
-    public Object getItem(int i) {
-        try {
-            return get(i);
-        } catch (IndexOutOfBoundsException e) {
-            throw Abstract.indexOutOfRange("tuple");
-        }
-    }
-
-    @Override
-    public PyTuple concat(PySequence.Of<Object> other) {
-        int n = length(), m = other.length();
-        Object[] b = new Object[n + m];
-        System.arraycopy(value, 0, b, 0, n);
-        for (Object x : other) { b[n++] = x; }
-        return new PyTuple(TYPE, true, b);
-    }
-
-    @Override
-    public Object repeat(int n) throws OutOfMemoryError {
-        if (n == 0)
-            return EMPTY;
-        else if (n == 1 || value.length==0)
-            return this;
-        else {
-            int m = value.length;
-            Object[] b = new Object[n * m];
-            for (int i = 0, p = 0; i < n; i++, p += m) {
-                System.arraycopy(value, 0, b, p, m);
-            }
-            return new PyTuple(TYPE, true, b);
-        }
-    }
 
     @Override
     public Iterator<Object> iterator() {
@@ -291,58 +239,150 @@ class PyTuple extends AbstractList<Object>
         };
     }
 
-    /**
-     * @throws ClassCastException if {@code other} is not a
-     *     {@code PyTuple}
-     */
-    @Override
-    public int compareTo(PySequence.Of<Object> other)
-            throws ClassCastException, PyException {
-        try {
-            // Tuple is comparable only with another tuple
-            Object[] otherValue = ((PyTuple)other).value;
-            int N = value.length, M = otherValue.length, i = 0;
-
-            for (i = 0; i < N; i++) {
-                Object a = value[i];
-                if (i < M) {
-                    Object b = otherValue[i];
-                    // if a != b, then we've found an answer
-                    if (!richCompareBool(a, b, Comparison.EQ)) {
-                        if (richCompareBool(a, b, Comparison.GT))
-                            return 1;
-                        else
-                            return -1;
-                    }
-                } else
-                    // value has not run out, but other has. We win.
-                    return 1;
-            }
-
-            /*
-             * The arrays matched over the length of value. The other is
-             * the winner if it still has elements. Otherwise it's a
-             * tie.
-             */
-            return i < M ? -1 : 0;
-        } catch (PyException e) {
-            throw e;
-        } catch (Throwable t) {
-            /*
-             * Contract of Comparable prohibits propagation of checked
-             * exceptions, but richCompareBool in principle throws
-             * anything.
-             */
-            // XXX perhaps need a PyException to wrap Java Throwable
-            throw new InterpreterError(t,
-                    "non-Python exeption in comparison");
-        }
-    }
-
     // Plumbing ------------------------------------------------------
 
     @Override
     public PyType getType() { return type; }
+
+    /**
+     * Wrap this {@code PyTuple} as a {@link PySequence.Delegate}, that
+     * is also a an iterable of {@code Object}.
+     */
+    class TupleAdapter extends PySequence.Delegate<Object, Object>
+            implements PySequence.Of<Object> {
+
+        @Override
+        public int length() { return value.length; };
+
+        @Override
+        public PyType getType() { return type; }
+
+        @Override
+        public Object getItem(int i) { return value[i]; }
+
+        @Override
+        public Object getSlice(Indices slice) throws Throwable {
+            Object[] v;
+            if (slice.step == 1)
+                v = Arrays.copyOfRange(value, slice.start, slice.stop);
+            else {
+                v = new Object[slice.slicelength];
+                int i = slice.start;
+                for (int j = 0; j < slice.slicelength; j++) {
+                    v[j] = value[i];
+                    i += slice.step;
+                }
+            }
+            return new PyTuple(TYPE, true, v);
+        }
+
+        @Override
+        Object add(Object ow) throws NoConversion {
+            if (ow instanceof PyTuple) {
+                PyTuple w = (PyTuple)ow;
+                return PyTuple.concat(value, w.value);
+            } else {
+                throw PyObjectUtil.NO_CONVERSION;
+            }
+        }
+
+        @Override
+        Object radd(Object ov) throws NoConversion {
+            if (ov instanceof PyTuple) {
+                PyTuple v = (PyTuple)ov;
+                return PyTuple.concat(v.value, value);
+            } else {
+                throw PyObjectUtil.NO_CONVERSION;
+            }
+        }
+
+        @Override
+        Object repeat(int n) {
+            if (n == 0)
+                return EMPTY;
+            else if (n == 1 || value.length == 0)
+                return PyTuple.this;
+            else {
+                int m = value.length;
+                Object[] b = new Object[n * m];
+                for (int i = 0, p = 0; i < n; i++, p += m) {
+                    System.arraycopy(value, 0, b, p, m);
+                }
+                return new PyTuple(TYPE, true, b);
+            }
+        }
+
+        // PySequence.Of<Object> interface ----------------------------
+
+        @Override
+        public Object get(int i) { return getItem(i); }
+
+        @Override
+        public Spliterator<Object> spliterator() {
+            final int flags = Spliterator.IMMUTABLE | Spliterator.SIZED
+                    | Spliterator.ORDERED;
+            return Spliterators.spliterator(value, flags);
+        }
+
+        // Iterable<Object> interface ---------------------------------
+
+        @Override
+        public Iterator<Object> iterator() {
+            return PyTuple.this.iterator();
+        }
+
+        @Override
+        public int compareTo(Of<Object> o) {
+            try {
+                // Tuple is comparable only with another tuple
+                Object[] otherValue = ((PyTuple)o).value;
+                int N = value.length, M = otherValue.length, i = 0;
+
+                for (i = 0; i < N; i++) {
+                    Object a = value[i];
+                    if (i < M) {
+                        Object b = otherValue[i];
+                        // if a != b, then we've found an answer
+                        if (!richCompareBool(a, b, Comparison.EQ)) {
+                            if (richCompareBool(a, b, Comparison.GT))
+                                return 1;
+                            else
+                                return -1;
+                        }
+                    } else
+                        // value has not run out, but other has. We win.
+                        return 1;
+                }
+
+                /*
+                 * The arrays matched over the length of value. The
+                 * other is the winner if it still has elements.
+                 * Otherwise it's a tie.
+                 */
+                return i < M ? -1 : 0;
+            } catch (PyException e) {
+                throw e;
+            } catch (Throwable t) {
+                /*
+                 * Contract of Comparable prohibits propagation of
+                 * checked exceptions, but richCompareBool in principle
+                 * throws anything.
+                 */
+                // XXX perhaps need a PyException to wrap Java Throwable
+                throw new InterpreterError(t,
+                        "non-Python exeption in comparison");
+            }
+        }
+    }
+
+    /** Concatenate two arrays into a tuple (for TupleAdapter). */
+    private static PyTuple concat(Object[] v, Object[] w) {
+        int n = v.length, m = w.length;
+        Object[] b = new Object[n + m];
+        System.arraycopy(v, 0, b, 0, n);
+        System.arraycopy(w, 0, b, n, m);
+        return new PyTuple(TYPE, true, b);
+    }
 
     @Override
     public String toString() {
@@ -351,24 +391,5 @@ class PyTuple extends AbstractList<Object>
         StringJoiner sj = new StringJoiner(", ", "(", suffix);
         for (Object v : value) { sj.add(v.toString()); }
         return sj.toString();
-    }
-
-    /**
-     * Adapt a Python object to a sequence of Java {@code Object}s or
-     * throw an exception. If the method throws the special exception
-     * {@link NoConversion}, the caller must catch it and deal with it,
-     * perhaps by throwing a {@link TypeError}. A binary operation will
-     * normally return {@link Py#NotImplemented} in that case.
-     *
-     * @param v to wrap or return
-     * @return adapted to a sequence
-     * @throws NoConversion if {@code v} is not a Python {@code str}
-     */
-    static PySequence.Of<Object> adapt(Object v)
-            throws NoConversion {
-        // Check against supported types, most likely first
-        if (v instanceof PyTuple )
-            return (PyTuple)v;
-        throw PyObjectUtil.NO_CONVERSION;
     }
 }

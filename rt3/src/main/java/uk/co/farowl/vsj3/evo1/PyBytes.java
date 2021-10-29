@@ -11,10 +11,11 @@ import java.util.stream.IntStream;
 import java.util.stream.StreamSupport;
 
 import uk.co.farowl.vsj3.evo1.PyObjectUtil.NoConversion;
+import uk.co.farowl.vsj3.evo1.PySequence.Delegate;
+import uk.co.farowl.vsj3.evo1.PySlice.Indices;
 
 /** The Python {@code bytes} object. */
-class PyBytes extends AbstractList<Integer>
-        implements PySequence.OfInt, CraftedPyObject {
+class PyBytes extends AbstractList<Integer> implements CraftedPyObject {
 
     /** The type of Python object this class implements. */
     static final PyType TYPE = PyType.fromSpec( //
@@ -27,6 +28,12 @@ class PyBytes extends AbstractList<Integer>
 
     /** The elements of the {@code bytes}. */
     final byte[] value;
+
+    /**
+     * Helper to implement {@code __getitem__} and other index-related
+     * operations.
+     */
+    private BytesDelegate delegate = new BytesDelegate();
 
     /**
      * As {@link #PyBytes(byte[])} for Python sub-class specifying
@@ -102,33 +109,29 @@ class PyBytes extends AbstractList<Integer>
      */
     PyBytes(int... value) { this(TYPE, value); }
 
+    @Override
+    public PyType getType() { return type; }
+
     // Special methods ------------------------------------------------
 
     @SuppressWarnings("unused")
-    private Object __add__(Object other) {
-        try {
-            return concatBytes(this, adapt(other));
-        } catch (NoConversion e) {
-            return Py.NotImplemented;
-        }
+    private Object __add__(Object other) throws Throwable {
+        return delegate.__add__(other);
     }
 
     @SuppressWarnings("unused")
-    private Object __radd__(Object other) {
-        try {
-            return concatBytes(adapt(other), this);
-        } catch (NoConversion e) {
-            return Py.NotImplemented;
-        }
+    private Object __radd__(Object other) throws Throwable {
+        return delegate.__radd__(other);
     }
 
+    @SuppressWarnings("unused")
     private Object __mul__(Object n) throws Throwable {
-        return PyObjectUtil.repeat(this, n);
+        return delegate.__mul__(n);
     }
 
     @SuppressWarnings("unused")
     private Object __rmul__(Object n) throws Throwable {
-        return __mul__(n);
+        return delegate.__mul__(n);
     }
 
     @SuppressWarnings("unused")
@@ -136,12 +139,7 @@ class PyBytes extends AbstractList<Integer>
 
     @SuppressWarnings("unused")
     private Object __getitem__(Object item) throws Throwable {
-        if (PyNumber.indexCheck(item)) {
-            return PyObjectUtil.getItem(this, item);
-        }
-        // else if item is a PySlice { ... }
-        else
-            throw Abstract.indexTypeError(this, item);
+        return delegate.__getitem__(item);
     }
 
     // AbstractList methods -------------------------------------------
@@ -151,63 +149,6 @@ class PyBytes extends AbstractList<Integer>
 
     @Override
     public int size() { return value.length; }
-
-    // PySequence.OfInt interface ----------------------------
-
-    @Override
-    public PyType getType() { return type; }
-
-    @Override
-    public int length() { return value.length; };
-
-    @Override
-    public Spliterator.OfInt spliterator() {
-        return new BytesSpliterator();
-    }
-
-    @Override
-    public IntStream asIntStream() {
-        return StreamSupport.intStream(spliterator(), false);
-    }
-
-    @Override
-    public Integer getItem(int i) {
-        try {
-            return 0xff & value[i];
-        } catch (IndexOutOfBoundsException e) {
-            throw Abstract.indexOutOfRange("bytes");
-        }
-    }
-
-    @Override
-    public PyBytes concat(PySequence.Of<Integer> other) {
-        int n = value.length, m = other.length();
-        byte[] b = new byte[n + m];
-        // Copy the data from this array
-        System.arraycopy(value, 0, b, 0, n);
-        // Append the data from the other stream
-        IntStream s = other instanceof PySequence.OfInt
-                ? ((PySequence.OfInt)other).asIntStream()
-                : other.asStream().mapToInt(Integer::valueOf);
-        s.forEach(new ByteStore(b, n));
-        return new PyBytes(TYPE, true, b);
-    }
-
-    @Override
-    public Object repeat(int n) throws OutOfMemoryError {
-        if (n == 0)
-            return EMPTY;
-        else if (n == 1)
-            return this;
-        else {
-            int m = value.length;
-            byte[] b = new byte[n * m];
-            for (int i = 0, p = 0; i < n; i++, p += m) {
-                System.arraycopy(value, 0, b, p, m);
-            }
-            return new PyBytes(TYPE, true, b);
-        }
-    }
 
     @Override
     public Iterator<Integer> iterator() {
@@ -223,41 +164,146 @@ class PyBytes extends AbstractList<Integer>
         };
     }
 
-    @Override
-    public int compareTo(PySequence.Of<Integer> other) {
-        Iterator<Integer> ib = other.iterator();
-        for (int a : value) {
-            if (ib.hasNext()) {
-                int b = ib.next();
-                // if a != b, then we've found an answer
-                if (a > b)
-                    return 1;
-                else if (a < b)
-                    return -1;
-            } else
-                // value has not run out, but other has. We win.
-                return 1;
-        }
-        /*
-         * The sequences matched over the length of value. The other is
-         * the winner if it still has elements. Otherwise it's a tie.
-         */
-        return ib.hasNext() ? -1 : 0;
-    }
-
     // Plumbing -------------------------------------------------------
 
-    private static PyBytes concatBytes(PySequence.OfInt v,
-            PySequence.OfInt w) {
-        try {
-            int n = v.length(), m = w.length();
-            byte[] b = new byte[n + m];
-            IntStream.concat(v.asIntStream(), w.asIntStream())
-                    .forEach(new ByteStore(b, 0));
-            return new PyBytes(TYPE, true, b);
-        } catch (OutOfMemoryError e) {
-            throw concatenatedOverflow();
+    /**
+     * A class to act as the delegate implementing {@code __getitem__}
+     * and other index-related operations. By inheriting {@link Delegate
+     * PySequence.Delegate} in this inner class, we obtain boilerplate
+     * implementation code for slice translation and range checks. We
+     * need only specify the work specific to {@link PyBytes} instances.
+     */
+    class BytesDelegate extends PySequence.Delegate<Integer, PyBytes>
+            implements PySequence.OfInt {
+
+        @Override
+        public int length() { return value.length; }
+
+        @Override
+        public PyType getType() { return type; }
+
+        @Override
+        public Integer getItem(int i) { return 0xff & value[i]; }
+
+        @Override
+        public PyBytes getSlice(Indices slice) {
+            byte[] v;
+            if (slice.step == 1)
+                v = Arrays.copyOfRange(value, slice.start, slice.stop);
+            else {
+                v = new byte[slice.slicelength];
+                int i = slice.start;
+                for (int j = 0; j < slice.slicelength; j++) {
+                    v[j] = value[i];
+                    i += slice.step;
+                }
+            }
+            return new PyBytes(TYPE, true, v);
         }
+
+        @Override
+        PyBytes add(Object ow)
+                throws OutOfMemoryError, NoConversion, Throwable {
+            return concatBytes(delegate, adapt(ow));
+        }
+
+        @Override
+        PyBytes radd(Object ov)
+                throws OutOfMemoryError, NoConversion, Throwable {
+            return concatBytes(adapt(ov), delegate);
+        }
+
+        @Override
+        PyBytes repeat(int n) throws OutOfMemoryError, Throwable {
+            int m = value.length;
+            if (n == 0)
+                return EMPTY;
+            else if (n == 1 || m == 0)
+                return PyBytes.this;
+            else {
+                byte[] b = new byte[n * m];
+                for (int i = 0, p = 0; i < n; i++, p += m) {
+                    System.arraycopy(value, 0, b, p, m);
+                }
+                return new PyBytes(TYPE, true, b);
+            }
+        }
+
+        // PySequence.OfInt interface----------------------------------
+
+        @Override
+        public Integer get(int i) {
+            try {
+                return 0xff & value[i];
+            } catch (IndexOutOfBoundsException e) {
+                throw Abstract.indexOutOfRange("bytes");
+            }
+        }
+
+        @Override
+        public Spliterator.OfInt spliterator() {
+            return new BytesSpliterator();
+        }
+
+        @Override
+        public Iterator<Integer> iterator() {
+            return PyBytes.this.iterator();
+        }
+
+        @Override
+        public IntStream asIntStream() {
+            return StreamSupport.intStream(spliterator(), false);
+        }
+
+        @Override
+        public int compareTo(PySequence.Of<Integer> other) {
+            Iterator<Integer> ib = other.iterator();
+            for (int a : value) {
+                if (ib.hasNext()) {
+                    int b = ib.next();
+                    // if a != b, then we've found an answer
+                    if (a > b)
+                        return 1;
+                    else if (a < b)
+                        return -1;
+                } else
+                    // value has not run out, but other has. We win.
+                    return 1;
+            }
+            /*
+             * The sequences matched over the length of value. The other
+             * is the winner if it still has elements. Otherwise its a
+             * tie.
+             */
+            return ib.hasNext() ? -1 : 0;
+        }
+
+        /**
+         * Compare for equality with a sequence. This is a little
+         * simpler than {@code compareTo}.
+         *
+         * @param b another
+         * @return whether values equal
+         */
+        boolean equals(PySequence.Of<Integer> b) {
+            // Lengths must be equal
+            if (length() != b.length()) { return false; }
+            // Scan the codes points in this.value and b
+            Iterator<Integer> ib = b.iterator();
+            for (int c : value) {
+                if (c != ib.next()) { return false; }
+            }
+            return true;
+        }
+    }
+
+    private static PyBytes concatBytes(PySequence.OfInt v,
+            PySequence.OfInt w) throws OutOfMemoryError {
+        int n = v.length(), m = w.length();
+        byte[] b = new byte[n + m];
+        IntStream.concat(v.asIntStream(), w.asIntStream())
+                .forEach(new ByteStore(b, 0));
+        return new PyBytes(TYPE, true, b);
     }
 
     /**
@@ -312,22 +358,17 @@ class PyBytes extends AbstractList<Integer>
      * perhaps by throwing a {@link TypeError}. A binary operation will
      * normally return {@link Py#NotImplemented} in that case.
      * <p>
-     * Note that implementing {@link PySequence.OfInt} is not
-     * enough, which other types may, but be incompatible in Python.
+     * Note that implementing {@link PySequence.OfInt} is not enough,
+     * which other types may, but be incompatible in Python.
      *
      * @param v to wrap or return
      * @return adapted to a sequence
      * @throws NoConversion if {@code v} is not a Python {@code str}
      */
-    static PySequence.OfInt adapt(Object v)
-            throws NoConversion {
+    static PySequence.OfInt adapt(Object v) throws NoConversion {
         // Check against supported types, most likely first
         if (v instanceof PyBytes /* || v instanceof PyByteArray */)
-            return (PySequence.OfInt)v;
+            return ((PyBytes)v).delegate;
         throw PyObjectUtil.NO_CONVERSION;
-    }
-
-    private static OverflowError concatenatedOverflow() {
-        return PyObjectUtil.concatenatedOverflow(EMPTY);
     }
 }

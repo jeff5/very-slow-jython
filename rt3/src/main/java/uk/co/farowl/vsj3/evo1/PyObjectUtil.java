@@ -3,8 +3,6 @@ package uk.co.farowl.vsj3.evo1;
 import java.util.Map;
 import java.util.StringJoiner;
 
-import uk.co.farowl.vsj3.evo1.PyObjectUtil.NoConversion;
-
 /**
  * Miscellaneous static helpers commonly needed to implement Python
  * objects in Java.
@@ -12,89 +10,6 @@ import uk.co.farowl.vsj3.evo1.PyObjectUtil.NoConversion;
 class PyObjectUtil {
 
     private PyObjectUtil() {} // no instances
-
-    /**
-     * Convenient wrapper for sequence types implementing
-     * {@code __getitem__}, so that they need only provide a
-     * {@link PySequence.Of#getItem(int)} implementation. The wrapper
-     * takes care of index argument processing and range checks, and
-     * errors that arise from it.
-     * <p>
-     * This method only deals with simple item indices that may be
-     * converted to an {@code int}. Slices must be detected by the
-     * caller.
-     *
-     * @param <T> target type of sequence
-     * @param seq to get an item from
-     * @param item indexing the required elements
-     * @return the result
-     * @throws TypeError if {@code n} has no {@code __index__}
-     * @throws Throwable from implementation of {@code __index__} etc..
-     */
-    static <T> T getItem(PySequence.Of<T> seq, Object item)
-            throws Throwable {
-        final int L = seq.length();
-        int i = PyNumber.asSize(item, IndexError::new);
-        if (i < 0) { i += L; }
-        if (i < 0 || i >= L)
-            throw new IndexError("%s index out of range",
-                    seq.getType().getName());
-        return seq.getItem(i);
-    }
-
-    // XXX Separate method needed to deal with slice.
-
-    /**
-     * Convenient wrapper for sequence types implementing
-     * {@code __mul__}, so that they need only provide a
-     * {@link PySequence.Of#repeat(int)} implementation. The wrapper
-     * takes care of object conversion and errors that arise from it.
-     *
-     * @param <T> target type of sequence
-     * @param seq to repeat
-     * @param n number of repetitions in result
-     * @return the repeating result
-     * @throws TypeError if {@code n} has no {@code __index__}
-     * @throws Throwable from implementation of {@code __index__} etc..
-     */
-    static <T> Object repeat(PySequence.Of<T> seq, Object n)
-            throws TypeError, Throwable {
-        if (PyNumber.indexCheck(n)) {
-            int count = PyNumber.asSize(n, OverflowError::new);
-            try {
-                return seq.repeat(count);
-            } catch (OutOfMemoryError e) {
-                throw repeatedOverflow(seq);
-            }
-        } else {
-            throw Abstract.typeError(CANT_MULTIPLY, n);
-        }
-    }
-
-    /**
-     * Convenient wrapper for sequence types implementing
-     * {@code __add__}, so that they need only provide a
-     * {@link PySequence.Of#concat(PySequence.Of<T>)} implementation.
-     * The wrapper takes care of object conversion and errors that arise
-     * from it.
-     *
-     * @param <T> target type of sequence
-     * @param v left operand
-     * @param w right operand
-     * @return the concatenated result
-     * @throws Throwable from implementation.
-     */
-    static <T> Object concat(PySequence.Of<T> v, PySequence.Of<T> w)
-            throws TypeError, Throwable {
-        try {
-            return v.concat(w);
-        } catch (OutOfMemoryError e) {
-            throw concatenatedOverflow(v);
-        }
-    }
-
-    private static final String CANT_MULTIPLY =
-            "can't multiply sequence by non-int of type '%.200s'";
 
     /**
      * An implementation of {@code dict.__repr__} that may be applied to
@@ -152,29 +67,4 @@ class PyObjectUtil {
      * in the exception.
      */
     static final NoConversion NO_CONVERSION = new NoConversion();
-
-    /**
-     * An overflow error with the message "concatenated S is too long",
-     * where S is the type mane of the argument.
-     *
-     * @param seq the sequence operated on
-     * @return an exception to throw
-     */
-    static <T> OverflowError
-            concatenatedOverflow(PySequence.Of<T> seq) {
-        return new OverflowError("concatenated %s is too long",
-                seq.getType().getName());
-    }
-
-    /**
-     * An overflow error with the message "repeated S is too long",
-     * where S is the type mane of the argument.
-     *
-     * @param seq the sequence operated on
-     * @return an exception to throw
-     */
-    static <T> OverflowError repeatedOverflow(PySequence.Of<T> seq) {
-        return new OverflowError("repeated %s is too long",
-                seq.getType().getName());
-    }
 }

@@ -27,6 +27,7 @@ class StrTypeInfo(TypeInfo):
 itself = lambda x: x
 
 PY_UNICODE_CLASS = StrTypeInfo('PyUnicode', WorkingType.SEQ,
+                    lambda x: f'{x}.adapt()',
                     itself)
 STRING_CLASS = StrTypeInfo('String', WorkingType.STRING,
                     lambda x: f'adapt({x})',

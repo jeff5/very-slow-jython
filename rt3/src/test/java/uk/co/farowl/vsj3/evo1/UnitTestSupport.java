@@ -153,7 +153,7 @@ class UnitTestSupport {
      * @return from this value.
      */
     static PyUnicode newPyUnicode(String value) {
-        return new PyUnicode.Derived(PyUnicode.TYPE, value);
+        return new PyUnicode(PyUnicode.TYPE, value);
     }
 
     /**
@@ -163,7 +163,7 @@ class UnitTestSupport {
      * @return from this value.
      */
     static PyUnicode newPyUnicode(int[] value) {
-        return new PyUnicode.Derived(PyUnicode.TYPE, value);
+        return new PyUnicode(PyUnicode.TYPE, value);
     }
 
     /**

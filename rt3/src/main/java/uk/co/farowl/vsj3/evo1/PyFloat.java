@@ -42,7 +42,7 @@ public class PyFloat extends AbstractPyObject {
         this.value = value;
     }
 
-    // Instance methods on PyFloat -------------------------------------
+    // Instance methods on PyFloat ------------------------------------
 
     @Override
     public String toString() { return Py.defaultToString(this); }
