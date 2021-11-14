@@ -609,6 +609,34 @@ public class PySequence extends Abstract {
         }
 
         /**
+         * Implementation of the {@code index} method of sequences. Find
+         * the index, in the given range, of an element equal to the
+         * argument. or a slice of the client sequence, after checks, by
+         * calling either {@link #getItem(int)} or
+         * {@link #getSlice(Indices)}.
+         *
+         * @param v value to match in the client
+         * @return the index at which found
+         * @throws ValueError if {@code v} not found
+         * @throws TypeError from bad {@code start} and {@code stop}
+         *     types
+         * @throws Throwable from errors other than indexing
+         */
+        public int index(Object v, Object start, Object stop)
+                throws TypeError, Throwable {
+            int iStart = boundedIndex(start, 0);
+            int iStop = boundedIndex(stop, length());
+            for (int i = iStart; i < iStop; i++) {
+                if (Abstract.richCompareBool(v, getItem(i),
+                        Comparison.EQ)) {
+                    return i;
+                }
+            }
+            throw new ValueError("%s.index(x): x not in %s",
+                    getType().name, getTypeName());
+        }
+
+        /**
          * Check that an index {@code i} satisfies
          * 0&le;i&lt;{@link #length()}. If the original index is
          * negative, treat it as end-relative by first adding
@@ -683,6 +711,43 @@ public class PySequence extends Abstract {
         private OverflowError repeatOverflow() {
             return new OverflowError("repeated %s is too long",
                     getTypeName());
+        }
+
+        /**
+         * Accept an object index (or {@code null}), treating negative
+         * values as end-relative, and bound it to the sequence range.
+         * The index object must be convertible by
+         * {@link PyNumber#asSize(Object, java.util.function.Function)
+         * PyNumber.asSize}. Unlike {@link #adjustGet(int)}, is not an
+         * error for the index value to fall outside the valid range.
+         * (It is simply clipped to the nearer end.)
+         *
+         * @param index purported index (or {@code null})
+         * @param defaultValue to use if {@code index==null}
+         * @return converted index
+         * @throws TypeError from bad {@code index} type
+         * @throws Throwable from other conversion errors
+         */
+        protected int boundedIndex(Object index, int defaultValue)
+                throws TypeError, Throwable {
+
+            // Convert the argument (or raise a TypeError)
+            int i, L = length();
+            if (index == null) {
+                i = defaultValue;
+            } else if (PyNumber.indexCheck(index)) {
+                i = PyNumber.asSize(index, IndexError::new);
+            } else {
+                throw Abstract.indexTypeError(this, index);
+            }
+
+            // Bound the now integer index to the sequence
+            if (i < 0) {
+                i += L;
+                return Math.max(0, i);
+            } else {
+                return Math.min(L-1, i);
+            }
         }
     }
 }

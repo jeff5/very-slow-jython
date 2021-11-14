@@ -1,3 +1,5 @@
+// Copyright (c)2021 Jython Developers.
+// Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj3.evo1;
 
 import java.lang.invoke.MethodHandle;
@@ -238,7 +240,7 @@ enum Comparison {
      * @param v left operand
      * @param w right operand
      * @return comparison result
-     * @throws Throwable from te implementation of the comparison
+     * @throws Throwable from the implementation of the comparison
      */
     // Compare CPython PyObject_RichCompare, do_richcompare in object.c
     Object apply(Object v, Object w) throws Throwable {

@@ -1,12 +1,14 @@
+// Copyright (c)2021 Jython Developers.
+// Copyright (c) Corporation for National Research Initiatives
+// Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj3.evo1;
-
-import static uk.co.farowl.vsj3.evo1.Abstract.richCompareBool;
 
 import java.lang.invoke.MethodHandles;
 import java.util.AbstractList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
+import java.util.ListIterator;
 import java.util.Spliterator;
 import java.util.Spliterators;
 import java.util.StringJoiner;
@@ -18,7 +20,8 @@ import uk.co.farowl.vsj3.evo1.PyType.Spec;
 import uk.co.farowl.vsj3.evo1.base.InterpreterError;
 
 /** The Python {@code tuple} object. */
-class PyTuple extends AbstractList<Object> implements CraftedPyObject {
+public class PyTuple extends AbstractList<Object>
+        implements CraftedPyObject {
 
     /** The Python type object for {@code tuple}. */
     static final PyType TYPE = PyType.fromSpec( //
@@ -56,13 +59,11 @@ class PyTuple extends AbstractList<Object> implements CraftedPyObject {
             throws ArrayStoreException {
         this.type = type;
         if (iPromiseNotToModifyTheArray) {
-            // The array may safely be cast to match the requested type.
             this.value = value;
         } else {
             // We make a new array .
             int n = value.length;
             this.value = new Object[n];
-            // The copy may throw ArrayStoreException.
             System.arraycopy(value, 0, this.value, 0, n);
         }
     }
@@ -87,17 +88,34 @@ class PyTuple extends AbstractList<Object> implements CraftedPyObject {
     }
 
     /**
+     * Construct a {@code PyTuple} from an array of {@link Object}s or
+     * zero or more {@link Object} arguments. The argument is copied for
+     * use, so it is safe to modify an array passed in.
+     *
+     * @param elements of the tuple
+     */
+    @SafeVarargs
+    public <E> PyTuple(E... elements) { this(TYPE, elements); }
+
+    /**
      * As {@link #PyTuple(Object...)} for Python sub-class specifying
      * {@link #type}.
      *
      * @param <E> element type of the {@code tuple} internally
      * @param type actual Python sub-class to being created
-     * @param value elements of the tuple
+     * @param elements of the tuple
      */
     @SafeVarargs
-    protected <E> PyTuple(PyType type, E... value) {
-        this(type, false, value);
+    protected <E> PyTuple(PyType type, E... elements) {
+        this(type, false, elements);
     }
+
+    /**
+     * Construct a {@code PyTuple} from the elements of a collection.
+     *
+     * @param c source of element values for this {@code tuple}
+     */
+    PyTuple(Collection<?> c) { this(TYPE, c); }
 
     /**
      * As {@link #PyTuple(Collection)} for Python sub-class specifying
@@ -107,8 +125,7 @@ class PyTuple extends AbstractList<Object> implements CraftedPyObject {
      * @param c elements of the tuple
      */
     protected PyTuple(PyType type, Collection<?> c) {
-        this.type = type;
-        this.value = c.toArray(new Object[c.size()]);
+        this(type, true, c.toArray(new Object[c.size()]));
     }
 
     /**
@@ -129,22 +146,6 @@ class PyTuple extends AbstractList<Object> implements CraftedPyObject {
 
     /**
      * Construct a {@code PyTuple} from an array of {@link Object}s or
-     * zero or more {@link Object} arguments. The argument is copied for
-     * use, so it is safe to modify an array passed in.
-     *
-     * @param value source of element values for this {@code tuple}
-     */
-    PyTuple(Object... value) { this(TYPE, value); }
-
-    /**
-     * Construct a {@code PyTuple} from the elements of a collection.
-     *
-     * @param c source of element values for this {@code tuple}
-     */
-    PyTuple(Collection<?> c) { this(TYPE, c); }
-
-    /**
-     * Construct a {@code PyTuple} from an array of {@link Object}s or
      * zero or more {@link Object} arguments provided as a slice of an
      * array. The argument is copied for use, so it is safe to modify an
      * array passed in.
@@ -155,6 +156,19 @@ class PyTuple extends AbstractList<Object> implements CraftedPyObject {
      */
     PyTuple(Object a[], int start, int count) {
         this(TYPE, a, start, count);
+    }
+
+    /**
+     * Construct a {@code PyTuple} from the elements of an array, or if
+     * the collection is empty, return {@link #EMPTY}.
+     *
+     * @param <E> component type
+     * @param a value of new tuple
+     * @return a tuple with the given contents or {@link #EMPTY}
+     */
+    static <E> PyTuple from(E[] a) {
+        int n = a.length;
+        return a.length == 0 ? EMPTY : new PyTuple(a, 0, n);
     }
 
     /**
@@ -172,23 +186,56 @@ class PyTuple extends AbstractList<Object> implements CraftedPyObject {
         return c.size() == 0 ? EMPTY : new PyTuple(c);
     }
 
-    /**
-     * Construct a {@code PyTuple} from the elements of an array, or if
-     * the collection is empty, return {@link #EMPTY}.
-     *
-     * @param <E> component type
-     * @param a value of new tuple
-     * @return a tuple with the given contents or {@link #EMPTY}
-     */
-    static <E> PyTuple from(E[] a) {
-        int n = a.length;
-        return a.length == 0 ? EMPTY : new PyTuple(a, 0, n);
-    }
+    @Override
+    public PyType getType() { return type; }
 
     /** Convenient constant for a {@code tuple} with zero elements. */
     static final PyTuple EMPTY = new PyTuple();
 
     // Special methods -----------------------------------------------
+
+    @SuppressWarnings("unused")
+    private int __len__() { return size(); }
+
+    @SuppressWarnings("unused")
+    private boolean __contains__(Object o) throws Throwable {
+        for (Object v : value) {
+            if (Abstract.richCompareBool(v, o, Comparison.EQ)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    @SuppressWarnings("unused")
+    private Object __ne__(Object o) {
+        return delegate.cmp(o, Comparison.NE);
+    }
+
+    @SuppressWarnings("unused")
+    private Object __eq__(Object o) {
+        return delegate.cmp(o, Comparison.EQ);
+    }
+
+    @SuppressWarnings("unused")
+    private Object __gt__(Object o) {
+        return delegate.cmp(o, Comparison.GT);
+    }
+
+    @SuppressWarnings("unused")
+    private Object __ge__(Object o) {
+        return delegate.cmp(o, Comparison.GE);
+    }
+
+    @SuppressWarnings("unused")
+    private Object __lt__(Object o) {
+        return delegate.cmp(o, Comparison.LT);
+    }
+
+    @SuppressWarnings("unused")
+    private Object __le__(Object o) {
+        return delegate.cmp(o, Comparison.LE);
+    }
 
     @SuppressWarnings("unused")
     private Object __add__(Object w) throws Throwable {
@@ -210,11 +257,69 @@ class PyTuple extends AbstractList<Object> implements CraftedPyObject {
         return delegate.__mul__(n);
     }
 
-    int __len__() { return size(); }
-
     @SuppressWarnings("unused")
     private Object __getitem__(Object item) throws Throwable {
         return delegate.__getitem__(item);
+    }
+
+    @Override
+    public int hashCode() {
+        try {
+            return __hash__();
+        } catch (PyException e) {
+            throw e;
+        } catch (Throwable t) {
+            throw new InterpreterError(t,
+                    "Non-Python exception in __hash__");
+        }
+    }
+
+    private int __hash__() throws Throwable {
+        /*
+         * Ported from C in CPython 3.8, which in turn is based on the
+         * xxHash specification. We do not attempt to maintain historic
+         * hash of () or avoid returning -1. Seed the accumulator based
+         * on the length.
+         */
+        int acc = H32P5 * value.length;
+        for (Object x : value) {
+            acc += H32P2 * Abstract.hash(x);
+            // The parenthetical expression is rotate left 13
+            acc = H32P1 * (acc << 13 | acc >>> 19);
+        }
+        return acc;
+    }
+
+    public int count(Object value) { return tuple_count(value); }
+
+    /*
+     * @ExposedMethod(doc = BuiltinDocs.tuple_count_doc)
+     */
+    final int tuple_count(Object v) {
+        int count = 0;
+        for (Object item : value) { if (item.equals(v)) { count++; } }
+        return count;
+    }
+
+    /*
+     * @ExposedMethod(defaults = {"null", "null"}, doc =
+     * BuiltinDocs.tuple_index_doc)
+     */
+    @SuppressWarnings("unused")
+    private Object index(Object v, Object start, Object stop)
+            throws Throwable {
+        return delegate.index(v, start, stop);
+    }
+
+    @Override
+    public boolean equals(Object other) {
+        try {
+            return Abstract.richCompareBool(this, other, Comparison.EQ);
+        } catch (PyException e) {
+            throw e;
+        } catch (Throwable e) {
+            return false;
+        }
     }
 
     // AbstractList methods ------------------------------------------
@@ -226,23 +331,65 @@ class PyTuple extends AbstractList<Object> implements CraftedPyObject {
     public int size() { return value.length; }
 
     @Override
-    public Iterator<Object> iterator() {
-        return new Iterator<Object>() {
+    public Iterator<Object> iterator() { return listIterator(0); }
 
-            private int i = 0;
+    @Override
+    public ListIterator<Object> listIterator(final int index) {
+
+        if (index < 0 || index > value.length)
+            throw new IndexOutOfBoundsException(String
+                    .format("%d outside [0, %d)", index, value.length));
+
+        return new ListIterator<Object>() {
+
+            private int i = index;
 
             @Override
             public boolean hasNext() { return i < value.length; }
 
             @Override
             public Object next() { return value[i++]; }
+
+            @Override
+            public boolean hasPrevious() { return i > 0; }
+
+            @Override
+            public Object previous() { return value[--i]; }
+
+            @Override
+            public int nextIndex() { return i; }
+
+            @Override
+            public int previousIndex() { return i - 1; }
+
+            @Override
+            public void remove() {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public void set(Object o) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public void add(Object o) {
+                throw new UnsupportedOperationException();
+            }
         };
     }
 
     // Plumbing ------------------------------------------------------
 
-    @Override
-    public PyType getType() { return type; }
+    /*
+     * Constants used in __hash__ (from CPython tupleobject.c), in the
+     * 32-bit configuration (SIZEOF_PY_UHASH_T > 4 is false). Although
+     * out of range for signed 32 bit integers, the multiplications are
+     * correct, since (U-C) * (V-C) = U*V when taken mod C.
+     */
+    private static final int H32P1 = (int)2654435761L;
+    private static final int H32P2 = (int)2246822519L;
+    private static final int H32P5 = 374761393;
 
     /**
      * Wrap this {@code PyTuple} as a {@link PySequence.Delegate}, that
@@ -332,23 +479,20 @@ class PyTuple extends AbstractList<Object> implements CraftedPyObject {
         }
 
         @Override
-        public int compareTo(Of<Object> o) {
+        public int compareTo(Of<Object> other) {
             try {
                 // Tuple is comparable only with another tuple
-                Object[] otherValue = ((PyTuple)o).value;
-                int N = value.length, M = otherValue.length, i = 0;
+                int N = value.length, M = other.length(), i = 0;
 
                 for (i = 0; i < N; i++) {
                     Object a = value[i];
                     if (i < M) {
-                        Object b = otherValue[i];
+                        Object b = other.get(i);
                         // if a != b, then we've found an answer
-                        if (!richCompareBool(a, b, Comparison.EQ)) {
-                            if (richCompareBool(a, b, Comparison.GT))
-                                return 1;
-                            else
-                                return -1;
-                        }
+                        if (!Abstract.richCompareBool(a, b,
+                                Comparison.EQ))
+                            return Abstract.richCompareBool(a, b,
+                                    Comparison.GT) ? 1 : -1;
                     } else
                         // value has not run out, but other has. We win.
                         return 1;
@@ -361,6 +505,7 @@ class PyTuple extends AbstractList<Object> implements CraftedPyObject {
                  */
                 return i < M ? -1 : 0;
             } catch (PyException e) {
+                // It's ok to throw legitimate Python exceptions
                 throw e;
             } catch (Throwable t) {
                 /*
@@ -371,6 +516,25 @@ class PyTuple extends AbstractList<Object> implements CraftedPyObject {
                 // XXX perhaps need a PyException to wrap Java Throwable
                 throw new InterpreterError(t,
                         "non-Python exeption in comparison");
+            }
+        }
+
+        /**
+         * Compare this delegate with the delegate of the other
+         * {@code tuple}, or return {@code NotImplemented} if the other
+         * is not a {@code tuple}.
+         *
+         * @param other tuple at right of comparison
+         * @param op type of operation
+         * @return boolean result or {@code NotImplemented}
+         */
+        Object cmp(Object other, Comparison op) {
+            if (other instanceof PyTuple) {
+                // Tuple is comparable only with another tuple
+                TupleAdapter o = ((PyTuple)other).delegate;
+                return op.toBool(delegate.compareTo(o));
+            } else {
+                return Py.NotImplemented;
             }
         }
     }

@@ -1,3 +1,5 @@
+// Copyright (c)2021 Jython Developers.
+// Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj3.evo1;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -22,7 +24,7 @@ class ComparisonSlotWrapperTest extends UnitTestSupport {
     void float_lt() throws Throwable {
 
         PyWrapperDescr lt =
-                (PyWrapperDescr) PyFloat.TYPE.lookup("__lt__");
+                (PyWrapperDescr)PyFloat.TYPE.lookup("__lt__");
 
         Double dv = 7.0, dw = 6.0;
         PyFloat pv = newPyFloat(dv), pw = newPyFloat(dw);
@@ -64,7 +66,7 @@ class ComparisonSlotWrapperTest extends UnitTestSupport {
     void float_eq() throws Throwable {
 
         PyWrapperDescr eq =
-                (PyWrapperDescr) PyFloat.TYPE.lookup("__eq__");
+                (PyWrapperDescr)PyFloat.TYPE.lookup("__eq__");
 
         Double dv = 2.0, dw = 1.0;
         PyFloat pv = newPyFloat(dv), pw = newPyFloat(dw);
@@ -105,7 +107,7 @@ class ComparisonSlotWrapperTest extends UnitTestSupport {
     void int_lt() throws Throwable {
 
         PyWrapperDescr lt =
-                (PyWrapperDescr) PyLong.TYPE.lookup("__lt__");
+                (PyWrapperDescr)PyLong.TYPE.lookup("__lt__");
 
         Integer iv = 4, iw = -1;
         BigInteger bv = BigInteger.valueOf(iv),
@@ -146,7 +148,7 @@ class ComparisonSlotWrapperTest extends UnitTestSupport {
     void int_eq() throws Throwable {
 
         PyWrapperDescr eq =
-                (PyWrapperDescr) PyLong.TYPE.lookup("__eq__");
+                (PyWrapperDescr)PyLong.TYPE.lookup("__eq__");
 
         Integer iv = 5, iw = 7;
         BigInteger bv = BigInteger.valueOf(iv),
@@ -202,7 +204,7 @@ class ComparisonSlotWrapperTest extends UnitTestSupport {
             throws Throwable {
 
         PyWrapperDescr lt =
-                (PyWrapperDescr) PyUnicode.TYPE.lookup("__lt__");
+                (PyWrapperDescr)PyUnicode.TYPE.lookup("__lt__");
 
         // Make PyUnicodes equal to the strings
         PyUnicode pv = newPyUnicode(sv);
@@ -261,11 +263,11 @@ class ComparisonSlotWrapperTest extends UnitTestSupport {
      * {@code str} classes for the given pair of arguments supplied as
      * {@code String}s.
      */
-    private void str_eq_impl(String sv, String sw, boolean expected)
-            throws Throwable {
+    private static void str_eq_impl(String sv, String sw,
+            boolean expected) throws Throwable {
 
         PyWrapperDescr eq =
-                (PyWrapperDescr) PyUnicode.TYPE.lookup("__eq__");
+                (PyWrapperDescr)PyUnicode.TYPE.lookup("__eq__");
 
         // Make PyUnicodes equal to the strings
         PyUnicode pv = newPyUnicode(sv);

@@ -74,7 +74,7 @@ class UnitTestSupport {
      * @return from this value.
      */
     static PyLong newPyLong(BigInteger value) {
-        return new PyLong.Derived(PyLong.TYPE, value);
+        return new PyLong(PyLong.TYPE, value);
     }
 
     /**
@@ -126,7 +126,7 @@ class UnitTestSupport {
      * @return from this value.
      */
     static PyFloat newPyFloat(double value) {
-        return new PyFloat.Derived(PyFloat.TYPE, value);
+        return new PyFloat(PyFloat.TYPE, value);
     }
 
     /**

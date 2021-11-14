@@ -41,6 +41,10 @@ class PyUnicode implements CraftedPyObject, PyDict.Key {
             new PyType.Spec("str", MethodHandles.lookup())
                     .methods(PyUnicodeMethods.class)
                     .adopt(String.class));
+
+    /**
+     * The actual Python type of this {@code PyUnicode}.
+     */
     protected PyType type;
 
     /**
@@ -142,19 +146,8 @@ class PyUnicode implements CraftedPyObject, PyDict.Key {
             return new PyUnicode(TYPE, true, s.codePoints().toArray());
     }
 
-    /**
-     * Test whether a string contains no characters above the BMP range,
-     * that is, any characters that require surrogate pairs to represent
-     * them. The method returns {@code true} if and only if the string
-     * consists entirely of BMP characters or is empty.
-     *
-     * @param s the string to test
-     * @return whether contains no non-BMP characters
-     */
-    private static boolean isBMP(String s) {
-        return s.codePoints().dropWhile(Character::isBmpCodePoint)
-                .findFirst().isEmpty();
-    }
+    @Override
+    public PyType getType() { return type; }
 
     // Special methods ------------------------------------------------
 
@@ -408,9 +401,6 @@ class PyUnicode implements CraftedPyObject, PyDict.Key {
     }
 
     @Override
-    public PyType getType() { return type; }
-
-    @Override
     public String toString() {
         StringBuilder b = new StringBuilder();
         for (int c : value) { b.appendCodePoint(c); }
@@ -454,6 +444,20 @@ class PyUnicode implements CraftedPyObject, PyDict.Key {
         else if (v instanceof PyUnicode)
             return ((PyUnicode)v).toString();
         throw PyObjectUtil.NO_CONVERSION;
+    }
+
+    /**
+     * Test whether a string contains no characters above the BMP range,
+     * that is, any characters that require surrogate pairs to represent
+     * them. The method returns {@code true} if and only if the string
+     * consists entirely of BMP characters or is empty.
+     *
+     * @param s the string to test
+     * @return whether contains no non-BMP characters
+     */
+    private static boolean isBMP(String s) {
+        return s.codePoints().dropWhile(Character::isBmpCodePoint)
+                .findFirst().isEmpty();
     }
 
     /**

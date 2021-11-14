@@ -39,7 +39,7 @@ public class PyLong extends AbstractPyObject implements PyDict.Key {
      * @param subType actual Python sub-class being created
      * @param v of the {@code int}
      */
-    private PyLong(PyType subType, BigInteger v) {
+    PyLong(PyType subType, BigInteger v) {
         super(subType);
         value = v;
     }

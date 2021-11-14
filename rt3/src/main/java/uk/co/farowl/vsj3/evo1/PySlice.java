@@ -93,7 +93,7 @@ public class PySlice extends AbstractPyObject {
 
     @SuppressWarnings("unused")
     private Object __eq__(Object o) throws Throwable {
-        return this == o ? true : compare(o, Comparison.NE);
+        return this == o ? true : compare(o, Comparison.EQ);
     }
 
     @SuppressWarnings("unused")
