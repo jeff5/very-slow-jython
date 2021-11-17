@@ -252,14 +252,12 @@ public class PySlice extends AbstractPyObject {
                     start = Math.min(start0, length);
 
                 if (stop0 < 0)
-                    stop = Math.max(stop0 + length, 0);
+                    stop = Math.max(stop0 + length, start);
                 else
-                    stop = Math.min(stop0, length);
+                    stop = Math.min(Math.max(stop0, start), length);
 
-                if (start0 < stop0)
-                    slicelength = (stop0 - start0 - 1) / step + 1;
-                else
-                    slicelength = 0;
+                assert stop >= start;
+                slicelength = (stop - start + step - 1) / step;
 
             } else {
                 // The start, stop while ignoring the sequence length.
@@ -276,13 +274,17 @@ public class PySlice extends AbstractPyObject {
                 if (stop0 < 0)
                     stop = Math.max(stop0 + length, -1);
                 else
-                    stop = Math.min(stop0, length - 1);
+                    stop = Math.min(stop0, start);
 
-                if (stop < start)
-                    slicelength = (start - stop - 1) / (-step) + 1;
-                else
-                    slicelength = 0;
+                assert stop <= start;
+                slicelength = (start - stop - step - 1) / (-step);
             }
+        }
+
+        @Override
+        public String toString() {
+            return String.format("[%d:%d:%d] len= %d", start, stop, step,
+                    slicelength);
         }
     }
 

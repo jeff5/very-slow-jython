@@ -5,6 +5,7 @@ package uk.co.farowl.vsj3.evo1;
 import java.lang.invoke.MethodHandles;
 import java.util.Arrays;
 import java.util.Iterator;
+import java.util.ListIterator;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Spliterator;
@@ -19,7 +20,6 @@ import uk.co.farowl.vsj3.evo1.Exposed.PythonMethod;
 import uk.co.farowl.vsj3.evo1.PyObjectUtil.NoConversion;
 import uk.co.farowl.vsj3.evo1.PySequence.Delegate;
 import uk.co.farowl.vsj3.evo1.PySlice.Indices;
-import uk.co.farowl.vsj3.evo1.base.InterpreterError;
 
 /**
  * The Python {@code str} object is implemented by both
@@ -125,8 +125,8 @@ class PyUnicode implements CraftedPyObject, PyDict.Key {
      */
     public static Object fromCodePoint(int cp) {
         // We really need to know how the string will be used :(
-        if (Character.charCount(cp) == 1)
-            return Character.toString((char)cp);
+        if (cp < Character.MIN_SUPPLEMENTARY_CODE_POINT)
+            return String.valueOf((char)cp);
         else
             return new PyUnicode(TYPE, true, new int[] {cp});
     }
@@ -461,20 +461,67 @@ class PyUnicode implements CraftedPyObject, PyDict.Key {
     }
 
     /**
+     * A base class for the adapter of either a {@code String} or a
+     * {@code PyUnicode}, implementing {@code __getitem__} and other
+     * index-related operations. The class is a
+     * {@link PySequence.Delegate}, an iterable of {@code Integer},
+     * comparable with other instances of the same base, and is able to
+     * supply point codes as a stream.
+     */
+    static abstract class CodepointAdapter
+            extends PySequence.Delegate<Object, Object>
+            implements Iterable<Integer>, Comparable<CodepointAdapter> {
+
+        /**
+         * A bidirectional iterator on the sequence of code points.
+         *
+         * @param index starting position (code point index)
+         * @return the iterator
+         */
+        abstract ListIterator<Integer> listIterator(int index);
+
+        /**
+         * Provide a stream specialised to primitive {@code int}.
+         *
+         * @return a stream of primitive {@code int}
+         */
+        abstract IntStream asIntStream();
+
+        /**
+         * {@inheritDoc}
+         *
+         * @implNote The default implementation is the stream of values
+         *     from {@link #asIntStream()}, boxed to {@code Integer}.
+         *     Consumers that are able, will obtain improved efficiency
+         *     by preferring {@link #asIntStream()} and specialising
+         *     intermediate processing to {@code int}.
+         */
+        Stream<Integer> asStream() { return asIntStream().boxed(); }
+
+        @Override
+        public String toString() {
+            StringBuilder b = new StringBuilder("adapter(\"");
+            for (Integer c : this) { b.appendCodePoint(c); }
+            return b.append("\")").toString();
+        }
+
+        @Override
+        public Iterator<Integer> iterator() { return listIterator(0); }
+
+    }
+
+    /**
      * Wrap a Java {@code String} as a {@link PySequence.Delegate}, that
-     * is also a an iterable of {@code int}. If the {@code String}
+     * is also an iterable of {@code Integer}. If the {@code String}
      * includes surrogate pairs of {@code char}s, these are interpreted
      * as a single Python code point.
      */
-    static class StringAdapter
-            extends PySequence.Delegate<Object, Object>
-            implements PySequence.OfInt {
+    static class StringAdapter extends CodepointAdapter {
 
         /** Value of the str encoded as a Java {@code String}. */
         private final String s;
-
         /** Length in code points deduced from the {@code String}. */
-        private final int len;
+        private final int cpLength;
 
         /**
          * Adapt a String so we can iterate or stream its code points.
@@ -483,7 +530,7 @@ class PyUnicode implements CraftedPyObject, PyDict.Key {
          */
         StringAdapter(String s) {
             this.s = s;
-            len = s.codePointCount(0, s.length());
+            cpLength = s.codePointCount(0, s.length());
         }
 
         /**
@@ -493,10 +540,10 @@ class PyUnicode implements CraftedPyObject, PyDict.Key {
          *
          * @return contains only BMP characters or isolated surrogates
          */
-        private boolean isBMP() { return len == s.length(); }
+        private boolean isBMP() { return cpLength == s.length(); }
 
         @Override
-        public int length() { return len; };
+        public int length() { return cpLength; };
 
         @Override
         public PyType getType() { return TYPE; }
@@ -506,29 +553,50 @@ class PyUnicode implements CraftedPyObject, PyDict.Key {
 
         @Override
         public Object getItem(int i) {
-            return PyUnicode.fromCodePoint(get(i));
-        }
-
-        @Override
-        public Integer get(int i) {
             if (isBMP()) {
-                // Treating surrogates as characters
-                return Integer.valueOf(s.charAt(i));
+                // No surrogate pairs.
+                return String.valueOf(s.charAt(i));
             } else {
                 // We have to count from the start
-                try {
-                    Stream<Integer> cps = asStream().skip(i);
-                    return cps.findFirst().orElseThrow();
-                } catch (NoSuchElementException nse) {
-                    // getItem should only be called with checked i
-                    throw new InterpreterError(nse, "index=%d", i);
+                int k = toCharIndex(i);
+                return PyUnicode.fromCodePoint(s.codePointAt(k));
+            }
+        }
+
+        /**
+         * Translate a (valid) code point index into a {@code char}
+         * index into {@code s}, when s contains surrogate pairs. A call
+         * is normally guarded by {@link #isBMP()}, since when that is
+         * {@code true} we can avoid the work.
+         *
+         * @param cpIndex code point index
+         * @return {@code char} index into {@code s}
+         */
+        private int toCharIndex(int cpIndex) {
+            int L = s.length();
+            if (cpIndex == cpLength) {
+                // Avoid counting to the end
+                return L;
+            } else {
+                int i = 0, cpCount = 0;
+                while (i < L && cpCount < cpIndex) {
+                    char c = s.charAt(i++);
+                    cpCount++;
+                    if (Character.isHighSurrogate(c) && i < L) {
+                        // Expect a low surrogate
+                        char d = s.charAt(i);
+                        if (Character.isLowSurrogate(d)) { i++; }
+                    }
                 }
+                return i;
             }
         }
 
         @Override
         public Object getSlice(Indices slice) throws Throwable {
-            if (slice.step == 1 && isBMP()) {
+            if (slice.slicelength == 0) {
+                return "";
+            } else if (slice.step == 1 && isBMP()) {
                 return s.substring(slice.start, slice.stop);
             } else {
                 /*
@@ -546,16 +614,25 @@ class PyUnicode implements CraftedPyObject, PyDict.Key {
                         r[j] = s.charAt(i);
                         i += slice.step;
                     }
-                } else {
-                    // We have to count from the start
-                    Iterator<Integer> cps = iterator();
-                    int j = 0;
-                    while (j++ < slice.start) { cps.next(); }
-                    for (j = 0; j < L; j++) {
-                        r[j] = cps.next();
+                } else if (slice.step > 0) {
+                    // Work forwards through the sequence
+                    ListIterator<Integer> cps = listIterator(i);
+                    r[0] = cps.next();
+                    for (int j = 1; j < L; j++) {
                         for (int k = 1; k < slice.step; k++) {
                             cps.next();
                         }
+                        r[j] = cps.next();
+                    }
+                } else { // slice.step < 0
+                    // Work backwards through the sequence
+                    ListIterator<Integer> cps = listIterator(i + 1);
+                    r[0] = cps.previous();
+                    for (int j = 1; j < L; j++) {
+                        for (int k = -1; k > slice.step; --k) {
+                            cps.previous();
+                        }
+                        r[j] = cps.previous();
                     }
                 }
                 return new PyUnicode(TYPE, true, r);
@@ -588,10 +665,10 @@ class PyUnicode implements CraftedPyObject, PyDict.Key {
         Object repeat(int n) throws OutOfMemoryError, Throwable {
             if (n == 0)
                 return "";
-            else if (n == 1 || len == 0)
+            else if (n == 1 || cpLength == 0)
                 return s;
-            else if (Character.isLowSurrogate(s.charAt(0))
-                    && Character.isHighSurrogate(s.charAt(len - 1)))
+            else if (Character.isLowSurrogate(s.charAt(0)) && Character
+                    .isHighSurrogate(s.charAt(cpLength - 1)))
                 /*
                  * s ends with a high surrogate and starts with a low
                  * surrogate, so simply concatenated to itself by
@@ -607,23 +684,136 @@ class PyUnicode implements CraftedPyObject, PyDict.Key {
         // Iterable<Object> interface ---------------------------------
 
         @Override
-        public Iterator<Integer> iterator() {
-            return new Iterator<Integer>() {
+        public ListIterator<Integer> listIterator(final int index) {
 
-                private int i = 0;
-
-                @Override
-                public boolean hasNext() { return i < s.length(); }
-
-                @Override
-                public Integer next() {
-                    // Treating surrogate pairs as two characters
-                    return get(i++);
-                }
-            };
+            if (isBMP())
+                return new BMPListIterator(index);
+            else
+                return new SMPListIterator(index);
         }
 
-        // PySequence.Of<Object> interface ----------------------------
+        /**
+         * A {@code ListIterator} for use when the string in the
+         * surrounding adapter instance contains only basic multilingual
+         * plane characters or isolated surrogates.
+         */
+        class BMPListIterator implements ListIterator<Integer> {
+
+            /** Index into {@code s} in chars (not code points). */
+            protected int charIndex;
+            /** Length of {@code s} in chars. */
+            protected final int L = s.length();
+
+            BMPListIterator(int index) {
+                if (index < 0)
+                    throw new IndexOutOfBoundsException("negative");
+                else if (index > L)
+                    throw new IndexOutOfBoundsException("beyond end");
+                charIndex = index;
+            }
+
+            @Override
+            public boolean hasNext() { return charIndex < L; }
+
+            @Override
+            public Integer next() {
+                if (charIndex < L)
+                    return (int)s.charAt(charIndex++);
+                else
+                    throw new NoSuchElementException();
+            }
+
+            @Override
+            public boolean hasPrevious() { return charIndex > 0; }
+
+            @Override
+            public Integer previous() {
+                if (charIndex > 0)
+                    return (int)s.charAt(--charIndex);
+                else
+                    throw new NoSuchElementException();
+            }
+
+            @Override
+            public int nextIndex() { return charIndex; }
+
+            @Override
+            public int previousIndex() { return charIndex - 1; }
+
+            @Override
+            public void remove() {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public void set(Integer o) {
+                throw new UnsupportedOperationException();
+            }
+
+            @Override
+            public void add(Integer o) {
+                throw new UnsupportedOperationException();
+            }
+        }
+
+        /**
+         * A {@code ListIterator} for use when the string in the
+         * surrounding adapter instance contains one or more
+         * supplementary multilingual plane characters represented by
+         * surrogate pairs.
+         */
+        class SMPListIterator extends BMPListIterator {
+
+            /** Index into {@code s} in code points. */
+            private int cpIndex;
+
+            SMPListIterator(int index) {
+                super(toCharIndex(index));
+                cpIndex = index;
+            }
+
+            @Override
+            public Integer next() {
+                if (charIndex < L) {
+                    char c = s.charAt(charIndex++);
+                    cpIndex++;
+                    if (Character.isHighSurrogate(c) && charIndex < L) {
+                        // Expect a low surrogate
+                        char d = s.charAt(charIndex);
+                        if (Character.isLowSurrogate(d)) {
+                            charIndex++;
+                            return Character.toCodePoint(c, d);
+                        }
+                    }
+                    return (int)c;
+                } else
+                    throw new NoSuchElementException();
+            }
+
+            @Override
+            public Integer previous() {
+                if (charIndex > 0) {
+                    char d = s.charAt(--charIndex);
+                    --cpIndex;
+                    if (Character.isLowSurrogate(d) && charIndex > 0) {
+                        // Expect a low surrogate
+                        char c = s.charAt(--charIndex);
+                        if (Character.isHighSurrogate(c)) {
+                            return Character.toCodePoint(c, d);
+                        }
+                        charIndex++;
+                    }
+                    return (int)d;
+                } else
+                    throw new NoSuchElementException();
+            }
+
+            @Override
+            public int nextIndex() { return cpIndex; }
+
+            @Override
+            public int previousIndex() { return cpIndex - 1; }
+        }
 
         @Override
         public Spliterator.OfInt spliterator() {
@@ -633,14 +823,16 @@ class PyUnicode implements CraftedPyObject, PyDict.Key {
         @Override
         public IntStream asIntStream() { return s.codePoints(); }
 
+
+        // Comparable<CodepointAdapter> interface ---------------------
+
         @Override
-        public int compareTo(PySequence.Of<Integer> other) {
-            int n = s.length();
+        public int compareTo(CodepointAdapter other) {
+            Iterator<Integer> ia = iterator();
             Iterator<Integer> ib = other.iterator();
-            // Not treating surrogate pairs as one code point
-            for (int i = 0; i < n; i++) {
-                int a = s.charAt(i);
+            while (ia.hasNext()) {
                 if (ib.hasNext()) {
+                    int a = ia.next();
                     int b = ib.next();
                     // if a != b, then we've found an answer
                     if (a > b)
@@ -667,8 +859,7 @@ class PyUnicode implements CraftedPyObject, PyDict.Key {
      * need only specify the work specific to {@link PyUnicode}
      * instances.
      */
-    class UnicodeDelegate extends PySequence.Delegate<Object, Object>
-            implements PySequence.OfInt {
+    class UnicodeDelegate extends CodepointAdapter {
 
         @Override
         public int length() { return value.length; }
@@ -750,11 +941,6 @@ class PyUnicode implements CraftedPyObject, PyDict.Key {
             }
         }
 
-        // PySequence.OfInt interface ---------------------------------
-
-        @Override
-        public Integer get(int i) { return Integer.valueOf(value[i]); }
-
         @Override
         public Spliterator.OfInt spliterator() {
             final int flags = Spliterator.IMMUTABLE | Spliterator.SIZED
@@ -763,16 +949,50 @@ class PyUnicode implements CraftedPyObject, PyDict.Key {
         }
 
         @Override
-        public Iterator<Integer> iterator() {
-            return new Iterator<Integer>() {
+        public ListIterator<Integer> listIterator(final int index) {
 
-                private int i = 0;
+            if (index < 0 || index > value.length)
+                throw new IndexOutOfBoundsException(String.format(
+                        "%d outside [0, %d)", index, value.length));
+
+            return new ListIterator<Integer>() {
+
+                private int cpIndex = index;
 
                 @Override
-                public boolean hasNext() { return i < value.length; }
+                public boolean hasNext() {
+                    return cpIndex < value.length;
+                }
 
                 @Override
-                public Integer next() { return value[i++]; }
+                public Integer next() { return value[cpIndex++]; }
+
+                @Override
+                public boolean hasPrevious() { return cpIndex > 0; }
+
+                @Override
+                public Integer previous() { return value[--cpIndex]; }
+
+                @Override
+                public int nextIndex() { return cpIndex; }
+
+                @Override
+                public int previousIndex() { return cpIndex - 1; }
+
+                @Override
+                public void remove() {
+                    throw new UnsupportedOperationException();
+                }
+
+                @Override
+                public void set(Integer o) {
+                    throw new UnsupportedOperationException();
+                }
+
+                @Override
+                public void add(Integer o) {
+                    throw new UnsupportedOperationException();
+                }
             };
         }
 
@@ -784,8 +1004,10 @@ class PyUnicode implements CraftedPyObject, PyDict.Key {
             return StreamSupport.intStream(s, false);
         }
 
+        // Comparable<CodepointAdapter> interface ---------------------
+
         @Override
-        public int compareTo(PySequence.Of<Integer> other) {
+        public int compareTo(CodepointAdapter other) {
             Iterator<Integer> ib = other.iterator();
             for (int a : value) {
                 if (ib.hasNext()) {
@@ -806,44 +1028,6 @@ class PyUnicode implements CraftedPyObject, PyDict.Key {
              */
             return ib.hasNext() ? -1 : 0;
         }
-
-        /**
-         * Compare for equality with a sequence. This is a little
-         * simpler than {@code compareTo}.
-         *
-         * @param b another
-         * @return whether values equal
-         */
-        boolean equals(PySequence.Of<Integer> b) {
-            // XXX Do we use this?
-            // Lengths must be equal
-            if (length() != b.length()) { return false; }
-            // Scan the codes points in this.value and b
-            Iterator<Integer> ib = b.iterator();
-            for (int c : value) {
-                if (c != ib.next()) { return false; }
-            }
-            return true;
-        }
-    }
-
-    /**
-     * Adapt a Python {@code str} to a sequence of Java {@code Integer}
-     * values or raise a {@link TypeError}. This is for use when the
-     * argument is expected to be a Python {@code str} or a sub-class of
-     * it.
-     *
-     * @param v claimed {@code str}
-     * @return {@code int} value
-     * @throws TypeError if {@code v} is not a Python {@code str}
-     */
-    static PySequence.Of<Integer> asSeq(Object v) throws TypeError {
-        // Check against supported types, most likely first
-        if (v instanceof String)
-            return new StringAdapter((String)v);
-        else if (v instanceof PyUnicode)
-            return ((PyUnicode)v).delegate;
-        throw Abstract.requiredTypeError("a str", v);
     }
 
     /**
@@ -861,7 +1045,7 @@ class PyUnicode implements CraftedPyObject, PyDict.Key {
      * @return adapted to a sequence
      * @throws NoConversion if {@code v} is not a Python {@code str}
      */
-    static PySequence.OfInt adapt(Object v) throws NoConversion {
+    static CodepointAdapter adapt(Object v) throws NoConversion {
         // Check against supported types, most likely first
         if (v instanceof String)
             return new StringAdapter((String)v);
@@ -888,13 +1072,13 @@ class PyUnicode implements CraftedPyObject, PyDict.Key {
     UnicodeDelegate adapt() { return delegate; }
 
     /**
-     * Concatenate two {@code String} representations of {@code str}
-     * into a {@code PyUnicode}. This method almost always calls
-     * {@code String.concat(v, w)} and almost always returns a
-     * {@code String}. There is a delicate case where {@code v} ends
-     * with a high surrogate and {@code w} starts with a low surrogate.
-     * Simply concatenated, these merge into one character. Only a
-     * PyUnicode properly represents the result in that case.
+     * Concatenate two {@code String} representations of {@code str}.
+     * This method almost always calls {@code String.concat(v, w)} and
+     * almost always returns a {@code String}. There is a delicate case
+     * where {@code v} ends with a high surrogate and {@code w} starts
+     * with a low surrogate. Simply concatenated, these merge into one
+     * character. Only a {@code PyUnicode} properly represents the
+     * result in that case.
      *
      * @param v first string to concatenate
      * @param w second string to concatenate

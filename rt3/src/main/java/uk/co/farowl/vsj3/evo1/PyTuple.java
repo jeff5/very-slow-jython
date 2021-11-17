@@ -9,6 +9,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.ListIterator;
+import java.util.NoSuchElementException;
 import java.util.Spliterator;
 import java.util.Spliterators;
 import java.util.StringJoiner;
@@ -348,13 +349,19 @@ public class PyTuple extends AbstractList<Object>
             public boolean hasNext() { return i < value.length; }
 
             @Override
-            public Object next() { return value[i++]; }
+            public Object next() {
+                if (i < value.length)
+                    return value[i++];
+                else
+                    throw new NoSuchElementException();
+            }
 
             @Override
             public boolean hasPrevious() { return i > 0; }
 
             @Override
-            public Object previous() { return value[--i]; }
+            public Object previous() { if (i>0) return value[--i]; else
+                throw new NoSuchElementException();}
 
             @Override
             public int nextIndex() { return i; }

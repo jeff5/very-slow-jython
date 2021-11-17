@@ -88,6 +88,30 @@ public class PySequence extends Abstract {
     }
 
     /**
+     * {@code o[i1:12]} with Python semantics, where {@code o} must be a
+     * sequence. Receiving objects will normally interpret indices as
+     * end-relative, and bounded to the sequence length.
+     *
+     * @param o sequence to operate on
+     * @param i1 index of first item in slice
+     * @param i2 index of first item not in slice
+     * @return {@code o[i1:i2]}
+     * @throws TypeError when {@code o} does not allow subscripting
+     * @throws Throwable from invoked method implementations
+     */
+    // Compare CPython PyObject_GetItem in abstract.c
+    static Object getSlice(Object o, int i1, int i2) throws Throwable {
+        // Decisions are based on type of o and known type of key
+        try {
+            Object key = new PySlice(i1, i2);
+            Operations ops = Operations.of(o);
+            return ops.op_getitem.invokeExact(o, key);
+        } catch (EmptyException e) {
+            throw typeError(NOT_SLICEABLE, o);
+        }
+    }
+
+    /**
      * {@code o[key] = value} with Python semantics, where {@code o} may
      * be a mapping or a sequence.
      *
@@ -137,6 +161,8 @@ public class PySequence extends Abstract {
             "object of type '%.200s' has no len()";
     private static final String NOT_SUBSCRIPTABLE =
             "'%.200s' object is not subscriptable";
+    private static final String NOT_SLICEABLE =
+            "'%.200s' object is unsliceable";
     protected static final String DOES_NOT_SUPPORT_ITEM =
             "'%.200s' object does not support item %s";
 
