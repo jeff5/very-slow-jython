@@ -474,8 +474,6 @@ public class PyTuple extends AbstractList<Object>
         @Override
         public int
                 compareTo(PySequence.Delegate<Object, Object> other) {
-            // public int compareTo(TupleDelegate other) {
-            // public int compareTo(Of<Object> other) {
             try {
                 // Tuple is comparable only with another tuple
                 int N = value.length, M = other.length(), i = 0;

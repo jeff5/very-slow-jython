@@ -10,9 +10,6 @@ import uk.co.farowl.vsj3.evo1.PyType.Flag;
 /**
  * The Python {@code slice} object.
  */
-/*
-@ExposedType(name = "slice", isBaseType = false, doc = BuiltinDocs.slice_doc)
- */
 public class PySlice extends AbstractPyObject {
 
     /** The type of Python object this class implements. */
@@ -20,21 +17,12 @@ public class PySlice extends AbstractPyObject {
             new PyType.Spec("slice", MethodHandles.lookup())
                     .flagNot(Flag.BASETYPE));
 
-    /*
-    @ExposedGet(doc = BuiltinDocs.slice_start_doc)
-     */
     @Exposed.Member
     final private Object start;
 
-    /*
-    @ExposedGet(doc = BuiltinDocs.slice_stop_doc)
-     */
     @Exposed.Member
     final private Object stop;
 
-    /*
-    @ExposedGet(doc = BuiltinDocs.slice_step_doc)
-     */
     @Exposed.Member
     final private Object step;
 
@@ -101,9 +89,6 @@ public class PySlice extends AbstractPyObject {
         return this == o ? false : compare(o, Comparison.NE);
     }
 
-    /*
-    @ExposedMethod(doc = BuiltinDocs.slice_indices_doc)
-     */
     @Exposed.PythonMethod
     final Object indices(Object length) throws Throwable {
         Indices indices = new Indices(
@@ -131,9 +116,6 @@ public class PySlice extends AbstractPyObject {
         return String.format("slice(%s, %s, %s)", start, stop, step);
     }
 
-    /*
-    @ExposedMethod
-     */
     final Object __reduce__() {
         return Py.tuple(TYPE, Py.tuple(start, stop, step));
     }
