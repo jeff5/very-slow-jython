@@ -11,7 +11,6 @@ import java.util.NoSuchElementException;
 import java.util.Spliterator;
 import java.util.Spliterators;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
 import uk.co.farowl.vsj3.evo1.Exposed.Default;
@@ -461,17 +460,16 @@ class PyUnicode implements CraftedPyObject, PyDict.Key {
     }
 
     /**
-     * A base class for the adapter of either a {@code String} or a
+     * A base class for the delegate of either a {@code String} or a
      * {@code PyUnicode}, implementing {@code __getitem__} and other
      * index-related operations. The class is a
      * {@link PySequence.Delegate}, an iterable of {@code Integer},
      * comparable with other instances of the same base, and is able to
      * supply point codes as a stream.
      */
-    static abstract class CodepointAdapter
-            extends PySequence.Delegate<Object, Object>
-            implements Iterable<Integer>, Comparable<CodepointAdapter> {
-
+    static abstract class CodepointDelegate
+            extends PySequence.Delegate<Integer, Object>
+            implements PySequence.OfInt {
         /**
          * A bidirectional iterator on the sequence of code points.
          *
@@ -480,23 +478,8 @@ class PyUnicode implements CraftedPyObject, PyDict.Key {
          */
         abstract ListIterator<Integer> listIterator(int index);
 
-        /**
-         * Provide a stream specialised to primitive {@code int}.
-         *
-         * @return a stream of primitive {@code int}
-         */
-        abstract IntStream asIntStream();
-
-        /**
-         * {@inheritDoc}
-         *
-         * @implNote The default implementation is the stream of values
-         *     from {@link #asIntStream()}, boxed to {@code Integer}.
-         *     Consumers that are able, will obtain improved efficiency
-         *     by preferring {@link #asIntStream()} and specialising
-         *     intermediate processing to {@code int}.
-         */
-        Stream<Integer> asStream() { return asIntStream().boxed(); }
+        @Override
+        public Iterator<Integer> iterator() { return listIterator(0); }
 
         @Override
         public String toString() {
@@ -504,10 +487,6 @@ class PyUnicode implements CraftedPyObject, PyDict.Key {
             for (Integer c : this) { b.appendCodePoint(c); }
             return b.append("\")").toString();
         }
-
-        @Override
-        public Iterator<Integer> iterator() { return listIterator(0); }
-
     }
 
     /**
@@ -516,7 +495,7 @@ class PyUnicode implements CraftedPyObject, PyDict.Key {
      * includes surrogate pairs of {@code char}s, these are interpreted
      * as a single Python code point.
      */
-    static class StringAdapter extends CodepointAdapter {
+    static class StringAdapter extends CodepointDelegate {
 
         /** Value of the str encoded as a Java {@code String}. */
         private final String s;
@@ -681,11 +660,45 @@ class PyUnicode implements CraftedPyObject, PyDict.Key {
                 return s.repeat(n);
         }
 
-        // Iterable<Object> interface ---------------------------------
+        @Override
+        public int
+                compareTo(PySequence.Delegate<Integer, Object> other) {
+            Iterator<Integer> ia = iterator();
+            Iterator<Integer> ib = other.iterator();
+            while (ia.hasNext()) {
+                if (ib.hasNext()) {
+                    int a = ia.next();
+                    int b = ib.next();
+                    // if a != b, then we've found an answer
+                    if (a > b)
+                        return 1;
+                    else if (a < b)
+                        return -1;
+                } else
+                    // s has not run out, but b has. s wins
+                    return 1;
+            }
+            /*
+             * The sequences matched over the length of s. The other is
+             * the winner if it still has elements. Otherwise its a tie.
+             */
+            return ib.hasNext() ? -1 : 0;
+        }
+
+        // PySequence.OfInt interface --------------------------------
+
+        @Override
+        public Spliterator.OfInt spliterator() {
+            return s.codePoints().spliterator();
+        }
+
+        @Override
+        public IntStream asIntStream() { return s.codePoints(); }
+
+        // ListIterator provision ------------------------------------
 
         @Override
         public ListIterator<Integer> listIterator(final int index) {
-
             if (isBMP())
                 return new BMPListIterator(index);
             else
@@ -815,40 +828,6 @@ class PyUnicode implements CraftedPyObject, PyDict.Key {
             public int previousIndex() { return cpIndex - 1; }
         }
 
-        @Override
-        public Spliterator.OfInt spliterator() {
-            return s.codePoints().spliterator();
-        }
-
-        @Override
-        public IntStream asIntStream() { return s.codePoints(); }
-
-
-        // Comparable<CodepointAdapter> interface ---------------------
-
-        @Override
-        public int compareTo(CodepointAdapter other) {
-            Iterator<Integer> ia = iterator();
-            Iterator<Integer> ib = other.iterator();
-            while (ia.hasNext()) {
-                if (ib.hasNext()) {
-                    int a = ia.next();
-                    int b = ib.next();
-                    // if a != b, then we've found an answer
-                    if (a > b)
-                        return 1;
-                    else if (a < b)
-                        return -1;
-                } else
-                    // s has not run out, but b has. s wins
-                    return 1;
-            }
-            /*
-             * The sequences matched over the length of s. The other is
-             * the winner if it still has elements. Otherwise its a tie.
-             */
-            return ib.hasNext() ? -1 : 0;
-        }
     }
 
     /**
@@ -859,7 +838,7 @@ class PyUnicode implements CraftedPyObject, PyDict.Key {
      * need only specify the work specific to {@link PyUnicode}
      * instances.
      */
-    class UnicodeDelegate extends CodepointAdapter {
+    class UnicodeDelegate extends CodepointDelegate {
 
         @Override
         public int length() { return value.length; }
@@ -942,11 +921,47 @@ class PyUnicode implements CraftedPyObject, PyDict.Key {
         }
 
         @Override
+        public int
+                compareTo(PySequence.Delegate<Integer, Object> other) {
+            Iterator<Integer> ib = other.iterator();
+            for (int a : value) {
+                if (ib.hasNext()) {
+                    int b = ib.next();
+                    // if a != b, then we've found an answer
+                    if (a > b)
+                        return 1;
+                    else if (a < b)
+                        return -1;
+                } else
+                    // value has not run out, but other has. We win.
+                    return 1;
+            }
+            /*
+             * The sequences matched over the length of value. The other
+             * is the winner if it still has elements. Otherwise its a
+             * tie.
+             */
+            return ib.hasNext() ? -1 : 0;
+        }
+
+        // PySequence.OfInt interface --------------------------------
+
+        @Override
         public Spliterator.OfInt spliterator() {
             final int flags = Spliterator.IMMUTABLE | Spliterator.SIZED
                     | Spliterator.ORDERED;
             return Spliterators.spliterator(value, flags);
         }
+
+        @Override
+        public IntStream asIntStream() {
+            int flags = Spliterator.IMMUTABLE | Spliterator.SIZED;
+            Spliterator.OfInt s =
+                    Spliterators.spliterator(value, flags);
+            return StreamSupport.intStream(s, false);
+        }
+
+        // ListIterator provision ------------------------------------
 
         @Override
         public ListIterator<Integer> listIterator(final int index) {
@@ -995,39 +1010,6 @@ class PyUnicode implements CraftedPyObject, PyDict.Key {
                 }
             };
         }
-
-        @Override
-        public IntStream asIntStream() {
-            int flags = Spliterator.IMMUTABLE | Spliterator.SIZED;
-            Spliterator.OfInt s =
-                    Spliterators.spliterator(value, flags);
-            return StreamSupport.intStream(s, false);
-        }
-
-        // Comparable<CodepointAdapter> interface ---------------------
-
-        @Override
-        public int compareTo(CodepointAdapter other) {
-            Iterator<Integer> ib = other.iterator();
-            for (int a : value) {
-                if (ib.hasNext()) {
-                    int b = ib.next();
-                    // if a != b, then we've found an answer
-                    if (a > b)
-                        return 1;
-                    else if (a < b)
-                        return -1;
-                } else
-                    // value has not run out, but other has. We win.
-                    return 1;
-            }
-            /*
-             * The sequences matched over the length of value. The other
-             * is the winner if it still has elements. Otherwise its a
-             * tie.
-             */
-            return ib.hasNext() ? -1 : 0;
-        }
     }
 
     /**
@@ -1045,7 +1027,7 @@ class PyUnicode implements CraftedPyObject, PyDict.Key {
      * @return adapted to a sequence
      * @throws NoConversion if {@code v} is not a Python {@code str}
      */
-    static CodepointAdapter adapt(Object v) throws NoConversion {
+    static CodepointDelegate adapt(Object v) throws NoConversion {
         // Check against supported types, most likely first
         if (v instanceof String)
             return new StringAdapter((String)v);

@@ -174,9 +174,9 @@ public class PySequence extends Abstract {
      * interface provides a standardised API. Several {@link Delegate}
      * implementations in the core also provide this interface.
      *
-     * @param <T> the type of element returned by the iterators
+     * @param <E> the type of element returned by the iterators
      */
-    static interface Of<T> extends Iterable<T>, Comparable<Of<T>> {
+    static interface Of<E> extends Iterable<E> {
 
         /**
          * The length of this sequence.
@@ -186,29 +186,18 @@ public class PySequence extends Abstract {
         int length();
 
         /**
-         * Get one element from the sequence.
-         *
-         * @param i index of element to get
-         * @return value at {@code i}th position
-         */
-        T get(int i);
-
-        // /** Set one element from the sequence (if mutable). */
-        // void setItem(int i, Object v);
-
-        /**
          * {@inheritDoc} The characteristics {@code SIZED} and
          * {@code SUBSIZED} are additionally reported.
          */
         @Override
-        default Spliterator<T> spliterator() {
+        default Spliterator<E> spliterator() {
             return Spliterators.spliterator(iterator(), length(), 0);
         }
 
         /**
          * @return the elements of this sequence as a {@code Stream}
          */
-        default Stream<T> asStream() {
+        default Stream<E> asStream() {
             return StreamSupport.stream(spliterator(), false);
         }
     }
@@ -272,8 +261,7 @@ public class PySequence extends Abstract {
      * {@link #setImpl(Indices)}, {@link #delItem(int)} and
      * {@link #delSlice(Indices)}.
      *
-     * @param <E> the element type, and return type of
-     *     {@link #getItem(int)} etc..
+     * @param <E> the element type returned by {@code iterator().next()}
      * @param <S> the slice type, and return type of
      *     {@link #getSlice(Indices)} etc..
      */
@@ -281,7 +269,8 @@ public class PySequence extends Abstract {
      * This has been adapted from Jython 2 SequenceIndexDelegate and
      * documented.
      */
-    static abstract class Delegate<E, S> {
+    static abstract class Delegate<E, S>
+            implements Of<E>, Comparable<Delegate<E, S>> {
 
         /**
          * Returns the length of the client sequence from the
@@ -289,6 +278,7 @@ public class PySequence extends Abstract {
          *
          * @return the length of the client sequence
          */
+        @Override
         public abstract int length();
 
         /**
@@ -325,7 +315,7 @@ public class PySequence extends Abstract {
          * @return the element from the client sequence
          * @throws Throwable from errors other than indexing
          */
-        public abstract E getItem(int i) throws Throwable;
+        public abstract Object getItem(int i) throws Throwable;
 
         /**
          * Inner implementation of {@code __getitem__}, called by
@@ -544,7 +534,7 @@ public class PySequence extends Abstract {
          * to a Python {@link OverflowError}.
          *
          * @param w right operand
-         * @return the concatenated result {@code self+w}
+         * @return {@code self+w} or {@code NotImplemented}
          * @throws OverflowError when cannot allocate space
          * @throws Throwable from other causes in the implementation.
          */
@@ -577,7 +567,7 @@ public class PySequence extends Abstract {
          * to a Python {@link OverflowError}.
          *
          * @param v left operand
-         * @return the concatenated result {@code v+self}
+         * @return {@code v+self} or {@code NotImplemented}
          * @throws OverflowError when cannot allocate space
          * @throws Throwable from other causes in the implementation.
          */
@@ -606,7 +596,7 @@ public class PySequence extends Abstract {
          * {@link OverflowError}.
          *
          * @param n number of repetitions in result
-         * @return the repeating result {@code self*n}
+         * @return {@code self*n} or {@code NotImplemented}
          * @throws OverflowError when {@code n} over-size or cannot
          *     allocate space
          * @throws TypeError if {@code n} has no {@code __index__}
@@ -625,7 +615,7 @@ public class PySequence extends Abstract {
                 /*
                  * Since we do not implement __repeat__ separate from
                  * __mul_, unlike CPython, we do not yet know that
-                 * Object n has no __rmul__, and cannot produce the
+                 * Object n has no __rmul__, so we cannot produce the
                  * TypeError "can't multiply sequence by non-int".
                  * Instead, Abstract.multiply will produce a TypeError
                  * about "unsupported operand types" for '*'.
@@ -772,7 +762,7 @@ public class PySequence extends Abstract {
                 i += L;
                 return Math.max(0, i);
             } else {
-                return Math.min(L-1, i);
+                return Math.min(L - 1, i);
             }
         }
     }

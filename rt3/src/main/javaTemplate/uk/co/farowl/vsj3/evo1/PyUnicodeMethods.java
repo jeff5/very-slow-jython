@@ -1,7 +1,7 @@
 package uk.co.farowl.vsj3.evo1;
 
 import uk.co.farowl.vsj3.evo1.PyObjectUtil.NoConversion;
-import uk.co.farowl.vsj3.evo1.PyUnicode.CodepointAdapter;
+import uk.co.farowl.vsj3.evo1.PyUnicode.CodepointDelegate;
 import static uk.co.farowl.vsj3.evo1.PyUnicode.adapt;
 
 import java.util.Iterator;
@@ -34,7 +34,7 @@ class PyUnicodeMethods {
      * @param b another
      * @return whether values equal
      */
-    private static boolean eq(CodepointAdapter a, CodepointAdapter b) {
+    private static boolean eq(CodepointDelegate a, CodepointDelegate b) {
         // Lengths must be equal
         if (a.length() != b.length()) { return false; }
         // Scan the code points in a and b

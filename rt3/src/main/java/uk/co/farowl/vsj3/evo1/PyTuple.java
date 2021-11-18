@@ -10,12 +10,9 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.ListIterator;
 import java.util.NoSuchElementException;
-import java.util.Spliterator;
-import java.util.Spliterators;
 import java.util.StringJoiner;
 
 import uk.co.farowl.vsj3.evo1.PyObjectUtil.NoConversion;
-import uk.co.farowl.vsj3.evo1.PySequence.Of;
 import uk.co.farowl.vsj3.evo1.PySlice.Indices;
 import uk.co.farowl.vsj3.evo1.PyType.Spec;
 import uk.co.farowl.vsj3.evo1.base.InterpreterError;
@@ -35,7 +32,7 @@ public class PyTuple extends AbstractList<Object>
     final Object[] value;
 
     /** Implementation help for sequence methods. */
-    private TupleAdapter delegate = new TupleAdapter();
+    private TupleDelegate delegate = new TupleDelegate();
 
     /**
      * Potentially unsafe constructor, capable of creating a
@@ -360,8 +357,12 @@ public class PyTuple extends AbstractList<Object>
             public boolean hasPrevious() { return i > 0; }
 
             @Override
-            public Object previous() { if (i>0) return value[--i]; else
-                throw new NoSuchElementException();}
+            public Object previous() {
+                if (i > 0)
+                    return value[--i];
+                else
+                    throw new NoSuchElementException();
+            }
 
             @Override
             public int nextIndex() { return i; }
@@ -399,11 +400,10 @@ public class PyTuple extends AbstractList<Object>
     private static final int H32P5 = 374761393;
 
     /**
-     * Wrap this {@code PyTuple} as a {@link PySequence.Delegate}, that
-     * is also a an iterable of {@code Object}.
+     * Wrap this {@code PyTuple} as a {@link PySequence.Delegate}, for
+     * the management of indexing and other sequence operations.
      */
-    class TupleAdapter extends PySequence.Delegate<Object, Object>
-            implements PySequence.Of<Object> {
+    class TupleDelegate extends PySequence.Delegate<Object, Object> {
 
         @Override
         public int length() { return value.length; };
@@ -466,27 +466,16 @@ public class PyTuple extends AbstractList<Object>
             }
         }
 
-        // PySequence.Of<Object> interface ----------------------------
-
-        @Override
-        public Object get(int i) { return getItem(i); }
-
-        @Override
-        public Spliterator<Object> spliterator() {
-            final int flags = Spliterator.IMMUTABLE | Spliterator.SIZED
-                    | Spliterator.ORDERED;
-            return Spliterators.spliterator(value, flags);
-        }
-
-        // Iterable<Object> interface ---------------------------------
-
         @Override
         public Iterator<Object> iterator() {
             return PyTuple.this.iterator();
         }
 
         @Override
-        public int compareTo(Of<Object> other) {
+        public int
+                compareTo(PySequence.Delegate<Object, Object> other) {
+            // public int compareTo(TupleDelegate other) {
+            // public int compareTo(Of<Object> other) {
             try {
                 // Tuple is comparable only with another tuple
                 int N = value.length, M = other.length(), i = 0;
@@ -494,7 +483,7 @@ public class PyTuple extends AbstractList<Object>
                 for (i = 0; i < N; i++) {
                     Object a = value[i];
                     if (i < M) {
-                        Object b = other.get(i);
+                        Object b = other.getItem(i);
                         // if a != b, then we've found an answer
                         if (!Abstract.richCompareBool(a, b,
                                 Comparison.EQ))
@@ -538,7 +527,7 @@ public class PyTuple extends AbstractList<Object>
         Object cmp(Object other, Comparison op) {
             if (other instanceof PyTuple) {
                 // Tuple is comparable only with another tuple
-                TupleAdapter o = ((PyTuple)other).delegate;
+                TupleDelegate o = ((PyTuple)other).delegate;
                 return op.toBool(delegate.compareTo(o));
             } else {
                 return Py.NotImplemented;

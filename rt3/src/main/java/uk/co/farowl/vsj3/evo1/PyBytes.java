@@ -229,16 +229,7 @@ class PyBytes extends AbstractList<Integer> implements CraftedPyObject {
             }
         }
 
-        // PySequence.OfInt interface----------------------------------
-
-        @Override
-        public Integer get(int i) {
-            try {
-                return 0xff & value[i];
-            } catch (IndexOutOfBoundsException e) {
-                throw Abstract.indexOutOfRange("bytes");
-            }
-        }
+        // PySequence.OfInt interface --------------------------------
 
         @Override
         public Spliterator.OfInt spliterator() {
@@ -256,7 +247,8 @@ class PyBytes extends AbstractList<Integer> implements CraftedPyObject {
         }
 
         @Override
-        public int compareTo(PySequence.Of<Integer> other) {
+        public int
+                compareTo(PySequence.Delegate<Integer, PyBytes> other) {
             Iterator<Integer> ib = other.iterator();
             for (int a : value) {
                 if (ib.hasNext()) {
@@ -285,7 +277,7 @@ class PyBytes extends AbstractList<Integer> implements CraftedPyObject {
          * @param b another
          * @return whether values equal
          */
-        boolean equals(PySequence.Of<Integer> b) {
+        boolean equals(BytesDelegate b) {
             // Lengths must be equal
             if (length() != b.length()) { return false; }
             // Scan the codes points in this.value and b
@@ -365,7 +357,7 @@ class PyBytes extends AbstractList<Integer> implements CraftedPyObject {
      * @return adapted to a sequence
      * @throws NoConversion if {@code v} is not a Python {@code str}
      */
-    static PySequence.OfInt adapt(Object v) throws NoConversion {
+    static BytesDelegate adapt(Object v) throws NoConversion {
         // Check against supported types, most likely first
         if (v instanceof PyBytes /* || v instanceof PyByteArray */)
             return ((PyBytes)v).delegate;
