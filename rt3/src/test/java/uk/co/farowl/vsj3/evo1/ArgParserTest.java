@@ -41,6 +41,7 @@ class ArgParserTest {
         @Test
         abstract void has_expected_toString();
     }
+
     @Nested
     @DisplayName("A parser for no arguments")
     class NoArgs extends Standard {

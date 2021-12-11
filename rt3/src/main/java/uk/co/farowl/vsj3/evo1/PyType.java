@@ -456,7 +456,6 @@ public class PyType extends Operations implements DictPyObject {
      * @throws Clash when an implementation class is already registered
      */
     private void fillDictionary(Spec spec) throws Clash {
-
         // Fill slots from implClass or bases
         addMethods(spec);
         // XXX Possibly belong distinct from fillDictionary

@@ -63,14 +63,14 @@ class AbstractSequenceAPITest extends UnitTestSupport {
                  * be a single character.
                  */
                 // In the Java String realisation each is two chars
-                stringExample("one 🐍", "🦓 two"),  // 🐍=\ud802\udc40
-                stringExample("🐍🦓", ""), // 🐍=\ud802\udc40
+                stringExample("one 🐍", "🦓 two"),  // 🐍=\ud83d\udc0d
+                stringExample("🐍🦓", ""), // 🐍=\ud83d\udc0d
                 // In the PyUnicode realisation each is one int
                 unicodeExample("one 🐍", "🦓 two"), // 🐍=U+1F40D
                 unicodeExample("🐍🦓", ""),  // 🐍=U+1F40D
                 // Surrogate concatenation should not create U+1F40D
-                stringExample("\udc40 A \ud802", "\udc40 B"),
-                unicodeExample("\udc40 A \ud802", "\udc40 B"));
+                stringExample("\udc0d A \ud83d", "\udc0d B"),
+                unicodeExample("\udc0d A \ud83d", "\udc0d B"));
     }
 
     /**
@@ -80,7 +80,7 @@ class AbstractSequenceAPITest extends UnitTestSupport {
      * say).
      *
      * @param s to encode to bytes ({@code self})
-     * @param s to encode to bytes ({@code other})
+     * @param t to encode to bytes ({@code other})
      * @return the example (a reference value, test object, and other)
      */
     static Arguments bytesExample(String s, String t) {

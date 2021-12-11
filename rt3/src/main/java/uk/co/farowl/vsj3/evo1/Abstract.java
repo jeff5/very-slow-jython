@@ -780,7 +780,7 @@ public class Abstract {
     private static final String RETURNED_NON_TYPE =
             "%.200s returned non-%.200s (type %.200s)";
     private static final String ARGUMENT_MUST_BE =
-            "%s()%s argument must be %s, not '%.200s'";
+            "%s()%s%s argument must be %s, not '%.200s'";
     protected static final String NOT_MAPPING =
             "%.200s is not a mapping";
     static final String DESCR_NOT_DEFINING =
@@ -871,22 +871,41 @@ public class Abstract {
 
     /**
      * Create a {@link TypeError} with a message along the lines "F()
+     * [name] argument must be T, not X", involving a function name, an
+     * argument name, an expected type description T and the type X of
+     * {@code o}, e.g. "split() separator argument must be str or None,
+     * 'tuple'".
+     *
+     * @param f name of function or operation
+     * @param name of argument
+     * @param t describing the expected kind of argument
+     * @param o actual argument (not its type)
+     * @return exception to throw
+     */
+    static TypeError argumentTypeError(String f, String name, String t,
+            Object o) {
+        String space = name.length() == 0 ? "" : " ";
+        return new TypeError(ARGUMENT_MUST_BE, f, space, name, t,
+                PyType.of(o).getName());
+    }
+
+    /**
+     * Create a {@link TypeError} with a message along the lines "F()
      * [nth] argument must be T, not X", involving a function name,
-     * optionally an ordinal n, an expected type T and the type X of
-     * {@code o}, e.g. "int() argument must be a string, a bytes-like
-     * object or a number, not 'list'" or "complex() second argument
-     * must be a number, not 'type'".
+     * optionally an ordinal n, an expected type description T and the
+     * type X of {@code o}, e.g. "int() argument must be a string, a
+     * bytes-like object or a number, not 'list'" or "complex() second
+     * argument must be a number, not 'type'".
      *
      * @param f name of function or operation
      * @param n ordinal of argument: 1 for "first", etc., 0 for ""
-     * @param t expected kind of argument
+     * @param t describing the expected kind of argument
      * @param o actual argument (not its type)
      * @return exception to throw
      */
     static TypeError argumentTypeError(String f, int n, String t,
             Object o) {
-        return new TypeError(ARGUMENT_MUST_BE, f, ordinal(n), t,
-                PyType.of(o).getName());
+        return argumentTypeError(f, ordinal(n), t, o);
     }
 
     // Helper for argumentTypeError

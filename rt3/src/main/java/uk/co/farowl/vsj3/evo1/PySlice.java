@@ -27,7 +27,7 @@ public class PySlice extends AbstractPyObject {
     final private Object step;
 
     /**
-     * Create a Python {@code slice} from {@code object} arguments.
+     * Create a Python {@code slice} from three {@code object} arguments.
      *
      * @param start index or {@code null} (for {@code None}).
      * @param stop index or {@code null} (for {@code None}).
@@ -38,6 +38,17 @@ public class PySlice extends AbstractPyObject {
         this.start = start != null ? start : Py.None;
         this.stop = stop != null ? stop : Py.None;
         this.step = step != null ? step : Py.None;
+    }
+
+    /**
+     * Create a Python {@code slice} from two {@code object} arguments.
+     * The step is implicitly {@code None}.
+     *
+     * @param start index or {@code null} (for {@code None}).
+     * @param stop index or {@code null} (for {@code None}).
+     */
+    public PySlice(Object start, Object stop) {
+        this(start, stop, null);
     }
 
     /**

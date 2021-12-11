@@ -8,6 +8,7 @@ import java.util.Iterator;
 import java.util.ListIterator;
 import java.util.Map;
 import java.util.NoSuchElementException;
+import java.util.PrimitiveIterator;
 import java.util.Spliterator;
 import java.util.Spliterators;
 import java.util.stream.IntStream;
@@ -19,21 +20,25 @@ import uk.co.farowl.vsj3.evo1.Exposed.PythonMethod;
 import uk.co.farowl.vsj3.evo1.PyObjectUtil.NoConversion;
 import uk.co.farowl.vsj3.evo1.PySequence.Delegate;
 import uk.co.farowl.vsj3.evo1.PySlice.Indices;
+import uk.co.farowl.vsj3.evo1.base.InterpreterError;
 
 /**
  * The Python {@code str} object is implemented by both
- * {@code PyUnicode} and {@code String}. Most strings used as names
- * (keys) and text is quite satisfactorily represented by Java
- * {@code String}. All operations will produce the same result for
- * Python, whichever representation is used.
+ * {@code PyUnicode} and Java {@code String}. All operations will
+ * produce the same result for Python, whichever representation is used.
+ * Both types are treated as an array of code points in Python.
  * <p>
- * Java {@code String}s are compact, but where they contain non-BMP
- * characters, these are represented by a pair of code units, which
- * makes certain operations (such as indexing) expensive, but not those
- * involving sequential access. By contrast, a {@code PyUnicode} is
- * time-efficient, but each character occupies one {@code int}.
+ * Most strings used as names (keys) and text are quite satisfactorily
+ * represented by Java {@code String}. Java {@code String}s are compact,
+ * but where they contain non-BMP characters, these are represented by a
+ * pair of code units. That makes certain operations (such as indexing
+ * or slicing) relatively expensive compared to Java. Accessing the code
+ * points of a {@code String} sequentially is still cheap.
+ * <p>
+ * By contrast, a {@code PyUnicode} is time-efficient, but each
+ * character occupies one {@code int}.
  */
-class PyUnicode implements CraftedPyObject, PyDict.Key {
+public class PyUnicode implements CraftedPyObject, PyDict.Key {
 
     /** The type of Python object this class implements. */
     static final PyType TYPE = PyType.fromSpec( //
@@ -100,6 +105,17 @@ class PyUnicode implements CraftedPyObject, PyDict.Key {
 
     /**
      * Construct an instance of {@code PyUnicode}, a {@code str} or a
+     * sub-class, from the given code points. The constructor takes a
+     * copy.
+     *
+     * @param codePoints the array of code points
+     */
+    protected PyUnicode(int... codePoints) {
+        this(TYPE, false, codePoints);
+    }
+
+    /**
+     * Construct an instance of {@code PyUnicode}, a {@code str} or a
      * sub-class, from a given Java {@code String}. The constructor
      * interprets surrogate pairs as defining one code point. Lone
      * surrogates are preserved (e.g. for byte smuggling).
@@ -132,8 +148,9 @@ class PyUnicode implements CraftedPyObject, PyDict.Key {
 
     /**
      * Return a Python {@code str} representing the same sequence of
-     * characters as the given Java {@code String}, but as a PyUnicode
-     * if it contains non-BMP code points.
+     * characters as the given Java {@code String}. The result is not
+     * necessarily a {@code PyUnicode}, unless the argument contains
+     * non-BMP code points.
      *
      * @param cp to code point convert
      * @return a Python {@code str}
@@ -151,14 +168,6 @@ class PyUnicode implements CraftedPyObject, PyDict.Key {
     // Special methods ------------------------------------------------
 
     @SuppressWarnings("unused")
-    private int __len__() { return value.length; }
-
-    @SuppressWarnings("unused")
-    private static int __len__(String self) {
-        return self.codePointCount(0, self.length());
-    }
-
-    @SuppressWarnings("unused")
     private Object __str__() { return this; }
 
     @SuppressWarnings("unused")
@@ -174,6 +183,14 @@ class PyUnicode implements CraftedPyObject, PyDict.Key {
         StringBuilder b = new StringBuilder();
         for (int c : delegate) { b.appendCodePoint(c); }
         return __repr__(b.toString());
+    }
+
+    @SuppressWarnings("unused")
+    private int __len__() { return value.length; }
+
+    @SuppressWarnings("unused")
+    private static int __len__(String self) {
+        return self.codePointCount(0, self.length());
     }
 
     /**
@@ -207,6 +224,18 @@ class PyUnicode implements CraftedPyObject, PyDict.Key {
     private static int __hash__(String self) { return self.hashCode(); }
 
     @SuppressWarnings("unused")
+    private Object __getitem__(Object item) throws Throwable {
+        return delegate.__getitem__(item);
+    }
+
+    @SuppressWarnings("unused")
+    private static Object __getitem__(String self, Object item)
+            throws Throwable {
+        StringAdapter delegate = adapt(self);
+        return delegate.__getitem__(item);
+    }
+
+    @SuppressWarnings("unused")
     private Object __add__(Object w) throws Throwable {
         return delegate.__add__(w);
     }
@@ -214,6 +243,17 @@ class PyUnicode implements CraftedPyObject, PyDict.Key {
     @SuppressWarnings("unused")
     private static Object __add__(String v, Object w) throws Throwable {
         return adapt(v).__add__(w);
+    }
+
+    @SuppressWarnings("unused")
+    private Object __radd__(Object v) throws Throwable {
+        return delegate.__radd__(v);
+    }
+
+    @SuppressWarnings("unused")
+    private static Object __radd__(String w, Object v)
+            throws Throwable {
+        return adapt(w).__radd__(v);
     }
 
     private Object __mul__(Object n) throws Throwable {
@@ -236,19 +276,497 @@ class PyUnicode implements CraftedPyObject, PyDict.Key {
         return __mul__(self, n);
     }
 
-    @SuppressWarnings("unused")
-    private Object __getitem__(Object item) throws Throwable {
-        return delegate.__getitem__(item);
-    }
-
-    @SuppressWarnings("unused")
-    private static Object __getitem__(String self, Object item)
-            throws Throwable {
-        StringAdapter delegate = adapt(self);
-        return delegate.__getitem__(item);
-    }
-
     // Methods --------------------------------------------------------
+
+    /*
+     * Several methods of str involve finding a target string within the
+     * object receiving the call, to locate an occurrence, to count or
+     * replace all occurrences, or to split the string at the first,
+     * last or all occurrences.
+     *
+     * The fundamental algorithms are those that find the substring,
+     * finding either the first occurrence, by scanning from the start
+     * forwards, or the last by scanning from the end in reverse.
+     *
+     * Follow how find() and rfind() work, and the others will make
+     * sense too, since they follow the same two patterns, but with
+     * additional data movement to build the result, or repetition to
+     * find all occurrences.
+     */
+
+    /**
+     * Return the lowest index in the string where substring {@code sub}
+     * is found, such that {@code sub} is contained in the slice
+     * {@code [start:end]}. Arguments {@code start} and {@code end} are
+     * interpreted as in slice notation, with {@code null} or
+     * {@link Py#None} representing "missing".
+     *
+     * @param sub substring to find.
+     * @param start start of slice.
+     * @param end end of slice.
+     * @return index of {@code sub} in this object or -1 if not found.
+     */
+    @PythonMethod
+    int find(Object sub, Object start, Object end) {
+        return find(delegate, sub, start, end);
+    }
+
+    @PythonMethod(primary = false)
+    static int find(String self, Object sub, Object start, Object end) {
+        return find(adapt(self), sub, start, end);
+    }
+
+    private static int find(CodepointDelegate s, Object sub,
+            Object start, Object end) {
+        CodepointDelegate p = adaptSub("find", sub);
+        PySlice.Indices slice = getSliceIndices(s, start, end);
+        if (p.length() == 0)
+            return slice.start;
+        else
+            return find(s, p, slice);
+    }
+
+    /**
+     * Inner implementation of Python {@code str.find()}. Return the
+     * index of the leftmost occurrence of a (non-empty) substring in a
+     * slice of some target string, or {@code -1} if there was no match.
+     * Each string is specified by its delegate object.
+     *
+     * @param s to be searched
+     * @param p the substring to look for
+     * @param slice of {@code s} in which to search
+     * @return the index of the occurrence or {@code -1}
+     */
+    private static int find(CodepointDelegate s, CodepointDelegate p,
+            PySlice.Indices slice) {
+        /*
+         * Create an iterator for p (the needle string) and pick up the
+         * first character we are seeking. We scan s for pChar = p[0],
+         * and when it matches, divert into a full check using this
+         * iterator.
+         */
+        CodepointIterator pi = p.iterator(0);
+        int pChar = pi.nextInt(), pLength = p.length();
+        CodepointIterator.Mark pMark = pi.mark(); // at p[1]
+        assert pLength > 0;
+
+        // Counting in pos avoids hasNext() calls
+        int pos = slice.start, lastPos = slice.stop - pLength;
+
+        // An iterator on s[start:end], the string being searched
+        CodepointIterator si = s.iterator(pos, slice.start, slice.stop);
+
+        while (pos++ <= lastPos) {
+            if (si.nextInt() == pChar) {
+                /*
+                 * s[pos] matched p[0]: divert into matching the rest of
+                 * p. Leave a mark in s where we shall resume if this is
+                 * not a full match with p.
+                 */
+                CodepointIterator.Mark sPos = si.mark();
+                int match = 1;
+                while (match < pLength) {
+                    if (pi.nextInt() != si.nextInt()) { break; }
+                    match++;
+                }
+                // If we reached the end of p it's a match
+                if (match == pLength) { return pos - 1; }
+                // We stopped on a mismatch: reset si and pi
+                sPos.restore();
+                pMark.restore();
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * Return the highest index in the string where substring
+     * {@code sub} is found, such that {@code sub} is contained in the
+     * slice {@code [start:end]}. Arguments {@code start} and
+     * {@code end} are interpreted as in slice notation, with null or
+     * {@link Py#None} representing "missing".
+     *
+     * @param sub substring to find.
+     * @param start start of slice.
+     * @param end end of slice.
+     * @return index of {@code sub} in this object or -1 if not found.
+     */
+    @PythonMethod
+    int rfind(Object sub, Object start, Object end) {
+        return rfind(delegate, sub, start, end);
+    }
+
+    @PythonMethod(primary = false)
+    static int rfind(String self, Object sub, Object start,
+            Object end) {
+        return rfind(adapt(self), sub, start, end);
+    }
+
+    private static int rfind(CodepointDelegate s, Object sub,
+            Object start, Object end) {
+        CodepointDelegate p = adaptSub("rfind", sub);
+        PySlice.Indices slice = getSliceIndices(s, start, end);
+        if (p.length() == 0)
+            return slice.stop;
+        else
+            return rfind(s, p, slice);
+    }
+
+    /**
+     * Inner implementation of Python {@code str.rfind()}. Return the
+     * index of the rightmost occurrence of a (non-empty) substring in a
+     * slice of some target string, or {@code -1} if there was no match.
+     * Each string is specified by its delegate object.
+     *
+     * @param s to be searched
+     * @param p the substring to look for
+     * @param slice of {@code s} in which to search
+     * @return the index of the occurrence or {@code -1}
+     */
+    private static int rfind(CodepointDelegate s, CodepointDelegate p,
+            PySlice.Indices slice) {
+        /*
+         * Create an iterator for p (the needle string) and pick up the
+         * last character we are seeking. We scan s in reverse for pChar
+         * = p[-1], and when it matches, divert into a full check using
+         * this iterator.
+         */
+        int pLength = p.length();
+        CodepointIterator pi = p.iterator(pLength);
+        int pChar = pi.previousInt();
+        CodepointIterator.Mark pMark = pi.mark(); // p[-1]
+
+        // Counting in pos avoids hasNext() calls. Start at the end.
+        int pos = slice.stop, firstPos = slice.start + (pLength - 1);
+
+        // An iterator on s[start:end], the string being searched.
+        CodepointIterator si = s.iterator(pos, slice.start, slice.stop);
+
+        while (--pos >= firstPos) {
+            if (si.previousInt() == pChar) {
+                /*
+                 * s[pos] matched p[-1]: divert into matching the rest
+                 * of p (still in reverse). Leave a mark in s where we
+                 * shall resume if this is not a full match with p.
+                 */
+                CodepointIterator.Mark sPos = si.mark();
+                int match = 1;
+                while (match < pLength) {
+                    if (pi.previousInt() != si.previousInt()) { break; }
+                    match++;
+                }
+                // If we reached the start of p it's a match
+                if (match == pLength) { return pos - (pLength - 1); }
+                // We stopped on a mismatch: reset si and pi
+                sPos.restore();
+                pMark.restore();
+            }
+        }
+        return -1;
+    }
+
+    /**
+     * As {@link #find(Object, Object, Object)}, but throws
+     * {@link ValueError} if the substring is not found.
+     *
+     * @param sub substring to find.
+     * @param start start of slice.
+     * @param end end of slice.
+     * @return index of {@code sub} in this object or -1 if not found.
+     * @throws ValueError if {@code sub} is not found
+     */
+    @PythonMethod
+    int index(Object sub, Object start, Object end) throws ValueError {
+        return checkIndexReturn(find(delegate, sub, start, end));
+    }
+
+    @PythonMethod(primary = false)
+    static int index(String self, Object sub, Object start,
+            Object end) {
+        return checkIndexReturn(find(adapt(self), sub, start, end));
+    }
+
+    /**
+     * As {@link #rfind(Object, Object, Object)}, but throws
+     * {@link ValueError} if the substring is not found.
+     *
+     * @param sub substring to find.
+     * @param start start of slice.
+     * @param end end of slice.
+     * @return index of {@code sub} in this object or -1 if not found.
+     * @throws ValueError if {@code sub} is not found
+     */
+    @PythonMethod
+    int rindex(Object sub, Object start, Object end) throws ValueError {
+        return checkIndexReturn(rfind(delegate, sub, start, end));
+    }
+
+    @PythonMethod(primary = false)
+    static int rindex(String self, Object sub, Object start,
+            Object end) {
+        return checkIndexReturn(rfind(adapt(self), sub, start, end));
+    }
+
+    /**
+     * Python {@code str.partition()}, splits the {@code str} at the
+     * first occurrence of {@code sep} returning a {@link PyTuple}
+     * containing the part before the separator, the separator itself,
+     * and the part after the separator.
+     *
+     * @param sep on which to split the string
+     * @return tuple of parts
+     */
+    @PythonMethod
+    PyTuple partition(Object sep) {
+        PyTuple r = partition(delegate, sep);
+        return r != null ? r : Py.tuple(this, "", "");
+    }
+
+    @PythonMethod(primary = false)
+    static PyTuple partition(String self, Object sep) {
+        PyTuple r = partition(adapt(self), sep);
+        return r != null ? r : Py.tuple(self, "", "");
+    }
+
+    /**
+     * Inner implementation of Python {@code str.partition()}. Return a
+     * {@code tuple} of the split result {@code (before, sep, after)},
+     * or {@code null} if there was no match.
+     *
+     * @param s to be split
+     * @param sep the separator to look for
+     * @return tuple of parts or {@code null}
+     */
+    private static PyTuple partition(CodepointDelegate s, Object sep) {
+        /*
+         * partition() uses the same pattern as find(), with the
+         * difference that it records characters in a buffer as it scans
+         * them, and the slice is always the whole string.
+         */
+        // An iterator on p, the separator.
+        CodepointDelegate p = adaptSeparator("partition", sep);
+        CodepointIterator pi = p.iterator(0);
+        int sChar, pChar = pi.nextInt(), pLength = p.length();
+        CodepointIterator.Mark pMark = pi.mark();
+
+        // Counting in pos avoids hasNext() calls.
+        int pos = 0, lastPos = s.length() - pLength;
+
+        // An iterator on s, the string being split.
+        CodepointIterator si = s.iterator(pos);
+        IntArrayBuilder buffer = new IntArrayBuilder();
+
+        while (pos++ <= lastPos) {
+            if ((sChar = si.nextInt()) == pChar) {
+                /*
+                 * s[pos] matched p[0]: divert into matching the rest of
+                 * p. Leave a mark in s where we shall resume if this is
+                 * not a full match with p.
+                 */
+                CodepointIterator.Mark sPos = si.mark();
+                int match = 1;
+                while (match < pLength) {
+                    if (pi.nextInt() != si.nextInt()) { break; }
+                    match++;
+                }
+                // If we reached the end of p it's a match
+                if (match == pLength) {
+                    // Grab what came before the match.
+                    Object before = buffer.takeUnicode();
+                    // Now consume (the known length) after the match.
+                    buffer = new IntArrayBuilder(lastPos - pos + 1);
+                    Object after = buffer.append(si).takeUnicode();
+                    // Return a result tuple
+                    return Py.tuple(before, sep, after);
+                }
+                // We stopped on a mismatch: reset si and pi
+                sPos.restore();
+                pMark.restore();
+            }
+            // If we didn't return a result, consume one character
+            buffer.append(sChar);
+        }
+        // If we didn't return a result, there was no match
+        return null;
+    }
+
+    /**
+     * Python {@code str.rpartition()}, splits the {@code str} at the
+     * last occurrence of {@code sep}. Return a {@code tuple} containing
+     * the part before the separator, the separator itself, and the part
+     * after the separator.
+     *
+     * @param sep on which to split the string
+     * @return tuple of parts
+     */
+    @PythonMethod
+    PyTuple rpartition(Object sep) {
+        PyTuple r;
+        r = rpartition(delegate, sep);
+        return r != null ? r : Py.tuple(this, "", "");
+    }
+
+    @PythonMethod(primary = false)
+    static PyTuple rpartition(String self, Object sep) {
+        PyTuple r = rpartition(adapt(self), sep);
+        return r != null ? r : Py.tuple(self, "", "");
+    }
+
+    /**
+     * Helper to Python {@code str.rpartition()}. Return a {@code tuple}
+     * of the split result {@code (before, sep, after)}, or {@code null}
+     * if there was no match.
+     *
+     * @param s to be split
+     * @param sep the separator to look for
+     * @return tuple of parts or {@code null}
+     */
+    private static PyTuple rpartition(CodepointDelegate s, Object sep) {
+        /*
+         * Create an iterator for p (the needle string) and pick up the
+         * last character p[-1] we are seeking. We reset the iterator to
+         * that position (pChar is still valid) when a match to p is
+         * begun but proves partial.
+         */
+        CodepointDelegate p = adaptSeparator("rpartition", sep);
+        CodepointIterator pi = p.iteratorLast();
+        int sChar, pChar = pi.previousInt(), pLength = p.length();
+        CodepointIterator.Mark pMark = pi.mark();
+
+        // Counting in pos avoids hasNext() calls. Start at the end.
+        int pos = s.length(), firstPos = pLength - 1;
+
+        // An iterator on s, the string being split.
+        CodepointIterator si = s.iterator(pos);
+        IntArrayReverseBuilder buffer = new IntArrayReverseBuilder();
+
+        while (--pos >= firstPos) {
+            if ((sChar = si.previousInt()) == pChar) {
+                /*
+                 * s[pos] matched p[-1]: divert into matching the rest
+                 * of p (still in reverse). Leave a mark in s where we
+                 * shall resume if this is not a full match with p.
+                 */
+                CodepointIterator.Mark sPos = si.mark();
+                int match = 1;
+                while (match < pLength) {
+                    if (pi.previousInt() != si.previousInt()) { break; }
+                    match++;
+                }
+                // If we reached the end of p it's a match
+                if (match == pLength) {
+                    // Grab what came after the match.
+                    Object after = buffer.takeUnicode();
+                    // Now consume (the known length) before the match.
+                    buffer = new IntArrayReverseBuilder(si.nextIndex());
+                    Object before = buffer.prepend(si).takeUnicode();
+                    // Return a result
+                    return Py.tuple(before, sep, after);
+                }
+                // We stopped on a mismatch: reset si and pi
+                sPos.restore();
+                pMark.restore();
+            }
+            // If we didn't return a result, consume one character
+            buffer.prepend(sChar);
+        }
+        // If we didn't return a result, there was no match
+        return null;
+    }
+
+    /**
+     * Return the number of non-overlapping occurrences of substring
+     * {@code sub} in the range {@code [start:end]}. Optional arguments
+     * {@code start} and {@code end} are interpreted as in slice
+     * notation.
+     *
+     * @param sub substring to find.
+     * @param start start of slice.
+     * @param end end of slice.
+     * @return count of occurrences.
+     */
+    @PythonMethod
+    int count(Object sub, Object start, Object end) {
+        return count(delegate, sub, start, end);
+    }
+
+    @PythonMethod(primary = false)
+    static int count(String self, Object sub, Object start,
+            Object end) {
+        return count(adapt(self), sub, start, end);
+    }
+
+    private static int count(CodepointDelegate s, Object sub,
+            Object start, Object end) {
+        CodepointDelegate p = adaptSub("count", sub);
+        PySlice.Indices slice = getSliceIndices(s, start, end);
+        if (p.length() == 0)
+            return slice.start;
+        else
+            return count(s, p, slice);
+    }
+
+    /**
+     * The inner implementation of {@code str.count}, returning the
+     * number of occurrences of a substring. It accepts slice-like
+     * arguments, which may be {@code None} or end-relative (negative).
+     * This method also supports
+     * {@link PyUnicode#count(PyObject, PyObject, PyObject)}.
+     *
+     * @param sub substring to find.
+     * @param startObj start of slice.
+     * @param endObj end of slice.
+     * @return count of occurrences
+     */
+    private static int count(CodepointDelegate s, CodepointDelegate p,
+            PySlice.Indices slice) {
+        /*
+         * count() uses the same pattern as find(), with the difference
+         * that it keeps going rather than returning on the first match.
+         */
+        // An iterator on p, the string sought.
+        CodepointIterator pi = p.iterator(0);
+        int pChar = pi.nextInt(), pLength = p.length();
+        CodepointIterator.Mark pMark = pi.mark();
+        assert pLength > 0;
+
+        // Counting in pos avoids hasNext() calls.
+        int pos = slice.start, lastPos = slice.stop - pLength;
+
+        // An iterator on s[start:end], the string being searched.
+        CodepointIterator si = s.iterator(pos, slice.start, slice.stop);
+        int count = 0;
+
+        while (pos++ <= lastPos) {
+            if (si.nextInt() == pChar) {
+                /*
+                 * s[pos] matched p[0]: divert into matching the rest of
+                 * p. Leave a mark in s where we shall resume if this is
+                 * not a full match with p.
+                 */
+                CodepointIterator.Mark sPos = si.mark();
+                int match = 1;
+                while (match < pLength) {
+                    if (pi.nextInt() != si.nextInt()) { break; }
+                    match++;
+                }
+                if (match == pLength) {
+                    // We reached the end of p: it's a match.
+                    count++;
+                    // Catch pos up with si (matches do not overlap).
+                    pos = si.nextIndex();
+                } else {
+                    // We stopped on a mismatch: reset si to pos.
+                    sPos.restore();
+                }
+                // In either case, reset pi to p[1].
+                pMark.restore();
+            }
+        }
+        return count;
+    }
+
+    // Predicate methods ----------------------------------------------
 
     @PythonMethod(primary = false)
     boolean isascii() {
@@ -402,7 +920,15 @@ class PyUnicode implements CraftedPyObject, PyDict.Key {
     @Override
     public String toString() {
         StringBuilder b = new StringBuilder();
-        for (int c : value) { b.appendCodePoint(c); }
+        for (int c : value) {
+            if (c >= Character.MIN_SURROGATE
+                    && c <= Character.MAX_SURROGATE) {
+                // This is a lone surrogate: show the code
+                b.append(String.format("\\u%04x", c));
+            } else {
+                b.appendCodePoint(c);
+            }
+        }
         return b.toString();
     }
 
@@ -423,7 +949,7 @@ class PyUnicode implements CraftedPyObject, PyDict.Key {
         throw Abstract.requiredTypeError("a str", v);
     }
 
-    // Plumbing -------------------------------------------------------
+    // Plumbing ------------------------------------------------------
 
     /**
      * Convert a Python {@code str} to a Java {@code str} (or throw
@@ -471,15 +997,57 @@ class PyUnicode implements CraftedPyObject, PyDict.Key {
             extends PySequence.Delegate<Integer, Object>
             implements PySequence.OfInt {
         /**
+         * A bidirectional iterator on the sequence of code points
+         * between two indices.
+         *
+         * @param index starting position (code point index)
+         * @param start index of first element to include.
+         * @param end index of first element not to include.
+         * @return the iterator
+         */
+        abstract CodepointIterator iterator(int index, int start,
+                int end);
+
+        /**
          * A bidirectional iterator on the sequence of code points.
          *
          * @param index starting position (code point index)
          * @return the iterator
          */
-        abstract ListIterator<Integer> listIterator(int index);
+        CodepointIterator iterator(int index) {
+            return iterator(index, 0, length());
+        }
+
+        /**
+         * A bidirectional iterator on the sequence of code points,
+         * positioned initially one beyond the end of the sequence, so
+         * that the first call to {@code previous()} returns the last
+         * element.
+         *
+         * @param index starting position (code point index)
+         * @param start index of first element to include.
+         * @param end index of first element not to include.
+         * @return the iterator
+         */
+        CodepointIterator iteratorLast() {
+            return iterator(length());
+        }
+
+        /**
+         * Return a sub-range of the delegate contents corresponding to
+         * the (opaque) indices given, which must have been obtained
+         * from calls to {@link CodepointIterator#nextRangeIndex()}.
+         * Since the maximum opaque range index is not easily available,
+         * {@code end} will be trimmed to fit.
+         *
+         * @param start range index of first element to include.
+         * @param end range index of first element not to include.
+         * @return the range as an array
+         */
+        abstract int[] getRange(int start, int end);
 
         @Override
-        public Iterator<Integer> iterator() { return listIterator(0); }
+        public Iterator<Integer> iterator() { return iterator(0); }
 
         @Override
         public String toString() {
@@ -487,6 +1055,121 @@ class PyUnicode implements CraftedPyObject, PyDict.Key {
             for (Integer c : this) { b.appendCodePoint(c); }
             return b.append("\")").toString();
         }
+    }
+
+    /**
+     * A {@code ListIterator} from which one can obtain an opaque index
+     * usable with {@link CodepointDelegate#getRange(int, int)}.
+     */
+    interface CodepointIterator
+            extends ListIterator<Integer>, PrimitiveIterator.OfInt {
+
+        @Override
+        default Integer next() { return nextInt(); }
+
+        /**
+         * Returns {@code true} if this list iterator has the given
+         * number of elements when traversing the list in the forward
+         * direction.
+         *
+         * @param n number of elements needed
+         * @return {@code true} if has a further {@code n} elements
+         *     going forwards
+         */
+        boolean hasNext(int n);
+
+        /**
+         * Equivalent to {@code n} calls to {@link #nextInt()} returning
+         * the last result.
+         *
+         * @param n the number of advances
+         * @return the {@code n}th next {@code int}
+         */
+        int nextInt(int n);
+
+        @Override
+        default Integer previous() { return previousInt(); }
+
+        /**
+         * Returns {@code true} if this list iterator has the given
+         * number of elements when traversing the list in the reverse
+         * direction.
+         *
+         * @param n number of elements needed
+         * @return {@code true} if has a further {@code n} elements
+         *     going backwards
+         */
+        boolean hasPrevious(int n);
+
+        /**
+         * Returns the previous {@code int} element in the iteration.
+         * This is just previous specialised to a primitive {@code int}.
+         *
+         * @return
+         */
+        int previousInt();
+
+        /**
+         * Equivalent to {@code n} calls to {@link #prevousInt()}
+         * returning the last result.
+         *
+         * @param n the number of steps to take (in reverse)
+         * @return the {@code n}th previous {@code int}
+         */
+        int previousInt(int n);
+
+        /**
+         * An opaque index for the next code point {@link #next()} will
+         * return, usable with
+         * {@link CodepointDelegate#getRange(int, int)}.
+         */
+        default int nextRangeIndex() { return nextIndex(); }
+
+        /**
+         * An opaque index for the next code point {@link #previous()}
+         * will return, usable with
+         * {@link CodepointDelegate#getRange(int, int)}.
+         */
+        default int previousRangeIndex() { return previousIndex(); }
+
+        // Unsupported operations -----------------------------
+
+        @Override
+        default void remove() {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        default void set(Integer o) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        default void add(Integer o) {
+            throw new UnsupportedOperationException();
+        }
+
+        /**
+         * Set a mark (a saved state) to which the iterator may be
+         * restored later.
+         *
+         * @return the mark
+         */
+        Mark mark();
+
+        /**
+         * An opaque object to hold and restore the position of a
+         * particular {@link CodepointIterator}.
+         */
+        interface Mark {
+            /**
+             * Restore the position of the iterator from which this
+             * {@code Mark} was obtained, to the position it had at the
+             * time.
+             */
+            void restore();
+        }
+
     }
 
     /**
@@ -500,7 +1183,7 @@ class PyUnicode implements CraftedPyObject, PyDict.Key {
         /** Value of the str encoded as a Java {@code String}. */
         private final String s;
         /** Length in code points deduced from the {@code String}. */
-        private final int cpLength;
+        private final int length;
 
         /**
          * Adapt a String so we can iterate or stream its code points.
@@ -509,7 +1192,7 @@ class PyUnicode implements CraftedPyObject, PyDict.Key {
          */
         StringAdapter(String s) {
             this.s = s;
-            cpLength = s.codePointCount(0, s.length());
+            length = s.codePointCount(0, s.length());
         }
 
         /**
@@ -519,10 +1202,10 @@ class PyUnicode implements CraftedPyObject, PyDict.Key {
          *
          * @return contains only BMP characters or isolated surrogates
          */
-        private boolean isBMP() { return cpLength == s.length(); }
+        private boolean isBMP() { return length == s.length(); }
 
         @Override
-        public int length() { return cpLength; };
+        public int length() { return length; };
 
         @Override
         public PyType getType() { return TYPE; }
@@ -553,7 +1236,7 @@ class PyUnicode implements CraftedPyObject, PyDict.Key {
          */
         private int toCharIndex(int cpIndex) {
             int L = s.length();
-            if (cpIndex == cpLength) {
+            if (cpIndex == length) {
                 // Avoid counting to the end
                 return L;
             } else {
@@ -595,7 +1278,7 @@ class PyUnicode implements CraftedPyObject, PyDict.Key {
                     }
                 } else if (slice.step > 0) {
                     // Work forwards through the sequence
-                    ListIterator<Integer> cps = listIterator(i);
+                    ListIterator<Integer> cps = iterator(i);
                     r[0] = cps.next();
                     for (int j = 1; j < L; j++) {
                         for (int k = 1; k < slice.step; k++) {
@@ -605,7 +1288,7 @@ class PyUnicode implements CraftedPyObject, PyDict.Key {
                     }
                 } else { // slice.step < 0
                     // Work backwards through the sequence
-                    ListIterator<Integer> cps = listIterator(i + 1);
+                    ListIterator<Integer> cps = iterator(i + 1);
                     r[0] = cps.previous();
                     for (int j = 1; j < L; j++) {
                         for (int k = -1; k > slice.step; --k) {
@@ -616,6 +1299,27 @@ class PyUnicode implements CraftedPyObject, PyDict.Key {
                 }
                 return new PyUnicode(TYPE, true, r);
             }
+        }
+
+        @Override
+        int[] getRange(int start, int end) {
+            // start and end are char indices
+            end = Math.min(end, s.length());
+            int n = s.codePointCount(start, end);
+            int[] r = new int[n];
+            if (end - start == n) {
+                // There are no surrogate pairs between them: easy.
+                for (int i = 0, j = start; i < n; i++) {
+                    r[i] = s.charAt(j++);
+                }
+            } else {
+                // Be prepared for surrogate pairs
+                for (int i = 0, j = start; i < n; i++) {
+                    j += Character.isBmpCodePoint(
+                            r[i] = s.codePointAt(j)) ? 1 : 2;
+                }
+            }
+            return r;
         }
 
         @Override
@@ -644,10 +1348,10 @@ class PyUnicode implements CraftedPyObject, PyDict.Key {
         Object repeat(int n) throws OutOfMemoryError, Throwable {
             if (n == 0)
                 return "";
-            else if (n == 1 || cpLength == 0)
+            else if (n == 1 || length == 0)
                 return s;
-            else if (Character.isLowSurrogate(s.charAt(0)) && Character
-                    .isHighSurrogate(s.charAt(cpLength - 1)))
+            else if (Character.isLowSurrogate(s.charAt(0))
+                    && Character.isHighSurrogate(s.charAt(length - 1)))
                 /*
                  * s ends with a high surrogate and starts with a low
                  * surrogate, so simply concatenated to itself by
@@ -698,74 +1402,129 @@ class PyUnicode implements CraftedPyObject, PyDict.Key {
         // ListIterator provision ------------------------------------
 
         @Override
-        public ListIterator<Integer> listIterator(final int index) {
+        public CodepointIterator iterator(final int index, int start,
+                int end) {
             if (isBMP())
-                return new BMPListIterator(index);
+                return new BMPIterator(index, start, end);
             else
-                return new SMPListIterator(index);
+                return new SMPIterator(index, start, end);
         }
 
         /**
          * A {@code ListIterator} for use when the string in the
          * surrounding adapter instance contains only basic multilingual
-         * plane characters or isolated surrogates.
+         * plane (BMP) characters or isolated surrogates.
+         * {@link SMPIterator} extends this class for supplementary
+         * characters.
          */
-        class BMPListIterator implements ListIterator<Integer> {
+        class BMPIterator implements CodepointIterator {
+            /**
+             * Index into {@code s} in code points, which is also its
+             * index in {@code s} in chars when {@code s} is a BMP
+             * string.
+             */
+            protected int index;
+            /**
+             * First index at which {@link #next()} is allowable for the
+             * iterator in code points, which is also its index in
+             * {@code s} in chars when {@code s} is a BMP string.
+             */
+            protected final int start;
+            /**
+             * First index at which {@link #next()} is not allowable for
+             * the iterator in code points, which is also its index in
+             * {@code s} in chars when {@code s} is a BMP string.
+             */
+            protected final int end;
 
-            /** Index into {@code s} in chars (not code points). */
-            protected int charIndex;
-            /** Length of {@code s} in chars. */
-            protected final int L = s.length();
-
-            BMPListIterator(int index) {
-                if (index < 0)
-                    throw new IndexOutOfBoundsException("negative");
-                else if (index > L)
-                    throw new IndexOutOfBoundsException("beyond end");
-                charIndex = index;
+            BMPIterator(int index, int start, int end) {
+                checkIndexRange(index, start, end, length);
+                this.start = start;
+                this.end = end;
+                this.index = index;
             }
 
             @Override
-            public boolean hasNext() { return charIndex < L; }
+            public Mark mark() {
+                return new Mark() {
+                    final int i = index;
+
+                    @Override
+                    public void restore() { index = i; }
+                };
+            }
+
+            // The forward iterator -------------------------------
 
             @Override
-            public Integer next() {
-                if (charIndex < L)
-                    return (int)s.charAt(charIndex++);
+            public boolean hasNext() { return index < end; }
+
+            @Override
+            public boolean hasNext(int n) {
+                assert n >= 0;
+                return index + n <= end;
+            }
+
+            @Override
+            public int nextInt() {
+                if (index < end)
+                    return s.charAt(index++);
                 else
-                    throw new NoSuchElementException();
+                    throw noSuchElement(nextIndex());
             }
 
             @Override
-            public boolean hasPrevious() { return charIndex > 0; }
-
-            @Override
-            public Integer previous() {
-                if (charIndex > 0)
-                    return (int)s.charAt(--charIndex);
+            public int nextInt(int n) {
+                assert n >= 0;
+                int i = index + n;
+                if (i <= end)
+                    return s.charAt((index = i) - 1);
                 else
-                    throw new NoSuchElementException();
+                    throw noSuchElement(i - start);
             }
 
             @Override
-            public int nextIndex() { return charIndex; }
+            public int nextIndex() { return index - start; }
+
+            // The reverse iterator -------------------------------
 
             @Override
-            public int previousIndex() { return charIndex - 1; }
+            public boolean hasPrevious() { return index > start; }
 
             @Override
-            public void remove() {
-                throw new UnsupportedOperationException();
+            public boolean hasPrevious(int n) {
+                assert n >= 0;
+                return index - n >= 0;
             }
 
             @Override
-            public void set(Integer o) {
-                throw new UnsupportedOperationException();
+            public int previousInt() {
+                if (index > start)
+                    return s.charAt(--index);
+                else
+                    throw noSuchElement(previousIndex());
             }
 
             @Override
-            public void add(Integer o) {
-                throw new UnsupportedOperationException();
+            public int previousInt(int n) {
+                assert n >= 0;
+                int i = index - n;
+                if (i >= start)
+                    return s.charAt(index = i);
+                else
+                    throw noSuchElement(i);
+            }
+
+            @Override
+            public int previousIndex() { return index - start - 1; }
+
+            // Diagnostic use -------------------------------------
+
+            @Override
+            public String toString() {
+                return String.format("[%s|%s]",
+                        s.substring(start, index),
+                        s.substring(index, end));
             }
         }
 
@@ -775,22 +1534,70 @@ class PyUnicode implements CraftedPyObject, PyDict.Key {
          * supplementary multilingual plane characters represented by
          * surrogate pairs.
          */
-        class SMPListIterator extends BMPListIterator {
+        class SMPIterator extends BMPIterator {
 
-            /** Index into {@code s} in code points. */
-            private int cpIndex;
+            /**
+             * Index of the iterator position in {@code s} in chars.
+             * This always moves in synchrony with the base class index
+             * {@link BMPIterator#index}, which continues to represent
+             * the same position as a code point index. Both reference
+             * the same character.
+             */
+            private int charIndex;
+            /**
+             * The double of {@link BMPIterator#start} in {@code s} in
+             * chars.
+             */
+            final private int charStart;
+            /**
+             * The double of {@link BMPIterator#end} in {@code s} in
+             * chars.
+             */
+            final private int charEnd;
 
-            SMPListIterator(int index) {
-                super(toCharIndex(index));
-                cpIndex = index;
+            SMPIterator(int index, int start, int end) {
+                super(index, start, end);
+                // Convert the arguments to character indices
+                int p = 0, cp = 0;
+                while (p < start) { cp = nextCharIndex(cp); p += 1; }
+                this.charStart = cp;
+                while (p < index) { cp = nextCharIndex(cp); p += 1; }
+                this.charIndex = cp;
+                while (p < end) { cp = nextCharIndex(cp); p += 1; }
+                this.charEnd = cp;
+            }
+
+            /** @return next char index after argument. */
+            private int nextCharIndex(int cp) {
+                if (Character.isBmpCodePoint(s.codePointAt(cp)))
+                    return cp + 1;
+                else
+                    return cp + 2;
             }
 
             @Override
-            public Integer next() {
-                if (charIndex < L) {
+            public Mark mark() {
+                return new Mark() {
+                    // In the SMP iterator, we must save both indices
+                    final int i = index, ci = charIndex;
+
+                    @Override
+                    public void restore() {
+                        index = i;
+                        charIndex = ci;
+                    }
+                };
+            }
+
+            // The forward iterator -------------------------------
+
+            @Override
+            public int nextInt() {
+                if (charIndex < charEnd) {
                     char c = s.charAt(charIndex++);
-                    cpIndex++;
-                    if (Character.isHighSurrogate(c) && charIndex < L) {
+                    index++;
+                    if (Character.isHighSurrogate(c)
+                            && charIndex < charEnd) {
                         // Expect a low surrogate
                         char d = s.charAt(charIndex);
                         if (Character.isLowSurrogate(d)) {
@@ -798,17 +1605,37 @@ class PyUnicode implements CraftedPyObject, PyDict.Key {
                             return Character.toCodePoint(c, d);
                         }
                     }
-                    return (int)c;
+                    return c;
                 } else
                     throw new NoSuchElementException();
             }
 
             @Override
-            public Integer previous() {
-                if (charIndex > 0) {
+            public int nextInt(int n) {
+                assert n >= 0;
+                int i = index + n, indexSaved = index,
+                        charIndexSaved = charIndex;
+                while (hasNext()) {
+                    int c = nextInt();
+                    if (index == i) { return c; }
+                }
+                index = indexSaved;
+                charIndex = charIndexSaved;
+                throw noSuchElement(i);
+            }
+
+            @Override
+            public int nextRangeIndex() { return index; }
+
+            // The reverse iterator -------------------------------
+
+            @Override
+            public int previousInt() {
+                if (charIndex > charStart) {
+                    --index;
                     char d = s.charAt(--charIndex);
-                    --cpIndex;
-                    if (Character.isLowSurrogate(d) && charIndex > 0) {
+                    if (Character.isLowSurrogate(d)
+                            && charIndex > charStart) {
                         // Expect a low surrogate
                         char c = s.charAt(--charIndex);
                         if (Character.isHighSurrogate(c)) {
@@ -816,18 +1643,41 @@ class PyUnicode implements CraftedPyObject, PyDict.Key {
                         }
                         charIndex++;
                     }
-                    return (int)d;
+                    return d;
                 } else
                     throw new NoSuchElementException();
             }
 
             @Override
-            public int nextIndex() { return cpIndex; }
+            public int previousInt(int n) {
+                assert n >= 0;
+                int i = index - n, indexSaved = index,
+                        charIndexSaved = charIndex;
+                while (hasPrevious()) {
+                    int c = previousInt();
+                    if (index == i) { return c; }
+                }
+                index = indexSaved;
+                charIndex = charIndexSaved;
+                throw noSuchElement(i);
+            }
 
             @Override
-            public int previousIndex() { return cpIndex - 1; }
-        }
+            public int previousRangeIndex() {
+                int c = s.codePointBefore(charIndex);
+                return charIndex
+                        - (Character.isBmpCodePoint(c) ? 1 : 2);
+            }
 
+            // Diagnostic use -------------------------------------
+
+            @Override
+            public String toString() {
+                return String.format("[%s|%s]",
+                        s.substring(charStart, charIndex),
+                        s.substring(charIndex, charEnd));
+            }
+        }
     }
 
     /**
@@ -868,6 +1718,12 @@ class PyUnicode implements CraftedPyObject, PyDict.Key {
                 }
             }
             return new PyUnicode(TYPE, true, v);
+        }
+
+        @Override
+        int[] getRange(int start, int end) {
+            // start and end are array indices
+            return Arrays.copyOfRange(value, start, end);
         }
 
         @Override
@@ -964,51 +1820,110 @@ class PyUnicode implements CraftedPyObject, PyDict.Key {
         // ListIterator provision ------------------------------------
 
         @Override
-        public ListIterator<Integer> listIterator(final int index) {
+        public CodepointIterator iterator(final int index, int start,
+                int end) {
+            return new UnicodeIterator(index, start, end);
+        }
 
-            if (index < 0 || index > value.length)
-                throw new IndexOutOfBoundsException(String.format(
-                        "%d outside [0, %d)", index, value.length));
+        /**
+         * A {@code ListIterator} for use when the string in the
+         * surrounding adapter instance contains only basic multilingual
+         * plane characters or isolated surrogates.
+         */
+        class UnicodeIterator implements CodepointIterator {
 
-            return new ListIterator<Integer>() {
+            private int index;
+            private final int start, end;
 
-                private int cpIndex = index;
+            UnicodeIterator(int index, int start, int end) {
+                checkIndexRange(index, start, end, value.length);
+                this.start = start;
+                this.end = end;
+                this.index = index;
+            }
 
-                @Override
-                public boolean hasNext() {
-                    return cpIndex < value.length;
-                }
+            @Override
+            public Mark mark() {
+                return new Mark() {
+                    final int i = index;
 
-                @Override
-                public Integer next() { return value[cpIndex++]; }
+                    @Override
+                    public void restore() { index = i; }
+                };
+            }
 
-                @Override
-                public boolean hasPrevious() { return cpIndex > 0; }
+            // The forward iterator -------------------------------
 
-                @Override
-                public Integer previous() { return value[--cpIndex]; }
+            @Override
+            public boolean hasNext() { return index < value.length; }
 
-                @Override
-                public int nextIndex() { return cpIndex; }
+            @Override
+            public boolean hasNext(int n) {
+                assert n >= 0;
+                return index + n <= value.length;
+            }
 
-                @Override
-                public int previousIndex() { return cpIndex - 1; }
+            @Override
+            public int nextInt() {
+                if (index < end)
+                    return value[index++];
+                else
+                    throw noSuchElement(nextIndex());
+            }
 
-                @Override
-                public void remove() {
-                    throw new UnsupportedOperationException();
-                }
+            @Override
+            public int nextInt(int n) {
+                assert n >= 0;
+                int i = index + n;
+                if (i <= end)
+                    return value[(index = i) - 1];
+                else
+                    throw noSuchElement(i - start);
+            }
 
-                @Override
-                public void set(Integer o) {
-                    throw new UnsupportedOperationException();
-                }
+            @Override
+            public int nextIndex() { return index - start; }
 
-                @Override
-                public void add(Integer o) {
-                    throw new UnsupportedOperationException();
-                }
-            };
+            // The reverse iterator -------------------------------
+
+            @Override
+            public boolean hasPrevious() { return index > start; }
+
+            @Override
+            public boolean hasPrevious(int n) {
+                assert n >= 0;
+                return index - n >= 0;
+            }
+
+            @Override
+            public int previousInt() {
+                if (index > start)
+                    return value[--index];
+                else
+                    throw noSuchElement(previousIndex());
+            }
+
+            @Override
+            public int previousInt(int n) {
+                assert n >= 0;
+                int i = index - n;
+                if (i >= start)
+                    return value[index = i];
+                else
+                    throw noSuchElement(i);
+            }
+
+            @Override
+            public int previousIndex() { return index - start - 1; }
+
+            // Diagnostic use -------------------------------------
+
+            @Override
+            public String toString() {
+                return String.format("[%s|%s]",
+                        new String(value, start, index - start),
+                        new String(value, index, end - index));
+            }
         }
     }
 
@@ -1052,6 +1967,71 @@ class PyUnicode implements CraftedPyObject, PyDict.Key {
      * @return the delegate for sequence operations on this {@code str}
      */
     UnicodeDelegate adapt() { return delegate; }
+
+    /**
+     * Adapt a Python {@code str}, as by {@link #adapt(Object)}, that is
+     * intended as a substring to find, in {@code str.find()} or
+     * {@code str.replace()},
+     *
+     * @param method in which encountered
+     * @param sub alleged string
+     * @return adapted to a sequence
+     * @throws TypeError if {@code sub} cannot be wrapped as a delegate
+     */
+    static CodepointDelegate adaptSub(String method, Object sub)
+            throws TypeError {
+        try {
+            return adapt(sub);
+        } catch (NoConversion nc) {
+            throw Abstract.argumentTypeError(method, "string to find",
+                    "str", sub);
+        }
+    }
+
+    /**
+     * Adapt a Python {@code str} intended as a separator, as by
+     * {@link #adapt(Object)}.
+     *
+     * @param method in which encountered
+     * @param sep alleged separator
+     * @return adapted to a sequence
+     * @throws TypeError if {@code sep} cannot be wrapped as a delegate
+     * @throws ValueError if {@code sep} is the empty string
+     */
+    static CodepointDelegate adaptSeparator(String method, Object sep)
+            throws TypeError, ValueError {
+        try {
+            CodepointDelegate p = adapt(sep);
+            if (p.length() == 0) {
+                throw new ValueError("%s(): empty separator", method);
+            }
+            return p;
+        } catch (NoConversion nc) {
+            throw Abstract.argumentTypeError(method, "separator",
+                    "str or None", sep);
+        }
+    }
+
+    /**
+     * Convert slice end indices to a {@link PySlice.Indices} object.
+     *
+     * @param s sequence being sliced
+     * @param start first index included
+     * @param end first index not included
+     * @return indices of the slice
+     * @throws TypeError if {@code start} or {@code end} cannot be
+     *     considered an index
+     */
+    private static PySlice.Indices getSliceIndices(CodepointDelegate s,
+            Object start, Object end) throws TypeError {
+        try {
+            return (new PySlice(start, end)).getIndices(s.length());
+        } catch (PyException pye) {
+            throw pye;
+        } catch (Throwable t) {
+            throw new InterpreterError(t, "non-python exception)");
+        }
+    }
 
     /**
      * Concatenate two {@code String} representations of {@code str}.
@@ -1099,6 +2079,282 @@ class PyUnicode implements CraftedPyObject, PyDict.Key {
             throws OutOfMemoryError {
         return new PyUnicode(TYPE, true,
                 IntStream.concat(v, w).toArray());
+    }
+
+    /**
+     * Accumulate {@code int} elements in an array, similar to
+     * {@code StringBuilder}.
+     */
+    static class IntArrayBuilder {
+        private static final int MINSIZE = 16;
+        private static final int[] EMPTY = new int[0];
+        private int[] value;
+        private int len = 0;
+
+        /** Create an empty buffer of a defined initial capacity. */
+        IntArrayBuilder(int capacity) {
+            value = new int[capacity];
+        }
+
+        /** Create an empty buffer of a default initial capacity. */
+        IntArrayBuilder() {
+            value = EMPTY;
+        }
+
+        /** The number of elements currently. */
+        int length() {
+            return len;
+        }
+
+        /**
+         * An array of the elements in the buffer (not modified by
+         * appends hereafter).
+         */
+        int[] value() {
+            return len == value.length ? value
+                    : Arrays.copyOf(value, len);
+        }
+
+        /** Ensure there is room for another {@code n} elements. */
+        private void ensure(int n) {
+            if (len + n > value.length) {
+                int newSize = Math.max(value.length * 2, MINSIZE);
+                int[] newValue = new int[newSize];
+                System.arraycopy(value, 0, newValue, 0, len);
+                value = newValue;
+            }
+        }
+
+        /** Append one element. */
+        IntArrayBuilder append(int v) {
+            ensure(1);
+            value[len++] = v;
+            return this;
+        }
+
+        /** Append all the elements from a sequence. */
+        IntArrayBuilder append(PySequence.OfInt seq) {
+            ensure(seq.length());
+            for (int v : seq) { value[len++] = v; }
+            return this;
+        }
+
+        /**
+         * Append up to the given number of elements from a sequence.
+         */
+        IntArrayBuilder append(PySequence.OfInt seq, int count) {
+            return append(seq.iterator(), count);
+        }
+
+        /** Append all the elements available from an iterator. */
+        IntArrayBuilder append(Iterator<Integer> iter) {
+            while (iter.hasNext()) { append(iter.next()); }
+            return this;
+        }
+
+        /**
+         * Append up to the given number of elements available from an
+         * iterator.
+         */
+        IntArrayBuilder append(Iterator<Integer> iter, int count) {
+            ensure(count);
+            while (--count >= 0 && iter.hasNext()) {
+                value[len++] = iter.next();
+            }
+            return this;
+        }
+
+        /**
+         * Provide the contents as a Python Unicode {@code str} and
+         * reset the builder to empty. (This is a "destructive read".)
+         */
+        PyUnicode takeUnicode() {
+            PyUnicode u;
+            if (len == value.length) {
+                // The array is exactly filled: use it without copy.
+                u = new PyUnicode(TYPE, true, value);
+                value = EMPTY;
+            } else {
+                // The array is partly filled: copy it and re-use it.
+                int[] v = new int[len];
+                System.arraycopy(value, 0, v, 0, len);
+                u = new PyUnicode(TYPE, true, v);
+            }
+            len = 0;
+            return u;
+        }
+
+        /**
+         * Provide the contents as a Java {@code String}
+         * (non-destructively).
+         */
+        @Override
+        public String toString() { return new String(value, 0, len); }
+    }
+
+    /**
+     * Accumulate {@code int} elements in an array from the end, a sort
+     * of mirror image of {@link IntArrayBuilder}.
+     */
+    static class IntArrayReverseBuilder {
+        private static final int MINSIZE = 16;
+        private static final int[] EMPTY = new int[0];
+        private int[] value;
+        private int ptr = 0;
+
+        /** Create an empty buffer of a defined initial capacity. */
+        IntArrayReverseBuilder(int capacity) {
+            value = new int[capacity];
+            ptr = value.length;
+        }
+
+        /** Create an empty buffer of a default initial capacity. */
+        IntArrayReverseBuilder() {
+            value = EMPTY;
+            ptr = value.length;
+        }
+
+        /** The number of elements currently. */
+        int length() {
+            return ptr = value.length - ptr;
+        }
+
+        /**
+         * An array of the elements in the buffer (not modified by
+         * appends hereafter).
+         */
+        int[] value() {
+            return ptr == 0 ? value
+                    : Arrays.copyOfRange(value, ptr, value.length);
+        }
+
+        /** Ensure there is room for another {@code n} elements. */
+        private void ensure(int n) {
+            if (n > ptr) {
+                int len = value.length - ptr;
+                int newSize = Math.max(value.length * 2, MINSIZE);
+                int newPtr = newSize - len;
+                int[] newValue = new int[newSize];
+                System.arraycopy(value, ptr, newValue, newPtr, len);
+                value = newValue;
+                ptr = newPtr;
+            }
+        }
+
+        /** Prepend one element. */
+        IntArrayReverseBuilder prepend(int v) {
+            ensure(1);
+            value[--ptr] = v;
+            return this;
+        }
+
+        /** Prepend all the elements from a sequence. */
+        IntArrayReverseBuilder prepend(CodepointDelegate seq) {
+            return prepend(seq.iteratorLast(), seq.length());
+        }
+
+        /**
+         * Prepend up to the given number of elements from the end of a
+         * sequence.
+         */
+        IntArrayReverseBuilder prepend(CodepointDelegate seq,
+                int count) {
+            return prepend(seq.iteratorLast(), count);
+        }
+
+        /**
+         * Prepend all the elements available from an iterator, working
+         * backwards with {@code iter.previous()}.
+         */
+        IntArrayReverseBuilder prepend(ListIterator<Integer> iter) {
+            while (iter.hasPrevious()) { prepend(iter.previous()); }
+            return this;
+        }
+
+        /**
+         * Prepend up to the given number of elements available from an
+         * iterator, working backwards with {@code iter.previous()}.
+         */
+        IntArrayReverseBuilder prepend(ListIterator<Integer> iter,
+                int count) {
+            ensure(count);
+            while (--count >= 0 && iter.hasPrevious()) {
+                value[--ptr] = iter.previous();
+            }
+            return this;
+        }
+
+        /**
+         * Provide the contents as a Python Unicode {@code str} and
+         * reset the builder to empty. (This is a "destructive read".)
+         */
+        PyUnicode takeUnicode() {
+            PyUnicode u;
+            if (ptr == 0) {
+                // The array is exactly filled: use it without copy.
+                u = new PyUnicode(TYPE, true, value);
+                value = EMPTY;
+            } else {
+                // The array is partly filled: copy it and re-use it.
+                int[] v = new int[value.length - ptr];
+                System.arraycopy(value, ptr, v, 0, v.length);
+                u = new PyUnicode(TYPE, true, v);
+            }
+            ptr = value.length;
+            return u;
+        }
+
+        /**
+         * Provide the contents as a Java {@code String}
+         * (non-destructively).
+         */
+        @Override
+        public String toString() {
+            return new String(value, ptr, value.length - ptr);
+        }
+    }
+
+    private static NoSuchElementException noSuchElement(int k) {
+        return new NoSuchElementException(Integer.toString(k));
+    }
+
+    /**
+     * Assert that <i>0 &le; start &le;index &le; end &le; len</i> or if
+     * not, throw an exception.
+     *
+     * @param index e.g. the start position of na iterator.
+     * @param start first in range
+     * @param end first beyond range (i.e. non-inclusive bound)
+     * @param len of sequence
+     * @throws IndexOutOfBoundsException if the condition is violated
+     */
+    private static void checkIndexRange(int index, int start, int end,
+            int len) throws IndexOutOfBoundsException {
+        if ((0 <= start && start <= end && end <= len) == false)
+            throw new IndexOutOfBoundsException(String.format(
+                    "start=%d, end=%d, len=%d", start, end, len));
+        else if (index < start)
+            throw new IndexOutOfBoundsException("before start");
+        else if (index > end)
+            throw new IndexOutOfBoundsException("beyond end");
+    }
+
+    /**
+     * A little helper for converting str.find to str.index that will
+     * raise {@code ValueError("substring not found")} if the argument
+     * is negative, otherwise passes the argument through.
+     *
+     * @param index to check
+     * @return {@code index} if non-negative
+     * @throws ValueError if argument is negative
+     */
+    private static final int checkIndexReturn(int index)
+            throws ValueError {
+        if (index >= 0) {
+            return index;
+        } else {
+            throw new ValueError("substring not found");
+        }
     }
 
     // Python sub-class -----------------------------------------------
