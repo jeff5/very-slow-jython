@@ -1205,6 +1205,90 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         return list;
     }
 
+    /**
+     * Python {@code str.splitlines([keepends])} returning a list of the
+     * lines in the string, breaking at line boundaries. Line breaks are
+     * not included in the resulting list unless {@code keepends} is
+     * given and true.
+     * <p>
+     * This method splits on the following line boundaries: LF="\n",
+     * VT="\u000b", FF="\f", CR="\r", FS="\u001c", GS="\u001d",
+     * RS="\u001e", NEL="\u0085", LSEP="\u2028", PSEP="\u2029" and
+     * CR-LF="\r\n". In this last case, the sequence "\r\n" is treated
+     * as one line separator.
+     *
+     * @param keepends the lines in the list retain the separator that
+     *     caused the split
+     * @return the list of lines
+     */
+    // Not yet converting boolean @PythonMethod
+    PyList splitlines(boolean keepends) {
+        return splitlines(delegate, keepends);
+    }
+
+    // Not yet converting boolean @PythonMethod(primary = false)
+    static PyList splitlines(String self, boolean keepends) {
+        return splitlines(adapt(self), keepends);
+    }
+
+    private static PyList splitlines(CodepointDelegate s,
+            boolean keepends) {
+        /*
+         * The structure of splitlines() resembles that of split() for
+         * explicit strings, except that the criteria for recognising
+         * the "needle" are implicit.
+         */
+        // An iterator on s, the string being searched.
+        CodepointIterator si = s.iterator(0);
+
+        // Result built here is a list of split segments
+        PyList list = new PyList();
+        IntArrayBuilder line = new IntArrayBuilder();
+
+        /*
+         * We scan the input string looking for characters that mark
+         * line endings, and appending to the line buffer as we go. Each
+         * detected ending makes a PyUnicode to add t5o list.
+         */
+        while (si.hasNext()) {
+
+            int c = si.nextInt();
+
+            if (isPythonLineSeparator(c)) {
+                // Check for a possible CR-LF combination
+                if (c == '\r' && si.hasNext()) {
+                    // Might be ... have to peek ahead
+                    int c2 = si.nextInt();
+                    if (c2 == '\n') {
+                        // We're processing CR-LF
+                        if (keepends) { line.append(c); }
+                        // Leave the \n for the main path to deal with
+                        c = c2;
+                    } else {
+                        // There was no \n following \r: undo the read
+                        si.previousInt();
+                    }
+                }
+                // Optionally append the (single) line separator c
+                if (keepends) { line.append(c); }
+                // Emit the line (and start another)
+                list.add(line.takeUnicode());
+
+            } else {
+                // c is part of the current line.
+                line.append(c);
+            }
+        }
+
+        /*
+         * Add the segment we were building when s ran out, but not if
+         * it is empty.
+         */
+        if (line.length() > 0) { list.add(line.takeUnicode()); }
+
+        return list;
+    }
+
     // Predicate methods ----------------------------------------------
 
     /*
@@ -1228,13 +1312,34 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
      * Define what characters are to be treated as a space according to
      * Python 3.
      */
-    private static boolean isPythonSpace(int ch) {
+    private static boolean isPythonSpace(int cp) {
         // Use the Java built-in methods as far as possible
-        return Character.isWhitespace(ch) // ASCII spaces and some
+        return Character.isWhitespace(cp) // ASCII spaces and some
                 // remaining Unicode spaces
-                || Character.isSpaceChar(ch)
+                || Character.isSpaceChar(cp)
                 // NEXT LINE (not a space in Java or Unicode)
-                || ch == 0x0085;
+                || cp == 0x0085;
+    }
+
+    /**
+     * Define what characters are to be treated as a line separator
+     * according to Python 3. In {@code splitlines} we treat these as
+     * separators, but also give singular treatment to the sequence
+     * CR-LF.
+     */
+    private static boolean isPythonLineSeparator(int cp) {
+        // Bit i is set if code point i is a line break.
+        final int EOL = 0b0111_0000_0000_0000_0011_1100_0000_0000;
+        if (cp >>> 5 == 0) {
+            // cp < 32: use the little look-up table
+            return ((EOL >>> cp) & 1) != 0;
+        } else if (cp >>> 7 == 0) {
+            // 32 <= cp < 128 : the rest of ASCII
+            return false;
+        } else {
+            // NEL, L-SEP, P-SEP
+            return cp == 0x85 || cp == 0x2028 || cp == 0x2029;
+        }
     }
 
     // Transformation methods -----------------------------------------

@@ -1044,13 +1044,12 @@ class PyUnicodeTest extends UnitTestSupport {
         }
     }
 
-    /** Base of tests that find space or line breaks. */
+    /** Base of tests that find and split on spaces. */
     abstract static class AbstractSplitAtSpaceTest {
         /**
          * Provide a stream of examples as parameter sets to the tests
          * of methods that search for runs of spaces, that is
-         * {@code split} and {@code rsplit} (with no sub-string given)
-         * and {@code splitlines}.
+         * {@code split} and {@code rsplit} with no sub-string given.
          *
          * @return the examples for search tests.
          */
@@ -1083,9 +1082,6 @@ class PyUnicodeTest extends UnitTestSupport {
          * characters.
          *
          * @param self to search
-         * @param needle to search for
-         * @param indices at which {@code needle}is found (code points)
-         * @param pin to replace needle (if tested)
          * @return example data for a test
          */
         private static Arguments splitExample(String self) {
@@ -1105,18 +1101,16 @@ class PyUnicodeTest extends UnitTestSupport {
          * @return the segments of {@code s}
          */
         private static PyUnicode[] split(String s) {
-            LinkedList<PyUnicode> segment = new LinkedList<>();
+            LinkedList<String> segment = new LinkedList<>();
             int p = 0, start = 0, N = s.length();
             boolean text = false;
             while (true) {
                 if (text) {
                     if (p >= N) {
-                        segment.add(
-                                newPyUnicode(s.substring(start, p)));
+                        segment.add(s.substring(start, p));
                         break;
                     } else if (isPythonSpace(s.charAt(p))) {
-                        segment.add(
-                                newPyUnicode(s.substring(start, p)));
+                        segment.add(s.substring(start, p));
                         text = false;
                     }
                 } else {
@@ -1129,7 +1123,8 @@ class PyUnicodeTest extends UnitTestSupport {
                 }
                 p++;
             }
-            return segment.toArray(new PyUnicode[segment.size()]);
+            return toPyUnicodeArray(
+                    segment.toArray(new String[segment.size()]));
         }
     }
 
@@ -1238,6 +1233,158 @@ class PyUnicodeTest extends UnitTestSupport {
         }
     }
 
+    /** Base of tests that find and split line breaks. */
+    abstract static class AbstractSplitlinesTest {
+        /**
+         * Provide a stream of examples as parameter sets to the tests
+         * of {@code splitlines}.
+         *
+         * @return the examples for search tests.
+         */
+        static Stream<Arguments> splitExamples() {
+            return Stream.of(//
+                    splitExample("word", "word"), //
+                    splitExample("Line1\nLine2", "Line1\n", "Line2"), //
+                    splitExample("Line1\rLine2", "Line1\r", "Line2"), //
+                    splitExample("Line1\r\nLine2", "Line1\r\n",
+                            "Line2"), //
+                    splitExample("Line1\n\rLine2", "Line1\n", "\r",
+                            "Line2"), //
+                    splitExample("\nLine1\nLine2\n", "\n", "Line1\n",
+                            "Line2\n"), //
+                    splitExample(NEWLINES, NEWLINES_SPLIT), //
+                    splitExample("画蛇\u2029画蛇\u2028添足\u2029", "画蛇\u2029",
+                            "画蛇\u2028", "添足\u2029"), //
+                    /*
+                     * The following contain non-BMP characters
+                     * 🐍=U+1F40D and 🦓=U+1F993, each of which Python
+                     * must consider to be a single character, but in
+                     * the Java String realisation each is two chars.
+                     */
+                    // 🐍=\ud802\udc40, 🦓=\ud83e\udd93
+                    splitExample("One 🐍\na 🦓,\ftwo 🐍🐍.", "One 🐍\n",
+                            "a 🦓,\f", "two 🐍🐍."), //
+                    splitExample("Left 🐍🦓\r🐍🦓: right.\r",
+                            "Left 🐍🦓\r", "🐍🦓: right.\r") //
+            );
+        }
+
+        /**
+         * Construct a line-split problem and reference result that
+         * includes the end-of-line characters.
+         *
+         * @param self to split
+         * @param lines of the split (with ends kept)
+         * @return example data for a test
+         */
+        private static Arguments splitExample(String self,
+                String... lines) {
+            return arguments(self, lines);
+        }
+
+        /**
+         * Return a line with trailing end-of-line characters optionally
+         * removed. We return this as {@link PyUnicode} to ensure that
+         * {@code assertEquals} uses {@link PyUnicode#equals(Object)}
+         * for comparison during tests.
+         *
+         * @param line string in question
+         * @param keepend do not remove trailing end-of-lines
+         * @return the {@code line} as {@code PyUnicode}
+         */
+        static PyUnicode refLine(String line, boolean keepend) {
+            if (!keepend) {
+                int n = line.length();
+                if (line.endsWith("\r\n")) {
+                    // Special case CR-LF.
+                    line = line.substring(0, n - 2);
+                } else if (n > 0) {
+                    // Use Java definition. (any tweaks needed?)
+                    char c = line.charAt(n - 1);
+                    if (isPythonLineSeparator(c)) {
+                        line = line.substring(0, n - 1);
+                    }
+                }
+            }
+            return newPyUnicode(line);
+        }
+
+        /**
+         * Names of line separators followed by the separators
+         * themselves. The exceptions are CR-LF and LF-CR sequences: the
+         * first is one separator and the second is two (creating a
+         * blank line).
+         */
+        private static final String NEWLINES =
+                "LF\nVT\u000bFF\fCR\rFS\u001cGS\u001dRS\u001eNEL\u0085"
+                        + "LSEP\u2028PSEP\u2029CR-LF\r\nLF-CR\n\rEND";
+        private static String[] NEWLINES_SPLIT = {"LF\n", "VT\u000b",
+                "FF\f", "CR\r", "FS\u001c", "GS\u001d", "RS\u001e",
+                "NEL\u0085", "LSEP\u2028", "PSEP\u2029", "CR-LF\r\n",
+                "LF-CR\n", "\r", "END"};
+
+    }
+
+    /** Tests of {@code str.splitlines} splitting at line breaks. */
+    @Nested
+    @DisplayName("split at line boundaries")
+    class SplitlinesTest extends AbstractSplitlinesTest {
+
+        @DisplayName("splitlines(String)")
+        @ParameterizedTest(name = "\"{0}\".splitlines()")
+        @MethodSource("splitExamples")
+        void S_split_S(String s, String[] lines) {
+            splitlinesTest(s, lines, false);
+        }
+
+        @DisplayName("splitlines(PyUnicode)")
+        @ParameterizedTest(name = "\"{0}\".splitlines()")
+        @MethodSource("splitExamples")
+        void U_splitlines(String s, String[] lines) {
+            splitlinesUnicodeTest(s, lines, false);
+        }
+
+        @DisplayName("splitlines(String) keepends=True")
+        @ParameterizedTest(name = "\"{0}\".splitlines(True)")
+        @MethodSource("splitExamples")
+        void S_splitlines_keepends(String s, String[] lines) {
+            splitlinesTest(s, lines, true);
+        }
+
+        @DisplayName("splitlines(PyUnicode) keepends=True")
+        @ParameterizedTest(name = "\"{0}\".splitlines(True)")
+        @MethodSource("splitExamples")
+        void U_splitlines_keepends(String s, String[] lines) {
+            splitlinesUnicodeTest(s, lines, true);
+        }
+
+        /** Call and check {@code str.splitlines} for PyUnicode */
+        private void splitlinesTest(String s, String[] lines,
+                boolean keepends) {
+            PyList r = PyUnicode.splitlines(s, keepends);
+            splitlinesCheck(lines, keepends, r);
+        }
+
+        /** Call and check {@code str.splitlines} for PyUnicode */
+        private void splitlinesUnicodeTest(String s, String[] lines,
+                boolean keepends) {
+            PyUnicode u = new PyUnicode(s.codePoints().toArray());
+            PyList r = u.splitlines(keepends);
+            splitlinesCheck(lines, keepends, r);
+        }
+
+        /** Check the result of {@code str.splitlines} */
+        private void splitlinesCheck(String[] lines, boolean keepends,
+                PyList r) {
+            assertEquals(lines.length, r.size(), "number of segments");
+            int i = 0;
+            for (Object ri : r) {
+                assertEquals(refLine(lines[i++], keepends), ri);
+            }
+        }
+    }
+
+    /** Tests of predicate functions. */
     abstract static class PredicateTest {
         @Test
         void testIsascii() { fail("Not yet implemented"); }
@@ -1362,11 +1509,11 @@ class PyUnicodeTest extends UnitTestSupport {
         return toPyUnicodeArray(segments);
     }
 
-    // Simple English string for ad hoc tests.
+    /** Simple English string for ad hoc tests. */
     static final String FOX =
             "The quick brown fox jumps over the lazy dog.";
 
-    // Non-ascii quotation with precomposed polytonic Greek characters.
+    /** Non-ascii precomposed polytonic Greek characters. */
     static final String GREEK = "Ἐν ἀρχῇ ἦν ὁ λόγος, " //
             + "καὶ ὁ λόγος ἦν πρὸς τὸν θεόν, " //
             + "καὶ θεὸς ἦν ὁ λόγος.";
@@ -1382,5 +1529,15 @@ class PyUnicodeTest extends UnitTestSupport {
                 || Character.isSpaceChar(ch)
                 // NEXT LINE (not a space in Java or Unicode)
                 || ch == 0x0085;
+    }
+
+    /**
+     * Define what characters are to be treated as a line separator
+     * according to Python 3.
+     */
+    private static boolean isPythonLineSeparator(char c) {
+        return c == '\n' || c == '\r' || c == 0xb || c == '\f'
+                || c == 0x1c || c == 0x1d || c == 0x1e || c == 0x85
+                || c == 0x2028 || c == 0x2029;
     }
 }
