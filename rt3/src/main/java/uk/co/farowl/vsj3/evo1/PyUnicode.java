@@ -276,7 +276,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         return __mul__(self, n);
     }
 
-    // Methods --------------------------------------------------------
+    // Find-like methods ----------------------------------------------
 
     /*
      * Several methods of str involve finding a target string within the
@@ -548,6 +548,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         CodepointIterator pi = p.iterator(0);
         int sChar, pChar = pi.nextInt(), pLength = p.length();
         CodepointIterator.Mark pMark = pi.mark();
+        assert pLength > 0;
 
         // Counting in pos avoids hasNext() calls.
         int pos = 0, lastPos = s.length() - pLength;
@@ -632,6 +633,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         CodepointIterator pi = p.iteratorLast();
         int sChar, pChar = pi.previousInt(), pLength = p.length();
         CodepointIterator.Mark pMark = pi.mark();
+        assert pLength > 0;
 
         // Counting in pos avoids hasNext() calls. Start at the end.
         int pos = s.length(), firstPos = pLength - 1;
@@ -766,8 +768,450 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         return count;
     }
 
+    /**
+     * Python {@code str.split([sep [, maxsplit]])} returning a
+     * {@link PyList} of {@code str}. The target {@code self} will be
+     * split at each occurrence of {@code sep}. If {@code sep == null},
+     * whitespace will be used as the criterion. If {@code sep} has zero
+     * length, a Python {@code ValueError} is raised. If
+     * {@code maxsplit} &gt;=0 and there are more feasible splits than
+     * {@code maxsplit} the last element of the list contains what is
+     * left over after the last split.
+     *
+     * @param sep string to use as separator (or {@code null} if to
+     *     split on whitespace)
+     * @param maxsplit maximum number of splits to make (there may be
+     *     {@code maxsplit+1} parts) or {@code -1} for all possible.
+     * @return list(str) result
+     */
+    @PythonMethod
+    PyList split(Object sep, int maxsplit) {
+        return split(delegate, sep, maxsplit);
+    }
+
+    @PythonMethod(primary = false)
+    static PyList split(String self, Object sep, int maxsplit) {
+        return split(adapt(self), sep, maxsplit);
+    }
+
+    private static PyList split(CodepointDelegate s, Object sep,
+            int maxsplit) {
+        if (sep == null) {
+            // Split on runs of whitespace
+            return splitAtSpaces(s, maxsplit);
+        } else if (maxsplit == 0) {
+            // Easy case: a list containing self.
+            PyList list = new PyList();
+            list.add(s.principal());
+            return list;
+        } else {
+            // Split on specified (non-empty) string
+            CodepointDelegate p = adaptSeparator("split", sep);
+            return split(s, p, maxsplit);
+        }
+    }
+
+    /**
+     * Implementation of {@code str.split} splitting on white space and
+     * returning a list of the separated parts. If there are more than
+     * {@code maxsplit} feasible splits the last element of the list is
+     * the remainder of the original ({@code self}) string.
+     *
+     * @param s delegate presenting self as code points
+     * @param maxsplit limit on the number of splits (if &gt;=0)
+     * @return {@code PyList} of split sections
+     */
+    private static PyList splitAtSpaces(CodepointDelegate s,
+            int maxsplit) {
+        /*
+         * Result built here is a list of split parts, exactly as
+         * required for s.split(None, maxsplit). If there are to be n
+         * splits, there will be n+1 elements in L.
+         */
+        PyList list = new PyList();
+
+        // -1 means make all possible splits, at most:
+        if (maxsplit < 0) { maxsplit = s.length(); }
+
+        // An iterator on s, the string being searched
+        CodepointIterator si = s.iterator(0);
+        IntArrayBuilder segment = new IntArrayBuilder();
+
+        while (si.hasNext()) {
+            // We are currently scanning space characters
+            while (si.hasNext()) {
+                int c;
+                if (!isPythonSpace(c = si.nextInt())) {
+                    // Just read a non-space: start a segment
+                    segment.append(c);
+                    break;
+                }
+            }
+
+            /*
+             * Either s ran out while we were scanning space characters,
+             * or we have started a new segment. If s ran out, we'll
+             * burn past the next loop. If s didn't run out, the next
+             * loop accumulates the segment until the next space (or s
+             * runs out).
+             */
+
+            // We are currently building a non-space segment
+            while (si.hasNext()) {
+                int c = si.nextInt();
+                // Twist: if we've run out of splits, append c anyway.
+                if (maxsplit > 0 && isPythonSpace(c)) {
+                    // Just read a space: end the segment
+                    break;
+                } else {
+                    // Non-space, or last allowed segment
+                    segment.append(c);
+                }
+            }
+
+            /*
+             * Either s ran out while we were scanning space characters,
+             * or we have created a new segment. (It is possible s ran
+             * out while we created the segment, but that's ok.)
+             */
+            if (segment.length() > 0) {
+                // We created a segment.
+                --maxsplit;
+                list.add(segment.takeUnicode());
+            }
+        }
+        return list;
+    }
+
+    /**
+     * Implementation of Python {@code str.split}, returning a list of
+     * the separated parts. If there are more than {@code maxsplit}
+     * occurrences of {@code sep} the last element of the list is the
+     * remainder of the original ({@code self}) string.
+     *
+     * @param s delegate presenting self as code points
+     * @param p at occurrences of which {@code s} should be split
+     * @param maxsplit limit on the number of splits (if not &lt;=0)
+     * @return {@code PyList} of split sections
+     */
+    private static PyList split(CodepointDelegate s,
+            CodepointDelegate p, int maxsplit) {
+        /*
+         * The structure of split() resembles that of count() in that
+         * after a match we keep going. And it resembles partition() in
+         * that, between matches, we are accumulating characters into a
+         * segment buffer.
+         */
+
+        // -1 means make all possible splits, at most:
+        if (maxsplit < 0) { maxsplit = s.length(); }
+
+        // An iterator on p, the string sought.
+        CodepointIterator pi = p.iterator(0);
+        int pChar = pi.nextInt(), pLength = p.length();
+        CodepointIterator.Mark pMark = pi.mark();
+        assert pLength > 0;
+
+        // Counting in pos avoids hasNext() calls.
+        int pos = 0, lastPos = s.length() - pLength, sChar;
+
+        // An iterator on s, the string being searched.
+        CodepointIterator si = s.iterator(pos);
+
+        // Result built here is a list of split segments
+        PyList list = new PyList();
+        IntArrayBuilder segment = new IntArrayBuilder();
+
+        while (si.hasNext()) {
+
+            if (pos++ > lastPos || maxsplit <= 0) {
+                /*
+                 * We are too close to the end for a match now, or in
+                 * our final segment (according to maxsplit==0).
+                 * Everything that is left belongs to this segment.
+                 */
+                segment.append(si);
+
+            } else if ((sChar = si.nextInt()) == pChar) {
+                /*
+                 * s[pos] matched p[0]: divert into matching the rest of
+                 * p. Leave a mark in s where we shall resume if this is
+                 * not a full match with p.
+                 */
+                CodepointIterator.Mark sPos = si.mark();
+                int match = 1;
+                while (match < pLength) {
+                    if (pi.nextInt() != si.nextInt()) { break; }
+                    match++;
+                }
+
+                if (match == pLength) {
+                    /*
+                     * We reached the end of p: it's a match. Create
+                     * emit the segment we have been accumulating, start
+                     * a new one, and lose a life.
+                     */
+                    list.add(segment.takeUnicode());
+                    --maxsplit;
+                    // Catch pos up with si (matches do not overlap).
+                    pos = si.nextIndex();
+                } else {
+                    /*
+                     * We stopped on a mismatch: reset si to pos. The
+                     * character that matched pChar is part of the
+                     * current segment.
+                     */
+                    sPos.restore();
+                    segment.append(sChar);
+                }
+                // In either case, reset pi to p[1].
+                pMark.restore();
+
+            } else {
+                /*
+                 * The character that wasn't part of a match with p is
+                 * part of the current segment.
+                 */
+                segment.append(sChar);
+            }
+        }
+
+        /*
+         * Add the segment we were building when s ran out, even if it
+         * is empty.
+         */
+        list.add(segment.takeUnicode());
+        return list;
+    }
+
+    /**
+     * Python {@code str.rsplit([sep [, maxsplit]])} returning a
+     * {@link PyList} of {@code str}. The target {@code self} will be
+     * split at each occurrence of {@code sep}. If {@code sep == null},
+     * whitespace will be used as the criterion. If {@code sep} has zero
+     * length, a Python {@code ValueError} is raised. If
+     * {@code maxsplit} &gt;=0 and there are more feasible splits than
+     * {@code maxsplit} the last element of the list contains what is
+     * left over after the last split.
+     *
+     * @param sep string to use as separator (or {@code null} if to
+     *     split on whitespace)
+     * @param maxsplit maximum number of splits to make (there may be
+     *     {@code maxsplit+1} parts) or {@code -1} for all possible.
+     * @return list(str) result
+     */
+    @PythonMethod
+    PyList rsplit(Object sep, int maxsplit) {
+        return rsplit(delegate, sep, maxsplit);
+    }
+
+    @PythonMethod(primary = false)
+    static PyList rsplit(String self, Object sep, int maxsplit) {
+        return rsplit(adapt(self), sep, maxsplit);
+    }
+
+    private static PyList rsplit(CodepointDelegate s, Object sep,
+            int maxsplit) {
+        if (sep == null) {
+            // Split on runs of whitespace
+            return rsplitAtSpaces(s, maxsplit);
+        } else if (maxsplit == 0) {
+            // Easy case: a list containing self.
+            PyList list = new PyList();
+            list.add(s.principal());
+            return list;
+        } else {
+            // Split on specified (non-empty) string
+            CodepointDelegate p = adaptSeparator("rsplit", sep);
+            return rsplit(s, p, maxsplit);
+        }
+    }
+
+    /**
+     * Implementation of {@code str.rsplit} splitting on white space and
+     * returning a list of the separated parts. If there are more than
+     * {@code maxsplit} feasible splits the last element of the list is
+     * the remainder of the original ({@code self}) string.
+     *
+     * @param s delegate presenting self as code points
+     * @param maxsplit limit on the number of splits (if &gt;=0)
+     * @return {@code PyList} of split sections
+     */
+    private static PyList rsplitAtSpaces(CodepointDelegate s,
+            int maxsplit) {
+        /*
+         * Result built here is a list of split parts, exactly as
+         * required for s.rsplit(None, maxsplit). If there are to be n
+         * splits, there will be n+1 elements in L.
+         */
+        PyList list = new PyList();
+
+        // -1 means make all possible splits, at most:
+        if (maxsplit < 0) { maxsplit = s.length(); }
+
+        // A reverse iterator on s, the string being searched
+        CodepointIterator si = s.iteratorLast();
+        IntArrayReverseBuilder segment = new IntArrayReverseBuilder();
+
+        while (si.hasPrevious()) {
+            // We are currently scanning space characters
+            while (si.hasPrevious()) {
+                int c;
+                if (!isPythonSpace(c = si.previousInt())) {
+                    // Just read a non-space: start a segment
+                    segment.prepend(c);
+                    break;
+                }
+            }
+
+            /*
+             * Either s ran out while we were scanning space characters,
+             * or we have started a new segment. If s ran out, we'll
+             * burn past the next loop. If s didn't run out, the next
+             * loop accumulates the segment until the next space (or s
+             * runs out).
+             */
+
+            // We are currently building a non-space segment
+            while (si.hasPrevious()) {
+                int c = si.previousInt();
+                // Twist: if we've run out of splits, prepend c anyway.
+                if (maxsplit > 0 && isPythonSpace(c)) {
+                    // Just read a space: end the segment
+                    break;
+                } else {
+                    // Non-space, or last allowed segment
+                    segment.prepend(c);
+                }
+            }
+
+            /*
+             * Either s ran out while we were scanning space characters,
+             * or we have created a new segment. (It is possible s ran
+             * out while we created the segment, but that's ok.)
+             */
+            if (segment.length() > 0) {
+                // We created a segment.
+                --maxsplit;
+                list.add(segment.takeUnicode());
+            }
+        }
+
+        // We built the list backwards, so reverse it.
+        list.reverse();
+        return list;
+    }
+
+    /**
+     * Implementation of Python {@code str.rsplit}, returning a list of
+     * the separated parts. If there are more than {@code maxsplit}
+     * occurrences of {@code sep} the last element of the list is the
+     * remainder of the original ({@code self}) string.
+     *
+     * @param s delegate presenting self as code points
+     * @param p at occurrences of which {@code s} should be split
+     * @param maxsplit limit on the number of splits (if not &lt;=0)
+     * @return {@code PyList} of split sections
+     */
+    private static PyList rsplit(CodepointDelegate s,
+            CodepointDelegate p, int maxsplit) {
+        /*
+         * The structure of rsplit() resembles that of count() in that
+         * after a match we keep going. And it resembles rpartition() in
+         * that, between matches, we are accumulating characters into a
+         * segment buffer, and we are working backwards from the end.
+         */
+
+        // -1 means make all possible splits, at most:
+        if (maxsplit < 0) { maxsplit = s.length(); }
+
+        // A reverse iterator on p, the string sought.
+        CodepointIterator pi = p.iteratorLast();
+        int pChar = pi.previousInt(), pLength = p.length();
+        CodepointIterator.Mark pMark = pi.mark();
+        assert pLength > 0;
+
+        /*
+         * Counting backwards in pos we recognise when there can be no
+         * further matches.
+         */
+        int pos = s.length(), firstPos = pLength - 1, sChar;
+
+        // An iterator on s, the string being searched.
+        CodepointIterator si = s.iterator(pos);
+
+        // Result built here is a list of split segments
+        PyList list = new PyList();
+        IntArrayReverseBuilder segment = new IntArrayReverseBuilder();
+
+        while (si.hasPrevious()) {
+            if (--pos < firstPos || maxsplit <= 0) {
+                /*
+                 * We are too close to the start for a match now, or in
+                 * our final segment (according to maxsplit==0).
+                 * Everything that is left belongs to this segment.
+                 */
+                segment.prepend(si);
+            } else if ((sChar = si.previousInt()) == pChar) {
+                /*
+                 * s[pos] matched p[-1]: divert into matching the rest
+                 * of p. Leave a mark in s where we shall resume if this
+                 * is not a full match with p.
+                 */
+                CodepointIterator.Mark sPos = si.mark();
+                int match = 1;
+                while (match < pLength) {
+                    if (pi.previousInt() != si.previousInt()) { break; }
+                    match++;
+                }
+
+                if (match == pLength) {
+                    /*
+                     * We reached the end of p: it's a match. Create
+                     * emit the segment we have been accumulating, start
+                     * a new one, and lose a life.
+                     */
+                    list.add(segment.takeUnicode());
+                    --maxsplit;
+                    // Catch pos up with si (matches do not overlap).
+                    pos = si.nextIndex();
+                } else {
+                    /*
+                     * We stopped on a mismatch: reset si to pos. The
+                     * character that matched pChar is part of the
+                     * current segment.
+                     */
+                    sPos.restore();
+                    segment.prepend(sChar);
+                }
+                // In either case, reset pi to p[1].
+                pMark.restore();
+
+            } else {
+                /*
+                 * The character that wasn't part of a match with p is
+                 * part of the current segment.
+                 */
+                segment.prepend(sChar);
+            }
+        }
+
+        /*
+         * Add the segment we were building when s ran out, even if it
+         * is empty. Note the list is backwards and we must reverse it.
+         */
+        list.add(segment.takeUnicode());
+        list.reverse();
+        return list;
+    }
+
     // Predicate methods ----------------------------------------------
 
+    /*
+     * We group here methods that are boolean functions of the string,
+     * based on tests of character properties, for example
+     * str.isascii(). They have a common pattern.
+     */
     @PythonMethod(primary = false)
     boolean isascii() {
         for (int c : delegate) { if (c > 127) { return false; } }
@@ -779,6 +1223,27 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         for (int c : adapt(self)) { if (c > 127) { return false; } }
         return true;
     }
+
+    /**
+     * Define what characters are to be treated as a space according to
+     * Python 3.
+     */
+    private static boolean isPythonSpace(int ch) {
+        // Use the Java built-in methods as far as possible
+        return Character.isWhitespace(ch) // ASCII spaces and some
+                // remaining Unicode spaces
+                || Character.isSpaceChar(ch)
+                // NEXT LINE (not a space in Java or Unicode)
+                || ch == 0x0085;
+    }
+
+    // Transformation methods -----------------------------------------
+
+    /*
+     * We group here methods that are simle transformation functions of
+     * the string, based on tests of character properties, for example
+     * str.strip() and str.title().
+     */
 
     @PythonMethod
     PyUnicode ljust(int width, @Default(" ") String fillchar) {
@@ -1049,6 +1514,13 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         @Override
         public Iterator<Integer> iterator() { return iterator(0); }
 
+        /**
+         * Return the object of which this is the delegate.
+         *
+         * @return the object of which this is the delegate
+         */
+        abstract Object principal();
+
         @Override
         public String toString() {
             StringBuilder b = new StringBuilder("adapter(\"");
@@ -1212,6 +1684,9 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
 
         @Override
         public String getTypeName() { return "string"; }
+
+        @Override
+        Object principal() { return s; }
 
         @Override
         public Object getItem(int i) {
@@ -1698,6 +2173,9 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
 
         @Override
         public String getTypeName() { return "string"; }
+
+        @Override
+        Object principal() { return PyUnicode.this; }
 
         @Override
         public Object getItem(int i) {
@@ -2216,7 +2694,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
 
         /** The number of elements currently. */
         int length() {
-            return ptr = value.length - ptr;
+            return value.length - ptr;
         }
 
         /**

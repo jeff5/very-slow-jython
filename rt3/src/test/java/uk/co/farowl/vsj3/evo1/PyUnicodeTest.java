@@ -15,8 +15,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import uk.co.farowl.vsj3.evo1.PyUnicode.CodepointDelegate;
-
 /**
  * Test selected methods of {@link PyUnicode} on a variety of argument
  * types.
@@ -24,27 +22,13 @@ import uk.co.farowl.vsj3.evo1.PyUnicode.CodepointDelegate;
 @DisplayName("In PyUnicode")
 class PyUnicodeTest extends UnitTestSupport {
 
-    abstract static class AdaptationTest {
-        @Test
-        void testAdaptObject() {
-            CodepointDelegate delegate = PyUnicode.adapt("hello");
-            assertEquals(5, delegate.length());
-        }
-
-        @Test
-        void testAdapt() { fail("Not yet implemented"); }
-    }
-
-    abstract static class FactoryTest {
-        @Test
-        void testFromJavaString() { fail("Not yet implemented"); }
-    }
-
     /** Base of tests that find strings in others. */
     abstract static class AbstractFindTest {
         /**
          * Provide a stream of examples as parameter sets to the tests
-         * of methods that have "search" character, that is .
+         * of methods that have "search" character, that is
+         * {@code find}, {@code index}, {@code partition},
+         * {@code count}, etc..
          *
          * @return the examples for search tests.
          */
@@ -110,7 +94,7 @@ class PyUnicodeTest extends UnitTestSupport {
     class FindTest extends AbstractFindTest {
 
         @DisplayName("find(String, String, null, null)")
-        @ParameterizedTest(name = "find(\"{0}\", \"{1}\")")
+        @ParameterizedTest(name = "\"{0}\".find(\"{1}\")")
         @MethodSource("findExamples")
         void S_find_S(String s, String needle, int[] indices) {
             int r = PyUnicode.find(s, needle, null, null);
@@ -124,7 +108,7 @@ class PyUnicodeTest extends UnitTestSupport {
         }
 
         @DisplayName("find(String, PyUnicode, null, null)")
-        @ParameterizedTest(name = "find(\"{0}\", \"{1}\")")
+        @ParameterizedTest(name = "\"{0}\".find(\"{1}\")")
         @MethodSource("findExamples")
         void S_find_U(String s, String needle, int[] indices) {
             PyUnicode uNeedle =
@@ -140,7 +124,7 @@ class PyUnicodeTest extends UnitTestSupport {
         }
 
         @DisplayName("find(PyUnicode, String, null, null)")
-        @ParameterizedTest(name = "find(\"{0}\", \"{1}\")")
+        @ParameterizedTest(name = "\"{0}\".find(\"{1}\")")
         @MethodSource("findExamples")
         void U_find_S(String s, String needle, int[] indices) {
             PyUnicode u = new PyUnicode(s.codePoints().toArray());
@@ -155,7 +139,7 @@ class PyUnicodeTest extends UnitTestSupport {
         }
 
         @DisplayName("find(PyUnicode, PyUnicode, null, null)")
-        @ParameterizedTest(name = "find(\"{0}\", \"{1}\")")
+        @ParameterizedTest(name = "\"{0}\".find(\"{1}\")")
         @MethodSource("findExamples")
         void U_find_U(String s, String needle, int[] indices) {
             PyUnicode u = new PyUnicode(s.codePoints().toArray());
@@ -178,7 +162,7 @@ class PyUnicodeTest extends UnitTestSupport {
     class PartitionTest extends AbstractFindTest {
 
         @DisplayName("partition(String, String)")
-        @ParameterizedTest(name = "partition(\"{0}\", \"{1}\")")
+        @ParameterizedTest(name = "\"{0}\".partition(\"{1}\")")
         @MethodSource("findExamples")
         void S_partition_S(String s, String needle, int[] indices) {
             PyTuple r = PyUnicode.partition(s, needle);
@@ -201,7 +185,7 @@ class PyUnicodeTest extends UnitTestSupport {
         }
 
         @DisplayName("partition(String, PyUnicode)")
-        @ParameterizedTest(name = "partition(\"{0}\", \"{1}\")")
+        @ParameterizedTest(name = "\"{0}\".partition(\"{1}\")")
         @MethodSource("findExamples")
         void S_partition_U(String s, String needle, int[] indices) {
             PyUnicode uNeedle =
@@ -226,7 +210,7 @@ class PyUnicodeTest extends UnitTestSupport {
         }
 
         @DisplayName("partition(PyUnicode, String)")
-        @ParameterizedTest(name = "partition(\"{0}\", \"{1}\")")
+        @ParameterizedTest(name = "\"{0}\".partition(\"{1}\")")
         @MethodSource("findExamples")
         void U_partition_S(String s, String needle, int[] indices) {
             PyUnicode u = new PyUnicode(s.codePoints().toArray());
@@ -250,7 +234,7 @@ class PyUnicodeTest extends UnitTestSupport {
         }
 
         @DisplayName("partition(PyUnicode, PyUnicode)")
-        @ParameterizedTest(name = "partition(\"{0}\", \"{1}\")")
+        @ParameterizedTest(name = "\"{0}\".partition(\"{1}\")")
         @MethodSource("findExamples")
         void U_partition_U(String s, String needle, int[] indices) {
             PyUnicode u = new PyUnicode(s.codePoints().toArray());
@@ -282,7 +266,7 @@ class PyUnicodeTest extends UnitTestSupport {
     class CountTest extends AbstractFindTest {
 
         @DisplayName("count(String, String, null, null)")
-        @ParameterizedTest(name = "count(\"{0}\", \"{1}\")")
+        @ParameterizedTest(name = "\"{0}\".count(\"{1}\")")
         @MethodSource("findExamples")
         void S_count_S(String s, String needle, int[] indices) {
             int r = PyUnicode.count(s, needle, null, null);
@@ -290,7 +274,7 @@ class PyUnicodeTest extends UnitTestSupport {
         }
 
         @DisplayName("count(String, PyUnicode, null, null)")
-        @ParameterizedTest(name = "count(\"{0}\", \"{1}\")")
+        @ParameterizedTest(name = "\"{0}\".count(\"{1}\")")
         @MethodSource("findExamples")
         void S_count_U(String s, String needle, int[] indices) {
             PyUnicode uNeedle =
@@ -300,7 +284,7 @@ class PyUnicodeTest extends UnitTestSupport {
         }
 
         @DisplayName("count(PyUnicode, String, null, null)")
-        @ParameterizedTest(name = "count(\"{0}\", \"{1}\")")
+        @ParameterizedTest(name = "\"{0}\".count(\"{1}\")")
         @MethodSource("findExamples")
         void U_count_S(String s, String needle, int[] indices) {
             PyUnicode u = new PyUnicode(s.codePoints().toArray());
@@ -309,7 +293,7 @@ class PyUnicodeTest extends UnitTestSupport {
         }
 
         @DisplayName("count(PyUnicode, PyUnicode, null, null)")
-        @ParameterizedTest(name = "count(\"{0}\", \"{1}\")")
+        @ParameterizedTest(name = "\"{0}\".count(\"{1}\")")
         @MethodSource("findExamples")
         void U_count_U(String s, String needle, int[] indices) {
             PyUnicode u = new PyUnicode(s.codePoints().toArray());
@@ -320,11 +304,98 @@ class PyUnicodeTest extends UnitTestSupport {
         }
     }
 
-    /** Base of tests that find strings in others. */
+    /** Tests of {@code str.split} on an explicit separator. */
+    @Nested
+    @DisplayName("split on string")
+    class SplitOnStringTest extends AbstractFindTest {
+
+        @DisplayName("split(String, String)")
+        @ParameterizedTest(name = "\"{0}\".split(\"{1}\")")
+        @MethodSource("findExamples")
+        void S_split_S(String s, String needle, int[] indices) {
+            PyList r = PyUnicode.split(s, needle, -1);
+            PyUnicode[] segments = expectedSplit(s, needle, indices);
+            assertEquals(segments.length, r.size(),
+                    "number of segments");
+            int i = 0;
+            for (Object ri : r) { assertEquals(segments[i++], ri); }
+        }
+
+        @DisplayName("split(String, PyUnicode)")
+        @ParameterizedTest(name = "\"{0}\".split(\"{1}\")")
+        @MethodSource("findExamples")
+        void S_split_U(String s, String needle, int[] indices) {
+            PyUnicode uNeedle =
+                    new PyUnicode(needle.codePoints().toArray());
+            PyList r = PyUnicode.split(s, uNeedle, -1);
+            PyUnicode[] segments = expectedSplit(s, needle, indices);
+            assertEquals(segments.length, r.size(),
+                    "number of segments");
+            int i = 0;
+            for (Object ri : r) { assertEquals(segments[i++], ri); }
+        }
+
+        @DisplayName("split(PyUnicode, String)")
+        @ParameterizedTest(name = "\"{0}\".split(\"{1}\")")
+        @MethodSource("findExamples")
+        void U_split_S(String s, String needle, int[] indices) {
+            PyUnicode u = new PyUnicode(s.codePoints().toArray());
+            PyList r = u.split(needle, -1);
+            PyUnicode[] segments = expectedSplit(s, needle, indices);
+            assertEquals(segments.length, r.size(),
+                    "number of segments");
+            int i = 0;
+            for (Object ri : r) { assertEquals(segments[i++], ri); }
+        }
+
+        @DisplayName("split(PyUnicode, PyUnicode)")
+        @ParameterizedTest(name = "\"{0}\".split(\"{1}\")")
+        @MethodSource("findExamples")
+        void U_split_U(String s, String needle, int[] indices) {
+            PyUnicode u = new PyUnicode(s.codePoints().toArray());
+            PyUnicode uNeedle =
+                    new PyUnicode(needle.codePoints().toArray());
+            PyList r = u.split(uNeedle, -1);
+            PyUnicode[] segments = expectedSplit(s, needle, indices);
+            assertEquals(segments.length, r.size(),
+                    "number of segments");
+            int i = 0;
+            for (Object ri : r) { assertEquals(segments[i++], ri); }
+        }
+
+        @Test
+        @DisplayName("split(FOX, \"o\", 2)")
+        void U_split_S_maxsplit() {
+            PyUnicode u = newPyUnicode(FOX);
+            PyList r = u.split("o", 2);
+            PyUnicode[] segments = toPyUnicodeArray("The quick br",
+                    "wn f", FOX.substring(FOX.indexOf("x")));
+            assertEquals(segments.length, r.size(),
+                    "number of segments");
+            int i = 0;
+            for (Object ri : r) { assertEquals(segments[i++], ri); }
+        }
+
+        @Test
+        @DisplayName("split(FOX, \"o\", 0)")
+        void U_split_S_maxsplit0() {
+            PyUnicode u = newPyUnicode(FOX);
+            PyList r = u.split("o", 0);
+            PyUnicode[] segments = toPyUnicodeArray(FOX);
+            assertEquals(1, r.size(), "number of segments");
+            assertEquals(segments[0], r.get(0));
+        }
+    }
+
+    /**
+     * Base of tests that find strings in others (in reverse search).
+     */
     abstract static class AbstractReverseFindTest {
         /**
          * Provide a stream of examples as parameter sets to the tests
-         * of methods that have "search" character, that is .
+         * of methods that have "search" character but scan in reverse,
+         * that is {@code rfind}, {@code rindex}, {@code rpartition},
+         * etc..
          *
          * @return the examples for search tests.
          */
@@ -345,7 +416,7 @@ class PyUnicodeTest extends UnitTestSupport {
                      */
                     // 🐍=\ud802\udc40, 🦓=\ud83e\udd93
                     rfindExample("One 🐍, a 🦓, two 🐍🐍.", "🐍",
-                            new int[] {17, 16, 4}),
+                            new int[] {4, 16, 17}),
                     rfindExample("Left 🐍🦓🐍🦓: right.", "🐍🦓:",
                             new int[] {7}));
         }
@@ -389,64 +460,68 @@ class PyUnicodeTest extends UnitTestSupport {
     class ReverseFindTest extends AbstractReverseFindTest {
 
         @DisplayName("rfind(String, String, null, null)")
-        @ParameterizedTest(name = "rfind(\"{0}\", \"{1}\")")
+        @ParameterizedTest(name = "\"{0}\".rfind(\"{1}\")")
         @MethodSource("rfindExamples")
         void S_rfind_S(String s, String needle, int[] indices) {
             int r = PyUnicode.rfind(s, needle, null, null);
-            if (indices.length == 0) {
+            int M = indices.length;
+            if (M == 0) {
                 // There should be no match
                 assertEquals(-1, r);
             } else {
-                // Match at indices[0]
-                assertEquals(indices[0], r);
+                // Match at indices[M-1]
+                assertEquals(indices[M - 1], r);
             }
         }
 
         @DisplayName("rfind(String, PyUnicode, null, null)")
-        @ParameterizedTest(name = "rfind(\"{0}\", \"{1}\")")
+        @ParameterizedTest(name = "\"{0}\".rfind(\"{1}\")")
         @MethodSource("rfindExamples")
         void S_rfind_U(String s, String needle, int[] indices) {
             PyUnicode uNeedle =
                     new PyUnicode(needle.codePoints().toArray());
             int r = PyUnicode.rfind(s, uNeedle, null, null);
-            if (indices.length == 0) {
+            int M = indices.length;
+            if (M == 0) {
                 // There should be no match
                 assertEquals(-1, r);
             } else {
-                // Match at indices[0]
-                assertEquals(indices[0], r);
+                // Match at indices[M-1]
+                assertEquals(indices[M - 1], r);
             }
         }
 
         @DisplayName("rfind(PyUnicode, String, null, null)")
-        @ParameterizedTest(name = "rfind(\"{0}\", \"{1}\")")
+        @ParameterizedTest(name = "\"{0}\".rfind(\"{1}\")")
         @MethodSource("rfindExamples")
         void U_rfind_S(String s, String needle, int[] indices) {
             PyUnicode u = new PyUnicode(s.codePoints().toArray());
             int r = u.rfind(needle, null, null);
-            if (indices.length == 0) {
+            int M = indices.length;
+            if (M == 0) {
                 // There should be no match
                 assertEquals(-1, r);
             } else {
-                // Match at indices[0]
-                assertEquals(indices[0], r);
+                // Match at indices[M-1]
+                assertEquals(indices[M - 1], r);
             }
         }
 
         @DisplayName("rfind(PyUnicode, PyUnicode, null, null)")
-        @ParameterizedTest(name = "rfind(\"{0}\", \"{1}\")")
+        @ParameterizedTest(name = "\"{0}\".rfind(\"{1}\")")
         @MethodSource("rfindExamples")
         void U_rfind_U(String s, String needle, int[] indices) {
             PyUnicode u = new PyUnicode(s.codePoints().toArray());
             PyUnicode uNeedle =
                     new PyUnicode(needle.codePoints().toArray());
             int r = u.rfind(uNeedle, null, null);
-            if (indices.length == 0) {
+            int M = indices.length;
+            if (M == 0) {
                 // There should be no match
                 assertEquals(-1, r);
             } else {
-                // Match at indices[0]
-                assertEquals(indices[0], r);
+                // Match at indices[M-1]
+                assertEquals(indices[M - 1], r);
             }
         }
     }
@@ -457,7 +532,7 @@ class PyUnicodeTest extends UnitTestSupport {
     class ReversePartitionTest extends AbstractReverseFindTest {
 
         @DisplayName("rpartition(String, String)")
-        @ParameterizedTest(name = "rpartition(\"{0}\", \"{1}\")")
+        @ParameterizedTest(name = "\"{0}\".rpartition(\"{1}\")")
         @MethodSource("rfindExamples")
         void S_rpartition_S(String s, String needle, int[] indices) {
             PyTuple r = PyUnicode.rpartition(s, needle);
@@ -471,13 +546,175 @@ class PyUnicodeTest extends UnitTestSupport {
                 // There should be no match
                 assertEquals(Py.tuple(s, "", ""), r);
             } else {
-                // Match at indices[0]
+                // Match at indices[M-1]
                 int[] charIndices = toCharIndices(s, indices);
                 // Work in char indices (so doubtful with surrogates)
-                int n = charIndices[0], m = n + needle.length();
+                int n = charIndices[M - 1], m = n + needle.length();
                 assertEquals(Py.tuple(s.substring(0, n), needle,
                         s.substring(m)), r);
             }
+        }
+
+        @DisplayName("rpartition(String, String)")
+        @ParameterizedTest(name = "\"{0}\".rpartition(\"{1}\")")
+        @MethodSource("rfindExamples")
+        void S_rpartition_U(String s, String needle, int[] indices) {
+            PyUnicode uNeedle =
+                    new PyUnicode(needle.codePoints().toArray());
+            PyTuple r = PyUnicode.rpartition(s, uNeedle);
+            assertPythonType(PyTuple.TYPE, r);
+            assertEquals(3, r.size());
+            for (int i = 0; i < 3; i++) {
+                assertPythonType(PyUnicode.TYPE, r.get(i));
+            }
+            int M = indices.length;
+            if (M == 0) {
+                // There should be no match
+                assertEquals(Py.tuple(s, "", ""), r);
+            } else {
+                // Match at indices[M-1]
+                int[] charIndices = toCharIndices(s, indices);
+                // Work in char indices (so doubtful with surrogates)
+                int n = charIndices[M - 1], m = n + needle.length();
+                assertEquals(Py.tuple(s.substring(0, n), needle,
+                        s.substring(m)), r);
+            }
+        }
+
+        @DisplayName("rpartition(String, String)")
+        @ParameterizedTest(name = "\"{0}\".rpartition(\"{1}\")")
+        @MethodSource("rfindExamples")
+        void U_rpartition_S(String s, String needle, int[] indices) {
+            PyUnicode u = new PyUnicode(s.codePoints().toArray());
+            PyTuple r = u.rpartition(needle);
+            assertPythonType(PyTuple.TYPE, r);
+            assertEquals(3, r.size());
+            for (int i = 0; i < 3; i++) {
+                assertPythonType(PyUnicode.TYPE, r.get(i));
+            }
+            int M = indices.length;
+            if (M == 0) {
+                // There should be no match
+                assertEquals(Py.tuple(s, "", ""), r);
+            } else {
+                // Match at indices[M-1]
+                int[] charIndices = toCharIndices(s, indices);
+                // Work in char indices (so doubtful with surrogates)
+                int n = charIndices[M - 1], m = n + needle.length();
+                assertEquals(Py.tuple(s.substring(0, n), needle,
+                        s.substring(m)), r);
+            }
+        }
+
+        @DisplayName("rpartition(String, String)")
+        @ParameterizedTest(name = "\"{0}\".rpartition(\"{1}\")")
+        @MethodSource("rfindExamples")
+        void U_rpartition_U(String s, String needle, int[] indices) {
+            PyUnicode u = new PyUnicode(s.codePoints().toArray());
+            PyUnicode uNeedle =
+                    new PyUnicode(needle.codePoints().toArray());
+            PyTuple r = u.rpartition(uNeedle);
+            assertPythonType(PyTuple.TYPE, r);
+            assertEquals(3, r.size());
+            for (int i = 0; i < 3; i++) {
+                assertPythonType(PyUnicode.TYPE, r.get(i));
+            }
+            int M = indices.length;
+            if (M == 0) {
+                // There should be no match
+                assertEquals(Py.tuple(s, "", ""), r);
+            } else {
+                // Match at indices[M-1]
+                int[] charIndices = toCharIndices(s, indices);
+                // Work in char indices (so doubtful with surrogates)
+                int n = charIndices[M - 1], m = n + needle.length();
+                assertEquals(Py.tuple(s.substring(0, n), needle,
+                        s.substring(m)), r);
+            }
+        }
+    }
+
+    /** Tests of {@code str.rsplit} on an explicit separator. */
+    @Nested
+    @DisplayName("rsplit on string")
+    class ReverseSplitOnStringTest extends AbstractReverseFindTest {
+
+        @DisplayName("rsplit(String, String)")
+        @ParameterizedTest(name = "\"{0}\".rsplit(\"{1}\")")
+        @MethodSource("rfindExamples")
+        void S_rsplit_S(String s, String needle, int[] indices) {
+            PyList r = PyUnicode.rsplit(s, needle, -1);
+            PyUnicode[] segments = expectedSplit(s, needle, indices);
+            assertEquals(segments.length, r.size(),
+                    "number of segments");
+            int i = 0;
+            for (Object ri : r) { assertEquals(segments[i++], ri); }
+        }
+
+        @DisplayName("rsplit(String, PyUnicode)")
+        @ParameterizedTest(name = "\"{0}\".rsplit(\"{1}\")")
+        @MethodSource("rfindExamples")
+        void S_rsplit_U(String s, String needle, int[] indices) {
+            PyUnicode uNeedle =
+                    new PyUnicode(needle.codePoints().toArray());
+            PyList r = PyUnicode.rsplit(s, uNeedle, -1);
+            PyUnicode[] segments = expectedSplit(s, needle, indices);
+            assertEquals(segments.length, r.size(),
+                    "number of segments");
+            int i = 0;
+            for (Object ri : r) { assertEquals(segments[i++], ri); }
+        }
+
+        @DisplayName("rsplit(PyUnicode, String)")
+        @ParameterizedTest(name = "\"{0}\".rsplit(\"{1}\")")
+        @MethodSource("rfindExamples")
+        void U_rsplit_S(String s, String needle, int[] indices) {
+            PyUnicode u = new PyUnicode(s.codePoints().toArray());
+            PyList r = u.rsplit(needle, -1);
+            PyUnicode[] segments = expectedSplit(s, needle, indices);
+            assertEquals(segments.length, r.size(),
+                    "number of segments");
+            int i = 0;
+            for (Object ri : r) { assertEquals(segments[i++], ri); }
+        }
+
+        @DisplayName("rsplit(PyUnicode, PyUnicode)")
+        @ParameterizedTest(name = "\"{0}\".rsplit(\"{1}\")")
+        @MethodSource("rfindExamples")
+        void U_rsplit_U(String s, String needle, int[] indices) {
+            PyUnicode u = new PyUnicode(s.codePoints().toArray());
+            PyUnicode uNeedle =
+                    new PyUnicode(needle.codePoints().toArray());
+            PyList r = u.rsplit(uNeedle, -1);
+            PyUnicode[] segments = expectedSplit(s, needle, indices);
+            assertEquals(segments.length, r.size(),
+                    "number of segments");
+            int i = 0;
+            for (Object ri : r) { assertEquals(segments[i++], ri); }
+        }
+
+        @Test
+        @DisplayName("rsplit(FOX, \"o\", 2)")
+        void U_rsplit_S_maxsplit() {
+            PyUnicode u = newPyUnicode(FOX);
+            PyList r = u.rsplit("o", 2);
+            PyUnicode[] segments = toPyUnicodeArray(
+                    FOX.substring(0, FOX.indexOf("over")),
+                    "ver the lazy d", "g.");
+            assertEquals(segments.length, r.size(),
+                    "number of segments");
+            int i = 0;
+            for (Object ri : r) { assertEquals(segments[i++], ri); }
+        }
+
+        @Test
+        @DisplayName("rsplit(FOX, \"o\", 0)")
+        void U_rsplit_S_maxsplit0() {
+            PyUnicode u = newPyUnicode(FOX);
+            PyList r = u.rsplit("o", 0);
+            PyUnicode[] segments = toPyUnicodeArray(FOX);
+            assertEquals(1, r.size(), "number of segments");
+            assertEquals(segments[0], r.get(0));
         }
     }
 
@@ -601,7 +838,7 @@ class PyUnicodeTest extends UnitTestSupport {
     class ReplaceTest extends AbstractReplaceTest {
 
         @DisplayName("replace(String, String, String)")
-        @ParameterizedTest(name = "replace(\"{0}\", \"{1}\", \"{3}\")")
+        @ParameterizedTest(name = "\"{0}\".replace(\"{1}\", \"{3}\")")
         @MethodSource("replaceExamples")
         void S_replace_SS(String s, String needle, int[] indices,
                 String pin) {
@@ -612,7 +849,7 @@ class PyUnicodeTest extends UnitTestSupport {
         }
 
         @DisplayName("replace(String, PyUnicode, String)")
-        @ParameterizedTest(name = "replace(\"{0}\", \"{1}\", \"{3}\")")
+        @ParameterizedTest(name = "\"{0}\".replace(\"{1}\", \"{3}\")")
         @MethodSource("replaceExamples")
         void S_replace_US(String s, String needle, int[] indices,
                 String pin) {
@@ -625,7 +862,7 @@ class PyUnicodeTest extends UnitTestSupport {
         }
 
         @DisplayName("replace(String, String, PyUnicode)")
-        @ParameterizedTest(name = "replace(\"{0}\", \"{1}\", \"{3}\")")
+        @ParameterizedTest(name = "\"{0}\".replace(\"{1}\", \"{3}\")")
         @MethodSource("replaceExamples")
         void S_replace_SU(String s, String needle, int[] indices,
                 String pin) {
@@ -637,7 +874,7 @@ class PyUnicodeTest extends UnitTestSupport {
         }
 
         @DisplayName("replace(String, PyUnicode, PyUnicode)")
-        @ParameterizedTest(name = "replace(\"{0}\", \"{1}\", \"{3}\")")
+        @ParameterizedTest(name = "\"{0}\".replace(\"{1}\", \"{3}\")")
         @MethodSource("replaceExamples")
         void S_replace_UU(String s, String needle, int[] indices,
                 String pin) {
@@ -807,14 +1044,203 @@ class PyUnicodeTest extends UnitTestSupport {
         }
     }
 
+    /** Base of tests that find space or line breaks. */
+    abstract static class AbstractSplitAtSpaceTest {
+        /**
+         * Provide a stream of examples as parameter sets to the tests
+         * of methods that search for runs of spaces, that is
+         * {@code split} and {@code rsplit} (with no sub-string given)
+         * and {@code splitlines}.
+         *
+         * @return the examples for search tests.
+         */
+        static Stream<Arguments> splitExamples() {
+            return Stream.of(//
+                    splitExample("cunning"), //
+                    splitExample("the quick brown fox"), //
+                    splitExample("\fthe\u000bquick\nbrown\u0085fox"), //
+                    splitExample("\f the \u000b quick\n\r"
+                            + " brown \u0085 fox\r\n"), //
+                    splitExample(""), //
+                    splitExample("\f\u000b\n\u0085"), //
+                    splitExample(GREEK), //
+                    splitExample("画蛇添足 添足 添足"), //
+                    /*
+                     * The following contain non-BMP characters
+                     * 🐍=U+1F40D and 🦓=U+1F993, each of which Python
+                     * must consider to be a single character, but in
+                     * the Java String realisation each is two chars.
+                     */
+                    // 🐍=\ud802\udc40, 🦓=\ud83e\udd93
+                    splitExample("One 🐍, a 🦓, two 🐍🐍."), //
+                    splitExample("Left 🐍🦓🐍🦓: right.") //
+            );
+        }
+
+        /**
+         * Construct a search problem and reference result that is
+         * segments that are separated in {@code s} by runs of space
+         * characters.
+         *
+         * @param self to search
+         * @param needle to search for
+         * @param indices at which {@code needle}is found (code points)
+         * @param pin to replace needle (if tested)
+         * @return example data for a test
+         */
+        private static Arguments splitExample(String self) {
+            return arguments(self, split(self));
+        }
+
+        /**
+         * Return an array of segments that are separated in {@code s}
+         * by runs of space characters. This uses Java {@code char}
+         * tests and will work correctly for BMP strings, but would be
+         * unreliable where any SMP space characters are involved. We
+         * return these as {@link PyUnicode} to ensure that
+         * {@code assertEquals} uses {@link PyUnicode#equals(Object)}
+         * for comparison during tests.
+         *
+         * @param s string in question
+         * @return the segments of {@code s}
+         */
+        private static PyUnicode[] split(String s) {
+            LinkedList<PyUnicode> segment = new LinkedList<>();
+            int p = 0, start = 0, N = s.length();
+            boolean text = false;
+            while (true) {
+                if (text) {
+                    if (p >= N) {
+                        segment.add(
+                                newPyUnicode(s.substring(start, p)));
+                        break;
+                    } else if (isPythonSpace(s.charAt(p))) {
+                        segment.add(
+                                newPyUnicode(s.substring(start, p)));
+                        text = false;
+                    }
+                } else {
+                    if (p >= N) {
+                        break;
+                    } else if (!isPythonSpace(s.charAt(p))) {
+                        start = p;
+                        text = true;
+                    }
+                }
+                p++;
+            }
+            return segment.toArray(new PyUnicode[segment.size()]);
+        }
+    }
+
+    /** Tests of {@code str.split} splitting at runs of spaces. */
+    @Nested
+    @DisplayName("split at spaces")
+    class SplitAtSpaceTest extends AbstractSplitAtSpaceTest {
+
+        @DisplayName("split(String)")
+        @ParameterizedTest(name = "\"{0}\".split()")
+        @MethodSource("splitExamples")
+        void S_split_S(String s, PyUnicode[] segments) {
+            PyList r = PyUnicode.split(s, null, -1);
+            assertEquals(segments.length, r.size(),
+                    "number of segments");
+            int i = 0;
+            for (Object ri : r) { assertEquals(segments[i++], ri); }
+        }
+
+        @DisplayName("split(PyUnicode)")
+        @ParameterizedTest(name = "\"{0}\".split()")
+        @MethodSource("splitExamples")
+        void U_split_S(String s, PyUnicode[] segments) {
+            PyUnicode u = new PyUnicode(s.codePoints().toArray());
+            PyList r = u.split(null, -1);
+            assertEquals(segments.length, r.size(),
+                    "number of segments");
+            int i = 0;
+            for (Object ri : r) { assertEquals(segments[i++], ri); }
+        }
+
+        @Test
+        @DisplayName("FOX.split(maxsplit=3)")
+        void U_split_maxsplit() {
+            PyUnicode u = newPyUnicode(FOX);
+            PyList r = u.split(null, 3);
+            PyUnicode[] segments = toPyUnicodeArray("The", "quick",
+                    "brown", "fox jumps over the lazy dog.");
+            assertEquals(segments.length, r.size(),
+                    "number of segments");
+            int i = 0;
+            for (Object ri : r) { assertEquals(segments[i++], ri); }
+        }
+
+        @Test
+        @DisplayName("split(FOX, 0)")
+        void U_split_S_maxsplit0() {
+            PyUnicode u = newPyUnicode(FOX);
+            PyList r = u.split(null, 0);
+            PyUnicode[] segments = toPyUnicodeArray(FOX);
+            assertEquals(1, r.size(), "number of segments");
+            assertEquals(segments[0], r.get(0));
+        }
+    }
+
+    /** Tests of {@code str.rsplit} splitting at runs of spaces. */
+    @Nested
+    @DisplayName("rsplit at spaces")
+    class ReverseSplitAtSpaceTest extends AbstractSplitAtSpaceTest {
+
+        @DisplayName("rsplit(String)")
+        @ParameterizedTest(name = "\"{0}\".rsplit()")
+        @MethodSource("splitExamples")
+        void S_split_S(String s, PyUnicode[] segments) {
+            PyList r = PyUnicode.rsplit(s, null, -1);
+            assertEquals(segments.length, r.size(),
+                    "number of segments");
+            int i = 0;
+            for (Object ri : r) { assertEquals(segments[i++], ri); }
+        }
+
+        @DisplayName("rsplit(PyUnicode)")
+        @ParameterizedTest(name = "\"{0}\".rsplit()")
+        @MethodSource("splitExamples")
+        void U_split_S(String s, PyUnicode[] segments) {
+            PyUnicode u = new PyUnicode(s.codePoints().toArray());
+            PyList r = u.rsplit(null, -1);
+            assertEquals(segments.length, r.size(),
+                    "number of segments");
+            int i = 0;
+            for (Object ri : r) { assertEquals(segments[i++], ri); }
+        }
+
+        @Test
+        @DisplayName("FOX.rsplit(maxsplit=3)")
+        void U_split_maxsplit() {
+            PyUnicode u = newPyUnicode(FOX);
+            PyList r = u.rsplit(null, 3);
+            PyUnicode[] segments =
+                    toPyUnicodeArray("The quick brown fox jumps over",
+                            "the", "lazy", "dog.");
+            assertEquals(segments.length, r.size(),
+                    "number of segments");
+            int i = 0;
+            for (Object ri : r) { assertEquals(segments[i++], ri); }
+        }
+
+        @Test
+        @DisplayName("rsplit(FOX, 0)")
+        void U_rsplit_S_maxsplit0() {
+            PyUnicode u = newPyUnicode(FOX);
+            PyList r = u.split(null, 0);
+            PyUnicode[] segments = toPyUnicodeArray(FOX);
+            assertEquals(1, r.size(), "number of segments");
+            assertEquals(segments[0], r.get(0));
+        }
+    }
+
     abstract static class PredicateTest {
         @Test
         void testIsascii() { fail("Not yet implemented"); }
-    }
-
-    // @Nested
-    class AdaptationTestString extends AdaptationTest {
-
     }
 
     // Support code ---------------------------------------------------
@@ -844,9 +1270,11 @@ class PyUnicodeTest extends UnitTestSupport {
 
     /**
      * Return a list of char indices on {@code s} at which the given
-     * {@code needle} may be found, working backwards from the end. This
-     * uses Java {@code String.indexOf} and will work correctly for BMP
-     * strings, but is unreliable where any SMP characters are involved.
+     * {@code needle} may be found, working backwards from the end.
+     * Although generated by a reverse scan, the return array is in
+     * ascending order. This uses Java {@code String.indexOf} and will
+     * work correctly for BMP strings, but is unreliable where any SMP
+     * characters are involved.
      *
      * @param s string in question
      * @param needle to search for
@@ -856,7 +1284,7 @@ class PyUnicodeTest extends UnitTestSupport {
         LinkedList<Integer> charIndices = new LinkedList<>();
         int n = needle.length(), p = s.length() - n;
         while ((p = s.lastIndexOf(needle, p)) >= 0) {
-            charIndices.add(p);
+            charIndices.push(p);
             p -= n;
         }
         int[] a = new int[charIndices.size()];
@@ -868,7 +1296,8 @@ class PyUnicodeTest extends UnitTestSupport {
 
     /**
      * Return a list of char indices on {@code s} equivalent to the code
-     * point indices supplied.
+     * point indices supplied. Indices in the supplied array must be in
+     * ascending order.
      *
      * @param s string in question
      * @param cpIndices code point indices to convert
@@ -890,9 +1319,68 @@ class PyUnicodeTest extends UnitTestSupport {
         return charIndices;
     }
 
+    /**
+     * Convert an argument list or array of String to an array of
+     * {@link PyUnicode}.
+     *
+     * @param strings to convert
+     * @return as {@code PyUnicode}
+     */
+    private static PyUnicode[] toPyUnicodeArray(String... strings) {
+        int n = strings.length;
+        PyUnicode[] r = new PyUnicode[n];
+        for (int i = 0; i < n; i++) { r[i] = newPyUnicode(strings[i]); }
+        return r;
+    }
+
+    /**
+     * Take the {@code M} occurrences of the {@code needle} in
+     * {@code s}, which are enumerated by ascending code point index in
+     * {@code cpIndex}, and return an array of {@code M+1} segments
+     * between the needles. We return {@link PyUnicode} so that
+     * comparisons have Python semantics.
+     *
+     * @param s the reference string
+     * @param needle identified (we use the length only)
+     * @param cpIndices code point indices in {@code s}
+     * @return the array of segments
+     */
+    private static PyUnicode[] expectedSplit(String s, String needle,
+            int[] cpIndices) {
+        int p = 0, i = 0, N = needle.length();
+        int[] indices = toCharIndices(s, cpIndices);
+        // One more segment than there are splits
+        String[] segments = new String[indices.length + 1];
+        for (int q : indices) {
+            // needle at q ends the current segment
+            segments[i++] = s.substring(p, q);
+            // next segment is after the needle
+            p = q + N;
+        }
+        // And the last segment is from after the last needle
+        segments[i] = s.substring(p);
+        return toPyUnicodeArray(segments);
+    }
+
+    // Simple English string for ad hoc tests.
+    static final String FOX =
+            "The quick brown fox jumps over the lazy dog.";
+
     // Non-ascii quotation with precomposed polytonic Greek characters.
     static final String GREEK = "Ἐν ἀρχῇ ἦν ὁ λόγος, " //
             + "καὶ ὁ λόγος ἦν πρὸς τὸν θεόν, " //
             + "καὶ θεὸς ἦν ὁ λόγος.";
 
+    /**
+     * Define what characters are to be treated as a space according to
+     * Python 3.
+     */
+    private static boolean isPythonSpace(char ch) {
+        // Use the Java built-in methods as far as possible
+        return Character.isWhitespace(ch) // ASCII spaces and some
+                // remaining Unicode spaces
+                || Character.isSpaceChar(ch)
+                // NEXT LINE (not a space in Java or Unicode)
+                || ch == 0x0085;
+    }
 }
