@@ -466,48 +466,6 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
     }
 
     /**
-     * As {@link #find(Object, Object, Object)}, but throws
-     * {@link ValueError} if the substring is not found.
-     *
-     * @param sub substring to find.
-     * @param start start of slice.
-     * @param end end of slice.
-     * @return index of {@code sub} in this object or -1 if not found.
-     * @throws ValueError if {@code sub} is not found
-     */
-    @PythonMethod
-    int index(Object sub, Object start, Object end) throws ValueError {
-        return checkIndexReturn(find(delegate, sub, start, end));
-    }
-
-    @PythonMethod(primary = false)
-    static int index(String self, Object sub, Object start,
-            Object end) {
-        return checkIndexReturn(find(adapt(self), sub, start, end));
-    }
-
-    /**
-     * As {@link #rfind(Object, Object, Object)}, but throws
-     * {@link ValueError} if the substring is not found.
-     *
-     * @param sub substring to find.
-     * @param start start of slice.
-     * @param end end of slice.
-     * @return index of {@code sub} in this object or -1 if not found.
-     * @throws ValueError if {@code sub} is not found
-     */
-    @PythonMethod
-    int rindex(Object sub, Object start, Object end) throws ValueError {
-        return checkIndexReturn(rfind(delegate, sub, start, end));
-    }
-
-    @PythonMethod(primary = false)
-    static int rindex(String self, Object sub, Object start,
-            Object end) {
-        return checkIndexReturn(rfind(adapt(self), sub, start, end));
-    }
-
-    /**
      * Python {@code str.partition()}, splits the {@code str} at the
      * first occurrence of {@code sep} returning a {@link PyTuple}
      * containing the part before the separator, the separator itself,
@@ -674,98 +632,6 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         }
         // If we didn't return a result, there was no match
         return null;
-    }
-
-    /**
-     * Return the number of non-overlapping occurrences of substring
-     * {@code sub} in the range {@code [start:end]}. Optional arguments
-     * {@code start} and {@code end} are interpreted as in slice
-     * notation.
-     *
-     * @param sub substring to find.
-     * @param start start of slice.
-     * @param end end of slice.
-     * @return count of occurrences.
-     */
-    @PythonMethod
-    int count(Object sub, Object start, Object end) {
-        return count(delegate, sub, start, end);
-    }
-
-    @PythonMethod(primary = false)
-    static int count(String self, Object sub, Object start,
-            Object end) {
-        return count(adapt(self), sub, start, end);
-    }
-
-    private static int count(CodepointDelegate s, Object sub,
-            Object start, Object end) {
-        CodepointDelegate p = adaptSub("count", sub);
-        PySlice.Indices slice = getSliceIndices(s, start, end);
-        if (p.length() == 0)
-            return slice.start;
-        else
-            return count(s, p, slice);
-    }
-
-    /**
-     * The inner implementation of {@code str.count}, returning the
-     * number of occurrences of a substring. It accepts slice-like
-     * arguments, which may be {@code None} or end-relative (negative).
-     * This method also supports
-     * {@link PyUnicode#count(PyObject, PyObject, PyObject)}.
-     *
-     * @param sub substring to find.
-     * @param startObj start of slice.
-     * @param endObj end of slice.
-     * @return count of occurrences
-     */
-    private static int count(CodepointDelegate s, CodepointDelegate p,
-            PySlice.Indices slice) {
-        /*
-         * count() uses the same pattern as find(), with the difference
-         * that it keeps going rather than returning on the first match.
-         */
-        // An iterator on p, the string sought.
-        CodepointIterator pi = p.iterator(0);
-        int pChar = pi.nextInt(), pLength = p.length();
-        CodepointIterator.Mark pMark = pi.mark();
-        assert pLength > 0;
-
-        // Counting in pos avoids hasNext() calls.
-        int pos = slice.start, lastPos = slice.stop - pLength;
-
-        // An iterator on s[start:end], the string being searched.
-        CodepointIterator si = s.iterator(pos, slice.start, slice.stop);
-        int count = 0;
-
-        while (pos++ <= lastPos) {
-            if (si.nextInt() == pChar) {
-                /*
-                 * s[pos] matched p[0]: divert into matching the rest of
-                 * p. Leave a mark in s where we shall resume if this is
-                 * not a full match with p.
-                 */
-                CodepointIterator.Mark sPos = si.mark();
-                int match = 1;
-                while (match < pLength) {
-                    if (pi.nextInt() != si.nextInt()) { break; }
-                    match++;
-                }
-                if (match == pLength) {
-                    // We reached the end of p: it's a match.
-                    count++;
-                    // Catch pos up with si (matches do not overlap).
-                    pos = si.nextIndex();
-                } else {
-                    // We stopped on a mismatch: reset si to pos.
-                    sPos.restore();
-                }
-                // In either case, reset pi to p[1].
-                pMark.restore();
-            }
-        }
-        return count;
     }
 
     /**
@@ -1289,6 +1155,140 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         return list;
     }
 
+    /**
+     * As {@link #find(Object, Object, Object)}, but throws
+     * {@link ValueError} if the substring is not found.
+     *
+     * @param sub substring to find.
+     * @param start start of slice.
+     * @param end end of slice.
+     * @return index of {@code sub} in this object or -1 if not found.
+     * @throws ValueError if {@code sub} is not found
+     */
+    @PythonMethod
+    int index(Object sub, Object start, Object end) throws ValueError {
+        return checkIndexReturn(find(delegate, sub, start, end));
+    }
+
+    @PythonMethod(primary = false)
+    static int index(String self, Object sub, Object start,
+            Object end) {
+        return checkIndexReturn(find(adapt(self), sub, start, end));
+    }
+
+    /**
+     * As {@link #rfind(Object, Object, Object)}, but throws
+     * {@link ValueError} if the substring is not found.
+     *
+     * @param sub substring to find.
+     * @param start start of slice.
+     * @param end end of slice.
+     * @return index of {@code sub} in this object or -1 if not found.
+     * @throws ValueError if {@code sub} is not found
+     */
+    @PythonMethod
+    int rindex(Object sub, Object start, Object end) throws ValueError {
+        return checkIndexReturn(rfind(delegate, sub, start, end));
+    }
+
+    @PythonMethod(primary = false)
+    static int rindex(String self, Object sub, Object start,
+            Object end) {
+        return checkIndexReturn(rfind(adapt(self), sub, start, end));
+    }
+
+    /**
+     * Return the number of non-overlapping occurrences of substring
+     * {@code sub} in the range {@code [start:end]}. Optional arguments
+     * {@code start} and {@code end} are interpreted as in slice
+     * notation.
+     *
+     * @param sub substring to find.
+     * @param start start of slice.
+     * @param end end of slice.
+     * @return count of occurrences.
+     */
+    @PythonMethod
+    int count(Object sub, Object start, Object end) {
+        return count(delegate, sub, start, end);
+    }
+
+    @PythonMethod(primary = false)
+    static int count(String self, Object sub, Object start,
+            Object end) {
+        return count(adapt(self), sub, start, end);
+    }
+
+    private static int count(CodepointDelegate s, Object sub,
+            Object start, Object end) {
+        CodepointDelegate p = adaptSub("count", sub);
+        PySlice.Indices slice = getSliceIndices(s, start, end);
+        if (p.length() == 0)
+            return slice.start;
+        else
+            return count(s, p, slice);
+    }
+
+    /**
+     * The inner implementation of {@code str.count}, returning the
+     * number of occurrences of a substring. It accepts slice-like
+     * arguments, which may be {@code None} or end-relative (negative).
+     * This method also supports
+     * {@link PyUnicode#count(PyObject, PyObject, PyObject)}.
+     *
+     * @param sub substring to find.
+     * @param startObj start of slice.
+     * @param endObj end of slice.
+     * @return count of occurrences
+     */
+    private static int count(CodepointDelegate s, CodepointDelegate p,
+            PySlice.Indices slice) {
+        /*
+         * count() uses the same pattern as find(), with the difference
+         * that it keeps going rather than returning on the first match.
+         */
+        // An iterator on p, the string sought.
+        CodepointIterator pi = p.iterator(0);
+        int pChar = pi.nextInt(), pLength = p.length();
+        CodepointIterator.Mark pMark = pi.mark();
+        assert pLength > 0;
+
+        // Counting in pos avoids hasNext() calls.
+        int pos = slice.start, lastPos = slice.stop - pLength;
+
+        // An iterator on s[start:end], the string being searched.
+        CodepointIterator si = s.iterator(pos, slice.start, slice.stop);
+        int count = 0;
+
+        while (pos++ <= lastPos) {
+            if (si.nextInt() == pChar) {
+                /*
+                 * s[pos] matched p[0]: divert into matching the rest of
+                 * p. Leave a mark in s where we shall resume if this is
+                 * not a full match with p.
+                 */
+                CodepointIterator.Mark sPos = si.mark();
+                int match = 1;
+                while (match < pLength) {
+                    if (pi.nextInt() != si.nextInt()) { break; }
+                    match++;
+                }
+                if (match == pLength) {
+                    // We reached the end of p: it's a match.
+                    count++;
+                    // Catch pos up with si (matches do not overlap).
+                    pos = si.nextIndex();
+                } else {
+                    // We stopped on a mismatch: reset si to pos.
+                    sPos.restore();
+                }
+                // In either case, reset pi to p[1].
+                pMark.restore();
+            }
+        }
+        return count;
+    }
+
     // Predicate methods ----------------------------------------------
 
     /*
@@ -1306,40 +1306,6 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
     static boolean isascii(String self) {
         for (int c : adapt(self)) { if (c > 127) { return false; } }
         return true;
-    }
-
-    /**
-     * Define what characters are to be treated as a space according to
-     * Python 3.
-     */
-    private static boolean isPythonSpace(int cp) {
-        // Use the Java built-in methods as far as possible
-        return Character.isWhitespace(cp) // ASCII spaces and some
-                // remaining Unicode spaces
-                || Character.isSpaceChar(cp)
-                // NEXT LINE (not a space in Java or Unicode)
-                || cp == 0x0085;
-    }
-
-    /**
-     * Define what characters are to be treated as a line separator
-     * according to Python 3. In {@code splitlines} we treat these as
-     * separators, but also give singular treatment to the sequence
-     * CR-LF.
-     */
-    private static boolean isPythonLineSeparator(int cp) {
-        // Bit i is set if code point i is a line break.
-        final int EOL = 0b0111_0000_0000_0000_0011_1100_0000_0000;
-        if (cp >>> 5 == 0) {
-            // cp < 32: use the little look-up table
-            return ((EOL >>> cp) & 1) != 0;
-        } else if (cp >>> 7 == 0) {
-            // 32 <= cp < 128 : the rest of ASCII
-            return false;
-        } else {
-            // NEL, L-SEP, P-SEP
-            return cp == 0x85 || cp == 0x2028 || cp == 0x2029;
-        }
     }
 
     // Transformation methods -----------------------------------------
@@ -1553,6 +1519,40 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
     private static boolean isBMP(String s) {
         return s.codePoints().dropWhile(Character::isBmpCodePoint)
                 .findFirst().isEmpty();
+    }
+
+    /**
+     * Define what characters are to be treated as a space according to
+     * Python 3.
+     */
+    private static boolean isPythonSpace(int cp) {
+        // Use the Java built-in methods as far as possible
+        return Character.isWhitespace(cp) // ASCII spaces and some
+                // remaining Unicode spaces
+                || Character.isSpaceChar(cp)
+                // NEXT LINE (not a space in Java or Unicode)
+                || cp == 0x0085;
+    }
+
+    /**
+     * Define what characters are to be treated as a line separator
+     * according to Python 3. In {@code splitlines} we treat these as
+     * separators, but also give singular treatment to the sequence
+     * CR-LF.
+     */
+    private static boolean isPythonLineSeparator(int cp) {
+        // Bit i is set if code point i is a line break (i<32).
+        final int EOL = 0b0111_0000_0000_0000_0011_1100_0000_0000;
+        if (cp >>> 5 == 0) {
+            // cp < 32: use the little look-up table
+            return ((EOL >>> cp) & 1) != 0;
+        } else if (cp >>> 7 == 0) {
+            // 32 <= cp < 128 : the rest of ASCII
+            return false;
+        } else {
+            // NEL, L-SEP, P-SEP
+            return cp == 0x85 || cp == 0x2028 || cp == 0x2029;
+        }
     }
 
     /**
