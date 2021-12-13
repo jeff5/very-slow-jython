@@ -729,6 +729,8 @@ class PyUnicodeTest extends UnitTestSupport {
         static Stream<Arguments> replaceExamples() {
             return Stream.of(//
                     replaceExample("pandemic", "pan", "ping"), //
+                    replaceExample("pandemic", "ic", "onium"), //
+                    replaceExample("pandemic", "", "-*-"), //
                     replaceExample("abracadabra", "bra", "x"), //
                     replaceExample("bananarama", "anar", " dr"), //
                     replaceExample("Σωκρατικὸς λόγος", "ὸς", "ὸι"), //
@@ -765,22 +767,7 @@ class PyUnicodeTest extends UnitTestSupport {
             return replaceExample(self, needle, indices, pin);
         }
 
-        /**
-         * Construct a search problem and reference result, where the
-         * needle occurs once.
-         *
-         * @param self to search
-         * @param needle to search for
-         * @param index at which {@code needle} may be found
-         * @param pin to replace needle
-         * @return example data for a test
-         */
-        private static Arguments replaceExample(String self,
-                String needle, int index, String pin) {
-            return replaceExample(self, needle, new int[] {index}, pin);
-        }
-
-        /**
+       /**
          * Construct a search problem and reference result, where the
          * needle occurs at a list of indices.
          *
@@ -799,7 +786,9 @@ class PyUnicodeTest extends UnitTestSupport {
          * Return a list of strings equal to {@code s} with {@code 0} to
          * {@code M} replacements of the needle by the pin, guided by an
          * array of {@code M} char indices for the needle. Element zero
-         * of the returned value is {@code s}.
+         * of the returned value is {@code s}. We return this as
+         * {@link PyUnicode} to ensure that {@code assertEquals} uses
+         * {@link PyUnicode#equals(Object)} for comparison during tests.
          *
          * @param s in which to effect the replacements.
          * @param needle to replace
@@ -807,7 +796,7 @@ class PyUnicodeTest extends UnitTestSupport {
          * @param pin replacement string
          * @return {@code M+1} strings
          */
-        static String[] replaceResults(String s, String needle,
+        static PyUnicode[] replaceResults(String s, String needle,
                 int[] cpIndices, String pin) {
             int[] charIndices = toCharIndices(s, cpIndices);
             final int M = charIndices.length, N = needle.length(),
@@ -819,18 +808,17 @@ class PyUnicodeTest extends UnitTestSupport {
             for (int m = 0; m < M; m++) {
                 /*
                  * r contains s with m replacements, and its value has
-                 * already been emitted to results. Compute the result
-                 * of m+1 replacements. Start by trimming r at the
-                 * (m+1)th needle.
+                 * already been emitted to results. We shall compute the
+                 * result of m+1 replacements. We start by trimming r at
+                 * the (m+1)th needle.
                  */
                 r.setLength(charIndices[m] + m * (P - N));
                 // Now append the pin and the rest of s after the needle
                 r.append(pin).append(s.substring(charIndices[m] + N));
                 results.add(r.toString());
             }
-            return results.toArray(new String[M + 1]);
+            return toPyUnicodeArray(results.toArray(new String[M + 1]));
         }
-
     }
 
     @Nested
@@ -842,10 +830,12 @@ class PyUnicodeTest extends UnitTestSupport {
         @MethodSource("replaceExamples")
         void S_replace_SS(String s, String needle, int[] indices,
                 String pin) {
-            Object r = PyUnicode.replace(s, needle, pin);
+            PyUnicode[] e = replaceResults(s, needle, indices, pin);
             final int M = indices.length;
-            String[] e = replaceResults(s, needle, indices, pin);
-            assertEquals(e[M], r);
+            for (int count = -1; count <= M; count++) {
+                Object r = PyUnicode.replace(s, needle, pin, count);
+                assertEquals(e[count < 0 ? M : count], r);
+            }
         }
 
         @DisplayName("replace(String, PyUnicode, String)")
@@ -853,12 +843,14 @@ class PyUnicodeTest extends UnitTestSupport {
         @MethodSource("replaceExamples")
         void S_replace_US(String s, String needle, int[] indices,
                 String pin) {
+            PyUnicode[] e = replaceResults(s, needle, indices, pin);
             PyUnicode uNeedle =
                     new PyUnicode(needle.codePoints().toArray());
-            Object r = PyUnicode.replace(s, uNeedle, pin);
             final int M = indices.length;
-            String[] e = replaceResults(s, needle, indices, pin);
-            assertEquals(e[M], r);
+            for (int count = -1; count <= M; count++) {
+                Object r = PyUnicode.replace(s, uNeedle, pin, count);
+                assertEquals(e[count < 0 ? M : count], r);
+            }
         }
 
         @DisplayName("replace(String, String, PyUnicode)")
@@ -866,11 +858,13 @@ class PyUnicodeTest extends UnitTestSupport {
         @MethodSource("replaceExamples")
         void S_replace_SU(String s, String needle, int[] indices,
                 String pin) {
+            PyUnicode[] e = replaceResults(s, needle, indices, pin);
             PyUnicode uPin = new PyUnicode(pin.codePoints().toArray());
-            Object r = PyUnicode.replace(s, needle, uPin);
             final int M = indices.length;
-            String[] e = replaceResults(s, needle, indices, pin);
-            assertEquals(e[M], r);
+            for (int count = -1; count <= M; count++) {
+                Object r = PyUnicode.replace(s, needle, uPin, count);
+                assertEquals(e[count < 0 ? M : count], r);
+            }
         }
 
         @DisplayName("replace(String, PyUnicode, PyUnicode)")
@@ -878,82 +872,107 @@ class PyUnicodeTest extends UnitTestSupport {
         @MethodSource("replaceExamples")
         void S_replace_UU(String s, String needle, int[] indices,
                 String pin) {
+            PyUnicode[] e = replaceResults(s, needle, indices, pin);
             PyUnicode uNeedle =
                     new PyUnicode(needle.codePoints().toArray());
             PyUnicode uPin = new PyUnicode(pin.codePoints().toArray());
-            Object r = PyUnicode.replace(s, uNeedle, uPin);
             final int M = indices.length;
-            String[] e = replaceResults(s, needle, indices, pin);
-            assertEquals(e[M], r);
+            for (int count = -1; count <= M; count++) {
+                Object r = PyUnicode.replace(s, uNeedle, uPin, count);
+                assertEquals(e[count < 0 ? M : count], r);
+            }
         }
 
-        @DisplayName("PyUnicode.replace(String, String)")
+        @DisplayName("replace(PyUnicode, String, String)")
         @ParameterizedTest(name = "\"{0}\".replace(\"{1}\", \"{3}\")")
         @MethodSource("replaceExamples")
         void U_replace_SS(String s, String needle, int[] indices,
                 String pin) {
+            PyUnicode[] e = replaceResults(s, needle, indices, pin);
             PyUnicode u = new PyUnicode(s.codePoints().toArray());
-            Object r = u.replace(needle, pin);
             final int M = indices.length;
-            String[] e = replaceResults(s, needle, indices, pin);
-            assertEquals(e[M], r);
+            for (int count = -1; count <= M; count++) {
+                Object r = u.replace(needle, pin, count);
+                assertEquals(e[count < 0 ? M : count], r);
+            }
         }
 
-        @DisplayName("PyUnicode.replace(PyUnicode, String)")
+        @DisplayName("replace(PyUnicode, PyUnicode, String)")
         @ParameterizedTest(name = "\"{0}\".replace(\"{1}\", \"{3}\")")
         @MethodSource("replaceExamples")
         void U_replace_US(String s, String needle, int[] indices,
                 String pin) {
+            PyUnicode[] e = replaceResults(s, needle, indices, pin);
             PyUnicode u = new PyUnicode(s.codePoints().toArray());
             PyUnicode uNeedle =
                     new PyUnicode(needle.codePoints().toArray());
-            Object r = u.replace(uNeedle, pin);
             final int M = indices.length;
-            String[] e = replaceResults(s, needle, indices, pin);
-            assertEquals(e[M], r);
+            for (int count = -1; count <= M; count++) {
+                Object r = u.replace(uNeedle, pin, count);
+                assertEquals(e[count < 0 ? M : count], r);
+            }
         }
 
-        @DisplayName("PyUnicode.replace(String, PyUnicode)")
+        @DisplayName("replace(PyUnicode, String, PyUnicode)")
         @ParameterizedTest(name = "\"{0}\".replace(\"{1}\", \"{3}\")")
         @MethodSource("replaceExamples")
         void U_replace_SU(String s, String needle, int[] indices,
                 String pin) {
+            PyUnicode[] e = replaceResults(s, needle, indices, pin);
             PyUnicode u = new PyUnicode(s.codePoints().toArray());
             PyUnicode uPin = new PyUnicode(pin.codePoints().toArray());
-            Object r = u.replace(needle, uPin);
             final int M = indices.length;
-            String[] e = replaceResults(s, needle, indices, pin);
-            assertEquals(e[M], r);
+            for (int count = -1; count <= M; count++) {
+                Object r = u.replace(needle, uPin, count);
+                assertEquals(e[count < 0 ? M : count], r);
+            }
         }
 
-        @DisplayName("PyUnicode.replace(PyUnicode, PyUnicode)")
+        @DisplayName("replace(PyUnicode, PyUnicode, PyUnicode)")
         @ParameterizedTest(name = "\"{0}\".replace(\"{1}\", \"{3}\")")
         @MethodSource("replaceExamples")
         void U_replace_UU(String s, String needle, int[] indices,
                 String pin) {
+            PyUnicode[] e = replaceResults(s, needle, indices, pin);
             PyUnicode u = new PyUnicode(s.codePoints().toArray());
             PyUnicode uNeedle =
                     new PyUnicode(needle.codePoints().toArray());
             PyUnicode uPin = new PyUnicode(pin.codePoints().toArray());
-            Object r = u.replace(uNeedle, uPin);
             final int M = indices.length;
-            String[] e = replaceResults(s, needle, indices, pin);
-            assertEquals(e[M], r);
+            for (int count = -1; count <= M; count++) {
+                Object r = u.replace(uNeedle, uPin, count);
+                assertEquals(e[count < 0 ? M : count], r);
+            }
+        }
+
+        @Test
+        @DisplayName("''.replace('', '-')")
+        void emptyReplace() {
+            // We have ''.replace('', '-', 0) == ''
+            Object r = PyUnicode.replace("", "", "-", 0);
+            assertEquals(newPyUnicode(""), r);
+
+            // But ''.replace('', '-') == '-'
+            r = PyUnicode.replace("", "", "-", -1);
+            assertEquals(newPyUnicode("-"), r);
         }
 
         // Cases where simulation by Java String is too hard.
         // 🐍=\ud802\udc40, 🦓=\ud83e\udd93
 
-        // @Test
+        @Test
         void surrogatePairNotSplit_SS() {
             // No high surrogate (D800-DBFF) accidental replacement
             String s = "🐍🐍", needle = "\ud83d", pin = "#";
             // Assert that Java gets the non-Pythonic answer
             assert s.replace(needle, pin).equals("#\udc0d#\udc0d");
 
+            // Check on result must use PyUnicode.equals
+            PyUnicode su = newPyUnicode(s);
+
             // Python does not match paired high surrogates as isolated
-            Object r = PyUnicode.replace(s, needle, pin);
-            assertEquals(s, r);
+            Object r = PyUnicode.replace(s, needle, pin, -1);
+            assertEquals(su, r);
 
             // No low surrogate (DC00-DFFF) accidental replacement
             needle = "\udc0d";
@@ -961,35 +980,37 @@ class PyUnicodeTest extends UnitTestSupport {
             assert s.replace(needle, pin).equals("\ud83d#\ud83d#");
 
             // Python does not match paired low surrogates as isolated
-            r = PyUnicode.replace(s, needle, pin);
-            assertEquals(s, r);
+            r = PyUnicode.replace(s, needle, pin, -1);
+            assertEquals(su, r);
         }
 
-        // @Test
+        @Test
         void surrogatePairNotSplit_US() {
             // No high surrogate (D800-DBFF) accidental replacement
-            String s = "🐍🐍", pin = "#";
-            PyUnicode needle = new PyUnicode(0xd83d);
+            String s = "🐍🐍", needle = "\ud83d", pin = "#";
+            PyUnicode uNeedle = newPyUnicode(needle);
             // Assert that Java gets the non-Pythonic answer
-            assert s.replace(needle.toString(), pin)
-                    .equals("#\udc0d#\udc0d");
+            assert s.replace(needle, pin).equals("#\udc0d#\udc0d");
+
+            // Check on result must use PyUnicode.equals
+            PyUnicode su = newPyUnicode(s);
 
             // Python does not match paired low surrogates as isolated
-            Object r = PyUnicode.replace(s, needle, pin);
-            assertEquals(s, r);
+            Object r = PyUnicode.replace(s, uNeedle, pin, -1);
+            assertEquals(su, r);
 
             // No low surrogate (DC00-DFFF) accidental replacement
-            needle = new PyUnicode(0xdc0d);
+            needle = "\udc0d";
+            uNeedle = newPyUnicode(needle);
             // Assert that Java gets the non-Pythonic answer
-            assert s.replace(needle.toString(), pin)
-                    .equals("\ud83d#\ud83d#");
+            assert s.replace(needle, pin).equals("\ud83d#\ud83d#");
 
             // Python does not match paired low surrogates as isolated
-            r = PyUnicode.replace(s, needle, pin);
-            assertEquals(s, r);
+            r = PyUnicode.replace(s, uNeedle, pin, -1);
+            assertEquals(su, r);
         }
 
-        // @Test
+        @Test
         @DisplayName("🐍 is not dissected as \\ud802\\udc40")
         void supplementaryCharacterNotSplit_SS() {
             // No high surrogate (D800-DBFF) accidental replacement
@@ -1000,7 +1021,7 @@ class PyUnicodeTest extends UnitTestSupport {
             // PyUnicode stores a surrogate pair as one character
             PyUnicode u = new PyUnicode(s.codePoints().toArray());
             assert u.equals(s);
-            Object r = u.replace(needle, pin);
+            Object r = u.replace(needle, pin, -1);
             assertEquals(u, r);
 
             // No low surrogate (DC00-DFFF) accidental replacement
@@ -1009,37 +1030,39 @@ class PyUnicodeTest extends UnitTestSupport {
             assert s.replace(needle, pin).equals("\ud83d#\ud83d#");
 
             // PyUnicode stores a surrogate pair as one character
-            r = u.replace(needle, pin);
+            r = u.replace(needle, pin, -1);
             assertEquals(u, r);
         }
 
-        // @Test
+        @Test
         @DisplayName("a 🦓 is not produced by String \\ud83e\\udd93")
         void S_noSpontaneousZebras() {
             // Deleting "-" risks surrogate pair formation
             String s = "\ud83e-\udd93\ud83e-\udd93", needle = "-";
             // Java String: nothing, bang, zebras
+            assert s.contains("🦓") == false;
             assert s.replace(needle, "").equals("🦓🦓");
 
             // Python lone surrogates remain aloof even when adjacent
             PyUnicode e = new PyUnicode(0xd83e, 0xdd93, 0xd83e, 0xdd93);
-            Object r = PyUnicode.replace(s, needle, "");
+            Object r = PyUnicode.replace(s, needle, "", -1);
             assertEquals(e, r);
         }
 
-        // @Test
+        @Test
         @DisplayName("a 🦓 is not produced by PyUnicode \\ud83e\\udd93")
         void U_noSpontaneousZebras_SS() {
             // No accidental surrogate pair formation
             String s = "\ud83e-\udd93\ud83e-\udd93", needle = "-";
             // Java String: nothing, bang, zebras
+            assert s.contains("🦓") == false;
             assert s.replace(needle, "").equals("🦓🦓");
 
             // Python lone surrogates remain aloof even when adjacent
             PyUnicode u = new PyUnicode(s.codePoints().toArray());
             assert u.equals(s);
             PyUnicode e = new PyUnicode(0xd83e, 0xdd93, 0xd83e, 0xdd93);
-            Object r = u.replace(needle, "");
+            Object r = u.replace(needle, "", -1);
             assertEquals(e, r);
         }
     }
@@ -1405,8 +1428,8 @@ class PyUnicodeTest extends UnitTestSupport {
      */
     static int[] findIndices(String s, String needle) {
         LinkedList<Integer> charIndices = new LinkedList<>();
-        int n = needle.length(), p = 0;
-        while ((p = s.indexOf(needle, p)) >= 0) {
+        int n = Math.max(1, needle.length()), p = 0;
+        while (p <= s.length() && (p = s.indexOf(needle, p)) >= 0) {
             charIndices.add(p);
             p += n;
         }

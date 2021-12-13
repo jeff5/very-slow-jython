@@ -311,7 +311,7 @@ abstract class PyMethodDescr extends MethodDescriptor {
                  * Implementations may throw ArgumentError as a
                  * simplified encoding of a TypeError.
                  */
-                throw typeError(ae, args);
+                throw typeError(ae, newargs);
             }
 
         } else {

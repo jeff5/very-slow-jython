@@ -31,7 +31,7 @@ class MethodDescriptorTest extends UnitTestSupport {
         @Test
         void str_isascii() throws Throwable {
             PyMethodDescr isascii =
-                    (PyMethodDescr) PyUnicode.TYPE.lookup("isascii");
+                    (PyMethodDescr)PyUnicode.TYPE.lookup("isascii");
 
             assertEquals("isascii", isascii.name);
             assertEquals(PyUnicode.TYPE, isascii.objclass);
@@ -46,7 +46,7 @@ class MethodDescriptorTest extends UnitTestSupport {
         @Test
         void str_zfill() throws Throwable {
             PyMethodDescr zfill =
-                    (PyMethodDescr) PyUnicode.TYPE.lookup("zfill");
+                    (PyMethodDescr)PyUnicode.TYPE.lookup("zfill");
 
             assertEquals("zfill", zfill.name);
             assertEquals(PyUnicode.TYPE, zfill.objclass);
@@ -65,7 +65,7 @@ class MethodDescriptorTest extends UnitTestSupport {
         @Test
         void str_replace() throws Throwable {
             PyMethodDescr replace =
-                    (PyMethodDescr) PyUnicode.TYPE.lookup("replace");
+                    (PyMethodDescr)PyUnicode.TYPE.lookup("replace");
 
             assertEquals("replace", replace.name);
             assertEquals(PyUnicode.TYPE, replace.objclass);
@@ -73,10 +73,10 @@ class MethodDescriptorTest extends UnitTestSupport {
             // Check the parser
             ArgParser ap = replace.argParser;
             assertEquals("replace", ap.name);
-            assertEquals(2, ap.regargcount);
+            assertEquals(3, ap.regargcount);
             assertEquals("old", ap.argnames[0]);
             assertEquals("new", ap.argnames[1]);
-            // assertEquals("count", ap.argnames[2]);
+            assertEquals("count", ap.argnames[2]);
         }
 
         /**
@@ -86,7 +86,7 @@ class MethodDescriptorTest extends UnitTestSupport {
         @Test
         void str_ljust() throws Throwable {
             PyMethodDescr ljust =
-                    (PyMethodDescr) PyUnicode.TYPE.lookup("ljust");
+                    (PyMethodDescr)PyUnicode.TYPE.lookup("ljust");
 
             assertEquals("ljust", ljust.name);
             assertEquals(PyUnicode.TYPE, ljust.objclass);
@@ -112,7 +112,7 @@ class MethodDescriptorTest extends UnitTestSupport {
         @Test
         void str_isascii() throws Throwable {
             PyMethodDescr isascii =
-                    (PyMethodDescr) PyUnicode.TYPE.lookup("isascii");
+                    (PyMethodDescr)PyUnicode.TYPE.lookup("isascii");
 
             boolean even = true;
             for (String s : List.of("Hej!", "¡Hola!")) {
@@ -129,7 +129,7 @@ class MethodDescriptorTest extends UnitTestSupport {
         @Test
         void str_zfill() throws Throwable {
             PyMethodDescr zfill =
-                    (PyMethodDescr) PyUnicode.TYPE.lookup("zfill");
+                    (PyMethodDescr)PyUnicode.TYPE.lookup("zfill");
 
             String s = "-123";
             PyUnicode u = newPyUnicode(s);
@@ -141,21 +141,29 @@ class MethodDescriptorTest extends UnitTestSupport {
         }
 
         /**
-         * An instance method with two object arguments. (There should
-         * be an optional {@code int} but it isn't implemented.)
+         * An instance method with two object arguments and an optional
+         * {@code int}.
          */
         @Test
         void str_replace() throws Throwable {
             PyMethodDescr replace =
-                    (PyMethodDescr) PyUnicode.TYPE.lookup("replace");
+                    (PyMethodDescr)PyUnicode.TYPE.lookup("replace");
 
             String s = "hello";
             PyUnicode u = newPyUnicode(s);
 
+            // Test with count taking default value
             for (Object o : List.of(s, u)) {
                 Object r = replace
                         .__call__(new Object[] {o, "ell", "ipp"}, null);
                 assertEquals("hippo", r.toString());
+            }
+
+            // Test with count explicit
+            for (Object o : List.of(s, u)) {
+                Object r = replace
+                        .__call__(new Object[] {o, "l", "", 1}, null);
+                assertEquals("helo", r.toString());
             }
         }
 
@@ -166,7 +174,7 @@ class MethodDescriptorTest extends UnitTestSupport {
         @Test
         void str_ljust() throws Throwable {
             PyMethodDescr ljust =
-                    (PyMethodDescr) PyUnicode.TYPE.lookup("ljust");
+                    (PyMethodDescr)PyUnicode.TYPE.lookup("ljust");
 
             String s = "hello";
             PyUnicode u = newPyUnicode(s);

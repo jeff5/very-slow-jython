@@ -813,9 +813,9 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
 
                 if (match == pLength) {
                     /*
-                     * We reached the end of p: it's a match. Create
-                     * emit the segment we have been accumulating, start
-                     * a new one, and lose a life.
+                     * We reached the end of p: it's a match. Emit the
+                     * segment we have been accumulating, start a new
+                     * one, and lose a life.
                      */
                     list.add(segment.takeUnicode());
                     --maxsplit;
@@ -1033,9 +1033,9 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
 
                 if (match == pLength) {
                     /*
-                     * We reached the end of p: it's a match. Create
-                     * emit the segment we have been accumulating, start
-                     * a new one, and lose a life.
+                     * We reached the end of p: it's a match. Emit the
+                     * segment we have been accumulating, start a new
+                     * one, and lose a life.
                      */
                     list.add(segment.takeUnicode());
                     --maxsplit;
@@ -1289,6 +1289,196 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         return count;
     }
 
+    /**
+     * Python {@code str.replace(old, new[, count])}, returning a copy
+     * of the string with all occurrences of substring {@code old}
+     * replaced by {@code new}. If argument {@code count} is
+     * nonnegative, only the first {@code count} occurrences are
+     * replaced.
+     *
+     * @param old to replace where found.
+     * @param rep replacement text.
+     * @param count maximum number of replacements to make, or -1
+     *     meaning all of them.
+     * @return {@code self} string after replacements.
+     */
+    @PythonMethod
+    Object replace(Object old, @Name("new") Object rep,
+            @Default("-1") int count) {
+        return replace(delegate, old, rep, count);
+    }
+
+    @PythonMethod(primary = false)
+    static Object replace(String self, Object old, Object rep,
+            int count) {
+        return replace(adapt(self), old, rep, count);
+    }
+
+    private static Object replace(CodepointDelegate s, Object old,
+            Object rep, int count) {
+        // Convert arguments to their delegates or error
+        CodepointDelegate p = adaptSub("replace", old);
+        CodepointDelegate n = adaptRep("replace", rep);
+        if (p.length() == 0) {
+            return replace(s, n, count);
+        } else {
+            return replace(s, p, n, count);
+        }
+    }
+
+    /**
+     * Implementation of Python {@code str.replace} in the case where
+     * the substring to find has zero length. This must result in the
+     * insertion of the replacement string at the start if the result
+     * and after every character copied from s, up to the limit imposed
+     * by {@code count}. For example {@code 'hello'.replace('', '-')}
+     * returns {@code '-h-e-l-l-o-'}. This is {@code N+1} replacements,
+     * where {@code N = s.length()}, or as limited by {@code count}.
+     *
+     * @param s delegate presenting self as code points
+     * @param r delegate representing the replacement string
+     * @param count limit on the number of replacements
+     * @return string interleaved with the replacement
+     */
+    private static Object replace(CodepointDelegate s,
+            CodepointDelegate r, int count) {
+
+        // -1 means make all replacements, which is exactly:
+        if (count < 0) {
+            count = s.length() + 1;
+        } else if (count == 0) {
+            // Zero replacements: short-cut return the original
+            return s.principal();
+        }
+
+        CodepointIterator si = s.iterator(0);
+
+        // The result will be this size exactly
+        // 'hello'.replace('', '-', 3) == '-h-e-llo'
+        IntArrayBuilder result =
+                new IntArrayBuilder(s.length() + r.length() * count);
+
+        // Start with the a copy of the replacement
+        result.append(r);
+
+        // Put another copy of after each of count-1 characters of s
+        for (int i = 1; i < count; i++) {
+            assert si.hasNext();
+            result.append(si.nextInt()).append(r);
+        }
+
+        // Now copy any remaining characters of s
+        result.append(si);
+        return result.takeUnicode();
+    }
+
+    /**
+     * Implementation of Python {@code str.replace} in the case where
+     * the substring to find has non-zero length, up to the limit
+     * imposed by {@code count}.
+     *
+     * @param s delegate presenting self as code points
+     * @param p delegate representing the string to replace
+     * @param r delegate representing the replacement string
+     * @param count limit on the number of replacements
+     * @return string with the replacements
+     */
+    private static Object replace(CodepointDelegate s,
+            CodepointDelegate p, CodepointDelegate r, int count) {
+
+        // -1 means make all replacements, but cannot exceed:
+        if (count < 0) {
+            count = s.length() + 1;
+        } else if (count == 0) {
+            // Zero replacements: short-cut return the original
+            return s.principal();
+        }
+
+        /*
+         * The structure of replace is a lot like that of split(), in
+         * that we iterate over s, copying as we go. The difference is
+         * the action we take upon encountering and instance of the
+         * "needle" string, which here is to emit the replacement into
+         * the result, rather than start a new segment.
+         */
+
+        // An iterator on p, the string sought.
+        CodepointIterator pi = p.iterator(0);
+        int pChar = pi.nextInt(), pLength = p.length();
+        CodepointIterator.Mark pMark = pi.mark();
+        assert pLength > 0;
+
+        // An iterator on r, the replacement string.
+        CodepointIterator ri = r.iterator(0);
+        CodepointIterator.Mark rMark = ri.mark();
+
+        // Counting in pos avoids hasNext() calls.
+        int pos = 0, lastPos = s.length() - pLength, sChar;
+
+        // An iterator on s, the string being searched.
+        CodepointIterator si = s.iterator(pos);
+
+        // Result built here
+        IntArrayBuilder result = new IntArrayBuilder();
+
+        while (si.hasNext()) {
+
+            if (pos++ > lastPos || count <= 0) {
+                /*
+                 * We are too close to the end for a match now, or we
+                 * have run out of permission to make (according to
+                 * count==0). Everything that is left may be added to
+                 * the result.
+                 */
+                result.append(si);
+
+            } else if ((sChar = si.nextInt()) == pChar) {
+                /*
+                 * s[pos] matched p[0]: divert into matching the rest of
+                 * p. Leave a mark in s where we shall resume if this is
+                 * not a full match with p.
+                 */
+                CodepointIterator.Mark sPos = si.mark();
+                int match = 1;
+                while (match < pLength) {
+                    if (pi.nextInt() != si.nextInt()) { break; }
+                    match++;
+                }
+
+                if (match == pLength) {
+                    /*
+                     * We reached the end of p: it's a match. Emit the
+                     * replacement string to the result and lose a life.
+                     */
+                    result.append(ri);
+                    rMark.restore();
+                    --count;
+                    // Catch pos up with si (matches do not overlap).
+                    pos = si.nextIndex();
+                } else {
+                    /*
+                     * We stopped on a mismatch: reset si to pos. The
+                     * character that matched pChar is part of the
+                     * result.
+                     */
+                    sPos.restore();
+                    result.append(sChar);
+                }
+                // In either case, reset pi to p[1].
+                pMark.restore();
+
+            } else {
+                /*
+                 * The character that wasn't part of a match with p is
+                 * part of the result.
+                 */
+                result.append(sChar);
+            }
+        }
+
+        return result.takeUnicode();
+    }
+
     // Predicate methods ----------------------------------------------
 
     /*
@@ -1355,24 +1545,6 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
 
     private static String BAD_FILLCHAR =
             "the fill character must be exactly one character long";
-
-    // Simplified version (no count)
-    @PythonMethod
-    String replace(Object old, @Name("new") Object _new) {
-        // Annotations repeat since cannot rely on order processed
-        String oldstr = old.toString();
-        String newstr = _new.toString();
-        return this.toString().replace(oldstr, newstr);
-
-    }
-
-    @PythonMethod(primary = false)
-    static String replace(String self, Object old, Object _new) {
-        // Annotations repeat since cannot rely on order processed
-        String oldstr = old.toString();
-        String newstr = _new.toString();
-        return self.replace(oldstr, newstr);
-    }
 
     @PythonMethod
     PyUnicode zfill(int width) {
@@ -2568,6 +2740,26 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         } catch (NoConversion nc) {
             throw Abstract.argumentTypeError(method, "string to find",
                     "str", sub);
+        }
+    }
+
+    /**
+     * Adapt a Python {@code str}, as by {@link #adapt(Object)}, that is
+     * intended as a replacement substring in {@code str.replace()}, for
+     * example.
+     *
+     * @param method in which encountered
+     * @param replacement alleged string
+     * @return adapted to a sequence
+     * @throws TypeError if {@code sub} cannot be wrapped as a delegate
+     */
+    static CodepointDelegate adaptRep(String method, Object replacement)
+            throws TypeError {
+        try {
+            return adapt(replacement);
+        } catch (NoConversion nc) {
+            throw Abstract.argumentTypeError(method, "replacement",
+                    "str", replacement);
         }
     }
 

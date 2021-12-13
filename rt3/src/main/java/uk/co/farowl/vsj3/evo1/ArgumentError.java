@@ -16,7 +16,24 @@ class ArgumentError extends Exception {
     private static final long serialVersionUID = 1L;
 
     enum Mode {
-        NOARGS, NUMARGS, MINMAXARGS, NOKWARGS
+        NOARGS, NUMARGS, MINMAXARGS, NOKWARGS;
+
+        /**
+         * Choose a mode from {@code NOARGS} to {@code MINMAXARGS} based
+         * on the min and max argument numbers
+         *
+         * @param minArgs minimum expected number of arguments
+         * @param maxArgs maximum expected number of arguments
+         * @return a mode
+         */
+        static Mode choose(int minArgs, int maxArgs) {
+            if (minArgs != maxArgs)
+                return MINMAXARGS;
+            else if (minArgs != 0)
+                return NUMARGS;
+            else
+                return NOARGS;
+        }
     }
 
     final ArgumentError.Mode mode;
@@ -24,8 +41,8 @@ class ArgumentError extends Exception {
 
     private ArgumentError(Mode mode, int minArgs, int maxArgs) {
         this.mode = mode;
-        this.minArgs = (short) minArgs;
-        this.maxArgs = (short) maxArgs;
+        this.minArgs = (short)minArgs;
+        this.maxArgs = (short)maxArgs;
     }
 
     /**
@@ -38,38 +55,37 @@ class ArgumentError extends Exception {
     ArgumentError(Mode mode) { this(mode, 0, 0); }
 
     /**
-     * The mode is {@link Mode#NUMARGS}.
+     * The mode is {@link Mode#NUMARGS} or {@link Mode#NOARGS}.
      *
      * @param numArgs expected number of arguments
      */
-    ArgumentError(int numArgs) {
-        this(Mode.NUMARGS, numArgs, numArgs);
-    }
+    ArgumentError(int numArgs) { this(numArgs, numArgs); }
 
     /**
-     * The mode is {@link Mode#MINMAXARGS}.
+     * The mode is {@link Mode#MINMAXARGS}, {@link Mode#NUMARGS} or
+     * {@link Mode#NOARGS}.
      *
      * @param minArgs minimum expected number of arguments
      * @param maxArgs maximum expected number of arguments
      */
     ArgumentError(int minArgs, int maxArgs) {
-        this(Mode.MINMAXARGS, minArgs, maxArgs);
+        this(Mode.choose(minArgs, maxArgs), minArgs, maxArgs);
     }
 
     @Override
     public String toString() {
         switch (mode) {
-        case NOARGS:
-            return "takes no arguments";
-        case NUMARGS:
-            return String.format("takes %d arguments", minArgs);
-        case MINMAXARGS:
-            return String.format("takes from %d to %d arguments",
-                    minArgs, maxArgs);
-        case NOKWARGS:
-            return "takes no keyword arguments";
-        default:
-            return mode.toString();
+            case NOARGS:
+                return "takes no arguments";
+            case NUMARGS:
+                return String.format("takes %d arguments", minArgs);
+            case MINMAXARGS:
+                return String.format("takes from %d to %d arguments",
+                        minArgs, maxArgs);
+            case NOKWARGS:
+                return "takes no keyword arguments";
+            default:
+                return mode.toString();
         }
     }
 }
