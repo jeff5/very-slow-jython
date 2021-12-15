@@ -236,6 +236,26 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
     }
 
     @SuppressWarnings("unused")
+    private boolean __contains__(Object o) {
+        return contains(delegate, o);
+    }
+
+    @SuppressWarnings("unused")
+    private static boolean __contains__(String self, Object o) {
+        return contains(adapt(self), o);
+    }
+
+    private static boolean contains(CodepointDelegate s, Object o) {
+        try {
+            CodepointDelegate p = adapt(s);
+            PySlice.Indices slice = getSliceIndices(s, null, null);
+            return find(s, p, slice) >= 0;
+        } catch (NoConversion nc) {
+            throw Abstract.requiredTypeError("a string", o);
+        }
+    }
+
+    @SuppressWarnings("unused")
     private Object __add__(Object w) throws Throwable {
         return delegate.__add__(w);
     }
@@ -1479,29 +1499,10 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         return result.takeUnicode();
     }
 
-    // Predicate methods ----------------------------------------------
-
-    /*
-     * We group here methods that are boolean functions of the string,
-     * based on tests of character properties, for example
-     * str.isascii(). They have a common pattern.
-     */
-    @PythonMethod(primary = false)
-    boolean isascii() {
-        for (int c : delegate) { if (c > 127) { return false; } }
-        return true;
-    }
-
-    @PythonMethod
-    static boolean isascii(String self) {
-        for (int c : adapt(self)) { if (c > 127) { return false; } }
-        return true;
-    }
-
     // Transformation methods -----------------------------------------
 
     /*
-     * We group here methods that are simle transformation functions of
+     * We group here methods that are simple transformation functions of
      * the string, based on tests of character properties, for example
      * str.strip() and str.title().
      */
@@ -1582,6 +1583,218 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         return buf.toString();
     }
 
+    // Predicate methods ----------------------------------------------
+
+    /*
+     * We group here methods that are boolean functions of the string,
+     * based on tests of character properties, for example
+     * str.isascii(). They have a common pattern.
+     */
+
+    // @formatter:off
+    /*
+    @ExposedMethod(doc = BuiltinDocs.unicode_islower_doc)
+    */
+    boolean islower() { return islower(delegate); }
+
+    static boolean islower(String s) { return islower(adapt(s)); }
+
+    private static boolean islower(PySequence.OfInt s) {
+        boolean cased = false;
+        for (int codepoint : s) {;
+            if (Character.isUpperCase(codepoint) || Character.isTitleCase(codepoint)) {
+                return false;
+            } else if (!cased && Character.isLowerCase(codepoint)) {
+                cased = true;
+            }
+        }
+        return cased;
+    }
+
+    /*
+    @ExposedMethod(doc = BuiltinDocs.unicode_isupper_doc)
+    */
+    final boolean isupper() { return isupper(delegate); }
+
+    static boolean isupper(String s) { return isupper(adapt(s)); }
+
+    private static boolean isupper(PySequence.OfInt s) {
+        boolean cased = false;
+        for (int codepoint : s) {;
+            if (Character.isLowerCase(codepoint) || Character.isTitleCase(codepoint)) {
+                return false;
+            } else if (!cased && Character.isUpperCase(codepoint)) {
+                cased = true;
+            }
+        }
+        return cased;
+    }
+
+    /*
+    @ExposedMethod(doc = BuiltinDocs.unicode_isalpha_doc)
+    */
+    final boolean isalpha() { return isalpha(delegate); }
+
+    static boolean isalpha(String s) { return isalpha(adapt(s)); }
+
+    private static boolean isalpha(PySequence.OfInt s) {
+        if (s.length() == 0) {
+            return false;
+        }
+        for (int codepoint : s) {
+            if (!Character.isLetter(codepoint)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /*
+    @ExposedMethod(doc = BuiltinDocs.unicode_isalnum_doc)
+    */
+    final boolean isalnum() { return isalnum(delegate); }
+
+    static boolean isalnum(String s) { return isalnum(adapt(s)); }
+
+    private static boolean isalnum(PySequence.OfInt s) {
+        if (s.length() == 0) {
+            return false;
+        }
+        for (int codepoint : s) {;
+            if (!(Character.isLetterOrDigit(codepoint) || //
+                    Character.getType(codepoint) == Character.LETTER_NUMBER)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    @PythonMethod(primary = false)
+    boolean isascii() {
+        for (int c : value) { if (c >>> 7 != 0) { return false; } }
+        return true;
+    }
+
+    @PythonMethod
+    static boolean isascii(String self) {
+        // We can test chars since any surrogate will fail.
+        return self.chars().dropWhile(c -> c >>> 7 == 0)
+                .findFirst().isEmpty();
+    }
+
+    /*
+    @ExposedMethod(doc = BuiltinDocs.unicode_isdecimal_doc)
+    */
+    final boolean isdecimal() { return isdecimal(delegate); }
+
+    static boolean isdecimal(String s) { return isdecimal(adapt(s)); }
+
+    private static boolean isdecimal(PySequence.OfInt s) {
+        if (s.length() == 0) {
+            return false;
+        }
+        for (int codepoint : s) {;
+            if (Character.getType(codepoint) != Character.DECIMAL_DIGIT_NUMBER) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /*
+    @ExposedMethod(doc = BuiltinDocs.unicode_isdigit_doc)
+    */
+    final boolean isdigit() { return isdigit(delegate); }
+
+    static boolean isdigit(String s) { return isdigit(adapt(s)); }
+
+    private static boolean isdigit(PySequence.OfInt s) {
+        if (s.length() == 0) {
+            return false;
+        }
+        for (int codepoint : s) {;
+            if (!Character.isDigit(codepoint)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /*
+    @ExposedMethod(doc = BuiltinDocs.unicode_isnumeric_doc)
+    */
+    final boolean isnumeric() { return isnumeric(delegate); }
+
+    static boolean isnumeric(String s) { return isnumeric(adapt(s)); }
+
+    private static boolean isnumeric(PySequence.OfInt s) {
+        if (s.length() == 0) {
+            return false;
+        }
+        for (int codepoint : s) {;
+            int type = Character.getType(codepoint);
+            if (type != Character.DECIMAL_DIGIT_NUMBER && type != Character.LETTER_NUMBER
+                    && type != Character.OTHER_NUMBER) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /*
+    @ExposedMethod(doc = BuiltinDocs.unicode_istitle_doc)
+    */
+    final boolean istitle() { return istitle(delegate); }
+
+    static boolean istitle(String s) { return istitle(adapt(s)); }
+
+    private static boolean istitle(PySequence.OfInt s) {
+        if (s.length() == 0) {
+            return false;
+        }
+        boolean cased = false;
+        boolean previous_is_cased = false;
+        for (int codepoint : s) {;
+            if (Character.isUpperCase(codepoint) || Character.isTitleCase(codepoint)) {
+                if (previous_is_cased) {
+                    return false;
+                }
+                previous_is_cased = true;
+                cased = true;
+            } else if (Character.isLowerCase(codepoint)) {
+                if (!previous_is_cased) {
+                    return false;
+                }
+                previous_is_cased = true;
+                cased = true;
+            } else {
+                previous_is_cased = false;
+            }
+        }
+        return cased;
+    }
+
+    /*
+    @ExposedMethod(doc = BuiltinDocs.unicode_isspace_doc)
+    */
+    final boolean isspace() { return isspace(delegate); }
+
+    static boolean isspace(String s) { return isspace(adapt(s)); }
+
+    private static boolean isspace(PySequence.OfInt s) {
+        if (s.length() == 0) {
+            return false;
+        }
+        for (int codepoint : s) {;
+            if (!isPythonSpace(codepoint)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+
+
     // Java-only API --------------------------------------------------
 
     private static final int HIGH_SURROGATE_OFFSET =
@@ -1656,6 +1869,8 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
             return ((PyUnicode)v).toString();
         throw Abstract.requiredTypeError("a str", v);
     }
+
+    // @formatter:on
 
     // Plumbing ------------------------------------------------------
 
@@ -3089,6 +3304,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         }
     }
 
+    /** A {@code NoSuchElementException} identifying the index. */
     private static NoSuchElementException noSuchElement(int k) {
         return new NoSuchElementException(Integer.toString(k));
     }
