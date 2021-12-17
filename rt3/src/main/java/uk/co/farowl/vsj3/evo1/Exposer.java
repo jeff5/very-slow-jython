@@ -392,6 +392,15 @@ abstract class Exposer {
 
         @Override
         public int compareTo(Spec o) { return name.compareTo(o.name); }
+
+        /**
+         * Check that a specification is complete and consistent before
+         * use. A specification is built incrementally, so certain
+         * problems are only detectable when it is supposed complete.
+         *
+         * @throws InterpreterError describing any problem detected
+         */
+        public abstract void checkFormation() throws InterpreterError;
     }
 
     /**
@@ -550,11 +559,11 @@ abstract class Exposer {
         int posonlyargcount = Integer.MAX_VALUE;
 
         /**
-         * The number of keyword-only parameters (equals the number of
-         * positional parameters. This is derived from the
-         * {@link KeywordOnly} annotation. If more than one declaration
-         * of the same name is annotated {@link PythonMethod}, it must
-         * be specified in the method declaration marked as primary.
+         * The number of keyword-only parameters. This is derived from
+         * the {@link KeywordOnly} annotation. If more than one
+         * declaration of the same name is annotated
+         * {@link PythonMethod}, it may only be specified in the method
+         * declaration marked as primary.
          */
         int kwonlyargcount;
 
@@ -791,6 +800,14 @@ abstract class Exposer {
             }
         }
 
+        @Override
+        public void checkFormation() throws InterpreterError {
+            if (methodKind == null) {
+                throw new InterpreterError(MUST_HAVE_PRIMARY,
+                        getJavaName());
+            }
+        }
+
         /** Empty names array. */
         private static final String[] NO_STRINGS = new String[0];
 
@@ -800,6 +817,9 @@ abstract class Exposer {
         private static final String ONE_PRIMARY =
                 "All but one definition of '%s' should have "
                         + "element primary=false";
+
+        private static final String MUST_HAVE_PRIMARY =
+                "A primary definition of '%s' must be given";
 
         private static final String MUST_BE_JAVA_STATIC =
                 "The definition of '%s' should be Java static "

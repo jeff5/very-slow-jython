@@ -104,6 +104,7 @@ class TypeExposer extends Exposer {
             throw new InterpreterError(
                     "Cannot generate descriptors for type 'null'");
         for (Spec spec : specs.values()) {
+            spec.checkFormation();
             Object attr = spec.asAttribute(type, lookup);
             dict.put(spec.name, attr);
         }
@@ -357,7 +358,7 @@ class TypeExposer extends Exposer {
                 }
             }
 
-            // Add with check multiplicity (do we actually need a list?)
+            // Add the only definition (do we actually need a list?)
             fields.add(field);
             if (fields.size() != 1) {
                 throw duplicateError(name, field, this, this);
@@ -405,6 +406,9 @@ class TypeExposer extends Exposer {
                     lookup, flags, doc);
         }
 
+        @Override
+        public void checkFormation() throws InterpreterError {}
+
         /** @return a name designating the field */
         @Override
         String getJavaName() {
@@ -441,7 +445,6 @@ class TypeExposer extends Exposer {
                     getClass().getSimpleName(), name,
                     getJavaDeclaration());
         }
-
     }
 
     /**
@@ -526,6 +529,9 @@ class TypeExposer extends Exposer {
             else
                 return createDescrMultiple(objclass, lookup);
         }
+
+        @Override
+        public void checkFormation() throws InterpreterError {}
 
         private Object createDescrSingle(PyType objclass,
                 Lookup lookup) {
@@ -700,9 +706,13 @@ class TypeExposer extends Exposer {
         }
 
         @Override
+        public void checkFormation() throws InterpreterError {
+            // XXX Check the signature instead of in createDescr?
+         }
+
+        @Override
         void add(Method method) {
             super.add(method);
-            // XXX Check the signature instead of in createDescr?
         }
 
         @Override

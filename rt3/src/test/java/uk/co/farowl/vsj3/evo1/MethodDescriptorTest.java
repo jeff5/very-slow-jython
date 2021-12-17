@@ -42,7 +42,24 @@ class MethodDescriptorTest extends UnitTestSupport {
             assertEquals(0, ap.regargcount);
         }
 
-        /** An instance method with one argument. */
+        /**
+         * An instance method with no arguments and an object return.
+         */
+        @Test
+        void str_lower() throws Throwable {
+            PyMethodDescr lower =
+                    (PyMethodDescr)PyUnicode.TYPE.lookup("lower");
+
+            assertEquals("lower", lower.name);
+            assertEquals(PyUnicode.TYPE, lower.objclass);
+
+            // Check the parser
+            ArgParser ap = lower.argParser;
+            assertEquals("lower", ap.name);
+            assertEquals(0, ap.regargcount);
+        }
+
+        /** An instance method with one argument and object return. */
         @Test
         void str_zfill() throws Throwable {
             PyMethodDescr zfill =
@@ -108,7 +125,9 @@ class MethodDescriptorTest extends UnitTestSupport {
     @DisplayName("Call built-in method via descriptor")
     class CallBuiltin {
 
-        /** An instance method with no arguments. */
+        /**
+         * An instance method with no arguments and a primitive return.
+         */
         @Test
         void str_isascii() throws Throwable {
             PyMethodDescr isascii =
@@ -122,6 +141,24 @@ class MethodDescriptorTest extends UnitTestSupport {
                     assertEquals(even, r);
                 }
                 even = !even;
+            }
+        }
+
+        /**
+         * An instance method with no arguments and an object return.
+         */
+        @Test
+        void str_lower() throws Throwable {
+            PyMethodDescr lower =
+                    (PyMethodDescr)PyUnicode.TYPE.lookup("lower");
+
+            for (String s : List.of("1. MiXeD", "2. cAsE")) {
+                PyUnicode u = newPyUnicode(s);
+                PyUnicode e = newPyUnicode(s.toLowerCase());
+                for (Object o : List.of(s, u)) {
+                    Object r = lower.__call__(new Object[] {o}, null);
+                    assertEquals(e, r);
+                }
             }
         }
 
