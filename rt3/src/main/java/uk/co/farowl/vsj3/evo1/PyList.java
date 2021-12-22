@@ -11,7 +11,7 @@ import uk.co.farowl.vsj3.evo1.PyType.Spec;
 class PyList extends ArrayList<Object> {
     private static final long serialVersionUID = 1L;
 
-    PyType type =
+    static PyType TYPE =
             PyType.fromSpec(new Spec("list", MethodHandles.lookup()));
 
     PyList() {}
@@ -29,4 +29,11 @@ class PyList extends ArrayList<Object> {
             set(j, x);
         }
     }
+
+    int __len__() { return size(); }
+
+    Object __getitem__(Object index) throws Throwable {
+        return get(PyNumber.asSize(index, null));
+    }
+
 }

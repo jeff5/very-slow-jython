@@ -3,10 +3,12 @@
 package uk.co.farowl.vsj3.evo1;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Iterator;
 import java.util.function.Supplier;
 
 import uk.co.farowl.vsj3.evo1.Slot.EmptyException;
 import uk.co.farowl.vsj3.evo1.base.InterpreterError;
+import uk.co.farowl.vsj3.evo1.base.MissingFeature;
 
 /**
  * The "abstract interface" to operations on Python objects. Methods
@@ -737,6 +739,74 @@ public class Abstract {
         return res;
     }
 
+    /**
+     * This is equivalent to the Python expression {@code iter(o)}. It
+     * returns a new Python iterator for the object argument, or the
+     * object itself if it is already an iterator.
+     * <p>
+     * {@code o} must either define {@code __iter__}, which will be
+     * called to obtain an iterator, or define {@code __getitem__}, on
+     * which an iterator will be created. It is guaranteed that the
+     * object returned defines {@code __next__}.
+     *
+     * @param o the claimed iterable object
+     * @return an iterator on {@code o}
+     * @throws TypeError if the object cannot be iterated
+     * @throws Throwable from errors in {@code o.__iter__}
+     */
+    // Compare CPython PyObject_GetIter in abstract.c
+    static Object getIterator(Object o) throws TypeError, Throwable {
+        Operations ops = Operations.of(o);
+        if (Slot.op_iter.isDefinedFor(ops)) {
+            // o defines __iter__, call it.
+            Object r = ops.op_iter.invokeExact(o);
+            // Did that return an iterator? Check r defines __next__.
+            if (Slot.op_next.isDefinedFor(Operations.of(r))) {
+                return r;
+            } else {
+                throw returnTypeError("iter", "iterator", r);
+            }
+        } else if (Slot.op_getitem.isDefinedFor(ops)) {
+            // o defines __getitem__: make a (Python) iterator.
+            return new PyIterator(o);
+        } else {
+            throw typeError(NOT_ITERABLE, o);
+        }
+    }
+
+    /**
+     * Return true if the object {@code o} supports the iterator
+     * protocol (has {@code __iter__}).
+     *
+     * @param o to test
+     * @return true if {@code o} supports the iterator protocol
+     */
+    // Compare CPython PyIter_Check in abstract.c
+    static boolean iterableCheck(Object o) {
+        return Slot.op_next.isDefinedFor(Operations.of(o));
+    }
+
+    /**
+     * Return the next value from the Python iterator {@code iter}. If
+     * there are no remaining values, returns {@code null}. If an error
+     * occurs while retrieving the item, the exception propagates.
+     *
+     * @param iter the iterator
+     * @return the next item
+     * @throws Throwable from {@code iter.__next__}
+     */
+    // Compare CPython PyIter_Next in abstract.c
+    static Object next(Object iter) throws Throwable {
+        Operations o = Operations.of(iter);
+        try {
+            return o.op_next.invokeExact(iter);
+        } catch (StopIteration e) {
+            return null;
+        } catch (EmptyException e) {
+            throw typeError(NOT_ITERABLE, iter);
+        }
+    }
+
     // Plumbing -------------------------------------------------------
 
     /**
@@ -783,6 +853,8 @@ public class Abstract {
             "%s()%s%s argument must be %s, not '%.200s'";
     protected static final String NOT_MAPPING =
             "%.200s is not a mapping";
+    protected static final String NOT_ITERABLE =
+            "%.200s object is not iterable";
     static final String DESCR_NOT_DEFINING =
             "Type marked as %.20s descriptor does not define %.50s";
 

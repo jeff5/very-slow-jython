@@ -2,8 +2,13 @@
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj3.evo1;
 
+import java.lang.invoke.MethodHandle;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Spliterator;
 import java.util.Spliterators;
+import java.util.function.BiConsumer;
+import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
@@ -11,6 +16,7 @@ import java.util.stream.StreamSupport;
 import uk.co.farowl.vsj3.evo1.PyObjectUtil.NoConversion;
 import uk.co.farowl.vsj3.evo1.PySlice.Indices;
 import uk.co.farowl.vsj3.evo1.Slot.EmptyException;
+import uk.co.farowl.vsj3.evo1.base.MissingFeature;
 
 /**
  * Abstract API for operations on sequence types, corresponding to
@@ -155,7 +161,118 @@ public class PySequence extends Abstract {
         }
     }
 
-    // Convenience functions constructing errors ----------------------
+    /**
+     * Return a Python {@code tuple} with the same contents as the
+     * sequence or iterable {@code o}. The returned {@code tuple} is
+     * guaranteed to be new. This is equivalent to the Python expression
+     * {@code tuple(o)}.
+     *
+     * @param o to represent
+     * @return the contents as a tuple
+     */
+    // Compare CPython PySequence_Tuple in abstract.c
+    static PyTuple tuple(Object o) throws Throwable {
+        PyTuple.Builder tb = collect(o, PyTuple.Builder::new,
+                PyTuple.Builder::append);
+        return tb.takeTuple();
+    }
+
+    /**
+     * Return a Python {@code list} with the same contents as the
+     * sequence or iterable {@code o}. The returned {@code list} is
+     * guaranteed to be new. This is equivalent to the Python expression
+     * {@code list(o)}.
+     *
+     * @param o to represent
+     * @return the contents as a list
+     */
+    // Compare CPython PySequence_List in abstract.c
+    static PyList list(Object o) throws Throwable {
+        return collect(o, PyList::new, PyList::add);
+    }
+
+    /**
+     * Return the sequence or iterable {@code o} as a Java {@code List}.
+     * If {@code o} is one of several built-in types that implement Java
+     * {@code List<Object>}, this will be the object itself. Otherwise,
+     * it will be a copy in a Java list that supports efficient random
+     * access.
+     * <p>
+     * If the object is not a Python sequence (defines
+     * {@code __getitem__}) or Python iterable (defines
+     * {@code __iter__}), call {@code exc} to raise an exception
+     * (typically a {@link TypeError}).
+     *
+     * @param <E> the type of exception to throw
+     * @param o to present as a list
+     * @param exc a supplier (e.g. lambda expression) for the exception
+     * @return the iterable or its contents as a list
+     * @throws E to throw if an iterator cannot be formed
+     * @throws Throwable from the implementation of {@code o}.
+     */
+    // Compare CPython PySequence_Fast in abstract.c
+    static <E extends PyException> List<Object> fastList(Object o,
+            Supplier<E> exc) throws E, Throwable {
+
+        if (PyList.TYPE.checkExact(o)) {
+            return (PyList)o;
+
+        } else if (PyTuple.TYPE.checkExact(o)) {
+            return (PyTuple)o;
+
+        } else {
+            // Not one of the ready-made lists
+            return fastNewList(o, exc);
+        }
+    }
+
+    /**
+     * Inner implementation of {@link #fastList(Object, Supplier)},
+     * q.v..
+     *
+     * @param <E> the type of exception to throw
+     * @param o to present as a list
+     * @param exc a supplier (e.g. lambda expression) for the exception
+     * @return the iterable or its contents as a list
+     * @throws E to throw if an iterator cannot be formed
+     * @throws Throwable from the implementation of {@code o}.
+     */
+    private static <E extends PyException> List<Object>
+            fastNewList(Object o, Supplier<E> exc) throws Throwable {
+        List<Object> list = new ArrayList<>();
+        Operations ops = Operations.of(o);
+
+        if (Slot.op_iter.isDefinedFor(ops)) {
+            // Go via the iterator on o
+            Object iter = ops.op_iter.invokeExact(o);
+            // Check iter is an iterator (defines __next__).
+            Operations iterOps = Operations.of(iter);
+            if (Slot.op_next.isDefinedFor(iterOps)) {
+                // Create a handle on __next__
+                MethodHandle next = iterOps.op_next.bindTo(iter);
+                // Iterate o into a list
+                try {
+                    for (;;) { list.add(next.invokeExact()); }
+                } catch (StopIteration e) {}
+                return list;
+            } // else fall out at throw exc
+
+        } else if (Slot.op_getitem.isDefinedFor(ops)) {
+            // o defines __getitem__
+            MethodHandle getitem = ops.op_getitem.bindTo(o);
+            try {
+                for (int i = 0; /* until IndexError */ ; i++) {
+                    list.add(getitem.invokeExact((Object)i));
+                }
+            } catch (IndexError e) {}
+            return list;
+        }
+
+        // Out of possibilities: throw caller-defined exception
+        throw exc.get();
+    }
+
+    // Strings for constructing error messages ------------------------
 
     protected static final String HAS_NO_LEN =
             "object of type '%.200s' has no len()";
@@ -765,5 +882,36 @@ public class PySequence extends Abstract {
                 return Math.min(L - 1, i);
             }
         }
+    }
+
+    // Plumbing -------------------------------------------------------
+
+    /**
+     * Create a collection of the given kind with the same contents as
+     * the sequence or iterable {@code o}.
+     *
+     * @param <R> the type of collection
+     * @param o to represent
+     * @param factory a constructor for {@code R}
+     * @param accumulator to add one element to an {@code R}
+     * @return the collection
+     * @throws TypeError if an iterator cannort be formed on {@code o}
+     * @throws Throwable from the implementation of {@code o}
+     */
+    private static <R> R collect(Object o, Supplier<R> factory,
+            BiConsumer<R, Object> accumulator)
+            throws TypeError, Throwable {
+
+        // Create an iterator on o and a bound handle on __next__
+        Object iter = getIterator(o);
+        Operations iterOps = Operations.of(iter);
+        MethodHandle next = iterOps.op_next.bindTo(iter);
+
+        // Iterate o into the collection
+        R r = factory.get();
+        try {
+            for (;;) { accumulator.accept(r, next.invokeExact()); }
+        } catch (StopIteration stop) {}
+        return r;
     }
 }

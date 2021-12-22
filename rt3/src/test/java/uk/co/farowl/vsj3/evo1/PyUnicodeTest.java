@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
+import java.lang.invoke.MethodHandles;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.stream.Stream;
@@ -14,6 +15,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+
+import uk.co.farowl.vsj3.evo1.PyType.Spec;
 
 /**
  * Test selected methods of {@link PyUnicode} on a variety of argument
@@ -767,7 +770,7 @@ class PyUnicodeTest extends UnitTestSupport {
             return replaceExample(self, needle, indices, pin);
         }
 
-       /**
+        /**
          * Construct a search problem and reference result, where the
          * needle occurs at a list of indices.
          *
@@ -1413,7 +1416,245 @@ class PyUnicodeTest extends UnitTestSupport {
         void testIsascii() { fail("Not yet implemented"); }
     }
 
-    // Support code ---------------------------------------------------
+    /**
+     * Test that join works on a range of str implementations, values
+     * and iterables.
+     */
+    @Nested
+    static class JoinTest {
+        /**
+         * Provide a stream of examples as parameter sets to the tests
+         * of methods that have "search" character, that is
+         * {@code find}, {@code index}, {@code partition},
+         * {@code count}, etc..
+         *
+         * @return the examples for search tests.
+         */
+        static Stream<Arguments> joinExamples() {
+            return Stream.of(//
+                    joinExample("-", List.of()), //
+                    joinExample("-", List.of("a", "bb", "ccc")), //
+                    joinExample("123", List.of("a", "bb", "ccc")), //
+                    joinExample("", List.of()), //
+                    joinExample("", List.of("a", "bb", "ccc")), //
+                    // 🐍=\ud802\udc40, 🦓=\ud83e\udd93
+                    joinExample("🐍", List.of("🦓", "Zebra")),
+                    // Avoid making a zebra
+                    joinExample("\ud83e", List.of("Z", "\udd93")), //
+                    joinExample("\udd93", List.of("\ud83e", "Z")) //
+            );
+        }
+
+        /**
+         * Construct a join problem and reference result.
+         *
+         * @param self joiner
+         * @param parts to be joined
+         * @return example data for a test
+         */
+        private static Arguments joinExample(String self,
+                List<String> parts) {
+            PyUnicode e = refJoin(self, parts);
+            return arguments(self, parts, e);
+        }
+
+        /**
+         * Compute a reference join using integer arrays of code points
+         * as the intermediary representation. We return
+         * {@link PyUnicode} so that comparisons have Python semantics.
+         *
+         * @param self joiner
+         * @param parts to be joined
+         * @return reference join
+         */
+        private static PyUnicode refJoin(String self,
+                List<String> parts) {
+
+            int[] s = self.codePoints().toArray();
+            int P = parts.size();
+            if (P == 0) { return newPyUnicode(""); }
+
+            // Make an array of arrays of each part as code ponts
+            int[][] cpParts = new int[P][];
+            // Also count the number of code points in the result
+            int size = (P - 1) * s.length, p = 0;
+            for (String part : parts) {
+                int[] cpPart = part.codePoints().toArray();
+                size += cpPart.length;
+                cpParts[p++] = cpPart;
+            }
+
+            // So the expected result is:
+            int[] e = new int[size];
+            for (int i = 0, j = 0; i < P; i++) {
+                if (i > 0) {
+                    // Copy the joiner int e
+                    System.arraycopy(s, 0, e, j, s.length);
+                    j += s.length;
+                }
+                // Copy the part into e
+                int[] part = cpParts[i];
+                System.arraycopy(part, 0, e, j, part.length);
+                j += part.length;
+            }
+
+            return new PyUnicode(e);
+        }
+
+        private static PyTuple tupleOfString(List<String> parts) {
+            return new PyTuple(parts);
+        }
+
+        private static PyTuple tupleOfPyUnicode(List<String> parts) {
+            List<PyUnicode> u = new LinkedList<>();
+            for (String p : parts) { u.add(newPyUnicode(p)); }
+            return new PyTuple(u);
+        }
+
+        private static PyList listOfString(List<String> parts) {
+            return new PyList(parts);
+        }
+
+        private static PyList listOfPyUnicode(List<String> parts) {
+            PyList list = new PyList();
+            for (String p : parts) { list.add(newPyUnicode(p)); }
+            return list;
+        }
+
+        @DisplayName("join(String, [String])")
+        @ParameterizedTest(name = "\"{0}\".join({1})")
+        @MethodSource("joinExamples")
+        void S_join_list_S(String s, List<String> parts,
+                PyUnicode expected) throws Throwable {
+            Object r = PyUnicode.join(s, listOfString(parts));
+            assertEquals(expected, r);
+        }
+
+        @DisplayName("join(PyUnicode, [PyUnicode])")
+        @ParameterizedTest(name = "\"{0}\".join({1})")
+        @MethodSource("joinExamples")
+        void U_join_list_U(String s, List<String> parts,
+                PyUnicode expected) throws Throwable {
+            PyUnicode u = newPyUnicode(s);
+            Object r = u.join(listOfPyUnicode(parts));
+            assertEquals(expected, r);
+        }
+
+        @Test
+        @DisplayName("'-+'.join('hello') [String, String]")
+        void S_join_str_S() throws Throwable {
+            String s = "-+";
+            String parts = "hello";
+            PyUnicode expected = newPyUnicode("h-+e-+l-+l-+o");
+            Object r = PyUnicode.join(s, parts);
+            assertEquals(expected, r);
+        }
+
+        @Test
+        @DisplayName("'-+'.join('hello') [String, PyUnicode]")
+        void S_join_str_U() throws Throwable {
+            String s = "-+";
+            PyUnicode parts = newPyUnicode("hello");
+            PyUnicode expected = newPyUnicode("h-+e-+l-+l-+o");
+            Object r = PyUnicode.join(s, parts);
+            assertEquals(expected, r);
+        }
+
+        @Test
+        @DisplayName("'-+'.join('hello') [PyUnicode, String]")
+        void U_join_str_S() throws Throwable {
+            PyUnicode u = newPyUnicode("-+");
+            String parts = "hello";
+            PyUnicode expected = newPyUnicode("h-+e-+l-+l-+o");
+            Object r = u.join(parts);
+            assertEquals(expected, r);
+        }
+
+        @Test
+        @DisplayName("'-+'.join('hello') [PyUnicode, PyUnicode]")
+        void U_join_str_U() throws Throwable {
+            PyUnicode u = newPyUnicode("-+");
+            PyUnicode parts = newPyUnicode("hello");
+            PyUnicode expected = newPyUnicode("h-+e-+l-+l-+o");
+            Object r = u.join(parts);
+            assertEquals(expected, r);
+        }
+
+        /**
+         * A Python type that is not iterable but defines
+         * {@code __getitem__}. We should find this to be an acceptable
+         * argument to {@code str.join()}.
+         */
+        private static class MySequence extends AbstractPyObject {
+            static PyType TYPE = PyType.fromSpec(
+                    new Spec("MySequence", MethodHandles.lookup()));
+            final String value;
+
+            protected MySequence(String value) {
+                super(TYPE);
+                this.value = value;
+            }
+
+            @SuppressWarnings("unused")
+            Object __getitem__(Object index) {
+                int i = PyLong.asSize(index);
+                if (i < value.length())
+                    return value.substring(i, i + 1);
+                else
+                    throw new IndexError("");
+            }
+        }
+
+        @Test
+        @DisplayName("', '.join(MySequence('hello'))")
+        void U_join_sequence() throws Throwable {
+            PyUnicode u = newPyUnicode(", ");
+            MySequence seq = new MySequence("hello");
+            PyUnicode expected = newPyUnicode("h, e, l, l, o");
+            Object r = u.join(seq);
+            assertEquals(expected, r);
+        }
+
+        /**
+         * A Python type that is an iterator, defining {@code __iter__}
+         * and {@code __next__}. We should find this to be an acceptable
+         * argument to {@code str.join()}.
+         */
+        private static class MyIterator extends AbstractPyObject {
+            static PyType TYPE = PyType.fromSpec(
+                    new Spec("MyIterator", MethodHandles.lookup()));
+            final String value;
+            int i = 0;
+
+            protected MyIterator(String value) {
+                super(TYPE);
+                this.value = value;
+            }
+
+            @SuppressWarnings("unused")
+            Object __iter__() { return this; }
+
+            @SuppressWarnings("unused")
+            Object __next__() {
+                if (i < value.length())
+                    return value.substring(i++, i);
+                else
+                    throw new StopIteration();
+            }
+        }
+
+        @Test
+        @DisplayName("', '.join(MyIterator('hello'))")
+        void U_join_iterator() throws Throwable {
+            PyUnicode u = newPyUnicode(", ");
+            MyIterator seq = new MyIterator("hello");
+            PyUnicode expected = newPyUnicode("h, e, l, l, o");
+            Object r = u.join(seq);
+            assertEquals(expected, r);
+        }
+    }
+
+    // Support code --------------------------------------------------
 
     /**
      * Return a list of char indices on {@code s} at which the given

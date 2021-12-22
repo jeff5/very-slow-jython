@@ -35,7 +35,7 @@ class Callables extends Abstract {
 
         if (callable instanceof FastCall) {
             // Take the direct route since __call__ is immutable
-            FastCall fast = (FastCall) callable;
+            FastCall fast = (FastCall)callable;
             if (args == null || args.length == 0) {
                 return fast.call();
             } else if (names == null) {
@@ -113,7 +113,7 @@ class Callables extends Abstract {
         // Represent kwargs as a dict (if not already or null)
         PyDict kw;
         if (kwargs == null || kwargs instanceof PyDict)
-            kw = (PyDict) kwargs;
+            kw = (PyDict)kwargs;
         else {
             // TODO: Treat kwargs as an iterable of (key,value) pairs
             // Throw TypeError if not convertible
@@ -125,7 +125,7 @@ class Callables extends Abstract {
         // Represent args as a PyTuple (if not already)
         PyTuple ar;
         if (args instanceof PyTuple)
-            ar = (PyTuple) args;
+            ar = (PyTuple)args;
         else {
             // TODO: Treat args as an iterable of objects
             // Throw TypeError if not convertible
@@ -163,14 +163,14 @@ class Callables extends Abstract {
 
         System.arraycopy(args, 0, stack, 0, nargs);
 
-        Object[] kwnames = new Object[kwargs.size()];
-        int i = 0, j = nargs;
+        PyTuple.Builder kwnames = new PyTuple.Builder(kwargs.size());
+        int j = nargs;
         for (Entry<Object, Object> e : kwargs.entrySet()) {
-            kwnames[i++] = e.getKey();
+            kwnames.append(e.getKey());
             stack[j++] = e.getValue();
         }
 
-        return PyTuple.wrap(kwnames);
+        return kwnames.takeTuple();
     }
 
     /**
@@ -268,7 +268,7 @@ class Callables extends Abstract {
     static Object call(Object callable) throws Throwable {
         if (callable instanceof FastCall) {
             // Take the short-cut.
-            return ((FastCall) callable).call();
+            return ((FastCall)callable).call();
         }
         // Fast call is not supported by the type. Make standard call.
         return call(callable, Py.EMPTY_ARRAY, NO_KEYWORDS);

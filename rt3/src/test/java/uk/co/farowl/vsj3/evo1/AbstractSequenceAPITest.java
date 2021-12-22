@@ -1,8 +1,8 @@
 package uk.co.farowl.vsj3.evo1;
 
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
@@ -32,9 +32,9 @@ class AbstractSequenceAPITest extends UnitTestSupport {
 
     /**
      * Provide a stream of examples as parameter sets to the tests of
-     * methods that do not mutate their arguments. Each argument object
-     * provides a reference value and a test object compatible with the
-     * parameterised test methods.
+     * methods that search or concatenate their arguments. Each argument
+     * object provides a reference value and a test object compatible
+     * with the parameterised test methods.
      *
      * @return the examples for non-mutating tests.
      */
@@ -465,15 +465,96 @@ class AbstractSequenceAPITest extends UnitTestSupport {
     // */
     // void supports_delSlice(String type, List<Object> ref, Object obj)
     // throws Throwable {fail("not implemented");}
-    //
-    // /** Test {@link PySequence#tuple(Object) PySequence.tuple} */
-    // void supports_tuple(String type, List<Object> ref, Object obj)
-    // throws Throwable {fail("not implemented");}
-    //
-    // /** Test {@link PySequence#list(Object) PySequence.list} */
-    // void supports_list(String type, List<Object> ref, Object obj)
-    // throws Throwable {fail("not implemented");}
-    //
+
+    /**
+     * Test {@link PySequence#tuple(Object) PySequence.tuple}
+     *
+     * @param type unused (for parameterised name only)
+     * @param ref a list having elements equal to those of {@code obj}
+     * @param obj Python object under test
+     * @throws Throwable from the implementation
+     */
+    @DisplayName("PySequence.tuple")
+    @ParameterizedTest(name = "{0}: tuple({2})")
+    @MethodSource("readableProvider")
+    @SuppressWarnings("static-method")
+    void supports_tuple(String type, List<Object> ref, Object obj)
+            throws Throwable {
+        PyTuple result = PySequence.tuple(obj);
+        checkItems(ref, result);
+    }
+
+    /**
+     * Test {@link PySequence#list(Object) PySequence.list}
+     *
+     * @param type unused (for parameterised name only)
+     * @param ref a list having elements equal to those of {@code obj}
+     * @param obj Python object under test
+     * @throws Throwable from the implementation
+     */
+    @DisplayName("PySequence.list")
+    @ParameterizedTest(name = "{0}: list({2})")
+    @MethodSource("readableProvider")
+    @SuppressWarnings("static-method")
+    void supports_list(String type, List<Object> ref, Object obj)
+            throws Throwable {
+        PyList result = PySequence.list(obj);
+        checkItems(ref, result);
+    }
+
+    /**
+     * Check a test result for size and content. The result must allow
+     * indexing with {@link PySequence#getItem(Object, Object)}.
+     *
+     * @param ref a list having elements expected of {@code result}
+     * @param result Python object under test
+     * @throws Throwable from the implementation
+     */
+    private static void checkItems(List<Object> ref, Object result)
+            throws Throwable {
+        int L = ref.size();
+        assertEquals(L, PySequence.size(result));
+        for (int i = 0; i < L; i++) {
+            assertEquals(ref.get(i), PySequence.getItem(result, i));
+        }
+    }
+
+    /**
+     * Test {@link PySequence#list(Object) PySequence.list}
+     *
+     * @param type unused (for parameterised name only)
+     * @param ref a list having elements equal to those of {@code obj}
+     * @param obj Python object under test
+     * @throws Throwable from the implementation
+     */
+    @DisplayName("PySequence.fastList (Java API)")
+    @ParameterizedTest(name = "{0}: fastList({2})")
+    @MethodSource("readableProvider")
+    @SuppressWarnings("static-method")
+    void supports_fastList(String type, List<Object> ref, Object obj)
+            throws Throwable {
+        List<Object> result =
+                PySequence.fastList(obj, () -> new ValueError(""));
+        checkItems(ref, result);
+    }
+
+    /**
+     * Check a test result for size and content. The result must be a
+     * Java List<Object>.
+     *
+     * @param ref a list having elements expected of {@code result}
+     * @param result Python object under test
+     * @throws Throwable from the implementation
+     */
+    private static void checkItems(List<Object> ref,
+            List<Object> result) throws Throwable {
+        int L = ref.size();
+        assertEquals(L, result.size());
+        for (int i = 0; i < L; i++) {
+            assertEquals(ref.get(i), result.get(i));
+        }
+    }
+
     // /**
     // * Test {@link PySequence#count(Object, Object) PySequence.count}
     // */

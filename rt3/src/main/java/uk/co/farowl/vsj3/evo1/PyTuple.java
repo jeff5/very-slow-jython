@@ -387,6 +387,96 @@ public class PyTuple extends AbstractList<Object>
         };
     }
 
+    /**
+     * A class for constructing a tuple element-wise. Sometimes the
+     * elements of a {@code tuple} have to be generated sequentially.
+     * The natural thing is to allocate and fill an array, and then for
+     * the sake of efficiency, to make that array the storage of a
+     * {@code PyTuple}. The direct approach breaks the encapsulation
+     * that guarantees a {@code PyTuple} is immutable.
+     * <p>
+     * This class lets a client allocate and write an array
+     * element-wise, that becomes the storage of a {@code tuple},
+     * without ever having a direct reference to the array.
+     */
+    static class Builder {
+        private static final int MINSIZE = 16;
+        private Object[] value;
+        private int len = 0;
+
+        /** Create an empty buffer of a defined initial capacity. */
+        Builder(int capacity) {
+            value = new Object[capacity];
+        }
+
+        /** Create an empty buffer of a default initial capacity. */
+        Builder() {
+            value = Py.EMPTY_ARRAY;
+        }
+
+        /** @return the number of elements currently. */
+        int length() {
+            return len;
+        }
+
+        /** Ensure there is room for another {@code n} elements. */
+        private void ensure(int n) {
+            if (len + n > value.length) {
+                int newSize = Math.max(value.length * 2, MINSIZE);
+                Object[] newValue = new Object[newSize];
+                System.arraycopy(value, 0, newValue, 0, len);
+                value = newValue;
+            }
+        }
+
+        /** Append one element. */
+        Object append(Object v) {
+            ensure(1);
+            value[len++] = v;
+            return this;
+        }
+
+        /** Append all the elements from a sequence. */
+        Builder append(Collection<?> seq) {
+            ensure(seq.size());
+            for (Object v : seq) { value[len++] = v; }
+            return this;
+        }
+
+        /** Append all the elements available from an iterator. */
+        Builder append(Iterator<?> iter) {
+            while (iter.hasNext()) { append(iter.next()); }
+            return this;
+        }
+
+        /**
+         * Provide the contents as a Python {@code tuple} and reset the
+         * builder to empty. (This is a "destructive read".)
+         */
+        PyTuple takeTuple() {
+            PyTuple t;
+            if (len == value.length) {
+                // The array is exactly filled: use it without copy.
+                t = new PyTuple(TYPE, true, value);
+                value = Py.EMPTY_ARRAY;
+            } else {
+                // The array is partly filled: take the used part.
+                t = new PyTuple(TYPE, value, 0, len);
+            }
+            len = 0;
+            return t;
+        }
+
+        /**
+         * Provide the contents as a Java {@code String}
+         * (non-destructively).
+         */
+        @Override
+        public String toString() {
+            return (new PyTuple(TYPE, value, 0, len)).toString();
+        }
+    }
+
     // Plumbing ------------------------------------------------------
 
     /*

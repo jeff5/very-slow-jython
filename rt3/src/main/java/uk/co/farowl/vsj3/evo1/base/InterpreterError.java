@@ -31,4 +31,21 @@ public class InterpreterError extends RuntimeException {
         super(String.format(msg, args), cause);
     }
 
+    /**
+     * Constructor specifying a cause.
+     *
+     * @param cause a Java exception behind the interpreter error
+     */
+    public InterpreterError(Throwable cause) {
+        this(cause, notNull(cause.getMessage(), "(no message)"));
+    }
+
+    /**
+     * @param msg a string or {@code null}
+     * @param defaultMsg a string or {@code null}
+     * @return non-{@code null} {@code msg} or ""
+     */
+    private static String notNull(String msg, String defaultMsg) {
+        return msg != null ? msg : defaultMsg;
+    }
 }

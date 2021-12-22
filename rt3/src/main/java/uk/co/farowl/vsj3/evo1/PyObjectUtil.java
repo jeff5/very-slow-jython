@@ -67,4 +67,9 @@ class PyObjectUtil {
      * in the exception.
      */
     static final NoConversion NO_CONVERSION = new NoConversion();
+    /**
+     * A statically allocated {@link StopIteration} used to signal
+     * exhaustion of an iterator, but providing no useful stack context.
+     */
+    static final StopIteration STOP_ITERATION = new StopIteration();
 }

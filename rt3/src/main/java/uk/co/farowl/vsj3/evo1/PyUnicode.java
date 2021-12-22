@@ -5,6 +5,7 @@ package uk.co.farowl.vsj3.evo1;
 import java.lang.invoke.MethodHandles;
 import java.util.Arrays;
 import java.util.Iterator;
+import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -41,7 +42,7 @@ import uk.co.farowl.vsj3.evo1.base.InterpreterError;
  */
 public class PyUnicode implements CraftedPyObject, PyDict.Key {
 
-    /** The type of Python object this class implements. */
+    /** The type {@code str}. */
     static final PyType TYPE = PyType.fromSpec( //
             new PyType.Spec("str", MethodHandles.lookup())
                     .methods(PyUnicodeMethods.class)
@@ -295,6 +296,14 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
     private static Object __rmul__(String self, Object n)
             throws Throwable {
         return __mul__(self, n);
+    }
+
+    @SuppressWarnings("unused")
+    private Object __iter__() { return new PyStrIterator(delegate); }
+
+    @SuppressWarnings("unused")
+    private static Object __iter__(String self) {
+        return new PyStrIterator(adapt(self));
     }
 
     // Find-like methods ----------------------------------------------
@@ -1644,7 +1653,8 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         if (left) {
             if (!right) {
                 // It is all on the left
-                leftPad = pad; rightPad = 0;
+                leftPad = pad;
+                rightPad = 0;
             } else {
                 // But sometimes you have to be Dutch
                 leftPad = pad / 2 + (pad & width & 1);
@@ -1665,9 +1675,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
     @ExposedMethod(doc = BuiltinDocs.unicode_zfill_doc)
     */
     @PythonMethod
-    Object zfill(int width) {
-        return zfill(delegate, width);
-    }
+    Object zfill(int width) { return zfill(delegate, width); }
 
     @PythonMethod(primary = false)
     static Object zfill(String self, int width) {
@@ -1716,10 +1724,11 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
 
     @PythonMethod(primary = false)
     static Object expandtabs(String self, int tabsize) {
-        return expandtabs( adapt(self), tabsize);
+        return expandtabs(adapt(self), tabsize);
     }
 
-    /** Inner implementation of {@link #expandtabs() expandtabs}
+    /**
+     * Inner implementation of {@link #expandtabs() expandtabs}
      *
      * @param s the {@code self} string
      * @param tabsize number of spaces to tab to
@@ -1785,7 +1794,108 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
     /*
     @ExposedMethod(doc = BuiltinDocs.str_join_doc)
     */
-    // We cannot implement join (in full) without Python iterators.
+    @PythonMethod
+    Object join(Object iterable) throws TypeError, Throwable {
+        return join(delegate, iterable);
+    }
+
+    @PythonMethod(primary = false)
+    static Object join(String self, Object iterable)
+            throws TypeError, Throwable {
+        return join(adapt(self), iterable);
+    }
+
+    /**
+     * Inner implementation of {@link #join() join}.
+     *
+     * @param s the {@code self} string (separator)
+     * @param iterable of strings
+     * @return capitalised string
+     * @throws TypeError if {@code iterable} isn't
+     * @throws Throwable from errors iterating {@code iterable}
+     */
+    private static Object join(CodepointDelegate s, Object iterable)
+            throws TypeError, Throwable {
+        /*
+         * The argument is supposed to be a Python iterable: present it
+         * as a Java List.
+         */
+        List<Object> parts = PySequence.fastList(iterable,
+                () -> Abstract.argumentTypeError("join", "", "iterable",
+                        iterable));
+
+        /*
+         * It is safe assume L is constant since either seq is a
+         * well-behaved built-in, or we made a copy.
+         */
+        final int L = parts.size();
+
+        // If empty sequence, return ""
+        if (L == 0) {
+            return "";
+        } else if (L == 1) {
+            // One-element sequence: return that element (if a str).
+            Object item = parts.get(0);
+            if (TYPE.checkExact(item)) { return item; }
+        }
+
+        /*
+         * There are at least two parts to join, or one and it isn't a
+         * str exactly. Do a pre-pass to figure out the total amount of
+         * space we'll need, and check that every element is str-like.
+         */
+        int sepLen = s.length();
+        // Start with the length contributed for by L-1 separators
+        long size = (L - 1) * sepLen;
+
+        for (int i = 0; i < L; i++) {
+
+            // Accumulate the length of the item according to type
+            Object item = parts.get(i);
+            if (item instanceof PyUnicode) {
+                size += ((PyUnicode)item).__len__();
+            } else if (item instanceof String) {
+                /*
+                 * If non-BMP, this will over-estimate. We assume this
+                 * is preferable to counting characters properly.
+                 */
+                size += ((String)item).length();
+            } else {
+                // If neither, then it's not a str
+                throw joinArgumentTypeError(item, i);
+            }
+
+            if (size > Integer.MAX_VALUE) {
+                throw new OverflowError(
+                        "join() result is too long for a Python string");
+            }
+        }
+
+        // Build the result here
+        IntArrayBuilder buf = new IntArrayBuilder((int)size);
+
+        // Concatenate the parts and separators
+        for (int i = 0; i < L; i++) {
+            // Separator
+            if (i != 0) { buf.append(s); }
+            // item from the iterable
+            Object item = parts.get(i);
+            try {
+                buf.append(adapt(item));
+            } catch (NoConversion e) {
+                // This can't really happen here, given checks above
+                throw joinArgumentTypeError(item, i);
+            }
+        }
+
+        return buf.takeUnicode();
+    }
+
+    private static TypeError joinArgumentTypeError(Object item, int i) {
+        return new TypeError(
+                "sequence item %d: expected str, %.80s found", i,
+                PyType.of(item).getName());
+    }
 
     // Doc copied from PyString
     /**
@@ -1889,8 +1999,8 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
 
         if (suffixObj instanceof PyTuple) {
             /*
-             * Loop will return true if this slice ends with any
-             * prefix in the tuple
+             * Loop will return true if this slice ends with any prefix
+             * in the tuple
              */
             for (Object prefix : (PyTuple)suffixObj) {
                 // It ought to be a str.
@@ -1910,7 +2020,8 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
             CodepointDelegate p, PySlice.Indices slice) {
         // If p is too long, it can't end s
         if (p.length() > s.length()) { return false; }
-        CodepointIterator si = s.iterator(slice.stop, slice.start, slice.stop);
+        CodepointIterator si =
+                s.iterator(slice.stop, slice.start, slice.stop);
         CodepointIterator pi = p.iteratorLast();
         // We know that p is no longer than s so only count in p
         while (pi.hasPrevious()) {
@@ -2222,6 +2333,33 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         else if (v instanceof PyUnicode)
             return ((PyUnicode)v).toString();
         throw Abstract.requiredTypeError("a str", v);
+    }
+
+    // @formatter:on
+
+    // Iterator ------------------------------------------------------
+
+    /** The Python {@code str_iterator}. */
+    private static class PyStrIterator extends AbstractPyIterator {
+
+        static final PyType TYPE =
+                PyType.fromSpec(new PyType.Spec("str_iterator",
+                        MethodHandles.lookup()));
+
+        private final CodepointIterator iterator;
+
+        PyStrIterator(CodepointDelegate delegate) {
+            super(TYPE);
+            this.iterator = delegate.iterator(0);
+        }
+
+        @Override
+        Object __next__() throws Throwable {
+            if (iterator.hasNext()) {
+                return PyUnicode.fromCodePoint(iterator.next());
+            }
+            throw PyObjectUtil.STOP_ITERATION;
+        }
     }
 
     // Plumbing ------------------------------------------------------
