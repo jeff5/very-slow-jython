@@ -4,15 +4,18 @@ package uk.co.farowl.vsj3.evo1;
 
 import java.lang.invoke.MethodHandles;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.PrimitiveIterator;
+import java.util.Set;
 import java.util.Spliterator;
 import java.util.Spliterators;
 import java.util.function.IntUnaryOperator;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.StreamSupport;
 
@@ -304,6 +307,190 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
     @SuppressWarnings("unused")
     private static Object __iter__(String self) {
         return new PyStrIterator(adapt(self));
+    }
+
+    // Strip methods --------------------------------------------------
+
+    // @formatter:off
+
+    /*
+    @ExposedMethod(defaults = "null", doc = BuiltinDocs.unicode_strip_doc)
+    */
+    Object strip(Object stripChars) throws Throwable {
+        return strip(delegate, stripChars);
+    }
+
+    static Object strip(String self, Object stripChars) throws Throwable {
+        return strip(adapt(self), stripChars);
+    }
+
+    /**
+     * Inner implementation of Python {@code str.strip()} independent of
+     * the implementation type.
+     *
+     * @param s representing {@code self}
+     * @param stripChars to remove, or {@code null} or {@code None}
+     * @return the str stripped
+     * @throws Throwable on {@code stripChars} type errors
+     */
+    private static Object strip(CodepointDelegate s, Object stripChars)
+            throws Throwable {
+        Set<Integer> p = adaptStripSet("strip", stripChars);
+        int left, right;
+        if (p == null) {
+            // Stripping spaces
+            right = findRight(s);
+            // If it's all spaces, we can save a job
+            left = right < 0 ? 0 : findLeft(s);
+        } else {
+            // Stripping specified characters
+            right = findRight(s, p);
+            // If it all matches, we can save a job
+            left = right < 0 ? 0 : findLeft(s, p);
+        }
+        // Substring from leftmost non-matching character up to and
+        // including the rightmost (or "")
+        PySlice.Indices slice = getSliceIndices(s, left, right + 1);
+        return slice.slicelength == 0 ? "" : s.getSlice(slice);
+    }
+
+    /**
+     * Helper for {@code strip}, {@code lstrip} implementation, when
+     * stripping space.
+     *
+     * @return index of leftmost non-space character or
+     *     {@code s.length()} if entirely spaces.
+     */
+    private static int findLeft(CodepointDelegate s) {
+        CodepointIterator si = s.iterator(0);
+        while (si.hasNext()) {
+            if (!isPythonSpace(si.nextInt()))
+                return si.previousIndex();
+        }
+        return s.length();
+    }
+
+    /**
+     * Helper for {@code strip}, {@code lstrip} implementation, when
+     * stripping specified characters.
+     *
+     * @param p specifies set of characters to strip
+     * @return index of leftmost non-{@code p} character or
+     *     {@code s.length()} if entirely found in {@code p}.
+     */
+    private static int findLeft(CodepointDelegate s, Set<Integer> p) {
+        CodepointIterator si = s.iterator(0);
+        while (si.hasNext()) {
+            if (!p.contains(si.nextInt()))
+                return si.previousIndex();
+        }
+        return s.length();
+    }
+
+    /**
+     * Helper for {@code strip}, {@code rstrip} implementation, when
+     * stripping space.
+     *
+     * @return index of rightmost non-space character or {@code -1} if
+     *     entirely spaces.
+     */
+    private static int findRight(CodepointDelegate s) {
+        CodepointIterator si = s.iteratorLast();
+        while (si.hasPrevious()) {
+            if (!isPythonSpace(si.previousInt()))
+                return si.nextIndex();
+        }
+        return -1;
+    }
+
+    /**
+     * Helper for {@code strip}, {@code rstrip} implementation, when
+     * stripping specified characters.
+     *
+     * @param p specifies set of characters to strip
+     * @return index of rightmost non-{@code p} character or {@code -1}
+     *     if entirely found in {@code p}.
+     */
+    private static int findRight(CodepointDelegate s, Set<Integer> p) {
+        CodepointIterator si = s.iteratorLast();
+        while (si.hasPrevious()) {
+            if (!p.contains(si.previousInt()))
+                return si.nextIndex();
+        }
+        return -1;
+    }
+
+    /*
+    @ExposedMethod(defaults = "null", doc = BuiltinDocs.unicode_lstrip_doc)
+    */
+    Object lstrip(Object stripChars) throws Throwable {
+        return lstrip(delegate, stripChars);
+    }
+
+    static Object lstrip(String self, Object stripChars) throws Throwable {
+        return lstrip(adapt(self), stripChars);
+    }
+
+    /**
+     * Inner implementation of Python {@code str.lstrip()} independent
+     * of the implementation type.
+     *
+     * @param s representing {@code self}
+     * @param stripChars to remove, or {@code null} or {@code None}
+     * @return the str stripped
+     * @throws Throwable on {@code stripChars} type errors
+     */
+    private static Object lstrip(CodepointDelegate s, Object stripChars)
+            throws Throwable {
+        Set<Integer> p = adaptStripSet("lstrip", stripChars);
+        int left;
+        if (p == null) {
+            // Stripping spaces
+            left = findLeft(s);
+        } else {
+            // Stripping specified characters
+            left = findLeft(s, p);
+        }
+        // Substring from this leftmost non-matching character (or "")
+        PySlice.Indices slice = getSliceIndices(s, left, null);
+        return s.getSlice(slice);
+    }
+
+    /*
+    @ExposedMethod(defaults = "null", doc = BuiltinDocs.unicode_rstrip_doc)
+    */
+    Object rstrip(Object stripChars) throws Throwable {
+        return rstrip(delegate, stripChars);
+    }
+
+    static Object rstrip(String self, Object stripChars) throws Throwable {
+        return rstrip(adapt(self), stripChars);
+    }
+
+    /**
+     * Inner implementation of Python {@code str.rstrip()} independent
+     * of the implementation type.
+     *
+     * @param s representing {@code self}
+     * @param stripChars to remove, or {@code null} or {@code None}
+     * @return the str stripped
+     * @throws Throwable on {@code stripChars} type errors
+     */
+    private static Object rstrip(CodepointDelegate s, Object stripChars)
+            throws Throwable {
+        Set<Integer> p = adaptStripSet("rstrip", stripChars);
+        int right;
+        if (p == null) {
+            // Stripping spaces
+            right = findRight(s);
+        } else {
+            // Stripping specified characters
+            right = findRight(s, p);
+        }
+        // Substring up to and including this rightmost non-matching
+        // character (or "")
+        PySlice.Indices slice = getSliceIndices(s, null, right + 1);
+        return s.getSlice(slice);
     }
 
     // Find-like methods ----------------------------------------------
@@ -3389,6 +3576,8 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         }
     }
 
+    // @formatter:on
+
     /**
      * Adapt a Python {@code str} to a sequence of Java {@code int}
      * values or throw an exception. If the method throws the special
@@ -3531,6 +3720,31 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
             "the fill character must be exactly one character long";
 
     /**
+     * Adapt a Python {@code str}, intended as a list of characters to
+     * strip, as by {@link #adapt(Object)} then conversion to a set.
+     *
+     * @param method in which encountered
+     * @param chars characters defining the set (or {@code None} or
+     *     {@code null})
+     * @return {@code null} or characters adapted to a set
+     * @throws TypeError if {@code sep} cannot be wrapped as a delegate
+     */
+    static Set<Integer> adaptStripSet(String method, Object chars)
+            throws TypeError, ValueError {
+        if (chars == null || chars == Py.None) {
+            return null;
+        } else {
+            try {
+                return adapt(chars).asStream()
+                        .collect(Collectors.toCollection(HashSet::new));
+            } catch (NoConversion nc) {
+                throw Abstract.argumentTypeError(method, "chars",
+                        "str or None", chars);
+            }
+        }
+    }
+
+    /**
      * Convert slice end indices to a {@link PySlice.Indices} object.
      *
      * @param s sequence being sliced
@@ -3599,13 +3813,15 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
                 IntStream.concat(v, w).toArray());
     }
 
+    /** An empty array of int for builder initial state, etc.. */
+    private static final int[] EMPTY_INT_ARRAY = new int[0];
+
     /**
      * Accumulate {@code int} elements in an array, similar to
      * {@code StringBuilder}.
      */
     static class IntArrayBuilder {
         private static final int MINSIZE = 16;
-        private static final int[] EMPTY = new int[0];
         private int[] value;
         private int len = 0;
 
@@ -3616,7 +3832,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
 
         /** Create an empty buffer of a default initial capacity. */
         IntArrayBuilder() {
-            value = EMPTY;
+            value = EMPTY_INT_ARRAY;
         }
 
         /** The number of elements currently. */
@@ -3691,7 +3907,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
             if (len == value.length) {
                 // The array is exactly filled: use it without copy.
                 u = new PyUnicode(TYPE, true, value);
-                value = EMPTY;
+                value = EMPTY_INT_ARRAY;
             } else {
                 // The array is partly filled: copy it and re-use it.
                 int[] v = new int[len];
@@ -3716,7 +3932,6 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
      */
     static class IntArrayReverseBuilder {
         private static final int MINSIZE = 16;
-        private static final int[] EMPTY = new int[0];
         private int[] value;
         private int ptr = 0;
 
@@ -3728,7 +3943,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
 
         /** Create an empty buffer of a default initial capacity. */
         IntArrayReverseBuilder() {
-            value = EMPTY;
+            value = EMPTY_INT_ARRAY;
             ptr = value.length;
         }
 
@@ -3811,7 +4026,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
             if (ptr == 0) {
                 // The array is exactly filled: use it without copy.
                 u = new PyUnicode(TYPE, true, value);
-                value = EMPTY;
+                value = EMPTY_INT_ARRAY;
             } else {
                 // The array is partly filled: copy it and re-use it.
                 int[] v = new int[value.length - ptr];

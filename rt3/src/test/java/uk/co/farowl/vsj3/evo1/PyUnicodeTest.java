@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import uk.co.farowl.vsj3.evo1.PyType.Spec;
 
@@ -1417,11 +1418,10 @@ class PyUnicodeTest extends UnitTestSupport {
     }
 
     /**
-     * Test that join works on a range of str implementations, values
-     * and iterables.
+     * Base of tests of {@code str.join}, here so it can be declared
+     * static, and the test class itself nested.
      */
-    @Nested
-    static class JoinTest {
+    static class AbstractJoinTest {
         /**
          * Provide a stream of examples as parameter sets to the tests
          * of methods that have "search" character, that is
@@ -1430,7 +1430,7 @@ class PyUnicodeTest extends UnitTestSupport {
          *
          * @return the examples for search tests.
          */
-        static Stream<Arguments> joinExamples() {
+        protected static Stream<Arguments> joinExamples() {
             return Stream.of(//
                     joinExample("-", List.of()), //
                     joinExample("-", List.of("a", "bb", "ccc")), //
@@ -1501,26 +1501,87 @@ class PyUnicodeTest extends UnitTestSupport {
             return new PyUnicode(e);
         }
 
-        private static PyTuple tupleOfString(List<String> parts) {
+        protected static PyTuple tupleOfString(List<String> parts) {
             return new PyTuple(parts);
         }
 
-        private static PyTuple tupleOfPyUnicode(List<String> parts) {
+        protected static PyTuple tupleOfPyUnicode(List<String> parts) {
             List<PyUnicode> u = new LinkedList<>();
             for (String p : parts) { u.add(newPyUnicode(p)); }
             return new PyTuple(u);
         }
 
-        private static PyList listOfString(List<String> parts) {
+        protected static PyList listOfString(List<String> parts) {
             return new PyList(parts);
         }
 
-        private static PyList listOfPyUnicode(List<String> parts) {
+        protected static PyList listOfPyUnicode(List<String> parts) {
             PyList list = new PyList();
             for (String p : parts) { list.add(newPyUnicode(p)); }
             return list;
         }
 
+        /**
+         * A Python type that is not iterable but defines
+         * {@code __getitem__}. We should find this to be an acceptable
+         * argument to {@code str.join()}.
+         */
+        protected static class MySequence extends AbstractPyObject {
+            static PyType TYPE = PyType.fromSpec(
+                    new Spec("MySequence", MethodHandles.lookup()));
+            final String value;
+
+            protected MySequence(String value) {
+                super(TYPE);
+                this.value = value;
+            }
+
+            @SuppressWarnings("unused")
+            Object __getitem__(Object index) {
+                int i = PyLong.asSize(index);
+                if (i < value.length())
+                    return value.substring(i, i + 1);
+                else
+                    throw new IndexError("");
+            }
+        }
+
+        /**
+         * A Python type that is an iterator, defining {@code __iter__}
+         * and {@code __next__}. We should find this to be an acceptable
+         * argument to {@code str.join()}.
+         */
+        protected static class MyIterator extends AbstractPyObject {
+            static PyType TYPE = PyType.fromSpec(
+                    new Spec("MyIterator", MethodHandles.lookup()));
+            final String value;
+            int i = 0;
+
+            protected MyIterator(String value) {
+                super(TYPE);
+                this.value = value;
+            }
+
+            @SuppressWarnings("unused")
+            Object __iter__() { return this; }
+
+            @SuppressWarnings("unused")
+            Object __next__() {
+                if (i < value.length())
+                    return value.substring(i++, i);
+                else
+                    throw new StopIteration();
+            }
+        }
+    }
+
+    /**
+     * Test that join works on a range of {@code str} implementations,
+     * values and iterables.
+     */
+    @Nested
+    @DisplayName("join")
+    class JoinTest extends AbstractJoinTest {
         @DisplayName("join(String, [String])")
         @ParameterizedTest(name = "\"{0}\".join({1})")
         @MethodSource("joinExamples")
@@ -1537,6 +1598,25 @@ class PyUnicodeTest extends UnitTestSupport {
                 PyUnicode expected) throws Throwable {
             PyUnicode u = newPyUnicode(s);
             Object r = u.join(listOfPyUnicode(parts));
+            assertEquals(expected, r);
+        }
+
+        @DisplayName("join(String, (String,))")
+        @ParameterizedTest(name = "\"{0}\".join({1})")
+        @MethodSource("joinExamples")
+        void S_join_tuple_S(String s, List<String> parts,
+                PyUnicode expected) throws Throwable {
+            Object r = PyUnicode.join(s, tupleOfString(parts));
+            assertEquals(expected, r);
+        }
+
+        @DisplayName("join(PyUnicode, (PyUnicode,))")
+        @ParameterizedTest(name = "\"{0}\".join({1})")
+        @MethodSource("joinExamples")
+        void U_join_tuple_U(String s, List<String> parts,
+                PyUnicode expected) throws Throwable {
+            PyUnicode u = newPyUnicode(s);
+            Object r = u.join(tupleOfPyUnicode(parts));
             assertEquals(expected, r);
         }
 
@@ -1580,31 +1660,6 @@ class PyUnicodeTest extends UnitTestSupport {
             assertEquals(expected, r);
         }
 
-        /**
-         * A Python type that is not iterable but defines
-         * {@code __getitem__}. We should find this to be an acceptable
-         * argument to {@code str.join()}.
-         */
-        private static class MySequence extends AbstractPyObject {
-            static PyType TYPE = PyType.fromSpec(
-                    new Spec("MySequence", MethodHandles.lookup()));
-            final String value;
-
-            protected MySequence(String value) {
-                super(TYPE);
-                this.value = value;
-            }
-
-            @SuppressWarnings("unused")
-            Object __getitem__(Object index) {
-                int i = PyLong.asSize(index);
-                if (i < value.length())
-                    return value.substring(i, i + 1);
-                else
-                    throw new IndexError("");
-            }
-        }
-
         @Test
         @DisplayName("', '.join(MySequence('hello'))")
         void U_join_sequence() throws Throwable {
@@ -1615,34 +1670,6 @@ class PyUnicodeTest extends UnitTestSupport {
             assertEquals(expected, r);
         }
 
-        /**
-         * A Python type that is an iterator, defining {@code __iter__}
-         * and {@code __next__}. We should find this to be an acceptable
-         * argument to {@code str.join()}.
-         */
-        private static class MyIterator extends AbstractPyObject {
-            static PyType TYPE = PyType.fromSpec(
-                    new Spec("MyIterator", MethodHandles.lookup()));
-            final String value;
-            int i = 0;
-
-            protected MyIterator(String value) {
-                super(TYPE);
-                this.value = value;
-            }
-
-            @SuppressWarnings("unused")
-            Object __iter__() { return this; }
-
-            @SuppressWarnings("unused")
-            Object __next__() {
-                if (i < value.length())
-                    return value.substring(i++, i);
-                else
-                    throw new StopIteration();
-            }
-        }
-
         @Test
         @DisplayName("', '.join(MyIterator('hello'))")
         void U_join_iterator() throws Throwable {
@@ -1650,6 +1677,230 @@ class PyUnicodeTest extends UnitTestSupport {
             MyIterator seq = new MyIterator("hello");
             PyUnicode expected = newPyUnicode("h, e, l, l, o");
             Object r = u.join(seq);
+            assertEquals(expected, r);
+        }
+    }
+
+    /** Base of test classes that strip characters. */
+    static class AbstractStripTest {
+        static final String SPACES = "  \t\u0085 ";
+        static final String CHAFF = "ABBA";
+        static final String CHARS = "ABC";
+        static final PyUnicode UCHARS = newPyUnicode(CHARS);
+    }
+
+    /**
+     * Test that {@code lstrip} works on a range of {@code str}
+     * implementations, values and iterables.
+     */
+    @Nested
+    @DisplayName("lstrip")
+    class LStripTest extends AbstractStripTest {
+
+        @ParameterizedTest(name = "\"<spaces>{0}\".lstrip()")
+        @ValueSource(strings = {"hello", "", "a b"})
+        @DisplayName("lstrip(String) (spaces)")
+        void S_lstrip(String text) throws Throwable {
+            String s = SPACES + text;
+            PyUnicode expected = newPyUnicode(text);
+            Object r = PyUnicode.lstrip(s, null);
+            assertEquals(expected, r);
+        }
+
+        @ParameterizedTest(name = "\"<spaces>{0}\".lstrip()")
+        @ValueSource(strings = {"hello", "", "a b"})
+        @DisplayName("lstrip(PyUnicode) (spaces)")
+        void U_lstrip(String text) throws Throwable {
+            String s = SPACES + text;
+            PyUnicode u = newPyUnicode(s);
+            PyUnicode expected = newPyUnicode(text);
+            Object r = u.lstrip(null);
+            assertEquals(expected, r);
+        }
+
+        @ParameterizedTest(name = "\"<chaff>{0}\".lstrip(chars)")
+        @ValueSource(strings = {"hello", "", "a b"})
+        @DisplayName("lstrip(String, String)")
+        void S_lstrip_S(String text) throws Throwable {
+            String s = CHAFF + text;
+            PyUnicode expected = newPyUnicode(text);
+            Object r = PyUnicode.lstrip(s, CHARS);
+            assertEquals(expected, r);
+        }
+
+        @ParameterizedTest(name = "\"<chaff>{0}\".lstrip(chars)")
+        @ValueSource(strings = {"hello", "", "a b"})
+        @DisplayName("lstrip(PyUnicode, String)")
+        void U_lstrip_S(String text) throws Throwable {
+            String s = CHAFF + text;
+            PyUnicode u = newPyUnicode(s);
+            PyUnicode expected = newPyUnicode(text);
+            Object r = u.lstrip(CHARS);
+            assertEquals(expected, r);
+        }
+
+        @ParameterizedTest(name = "\"<chaff>{0}\".lstrip(chars)")
+        @ValueSource(strings = {"hello", "", "a b"})
+        @DisplayName("lstrip(String, PyUnicode)")
+        void S_lstrip_U(String text) throws Throwable {
+            String s = CHAFF + text;
+            PyUnicode expected = newPyUnicode(text);
+            Object r = PyUnicode.lstrip(s, UCHARS);
+            assertEquals(expected, r);
+        }
+
+        @ParameterizedTest(name = "\"<chaff>{0}\".lstrip(chars)")
+        @ValueSource(strings = {"hello", "", "a b"})
+        @DisplayName("lstrip(PyUnicode, PyUnicode)")
+        void U_lstrip_U(String text) throws Throwable {
+            String s = CHAFF + text;
+            PyUnicode u = newPyUnicode(s);
+            PyUnicode expected = newPyUnicode(text);
+            Object r = u.lstrip(UCHARS);
+            assertEquals(expected, r);
+        }
+    }
+
+    /**
+     * Test that {@code rstrip} works on a range of {@code str}
+     * implementations, values and iterables.
+     */
+    @Nested
+    @DisplayName("rstrip")
+    class RStripTest extends AbstractStripTest {
+
+        @ParameterizedTest(name = "\"{0}<spaces>\".rstrip()")
+        @ValueSource(strings = {"hello", "", "a b"})
+        @DisplayName("rstrip(String) (spaces)")
+        void S_rstrip(String text) throws Throwable {
+            String s = text + SPACES;
+            PyUnicode expected = newPyUnicode(text);
+            Object r = PyUnicode.rstrip(s, null);
+            assertEquals(expected, r);
+        }
+
+        @ParameterizedTest(name = "\"{0}<spaces>\".rstrip()")
+        @ValueSource(strings = {"hello", "", "a b"})
+        @DisplayName("rstrip(PyUnicode) (spaces)")
+        void U_rstrip(String text) throws Throwable {
+            String s = text + SPACES;
+            PyUnicode u = newPyUnicode(s);
+            PyUnicode expected = newPyUnicode(text);
+            Object r = u.rstrip(null);
+            assertEquals(expected, r);
+        }
+
+        @ParameterizedTest(name = "\"{0}<chaff>\".rstrip(chars)")
+        @ValueSource(strings = {"hello", "", "a b"})
+        @DisplayName("rstrip(String, String)")
+        void S_rstrip_S(String text) throws Throwable {
+            String s = text + CHAFF;
+            PyUnicode expected = newPyUnicode(text);
+            Object r = PyUnicode.rstrip(s, CHARS);
+            assertEquals(expected, r);
+        }
+
+        @ParameterizedTest(name = "\"{0}<chaff>\".rstrip(chars)")
+        @ValueSource(strings = {"hello", "", "a b"})
+        @DisplayName("rstrip(PyUnicode, String)")
+        void U_rstrip_S(String text) throws Throwable {
+            String s = text + CHAFF;
+            PyUnicode u = newPyUnicode(s);
+            PyUnicode expected = newPyUnicode(text);
+            Object r = u.rstrip(CHARS);
+            assertEquals(expected, r);
+        }
+
+        @ParameterizedTest(name = "\"{0}<chaff>\".rstrip(chars)")
+        @ValueSource(strings = {"hello", "", "a b"})
+        @DisplayName("rstrip(String, PyUnicode)")
+        void S_rstrip_U(String text) throws Throwable {
+            String s = text + CHAFF;
+            PyUnicode expected = newPyUnicode(text);
+            Object r = PyUnicode.rstrip(s, UCHARS);
+            assertEquals(expected, r);
+        }
+
+        @ParameterizedTest(name = "\"{0}<chaff>\".rstrip(chars)")
+        @ValueSource(strings = {"hello", "", "a b"})
+        @DisplayName("rstrip(PyUnicode, PyUnicode)")
+        void U_rstrip_U(String text) throws Throwable {
+            String s = text + CHAFF;
+            PyUnicode u = newPyUnicode(s);
+            PyUnicode expected = newPyUnicode(text);
+            Object r = u.rstrip(UCHARS);
+            assertEquals(expected, r);
+        }
+    }
+
+    /**
+     * Test that {@code strip} works on a range of {@code str}
+     * implementations, values and iterables.
+     */
+    @Nested
+    @DisplayName("strip")
+    class StripTest extends AbstractStripTest {
+
+        @ParameterizedTest(name = "\"<spaces>{0}<spaces>\".strip()")
+        @ValueSource(strings = {"hello", "", "a b"})
+        @DisplayName("strip(String) (spaces)")
+        void S_strip(String text) throws Throwable {
+            String s = SPACES + text + SPACES;
+            PyUnicode expected = newPyUnicode(text);
+            Object r = PyUnicode.strip(s, null);
+            assertEquals(expected, r);
+        }
+
+        @ParameterizedTest(name = "\"<spaces>{0}<spaces>\".strip()")
+        @ValueSource(strings = {"hello", "", "a b"})
+        @DisplayName("strip(PyUnicode) (spaces)")
+        void U_strip(String text) throws Throwable {
+            String s = SPACES + text + SPACES;
+            PyUnicode u = newPyUnicode(s);
+            PyUnicode expected = newPyUnicode(text);
+            Object r = u.strip(null);
+            assertEquals(expected, r);
+        }
+
+        @ParameterizedTest(name = "\"<chaff>{0}<chaff>\".strip(chars)")
+        @ValueSource(strings = {"hello", "", "a b"})
+        @DisplayName("strip(String, String)")
+        void S_strip_S(String text) throws Throwable {
+            String s = CHAFF + text + CHAFF;
+            PyUnicode expected = newPyUnicode(text);
+            Object r = PyUnicode.strip(s, CHARS);
+            assertEquals(expected, r);
+        }
+
+        @ParameterizedTest(name = "\"<chaff>{0}<chaff>\".strip(chars)")
+        @ValueSource(strings = {"hello", "", "a b"})
+        @DisplayName("strip(PyUnicode, String)")
+        void U_strip_S(String text) throws Throwable {
+            String s = CHAFF + text + CHAFF;
+            PyUnicode u = newPyUnicode(s);
+            PyUnicode expected = newPyUnicode(text);
+            Object r = u.strip(CHARS);
+            assertEquals(expected, r);
+        }
+
+        @ParameterizedTest(name = "\"<chaff>{0}<chaff>\".strip(chars)")
+        @ValueSource(strings = {"hello", "", "a b"})
+        @DisplayName("strip(String, PyUnicode)")
+        void S_strip_U(String text) throws Throwable {
+            String s = CHAFF + text + CHAFF;
+            PyUnicode expected = newPyUnicode(text);
+            Object r = PyUnicode.strip(s, UCHARS);
+            assertEquals(expected, r);
+        }
+
+        @ParameterizedTest(name = "\"<chaff>{0}<chaff>\".strip(chars)")
+        @ValueSource(strings = {"hello", "", "a b"})
+        @DisplayName("strip(PyUnicode, PyUnicode)")
+        void U_strip_U(String text) throws Throwable {
+            String s = CHAFF + text + CHAFF;
+            PyUnicode u = newPyUnicode(s);
+            PyUnicode expected = newPyUnicode(text);
+            Object r = u.strip(UCHARS);
             assertEquals(expected, r);
         }
     }
