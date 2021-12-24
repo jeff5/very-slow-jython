@@ -2669,19 +2669,6 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
             return iterator(length());
         }
 
-        /**
-         * Return a sub-range of the delegate contents corresponding to
-         * the (opaque) indices given, which must have been obtained
-         * from calls to {@link CodepointIterator#nextRangeIndex()}.
-         * Since the maximum opaque range index is not easily available,
-         * {@code end} will be trimmed to fit.
-         *
-         * @param start range index of first element to include.
-         * @param end range index of first element not to include.
-         * @return the range as an array
-         */
-        abstract int[] getRange(int start, int end);
-
         @Override
         public Iterator<Integer> iterator() { return iterator(0); }
 
@@ -2701,8 +2688,8 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
     }
 
     /**
-     * A {@code ListIterator} from which one can obtain an opaque index
-     * usable with {@link CodepointDelegate#getRange(int, int)}.
+     * A {@code ListIterator} working bidirectionally in code point
+     * indices.
      */
     interface CodepointIterator
             extends ListIterator<Integer>, PrimitiveIterator.OfInt {
@@ -2761,20 +2748,6 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
          */
         int previousInt(int n);
 
-        /**
-         * An opaque index for the next code point {@link #next()} will
-         * return, usable with
-         * {@link CodepointDelegate#getRange(int, int)}.
-         */
-        default int nextRangeIndex() { return nextIndex(); }
-
-        /**
-         * An opaque index for the next code point {@link #previous()}
-         * will return, usable with
-         * {@link CodepointDelegate#getRange(int, int)}.
-         */
-        default int previousRangeIndex() { return previousIndex(); }
-
         // Unsupported operations -----------------------------
 
         @Override
@@ -2791,6 +2764,8 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         default void add(Integer o) {
             throw new UnsupportedOperationException();
         }
+
+        // Iterator mark and restore --------------------------
 
         /**
          * Set a mark (a saved state) to which the iterator may be
@@ -2945,27 +2920,6 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
                 }
                 return new PyUnicode(TYPE, true, r);
             }
-        }
-
-        @Override
-        int[] getRange(int start, int end) {
-            // start and end are char indices
-            end = Math.min(end, s.length());
-            int n = s.codePointCount(start, end);
-            int[] r = new int[n];
-            if (end - start == n) {
-                // There are no surrogate pairs between them: easy.
-                for (int i = 0, j = start; i < n; i++) {
-                    r[i] = s.charAt(j++);
-                }
-            } else {
-                // Be prepared for surrogate pairs
-                for (int i = 0, j = start; i < n; i++) {
-                    j += Character.isBmpCodePoint(
-                            r[i] = s.codePointAt(j)) ? 1 : 2;
-                }
-            }
-            return r;
         }
 
         @Override
@@ -3270,9 +3224,6 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
                 throw noSuchElement(i);
             }
 
-            @Override
-            public int nextRangeIndex() { return index; }
-
             // The reverse iterator -------------------------------
 
             @Override
@@ -3306,13 +3257,6 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
                 index = indexSaved;
                 charIndex = charIndexSaved;
                 throw noSuchElement(i);
-            }
-
-            @Override
-            public int previousRangeIndex() {
-                int c = s.codePointBefore(charIndex);
-                return charIndex
-                        - (Character.isBmpCodePoint(c) ? 1 : 2);
             }
 
             // Diagnostic use -------------------------------------
@@ -3367,12 +3311,6 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
                 }
             }
             return new PyUnicode(TYPE, true, v);
-        }
-
-        @Override
-        int[] getRange(int start, int end) {
-            // start and end are array indices
-            return Arrays.copyOfRange(value, start, end);
         }
 
         @Override
