@@ -29,6 +29,19 @@ public class PyLong extends AbstractPyObject implements PyDict.Key {
                     .methods(PyLongMethods.class)
                     .binops(PyLongBinops.class));
 
+    /** The minimum Java {@code int} as a {@code BigInteger}. */
+    static final BigInteger MIN_INT =
+            BigInteger.valueOf(Integer.MIN_VALUE);
+    /** The maximum Java {@code int} as a {@code BigInteger}. */
+    static final BigInteger MAX_INT =
+            BigInteger.valueOf(Integer.MAX_VALUE);
+    /** The minimum Java {@code long} as a {@code BigInteger}. */
+    static final BigInteger MIN_LONG =
+            BigInteger.valueOf(Long.MIN_VALUE);
+    /** The maximum vJava {@code long} as a {@code BigInteger}. */
+    static final BigInteger MAX_LONG =
+            BigInteger.valueOf(Long.MAX_VALUE);
+
     /** The value of this Python {@code int} (sub-class instances). */
     // Has to be package visible for method implementations.
     final BigInteger value;
