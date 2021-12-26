@@ -15,6 +15,7 @@ import java.util.Set;
 import java.util.Spliterator;
 import java.util.Spliterators;
 import java.util.function.IntUnaryOperator;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.StreamSupport;
@@ -178,16 +179,9 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
     @SuppressWarnings("unused")
     private static Object __str__(String self) { return self; }
 
-    private static Object __repr__(String self) {
+    private static Object __repr__(Object self) {
         // Ok, it should be more complicated but I'm in a hurry.
-        return "'" + self + "'";
-    }
-
-    @SuppressWarnings("unused")
-    private Object __repr__() {
-        StringBuilder b = new StringBuilder();
-        for (int c : delegate) { b.appendCodePoint(c); }
-        return __repr__(b.toString());
+        return "'" + asString(self) + "'";
     }
 
     @SuppressWarnings("unused")
@@ -311,16 +305,25 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
 
     // Strip methods --------------------------------------------------
 
-    // @formatter:off
-
-    /*
-    @ExposedMethod(defaults = "null", doc = BuiltinDocs.unicode_strip_doc)
-    */
+    /**
+     * Equivalent of Python {@code str.strip()}. Any byte/character
+     * matching one of those in {@code stripChars} will be discarded
+     * from either end of this {@code str}. If
+     * {@code stripChars == null}, whitespace will be stripped. If
+     * {@code stripChars} is a {@code PyUnicode}, the result will also
+     * be a {@code PyUnicode}.
+     *
+     * @param stripChars characters to strip from either end of this
+     *     str/bytes, or null
+     * @return a new {@code PyString} (or {@link PyUnicode}), stripped
+     *     of the specified characters/bytes
+     */
     Object strip(Object stripChars) throws Throwable {
         return strip(delegate, stripChars);
     }
 
-    static Object strip(String self, Object stripChars) throws Throwable {
+    static Object strip(String self, Object stripChars)
+            throws Throwable {
         return strip(adapt(self), stripChars);
     }
 
@@ -420,14 +423,12 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         return -1;
     }
 
-    /*
-    @ExposedMethod(defaults = "null", doc = BuiltinDocs.unicode_lstrip_doc)
-    */
     Object lstrip(Object stripChars) throws Throwable {
         return lstrip(delegate, stripChars);
     }
 
-    static Object lstrip(String self, Object stripChars) throws Throwable {
+    static Object lstrip(String self, Object stripChars)
+            throws Throwable {
         return lstrip(adapt(self), stripChars);
     }
 
@@ -456,14 +457,12 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         return s.getSlice(slice);
     }
 
-    /*
-    @ExposedMethod(defaults = "null", doc = BuiltinDocs.unicode_rstrip_doc)
-    */
     Object rstrip(Object stripChars) throws Throwable {
         return rstrip(delegate, stripChars);
     }
 
-    static Object rstrip(String self, Object stripChars) throws Throwable {
+    static Object rstrip(String self, Object stripChars)
+            throws Throwable {
         return rstrip(adapt(self), stripChars);
     }
 
@@ -1032,7 +1031,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
                     /*
                      * We reached the end of p: it's a match. Emit the
                      * segment we have been accumulating, start a new
-                     * one, and lose a life.
+                     * one, and count a split.
                      */
                     list.add(segment.takeUnicode());
                     --maxsplit;
@@ -1250,9 +1249,9 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
 
                 if (match == pLength) {
                     /*
-                     * We reached the end of p: it's a match. Emit the
+                     * We reached the start of p: it's a match. Emit the
                      * segment we have been accumulating, start a new
-                     * one, and lose a life.
+                     * one, and count a split.
                      */
                     list.add(segment.takeUnicode());
                     --maxsplit;
@@ -1450,8 +1449,6 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
      * The inner implementation of {@code str.count}, returning the
      * number of occurrences of a substring. It accepts slice-like
      * arguments, which may be {@code None} or end-relative (negative).
-     * This method also supports
-     * {@link PyUnicode#count(PyObject, PyObject, PyObject)}.
      *
      * @param sub substring to find.
      * @param startObj start of slice.
@@ -1509,7 +1506,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
     /**
      * Python {@code str.replace(old, new[, count])}, returning a copy
      * of the string with all occurrences of substring {@code old}
-     * replaced by {@code new}. If argument {@code count} is
+     * replaced by {@code rep}. If argument {@code count} is
      * nonnegative, only the first {@code count} occurrences are
      * replaced.
      *
@@ -1704,9 +1701,6 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
      * str.strip() and str.title().
      */
 
-    /*
-    @ExposedMethod(doc = BuiltinDocs.unicode_lower_doc)
-    */
     @PythonMethod
     PyUnicode lower() { return mapChars(Character::toLowerCase); }
 
@@ -1715,9 +1709,6 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         return mapChars(self, Character::toLowerCase);
     }
 
-    /*
-    @ExposedMethod(doc = BuiltinDocs.unicode_upper_doc)
-    */
     @PythonMethod
     PyUnicode upper() { return mapChars(Character::toUpperCase); }
 
@@ -1726,9 +1717,6 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         return mapChars(self, Character::toUpperCase);
     }
 
-    /*
-    @ExposedMethod(doc = BuiltinDocs.unicode_title_doc)
-    */
     @PythonMethod
     PyUnicode title() { return title(delegate); }
 
@@ -1751,9 +1739,6 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         return buffer.takeUnicode();
     }
 
-    /*
-    @ExposedMethod(doc = BuiltinDocs.unicode_swapcase_doc)
-    */
     @PythonMethod
     PyUnicode swapcase() { return mapChars(PyUnicode::swapcase); }
 
@@ -1772,9 +1757,6 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         }
     }
 
-    /*
-    @ExposedMethod(defaults = "null", doc = BuiltinDocs.unicode_ljust_doc)
-    */
     @PythonMethod
     Object ljust(int width, @Default(" ") Object fillchar) {
         return pad(false, delegate, true, width,
@@ -1787,9 +1769,6 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
                 adaptFill("ljust", fillchar));
     }
 
-    /*
-    @ExposedMethod(defaults = "null", doc = BuiltinDocs.unicode__doc)
-    */
     @PythonMethod
     Object rjust(int width, @Default(" ") Object fillchar) {
         return pad(true, delegate, false, width,
@@ -1802,9 +1781,6 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
                 adaptFill("rjust", fillchar));
     }
 
-    /*
-    @ExposedMethod(defaults = "null", doc = BuiltinDocs.unicode_rjust_doc)
-    */
     @PythonMethod
     Object center(int width, @Default(" ") Object fillchar) {
         return pad(true, delegate, true, width,
@@ -1858,9 +1834,6 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         return buf.takeUnicode();
     }
 
-    /*
-    @ExposedMethod(doc = BuiltinDocs.unicode_zfill_doc)
-    */
     @PythonMethod
     Object zfill(int width) { return zfill(delegate, width); }
 
@@ -1901,9 +1874,6 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         return buf.takeUnicode();
     }
 
-    /*
-    @ExposedMethod(defaults = "8", doc = BuiltinDocs.str_expandtabs_doc)
-    */
     @PythonMethod
     Object expandtabs(@Default("8") int tabsize) {
         return expandtabs(delegate, tabsize);
@@ -1942,9 +1912,6 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         return buf.takeUnicode();
     }
 
-    /*
-    @ExposedMethod(doc = BuiltinDocs.unicode_capitalize_doc)
-    */
     @PythonMethod
     Object capitalize() { return capitalize(delegate); }
 
@@ -1978,9 +1945,6 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         }
     }
 
-    /*
-    @ExposedMethod(doc = BuiltinDocs.str_join_doc)
-    */
     @PythonMethod
     Object join(Object iterable) throws TypeError, Throwable {
         return join(delegate, iterable);
@@ -2099,9 +2063,6 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
      * @return {@code true} if this string slice starts with a specified
      *     prefix, otherwise {@code false}.
      */
-    /*
-    @ExposedMethod(defaults = {"null", "null"}, doc = BuiltinDocs.unicode_startswith_doc)
-    */
     @PythonMethod
     Object startswith(Object prefix, Object start, Object end) {
         return startswith(delegate, prefix, start, end);
@@ -2165,9 +2126,6 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
      * @return {@code true} if this string slice ends with a specified
      *     suffix, otherwise {@code false}.
      */
-    /*
-    @ExposedMethod(defaults = {"null", "null"}, doc = BuiltinDocs.unicode_endswith_doc)
-    */
     @PythonMethod
     Object endswith(Object suffix, Object start, Object end) {
         return endswith(delegate, suffix, start, end);
@@ -2225,10 +2183,6 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
      * str.isascii(). They have a common pattern.
      */
 
-    // @formatter:off
-    /*
-    @ExposedMethod(doc = BuiltinDocs.unicode_islower_doc)
-    */
     @PythonMethod
     boolean islower() { return islower(delegate); }
 
@@ -2247,9 +2201,6 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         return cased;
     }
 
-    /*
-    @ExposedMethod(doc = BuiltinDocs.unicode_isupper_doc)
-    */
     @PythonMethod
     final boolean isupper() { return isupper(delegate); }
 
@@ -2268,9 +2219,6 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         return cased;
     }
 
-    /*
-    @ExposedMethod(doc = BuiltinDocs.unicode_isalpha_doc)
-    */
     @PythonMethod
     final boolean isalpha() { return isalpha(delegate); }
 
@@ -2289,9 +2237,6 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         return true;
     }
 
-    /*
-    @ExposedMethod(doc = BuiltinDocs.unicode_isalnum_doc)
-    */
     @PythonMethod
     final boolean isalnum() { return isalnum(delegate); }
 
@@ -2324,9 +2269,6 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
                 .findFirst().isEmpty();
     }
 
-    /*
-    @ExposedMethod(doc = BuiltinDocs.unicode_isdecimal_doc)
-    */
     @PythonMethod
     final boolean isdecimal() { return isdecimal(delegate); }
 
@@ -2345,9 +2287,6 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         return true;
     }
 
-    /*
-    @ExposedMethod(doc = BuiltinDocs.unicode_isdigit_doc)
-    */
     @PythonMethod
     final boolean isdigit() { return isdigit(delegate); }
 
@@ -2366,9 +2305,6 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         return true;
     }
 
-    /*
-    @ExposedMethod(doc = BuiltinDocs.unicode_isnumeric_doc)
-    */
     @PythonMethod
     final boolean isnumeric() { return isnumeric(delegate); }
 
@@ -2389,9 +2325,6 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         return true;
     }
 
-    /*
-    @ExposedMethod(doc = BuiltinDocs.unicode_istitle_doc)
-    */
     @PythonMethod
     final boolean istitle() { return istitle(delegate); }
 
@@ -2424,9 +2357,6 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         return cased;
     }
 
-    /*
-    @ExposedMethod(doc = BuiltinDocs.unicode_isspace_doc)
-    */
     @PythonMethod
     final boolean isspace() { return isspace(delegate); }
 
@@ -2518,8 +2448,15 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         if (v instanceof String)
             return (String)v;
         else if (v instanceof PyUnicode)
-            return ((PyUnicode)v).toString();
+            return ((PyUnicode)v).asString();
         throw Abstract.requiredTypeError("a str", v);
+    }
+
+    /** @return this {@code PyUnicode} as a Java {@code String} */
+    private String asString() {
+        StringBuilder b = new StringBuilder();
+        for (int c : delegate) { b.appendCodePoint(c); }
+        return b.toString();
     }
 
     // @formatter:on
@@ -3679,6 +3616,26 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
                 throw Abstract.argumentTypeError(method, "chars",
                         "str or None", chars);
             }
+        }
+    }
+
+    /**
+     * Coerce a Python {@code object} to a Java String, or raise a
+     * specified exception.
+     *
+     * @param <E> type of exception to throw
+     * @param arg to coerce
+     * @param exc supplier for actual exception
+     * @return {@code arg} as a {@code String}
+     */
+    private static <E extends PyException> String
+            coerceToString(Object arg, Supplier<E> exc) {
+        if (arg instanceof String) {
+            return (String)arg;
+        } else if (arg instanceof PyUnicode) {
+            return ((PyUnicode)arg).asString();
+        } else {
+            throw exc.get();
         }
     }
 
