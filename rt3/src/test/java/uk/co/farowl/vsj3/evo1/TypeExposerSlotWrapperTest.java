@@ -97,7 +97,7 @@ class TypeExposerSlotWrapperTest {
         }
 
         /**
-         * Check the result of a call against {@link #exp}. The
+         * Check the result of a call against that expected. The
          * reference result is the same throughout a given sub-class
          * test.
          *

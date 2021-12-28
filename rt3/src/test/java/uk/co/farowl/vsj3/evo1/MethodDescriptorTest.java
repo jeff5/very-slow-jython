@@ -14,11 +14,11 @@ import org.junit.jupiter.api.Test;
  * creating and calling method descriptors from methods defined in Java.
  * <p>
  * An example the type of object under test is:<pre>
- * >>> str.replace
- * &lt;method 'replace' of 'str' objects>
+ * &gt;&gt;&gt; str.replace
+ * &lt;method 'replace' of 'str' objects&gt;
  * </pre> and its bound counterpart <pre>
- * >>> "hello".replace
- * &lt;built-in method replace of str object at 0x000001EC5935A3B0>
+ * &gt;&gt;&gt; "hello".replace
+ * &lt;built-in method replace of str object at 0x000001EC5935A3B0&gt;
  * </pre>
  */
 class MethodDescriptorTest extends UnitTestSupport {
@@ -27,7 +27,11 @@ class MethodDescriptorTest extends UnitTestSupport {
     @DisplayName("Check some basic Exposer properties")
     class ExposerBasic {
 
-        /** An instance method with no arguments. */
+        /**
+         * An instance method with no arguments.
+         *
+         * @throws Throwable unexpectedly
+         */
         @Test
         void str_isascii() throws Throwable {
             PyMethodDescr isascii =
@@ -44,6 +48,8 @@ class MethodDescriptorTest extends UnitTestSupport {
 
         /**
          * An instance method with no arguments and an object return.
+         *
+         * @throws Throwable unexpectedly
          */
         @Test
         void str_lower() throws Throwable {
@@ -59,7 +65,11 @@ class MethodDescriptorTest extends UnitTestSupport {
             assertEquals(0, ap.regargcount);
         }
 
-        /** An instance method with one argument and object return. */
+        /**
+         * An instance method with one argument and object return.
+         *
+         * @throws Throwable unexpectedly
+         */
         @Test
         void str_zfill() throws Throwable {
             PyMethodDescr zfill =
@@ -78,6 +88,8 @@ class MethodDescriptorTest extends UnitTestSupport {
         /**
          * An instance method with two object arguments. (There should
          * be an optional {@code int} but it isn't implemented.)
+         *
+         * @throws Throwable unexpectedly
          */
         @Test
         void str_replace() throws Throwable {
@@ -99,6 +111,8 @@ class MethodDescriptorTest extends UnitTestSupport {
         /**
          * An instance method with an int and an optional object
          * argument.
+         *
+         * @throws Throwable unexpectedly
          */
         @Test
         void str_ljust() throws Throwable {
@@ -127,6 +141,8 @@ class MethodDescriptorTest extends UnitTestSupport {
 
         /**
          * An instance method with no arguments and a primitive return.
+         *
+         * @throws Throwable unexpectedly
          */
         @Test
         void str_isascii() throws Throwable {
@@ -146,6 +162,8 @@ class MethodDescriptorTest extends UnitTestSupport {
 
         /**
          * An instance method with no arguments and an object return.
+         *
+         * @throws Throwable unexpectedly
          */
         @Test
         void str_lower() throws Throwable {
@@ -162,7 +180,11 @@ class MethodDescriptorTest extends UnitTestSupport {
             }
         }
 
-        /** An instance method with one argument. */
+        /**
+         * An instance method with one argument.
+         *
+         * @throws Throwable unexpectedly
+         */
         @Test
         void str_zfill() throws Throwable {
             PyMethodDescr zfill =
@@ -180,6 +202,8 @@ class MethodDescriptorTest extends UnitTestSupport {
         /**
          * An instance method with two object arguments and an optional
          * {@code int}.
+         *
+         * @throws Throwable unexpectedly
          */
         @Test
         void str_replace() throws Throwable {
@@ -207,6 +231,8 @@ class MethodDescriptorTest extends UnitTestSupport {
         /**
          * An instance method with an int and an optional object
          * argument.
+         *
+         * @throws Throwable unexpectedly
          */
         @Test
         void str_ljust() throws Throwable {

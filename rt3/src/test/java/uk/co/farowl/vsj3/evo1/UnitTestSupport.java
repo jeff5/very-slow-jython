@@ -123,6 +123,7 @@ class UnitTestSupport {
     /**
      * Force creation of an actual {@link PyFloat}
      *
+     * @param value to wrap
      * @return from this value.
      */
     static PyFloat newPyFloat(double value) {
@@ -132,6 +133,7 @@ class UnitTestSupport {
     /**
      * Force creation of an actual {@link PyFloat} from Object
      *
+     * @param value to wrap
      * @return from this value.
      */
     static PyFloat newPyFloat(Object value) {
@@ -150,6 +152,7 @@ class UnitTestSupport {
      * Surrogate pairs will be interpreted as their characters, unless
      * lone.
      *
+     * @param value to wrap
      * @return from this value.
      */
     static PyUnicode newPyUnicode(String value) {
@@ -160,6 +163,7 @@ class UnitTestSupport {
      * Force creation of an actual {@link PyUnicode} from an array of
      * code points, which could include surrogates, even in pairs.
      *
+     * @param value the code points
      * @return from this value.
      */
     static PyUnicode newPyUnicode(int[] value) {

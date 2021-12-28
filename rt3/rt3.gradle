@@ -95,6 +95,16 @@ task generateDynamicAPIevo1(type: DynamicAPIevo1Task) {
 classes.dependsOn(generateDynamicAPIevo1)
 
 
+// Task to generate javadoc for test code
+task testJavadoc(type:Javadoc,
+        description: 'Generate Javadoc for tests' ) {
+    source = sourceSets.test.allJava
+    classpath = sourceSets.test.compileClasspath
+    // Main javadoc already at ${buildDir}/docs/javadoc
+    destinationDir = file("${buildDir}/docs/test/javadoc")
+}
+
+
 // Some adjustments to Javadoc to ensure complex tables readable
 
 tasks.withType(Javadoc) {

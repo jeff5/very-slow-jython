@@ -459,7 +459,7 @@ class TypeExposerMethodTest {
     }
 
     /**
-     * {@link SimpleObject#m1(float)} accepts 1 argument that
+     * {@link SimpleObject#m1(double)} accepts 1 argument that
      * <b>must</b> be given by position.
      */
     @Nested
@@ -571,8 +571,8 @@ class TypeExposerMethodTest {
     }
 
     /**
-     * {@link SimpleObject#m3(int, String, Object)} accepts 3 arguments
-     * that <b>must</b> be given by position.
+     * {@link SimpleObject#m3(SimpleObject, int, String, Object)}
+     * accepts 3 arguments that <b>must</b> be given by position.
      */
     @Nested
     @DisplayName("with positional-only parameters by default")
@@ -685,9 +685,9 @@ class TypeExposerMethodTest {
     }
 
     /**
-     * {@link SimpleObject#m3pd(int, String, Object)} accepts 3
-     * arguments that <b>must</b> be given by position but two have
-     * defaults.
+     * {@link SimpleObject#m3pd(SimpleObject, int, String, Object)}
+     * accepts 3 arguments that <b>must</b> be given by position but two
+     * have defaults.
      */
     @Nested
     @DisplayName("with positional-only parameters and default values")

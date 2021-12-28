@@ -99,7 +99,8 @@ class AbstractSequenceAPITest extends UnitTestSupport {
      * second argument when needed (for testing {@code concatenation},
      * say).
      *
-     * @param a the bytes
+     * @param a the "self" bytes
+     * @param b the other bytes
      * @return the example (a reference value, test object, and other)
      */
     static Arguments bytesExample(byte[] a, byte[] b) {
@@ -294,7 +295,7 @@ class AbstractSequenceAPITest extends UnitTestSupport {
      * @param type unused (for parameterised name only)
      * @param ref a list having elements equal to those of {@code obj}
      * @param obj Python object under test
-     * @param ref a list having elements equal to those of {@code obj2}
+     * @param ref2 a list having elements equal to those of {@code obj2}
      * @param obj2 argument to method
      * @throws Throwable from the implementation
      */

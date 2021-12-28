@@ -32,7 +32,7 @@ import uk.co.farowl.vsj3.evo1.Exposed.Setter;
  * There is a nested test suite for each pattern of characteristics. For
  * test purposes, we mostly mimic the behaviour of identified types of
  * member attribute.
- * <p>
+ *
  * <table class="lined">
  * <caption>Patterns of get-set behaviour</caption>
  * <tr>

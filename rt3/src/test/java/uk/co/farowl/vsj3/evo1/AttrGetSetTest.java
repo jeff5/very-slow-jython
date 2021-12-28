@@ -26,23 +26,23 @@ class AttrGetSetTest extends UnitTestSupport {
 
     /** {@code object.__getattribute__} */
     private static final PyWrapperDescr OBJECT_GETATTRIBUTE =
-            (PyWrapperDescr) OBJECT.lookup("__getattribute__");
+            (PyWrapperDescr)OBJECT.lookup("__getattribute__");
     /** {@code object.__setattr__} */
     private static final PyWrapperDescr OBJECT_SETATTR =
-            (PyWrapperDescr) OBJECT.lookup("__setattr__");
+            (PyWrapperDescr)OBJECT.lookup("__setattr__");
     /** {@code object.__delattr__} */
     private static final PyWrapperDescr OBJECT_DELATTR =
-            (PyWrapperDescr) OBJECT.lookup("__delattr__");
+            (PyWrapperDescr)OBJECT.lookup("__delattr__");
 
     /** {@code type.__getattribute__} */
     private static final PyWrapperDescr TYPE_GETATTRIBUTE =
-            (PyWrapperDescr) PyType.TYPE.lookup("__getattribute__");
+            (PyWrapperDescr)PyType.TYPE.lookup("__getattribute__");
     /** {@code type.__setattr__} */
     private static final PyWrapperDescr TYPE_SETATTR =
-            (PyWrapperDescr) PyType.TYPE.lookup("__setattr__");
+            (PyWrapperDescr)PyType.TYPE.lookup("__setattr__");
     /** {@code type.__delattr__} */
     private static final PyWrapperDescr TYPE_DELATTR =
-            (PyWrapperDescr) PyType.TYPE.lookup("__delattr__");
+            (PyWrapperDescr)PyType.TYPE.lookup("__delattr__");
 
     /**
      * This class is effectively a built-in (or extension) Python type,
@@ -102,9 +102,11 @@ class AttrGetSetTest extends UnitTestSupport {
          * Get a bound unary method ({@code method-wrapper}) via
          * attribute access on an instance of a built-in type and call
          * it.
+         *
+         * @throws Throwable unexpectedly
          */
         @Test
-        void where_int_unary() throws TypeError, Throwable {
+        void where_int_unary() throws Throwable {
             // m = (42).__repr__
             PyMethodWrapper m = getattribute(42, "__repr__");
             // "42" == m()
@@ -115,9 +117,11 @@ class AttrGetSetTest extends UnitTestSupport {
          * Get a bound binary method ({@code method-wrapper}) via
          * attribute access on an instance of a built-in type and call
          * it.
+         *
+         * @throws Throwable unexpectedly
          */
         @Test
-        void where_int_binary() throws TypeError, Throwable {
+        void where_int_binary() throws Throwable {
             // m = (51).__sub__
             PyMethodWrapper m = getattribute(51, "__sub__");
             // 42 == m(9)
@@ -127,9 +131,11 @@ class AttrGetSetTest extends UnitTestSupport {
         /**
          * Get a unary method ({@code method-wrapper}) via attribute
          * access on an instance of a Python subclass and call it.
+         *
+         * @throws Throwable unexpectedly
          */
         @Test
-        void where_python_subclass() throws TypeError, Throwable {
+        void where_python_subclass() throws Throwable {
             // x = attrGetSetTestSubclass()
             TestSubclass x = new TestSubclass();
             // m = x.__str__
@@ -152,12 +158,12 @@ class AttrGetSetTest extends UnitTestSupport {
          */
         private PyMethodWrapper getattribute(Object o, String name)
                 throws Throwable {
-            PyMethodWrapper m = (PyMethodWrapper) OBJECT_GETATTRIBUTE
+            PyMethodWrapper m = (PyMethodWrapper)OBJECT_GETATTRIBUTE
                     .__call__(new Object[] {o, name}, null);
             assertSame(o, m.self);
             // Check same effect with PyUnicode
             PyMethodWrapper m2 =
-                    (PyMethodWrapper) OBJECT_GETATTRIBUTE.__call__(
+                    (PyMethodWrapper)OBJECT_GETATTRIBUTE.__call__(
                             new Object[] {o, newPyUnicode(name)}, null);
             assertSame(m.self, m2.self);
             assertSame(m.descr, m2.descr);
@@ -173,9 +179,11 @@ class AttrGetSetTest extends UnitTestSupport {
         /**
          * Get an object via attribute access on an instance of a Python
          * subclass.
+         *
+         * @throws Throwable unexpectedly
          */
         @Test
-        void where_python_subclass() throws TypeError, Throwable {
+        void where_python_subclass() throws Throwable {
             // x = attrGetSetTestSubclass()
             TestSubclass x = new TestSubclass();
             // x.a = 42 # using Java API
@@ -215,9 +223,11 @@ class AttrGetSetTest extends UnitTestSupport {
         /**
          * Set an object via attribute access on an instance of a Python
          * subclass.
+         *
+         * @throws Throwable unexpectedly
          */
         @Test
-        void where_python_subclass() throws TypeError, Throwable {
+        void where_python_subclass() throws Throwable {
             // x = attrGetSetTestSubclass()
             TestSubclass x = new TestSubclass();
             // x.a = 42
@@ -237,10 +247,10 @@ class AttrGetSetTest extends UnitTestSupport {
          * @param value to set
          * @throws Throwable from the implementation
          */
-        protected Object setattr(Object o, String name, Object value)
+        protected void setattr(Object o, String name, Object value)
                 throws Throwable {
-            return OBJECT_SETATTR
-                    .__call__(new Object[] {o, name, value}, null);
+            OBJECT_SETATTR.__call__(new Object[] {o, name, value},
+                    null);
         }
     }
 
@@ -251,9 +261,11 @@ class AttrGetSetTest extends UnitTestSupport {
         /**
          * Delete an object via attribute access on an instance of a
          * Python subclass
+         *
+         * @throws Throwable unexpectedly
          */
         @Test
-        void where_python_subclass() throws TypeError, Throwable {
+        void where_python_subclass() throws Throwable {
             // x = attrGetSetTestSubclass()
             TestSubclass x = new TestSubclass();
             // x.a = 42 # using Java API
@@ -285,9 +297,11 @@ class AttrGetSetTest extends UnitTestSupport {
         /**
          * Get an object via attribute access on a Python type that
          * allows one to be set.
+         *
+         * @throws Throwable unexpectedly
          */
         @Test
-        void where_python_subclass() throws TypeError, Throwable {
+        void where_python_subclass() throws Throwable {
             // C = attrGetSetTestSubclass
             PyType C = TestSubclass.TYPE;
             // C.a = 42
@@ -327,9 +341,11 @@ class AttrGetSetTest extends UnitTestSupport {
         /**
          * Set an object via attribute access on a Python type that
          * allows it.
+         *
+         * @throws Throwable unexpectedly
          */
         @Test
-        void where_python_subclass() throws TypeError, Throwable {
+        void where_python_subclass() throws Throwable {
             // C = attrGetSetTestSubclass
             PyType C = TestSubclass.TYPE;
             // C.a = 42
@@ -346,13 +362,11 @@ class AttrGetSetTest extends UnitTestSupport {
          *
          * @param t on which to seek the attribute
          * @param name of the attribute
-         * @return {@code t.name}
          * @throws Throwable from the implementation
          */
-        private Object setattr(PyType t, String name, Object value)
+        private void setattr(PyType t, String name, Object value)
                 throws TypeError, Throwable {
-            return TYPE_SETATTR.__call__(new Object[] {t, name, value},
-                    null);
+            TYPE_SETATTR.__call__(new Object[] {t, name, value}, null);
         }
     }
 
@@ -368,10 +382,12 @@ class AttrGetSetTest extends UnitTestSupport {
          * It is not possible to set an object via attribute
          * {@code object.__setattr__} access on a Python type (even one
          * that allows it via {@code type.__setattr__}).
+         *
+         * @throws Throwable unexpectedly
          */
         @Override
         @Test
-        void where_python_subclass() throws TypeError, Throwable {
+        void where_python_subclass() throws Throwable {
             // C = attrGetSetTestSubclass
             PyType C = TestSubclass.TYPE;
             // C.a = 42
@@ -385,9 +401,11 @@ class AttrGetSetTest extends UnitTestSupport {
 
         /**
          * Delete an attribute via attribute access on a Python type.
+         *
+         * @throws Throwable unexpectedly
          */
         @Test
-        void where_python_subclass() throws TypeError, Throwable {
+        void where_python_subclass() throws Throwable {
             // C = attrGetSetTestSubclass
             PyType C = TestSubclass.TYPE;
             // C.a = 42
@@ -424,10 +442,12 @@ class AttrGetSetTest extends UnitTestSupport {
          * It is not possible to delete an object via attribute
          * {@code object.__delattr__} access on a Python type (even one
          * that allows setting via {@code type.__setattr__}).
+         *
+         * @throws Throwable unexpectedly
          */
         @Override
         @Test
-        void where_python_subclass() throws TypeError, Throwable {
+        void where_python_subclass() throws Throwable {
             // C = attrGetSetTestSubclass
             PyType C = TestSubclass.TYPE;
             // C.a = 42

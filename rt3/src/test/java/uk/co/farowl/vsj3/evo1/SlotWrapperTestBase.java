@@ -270,7 +270,6 @@ class SlotWrapperTestBase {
          *
          * @param type under test
          * @param name of the special method
-         * @param signature required of the slot method
          * @param cases list of values to use as self
          * @throws IllegalArgumentException if not a unary slot method
          *     name
@@ -536,6 +535,7 @@ class SlotWrapperTestBase {
          *
          * @param s self argument on which to invoke
          * @param o other argument on which to invoke
+         * @return result of call
          * @throws Throwable unexpectedly
          */
         Object makeCall(Object s, Object o) throws Throwable {
@@ -548,6 +548,7 @@ class SlotWrapperTestBase {
          *
          * @param s self argument on which to invoke
          * @param o other argument on which to invoke
+         * @return result of call
          * @throws Throwable unexpectedly
          */
         Object makeCallKW(Object s, Object o) throws Throwable {
