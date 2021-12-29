@@ -19,7 +19,10 @@ class ComparisonSlotWrapperTest extends UnitTestSupport {
      * Test invocation of the {@code float.__lt__} descriptor on
      * accepted {@code float} classes in all combinations with
      * {@code float} and {@code int} operand types.
+     *
+     * @throws Throwable unexpectedly
      */
+    @SuppressWarnings("static-method")
     @Test
     void float_lt() throws Throwable {
 
@@ -61,7 +64,10 @@ class ComparisonSlotWrapperTest extends UnitTestSupport {
      * Test invocation of the {@code float.__eq__} descriptor on
      * accepted {@code float} classes in all combinations with
      * {@code float} and {@code int} operand types.
+     *
+     * @throws Throwable unexpectedly
      */
+    @SuppressWarnings("static-method")
     @Test
     void float_eq() throws Throwable {
 
@@ -102,7 +108,10 @@ class ComparisonSlotWrapperTest extends UnitTestSupport {
     /**
      * Test invocation of the {@code int.__lt__} descriptor on accepted
      * {@code int} classes in all combinations.
+     *
+     * @throws Throwable unexpectedly
      */
+    @SuppressWarnings("static-method")
     @Test
     void int_lt() throws Throwable {
 
@@ -143,7 +152,10 @@ class ComparisonSlotWrapperTest extends UnitTestSupport {
     /**
      * Test invocation of the {@code int.__eq__} descriptor on accepted
      * {@code int} classes in all combinations.
+     *
+     * @throws Throwable unexpectedly
      */
+    @SuppressWarnings("static-method")
     @Test
     void int_eq() throws Throwable {
 
@@ -185,6 +197,8 @@ class ComparisonSlotWrapperTest extends UnitTestSupport {
     /**
      * Test invocation of the {@code str.__lt__} descriptor on accepted
      * {@code str} classes in all combinations.
+     *
+     * @throws Throwable unexpectedly
      */
     @Test
     void str_lt() throws Throwable {
@@ -199,7 +213,10 @@ class ComparisonSlotWrapperTest extends UnitTestSupport {
      * Test invoke of the {@code str.__lt__} descriptor on accepted
      * {@code str} classes for the given pair of arguments supplied as
      * {@code String}s.
+     *
+     * @throws Throwable unexpectedly
      */
+    @SuppressWarnings("static-method")
     private void str_lt_impl(String sv, String sw, boolean expected)
             throws Throwable {
 
@@ -236,7 +253,10 @@ class ComparisonSlotWrapperTest extends UnitTestSupport {
      * Test invocation of the {@code str.__eq__} descriptor on accepted
      * {@code str} classes in all combinations with {@code str} and
      * {@code int} operand types.
+     *
+     * @throws Throwable unexpectedly
      */
+    @SuppressWarnings("static-method")
     @Test
     void str_eq() throws Throwable {
 

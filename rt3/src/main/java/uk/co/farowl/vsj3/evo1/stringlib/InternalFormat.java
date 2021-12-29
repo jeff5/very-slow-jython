@@ -711,10 +711,12 @@ public class InternalFormat {
          * Convenience method returning a {@link FormatError} reporting
          * that some format specifier feature is not allowed for the
          * named format code and data type. Produces a message like
-         * "OUTRAGE not allowed with TYPE format specifier 'X'" or
-         * "OUTRAGE not allowed in TYPE format specifier".
+         * "OUTRAGE (SYMBOL) not allowed with TYPE format specifier 'X'"
+         * or "OUTRAGE not allowed in TYPE format specifier".
          *
          * @param outrage committed in the present case
+         * @param symbol the modifier ('#' say) (or '\0' not to mention
+         *     one)
          * @param forType the data type (e.g. "integer") it where it is
          *     an outrage
          * @param code the formatting code for which it is an outrage

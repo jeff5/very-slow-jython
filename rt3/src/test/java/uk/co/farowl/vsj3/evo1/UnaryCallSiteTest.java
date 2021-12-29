@@ -22,7 +22,10 @@ class UnaryCallSiteTest extends UnitTestSupport {
     /**
      * Test invocation of a {@code __neg__} call site on accepted
      * {@code float} classes.
+     *
+     * @throws Throwable unexpectedly
      */
+    @SuppressWarnings("static-method")
     @Test
     void neg_float() throws Throwable {
 
@@ -55,7 +58,10 @@ class UnaryCallSiteTest extends UnitTestSupport {
     /**
      * Test invocation of a {@code __neg__} call site on accepted
      * {@code int} classes.
+     *
+     * @throws Throwable unexpectedly
      */
+    @SuppressWarnings("static-method")
     @Test
     void neg_int() throws Throwable {
 
@@ -91,7 +97,10 @@ class UnaryCallSiteTest extends UnitTestSupport {
     /**
      * Test invocation of a {@code __neg__} call site on accepted
      * {@code bool} classes. This is to treat {@code bool} as an {@code int}.
+     *
+     * @throws Throwable unexpectedly
      */
+    @SuppressWarnings("static-method")
     @Test
     void neg_bool() throws Throwable {
 
@@ -118,7 +127,10 @@ class UnaryCallSiteTest extends UnitTestSupport {
     /**
      * Test invocation of {@code __repr__} call site on accepted
      * {@code float} classes.
+     *
+     * @throws Throwable unexpectedly
      */
+    @SuppressWarnings("static-method")
     @Test
     void repr_float() throws Throwable {
 
@@ -151,7 +163,10 @@ class UnaryCallSiteTest extends UnitTestSupport {
     /**
      * Test invocation of {@code __repr__} call site on accepted
      * {@code int} classes.
-     */
+         *
+     * @throws Throwable unexpectedly
+ */
+    @SuppressWarnings("static-method")
     @Test
     void repr_int() throws Throwable {
 
@@ -189,7 +204,10 @@ class UnaryCallSiteTest extends UnitTestSupport {
     /**
      * Test invocation of {@code __repr__} call site on accepted
      * {@code bool} classes.
+     *
+     * @throws Throwable unexpectedly
      */
+    @SuppressWarnings("static-method")
     @Test
     void repr_bool() throws Throwable {
 
@@ -219,8 +237,9 @@ class UnaryCallSiteTest extends UnitTestSupport {
      * Test a {@code __invert__} call site throws {@link TypeError}
      * {@code float} classes.
      */
+    @SuppressWarnings("static-method")
     @Test
-    void invert_float_error() throws Throwable {
+    void invert_float_error()  {
 
         // Bootstrap the call site
         UnaryOpCallSite cs = new UnaryOpCallSite(Slot.op_invert);

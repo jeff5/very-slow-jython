@@ -40,7 +40,11 @@ public class MarkupIterator implements CraftedPyObject {
      */
     private final FieldNumbering numbering;
 
-    /** Constructor used at top-level to enumerate a format. */
+    /** Constructor used at top-level to enumerate a format.
+     * @param markup to parse
+     * @param bytes if originally bytes-like
+     * @param numbering for automatically numbered arguments
+     */
     private MarkupIterator(String markup, boolean bytes,
             FieldNumbering numbering) {
         this.markup = markup;
@@ -48,7 +52,9 @@ public class MarkupIterator implements CraftedPyObject {
         this.numbering = numbering;
     }
 
-    /** Constructor used at top-level to enumerate a format. */
+    /** Constructor used at top-level to enumerate a format.
+          * @param markup to parse
+*/
     public MarkupIterator(String markup) {
         this(markup, false, new FieldNumbering());
     }
@@ -56,12 +62,17 @@ public class MarkupIterator implements CraftedPyObject {
     /**
      * Constructor used at top-level to enumerate a format that may be
      * for a bytes-like object.
+     * @param markup to parse
+     * @param bytes if originally bytes-like
      */
     public MarkupIterator(String markup, boolean bytes) {
         this(markup, bytes, new FieldNumbering());
     }
 
-    /** Variant constructor used when formats are nested. */
+    /** Variant constructor used when formats are nested.
+     * @param enclosingIterator within which this is nested
+     * @param subMarkup the substring this is to parse
+     */
     public MarkupIterator(MarkupIterator enclosingIterator,
             String subMarkup) {
         this(subMarkup, enclosingIterator.bytes,
@@ -163,7 +174,7 @@ public class MarkupIterator implements CraftedPyObject {
      * Return the next {@link Chunk} from the iterator, which is a
      * structure containing parsed elements of the replacement field (if
      * any), and its preceding text. This is the Java equivalent of the
-     * tuple returned by {@link #__iternext__()}. This finds use in the
+     * tuple returned by {@link #__next__()}. This finds use in the
      * implementation of {@code str.format} and {@code unicode.format}.
      *
      * @return the chunk

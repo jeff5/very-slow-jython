@@ -9,8 +9,10 @@ import static uk.co.farowl.vsj3.evo1.PyObjectUtil.NO_CONVERSION;
 import java.math.BigInteger;
 import java.util.stream.Stream;
 
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -23,7 +25,9 @@ import uk.co.farowl.vsj3.evo1.stringlib.InternalFormat.Spec;
 import uk.co.farowl.vsj3.evo1.stringlib.TextFormatter;;
 
 /**
- * Tests of formatting of built-in types to string using their __format__ method (on which built-in method {@code format()} relies)..
+ * Tests of formatting of built-in types to string using their
+ * __format__ method (on which built-in method {@code format()}
+ * relies)..
  * <p>
  * At present, we only have tests for {@code int.__format__}.
  */
@@ -75,7 +79,7 @@ class FormatTest extends UnitTestSupport {
          *     print(java_values_in_fmt(ival, f))
          * </pre>
          *
-         * @return the examples for search tests.
+         * @return the examples for integer formatting tests.
          */
         static Stream<Arguments> intExamples() {
             return Stream.of( //
@@ -254,33 +258,22 @@ class FormatTest extends UnitTestSupport {
         }
     }
 
-    public void strFormat() {
+    @Disabled("str.__format__ not yet ported fully")
+    @Test
+    @DisplayName("rudimentary str.__format__ test")
+    @SuppressWarnings("static-method")
+    void strFormat() {
         String v = "abc";
-        TextFormatter f = newTextFormatter("");
-        assertEquals("abc", f.format(v).pad().getResult());
+        PyUnicode e = newPyUnicode(v);
+        Object r = PyUnicode.__format__(v, "");
+        assertEquals(e, r);
 
         String v2 = "abcdef";
-        f = newTextFormatter(".3");
-        assertEquals("abc", f.format(v2).pad().getResult());
+        r = PyUnicode.__format__(v2, ".3");
+        assertEquals(e, r);
 
-        f = newTextFormatter("6");
-        assertEquals("abc   ", f.format(v).pad().getResult());
-    }
-
-    private static TextFormatter newTextFormatter(String fmt) {
-        Spec spec = InternalFormat.fromText(fmt);
-        return new TextFormatter(spec) {
-            @Override
-            public TextFormatter format(Object o)
-                    throws FormatError, NoConversion {
-                if (o instanceof String) {
-                    return format((String)o);
-                } else if (o instanceof PyUnicode) {
-                    return format(PyUnicode.asString(o));
-                } else {
-                    throw NO_CONVERSION;
-                }
-            }
-        };
+        r = PyUnicode.__format__(v2, "6");
+        PyUnicode e2 = newPyUnicode("abc   ");
+        assertEquals(e2, r);
     }
 }

@@ -26,7 +26,10 @@ class BinaryCallSiteTest extends UnitTestSupport {
      * implementations of {@code __sub__} so it is these we end up
      * invoking. (We're unable to test for this except with the
      * debugger.)
+     *
+     * @throws Throwable unexpectedly
      */
+    @SuppressWarnings("static-method")
     @Test
     void sub_float() throws Throwable {
 
@@ -79,7 +82,10 @@ class BinaryCallSiteTest extends UnitTestSupport {
      * {@code int} defines class-specific implementations of
      * {@code __sub__} so it should be these we end up invoking. (We're
      * unable to test for this except with the debugger.)
+     *
+     * @throws Throwable unexpectedly
      */
+    @SuppressWarnings("static-method")
     @Test
     void sub_int() throws Throwable {
 
@@ -128,7 +134,10 @@ class BinaryCallSiteTest extends UnitTestSupport {
     /**
      * Test invocation of a {@code __sub__} call site on accepted
      * {@code bool} classes.
+     *
+     * @throws Throwable unexpectedly
      */
+    @SuppressWarnings("static-method")
     @Test
     void sub_bool() throws Throwable {
 
@@ -167,7 +176,10 @@ class BinaryCallSiteTest extends UnitTestSupport {
      * accepted and (non-accepted) operand classes must be valid. For
      * this test, we need parts of {@code int} to work too, since that
      * type will be consulted about {@code int - float}.
+     *
+     * @throws Throwable unexpectedly
      */
+    @SuppressWarnings("static-method")
     @Test
     void sub_float_int() throws Throwable {
 
@@ -229,7 +241,10 @@ class BinaryCallSiteTest extends UnitTestSupport {
      * classes of {@code int}. For this test, we need parts of
      * {@code bool} to work too, since that type will be consulted about
      * {@code bool & int}.
+     *
+     * @throws Throwable unexpectedly
      */
+    @SuppressWarnings("static-method")
     @Test
     void and_int() throws Throwable {
 
@@ -287,7 +302,10 @@ class BinaryCallSiteTest extends UnitTestSupport {
      * Test invocation of {@code __and__} call site on accepted
      * {@code bool} classes. Logical operations on {@code bool} operands
      * return {@code bool} results.
+     *
+     * @throws Throwable unexpectedly
      */
+    @SuppressWarnings("static-method")
     @Test
     void and_bool() throws Throwable {
 
@@ -297,7 +315,7 @@ class BinaryCallSiteTest extends UnitTestSupport {
 
         for (Boolean v : List.of(true, false)) {
             for (Boolean w : List.of(true, false)) {
-                Object r = invoker.invokeExact((Object) v, (Object) w);
+                Object r = invoker.invokeExact((Object)v, (Object)w);
                 assertEquals(Boolean.class, r.getClass());
                 assertEquals(v & w, r);
             }
@@ -307,7 +325,7 @@ class BinaryCallSiteTest extends UnitTestSupport {
         // Re-invoke (should entail no further fall-back)
         for (Boolean v : List.of(true, false)) {
             for (Boolean w : List.of(true, false)) {
-                Object r = invoker.invokeExact((Object) v, (Object) w);
+                Object r = invoker.invokeExact((Object)v, (Object)w);
                 assertEquals(v & w, r);
             }
         }
@@ -319,8 +337,9 @@ class BinaryCallSiteTest extends UnitTestSupport {
      * Test the {@code __or__} call site throws {@link TypeError} on
      * {@code float}.
      */
+    @SuppressWarnings("static-method")
     @Test
-    void or_float_error() throws Throwable {
+    void or_float_error() {
 
         Double dv = 50.0, dw = 8.0;
         PyFloat pv = newPyFloat(dv), pw = newPyFloat(dw);

@@ -50,6 +50,8 @@ class UnarySlotWrapperTest extends UnitTestSupport {
 
             /**
              * As {@link #supports_call()} but with empty keyword array.
+             *
+             * @throws Throwable unexpectedly
              */
             @Test
             void supports_call_with_keywords() throws Throwable {
@@ -62,6 +64,8 @@ class UnarySlotWrapperTest extends UnitTestSupport {
             /**
              * As {@link #supports_bound_call()} but with empty keyword
              * array.
+             *
+             * @throws Throwable unexpectedly
              */
             @Test
             void supports_bound_call_with_keywords() throws Throwable {

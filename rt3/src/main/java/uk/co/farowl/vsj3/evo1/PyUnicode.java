@@ -27,7 +27,6 @@ import uk.co.farowl.vsj3.evo1.PyObjectUtil.NoConversion;
 import uk.co.farowl.vsj3.evo1.PySequence.Delegate;
 import uk.co.farowl.vsj3.evo1.PySlice.Indices;
 import uk.co.farowl.vsj3.evo1.base.InterpreterError;
-import uk.co.farowl.vsj3.evo1.stringlib.IntegerFormatter;
 import uk.co.farowl.vsj3.evo1.stringlib.InternalFormat;
 import uk.co.farowl.vsj3.evo1.stringlib.InternalFormat.FormatError;
 import uk.co.farowl.vsj3.evo1.stringlib.InternalFormat.FormatOverflow;
@@ -73,7 +72,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
      * Helper to implement {@code __getitem__} and other index-related
      * operations.
      */
-    private UnicodeDelegate delegate = new UnicodeDelegate();
+    private UnicodeAdapter delegate = new UnicodeAdapter();
 
     /**
      * Cached hash of the {@code str}, lazily computed in
@@ -165,7 +164,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
      * necessarily a {@code PyUnicode}, unless the argument contains
      * non-BMP code points.
      *
-     * @param cp to code point convert
+     * @param s to convert or return
      * @return a Python {@code str}
      */
     public static Object fromJavaString(String s) {
@@ -318,24 +317,23 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
     // Strip methods --------------------------------------------------
 
     /**
-     * Equivalent of Python {@code str.strip()}. Any byte/character
-     * matching one of those in {@code stripChars} will be discarded
-     * from either end of this {@code str}. If
-     * {@code stripChars == null}, whitespace will be stripped. If
-     * {@code stripChars} is a {@code PyUnicode}, the result will also
-     * be a {@code PyUnicode}.
+     * Python {@code str.strip()}. Any byte/character matching one of
+     * those in {@code stripChars} will be discarded from either end of
+     * this {@code str}. If {@code stripChars == null}, whitespace will
+     * be stripped.
      *
      * @param stripChars characters to strip from either end of this
-     *     str/bytes, or null
-     * @return a new {@code PyString} (or {@link PyUnicode}), stripped
-     *     of the specified characters/bytes
+     *     {@code str/bytes}, or {@code null}
+     * @return a new {@code str}, stripped of the specified
+     *     characters/bytes
+     * @throws TypeError on {@code stripChars} type errors
      */
-    Object strip(Object stripChars) throws Throwable {
+    Object strip(Object stripChars) throws TypeError {
         return strip(delegate, stripChars);
     }
 
     static Object strip(String self, Object stripChars)
-            throws Throwable {
+            throws TypeError {
         return strip(adapt(self), stripChars);
     }
 
@@ -345,26 +343,28 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
      *
      * @param s representing {@code self}
      * @param stripChars to remove, or {@code null} or {@code None}
-     * @return the str stripped
-     * @throws Throwable on {@code stripChars} type errors
+     * @return the {@code str} stripped
+     * @throws TypeError on {@code stripChars} type errors
      */
     private static Object strip(CodepointDelegate s, Object stripChars)
-            throws Throwable {
+            throws TypeError {
         Set<Integer> p = adaptStripSet("strip", stripChars);
         int left, right;
         if (p == null) {
             // Stripping spaces
             right = findRight(s);
-            // If it's all spaces, we can save a job
+            // If it's all spaces, we know left==0
             left = right < 0 ? 0 : findLeft(s);
         } else {
             // Stripping specified characters
             right = findRight(s, p);
-            // If it all matches, we can save a job
+            // If it all matches, we know left==0
             left = right < 0 ? 0 : findLeft(s, p);
         }
-        // Substring from leftmost non-matching character up to and
-        // including the rightmost (or "")
+        /*
+         * Substring from leftmost non-matching character up to and
+         * including the rightmost (or "")
+         */
         PySlice.Indices slice = getSliceIndices(s, left, right + 1);
         return slice.slicelength == 0 ? "" : s.getSlice(slice);
     }
@@ -435,12 +435,24 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         return -1;
     }
 
-    Object lstrip(Object stripChars) throws Throwable {
+    /**
+     * Python {@code str.lstrip()}. Any byte/character matching one of
+     * those in {@code stripChars} will be discarded from the left of
+     * this {@code str}. If {@code stripChars == null}, whitespace will
+     * be stripped.
+     *
+     * @param stripChars characters to strip from this
+     *     {@code str/bytes}, or {@code null}
+     * @return a new {@code str}, left-stripped of the specified
+     *     characters/bytes
+     * @throws TypeError on {@code stripChars} type errors
+     */
+    Object lstrip(Object stripChars) throws TypeError {
         return lstrip(delegate, stripChars);
     }
 
     static Object lstrip(String self, Object stripChars)
-            throws Throwable {
+            throws TypeError {
         return lstrip(adapt(self), stripChars);
     }
 
@@ -451,10 +463,10 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
      * @param s representing {@code self}
      * @param stripChars to remove, or {@code null} or {@code None}
      * @return the str stripped
-     * @throws Throwable on {@code stripChars} type errors
+     * @throws TypeError on {@code stripChars} type errors
      */
     private static Object lstrip(CodepointDelegate s, Object stripChars)
-            throws Throwable {
+            throws TypeError {
         Set<Integer> p = adaptStripSet("lstrip", stripChars);
         int left;
         if (p == null) {
@@ -464,17 +476,31 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
             // Stripping specified characters
             left = findLeft(s, p);
         }
-        // Substring from this leftmost non-matching character (or "")
+        /*
+         * Substring from this leftmost non-matching character (or "")
+         */
         PySlice.Indices slice = getSliceIndices(s, left, null);
         return s.getSlice(slice);
     }
 
-    Object rstrip(Object stripChars) throws Throwable {
+    /**
+     * Python {@code str.rstrip()}. Any byte/character matching one of
+     * those in {@code stripChars} will be discarded from the right of
+     * this {@code str}. If {@code stripChars == null}, whitespace will
+     * be stripped.
+     *
+     * @param stripChars characters to strip from this
+     *     {@code str/bytes}, or {@code null}
+     * @return a new {@code str}, right-stripped of the specified
+     *     characters/bytes
+     * @throws TypeError on {@code stripChars} type errors
+     */
+    Object rstrip(Object stripChars) throws TypeError {
         return rstrip(delegate, stripChars);
     }
 
     static Object rstrip(String self, Object stripChars)
-            throws Throwable {
+            throws TypeError {
         return rstrip(adapt(self), stripChars);
     }
 
@@ -485,10 +511,10 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
      * @param s representing {@code self}
      * @param stripChars to remove, or {@code null} or {@code None}
      * @return the str stripped
-     * @throws Throwable on {@code stripChars} type errors
+     * @throws TypeError on {@code stripChars} type errors
      */
     private static Object rstrip(CodepointDelegate s, Object stripChars)
-            throws Throwable {
+            throws TypeError {
         Set<Integer> p = adaptStripSet("rstrip", stripChars);
         int right;
         if (p == null) {
@@ -498,8 +524,10 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
             // Stripping specified characters
             right = findRight(s, p);
         }
-        // Substring up to and including this rightmost non-matching
-        // character (or "")
+        /*
+         * Substring up to and including this rightmost non-matching
+         * character (or "")
+         */
         PySlice.Indices slice = getSliceIndices(s, null, right + 1);
         return s.getSlice(slice);
     }
@@ -533,6 +561,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
      * @param start start of slice.
      * @param end end of slice.
      * @return index of {@code sub} in this object or -1 if not found.
+     * @throws TypeError on {@code sub} type errors
      */
     @PythonMethod
     int find(Object sub, Object start, Object end) {
@@ -1435,9 +1464,10 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
      * @param start start of slice.
      * @param end end of slice.
      * @return count of occurrences.
+     * @throws TypeError on {@code sub} type errors
      */
     @PythonMethod
-    int count(Object sub, Object start, Object end) {
+    int count(Object sub, Object start, Object end) throws TypeError {
         return count(delegate, sub, start, end);
     }
 
@@ -2074,9 +2104,11 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
      * @param end end of slice.
      * @return {@code true} if this string slice starts with a specified
      *     prefix, otherwise {@code false}.
+     * @throws TypeError on {@code prefix} type errors
      */
     @PythonMethod
-    Object startswith(Object prefix, Object start, Object end) {
+    Object startswith(Object prefix, Object start, Object end)
+            throws TypeError {
         return startswith(delegate, prefix, start, end);
     }
 
@@ -2137,9 +2169,11 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
      * @param end end of slice.
      * @return {@code true} if this string slice ends with a specified
      *     suffix, otherwise {@code false}.
+     * @throws TypeError on {@code suffix} type errors
      */
     @PythonMethod
-    Object endswith(Object suffix, Object start, Object end) {
+    Object endswith(Object suffix, Object start, Object end)
+            throws TypeError {
         return endswith(delegate, suffix, start, end);
     }
 
@@ -2651,9 +2685,6 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
          * that the first call to {@code previous()} returns the last
          * element.
          *
-         * @param index starting position (code point index)
-         * @param start index of first element to include.
-         * @param end index of first element not to include.
          * @return the iterator
          */
         CodepointIterator iteratorLast() {
@@ -2669,6 +2700,14 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
          * @return the object of which this is the delegate
          */
         abstract Object principal();
+
+        // Re-declared here to remove throws clause
+        @Override
+        public abstract Object getItem(int i);
+
+        // Re-declared here to remove throws clause
+        @Override
+        public abstract Object getSlice(Indices slice);
 
         @Override
         public String toString() {
@@ -2724,14 +2763,15 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
 
         /**
          * Returns the previous {@code int} element in the iteration.
-         * This is just previous specialised to a primitive {@code int}.
+         * This is just {@link #previous()} specialised to a primitive
+         * {@code int}.
          *
-         * @return
+         * @return the previous {@code int}
          */
         int previousInt();
 
         /**
-         * Equivalent to {@code n} calls to {@link #prevousInt()}
+         * Equivalent to {@code n} calls to {@link #previousInt()}
          * returning the last result.
          *
          * @param n the number of steps to take (in reverse)
@@ -2867,7 +2907,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         }
 
         @Override
-        public Object getSlice(Indices slice) throws Throwable {
+        public Object getSlice(Indices slice) {
             if (slice.slicelength == 0) {
                 return "";
             } else if (slice.step == 1 && isBMP()) {
@@ -3269,7 +3309,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
      * need only specify the work specific to {@link PyUnicode}
      * instances.
      */
-    class UnicodeDelegate extends CodepointDelegate {
+    class UnicodeAdapter extends CodepointDelegate {
 
         @Override
         public int length() { return value.length; }
@@ -3546,7 +3586,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
      *
      * @return the delegate for sequence operations on this {@code str}
      */
-    UnicodeDelegate adapt() { return delegate; }
+    UnicodeAdapter adapt() { return delegate; }
 
     /**
      * Adapt a Python {@code str}, as by {@link #adapt(Object)}, that is
@@ -3659,7 +3699,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
      * @throws TypeError if {@code sep} cannot be wrapped as a delegate
      */
     static Set<Integer> adaptStripSet(String method, Object chars)
-            throws TypeError, ValueError {
+            throws TypeError {
         if (chars == null || chars == Py.None) {
             return null;
         } else {
@@ -3680,8 +3720,8 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
      * @param start first index included
      * @param end first index not included
      * @return indices of the slice
-     * @throws TypeError if {@code start} or {@code end} cannot be
-     *     considered an index
+     * @throws PyException if {@code start} or {@code end} cannot be
+     *     considered an index (or from their {@code __index__})
      */
     private static PySlice.Indices getSliceIndices(CodepointDelegate s,
             Object start, Object end) throws TypeError {
@@ -3754,17 +3794,23 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         private int[] value;
         private int len = 0;
 
-        /** Create an empty buffer of a defined initial capacity. */
-        IntArrayBuilder(int capacity) {
-            value = new int[capacity];
-        }
+        /**
+         * Create an empty buffer of a defined initial capacity.
+         *
+         * @param capacity initially
+         */
+        IntArrayBuilder(int capacity) { value = new int[capacity]; }
 
         /** Create an empty buffer of a default initial capacity. */
         IntArrayBuilder() {
             value = EMPTY_INT_ARRAY;
         }
 
-        /** The number of elements currently. */
+        /**
+         * The number of elements currently
+         *
+         * @return the number of elements currently.
+         */
         int length() {
             return len;
         }
@@ -3772,13 +3818,19 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         /**
          * An array of the elements in the buffer (not modified by
          * appends hereafter).
+         *
+         * @return the elements in the buffer
          */
         int[] value() {
             return len == value.length ? value
                     : Arrays.copyOf(value, len);
         }
 
-        /** Ensure there is room for another {@code n} elements. */
+        /**
+         * Ensure there is room for another {@code n} elements.
+         *
+         * @param n to make space for
+         */
         private void ensure(int n) {
             if (len + n > value.length) {
                 int newSize = Math.max(value.length * 2, MINSIZE);
@@ -3788,14 +3840,24 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
             }
         }
 
-        /** Append one element. */
+        /**
+         * Append one element.
+         *
+         * @param v to append
+         * @return this builder
+         */
         IntArrayBuilder append(int v) {
             ensure(1);
             value[len++] = v;
             return this;
         }
 
-        /** Append all the elements from a sequence. */
+        /**
+         * Append all the elements from a sequence.
+         *
+         * @param seq from which to take items
+         * @return this builder
+         */
         IntArrayBuilder append(PySequence.OfInt seq) {
             ensure(seq.length());
             for (int v : seq) { value[len++] = v; }
@@ -3804,12 +3866,21 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
 
         /**
          * Append up to the given number of elements from a sequence.
+         *
+         * @param seq from which to take items
+         * @param count the maximum number to take
+         * @return this builder
          */
         IntArrayBuilder append(PySequence.OfInt seq, int count) {
             return append(seq.iterator(), count);
         }
 
-        /** Append all the elements available from an iterator. */
+        /**
+         * Append all the elements available from an iterator.
+         *
+         * @param iter from which to take items
+         * @return this builder
+         */
         IntArrayBuilder append(Iterator<Integer> iter) {
             while (iter.hasNext()) { append(iter.next()); }
             return this;
@@ -3818,6 +3889,10 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         /**
          * Append up to the given number of elements available from an
          * iterator.
+         *
+         * @param iter from which to take items
+         * @param count the maximum number to take
+         * @return this builder
          */
         IntArrayBuilder append(Iterator<Integer> iter, int count) {
             ensure(count);
@@ -3828,8 +3903,10 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         }
 
         /**
-         * Provide the contents as a Python Unicode {@code str} and
-         * reset the builder to empty. (This is a "destructive read".)
+         * Provide the contents as a Python {@code str} and reset the
+         * builder to empty. (This is a "destructive read".)
+         *
+         * @return the contents as a Python {@code str}
          */
         PyUnicode takeUnicode() {
             PyUnicode u;
@@ -3864,7 +3941,11 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         private int[] value;
         private int ptr = 0;
 
-        /** Create an empty buffer of a defined initial capacity. */
+        /**
+         * Create an empty buffer of a defined initial capacity.
+         *
+         * @param capacity initially
+         */
         IntArrayReverseBuilder(int capacity) {
             value = new int[capacity];
             ptr = value.length;
@@ -3876,7 +3957,11 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
             ptr = value.length;
         }
 
-        /** The number of elements currently. */
+        /**
+         * The number of elements currently
+         *
+         * @return the number of elements currently.
+         */
         int length() {
             return value.length - ptr;
         }
@@ -3884,13 +3969,19 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         /**
          * An array of the elements in the buffer (not modified by
          * appends hereafter).
+         *
+         * @return the elements in the buffer
          */
         int[] value() {
             return ptr == 0 ? value
                     : Arrays.copyOfRange(value, ptr, value.length);
         }
 
-        /** Ensure there is room for another {@code n} elements. */
+        /**
+         * Ensure there is room for another {@code n} elements.
+         *
+         * @param n to make space for
+         */
         private void ensure(int n) {
             if (n > ptr) {
                 int len = value.length - ptr;
@@ -3903,14 +3994,24 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
             }
         }
 
-        /** Prepend one element. */
+        /**
+         * Prepend one element.
+         *
+         * @param v to append
+         * @return this builder
+         */
         IntArrayReverseBuilder prepend(int v) {
             ensure(1);
             value[--ptr] = v;
             return this;
         }
 
-        /** Prepend all the elements from a sequence. */
+        /**
+         * Prepend all the elements from a sequence.
+         *
+         * @param seq from which to take items
+         * @return this builder
+         */
         IntArrayReverseBuilder prepend(CodepointDelegate seq) {
             return prepend(seq.iteratorLast(), seq.length());
         }
@@ -3918,6 +4019,10 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         /**
          * Prepend up to the given number of elements from the end of a
          * sequence.
+         *
+         * @param seq from which to take items
+         * @param count the maximum number to take
+         * @return this builder
          */
         IntArrayReverseBuilder prepend(CodepointDelegate seq,
                 int count) {
@@ -3927,6 +4032,9 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         /**
          * Prepend all the elements available from an iterator, working
          * backwards with {@code iter.previous()}.
+         *
+         * @param iter from which to take items
+         * @return this builder
          */
         IntArrayReverseBuilder prepend(ListIterator<Integer> iter) {
             while (iter.hasPrevious()) { prepend(iter.previous()); }
@@ -3936,6 +4044,10 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         /**
          * Prepend up to the given number of elements available from an
          * iterator, working backwards with {@code iter.previous()}.
+         *
+         * @param iter from which to take items
+         * @param count the maximum number to take
+         * @return this builder
          */
         IntArrayReverseBuilder prepend(ListIterator<Integer> iter,
                 int count) {
@@ -3947,8 +4059,10 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         }
 
         /**
-         * Provide the contents as a Python Unicode {@code str} and
-         * reset the builder to empty. (This is a "destructive read".)
+         * Provide the contents as a Python {@code str} and reset the
+         * builder to empty. (This is a "destructive read".)
+         *
+         * @return the contents as a Python {@code str}
          */
         PyUnicode takeUnicode() {
             PyUnicode u;
@@ -4081,9 +4195,8 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
          *
          * @param spec a parsed PEP-3101 format specification.
          * @return a formatter ready to use.
-         * @throws FormatOverflow if a value is out of range
-         *  (including the
-         *     precision)
+         * @throws FormatOverflow if a value is out of range (including
+         *     the precision)
          * @throws FormatError if an unsupported format character is
          *     encountered
          */

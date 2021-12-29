@@ -169,9 +169,11 @@ public class PySequence extends Abstract {
      *
      * @param o to represent
      * @return the contents as a tuple
+     * @throws TypeError if an iterator cannot be formed on {@code o}
+     * @throws Throwable from the implementation of {@code o}
      */
     // Compare CPython PySequence_Tuple in abstract.c
-    static PyTuple tuple(Object o) throws Throwable {
+    static PyTuple tuple(Object o) throws TypeError, Throwable {
         PyTuple.Builder tb = collect(o, PyTuple.Builder::new,
                 PyTuple.Builder::append);
         return tb.takeTuple();
@@ -185,9 +187,11 @@ public class PySequence extends Abstract {
      *
      * @param o to represent
      * @return the contents as a list
+     * @throws TypeError if an iterator cannot be formed on {@code o}
+     * @throws Throwable from the implementation of {@code o}
      */
     // Compare CPython PySequence_List in abstract.c
-    static PyList list(Object o) throws Throwable {
+    static PyList list(Object o) throws TypeError, Throwable {
         return collect(o, PyList::new, PyList::add);
     }
 
@@ -371,12 +375,14 @@ public class PySequence extends Abstract {
      * CPython implementation of {@code list_subscript} with that of
      * {@code bytes_subscript} or any other {@code *_subscript} method.)
      * <p>
-     * The client must override abstract methods declared here in the
-     * sub-class it defines, to specialise the behaviour of the
-     * delegate. A sub-class supporting a mutable sequence type must
-     * additionally override {@link #setImpl(int)},
-     * {@link #setImpl(Indices)}, {@link #delItem(int)} and
-     * {@link #delSlice(Indices)}.
+     * The client must override abstract methods declared here, in the
+     * delegate sub-class it defines, to specialise the behaviour. A
+     * sub-class supporting a mutable sequence type must additionally
+     * override {@link #setItem(int, Object)},
+     * {@link #setSlice(Indices, Object)} and
+     * {@link #delSlice(Indices)}. It <i>may</i> also override
+     * {@link #delItem(int)}, or rely on the default implementation
+     * using {@code delSlice}.
      *
      * @param <E> the element type returned by {@code iterator().next()}
      * @param <S> the slice type, and return type of
@@ -400,7 +406,7 @@ public class PySequence extends Abstract {
 
         /**
          * Provide the type of client sequence, primarily for use in
-         * error messages e.g. "&lt;TYPE> index out of bounds".
+         * error messages e.g. "TYPE index out of bounds".
          *
          * @implNote This can simply return a constant characteristic of
          *     the the implementing class, the Python type implements or
@@ -430,7 +436,7 @@ public class PySequence extends Abstract {
          *
          * @param i index of item to return
          * @return the element from the client sequence
-         * @throws Throwable from errors other than indexing
+         * @throws Throwable from accessing the client data
          */
         public abstract Object getItem(int i) throws Throwable;
 
@@ -444,7 +450,7 @@ public class PySequence extends Abstract {
          * @param slice containing [start, stop, step, count] of the
          *     slice to return
          * @return the slice from the client sequence
-         * @throws Throwable from errors other than indexing
+         * @throws Throwable from accessing the client data
          */
         public abstract S getSlice(PySlice.Indices slice)
                 throws Throwable;
@@ -460,8 +466,10 @@ public class PySequence extends Abstract {
          * implementation (for immutable types) does nothing.
          *
          * @param i index of item to set
-         * @throws Throwable from errors other than indexing
+         * @param value to set at {@code i}
+         * @throws Throwable from accessing the client data
          */
+        @SuppressWarnings("unused")
         public void setItem(int i, Object value) throws Throwable {};
 
         /**
@@ -477,7 +485,7 @@ public class PySequence extends Abstract {
          *
          * @param slice to assign in the client sequence
          * @param value to assign
-         * @throws Throwable from errors other than indexing
+         * @throws Throwable from accessing the client data
          */
         public void setSlice(PySlice.Indices slice, Object value)
                 throws Throwable {};
@@ -492,7 +500,7 @@ public class PySequence extends Abstract {
          * using {@link #delSlice(Indices)}.
          *
          * @param i index of item to delete
-         * @throws Throwable from errors other than indexing
+         * @throws Throwable from accessing the client data
          */
         public void delItem(int i) throws Throwable {
             PySlice s = new PySlice(i, i + 1);
@@ -512,8 +520,7 @@ public class PySequence extends Abstract {
          *
          * @param slice containing [start, stop, step, count] of the
          *     slice to delete
-         * @throws Throwable
-         * @throws TypeError
+         * @throws Throwable from accessing the client data
          */
         public void delSlice(PySlice.Indices slice) throws Throwable {}
 
@@ -619,7 +626,7 @@ public class PySequence extends Abstract {
          * Implementation of {@code __delitem__}. Delete either an
          * element or a slice of the client sequence, after checks, by
          * calling either {@link #delItem(int)} or
-         * {@link #delImpl(Indices, Object)}.
+         * {@link #delSlice(Indices)}.
          *
          * @param item (or slice) to delete in the client
          * @throws ValueError if {@code slice.step==0} or value is the
@@ -704,7 +711,7 @@ public class PySequence extends Abstract {
 
         /**
          * Implementation of {@code __mul__} (repetition) and
-         * {@code __rmul__} by calling {@link #repeat(Object)}.
+         * {@code __rmul__} by calling {@link #repeat(int)}.
          * <p>
          * The wrapper attempts conversion of the argument to
          * {@code int}, and if this cannot be achieved, it will return
@@ -749,6 +756,8 @@ public class PySequence extends Abstract {
          * {@link #getSlice(Indices)}.
          *
          * @param v value to match in the client
+         * @param start index of first element in range
+         * @param stop index of first element not in range
          * @return the index at which found
          * @throws ValueError if {@code v} not found
          * @throws TypeError from bad {@code start} and {@code stop}
@@ -895,7 +904,7 @@ public class PySequence extends Abstract {
      * @param factory a constructor for {@code R}
      * @param accumulator to add one element to an {@code R}
      * @return the collection
-     * @throws TypeError if an iterator cannort be formed on {@code o}
+     * @throws TypeError if an iterator cannot be formed on {@code o}
      * @throws Throwable from the implementation of {@code o}
      */
     private static <R> R collect(Object o, Supplier<R> factory,

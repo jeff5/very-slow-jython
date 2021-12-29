@@ -60,6 +60,8 @@ class BinarySlotWrapperTest extends UnitTestSupport {
 
             /**
              * As {@link #supports_call()} but with empty keyword array.
+             *
+             * @throws Throwable unexpectedly
              */
             @Test
             void supports_call_with_keywords() throws Throwable {
@@ -72,6 +74,8 @@ class BinarySlotWrapperTest extends UnitTestSupport {
             /**
              * As {@link #supports_bound_call()} but with empty keyword
              * array.
+             *
+             * @throws Throwable unexpectedly
              */
             @Test
             void supports_bound_call_with_keywords() throws Throwable {
@@ -330,7 +334,10 @@ class BinarySlotWrapperTest extends UnitTestSupport {
      * adopted implementations of {@code str}. Note that CPython
      * {@code str} defines {@code str.__add__} but not
      * {@code str.__radd__}.
+     *
+     * @throws Throwable unexpectedly
      */
+    @SuppressWarnings("static-method")
     @Test
     void str_add() throws Throwable {
 
@@ -357,7 +364,10 @@ class BinarySlotWrapperTest extends UnitTestSupport {
      * adopted implementations of {@code str} with the accepted
      * implementations of {@code int}. This is the one that implements
      * {@code "hello" * 3}.
+     *
+     * @throws Throwable unexpectedly
      */
+    @SuppressWarnings("static-method")
     @Test
     void str_mul() throws Throwable {
 
@@ -388,7 +398,10 @@ class BinarySlotWrapperTest extends UnitTestSupport {
      * implementations of {@code int}. This is the one that implements
      * {@code 3 * "hello"}, once {@code int} has realised it doesn't
      * know how.
+     *
+     * @throws Throwable unexpectedly
      */
+    @SuppressWarnings("static-method")
     @Test
     void str_rmul() throws Throwable {
 

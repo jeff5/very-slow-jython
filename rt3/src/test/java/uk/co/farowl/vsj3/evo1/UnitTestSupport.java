@@ -209,10 +209,10 @@ class UnitTestSupport {
      * @param expectedMessage expected message text
      * @return what was thrown
      */
-    static <T extends PyException> T assertRaises(Class<T> expected,
+    static <E extends PyException> E assertRaises(Class<E> expected,
             Executable action, String expectedMessage) {
-        T t = assertThrows(expected, action);
-        assertEquals(expectedMessage, t.getMessage());
-        return t;
+        E e = assertThrows(expected, action);
+        assertEquals(expectedMessage, e.getMessage());
+        return e;
     }
 }

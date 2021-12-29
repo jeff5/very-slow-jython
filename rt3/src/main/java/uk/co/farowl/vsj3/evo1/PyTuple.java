@@ -90,6 +90,7 @@ public class PyTuple extends AbstractList<Object>
      * zero or more {@link Object} arguments. The argument is copied for
      * use, so it is safe to modify an array passed in.
      *
+     * @param <E> Actual element type
      * @param elements of the tuple
      */
     @SafeVarargs
@@ -404,10 +405,12 @@ public class PyTuple extends AbstractList<Object>
         private Object[] value;
         private int len = 0;
 
-        /** Create an empty buffer of a defined initial capacity. */
-        Builder(int capacity) {
-            value = new Object[capacity];
-        }
+        /**
+         * Create an empty buffer of a defined initial capacity.
+         *
+         * @param capacity initially
+         */
+        Builder(int capacity) { value = new Object[capacity]; }
 
         /** Create an empty buffer of a default initial capacity. */
         Builder() {
@@ -429,21 +432,36 @@ public class PyTuple extends AbstractList<Object>
             }
         }
 
-        /** Append one element. */
+        /**
+         * Append one element.
+         *
+         * @param v to append
+         * @return this builder
+         */
         Object append(Object v) {
             ensure(1);
             value[len++] = v;
             return this;
         }
 
-        /** Append all the elements from a sequence. */
+        /**
+         * Append all the elements from a sequence.
+         *
+         * @param seq supplying elements to append
+         * @return this builder
+         */
         Builder append(Collection<?> seq) {
             ensure(seq.size());
             for (Object v : seq) { value[len++] = v; }
             return this;
         }
 
-        /** Append all the elements available from an iterator. */
+        /**
+         * Append all the elements available from an iterator.
+         *
+         * @param iter supplying elements to append
+         * @return this builder
+         */
         Builder append(Iterator<?> iter) {
             while (iter.hasNext()) { append(iter.next()); }
             return this;
@@ -452,6 +470,8 @@ public class PyTuple extends AbstractList<Object>
         /**
          * Provide the contents as a Python {@code tuple} and reset the
          * builder to empty. (This is a "destructive read".)
+         *
+         * @return the contents as a Python {@code tuple}
          */
         PyTuple takeTuple() {
             PyTuple t;

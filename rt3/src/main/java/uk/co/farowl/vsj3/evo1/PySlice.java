@@ -27,7 +27,8 @@ public class PySlice extends AbstractPyObject {
     final private Object step;
 
     /**
-     * Create a Python {@code slice} from three {@code object} arguments.
+     * Create a Python {@code slice} from three {@code object}
+     * arguments.
      *
      * @param start index or {@code null} (for {@code None}).
      * @param stop index or {@code null} (for {@code None}).
@@ -58,10 +59,7 @@ public class PySlice extends AbstractPyObject {
      * @param stop index of first item <b>not</b> in slice.
      */
     // Compare CPython _PySlice_FromIndices in sliceobject.c
-    public PySlice(int start, int stop) {
-        this(start, stop, Py.None);
-    }
-
+    public PySlice(int start, int stop) { this(start, stop, Py.None); }
 
     // @formatter:off
     /*
@@ -115,10 +113,12 @@ public class PySlice extends AbstractPyObject {
      * @param length of the sequence
      * @return an {@link Indices} from this slice and the length
      * @throws TypeError if any index has no {@code __index__}
+     * @throws ValueError if {@code this.step==0}
      * @throws Throwable from implementation of {@code __index__}
      */
     // Compare CPython PySlice_GetIndicesEx in sliceobject.c
-    Indices getIndices(int length) throws TypeError, Throwable {
+    Indices getIndices(int length)
+            throws TypeError, ValueError, Throwable {
         return new Indices(length);
     }
 
@@ -276,8 +276,8 @@ public class PySlice extends AbstractPyObject {
 
         @Override
         public String toString() {
-            return String.format("[%d:%d:%d] len= %d", start, stop, step,
-                    slicelength);
+            return String.format("[%d:%d:%d] len= %d", start, stop,
+                    step, slicelength);
         }
     }
 

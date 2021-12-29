@@ -295,7 +295,7 @@ class FormatParsingTests {
 
         @Test
         @DisplayName("parses 'abc.def'")
-        void testFieldNameIterator() {
+        void dottedName() {
             FieldNameIterator it = new FieldNameIterator("abc.def");
             assertEquals("abc", it.head());
             FieldNameIterator.Chunk chunk = it.nextChunk();

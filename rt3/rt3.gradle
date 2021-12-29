@@ -97,11 +97,18 @@ classes.dependsOn(generateDynamicAPIevo1)
 
 // Task to generate javadoc for test code
 task testJavadoc(type:Javadoc,
-        description: 'Generate Javadoc for tests' ) {
+        description: 'Generate Javadoc for tests',
+        dependsOn:javadoc ) {
     source = sourceSets.test.allJava
     classpath = sourceSets.test.compileClasspath
-    // Main javadoc already at ${buildDir}/docs/javadoc
-    destinationDir = file("${buildDir}/docs/test/javadoc")
+    //println "testJavadoc.classpath = $classpath.asPath"
+
+    // rt3 API javadoc already at ${buildDir}/docs/javadoc
+    title = "rt3 Unit Tests"
+    destinationDir = file("${buildDir}/docs/unittests")
+
+    // We want to click though to the objects under test
+    options.links.add("../javadoc")
 }
 
 

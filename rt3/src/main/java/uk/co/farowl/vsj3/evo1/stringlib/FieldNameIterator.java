@@ -11,14 +11,14 @@ import uk.co.farowl.vsj3.evo1.PyTuple;
 import uk.co.farowl.vsj3.evo1.PyType;
 
 /**
- * This class is an implementation of the iterator object returned
- * by {@code string.formatter_field_name_split()}. The function
+ * This class is an implementation of the iterator object returned by
+ * {@code string.formatter_field_name_split()}. The function
  * {@code formatter_field_name_split()} returns a pair (tuple)
- * consisting of a head element and an instance of this iterator.
- * The constructor of this class effectively implements that
- * function, since as well as being the iterator (second member),
- * the object has an extra method {@link #head()} to return the
- * required first member of the pair.
+ * consisting of a head element and an instance of this iterator. The
+ * constructor of this class effectively implements that function, since
+ * as well as being the iterator (second member), the object has an
+ * extra method {@link #head()} to return the required first member of
+ * the pair.
  */
 /*
  * @ExposedType(name = "fieldnameiterator", base = PyObject.class,
@@ -78,15 +78,15 @@ public class FieldNameIterator implements CraftedPyObject {
      * Create an iterator for the parts of this field name (and extract
      * the head name field, which may be an empty string).
      *
-     * @param fieldNameObject
+     * @param fieldName to parse
      */
-    public FieldNameIterator(String fieldNameObject) {
-        // XXX Extract UTF-16 string but remember whether PyString or PyUnicode
-        // should result.
-        this(fieldNameObject, false);
+    public FieldNameIterator(String fieldName) {
+        /*
+         * XXX Extract UTF-16 string but remember whether str or bytes
+         * should result.
+         */
+        this(fieldName, false);
     }
-
-
 
     @Override
     public PyType getType() { return TYPE; }
@@ -143,10 +143,14 @@ public class FieldNameIterator implements CraftedPyObject {
     private void parseItemChunk(Chunk chunk) {
         chunk.is_attr = false;
         int endBracket = markup.indexOf(']', index + 1);
-        if (endBracket < 0) { throw new IllegalArgumentException("Missing ']' in format string"); }
+        if (endBracket < 0) {
+            throw new IllegalArgumentException(
+                    "Missing ']' in format string");
+        }
         String itemValue = markup.substring(index + 1, endBracket);
         if (itemValue.length() == 0) {
-            throw new IllegalArgumentException("Empty attribute in format string");
+            throw new IllegalArgumentException(
+                    "Empty attribute in format string");
         }
         try {
             chunk.value = Integer.parseInt(itemValue);
@@ -161,7 +165,8 @@ public class FieldNameIterator implements CraftedPyObject {
         chunk.is_attr = true;
         int pos = nextDotOrBracket(markup);
         if (pos == index) {
-            throw new IllegalArgumentException("Empty attribute in format string");
+            throw new IllegalArgumentException(
+                    "Empty attribute in format string");
         }
         chunk.value = markup.substring(index, pos);
         index = pos;
