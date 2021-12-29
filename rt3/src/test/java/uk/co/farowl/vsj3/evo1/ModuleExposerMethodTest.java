@@ -183,6 +183,9 @@ class ModuleExposerMethodTest {
         /**
          * See {@link StaticOneParam}: the parameter is positional-only
          * as a result of the default exposure.
+         *
+         * @param a positional arg
+         * @return the arg (tuple)
          */
         @PythonStaticMethod
         static PyTuple f1(double a) { return Py.tuple(a); }
@@ -190,6 +193,9 @@ class ModuleExposerMethodTest {
         /**
          * See {@link OneParam}: the parameter is positional-only as a
          * result of the default exposure.
+         *
+         * @param a positional arg
+         * @return the arg (tuple)
          */
         @PythonMethod
         PyTuple m1(double a) { return Py.tuple(this, a); }
@@ -197,6 +203,11 @@ class ModuleExposerMethodTest {
         /**
          * See {@link StaticDefaultPositionalParams}: the parameters are
          * positional-only as a result of the default exposure.
+         *
+         * @param a positional arg
+         * @param b positional arg
+         * @param c positional arg
+         * @return the args
          */
         @PythonStaticMethod
         static PyTuple f3(int a, String b, Object c) {
@@ -206,6 +217,11 @@ class ModuleExposerMethodTest {
         /**
          * See {@link DefaultPositionalParams}: the parameters are
          * positional-only as a result of the default exposure.
+         *
+         * @param a positional arg
+         * @param b positional arg
+         * @param c positional arg
+         * @return the args
          */
         @PythonMethod
         PyTuple m3(int a, String b, Object c) {
@@ -215,6 +231,11 @@ class ModuleExposerMethodTest {
         /**
          * See {@link StaticPositionalOrKeywordParams}: the parameters
          * are positional-or-keyword but none are positional-only.
+         *
+         * @param a positional-or-keyword arg
+         * @param b positional-or-keyword arg
+         * @param c positional-or-keyword arg
+         * @return the args
          */
         @PythonStaticMethod(positionalOnly = false)
         static PyTuple f3pk(int a, String b, Object c) {
@@ -224,6 +245,11 @@ class ModuleExposerMethodTest {
         /**
          * See {@link PositionalOrKeywordParams}: the parameters are
          * positional-or-keyword but none are positional-only.
+         *
+         * @param a positional-or-keyword arg
+         * @param b positional-or-keyword arg
+         * @param c positional-or-keyword arg
+         * @return the args
          */
         @PythonMethod(positionalOnly = false)
         PyTuple m3pk(int a, String b, Object c) {
@@ -233,6 +259,11 @@ class ModuleExposerMethodTest {
         /**
          * See {@link SomePositionalOnlyParams}: two parameters are
          * positional-only as a result of an annotation.
+         *
+         * @param a positional arg
+         * @param b positional arg
+         * @param c positional-or-keyword arg
+         * @return the args
          */
         @PythonStaticMethod
         static PyTuple f3p2(int a, @PositionalOnly String b, Object c) {
@@ -242,6 +273,11 @@ class ModuleExposerMethodTest {
         /**
          * See {@link StaticSomePositionalOnlyParams}: two parameters
          * are positional-only as a result of an annotation.
+         *
+         * @param a positional arg
+         * @param b positional arg
+         * @param c positional-or-keyword arg
+         * @return the args
          */
         @PythonMethod
         PyTuple m3p2(int a, @PositionalOnly String b, Object c) {

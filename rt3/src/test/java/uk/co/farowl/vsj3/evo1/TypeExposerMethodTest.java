@@ -197,7 +197,12 @@ class TypeExposerMethodTest {
         @PythonMethod
         void m0() {}
 
-        /** See {@link OnePos}: a single positional parameter */
+        /**
+         * See {@link OnePos}: a single positional parameter
+         *
+         * @param a positional arg
+         * @return the arg (tuple)
+         */
         @PythonMethod
         PyTuple m1(double a) { return Py.tuple(this, a); }
 
@@ -205,6 +210,12 @@ class TypeExposerMethodTest {
          * See {@link PositionalByDefault}: the parameters are
          * positional-only as a result of the default exposure. Use
          * static style, arbitrarily.
+         *
+         * @param self target
+         * @param a positional arg
+         * @param b positional arg
+         * @param c positional arg
+         * @return the args
          */
         @PythonMethod
         static PyTuple m3(SimpleObject self, int a, String b,
@@ -216,6 +227,12 @@ class TypeExposerMethodTest {
          * See {@link PositionalWithDefaults}: the parameters are
          * positional-only as a result of the default exposure. Use
          * static style, arbitrarily.
+         *
+         * @param self target
+         * @param a positional arg
+         * @param b positional arg = 2
+         * @param c positional arg = 3
+         * @return the args
          */
         @PythonMethod
         static PyTuple m3pd(SimpleObject self, int a,
@@ -225,7 +242,12 @@ class TypeExposerMethodTest {
 
         /**
          * See {@link PositionalOrKeywordParams}: the parameters are
-         * positional-or-keyword but none are positional-only.
+         * positional-or-keyword but none is positional-only.
+         *
+         * @param a positional-or-keyword arg
+         * @param b positional-or-keyword arg
+         * @param c positional-or-keyword arg
+         * @return the args
          */
         @PythonMethod(positionalOnly = false)
         PyTuple m3pk(int a, String b, Object c) {
@@ -235,6 +257,11 @@ class TypeExposerMethodTest {
         /**
          * See {@link SomePositionalOnlyParams}: two parameters are
          * positional-only as a result of an annotation.
+         *
+         * @param a positional arg
+         * @param b positional arg
+         * @param c positional-or-keyword arg
+         * @return the args
          */
         @PythonMethod
         PyTuple m3p2(int a, @PositionalOnly String b, Object c) {
@@ -267,7 +294,12 @@ class TypeExposerMethodTest {
         @PythonMethod
         static void m0(ExampleObject2 self) {}
 
-        /** See {@link OnePos}: a single positional parameter */
+        /**
+         * See {@link OnePos}: a single positional parameter
+         *
+         * @param a positional arg
+         * @return the args
+         */
         @PythonMethod
         PyTuple m1(double a) { return Py.tuple(this, a); }
 
@@ -279,6 +311,11 @@ class TypeExposerMethodTest {
         /**
          * See {@link PositionalByDefault}: the parameters are
          * positional-only as a result of the default exposure.
+         *
+         * @param a positional arg
+         * @param b positional arg
+         * @param c positional arg
+         * @return the args
          */
         @PythonMethod
         PyTuple m3(int a, String b, Object c) {
@@ -295,6 +332,11 @@ class TypeExposerMethodTest {
          * See {@link PositionalWithDefaults}: the parameters are
          * positional-only as a result of the default exposure. Use
          * static style, arbitrarily.
+         *
+         * @param a positional arg
+         * @param b positional arg = 2
+         * @param c positional arg = 3
+         * @return the args
          */
         @PythonMethod
         PyTuple m3pd(int a, @Default("2") String b,
@@ -302,7 +344,15 @@ class TypeExposerMethodTest {
             return Py.tuple(this, a, b, c);
         }
 
-        /** Secondary definition does not repeat annotations. */
+        /**
+         * Secondary definition does not repeat annotations.
+         *
+         * @param self target
+         * @param a positional arg
+         * @param b positional arg = 2
+         * @param c positional arg = 3
+         * @return the args
+         */
         @PythonMethod(primary = false)
         static PyTuple m3pd(ExampleObject2 self, int a, String b,
                 Object c) {
@@ -312,6 +362,11 @@ class TypeExposerMethodTest {
         /**
          * See {@link PositionalOrKeywordParams}: the parameters are
          * positional-or-keyword but none are positional-only.
+         *
+         * @param a positional arg
+         * @param b positional arg
+         * @param c positional-or-keyword arg
+         * @return the args
          */
         @PythonMethod(positionalOnly = false)
         PyTuple m3pk(int a, String b, Object c) {
@@ -327,6 +382,11 @@ class TypeExposerMethodTest {
         /**
          * See {@link SomePositionalOnlyParams}: two parameters are
          * positional-only as a result of an annotation.
+         *
+         * @param a positional arg
+         * @param b positional arg
+         * @param c positional-or-keyword arg
+         * @return the args
          */
         @PythonMethod
         PyTuple m3p2(int a, @PositionalOnly String b, Object c) {

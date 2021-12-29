@@ -1,10 +1,12 @@
 package uk.co.farowl.vsj3.evo1;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Array;
@@ -96,23 +98,17 @@ class TypeExposerGetSetTest extends UnitTestSupport {
         int i;
 
         @Getter
-        Object i() {
-            return i;
-        }
+        Object i() { return i; }
 
         @Setter
-        void i(Object v) {
-            i = PyLong.asInt(v);
-        }
+        void i(Object v) { i = PyLong.asInt(v); }
 
         /** Primitive double attribute (not optional). */
         double x;
 
         @DocString("My test x")
         @Getter
-        Object x() {
-            return x;
-        }
+        Object x() { return x; }
 
         @Setter
         void x(Object v) throws TypeError, Throwable {
@@ -120,9 +116,7 @@ class TypeExposerGetSetTest extends UnitTestSupport {
         }
 
         @Deleter("x")
-        void _x() {
-            x = Double.NaN;
-        }
+        void _x() { x = Double.NaN; }
 
         /**
          * String with change of name. Deletion leads to a distinctive
@@ -131,19 +125,13 @@ class TypeExposerGetSetTest extends UnitTestSupport {
         String t;
 
         @Getter("text")
-        Object t() {
-            return t;
-        }
+        Object t() { return t; }
 
         @Setter("text")
-        void t(Object v) {
-            t = PyUnicode.asString(v);
-        }
+        void t(Object v) { t = PyUnicode.asString(v); }
 
         @Deleter("text")
-        void _t() {
-            t = "<deleted>";
-        }
+        void _t() { t = "<deleted>"; }
 
         /** String can be properly deleted without popping up as None */
         String s;
@@ -155,9 +143,7 @@ class TypeExposerGetSetTest extends UnitTestSupport {
         }
 
         @Setter
-        void s(Object v) {
-            s = PyUnicode.asString(v);
-        }
+        void s(Object v) { s = PyUnicode.asString(v); }
 
         @Deleter("s")
         void _s() {
@@ -173,19 +159,13 @@ class TypeExposerGetSetTest extends UnitTestSupport {
         Object obj;
 
         @Getter
-        Object obj() {
-            return obj == null ? Py.None : obj;
-        }
+        Object obj() { return obj == null ? Py.None : obj; }
 
         @Setter
-        void obj(Object v) {
-            obj = v;
-        }
+        void obj(Object v) { obj = v; }
 
         @Deleter("obj")
-        void _obj() {
-            obj = null;
-        }
+        void _obj() { obj = null; }
 
         /**
          * Strongly-typed String array internally, but {@code tuple} to
@@ -195,9 +175,7 @@ class TypeExposerGetSetTest extends UnitTestSupport {
         private String[] nameArray;
 
         @Getter
-        Object names() {
-            return PyTuple.wrap(nameArray);
-        }
+        Object names() { return PyTuple.wrap(nameArray); }
 
         @Setter
         void names(Object v) {
@@ -205,9 +183,7 @@ class TypeExposerGetSetTest extends UnitTestSupport {
         }
 
         @Deleter("names")
-        void _names() {
-            nameArray = new String[0];
-        }
+        void _names() { nameArray = new String[0]; }
 
         /**
          * Create new array value for {@link #nameArray}.
@@ -243,9 +219,7 @@ class TypeExposerGetSetTest extends UnitTestSupport {
         }
 
         @Deleter("doubles")
-        void _doubles() {
-            doubleArray = new double[0];
-        }
+        void _doubles() { doubleArray = new double[0]; }
 
         /**
          * Create new array value for {@link #doubleArray}.
@@ -260,30 +234,24 @@ class TypeExposerGetSetTest extends UnitTestSupport {
         int i2;
 
         @Getter
-        Object i2() {
-            return i2;
-        }
+        Object i2() { return i2; }
 
         /** Read-only double. DocString after Getter */
         final double x2;
 
         @Getter
         @DocString("Another x")
-        Object x2() {
-            return x2;
-        }
+        Object x2() { return x2; }
 
         /** Read-only String. */
         String t2;
 
         @Getter("text2")
-        Object t2() {
-            return t2;
-        }
+        Object t2() { return t2; }
 
         ObjectWithGetSets(double value) {
             x2 = x = value;
-            i2 = i = Math.round((float) value);
+            i2 = i = Math.round((float)value);
             t2 = t = s = String.format("%d", i);
             obj = i;
             doubleArray = new double[] {1, x, x * x, x * x * x};
@@ -300,10 +268,10 @@ class TypeExposerGetSetTest extends UnitTestSupport {
             Class<? extends T[]> arrayType) throws TypeError {
         // Loosely based on java.util.Arrays.copyOf
         if (tuple instanceof PyTuple) {
-            PyTuple t = (PyTuple) tuple;
+            PyTuple t = (PyTuple)tuple;
             int n = t.size();
             @SuppressWarnings("unchecked")
-            T[] copy = (T[]) Array
+            T[] copy = (T[])Array
                     .newInstance(arrayType.getComponentType(), n);
             try {
                 System.arraycopy(t.value, 0, copy, 0, n);
@@ -327,7 +295,7 @@ class TypeExposerGetSetTest extends UnitTestSupport {
     private static double[] doubleFromTuple(Object tuple)
             throws Throwable {
         if (tuple instanceof PyTuple) {
-            PyTuple t = (PyTuple) tuple;
+            PyTuple t = (PyTuple)tuple;
             int n = t.size();
             Object[] value = t.value;
             double[] copy = new double[n];
@@ -361,9 +329,7 @@ class TypeExposerGetSetTest extends UnitTestSupport {
      */
     private static class DerivedWithGetSets extends ObjectWithGetSets {
 
-        DerivedWithGetSets(double value) {
-            super(value);
-        }
+        DerivedWithGetSets(double value) { super(value); }
     }
 
     /**
@@ -396,7 +362,7 @@ class TypeExposerGetSetTest extends UnitTestSupport {
             this.doc = doc;
             this.none = none;
             this.gsd =
-                    (PyGetSetDescr) ObjectWithGetSets.TYPE.lookup(name);
+                    (PyGetSetDescr)ObjectWithGetSets.TYPE.lookup(name);
             this.o = new ObjectWithGetSets(oValue);
             this.p = new ObjectWithGetSets(pValue);
         }
@@ -473,6 +439,8 @@ class TypeExposerGetSetTest extends UnitTestSupport {
         /**
          * {@link Abstract#setAttr(Object, String, Object)} may be used
          * to set the field in an instance of the object.
+         *
+         * @throws Throwable unexpectedly
          */
         abstract void abstract_setAttr_works() throws Throwable;
 
@@ -480,7 +448,7 @@ class TypeExposerGetSetTest extends UnitTestSupport {
          * The get-set attribute raises {@link TypeError} when supplied
          * a value of unacceptable type.
          */
-        abstract void set_detects_TypeError() throws Throwable;
+        abstract void set_detects_TypeError();
     }
 
     /**
@@ -494,7 +462,7 @@ class TypeExposerGetSetTest extends UnitTestSupport {
          * through the get-set descriptor, raises {@link TypeError}.
          */
         @Test
-        void rejects_descr_delete() throws Throwable {
+        void rejects_descr_delete() {
             assertThrows(TypeError.class, () -> gsd.__delete__(o));
             assertThrows(TypeError.class, () -> gsd.__set__(o, null));
         }
@@ -506,7 +474,7 @@ class TypeExposerGetSetTest extends UnitTestSupport {
          * {@link TypeError}.
          */
         @Test
-        void rejects_abstract_delAttr() throws Throwable {
+        void rejects_abstract_delAttr() {
             assertThrows(TypeError.class,
                     () -> Abstract.delAttr(o, name));
             assertThrows(TypeError.class,
@@ -557,7 +525,7 @@ class TypeExposerGetSetTest extends UnitTestSupport {
 
         @Override
         @Test
-        void set_detects_TypeError() throws Throwable {
+        void set_detects_TypeError() {
             // Things that are not a Python int
             assertThrows(TypeError.class,
                     () -> gsd.__set__(o, "Gumby"));
@@ -613,7 +581,7 @@ class TypeExposerGetSetTest extends UnitTestSupport {
 
         @Override
         @Test
-        void set_detects_TypeError() throws Throwable {
+        void set_detects_TypeError() {
             // Things that are not a Python float
             assertThrows(TypeError.class,
                     () -> gsd.__set__(o, "Gumby"));
@@ -752,7 +720,7 @@ class TypeExposerGetSetTest extends UnitTestSupport {
 
         @Override
         @Test
-        void set_detects_TypeError() throws Throwable {
+        void set_detects_TypeError() {
             // Things that are not a Python str
             assertThrows(TypeError.class, () -> gsd.__set__(o, 1));
             assertThrows(TypeError.class,
@@ -858,7 +826,7 @@ class TypeExposerGetSetTest extends UnitTestSupport {
 
         @Override
         @Test
-        void set_detects_TypeError() throws Throwable {
+        void set_detects_TypeError() {
             // Things that are not a Python str
             assertThrows(TypeError.class, () -> gsd.__set__(o, 1));
             assertThrows(TypeError.class,
@@ -927,11 +895,13 @@ class TypeExposerGetSetTest extends UnitTestSupport {
 
         @Override
         @Test
-        void set_detects_TypeError() throws Throwable {
+        void set_detects_TypeError() {
             // Everything is a Python object (no TypeError)
             final float[] everything = {1, 2, 3};
-            gsd.__set__(o, everything);
-            Abstract.setAttr(p, name, System.err);
+            assertDoesNotThrow(() -> {
+                gsd.__set__(o, everything);
+                Abstract.setAttr(p, name, System.err);
+            });
             assertSame(everything, o.obj);
             assertSame(System.err, p.obj);
         }
@@ -996,7 +966,7 @@ class TypeExposerGetSetTest extends UnitTestSupport {
 
         @Override
         @Test
-        void set_detects_TypeError() throws Throwable {
+        void set_detects_TypeError() {
             // Things that are not a Python tuple
             assertThrows(TypeError.class, () -> gsd.__set__(o, 2.0));
             assertThrows(TypeError.class,
@@ -1060,7 +1030,7 @@ class TypeExposerGetSetTest extends UnitTestSupport {
 
         @Override
         @Test
-        void set_detects_TypeError() throws Throwable {
+        void set_detects_TypeError() {
             // Things that are not a Python tuple
             assertThrows(TypeError.class, () -> gsd.__set__(o, ""));
             assertThrows(TypeError.class,
@@ -1079,11 +1049,9 @@ class TypeExposerGetSetTest extends UnitTestSupport {
          * Raises {@link AttributeError} when the get-set descriptor is
          * asked to set the field in an instance of the object, even if
          * the type is correct.
-         *
-         * @throws Throwable unexpectedly
          */
         @Test
-        void rejects_descr_set() throws Throwable {
+        void rejects_descr_set() {
             assertThrows(AttributeError.class,
                     () -> gsd.__set__(o, 1234));
             assertThrows(AttributeError.class,
@@ -1101,7 +1069,7 @@ class TypeExposerGetSetTest extends UnitTestSupport {
          * correct.
          */
         @Test
-        void rejects_abstract_setAttr() throws Throwable {
+        void rejects_abstract_setAttr() {
             assertThrows(AttributeError.class,
                     () -> Abstract.setAttr(o, name, 1234));
             assertThrows(AttributeError.class,
@@ -1117,11 +1085,9 @@ class TypeExposerGetSetTest extends UnitTestSupport {
          * setter or deleter (is read-only), from an instance of the
          * object, through the get-set descriptor, raises
          * {@link AttributeError}.
-         *
-         * @throws Throwable unexpectedly
          */
         @Test
-        void rejects_descr_delete() throws Throwable {
+        void rejects_descr_delete() {
             assertThrows(AttributeError.class, () -> gsd.__delete__(o));
             assertThrows(AttributeError.class,
                     () -> gsd.__set__(o, null));
@@ -1134,7 +1100,7 @@ class TypeExposerGetSetTest extends UnitTestSupport {
          * raises {@link AttributeError}.
          */
         @Test
-        void rejects_abstract_delAttr() throws Throwable {
+        void rejects_abstract_delAttr() {
             assertThrows(AttributeError.class,
                     () -> Abstract.delAttr(o, name));
         }

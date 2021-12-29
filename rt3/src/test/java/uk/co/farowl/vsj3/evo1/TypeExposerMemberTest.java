@@ -1,5 +1,6 @@
 package uk.co.farowl.vsj3.evo1;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
@@ -75,7 +76,7 @@ class TypeExposerMemberTest extends UnitTestSupport {
 
         ObjectWithMembers(double value) {
             x2 = x = value;
-            i2 = i = Math.round((float) value);
+            i2 = i = Math.round((float)value);
             t2 = t = s = String.format("%d", i);
             obj = i;
             strhex = newPyUnicode(Integer.toString(i, 16));
@@ -118,7 +119,7 @@ class TypeExposerMemberTest extends UnitTestSupport {
             this.name = name;
             this.doc = doc;
             this.md =
-                    (PyMemberDescr) ObjectWithMembers.TYPE.lookup(name);
+                    (PyMemberDescr)ObjectWithMembers.TYPE.lookup(name);
             this.o = new ObjectWithMembers(oValue);
             this.p = new ObjectWithMembers(pValue);
         }
@@ -188,12 +189,16 @@ class TypeExposerMemberTest extends UnitTestSupport {
         /**
          * {@link Abstract#setAttr(Object, String, Object)} may be used
          * to set the field in an instance of the object.
+         *
+         * @throws Throwable unexpectedly
          */
         abstract void abstract_setAttr_works() throws Throwable;
 
         /**
          * The member raises {@link TypeError} when supplied a value of
          * unacceptable type.
+         *
+         * @throws Throwable unexpectedly
          */
         abstract void set_detects_TypeError() throws Throwable;
     }
@@ -208,7 +213,7 @@ class TypeExposerMemberTest extends UnitTestSupport {
          * raises {@link TypeError}.
          */
         @Test
-        void rejects_descr_delete() throws Throwable {
+        void rejects_descr_delete() {
             assertThrows(TypeError.class, () -> md.__delete__(o));
             assertThrows(TypeError.class, () -> md.__set__(o, null));
         }
@@ -218,7 +223,7 @@ class TypeExposerMemberTest extends UnitTestSupport {
          * raises {@link TypeError}.
          */
         @Test
-        void rejects_abstract_delAttr() throws Throwable {
+        void rejects_abstract_delAttr() {
             assertThrows(TypeError.class,
                     () -> Abstract.delAttr(o, name));
             assertThrows(TypeError.class,
@@ -604,8 +609,10 @@ class TypeExposerMemberTest extends UnitTestSupport {
         void set_detects_TypeError() throws Throwable {
             // Everything is a Python object (no TypeError)
             final float[] everything = {1, 2, 3};
-            md.__set__(o, everything);
-            Abstract.setAttr(p, name, System.err);
+            assertDoesNotThrow(() -> {
+                md.__set__(o, everything);
+                Abstract.setAttr(p, name, System.err);
+            });
             assertSame(everything, o.obj);
             assertSame(System.err, p.obj);
         }
@@ -620,11 +627,9 @@ class TypeExposerMemberTest extends UnitTestSupport {
          * Raises {@link AttributeError} when the member descriptor is
          * asked to set the field in an instance of the object, even if
          * the type is correct.
-         *
-         * @throws Throwable unexpectedly
          */
         @Test
-        void rejects_descr_set() throws Throwable {
+        void rejects_descr_set() {
             assertThrows(AttributeError.class,
                     () -> md.__set__(o, 1234));
             assertThrows(AttributeError.class,
@@ -642,7 +647,7 @@ class TypeExposerMemberTest extends UnitTestSupport {
          * correct.
          */
         @Test
-        void rejects_abstract_setAttr() throws Throwable {
+        void rejects_abstract_setAttr() {
             assertThrows(AttributeError.class,
                     () -> Abstract.setAttr(o, name, 1234));
             assertThrows(AttributeError.class,
@@ -656,11 +661,9 @@ class TypeExposerMemberTest extends UnitTestSupport {
         /**
          * Raises {@link AttributeError} when the member descriptor is
          * asked to delete the field in an instance of the object.
-         *
-         * @throws Throwable unexpectedly
          */
         @Test
-        void rejects_descr_delete() throws Throwable {
+        void rejects_descr_delete() {
             assertThrows(AttributeError.class, () -> md.__delete__(o));
             assertThrows(AttributeError.class,
                     () -> md.__set__(o, null));
@@ -672,7 +675,7 @@ class TypeExposerMemberTest extends UnitTestSupport {
          * field from an instance of the object.
          */
         @Test
-        void rejects_abstract_delAttr() throws Throwable {
+        void rejects_abstract_delAttr() {
             assertThrows(AttributeError.class,
                     () -> Abstract.delAttr(o, name));
         }

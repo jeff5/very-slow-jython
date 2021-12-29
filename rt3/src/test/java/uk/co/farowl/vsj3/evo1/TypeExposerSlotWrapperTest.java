@@ -121,18 +121,22 @@ class TypeExposerSlotWrapperTest {
 
         ExampleObject(int value) { this.value = value; }
 
-        /** See {@link Test__str__}: a unary operation. */
-        String __str__() {
-            return "<" + value + ">";
-        }
+        /**
+         * See {@link Test__str__}: a unary operation.
+         *
+         * @return the value in angle-brackets.
+         */
+        String __str__() { return "<" + value + ">"; }
 
         static String __str__(ExampleObject2 self) {
             return "<" + self.value + ">";
         }
 
         /**
-         * See {@link Test__add__}: a binary operation. We just return
-         * the arguments.
+         * See {@link Test__add__}: a binary operation.
+         *
+         * @param other to pretend "add"
+         * @return the arguments.
          */
         PyTuple __add__(Object other) {
             return Py.tuple(this, other);
@@ -299,5 +303,4 @@ class TypeExposerSlotWrapperTest {
             setup("__add__", new ExampleObject2(555));
         }
     }
-
 }
