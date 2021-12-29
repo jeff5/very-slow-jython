@@ -1,3 +1,5 @@
+// Copyright (c)2021 Jython Developers.
+// Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj3.evo1;
 
 import java.util.Map;
@@ -7,7 +9,7 @@ import java.util.StringJoiner;
  * Miscellaneous static helpers commonly needed to implement Python
  * objects in Java.
  */
-class PyObjectUtil {
+public class PyObjectUtil {
 
     private PyObjectUtil() {} // no instances
 
@@ -55,7 +57,7 @@ class PyObjectUtil {
      * stack context, since it is used only as a sort of "alternative
      * return value".
      */
-    static class NoConversion extends Exception {
+    public static class NoConversion extends Exception {
         private static final long serialVersionUID = 1L;
 
         private NoConversion() { super(null, null, false, false); }
@@ -66,10 +68,11 @@ class PyObjectUtil {
      * methods to signal "cannot convert". No stack context is preserved
      * in the exception.
      */
-    static final NoConversion NO_CONVERSION = new NoConversion();
+    public static final NoConversion NO_CONVERSION = new NoConversion();
     /**
      * A statically allocated {@link StopIteration} used to signal
      * exhaustion of an iterator, but providing no useful stack context.
      */
-    static final StopIteration STOP_ITERATION = new StopIteration();
+    public static final StopIteration STOP_ITERATION =
+            new StopIteration();
 }

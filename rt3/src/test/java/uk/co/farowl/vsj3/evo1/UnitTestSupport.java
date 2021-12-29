@@ -2,10 +2,14 @@
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj3.evo1;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
 import java.math.BigInteger;
+
+import org.junit.jupiter.api.function.Executable;
 
 /**
  * A base class for unit tests that defines some common convenience
@@ -192,5 +196,23 @@ class UnitTestSupport {
     static void assertStartsWith(String expected, String actual) {
         assertTrue(actual.startsWith(expected),
                 "should start with " + expected);
+    }
+
+    /**
+     * Invoke an action expected to raise a Python exception and check
+     * the message. The return value may be the subject of further
+     * assertions.
+     *
+     * @param <E> type of exception
+     * @param expected type of exception
+     * @param action to invoke
+     * @param expectedMessage expected message text
+     * @return what was thrown
+     */
+    static <T extends PyException> T assertRaises(Class<T> expected,
+            Executable action, String expectedMessage) {
+        T t = assertThrows(expected, action);
+        assertEquals(expectedMessage, t.getMessage());
+        return t;
     }
 }

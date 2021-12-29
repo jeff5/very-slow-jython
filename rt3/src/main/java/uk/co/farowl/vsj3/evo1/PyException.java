@@ -3,7 +3,7 @@ package uk.co.farowl.vsj3.evo1;
 import java.lang.invoke.MethodHandles;
 
 /** The Python {@code Exception} exception. */
-class PyException extends BaseException {
+public class PyException extends BaseException {
     private static final long serialVersionUID = 1L;
 
     /** The type of Python object this class implements. */

@@ -286,7 +286,7 @@ public class PyType extends Operations implements DictPyObject {
      * @param spec specification
      * @return the constructed {@code PyType}
      */
-    static PyType fromSpec(Spec spec) {
+    public static PyType fromSpec(Spec spec) {
 
         // Construct a type with an empty dictionary
         PyType type;
@@ -871,7 +871,7 @@ public class PyType extends Operations implements DictPyObject {
      * determine behaviours or provide quick answers to frequent
      * questions such as "are you a data descriptor".
      */
-    enum Flag {
+    public enum Flag {
         /**
          * Special methods may be assigned new meanings in the
          * {@code type}, after creation.
@@ -907,7 +907,7 @@ public class PyType extends Operations implements DictPyObject {
      * the mutators. A fluent interface makes this configuration
      * readable as a single, long statement.
      */
-    static class Spec {
+    public static class Spec {
 
         /** Name of the class being specified. */
         final String name;
@@ -1037,7 +1037,7 @@ public class PyType extends Operations implements DictPyObject {
          * @param name of the type
          * @param lookup authorisation to access {@code implClass}
          */
-        Spec(String name, Lookup lookup) {
+        public Spec(String name, Lookup lookup) {
             this(name, lookup.lookupClass(), lookup);
         }
 
@@ -1053,7 +1053,7 @@ public class PyType extends Operations implements DictPyObject {
          * @param name of the type
          * @param implClass in which operations are defined
          */
-        Spec(String name, Class<? extends DerivedPyObject> implClass) {
+        public Spec(String name, Class<? extends DerivedPyObject> implClass) {
             this(name, implClass, null);
         }
 
@@ -1073,7 +1073,7 @@ public class PyType extends Operations implements DictPyObject {
          * @param impl replacement canonical implementation class
          * @return {@code this}
          */
-        Spec canonical(Class<?> impl) {
+        public Spec canonical(Class<?> impl) {
             classes.set(0, impl);
             return this;
         }
@@ -1205,7 +1205,7 @@ public class PyType extends Operations implements DictPyObject {
          * @param base to append to the bases
          * @return {@code this}
          */
-        Spec base(PyType base) {
+        public Spec base(PyType base) {
             if (base == null)
                 throw new InterpreterError(
                         "null base specified for %s. (Base not ready?)",
@@ -1247,7 +1247,9 @@ public class PyType extends Operations implements DictPyObject {
          * @param f to remove from the current flags
          * @return {@code this}
          */
-        Spec flagNot(Flag f) {
+        // XXX mostly used as flagNot(BASETYPE). Consider specific call.
+        // XXX Consider also reversing that default.
+        public Spec flagNot(Flag f) {
             flags.remove(f);
             return this;
         }
@@ -1260,7 +1262,7 @@ public class PyType extends Operations implements DictPyObject {
          * @param metaclass to specify (or null for {@code type}
          * @return {@code this}
          */
-        Spec metaclass(PyType metaclass) {
+        public Spec metaclass(PyType metaclass) {
             this.metaclass = metaclass;
             return this;
         }
@@ -1272,7 +1274,7 @@ public class PyType extends Operations implements DictPyObject {
          *
          * @return the defining class for the type
          */
-        Class<?> definingClass() { return definingClass; }
+        public Class<?> definingClass() { return definingClass; }
 
         /**
          * Set the class additionally defining methods for the type.
@@ -1353,7 +1355,7 @@ public class PyType extends Operations implements DictPyObject {
          *
          * @return array of the bases of this type
          */
-        PyType[] getBases() {
+        public PyType[] getBases() {
             if (bases.isEmpty()) {
                 /*
                  * No bases specified: that means 'object' is the
@@ -1373,7 +1375,7 @@ public class PyType extends Operations implements DictPyObject {
          *
          * @return the proper meta-class
          */
-        PyType getMetaclass() {
+        public PyType getMetaclass() {
             return metaclass != null ? metaclass : TYPE;
         }
 

@@ -293,7 +293,7 @@ public class PySequence extends Abstract {
      *
      * @param <E> the type of element returned by the iterators
      */
-    static interface Of<E> extends Iterable<E> {
+    public static interface Of<E> extends Iterable<E> {
 
         /**
          * The length of this sequence.
@@ -323,7 +323,7 @@ public class PySequence extends Abstract {
      * A specialisation of {@link Of PySequence.Of&lt;Integer>} where
      * the elements may be consumed as primitive {@code int}.
      */
-    static interface OfInt extends Of<Integer> {
+    public static interface OfInt extends Of<Integer> {
 
         @Override
         Spliterator.OfInt spliterator();

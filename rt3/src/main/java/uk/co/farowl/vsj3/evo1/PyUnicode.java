@@ -27,6 +27,13 @@ import uk.co.farowl.vsj3.evo1.PyObjectUtil.NoConversion;
 import uk.co.farowl.vsj3.evo1.PySequence.Delegate;
 import uk.co.farowl.vsj3.evo1.PySlice.Indices;
 import uk.co.farowl.vsj3.evo1.base.InterpreterError;
+import uk.co.farowl.vsj3.evo1.stringlib.IntegerFormatter;
+import uk.co.farowl.vsj3.evo1.stringlib.InternalFormat;
+import uk.co.farowl.vsj3.evo1.stringlib.InternalFormat.FormatError;
+import uk.co.farowl.vsj3.evo1.stringlib.InternalFormat.FormatOverflow;
+import uk.co.farowl.vsj3.evo1.stringlib.InternalFormat.Formatter;
+import uk.co.farowl.vsj3.evo1.stringlib.InternalFormat.Spec;
+import uk.co.farowl.vsj3.evo1.stringlib.TextFormatter;
 
 /**
  * The Python {@code str} object is implemented by both
@@ -179,9 +186,14 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
     @SuppressWarnings("unused")
     private static Object __str__(String self) { return self; }
 
+    @SuppressWarnings("unused")
     private static Object __repr__(Object self) {
-        // Ok, it should be more complicated but I'm in a hurry.
-        return "'" + asString(self) + "'";
+        try {
+            // Ok, it should be more complicated but I'm in a hurry.
+            return "'" + convertToString(self) + "'";
+        } catch (NoConversion nc) {
+            throw Abstract.impossibleArgumentError("str", self);
+        }
     }
 
     @SuppressWarnings("unused")
@@ -2191,8 +2203,10 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
 
     private static boolean islower(PySequence.OfInt s) {
         boolean cased = false;
-        for (int codepoint : s) {;
-            if (Character.isUpperCase(codepoint) || Character.isTitleCase(codepoint)) {
+        for (int codepoint : s) {
+            ;
+            if (Character.isUpperCase(codepoint)
+                    || Character.isTitleCase(codepoint)) {
                 return false;
             } else if (!cased && Character.isLowerCase(codepoint)) {
                 cased = true;
@@ -2209,8 +2223,10 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
 
     private static boolean isupper(PySequence.OfInt s) {
         boolean cased = false;
-        for (int codepoint : s) {;
-            if (Character.isLowerCase(codepoint) || Character.isTitleCase(codepoint)) {
+        for (int codepoint : s) {
+            ;
+            if (Character.isLowerCase(codepoint)
+                    || Character.isTitleCase(codepoint)) {
                 return false;
             } else if (!cased && Character.isUpperCase(codepoint)) {
                 cased = true;
@@ -2226,13 +2242,9 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
     static boolean isalpha(String s) { return isalpha(adapt(s)); }
 
     private static boolean isalpha(PySequence.OfInt s) {
-        if (s.length() == 0) {
-            return false;
-        }
+        if (s.length() == 0) { return false; }
         for (int codepoint : s) {
-            if (!Character.isLetter(codepoint)) {
-                return false;
-            }
+            if (!Character.isLetter(codepoint)) { return false; }
         }
         return true;
     }
@@ -2244,12 +2256,12 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
     static boolean isalnum(String s) { return isalnum(adapt(s)); }
 
     private static boolean isalnum(PySequence.OfInt s) {
-        if (s.length() == 0) {
-            return false;
-        }
-        for (int codepoint : s) {;
+        if (s.length() == 0) { return false; }
+        for (int codepoint : s) {
+            ;
             if (!(Character.isLetterOrDigit(codepoint) || //
-                    Character.getType(codepoint) == Character.LETTER_NUMBER)) {
+                    Character.getType(
+                            codepoint) == Character.LETTER_NUMBER)) {
                 return false;
             }
         }
@@ -2265,8 +2277,8 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
     @PythonMethod
     static boolean isascii(String self) {
         // We can test chars since any surrogate will fail.
-        return self.chars().dropWhile(c -> c >>> 7 == 0)
-                .findFirst().isEmpty();
+        return self.chars().dropWhile(c -> c >>> 7 == 0).findFirst()
+                .isEmpty();
     }
 
     @PythonMethod
@@ -2276,11 +2288,11 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
     static boolean isdecimal(String s) { return isdecimal(adapt(s)); }
 
     private static boolean isdecimal(PySequence.OfInt s) {
-        if (s.length() == 0) {
-            return false;
-        }
-        for (int codepoint : s) {;
-            if (Character.getType(codepoint) != Character.DECIMAL_DIGIT_NUMBER) {
+        if (s.length() == 0) { return false; }
+        for (int codepoint : s) {
+            ;
+            if (Character.getType(
+                    codepoint) != Character.DECIMAL_DIGIT_NUMBER) {
                 return false;
             }
         }
@@ -2294,13 +2306,10 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
     static boolean isdigit(String s) { return isdigit(adapt(s)); }
 
     private static boolean isdigit(PySequence.OfInt s) {
-        if (s.length() == 0) {
-            return false;
-        }
-        for (int codepoint : s) {;
-            if (!Character.isDigit(codepoint)) {
-                return false;
-            }
+        if (s.length() == 0) { return false; }
+        for (int codepoint : s) {
+            ;
+            if (!Character.isDigit(codepoint)) { return false; }
         }
         return true;
     }
@@ -2312,12 +2321,12 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
     static boolean isnumeric(String s) { return isnumeric(adapt(s)); }
 
     private static boolean isnumeric(PySequence.OfInt s) {
-        if (s.length() == 0) {
-            return false;
-        }
-        for (int codepoint : s) {;
+        if (s.length() == 0) { return false; }
+        for (int codepoint : s) {
+            ;
             int type = Character.getType(codepoint);
-            if (type != Character.DECIMAL_DIGIT_NUMBER && type != Character.LETTER_NUMBER
+            if (type != Character.DECIMAL_DIGIT_NUMBER
+                    && type != Character.LETTER_NUMBER
                     && type != Character.OTHER_NUMBER) {
                 return false;
             }
@@ -2332,22 +2341,18 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
     static boolean istitle(String s) { return istitle(adapt(s)); }
 
     private static boolean istitle(PySequence.OfInt s) {
-        if (s.length() == 0) {
-            return false;
-        }
+        if (s.length() == 0) { return false; }
         boolean cased = false;
         boolean previous_is_cased = false;
-        for (int codepoint : s) {;
-            if (Character.isUpperCase(codepoint) || Character.isTitleCase(codepoint)) {
-                if (previous_is_cased) {
-                    return false;
-                }
+        for (int codepoint : s) {
+            ;
+            if (Character.isUpperCase(codepoint)
+                    || Character.isTitleCase(codepoint)) {
+                if (previous_is_cased) { return false; }
                 previous_is_cased = true;
                 cased = true;
             } else if (Character.isLowerCase(codepoint)) {
-                if (!previous_is_cased) {
-                    return false;
-                }
+                if (!previous_is_cased) { return false; }
                 previous_is_cased = true;
                 cased = true;
             } else {
@@ -2364,18 +2369,45 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
     static boolean isspace(String s) { return isspace(adapt(s)); }
 
     private static boolean isspace(PySequence.OfInt s) {
-        if (s.length() == 0) {
-            return false;
-        }
-        for (int codepoint : s) {;
-            if (!isPythonSpace(codepoint)) {
-                return false;
-            }
+        if (s.length() == 0) { return false; }
+        for (int codepoint : s) {
+            ;
+            if (!isPythonSpace(codepoint)) { return false; }
         }
         return true;
     }
 
+    /*
+     * @ExposedMethod(doc = BuiltinDocs.unicode___format___doc)
+     */
+    @PythonMethod
+    static final Object __format__(Object self, Object formatSpec) {
 
+        String stringFormatSpec = coerceToString(formatSpec,
+                () -> Abstract.argumentTypeError("__format__",
+                        "specification", "str", formatSpec));
+
+        try {
+            // Parse the specification
+            Spec spec = InternalFormat.fromText(stringFormatSpec);
+
+            // Get a formatter for the specification
+            TextFormatter f = new StrFormatter(spec);
+
+            /*
+             * Format, pad and return a result according to as the
+             * specification argument.
+             */
+            return f.format(self).pad().getResult();
+
+        } catch (FormatOverflow fe) {
+            throw new OverflowError(fe.getMessage());
+        } catch (FormatError fe) {
+            throw new ValueError(fe.getMessage());
+        } catch (NoConversion e) {
+            throw Abstract.impossibleArgumentError(TYPE.name, self);
+        }
+    }
 
     // Java-only API --------------------------------------------------
 
@@ -2444,19 +2476,12 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
      * @return {@code String} value
      * @throws TypeError if {@code v} is not a Python {@code str}
      */
-    static String asString(Object v) throws TypeError {
+    public static String asString(Object v) throws TypeError {
         if (v instanceof String)
             return (String)v;
         else if (v instanceof PyUnicode)
             return ((PyUnicode)v).asString();
         throw Abstract.requiredTypeError("a str", v);
-    }
-
-    /** @return this {@code PyUnicode} as a Java {@code String} */
-    private String asString() {
-        StringBuilder b = new StringBuilder();
-        for (int c : delegate) { b.appendCodePoint(c); }
-        return b.toString();
     }
 
     // @formatter:on
@@ -2488,11 +2513,11 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
 
     // Plumbing ------------------------------------------------------
 
-    // @formatter:off
-
     /**
      * Convert a Python {@code str} to a Java {@code str} (or throw
-     * {@link NoConversion}).
+     * {@link NoConversion}). This is suitable for use where a method
+     * argument should be (exactly) a {@code str}, or an alternate path
+     * taken.
      * <p>
      * If the method throws the special exception {@link NoConversion},
      * the caller must deal with it by throwing an appropriate Python
@@ -2506,8 +2531,37 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         if (v instanceof String)
             return (String)v;
         else if (v instanceof PyUnicode)
-            return ((PyUnicode)v).toString();
+            return ((PyUnicode)v).asString();
         throw PyObjectUtil.NO_CONVERSION;
+    }
+
+    /**
+     * Coerce a Python {@code str} to a Java String, or raise a
+     * specified exception. This is suitable for use where a method
+     * argument should be (exactly) a {@code str}, or a context specific
+     * exception has to be raised.
+     *
+     * @param <E> type of exception to throw
+     * @param arg to coerce
+     * @param exc supplier for actual exception
+     * @return {@code arg} as a {@code String}
+     */
+    static <E extends PyException> String coerceToString(Object arg,
+            Supplier<E> exc) {
+        if (arg instanceof String) {
+            return (String)arg;
+        } else if (arg instanceof PyUnicode) {
+            return ((PyUnicode)arg).asString();
+        } else {
+            throw exc.get();
+        }
+    }
+
+    /** @return this {@code PyUnicode} as a Java {@code String} */
+    private String asString() {
+        StringBuilder b = new StringBuilder();
+        for (int c : delegate) { b.appendCodePoint(c); }
+        return b.toString();
     }
 
     /**
@@ -3563,7 +3617,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
 
     /**
      * Adapt a Python {@code str} intended as a fill character in
-     * justification and centering operations. The behaviour is quite
+     * justification and centring operations. The behaviour is quite
      * like {@link #adapt(Object)}, but it returns a single code point.
      * A null argument returns the default choice, a space.
      *
@@ -3616,26 +3670,6 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
                 throw Abstract.argumentTypeError(method, "chars",
                         "str or None", chars);
             }
-        }
-    }
-
-    /**
-     * Coerce a Python {@code object} to a Java String, or raise a
-     * specified exception.
-     *
-     * @param <E> type of exception to throw
-     * @param arg to coerce
-     * @param exc supplier for actual exception
-     * @return {@code arg} as a {@code String}
-     */
-    private static <E extends PyException> String
-            coerceToString(Object arg, Supplier<E> exc) {
-        if (arg instanceof String) {
-            return (String)arg;
-        } else if (arg instanceof PyUnicode) {
-            return ((PyUnicode)arg).asString();
-        } else {
-            throw exc.get();
         }
     }
 
@@ -4033,5 +4067,64 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
 
         @Override
         public Map<Object, Object> getDict() { return dict; }
+    }
+
+    /**
+     * A {@link Formatter}, constructed from a {@link Spec}, with
+     * specific validations for {@code str.__format__}.
+     */
+    private static class StrFormatter extends TextFormatter {
+
+        /**
+         * Prepare a {@link TextFormatter} in support of
+         * {@link PyUnicode#__format__(Object, Object) str.__format__}.
+         *
+         * @param spec a parsed PEP-3101 format specification.
+         * @return a formatter ready to use.
+         * @throws FormatOverflow if a value is out of range
+         *  (including the
+         *     precision)
+         * @throws FormatError if an unsupported format character is
+         *     encountered
+         */
+        StrFormatter(Spec spec) throws FormatError {
+            super(validated(spec));
+        }
+
+        @Override
+        public TextFormatter format(Object self) throws NoConversion {
+            return format(convertToString(self));
+        }
+
+        private static Spec validated(Spec spec) throws FormatError {
+            String type = TYPE.name;
+            switch (spec.type) {
+
+                case Spec.NONE:
+                case 's':
+                    // Check for disallowed parts of the specification
+                    if (spec.grouping) {
+                        throw notAllowed("Grouping", type, spec.type);
+                    } else if (Spec.specified(spec.sign)) {
+                        throw signNotAllowed(type, '\0');
+                    } else if (spec.alternate) {
+                        throw alternateFormNotAllowed(type);
+                    } else if (spec.align == '=') {
+                        throw alignmentNotAllowed('=', type);
+                    }
+                    // Passed (whew!)
+                    break;
+
+                default:
+                    // The type code was not recognised
+                    throw unknownFormat(spec.type, type);
+            }
+
+            /*
+             * spec may be incomplete. The defaults are those commonly
+             * used for string formats.
+             */
+            return spec.withDefaults(Spec.STRING);
+        }
     }
 }

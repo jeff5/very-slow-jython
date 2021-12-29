@@ -9,9 +9,15 @@ import java.lang.invoke.MethodHandles;
 import java.math.BigInteger;
 import java.util.Map;
 
+import uk.co.farowl.vsj3.evo1.Exposed.PythonMethod;
 import uk.co.farowl.vsj3.evo1.PyObjectUtil.NoConversion;
 import uk.co.farowl.vsj3.evo1.Slot.EmptyException;
 import uk.co.farowl.vsj3.evo1.base.InterpreterError;
+import uk.co.farowl.vsj3.evo1.stringlib.IntegerFormatter;
+import uk.co.farowl.vsj3.evo1.stringlib.InternalFormat;
+import uk.co.farowl.vsj3.evo1.stringlib.InternalFormat.FormatError;
+import uk.co.farowl.vsj3.evo1.stringlib.InternalFormat.FormatOverflow;
+import uk.co.farowl.vsj3.evo1.stringlib.InternalFormat.Spec;
 
 /**
  * A Python {@code int} object may be represented by a
@@ -417,6 +423,37 @@ public class PyLong extends AbstractPyObject implements PyDict.Key {
 
     // __str__: let object.__str__ handle it (calls __repr__)
 
+    // int methods ----------------------------------------------------
+
+    @PythonMethod
+    static final Object __format__(Object self, Object formatSpec) {
+
+        String stringFormatSpec = PyUnicode.coerceToString(formatSpec,
+                () -> Abstract.argumentTypeError("__format__",
+                        "specification", "str", formatSpec));
+
+        try {
+            // Parse the specification
+            Spec spec = InternalFormat.fromText(stringFormatSpec);
+
+            // Get a formatter for the specification
+            IntegerFormatter f = new IntFormatter(spec);
+
+            /*
+             * Format, pad and return a result according to as the
+             * specification argument.
+             */
+            return f.format(self).pad().getResult();
+
+        } catch (FormatOverflow fe) {
+            throw new OverflowError(fe.getMessage());
+        } catch (FormatError fe) {
+            throw new ValueError(fe.getMessage());
+        } catch (NoConversion e) {
+            throw Abstract.impossibleArgumentError(TYPE.name, self);
+        }
+    }
+
     // Python sub-class -----------------------------------------------
 
     /**
@@ -436,7 +473,90 @@ public class PyLong extends AbstractPyObject implements PyDict.Key {
         public Map<Object, Object> getDict() { return dict; }
     }
 
-    // plumbing ------------------------------------------------------
+    // formatter ------------------------------------------------------
+
+    /**
+     * An {@link IntegerFormatter}, constructed from a {@link Spec},
+     * with validations customised for {@code int.__format__}.
+     */
+    private static class IntFormatter extends IntegerFormatter {
+
+        /**
+         * Prepare an {@link IntegerFormatter} in support of
+         * {@link PyLong#__format__(Object, Object) int.__format__}.
+         *
+         * @param spec a parsed PEP-3101 format specification.
+         * @return a formatter ready to use.
+         * @throws FormatOverflow if a value is out of range (including
+         *     the precision)
+         * @throws FormatError if an unsupported format character is
+         *     encountered
+         */
+        IntFormatter(Spec spec) throws FormatError {
+            super(validated(spec));
+        }
+
+        /**
+         * Validations and defaults specific to {@code int.__format__}.
+         * (Note that {@code int.__mod__} has slightly different rules.)
+         *
+         * @param spec to validate
+         * @return validated spec with defaults filled
+         * @throws FormatError on failure to validate
+         */
+        private static Spec validated(Spec spec) throws FormatError {
+            String type = TYPE.name;
+            switch (spec.type) {
+
+                case 'c':
+                    // Character data: specific prohibitions.
+                    if (Spec.specified(spec.sign)) {
+                        throw signNotAllowed("integer", spec.type);
+                    } else if (spec.alternate) {
+                        throw alternateFormNotAllowed("integer",
+                                spec.type);
+                    }
+                    //$FALL-THROUGH$
+
+                case 'x':
+                case 'X':
+                case 'o':
+                case 'b':
+                case 'n':
+                    if (spec.grouping) {
+                        throw notAllowed("Grouping", ',', "integer",
+                                spec.type);
+                    }
+                    //$FALL-THROUGH$
+
+                case Spec.NONE:
+                case 'd':
+                    // Check for disallowed parts of the specification
+                    if (Spec.specified(spec.precision)) {
+                        throw precisionNotAllowed("integer");
+                    }
+                    break;
+
+                default:
+                    // The type code was not recognised
+                    throw unknownFormat(spec.type, type);
+            }
+
+            /*
+             * spec may be incomplete. The defaults are those commonly
+             * used for numeric formats.
+             */
+            return spec.withDefaults(Spec.NUMERIC);
+        }
+
+        @Override
+        public IntegerFormatter format(Object o)
+                throws NoConversion, FormatError {
+            return format(convertToBigInteger(o));
+        }
+    }
+
+    // plumbing -------------------------------------------------------
 
     // Convert from int (core use) ------------------------------------
 
@@ -607,6 +727,6 @@ public class PyLong extends AbstractPyObject implements PyDict.Key {
      * @return exception to throw
      */
     private static InterpreterError impossible(Object o) {
-        return Abstract.impossibleArgumentError("int", o);
+        return Abstract.impossibleArgumentError(TYPE.name, o);
     }
 }
