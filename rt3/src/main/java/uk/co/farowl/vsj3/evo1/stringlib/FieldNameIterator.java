@@ -5,7 +5,6 @@ package uk.co.farowl.vsj3.evo1.stringlib;
 import java.lang.invoke.MethodHandles;
 
 import uk.co.farowl.vsj3.evo1.CraftedPyObject;
-import uk.co.farowl.vsj3.evo1.Py;
 import uk.co.farowl.vsj3.evo1.PyObjectUtil;
 import uk.co.farowl.vsj3.evo1.PyTuple;
 import uk.co.farowl.vsj3.evo1.PyType;
@@ -19,10 +18,6 @@ import uk.co.farowl.vsj3.evo1.PyType;
  * as well as being the iterator (second member), the object has an
  * extra method {@link #head()} to return the required first member of
  * the pair.
- */
-/*
- * @ExposedType(name = "fieldnameiterator", base = PyObject.class,
- * isBaseType = false)
  */
 public class FieldNameIterator implements CraftedPyObject {
 
@@ -91,8 +86,10 @@ public class FieldNameIterator implements CraftedPyObject {
     @Override
     public PyType getType() { return TYPE; }
 
+    @SuppressWarnings("unused")
     private final Object __iter__() { return this; }
 
+    @SuppressWarnings("unused")
     private final Object __next__() {
         Chunk chunk = nextChunk();
         if (chunk == null) { throw PyObjectUtil.STOP_ITERATION; }

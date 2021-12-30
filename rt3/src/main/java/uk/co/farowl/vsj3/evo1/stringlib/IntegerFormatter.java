@@ -16,7 +16,7 @@ import uk.co.farowl.vsj3.evo1.stringlib.InternalFormat.Spec;
  * objects that are not, on their own, thread safe.
  */
 public abstract class IntegerFormatter
-        extends InternalFormat.Formatter {
+        extends InternalFormat.AbstractFormatter {
 
     /**
      * Construct the formatter from a client-supplied buffer, to which
@@ -43,64 +43,6 @@ public abstract class IntegerFormatter
          */
         this(new StringBuilder(34), spec);
     }
-
-    // /**
-    // * Prepare an {@link IntegerFormatter}. This object has an
-    // * overloaded format method {@link IntegerFormatter#format(int)} and
-    // * {@link IntegerFormatter#format(BigInteger)} to support the two
-    // * implementation types.
-    // *
-    // * @param spec a parsed PEP-3101 format specification.
-    // * @return a formatter ready to use, or null if the type is not an
-    // * integer format type.
-    // * @throws FormatOverflow if a value is out of range (including the
-    // * precision)
-    // * @throws FormatError if an unsupported format character is
-    // * encountered
-    // */
-    // @SuppressWarnings({"fallthrough"})
-    // public static IntegerFormatter prepareFormatter(Spec spec)
-    // throws FormatOverflow, FormatError {
-    //
-    // // Slight differences between format types
-    // switch (spec.type) {
-    // case 'c':
-    // // Character data: specific prohibitions.
-    // if (Spec.specified(spec.sign)) {
-    // throw signNotAllowed("integer", spec.type);
-    // } else if (spec.alternate) {
-    // throw alternateFormNotAllowed("integer", spec.type);
-    // }
-    // // Fall through
-    //
-    // case 'x':
-    // case 'X':
-    // case 'o':
-    // case 'b':
-    // case 'n':
-    // if (spec.grouping) {
-    // throw notAllowed("Grouping", "integer", spec.type);
-    // }
-    // // Fall through
-    //
-    // case Spec.NONE:
-    // case 'd':
-    // // Check for disallowed parts of the specification
-    // if (Spec.specified(spec.precision)) {
-    // throw precisionNotAllowed("integer");
-    // }
-    // /*
-    // * spec may be incomplete. The defaults are those
-    // * commonly used for numeric formats.
-    // */
-    // spec = spec.withDefaults(Spec.NUMERIC);
-    // // Get a formatter for the spec.
-    // return new IntegerFormatter(spec);
-    //
-    // default:
-    // return null;
-    // }
-    // }
 
     /*
      * Re-implement the text appends so they return the right type.
@@ -297,8 +239,10 @@ public abstract class IntegerFormatter
      * @throws FormatOverflow if {@code value} out of range
      */
     void format_c(BigInteger value) throws FormatOverflow {
-        /* Limit is 256 if we're formatting for byte output, unicode
-         range otherwise.*/
+        /*
+         * Limit is 256 if we're formatting for byte output, unicode
+         * range otherwise.
+         */
         BigInteger limit = bytes ? LIMIT_BYTE : LIMIT_UNICODE;
         if (value.signum() < 0 || value.compareTo(limit) >= 0) {
             throw new FormatOverflow("%c arg not in range(0x"
@@ -313,210 +257,6 @@ public abstract class IntegerFormatter
             BigInteger.valueOf(Character.MAX_CODE_POINT + 1);
     private static final BigInteger LIMIT_BYTE =
             BigInteger.valueOf(256);
-
-    // /**
-    // * Format an integer according to the specification represented by
-    // * this {@code IntegerFormatter}. The conversion type, and flags
-    // for
-    // * grouping or base prefix are dealt with here. At the point this
-    // is
-    // * used, we know the {@link #spec} is one of the integer types.
-    // *
-    // * @param value to convert
-    // * @return this object
-    // * @throws FormatOverflow if a value is out of range (including
-    // the
-    // * precision)
-    // * @throws FormatError if an unsupported format character is
-    // * encountered
-    // */
-    // public IntegerFormatter format(int value)
-    // throws FormatOverflow, FormatError {
-    // try {
-    // // Scratch all instance variables and start =
-    // // result.length().
-    // setStart();
-    //
-    // // Different process for each format type.
-    // switch (spec.type) {
-    // case 'd':
-    // case Spec.NONE:
-    // case 'u':
-    // case 'i':
-    // // None format or d-format: decimal
-    // format_d(value);
-    // break;
-    //
-    // case 'x':
-    // // hexadecimal.
-    // format_x(value, false);
-    // break;
-    //
-    // case 'X':
-    // // HEXADECIMAL!
-    // format_x(value, true);
-    // break;
-    //
-    // case 'o':
-    // // Octal.
-    // format_o(value);
-    // break;
-    //
-    // case 'b':
-    // // Binary.
-    // format_b(value);
-    // break;
-    //
-    // case 'c':
-    // case '%':
-    // // Binary.
-    // format_c(value);
-    // break;
-    //
-    // case 'n':
-    // // Locale-sensitive d-format should be here.
-    // format_d(value);
-    // break;
-    //
-    // default:
-    // // Should never get here: type checked in caller.
-    // throw unknownFormat(spec.type, "integer");
-    // }
-    //
-    // // If required to, group the whole-part digits.
-    // if (spec.grouping) { groupDigits(3, ','); }
-    //
-    // return this;
-    // } catch (OutOfMemoryError eme) {
-    // // Most probably due to excessive precision.
-    // throw precisionTooLarge("integer");
-    // }
-    // }
-    //
-    // /**
-    // * Format the value as decimal (into {@link #result}). The option
-    // * for mandatory sign is dealt with by reference to the format
-    // * specification.
-    // *
-    // * @param value to convert
-    // */
-    // void format_d(int value) {
-    // String number;
-    // if (value < 0) {
-    // // Negative: deal with sign and base, and convert magnitude.
-    // negativeSign(null);
-    // /*
-    // * Here there is a special case for int min value due to
-    // * wrapping, to avoid a double negative sign being added see
-    // * http://bugs.jython.org/issue2672 The string constant here
-    // * is -Integer.MIN_VALUE
-    // */
-    // number = value == Integer.MIN_VALUE ? "2147483648"
-    // : Integer.toString(-value);
-    // } else {
-    // // Positive: optional sign, then base, magnitude.
-    // positiveSign(null);
-    // number = Integer.toString(value);
-    // }
-    // appendNumber(number);
-    // }
-    //
-    // /**
-    // * Format the value as hexadecimal (into {@link #result}), with
-    // the
-    // * option of using upper-case or lower-case letters. The options
-    // for
-    // * mandatory sign and for the presence of a base-prefix "0x" or
-    // "0X"
-    // * are dealt with by reference to the format specification.
-    // *
-    // * @param value to convert
-    // * @param upper if the hexadecimal should be upper case
-    // */
-    // void format_x(int value, boolean upper) {
-    // String base = upper ? "0X" : "0x";
-    // String number;
-    // if (value < 0) {
-    // // Negative: deal with sign and base, and convert magnitude.
-    // negativeSign(base);
-    // number = Integer.toHexString(-value);
-    // } else {
-    // // Positive: deal with sign, base and magnitude.
-    // positiveSign(base);
-    // number = Integer.toHexString(value);
-    // }
-    // // Append to result, case-shifted if necessary.
-    // if (upper) { number = number.toUpperCase(); }
-    // appendNumber(number);
-    // }
-    //
-    // /**
-    // * Format the value as octal (into {@link #result}). The options
-    // for
-    // * mandatory sign and for the presence of a base-prefix "0o" are
-    // * dealt with by reference to the format specification.
-    // *
-    // * @param value to convert
-    // */
-    // void format_o(int value) {
-    // String base = "0o";
-    // String number;
-    // if (value < 0) {
-    // // Negative: deal with sign and base, and convert magnitude.
-    // negativeSign(base);
-    // number = Integer.toOctalString(-value);
-    // } else {
-    // // Positive: deal with sign, base and magnitude.
-    // positiveSign(base);
-    // number = Integer.toOctalString(value);
-    // }
-    // // Append to result.
-    // appendNumber(number);
-    // }
-    //
-    // /**
-    // * Format the value as binary (into {@link #result}). The options
-    // * for mandatory sign and for the presence of a base-prefix "0b"
-    // are
-    // * dealt with by reference to the format specification.
-    // *
-    // * @param value to convert
-    // */
-    // void format_b(int value) {
-    // String base = "0b";
-    // String number;
-    // if (value < 0) {
-    // // Negative: deal with sign and base, and convert magnitude.
-    // negativeSign(base);
-    // number = Integer.toBinaryString(-value);
-    // } else {
-    // // Positive: deal with sign, base and magnitude.
-    // positiveSign(base);
-    // number = Integer.toBinaryString(value);
-    // }
-    // // Append to result.
-    // appendNumber(number);
-    // }
-    //
-    // /**
-    // * Format the value as a character (into {@link #result}).
-    // *
-    // * @param value to convert
-    // * @throws FormatOverflow if {@code value} out of range
-    // */
-    // void format_c(int value) throws FormatOverflow {
-    // /*
-    // * Limit is 256 if we're formatting for byte output, unicode
-    // * range otherwise.
-    // */
-    // int limit = bytes ? 256 : Character.MAX_CODE_POINT + 1;
-    // if (value < 0 || value >= limit) {
-    // throw new FormatOverflow("%c arg not in range(0x"
-    // + Integer.toHexString(limit) + ")");
-    // } else {
-    // result.appendCodePoint(value);
-    // }
-    // }
 
     /**
      * Append to {@link #result} buffer a sign (if one is specified for

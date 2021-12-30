@@ -30,7 +30,7 @@ import uk.co.farowl.vsj3.evo1.base.InterpreterError;
 import uk.co.farowl.vsj3.evo1.stringlib.InternalFormat;
 import uk.co.farowl.vsj3.evo1.stringlib.InternalFormat.FormatError;
 import uk.co.farowl.vsj3.evo1.stringlib.InternalFormat.FormatOverflow;
-import uk.co.farowl.vsj3.evo1.stringlib.InternalFormat.Formatter;
+import uk.co.farowl.vsj3.evo1.stringlib.InternalFormat.AbstractFormatter;
 import uk.co.farowl.vsj3.evo1.stringlib.InternalFormat.Spec;
 import uk.co.farowl.vsj3.evo1.stringlib.TextFormatter;
 
@@ -4184,7 +4184,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
     }
 
     /**
-     * A {@link Formatter}, constructed from a {@link Spec}, with
+     * A {@link AbstractFormatter}, constructed from a {@link Spec}, with
      * specific validations for {@code str.__format__}.
      */
     private static class StrFormatter extends TextFormatter {

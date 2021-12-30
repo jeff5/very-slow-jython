@@ -12,11 +12,9 @@ import uk.co.farowl.vsj3.evo1.Exposed.PythonMethod;
 import uk.co.farowl.vsj3.evo1.PyObjectUtil.NoConversion;
 import uk.co.farowl.vsj3.evo1.base.InterpreterError;
 import uk.co.farowl.vsj3.evo1.stringlib.FloatFormatter;
-import uk.co.farowl.vsj3.evo1.stringlib.IntegerFormatter;
 import uk.co.farowl.vsj3.evo1.stringlib.InternalFormat;
 import uk.co.farowl.vsj3.evo1.stringlib.InternalFormat.FormatError;
 import uk.co.farowl.vsj3.evo1.stringlib.InternalFormat.FormatOverflow;
-import uk.co.farowl.vsj3.evo1.stringlib.InternalFormat.Formatter;
 import uk.co.farowl.vsj3.evo1.stringlib.InternalFormat.Spec;
 
 /** The Python {@code float} object. */
@@ -110,16 +108,13 @@ public class PyFloat extends AbstractPyObject {
     // Special methods ------------------------------------------------
 
     @SuppressWarnings("unused")
-    private static Object __repr__(Object self) {
+    private static String __repr__(Object self) {
         assert TYPE.check(self);
-        try {
-            // XXX not really what Python needs (awaits formatting
-            // methods)
-            return Double.toString(toDouble(self));
-        } catch (NoConversion nc) {
-            throw Abstract.impossibleArgumentError("float", self);
-        }
+        return formatDouble(doubleValue(self), SPEC_REPR);
     }
+
+    /** Format specification used by repr(). */
+    private static final Spec SPEC_REPR = InternalFormat.fromText(" >r");
 
     // __str__: let object.__str__ handle it (calls __repr__)
 
@@ -150,9 +145,6 @@ public class PyFloat extends AbstractPyObject {
 
     // float methods ------------------------------------------------
 
-    /*
-    @ExposedMethod(doc = BuiltinDocs.float___format___doc)
-     */
     @PythonMethod
     static final Object __format__(Object self, Object formatSpec) {
 
@@ -165,7 +157,7 @@ public class PyFloat extends AbstractPyObject {
             Spec spec = InternalFormat.fromText(stringFormatSpec);
 
             // Get a formatter for the specification
-            FloatFormatter f = new FloatFormatter2(spec);
+            Formatter f = new Formatter(spec);
 
             /*
              * Format, pad and return a result according to as the
@@ -182,8 +174,27 @@ public class PyFloat extends AbstractPyObject {
         }
     }
 
+    /**
+     * Format this float according to the specification passed in.
+     * Supports {@code __format__}, {@code __str__} and
+     * {@code __repr__}.
+     *
+     * @param value to format
+     * @param spec parsed format specification string
+     * @return formatted value
+     */
+    private static String formatDouble(double value, Spec spec) {
+        try {
+            FloatFormatter f = new Formatter(spec, true);
+            return f.format(value).getResult();
+        } catch (FormatOverflow fe) {
+            throw new OverflowError(fe.getMessage());
+        } catch (FormatError fe) {
+            throw new ValueError(fe.getMessage());
+        }
+    }
 
-    // Non-slot API -------------------------------------------------
+    // Java-only API -------------------------------------------------
 
     /**
      * Convert a Python {@code float}, {@code int} or {@code bool} to a
@@ -309,29 +320,51 @@ public class PyFloat extends AbstractPyObject {
         public Map<Object, Object> getDict() { return dict; }
     }
 
-
     // formatter ------------------------------------------------------
 
     /**
-     * A {@link FloatFormatter}, constructed from a {@link Spec}, with
+     * A {@link Formatter}, constructed from a {@link Spec}, with
      * specific validations for {@code int.__format__}.
      */
-    private static class FloatFormatter2 extends FloatFormatter {
+    static class Formatter extends FloatFormatter {
 
         /**
-         * Prepare a {@link FloatFormatter2} in support of
-         * {@link PyFloat#__format__(Object, Object) float.__format__}.
+         * If {@code true}, give {@code printf}-style meanings to
+         * {@link Spec#type}.
+         */
+        final boolean printf;
+
+        /**
+         * Prepare a {@link Formatter} in support of
+         * {@code str.__mod__}, that is, traditional
+         * {@code printf}-style formatting.
          *
-         * @param spec a parsed PEP-3101 format specification.
-         * @return a formatter ready to use.
-         * @throws FormatOverflow if a value is out of range
-         *  (including the
-         *     precision)
+         * @param spec a parsed format specification.
+         * @param printf f {@code true}, interpret {@code spec}
+         *     {@code printf}-style, otherwise as
+         *     {@link Formatter#Formatter(Spec) Formatter(Spec)}
+         * @throws FormatOverflow if a value is out of range (including
+         *     the precision)
          * @throws FormatError if an unsupported format character is
          *     encountered
          */
-        FloatFormatter2(Spec spec) throws FormatError {
-            super(validated(spec));
+        Formatter(Spec spec, boolean printf) throws FormatError {
+            super(validated(spec, printf));
+            this.printf = printf;
+        }
+
+        /**
+         * Prepare a {@link Formatter} in support of
+         * {@link PyFloat#__format__(Object, Object) float.__format__}.
+         *
+         * @param spec a parsed PEP-3101 format specification.
+         * @throws FormatOverflow if a value is out of range (including
+         *     the precision)
+         * @throws FormatError if an unsupported format character is
+         *     encountered
+         */
+        Formatter(Spec spec) throws FormatError {
+            this(spec, false);
         }
 
         /**
@@ -341,7 +374,8 @@ public class PyFloat extends AbstractPyObject {
          * @return validated spec with defaults filled
          * @throws FormatError on failure to validate
          */
-        private static Spec validated(Spec spec) throws FormatError {
+        private static Spec validated(Spec spec, boolean printf)
+                throws FormatError {
             String type = TYPE.name;
 
             switch (spec.type) {
@@ -365,6 +399,12 @@ public class PyFloat extends AbstractPyObject {
                         throw alternateFormNotAllowed(type);
                     }
                     break;
+
+                case 'r':
+                case 's':
+                    // Only allow for printf-style formatting
+                    if (printf) { break; }
+                    //$FALL-THROUGH$
 
                 default:
                     // The type code was not recognised

@@ -40,7 +40,9 @@ public class MarkupIterator implements CraftedPyObject {
      */
     private final FieldNumbering numbering;
 
-    /** Constructor used at top-level to enumerate a format.
+    /**
+     * Constructor used at top-level to enumerate a format.
+     *
      * @param markup to parse
      * @param bytes if originally bytes-like
      * @param numbering for automatically numbered arguments
@@ -52,9 +54,11 @@ public class MarkupIterator implements CraftedPyObject {
         this.numbering = numbering;
     }
 
-    /** Constructor used at top-level to enumerate a format.
-          * @param markup to parse
-*/
+    /**
+     * Constructor used at top-level to enumerate a format.
+     *
+     * @param markup to parse
+     */
     public MarkupIterator(String markup) {
         this(markup, false, new FieldNumbering());
     }
@@ -62,6 +66,7 @@ public class MarkupIterator implements CraftedPyObject {
     /**
      * Constructor used at top-level to enumerate a format that may be
      * for a bytes-like object.
+     *
      * @param markup to parse
      * @param bytes if originally bytes-like
      */
@@ -69,7 +74,9 @@ public class MarkupIterator implements CraftedPyObject {
         this(markup, bytes, new FieldNumbering());
     }
 
-    /** Variant constructor used when formats are nested.
+    /**
+     * Variant constructor used when formats are nested.
+     *
      * @param enclosingIterator within which this is nested
      * @param subMarkup the substring this is to parse
      */
@@ -157,7 +164,7 @@ public class MarkupIterator implements CraftedPyObject {
      *     is {@code None}.
      * @return object for tuple
      */
-    private Object wrap(String value, String defaultValue) {
+    private static Object wrap(String value, String defaultValue) {
         if (value == null) { value = defaultValue; }
         if (value == null) {
             // It's still null, we want a None
@@ -275,7 +282,7 @@ public class MarkupIterator implements CraftedPyObject {
      */
     public final boolean isBytes() { return bytes; }
 
-    private String unescapeBraces(String substring) {
+    private static String unescapeBraces(String substring) {
         return substring.replace("{{", "{").replace("}}", "}");
     }
 
@@ -371,7 +378,8 @@ public class MarkupIterator implements CraftedPyObject {
     }
 
     /** Find the first of two characters, or return -1. */
-    private int indexOfFirst(String s, int start, char c1, char c2) {
+    private static int indexOfFirst(String s, int start, char c1,
+            char c2) {
         int i1 = s.indexOf(c1, start);
         int i2 = s.indexOf(c2, start);
         if (i1 == -1) { return i2; }
@@ -417,25 +425,25 @@ public class MarkupIterator implements CraftedPyObject {
         }
     }
 
-    static final class Chunk {
+    public static final class Chunk {
 
         /** The text leading up to the next format field. */
-        String literalText;
+        public String literalText;
         /**
          * The field name or number (as a string) for accessing the
          * value.
          */
-        String fieldName;
+        public String fieldName;
         /** The format specifier such as {@code "#12x"}. */
-        String formatSpec;
+        public String formatSpec;
         /**
          * Conversion to be applied, e.g. {@code 'r'} for
          * {@code repr()}.
          */
-        String conversion;
+        public String conversion;
         /**
          * Signals the {@code formatSpec} needs expanding recursively.
          */
-        boolean formatSpecNeedsExpanding;
+        public boolean formatSpecNeedsExpanding;
     }
 }

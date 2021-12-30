@@ -31,7 +31,8 @@ public class InternalFormat {
      * construction. These are ephemeral objects that are not, on their
      * own, thread safe.
      */
-    public static abstract class Formatter implements Appendable {
+    public static abstract class AbstractFormatter
+            implements Appendable {
 
         /**
          * The specification according to which we format any number
@@ -81,7 +82,7 @@ public class InternalFormat {
          * @param result destination buffer
          * @param spec parsed conversion specification
          */
-        public Formatter(StringBuilder result, Spec spec) {
+        public AbstractFormatter(StringBuilder result, Spec spec) {
             this.spec = spec;
             this.result = result;
             this.start = this.mark = result.length();
@@ -94,7 +95,7 @@ public class InternalFormat {
          * @param spec parsed conversion specification
          * @param width of buffer initially
          */
-        public Formatter(Spec spec, int width) {
+        public AbstractFormatter(Spec spec, int width) {
             this(new StringBuilder(width), spec);
         }
 
@@ -137,7 +138,7 @@ public class InternalFormat {
          * @throws NoConversion if {@code o} is not convertible
          * @throws FormatError from the process of formatting
          */
-        public abstract Formatter format(Object o)
+        public abstract AbstractFormatter format(Object o)
                 throws NoConversion, FormatError;
 
         /**
@@ -153,25 +154,25 @@ public class InternalFormat {
          * buffer. See java.lang.Appendable#append(char)
          */
         @Override
-        public Formatter append(char c) {
+        public AbstractFormatter append(char c) {
             result.append(c);
             return this;
         }
 
-        public Formatter append(int c) {
+        public AbstractFormatter append(int c) {
             result.appendCodePoint(c);
             return this;
         }
 
         @Override
-        public Formatter append(CharSequence csq) {
+        public AbstractFormatter append(CharSequence csq) {
             result.append(csq);
             return this;
         }
 
         @Override
-        public Formatter append(CharSequence csq, int start, int end)
-                throws IndexOutOfBoundsException {
+        public AbstractFormatter append(CharSequence csq, int start,
+                int end) throws IndexOutOfBoundsException {
             result.append(csq, start, end);
             return this;
         }
@@ -413,7 +414,7 @@ public class InternalFormat {
          *
          * @return this Formatter object
          */
-        public Formatter pad() {
+        public AbstractFormatter pad() {
             /*
              * We'll need this many pad characters (if>0). Note
              * Spec.UNDEFINED<0.

@@ -20,7 +20,7 @@ import uk.co.farowl.vsj3.evo1.stringlib.InternalFormat.Spec;
  * lie behind the {@code __format__} methods of built-in types, and
  * methods exposed by Python module {@code _string}, for example.
  */
-class FormatParsingTests {
+class FormatParsingTest {
 
     /**
      * Test constructing a specification {@link Spec} from a format
@@ -284,7 +284,7 @@ class FormatParsingTests {
 
         @Test
         @DisplayName("parses 'abc[0]'")
-        void nameIndexed() {
+        void nameIndex() {
             FieldNameIterator it = new FieldNameIterator("abc[0]");
             assertEquals("abc", it.head());
             FieldNameIterator.Chunk chunk = it.nextChunk();
@@ -295,12 +295,47 @@ class FormatParsingTests {
 
         @Test
         @DisplayName("parses 'abc.def'")
-        void dottedName() {
+        void nameDotName() {
             FieldNameIterator it = new FieldNameIterator("abc.def");
             assertEquals("abc", it.head());
             FieldNameIterator.Chunk chunk = it.nextChunk();
             assertEquals("def", chunk.value);
             assertTrue(chunk.is_attr);
+            assertNull(it.nextChunk());
+        }
+
+        @Test
+        @DisplayName("parses 'a[2].b'")
+        void nameIndexDotName() {
+            FieldNameIterator it = new FieldNameIterator("a[2].b");
+            FieldNameIterator.Chunk chunk;
+            assertEquals("a", it.head());
+            chunk = it.nextChunk();
+            assertEquals(2, chunk.value);
+            assertFalse(chunk.is_attr);
+            chunk = it.nextChunk();
+            assertEquals("b", chunk.value);
+            assertTrue(chunk.is_attr);
+            assertNull(it.nextChunk());
+        }
+
+        @Test
+        @DisplayName("parses '1.a[2].b[3]'")
+        void numberDotNameIndexDotNameIndex() {
+            FieldNameIterator it = new FieldNameIterator("1.a[2].b[3]");
+            FieldNameIterator.Chunk chunk;
+            assertEquals(1, it.head());
+            chunk = it.nextChunk();
+            assertEquals("a", chunk.value);
+            chunk = it.nextChunk();
+            assertEquals(2, chunk.value);
+            assertFalse(chunk.is_attr);
+            chunk = it.nextChunk();
+            assertEquals("b", chunk.value);
+            assertTrue(chunk.is_attr);
+            chunk = it.nextChunk();
+            assertEquals(3, chunk.value);
+            assertFalse(chunk.is_attr);
             assertNull(it.nextChunk());
         }
     }

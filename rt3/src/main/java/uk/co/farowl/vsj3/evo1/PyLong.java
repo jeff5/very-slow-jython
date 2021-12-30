@@ -15,6 +15,7 @@ import uk.co.farowl.vsj3.evo1.Slot.EmptyException;
 import uk.co.farowl.vsj3.evo1.base.InterpreterError;
 import uk.co.farowl.vsj3.evo1.stringlib.IntegerFormatter;
 import uk.co.farowl.vsj3.evo1.stringlib.InternalFormat;
+import uk.co.farowl.vsj3.evo1.stringlib.InternalFormat.AbstractFormatter;
 import uk.co.farowl.vsj3.evo1.stringlib.InternalFormat.FormatError;
 import uk.co.farowl.vsj3.evo1.stringlib.InternalFormat.FormatOverflow;
 import uk.co.farowl.vsj3.evo1.stringlib.InternalFormat.Spec;
@@ -437,7 +438,13 @@ public class PyLong extends AbstractPyObject implements PyDict.Key {
             Spec spec = InternalFormat.fromText(stringFormatSpec);
 
             // Get a formatter for the specification
-            IntegerFormatter f = new IntFormatter(spec);
+            AbstractFormatter f;
+            if ("efgEFG%".indexOf(spec.type) >= 0) {
+                // These are floating-point formats
+                f = new PyFloat.Formatter(spec);
+            } else {
+                f = new PyLong.Formatter(spec);
+            }
 
             /*
              * Format, pad and return a result according to as the
@@ -479,7 +486,7 @@ public class PyLong extends AbstractPyObject implements PyDict.Key {
      * An {@link IntegerFormatter}, constructed from a {@link Spec},
      * with validations customised for {@code int.__format__}.
      */
-    private static class IntFormatter extends IntegerFormatter {
+    private static class Formatter extends IntegerFormatter {
 
         /**
          * Prepare an {@link IntegerFormatter} in support of
@@ -492,7 +499,7 @@ public class PyLong extends AbstractPyObject implements PyDict.Key {
          * @throws FormatError if an unsupported format character is
          *     encountered
          */
-        IntFormatter(Spec spec) throws FormatError {
+        Formatter(Spec spec) throws FormatError {
             super(validated(spec));
         }
 

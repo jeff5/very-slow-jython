@@ -17,7 +17,8 @@ import uk.co.farowl.vsj3.evo1.stringlib.InternalFormat.Spec;
  * the format specifier supplied at construction. These are ephemeral
  * objects that are not, on their own, thread safe.
  */
-public abstract class FloatFormatter extends InternalFormat.Formatter {
+public abstract class FloatFormatter
+        extends InternalFormat.AbstractFormatter {
 
     /** The rounding mode dominant in the formatter. */
     static final RoundingMode ROUND_PY = RoundingMode.HALF_EVEN;
@@ -106,68 +107,13 @@ public abstract class FloatFormatter extends InternalFormat.Formatter {
      * @return recommended a buffer size
      */
     public static int size(Spec spec) {
-        /*
-         * Rule of thumb used here (no right answer):
-         *
-         * in e format a float occupies: (p-1) + len("+1.e+300") = p+7;
-         *
-         * in f format a float occupies: p + len("1,000,000.%") = p+11;
-         *
-         * or an explicit (minimum) width may be given, with one
-         * overshoot possible.
-         */
-        return Math.max(spec.width + 1, spec.getPrecision(6) + 11);
+        // Rule of thumb used here (no right answer):
+        // in e format a float occupies: (p-1) + len("+1.e+300") = p+7;
+        // in f format a float occupies: p + len("1,000,000.%") = p+11;
+        // or an explicit (minimum) width may be given,
+        // and then we add a handful :)
+        return Math.max(spec.getPrecision(6) + 11, spec.width) + 5;
     }
-
-    // /**
-    // * Prepare a {@link FloatFormatter} from a parsed specification. The
-    // * object returned has format method
-    // * {@link FloatFormatter#format(double)}.
-    // *
-    // * @param spec a parsed PEP-3101 format specification.
-    // * @return a formatter ready to use, or null if the type is not a
-    // * floating point format type.
-    // * @throws FormatOverflow if a value is out of range (including the
-    // * precision)
-    // * @throws FormatError if an unsupported format character is
-    // * encountered
-    // */
-    // @SuppressWarnings("fallthrough")
-    // public static FloatFormatter prepareFormatter(Spec spec)
-    // throws FormatOverflow, FormatError {
-    //
-    // // Slight differences between format types
-    // switch (spec.type) {
-    //
-    // case 'n':
-    // if (spec.grouping) {
-    // throw notAllowed("Grouping", "float", spec.type);
-    // }
-    // // Fall through
-    //
-    // case Spec.NONE:
-    // case 'e':
-    // case 'f':
-    // case 'g':
-    // case 'E':
-    // case 'F':
-    // case 'G':
-    // case '%':
-    // // Check for disallowed parts of the specification
-    // if (spec.alternate) {
-    // throw alternateFormNotAllowed("float");
-    // }
-    // /*
-    // * spec may be incomplete. The defaults are those
-    // * commonly used for numeric formats.
-    // */
-    // spec = spec.withDefaults(Spec.NUMERIC);
-    // return new FloatFormatter(spec);
-    //
-    // default:
-    // return null;
-    // }
-    // }
 
     /**
      * Override the default truncation behaviour for the specification

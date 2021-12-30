@@ -12,7 +12,7 @@ import uk.co.farowl.vsj3.evo1.stringlib.InternalFormat.Spec;
  * specifier supplied at construction. These are ephemeral objects that
  * are not, on their own, thread safe.
  */
-public abstract class TextFormatter extends InternalFormat.Formatter {
+public abstract class TextFormatter extends InternalFormat.AbstractFormatter {
 
     /**
      * Construct the formatter from a client-supplied buffer, to which
