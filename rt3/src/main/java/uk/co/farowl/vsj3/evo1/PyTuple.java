@@ -525,6 +525,9 @@ public class PyTuple extends AbstractList<Object>
         public Object getItem(int i) { return value[i]; }
 
         @Override
+        public Object get(int i) { return value[i]; }
+
+        @Override
         public Object getSlice(Indices slice) throws Throwable {
             Object[] v;
             if (slice.step == 1)

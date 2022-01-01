@@ -186,6 +186,9 @@ class PyBytes extends AbstractList<Integer> implements CraftedPyObject {
         public Integer getItem(int i) { return 0xff & value[i]; }
 
         @Override
+        public int getInt(int i) { return 0xff & value[i]; }
+
+        @Override
         public PyBytes getSlice(Indices slice) {
             byte[] v;
             if (slice.step == 1)

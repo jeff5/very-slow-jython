@@ -27,10 +27,12 @@ import uk.co.farowl.vsj3.evo1.PyObjectUtil.NoConversion;
 import uk.co.farowl.vsj3.evo1.PySequence.Delegate;
 import uk.co.farowl.vsj3.evo1.PySlice.Indices;
 import uk.co.farowl.vsj3.evo1.base.InterpreterError;
+import uk.co.farowl.vsj3.evo1.stringlib.IntArrayBuilder;
+import uk.co.farowl.vsj3.evo1.stringlib.IntArrayReverseBuilder;
 import uk.co.farowl.vsj3.evo1.stringlib.InternalFormat;
+import uk.co.farowl.vsj3.evo1.stringlib.InternalFormat.AbstractFormatter;
 import uk.co.farowl.vsj3.evo1.stringlib.InternalFormat.FormatError;
 import uk.co.farowl.vsj3.evo1.stringlib.InternalFormat.FormatOverflow;
-import uk.co.farowl.vsj3.evo1.stringlib.InternalFormat.AbstractFormatter;
 import uk.co.farowl.vsj3.evo1.stringlib.InternalFormat.Spec;
 import uk.co.farowl.vsj3.evo1.stringlib.TextFormatter;
 
@@ -136,7 +138,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
      * @param value to have
      */
     protected PyUnicode(PyType type, String value) {
-        this(TYPE, value.codePoints().toArray());
+        this(TYPE, true, value.codePoints().toArray());
     }
 
     // Factory methods ------------------------------------------------
@@ -174,6 +176,18 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
             return new PyUnicode(TYPE, true, s.codePoints().toArray());
     }
 
+    /**
+     * Unsafely wrap an array of code points as a {@code PyUnicode}. The
+     * caller must not hold a reference to the argument array (and
+     * definitely not manipulate the contents).
+     *
+     * @param codePoints to wrap as a {@code str}
+     * @return the {@code str}
+     */
+    private static PyUnicode wrap(int[] codePoints) {
+        return new PyUnicode(TYPE, true, codePoints);
+    }
+
     @Override
     public PyType getType() { return type; }
 
@@ -195,7 +209,6 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         }
     }
 
-    @SuppressWarnings("unused")
     private int __len__() { return value.length; }
 
     @SuppressWarnings("unused")
@@ -788,10 +801,11 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
                 // If we reached the end of p it's a match
                 if (match == pLength) {
                     // Grab what came before the match.
-                    Object before = buffer.takeUnicode();
+                    Object before = wrap(buffer.take());
                     // Now consume (the known length) after the match.
                     buffer = new IntArrayBuilder(lastPos - pos + 1);
-                    Object after = buffer.append(si).takeUnicode();
+                    buffer.append(si);
+                    Object after = wrap(buffer.take());
                     // Return a result tuple
                     return Py.tuple(before, sep, after);
                 }
@@ -873,10 +887,11 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
                 // If we reached the end of p it's a match
                 if (match == pLength) {
                     // Grab what came after the match.
-                    Object after = buffer.takeUnicode();
+                    Object after = wrap(buffer.take());
                     // Now consume (the known length) before the match.
                     buffer = new IntArrayReverseBuilder(si.nextIndex());
-                    Object before = buffer.prepend(si).takeUnicode();
+                    buffer.prepend(si);
+                    Object before = wrap(buffer.take());
                     // Return a result
                     return Py.tuple(before, sep, after);
                 }
@@ -1000,7 +1015,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
             if (segment.length() > 0) {
                 // We created a segment.
                 --maxsplit;
-                list.add(segment.takeUnicode());
+                list.add(wrap(segment.take()));
             }
         }
         return list;
@@ -1074,7 +1089,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
                      * segment we have been accumulating, start a new
                      * one, and count a split.
                      */
-                    list.add(segment.takeUnicode());
+                    list.add(wrap(segment.take()));
                     --maxsplit;
                     // Catch pos up with si (matches do not overlap).
                     pos = si.nextIndex();
@@ -1103,7 +1118,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
          * Add the segment we were building when s ran out, even if it
          * is empty.
          */
-        list.add(segment.takeUnicode());
+        list.add(wrap(segment.take()));
         return list;
     }
 
@@ -1216,7 +1231,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
             if (segment.length() > 0) {
                 // We created a segment.
                 --maxsplit;
-                list.add(segment.takeUnicode());
+                list.add(wrap(segment.take()));
             }
         }
 
@@ -1294,7 +1309,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
                      * segment we have been accumulating, start a new
                      * one, and count a split.
                      */
-                    list.add(segment.takeUnicode());
+                    list.add(wrap(segment.take()));
                     --maxsplit;
                     // Catch pos up with si (matches do not overlap).
                     pos = si.nextIndex();
@@ -1323,7 +1338,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
          * Add the segment we were building when s ran out, even if it
          * is empty. Note the list is backwards and we must reverse it.
          */
-        list.add(segment.takeUnicode());
+        list.add(wrap(segment.take()));
         list.reverse();
         return list;
     }
@@ -1395,7 +1410,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
                 // Optionally append the (single) line separator c
                 if (keepends) { line.append(c); }
                 // Emit the line (and start another)
-                list.add(line.takeUnicode());
+                list.add(wrap(line.take()));
 
             } else {
                 // c is part of the current line.
@@ -1407,7 +1422,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
          * Add the segment we were building when s ran out, but not if
          * it is empty.
          */
-        if (line.length() > 0) { list.add(line.takeUnicode()); }
+        if (line.length() > 0) { list.add(wrap(line.take())); }
 
         return list;
     }
@@ -1625,7 +1640,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
 
         // Now copy any remaining characters of s
         result.append(si);
-        return result.takeUnicode();
+        return wrap(result.take());
     }
 
     /**
@@ -1732,7 +1747,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
             }
         }
 
-        return result.takeUnicode();
+        return wrap(result.take());
     }
 
     // Transformation methods -----------------------------------------
@@ -1778,7 +1793,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
                     Character.isLowerCase(c) || Character.isUpperCase(c)
                             || Character.isTitleCase(c);
         }
-        return buffer.takeUnicode();
+        return wrap(buffer.take());
     }
 
     @PythonMethod
@@ -1873,7 +1888,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         for (int i = 0; i < leftPad; i++) { buf.append(fill); }
         buf.append(s);
         for (int i = 0; i < rightPad; i++) { buf.append(fill); }
-        return buf.takeUnicode();
+        return wrap(buf.take());
     }
 
     @PythonMethod
@@ -1913,7 +1928,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         // Now the computed number of zeros
         for (int i = 0; i < pad; i++) { buf.append('0'); }
         buf.append(si);
-        return buf.takeUnicode();
+        return wrap(buf.take());
     }
 
     @PythonMethod
@@ -1951,7 +1966,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
                 pos++;
             }
         }
-        return buf.takeUnicode();
+        return wrap(buf.take());
     }
 
     @PythonMethod
@@ -1980,7 +1995,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
             while (si.hasNext()) {
                 buf.append(Character.toLowerCase(si.nextInt()));
             }
-            return buf.takeUnicode();
+            return wrap(buf.take());
         } else {
             // String is empty
             return "";
@@ -2070,18 +2085,18 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         // Concatenate the parts and separators
         for (int i = 0; i < L; i++) {
             // Separator
-            if (i != 0) { buf.append(s); }
+            if (i != 0) { append(buf, s); }
             // item from the iterable
             Object item = parts.get(i);
             try {
-                buf.append(adapt(item));
+                append(buf, adapt(item));
             } catch (NoConversion e) {
                 // This can't really happen here, given checks above
                 throw joinArgumentTypeError(item, i);
             }
         }
 
-        return buf.takeUnicode();
+        return wrap(buf.take());
     }
 
     private static TypeError joinArgumentTypeError(Object item, int i) {
@@ -2518,8 +2533,6 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         throw Abstract.requiredTypeError("a str", v);
     }
 
-    // @formatter:on
-
     // Iterator ------------------------------------------------------
 
     /** The Python {@code str_iterator}. */
@@ -2857,6 +2870,18 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         public int length() { return length; };
 
         @Override
+        public int getInt(int i) {
+            if (isBMP()) {
+                // No surrogate pairs.
+                return s.charAt(i);
+            } else {
+                // We have to count from the start
+                int k = toCharIndex(i);
+                return s.codePointAt(k);
+            }
+        }
+
+        @Override
         public PyType getType() { return TYPE; }
 
         @Override
@@ -2871,9 +2896,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
                 // No surrogate pairs.
                 return String.valueOf(s.charAt(i));
             } else {
-                // We have to count from the start
-                int k = toCharIndex(i);
-                return PyUnicode.fromCodePoint(s.codePointAt(k));
+                return PyUnicode.fromCodePoint(getInt(i));
             }
         }
 
@@ -3315,6 +3338,9 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         public int length() { return value.length; }
 
         @Override
+        public int getInt(int i) { return value[i]; }
+
+        @Override
         public PyType getType() { return TYPE; }
 
         @Override
@@ -3544,8 +3570,6 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
             }
         }
     }
-
-    // @formatter:on
 
     /**
      * Adapt a Python {@code str} to a sequence of Java {@code int}
@@ -3778,316 +3802,26 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
      */
     private static PyUnicode concatUnicode(IntStream v, IntStream w)
             throws OutOfMemoryError {
-        return new PyUnicode(TYPE, true,
-                IntStream.concat(v, w).toArray());
-    }
-
-    /** An empty array of int for builder initial state, etc.. */
-    private static final int[] EMPTY_INT_ARRAY = new int[0];
-
-    /**
-     * Accumulate {@code int} elements in an array, similar to
-     * {@code StringBuilder}.
-     */
-    static class IntArrayBuilder {
-        private static final int MINSIZE = 16;
-        private int[] value;
-        private int len = 0;
-
-        /**
-         * Create an empty buffer of a defined initial capacity.
-         *
-         * @param capacity initially
-         */
-        IntArrayBuilder(int capacity) { value = new int[capacity]; }
-
-        /** Create an empty buffer of a default initial capacity. */
-        IntArrayBuilder() {
-            value = EMPTY_INT_ARRAY;
-        }
-
-        /**
-         * The number of elements currently
-         *
-         * @return the number of elements currently.
-         */
-        int length() {
-            return len;
-        }
-
-        /**
-         * An array of the elements in the buffer (not modified by
-         * appends hereafter).
-         *
-         * @return the elements in the buffer
-         */
-        int[] value() {
-            return len == value.length ? value
-                    : Arrays.copyOf(value, len);
-        }
-
-        /**
-         * Ensure there is room for another {@code n} elements.
-         *
-         * @param n to make space for
-         */
-        private void ensure(int n) {
-            if (len + n > value.length) {
-                int newSize = Math.max(value.length * 2, MINSIZE);
-                int[] newValue = new int[newSize];
-                System.arraycopy(value, 0, newValue, 0, len);
-                value = newValue;
-            }
-        }
-
-        /**
-         * Append one element.
-         *
-         * @param v to append
-         * @return this builder
-         */
-        IntArrayBuilder append(int v) {
-            ensure(1);
-            value[len++] = v;
-            return this;
-        }
-
-        /**
-         * Append all the elements from a sequence.
-         *
-         * @param seq from which to take items
-         * @return this builder
-         */
-        IntArrayBuilder append(PySequence.OfInt seq) {
-            ensure(seq.length());
-            for (int v : seq) { value[len++] = v; }
-            return this;
-        }
-
-        /**
-         * Append up to the given number of elements from a sequence.
-         *
-         * @param seq from which to take items
-         * @param count the maximum number to take
-         * @return this builder
-         */
-        IntArrayBuilder append(PySequence.OfInt seq, int count) {
-            return append(seq.iterator(), count);
-        }
-
-        /**
-         * Append all the elements available from an iterator.
-         *
-         * @param iter from which to take items
-         * @return this builder
-         */
-        IntArrayBuilder append(Iterator<Integer> iter) {
-            while (iter.hasNext()) { append(iter.next()); }
-            return this;
-        }
-
-        /**
-         * Append up to the given number of elements available from an
-         * iterator.
-         *
-         * @param iter from which to take items
-         * @param count the maximum number to take
-         * @return this builder
-         */
-        IntArrayBuilder append(Iterator<Integer> iter, int count) {
-            ensure(count);
-            while (--count >= 0 && iter.hasNext()) {
-                value[len++] = iter.next();
-            }
-            return this;
-        }
-
-        /**
-         * Provide the contents as a Python {@code str} and reset the
-         * builder to empty. (This is a "destructive read".)
-         *
-         * @return the contents as a Python {@code str}
-         */
-        PyUnicode takeUnicode() {
-            PyUnicode u;
-            if (len == value.length) {
-                // The array is exactly filled: use it without copy.
-                u = new PyUnicode(TYPE, true, value);
-                value = EMPTY_INT_ARRAY;
-            } else {
-                // The array is partly filled: copy it and re-use it.
-                int[] v = new int[len];
-                System.arraycopy(value, 0, v, 0, len);
-                u = new PyUnicode(TYPE, true, v);
-            }
-            len = 0;
-            return u;
-        }
-
-        /**
-         * Provide the contents as a Java {@code String}
-         * (non-destructively).
-         */
-        @Override
-        public String toString() { return new String(value, 0, len); }
+        return wrap(IntStream.concat(v, w).toArray());
     }
 
     /**
-     * Accumulate {@code int} elements in an array from the end, a sort
-     * of mirror image of {@link IntArrayBuilder}.
+     * Append a delegate to a builder (during {@code str.join}) using
+     * either array indexing or iteration, whichever is likely to be
+     * quicker. (Append by indexing a {@code String} is inefficient if
+     * it might contain SMP code points.)
+     *
+     * @param buf to which to append
+     * @param s to append
      */
-    static class IntArrayReverseBuilder {
-        private static final int MINSIZE = 16;
-        private int[] value;
-        private int ptr = 0;
-
-        /**
-         * Create an empty buffer of a defined initial capacity.
-         *
-         * @param capacity initially
-         */
-        IntArrayReverseBuilder(int capacity) {
-            value = new int[capacity];
-            ptr = value.length;
-        }
-
-        /** Create an empty buffer of a default initial capacity. */
-        IntArrayReverseBuilder() {
-            value = EMPTY_INT_ARRAY;
-            ptr = value.length;
-        }
-
-        /**
-         * The number of elements currently
-         *
-         * @return the number of elements currently.
-         */
-        int length() {
-            return value.length - ptr;
-        }
-
-        /**
-         * An array of the elements in the buffer (not modified by
-         * appends hereafter).
-         *
-         * @return the elements in the buffer
-         */
-        int[] value() {
-            return ptr == 0 ? value
-                    : Arrays.copyOfRange(value, ptr, value.length);
-        }
-
-        /**
-         * Ensure there is room for another {@code n} elements.
-         *
-         * @param n to make space for
-         */
-        private void ensure(int n) {
-            if (n > ptr) {
-                int len = value.length - ptr;
-                int newSize = Math.max(value.length * 2, MINSIZE);
-                int newPtr = newSize - len;
-                int[] newValue = new int[newSize];
-                System.arraycopy(value, ptr, newValue, newPtr, len);
-                value = newValue;
-                ptr = newPtr;
-            }
-        }
-
-        /**
-         * Prepend one element.
-         *
-         * @param v to append
-         * @return this builder
-         */
-        IntArrayReverseBuilder prepend(int v) {
-            ensure(1);
-            value[--ptr] = v;
-            return this;
-        }
-
-        /**
-         * Prepend all the elements from a sequence.
-         *
-         * @param seq from which to take items
-         * @return this builder
-         */
-        IntArrayReverseBuilder prepend(CodepointDelegate seq) {
-            return prepend(seq.iteratorLast(), seq.length());
-        }
-
-        /**
-         * Prepend up to the given number of elements from the end of a
-         * sequence.
-         *
-         * @param seq from which to take items
-         * @param count the maximum number to take
-         * @return this builder
-         */
-        IntArrayReverseBuilder prepend(CodepointDelegate seq,
-                int count) {
-            return prepend(seq.iteratorLast(), count);
-        }
-
-        /**
-         * Prepend all the elements available from an iterator, working
-         * backwards with {@code iter.previous()}.
-         *
-         * @param iter from which to take items
-         * @return this builder
-         */
-        IntArrayReverseBuilder prepend(ListIterator<Integer> iter) {
-            while (iter.hasPrevious()) { prepend(iter.previous()); }
-            return this;
-        }
-
-        /**
-         * Prepend up to the given number of elements available from an
-         * iterator, working backwards with {@code iter.previous()}.
-         *
-         * @param iter from which to take items
-         * @param count the maximum number to take
-         * @return this builder
-         */
-        IntArrayReverseBuilder prepend(ListIterator<Integer> iter,
-                int count) {
-            ensure(count);
-            while (--count >= 0 && iter.hasPrevious()) {
-                value[--ptr] = iter.previous();
-            }
-            return this;
-        }
-
-        /**
-         * Provide the contents as a Python {@code str} and reset the
-         * builder to empty. (This is a "destructive read".)
-         *
-         * @return the contents as a Python {@code str}
-         */
-        PyUnicode takeUnicode() {
-            PyUnicode u;
-            if (ptr == 0) {
-                // The array is exactly filled: use it without copy.
-                u = new PyUnicode(TYPE, true, value);
-                value = EMPTY_INT_ARRAY;
-            } else {
-                // The array is partly filled: copy it and re-use it.
-                int[] v = new int[value.length - ptr];
-                System.arraycopy(value, ptr, v, 0, v.length);
-                u = new PyUnicode(TYPE, true, v);
-            }
-            ptr = value.length;
-            return u;
-        }
-
-        /**
-         * Provide the contents as a Java {@code String}
-         * (non-destructively).
-         */
-        @Override
-        public String toString() {
-            return new String(value, ptr, value.length - ptr);
-        }
+    private static void append(IntArrayBuilder buf,
+            CodepointDelegate s) {
+        if (s instanceof StringAdapter && !((StringAdapter)s).isBMP())
+            // Append by iterating s
+            buf.append(((StringAdapter)s).iterator(0));
+        else
+            // Append by indexing s
+            buf.append(s);
     }
 
     /**
@@ -4099,8 +3833,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
      * @return transformed string
      */
     private PyUnicode mapChars(IntUnaryOperator op) {
-        int[] v = delegate.asIntStream().map(op).toArray();
-        return new PyUnicode(TYPE, true, v);
+        return wrap(delegate.asIntStream().map(op).toArray());
     }
 
     /**
@@ -4184,8 +3917,8 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
     }
 
     /**
-     * A {@link AbstractFormatter}, constructed from a {@link Spec}, with
-     * specific validations for {@code str.__format__}.
+     * A {@link AbstractFormatter}, constructed from a {@link Spec},
+     * with specific validations for {@code str.__format__}.
      */
     private static class StrFormatter extends TextFormatter {
 
