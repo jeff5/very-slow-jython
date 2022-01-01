@@ -58,7 +58,6 @@ class PyBytes extends AbstractList<Integer> implements CraftedPyObject {
             this.value = value;
         else
             this.value = Arrays.copyOf(value, value.length);
-
     }
 
     /**
@@ -108,6 +107,18 @@ class PyBytes extends AbstractList<Integer> implements CraftedPyObject {
      * @param value of the bytes
      */
     PyBytes(int... value) { this(TYPE, value); }
+
+    /**
+     * Unsafely wrap an array of bytes as a {@code PyBytes}. The caller
+     * must not hold a reference to the argument array (and definitely
+     * not manipulate the contents).
+     *
+     * @param value to wrap as a {@code bytes}
+     * @return the {@code bytes}
+     */
+    private static PyBytes wrap(byte[] value) {
+        return new PyBytes(TYPE, true, value);
+    }
 
     @Override
     public PyType getType() { return type; }
@@ -201,7 +212,7 @@ class PyBytes extends AbstractList<Integer> implements CraftedPyObject {
                     i += slice.step;
                 }
             }
-            return new PyBytes(TYPE, true, v);
+            return wrap(v);
         }
 
         @Override
@@ -228,7 +239,7 @@ class PyBytes extends AbstractList<Integer> implements CraftedPyObject {
                 for (int i = 0, p = 0; i < n; i++, p += m) {
                     System.arraycopy(value, 0, b, p, m);
                 }
-                return new PyBytes(TYPE, true, b);
+                return wrap(b);
             }
         }
 
@@ -298,7 +309,7 @@ class PyBytes extends AbstractList<Integer> implements CraftedPyObject {
         byte[] b = new byte[n + m];
         IntStream.concat(v.asIntStream(), w.asIntStream())
                 .forEach(new ByteStore(b, 0));
-        return new PyBytes(TYPE, true, b);
+        return wrap(b);
     }
 
     /**

@@ -145,6 +145,18 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
     // These may return a Java String or a PyUnicode
 
     /**
+     * Unsafely wrap an array of code points as a {@code PyUnicode}. The
+     * caller must not hold a reference to the argument array (and
+     * definitely not manipulate the contents).
+     *
+     * @param codePoints to wrap as a {@code str}
+     * @return the {@code str}
+     */
+    private static PyUnicode wrap(int[] codePoints) {
+        return new PyUnicode(TYPE, true, codePoints);
+    }
+
+    /**
      * Return a Python {@code str} representing the single character
      * with the given code point. The return may be a Java
      * {@code String} (for BMP code points) or a {@code PyUnicode}.
@@ -157,7 +169,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         if (cp < Character.MIN_SUPPLEMENTARY_CODE_POINT)
             return String.valueOf((char)cp);
         else
-            return new PyUnicode(TYPE, true, new int[] {cp});
+            return wrap(new int[] {cp});
     }
 
     /**
@@ -173,19 +185,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         if (isBMP(s))
             return s;
         else
-            return new PyUnicode(TYPE, true, s.codePoints().toArray());
-    }
-
-    /**
-     * Unsafely wrap an array of code points as a {@code PyUnicode}. The
-     * caller must not hold a reference to the argument array (and
-     * definitely not manipulate the contents).
-     *
-     * @param codePoints to wrap as a {@code str}
-     * @return the {@code str}
-     */
-    private static PyUnicode wrap(int[] codePoints) {
-        return new PyUnicode(TYPE, true, codePoints);
+            return wrap(s.codePoints().toArray());
     }
 
     @Override
@@ -2972,7 +2972,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
                         r[j] = cps.previous();
                     }
                 }
-                return new PyUnicode(TYPE, true, r);
+                return wrap(r);
             }
         }
 
@@ -3367,7 +3367,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
                     i += slice.step;
                 }
             }
-            return new PyUnicode(TYPE, true, v);
+            return wrap(v);
         }
 
         @Override
@@ -3380,7 +3380,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
                 int[] r = new int[L + M];
                 System.arraycopy(value, 0, r, 0, L);
                 System.arraycopy(w.value, 0, r, L, M);
-                return new PyUnicode(TYPE, true, r);
+                return wrap(r);
             } else {
                 return concatUnicode(asIntStream(),
                         adapt(ow).asIntStream());
@@ -3397,7 +3397,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
                 int[] r = new int[L + M];
                 System.arraycopy(v.value, 0, r, 0, L);
                 System.arraycopy(value, 0, r, L, M);
-                return new PyUnicode(TYPE, true, r);
+                return wrap(r);
             } else {
                 return concatUnicode(adapt(ov).asIntStream(),
                         asIntStream());
@@ -3416,7 +3416,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
                 for (int i = 0, p = 0; i < n; i++, p += m) {
                     System.arraycopy(value, 0, b, p, m);
                 }
-                return new PyUnicode(TYPE, true, b);
+                return wrap(b);
             }
         }
 

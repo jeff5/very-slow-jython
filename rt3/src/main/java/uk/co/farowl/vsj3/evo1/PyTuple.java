@@ -72,13 +72,15 @@ public class PyTuple extends AbstractList<Object>
      * The method is unsafe insofar as the array becomes embedded as the
      * value of the tuple. <b>The client therefore promises not to
      * modify the content.</b> For this reason, this method should only
-     * ever have package visibility.
+     * ever be private. If you feel tempted to make it otherwise,
+     * consider using (or improving) {@link Builder}.
      *
      * @param <E> component type of the array in the new tuple
      * @param value of the new tuple or {@code null}
      * @return a tuple with the given contents or {@link #EMPTY}
      */
-    static <E> PyTuple wrap(E[] value) throws ArrayStoreException {
+    private static <E> PyTuple wrap(E[] value)
+            throws ArrayStoreException {
         if (value == null)
             return EMPTY;
         else
@@ -473,18 +475,20 @@ public class PyTuple extends AbstractList<Object>
          *
          * @return the contents as a Python {@code tuple}
          */
-        PyTuple takeTuple() {
-            PyTuple t;
-            if (len == value.length) {
+        PyTuple take() {
+            Object[] v;
+            if (len == 0) {
+                return EMPTY;
+            } else if (len == value.length) {
                 // The array is exactly filled: use it without copy.
-                t = new PyTuple(TYPE, true, value);
+                v = value;
                 value = Py.EMPTY_ARRAY;
             } else {
-                // The array is partly filled: take the used part.
-                t = new PyTuple(TYPE, value, 0, len);
+                // The array is partly filled: copy the part used.
+                v = Arrays.copyOf(value, len);
             }
             len = 0;
-            return t;
+            return wrap(v);
         }
 
         /**
@@ -540,7 +544,7 @@ public class PyTuple extends AbstractList<Object>
                     i += slice.step;
                 }
             }
-            return new PyTuple(TYPE, true, v);
+            return wrap(v);
         }
 
         @Override
@@ -575,7 +579,7 @@ public class PyTuple extends AbstractList<Object>
                 for (int i = 0, p = 0; i < n; i++, p += m) {
                     System.arraycopy(value, 0, b, p, m);
                 }
-                return new PyTuple(TYPE, true, b);
+                return wrap(b);
             }
         }
 
@@ -652,7 +656,7 @@ public class PyTuple extends AbstractList<Object>
         Object[] b = new Object[n + m];
         System.arraycopy(v, 0, b, 0, n);
         System.arraycopy(w, 0, b, n, m);
-        return new PyTuple(TYPE, true, b);
+        return wrap(b);
     }
 
     @Override

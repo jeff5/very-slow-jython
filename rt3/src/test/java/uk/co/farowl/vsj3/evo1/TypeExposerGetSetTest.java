@@ -175,7 +175,7 @@ class TypeExposerGetSetTest extends UnitTestSupport {
         private String[] nameArray;
 
         @Getter
-        Object names() { return PyTuple.wrap(nameArray); }
+        Object names() { return new PyTuple(nameArray); }
 
         @Setter
         void names(Object v) {
@@ -203,14 +203,10 @@ class TypeExposerGetSetTest extends UnitTestSupport {
 
         @Getter
         Object doubles() {
-            /*
-             * Copy needed since cannot currently treat primitive array
-             * as tuple content (although it's an idea ...).
-             */
-            Double[] d = new Double[doubleArray.length];
-            for (int i = 0; i < d.length; i++)
-                d[i] = doubleArray[i];
-            return PyTuple.wrap(d);
+            PyTuple.Builder tb =
+                    new PyTuple.Builder(doubleArray.length);
+            for (double d : doubleArray) { tb.append(d); }
+            return tb.take();
         }
 
         @Setter
@@ -319,7 +315,7 @@ class TypeExposerGetSetTest extends UnitTestSupport {
         int n = a.length;
         Double[] oa = new Double[n];
         for (int i = 0; i < n; i++) { oa[i] = a[i]; }
-        return PyTuple.wrap(oa);
+        return new PyTuple(oa);
     }
 
     /**

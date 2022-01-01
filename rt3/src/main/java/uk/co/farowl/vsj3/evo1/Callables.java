@@ -170,7 +170,7 @@ class Callables extends Abstract {
             stack[j++] = e.getValue();
         }
 
-        return kwnames.takeTuple();
+        return kwnames.take();
     }
 
     /**

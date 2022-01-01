@@ -176,7 +176,7 @@ public class PySequence extends Abstract {
     static PyTuple tuple(Object o) throws TypeError, Throwable {
         PyTuple.Builder tb = collect(o, PyTuple.Builder::new,
                 PyTuple.Builder::append);
-        return tb.takeTuple();
+        return tb.take();
     }
 
     /**
