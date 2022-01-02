@@ -2426,9 +2426,6 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         return true;
     }
 
-    /*
-     * @ExposedMethod(doc = BuiltinDocs.unicode___format___doc)
-     */
     @PythonMethod
     static final Object __format__(Object self, Object formatSpec) {
 

@@ -52,7 +52,7 @@ class PyUnicodeTest extends UnitTestSupport {
                      * must consider to be a single character, but in
                      * the Java String realisation each is two chars.
                      */
-                    // 🐍=\ud802\udc40, 🦓=\ud83e\udd93
+                    // 🐍=\ud83d\udc0d, 🦓=\ud83e\udd93
                     findExample("One 🐍, a 🦓, two 🐍🐍.", "🐍",
                             new int[] {4, 16, 17}),
                     findExample("Left 🐍🦓🐍🦓: right.", "🐍🦓:",
@@ -418,7 +418,7 @@ class PyUnicodeTest extends UnitTestSupport {
                      * must consider to be a single character, but in
                      * the Java String realisation each is two chars.
                      */
-                    // 🐍=\ud802\udc40, 🦓=\ud83e\udd93
+                    // 🐍=\ud83d\udc0d, 🦓=\ud83e\udd93
                     rfindExample("One 🐍, a 🦓, two 🐍🐍.", "🐍",
                             new int[] {4, 16, 17}),
                     rfindExample("Left 🐍🦓🐍🦓: right.", "🐍🦓:",
@@ -746,7 +746,7 @@ class PyUnicodeTest extends UnitTestSupport {
                      * must consider to be a single character, but in
                      * the Java String realisation each is two chars.
                      */
-                    // 🐍=\ud802\udc40, 🦓=\ud83e\udd93
+                    // 🐍=\ud83d\udc0d, 🦓=\ud83e\udd93
                     replaceExample("One 🐍, a 🦓, two 🐍🐍.", "🐍",
                             new int[] {4, 16, 17}, "🦓"),
                     replaceExample("Swap 🐍🦓.", "🐍🦓", new int[] {5},
@@ -962,7 +962,7 @@ class PyUnicodeTest extends UnitTestSupport {
         }
 
         // Cases where simulation by Java String is too hard.
-        // 🐍=\ud802\udc40, 🦓=\ud83e\udd93
+        // 🐍=\ud83d\udc0d, 🦓=\ud83e\udd93
 
         @Test
         void surrogatePairNotSplit_SS() {
@@ -1015,7 +1015,7 @@ class PyUnicodeTest extends UnitTestSupport {
         }
 
         @Test
-        @DisplayName("🐍 is not dissected as \\ud802\\udc40")
+        @DisplayName("🐍 is not dissected as \\ud83d\\udc0d")
         void supplementaryCharacterNotSplit_SS() {
             // No high surrogate (D800-DBFF) accidental replacement
             String s = "🐍🐍", needle = "\ud83d", pin = "#";
@@ -1097,7 +1097,7 @@ class PyUnicodeTest extends UnitTestSupport {
                      * must consider to be a single character, but in
                      * the Java String realisation each is two chars.
                      */
-                    // 🐍=\ud802\udc40, 🦓=\ud83e\udd93
+                    // 🐍=\ud83d\udc0d, 🦓=\ud83e\udd93
                     splitExample("One 🐍, a 🦓, two 🐍🐍."), //
                     splitExample("Left 🐍🦓🐍🦓: right.") //
             );
@@ -1288,7 +1288,7 @@ class PyUnicodeTest extends UnitTestSupport {
                      * must consider to be a single character, but in
                      * the Java String realisation each is two chars.
                      */
-                    // 🐍=\ud802\udc40, 🦓=\ud83e\udd93
+                    // 🐍=\ud83d\udc0d, 🦓=\ud83e\udd93
                     splitExample("One 🐍\na 🦓,\ftwo 🐍🐍.", "One 🐍\n",
                             "a 🦓,\f", "two 🐍🐍."), //
                     splitExample("Left 🐍🦓\r🐍🦓: right.\r",
@@ -1437,7 +1437,7 @@ class PyUnicodeTest extends UnitTestSupport {
                     joinExample("123", List.of("a", "bb", "ccc")), //
                     joinExample("", List.of()), //
                     joinExample("", List.of("a", "bb", "ccc")), //
-                    // 🐍=\ud802\udc40, 🦓=\ud83e\udd93
+                    // 🐍=\ud83d\udc0d, 🦓=\ud83e\udd93
                     joinExample("🐍", List.of("🦓", "Zebra")),
                     joinExample("-🐍-",
                             List.of("🦓🦓", "(🦓)", "Zebras")),

@@ -2,6 +2,12 @@ package uk.co.farowl.vsj3.evo1.stringlib;
 
 import java.util.Arrays;
 
+/**
+ * An elastic buffer of integer values, somewhat like the
+ * {@code java.lang.StringBuilder}, but for arrays of integers. The
+ * client appends data and may finally take the built array, often
+ * without copying the data.
+ */
 public final class IntArrayBuilder
         extends AbstractIntArrayBuilder.Forward {
     private int[] value;
@@ -12,7 +18,9 @@ public final class IntArrayBuilder
      *
      * @param capacity initially
      */
-    public IntArrayBuilder(int capacity) { value = new int[capacity]; }
+    public IntArrayBuilder(int capacity) {
+        value = new int[capacity];
+    }
 
     /** Create an empty buffer of a default initial capacity. */
     public IntArrayBuilder() {
@@ -44,9 +52,7 @@ public final class IntArrayBuilder
     }
 
     @Override
-    protected int[] value() {
-        return Arrays.copyOf(value, len);
-    }
+    protected int[] value() { return Arrays.copyOf(value, len); }
 
     @Override
     public int[] take() {

@@ -2,6 +2,12 @@ package uk.co.farowl.vsj3.evo1.stringlib;
 
 import java.util.Arrays;
 
+/**
+ * An elastic buffer of integer values, somewhat like the
+ * {@code java.lang.StringBuilder}, but for arrays of integers. The
+ * client prepends data, so the array builds right to left, and may
+ * finally take the built array, often without copying the data.
+ */
 public final class IntArrayReverseBuilder
         extends AbstractIntArrayBuilder.Reverse {
     private int[] value;
