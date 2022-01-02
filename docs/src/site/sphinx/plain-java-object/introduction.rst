@@ -35,9 +35,10 @@ The particular concerns in the ``rt3`` sub-project are:
     For example we might want BMP and full Unicode implementations
     of the ``str`` type, that are indistinguishable to Python.
 #.  To adopt certain Java types as implementations of built-in Python types.
-    For example a ``java.lang.Integer`` may be adopted as a Python ``int``,
-    and the JVM then optimise code
-    more effectively than when we use our own ``PyInteger``.
+    For example a ``java.lang.Integer`` is adopted as a Python ``int``.
+    This is in the expectation that the JVM will optimise code best
+    when we use its native boxed types,
+    perhaps even un-box them when it can.
 
 Concepts developed in sub-project ``rt2`` will be heavily re-used.
 These include:

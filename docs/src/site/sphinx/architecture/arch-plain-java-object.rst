@@ -6,16 +6,77 @@
 Java ``Object`` as Python ``object``
 ####################################
 
+This candidate implementation of Jython 3
+differs perhaps most fundamentally from Jython 2
+in treating any Java object
+directly as a Python object.
+In Jython 2,
+every object the interpreter handles is a ``PyObject``:
+those that appear to be actual Java objects
+in Python are proxies for the claimed objects.
+
+At the time of writing,
+we can say that this makes some things easier
+and others more difficult.
+As yet there are no show-stopping difficulties.
+
+
+Motivations
+===========
+
+The motivation for the "plain object" pattern
+is to engage features of modern Java
+intended to support dynamic language implementation,
+and maximally to exploit the performance they offer.
+Particular thoughts are:
+
+#.  Guidance supporting the launch of ``invokedynamic``
+    was to use Java types (``java.lang.Object``)
+    rather than create a base type for the language (``PyObject``).
+#.  Insisting on a ``PyObject`` base or interface for every ``object``
+    necessitates a proxy for any object that isn't a ``PyObject``,
+    which adds indirection to calls
+    and complexity in handling identity.
+#.  We expect that the JVM will optimise code
+    that uses the native boxed primitives,
+    better than objects we devise ouselves.
+    The compiler itself mixes these boxed types freely with primitives.
+    The plain object approach allows us to adopt Java boxed types
+    as implementations of built-in Python types.
+    For example a ``java.lang.Integer`` is adopted as a Python ``int``
+    and ``java.lang.Double`` as ``float``.
+
+Early experiments with arithmetic operations
+have confirmed that the hoped for optimisation can occur.
+The technique produced some small gains over Jython 2.
+(Jython 2 itself is well optimised in the same circumstances.)
+
+
 Essential Idea
 ==============
 
-The ``Operations`` object contains the information specific to a Java class,
-that allows the run-time system
-to treat an instance of the class as a Python object.
-This includes identification of a Python type object for the instance.
+We have to explain how the run-time Python interpreter
+can give Python semantics to objects on its stack,
+that themselves may know nothing about Python.
+(In Jython 2,
+``PyObject`` is a fat base class
+defining all the methods the interpreter might need,
+which specific types of Python object redefine.
+Every object the Jython 2 interpreter handles
+must be "Python aware".)
+
+Solution Architecture
+---------------------
+
+Python places object behaviour in the Python ``type`` of the object,
+so the problem becomes how to find that from an instance:
+to find ``builtins.int``, for example, from a ``java.lang.Integer``.
+Our solution is to use a ``ClassValue``
+to map each Java ``Class`` to an ``Operations`` object,
+which can then determine the Python type (``PyType``) of the object.
 
 ..  uml::
-    :caption: Plain Java ``Object`` Pattern
+    :caption: Plain Java Object Pattern
 
     class Object {
         getClass()
@@ -23,10 +84,10 @@ This includes identification of a Python type object for the instance.
     Object -right-> Class
 
     abstract class Explicit
-    abstract class Other
+    abstract class Implicit
 
     Object <|--- Explicit
-    Object <|-- Other
+    Object <|-- Implicit
 
     abstract class Operations {
         {abstract} type(o)
@@ -45,53 +106,105 @@ This includes identification of a Python type object for the instance.
     Operations <|-- DerivedOps
     DerivedOps "1" ..> "*" PyType
 
+Why do we not simply map the Java class to the type in one step?
+For some Java classes,
+the ``Class`` is enough to determine the ``type``.
+In others,
+including all those where the Python type may be changed,
+the type must be a property of the object itself,
+and all instances of the interchangeable classes
+must have the *same* Java class.
+For this reason,
+``PyType Operations.type(Object)`` takes the object instance as an argument.
 
-The classes ``Explicit`` and ``Other`` are not real classes
+The classes ``Explicit`` and ``Implicit`` are not real classes
 in the implementation.
 Rather ``Explicit`` represents any object implementation that
 explicitly designates a type object,
-while ``Other`` represents a Java object of any other class.
+while ``Implicit`` represents a Java object where
+the Python type is implicit in the Java class.
 
-
-Discussion
-----------
-
-Every ``Object`` has a ``Class``, of course,
-which we do not normally show in class diagrams,
-but ``java.lang.Class`` mediates a critically important relationship
-in the language implementation.
-The relationship of a Python object to its ``Operations`` object
-is implemented by a ``ClassValue``,
-and so the path from an arbitrary object to its ``PyType``
-is via ``Object.getClass()``.
-
-In some cases the ``Operations`` object that we reach
-is itself the ``PyType`` representing a Python type object.
-In others, the Java class is one of several implementations of a type,
-each needing their own instance of ``Operations``.
+In the implicit case,
+the ``Operations`` object that we reach may itself be
+the ``PyType`` representing a Python type object.
+If the Java class is one of several implementations of a Python type,
+each must have its own instance of ``Operations``.
 One will be the actual ``PyType``,
-while the others are (concrete sub-classes of) ``Operations``
+while the others are (sub-classes of) ``Operations``
 from which the actual type may be determined.
-Or the Java class may implement many distinct Python types,
-and in that case the ``Operations`` has to go via the instance,
-to get the actual type.
 
-Some responsibilities that seem naturally to belong to ``PyType``,
-and would do so in CPython,
-belong in fact to ``Operations``,
-but ``PyType`` inherits them since it extends ``Operations``.
+In the explicit case,
+the Java class may have to implement many distinct Python types,
+and in that case the ``Operations`` object is just a trampoline
+to get us the actual type.
 
-One prominent example of this is that
-``MethodHandle``\s for the special methods of a type
-are fields of the ``Operations`` object.
-These are analogous to the table of pointers in a CPython type object,
-and are the handles consulted directly by the interpreter.
-In cases where more than one Java class is adopted for a Python type,
-we want to go directly to the method for that class.
-The descriptors for the special methods
-(and all other attributes)
-are in the dictionary of the type,
-as required by the Python data model.
+
+
+The ``Operations`` object as a method cache
+-------------------------------------------
+
+As we have remarked,
+the behaviour of an object is expressed in its Python type.
+This behaviour is codified (substantially) in the descriptors
+found in the dictionary of the type.
+For example,
+if the interpreter needs to add an ``int`` and any other value,
+``int.__add__``
+(a descriptor in the dictionary of the type ``int``)
+contains the mechanism.
+This is a central part of the language and must be the same in Jython.
+
+In CPython,
+the descriptor ``int.__add__`` invokes ``long_add``,
+the function in C that actually implements the addition.
+If the target is a user-defined class ``MyInt`` rather than ``int``,
+and ``MyInt`` defines a method ``__add__(self, other)``,
+then the descriptor invokes that.
+
+What we describe is at least the surface appearance.
+Beneath the surface of CPython,
+a type object is provided with pointers
+to the C functions most commonly needed by the interpreter.
+For example, there is an ``nb_add`` "slot"
+that the interpreter calls when it needs addition.
+It goes directly rather than via the descriptor.
+The ``nb_add`` slot of an ``int`` is set to ``long_add``
+by static initialisation in the source code,
+while the descriptor is a wrapper (created later)
+that takes its value from there.
+Conversely,
+the ``nb_add`` slot of the type object ``MyInt``
+contains the opposite kind of wrapper:
+the descriptor comes first and the slot contains a function to invoke it.
+
+We do not have to reproduce the CPython patterns
+beneath the surface of Jython,
+but we find in them a useful set of concepts
+from which to start.
+
+We have the Java ``MethodHandle`` available
+as the equivalent of the C function pointer.
+This is the obvious way to define type object "slots",
+if we do not approach methods exclusively via their descriptors.
+(Jython 2 did not have this possibility when designed.)
+However,
+we do not have to define slots at all,
+or could choose different ones.
+
+``MethodHandle`` will figure prominently when we use ``invokedynamic``
+in code compiled to Java byte code.
+As we need to interpret Python byte code too,
+we will define slots similar to those in CPython,
+so that we can follow similar logic in the implementation.
+
+Note however that we must provide each operation
+for each implementation of the given type,
+so that the ``self`` argument has the correct Java type.
+Descriptors must therefore contain
+a handle corresponding to each implementation class.
+When we embed these handles in the type object,
+we actually place them in the ``Operations`` object
+corresponding to the Java class of the implementation.
 
 
 The broad classes of ``object``
@@ -102,38 +215,54 @@ in relation to this model.
 A Java class may be:
 
 #.  the crafted implementation of a Python type.
-#.  an adopted implementation of some Python type.
+#.  an adopted implementation of a Python type.
 #.  the crafted base for Python sub-classes of a Python type.
 #.  a found Java type.
 #.  the crafted base of Python sub-classes of a found Java type.
 
 By *crafted* we mean that the class was written with the intention of
-defining a Python type.
-It will designate a type,
-either statically for the class or
-per-instance (so it may be the base of many Python types).
-
-A crafted implementation class specifies the type directly
-through static initialisation.
+implementing a Python type.
+Normally there will be one Java class for a given Python type,
+known as the "canonical implementation".
+It will create a ``PyType`` from a specification
+during static initialisation.
+(The ``PyType`` is also the ``Operations`` object for the class.)
+Instances of the Java class are instances of the Python type,
+or of a sub-type,
+and reference their specific type as an instance member.
 The attributes the type exposes to Python
 will be specified by a combination of static data,
 annotations on methods and methods with reserved names.
 
 By *adopted* we mean that although we had no opportunity to craft
 the class as a Python object,
-we adopt it as an implementation of a Python type.
-For example,
-``java.lang.Integer`` is adopted as an implementation of ``int``.
-The specification in the canonical implementation class
-will enumerate the classes its type adopts.
+instances of that class will be accepted in the interpreter as
+instances of a particular Python type.
+The methods that define the Python behaviour of an adopted implementation
+may be be defined in the canonical implementation of the type in question.
+That class will declare the adoption when it specifies the ``PyType``.
 Each adopted Java class will be mapped to an ``AdoptedOps`` object,
-which is not itself a ``PyType``.
-From that we may reach the particular ``PyType`` it implements.
+that leads to the particular ``PyType`` it implements.
+
+For example,
+``java.lang.Integer`` is adopted as an implementation of ``int``,
+as is ``java.math.BigInteger``.
+These are given Python behaviour by methods in ``PyInteger``
+and related classes.
+``PyInteger`` adopts ``java.lang.Integer`` and ``java.math.BigInteger``
+when it specifies the type ``int`` during its static initialisation.
+``PyInteger`` is the canonical implementation of ``int``,
+that is, the Java class from which
+implementations of the Python sub-classes of ``int`` are derived.
 
 All other Java classes are *found* types,
 to be exposed to Python according to Java conventions.
 An ``Operations`` object, that is a ``PyType``,
 will be created as each such type is encountered.
+There is a potential race hazard here:
+during initialisation of the run-time we must ensure that
+all adoptions take place before the same class may be found
+by another route.
 
 The "crafted base of Python sub-classes of a found Java type"
 is a crafted object that results from extending a found type in Python.
@@ -143,7 +272,8 @@ amongst the bases in a Python class definition.
 This feature may be unavailable in environments that restrict
 the definition of classes dynamically.)
 
-We will now illustrate the main possibilities offered by this pattern
+In the rest of this section,
+we illustrate the main possibilities offered by this object model
 through a series of instance diagrams.
 
 
@@ -154,8 +284,13 @@ In the simplest case, there is only one implementation class,
 that has been crafted to represent one Python type,
 where the association of an instance to the type cannot be changed,
 i.e. the ``__class__`` attribute may not be written.
-In this case,
-the ``Operations`` object is itself the ``PyType``.
+The built-in type ``bytes`` makes a good example.
+
+Example of ``len(b'abc')``
+--------------------------
+
+We'll consider how a call is made on ``bytes.__len__``,
+which is implemented in Java by ``PyBytes.__len__``.
 
 ..  uml::
     :caption: ``bytes`` has a single implementation class
@@ -163,18 +298,128 @@ the ``Operations`` object is itself the ``PyType``.
     object "b'abc' : PyBytes" as x
     object "PyBytes : Class" as PyBytes.class
     object "bytes : PyType" as bytes
+    object " : MethodHandle" as mh {
+        method = __len__
+        type = (Object)int
+    }
     bytes --> bytes : type
+    bytes --> mh : op_len
+    mh --> PyBytes.class : target
 
     x -up-> PyBytes.class : <<class>>
     PyBytes.class -right-> bytes : ops
 
-A type enquiry ``type(b'abc')`` would request the ``Operations`` object
-via the Java class,
-and be returned the ``PyType``.
-``PyType`` extends ``Operations``,
-so it can implement ``PyType Operations.type(Object)``
-to return itself (``this``), irrespective of the argument.
+In this case,
+the ``Operations`` object is itself the ``PyType``.
+How this mapping is created,
+and how the method handle is formed around ``PyBytes.__len__()``,
+is a long story.
+For the time being,
+the reader should accept that these structures have been set up.
 
+Suppose that,
+in the context of this object structure,
+some program needs to ask the length (size) of ``x = b'abc'``.
+The program calls the ``len()`` built-in function,
+which must find and call ``__len__`` as defined for ``bytes``.
+
+Abstract API
+''''''''''''
+
+The design for using the special method slots follows that of CPython.
+There is an abstract object API
+that wraps invocations of the method handles in error-handling
+and other logic.
+For us, the implementation is through static methods in class ``Abstract``.
+The wrapping of ``__len__`` looks like this:
+
+..  code-block:: java
+
+    public class Abstract {
+    // ...
+        // Compare CPython PyObject_Size in abstract.c
+        static int size(Object o) throws Throwable {
+            try {
+                return (int)Operations.of(o).op_len.invokeExact(o);
+            } catch (Slot.EmptyException e) {
+                throw typeError(HAS_NO_LEN, o);
+            }
+        }
+    // ...
+    }
+
+The implementation only has to look up
+the operations object for the argument ``o``,
+and invoke the method handle found in the particular slot.
+Slots that are "empty",
+meaning that the corresponding special method is not defined,
+are not ``null``,
+but contain a handle to a method that throws the ``EmptyException``.
+That way, we need not look before we leap,
+and the error-handling logic may be kept out of the main path.
+
+Our slots are named ``op_something``,
+where the corresponding method is named ``__something__``.
+This is more regular than CPython and we do not have quite the same ones.
+They have package-private visibility.
+We use ``invokeExact`` so that Java does not waste time on type coercion
+with Java semantics.
+
+Slots must be invoked with the correct number and type of arguments,
+and with the correct expected return type
+(here expressed in the cast to ``int``).
+This correctness is a run-time check in ``invokeExact``,
+but when we form call sites,
+correctness is guaranteed when binding the target method.
+The allowable signature for each slot is defined by ``enum Slot``,
+which also provides some services for manipulating them.
+
+Sequence of calls
+'''''''''''''''''
+
+A call to ``Abstract.size()`` on a Python ``bytes``
+proceeds like this:
+
+..  uml::
+
+    hide footbox
+
+    boundary "len()" as prog
+    control "Abstract" as api
+    participant "Operations" as ops
+    participant "bytes : PyType" as bytes
+    participant "mh : MethodHandle\n = PyBytes.~__len__" as mh
+    participant "x : PyBytes\n = b'abc'" as x
+
+    prog -> api ++ : size(x)
+        api -> ops ++ : of(x)
+            ops -> x ++ : getClass()
+                return PyBytes.class
+            ops -> ops ++ : fromClass(PyBytes.class)
+                return bytes
+            return bytes
+        api -> bytes ++ : .op_len
+            return mh
+        api -> mh ++ : invokeExact(x)
+            mh -> x ++ : ~__len__()
+                return 3
+            return 3
+        return 3
+    prog -> prog : Integer.valueOf(3)
+
+``Operations`` provides a static ``Operations.of()``, where we consult
+the ``ClassValue`` that maps to the ``Operations`` object for ``PyBytes``.
+In this case,
+the return happens also to be the type object ``bytes`` itself.
+
+The signature of ``Abstract.size``,
+specified by ``Signature.LEN``
+(to which any ``Operations.op_len`` must conform)
+requires it to return a primitive Java ``int``.
+``len()`` must return a Python object,
+so there is a final step in which
+we wrap the result as a ``java.lang.Integer``.
+Java will do this implicitly in most circumstances.
 
 Mutable Type
 ------------

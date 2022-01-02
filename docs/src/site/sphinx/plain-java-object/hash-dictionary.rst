@@ -39,18 +39,32 @@ and so compact representations would mostly benefit sub-classes of ``str``.
 
 We obtain an accurate interpretation of ``String``
 in mixed operations with ``PyUnicode``
-by wrapping the ``String`` temporarily
-in a Java iterable yielding ``Integer`` elements.
-(``PyUnicode`` is such an iterable already.)
+by wrapping the ``String`` temporarily in a Java iterable
+(a sub-class of ``PySequence.Delegate``)
+yielding ``Integer`` elements.
+Each ``PyUnicode`` holds such a delegate already as a non-public member.
+Operations on ``str`` are largely operations on these delegates.
 
 There is a dilemma around giving a proper interpretation
 to a ``String`` involving UTF-16 surrogate pairs,
-where what might be preferred for consistency is slow at run-time.
-If we could guarantee all strings containing
-supplementary plane characters would appear only as PyUnicode,
-we should not have to be constantly on guard for high-surrogates
-when iterating a ``String``.
-It does not seem possible to guarantee that.
+where consistency requires extra checks at run-time.
+A Python ``str`` is effectively a sequence of Unicode code points,
+while a Java ``String`` is a sequence of UTF-16 code points.
+
+Both allow "code violations" of their own sort:
+``str`` allows code points for high and low surrogates
+to appear as isolated pseudo-characters, even high followed by low;
+``String`` also allows isolated surrogate code points,
+but a combination of high and low (in that order)
+encodes a single supplementary plane character.
+Since we may get such a ``String`` encoding supplementary characters at any time,
+say from Java library call or a file,
+we must treat pairs as single characters in them.
+
+In adopting ``String`` as an implementation,
+the delegate takes care of this in operations where we iterate,
+involve the (Python) length of a string,
+or return a ``PyUnicode``.
 
 
 .. _Hash-dictionary-plain-object:
@@ -58,14 +72,16 @@ It does not seem possible to guarantee that.
 Plain Object Keys and ``dict``
 ******************************
 
-It is important for the use of collection types,
+It is important in the use of collections,
 that two objects considered equal should have the same hash.
+We may readily satisfy this constraint in Python
+by careful definition of ``__hash__`` and ``__eq__`` across types.
+A Python collection must determine equality using ``__eq__(Object, Object)``
+and hash using ``__hash__(Object)``, and all will be well.
 A Java collection will determine equality using ``Object.equals(Object)``
 and hash using ``Object.hashCode()``.
-A Python collection must determine equality using ``__eq__(Object, Object)``
-and hash using ``__hash__(Object)``.
 
-In VSJ2 we were pleased withthe simplicity of implementing ``dict`` as:
+In VSJ2 we were pleased with the simplicity of implementing ``dict`` as:
 
 ..  code-block:: java
 
@@ -76,21 +92,23 @@ through the API of ``LinkedHashMap`` directly.
 
 We shall explain why this is no longer an option.
 Although the problems we discuss afflict
-all types that have multiple accepted implementation classes,
+all types that have adopted implementation classes,
+and any where distinct types are deemed comparable in Python,
 we'll discuss it in the context of ``str`` and ``int`` keys.
 
 
 Problems Posed by ``Object.hashCode()``
 =======================================
 
-The way in which ``String``\s are hashed in Java
+The formula by which ``String``\s are hashed in Java
 is part of the language specification.
-Fortunately it is not specified in Python,
-so we can reasonably define ``str.__hash__``
-in terms of ``String.hashCode()``.
+It is not specified in Python,
+so we could reasonably define ``str.__hash__``
+as equal to ``String.hashCode()`` for ``String`` implementations of ``str``,
+and by the same formula for ``PyUnicode``.
 
-We may then define both of these for ``PyUnicode`` by the same formula,
-and be guaranteed that equal strings will hash to the same value.
+We do so in ``PyUnicode.__hash__()`` and ``PyUnicode.__hash__(String)``,
+so are guaranteed that equal strings will hash to the same value.
 (We have to take a little care to handle supplementary plane characters
 as if they were actually represented by a surrogate pair.)
 
@@ -99,6 +117,13 @@ and ``BigInteger.hashCode()`` consistently.
 But we come unstuck with ``Boolean.TRUE`` and ``Boolean.FALSE``,
 which Java hashes to 1231 and 1237,
 but Python to 1 and 0 respectively.
+Python also defines ``float.__hash__`` to be equal to ``int.__hash__``
+for values it deems equal.
+
+None of this alignment exists across Java types,
+so we have here a compelling reason why Java containers based on key hashing
+cannot be used directly as the implementation of Python containers.
+However, we shall strengthen the argument by looking at equality.
 
 
 Problems Posed by ``Object.equals()``
@@ -113,7 +138,8 @@ where ``u`` and ``s`` are ``PyUnicode`` and  ``String`` respectively.
 Do not mistake ``s`` here for a ``bytes`` object
 (``PyString`` as it was in Jython 2).
 Both ``u`` and ``s`` are instances of ``str``.
-Let's suppose these ``u`` and ``s`` are equal
+
+Let us suppose these ``u`` and ``s`` are equal
 according to the rules of Python.
 In the midst of a call ``map.get(u)``,
 in the depths of ``LinkedHashMap``,
@@ -130,7 +156,7 @@ Likewise,
 ``BigInteger.equals(Object)`` will return ``true`` only if
 the other object is a ``BigInteger``.
 The several implementations of ``int``
-(and ``bool``)
+(and ``bool`` and ``float``)
 will therefore not report as equal when used as keys in a Java container
 although Python requires it.
 
@@ -141,19 +167,18 @@ Changes to ``dict``
 ===================
 
 These considerations mean that
-we cannot use Python objects as keys in Java containers,
+we cannot use Python objects as *keys* in Java containers,
 and obtain Python semantics in the index operations.
-(Python ``1`` and ``True`` will index different entries, for example.)
+(Python ``1`` and ``True`` would index different entries, for example.)
 In particular we cannot implement ``PyDict``
 simply by extending the Java container ``LinkedHashMap``,
 although otherwise it seems the perfect choice.
 
 Instead, we shall use a Java ``LinkedHashMap`` internally,
-but wrap our keys so as to compare them using Python semantics.
+but have to wrap our keys so as to compare them using Python semantics.
 ``PyDict`` will implement ``java.util.Map``,
 but we have to do more work than before to implement the API.
-
-The idea is illustrated here:
+This idea is illustrated here:
 
 ..  uml::
     :caption: Giving Python semantics to keys
@@ -164,7 +189,7 @@ The idea is illustrated here:
         get() : Object
     }
 
-    interface KeyHolder {
+    class KeyHolder {
         equals() : boolean
         hashCode() : int
         get() : Object
@@ -185,22 +210,22 @@ The idea is illustrated here:
     }
     PyDict -right-> LinkedHashMap : map
 
-    class LinkedHashMap {
+    class LinkedHashMap as "LinkedHashMap<Key,Object>" {
         get(Key) : Object
         put(Key, Object) : Object
     }
     LinkedHashMap --> "*" Entry
 
-    class Entry {
+    class Entry as "Entry<Key,Object>" {
         value : Object
     }
     Entry -right-> Key : key
 
 
-Each key in the inner ``map`` implements the ``PyDict.Key`` interface.
+Each key in the member ``map`` implements the ``Key`` interface.
 A ``KeyHolder`` is an object we create to wrap
-the actual key received by ``PyDict.put``,
-so it may participate in a ``Map.Entry``.
+the key received by ``PyDict.put``,
+so it may participate in a ``Map.Entry<Key, Object>``.
 
 We must also wrap the argument to ``PyDict.get``,
 so that we may search ``map`` with it.
@@ -246,7 +271,7 @@ Where we can redefine ``equals()`` and ``hashCode()``,
 we'll allow the objects themselves to be the keys.
 For this reason the class diagram shows an example built-in ``PySomething``
 implementing ``PyDict.Key``.
-In general crafted implementations may implement ``PyDict.Key``,
+Crafted implementations may implement ``PyDict.Key``,
 while adopted ones cannot.
 
 It remains an open question whether discovered Java types
@@ -272,59 +297,55 @@ allow the programmer to define new attributes.
 It is evident that one is dealing with a dictionary,
 since there is a ``__dict__`` in which the definitions may be seen.
 
-..  code-block:: python
+>>> class C:
+    a = 42
 
-    >>> class C:
-        a = 42
-
-    >>> C.__dict__.keys()
-    dict_keys(['__module__', 'a', '__dict__', '__weakref__', '__doc__'])
-    >>> c = C()
-    >>> c.b = 43
-    >>> c.__dict__
-    {'b': 43}
+>>> C.__dict__.keys()
+dict_keys(['__module__', 'a', '__dict__', '__weakref__', '__doc__'])
+>>> c = C()
+>>> c.b = 43
+>>> c.__dict__
+{'b': 43}
 
 We may put any type of key in the dictionary of an instance,
 but that doesn't make it an attribute.
 Attributes names have to be strings:
 
-..  code-block:: python
-
-    >>> c.__dict__[True] = 99
-    >>> c.__dict__
-    {'b': 43, True: 99}
-    >>> c.True
-    SyntaxError: invalid syntax
-    >>> getattr(c, True)
-    Traceback (most recent call last):
-      File "<pyshell#162>", line 1, in <module>
-        getattr(c, True)
-    TypeError: getattr(): attribute name must be string
+>>> c.__dict__[True] = 99
+>>> c.__dict__
+{'b': 43, True: 99}
+>>> c.True
+SyntaxError: invalid syntax
+>>> getattr(c, True)
+Traceback (most recent call last):
+  File "<pyshell#162>", line 1, in <module>
+    getattr(c, True)
+TypeError: getattr(): attribute name must be string
 
 When we access an attribute from program text (as in ``c.b`` above),
 the name is embedded in the code object ``co_names`` table as a ``str``,
 and that value is used in a ``LOAD_ATTR`` opcode,
 which invokes the special method ``__getattribute__``.
 
-..  code-block:: python
-
-    >>> code = compile("c.b", '', 'eval')
-    >>> code.co_names
-    ('c', 'b')
-    >>> from dis import dis
-    >>> dis(code)
-      1           0 LOAD_NAME                0 (c)
-                  2 LOAD_ATTR                1 (b)
-                  4 RETURN_VALUE
+>>> code = compile("c.b", '', 'eval')
+>>> code.co_names
+('c', 'b')
+>>> from dis import dis
+>>> dis(code)
+  1           0 LOAD_NAME                0 (c)
+              2 LOAD_ATTR                1 (b)
+              4 RETURN_VALUE
 
 Python allows a wide range of non-ASCII identifiers
 to be used in program text (:pep:`3131`).
 Despite examples of `the creative use of supplementary characters`_,
-we work on the assumption that almost all attribute and variable names
-will contain only ASCII or at most basic plane Unicode characters.
+we work on the assumption that
+supplementary plane characters are rare in attribute and variable names.
 
 We propose therefore to represent names appearing in programme text
 by ``java.lang.String`` objects exclusively.
+A supplementary plane character in a name must be encoded as UTF-16.
+
 The name in attribute access special methods
 ``__getattribute__``, ``__getattr__``, ``__setattr__`` and ``__delattr__``
 will be strongly-typed as ``String``.
@@ -402,4 +423,7 @@ and the wrapping of keys to take control of ``hashCode`` and ``equals``.
             return Collections.unmodifiableMap(dict);
         }
 
+For the time being,
+``type.__dict__`` is a plain Java object implementing ``Map``,
+but this needs uplifting to a ``mappingproxy`` when we have it.
 

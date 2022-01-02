@@ -24,13 +24,13 @@ and then tested ideas that address them.
 ..  toctree::
     :maxdepth: 2
 
+    arch-plain-java-object
     interpreter-structure
     code-and-frame
     object-implementation
     compiled-code
     functions-in-java
     descriptors
-    arch-plain-java-object
 
 
 This chapter has diagrams generated with PlantUML
