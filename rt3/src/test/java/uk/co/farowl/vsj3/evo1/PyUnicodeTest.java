@@ -1,10 +1,14 @@
 package uk.co.farowl.vsj3.evo1;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 import java.lang.invoke.MethodHandles;
+import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
+import java.nio.charset.Charset;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.stream.Stream;
@@ -980,6 +984,7 @@ class PyUnicodeTest extends UnitTestSupport {
 
             // No low surrogate (DC00-DFFF) accidental replacement
             needle = "\udc0d";
+
             // Assert that Java gets the non-Pythonic answer
             assert s.replace(needle, pin).equals("\ud83d#\ud83d#");
 
@@ -1905,6 +1910,64 @@ class PyUnicodeTest extends UnitTestSupport {
             Object r = u.strip(UCHARS);
             assertEquals(expected, r);
         }
+    }
+
+    /**
+     * This isn't a test of our implementation at all. It simply
+     * validates our understanding of how Java treats lone surrogates
+     * and SMP characters.
+     */
+    @SuppressWarnings("static-method")
+    @Test
+    @DisplayName("Java UTF-16 behaves as expected")
+    void javaUTF16Expectations() {
+
+        // This is a valid string in Java and Python ------------------
+
+        String snake = "🐍";
+
+        // "🐍" (one character in Python) is two chars to Java.
+        assertEquals(2, snake.length());
+        char head = snake.charAt(0);
+        char tail = snake.charAt(1);
+        assert Character.isHighSurrogate(head);
+        assert Character.isLowSurrogate(tail);
+
+        // But it is still one code point, even to Java.
+        assertEquals(1, snake.codePointCount(0, snake.length()));
+        assertEquals(1L, snake.codePoints().count());
+
+        // We can encode "🐍" in UTF-16
+        Charset u16 = Charset.forName("UTF-16LE");
+        ByteBuffer snakeBB = u16.encode(snake);
+        assertEquals(4, snakeBB.remaining());
+
+        // A round-trip is successful
+        CharBuffer snakeCB = u16.decode(snakeBB);
+        assertEquals(snake, snakeCB.toString());
+
+        // Java (and Python) will tolerate lone surrogates ------------
+        String loners =
+                new String(new char[] {head, head, tail, tail, head});
+
+        // But in Java, surrogates may make one character
+        assertEquals("\ud83d🐍\udc0d\ud83d", loners);
+
+        // Encoding lone surrogates in UTF-16 does not throw
+        ByteBuffer lonersBB = u16.encode(loners);
+        assertEquals(10, lonersBB.remaining());
+
+        // But the round-trip loses information
+        CharBuffer lonersCB = u16.decode(lonersBB);
+        assertNotEquals(loners, lonersCB.toString());
+
+        // A lone surrogate becomes a UNICODE REPLACEMENT
+        final char REPLACEMENT = '\ufffd';
+        assertEquals(REPLACEMENT, lonersCB.get());
+        assertEquals(head, lonersCB.get());
+        assertEquals(tail, lonersCB.get());
+        assertEquals(REPLACEMENT, lonersCB.get());
+        assertEquals(REPLACEMENT, lonersCB.get());
     }
 
     // Support code --------------------------------------------------
