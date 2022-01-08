@@ -98,10 +98,10 @@ public class Py {
     }
 
     /** Python {@code False} object. */
-    static final Boolean False = false;
+    public static final Boolean False = false;
 
     /** Python {@code True} object. */
-    static final Boolean True = true;
+    public static final Boolean True = true;
 
     /**
      * Return a Python {@code object}.

@@ -22,7 +22,7 @@ public class PyTuple extends AbstractList<Object>
         implements CraftedPyObject {
 
     /** The Python type object for {@code tuple}. */
-    static final PyType TYPE = PyType.fromSpec( //
+    public static final PyType TYPE = PyType.fromSpec( //
             new Spec("tuple", MethodHandles.lookup()));
 
     /** The Python type of this instance. */

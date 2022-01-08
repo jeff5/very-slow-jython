@@ -4,10 +4,10 @@ import java.lang.invoke.MethodHandles;
 import java.util.Map;
 
 /** The Python {@code module} object. */
-class PyModule implements CraftedPyObject, DictPyObject {
+public class PyModule implements CraftedPyObject, DictPyObject {
 
     /** The type of Python object this class implements. */
-    static final PyType TYPE = PyType.fromSpec( //
+    public static final PyType TYPE = PyType.fromSpec( //
             new PyType.Spec("module", MethodHandles.lookup()));
 
     protected final PyType type;

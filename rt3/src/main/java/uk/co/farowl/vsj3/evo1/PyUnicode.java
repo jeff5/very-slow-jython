@@ -55,7 +55,7 @@ import uk.co.farowl.vsj3.evo1.stringlib.TextFormatter;
 public class PyUnicode implements CraftedPyObject, PyDict.Key {
 
     /** The type {@code str}. */
-    static final PyType TYPE = PyType.fromSpec( //
+    public static final PyType TYPE = PyType.fromSpec( //
             new PyType.Spec("str", MethodHandles.lookup())
                     .methods(PyUnicodeMethods.class)
                     .adopt(String.class));

@@ -20,7 +20,7 @@ import uk.co.farowl.vsj3.evo1.stringlib.InternalFormat.Spec;
 /** The Python {@code float} object. */
 public class PyFloat extends AbstractPyObject {
     /** The type {@code float}. */
-    static final PyType TYPE = PyType.fromSpec( //
+    public static final PyType TYPE = PyType.fromSpec( //
             new PyType.Spec("float", MethodHandles.lookup())
                     .adopt(Double.class)
                     .operand(Integer.class, BigInteger.class,

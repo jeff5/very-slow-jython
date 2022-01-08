@@ -15,7 +15,7 @@ import java.lang.annotation.Target;
  * as the implementation of a Python type, and that the {@link Exposer}
  * will look for when during the definition of a {@link PyType}.
  */
-interface Exposed {
+public interface Exposed {
 
     /**
      * Identify a Python instance method of a type or module defined in

@@ -15,11 +15,11 @@ import uk.co.farowl.vsj3.evo1.base.InterpreterError;
  * the base class implementing {@code Map}, while the Python API has
  * been implemented on top of the Java one.
  */
-class PyDict extends AbstractMap<Object, Object>
+public class PyDict extends AbstractMap<Object, Object>
         implements CraftedPyObject {
 
     /** The type of Python object this class implements. */
-    static final PyType TYPE = PyType.fromSpec( //
+    public static final PyType TYPE = PyType.fromSpec( //
             new PyType.Spec("dict", MethodHandles.lookup()));
 
     /** The dictionary as a hash map preserving insertion order. */

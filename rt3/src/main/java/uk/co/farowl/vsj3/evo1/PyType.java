@@ -713,7 +713,7 @@ public class PyType extends Operations implements DictPyObject {
      * @param o object to test
      * @return {@code true} iff {@code o} is exactly of this type
      */
-    boolean checkExact(Object o) { return PyType.of(o) == this; }
+    public boolean checkExact(Object o) { return PyType.of(o) == this; }
 
     /**
      * Determine if this type is a Python sub-type of {@code b} (if

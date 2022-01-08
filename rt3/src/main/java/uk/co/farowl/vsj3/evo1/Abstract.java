@@ -42,7 +42,7 @@ public class Abstract {
      * @throws Throwable from invoked implementation of {@code __repr__}
      */
     // Compare CPython PyObject_Repr in object.c
-    static Object repr(Object o) throws TypeError, Throwable {
+    public static Object repr(Object o) throws TypeError, Throwable {
         if (o == null) {
             return "<null>";
         } else {
@@ -72,7 +72,7 @@ public class Abstract {
      *     or {@code __repr__}
      */
     // Compare CPython PyObject_Str in object.c
-    static Object str(Object o) throws Throwable {
+    public static Object str(Object o) throws Throwable {
         if (o == null) {
             return "<null>";
         } else {
@@ -101,7 +101,7 @@ public class Abstract {
      * @throws TypeError if {@code v} is an unhashable type
      * @throws Throwable on errors within {@code __hash__}
      */
-    static int hash(Object v) throws TypeError, Throwable {
+    public static int hash(Object v) throws TypeError, Throwable {
         try {
             return (int)Operations.of(v).op_hash.invokeExact(v);
         } catch (Slot.EmptyException e) {
@@ -119,7 +119,7 @@ public class Abstract {
      *     {@code __bool__} or {@code __len__}
      */
     // Compare CPython PyObject_IsTrue in object.c
-    static boolean isTrue(Object v) throws Throwable {
+    public static boolean isTrue(Object v) throws Throwable {
         // Begin with common special cases
         if (v == Py.True)
             return true;
@@ -149,7 +149,7 @@ public class Abstract {
      * @throws Throwable from invoked implementations
      */
     // Compare CPython PyObject_RichCompare, do_richcompare in object.c
-    static Object richCompare(Object v, Object w, Comparison op)
+    public static Object richCompare(Object v, Object w, Comparison op)
             throws Throwable {
         return op.apply(v, w);
     }
@@ -168,8 +168,8 @@ public class Abstract {
      * @throws Throwable from invoked method implementations
      */
     // Compare CPython PyObject_RichCompareBool in object.c
-    static boolean richCompareBool(Object v, Object w, Comparison op)
-            throws Throwable {
+    public static boolean richCompareBool(Object v, Object w,
+            Comparison op) throws Throwable {
         /*
          * Quick result when objects are the same. Guarantees that
          * identity implies equality.
@@ -201,8 +201,9 @@ public class Abstract {
      * @return comparison result
      * @throws T on any kind of error
      */
-    static <T extends PyException> boolean richCompareBool(Object v,
-            Object w, Comparison op, Supplier<T> exc) throws T {
+    public static <T extends PyException> boolean richCompareBool(
+            Object v, Object w, Comparison op, Supplier<T> exc)
+            throws T {
         try {
             return richCompareBool(v, w, op);
         } catch (Throwable e) {
@@ -224,7 +225,7 @@ public class Abstract {
      */
     // Compare CPython _PyObject_GetAttr in object.c
     // Also PyObject_GetAttrString in object.c
-    static Object getAttr(Object o, String name)
+    public static Object getAttr(Object o, String name)
             throws AttributeError, Throwable {
         // Decisions are based on type of o (that of name is known)
         Operations ops = Operations.of(o);
@@ -254,7 +255,7 @@ public class Abstract {
      * @throws Throwable on other errors
      */
     // Compare CPython PyObject_GetAttr in object.c
-    static Object getAttr(Object o, Object name)
+    public static Object getAttr(Object o, Object name)
             throws AttributeError, TypeError, Throwable {
         // Decisions are based on types of o and name
         if (name instanceof String) {
@@ -279,7 +280,7 @@ public class Abstract {
      * @throws Throwable on other errors
      */
     // Compare CPython _PyObject_LookupAttr in object.c
-    static Object lookupAttr(Object o, Object name)
+    public static Object lookupAttr(Object o, Object name)
             throws TypeError, Throwable {
         // Corresponds to object.c : PyObject_GetAttr
         // Decisions are based on types of o and name
@@ -304,7 +305,7 @@ public class Abstract {
      * @throws Throwable on other errors than {@code AttributeError}
      */
     // Compare CPython _PyObject_LookupAttr in object.c
-    static Object lookupAttr(Object o, String name)
+    public static Object lookupAttr(Object o, String name)
             throws TypeError, Throwable {
         // Decisions are based on type of o (that of name is known)
         try {
@@ -326,7 +327,7 @@ public class Abstract {
      * @throws Throwable on other errors
      */
     // Compare CPython PyObject_SetAttr in object.c
-    static void setAttr(Object o, String name, Object value)
+    public static void setAttr(Object o, String name, Object value)
             throws AttributeError, Throwable {
         // Decisions are based on type of o (that of name is known)
         try {
@@ -347,7 +348,7 @@ public class Abstract {
      * @throws Throwable on other errors
      */
     // Compare CPython PyObject_SetAttr in object.c
-    static void setAttr(Object o, Object name, Object value)
+    public static void setAttr(Object o, Object name, Object value)
             throws AttributeError, TypeError, Throwable {
         if (name instanceof String) {
             setAttr(o, name, value);
@@ -369,7 +370,7 @@ public class Abstract {
      */
     // Compare CPython PyObject_DelAttr in abstract.h
     // which is a macro for PyObject_SetAttr in object.c
-    static void delAttr(Object o, String name)
+    public static void delAttr(Object o, String name)
             throws AttributeError, Throwable {
         // Decisions are based on type of o (that of name is known)
         try {
@@ -389,7 +390,7 @@ public class Abstract {
      * @throws Throwable on other errors
      */
     // Compare CPython PyObject_SetAttr in object.c
-    static void delAttr(Object o, Object name)
+    public static void delAttr(Object o, Object name)
             throws AttributeError, TypeError, Throwable {
         if (name instanceof String) {
             delAttr(o, name);
@@ -867,7 +868,8 @@ public class Abstract {
      * @param args extra arguments to the formatted message
      * @return exception to throw
      */
-    static TypeError typeError(String fmt, Object o, Object... args) {
+    public static TypeError typeError(String fmt, Object o,
+            Object... args) {
         return new TypeError(fmt, PyType.of(o).getName(), args);
     }
 
@@ -881,7 +883,7 @@ public class Abstract {
      * @param x type of object presented as an index
      * @return exception to throw
      */
-    static TypeError indexTypeError(PyType t, PyType x) {
+    public static TypeError indexTypeError(PyType t, PyType x) {
         String fmt =
                 "%.200s indices must be integers or slices, not %.200s";
         return new TypeError(fmt, t.getName(), x.getName());
@@ -898,7 +900,7 @@ public class Abstract {
      * @param i actual object presented as an index
      * @return exception to throw
      */
-    static TypeError indexTypeError(Object o, Object i) {
+    public static TypeError indexTypeError(Object o, Object i) {
         return indexTypeError(PyType.of(o), PyType.of(i));
     }
 
@@ -912,7 +914,7 @@ public class Abstract {
      * @param o actual object involved
      * @return exception to throw
      */
-    static TypeError requiredTypeError(String t, Object o) {
+    public static TypeError requiredTypeError(String t, Object o) {
         return new TypeError(IS_REQUIRED_NOT, t,
                 PyType.of(o).getName());
     }
@@ -925,7 +927,7 @@ public class Abstract {
      * @param name actual object offered as a name
      * @return exception to throw
      */
-    static TypeError attributeNameTypeError(Object name) {
+    public static TypeError attributeNameTypeError(Object name) {
         String fmt = "attribute name must be string, not '%.200s'";
         return new TypeError(fmt, PyType.of(name).getName());
     }
@@ -937,7 +939,7 @@ public class Abstract {
      * @param obj actual object on which setting failed
      * @return exception to throw
      */
-    static TypeError cantSetAttributeError(Object obj) {
+    public static TypeError cantSetAttributeError(Object obj) {
         return new TypeError("can't set attributes of %.200s", obj);
     }
 
@@ -954,8 +956,8 @@ public class Abstract {
      * @param o actual argument (not its type)
      * @return exception to throw
      */
-    static TypeError argumentTypeError(String f, String name, String t,
-            Object o) {
+    public static TypeError argumentTypeError(String f, String name,
+            String t, Object o) {
         String space = name.length() == 0 ? "" : " ";
         return new TypeError(ARGUMENT_MUST_BE, f, space, name, t,
                 PyType.of(o).getName());
@@ -975,7 +977,7 @@ public class Abstract {
      * @param o actual argument (not its type)
      * @return exception to throw
      */
-    static TypeError argumentTypeError(String f, int n, String t,
+    public static TypeError argumentTypeError(String f, int n, String t,
             Object o) {
         return argumentTypeError(f, ordinal(n), t, o);
     }

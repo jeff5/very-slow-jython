@@ -8,15 +8,15 @@ import uk.co.farowl.vsj3.evo1.Exposed.PythonMethod;
 import uk.co.farowl.vsj3.evo1.PyType.Spec;
 
 /** Stop-gap definition to satisfy references in the project. */
-class PyList extends ArrayList<Object> {
+public class PyList extends ArrayList<Object> {
     private static final long serialVersionUID = 1L;
 
-    static PyType TYPE =
+    public static PyType TYPE =
             PyType.fromSpec(new Spec("list", MethodHandles.lookup()));
 
-    PyList() {}
+    public PyList() {}
 
-    PyList(Collection<?> c) { super(c); }
+    public PyList(Collection<?> c) { super(c); }
 
     /** Reverse this list in-place. */
     @PythonMethod
