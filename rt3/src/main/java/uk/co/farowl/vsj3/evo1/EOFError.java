@@ -2,13 +2,13 @@ package uk.co.farowl.vsj3.evo1;
 
 import java.lang.invoke.MethodHandles;
 
-/** The Python {@code StopIteration} exception. */
-public class StopIteration extends PyException {
+/** The Python {@code EOFError} exception. */
+public class EOFError extends PyException {
     private static final long serialVersionUID = 1L;
 
     /** The type of Python object this class implements. */
-    static final PyType TYPE = PyType.fromSpec(
-            new PyType.Spec("StopIteration", MethodHandles.lookup())
+    public static final PyType TYPE = PyType.fromSpec(
+            new PyType.Spec("EOFError", MethodHandles.lookup())
                     .base(PyException.TYPE));
 
     /**
@@ -18,7 +18,7 @@ public class StopIteration extends PyException {
      * @param msg a Java format string for the message
      * @param args to insert in the format string
      */
-    protected StopIteration(PyType type, String msg, Object... args) {
+    protected EOFError(PyType type, String msg, Object... args) {
         super(type, msg, args);
     }
 
@@ -28,12 +28,7 @@ public class StopIteration extends PyException {
      * @param msg a Java format string for the message
      * @param args to insert in the format string
      */
-    public StopIteration(String msg, Object... args) {
+    public EOFError(String msg, Object... args) {
         this(TYPE, msg, args);
     }
-
-    /**
-     * Constructor specifying no arguments.
-     */
-    public StopIteration() { this(TYPE, ""); }
 }
