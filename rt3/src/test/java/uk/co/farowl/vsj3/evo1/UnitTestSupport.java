@@ -1,4 +1,4 @@
-// Copyright (c)2021 Jython Developers.
+// Copyright (c)2022 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj3.evo1;
 
@@ -16,7 +16,7 @@ import org.junit.jupiter.api.function.Executable;
  * functions for which the need recurs. A unit test that extends this
  * base will initialise the type system before running.
  */
-class UnitTestSupport {
+public class UnitTestSupport {
 
     /** The {@link PyType} {@code object}. */
     /*
@@ -40,7 +40,7 @@ class UnitTestSupport {
      * @throws ArithmeticError if out of range
      * @throws IllegalArgumentException if wrong type
      */
-    static int toInt(Object v)
+    public static int toInt(Object v)
             throws ArithmeticError, IllegalArgumentException {
         if (v instanceof Integer)
             return ((Integer)v).intValue();
@@ -62,7 +62,7 @@ class UnitTestSupport {
      * @param v to convert
      * @return converted value
      */
-    static String toString(Object v) {
+    public static String toString(Object v) {
         if (v instanceof String)
             return (String)v;
         else if (v instanceof PyUnicode)
@@ -77,7 +77,7 @@ class UnitTestSupport {
      * @param value to assign
      * @return from this value.
      */
-    static PyLong newPyLong(BigInteger value) {
+    public static PyLong newPyLong(BigInteger value) {
         return new PyLong(PyLong.TYPE, value);
     }
 
@@ -87,7 +87,7 @@ class UnitTestSupport {
      * @param value to assign
      * @return from this value.
      */
-    static PyLong newPyLong(Object value) {
+    public static PyLong newPyLong(Object value) {
         BigInteger vv = BigInteger.ZERO;
         try {
             vv = PyLong.asBigInteger(value);
@@ -106,7 +106,7 @@ class UnitTestSupport {
      * @return converted value
      * @throws IllegalArgumentException if wrong type
      */
-    static double toDouble(Object v) {
+    public static double toDouble(Object v) {
         if (v instanceof Double)
             return ((Double)v).doubleValue();
         else if (v instanceof PyFloat)
@@ -130,7 +130,7 @@ class UnitTestSupport {
      * @param value to wrap
      * @return from this value.
      */
-    static PyFloat newPyFloat(double value) {
+    public static PyFloat newPyFloat(double value) {
         return new PyFloat(PyFloat.TYPE, value);
     }
 
@@ -140,7 +140,7 @@ class UnitTestSupport {
      * @param value to wrap
      * @return from this value.
      */
-    static PyFloat newPyFloat(Object value) {
+    public static PyFloat newPyFloat(Object value) {
         double vv = 0.0;
         try {
             vv = toDouble(value);
@@ -159,7 +159,7 @@ class UnitTestSupport {
      * @param value to wrap
      * @return from this value.
      */
-    static PyUnicode newPyUnicode(String value) {
+    public static PyUnicode newPyUnicode(String value) {
         return new PyUnicode(PyUnicode.TYPE, value);
     }
 
@@ -170,7 +170,7 @@ class UnitTestSupport {
      * @param value the code points
      * @return from this value.
      */
-    static PyUnicode newPyUnicode(int[] value) {
+    public static PyUnicode newPyUnicode(int[] value) {
         return new PyUnicode(PyUnicode.TYPE, value);
     }
 
@@ -180,7 +180,7 @@ class UnitTestSupport {
      * @param expected type
      * @param o to test
      */
-    static void assertPythonType(PyType expected, Object o) {
+    public static void assertPythonType(PyType expected, Object o) {
         assertTrue(expected.checkExact(o),
                 () -> String.format("Java %s not a Python '%s'",
                         o.getClass().getSimpleName(), expected.name));
@@ -193,7 +193,7 @@ class UnitTestSupport {
      * @param expected prefix
      * @param actual result to match
      */
-    static void assertStartsWith(String expected, String actual) {
+    public static void assertStartsWith(String expected, String actual) {
         assertTrue(actual.startsWith(expected),
                 "should start with " + expected);
     }
@@ -209,7 +209,7 @@ class UnitTestSupport {
      * @param expectedMessage expected message text
      * @return what was thrown
      */
-    static <E extends PyException> E assertRaises(Class<E> expected,
+    public static <E extends PyException> E assertRaises(Class<E> expected,
             Executable action, String expectedMessage) {
         E e = assertThrows(expected, action);
         assertEquals(expectedMessage, e.getMessage());

@@ -1,6 +1,8 @@
 package uk.co.farowl.vsj3.evo1;
 
+import java.io.ByteArrayOutputStream;
 import java.lang.invoke.MethodHandles;
+import java.nio.ByteBuffer;
 import java.util.AbstractList;
 import java.util.Arrays;
 import java.util.Iterator;
@@ -13,12 +15,13 @@ import java.util.stream.StreamSupport;
 import uk.co.farowl.vsj3.evo1.PyObjectUtil.NoConversion;
 import uk.co.farowl.vsj3.evo1.PySequence.Delegate;
 import uk.co.farowl.vsj3.evo1.PySlice.Indices;
+import uk.co.farowl.vsj3.evo1.stringlib.ByteArrayBuilder;
 
 /** The Python {@code bytes} object. */
-class PyBytes extends AbstractList<Integer> implements CraftedPyObject {
+public class PyBytes extends AbstractList<Integer> implements CraftedPyObject {
 
     /** The type of Python object this class implements. */
-    static final PyType TYPE = PyType.fromSpec( //
+    public static final PyType TYPE = PyType.fromSpec( //
             new PyType.Spec("bytes", MethodHandles.lookup()));
     private static final byte[] EMPTY_BYTE_ARRAY = new byte[] {};
     static final PyBytes EMPTY = new PyBytes(EMPTY_BYTE_ARRAY);
@@ -85,9 +88,7 @@ class PyBytes extends AbstractList<Integer> implements CraftedPyObject {
             this.value = EMPTY_BYTE_ARRAY;
         else {
             byte[] b = new byte[n];
-            for (int i = 0; i < n; i++) {
-                b[i] = (byte)(value[i] & 0xff);
-            }
+            for (int i = 0; i < n; i++) { b[i] = (byte)value[i]; }
             this.value = b;
         }
     }
@@ -98,7 +99,7 @@ class PyBytes extends AbstractList<Integer> implements CraftedPyObject {
      *
      * @param value of the bytes
      */
-    PyBytes(byte[] value) { this(TYPE, false, value); }
+    public PyBytes(byte[] value) { this(TYPE, false, value); }
 
     /**
      * Construct a Python {@code bytes} object from Java {@code int}s
@@ -106,7 +107,18 @@ class PyBytes extends AbstractList<Integer> implements CraftedPyObject {
      *
      * @param value of the bytes
      */
-    PyBytes(int... value) { this(TYPE, value); }
+    public PyBytes(int... value) { this(TYPE, value); }
+
+    /**
+     * Construct a Python {@code bytes} object from a
+     * {@link ByteArrayBuilder}. This provides a safe, zero-copy way to
+     * supply the contents from an algorithm.
+     *
+     * @param value of the bytes
+     */
+    public PyBytes(ByteArrayBuilder value) {
+        this(TYPE, true, value.take());
+    }
 
     /**
      * Unsafely wrap an array of bytes as a {@code PyBytes}. The caller
@@ -173,6 +185,19 @@ class PyBytes extends AbstractList<Integer> implements CraftedPyObject {
             @Override
             public Integer next() { return 0xff & value[i++]; }
         };
+    }
+
+    // Java API -------------------------------------------------------
+
+    /**
+     * Expose the contents of the object as a read-only
+     * {@code ByteBuffer}.
+     * {@code This is temporary API until we implement the buffer interface.}
+     *
+     * @return a Java NIO buffer
+     */
+    public ByteBuffer getNIOByteBuffer() {
+        return ByteBuffer.wrap(value).asReadOnlyBuffer();
     }
 
     // Plumbing -------------------------------------------------------

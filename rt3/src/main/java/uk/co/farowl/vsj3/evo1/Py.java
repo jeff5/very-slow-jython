@@ -150,7 +150,7 @@ public class Py {
      * @param values to contain
      * @return equivalent {@code tuple} object
      */
-    static PyTuple tuple(Object... values) {
+    public static PyTuple tuple(Object... values) {
         return PyTuple.from(values);
     }
 
@@ -176,7 +176,7 @@ public class Py {
      *
      * @return {@code dict()}
      */
-    static PyDict dict() {
+    public static PyDict dict() {
         return new PyDict();
     }
 
