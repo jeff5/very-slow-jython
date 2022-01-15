@@ -2,6 +2,7 @@
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj3.evo1.modules;
 
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
@@ -9,15 +10,22 @@ import static org.junit.jupiter.params.provider.Arguments.arguments;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.math.BigInteger;
+import java.util.List;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import uk.co.farowl.vsj3.evo1.Py;
 import uk.co.farowl.vsj3.evo1.PyBytes;
+import uk.co.farowl.vsj3.evo1.PyList;
+import uk.co.farowl.vsj3.evo1.PySequence;
+import uk.co.farowl.vsj3.evo1.PyTuple;
+import uk.co.farowl.vsj3.evo1.PyType;
 import uk.co.farowl.vsj3.evo1.UnitTestSupport;
 import uk.co.farowl.vsj3.evo1.modules.marshal.BytesReader;
 import uk.co.farowl.vsj3.evo1.modules.marshal.BytesWriter;
@@ -319,6 +327,203 @@ class marshalTest extends UnitTestSupport {
             Writer w = new StreamWriter(b, 4);
             w.writeBigInteger(v);
             assertArrayEquals(expected, b.toByteArray());
+        }
+    }
+
+    /** Base of tests that read objects serialised by CPython. */
+    abstract static class AbstractLoadTest {
+
+        /**
+         * Provide a stream of examples as parameter sets to the tests.
+         * In each example, the expression is given (as documentation
+         * only) that was originally evaluated by CPython, and the
+         * serialisation of the result as bytes. The final argument is
+         * an equivalent expression within this implementation of
+         * Python. Deserialising the bytes should be equal to this
+         * argument.
+         * <p>
+         * The examples were generated programmatically from a list of
+         * the expressions.
+         *
+         * @return the examples for object loading tests.
+         */
+        static Stream<Arguments> objectLoadExamples() {
+            return Stream.of( //
+                    loadExample("False", // tc='F'
+                            bytes(0x46), false),
+                    loadExample("True", // tc='T'
+                            bytes(0x54), true),
+                    loadExample("0", // tc='i'
+                            bytes(0xe9, 0x00, 0x00, 0x00, 0x00), 0),
+                    loadExample("1", // tc='i'
+                            bytes(0xe9, 0x01, 0x00, 0x00, 0x00), 1),
+                    loadExample("-42", // tc='i'
+                            bytes(0xe9, 0xd6, 0xff, 0xff, 0xff), -42),
+                    loadExample("2**31-1", // tc='i'
+                            bytes(0xe9, 0xff, 0xff, 0xff, 0x7f),
+                            2147483647),
+                    loadExample("2047**4", // tc='l'
+                            bytes(0xec, 0x03, 0x00, 0x00, 0x00, 0x01,
+                                    0x60, 0xff, 0x02, 0xe0, 0x3f),
+                            new BigInteger("17557851463681")),
+                    loadExample("2**45", // tc='l'
+                            bytes(0xec, 0x04, 0x00, 0x00, 0x00, 0x00,
+                                    0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
+                                    0x00),
+                            new BigInteger("35184372088832")),
+                    loadExample("-42**15", // tc='l'
+                            bytes(0xec, 0xfa, 0xff, 0xff, 0xff, 0x00,
+                                    0x00, 0xfd, 0x20, 0xa7, 0x39, 0x4b,
+                                    0x5f, 0x18, 0x0b, 0x3b, 0x00),
+                            new BigInteger(
+                                    "-2232232135326160725639168")),
+                    loadExample("'hello'", // tc='Z'
+                            bytes(0xda, 0x05, 0x68, 0x65, 0x6c, 0x6c,
+                                    0x6f),
+                            "hello"),
+                    loadExample("'sæll'", // tc='u'
+                            bytes(0xf5, 0x05, 0x00, 0x00, 0x00, 0x73,
+                                    0xc3, 0xa6, 0x6c, 0x6c),
+                            "sæll"),
+                    loadExample("'🐍'", // tc='u'
+                            bytes(0xf5, 0x04, 0x00, 0x00, 0x00, 0xf0,
+                                    0x9f, 0x90, 0x8d),
+                            "🐍"),
+                    loadExample("()", // tc=')'
+                            bytes(0xa9, 0x00), Py.tuple()),
+                    loadExample("(sa,sa,sa)", // tc=')'
+                            bytes(0xa9, 0x03, 0xda, 0x05, 0x68, 0x65,
+                                    0x6c, 0x6c, 0x6f, 0x72, 0x01, 0x00,
+                                    0x00, 0x00, 0x72, 0x01, 0x00, 0x00,
+                                    0x00),
+                            Py.tuple("hello", "hello", "hello")),
+                    loadExample("(sb,sb,t,t)", // tc=')'
+                            bytes(0xa9, 0x04, 0xf5, 0x05, 0x00, 0x00,
+                                    0x00, 0x73, 0xc3, 0xa6, 0x6c, 0x6c,
+                                    0x72, 0x01, 0x00, 0x00, 0x00, 0xa9,
+                                    0x03, 0xe9, 0x01, 0x00, 0x00, 0x00,
+                                    0xe9, 0x02, 0x00, 0x00, 0x00, 0xe9,
+                                    0x03, 0x00, 0x00, 0x00, 0x72, 0x02,
+                                    0x00, 0x00, 0x00),
+                            Py.tuple("sæll", "sæll", Py.tuple(1, 2, 3),
+                                    Py.tuple(1, 2, 3))),
+                    loadExample("[]", // tc='['
+                            bytes(0xdb, 0x00, 0x00, 0x00, 0x00),
+                            new PyList(List.of())),
+                    loadExample("[sa]", // tc='['
+                            bytes(0xdb, 0x01, 0x00, 0x00, 0x00, 0xda,
+                                    0x05, 0x68, 0x65, 0x6c, 0x6c, 0x6f),
+                            new PyList(List.of("hello"))),
+                    loadExample("[sa, 2, t]", // tc='['
+                            bytes(0xdb, 0x03, 0x00, 0x00, 0x00, 0xda,
+                                    0x05, 0x68, 0x65, 0x6c, 0x6c, 0x6f,
+                                    0xe9, 0x02, 0x00, 0x00, 0x00, 0xa9,
+                                    0x03, 0xe9, 0x01, 0x00, 0x00, 0x00,
+                                    0x72, 0x02, 0x00, 0x00, 0x00, 0xe9,
+                                    0x03, 0x00, 0x00, 0x00),
+                            new PyList(List.of("hello", 2,
+                                    Py.tuple(1, 2, 3)))));
+            // end generated
+
+            // Hand-generated examples
+        }
+
+        /**
+         * A list referring to itself:
+         * {@code listself = [1, listself, 3]}, used for tesing the
+         * marshalling of a self-referential list.
+         */
+        static final PyList LISTSELF = listself();
+
+        /** @return {@code listself = [1, listself, 3]} */
+        private static PyList listself() {
+            PyList list = new PyList(List.of(1, 2, 3));
+            list.set(1, list);
+            return list;
+        }
+
+        /** The result of marshalling {@code (listself,4)}. */
+        static final byte[] LISTSELF_BYTES = bytes( //
+                0xa9, 0x02, 0xdb, 0x03, 0x00, 0x00, 0x00, 0xe9, 0x01,
+                0x00, 0x00, 0x00, 0x72, 0x01, 0x00, 0x00, 0x00, 0xe9,
+                0x03, 0x00, 0x00, 0x00, 0xe9, 0x04, 0x00, 0x00, 0x00);
+
+        /**
+         * Construct a set of test arguments for a single test of load,
+         * and a reference result provided by the caller.
+         *
+         * @param expression to identify the test
+         * @param bytes to deserialise
+         * @param expected results to expect
+         */
+        private static Arguments loadExample(String name, byte[] bytes,
+                Object expected) {
+            return arguments(name, bytes, expected);
+        }
+    }
+
+    /**
+     * Tests reading a complete object from a {@code PyBytes}, using the
+     * Python buffer protocol.
+     */
+    @Nested
+    @DisplayName("Read object from bytes-like")
+    class MarshalLoadBytesTest extends AbstractLoadTest {
+
+        @DisplayName("loads(b)")
+        @ParameterizedTest(name = "loads(b) = {0}")
+        @MethodSource("objectLoadExamples")
+        void loadsTest(String name, byte[] bytes, Object expected) {
+            Object r = marshal.loads(new PyBytes(bytes));
+            assertPythonType(PyType.of(expected), r);
+            assertPythonEquals(expected, r);
+        }
+
+        @DisplayName("loads((listself,4))")
+        @Test
+        void loadsListSelf() throws Throwable {
+            Object r = marshal.loads(new PyBytes(LISTSELF_BYTES));
+            assertPythonType(PyTuple.TYPE, r);
+            // We can't simply compare values, r with expected
+            // assertPythonEquals(expected, r);
+            PyList list = (PyList)PySequence.getItem(r, 0);
+            // Item 1 of this list should be the list itself
+            PyList list1 = (PyList)PySequence.getItem(list, 1);
+            assertSame(list, list1);
+            assertPythonEquals(4, PySequence.getItem(r, 1));
+        }
+    }
+
+    /**
+     * Tests reading a complete object from a {@code PyBytes}, using the
+     * Python buffer protocol.
+     */
+    @Nested
+    @DisplayName("Read object from a stream")
+    class MarshalLoadStreamTest extends AbstractLoadTest {
+
+        @DisplayName("load(f)")
+        @ParameterizedTest(name = "load(f) = {0}")
+        @MethodSource("objectLoadExamples")
+        void loadsTest(String name, byte[] b, Object expected) {
+            Object r = marshal.load(new ByteArrayInputStream(b));
+            assertPythonType(PyType.of(expected), r);
+            assertPythonEquals(expected, r);
+        }
+
+        @DisplayName("loads((listself,4))")
+        @Test
+        void loadsListSelf() throws Throwable {
+            Object r = marshal
+                    .load(new ByteArrayInputStream(LISTSELF_BYTES));
+            assertPythonType(PyTuple.TYPE, r);
+            // We can't simply compare values, r with expected
+            // assertPythonEquals(expected, r);
+            PyList list = (PyList)PySequence.getItem(r, 0);
+            // Item 1 of this list should be the list itself
+            PyList list1 = (PyList)PySequence.getItem(list, 1);
+            assertSame(list, list1);
+            assertPythonEquals(4, PySequence.getItem(r, 1));
         }
     }
 

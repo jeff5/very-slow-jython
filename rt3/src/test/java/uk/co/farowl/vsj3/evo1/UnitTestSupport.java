@@ -11,6 +11,8 @@ import java.math.BigInteger;
 
 import org.junit.jupiter.api.function.Executable;
 
+import uk.co.farowl.vsj3.evo1.base.InterpreterError;
+
 /**
  * A base class for unit tests that defines some common convenience
  * functions for which the need recurs. A unit test that extends this
@@ -175,15 +177,43 @@ public class UnitTestSupport {
     }
 
     /**
+     * The object {@code o} is equal to the expected value according to
+     * Python (e.g. {@code True == 1} and strings may be equal even if
+     * one is a {@link PyUnicode}.
+     *
+     * @param expected value
+     * @param o to test
+     */
+    public static void assertPythonEquals(Object expected, Object o) {
+        try {
+            if (Abstract.richCompareBool(expected, o, Comparison.EQ)) {
+                return;
+            }
+        } catch (Error e) {
+            // Let unchecked exception fly
+            throw e;
+        } catch (RuntimeException e) {
+            // Let unchecked exception fly: includes PyException
+            throw e;
+        } catch (Throwable e) {
+            // Wrap checked exception
+            throw new InterpreterError(e);
+        }
+        // This saves making a message ourselves
+        assertEquals(expected, o);
+    }
+
+    /**
      * The Python type of {@code o} is exactly the one expected.
      *
      * @param expected type
      * @param o to test
      */
     public static void assertPythonType(PyType expected, Object o) {
-        assertTrue(expected.checkExact(o),
-                () -> String.format("Java %s not a Python '%s'",
-                        o.getClass().getSimpleName(), expected.name));
+        if (!expected.checkExact(o)) {
+            fail(() -> String.format("Java '%s' is not a Python '%s'",
+                    o.getClass().getSimpleName(), expected.name));
+        }
     }
 
     /**
@@ -193,7 +223,8 @@ public class UnitTestSupport {
      * @param expected prefix
      * @param actual result to match
      */
-    public static void assertStartsWith(String expected, String actual) {
+    public static void assertStartsWith(String expected,
+            String actual) {
         assertTrue(actual.startsWith(expected),
                 "should start with " + expected);
     }
@@ -209,8 +240,9 @@ public class UnitTestSupport {
      * @param expectedMessage expected message text
      * @return what was thrown
      */
-    public static <E extends PyException> E assertRaises(Class<E> expected,
-            Executable action, String expectedMessage) {
+    public static <E extends PyException> E assertRaises(
+            Class<E> expected, Executable action,
+            String expectedMessage) {
         E e = assertThrows(expected, action);
         assertEquals(expectedMessage, e.getMessage());
         return e;
