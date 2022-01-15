@@ -27,6 +27,7 @@ import uk.co.farowl.vsj3.evo1.PyObjectUtil.NoConversion;
 import uk.co.farowl.vsj3.evo1.PySequence.Delegate;
 import uk.co.farowl.vsj3.evo1.PySlice.Indices;
 import uk.co.farowl.vsj3.evo1.base.InterpreterError;
+import uk.co.farowl.vsj3.evo1.stringlib.AbstractIntArrayBuilder;
 import uk.co.farowl.vsj3.evo1.stringlib.IntArrayBuilder;
 import uk.co.farowl.vsj3.evo1.stringlib.IntArrayReverseBuilder;
 import uk.co.farowl.vsj3.evo1.stringlib.InternalFormat;
@@ -71,6 +72,19 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
     private final int[] value;
 
     /**
+     * Enumeration used to express the code point {@link #range}.
+     */
+    enum Range {
+        ASCII, LATIN, BMP, SMP;
+    }
+
+    /**
+     * We can quickly determine tha a whether short-cut encodings will
+     * be possible for a given {@code PyUnicode} from this field.
+     */
+    final private Range range;
+
+    /**
      * Helper to implement {@code __getitem__} and other index-related
      * operations.
      */
@@ -94,15 +108,39 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
      * @param type actual type the instance should have
      * @param iPromiseNotToModify if {@code true}, the array becomes the
      *     implementation array, otherwise the constructor takes a copy.
+     * @param max known maximum code point (or {@code -1})
      * @param codePoints the array of code points
      */
-    private PyUnicode(PyType type, boolean iPromiseNotToModify,
+    private PyUnicode(PyType type, boolean iPromiseNotToModify, int max,
             int[] codePoints) {
         this.type = type;
         if (iPromiseNotToModify)
             this.value = codePoints;
         else
             this.value = Arrays.copyOf(codePoints, codePoints.length);
+        this.range = findRange(max, codePoints);
+    }
+
+    /**
+     * Categorise the range of code points in the string, based on a
+     * maximum code point (if known)or inspection of the code point
+     * array.
+     *
+     * @param max known maximum code point (or {@code -1})
+     * @param codePoints array to inspect (if {@code max}&lt;0).
+     * @return a categorisation of the range
+     */
+    private static Range findRange(int max, int[] codePoints) {
+        if (max < 0) {
+            for (int c : codePoints) { max = Math.max(max, c); }
+        }
+        if (max <= 0x7f) {
+            return Range.ASCII;
+        } else if (max <= 0x7fff) {
+            return Range.BMP;
+        } else {
+            return Range.SMP;
+        }
     }
 
     /**
@@ -114,7 +152,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
      * @param codePoints the array of code points
      */
     protected PyUnicode(PyType type, int[] codePoints) {
-        this(type, false, codePoints);
+        this(type, false, -1, codePoints);
     }
 
     /**
@@ -125,7 +163,22 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
      * @param codePoints the array of code points
      */
     protected PyUnicode(int... codePoints) {
-        this(TYPE, false, codePoints);
+        this(TYPE, false, -1, codePoints);
+    }
+
+    /**
+     * Construct an instance of {@code PyUnicode}, a {@code str} or a
+     * sub-class, from a given {@link IntArrayBuilder}. This will reset
+     * the builder to empty.
+     *
+     * @param value from which to take the code points
+     */
+    protected PyUnicode(IntArrayBuilder value) {
+        this(TYPE, true, value.max(), value.take());
+    }
+
+    protected PyUnicode(IntArrayReverseBuilder value) {
+        this(TYPE, true, value.max(), value.take());
     }
 
     /**
@@ -138,7 +191,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
      * @param value to have
      */
     protected PyUnicode(PyType type, String value) {
-        this(TYPE, true, value.codePoints().toArray());
+        this((new IntArrayBuilder()).append(value.codePoints()));
     }
 
     // Factory methods ------------------------------------------------
@@ -153,7 +206,18 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
      * @return the {@code str}
      */
     private static PyUnicode wrap(int[] codePoints) {
-        return new PyUnicode(TYPE, true, codePoints);
+        return new PyUnicode(TYPE, true, -1, codePoints);
+    }
+
+    /**
+     * Safely wrap the contents of an {@link IntArrayBuilder} of code
+     * points as a {@code PyUnicode}.
+     *
+     * @param codePoints to wrap as a {@code str}
+     * @return the {@code str}
+     */
+    public static PyUnicode wrap(IntArrayBuilder codePoints) {
+        return new PyUnicode(codePoints);
     }
 
     /**
@@ -174,18 +238,15 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
 
     /**
      * Return a Python {@code str} representing the same sequence of
-     * characters as the given Java {@code String}. The result is not
-     * necessarily a {@code PyUnicode}, unless the argument contains
-     * non-BMP code points.
+     * characters as the given Java {@code String} and implemented as a
+     * {@code PyUnicode}.
      *
-     * @param s to convert or return
+     * @param s to convert
      * @return a Python {@code str}
      */
-    public static Object fromJavaString(String s) {
-        if (isBMP(s))
-            return s;
-        else
-            return wrap(s.codePoints().toArray());
+    public static PyUnicode fromJavaString(String s) {
+        // XXX share simple cases len==0 len==1 & ascii?
+        return new PyUnicode(TYPE, s);
     }
 
     @Override
@@ -209,6 +270,11 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         }
     }
 
+    /**
+     * The length (in Python characters) of this {@code str}.
+     *
+     * @return length
+     */
     private int __len__() { return value.length; }
 
     @SuppressWarnings("unused")
@@ -801,11 +867,11 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
                 // If we reached the end of p it's a match
                 if (match == pLength) {
                     // Grab what came before the match.
-                    Object before = wrap(buffer.take());
+                    Object before = new PyUnicode(buffer);
                     // Now consume (the known length) after the match.
                     buffer = new IntArrayBuilder(lastPos - pos + 1);
                     buffer.append(si);
-                    Object after = wrap(buffer.take());
+                    Object after = new PyUnicode(buffer);
                     // Return a result tuple
                     return Py.tuple(before, sep, after);
                 }
@@ -887,11 +953,11 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
                 // If we reached the end of p it's a match
                 if (match == pLength) {
                     // Grab what came after the match.
-                    Object after = wrap(buffer.take());
+                    Object after = new PyUnicode(buffer);
                     // Now consume (the known length) before the match.
                     buffer = new IntArrayReverseBuilder(si.nextIndex());
                     buffer.prepend(si);
-                    Object before = wrap(buffer.take());
+                    Object before = new PyUnicode(buffer);
                     // Return a result
                     return Py.tuple(before, sep, after);
                 }
@@ -1015,7 +1081,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
             if (segment.length() > 0) {
                 // We created a segment.
                 --maxsplit;
-                list.add(wrap(segment.take()));
+                list.add(new PyUnicode(segment));
             }
         }
         return list;
@@ -1089,7 +1155,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
                      * segment we have been accumulating, start a new
                      * one, and count a split.
                      */
-                    list.add(wrap(segment.take()));
+                    list.add(new PyUnicode(segment));
                     --maxsplit;
                     // Catch pos up with si (matches do not overlap).
                     pos = si.nextIndex();
@@ -1118,7 +1184,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
          * Add the segment we were building when s ran out, even if it
          * is empty.
          */
-        list.add(wrap(segment.take()));
+        list.add(new PyUnicode(segment));
         return list;
     }
 
@@ -1231,7 +1297,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
             if (segment.length() > 0) {
                 // We created a segment.
                 --maxsplit;
-                list.add(wrap(segment.take()));
+                list.add(new PyUnicode(segment));
             }
         }
 
@@ -1309,7 +1375,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
                      * segment we have been accumulating, start a new
                      * one, and count a split.
                      */
-                    list.add(wrap(segment.take()));
+                    list.add(new PyUnicode(segment));
                     --maxsplit;
                     // Catch pos up with si (matches do not overlap).
                     pos = si.nextIndex();
@@ -1338,7 +1404,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
          * Add the segment we were building when s ran out, even if it
          * is empty. Note the list is backwards and we must reverse it.
          */
-        list.add(wrap(segment.take()));
+        list.add(new PyUnicode(segment));
         list.reverse();
         return list;
     }
@@ -1410,7 +1476,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
                 // Optionally append the (single) line separator c
                 if (keepends) { line.append(c); }
                 // Emit the line (and start another)
-                list.add(wrap(line.take()));
+                list.add(new PyUnicode(line));
 
             } else {
                 // c is part of the current line.
@@ -1422,7 +1488,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
          * Add the segment we were building when s ran out, but not if
          * it is empty.
          */
-        if (line.length() > 0) { list.add(wrap(line.take())); }
+        if (line.length() > 0) { list.add(new PyUnicode(line)); }
 
         return list;
     }
@@ -1640,7 +1706,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
 
         // Now copy any remaining characters of s
         result.append(si);
-        return wrap(result.take());
+        return new PyUnicode(result);
     }
 
     /**
@@ -1747,7 +1813,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
             }
         }
 
-        return wrap(result.take());
+        return new PyUnicode(result);
     }
 
     // Transformation methods -----------------------------------------
@@ -1793,7 +1859,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
                     Character.isLowerCase(c) || Character.isUpperCase(c)
                             || Character.isTitleCase(c);
         }
-        return wrap(buffer.take());
+        return new PyUnicode(buffer);
     }
 
     @PythonMethod
@@ -1888,7 +1954,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         for (int i = 0; i < leftPad; i++) { buf.append(fill); }
         buf.append(s);
         for (int i = 0; i < rightPad; i++) { buf.append(fill); }
-        return wrap(buf.take());
+        return new PyUnicode(buf);
     }
 
     @PythonMethod
@@ -1928,7 +1994,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         // Now the computed number of zeros
         for (int i = 0; i < pad; i++) { buf.append('0'); }
         buf.append(si);
-        return wrap(buf.take());
+        return new PyUnicode(buf);
     }
 
     @PythonMethod
@@ -1966,7 +2032,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
                 pos++;
             }
         }
-        return wrap(buf.take());
+        return new PyUnicode(buf);
     }
 
     @PythonMethod
@@ -1995,7 +2061,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
             while (si.hasNext()) {
                 buf.append(Character.toLowerCase(si.nextInt()));
             }
-            return wrap(buf.take());
+            return new PyUnicode(buf);
         } else {
             // String is empty
             return "";
@@ -2096,7 +2162,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
             }
         }
 
-        return wrap(buf.take());
+        return new PyUnicode(buf);
     }
 
     private static TypeError joinArgumentTypeError(Object item, int i) {
@@ -2318,10 +2384,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
     }
 
     @PythonMethod(primary = false)
-    boolean isascii() {
-        for (int c : value) { if (c >>> 7 != 0) { return false; } }
-        return true;
-    }
+    public boolean isascii() { return range == Range.ASCII; }
 
     @PythonMethod
     static boolean isascii(String self) {
@@ -2460,6 +2523,15 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
     private static final int HIGH_SURROGATE_OFFSET =
             Character.MIN_HIGH_SURROGATE
                     - (Character.MIN_SUPPLEMENTARY_CODE_POINT >>> 10);
+
+    /**
+     * The code points of this PyUnicode as a {@link PySequence.OfInt}.
+     * This interface will allow the code points to be streamed or
+     * iterated (but not modified, obviously).
+     *
+     * @return the code point sequence
+     */
+    public PySequence.OfInt asSequence() { return delegate; }
 
     /**
      * The hash of a {@link PyUnicode} is the same as that of a Java

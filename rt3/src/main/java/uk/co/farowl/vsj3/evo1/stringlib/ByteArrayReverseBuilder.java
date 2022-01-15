@@ -12,6 +12,7 @@ public final class ByteArrayReverseBuilder
         extends AbstractIntArrayBuilder.Reverse {
     private byte[] value;
     private int ptr = 0;
+    private byte max = 0;
 
     /**
      * Create an empty buffer of a defined initial capacity.
@@ -29,13 +30,16 @@ public final class ByteArrayReverseBuilder
     }
 
     @Override
-    protected Reverse prependUnchecked(int v) {
+    protected void prependUnchecked(int v) {
         value[--ptr] = (byte)v;
-        return this;
+        max |= v;
     }
 
     @Override
     public int length() { return value.length - ptr; }
+
+    @Override
+    public int max() { return 0xff & max; }
 
     @Override
     protected void ensure(int n) {
@@ -72,6 +76,7 @@ public final class ByteArrayReverseBuilder
             System.arraycopy(value, ptr, v, 0, len);
             ptr = value.length;
         }
+        max = 0;
         return v;
     }
 }

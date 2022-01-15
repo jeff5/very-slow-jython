@@ -35,7 +35,7 @@ public class PySequence extends Abstract {
      * @throws Throwable from invoked method implementations
      */
     // Compare CPython PyObject_Size in abstract.c
-    static int size(Object o) throws Throwable {
+    public  static int size(Object o) throws Throwable {
         // Note that the slot is called op_len but this method, size.
         try {
             return (int)Operations.of(o).op_len.invokeExact(o);
@@ -83,7 +83,7 @@ public class PySequence extends Abstract {
      * @throws Throwable from invoked method implementations
      */
     // Compare CPython PyObject_GetItem in abstract.c
-    static Object getItem(Object o, Object key) throws Throwable {
+    public static Object getItem(Object o, Object key) throws Throwable {
         // Decisions are based on types of o and key
         try {
             Operations ops = Operations.of(o);
@@ -106,7 +106,7 @@ public class PySequence extends Abstract {
      * @throws Throwable from invoked method implementations
      */
     // Compare CPython PyObject_GetItem in abstract.c
-    static Object getSlice(Object o, int i1, int i2) throws Throwable {
+    public static Object getSlice(Object o, int i1, int i2) throws Throwable {
         // Decisions are based on type of o and known type of key
         try {
             Object key = new PySlice(i1, i2);
@@ -128,7 +128,7 @@ public class PySequence extends Abstract {
      * @throws Throwable from invoked method implementations
      */
     // Compare CPython PyObject_SetItem in abstract.c
-    static void setItem(Object o, Object key, Object value)
+    public static void setItem(Object o, Object key, Object value)
             throws Throwable {
         // Decisions are based on types of o and key
         Operations ops = Operations.of(o);
@@ -150,7 +150,7 @@ public class PySequence extends Abstract {
      * @throws Throwable from invoked method implementations
      */
     // Compare CPython PyObject_DelItem in abstract.c
-    static void delItem(Object o, Object key) throws Throwable {
+    public static void delItem(Object o, Object key) throws Throwable {
         // Decisions are based on types of o and key
         Operations ops = Operations.of(o);
         try {
@@ -173,7 +173,7 @@ public class PySequence extends Abstract {
      * @throws Throwable from the implementation of {@code o}
      */
     // Compare CPython PySequence_Tuple in abstract.c
-    static PyTuple tuple(Object o) throws TypeError, Throwable {
+    public static PyTuple tuple(Object o) throws TypeError, Throwable {
         PyTuple.Builder tb = collect(o, PyTuple.Builder::new,
                 PyTuple.Builder::append);
         return tb.take();
@@ -191,7 +191,7 @@ public class PySequence extends Abstract {
      * @throws Throwable from the implementation of {@code o}
      */
     // Compare CPython PySequence_List in abstract.c
-    static PyList list(Object o) throws TypeError, Throwable {
+    public static PyList list(Object o) throws TypeError, Throwable {
         return collect(o, PyList::new, PyList::add);
     }
 
@@ -215,7 +215,7 @@ public class PySequence extends Abstract {
      * @throws Throwable from the implementation of {@code o}.
      */
     // Compare CPython PySequence_Fast in abstract.c
-    static <E extends PyException> List<Object> fastList(Object o,
+    public static <E extends PyException> List<Object> fastList(Object o,
             Supplier<E> exc) throws E, Throwable {
 
         if (PyList.TYPE.checkExact(o)) {

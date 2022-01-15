@@ -35,10 +35,10 @@ import uk.co.farowl.vsj3.evo1.Slot.Signature;
  *     visible so that {@link PyType} is able to form
  *     {@code MethodHandle}s to them using its default lookup object.
  */
-class PyBaseObject extends AbstractPyObject {
+public class PyBaseObject extends AbstractPyObject {
 
     /** The type object of {@code object} objects. */
-    static final PyType TYPE = PyType.OBJECT_TYPE;
+    public static final PyType TYPE = PyType.OBJECT_TYPE;
 
     /**
      * Constructor for Python sub-class specifying {@code type}.

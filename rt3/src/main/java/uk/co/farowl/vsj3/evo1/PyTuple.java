@@ -402,7 +402,7 @@ public class PyTuple extends AbstractList<Object>
      * element-wise, that becomes the storage of a {@code tuple},
      * without ever having a direct reference to the array.
      */
-    static class Builder {
+    public static class Builder {
         private static final int MINSIZE = 16;
         private Object[] value;
         private int len = 0;
@@ -412,7 +412,9 @@ public class PyTuple extends AbstractList<Object>
          *
          * @param capacity initially
          */
-        Builder(int capacity) { value = new Object[capacity]; }
+        public Builder(int capacity) {
+            value = new Object[capacity];
+        }
 
         /** Create an empty buffer of a default initial capacity. */
         Builder() {
@@ -420,7 +422,7 @@ public class PyTuple extends AbstractList<Object>
         }
 
         /** @return the number of elements currently. */
-        int length() {
+        public int length() {
             return len;
         }
 
@@ -440,7 +442,7 @@ public class PyTuple extends AbstractList<Object>
          * @param v to append
          * @return this builder
          */
-        Object append(Object v) {
+        public Object append(Object v) {
             ensure(1);
             value[len++] = v;
             return this;
@@ -452,7 +454,7 @@ public class PyTuple extends AbstractList<Object>
          * @param seq supplying elements to append
          * @return this builder
          */
-        Builder append(Collection<?> seq) {
+        public Builder append(Collection<?> seq) {
             ensure(seq.size());
             for (Object v : seq) { value[len++] = v; }
             return this;
@@ -464,7 +466,7 @@ public class PyTuple extends AbstractList<Object>
          * @param iter supplying elements to append
          * @return this builder
          */
-        Builder append(Iterator<?> iter) {
+        public Builder append(Iterator<?> iter) {
             while (iter.hasNext()) { append(iter.next()); }
             return this;
         }
@@ -475,7 +477,7 @@ public class PyTuple extends AbstractList<Object>
          *
          * @return the contents as a Python {@code tuple}
          */
-        PyTuple take() {
+        public PyTuple take() {
             Object[] v;
             if (len == 0) {
                 return EMPTY;
@@ -592,8 +594,7 @@ public class PyTuple extends AbstractList<Object>
         public int
                 compareTo(PySequence.Delegate<Object, Object> other) {
             try {
-                // Tuple is comparable only with another tuple
-                int N = value.length, M = other.length(), i = 0;
+                int N = value.length, M = other.length(), i;
 
                 for (i = 0; i < N; i++) {
                     Object a = value[i];
@@ -632,6 +633,40 @@ public class PyTuple extends AbstractList<Object>
 
         /**
          * Compare this delegate with the delegate of the other
+         * {@code tuple} for equality.
+         *  We do this separately
+         * from {@link #cmp(Object, Comparison)} because it is slightly
+         * cheaper, but also because so we don't panic where an element
+         * that is capable of an equality test, but not a less-than
+         * test.
+         *
+         * @param other delegate of tuple at right of comparison
+         * @return {@code true} if equal, {@code false} if not.
+         */
+        private boolean
+                compareEQ(PySequence.Delegate<Object, Object> other) {
+            try {
+                if (other.length() != value.length) { return false; }
+                int i=0;
+                for (Object b:other) {
+                    Object a = value[i++];
+                    // if a != b, then we've found an answer
+                    if (!Abstract.richCompareBool(a, b, Comparison.EQ))
+                        return false;
+                }
+                // The arrays matched over their length.
+                return true;
+            } catch (PyException e) {
+                // It's ok to throw legitimate Python exceptions
+                throw e;
+            } catch (Throwable t) {
+                throw new InterpreterError(t,
+                        "non-Python exeption in comparison");
+            }
+        }
+
+        /**
+         * Compare this delegate with the delegate of the other
          * {@code tuple}, or return {@code NotImplemented} if the other
          * is not a {@code tuple}.
          *
@@ -639,11 +674,17 @@ public class PyTuple extends AbstractList<Object>
          * @param op type of operation
          * @return boolean result or {@code NotImplemented}
          */
-        Object cmp(Object other, Comparison op) {
+        private Object cmp(Object other, Comparison op) {
             if (other instanceof PyTuple) {
                 // Tuple is comparable only with another tuple
                 TupleDelegate o = ((PyTuple)other).delegate;
-                return op.toBool(delegate.compareTo(o));
+                if (op == Comparison.EQ) {
+                    return compareEQ(o);
+                } else if (op == Comparison.NE) {
+                    return !compareEQ(o);
+                } else {
+                    return op.toBool(delegate.compareTo(o));
+                }
             } else {
                 return Py.NotImplemented;
             }

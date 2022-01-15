@@ -1,7 +1,5 @@
 package uk.co.farowl.vsj3.evo1.stringlib;
 
-import java.io.OutputStream;
-
 /**
  * An elastic buffer of byte values, somewhat like the
  * {@code java.lang.StringBuilder}, but for arrays of bytes. The client
@@ -13,6 +11,7 @@ public final class ByteArrayBuilder
     static final byte[] EMPTY_BYTE_ARRAY = new byte[0];
     private byte[] value;
     private int len = 0;
+    private byte max = 0;
 
     /**
      * Create an empty buffer of a defined initial capacity.
@@ -29,13 +28,16 @@ public final class ByteArrayBuilder
     }
 
     @Override
-    protected Forward appendUnchecked(int v) {
+    protected void appendUnchecked(int v) {
         value[len++] = (byte)v;
-        return this;
+        max |= v;
     }
 
     @Override
     public int length() { return len; }
+
+    @Override
+    public int max() { return 0xff & max; }
 
     /**
      * Ensure there is room for another {@code n} elements.
@@ -72,6 +74,7 @@ public final class ByteArrayBuilder
             System.arraycopy(value, 0, v, 0, len);
         }
         len = 0;
+        max = 0;
         return v;
     }
 
@@ -82,8 +85,8 @@ public final class ByteArrayBuilder
      */
     public void appendShortBE(int v) {
         ensure(2);
-        value[len++] = (byte)(v >>> 8);
-        value[len++] = (byte)v;
+        appendUnchecked(v >>> 8);
+        appendUnchecked(v);
     }
 
     /**
@@ -93,8 +96,8 @@ public final class ByteArrayBuilder
      */
     public void appendShortLE(int v) {
         ensure(4);
-        value[len++] = (byte)v;
-        value[len++] = (byte)(v >>> 8);
+        appendUnchecked(v);
+        appendUnchecked(v >>> 8);
     }
 
     /**
@@ -104,10 +107,10 @@ public final class ByteArrayBuilder
      */
     public void appendIntBE(int v) {
         ensure(4);
-        value[len++] = (byte)(v >>> 24);
-        value[len++] = (byte)(v >>> 16);
-        value[len++] = (byte)(v >>> 8);
-        value[len++] = (byte)v;
+        appendUnchecked(v >>> 24);
+        appendUnchecked(v >>> 16);
+        appendUnchecked(v >>> 8);
+        appendUnchecked(v);
     }
 
     /**
@@ -117,10 +120,10 @@ public final class ByteArrayBuilder
      */
     public void appendIntLE(int v) {
         ensure(4);
-        value[len++] = (byte)v;
-        value[len++] = (byte)(v >>> 8);
-        value[len++] = (byte)(v >>> 16);
-        value[len++] = (byte)(v >>> 24);
+        appendUnchecked(v);
+        appendUnchecked(v >>> 8);
+        appendUnchecked(v >>> 16);
+        appendUnchecked(v >>> 24);
     }
 
     /**
@@ -129,15 +132,8 @@ public final class ByteArrayBuilder
      * @param v the value
      */
     public void appendLongBE(long v) {
-        ensure(8);
-        value[len++] = (byte)(v >>> 56);
-        value[len++] = (byte)(v >>> 48);
-        value[len++] = (byte)(v >>> 40);
-        value[len++] = (byte)(v >>> 32);
-        value[len++] = (byte)(v >>> 24);
-        value[len++] = (byte)(v >>> 16);
-        value[len++] = (byte)(v >>> 8);
-        value[len++] = (byte)v;
+        appendIntBE((int)(v >>> 32));
+        appendIntBE((int)v);
     }
 
     /**
@@ -146,15 +142,8 @@ public final class ByteArrayBuilder
      * @param v the value
      */
     public void appendLongLE(long v) {
-        ensure(8);
-        value[len++] = (byte)v;
-        value[len++] = (byte)(v >>> 8);
-        value[len++] = (byte)(v >>> 16);
-        value[len++] = (byte)(v >>> 24);
-        value[len++] = (byte)(v >>> 32);
-        value[len++] = (byte)(v >>> 40);
-        value[len++] = (byte)(v >>> 48);
-        value[len++] = (byte)(v >>> 56);
+        appendIntLE((int)v);
+        appendIntLE((int)(v >>> 32));
     }
 
     /**
@@ -167,6 +156,6 @@ public final class ByteArrayBuilder
      */
     public void append(byte[] b, int off, int n) {
         ensure(n);
-        System.arraycopy(b, off, value, len, n);
+        for (int i = off; n > 0; n--) { appendUnchecked(b[i++]); }
     }
 }
