@@ -22,17 +22,67 @@ public class PyDict extends AbstractMap<Object, Object>
     public static final PyType TYPE = PyType.fromSpec( //
             new PyType.Spec("dict", MethodHandles.lookup()));
 
+    /** The Python type of this instance. */
+    protected final PyType type;
+
     /** The dictionary as a hash map preserving insertion order. */
     private final LinkedHashMap<Key, Object> map =
             new LinkedHashMap<Key, Object>();
 
-    @Override
-    public PyType getType() { return TYPE; }
+    /**
+     * Construct an empty dictionary of a specified Python sub-class of
+     * {@code dict}.
+     *
+     * @param type sub-type for which this is being created
+     */
+    protected PyDict(PyType type) { this.type = type; }
+
+    /**
+     * Construct a dictionary of a specified Python sub-class of
+     * {@code dict}, filled by copying from a given Java map.
+     *
+     * @param <K> key type of incoming map
+     * @param <V> value type of incoming map
+     * @param type sub-type for which this is being created
+     * @param map Java map from which to copy
+     */
+    protected <K, V> PyDict(PyType type, Map<K, V> map) {
+        this(type);
+        for (Map.Entry<K, V> e : map.entrySet()) {
+            // Cannot bulk add since keys may need Pythonising
+            put(e.getKey(), e.getValue());
+        }
+    }
+
+    /** Construct an empty {@code dict}. */
+    public PyDict() {
+        this(TYPE);
+    }
+
+    /**
+     * Create a {@code dict} and add entries from key-value pairs.
+     *
+     * @param tuples specifying key-value pairs to enter
+     * @return new {@code dict}
+     */
+    public static PyDict fromKeyValuePairs(PyTuple... tuples) {
+        PyDict dict = new PyDict(TYPE);
+        for (int i = 0; i < tuples.length; i++) {
+            PyTuple t = tuples[i];
+            if (t.size() == 2) {
+                dict.put(t.get(0), t.get(1));
+            } else {
+                throw new ValueError(KV_TUPLE_LENGTH, i, t.size());
+            }
+        }
+        return dict;
+    }
 
     @Override
-    public String toString() {
-        return Py.defaultToString(this);
-    }
+    public PyType getType() { return type; }
+
+    @Override
+    public String toString() { return Py.defaultToString(this); }
 
     /**
      * Override {@code Map.get} to give keys Python semantics.
@@ -41,9 +91,7 @@ public class PyDict extends AbstractMap<Object, Object>
      * @return value at {@code key} or {@code null} if not found
      */
     @Override
-    public Object get(Object key) {
-        return map.get(toKey(key));
-    }
+    public Object get(Object key) { return map.get(toKey(key)); }
 
     /**
      * Override {@code Map.put} to give keys Python semantics.
@@ -87,7 +135,7 @@ public class PyDict extends AbstractMap<Object, Object>
         // XXX: stop-gap implementation
         if (src instanceof PyDict) {
             Set<Map.Entry<Object, Object>> entries =
-                    ((PyDict) src).entrySet();
+                    ((PyDict)src).entrySet();
             for (Map.Entry<Object, Object> e : entries) {
                 Object k = e.getKey();
                 Object v = e.getValue();
@@ -112,6 +160,24 @@ public class PyDict extends AbstractMap<Object, Object>
     }
 
     @SuppressWarnings("unused")
+    private Object __ne__(Object o) {
+        if (TYPE.check(o)) {
+            return !compareEQ((PyDict)o);
+        } else {
+            return Py.NotImplemented;
+        }
+    }
+
+    @SuppressWarnings("unused")
+    private Object __eq__(Object o) {
+        if (TYPE.check(o)) {
+            return compareEQ((PyDict)o);
+        } else {
+            return Py.NotImplemented;
+        }
+    }
+
+    @SuppressWarnings("unused")
     private Object __getitem__(Object key) {
         // This may be over-simplifying things but ... :)
         return get(key);
@@ -133,21 +199,22 @@ public class PyDict extends AbstractMap<Object, Object>
     /**
      * A {@code PyDict} is a {@code Map<Object, Object>}, but contains a
      * private implementation of {@code java.utilMap<Key, Object>}. We
-     * use this class {@code Key} so that when
-     * Java needs key hashes or comparisons, it receives the hash or
-     * comparison that Python would produce. An object with the
-     * {@code Key} interface defines the standard Java
-     * {@code hashCode()} and {@code equals()} to return the answers
-     * Python would give for {@code __hash__} and {@code __eq__}.
+     * use this class {@code Key} so that when Java needs key hashes or
+     * comparisons, it receives the hash or comparison that Python would
+     * produce. An object with the {@code Key} interface defines the
+     * standard Java {@code hashCode()} and {@code equals()} to return
+     * the answers Python would give for {@code __hash__} and
+     * {@code __eq__}.
      * <p>
-     * Some implementations of Python objects (e.g. the {@link PyUnicode}
-     * implementation of {@code str}) implement {@code PyDict.Key}, and can give Python
-     * semantics to hash and comparison directly. Other implementations (e.g. a
-     * Java {@code String} implementation of {@code str}) have to be
-     * wrapped in a {@link KeyHolder} that implements
-     * {@code PyDict.Key}. Conversely, when any method requires the keys
-     * of a Python {@code dict}, the {@code Key} must yield up the
-     * original Python object it contains.
+     * Some implementations of Python objects (e.g. the
+     * {@link PyUnicode} implementation of {@code str}) implement
+     * {@code PyDict.Key}, and can give Python semantics to hash and
+     * comparison directly. Other implementations (e.g. a Java
+     * {@code String} implementation of {@code str}) have to be wrapped
+     * in a {@link KeyHolder} that implements {@code PyDict.Key}.
+     * Conversely, when any method requires the keys of a Python
+     * {@code dict}, the {@code Key} must yield up the original Python
+     * object it contains.
      * <p>
      * An implementation of a Python type that allows Python sub-classes
      * must respect re-definition of the corresponding special methods.
@@ -165,9 +232,7 @@ public class PyDict extends AbstractMap<Object, Object>
          *
          * @return the underlying key object (by default {@code this})
          */
-        default Object get() {
-            return this;
-        }
+        default Object get() { return this; }
 
         /**
          * Python objects that implement the interface {@code Key},
@@ -233,20 +298,14 @@ public class PyDict extends AbstractMap<Object, Object>
          * @param key to wrap
          * @throws PyException from {@code __eq__}
          */
-        KeyHolder(Object key) {
-            this.key = key;
-        }
+        KeyHolder(Object key) { this.key = key; }
 
         /** Return the actual object held by this {@code Key} object. */
         @Override
-        public Object get() {
-            return key;
-        }
+        public Object get() { return key; }
 
         @Override
-        public int hashCode() {
-            return pythonHash(this);
-        }
+        public int hashCode() { return pythonHash(this); }
 
         /**
          * Impose Python {@code __eq__} definitions on objects offered
@@ -273,7 +332,7 @@ public class PyDict extends AbstractMap<Object, Object>
      */
     private static Key toKey(Object key) {
         if (key instanceof Key)
-            return (Key) key;
+            return (Key)key;
         else
             return new KeyHolder(key);
     }
@@ -316,7 +375,7 @@ public class PyDict extends AbstractMap<Object, Object>
 
         if (other instanceof Key) {
             // De-reference the key to its contents
-            other = ((Key) other).get();
+            other = ((Key)other).get();
         }
 
         // Quick answer if it contains the same object
@@ -360,9 +419,7 @@ public class PyDict extends AbstractMap<Object, Object>
         }
 
         @Override
-        public int size() {
-            return map.size();
-        }
+        public int size() { return map.size(); }
     }
 
     /**
@@ -380,9 +437,7 @@ public class PyDict extends AbstractMap<Object, Object>
                 map.entrySet().iterator();
 
         @Override
-        public boolean hasNext() {
-            return mapIterator.hasNext();
-        }
+        public boolean hasNext() { return mapIterator.hasNext(); }
 
         /**
          * {@inheritDoc} The difference from the underlying
@@ -398,11 +453,42 @@ public class PyDict extends AbstractMap<Object, Object>
         }
 
         @Override
-        public void remove() {
-            mapIterator.remove();
-        }
+        public void remove() { mapIterator.remove(); }
     }
 
     // plumbing -------------------------------------------------------
+
+    private static final String KV_TUPLE_LENGTH =
+            "dictionary update sequence element %d has length %d; 2 is required";
+
+    /**
+     * Compare this dictionary with the other {@code dict} for equality.
+     *
+     * @param other {@code dict}
+     * @return {@code true} if equal, {@code false} if not.
+     */
+    private boolean compareEQ(PyDict other) {
+        try {
+            // Must we equal size to be equal
+            if (other.size() != size()) { return false; }
+            // All the keys must map to equal values.
+            for (Map.Entry<Object, Object> e : entrySet()) {
+                Object w = other.get(e.getKey());
+                if (w == null)
+                    return false;
+                else if (!Abstract.richCompareBool(e.getValue(), w,
+                        Comparison.EQ))
+                    return false;
+            }
+            // The dictionaries matched at every key.
+            return true;
+        } catch (PyException e) {
+            // It's ok to throw legitimate Python exceptions
+            throw e;
+        } catch (Throwable t) {
+            throw new InterpreterError(t,
+                    "non-Python exeption in comparison");
+        }
+    }
 
 }

@@ -2,9 +2,9 @@
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj3.evo1.modules;
 
-import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 import java.io.ByteArrayInputStream;
@@ -22,10 +22,12 @@ import org.junit.jupiter.params.provider.MethodSource;
 
 import uk.co.farowl.vsj3.evo1.Py;
 import uk.co.farowl.vsj3.evo1.PyBytes;
+import uk.co.farowl.vsj3.evo1.PyDict;
 import uk.co.farowl.vsj3.evo1.PyList;
 import uk.co.farowl.vsj3.evo1.PySequence;
 import uk.co.farowl.vsj3.evo1.PyTuple;
 import uk.co.farowl.vsj3.evo1.PyType;
+import uk.co.farowl.vsj3.evo1.StopIteration;
 import uk.co.farowl.vsj3.evo1.UnitTestSupport;
 import uk.co.farowl.vsj3.evo1.modules.marshal.BytesReader;
 import uk.co.farowl.vsj3.evo1.modules.marshal.BytesWriter;
@@ -349,6 +351,8 @@ class marshalTest extends UnitTestSupport {
          */
         static Stream<Arguments> objectLoadExamples() {
             return Stream.of( //
+                    loadExample("None", // tc='N'
+                            bytes(0x4e), Py.None),
                     loadExample("False", // tc='F'
                             bytes(0x46), false),
                     loadExample("True", // tc='T'
@@ -422,10 +426,45 @@ class marshalTest extends UnitTestSupport {
                                     0x72, 0x02, 0x00, 0x00, 0x00, 0xe9,
                                     0x03, 0x00, 0x00, 0x00),
                             new PyList(List.of("hello", 2,
-                                    Py.tuple(1, 2, 3)))));
-            // end generated
+                                    Py.tuple(1, 2, 3)))),
+                    loadExample("{}", // tc='{'
+                            bytes(0xfb, 0x30),
+                            PyDict.fromKeyValuePairs()),
+                    loadExample("{sa:sb}", // tc='{'
+                            bytes(0xfb, 0xda, 0x05, 0x68, 0x65, 0x6c,
+                                    0x6c, 0x6f, 0xf5, 0x05, 0x00, 0x00,
+                                    0x00, 0x73, 0xc3, 0xa6, 0x6c, 0x6c,
+                                    0x30),
+                            PyDict.fromKeyValuePairs(
+                                    Py.tuple("hello", "sæll"))),
+                    loadExample("dict(python=su)", // tc='{'
+                            bytes(0xfb, 0xda, 0x06, 0x70, 0x79, 0x74,
+                                    0x68, 0x6f, 0x6e, 0xf5, 0x04, 0x00,
+                                    0x00, 0x00, 0xf0, 0x9f, 0x90, 0x8d,
+                                    0x30),
+                            PyDict.fromKeyValuePairs(
+                                    Py.tuple("python", "🐍"))),
+                    loadExample("{sa:1, sb:2, su:t}", // tc='{'
+                            bytes(0xfb, 0xda, 0x05, 0x68, 0x65, 0x6c,
+                                    0x6c, 0x6f, 0xe9, 0x01, 0x00, 0x00,
+                                    0x00, 0xf5, 0x05, 0x00, 0x00, 0x00,
+                                    0x73, 0xc3, 0xa6, 0x6c, 0x6c, 0xe9,
+                                    0x02, 0x00, 0x00, 0x00, 0xf5, 0x04,
+                                    0x00, 0x00, 0x00, 0xf0, 0x9f, 0x90,
+                                    0x8d, 0xa9, 0x03, 0x72, 0x02, 0x00,
+                                    0x00, 0x00, 0x72, 0x04, 0x00, 0x00,
+                                    0x00, 0xe9, 0x03, 0x00, 0x00, 0x00,
+                                    0x30),
+                            PyDict.fromKeyValuePairs(
+                                    Py.tuple("hello", 1),
+                                    Py.tuple("sæll", 2),
+                                    Py.tuple("🐍", Py.tuple(1, 2, 3)))),
 
-            // Hand-generated examples
+                    // Hand-generated examples
+
+                    loadExample("StopIteration", // tc='S'
+                            bytes('S'), StopIteration.TYPE));
+
         }
 
         /**
@@ -495,8 +534,8 @@ class marshalTest extends UnitTestSupport {
     }
 
     /**
-     * Tests reading a complete object from a {@code PyBytes}, using the
-     * Python buffer protocol.
+     * Tests reading a complete object from a {@code byte[]}, wrapping
+     * it as a stream.
      */
     @Nested
     @DisplayName("Read object from a stream")

@@ -1,6 +1,5 @@
 package uk.co.farowl.vsj3.evo1;
 
-import java.io.ByteArrayOutputStream;
 import java.lang.invoke.MethodHandles;
 import java.nio.ByteBuffer;
 import java.util.AbstractList;
@@ -18,7 +17,8 @@ import uk.co.farowl.vsj3.evo1.PySlice.Indices;
 import uk.co.farowl.vsj3.evo1.stringlib.ByteArrayBuilder;
 
 /** The Python {@code bytes} object. */
-public class PyBytes extends AbstractList<Integer> implements CraftedPyObject {
+public class PyBytes extends AbstractList<Integer>
+        implements CraftedPyObject {
 
     /** The type of Python object this class implements. */
     public static final PyType TYPE = PyType.fromSpec( //

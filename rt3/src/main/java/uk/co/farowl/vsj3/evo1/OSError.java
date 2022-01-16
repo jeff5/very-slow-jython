@@ -37,7 +37,6 @@ public class OSError extends PyException {
      * Constructor based on the Java exception.
      *
      * @param ioe the Java exception
-     * @param args to insert in the format string
      */
     public OSError(IOException ioe) {
         this(TYPE, ioe.getMessage());

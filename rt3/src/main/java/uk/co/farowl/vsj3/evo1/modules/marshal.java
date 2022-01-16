@@ -16,7 +16,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 
 import uk.co.farowl.vsj3.evo1.Abstract;
 import uk.co.farowl.vsj3.evo1.EOFError;
@@ -27,6 +26,7 @@ import uk.co.farowl.vsj3.evo1.Py;
 import uk.co.farowl.vsj3.evo1.PyBaseObject;
 import uk.co.farowl.vsj3.evo1.PyBool;
 import uk.co.farowl.vsj3.evo1.PyBytes;
+import uk.co.farowl.vsj3.evo1.PyDict;
 import uk.co.farowl.vsj3.evo1.PyException;
 import uk.co.farowl.vsj3.evo1.PyList;
 import uk.co.farowl.vsj3.evo1.PyLong;
@@ -37,6 +37,7 @@ import uk.co.farowl.vsj3.evo1.PySequence.OfInt;
 import uk.co.farowl.vsj3.evo1.PyTuple;
 import uk.co.farowl.vsj3.evo1.PyType;
 import uk.co.farowl.vsj3.evo1.PyUnicode;
+import uk.co.farowl.vsj3.evo1.StopIteration;
 import uk.co.farowl.vsj3.evo1.TypeError;
 import uk.co.farowl.vsj3.evo1.ValueError;
 import uk.co.farowl.vsj3.evo1.stringlib.ByteArrayBuilder;
@@ -70,17 +71,17 @@ public class marshal /* extends JavaModule */ {
      * clarified.
      */
     private final static int TYPE_NULL = '0';
-    /** The record encodes None (in one byte) */
+    /** The record encodes {@code None} (in one byte) */
     private final static int TYPE_NONE = 'N';
-    /** The record encodes False (in one byte) */
+    /** The record encodes {@code False} (in one byte) */
     private final static int TYPE_FALSE = 'F';
-    /** The record encodes True (in one byte) */
+    /** The record encodes {@code True} (in one byte) */
     private final static int TYPE_TRUE = 'T';
-    /** The record encodes StopIteration (in one byte) */
+    /** The record encodes the <b>type</b> {@code StopIteration} */
     private final static int TYPE_STOPITER = 'S';
-    /** The record encodes Ellipsis (in one byte) */
+    /** The record encodes {@code Ellipsis} (in one byte) */
     private final static int TYPE_ELLIPSIS = '.';
-    /** The record encodes an int (4 bytes follow) */
+    /** The record encodes an {@code int} (4 bytes follow) */
     private final static int TYPE_INT = 'i';
     /*
      * TYPE_INT64 is not generated anymore. Supported for backward
@@ -91,22 +92,30 @@ public class marshal /* extends JavaModule */ {
     private final static int TYPE_BINARY_FLOAT = 'g';
     private final static int TYPE_COMPLEX = 'x';
     private final static int TYPE_BINARY_COMPLEX = 'y';
-    private final static int TYPE_LONG = 'l'; // int
+    /** The record encodes an {@code int} (counted 15-bit digits) */
+    private final static int TYPE_LONG = 'l';
     private final static int TYPE_BYTES = 's'; // not TYPE_STRING
     private final static int TYPE_INTERNED = 't'; // str
     private final static int TYPE_REF = 'r';
+    /** The record encodes a {@code tuple} (counted objects follow) */
     private final static int TYPE_TUPLE = '(';
+    /** The record encodes a {@code list} (counted objects follow) */
     private final static int TYPE_LIST = '[';
+    /** The record encodes a {@code dict} (key-value pairs follow) */
     private final static int TYPE_DICT = '{';
     private final static int TYPE_CODE = 'c';
+    /** The record encodes a {@code str} (counted code points follow) */
     private final static int TYPE_UNICODE = 'u'; // str
     private final static int TYPE_UNKNOWN = '?';
     private final static int TYPE_SET = '<';
     private final static int TYPE_FROZENSET = '>';
 
+    /** The record encodes a {@code str} (counted bytes follow) */
     private final static int TYPE_ASCII = 'a'; // str
     private final static int TYPE_ASCII_INTERNED = 'A'; // str
+    /** The record encodes a {@code tuple} (counted objects follow) */
     private final static int TYPE_SMALL_TUPLE = ')';
+    /** The record encodes a {@code str} (counted bytes follow) */
     private final static int TYPE_SHORT_ASCII = 'z'; // str
     private final static int TYPE_SHORT_ASCII_INTERNED = 'Z'; // str
 
@@ -178,7 +187,7 @@ public class marshal /* extends JavaModule */ {
          * @throws IOException on file write errors
          * @throws ArrayIndexOutOfBoundsException on byte array write
          *     errors
-         * @throws Throwable
+         * @throws Throwable from operations on {@code v}
          */
         void write(Writer w, Object v) throws IOException, Throwable;
 
@@ -187,15 +196,15 @@ public class marshal /* extends JavaModule */ {
          * that is able to read the object following that type code, in
          * the input managed by a given {@link Reader}.
          *
-         * @param code for which this is a read operation
-         * @return the value read
+         * @return the table of decoders
          */
         Map<Integer, Decoder> decoders();
     }
 
     /**
      * A mapping from Python type to the Codec that is able to encode
-     * and decode that type.
+     * and decode that type. Note that the {@code null} key is
+     * supported.
      */
     private static HashMap<PyType, Codec> codecForType =
             new HashMap<>();
@@ -215,9 +224,9 @@ public class marshal /* extends JavaModule */ {
      * @param codec to register
      */
     private static void register(Codec codec) {
-        // Get the type served (null for RefCodec).
+        // Get the type served (object for reference, null for null).
         PyType targetType = codec.type();
-        if (targetType != null) { codecForType.put(targetType, codec); }
+        codecForType.put(targetType, codec);
         // Register a read method for each type code
         for (Map.Entry<Integer, Decoder> e : codec.decoders()
                 .entrySet()) {
@@ -228,11 +237,13 @@ public class marshal /* extends JavaModule */ {
 
     // Register all the defined codecs
     static {
+        register(new TypeCodec());
         register(new BoolCodec());
         register(new IntCodec());
-        register(new ListCodec());
         register(new StrCodec());
         register(new TupleCodec());
+        register(new ListCodec());
+        register(new DictCodec());
         register(new RefCodec());
     }
 
@@ -295,6 +306,7 @@ public class marshal /* extends JavaModule */ {
      *
      * @param value to write
      * @param version of the format to use
+     * @return {@code bytes} containing result
      * @throws ValueError if the value has (or contains an object that
      *     has) an unsupported type
      */
@@ -350,9 +362,11 @@ public class marshal /* extends JavaModule */ {
         private final int version;
 
         /**
-         * Create with specified version of the protocol.
+         * Create a {@code Writer} with a specified version of the
+         * protocol. The version affects whether certain type codes will
+         * be used.
          *
-         * @param version to write
+         * @param version of protocol to write
          */
         public Writer(int version) { this.version = version; }
 
@@ -420,7 +434,7 @@ public class marshal /* extends JavaModule */ {
          * Write a {@code BigInteger} as a counted sequence of 15-bit
          * units (the form Python expects).
          *
-         * @param v
+         * @param v value to write
          */
         void writeBigInteger(BigInteger v) {
             boolean negative = v.signum() < 0;
@@ -431,6 +445,19 @@ public class marshal /* extends JavaModule */ {
                 writeShort(v.and(BIG_MASK15).intValue());
                 v = v.shiftRight(15);
             }
+        }
+
+        /**
+         * Construct a ValueError expressing the impossibility of
+         * marshalling whatever it is.
+         *
+         * @param v object we couldn't marshal.
+         * @return throwable exception
+         */
+        protected static ValueError unmarshallableObject(Object v) {
+            String t = v == null ? "<null>"
+                    : "of type '" + PyType.of(v).getName() + "'";
+            return new ValueError("unmarshallable object %s", t);
         }
     }
 
@@ -455,9 +482,10 @@ public class marshal /* extends JavaModule */ {
         private final DataOutputStream file;
 
         /**
-         * Form a {@link Reader} on a {@code java.io.InputStream}.
+         * Form a {@link Writer} on a {@code java.io.OutputStream}.
          *
-         * @param file input
+         * @param file output
+         * @param version of protocol to write
          */
         StreamWriter(OutputStream file, int version) {
             super(version);
@@ -539,9 +567,10 @@ public class marshal /* extends JavaModule */ {
         final ByteArrayBuilder builder;
 
         /**
-         * Form a {@link Reader} on a byte array.
+         * Form a {@link Writer} on a byte array.
          *
          * @param builder destination
+         * @param version of protocol to write
          */
         BytesWriter(ByteArrayBuilder builder, int version) {
             super(version);
@@ -603,18 +632,21 @@ public class marshal /* extends JavaModule */ {
          */
         Object readObject() {
             // Get the type code and the decoder for it
-            int tc = readByte();
-            Decoder decoder = decoderForCode.get(tc & ~FLAG_REF);
+            int tcflag = readByte(), tc = tcflag & ~FLAG_REF;
+            Decoder decoder = decoderForCode.get(tc);
+            // The decoder will define a reference if requested
+            boolean ref = (tcflag & FLAG_REF) != 0;
             if (decoder != null) {
-                // The decoder will define a reference if requested
-                boolean ref = (tc & FLAG_REF) != 0;
                 // Decode using the decoder we retrieved for tc
                 Object obj = decoder.read(this, ref);
-                if (obj == null) { throw nullObject("object"); }
+                if (tc != TYPE_NULL && obj == null) {
+                    throw nullObject("object");
+                }
                 return obj;
             } else {
                 // No decoder registered for tc (see static init)
-                throw badData("unknown type code");
+                throw badData("unknown type 0x%02x = '%c'%s", tcflag,
+                        tc, ref ? "+ref" : "");
             }
         }
 
@@ -771,13 +803,12 @@ public class marshal /* extends JavaModule */ {
         }
 
         /**
-         * Prepare a Python {@link EOFError} for throwing. with the
-         * message that the data is too short. We throw one of these on
+         * Prepare a Python {@link EOFError} for throwing, with the
+         * message that the data are too short. We throw one of these on
          * encountering and end of file or buffer where more of the
          * object was expected.
          *
-         * @param ioe to convert
-         * @return the chosen Python exception
+         * @return a Python exception to throw
          */
         protected static EOFError endOfData() {
             return new EOFError("marshal data too short");
@@ -1018,6 +1049,73 @@ public class marshal /* extends JavaModule */ {
         }
     }
 
+    /** {@link Codec} for several Python singletons. */
+    private static class SingletonCodec implements Codec {
+        private final int typeCode;
+        private final Object value;
+
+        private SingletonCodec(int typeCode, Object value) {
+            this.typeCode = typeCode;
+            this.value = value;
+        }
+
+        @Override
+        public PyType type() {
+            /*
+             * It is possible to serialise a null, and reading it back
+             * is not always an error.
+             */
+            return value == null ? null : PyType.of(value);
+        }
+
+        @Override
+        public void write(Writer w, Object v)
+                throws IOException, Throwable {
+            // All objects of the value's type are considered the same
+            assert v == value;
+            w.writeByte(typeCode);
+        }
+
+        @Override
+        public Map<Integer, Decoder> decoders() {
+            // All this type share the same value (ref ignored)
+            return Map.of(typeCode, (r, ref) -> value);
+        }
+    }
+
+    static {
+        register(new SingletonCodec(TYPE_NULL, null));
+        register(new SingletonCodec(TYPE_NONE, Py.None));
+        // register(new SingletonCodec(TYPE_ELLIPSIS, Py.Ellipsis));
+    }
+
+    /**
+     * {@link Codec} for {@code type}s. The only case of this in
+     * practice is the type {@code StopIteration}, but this codec will
+     * receive any any type object.
+     */
+    private static class TypeCodec implements Codec {
+
+        @Override
+        public PyType type() { return PyType.TYPE; }
+
+        @Override
+        public void write(Writer w, Object v)
+                throws IOException, Throwable {
+            if (v == StopIteration.TYPE)
+                w.writeByte(TYPE_STOPITER);
+            else
+                throw Writer.unmarshallableObject(v);
+        }
+
+        @Override
+        public Map<Integer, Decoder> decoders() {
+            // All this type share the same value (ref ignored)
+            return Map.of(TYPE_STOPITER,
+                    (r, ref) -> StopIteration.TYPE);
+        }
+    }
+
     /** {@link Codec} for Python {@code bool}. */
     private static class BoolCodec implements Codec {
         @Override
@@ -1065,49 +1163,6 @@ public class marshal /* extends JavaModule */ {
             m.put(TYPE_LONG,
                     (r, ref) -> r.defineRef(r.readBigInteger(), ref));
             return m;
-        }
-    }
-
-    /**
-     * {@link Codec} for Python {@code int}. An interesting thing about
-     * a {@code list} is that it can contain itself as a member.
-     */
-    private static class ListCodec implements Codec {
-        @Override
-        public PyType type() { return PyList.TYPE; }
-
-        @Override
-        public void write(Writer w, Object v)
-                throws IOException, Throwable {
-            assert type().checkExact(v);
-            // May only be PyList
-            PyList list = (PyList)v;
-            w.writeByte(TYPE_LIST);
-            int n = list.size();
-            w.writeInt(n);
-            for (int i = 0; i < n; i++) { w.writeObject(list.get(i)); }
-        }
-
-        @Override
-        public Map<Integer, Decoder> decoders() {
-            return Map.of(TYPE_LIST, ListCodec::read);
-        }
-
-        private static PyList read(Reader r, boolean ref) {
-            // We may allocate a list of the right size
-            int n = r.readInt();
-            if (n < 0) {
-                throw Reader.badData("list size out of range");
-            }
-            PyList list = new PyList(n);
-            // Cache the object now: list may contain itself
-            r.defineRef(list, ref);
-            for (int i = 0; i < n; i++) {
-                Object v = r.readObject();
-                if (v == null) { throw Reader.nullObject("list"); }
-                list.add(v);
-            }
-            return list;
         }
     }
 
@@ -1243,6 +1298,94 @@ public class marshal /* extends JavaModule */ {
             }
             // Now we can give an object meaning to the index
             return r.defineRef(builder.take(), idx);
+        }
+    }
+
+    /**
+     * {@link Codec} for Python {@code list}. An interesting thing about
+     * a {@code list} is that it can contain itself as a member.
+     */
+    private static class ListCodec implements Codec {
+        @Override
+        public PyType type() { return PyList.TYPE; }
+
+        @Override
+        public void write(Writer w, Object v)
+                throws IOException, Throwable {
+            assert type().checkExact(v);
+            // May only be PyList
+            PyList list = (PyList)v;
+            w.writeByte(TYPE_LIST);
+            int n = list.size();
+            w.writeInt(n);
+            for (int i = 0; i < n; i++) { w.writeObject(list.get(i)); }
+        }
+
+        @Override
+        public Map<Integer, Decoder> decoders() {
+            return Map.of(TYPE_LIST, ListCodec::read);
+        }
+
+        private static PyList read(Reader r, boolean ref) {
+            // We may allocate a list of the right size
+            int n = r.readInt();
+            if (n < 0) {
+                throw Reader.badData("list size out of range");
+            }
+            PyList list = new PyList(n);
+            // Cache the object now: list may contain itself
+            r.defineRef(list, ref);
+            for (int i = 0; i < n; i++) {
+                Object v = r.readObject();
+                if (v == null) { throw Reader.nullObject("list"); }
+                list.add(v);
+            }
+            return list;
+        }
+    }
+
+    /**
+     * {@link Codec} for Python {@code dict}.
+     */
+    private static class DictCodec implements Codec {
+        @Override
+        public PyType type() { return PyDict.TYPE; }
+
+        @Override
+        public void write(Writer w, Object v)
+                throws IOException, Throwable {
+            assert type().checkExact(v);
+            // May only be PyDict
+            PyDict dict = (PyDict)v;
+            w.writeByte(TYPE_DICT);
+            // The sequel is a null-terminated key-value pairs
+            for (Map.Entry<Object, Object> e : dict.entrySet()) {
+                w.writeObject(e.getKey());
+                w.writeObject(e.getValue());
+            }
+            w.writeObject(null);
+        }
+
+        @Override
+        public Map<Integer, Decoder> decoders() {
+            return Map.of(TYPE_DICT, DictCodec::read);
+        }
+
+        private static PyDict read(Reader r, boolean ref) {
+            // The sequel is a null-terminated key-value pairs
+            PyDict dict = new PyDict();
+            // Cache the object now: dict may contain itself
+            r.defineRef(dict, ref);
+            // The sequel is a null-terminated key-value pairs
+            while (true) {
+                Object key = r.readObject();
+                if (key == null) { break; }
+                // CPython does not treat (k,null) as an error
+                Object value = r.readObject();
+                if (value == null) { break; }
+                dict.put(key, value);
+            }
+            return dict;
         }
     }
 

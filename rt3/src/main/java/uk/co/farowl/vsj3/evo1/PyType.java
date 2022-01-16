@@ -82,7 +82,7 @@ public class PyType extends Operations implements DictPyObject {
     /** Lookup object on {@code PyType}. */
     private static Lookup LOOKUP = MethodHandles.lookup();
     /** The type object of {@code type} objects. */
-    static final PyType TYPE = new PyType();
+    public static final PyType TYPE = new PyType();
     /** The type object of {@code object} objects. */
     static final PyType OBJECT_TYPE = TYPE.base;
     /** An array containing only 'object', the bases of many types. */
