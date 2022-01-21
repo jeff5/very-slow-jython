@@ -37,6 +37,7 @@ import uk.co.farowl.vsj3.evo1.modules.marshal.StreamWriter;
 import uk.co.farowl.vsj3.evo1.modules.marshal.Writer;
 import uk.co.farowl.vsj3.evo1.stringlib.ByteArrayBuilder;
 
+@DisplayName("Read and write objects with marshal")
 class marshalTest extends UnitTestSupport {
 
     /**
@@ -381,6 +382,51 @@ class marshalTest extends UnitTestSupport {
                                     0x5f, 0x18, 0x0b, 0x3b, 0x00),
                             new BigInteger(
                                     "-2232232135326160725639168")),
+                    loadExample("0.", // tc='g'
+                            bytes(0xe7, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                    0x00, 0x00, 0x00),
+                            0x0.0p+0),
+                    loadExample("1.", // tc='g'
+                            bytes(0xe7, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                    0x00, 0xf0, 0x3f),
+                            0x1.0000000000000p+0),
+                    loadExample("-42.", // tc='g'
+                            bytes(0xe7, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                    0x00, 0x45, 0xc0),
+                            -0x1.5000000000000p+5),
+                    loadExample("1e42", // tc='g'
+                            bytes(0xe7, 0x61, 0xa0, 0xe0, 0xc4, 0x78,
+                                    0xf5, 0xa6, 0x48),
+                            0x1.6f578c4e0a061p+139),
+                    loadExample("1.8e300", // tc='g'
+                            bytes(0xe7, 0xa6, 0x36, 0xcd, 0xe0, 0x9c,
+                                    0x80, 0x45, 0x7e),
+                            0x1.5809ce0cd36a6p+997),
+                    loadExample("1.12e-308", // tc='g'
+                            bytes(0xe7, 0xd7, 0xb2, 0x64, 0x01, 0xbd,
+                                    0x0d, 0x08, 0x00),
+                            0x0.80dbd0164b2d7p-1022),
+                    loadExample(
+                            "float.fromhex('0x1.fffffffffffffp1023')", // tc='g'
+                            bytes(0xe7, 0xff, 0xff, 0xff, 0xff, 0xff,
+                                    0xff, 0xef, 0x7f),
+                            0x1.fffffffffffffp+1023),
+                    loadExample("float.fromhex('-0x1.p-1022')", // tc='g'
+                            bytes(0xe7, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                    0x00, 0x10, 0x80),
+                            -0x1.0000000000000p-1022),
+                    loadExample("float('inf')", // tc='g'
+                            bytes(0xe7, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                    0x00, 0xf0, 0x7f),
+                            Double.POSITIVE_INFINITY),
+                    loadExample("float('-inf')", // tc='g'
+                            bytes(0xe7, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                    0x00, 0xf0, 0xff),
+                            Double.NEGATIVE_INFINITY),
+                    loadExample("float('nan')", // tc='g'
+                            bytes(0xe7, 0x00, 0x00, 0x00, 0x00, 0x00,
+                                    0x00, 0xf8, 0x7f),
+                            Double.NaN),
                     loadExample("'hello'", // tc='Z'
                             bytes(0xda, 0x05, 0x68, 0x65, 0x6c, 0x6c,
                                     0x6f),

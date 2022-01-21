@@ -115,7 +115,7 @@ task compileTestPythonExamples(type: PythonExec,
     args testPythonExampleInputDir
     args testPythonExampleOutputDir
 }
-test.dependsOn(compileTestPythonExamples)
+processTestResources.dependsOn(compileTestPythonExamples)
 
 
 // Generate (selected) Python abstract object API members

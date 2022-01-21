@@ -200,6 +200,14 @@ public class PyBytes extends AbstractList<Integer>
         return ByteBuffer.wrap(value).asReadOnlyBuffer();
     }
 
+    /**
+     * Expose the contents of the object as a read-only sequence of
+     * {@code int}.
+     *
+     * @return sequence of {@code int}
+     */
+    public PySequence.OfInt asSequence() { return delegate; }
+
     // Plumbing -------------------------------------------------------
 
     /**
