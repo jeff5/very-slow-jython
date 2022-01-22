@@ -37,6 +37,14 @@ import uk.co.farowl.vsj3.evo1.modules.marshal.StreamWriter;
 import uk.co.farowl.vsj3.evo1.modules.marshal.Writer;
 import uk.co.farowl.vsj3.evo1.stringlib.ByteArrayBuilder;
 
+/**
+ * Test reading (and to some extent writing) objects using the marshal
+ * module. We are interested for now only in reading code objects and
+ * their reference results.
+ *
+ * We test the Java API only, consistent with our interest in reading
+ * code for execution.
+ */
 @DisplayName("Read and write objects with marshal")
 class marshalTest extends UnitTestSupport {
 
