@@ -3,13 +3,13 @@ package uk.co.farowl.vsj3.evo1;
 import java.lang.invoke.MethodHandles;
 
 /** The Python {@code ZeroDivisionError} exception. */
-class ZeroDivisionError extends ArithmeticError {
+public class ZeroDivisionError extends ArithmeticError {
     private static final long serialVersionUID = 1L;
 
-    /** The type of Python object this class implements. */
-    static final PyType TYPE =
-            PyType.fromSpec(new PyType.Spec("ZeroDivisionError",
-                    MethodHandles.lookup()));
+    /** The type object of Python {@code ZeroDivisionError} exceptions. */
+    public static final PyType TYPE = PyType.fromSpec(
+            new PyType.Spec("ZeroDivisionError", MethodHandles.lookup())
+                    .base(ArithmeticError.TYPE));
 
     /**
      * Constructor for sub-class use specifying {@link #type}.

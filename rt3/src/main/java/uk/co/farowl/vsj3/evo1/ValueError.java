@@ -6,7 +6,8 @@ import java.lang.invoke.MethodHandles;
 public class ValueError extends PyException {
     private static final long serialVersionUID = 1L;
 
-    /** The type of Python object this class implements. */
+    /** The type object of Python {@code ValueError} exceptions. */
+    @SuppressWarnings("hiding")
     public static final PyType TYPE = PyType.fromSpec(
             new PyType.Spec("ValueError", MethodHandles.lookup())
                     .base(PyException.TYPE));

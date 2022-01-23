@@ -2,17 +2,17 @@ package uk.co.farowl.vsj3.evo1;
 
 import java.lang.invoke.MethodHandles;
 
-/** The Python {@code DeprecationWarning} exception. */
-public class DeprecationWarning extends Warning {
+/** The Python {@code UnboundLocalError} exception. */
+public class UnboundLocalError extends NameError {
     private static final long serialVersionUID = 1L;
 
     /**
-     * The type object of Python {@code DeprecationWarning} exceptions.
+     * The type object of Python {@code UnboundLocalError} exceptions.
      */
     @SuppressWarnings("hiding")
-    public static final PyType TYPE =
-            PyType.fromSpec(new PyType.Spec("DeprecationWarning",
-                    MethodHandles.lookup()).base(Warning.TYPE));
+    public static final PyType TYPE = PyType.fromSpec(
+            new PyType.Spec("NameError", MethodHandles.lookup())
+                    .base(NameError.TYPE));
 
     /**
      * Constructor for sub-class use specifying {@link #type}.
@@ -21,18 +21,18 @@ public class DeprecationWarning extends Warning {
      * @param msg a Java format string for the message
      * @param args to insert in the format string
      */
-    protected DeprecationWarning(PyType type, String msg,
+    protected UnboundLocalError(PyType type, String msg,
             Object... args) {
         super(type, msg, args);
     }
 
     /**
-     * Constructor for sub-class use specifying {@link #type}.
+     * Constructor specifying a message.
      *
      * @param msg a Java format string for the message
      * @param args to insert in the format string
      */
-    public DeprecationWarning(String msg, Object... args) {
+    public UnboundLocalError(String msg, Object... args) {
         this(TYPE, msg, args);
     }
 }

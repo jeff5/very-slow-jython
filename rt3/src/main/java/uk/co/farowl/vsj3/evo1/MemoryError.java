@@ -3,12 +3,14 @@ package uk.co.farowl.vsj3.evo1;
 import java.lang.invoke.MethodHandles;
 
 /** The Python {@code MemoryError} exception. */
-class MemoryError extends PyException {
+public class MemoryError extends PyException {
     private static final long serialVersionUID = 1L;
 
-    /** The type of Python object this class implements. */
-    static final PyType TYPE = PyType.fromSpec(
-            new PyType.Spec("MemoryError", MethodHandles.lookup()));
+    /** The type object of Python {@code MemoryError} exceptions. */
+    @SuppressWarnings("hiding")
+    public static final PyType TYPE = PyType.fromSpec(
+            new PyType.Spec("MemoryError", MethodHandles.lookup())
+                    .base(PyException.TYPE));
 
     /**
      * Constructor for sub-class use specifying {@link #type}.

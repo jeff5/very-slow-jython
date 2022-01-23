@@ -3,18 +3,15 @@ package uk.co.farowl.vsj3.evo1;
 import java.lang.invoke.MethodHandles;
 
 /** The Python {@code BaseException} exception. */
-class BaseException extends RuntimeException
+public class BaseException extends RuntimeException
         implements CraftedPyObject {
     private static final long serialVersionUID = 1L;
 
-    /** The type of Python object this class implements. */
-    static final PyType TYPE = PyType.fromSpec(
+    /** The type object of Python {@code BaseException} exceptions. */
+    public static final PyType TYPE = PyType.fromSpec(
             new PyType.Spec("BaseException", MethodHandles.lookup()));
     private final PyType type;
     final Object[] args;
-
-    @Override
-    public PyType getType() { return type; }
 
     /**
      * Constructor for sub-class use specifying {@link #type}. The
@@ -48,6 +45,9 @@ class BaseException extends RuntimeException
     public BaseException(String msg, Object... args) {
         this(TYPE, msg, args);
     }
+
+    @Override
+    public PyType getType() { return type; }
 
     @Override
     public String toString() {

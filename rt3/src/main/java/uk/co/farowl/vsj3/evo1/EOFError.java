@@ -6,7 +6,8 @@ import java.lang.invoke.MethodHandles;
 public class EOFError extends PyException {
     private static final long serialVersionUID = 1L;
 
-    /** The type of Python object this class implements. */
+    /** The type object of Python {@code EOFError} exceptions. */
+    @SuppressWarnings("hiding")
     public static final PyType TYPE = PyType.fromSpec(
             new PyType.Spec("EOFError", MethodHandles.lookup())
                     .base(PyException.TYPE));

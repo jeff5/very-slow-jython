@@ -3,11 +3,12 @@ package uk.co.farowl.vsj3.evo1;
 import java.lang.invoke.MethodHandles;
 
 /** The Python {@code AttributeError} exception. */
-class AttributeError extends PyException {
+public class AttributeError extends PyException {
     private static final long serialVersionUID = 1L;
 
-    /** The type of Python object this class implements. */
-    static final PyType TYPE = PyType.fromSpec(
+    /** The type object of Python {@code AttributeError} exceptions. */
+    @SuppressWarnings("hiding")
+    public static final PyType TYPE = PyType.fromSpec(
             new PyType.Spec("AttributeError", MethodHandles.lookup())
                     .base(PyException.TYPE));
 

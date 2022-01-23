@@ -7,7 +7,8 @@ import java.lang.invoke.MethodHandles;
 public class OSError extends PyException {
     private static final long serialVersionUID = 1L;
 
-    /** The type of Python object this class implements. */
+    /** The type object of Python {@code OSError} exceptions. */
+    @SuppressWarnings("hiding")
     public static final PyType TYPE = PyType.fromSpec(
             new PyType.Spec("OSError", MethodHandles.lookup())
                     .base(PyException.TYPE));

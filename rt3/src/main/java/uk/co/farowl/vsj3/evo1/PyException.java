@@ -6,8 +6,9 @@ import java.lang.invoke.MethodHandles;
 public class PyException extends BaseException {
     private static final long serialVersionUID = 1L;
 
-    /** The type of Python object this class implements. */
-    static final PyType TYPE = PyType.fromSpec(
+    /** The type object of Python {@code Exception} exceptions. */
+    @SuppressWarnings("hiding")
+    public static final PyType TYPE = PyType.fromSpec(
             new PyType.Spec("Exception", MethodHandles.lookup())
                     .base(BaseException.TYPE));
 

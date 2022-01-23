@@ -3,10 +3,11 @@ package uk.co.farowl.vsj3.evo1;
 import java.lang.invoke.MethodHandles;
 
 /** The Python {@code LookupError} exception. */
-class LookupError extends PyException {
+public class LookupError extends PyException {
     private static final long serialVersionUID = 1L;
 
-    /** The type of Python object this class implements. */
+    /** The type object of Python {@code LookupError} exceptions. */
+    @SuppressWarnings("hiding")
     static final PyType TYPE = PyType.fromSpec(
             new PyType.Spec("LookupError", MethodHandles.lookup())
                     .base(PyException.TYPE));

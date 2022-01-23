@@ -2,17 +2,15 @@ package uk.co.farowl.vsj3.evo1;
 
 import java.lang.invoke.MethodHandles;
 
-/** The Python {@code DeprecationWarning} exception. */
-public class DeprecationWarning extends Warning {
+/** The Python {@code SystemError} exception. */
+public class SystemError extends PyException {
     private static final long serialVersionUID = 1L;
 
-    /**
-     * The type object of Python {@code DeprecationWarning} exceptions.
-     */
+    /** The type object of Python {@code SystemError} exceptions. */
     @SuppressWarnings("hiding")
-    public static final PyType TYPE =
-            PyType.fromSpec(new PyType.Spec("DeprecationWarning",
-                    MethodHandles.lookup()).base(Warning.TYPE));
+    public static final PyType TYPE = PyType.fromSpec(
+            new PyType.Spec("SystemError", MethodHandles.lookup())
+                    .base(PyException.TYPE));
 
     /**
      * Constructor for sub-class use specifying {@link #type}.
@@ -21,18 +19,17 @@ public class DeprecationWarning extends Warning {
      * @param msg a Java format string for the message
      * @param args to insert in the format string
      */
-    protected DeprecationWarning(PyType type, String msg,
-            Object... args) {
+    protected SystemError(PyType type, String msg, Object... args) {
         super(type, msg, args);
     }
 
     /**
-     * Constructor for sub-class use specifying {@link #type}.
+     * Constructor specifying a message.
      *
      * @param msg a Java format string for the message
      * @param args to insert in the format string
      */
-    public DeprecationWarning(String msg, Object... args) {
+    public SystemError(String msg, Object... args) {
         this(TYPE, msg, args);
     }
 }
