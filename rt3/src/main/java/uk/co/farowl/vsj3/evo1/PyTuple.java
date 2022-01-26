@@ -633,12 +633,10 @@ public class PyTuple extends AbstractList<Object>
 
         /**
          * Compare this delegate with the delegate of the other
-         * {@code tuple} for equality.
-         *  We do this separately
-         * from {@link #cmp(Object, Comparison)} because it is slightly
+         * {@code tuple} for equality. We do this separately from
+         * {@link #cmp(Object, Comparison)} because it is slightly
          * cheaper, but also because so we don't panic where an element
-         * that is capable of an equality test, but not a less-than
-         * test.
+         * is capable of an equality test, but not a less-than test.
          *
          * @param other delegate of tuple at right of comparison
          * @return {@code true} if equal, {@code false} if not.
@@ -647,8 +645,8 @@ public class PyTuple extends AbstractList<Object>
                 compareEQ(PySequence.Delegate<Object, Object> other) {
             try {
                 if (other.length() != value.length) { return false; }
-                int i=0;
-                for (Object b:other) {
+                int i = 0;
+                for (Object b : other) {
                     Object a = value[i++];
                     // if a != b, then we've found an answer
                     if (!Abstract.richCompareBool(a, b, Comparison.EQ))

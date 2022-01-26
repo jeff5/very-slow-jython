@@ -1,6 +1,8 @@
 package uk.co.farowl.vsj3.evo1;
 
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.BufferedInputStream;
 import java.io.File;
@@ -9,6 +11,10 @@ import java.io.IOException;
 import java.nio.file.Path;
 
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.DisplayNameGeneration;
+import org.junit.jupiter.api.DisplayNameGenerator;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -23,22 +29,89 @@ import uk.co.farowl.vsj3.evo1.modules.marshal;
  * version of CPython, from Python source in .
  */
 @DisplayName("Given programs compiled by CPython")
-class CPythonBytecodeTest extends UnitTestSupport {
+class CPythonCodeTest extends UnitTestSupport {
 
-    @DisplayName("Read a code object")
+    @DisplayName("marshal can read a code object")
     @ParameterizedTest(name = "from {0}")
-    @ValueSource(strings = {"unary_op", "binary_op", "load_store_name"})
+    @ValueSource(strings = {"load_store_name", "unary_op", "binary_op"})
     void loadCodeObject(String name) {
         PyCode code = readCode(name);
-        assertNotNull(code);
+        assertPythonType(PyCode.TYPE, code);
     }
 
-    @DisplayName("Read a result object")
+    @DisplayName("marshal can read a result object")
     @ParameterizedTest(name = "from {0}")
-    @ValueSource(strings = {"unary_op", "binary_op", "load_store_name"})
+    @ValueSource(strings = {"load_store_name", "unary_op", "binary_op"})
     void loadResultDict(String name) {
         PyDict dict = readResultDict(name);
-        assertNotNull(dict);
+        assertPythonType(PyDict.TYPE, dict);
+    }
+
+    @DisplayNameGeneration(DisplayNameGenerator.Simple.class)
+    static abstract class CodeAttributes {
+        final String name;
+        final PyCode code;
+
+        CodeAttributes(String name) {
+            this.name = name;
+            this.code = readCode(name);
+        }
+
+        @Test
+        void co_cellvars() {
+            assertEquals(0, code.co_cellvars().size());
+        }
+
+        @Test
+        void co_code() {
+            // Can't predict, but not zero for CPython examples
+            assertNotEquals(0, code.co_code().size());
+        }
+
+        @Test
+        void co_freevars() {
+            assertEquals(0, code.co_freevars().size());
+        }
+
+        @Test
+        void co_filename() {
+            assertTrue(code.filename.contains(name), "file name");
+            assertTrue(code.filename.contains(".py"), "file name");
+        }
+
+        @Test
+        protected void co_name() {
+            assertEquals("<module>", code.name);
+        }
+
+        abstract void co_names();
+
+        @Test
+        void co_varnames() {
+            assertEquals(0, code.co_varnames().size());
+        }
+    }
+
+    @Nested
+    @DisplayName("A simple code object has expected ...")
+    class SimpleCodeAttributes extends CodeAttributes {
+
+        SimpleCodeAttributes() { super("load_store_name"); }
+
+        @Test
+        @Override
+        void co_names() {
+            // Names in order encountered
+            assertEquals("a", code.names[0]);
+            assertEquals("b", code.names[1]);
+            assertEquals("c", code.names[2]);
+        }
+
+        @Test
+        void co_consts() {
+            // Fairly reliably 3 consts and a None to return
+            assertEquals(4, code.co_consts().size());
+        }
     }
 
     // Supporting constants and methods -------------------------------

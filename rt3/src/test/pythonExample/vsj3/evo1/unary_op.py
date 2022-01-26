@@ -1,6 +1,7 @@
 # unary_op.py 
-a, b = 6., -7
+a = 6.
+b = -7
 
-# ? a, b
-a, b = -a, -b
+a = -a
+b = -b
 c = ~b

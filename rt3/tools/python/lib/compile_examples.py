@@ -79,8 +79,10 @@ def execute(pycfile, varfile):
 def generate(reldir, name, source, generated):
     """Generate test reldir/name.py and results
 
-    reldir: the relative directory path
-    name:   just the name part of the Python file
+    reldir:     the relative directory path (from source/generated)
+    name:       just the name part of the Python file
+    source:     directory of the source files
+    generated:  directory of the compiled/generated files
     """
     srcfile, srctime = filetime([source, reldir], [name, 'py'])
     #print(f"      source: {srctime:15.3f}")
@@ -140,6 +142,9 @@ def show_help():
 if len(sys.argv) == 3:
     source, generated = sys.argv[1:]
     if ensure_dir(source) and ensure_dir(generated):
+        cwd = os.getcwd()
+        source = os.path.relpath(source)
+        generated = os.path.relpath(generated)
         main(source, generated)
     else:
         show_help()

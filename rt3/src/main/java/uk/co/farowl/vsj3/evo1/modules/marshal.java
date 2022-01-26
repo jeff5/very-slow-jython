@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Map;
 
 import uk.co.farowl.vsj3.evo1.Abstract;
+import uk.co.farowl.vsj3.evo1.CPythonCode;
 import uk.co.farowl.vsj3.evo1.EOFError;
 import uk.co.farowl.vsj3.evo1.Exposed;
 import uk.co.farowl.vsj3.evo1.Exposed.Default;
@@ -1547,7 +1548,7 @@ public class marshal /* extends JavaModule */ {
 
             // PySys_Audit("code.__new__", blah ...);
 
-            PyCode v = new PyCode(argcount, posonlyargcount,
+            PyCode v = CPythonCode.create(argcount, posonlyargcount,
                     kwonlyargcount, nlocals, stacksize, flags, code,
                     consts, names, varnames, freevars, cellvars,
                     filename, name, firstlineno, lnotab);

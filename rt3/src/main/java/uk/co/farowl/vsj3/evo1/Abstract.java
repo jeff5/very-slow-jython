@@ -776,14 +776,25 @@ public class Abstract {
     }
 
     /**
-     * Return true if the object {@code o} supports the iterator
+     * Return {@code true} if the object {@code o} supports the iterator
      * protocol (has {@code __iter__}).
      *
      * @param o to test
      * @return true if {@code o} supports the iterator protocol
      */
-    // Compare CPython PyIter_Check in abstract.c
     static boolean iterableCheck(Object o) {
+        return Slot.op_iter.isDefinedFor(Operations.of(o));
+    }
+
+    /**
+     * Return true if the object {@code o} is an iterator (has
+     * {@code __next__}).
+     *
+     * @param o to test
+     * @return true if {@code o} is an iterator
+     */
+    // Compare CPython PyIter_Check in abstract.c
+    static boolean iteratorCheck(Object o) {
         return Slot.op_next.isDefinedFor(Operations.of(o));
     }
 

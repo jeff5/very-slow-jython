@@ -1,7 +1,8 @@
 # load_store_name.py
 
-a, b = 1, 2
+a = 1
+b = 2
 
-a = b
+c = b
 b = 4
-c = 6
+a = c
