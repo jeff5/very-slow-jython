@@ -119,7 +119,7 @@ class CPythonCodeTest extends UnitTestSupport {
     @SuppressWarnings("static-method")
     @DisplayName("We can execute ...")
     @ParameterizedTest(name = "{0}.py")
-    @ValueSource(strings = {"load_store_name"})
+    @ValueSource(strings = {"load_store_name", "unary_op", "binary_op"})
     void executeSimple(String name) {
         CPythonCode code = readCode(name);
         PyDict globals = new PyDict();
@@ -242,7 +242,7 @@ class CPythonCodeTest extends UnitTestSupport {
      */
     private static void assertExpectedVariables(Map<Object, Object> ref,
             Map<Object, Object> test) {
-        for (Map.Entry<Object,Object> e : ref.entrySet()) {
+        for (Map.Entry<Object, Object> e : ref.entrySet()) {
             Object k = e.getKey();
             Object x = ref.get(k);
             Object v = test.get(k);

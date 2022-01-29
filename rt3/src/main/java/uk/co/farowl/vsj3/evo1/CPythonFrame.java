@@ -72,13 +72,14 @@ class CPythonFrame extends PyFrame {
     @Override
     Object eval() {
 
-        // Evaluation stack index
+        // Evaluation stack and index
+        final Object[] s = valuestack;
         int sp = this.stacktop;
 
         // Cached references from code
-        PyUnicode[] names = code.names;
-        Object[] consts = code.consts;
-        char[] wordcode = code.wordcode;
+        final PyUnicode[] names = code.names;
+        final Object[] consts = code.consts;
+        final char[] wordcode = code.wordcode;
         final int END = wordcode.length;
 
         /*
@@ -88,7 +89,7 @@ class CPythonFrame extends PyFrame {
         int oparg = 0;
 
         // Local variables used repeatedly in the loop
-        Object v;
+        Object v, w;
         PyUnicode name;
 
         loop: for (int ip = 0; ip < END; ip++) {
@@ -105,38 +106,59 @@ class CPythonFrame extends PyFrame {
                         break;
 
                     case Opcode.LOAD_CONST:
-                        oparg |= opword & 0xff;
-                        v = consts[oparg];
-                        valuestack[sp++] = v; // PUSH
+                        s[sp++] = consts[oparg | opword & 0xff];
                         oparg = 0;
                         break;
 
+                    case Opcode.UNARY_NEGATIVE:
+                        s[sp - 1] = PyNumber.negative(s[sp - 1]);
+                        break;
+
+                    case Opcode.UNARY_INVERT:
+                        s[sp - 1] = PyNumber.invert(s[sp - 1]);
+                        break;
+
+                    case Opcode.BINARY_MULTIPLY:
+                        w = s[--sp]; // POP
+                        s[sp - 1] = PyNumber.multiply(s[sp - 1], w);
+                        break;
+
+                    case Opcode.BINARY_ADD:
+                        w = s[--sp]; // POP
+                        s[sp - 1] = PyNumber.add(s[sp - 1], w);
+                        break;
+
+                    case Opcode.BINARY_SUBTRACT:
+                        w = s[--sp]; // POP
+                        s[sp - 1] = PyNumber.subtract(s[sp - 1], w);
+                        break;
+
                     case Opcode.RETURN_VALUE:
-                        returnValue = valuestack[--sp]; // POP
+                        returnValue = s[--sp]; // POP
                         // ip = END; ?
                         break loop;
 
                     case Opcode.STORE_NAME:
-                        oparg |= opword & 0xff;
-                        name = names[oparg];
-                        v = valuestack[--sp]; // POP
-                        if (locals == null)
+                        name = names[oparg | opword & 0xff];
+                        try {
+                            locals.put(name, s[--sp]);
+                        } catch (NullPointerException npe) {
                             throw new SystemError(
                                     "no locals found when storing '%s'",
                                     name);
-                        locals.put(name, v);
+                        }
                         oparg = 0;
                         break;
 
                     case Opcode.LOAD_NAME:
-                        oparg |= opword & 0xff;
-                        name = names[oparg];
-
-                        if (locals == null)
+                        name = names[oparg | opword & 0xff];
+                        try {
+                            v = locals.get(name);
+                        } catch (NullPointerException npe) {
                             throw new SystemError(
                                     "no locals found when loading '%s'",
                                     name);
-                        v = locals.get(name);
+                        }
 
                         if (v == null) {
                             v = globals.get(name);
@@ -147,7 +169,7 @@ class CPythonFrame extends PyFrame {
                                             name);
                             }
                         }
-                        valuestack[sp++] = v; // PUSH
+                        s[sp++] = v; // PUSH
                         oparg = 0;
                         break;
 
@@ -162,15 +184,15 @@ class CPythonFrame extends PyFrame {
                         /*
                          * When we encounter an argument to a "real"
                          * opcode, we need only mask it to 8 bits and or
-                         * it with the pre-positioned with oparg. Every
-                         * opcode that consumes oparg must set it to
-                         * zero.
+                         * it with the already aligned oparg prefix.
+                         * Every opcode that consumes oparg must set it
+                         * to zero to reset this logic.
                          */
                         break;
 
                     default:
                         throw new InterpreterError("ip: %d, opcode: %d",
-                                ip - 1, opword >> 8);
+                                ip, opword >> 8);
                 } // switch
 
             } catch (PyException pye) {
