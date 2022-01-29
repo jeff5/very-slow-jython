@@ -3,12 +3,10 @@
 package uk.co.farowl.vsj3.evo1;
 
 import java.lang.invoke.MethodHandle;
-import java.util.Iterator;
 import java.util.function.Supplier;
 
 import uk.co.farowl.vsj3.evo1.Slot.EmptyException;
 import uk.co.farowl.vsj3.evo1.base.InterpreterError;
-import uk.co.farowl.vsj3.evo1.base.MissingFeature;
 
 /**
  * The "abstract interface" to operations on Python objects. Methods
@@ -1178,6 +1176,32 @@ public class Abstract {
     /** Throw generic something went wrong internally (last resort). */
     static void badInternalCall() {
         throw new InterpreterError("bad internal call");
+    }
+
+    /**
+     * Convert any {@code Throwable} except an {@code Error} to a
+     * {@code RuntimeException}, so that it becomes an unchecked
+     * exception. An {@code Error} is re-thrown directly. We use this in
+     * circumstances where a method cannot be declared to throw the
+     * exceptions that methods within it are declared to throw, and no
+     * specific handling is available locally.
+     * <p>
+     * In particular, we use it where a call is made to
+     * {@code MethodHandle.invokeExact}. That is declared to throw
+     * {@code Throwable}, but we know that the {@code Throwable} will
+     * either be a {@code PyException} or will signify an interpreter
+     * error that the local code cannot be expected to handle.
+     *
+     * @param t to propagate or encapsulate
+     * @return run-time exception to throw
+     */
+    static RuntimeException asUnchecked(Throwable t) {
+        if (t instanceof RuntimeException)
+            return (RuntimeException)t;
+        else if (t instanceof Error)
+            throw (Error)t;
+        else
+            return new InterpreterError(t, "non-Python Exception");
     }
 
     /**

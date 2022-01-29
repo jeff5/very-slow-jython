@@ -2604,10 +2604,11 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
      * throw the specified exception. This is for use when the argument
      * is expected to be a Python {@code str} or a sub-class of it.
      *
+     * @param <E> type of exception to throw
      * @param v claimed {@code str}
      * @param exc supplier for the exception to throw
      * @return {@code String} value
-     * @throws TypeError if {@code v} is not a Python {@code str}
+     * @throws E if {@code v} is not a Python {@code str}
      */
     public static <E extends PyException> String asString(Object v,
             Supplier<E> exc) throws E {

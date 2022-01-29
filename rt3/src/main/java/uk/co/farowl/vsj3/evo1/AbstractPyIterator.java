@@ -1,7 +1,5 @@
 package uk.co.farowl.vsj3.evo1;
 
-import java.util.Iterator;
-
 /** Abstract base class for defining Python iterators. */
 abstract class AbstractPyIterator extends AbstractPyObject {
 
@@ -29,8 +27,18 @@ abstract class AbstractPyIterator extends AbstractPyObject {
      * must implement the special function {@code __next__} in its own
      * way.
      *
-     * @return the next object or {@code null} signifying stop
+     * @implNote Exhaustion of the iterator is signalled by an exception
+     *     as is standard for Python objects. This exception does not
+     *     need to carry any context, since it will be caught by the
+     *     surrounding loop, in an idiom like:<pre>
+     * try {
+     *     for (;;) { list.add(next.invokeExact()); }
+     * } catch (StopIteration e) {}
+     *     </pre>We recommended that the pre-allocated, stackless
+     *     exception {@link PyObjectUtil#STOP_ITERATION} be thrown.
+     * @return the next object
+     * @throws StopIteration signifying no more items
      * @throws Throwable from implementation
      */
-    abstract Object __next__() throws Throwable;
+    abstract Object __next__() throws StopIteration, Throwable;
 }

@@ -6,8 +6,14 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 
 /**
- * The Python iterator type provides iteration over any Python sequence,
- * relying only on {@code __getitem__} accepting and integer index.
+ * The Python iterator type provides iteration over any Python
+ * <em>sequence</em>, relying only on {@code __getitem__} accepting an
+ * integer index.
+ * <p>
+ * Note that (in CPython) well-known built-in sequence types define
+ * specialised iterator types, leaving this type mostly as an iterator
+ * on user-defined sequence types (with {@code __getitem__} but not
+ * {@code __iter__}).
  */
 public class PyIterator extends AbstractPyIterator {
     /** The type {@code iterator}. */

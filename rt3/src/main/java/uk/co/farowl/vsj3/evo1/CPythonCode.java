@@ -1,18 +1,21 @@
 package uk.co.farowl.vsj3.evo1;
 
+import java.nio.CharBuffer;
+
 import uk.co.farowl.vsj3.evo1.Exposed.Getter;
+import uk.co.farowl.vsj3.evo1.stringlib.ByteArrayBuilder;
 
 /**
  * Our equivalent to the Python code object ({@code PyCodeObject} in
  * CPython's C API).
  */
-public class CPythonCode extends PyCode {
+public class CPythonCode extends PyCode<CPythonFrame> {
 
     /** Number of entries needed for evaluation stack. */
     final int stacksize;
 
     /** Instruction opcodes, not {@code null}. */
-    final PyBytes code;
+    final char[] wordcode;
 
     // -> CPythonCode
     /** Encodes the address to/from line number mapping */
@@ -32,7 +35,7 @@ public class CPythonCode extends PyCode {
      * @param stacksize value of {@link #stacksize}
      * @param flags value of {@link PyCode#flags} and
      *     {@link PyCode#traits}
-     * @param code value of {@link #code}
+     * @param code value of {@link #wordcode}
      * @param consts value of {@link PyCode#consts}
      * @param names value of {@link PyCode#names}
      * @param varnames value of {@link PyCode#varnames} must be
@@ -73,7 +76,7 @@ public class CPythonCode extends PyCode {
                 consts, names, varnames, freevars, cellvars, filename,
                 name, firstlineno);
         // A few of these (just a few) are local to this class.
-        this.code = code;
+        this.wordcode = wordcode(code);
         this.stacksize = stacksize;
         this.lnotab = lnotab;
 
@@ -93,7 +96,7 @@ public class CPythonCode extends PyCode {
      * @param nlocals value of {@link #nlocals}
      * @param stacksize value of {@link #stacksize}
      * @param flags value of {@link #flags} and {@link #traits}
-     * @param bytecode value of {@link #code}
+     * @param bytecode value of {@link #wordcode}
      * @param consts value of {@link #consts}
      * @param names value of {@link #names}
      * @param varnames value of {@link #varnames} must be {@code str}
@@ -103,6 +106,7 @@ public class CPythonCode extends PyCode {
      * @param name value of {@link #name}
      * @param firstlineno value of {@link #firstlineno}
      * @param lnotab value of {@link #lnotab}
+     * @return the frame ready for use
      */
     public static CPythonCode create(int argcount, int posonlyargcount,
             int kwonlyargcount, int nlocals, int stacksize, int flags,
@@ -139,13 +143,44 @@ public class CPythonCode extends PyCode {
 
     @Override
     @Getter
-    PyBytes co_code() { return code; }
+    PyBytes co_code() {
+        ByteArrayBuilder builder =
+                new ByteArrayBuilder(2 * wordcode.length);
+        for (char opword : wordcode) {
+            // Opcode is high byte and first
+            builder.append(opword >> 8).append(opword);
+        }
+        return new PyBytes(builder);
+    }
 
     @Override
     @Getter
     PyBytes co_lnotab() { return lnotab; }
 
+    // Java API -------------------------------------------------------
+
+    @Override
+    CPythonFrame createFrame(Interpreter interpreter, PyDict globals,
+            Object locals) {
+        return new CPythonFrame(interpreter, this, globals, locals);
+    }
+
     // Plumbing -------------------------------------------------------
+
+    /**
+     * Convert the contents of a Python {@code bytes} to 16-bit word
+     * code as expected by the eval-loop in {@link CPythonFrame}.
+     *
+     * @param bytecode as compiled by Python as bytes
+     * @return 16-bit word code
+     */
+    private static char[] wordcode(PyBytes bytecode) {
+        CharBuffer wordbuf = bytecode.getNIOByteBuffer().asCharBuffer();
+        final int len = wordbuf.remaining();
+        char[] code = new char[len];
+        wordbuf.get(code, 0, len);
+        return code;
+    }
 
     private static PyBytes castBytes(Object v, String arg) {
         try {

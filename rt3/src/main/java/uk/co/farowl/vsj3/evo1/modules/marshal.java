@@ -1512,7 +1512,7 @@ public class marshal /* extends JavaModule */ {
              * We intend different concrete sub-classes of PyCode, that
              * create different frame types, but at the moment only one.
              */
-            PyCode code = (PyCode)v;
+            CPythonCode code = (CPythonCode)v;
             w.writeByte(TYPE_CODE);
             // Write the fields (quite complicated)
             // XXX
@@ -1523,7 +1523,7 @@ public class marshal /* extends JavaModule */ {
             return Map.of(TYPE_CODE, CodeCodec::read);
         }
 
-        private static PyCode read(Reader r, boolean ref) {
+        private static CPythonCode read(Reader r, boolean ref) {
 
             // Get an index now to ensure encounter-order numbering
             int idx = ref ? r.reserveRef() : -1;
@@ -1548,10 +1548,10 @@ public class marshal /* extends JavaModule */ {
 
             // PySys_Audit("code.__new__", blah ...);
 
-            PyCode v = CPythonCode.create(argcount, posonlyargcount,
-                    kwonlyargcount, nlocals, stacksize, flags, code,
-                    consts, names, varnames, freevars, cellvars,
-                    filename, name, firstlineno, lnotab);
+            CPythonCode v = CPythonCode.create(argcount,
+                    posonlyargcount, kwonlyargcount, nlocals, stacksize,
+                    flags, code, consts, names, varnames, freevars,
+                    cellvars, filename, name, firstlineno, lnotab);
 
             return r.defineRef(v, idx);
         }

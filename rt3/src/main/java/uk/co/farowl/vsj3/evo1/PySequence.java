@@ -25,7 +25,7 @@ import uk.co.farowl.vsj3.evo1.base.MissingFeature;
  */
 public class PySequence extends Abstract {
 
-    private PySequence() {} // only static methods here
+    protected PySequence() {}   // only static methods here
 
     /**
      * {@code len(o)} with Python semantics.
@@ -35,7 +35,7 @@ public class PySequence extends Abstract {
      * @throws Throwable from invoked method implementations
      */
     // Compare CPython PyObject_Size in abstract.c
-    public  static int size(Object o) throws Throwable {
+    public static int size(Object o) throws Throwable {
         // Note that the slot is called op_len but this method, size.
         try {
             return (int)Operations.of(o).op_len.invokeExact(o);

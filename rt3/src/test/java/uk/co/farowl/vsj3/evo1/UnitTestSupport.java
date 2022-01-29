@@ -7,11 +7,11 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
-import java.io.File;
 import java.math.BigInteger;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.Path;
+import java.util.function.Supplier;
 
 import org.junit.jupiter.api.function.Executable;
 
@@ -183,28 +183,58 @@ public class UnitTestSupport {
     /**
      * The object {@code o} is equal to the expected value according to
      * Python (e.g. {@code True == 1} and strings may be equal even if
-     * one is a {@link PyUnicode}.
+     * one is {@code String} and the other {@link PyUnicode}). An
+     * unchecked exception may be thrown if the comparison goes badly
+     * enough.
      *
      * @param expected value
      * @param o to test
      */
     public static void assertPythonEquals(Object expected, Object o) {
+        if (pythonEquals(expected, o)) {
+            return;
+        } else {
+            // This saves making a message ourselves
+            assertEquals(expected, o);
+        }
+    }
+
+    /**
+     * As {@link #assertPythonEquals(Object, Object)} but with a message
+     * supplied by the caller.
+     *
+     * @param expected value
+     * @param o to test
+     * @param messageSupplier supplies the message seen in failures
+     */
+    public static void assertPythonEquals(Object expected, Object o,
+            Supplier<String> messageSupplier) {
+        if (pythonEquals(expected, o)) {
+            return;
+        } else {
+            fail(messageSupplier);
+        }
+    }
+
+    /**
+     * Test whether the object {@code o} is equal to the expected value
+     * according to Python (e.g. {@code True == 1} and strings may be
+     * equal even if one is a {@link PyUnicode}. An unchecked exception
+     * may be thrown if the comparison goes badly enough.
+     *
+     * @param x value
+     * @param o to test
+     */
+    private static boolean pythonEquals(Object x, Object o) {
         try {
-            if (Abstract.richCompareBool(expected, o, Comparison.EQ)) {
-                return;
-            }
-        } catch (Error e) {
+            return Abstract.richCompareBool(x, o, Comparison.EQ);
+        } catch (RuntimeException | Error e) {
             // Let unchecked exception fly
             throw e;
-        } catch (RuntimeException e) {
-            // Let unchecked exception fly: includes PyException
-            throw e;
-        } catch (Throwable e) {
+        } catch (Throwable t) {
             // Wrap checked exception
-            throw new InterpreterError(e);
+            throw new InterpreterError(t);
         }
-        // This saves making a message ourselves
-        assertEquals(expected, o);
     }
 
     /**
@@ -277,7 +307,7 @@ public class UnitTestSupport {
             } while ((k = pkg.indexOf('.', k + 1)) >= 0);
 
             // path is now the folder that contains project classes
-            // System.err.println("  ... contains classes");
+            // System.err.println(" ... contains classes");
 
             // Continue up until path/build exists
             while ((path = path.getParent()) != null) {

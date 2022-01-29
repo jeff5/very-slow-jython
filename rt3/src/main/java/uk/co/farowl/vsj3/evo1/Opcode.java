@@ -63,6 +63,11 @@ class Opcode {
     static final int POP_BLOCK = 87;
     static final int END_FINALLY = 88;
     static final int POP_EXCEPT = 89;
+    /**
+     * Opcodes with this value or greater are followed by a one-byte
+     * argument, and those less than or equal to it, by a zero byte that
+     * is ignored.
+     */
     static final int HAVE_ARGUMENT = 90; // not an opcode
     static final int STORE_NAME = 90;
     static final int DELETE_NAME = 91;

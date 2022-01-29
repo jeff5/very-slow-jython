@@ -8,27 +8,28 @@ import java.util.EnumSet;
 import uk.co.farowl.vsj3.evo1.Exposed.Getter;
 
 /**
- * The Python {@code code} object. In this implementation, while there
- * is only one Python type {@code code}, we allow alternative
- * implementations of it. In particular, we provide for a code object
- * that is the result of compiling to JVM byte code, in addition to the
- * expected support for Python byte code.
+ * The Python {@code code} object. A {@code code} object describes the
+ * layout of a {@link PyFrame}, and is a factory for frames of matching
+ * type.
  * <p>
- * We provide attributes (in Python) matching those of CPython, even
- * though some are not meaningful for JVM code.
+ * In this implementation, while there is only one Python type
+ * {@code code}, we allow alternative implementations of it. In
+ * particular, we provide for a code object that is the result of
+ * compiling to JVM byte code, in addition to the expected support for
+ * Python byte code.
  * <p>
  * The abstract base {@code PyCode} has a need to store fewer attributes
- * than then the concrete CPython {@code code} object, where the only
+ * than the concrete CPython {@code code} object, where the only
  * realisation holds a block of byte code with broadly similar needs
- * from one version to the next.
- * <p>
- * A {@code code} object describes the layout of a {@link PyFrame}, and
- * is a factory for frames of matching type.
+ * from one version to the next. We provide get-methods matching all
+ * those of CPython, and each concrete class can override them where
+ * meaningful.
  *
- * <p>
- * (Compare {@code PyCodeObject} in CPython's C API.)
+ * @param <F> The type of frame that executes this code
  */
-public abstract class PyCode implements CraftedPyObject {
+// Compare CPython PyCodeObject in codeobject.c
+public abstract class PyCode<F extends PyFrame>
+        implements CraftedPyObject {
 
     /** The Python type {@code code}. */
     public static final PyType TYPE = PyType.fromSpec( //
@@ -56,42 +57,45 @@ public abstract class PyCode implements CraftedPyObject {
     /** First source line number. */
     final int firstlineno;
 
-    // Questionable:
+    // Questionable: would a Java Python frame need this?
     /** Constant objects needed by the code, not {@code null}. */
     final Object[] consts;
+
     /**
      * Names referenced in the code (elements guaranteed to be of type
      * {@code str}), not {@code null}.
      */
-    final String[] names;
+    final PyUnicode[] names;
+
     /**
      * Args and non-cell locals (elements guaranteed to be of type
      * {@code str}), not {@code null}.
      */
-    final String[] varnames;
+    final PyUnicode[] varnames;
 
-    // Questionable:
     /**
      * Names referenced but not defined here (elements guaranteed to be
      * of type {@code str}), not {@code null}. These variables will be
      * set from the closure of the function.
      */
-    final String[] freevars;
+    final PyUnicode[] freevars;
 
-    // Questionable:
     /**
      * Names defined here and referenced elsewhere (elements guaranteed
      * to be of type {@code str}), not {@code null}.
      */
-    final String[] cellvars;
+    final PyUnicode[] cellvars;
 
     /* ---------------------- See CPython code.h ------------------ */
     /** Constant to be stored in {@link #cell2arg} as default. */
     static final int CELL_NOT_AN_ARG = -1;
+
     /** Maps cell indexes to corresponding arguments. */
     final int[] cell2arg;
+
     /** Where it was loaded from */
     final String filename;
+
     /** Name of function etc. */
     final String name;
 
@@ -102,6 +106,7 @@ public abstract class PyCode implements CraftedPyObject {
     public static final int CO_VARKEYWORDS = 0x0008;
     public static final int CO_NESTED = 0x0010;
     public static final int CO_GENERATOR = 0x0020;
+
     /*
      * The CO_NOFREE flag is set if there are no free or cell variables.
      * This information is redundant, but it allows a single flag test
@@ -167,7 +172,7 @@ public abstract class PyCode implements CraftedPyObject {
         this.nlocals = nlocals;
 
         this.flags = flags;
-        this.consts = objects(consts);
+        this.consts = consts.toArray();
 
         this.names = names(names, "names");
         this.varnames = names(varnames, "varnames");
@@ -198,11 +203,6 @@ public abstract class PyCode implements CraftedPyObject {
     @SuppressWarnings("static-method")
     @Getter
     PyBytes co_lnotab() { return PyBytes.EMPTY; }
-
-    // Java API -------------------------------------------------------
-
-    @Override
-    public PyType getType() { return TYPE; }
 
     /**
      * Get {@link #consts} as a {@code tuple}.
@@ -244,35 +244,52 @@ public abstract class PyCode implements CraftedPyObject {
     @Getter
     PyTuple co_cellvars() { return PyTuple.from(cellvars); }
 
+    // Java API -------------------------------------------------------
+
+    @Override
+    public PyType getType() { return TYPE; }
+
+    /**
+     * Create a {@code PyFrame} suitable to execute this {@code PyCode}
+     * (adequate for module-level code).
+     *
+     * @param interpreter providing the module context
+     * @param globals name space to treat as global variables
+     * @param locals name space to treat as local variables
+     * @return the frame
+     */
+    abstract F createFrame(Interpreter interpreter, PyDict globals,
+            Object locals);
+
     // Plumbing -------------------------------------------------------
 
     /**
-     * Return the objects in the tuple as an array.
-     */
-    protected static Object[] objects(PyTuple tuple) {
-        Object[] v = new Object[tuple.size()];
-        int i = 0;
-        for (Object o : tuple) { v[i++] = o; }
-        return v;
-    }
-
-    /**
      * Check that all the objects in the tuple are {@code str}, and
-     * return them as an array of Java {@code String}.
+     * return them as an array of {@code PyUnicode}.
+     *
+     * @param tuple of names
+     * @param tupleName the name of the argument (for error production)
+     * @return the names as {@code PyUnicode[]}
      */
-    protected static String[] names(PyTuple tuple, String tupleName) {
-        String[] u = new String[tuple.size()];
+    protected static PyUnicode[] names(PyTuple tuple,
+            String tupleName) {
+        PyUnicode[] u = new PyUnicode[tuple.size()];
         int i = 0;
         for (Object name : tuple) {
-            u[i++] = PyUnicode.asString(name,
-                    () -> new TypeError(NAME_TUPLES_STRING, tupleName,
-                            PyType.of(name).getName()));
+            if (name instanceof PyUnicode) {
+                u[i++] = (PyUnicode)name;
+            } else if (name instanceof String) {
+                u[i++] = PyUnicode.fromJavaString((String)name);
+            } else {
+                throw Abstract.typeError(NAME_TUPLES_STRING, name,
+                        tupleName);
+            }
         }
         return u;
     }
 
     private static final String NAME_TUPLES_STRING =
-            "name tuple %s must contain only strings, not '%s'";
+            "name tuple must contain only strings, not '%s' (in %s)";
 
     /**
      * Create mapping between cells and arguments if needed. Helper for
@@ -289,9 +306,9 @@ public abstract class PyCode implements CraftedPyObject {
                     + (traits.contains(Trait.VARKEYWORDS) ? 1 : 0);
             // For each cell name, see if it matches an argument
             for (int i = 0; i < ncells; i++) {
-                String cellName = cellvars[i];
+                PyUnicode cellName = cellvars[i];
                 for (int j = 0; j < nargs; j++) {
-                    String argName = varnames[j];
+                    PyUnicode argName = varnames[j];
                     if (cellName.equals(argName)) {
                         // A match: enter it in the cell2arg array
                         if (cell2arg == null) {

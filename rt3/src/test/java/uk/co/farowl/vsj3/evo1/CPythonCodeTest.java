@@ -2,6 +2,7 @@ package uk.co.farowl.vsj3.evo1;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.BufferedInputStream;
@@ -9,6 +10,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.Map;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.DisplayNameGeneration;
@@ -35,7 +37,7 @@ class CPythonCodeTest extends UnitTestSupport {
     @ParameterizedTest(name = "from {0}")
     @ValueSource(strings = {"load_store_name", "unary_op", "binary_op"})
     void loadCodeObject(String name) {
-        PyCode code = readCode(name);
+        PyCode<?> code = readCode(name);
         assertPythonType(PyCode.TYPE, code);
     }
 
@@ -50,7 +52,7 @@ class CPythonCodeTest extends UnitTestSupport {
     @DisplayNameGeneration(DisplayNameGenerator.Simple.class)
     static abstract class CodeAttributes {
         final String name;
-        final PyCode code;
+        final PyCode<?> code;
 
         CodeAttributes(String name) {
             this.name = name;
@@ -102,9 +104,9 @@ class CPythonCodeTest extends UnitTestSupport {
         @Override
         void co_names() {
             // Names in order encountered
-            assertEquals("a", code.names[0]);
-            assertEquals("b", code.names[1]);
-            assertEquals("c", code.names[2]);
+            assertPythonEquals("a", code.names[0]);
+            assertPythonEquals("b", code.names[1]);
+            assertPythonEquals("c", code.names[2]);
         }
 
         @Test
@@ -112,6 +114,17 @@ class CPythonCodeTest extends UnitTestSupport {
             // Fairly reliably 3 consts and a None to return
             assertEquals(4, code.co_consts().size());
         }
+    }
+
+    @SuppressWarnings("static-method")
+    @DisplayName("We can execute ...")
+    @ParameterizedTest(name = "{0}.py")
+    @ValueSource(strings = {"load_store_name"})
+    void executeSimple(String name) {
+        CPythonCode code = readCode(name);
+        PyDict globals = new PyDict();
+        code.createFrame(null, globals, globals).eval();
+        assertExpectedVariables(readResultDict(name), globals);
     }
 
     // Supporting constants and methods -------------------------------
@@ -153,7 +166,7 @@ class CPythonCodeTest extends UnitTestSupport {
      * @param progName base name of program
      * @return {@code code} object read in
      */
-    static PyCode readCode(String progName) {
+    static CPythonCode readCode(String progName) {
         String name = progName + "." + CPYTHON_VER + "." + PYC_SUFFIX;
         File f = PYC_DIR.resolve(name).toFile();
         try (
@@ -173,10 +186,10 @@ class CPythonCodeTest extends UnitTestSupport {
             // Next should be a code object
             Object o = reader.readObject();
             if (o instanceof PyCode) {
-                return (PyCode)o;
+                return (CPythonCode)o;
             } else {
-                throw new InterpreterError("Not a code object: %s",
-                        name);
+                throw new InterpreterError(
+                        "Not a CPython code object: %s", name);
             }
 
         } catch (IOException ioe) {
@@ -216,6 +229,27 @@ class CPythonCodeTest extends UnitTestSupport {
 
         } catch (IOException ioe) {
             throw new InterpreterError(ioe);
+        }
+    }
+
+    /**
+     * Assert that all the keys of a reference dictionary are present in
+     * the test dictionary, and with the same value according to
+     * {@link #assertPythonEquals(Object, Object) Python equality}
+     *
+     * @param ref dictionary of reference results
+     * @param test dictionary of results to test
+     */
+    private static void assertExpectedVariables(Map<Object, Object> ref,
+            Map<Object, Object> test) {
+        for (Map.Entry<Object,Object> e : ref.entrySet()) {
+            Object k = e.getKey();
+            Object x = ref.get(k);
+            Object v = test.get(k);
+            assertNotNull(v, () -> String
+                    .format("variable %s missing from result", k));
+            assertPythonEquals(x, v,
+                    () -> String.format("%s = %s (not %s)", k, v, x));
         }
     }
 }
