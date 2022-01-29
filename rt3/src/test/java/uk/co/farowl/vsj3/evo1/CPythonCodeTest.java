@@ -35,7 +35,10 @@ class CPythonCodeTest extends UnitTestSupport {
 
     @DisplayName("marshal can read a code object")
     @ParameterizedTest(name = "from {0}")
-    @ValueSource(strings = {"load_store_name", "unary_op", "binary_op"})
+    @ValueSource(strings = {"load_store_name", "unary_op", "binary_op",
+            "tuple_index", "tuple_dot_product", "list_index",
+            "bool_arith_a", "bool_arith_b", "simple_if", "multi_if",
+            "comparison", "simple_loop", "list_dot_product"})
     void loadCodeObject(String name) {
         PyCode<?> code = readCode(name);
         assertPythonType(PyCode.TYPE, code);
@@ -43,7 +46,10 @@ class CPythonCodeTest extends UnitTestSupport {
 
     @DisplayName("marshal can read a result object")
     @ParameterizedTest(name = "from {0}")
-    @ValueSource(strings = {"load_store_name", "unary_op", "binary_op"})
+    @ValueSource(strings = {"load_store_name", "unary_op", "binary_op",
+            "tuple_index", "tuple_dot_product", "list_index",
+            "bool_arith_a", "bool_arith_b", "simple_if", "multi_if",
+            "comparison", "simple_loop", "list_dot_product"})
     void loadResultDict(String name) {
         PyDict dict = readResultDict(name);
         assertPythonType(PyDict.TYPE, dict);
