@@ -6,4 +6,3 @@ b = 6
 sum = a + b
 diff = a - b
 prod = a * b
-

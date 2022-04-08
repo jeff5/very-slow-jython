@@ -11,7 +11,7 @@ import uk.co.farowl.vsj3.evo1.PyType.Spec;
 public class PyList extends ArrayList<Object> {
     private static final long serialVersionUID = 1L;
 
-    public static PyType TYPE =
+    public static final PyType TYPE =
             PyType.fromSpec(new Spec("list", MethodHandles.lookup()));
 
     /** Construct an empty {@code list}. */

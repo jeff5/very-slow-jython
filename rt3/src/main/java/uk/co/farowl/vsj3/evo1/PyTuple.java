@@ -519,7 +519,7 @@ public class PyTuple extends AbstractList<Object>
      * Wrap this {@code PyTuple} as a {@link PySequence.Delegate}, for
      * the management of indexing and other sequence operations.
      */
-    class TupleDelegate extends PySequence.Delegate<Object, Object> {
+    class TupleDelegate extends PySequence.Delegate<Object, PyTuple> {
 
         @Override
         public int length() { return value.length; };
@@ -534,7 +534,7 @@ public class PyTuple extends AbstractList<Object>
         public Object get(int i) { return value[i]; }
 
         @Override
-        public Object getSlice(Indices slice) throws Throwable {
+        public PyTuple getSlice(Indices slice) throws Throwable {
             Object[] v;
             if (slice.step == 1)
                 v = Arrays.copyOfRange(value, slice.start, slice.stop);
@@ -555,7 +555,7 @@ public class PyTuple extends AbstractList<Object>
                 PyTuple w = (PyTuple)ow;
                 return PyTuple.concat(value, w.value);
             } else {
-                throw PyObjectUtil.NO_CONVERSION;
+                return Py.NotImplemented;
             }
         }
 
@@ -565,12 +565,12 @@ public class PyTuple extends AbstractList<Object>
                 PyTuple v = (PyTuple)ov;
                 return PyTuple.concat(v.value, value);
             } else {
-                throw PyObjectUtil.NO_CONVERSION;
+                return Py.NotImplemented;
             }
         }
 
         @Override
-        Object repeat(int n) {
+        PyTuple repeat(int n) {
             if (n == 0)
                 return EMPTY;
             else if (n == 1 || value.length == 0)
@@ -592,7 +592,7 @@ public class PyTuple extends AbstractList<Object>
 
         @Override
         public int
-                compareTo(PySequence.Delegate<Object, Object> other) {
+                compareTo(PySequence.Delegate<Object, PyTuple> other) {
             try {
                 int N = value.length, M = other.length(), i;
 
@@ -642,7 +642,7 @@ public class PyTuple extends AbstractList<Object>
          * @return {@code true} if equal, {@code false} if not.
          */
         private boolean
-                compareEQ(PySequence.Delegate<Object, Object> other) {
+                compareEQ(PySequence.Delegate<Object, PyTuple> other) {
             try {
                 if (other.length() != value.length) { return false; }
                 int i = 0;
@@ -689,7 +689,7 @@ public class PyTuple extends AbstractList<Object>
         }
     }
 
-    /** Concatenate two arrays into a tuple (for TupleAdapter). */
+    /** Concatenate two arrays (for {@code TupleDelegate}). */
     private static PyTuple concat(Object[] v, Object[] w) {
         int n = v.length, m = w.length;
         Object[] b = new Object[n + m];
