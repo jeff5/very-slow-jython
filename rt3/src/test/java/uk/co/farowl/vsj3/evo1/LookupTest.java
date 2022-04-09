@@ -105,7 +105,7 @@ class LookupTest extends UnitTestSupport {
 
         /**
          * Verify that {@code str.__hash__} produces the same value as
-         * Java {@code String.hashCode} in each accepted implementation.
+         * Java {@code hashCode()} in each accepted implementation.
          *
          * @throws TypeError if {@code v} is an unhashable type
          * @throws Throwable on errors within {@code __hash__}
@@ -116,8 +116,8 @@ class LookupTest extends UnitTestSupport {
         }
 
         /**
-         * Verify that {@code str.__hash__} produces the same value as
-         * Java {@code String.hashCode} in each accepted implementation.
+         * Verify that {@code int.__hash__} produces the same value as
+         * Java {@code hashCode()} in each accepted implementation.
          *
          * @throws TypeError if {@code v} is an unhashable type
          * @throws Throwable on errors within {@code __hash__}
@@ -127,7 +127,6 @@ class LookupTest extends UnitTestSupport {
             assertEqualHashes(intKeyTuples, k -> k.i, k -> k.b,
                     k -> k.py);
         }
-
     }
 
     /**
@@ -340,6 +339,10 @@ class LookupTest extends UnitTestSupport {
                 Object value = dict.get(key);
 
                 // The result should be a Python int
+                assertNotNull(value,
+                        () -> String.format(
+                                "key %s %s not matched in dict",
+                                key.getClass().getSimpleName(), key));
                 assertPythonType(PyLong.TYPE, value);
 
                 // And the value should equal the counter
