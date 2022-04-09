@@ -50,7 +50,7 @@ class Interpreter {
      * @param locals local variables (may be same as {@code globals})
      * @return result of evaluation
      */
-    Object evalCode(PyCode<?> code, PyDict globals, Object locals) {
+    Object evalCode(PyCode code, PyDict globals, Object locals) {
         globals.putIfAbsent("__builtins__", builtinsModule);
         PyFrame f = code.createFrame(this, globals, locals);
         return f.eval();

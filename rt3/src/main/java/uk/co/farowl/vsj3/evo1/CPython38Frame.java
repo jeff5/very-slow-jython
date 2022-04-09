@@ -5,7 +5,7 @@ import java.util.EnumSet;
 import uk.co.farowl.vsj3.evo1.base.InterpreterError;
 
 /** A {@link PyFrame} for executing CPython 3.8 byte code. */
-class CPythonFrame extends PyFrame {
+class CPython38Frame extends PyFrame<CPython38Code> {
 
     /*
      * Translation note: NB: in a CPython frame all local storage
@@ -43,7 +43,7 @@ class CPythonFrame extends PyFrame {
     /**
      * Create a {@code CPythonFrame}, which is a {@code PyFrame} with
      * the storage and mechanism to execute a module or isolated code
-     * object (compiled to a {@link CPythonCode}.
+     * object (compiled to a {@link CPython38Code}.
      *
      * The caller specifies the local variables dictionary explicitly:
      * it may be the same as the {@code globals}.
@@ -53,7 +53,7 @@ class CPythonFrame extends PyFrame {
      * @param globals global name space
      * @param locals local name space
      */
-    CPythonFrame(Interpreter interpreter, CPythonCode code,
+    CPython38Frame(Interpreter interpreter, CPython38Code code,
             PyDict globals, Object locals) {
         super(interpreter, code, globals, locals);
         valuestack = new Object[code.stacksize];

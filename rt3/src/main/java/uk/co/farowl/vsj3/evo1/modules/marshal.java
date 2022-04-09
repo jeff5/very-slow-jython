@@ -18,7 +18,7 @@ import java.util.List;
 import java.util.Map;
 
 import uk.co.farowl.vsj3.evo1.Abstract;
-import uk.co.farowl.vsj3.evo1.CPythonCode;
+import uk.co.farowl.vsj3.evo1.CPython38Code;
 import uk.co.farowl.vsj3.evo1.EOFError;
 import uk.co.farowl.vsj3.evo1.Exposed;
 import uk.co.farowl.vsj3.evo1.Exposed.Default;
@@ -1512,7 +1512,7 @@ public class marshal /* extends JavaModule */ {
              * We intend different concrete sub-classes of PyCode, that
              * create different frame types, but at the moment only one.
              */
-            CPythonCode code = (CPythonCode)v;
+            CPython38Code code = (CPython38Code)v;
             w.writeByte(TYPE_CODE);
             // Write the fields (quite complicated)
             // XXX
@@ -1523,7 +1523,7 @@ public class marshal /* extends JavaModule */ {
             return Map.of(TYPE_CODE, CodeCodec::read);
         }
 
-        private static CPythonCode read(Reader r, boolean ref) {
+        private static CPython38Code read(Reader r, boolean ref) {
 
             // Get an index now to ensure encounter-order numbering
             int idx = ref ? r.reserveRef() : -1;
@@ -1548,7 +1548,7 @@ public class marshal /* extends JavaModule */ {
 
             // PySys_Audit("code.__new__", blah ...);
 
-            CPythonCode v = CPythonCode.create(argcount,
+            CPython38Code v = CPython38Code.create(argcount,
                     posonlyargcount, kwonlyargcount, nlocals, stacksize,
                     flags, code, consts, names, varnames, freevars,
                     cellvars, filename, name, firstlineno, lnotab);

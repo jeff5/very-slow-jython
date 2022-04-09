@@ -5,8 +5,17 @@ import java.util.EnumSet;
 import java.util.Map;
 
 /**
- * A {@code PyFrame} is the context for the execution of code. For
- * example with the function definition:<pre>
+ * A {@code PyFrame} is the context for the execution of code. Different
+ * concrete sub-classes of {@code PyFrame} exist to execute different
+ * compiled representations of Python code. For example, there is one
+ * for CPython 3.8 byte code and (we expect) another for Java byte code.
+ * The type of code object supported is the parameter {@code C} to the
+ * class.
+ * <p>
+ * In order that argument processing may be uinform irrespective of
+ * concrete type, a {@code PyFrame} presents an abstraction that has
+ * arguments laid out in an array. For example, the function
+ * definition:<pre>
  * def func(a, b, c=3, d=4, /, e=5, f=6, *aa, g=7, h, i=9, **kk):
  *     v, w, x = b, c, d, e
  *     return u
@@ -61,8 +70,10 @@ import java.util.Map;
  * variables, and two more of cell and free variables, while concrete
  * subclasses are free to implement these in whatever manner they
  * choose.
+ *
+ * @param <C> The type of code that this frame executes
  */
-public abstract class PyFrame {
+public abstract class PyFrame<C extends PyCode> {
 
     /** The Python type {@code frame}. */
     public static final PyType TYPE = PyType.fromSpec( //
@@ -71,9 +82,9 @@ public abstract class PyFrame {
                     .flagNot(PyType.Flag.BASETYPE));
 
     /** Frames form a stack by chaining through the back pointer. */
-    PyFrame back;
+    PyFrame<?> back;
     /** Code this frame is to execute. */
-    final CPythonCode code;
+    final C code;
     /** Interpreter owning this frame. */
     protected final Interpreter interpreter;
     /** Built-in objects. */
@@ -101,7 +112,7 @@ public abstract class PyFrame {
      * belongs to an {@link Interpreter}, but it does not necessarily
      * belong to a particular {@link ThreadState}.
      */
-    protected PyFrame(Interpreter interpreter, CPythonCode code,
+    protected PyFrame(Interpreter interpreter, C code,
             PyDict globals) throws TypeError {
         this.code = code;
         this.interpreter = interpreter;
@@ -132,7 +143,7 @@ public abstract class PyFrame {
      * @param locals local name space (or it may be {@code globals})
      */
     // Compare CPython _PyFrame_New_NoTrack in frameobject.c
-    protected PyFrame(Interpreter interpreter, CPythonCode code,
+    protected PyFrame(Interpreter interpreter, C code,
             PyDict globals, Object locals) {
 
         // Initialise the basics.

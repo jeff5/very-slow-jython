@@ -9,7 +9,7 @@ import uk.co.farowl.vsj3.evo1.stringlib.ByteArrayBuilder;
  * Our equivalent to the Python code object ({@code PyCodeObject} in
  * CPython's C API).
  */
-public class CPythonCode extends PyCode<CPythonFrame> {
+public class CPython38Code extends PyCode {
 
     /** Number of entries needed for evaluation stack. */
     final int stacksize;
@@ -50,7 +50,7 @@ public class CPythonCode extends PyCode<CPythonFrame> {
      * @param firstlineno value of {@link PyCode#firstlineno}
      * @param lnotab value of {@link #lnotab}
      */
-    public CPythonCode( //
+    public CPython38Code( //
             int argcount,           // co_argcount
             int posonlyargcount,    // co_posonlyargcount
             int kwonlyargcount,     // co_kwonlyargcount
@@ -108,12 +108,12 @@ public class CPythonCode extends PyCode<CPythonFrame> {
      * @param lnotab value of {@link #lnotab}
      * @return the frame ready for use
      */
-    public static CPythonCode create(int argcount, int posonlyargcount,
-            int kwonlyargcount, int nlocals, int stacksize, int flags,
-            Object bytecode, Object consts, Object names,
-            Object varnames, Object freevars, Object cellvars,
-            Object filename, Object name, int firstlineno,
-            Object lnotab) {
+    public static CPython38Code create(int argcount,
+            int posonlyargcount, int kwonlyargcount, int nlocals,
+            int stacksize, int flags, Object bytecode, Object consts,
+            Object names, Object varnames, Object freevars,
+            Object cellvars, Object filename, Object name,
+            int firstlineno, Object lnotab) {
 
         PyBytes _bytecode = castBytes(bytecode, "bytecode");
 
@@ -129,7 +129,7 @@ public class CPythonCode extends PyCode<CPythonFrame> {
 
         PyBytes _lnotab = castBytes(lnotab, "lnotab");
 
-        return new CPythonCode(argcount, posonlyargcount,
+        return new CPython38Code(argcount, posonlyargcount,
                 kwonlyargcount, nlocals, stacksize, flags, _bytecode,
                 _consts, _names, _varnames, _freevars, _cellvars,
                 _filename, _name, firstlineno, _lnotab);
@@ -160,16 +160,16 @@ public class CPythonCode extends PyCode<CPythonFrame> {
     // Java API -------------------------------------------------------
 
     @Override
-    CPythonFrame createFrame(Interpreter interpreter, PyDict globals,
+    CPython38Frame createFrame(Interpreter interpreter, PyDict globals,
             Object locals) {
-        return new CPythonFrame(interpreter, this, globals, locals);
+        return new CPython38Frame(interpreter, this, globals, locals);
     }
 
     // Plumbing -------------------------------------------------------
 
     /**
      * Convert the contents of a Python {@code bytes} to 16-bit word
-     * code as expected by the eval-loop in {@link CPythonFrame}.
+     * code as expected by the eval-loop in {@link CPython38Frame}.
      *
      * @param bytecode as compiled by Python as bytes
      * @return 16-bit word code

@@ -40,7 +40,7 @@ class CPythonCodeTest extends UnitTestSupport {
             "bool_arith_a", "bool_arith_b", "simple_if", "multi_if",
             "comparison", "simple_loop", "list_dot_product"})
     void loadCodeObject(String name) {
-        PyCode<?> code = readCode(name);
+        PyCode code = readCode(name);
         assertPythonType(PyCode.TYPE, code);
     }
 
@@ -58,7 +58,7 @@ class CPythonCodeTest extends UnitTestSupport {
     @DisplayNameGeneration(DisplayNameGenerator.Simple.class)
     static abstract class CodeAttributes {
         final String name;
-        final PyCode<?> code;
+        final PyCode code;
 
         CodeAttributes(String name) {
             this.name = name;
@@ -127,7 +127,7 @@ class CPythonCodeTest extends UnitTestSupport {
     @ParameterizedTest(name = "{0}.py")
     @ValueSource(strings = {"load_store_name", "unary_op", "binary_op"})
     void executeSimple(String name) {
-        CPythonCode code = readCode(name);
+        CPython38Code code = readCode(name);
         PyDict globals = new PyDict();
         code.createFrame(null, globals, globals).eval();
         assertExpectedVariables(readResultDict(name), globals);
@@ -172,7 +172,7 @@ class CPythonCodeTest extends UnitTestSupport {
      * @param progName base name of program
      * @return {@code code} object read in
      */
-    static CPythonCode readCode(String progName) {
+    static CPython38Code readCode(String progName) {
         String name = progName + "." + CPYTHON_VER + "." + PYC_SUFFIX;
         File f = PYC_DIR.resolve(name).toFile();
         try (
@@ -192,7 +192,7 @@ class CPythonCodeTest extends UnitTestSupport {
             // Next should be a code object
             Object o = reader.readObject();
             if (o instanceof PyCode) {
-                return (CPythonCode)o;
+                return (CPython38Code)o;
             } else {
                 throw new InterpreterError(
                         "Not a CPython code object: %s", name);

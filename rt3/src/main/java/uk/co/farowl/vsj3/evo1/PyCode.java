@@ -24,31 +24,32 @@ import uk.co.farowl.vsj3.evo1.Exposed.Getter;
  * from one version to the next. We provide get-methods matching all
  * those of CPython, and each concrete class can override them where
  * meaningful.
- *
- * @param <F> The type of frame that executes this code
  */
 // Compare CPython PyCodeObject in codeobject.c
-public abstract class PyCode<F extends PyFrame>
-        implements CraftedPyObject {
+public abstract class PyCode implements CraftedPyObject {
 
     /** The Python type {@code code}. */
     public static final PyType TYPE = PyType.fromSpec( //
             new PyType.Spec("code", MethodHandles.lookup())
                     .flagNot(PyType.Flag.BASETYPE));
 
-    /** Characteristics of a PyCode (as CPython co_flags). */
+    /**
+     * Characteristics of a {@code PyCode} (as CPython co_flags). These
+     * are not all relevant to all code types.
+     */
     enum Trait {
         OPTIMIZED, NEWLOCALS, VARARGS, VARKEYWORDS, NESTED, GENERATOR,
         NOFREE, COROUTINE, ITERABLE_COROUTINE, ASYNC_GENERATOR
     }
 
+    /** Characteristics of this {@code PyCode} (as CPython co_flags). */
     final EnumSet<Trait> traits;
 
-    /** Number of positional arguments (not counting {@code *args}). */
+    /** Number of positional parameters (not counting {@code *args}). */
     final int argcount;
-    /** Number of positional-only arguments. */
+    /** Number of positional-only parameters. */
     final int posonlyargcount;
-    /** Number of keyword-only arguments. */
+    /** Number of keyword-only parameters. */
     final int kwonlyargcount;
     /** Number of local variables. */
     final int nlocals;
@@ -253,13 +254,14 @@ public abstract class PyCode<F extends PyFrame>
      * Create a {@code PyFrame} suitable to execute this {@code PyCode}
      * (adequate for module-level code).
      *
+     * @param <C> specific type of code object supported
      * @param interpreter providing the module context
      * @param globals name space to treat as global variables
      * @param locals name space to treat as local variables
      * @return the frame
      */
-    abstract F createFrame(Interpreter interpreter, PyDict globals,
-            Object locals);
+    abstract <C extends PyCode> PyFrame<C> createFrame(
+            Interpreter interpreter, PyDict globals, Object locals);
 
     // Plumbing -------------------------------------------------------
 
