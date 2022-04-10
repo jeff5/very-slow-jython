@@ -52,7 +52,7 @@ class Interpreter {
      */
     Object evalCode(PyCode code, PyDict globals, Object locals) {
         globals.putIfAbsent("__builtins__", builtinsModule);
-        PyFrame f = code.createFrame(this, globals, locals);
+        PyFrame<?> f = code.createFrame(this, globals, locals);
         return f.eval();
     }
 
@@ -84,7 +84,7 @@ class Interpreter {
      *
      * @return the current frame or null
      */
-    static PyFrame getFrame() {
+    static PyFrame<?> getFrame() {
         // return ThreadState.get().frame;
         return null;
     }
@@ -97,7 +97,7 @@ class Interpreter {
      * @return current {@code Interpreter} or {@code null}
      */
     static Interpreter get() {
-        PyFrame f = null; // ThreadState.get().frame;
+        PyFrame<?> f = null; // ThreadState.get().frame;
         return f != null ? f.interpreter : null;
     }
 

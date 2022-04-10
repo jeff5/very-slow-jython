@@ -30,9 +30,10 @@ import uk.co.farowl.vsj3.evo1.modules.marshal;
  * These files are prepared in the Gradle build using a compatible
  * version of CPython, from Python source in .
  */
-@DisplayName("Given programs compiled by CPython")
-class CPythonCodeTest extends UnitTestSupport {
+@DisplayName("Given programs compiled by CPython 3.8")
+class CPython38CodeTest extends UnitTestSupport {
 
+    @SuppressWarnings("static-method")
     @DisplayName("marshal can read a code object")
     @ParameterizedTest(name = "from {0}")
     @ValueSource(strings = {"load_store_name", "unary_op", "binary_op",
@@ -44,6 +45,7 @@ class CPythonCodeTest extends UnitTestSupport {
         assertPythonType(PyCode.TYPE, code);
     }
 
+    @SuppressWarnings("static-method")
     @DisplayName("marshal can read a result object")
     @ParameterizedTest(name = "from {0}")
     @ValueSource(strings = {"load_store_name", "unary_op", "binary_op",
@@ -137,12 +139,18 @@ class CPythonCodeTest extends UnitTestSupport {
 
     /** The Gradle build directory. */
     private static final Path BUILD = buildDirectory();
+
     /**
      * Python source of the examples for test. This must be consistent
-     * with the definition of
+     * with the definition of {@code testPythonExampleOutputDir} in the
+     * project Gradle build, and below "test", with any sub-directory
+     * structure leading to the Python source files.
      */
-    private static final Path PYTHON_DIR = BUILD
-            .resolve("generated/sources/pythonExample/test/vsj3/evo1");
+    private static final Path PYTHON_DIR = BUILD //
+            .resolve("generated/sources/pythonExample") //
+            .resolve("test") //
+            .resolve("vsj3/evo1");
+
     /** Where compiled files are placed by CPython. */
     private static final Path PYC_DIR =
             PYTHON_DIR.resolve("__pycache__");

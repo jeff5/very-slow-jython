@@ -1,4 +1,4 @@
-// Copyright (c)2021 Jython Developers.
+// Copyright (c)2022 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj3.evo1;
 
@@ -27,7 +27,6 @@ import uk.co.farowl.vsj3.evo1.PyObjectUtil.NoConversion;
 import uk.co.farowl.vsj3.evo1.PySequence.Delegate;
 import uk.co.farowl.vsj3.evo1.PySlice.Indices;
 import uk.co.farowl.vsj3.evo1.base.InterpreterError;
-import uk.co.farowl.vsj3.evo1.stringlib.AbstractIntArrayBuilder;
 import uk.co.farowl.vsj3.evo1.stringlib.IntArrayBuilder;
 import uk.co.farowl.vsj3.evo1.stringlib.IntArrayReverseBuilder;
 import uk.co.farowl.vsj3.evo1.stringlib.InternalFormat;
@@ -177,6 +176,13 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         this(TYPE, true, value.max(), value.take());
     }
 
+    /**
+     * Construct an instance of {@code PyUnicode}, a {@code str} or a
+     * sub-class, from a given {@link IntArrayReverseBuilder}. This will
+     * reset the builder to empty.
+     *
+     * @param value from which to take the code points
+     */
     protected PyUnicode(IntArrayReverseBuilder value) {
         this(TYPE, true, value.max(), value.take());
     }
@@ -2541,6 +2547,8 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
      */
     @Override
     public int hashCode() throws PyException {
+        // XXX This is correct but slow: consider calling __hash__()
+        // How would that affect inheritance in Java or Python?
         return PyDict.pythonHash(this);
     }
 
@@ -2553,6 +2561,8 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
      */
     @Override
     public boolean equals(Object obj) {
+        // XXX This is correct but slow: consider calling __eq__()
+        // How would that affect inheritance in Java or Python?
         return PyDict.pythonEquals(this, obj);
     }
 
