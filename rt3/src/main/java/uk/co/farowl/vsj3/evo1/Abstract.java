@@ -755,6 +755,23 @@ public class Abstract {
      */
     // Compare CPython PyObject_GetIter in abstract.c
     static Object getIterator(Object o) throws TypeError, Throwable {
+        return getIterator(o, null);
+    }
+
+    /**
+     * Equivalent to {@link #getIterator(Object)}, with the opportunity
+     * to specify the kind of Python exception to raise.
+     *
+     * @param <E> the type of exception to throw
+     * @param o the claimed iterable object
+     * @param exc a supplier (e.g. lambda expression) for the exception
+     * @return an iterator on {@code o}
+     * @throws E to throw if an iterator cannot be formed
+     * @throws Throwable from errors in {@code o.__iter__}
+     */
+    // Compare CPython PyObject_GetIter in abstract.c
+    static <E extends PyException> Object getIterator(Object o,
+            Supplier<E> exc) throws TypeError, Throwable {
         Operations ops = Operations.of(o);
         if (Slot.op_iter.isDefinedFor(ops)) {
             // o defines __iter__, call it.
@@ -762,12 +779,17 @@ public class Abstract {
             // Did that return an iterator? Check r defines __next__.
             if (Slot.op_next.isDefinedFor(Operations.of(r))) {
                 return r;
-            } else {
+            } else if (exc == null) {
                 throw returnTypeError("iter", "iterator", r);
             }
         } else if (Slot.op_getitem.isDefinedFor(ops)) {
             // o defines __getitem__: make a (Python) iterator.
             return new PyIterator(o);
+        }
+
+        // Out of possibilities: throw caller-defined exception
+        if (exc != null) {
+            throw exc.get();
         } else {
             throw typeError(NOT_ITERABLE, o);
         }
@@ -870,16 +892,16 @@ public class Abstract {
 
     /**
      * Create a {@link TypeError} with a message involving the type of
-     * {@code o} and optionally other arguments.
+     * {@code args[0]} and optionally other arguments.
      *
-     * @param fmt format for message with at least one {@code %s}
-     * @param o object whose type name will fill the first {@code %s}
-     * @param args extra arguments to the formatted message
+     * @param fmt format for message with a {@code %s} first
+     * @param args arguments to the formatted message, where Python type
+     *     name of {@code args[0]} will replace it
      * @return exception to throw
      */
-    public static TypeError typeError(String fmt, Object o,
-            Object... args) {
-        return new TypeError(fmt, PyType.of(o).getName(), args);
+    public static TypeError typeError(String fmt, Object... args) {
+        args[0] = PyType.of(args[0]).getName();
+        return new TypeError(fmt, args);
     }
 
     /**

@@ -16,11 +16,12 @@ abstract class AbstractPyIterator extends AbstractPyObject {
      * Get the iterator itself. A Python iterator {@code __iter__} is
      * required to return its {@code self}. This is required to allow
      * both containers and iterators to be used with the {@code for} and
-     * {@code in} statements.
+     * {@code in} statements. It has to be defined in the Python
+     * implementation class to get exposed to Python.
      *
      * @return this iterator
      */
-    Object __iter__() { return this; }
+    abstract Object __iter__();
 
     /**
      * Get the next item from the iteration. Each concrete sub-class

@@ -209,7 +209,7 @@ public class PySequence extends Abstract {
      * @param <E> the type of exception to throw
      * @param o to present as a list
      * @param exc a supplier (e.g. lambda expression) for the exception
-     * @return the iterable or its contents as a list
+     * @return the iterable (if a {@code List}) or its contents
      * @throws E to throw if an iterator cannot be formed (or
      *     {@code null} for a default {@code TypeError})
      * @throws Throwable from the implementation of {@code o}.
@@ -235,15 +235,16 @@ public class PySequence extends Abstract {
      * q.v..
      *
      * @param <E> the type of exception to throw
-     * @param o to present as a list
+     * @param o a Python iterable or sequence to present as a Java
+     *     {@code List<Object>}.
      * @param exc a supplier (e.g. lambda expression) for the exception
-     * @return the iterable or its contents as a list
-     * @throws E to throw if an iterator cannot be formed (or
-     *     {@code null} for a default {@code TypeError})
+     *     (or {@code null} for a default {@code TypeError})
+     * @return the contents of {@code o} as a list
+     * @throws E to throw if an iterator cannot be formed
      * @throws Throwable from the implementation of {@code o}.
      */
     private static <E extends PyException> List<Object>
-            fastNewList(Object o, Supplier<E> exc) throws Throwable {
+            fastNewList(Object o, Supplier<E> exc) throws E, Throwable {
         List<Object> list = new ArrayList<>();
         Operations ops = Operations.of(o);
 
@@ -277,7 +278,7 @@ public class PySequence extends Abstract {
         if (exc != null) {
             throw exc.get();
         } else {
-            throw Abstract.requiredTypeError("an iterable", o);
+            throw requiredTypeError("an iterable", o);
         }
     }
 

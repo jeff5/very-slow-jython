@@ -28,11 +28,23 @@ public class PyList extends ArrayList<Object> {
     }
 
     /**
-     * Construct a {@code list} with initial contents.
+     * Construct a {@code list} with initial contents from a collection.
      *
      * @param c initial contents
      */
     public PyList(Collection<?> c) { super(c); }
+
+    /**
+     * Construct a {@code list} with initial contents from an array
+     * slice.
+     *
+     * @param c initial contents
+     */
+    PyList(Object[] a, int start, int count) {
+        super(count);
+        int stop = start + count;
+        for (int i = start; i < stop; i++) { add(a[i]); }
+    }
 
     /** Reverse this list in-place. */
     @PythonMethod
@@ -48,8 +60,21 @@ public class PyList extends ArrayList<Object> {
 
     int __len__() { return size(); }
 
+    Object __eq__(Object other) {
+        if (other instanceof PyList) {
+            // A Python list is comparable only with another list
+            return this.equals(other);
+        } else {
+            return Py.NotImplemented;
+        }
+    }
+
     Object __getitem__(Object index) throws Throwable {
         return get(PyNumber.asSize(index, null));
+    }
+
+    void __setitem__(Object index, Object v) throws Throwable {
+        set(PyNumber.asSize(index, null), v);
     }
 
 }

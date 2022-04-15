@@ -2646,6 +2646,9 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         }
 
         @Override
+        Object __iter__() { return this; }
+
+        @Override
         Object __next__() throws Throwable {
             if (iterator.hasNext()) {
                 return PyUnicode.fromCodePoint(iterator.next());

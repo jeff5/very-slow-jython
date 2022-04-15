@@ -70,4 +70,9 @@ public class PyIterator extends AbstractPyIterator {
         }
         throw PyObjectUtil.STOP_ITERATION;
     }
+
+    @Override
+    Object __iter__() { return this; }
+
+
 }

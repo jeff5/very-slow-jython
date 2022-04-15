@@ -1,7 +1,7 @@
 # Reading compiled Python files
 
 import sys, os.path
-import marshal, py_compile
+import marshal, py_compile, dis
 
 # Normally you don't get a .pyc file if you just run a program.
 # You do get a .pyc file from compiling a module.
@@ -66,14 +66,17 @@ def copy(srcfile, dstfile):
                 d.write(line)
 
 
-def execute(pycfile, varfile):
+def execute(pycfile, varfile, disfile):
     "Execute a program and save the local variables"
     print(f"  Generate: {os.path.basename(varfile)}")
+    print(f"  Generate: {os.path.basename(disfile)}")
     co = getcode(pycfile)
     lcl, gbl = dict(), dict()
     exec(co, gbl, lcl)
     with open(varfile, 'wb') as f:
         marshal.dump(lcl, f)
+    with open(disfile, 'w') as f:
+        dis.disassemble(co, file=f)
 
 
 def generate(reldir, name, source, generated):
@@ -98,6 +101,10 @@ def generate(reldir, name, source, generated):
                   [name, COMPILER, 'var'])
     #print(f"        .var: {vartime:15.3f}")
 
+    disfile, distime = filetime([generated, reldir, CACHE],
+                  [name, COMPILER, 'dis'])
+    #print(f"        .dis: {distime:15.3f}")
+
     if dsttime < srctime:
         # Copy, compile, run and store
         copy(srcfile, dstfile)
@@ -109,9 +116,9 @@ def generate(reldir, name, source, generated):
         py_compile.compile(dstfile)
         pyctime = os.path.getmtime(pycfile)
 
-    if vartime < pyctime:
+    if vartime < pyctime or distime < pyctime:
         # Run and store
-        execute(pycfile, varfile)
+        execute(pycfile, varfile, disfile)
 
 
 def ensure_dir(d):
