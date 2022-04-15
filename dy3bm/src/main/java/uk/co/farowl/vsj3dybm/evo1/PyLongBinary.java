@@ -38,17 +38,20 @@ public class PyLongBinary {
 
     static BigInteger V = new BigInteger("6000000000000000000000014");
     static BigInteger W = new BigInteger("7000000000000000000000003");
-    static Object dummy = Py.val(0); // Wake the type system explicitly
+    static Object dummy = Py.None; // Wake the type system explicitly
 
     int v = 6, w = 7;
     BigInteger bigv = V, bigw = W;
+
+    // Copies of type Object to avoid and static specialisation
+    Object vo = v, wo = w, bigvo = bigv, bigwo = bigw;
 
     @Benchmark
     public int add_java() { return v + w; }
 
     @Benchmark
     public Object add() throws Throwable {
-        return AbstractProxy.add(v, w);
+        return AbstractProxy.add(vo, wo);
     }
 
     @Benchmark
@@ -64,7 +67,7 @@ public class PyLongBinary {
 
     @Benchmark
     public Object mul() throws Throwable {
-        return AbstractProxy.multiply(v, w);
+        return AbstractProxy.multiply(vo, wo);
     }
 
     @Benchmark
@@ -72,7 +75,7 @@ public class PyLongBinary {
 
     @Benchmark
     public Object mulbig() throws Throwable {
-        return AbstractProxy.multiply(bigv, bigw);
+        return AbstractProxy.multiply(bigvo, bigwo);
     }
 
 }

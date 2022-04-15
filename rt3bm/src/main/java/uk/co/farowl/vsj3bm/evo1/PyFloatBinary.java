@@ -13,8 +13,8 @@ import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
 
-import uk.co.farowl.vsj3.evo1.Number;
 import uk.co.farowl.vsj3.evo1.Py;
+import uk.co.farowl.vsj3.evo1.PyNumber;
 
 /**
  * This is a JMH benchmark for selected binary numeric operations on
@@ -37,11 +37,14 @@ public class PyFloatBinary {
 
     static BigInteger V = new BigInteger("1000000000000000000006");
     static BigInteger W = new BigInteger("1000000000000000000007");
-    static Object dummy = Py.val(0); // Wake the type system explicitly
+    static Object dummy = Py.None; // Wake the type system explicitly
 
     int iv = 6, iw = 7;
     BigInteger bv = V, bw = W;
     double v = 1.01 * iv, w = 1.01 * iw;
+
+    // Copies of type Object to avoid and static specialisation
+    Object vo = v, wo = w, ivo = iv, iwo = iw;
 
     @Benchmark
     @Fork(4)  // Needs a lot of iterations to resolve short times
@@ -55,7 +58,7 @@ public class PyFloatBinary {
 
     @Benchmark
     public Object add_float_float() throws Throwable {
-        return Number.add(v, w);
+        return PyNumber.add(v, w);
     }
 
     @Benchmark
@@ -65,7 +68,7 @@ public class PyFloatBinary {
 
     @Benchmark
     public Object add_float_int() throws Throwable {
-        return Number.add(v, iw);
+        return PyNumber.add(v, iw);
     }
 
     @Benchmark
@@ -75,7 +78,7 @@ public class PyFloatBinary {
 
     @Benchmark
     public Object add_int_float() throws Throwable {
-        return Number.add(iv, w);
+        return PyNumber.add(iv, w);
     }
 
     @Benchmark
@@ -85,7 +88,7 @@ public class PyFloatBinary {
 
     @Benchmark
     public Object addbig_float_int() throws Throwable {
-        return Number.add(v, bw);
+        return PyNumber.add(v, bw);
     }
 
     @Benchmark
@@ -95,7 +98,7 @@ public class PyFloatBinary {
 
     @Benchmark
     public Object addbig_int_float() throws Throwable {
-        return Number.add(bv, w);
+        return PyNumber.add(bv, w);
     }
 
     @Benchmark
@@ -105,7 +108,7 @@ public class PyFloatBinary {
 
     @Benchmark
     public Object mul_float_float() throws Throwable {
-        return Number.multiply(v, w);
+        return PyNumber.multiply(v, w);
     }
 
     @Benchmark
@@ -115,8 +118,10 @@ public class PyFloatBinary {
 
     @Benchmark
     public Object quartic() throws Throwable {
-        return Number.multiply(Number.multiply(Number.multiply(v, w),
-                Number.add(v, w)), Number.subtract(v, w));
+        return PyNumber.multiply(
+                PyNumber.multiply(PyNumber.multiply(vo, wo),
+                        PyNumber.add(vo, wo)),
+                PyNumber.subtract(vo, wo));
     }
 
     /*
@@ -124,7 +129,7 @@ public class PyFloatBinary {
      * is not material to the benchmark.
      */
     public static void main(String[] args) throws Throwable {
-        Object v = Py.val(6), w = Py.val(7.01);
-        System.out.println(Number.multiply(v, w));
+        Object v = 6, w = 7.01;
+        System.out.println(PyNumber.multiply(v, w));
     }
 }

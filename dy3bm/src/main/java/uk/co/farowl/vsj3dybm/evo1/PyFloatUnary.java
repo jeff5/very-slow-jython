@@ -12,7 +12,6 @@ import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
 
-import uk.co.farowl.vsj3.evo1.Number;
 import uk.co.farowl.vsj3.evo1.Py;
 import uk.co.farowl.vsj3.evo1.AbstractProxy;
 
@@ -35,9 +34,10 @@ import uk.co.farowl.vsj3.evo1.AbstractProxy;
 @State(Scope.Thread)
 public class PyFloatUnary {
 
-    static Object dummy = Py.val(0); //Wake the type system explicitly
+    static Object dummy = Py.None; // Wake the type system explicitly
 
     double v = 42.0;
+    Object vo = v;
 
     @Benchmark
     @Fork(4)  // Needs a lot of iterations to resolve short times
@@ -46,7 +46,7 @@ public class PyFloatUnary {
 
     @Benchmark
     public Object neg() throws Throwable {
-        return AbstractProxy.negative(v);
+        return AbstractProxy.negative(vo);
     }
 
     @Benchmark
@@ -59,9 +59,9 @@ public class PyFloatUnary {
      * is not material to the benchmark.
      */
     public static void main(String[] args) throws Throwable {
-        Object v = Py.val(42.24);
-        System.out.println(AbstractProxy.negative(v));
-        v = Py.val(1e42);
-        System.out.println(AbstractProxy.negative(v));
+        Object vo = 42.24;
+        System.out.println(AbstractProxy.negative(vo));
+        vo = 1e42;
+        System.out.println(AbstractProxy.negative(vo));
     }
 }

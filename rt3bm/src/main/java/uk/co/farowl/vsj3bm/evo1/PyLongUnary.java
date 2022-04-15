@@ -13,7 +13,7 @@ import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
 
-import uk.co.farowl.vsj3.evo1.Number;
+import uk.co.farowl.vsj3.evo1.PyNumber;
 import uk.co.farowl.vsj3.evo1.Py;
 
 /**
@@ -37,13 +37,18 @@ import uk.co.farowl.vsj3.evo1.Py;
 public class PyLongUnary {
 
     static BigInteger V = new BigInteger("6000000000000000000000014");
-    static Object dummy = Py.val(0); // Wake the type system explicitly
+    static Object dummy = Py.None; // Wake the type system explicitly
 
     int v = 6;
     BigInteger bigv = V;
 
+    // Copies of type Object to avoid and static specialisation
+    Object vo = v, bigvo = bigv;
+
     @Benchmark
-    public Object neg() throws Throwable { return Number.negative(v); }
+    public Object neg() throws Throwable {
+        return PyNumber.negative(vo);
+    }
 
     @Benchmark
     @Fork(10) // Needs a lot of runs to resolve short times
@@ -52,7 +57,7 @@ public class PyLongUnary {
 
     @Benchmark
     public Object negbig() throws Throwable {
-        return Number.negative(bigv);
+        return PyNumber.negative(bigvo);
     }
 
     @Benchmark

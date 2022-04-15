@@ -12,7 +12,7 @@ import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
 
-import uk.co.farowl.vsj3.evo1.Number;
+import uk.co.farowl.vsj3.evo1.PyNumber;
 import uk.co.farowl.vsj3.evo1.Py;
 
 /**
@@ -34,9 +34,10 @@ import uk.co.farowl.vsj3.evo1.Py;
 @State(Scope.Thread)
 public class PyFloatUnary {
 
-    static Object dummy = Py.val(0); //Wake the type system explicitly
+    static Object dummy = Py.None; // Wake the type system explicitly
 
     double v = 42.0;
+    Object vo = v;
 
     @Benchmark
     @Fork(4)  // Needs a lot of iterations to resolve short times
@@ -50,7 +51,7 @@ public class PyFloatUnary {
 
     @Benchmark
     public Object neg() throws Throwable {
-        return Number.negative(v);
+        return PyNumber.negative(vo);
     }
 
     /*
@@ -58,7 +59,7 @@ public class PyFloatUnary {
      * is not material to the benchmark.
      */
     public static void main(String[] args) throws Throwable {
-        Object v = Py.val(42.24);
-        System.out.println(Number.negative(v));
+        Object vo = 42.24;
+        System.out.println(PyNumber.negative(vo));
     }
 }

@@ -13,8 +13,8 @@ import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
 
-import uk.co.farowl.vsj3.evo1.Number;
 import uk.co.farowl.vsj3.evo1.Py;
+import uk.co.farowl.vsj3.evo1.PyNumber;
 
 /**
  * This is a JMH benchmark for selected binary numeric operations on
@@ -38,19 +38,20 @@ public class PyLongBinary {
 
     static BigInteger V = new BigInteger("6000000000000000000000014");
     static BigInteger W = new BigInteger("7000000000000000000000003");
+    static Object dummy = Py.None; // Wake the type system explicitly
 
     BigInteger v = BigInteger.valueOf(6), w = BigInteger.valueOf(7);
-    Object vo = Py.val(v), wo = Py.val(w);
-
     BigInteger bigv = V, bigw = W;
-    Object bigvo = Py.val(bigv), bigwo = Py.val(bigw);
+
+    // Copies of type Object to avoid and static specialisation
+    Object vo = v, wo = w, bigvo = bigv, bigwo = bigw;
 
     @Benchmark
     public BigInteger add_java() { return v.add(w); }
 
     @Benchmark
     public Object add() throws Throwable {
-        return Number.add(vo, wo);
+        return PyNumber.add(vo, wo);
     }
 
     @Benchmark
@@ -58,7 +59,7 @@ public class PyLongBinary {
 
     @Benchmark
     public Object addbig() throws Throwable {
-        return Number.add(bigvo, bigwo);
+        return PyNumber.add(bigvo, bigwo);
     }
 
     @Benchmark
@@ -66,7 +67,7 @@ public class PyLongBinary {
 
     @Benchmark
     public Object mul() throws Throwable {
-        return Number.multiply(vo, wo);
+        return PyNumber.multiply(vo, wo);
     }
 
     @Benchmark
@@ -74,7 +75,7 @@ public class PyLongBinary {
 
     @Benchmark
     public Object mulbig() throws Throwable {
-        return Number.multiply(bigvo, bigwo);
+        return PyNumber.multiply(bigvo, bigwo);
     }
 
     /*
@@ -82,7 +83,7 @@ public class PyLongBinary {
      * is not material to the benchmark.
      */
     public static void main(String[] args) throws Throwable {
-        Object v = Py.val(V), w = Py.val(W);
-        System.out.println(Number.multiply(v, w));
+        Object v = V, w = W;
+        System.out.println(PyNumber.multiply(v, w));
     }
 }

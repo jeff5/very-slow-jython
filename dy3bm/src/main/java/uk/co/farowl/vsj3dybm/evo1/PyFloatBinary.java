@@ -37,11 +37,14 @@ public class PyFloatBinary {
 
     static BigInteger V = new BigInteger("1000000000000000000006");
     static BigInteger W = new BigInteger("1000000000000000000007");
-    static Object dummy = Py.val(0); // Wake the type system explicitly
+    static Object dummy = Py.None; // Wake the type system explicitly
 
     int iv = 6, iw = 7;
     BigInteger bv = V, bw = W;
     double v = 1.01 * iv, w = 1.01 * iw;
+
+    // Copies of type Object to avoid and static specialisation
+    Object vo = v, wo = w, ivo = iv, iwo = iw, bvo = bv, bwo = bw;
 
     @Benchmark
     public Object nothing() { return dummy; }
@@ -51,7 +54,7 @@ public class PyFloatBinary {
 
     @Benchmark
     public Object add_float_float() throws Throwable {
-        return AbstractProxy.add(v, w);
+        return AbstractProxy.add(vo, wo);
     }
 
     @Benchmark
@@ -59,7 +62,7 @@ public class PyFloatBinary {
 
     @Benchmark
     public Object add_float_int() throws Throwable {
-        return AbstractProxy.add(v, iw);
+        return AbstractProxy.add(vo, iwo);
     }
 
     @Benchmark
@@ -67,7 +70,7 @@ public class PyFloatBinary {
 
     @Benchmark
     public Object add_int_float() throws Throwable {
-        return AbstractProxy.add(iv, w);
+        return AbstractProxy.add(ivo, wo);
     }
 
     @Benchmark
@@ -77,7 +80,7 @@ public class PyFloatBinary {
 
     @Benchmark
     public Object addbig_float_int() throws Throwable {
-        return AbstractProxy.add(v, bw);
+        return AbstractProxy.add(vo, bwo);
     }
 
     @Benchmark
@@ -87,7 +90,7 @@ public class PyFloatBinary {
 
     @Benchmark
     public Object addbig_int_float() throws Throwable {
-        return AbstractProxy.add(bv, w);
+        return AbstractProxy.add(bvo, wo);
     }
 
     @Benchmark
@@ -95,7 +98,7 @@ public class PyFloatBinary {
 
     @Benchmark
     public Object mul_float_float() throws Throwable {
-        return AbstractProxy.multiply(v, w);
+        return AbstractProxy.multiply(vo, wo);
     }
 
     @Benchmark
@@ -103,9 +106,10 @@ public class PyFloatBinary {
 
     @Benchmark
     public Object quartic() throws Throwable {
-        return AbstractProxy.multiply(AbstractProxy.multiply( //
-                AbstractProxy.multiply(v, w), AbstractProxy.add(v, w)),
-                AbstractProxy.subtract(v, w));
+        return AbstractProxy.multiply(
+                AbstractProxy.multiply(AbstractProxy.multiply(vo, wo),
+                        AbstractProxy.add(vo, wo)),
+                AbstractProxy.subtract(vo, wo));
     }
 
     /*
@@ -113,17 +117,17 @@ public class PyFloatBinary {
      * is not material to the benchmark.
      */
     public static void main(String[] args) throws Throwable {
-        Object v = Py.val(7.01), w = Py.val(6.01);
-        System.out.println(AbstractProxy.subtract(v, w));
-        Object iv = Py.val(7), iw = Py.val(7);
-        System.out.println(AbstractProxy.subtract(v, iw));
-        System.out.println(AbstractProxy.subtract(iv, w));
-        v = Py.val(7.01e3);
-        w = Py.val(6.01e3);
-        System.out.println(AbstractProxy.subtract(v, w));
-        iv = Py.val(7000);
-        iw = Py.val(6000);
-        System.out.println(AbstractProxy.subtract(v, iw));
-        System.out.println(AbstractProxy.subtract(iv, w));
+        Object vo = 7.01, wo = 6.01;
+        System.out.println(AbstractProxy.subtract(vo, wo));
+        Object ivo = 7, iwo = 7;
+        System.out.println(AbstractProxy.subtract(vo, iwo));
+        System.out.println(AbstractProxy.subtract(ivo, wo));
+        vo = 7.01e3;
+        wo = 6.01e3;
+        System.out.println(AbstractProxy.subtract(vo, wo));
+        ivo = 7000;
+        iwo = 6000;
+        System.out.println(AbstractProxy.subtract(vo, iwo));
+        System.out.println(AbstractProxy.subtract(ivo, wo));
     }
 }

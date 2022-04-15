@@ -37,14 +37,17 @@ import uk.co.farowl.vsj3.evo1.Py;
 public class PyLongUnary {
 
     static BigInteger V = new BigInteger("6000000000000000000000014");
-    static Object dummy = Py.val(0); // Wake the type system explicitly
+    static Object dummy = Py.None; // Wake the type system explicitly
 
     int v = 6;
     BigInteger bigv = V;
 
+    // Copies of type Object to avoid and static specialisation
+    Object vo = v, bigvo = bigv;
+
     @Benchmark
     public Object neg() throws Throwable {
-        return AbstractProxy.negative(v);
+        return AbstractProxy.negative(vo);
     }
 
     @Benchmark
@@ -54,7 +57,7 @@ public class PyLongUnary {
 
     @Benchmark
     public Object negbig() throws Throwable {
-        return AbstractProxy.negative(bigv);
+        return AbstractProxy.negative(bigvo);
     }
 
     @Benchmark
