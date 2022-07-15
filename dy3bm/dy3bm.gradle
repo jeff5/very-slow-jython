@@ -22,8 +22,9 @@ dependencies {
 
 compileJava {
 
-    // Diagnostic to confirm (primarily) that the path contains
-    // .../rt2/build/classes/java/main
+    // Diagnostic to confirm (primarily) that the path contains:
+    // ~/rt3/build/classes/java/main
+    // The IDE may need extra path fixup to notice generated classes.
     doFirst {
         println "Task $name classpath:"
         classpath.forEach {

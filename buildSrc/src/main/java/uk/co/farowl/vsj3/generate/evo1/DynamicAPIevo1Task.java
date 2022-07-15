@@ -30,7 +30,7 @@ import org.objectweb.asm.Type;
  * the Python abstract object API. Each class is derived by this task
  * from a simple specification like:<pre>
  * # Name the methods to generate here
- * package uk.co.farowl.vsj2dy.evo4
+ * package uk.co.farowl.vsj3.evo1
  * class AbstractProxy
  * unary negative
  * binary add
