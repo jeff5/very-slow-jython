@@ -2580,6 +2580,12 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         return new PyUnicode(TYPE, String.format(fmt, args));
     }
 
+    /**
+     * Represent the `str` value in readable form, escaping lone
+     * surrogates. The {@code PyUnicode.toString()} is intended to
+     * produce a readable output, not always the closest Java
+     * {@code String}, for which {@link #asString()} is a better choice.
+     */
     @Override
     public String toString() {
         StringBuilder b = new StringBuilder();
@@ -2703,8 +2709,15 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         }
     }
 
-    /** @return this {@code PyUnicode} as a Java {@code String} */
-    private String asString() {
+    /**
+     * Convert this {@code PyUnicode} to a Java {@code String} built
+     * from its code point values. If the code point value of a
+     * character in Python is a lone surrogate, it will become that
+     * UTF-16 unit in the result.
+     *
+     * @return this {@code PyUnicode} as a Java {@code String}
+     */
+    String asString() {
         StringBuilder b = new StringBuilder();
         for (int c : delegate) { b.appendCodePoint(c); }
         return b.toString();

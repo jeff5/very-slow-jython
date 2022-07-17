@@ -24,13 +24,17 @@ import uk.co.farowl.vsj3.evo1.base.InterpreterError;
 import uk.co.farowl.vsj3.evo1.modules.marshal;
 
 /**
- * Tests that read code objects from prepared {@code .pyc} files and
+ * Test that read code objects from prepared {@code .pyc} files and
  * execute the byte code.
  *
  * These files are prepared in the Gradle build using a compatible
- * version of CPython, from Python source in .
+ * version of CPython, from Python source in
+ * {@code rt3/src/test/pythonExample/vsj3/evo1}. To run these in the
+ * IDE, first execute the task:<pre>
+ * .\gradlew --console=plain rt3:compileTestPythonExamples
+ * </pre>
  */
-@DisplayName("Given programs compiled by CPython 3.8")
+@DisplayName("Given programs compiled by CPython 3.8 ...")
 class CPython38CodeTest extends UnitTestSupport {
 
     @SuppressWarnings("static-method")
@@ -130,7 +134,8 @@ class CPython38CodeTest extends UnitTestSupport {
     @ValueSource(strings = {"load_store_name", "unary_op", "binary_op",
             "bool_left_arith", "bool_right_arith", "comparison",
             "simple_if", "multi_if", "simple_loop", "iterables",
-            "tuple_index", "tuple_dot_product", "list_index"})
+            "tuple_index", "tuple_dot_product", "list_index",
+            "attr_access_builtin"})
     void executeSimple(String name) {
         CPython38Code code = readCode(name);
         PyDict globals = new PyDict();

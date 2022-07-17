@@ -22,12 +22,13 @@ that an interpreter would invoke or a ``CallSite`` bind as its target,
 that is, we begin with a typical special method "slot".
 
 In VSJ2 we shifted from seeing these slots as fundamental to Python,
-as they seem at first in the source code CPython,
+as they seem at first in the source code of CPython,
 to regarding the data model as fundamental,
 with its special methods exposed
 through descriptors in the dictionary of the type.
 We now see the type slots as a cache of that information,
 attuned to the needs of a CPython interpreter.
+What slots does an interpreter need in Java?
 
 In order to to get started on the "plain objects" idea,
 we will begin with type construction using the exposure apparatus.
@@ -171,8 +172,8 @@ the design provides for multiple styles of definition
 of a special method implementation as:
 
 1. an instance method in the canonical class,
-1. a static method in the canonical class, or
-1. a static method in an auxiliary class.
+#. a static method in the canonical class, or
+#. a static method in an auxiliary class.
 
 This last option is the one we use predominantly for types like ``float``,
 that have multiple implementing classes and many methods,

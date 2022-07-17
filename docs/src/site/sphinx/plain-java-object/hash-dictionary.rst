@@ -414,7 +414,7 @@ and the wrapping of keys to take control of ``hashCode`` and ``equals``.
         }
 
         Object lookup(PyUnicode name) {
-            return lookup(name.toString());
+            return lookup(name.asString());
         }
 
         @Getter("__dict__")

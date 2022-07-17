@@ -881,7 +881,7 @@ enum Slot {
         DELITEM(V, O, O),
 
         /**
-         * The signature {@code (O,O)S}, used for
+         * The signature {@code (O,S)O}, used for
          * {@link Slot#op_getattr}.
          */
         // In CPython: getattrofunc

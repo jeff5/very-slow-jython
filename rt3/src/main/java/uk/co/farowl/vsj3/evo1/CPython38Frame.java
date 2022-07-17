@@ -78,7 +78,7 @@ class CPython38Frame extends PyFrame<CPython38Code> {
         int sp = this.stacktop;
 
         // Cached references from code
-        final PyUnicode[] names = code.names;
+        final String[] names = code.names;
         final Object[] consts = code.consts;
         final char[] wordcode = code.wordcode;
         final int END = wordcode.length;
@@ -92,7 +92,7 @@ class CPython38Frame extends PyFrame<CPython38Code> {
         // Local variables used repeatedly in the loop
         Object v, w;
         int n, m;
-        PyUnicode name;
+        String name;
         PyTuple.Builder tpl;
         PyList lst;
 
@@ -103,6 +103,13 @@ class CPython38Frame extends PyFrame<CPython38Code> {
              * jump arguments, are always even.
              */
             int opword = wordcode[ip];
+
+            // Comparison with CPython macros in c.eval:
+            // TOP() : s[sp-1]
+            // PEEK(n) : s[sp-n]
+            // POP() : s[--sp]
+            // PUSH(v) : s[sp++] = v
+            // SET_TOP(v) : s[sp-1] = v
 
             try {
                 // Interpret opcode
@@ -278,6 +285,14 @@ class CPython38Frame extends PyFrame<CPython38Code> {
                         }
                         s[sp++] = lst;
                         oparg = 0;
+                        break;
+
+                    case Opcode.LOAD_ATTR:
+                        // v | -> | v.name |
+                        // ---^sp ----------^sp
+                        name = names[oparg | opword & 0xff];
+                        oparg = 0;
+                        s[sp - 1] = Abstract.getAttr(s[sp - 1], name);
                         break;
 
                     case Opcode.COMPARE_OP:
