@@ -27,7 +27,8 @@ abstract class PyMethodDescr extends MethodDescriptor {
 
     static final PyType TYPE = PyType.fromSpec(
             new PyType.Spec("method_descriptor", MethodHandles.lookup())
-                    .flagNot(Flag.BASETYPE));
+                    .flagNot(Flag.BASETYPE)
+                    .flag(Flag.IS_METHOD_DESCR, Flag.IS_DESCR));
 
     /*
      * We depart from CPython in reifying information from the Java

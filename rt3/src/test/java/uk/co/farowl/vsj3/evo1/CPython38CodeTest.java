@@ -135,7 +135,7 @@ class CPython38CodeTest extends UnitTestSupport {
             "bool_left_arith", "bool_right_arith", "comparison",
             "simple_if", "multi_if", "simple_loop", "iterables",
             "tuple_index", "tuple_dot_product", "list_index",
-            "attr_access_builtin"})
+            "attr_access_builtin", "call_method_builtin"})
     void executeSimple(String name) {
         CPython38Code code = readCode(name);
         PyDict globals = new PyDict();

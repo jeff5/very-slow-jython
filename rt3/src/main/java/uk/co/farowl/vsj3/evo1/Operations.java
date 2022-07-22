@@ -359,6 +359,13 @@ abstract class Operations {
      */
     boolean isDataDescr() { return false; }
 
+    /**
+     * Fast check that the target is a method descriptor.
+     *
+     * @return target is a method descriptor
+     */
+    boolean isMethodDescr() { return false; }
+
     // ---------------------------------------------------------------
 
     /**

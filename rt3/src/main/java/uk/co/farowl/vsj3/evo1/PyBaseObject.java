@@ -204,15 +204,16 @@ public class PyBaseObject extends AbstractPyObject {
             Map<Object, Object> d = ((DictPyObject) obj).getDict();
             Object instanceAttr = d.get(name);
             if (instanceAttr != null) {
-                // Found something
+                // Found the answer in the instance dictionary.
                 return instanceAttr;
             }
         }
 
         /*
          * The name wasn't in the instance dictionary (or there wasn't
-         * an instance dictionary). We are now left with the results of
-         * look-up on the type.
+         * an instance dictionary). typeAttr is the result of look-up on
+         * the type: a value , a non-data descriptor, or null if the
+         * attribute was not found.
          */
         if (descrGet != null) {
             // typeAttr may be a non-data descriptor: call __get__.
@@ -223,8 +224,8 @@ public class PyBaseObject extends AbstractPyObject {
 
         if (typeAttr != null) {
             /*
-             * The attribute obtained from the meta-type, and that
-             * turned out not to be a descriptor, is the return value.
+             * The attribute obtained from the type, and that turned out
+             * not to be a descriptor, is the return value.
              */
             return typeAttr;
         }

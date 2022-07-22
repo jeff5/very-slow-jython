@@ -780,12 +780,33 @@ public class PyType extends Operations implements DictPyObject {
     }
 
     /**
+     * Return whether an instance of this type defines {@code __get__}
+     * participates in the optimised call pattern supported by
+     * {@link Opcode#LOAD_METHOD}.
+     *
+     * @return whether a method descriptor
+     */
+    @Override
+    final boolean isMethodDescr() {
+        return flags.contains(Flag.IS_METHOD_DESCR);
+    }
+
+    /**
      * Return whether an instance of this type is a descriptor (defines
      * {@code __get__}).
      *
      * @return whether a descriptor
      */
     final boolean isDescr() { return flags.contains(Flag.IS_DESCR); }
+
+    /**
+     * Return whether this type uses object.__getattribute__ from .
+     *
+     * @return whether a descriptor
+     */
+    final boolean hasGenericGetAttr() {
+        return op_getattribute == PyBaseObject.TYPE.op_getattribute;
+    }
 
     /**
      * Get the {@code __base__} of this type. The {@code __base__} is a
@@ -897,7 +918,13 @@ public class PyType extends Operations implements DictPyObject {
          * {@code __get__} and at least one of {@code __set__} or
          * {@code __delete__}).
          */
-        IS_DATA_DESCR
+        IS_DATA_DESCR,
+        /**
+         * An object of this type is a method descriptor (participates
+         * in an optimised call pattern supported by
+         * {@link Opcode#LOAD_METHOD}).
+         */
+        IS_METHOD_DESCR,
     }
 
     /**
@@ -1238,6 +1265,18 @@ public class PyType extends Operations implements DictPyObject {
          */
         Spec flag(Flag f) {
             flags.add(f);
+            return this;
+        }
+
+        /**
+         * Specify a characteristic (type flag), or several, to be
+         * added.
+         *
+         * @param f to add to the current flags
+         * @return {@code this}
+         */
+        Spec flag(Flag... f) {
+            for (Flag x : f) { flags.add(x); }
             return this;
         }
 
@@ -1599,8 +1638,9 @@ public class PyType extends Operations implements DictPyObject {
         }
 
         /*
-         * The name wasn't in the type dictionary. We are now left with
-         * the results of look-up on the meta-type.
+         * The name wasn't in the type dictionary. metaAttr is now the
+         * result of look-up on the meta-type: a value, a non-data
+         * descriptor, or null if the attribute was not found.
          */
         if (descrGet != null) {
             // metaAttr may be a non-data descriptor: call __get__.

@@ -15,7 +15,11 @@ class Callables extends Abstract {
 
     /**
      * Call an object with the standard {@code __call__} protocol, that
-     * is, with an argument array and keyword name array.
+     * is, with an array of all the arguments, those given by position,
+     * then those given by keyword, and an array of the keywords in the
+     * same order. Therefore {@code np = args.length - names.length}
+     * arguments are given by position, and the keyword arguments are
+     * {{@code names[i]:args[np+i]}}.
      *
      * @param callable target
      * @param args all the arguments (position then keyword)
@@ -56,7 +60,8 @@ class Callables extends Abstract {
 
     /**
      * Call an object with the classic CPython call protocol, that is,
-     * with an argument tuple and keyword dictionary.
+     * with a tuple of arguments given by position and a dictionary of
+     * key-value pairs providing arguments given by keyword.
      *
      * @param callable target
      * @param args positional arguments
@@ -182,8 +187,8 @@ class Callables extends Abstract {
      * <p>
      * The {@code stack} argument (which is often the interpreter stack)
      * contains, at a given offset {@code start}, the {@code npos}
-     * arguments given at given by position, followed by those
-     * {@code len(kwnames)} given by keyword.
+     * arguments given by position, followed by those
+     * {@code len(kwnames)} arguments given by keyword.
      *
      * @param callable target
      * @param stack positional and keyword arguments
@@ -194,17 +199,20 @@ class Callables extends Abstract {
      * @throws TypeError if target is not callable
      * @throws Throwable for errors raised in the function
      */
-    // Compare CPython _PyObject_FastCall in call.c
+    // Compare CPython _PyObject_Vectorcall in abstract.h
     static Object vectorcall(Object callable, Object[] stack, int start,
             int npos, PyTuple kwnames) throws Throwable {
-        int n = kwnames == null ? 0 : kwnames.size();
-        Object[] args =
-                Arrays.copyOfRange(stack, start, start + npos + n);
-        if (n == 0) {
-            // Positional arguments only
+        int n;
+        if (kwnames == null || (n = kwnames.size()) == 0) {
+            // Positional arguments only.
+            Object[] args =
+                    Arrays.copyOfRange(stack, start, start + npos);
             return call(callable, args, null);
         } else {
-            // We cannot guarantee that kwnames is a tuple of strings
+            // Some given by keyword.
+            Object[] args =
+                    Arrays.copyOfRange(stack, start, start + npos + n);
+            // We cannot guarantee that kwnames is a tuple of strings.
             String[] kw = new String[n];
             Object[] names = kwnames.value;
             for (int i = 0; i < n; i++) { kw[i] = names[i].toString(); }
