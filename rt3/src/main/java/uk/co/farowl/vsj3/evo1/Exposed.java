@@ -197,8 +197,16 @@ public interface Exposed {
     @interface KeywordOnly {}
 
     /**
-     * Provide default value for an parameter. This is equivalent to
-     * following it with "=" in a Python signature.
+     * Provide default value for the annotated parameter. This is
+     * equivalent to following it with "=" in a Python signature.
+     * Allowed values are a small subset of the Python literals,
+     * presented as a {@code String}: "None", an integer, or a
+     * single-quoted string. For example <pre>
+     *  PyList split(
+     *      @Default("None") Object sep,
+     *      @Default("-1") int maxsplit
+     *  )
+     * </pre>
      */
     @Documented
     @Retention(RUNTIME)

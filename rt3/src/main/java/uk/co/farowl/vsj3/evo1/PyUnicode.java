@@ -412,10 +412,12 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
      * @return a new {@code str}, stripped of the specified characters
      * @throws TypeError on {@code stripChars} type errors
      */
+    @PythonMethod(primary = false)
     Object strip(Object stripChars) throws TypeError {
         return strip(delegate, stripChars);
     }
 
+    @PythonMethod
     static Object strip(String self, Object stripChars)
             throws TypeError {
         return strip(adapt(self), stripChars);
@@ -531,10 +533,12 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
      *     characters
      * @throws TypeError on {@code stripChars} type errors
      */
+    @PythonMethod(primary = false)
     Object lstrip(Object stripChars) throws TypeError {
         return lstrip(delegate, stripChars);
     }
 
+    @PythonMethod
     static Object lstrip(String self, Object stripChars)
             throws TypeError {
         return lstrip(adapt(self), stripChars);
@@ -579,10 +583,12 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
      *     characters
      * @throws TypeError on {@code stripChars} type errors
      */
+    @PythonMethod(primary = false)
     Object rstrip(Object stripChars) throws TypeError {
         return rstrip(delegate, stripChars);
     }
 
+    @PythonMethod
     static Object rstrip(String self, Object stripChars)
             throws TypeError {
         return rstrip(adapt(self), stripChars);
@@ -994,7 +1000,8 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
      * @return list(str) result
      */
     @PythonMethod
-    PyList split(Object sep, int maxsplit) {
+    PyList split(@Default("None") Object sep,
+            @Default("-1") int maxsplit) {
         return split(delegate, sep, maxsplit);
     }
 
@@ -1005,7 +1012,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
 
     private static PyList split(CodepointDelegate s, Object sep,
             int maxsplit) {
-        if (sep == null) {
+        if (sep == null || sep == Py.None) {
             // Split on runs of whitespace
             return splitAtSpaces(s, maxsplit);
         } else if (maxsplit == 0) {
@@ -1210,7 +1217,8 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
      * @return list(str) result
      */
     @PythonMethod
-    PyList rsplit(Object sep, int maxsplit) {
+    PyList rsplit(@Default("None") Object sep,
+            @Default("-1") int maxsplit) {
         return rsplit(delegate, sep, maxsplit);
     }
 
@@ -1221,7 +1229,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
 
     private static PyList rsplit(CodepointDelegate s, Object sep,
             int maxsplit) {
-        if (sep == null) {
+        if (sep == null || sep == Py.None) {
             // Split on runs of whitespace
             return rsplitAtSpaces(s, maxsplit);
         } else if (maxsplit == 0) {

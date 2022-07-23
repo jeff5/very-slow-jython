@@ -222,18 +222,43 @@ public class UnitTestSupport {
      * equal even if one is a {@link PyUnicode}. An unchecked exception
      * may be thrown if the comparison goes badly enough.
      *
-     * @param x value
+     * @param x value expected
      * @param o to test
      */
     private static boolean pythonEquals(Object x, Object o) {
         try {
-            return Abstract.richCompareBool(x, o, Comparison.EQ);
+            if (x instanceof PyList && o instanceof PyList) {
+                // XXX Special case as we do not have PyList.__eq__
+                return pythonEquals((PyList)x, (PyList)o);
+            } else
+                return Abstract.richCompareBool(x, o, Comparison.EQ);
         } catch (RuntimeException | Error e) {
             // Let unchecked exception fly
             throw e;
         } catch (Throwable t) {
             // Wrap checked exception
             throw new InterpreterError(t);
+        }
+    }
+
+    /**
+     * Test whether the list {@code o} is equal to the expected list
+     * according to Python (e.g. {@code True == 1} and strings may be
+     * equal even if one is a {@link PyUnicode}. An unchecked exception
+     * may be thrown if the comparison goes badly enough.
+     *
+     * @param x value expected
+     * @param o to test
+     */
+    private static boolean pythonEquals(PyList x, PyList o) {
+        int n = x.size();
+        if (o.size() != n) {
+            return false;
+        } else {
+            for (int i = 0; i < n; i++) {
+                if (!pythonEquals(x.get(i), o.get(i))) { return false; }
+            }
+            return true;
         }
     }
 
