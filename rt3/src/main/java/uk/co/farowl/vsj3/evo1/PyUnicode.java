@@ -402,15 +402,14 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
     // Strip methods --------------------------------------------------
 
     /**
-     * Python {@code str.strip()}. Any byte/character matching one of
-     * those in {@code stripChars} will be discarded from either end of
-     * this {@code str}. If {@code stripChars == null}, whitespace will
-     * be stripped.
+     * Python {@code str.strip()}. Any character matching one of those
+     * in {@code stripChars} will be discarded from either end of this
+     * {@code str}. If {@code stripChars == null}, whitespace will be
+     * stripped.
      *
      * @param stripChars characters to strip from either end of this
-     *     {@code str/bytes}, or {@code null}
-     * @return a new {@code str}, stripped of the specified
-     *     characters/bytes
+     *     {@code str}, or {@code null}
+     * @return a new {@code str}, stripped of the specified characters
      * @throws TypeError on {@code stripChars} type errors
      */
     Object strip(Object stripChars) throws TypeError {
@@ -521,15 +520,15 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
     }
 
     /**
-     * Python {@code str.lstrip()}. Any byte/character matching one of
-     * those in {@code stripChars} will be discarded from the left of
-     * this {@code str}. If {@code stripChars == null}, whitespace will
-     * be stripped.
+     * Python {@code str.lstrip()}. Any character matching one of those
+     * in {@code stripChars} will be discarded from the left of this
+     * {@code str}. If {@code stripChars == null}, whitespace will be
+     * stripped.
      *
-     * @param stripChars characters to strip from this
-     *     {@code str/bytes}, or {@code null}
+     * @param stripChars characters to strip from this {@code str}, or
+     *     {@code null}
      * @return a new {@code str}, left-stripped of the specified
-     *     characters/bytes
+     *     characters
      * @throws TypeError on {@code stripChars} type errors
      */
     Object lstrip(Object stripChars) throws TypeError {
@@ -569,15 +568,15 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
     }
 
     /**
-     * Python {@code str.rstrip()}. Any byte/character matching one of
-     * those in {@code stripChars} will be discarded from the right of
-     * this {@code str}. If {@code stripChars == null}, whitespace will
-     * be stripped.
+     * Python {@code str.rstrip()}. Any character matching one of those
+     * in {@code stripChars} will be discarded from the right of this
+     * {@code str}. If {@code stripChars == null}, whitespace will be
+     * stripped.
      *
-     * @param stripChars characters to strip from this
-     *     {@code str/bytes}, or {@code null}
+     * @param stripChars characters to strip from this {@code str}, or
+     *     {@code null}
      * @return a new {@code str}, right-stripped of the specified
-     *     characters/bytes
+     *     characters
      * @throws TypeError on {@code stripChars} type errors
      */
     Object rstrip(Object stripChars) throws TypeError {
@@ -1569,7 +1568,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         CodepointDelegate p = adaptSub("count", sub);
         PySlice.Indices slice = getSliceIndices(s, start, end);
         if (p.length() == 0)
-            return slice.start;
+            return slice.slicelength + 1;
         else
             return count(s, p, slice);
     }
