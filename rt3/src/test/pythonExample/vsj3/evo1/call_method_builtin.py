@@ -8,7 +8,8 @@ asc = a.isascii()
 A = a.upper()
 
 # Signature: strip(self, chars=None, /)
-#cad = a.strip("bar")
+cad = a.strip("bar")
+wood = "   \twood \x85\r\n".strip()
 
 # Signature: replace(self, old, new, count=-1, /)
 sox = a.replace("bra", "sock")

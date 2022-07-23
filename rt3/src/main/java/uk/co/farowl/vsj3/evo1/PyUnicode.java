@@ -403,24 +403,24 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
 
     /**
      * Python {@code str.strip()}. Any character matching one of those
-     * in {@code stripChars} will be discarded from either end of this
-     * {@code str}. If {@code stripChars == null}, whitespace will be
+     * in {@code chars} will be discarded from either end of this
+     * {@code str}. If {@code chars == None}, whitespace will be
      * stripped.
      *
-     * @param stripChars characters to strip from either end of this
-     *     {@code str}, or {@code null}
+     * @param chars characters to strip from either end of this
+     *     {@code str}, or {@code None}
      * @return a new {@code str}, stripped of the specified characters
-     * @throws TypeError on {@code stripChars} type errors
+     * @throws TypeError on {@code chars} type errors
      */
     @PythonMethod(primary = false)
-    Object strip(Object stripChars) throws TypeError {
-        return strip(delegate, stripChars);
+    Object strip(Object chars) throws TypeError {
+        return strip(delegate, chars);
     }
 
     @PythonMethod
-    static Object strip(String self, Object stripChars)
+    static Object strip(String self, @Default("None") Object chars)
             throws TypeError {
-        return strip(adapt(self), stripChars);
+        return strip(adapt(self), chars);
     }
 
     /**
@@ -428,13 +428,13 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
      * the implementation type.
      *
      * @param s representing {@code self}
-     * @param stripChars to remove, or {@code null} or {@code None}
+     * @param chars to remove, or {@code null} or {@code None}
      * @return the {@code str} stripped
-     * @throws TypeError on {@code stripChars} type errors
+     * @throws TypeError on {@code chars} type errors
      */
-    private static Object strip(CodepointDelegate s, Object stripChars)
+    private static Object strip(CodepointDelegate s, Object chars)
             throws TypeError {
-        Set<Integer> p = adaptStripSet("strip", stripChars);
+        Set<Integer> p = adaptStripSet("strip", chars);
         int left, right;
         if (p == null) {
             // Stripping spaces
@@ -523,25 +523,25 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
 
     /**
      * Python {@code str.lstrip()}. Any character matching one of those
-     * in {@code stripChars} will be discarded from the left of this
-     * {@code str}. If {@code stripChars == null}, whitespace will be
+     * in {@code chars} will be discarded from the left of this
+     * {@code str}. If {@code chars == None}, whitespace will be
      * stripped.
      *
-     * @param stripChars characters to strip from this {@code str}, or
-     *     {@code null}
+     * @param chars characters to strip from this {@code str}, or
+     *     {@code None}
      * @return a new {@code str}, left-stripped of the specified
      *     characters
-     * @throws TypeError on {@code stripChars} type errors
+     * @throws TypeError on {@code chars} type errors
      */
     @PythonMethod(primary = false)
-    Object lstrip(Object stripChars) throws TypeError {
-        return lstrip(delegate, stripChars);
+    Object lstrip(Object chars) throws TypeError {
+        return lstrip(delegate, chars);
     }
 
     @PythonMethod
-    static Object lstrip(String self, Object stripChars)
+    static Object lstrip(String self, @Default("None") Object chars)
             throws TypeError {
-        return lstrip(adapt(self), stripChars);
+        return lstrip(adapt(self), chars);
     }
 
     /**
@@ -549,13 +549,13 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
      * of the implementation type.
      *
      * @param s representing {@code self}
-     * @param stripChars to remove, or {@code null} or {@code None}
+     * @param chars to remove, or {@code null} or {@code None}
      * @return the str stripped
-     * @throws TypeError on {@code stripChars} type errors
+     * @throws TypeError on {@code chars} type errors
      */
-    private static Object lstrip(CodepointDelegate s, Object stripChars)
+    private static Object lstrip(CodepointDelegate s, Object chars)
             throws TypeError {
-        Set<Integer> p = adaptStripSet("lstrip", stripChars);
+        Set<Integer> p = adaptStripSet("lstrip", chars);
         int left;
         if (p == null) {
             // Stripping spaces
@@ -573,25 +573,25 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
 
     /**
      * Python {@code str.rstrip()}. Any character matching one of those
-     * in {@code stripChars} will be discarded from the right of this
-     * {@code str}. If {@code stripChars == null}, whitespace will be
+     * in {@code chars} will be discarded from the right of this
+     * {@code str}. If {@code chars == None}, whitespace will be
      * stripped.
      *
-     * @param stripChars characters to strip from this {@code str}, or
-     *     {@code null}
+     * @param chars characters to strip from this {@code str}, or
+     *     {@code None}
      * @return a new {@code str}, right-stripped of the specified
      *     characters
-     * @throws TypeError on {@code stripChars} type errors
+     * @throws TypeError on {@code chars} type errors
      */
     @PythonMethod(primary = false)
-    Object rstrip(Object stripChars) throws TypeError {
-        return rstrip(delegate, stripChars);
+    Object rstrip(Object chars) throws TypeError {
+        return rstrip(delegate, chars);
     }
 
     @PythonMethod
-    static Object rstrip(String self, Object stripChars)
+    static Object rstrip(String self, @Default("None") Object chars)
             throws TypeError {
-        return rstrip(adapt(self), stripChars);
+        return rstrip(adapt(self), chars);
     }
 
     /**
@@ -599,13 +599,13 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
      * of the implementation type.
      *
      * @param s representing {@code self}
-     * @param stripChars to remove, or {@code null} or {@code None}
+     * @param chars to remove, or {@code null} or {@code None}
      * @return the str stripped
-     * @throws TypeError on {@code stripChars} type errors
+     * @throws TypeError on {@code chars} type errors
      */
-    private static Object rstrip(CodepointDelegate s, Object stripChars)
+    private static Object rstrip(CodepointDelegate s, Object chars)
             throws TypeError {
-        Set<Integer> p = adaptStripSet("rstrip", stripChars);
+        Set<Integer> p = adaptStripSet("rstrip", chars);
         int right;
         if (p == null) {
             // Stripping spaces
@@ -3841,8 +3841,8 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
      * @return {@code null} or characters adapted to a set
      * @throws TypeError if {@code sep} cannot be wrapped as a delegate
      */
-    static Set<Integer> adaptStripSet(String method, Object chars)
-            throws TypeError {
+    private static Set<Integer> adaptStripSet(String method,
+            Object chars) throws TypeError {
         if (chars == null || chars == Py.None) {
             return null;
         } else {
