@@ -95,6 +95,7 @@ class CPython38Frame extends PyFrame<CPython38Code> {
         Object v, w;
         int n, m;
         String name;
+        PyTuple kwnames;
         PyTuple.Builder tpl;
         PyList lst;
 
@@ -289,6 +290,18 @@ class CPython38Frame extends PyFrame<CPython38Code> {
                         oparg = 0;
                         break;
 
+                    case Opcode.BUILD_MAP:
+                        // k1 | v1 | ... | kN | vN | -> | map |
+                        // -------------------------^sp -------^sp
+                        // Build dictionary from the N=oparg key-value
+                        // pairs on the stack in order.
+                        oparg |= opword & 0xff;
+                        sp -= oparg * 2;
+                        s[sp] = PyDict.fromKeyValuePairs(s, sp++,
+                                oparg);
+                        oparg = 0;
+                        break;
+
                     case Opcode.LOAD_ATTR:
                         // v | -> | v.name |
                         // ---^sp ----------^sp
@@ -364,28 +377,66 @@ class CPython38Frame extends PyFrame<CPython38Code> {
                     case Opcode.CALL_METHOD:
                         // Designed to work in tandem with LOAD_METHOD.
                         // If bypassed the method binding:
-                        // desc | self | arg1 ... argN | -> | res |
-                        // -----------------------------^sp -------^sp
+                        // desc | self | arg[n] | -> | res |
+                        // ----------------------^sp -------^sp
                         // Otherwise:
-                        // null | meth | arg1 ... argN | -> | res |
-                        // -----------------------------^sp -------^sp
+                        // null | meth | arg[n] | -> | res |
+                        // ----------------------^sp -------^sp
                         oparg |= opword & 0xff; // = N of args
                         sp -= oparg + 2;
                         if (s[sp] != null) {
                             // We bypassed the method binding. Stack:
-                            // desc | self | arg1 ... argN |
+                            // desc | self | arg[n] |
                             // ^sp
                             // call desc(self, arg1 ... argN)
                             s[sp] = Callables.vectorcall(s[sp++],
                                     valuestack, sp, oparg + 1, null);
                         } else {
                             // meth is the bound method self.name
-                            // null | meth | arg1 ... argN |
+                            // null | meth | arg[n] |
                             // ^sp
                             // call meth(arg1 ... argN)
                             s[sp++] = Callables.vectorcall(s[sp],
                                     valuestack, sp + 1, oparg, null);
                         }
+                        oparg = 0;
+                        break;
+
+                    case Opcode.CALL_FUNCTION:
+                        // Call with positional args only. Stack:
+                        // f | arg[n] | -> res |
+                        // ------------^sp -----^sp
+                        oparg |= opword & 0xff; // = N of args
+                        sp -= oparg + 1;
+                        s[sp] = Callables.vectorcall(s[sp++],
+                                valuestack, sp, oparg, null);
+                        oparg = 0;
+                        break;
+
+                    case Opcode.CALL_FUNCTION_KW:
+                        // Call with n positional & m by kw. Stack:
+                        // f | arg[n] | kwnames | -> res |
+                        // ----------------------^sp -----^sp
+                        // knames is a tuple of m names
+                        assert(PyTuple.TYPE.checkExact(s[sp-1]));
+                        kwnames = (PyTuple) s[sp-1];
+                        oparg |= opword & 0xff; // = n+m
+                        assert(kwnames.size() <= oparg);
+                        sp -= oparg + 2;
+                        s[sp] = Callables.vectorcall(s[sp++],
+                                valuestack, sp, oparg - kwnames.size(),
+                                kwnames);
+                        oparg = 0;
+                        break;
+
+                    case Opcode.CALL_FUNCTION_EX:
+                        // Call with positional & kw args. Stack:
+                        // f | args | kwdict? | -> res |
+                        // ---------------------^sp -----^sp
+                        // opword is 0 (no kwdict) or 1 (kwdict present)
+                        w = (opword & 0x1) == 0 ? null : s[--sp];
+                        v = s[--sp]; // args tuple
+                        s[sp - 1] = Callables.callEx(s[sp - 1], v, w);
                         oparg = 0;
                         break;
 

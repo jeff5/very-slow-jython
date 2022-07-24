@@ -64,20 +64,34 @@ class Callables extends Abstract {
      * key-value pairs providing arguments given by keyword.
      *
      * @param callable target
-     * @param args positional arguments
-     * @param kwargs keyword arguments
+     * @param argTuple positional arguments
+     * @param kwDict keyword arguments
      * @return the return from the call to the object
      * @throws TypeError if target is not callable
      * @throws Throwable for errors raised in the function
      */
     // Compare CPython PyObject_Call in call.c
-    // Note that CPython allows only exactly tuple and dict.
-    static Object call(Object callable, PyTuple args, PyDict kwargs)
+    static Object call(Object callable, PyTuple argTuple, PyDict kwDict)
             throws TypeError, Throwable {
 
-        // Speed up the idiom common in called objects:
-        // if (kwargs == null || kwargs.isEmpty()) ...
-        if (kwargs != null && kwargs.isEmpty()) { kwargs = null; }
+        Object[] args;
+        String[] kwnames;
+
+        if (kwDict == null || kwDict.isEmpty()) {
+            args = argTuple.toArray();
+            kwnames = null;
+
+        } else {
+            int n = argTuple.size(), m = kwDict.size(), i = 0;
+            args = argTuple.toArray(new Object[n + m]);
+            kwnames = new String[m];
+            for (Map.Entry<Object, Object> e : kwDict.entrySet()) {
+                Object name = e.getKey();
+                kwnames[i++] = PyUnicode.asString(name, () -> Abstract
+                        .typeError(KEYWORD_MUST_BE_STRING, name));
+                args[n++] = e.getValue();
+            }
+        }
 
         try {
             /*
@@ -88,11 +102,14 @@ class Callables extends Abstract {
              * arguments.
              */
             MethodHandle call = Operations.of(callable).op_call;
-            return call.invokeExact(callable, args, kwargs);
+            return call.invokeExact(callable, args, kwnames);
         } catch (Slot.EmptyException e) {
             throw typeError(OBJECT_NOT_CALLABLE, callable);
         }
     }
+
+    static final String KEYWORD_MUST_BE_STRING =
+            "keywords must be strings not '%.100s'";
 
     /**
      * Call an object with the CPython call protocol as supported in the
@@ -110,7 +127,7 @@ class Callables extends Abstract {
     // Compare CPython PyObject_Call in call.c
     /*
      * Note that CPython allows only exactly tuple and dict. (It deals
-     * with iterables in line ov the opcode omplementation.)
+     * with iterables within the opcode implementation.)
      */
     static Object callEx(Object callable, Object args, Object kwargs)
             throws TypeError, Throwable {

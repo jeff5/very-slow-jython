@@ -999,7 +999,8 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
      *     {@code maxsplit+1} parts) or {@code -1} for all possible.
      * @return list(str) result
      */
-    @PythonMethod
+    // split(self, /, sep=None, maxsplit=-1)
+    @PythonMethod(positionalOnly = false)
     PyList split(@Default("None") Object sep,
             @Default("-1") int maxsplit) {
         return split(delegate, sep, maxsplit);

@@ -60,7 +60,27 @@ public class PyDict extends AbstractMap<Object, Object>
     }
 
     /**
-     * Create a {@code dict} and add entries from key-value pairs.
+     * Create a {@code dict} and add entries from key-value pairs that
+     * are supplied as successive values in an array slice. (This method
+     * supports the CPython byte code interpreter.)
+     *
+     * @param stack array containing key-value pairs
+     * @param start index of first key
+     * @param count number of pairs
+     * @return a new {@code dict}
+     */
+    static PyDict fromKeyValuePairs(Object[] stack, int start,
+            int count) {
+        PyDict dict = new PyDict(TYPE);
+        for (int i = 0, p = start; i < count; i++) {
+            dict.put(stack[p++], stack[p++]);
+        }
+        return dict;
+    }
+
+    /**
+     * Create a {@code dict} and add entries from key-value pairs that
+     * are supplied as 2-element tuples.
      *
      * @param tuples specifying key-value pairs to enter
      * @return new {@code dict}

@@ -19,6 +19,12 @@ sock = a.replace("bra", "sock", 1)
 split1 = a.split('br', 1)
 split = a.split('bra')
 split0 = a.split()
-#split1k = a.split('br', maxsplit=1)
-#split2k = a.split(maxsplit=4, sep='a')
+split1k = a.split('br', maxsplit=1)
+split2k = a.split(maxsplit=4, sep='a')
+
+# Force use of CALL_FUNCTION_EX 0
+sock_ex = a.replace(*("bra", "sock", 1))
+
+# Force use of CALL_FUNCTION_EX 1
+split1k_ex = a.split('br', **{'maxsplit':1})
 
