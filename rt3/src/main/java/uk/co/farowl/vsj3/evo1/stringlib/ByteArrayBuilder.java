@@ -78,6 +78,12 @@ public final class ByteArrayBuilder
         return v;
     }
 
+    @Override
+    public void reset() {
+        len = 0;
+        max = 0;
+    }
+
     /**
      * Append the 2 bytes of a {@code short} value big-endian.
      *

@@ -77,6 +77,9 @@ public abstract class AbstractIntArrayBuilder {
      */
     public abstract Object take();
 
+    /** Reset the builder to empty (zero {@link #length()}). */
+    public abstract void reset();
+
     /**
      * Provide the contents as a Java {@code String} (non-destructively,
      * but inefficiently).

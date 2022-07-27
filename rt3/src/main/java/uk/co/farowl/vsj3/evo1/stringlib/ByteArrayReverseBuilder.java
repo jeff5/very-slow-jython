@@ -79,4 +79,11 @@ public final class ByteArrayReverseBuilder
         max = 0;
         return v;
     }
+
+    @Override
+    public void reset() {
+        ptr = value.length;
+        max = 0;
+    }
+
 }

@@ -75,7 +75,7 @@ public final class IntArrayBuilder
         int n = (int)Math.min(Integer.MAX_VALUE, N);
         if (n == N) {
             ensure(n);
-            iter.forEachRemaining((int c)->appendUnchecked(c));
+            iter.forEachRemaining((int c) -> appendUnchecked(c));
         } else {
             // Maybe N is unknown, else will overflow eventually ...
             iter.forEachRemaining((int c) -> append(c));
@@ -101,4 +101,17 @@ public final class IntArrayBuilder
         max = 0;
         return v;
     }
+
+    @Override
+    public void reset() {
+        len = 0;
+        max = 0;
+    }
+
+    /**
+     * Provide the contents as a Java {@code String}
+     * (non-destructively).
+     */
+    @Override
+    public String toString() { return new String(value, 0, length()); }
 }

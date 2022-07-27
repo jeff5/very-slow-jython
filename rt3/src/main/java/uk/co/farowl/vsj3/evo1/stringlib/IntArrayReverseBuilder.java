@@ -80,4 +80,19 @@ public final class IntArrayReverseBuilder
         max = 0;
         return v;
     }
+
+    @Override
+    public void reset() {
+        ptr = value.length;
+        max = 0;
+    }
+
+    /**
+     * Provide the contents as a Java {@code String}
+     * (non-destructively).
+     */
+    @Override
+    public String toString() {
+        return new String(value, ptr, length());
+    }
 }

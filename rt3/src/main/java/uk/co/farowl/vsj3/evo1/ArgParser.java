@@ -66,8 +66,8 @@ class ArgParser {
 
     /**
      * Names of parameters that could be satisfied by position or
-     * keyword. Elements are guaranteed by construction to be of type
-     * {@code str}, and not {@code null} or empty.
+     * keyword. Elements are guaranteed to be interned, and not
+     * {@code null} or empty.
      */
     /*
      * Here and elsewhere we use the same names as the Python code, even
@@ -231,15 +231,13 @@ class ArgParser {
         this.varArgsIndex = varargs != null ? N++ : -1;
         this.varKeywordsIndex = varkw != null ? N++ : -1;
 
-        // Make a new array of the names, including the collectors
-        String[] argnames = new String[N];
-        this.argnames = argnames;
-        System.arraycopy(names, 0, argnames, 0, regargcount);
+        // Make a new array of the names, including the collectors.
+        String[] argnames = this.argnames = interned(names, N);
 
         if (hasVarArgs())
-            argnames[varArgsIndex] = varargs;
+            argnames[varArgsIndex] = varargs.intern();
         if (hasVarKeywords())
-            argnames[varKeywordsIndex] = varkw;
+            argnames[varKeywordsIndex] = varkw.intern();
 
         // Check for empty names
         for (int i = posOnly; i < N; i++) {
@@ -313,8 +311,6 @@ class ArgParser {
         this.methodKind = methodKind;
         this.scopeKind = scopeKind;
 
-        this.argnames = names;
-
         // Total parameter count *except* possible varargs, varkwargs
         int N = Math.min(count, names.length);
         this.regargcount = N;
@@ -325,6 +321,9 @@ class ArgParser {
         // There may be positional and/or keyword collectors
         this.varArgsIndex = varargs ? N++ : -1;
         this.varKeywordsIndex = varkw ? N++ : -1;
+
+        // Make a new array of the names, including the collectors.
+        this.argnames = interned(names, N);
     }
 
     /**
@@ -495,6 +494,21 @@ class ArgParser {
         }
 
         return sj.toString();
+    }
+
+    /**
+     * Return a copy of a {@code String} array in which every element is
+     * interned, in a new , possibly larger, array. We intern the
+     * strings to enable the fast path in keyword argument processing.
+     *
+     * @param a to intern
+     * @param N size of array to return
+     * @return array of equivalent interned strings
+     */
+    private String[] interned(String[] a, int N) {
+        String[] s = new String[Math.max(N, a.length)];
+        for (int i = 0; i < a.length; i++) { s[i] = a[i].intern(); }
+        return s;
     }
 
     /**
