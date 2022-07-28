@@ -117,8 +117,9 @@ class CPython38CodeTest extends UnitTestSupport {
         void co_names() {
             // Names in order encountered
             assertPythonEquals("a", code.names[0]);
-            assertPythonEquals("b", code.names[1]);
+            assertPythonEquals("β", code.names[1]);
             assertPythonEquals("c", code.names[2]);
+            assertPythonEquals("ਛਲ", code.names[3]);
         }
 
         @Test

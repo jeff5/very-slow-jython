@@ -59,9 +59,9 @@ def filetime(path_elements, name_elements):
 def copy(srcfile, dstfile):
     "Copy one text file to another"
     print(f"  Copy: {os.path.basename(srcfile)}")
-    with open(srcfile, 'rt') as s:
+    with open(srcfile, 'rt', encoding='utf-8') as s:
         ensure_dir(os.path.dirname(dstfile))
-        with open(dstfile, 'wt') as d:
+        with open(dstfile, 'wt', encoding='utf-8') as d:
             for line in s:
                 d.write(line)
 
@@ -75,7 +75,7 @@ def execute(pycfile, varfile, disfile):
     exec(co, gbl, lcl)
     with open(varfile, 'wb') as f:
         marshal.dump(lcl, f)
-    with open(disfile, 'w') as f:
+    with open(disfile, 'wt', encoding='utf-8') as f:
         dis.disassemble(co, file=f)
 
 
