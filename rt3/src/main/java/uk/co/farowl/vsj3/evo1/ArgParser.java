@@ -13,30 +13,34 @@ import uk.co.farowl.vsj3.evo1.base.MethodKind;
 
 /**
  * This class provides a parser for the positional and keyword arguments
- * of built-in functions and methods. The purpose of an argument parser
- * is to provide the body of a function with an array of values,
- * corresponding in order and number to its parameters (logical
- * arguments).
+ * supplied during a call to a built-in function or method. The purpose
+ * of an argument parser is to provide the body of a function, or
+ * perhaps a {@code MethodHandle} with an array of values, corresponding
+ * in order and number to its parameters (formal arguments).
  * <p>
  * This parser transforms several argument presentations that occur in a
- * Python implementation, into an array. This array is either created by
- * the parser, or designated by the caller. The parser may therefore be
- * used to prepare arguments for a pure a Java method (or
- * {@code MethodHandle}) accepting an array, or to insert them as
+ * Python implementation, and arranges them into an array. This array is
+ * either created by the parser, or designated by the caller. The parser
+ * may therefore be used to prepare arguments for a pure a Java method
+ * (or {@code MethodHandle}) accepting an array, or to insert them as
  * initial values in an interpreter frame ({@code PyFrame}).
  * <p>
  * The fields of the parser that determine the acceptable numbers of
  * positional arguments and their names are essentially those of a
- * {@code code} object ({@link PyCode}). Default are provided values
- * mirror the defaults built into a {@code function} object
+ * {@code code} object ({@link PyCode}). Defaults are provided values
+ * that mirror the defaults built into a {@code function} object
  * ({@link PyFunction}).
  * <p>
- * The easiest way of specifying a parser (although one that is a little
- * costly to construct) is to list the parameters as they would be
- * declared in Python, including the furniture that marks up the
+ * The most readable way of specifying a parser (although one that is a
+ * little costly to construct) is to list the parameters as they would
+ * be declared in Python, including the furniture that marks up the
  * positional-only, keyword-only, positional varargs, and keyword
  * varargs. This is the API offered by
- * {@link #fromSignature(String, String...)}.
+ * {@link #fromSignature(String, String...)} but it only features in
+ * unit tests.
+ * <p>
+ * In practice, we construct the parser with a complex of arguments
+ * derived by inspection of the method signature.
  */
 class ArgParser {
 
@@ -66,8 +70,12 @@ class ArgParser {
 
     /**
      * Names of parameters that could be satisfied by position or
-     * keyword. Elements are guaranteed to be interned, and not
-     * {@code null} or empty.
+     * keyword, including the collector parameters. Elements are
+     * guaranteed to be interned, and not {@code null} or empty.
+     * The length of this array is the number of named parameters:
+     *         {@code argcount + kwonlyargcount
+                + (hasVarArgs() ? 1 : 0) + (hasVarKeywords() ? 1 : 0)}
+
      */
     /*
      * Here and elsewhere we use the same names as the Python code, even
@@ -87,7 +95,8 @@ class ArgParser {
     /** The number of <b>positional</b> parameters. */
     final int argcount;
 
-    /** The number of positional-only parameters. */
+    /** The number of positional-only parameters. This differs from
+     * {@link #argcount} by excluding parameters that may be given by keyword or position. */
     final int posonlyargcount;
 
     /** The number of keyword-only parameters. */
@@ -234,9 +243,9 @@ class ArgParser {
         // Make a new array of the names, including the collectors.
         String[] argnames = this.argnames = interned(names, N);
 
-        if (hasVarArgs())
+        if (varargs != null)
             argnames[varArgsIndex] = varargs.intern();
-        if (hasVarKeywords())
+        if (varkw != null)
             argnames[varKeywordsIndex] = varkw.intern();
 
         // Check for empty names
@@ -247,10 +256,13 @@ class ArgParser {
                         argnames.toString());
             }
         }
+
+        assert argnames.length == argcount + kwonlyargcount
+                + (hasVarArgs() ? 1 : 0) + (hasVarKeywords() ? 1 : 0);
     }
 
     /**
-     * Create a parser for a named function, with defined numbers of
+     * Construct a parser for a named function, with defined numbers of
      * positional-only and keyword-only parameters, and parameter names
      * in an array prepared by client code.
      * <p>
@@ -292,6 +304,11 @@ class ArgParser {
     }
 
     /**
+     * Construct a parser from descriptive parameters that may be
+     * derived from a the annotated declarations ({@link Exposed}
+     * methods) that appear in type and module definitions written in
+     * Java.
+     *
      * @param name of the function
      * @param scopeKind whether module, etc.
      * @param methodKind whether static, etc.
@@ -324,6 +341,9 @@ class ArgParser {
 
         // Make a new array of the names, including the collectors.
         this.argnames = interned(names, N);
+
+        assert argnames.length == argcount + kwonlyargcount
+                + (hasVarArgs() ? 1 : 0) + (hasVarKeywords() ? 1 : 0);
     }
 
     /**
@@ -331,6 +351,9 @@ class ArgParser {
      * positional-only and keyword-only parameters, and naming the
      * parameters. Parameters that may only be given by position need
      * not be named. ("" is acceptable in the names array.)
+     * <p>
+     * This is a convenient way to construct a reference result in unit
+     * tests.
      *
      * @param name of function
      * @param decl names of parameters and indicators "/", "*", "**"
@@ -698,10 +721,10 @@ class ArgParser {
 
     /**
      * Abstract wrapper for storage that the enclosing argument parser
-     * should be able to fill elements from the arguments to a Python
-     * call. Typically this frame is a window onto the local variables
-     * of a function invocation (a {@link PyFrame}) that the run-time is
-     * in the process of initialising during a call.
+     * should be able to fill from the arguments to a Python call.
+     * Typically this wrapper is a window onto the local variables of a
+     * function invocation (a {@link PyFrame}) that the run-time is in
+     * the process of initialising during a call.
      */
     abstract class FrameWrapper {
 
@@ -1209,53 +1232,56 @@ class ArgParser {
     }
 
     /**
-     * Wrap an existing array that the enclosing argument parser should
-     * be able to fill elements from the arguments to a Python call.
-     * See:
+     * Wrap an array provided by a client so that the enclosing argument
+     * parser may fill it from the arguments to a Python call. This
+     * array could be the local variables in the frame of a function
+     * being called, or an argument in the call of a method handle that
+     * accepts its arguments as an array. See:
      * {@link ArgParser#parseToFrame(FrameWrapper, PyTuple, PyDict)}.
      */
     class ArrayFrameWrapper extends FrameWrapper {
 
-        private final Object[] args;
+        private final Object[] vars;
         final int start;
 
         /**
          * Wrap a slice of an existing array. The elements to fill are a
          * slice of the destination array with specified starting index.
-         * The capacity of the array, between the start index and the
-         * end, must be sufficient to hold the parse result.
+         * The intended use is that {@code start = 1} allows space for a
+         * {@code self} reference not in the argument list. The capacity
+         * of the array, between the start index and the end, must be
+         * sufficient to hold the parse result. The destination array
+         * must be sufficient to hold the parse result and may be
+         * larger, e.g. to accommodate other local variables.
          *
-         * @param args destination array
+         * @param vars destination array
          * @param start at which to place first parsed argument
-         * @param count number of elements in the slice
          */
-        ArrayFrameWrapper(Object[] args, int start, int count) {
+        ArrayFrameWrapper(Object[] vars, int start) {
             super();
-            this.args = args;
+            this.vars = vars;
             this.start = start;
-            assert start + argcount <= args.length;
+            assert start + argcount <= vars.length;
         }
 
         /**
-         * /** Wrap an existing array. The capacity of the array must be
+         * Wrap an existing array. The capacity of the array must be
          * sufficient to hold the parse result.
          *
-         * @param args destination array
+         * @param vars destination array
          */
-        ArrayFrameWrapper(Object[] args) {
-            this(args, 0, args.length);
-        }
+        ArrayFrameWrapper(Object[] vars) { this(vars, 0); }
 
         @Override
-        Object getLocal(int i) { return args[start + i]; }
+        Object getLocal(int i) { return vars[start + i]; }
 
         @Override
-        void setLocal(int i, Object v) { args[start + i] = v; }
+        void setLocal(int i, Object v) { vars[start + i] = v; }
 
         @Override
         void setPositionalArguments(PyTuple argsTuple) {
             int n = Math.min(argsTuple.value.length, argcount);
-            System.arraycopy(argsTuple.value, 0, args, start, n);
+            System.arraycopy(argsTuple.value, 0, vars, start, n);
         }
     }
 
