@@ -95,7 +95,6 @@ class CPython38Frame extends PyFrame<CPython38Code> {
         Object v, w;
         int n, m;
         String name;
-        PyTuple kwnames;
         PyTuple.Builder tpl;
         PyList lst;
 
@@ -389,15 +388,15 @@ class CPython38Frame extends PyFrame<CPython38Code> {
                             // desc | self | arg[n] |
                             // ^sp
                             // call desc(self, arg1 ... argN)
-                            s[sp] = Callables.vectorcall(s[sp++],
-                                    valuestack, sp, oparg + 1, null);
+                            s[sp] = Callables.vectorcall(s[sp++], s, sp,
+                                    oparg + 1);
                         } else {
                             // meth is the bound method self.name
                             // null | meth | arg[n] |
                             // ^sp
                             // call meth(arg1 ... argN)
-                            s[sp++] = Callables.vectorcall(s[sp],
-                                    valuestack, sp + 1, oparg, null);
+                            s[sp++] = Callables.vectorcall(s[sp], s,
+                                    sp + 1, oparg);
                         }
                         oparg = 0;
                         break;
@@ -408,26 +407,26 @@ class CPython38Frame extends PyFrame<CPython38Code> {
                         // ------------^sp -----^sp
                         oparg |= opword & 0xff; // = N of args
                         sp -= oparg + 1;
-                        s[sp] = Callables.vectorcall(s[sp++],
-                                valuestack, sp, oparg, null);
+                        s[sp] = Callables.vectorcall(s[sp++], s, sp,
+                                oparg);
                         oparg = 0;
                         break;
 
-                    case Opcode.CALL_FUNCTION_KW:
+                    case Opcode.CALL_FUNCTION_KW: {
                         // Call with n positional & m by kw. Stack:
                         // f | arg[n] | kwnames | -> res |
                         // ----------------------^sp -----^sp
                         // knames is a tuple of m names
-                        assert(PyTuple.TYPE.checkExact(s[sp-1]));
-                        kwnames = (PyTuple) s[sp-1];
+                        assert PyTuple.TYPE.checkExact(s[sp - 1]);
+                        PyTuple kwnames = (PyTuple)s[sp - 1];
                         oparg |= opword & 0xff; // = n+m
-                        assert(kwnames.size() <= oparg);
+                        assert kwnames.size() <= oparg;
                         sp -= oparg + 2;
-                        s[sp] = Callables.vectorcall(s[sp++],
-                                valuestack, sp, oparg - kwnames.size(),
-                                kwnames);
+                        s[sp] = Callables.vectorcall(s[sp++], s, sp,
+                                oparg, kwnames);
                         oparg = 0;
                         break;
+                    }
 
                     case Opcode.CALL_FUNCTION_EX:
                         // Call with positional & kw args. Stack:

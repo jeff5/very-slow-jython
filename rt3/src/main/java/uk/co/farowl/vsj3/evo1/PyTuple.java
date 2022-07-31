@@ -29,6 +29,7 @@ public class PyTuple extends AbstractList<Object>
     protected final PyType type;
 
     /** The elements of the {@code tuple}. */
+    // Consider making private
     final Object[] value;
 
     /** Implementation help for sequence methods. */
@@ -38,10 +39,9 @@ public class PyTuple extends AbstractList<Object>
      * Potentially unsafe constructor, capable of creating a
      * "{@code tuple} view" of an array, or a copy. We make a copy (the
      * safe option) if the caller is <b>not</b> prepared to promise
-     * <b>not</b> to modify the array. The arguments begin with a
-     * claimed element type for the array, or the element type of the
-     * array to create.
+     * <b>not</b> to modify the array.
      *
+     * @param <E> element type of the array
      * @param type sub-type for which this is being created
      * @param cls class of elements
      * @param iPromiseNotToModifyTheArray if {@code true} try to re-use

@@ -87,8 +87,8 @@ class Callables extends Abstract {
             kwnames = new String[m];
             for (Map.Entry<Object, Object> e : kwDict.entrySet()) {
                 Object name = e.getKey();
-                kwnames[i++] = PyUnicode.asString(name, () -> Abstract
-                        .typeError(KEYWORD_MUST_BE_STRING, name));
+                kwnames[i++] = PyUnicode.asString(name,
+                        () -> keywordTypeError(name));
                 args[n++] = e.getValue();
             }
         }
@@ -107,9 +107,6 @@ class Callables extends Abstract {
             throw typeError(OBJECT_NOT_CALLABLE, callable);
         }
     }
-
-    static final String KEYWORD_MUST_BE_STRING =
-            "keywords must be strings not '%.100s'";
 
     /**
      * Call an object with the CPython call protocol as supported in the
@@ -196,45 +193,88 @@ class Callables extends Abstract {
     }
 
     /**
-     * Call an object with the vector call protocol. This supports
-     * CPython byte code generated according to the conventions in
-     * PEP-590. Unlike its use in CPython, this is <b>not</b> faster
-     * than the standard {@link #call(Object, Object[], String[]) call}
-     * method.
-     * <p>
-     * The {@code stack} argument (which is often the interpreter stack)
-     * contains, at a given offset {@code start}, the {@code npos}
-     * arguments given by position, followed by those
-     * {@code len(kwnames)} arguments given by keyword.
+     * Call an object with the vector call protocol with some arguments
+     * given by keyword. This supports CPython byte code generated
+     * according to the conventions in PEP-590. Unlike its use in
+     * CPython, this is <b>not likely to be faster</b> than the standard
+     * {@link #call(Object, Object[], String[]) call} method.
+     *
+     * @see FastCall#vectorcall(Object[], int, int, PyTuple).
      *
      * @param callable target
-     * @param stack positional and keyword arguments
-     * @param start position of arguments in the array
-     * @param npos number of <b>positional</b> arguments
+     * @param s positional and keyword arguments
+     * @param p position of arguments in the array
+     * @param nargs number of positional <b>and keyword</b> arguments
      * @param kwnames names of keyword arguments or {@code null}
      * @return the return from the call to the object
      * @throws TypeError if target is not callable
      * @throws Throwable for errors raised in the function
      */
     // Compare CPython _PyObject_Vectorcall in abstract.h
-    static Object vectorcall(Object callable, Object[] stack, int start,
-            int npos, PyTuple kwnames) throws Throwable {
-        int n;
-        if (kwnames == null || (n = kwnames.size()) == 0) {
-            // Positional arguments only.
-            Object[] args =
-                    Arrays.copyOfRange(stack, start, start + npos);
-            return call(callable, args, null);
-        } else {
-            // Some given by keyword.
-            Object[] args =
-                    Arrays.copyOfRange(stack, start, start + npos + n);
-            // We cannot guarantee that kwnames is a tuple of strings.
-            String[] kw = new String[n];
-            Object[] names = kwnames.value;
-            for (int i = 0; i < n; i++) { kw[i] = names[i].toString(); }
-            return call(callable, args, kw);
+    // In CPython nargs counts only positional arguments
+    static Object vectorcall(Object callable, Object[] s, int p,
+            int nargs, PyTuple kwnames) throws Throwable {
+
+        if (callable instanceof FastCall) {
+            /*
+             * Take the direct route since __call__ cannot be overridden
+             * by a Python redefinition of the slot.
+             */
+            return ((FastCall)callable).vectorcall(s, p, nargs,
+                    kwnames);
         }
+
+        Object[] args = Arrays.copyOfRange(s, p, p + nargs);
+        String[] names = Callables.namesArray(kwnames);
+        return call(callable, args, names);
+    }
+
+    /**
+     * Call an object with the vector call protocol with no arguments
+     * given by keyword. This supports CPython byte code generated
+     * according to the conventions in PEP-590. Unlike its use in
+     * CPython, this is <b>not likely to be faster</b> than the standard
+     * {@link #call(Object, Object[], String[]) call} method.
+     *
+     * @see FastCall#vectorcall(Object[], int, int, PyTuple).
+     *
+     * @param callable target
+     * @param s positional and keyword arguments (the stack)
+     * @param p position of arguments in the array
+     * @param nargs number of positional <b>and keyword</b> arguments
+     * @return the return from the call to the object
+     * @throws TypeError if target is not callable
+     * @throws Throwable for errors raised in the function
+     */
+    // Compare CPython _PyObject_Vectorcall in abstract.h
+    // In CPython nargs counts only positional arguments
+    static Object vectorcall(Object callable, Object[] s, int p,
+            int nargs) throws TypeError, Throwable {
+
+        if (callable instanceof FastCall) {
+            /*
+             * Take the direct route since __call__ cannot be overridden
+             * by a Python redefinition of the slot.
+             */
+            FastCall fast = (FastCall)callable;
+            switch (nargs) {
+                case 0:
+                    return fast.call();
+                case 1:
+                    return fast.call(s[p]);
+                case 2:
+                    return fast.call(s[p++], s[p]);
+                case 3:
+                    return fast.call(s[p++], s[p++], s[p]);
+                case 4:
+                    return fast.call(s[p++], s[p++], s[p++], s[p]);
+                default:
+                    return fast.vectorcall(s, p, nargs, null);
+            }
+        }
+
+        Object[] args = Arrays.copyOfRange(s, p, p + nargs);
+        return call(callable, args, NO_KEYWORDS);
     }
 
     /**
@@ -317,4 +357,41 @@ class Callables extends Abstract {
         return callFunction(callable, args);
     }
 
+    /**
+     * Convert a {@code tuple} of names to an array of Java
+     * {@code String}. This is useful when converting CPython-style
+     * keyword names in a call to the array of (guaranteed)
+     * {@code String} which most of the implementation of call expects.
+     *
+     * @param kwnames (keyword) names to convert
+     * @return the names as an array
+     * @throws TypeError if any keyword is not a string
+     */
+    static String[] namesArray(PyTuple kwnames) throws TypeError {
+        int n;
+        if (kwnames == null || (n = kwnames.size()) == 0) {
+            return NO_KEYWORDS;
+        } else {
+            String[] names = new String[n];
+            for (int i = 0; i < n; i++) {
+                Object o = kwnames.get(i);
+                names[i] = PyUnicode.asString(o,
+                        () -> keywordTypeError(o));
+            }
+            return names;
+        }
+    }
+
+    /**
+     * Create a {@link TypeError} with a message along the lines
+     * "keywords must be strings, not 'X'" giving the type X of
+     * {@code name}.
+     *
+     * @param kwname actual object offered as a keyword
+     * @return exception to throw
+     */
+    public static TypeError keywordTypeError(Object kwname) {
+        String fmt = "keywords must be strings, not '%.200s'";
+        return new TypeError(fmt, PyType.of(kwname).getName());
+    }
 }
