@@ -71,16 +71,17 @@ class ArgParser {
     /**
      * Names of parameters that could be satisfied by position or
      * keyword, including the collector parameters. Elements are
-     * guaranteed to be interned, and not {@code null} or empty.
-     * The length of this array is the number of named parameters:
-     *         {@code argcount + kwonlyargcount
+     * guaranteed to be interned, and not {@code null} or empty. The
+     * length of this array is the number of named parameters:
+     * {@code argcount + kwonlyargcount
                 + (hasVarArgs() ? 1 : 0) + (hasVarKeywords() ? 1 : 0)}
-
      */
     /*
-     * Here and elsewhere we use the same names as the Python code, even
-     * though it tends to say "argument" when it could mean that or
-     * "parameter".
+     * Here and elsewhere we use the same names as the CPython code,
+     * even though it tends to say "argument" when it could mean that or
+     * "parameter". In comments and documentation "positional parameter"
+     * means a parameter eligible to be satisfied by an argument given
+     * by position.
      */
     final String[] argnames;
 
@@ -95,8 +96,11 @@ class ArgParser {
     /** The number of <b>positional</b> parameters. */
     final int argcount;
 
-    /** The number of positional-only parameters. This differs from
-     * {@link #argcount} by excluding parameters that may be given by keyword or position. */
+    /**
+     * The number of parameters that can only be satisfied by arguments
+     * given by position. This differs from {@link #argcount} by
+     * excluding parameters that may be given by keyword or position.
+     */
     final int posonlyargcount;
 
     /** The number of keyword-only parameters. */
@@ -111,12 +115,14 @@ class ArgParser {
      * The (positional) default parameters or {@code null} if there are
      * none.
      */
+    // Compare CPython PyFunctionObject::func_defaults
     private Object[] defaults;
 
     /**
      * The keyword defaults, may be a {@code dict} or {@code null} if
      * there are none.
      */
+    // Compare CPython PyFunctionObject::func_kwdefaults
     private Map<Object, Object> kwdefaults;
 
     /**

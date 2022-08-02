@@ -791,7 +791,7 @@ enum Slot {
             Object callWrapped(MethodHandle wrapped, Object self,
                     Object[] args, String[] names)
                     throws ArgumentError, Throwable {
-                checkArgs(args, 0, names);
+                checkNoArgs(args, names);
                 return wrapped.invokeExact(self);
             }
         },
@@ -859,7 +859,7 @@ enum Slot {
             Object callWrapped(MethodHandle wrapped, Object self,
                     Object[] args, String[] names)
                     throws ArgumentError, Throwable {
-                checkArgs(args, 0, names);
+                checkNoArgs(args, names);
                 return (int)wrapped.invokeExact(self);
             }
         },

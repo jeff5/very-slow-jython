@@ -57,6 +57,18 @@ abstract class MethodDescriptor extends Descriptor implements FastCall {
     }
 
     /**
+     * Check that no positional arguments are supplied, when no keyword
+     * arguments have been. This is for use when implementing optimised
+     * alternatives to {@code __call__}.
+     *
+     * @param args positional argument array to be checked
+     * @throws ArgumentError if positional arguments are given
+     */
+    final static void checkNoArgs(Object[] args) throws ArgumentError {
+        if (args.length != 0) { throw new ArgumentError(Mode.NOARGS); }
+    }
+
+    /**
      * Check the number of positional arguments and that no keywords are
      * supplied. This is for use when implementing {@code __call__}
      * etc..
@@ -96,4 +108,22 @@ abstract class MethodDescriptor extends Descriptor implements FastCall {
             throw new ArgumentError(Mode.NOKWARGS);
     }
 
+    /**
+     * Check that no positional arguments are supplied, when no keyword
+     * arguments have been. This is for use when implementing optimised
+     * alternatives to {@code __call__}.
+     *
+     * @param args positional argument tuple to be checked
+     * @param minArgs minimum number of positional arguments
+     * @param maxArgs maximum number of positional arguments
+     * @throws ArgumentError if the wrong number of positional arguments
+     *     are given
+     */
+    final static void checkArgs(Object[] args, int minArgs, int maxArgs)
+            throws ArgumentError {
+        int n = args.length;
+        if (n < minArgs || n > maxArgs) {
+            throw new ArgumentError(minArgs, maxArgs);
+        }
+    }
 }
