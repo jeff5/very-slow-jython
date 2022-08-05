@@ -14,21 +14,33 @@ import uk.co.farowl.vsj3.evo1.base.MethodKind;
 
 /**
  * The {@code enum MethodSignature} enumerates the method signatures for
- * which an optimised implementation is possible. There are sub-classes
- * of {@link PyJavaMethod} and {@link PyMethodDescr} corresponding to
- * these values. It is not required that each value have a distinct
- * optimised sub-class. This {@code enum} is used internally to choose
- * between these sub-classes.
+ * which an optimised implementation is possible. Sub-classes of
+ * {@link PyJavaMethod} and {@link PyMethodDescr} correspond to these
+ * values. It is not required that each value have a distinct optimised
+ * sub-class. This {@code enum} is used internally to choose between
+ * these sub-classes.
  */
 // Compare CPython METH_* constants in methodobject.h
 enum MethodSignature {
     // Constructors describe the parameters after self
-    NOARGS(),       // No arguments allowed after self (METH_NOARGS)
-    O1(O),          // One argument allowed after self (METH_O)
-    O2(O, O),       // Two arguments allowed after self
-    O3(O, O, O),    // Three arguments allowed after self
-    POSITIONAL(OA), // Only positional arguments allowed
-    GENERAL(OA);    // Full generality of ArgParser allowed
+    /** No arguments allowed after {@code self}. */
+    NOARGS(),       // METH_NOARGS
+    /** One argument allowed, possibly after {@code self}. */
+    O1(O),          // METH_O
+    /** Two arguments allowed, possibly after {@code self}. */
+    O2(O, O),
+    /** Three arguments allowed, possibly after {@code self}. */
+    O3(O, O, O),
+    /**
+     * Only positional arguments allowed, after {@code self} when
+     * describing an unbound method.
+     */
+    POSITIONAL(OA),
+    /**
+     * Full generality of ArgParser allowed, after {@code self} when
+     * describing an unbound method.
+     */
+    GENERAL(OA);
 
     /**
      * The type of method handles matching this method signature when it

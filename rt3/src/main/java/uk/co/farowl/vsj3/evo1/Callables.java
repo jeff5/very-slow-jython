@@ -19,7 +19,7 @@ class Callables extends Abstract {
      * then those given by keyword, and an array of the keywords in the
      * same order. Therefore {@code np = args.length - names.length}
      * arguments are given by position, and the keyword arguments are
-     * {{@code names[i]:args[np+i]}}.
+     * {@code args[np:]} named by {@code names[:]}.
      *
      * @param callable target
      * @param args all the arguments (position then keyword)
@@ -40,13 +40,7 @@ class Callables extends Abstract {
         if (callable instanceof FastCall) {
             // Take the direct route since __call__ is immutable
             FastCall fast = (FastCall)callable;
-            if (args == null || args.length == 0) {
-                return fast.call();
-            } else if (names == null) {
-                return fast.call(args);
-            } else {
-                return fast.__call__(args, names);
-            }
+            return fast.call(args, names);
         }
 
         try {
@@ -215,17 +209,18 @@ class Callables extends Abstract {
     static Object vectorcall(Object callable, Object[] s, int p,
             int nargs, PyTuple kwnames) throws Throwable {
 
+        String[] names = Callables.namesArray(kwnames);
+
         if (callable instanceof FastCall) {
             /*
              * Take the direct route since __call__ cannot be overridden
              * by a Python redefinition of the slot.
              */
-            return ((FastCall)callable).vectorcall(s, p, nargs,
-                    kwnames);
+            FastCall fast = (FastCall)callable;
+            return fast.vectorcall(s, p, nargs, names);
         }
 
         Object[] args = Arrays.copyOfRange(s, p, p + nargs);
-        String[] names = Callables.namesArray(kwnames);
         return call(callable, args, names);
     }
 
@@ -239,8 +234,8 @@ class Callables extends Abstract {
      * @see FastCall#vectorcall(Object[], int, int, PyTuple).
      *
      * @param callable target
-     * @param s positional and keyword arguments (the stack)
-     * @param p position of arguments in the array
+     * @param stack positional and keyword arguments (the stack)
+     * @param start position of arguments in the array
      * @param nargs number of positional <b>and keyword</b> arguments
      * @return the return from the call to the object
      * @throws TypeError if target is not callable
@@ -248,7 +243,7 @@ class Callables extends Abstract {
      */
     // Compare CPython _PyObject_Vectorcall in abstract.h
     // In CPython nargs counts only positional arguments
-    static Object vectorcall(Object callable, Object[] s, int p,
+    static Object vectorcall(Object callable, Object[] stack, int start,
             int nargs) throws TypeError, Throwable {
 
         if (callable instanceof FastCall) {
@@ -257,23 +252,10 @@ class Callables extends Abstract {
              * by a Python redefinition of the slot.
              */
             FastCall fast = (FastCall)callable;
-            switch (nargs) {
-                case 0:
-                    return fast.call();
-                case 1:
-                    return fast.call(s[p]);
-                case 2:
-                    return fast.call(s[p++], s[p]);
-                case 3:
-                    return fast.call(s[p++], s[p++], s[p]);
-                case 4:
-                    return fast.call(s[p++], s[p++], s[p++], s[p]);
-                default:
-                    return fast.vectorcall(s, p, nargs, null);
-            }
+            return fast.vectorcall(stack, start, nargs);
         }
 
-        Object[] args = Arrays.copyOfRange(s, p, p + nargs);
+        Object[] args = Arrays.copyOfRange(stack, start, start + nargs);
         return call(callable, args, NO_KEYWORDS);
     }
 

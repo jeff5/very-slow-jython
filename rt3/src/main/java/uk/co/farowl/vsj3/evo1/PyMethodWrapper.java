@@ -193,8 +193,14 @@ class PyMethodWrapper extends AbstractPyObject implements FastCall {
     // }
 
     // Compare CPython wrapper_call in descrobject.c
-    @Override
     public Object __call__(Object[] args, String[] names)
+            throws Throwable {
+        // ??? Could specialise to numbers of arguments/nokwds?
+        return descr.callWrapped(self, args, names);
+    }
+
+    @Override
+    public Object call(Object[] args, String[] names)
             throws Throwable {
         return descr.callWrapped(self, args, names);
     }

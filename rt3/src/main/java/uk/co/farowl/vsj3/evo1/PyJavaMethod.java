@@ -140,13 +140,17 @@ public abstract class PyJavaMethod
      * described by the parser do not include "self". This is the
      * factory that supports descriptor {@code __get__}.
      *
-     * @param descr descriptor
+     * @param descr descriptor being bound
      * @param self object to which bound (or {@code null} if a static
      *     method)
      * @return a Java method object supporting the signature
+     * @throws TypeError if {@code self} is not compatible with
+     *     {@code descr}
+     * @throws Throwable on other errors while chasing the MRO
      */
     // Compare CPython PyCFunction_NewEx in methodobject.c
-    static PyJavaMethod from(PyMethodDescr descr, Object self) {
+    static PyJavaMethod from(PyMethodDescr descr, Object self)
+            throws TypeError, Throwable {
         ArgParser ap = descr.argParser;
         assert ap.methodKind == MethodKind.INSTANCE;
         MethodHandle handle = descr.getHandle(self).bindTo(self);
@@ -156,6 +160,10 @@ public abstract class PyJavaMethod
                 return new NoArgs(ap, handle, self, null);
             case O1:
                 return new O1(ap, handle, self, null);
+            case O2:
+                // return new O2(ap, handle, self, null);
+            case O3:
+                // return new O3(ap, handle, self, null);
             case POSITIONAL:
                 return new Positional(ap, handle, self, null);
             case GENERAL:
@@ -201,11 +209,43 @@ public abstract class PyJavaMethod
                     __name__(), PyObjectUtil.toAt(self));
     }
 
-    @Override
     public Object __call__(Object[] args, String[] names)
             throws Throwable {
         /*
-         * The method handle type is {@code (O,[O])O}. The parser will
+         * XXX Consider specialising to numbers of arguments and keyword
+         * use, to call the optimised call(...), as in PyMethodDescr.
+         */
+        /*
+         * The method handle type is {@code (O,O[])O}. The parser will
+         * make an array of the args, and where allowed, gather excess
+         * arguments into a tuple or dict, and fill missing ones from
+         * defaults.
+         */
+        try {
+            // Call through the correct wrapped handle
+            return callBound(args, names);
+        } catch (ArgumentError ae) {
+            /*
+             * Implementations may throw ArgumentError as a simplified
+             * encoding of a TypeError.
+             */
+            throw typeError(ae, args);
+        }
+    }
+
+    /*
+     * Although this class implements FastCall, it does not yet properly
+     * take advantage of the specialisation to number of arguments in
+     * signatures of call(...), overridden in the sub-classes and
+     * selected in __call__. See PyMethodDescr for a fully-worked
+     * application of the FastCall idea.
+     */
+
+    @Override
+    public Object call(Object[] args, String[] names) throws Throwable {
+        // This should *not* specialise to numbers of arguments.
+        /*
+         * The method handle type is {@code (O,O[])O}. The parser will
          * make an array of the args, and where allowed, gather excess
          * arguments into a tuple or dict, and fill missing ones from
          * defaults.

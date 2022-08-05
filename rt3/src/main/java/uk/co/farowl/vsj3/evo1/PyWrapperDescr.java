@@ -6,6 +6,7 @@ import java.util.Arrays;
 
 import uk.co.farowl.vsj3.evo1.Exposed.Getter;
 import uk.co.farowl.vsj3.evo1.PyType.Flag;
+import uk.co.farowl.vsj3.evo1.Slot.Signature;
 
 /**
  * A {@link Descriptor} for a particular definition <b>in Java</b> of
@@ -154,7 +155,6 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
      * @throws Throwable from the implementation of the special method
      */
     // Compare CPython wrapperdescr_call in descrobject.c
-    @Override
     public Object __call__(Object[] args, String[] names)
             throws TypeError, Throwable {
 
@@ -183,6 +183,41 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
             // Not even one argument
             throw new TypeError(DESCRIPTOR_NEEDS_ARGUMENT, name,
                     objclass.name);
+        }
+    }
+
+    @Override
+    public Object call(Object[] args, String[] names)
+            throws TypeError, Throwable {
+
+        int n = args.length, m = n - 1;
+
+        if (m < 0) {
+            // Not even one argument
+            throw new TypeError(DESCRIPTOR_NEEDS_ARGUMENT, name,
+                    objclass.name);
+        } else {
+            // Split the leading element self from rest of args
+            Object self = args[0], rest[];
+            if (m == 0) {
+                rest = Py.EMPTY_ARRAY;
+            } else {
+                rest = new Object[m];
+                System.arraycopy(args, 1, rest, 0, m);
+            }
+
+            try {
+                // Call this as a method bound to self.
+                Signature sig = slot.signature;
+                MethodHandle wrapped = getWrapped(self.getClass());
+                return sig.callWrapped(wrapped, self, rest, names);
+            } catch (ArgumentError ae) {
+                /*
+                 * Implementations may throw ArgumentError as a
+                 * simplified encoding of a TypeError.
+                 */
+                throw typeError(ae, rest);
+            }
         }
     }
 
@@ -250,7 +285,7 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
 
     /**
      * A {@link PyWrapperDescr} for use when the owning Python type has
-     * multiple accepted implementation.
+     * multiple accepted implementations.
      */
     static class Multiple extends PyWrapperDescr {
 
