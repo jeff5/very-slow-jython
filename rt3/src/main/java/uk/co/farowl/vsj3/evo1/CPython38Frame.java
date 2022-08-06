@@ -471,7 +471,7 @@ class CPython38Frame extends PyFrame<CPython38Code> {
                 // Should handle within Python, but for now, stop.
                 System.err.println(pye);
                 throw pye;
-            } catch (InterpreterError ie) {
+            } catch (InterpreterError | AssertionError ie) {
                 /*
                  * An InterpreterError signals an internal error,
                  * recognised by our implementation: stop.

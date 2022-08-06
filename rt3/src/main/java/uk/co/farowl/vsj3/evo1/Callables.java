@@ -40,7 +40,12 @@ class Callables extends Abstract {
         if (callable instanceof FastCall) {
             // Take the direct route since __call__ is immutable
             FastCall fast = (FastCall)callable;
-            return fast.call(args, names);
+            try {
+                return fast.call(args, names);
+            } catch (ArgumentError ae) {
+                // Demand a proper TypeError.
+                throw fast.typeError(ae, args, names);
+            }
         }
 
         try {
@@ -87,7 +92,7 @@ class Callables extends Abstract {
             }
         }
 
-        try {
+        try { // XXX FastCall possible
             /*
              * In CPython, there are specific cases here that look for
              * support for vector call and PyCFunction (would be
@@ -196,8 +201,8 @@ class Callables extends Abstract {
      * @see FastCall#vectorcall(Object[], int, int, PyTuple).
      *
      * @param callable target
-     * @param s positional and keyword arguments
-     * @param p position of arguments in the array
+     * @param stack positional and keyword arguments
+     * @param start position of arguments in the array
      * @param nargs number of positional <b>and keyword</b> arguments
      * @param kwnames names of keyword arguments or {@code null}
      * @return the return from the call to the object
@@ -206,21 +211,21 @@ class Callables extends Abstract {
      */
     // Compare CPython _PyObject_Vectorcall in abstract.h
     // In CPython nargs counts only positional arguments
-    static Object vectorcall(Object callable, Object[] s, int p,
+    static Object vectorcall(Object callable, Object[] stack, int start,
             int nargs, PyTuple kwnames) throws Throwable {
-
         String[] names = Callables.namesArray(kwnames);
-
         if (callable instanceof FastCall) {
-            /*
-             * Take the direct route since __call__ cannot be overridden
-             * by a Python redefinition of the slot.
-             */
+            // Fast path recognising optimised callable
             FastCall fast = (FastCall)callable;
-            return fast.vectorcall(s, p, nargs, names);
+            try {
+                return fast.vectorcall(stack, start, nargs, names);
+            } catch (ArgumentError ae) {
+                // Demand a proper TypeError.
+                throw fast.typeError(ae, stack, start, nargs, names);
+            }
         }
-
-        Object[] args = Arrays.copyOfRange(s, p, p + nargs);
+        // Slow path by converting stack to ephemeral array
+        Object[] args = Arrays.copyOfRange(stack, start, start + nargs);
         return call(callable, args, names);
     }
 
@@ -245,16 +250,17 @@ class Callables extends Abstract {
     // In CPython nargs counts only positional arguments
     static Object vectorcall(Object callable, Object[] stack, int start,
             int nargs) throws TypeError, Throwable {
-
         if (callable instanceof FastCall) {
-            /*
-             * Take the direct route since __call__ cannot be overridden
-             * by a Python redefinition of the slot.
-             */
+            // Fast path recognising optimised callable
             FastCall fast = (FastCall)callable;
-            return fast.vectorcall(stack, start, nargs);
+            try {
+                return fast.vectorcall(stack, start, nargs);
+            } catch (ArgumentError ae) {
+                // Demand a proper TypeError.
+                throw fast.typeError(ae, stack, start, nargs);
+            }
         }
-
+        // Slow path by converting stack to ephemeral array
         Object[] args = Arrays.copyOfRange(stack, start, start + nargs);
         return call(callable, args, NO_KEYWORDS);
     }
@@ -315,7 +321,13 @@ class Callables extends Abstract {
     static Object call(Object callable) throws Throwable {
         if (callable instanceof FastCall) {
             // Take the short-cut.
-            return ((FastCall)callable).call();
+            FastCall fast = (FastCall)callable;
+            try {
+                return fast.call();
+            } catch (ArgumentError ae) {
+                // Demand a proper TypeError.
+                throw fast.typeError(ae, Py.EMPTY_ARRAY);
+            }
         }
         // Fast call is not supported by the type. Make standard call.
         return call(callable, Py.EMPTY_ARRAY, NO_KEYWORDS);

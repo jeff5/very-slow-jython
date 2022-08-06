@@ -880,9 +880,9 @@ class ArgParser {
             }
 
             /*
-             * For each of the names in kwnames, search code.varnames
-             * for a match, and either assign the local variable or add
-             * the name-value pair to kwdict.
+             * For each of the names in kwnames, search argnames for a
+             * match, and either assign the local variable or add the
+             * name-value pair to kwdict.
              */
             int kwcount = kwnames == null ? 0 : kwnames.length;
             for (int i = 0, j = kwstart; i < kwcount; i++) {
@@ -1384,7 +1384,7 @@ class ArgParser {
                 throw frame.tooManyPositional(nargs);
             }
 
-        } else { // nargs <= code.argcount
+        } else { // nargs <= argcount
 
             if (varArgsIndex >= 0) {
                 // No excess: set the * parameter in the frame to empty
@@ -1443,7 +1443,7 @@ class ArgParser {
                 throw frame.tooManyPositional(nargs);
             }
 
-        } else { // nargs <= code.argcount
+        } else { // nargs <= argcount
 
             if (varArgsIndex >= 0) {
                 // No excess: set the * parameter in the frame to empty

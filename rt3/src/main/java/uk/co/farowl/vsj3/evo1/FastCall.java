@@ -42,9 +42,12 @@ interface FastCall {
      * @param args all arguments given, positional then keyword
      * @param names of keyword arguments or {@code null}
      * @return result of the invocation
+     * @throws ArgumentError if the wrong number of arguments is given,
+     *     or keywords where not expected.
      * @throws Throwable from the implementation
      */
-    Object call(Object[] args, String[] names) throws Throwable;
+    Object call(Object[] args, String[] names)
+            throws ArgumentError, Throwable;
 
     /**
      * Call the object with arguments given by position only.
@@ -54,9 +57,10 @@ interface FastCall {
      *
      * @param args arguments given by position
      * @return result of the invocation
+     * @throws ArgumentError if the wrong number of arguments is given.
      * @throws Throwable from the implementation
      */
-    default Object call(Object[] args) throws Throwable {
+    default Object call(Object[] args) throws ArgumentError, Throwable {
         return call(args, null);
     }
 
@@ -76,9 +80,10 @@ interface FastCall {
      *     {@link #call(Object[])} with an empty array.
      *
      * @return result of the invocation
+     * @throws ArgumentError if zero arguments is the wrong number.
      * @throws Throwable from the implementation
      */
-    default Object call() throws Throwable {
+    default Object call() throws ArgumentError, Throwable {
         return call(Py.EMPTY_ARRAY);
     }
 
@@ -90,9 +95,10 @@ interface FastCall {
      *
      * @param a0 single argument (may be {@code self})
      * @return result of the invocation
+     * @throws ArgumentError if one argument is the wrong number.
      * @throws Throwable from the implementation
      */
-    default Object call(Object a0) throws Throwable {
+    default Object call(Object a0) throws ArgumentError, Throwable {
         return call(new Object[] {a0});
     }
 
@@ -105,9 +111,11 @@ interface FastCall {
      * @param a0 zeroth argument (may be {@code self})
      * @param a1 next argument
      * @return result of the invocation
+     * @throws ArgumentError if two arguments is the wrong number.
      * @throws Throwable from the implementation
      */
-    default Object call(Object a0, Object a1) throws Throwable {
+    default Object call(Object a0, Object a1)
+            throws ArgumentError, Throwable {
         return call(new Object[] {a0, a1});
     }
 
@@ -121,10 +129,11 @@ interface FastCall {
      * @param a1 next argument
      * @param a2 next argument
      * @return result of the invocation
+     * @throws ArgumentError if three arguments is the wrong number.
      * @throws Throwable from the implementation
      */
     default Object call(Object a0, Object a1, Object a2)
-            throws Throwable {
+            throws ArgumentError, Throwable {
         return call(new Object[] {a0, a1, a2});
     }
 
@@ -138,11 +147,12 @@ interface FastCall {
      * @param a1 next argument
      * @param a2 next argument
      * @param a3 next argument
+     * @throws ArgumentError if four arguments is the wrong number.
      * @return result of the invocation
      * @throws Throwable from the implementation
      */
     default Object call(Object a0, Object a1, Object a2, Object a3)
-            throws Throwable {
+            throws ArgumentError, Throwable {
         return call(new Object[] {a0, a1, a2, a3});
     }
 
@@ -162,13 +172,15 @@ interface FastCall {
      * @param n number of positional <b>and keyword</b> arguments
      * @param names of keyword arguments or {@code null}
      * @return the return from the call to the object
+     * @throws ArgumentError if the wrong number of arguments is given,
+     *     or keywords where not expected.
      * @throws TypeError if target is not callable
      * @throws Throwable for errors raised in the function
      */
     // Compare CPython _PyObject_Vectorcall in abstract.h
     // In CPython nargs counts only positional arguments
     default Object vectorcall(Object[] s, int p, int n, String[] names)
-            throws Throwable {
+            throws ArgumentError, Throwable {
         if (names == null || names.length == 0)
             return vectorcall(s, p, n);
         else {
@@ -191,13 +203,14 @@ interface FastCall {
      * @param p position of arguments in the array
      * @param n number of <b>positional</b> arguments
      * @return the return from the call to the object
+     * @throws ArgumentError if the wrong number of arguments is given.
      * @throws TypeError if target is not callable
      * @throws Throwable for errors raised in the function
      */
     // Compare CPython _PyObject_Vectorcall in abstract.h
     // In CPython nargs counts only positional arguments
     default Object vectorcall(Object[] s, int p, int n)
-            throws Throwable {
+            throws ArgumentError, Throwable {
         switch (n) {
             case 0:
                 return call();
@@ -212,5 +225,70 @@ interface FastCall {
             default:
                 return call(Arrays.copyOfRange(s, p, p + n));
         }
+    }
+
+    /**
+     * Translate an {@link ArgumentError} that resulted from a call to
+     * this {@code FastCall} object, and the arguments that were
+     * supplied in the call, to a Python {@link TypeError}.
+     * <p>
+     * Any of the optimised {@code call(...)}, or
+     * {@code vectorcall(...)} methods in this interface may throw
+     * {@code ArgumentError} as a shorthand. (This is to keep code
+     * short, especially when it is a handle graph.) The caller should
+     * catch this close to the call and use this method to swap the
+     * {@code ArgumentError} for a Python {@code TypeError}.
+     *
+     * @param ae previously thrown by this object
+     * @param args all arguments given, positional then keyword
+     * @param names of keyword arguments or {@code null}
+     * @return Python {@code TypeError} to throw
+     */
+    TypeError typeError(ArgumentError ae, Object[] args,
+            String[] names);
+
+    /**
+     * As {@link #typeError(ArgumentError, Object[], String[])} when
+     * there were no arguments by keyword.
+     *
+     * @param ae previously thrown by this object
+     * @param args all arguments given, positional then keyword
+     * @return Python {@code TypeError} to throw
+     */
+    default TypeError typeError(ArgumentError ae, Object[] args) {
+        return typeError(ae, args, null);
+    }
+
+    /**
+     * As {@link #typeError(ArgumentError, Object[], String[])} for
+     * {@link #vectorcall(Object[], int, int, String[])} arguments.
+     *
+     * @param ae previously thrown by this object
+     * @param s positional and keyword arguments
+     * @param p position of arguments in the array
+     * @param n number of <b>positional</b> arguments
+     * @param names of keyword arguments or {@code null}
+     * @return Python {@code TypeError} to throw
+     */
+    default TypeError typeError(ArgumentError ae, Object[] s, int p,
+            int n, String[] names) {
+        Object[] args = Arrays.copyOfRange(s, p, p + n);
+        return typeError(ae, args, names);
+    }
+
+    /**
+     * As
+     * {@link #typeError(ArgumentError, Object[], int, int, String[])}
+     * when there were no arguments by keyword.
+     *
+     * @param ae previously thrown by this object
+     * @param s positional and keyword arguments
+     * @param p position of arguments in the array
+     * @param n number of <b>positional</b> arguments
+     * @return Python {@code TypeError} to throw
+     */
+    default TypeError typeError(ArgumentError ae, Object[] s, int p,
+            int n) {
+        return typeError(ae, s, p, p + n, null);
     }
 }

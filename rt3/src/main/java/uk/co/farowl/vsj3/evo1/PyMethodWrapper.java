@@ -164,7 +164,7 @@ class PyMethodWrapper extends AbstractPyObject implements FastCall {
     protected Object __eq__(Object b) {
         // Both arguments should be exactly PyMethodWrapper
         if (b instanceof PyMethodWrapper) {
-            PyMethodWrapper wb = (PyMethodWrapper) b;
+            PyMethodWrapper wb = (PyMethodWrapper)b;
             return descr == wb.descr && self == wb.self;
         }
         return Py.NotImplemented;
@@ -174,7 +174,7 @@ class PyMethodWrapper extends AbstractPyObject implements FastCall {
     protected Object __ne__(Object b) {
         // Both arguments should be exactly PyMethodWrapper
         if (b instanceof PyMethodWrapper) {
-            PyMethodWrapper wb = (PyMethodWrapper) b;
+            PyMethodWrapper wb = (PyMethodWrapper)b;
             return descr != wb.descr || self != wb.self;
         }
         return Py.NotImplemented;
@@ -200,8 +200,13 @@ class PyMethodWrapper extends AbstractPyObject implements FastCall {
     }
 
     @Override
-    public Object call(Object[] args, String[] names)
-            throws Throwable {
+    public Object call(Object[] args, String[] names) throws Throwable {
         return descr.callWrapped(self, args, names);
+    }
+
+    @Override
+    public TypeError typeError(ArgumentError ae, Object[] args,
+            String[] names) {
+        return descr.typeError(ae, args, names);
     }
 }

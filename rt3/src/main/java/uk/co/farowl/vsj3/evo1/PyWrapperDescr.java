@@ -2,7 +2,6 @@ package uk.co.farowl.vsj3.evo1;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
-import java.util.Arrays;
 
 import uk.co.farowl.vsj3.evo1.Exposed.Getter;
 import uk.co.farowl.vsj3.evo1.PyType.Flag;
@@ -241,7 +240,7 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
             Slot.Signature sig = slot.signature;
             return sig.callWrapped(wrapped, self, args, names);
         } catch (ArgumentError ae) {
-            throw typeError(ae, args);
+            throw typeError(ae, args, names);
         }
     }
 

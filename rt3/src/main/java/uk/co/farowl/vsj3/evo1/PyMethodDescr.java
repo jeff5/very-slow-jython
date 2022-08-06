@@ -75,7 +75,7 @@ abstract class PyMethodDescr extends MethodDescriptor {
     final MethodSignature signature;
 
     /**
-     * Construct a base method descriptor, identifying the
+     * Construct a Python {@code method} descriptor, identifying the
      * implementation by a parser and a method handle.
      *
      * @param objclass the class declaring the method
@@ -97,9 +97,10 @@ abstract class PyMethodDescr extends MethodDescriptor {
     }
 
     /**
-     * Construct a {@code PyMethodDescr} from an {@link ArgParser} and
-     * {@code MethodHandle}s for the implementation methods. The
-     * arguments described by the parser do not include "self".
+     * Construct a Python {@code method} descriptor from an
+     * {@link ArgParser} and {@code MethodHandle}s for the
+     * implementation methods. The arguments described by the parser do
+     * not include "self".
      * <p>
      * In the most common case, where {@code objclass} has only one
      * accepted implementation, there will be only one handle in the
@@ -138,9 +139,9 @@ abstract class PyMethodDescr extends MethodDescriptor {
                     case O1:
                         return new O1(objclass, ap, mh);
                     case O2:
-                        // return new O2(objclass, ap, mh);
+                        return new O2(objclass, ap, mh);
                     case O3:
-                        // return new O3(objclass, ap, mh);
+                        return new O3(objclass, ap, mh);
                     case POSITIONAL:
                         return new Positional(objclass, ap, mh);
                     default:
@@ -162,11 +163,11 @@ abstract class PyMethodDescr extends MethodDescriptor {
                         return new Multiple.O1(objclass, ap,
                                 candidates);
                     case O2:
-                        // return new Multiple.O2(objclass, ap,
-                        // candidates);
+                        return new Multiple.O2(objclass, ap,
+                                candidates);
                     case O3:
-                        // return new Multiple.O3(objclass, ap,
-                        // candidates);
+                        return new Multiple.O3(objclass, ap,
+                                candidates);
                     case POSITIONAL:
                         return new Multiple.Positional(objclass, ap,
                                 candidates);
@@ -193,8 +194,8 @@ abstract class PyMethodDescr extends MethodDescriptor {
      * override this method with simplified logic.
      *
      * @param self target object of the method call
-     * @param args of the method call
-     * @param names of args given by keyword or {@code null}
+     * @param args arguments of the method call
+     * @param names of arguments given by keyword or {@code null}
      * @return result of the method call
      * @throws TypeError when the arguments ({@code args} {@code names})
      *     are not correct for the method signature
@@ -214,7 +215,7 @@ abstract class PyMethodDescr extends MethodDescriptor {
      * {@link #callMethod(Object, Object[], String[])}.
      *
      * @param self target object of the method call
-     * @param args of the method call
+     * @param args arguments of the method call
      * @return result of the method call
      * @throws TypeError when the arguments ({@code args} are not
      *     correct for the method signature
@@ -264,7 +265,7 @@ abstract class PyMethodDescr extends MethodDescriptor {
             try {
                 return callMethod(self, rest, names);
             } catch (ArgumentError ae) {
-                throw typeError(ae, rest);
+                throw typeError(ae, rest, names);
             }
         }
     }
@@ -370,23 +371,27 @@ abstract class PyMethodDescr extends MethodDescriptor {
      */
     public Object __call__(Object[] args, String[] names)
             throws TypeError, Throwable {
-        if (names != null && names.length != 0) {
-            return call(args, names);
-        } else {
-            int n = args.length;
-            switch (n) {
-                // case 0 (an error) is handled by the default clause
-                case 1:
-                    return call(args[0]);
-                case 2:
-                    return call(args[0], args[1]);
-                case 3:
-                    return call(args[0], args[1], args[2]);
-                case 4:
-                    return call(args[0], args[1], args[2], args[3]);
-                default:
-                    return call(args);
+        try {
+            if (names != null && names.length != 0) {
+                return call(args, names);
+            } else {
+                int n = args.length;
+                switch (n) {
+                    // case 0 (an error) handled by default clause
+                    case 1:
+                        return call(args[0]);
+                    case 2:
+                        return call(args[0], args[1]);
+                    case 3:
+                        return call(args[0], args[1], args[2]);
+                    case 4:
+                        return call(args[0], args[1], args[2], args[3]);
+                    default:
+                        return call(args);
+                }
             }
+        } catch (ArgumentError ae) {
+            throw typeError(ae, args);
         }
     }
 
@@ -554,16 +559,19 @@ abstract class PyMethodDescr extends MethodDescriptor {
     }
 
     /**
-     * Base class for methods that accept a defined maximum and minimum
-     * numbers of arguments after {@code self}, that must be given by
-     * position. Arguments may not be given by keyword.
+     * Base class for methods that accept between defined maximum and
+     * minimum numbers of arguments {@code self}, that must be given by
+     * position. Maximum and minimum may be equal to a single acceptable
+     * number.
      * <p>
-     * There is no excess argument (varargs) collector. The number of
-     * arguments required by the wrapped Java method sets a maximum
-     * allowable number of arguments. Fewer arguments than this may be
-     * given, to the extent that defaults specified by the parser make
-     * up the difference. The number of available defaults determines
-     * the minimum number of arguments to be supplied.
+     * Arguments may not be given by keyword. There is no excess
+     * argument (varargs) collector.
+     * <p>
+     * The number of arguments required by the wrapped Java method sets
+     * a maximum allowable number of arguments. Fewer arguments than
+     * this may be given, to the extent that defaults specified by the
+     * parser make up the difference. The number of available defaults
+     * determines the minimum number of arguments to be supplied.
      */
     private static abstract class AbstractPositional
             extends PyMethodDescr {
@@ -638,64 +646,6 @@ abstract class PyMethodDescr extends MethodDescriptor {
     }
 
     /**
-     * A method represented by {@code Positional} accepts a number of
-     * arguments after {@code self}, that must be given by position.
-     * Arguments may not be given by keyword.
-     * <p>
-     * There is no excess argument (varargs) collector. The number of
-     * arguments required by the wrapped Java method sets a maximum
-     * allowable number of arguments. Fewer arguments than this may be
-     * given, to the extent that defaults specified by the parser make
-     * up the difference. The number of available defaults determines
-     * the minimum number of arguments to be supplied.
-     * <p>
-     * {@link #fromParser(PyType, ArgParser, List) fromParser()} will
-     * only choose a {@code Positional} (or sub-class) representation of
-     * the method when these conditions apply.
-     */
-    private static class Positional extends AbstractPositional {
-
-        /**
-         * Construct a method descriptor, identifying the implementation
-         * by a parser and a method handle.
-         *
-         * @param objclass the class declaring the method
-         * @param argParser describing the signature of the method
-         * @param method handle to invoke the wrapped method or
-         *     {@code null} signifying the empty handle.
-         */
-        // Compare CPython PyDescr_NewMethod in descrobject.c
-        Positional(PyType objclass, ArgParser argParser,
-                MethodHandle method) {
-            super(objclass, argParser, MethodSignature.POSITIONAL,
-                    method);
-            assert max == argParser.argcount;
-            assert max - min == d.length;
-        }
-
-        @Override
-        Object callMethod(Object self, Object[] args)
-                throws TypeError, Throwable {
-            // The method handle type is (O,O[])O.
-            MethodHandle mh = getHandle(self);
-            assert mh.type() == MethodSignature.POSITIONAL.instanceType;
-            int n = args.length, k;
-            if (n == max) {
-                // Number of arguments matches number of parameters
-                return mh.invokeExact(self, args);
-            } else if ((k = n - min) >= 0) {
-                // Concatenate args[:] and defaults[k:]
-                Object[] frame = new Object[max];
-                System.arraycopy(args, 0, frame, 0, n);
-                System.arraycopy(d, k, frame, n, max - n);
-                return mh.invokeExact(self, frame);
-            }
-            // n < min || n > max
-            throw new ArgumentError(min, max);
-        }
-    }
-
-    /**
      * A method represented by {@code NoArgs} accepts <b>no</b>
      * arguments after {@code self}, by position or keyword.
      * <p>
@@ -740,8 +690,9 @@ abstract class PyMethodDescr extends MethodDescriptor {
     }
 
     /**
-     * The implementation signature accepts one argument after
-     * {@code self}.
+     * The implementation signature requires {@code self} and one
+     * argument, which may be supplied by
+     * {@link ArgParser#getDefaults()}.
      */
     private static class O1 extends AbstractPositional {
 
@@ -762,21 +713,25 @@ abstract class PyMethodDescr extends MethodDescriptor {
         }
 
         @Override
-        Object callMethod(Object self, Object[] args)
+        Object callMethod(Object self, Object[] a)
                 throws TypeError, Throwable {
             // The method handle type is (O,O)O.
             MethodHandle mh = getHandle(self);
             assert mh.type() == MethodSignature.O1.instanceType;
-            if (args.length == 0) {
+            int n = a.length;
+            if (n == 1) {
+                // Number of arguments matches number of parameters
+                return mh.invokeExact(self, a[0]);
+            } else if (n == min) {
+                // Since min<=max, max==1 and n!=1, we have n==min==0
                 return mh.invokeExact(self, d[0]);
-            } else {
-                return mh.invokeExact(self, args[0]);
             }
+            // n < min || n > max
+            throw new ArgumentError(min, max);
         }
 
         @Override
         public Object call(Object self) throws Throwable {
-            checkSelfType(self);
             MethodHandle mh = getHandle(self);
             if (min > 0) { throw new ArgumentError(min, 1); }
             return mh.invokeExact(self, d[0]);
@@ -784,15 +739,15 @@ abstract class PyMethodDescr extends MethodDescriptor {
 
         @Override
         public Object call(Object self, Object a1) throws Throwable {
-            checkSelfType(self);
             MethodHandle mh = getHandle(self);
             return mh.invokeExact(self, a1);
         }
     }
 
     /**
-     * The implementation signature accepts two arguments after
-     * {@code self}.
+     * The implementation signature requires {@code self} and two
+     * arguments, which may be supplied by
+     * {@link ArgParser#getDefaults()}.
      */
     private static class O2 extends AbstractPositional {
 
@@ -813,18 +768,18 @@ abstract class PyMethodDescr extends MethodDescriptor {
         }
 
         @Override
-        Object callMethod(Object self, Object[] args)
+        Object callMethod(Object self, Object[] a)
                 throws ArgumentError, TypeError, Throwable {
             // The method handle type is (O,O,O)O.
             MethodHandle mh = getHandle(self);
             assert mh.type() == MethodSignature.O2.instanceType;
-            int n = args.length, k;
+            int n = a.length, k;
             if (n == 2) {
                 // Number of arguments matches number of parameters
-                return mh.invokeExact(self, args[0], args[1]);
+                return mh.invokeExact(self, a[0], a[1]);
             } else if ((k = n - min) >= 0) {
                 if (n == 1) {
-                    return mh.invokeExact(self, args[0], d[k]);
+                    return mh.invokeExact(self, a[0], d[k]);
                 } else if (n == 0)
                     return mh.invokeExact(self, d[k++], d[k]);
             }
@@ -836,7 +791,7 @@ abstract class PyMethodDescr extends MethodDescriptor {
         public Object call(Object self) throws Throwable {
             MethodHandle mh = getHandle(self);
             assert mh.type() == MethodSignature.O2.instanceType;
-            if (0 >= min) { return mh.invokeExact(self, d[0], d[1]); }
+            if (min == 0) { return mh.invokeExact(self, d[0], d[1]); }
             throw new ArgumentError(min, max);
         }
 
@@ -859,8 +814,9 @@ abstract class PyMethodDescr extends MethodDescriptor {
     }
 
     /**
-     * The implementation signature accepts two arguments after
-     * {@code self}.
+     * The implementation signature requires {@code self} and three
+     * arguments, which may be supplied by
+     * {@link ArgParser#getDefaults()}.
      */
     private static class O3 extends AbstractPositional {
 
@@ -881,20 +837,20 @@ abstract class PyMethodDescr extends MethodDescriptor {
         }
 
         @Override
-        Object callMethod(Object self, Object[] args)
+        Object callMethod(Object self, Object[] a)
                 throws ArgumentError, TypeError, Throwable {
-            // The method handle type is (O,O,O)O.
+            // The method handle type is (O,O,O,O)O.
             MethodHandle mh = getHandle(self);
             assert mh.type() == MethodSignature.O3.instanceType;
-            int n = args.length, k;
+            int n = a.length, k;
             if (n == 3) {
                 // Number of arguments matches number of parameters
-                return mh.invokeExact(self, args[0], args[1], args[2]);
+                return mh.invokeExact(self, a[0], a[1], a[2]);
             } else if ((k = n - min) >= 0) {
                 if (n == 2) {
-                    return mh.invokeExact(self, args[0], args[1], d[k]);
+                    return mh.invokeExact(self, a[0], a[1], d[k]);
                 } else if (n == 1) {
-                    return mh.invokeExact(self, args[0], d[k++], d[k]);
+                    return mh.invokeExact(self, a[0], d[k++], d[k]);
                 } else if (n == 0)
                     return mh.invokeExact(self, d[k++], d[k]);
             }
@@ -906,7 +862,7 @@ abstract class PyMethodDescr extends MethodDescriptor {
         public Object call(Object self) throws Throwable {
             MethodHandle mh = getHandle(self);
             assert mh.type() == MethodSignature.O3.instanceType;
-            if (0 >= min) { return mh.invokeExact(self, d[0]); }
+            if (min == 0) { return mh.invokeExact(self, d[0]); }
             throw new ArgumentError(min, max);
         }
 
@@ -937,6 +893,57 @@ abstract class PyMethodDescr extends MethodDescriptor {
             MethodHandle mh = getHandle(self);
             assert mh.type() == MethodSignature.O3.instanceType;
             return mh.invokeExact(self, a1, a2, a3);
+        }
+    }
+
+    /**
+     * A method represented by {@code Positional} only accepts arguments
+     * after {@code self} given by position. The constraints detailed
+     * for {@link AbstractPositional} apply.
+     * <p>
+     * {@link #fromParser(PyType, ArgParser, List) fromParser()} will
+     * only choose a {@code Positional} (or sub-class) representation of
+     * the method when these conditions apply.
+     */
+    private static class Positional extends AbstractPositional {
+
+        /**
+         * Construct a method descriptor, identifying the implementation
+         * by a parser and a method handle.
+         *
+         * @param objclass the class declaring the method
+         * @param argParser describing the signature of the method
+         * @param method handle to invoke the wrapped method or
+         *     {@code null} signifying the empty handle.
+         */
+        // Compare CPython PyDescr_NewMethod in descrobject.c
+        Positional(PyType objclass, ArgParser argParser,
+                MethodHandle method) {
+            super(objclass, argParser, MethodSignature.POSITIONAL,
+                    method);
+            assert max == argParser.argcount;
+            assert max - min == d.length;
+        }
+
+        @Override
+        Object callMethod(Object self, Object[] a)
+                throws TypeError, Throwable {
+            // The method handle type is (O,O[])O.
+            MethodHandle mh = getHandle(self);
+            assert mh.type() == MethodSignature.POSITIONAL.instanceType;
+            int n = a.length, k;
+            if (n == max) {
+                // Number of arguments matches number of parameters
+                return mh.invokeExact(self, a);
+            } else if ((k = n - min) >= 0) {
+                // Concatenate a[:] and defaults[k:]
+                Object[] frame = new Object[max];
+                System.arraycopy(a, 0, frame, 0, n);
+                System.arraycopy(d, k, frame, n, max - n);
+                return mh.invokeExact(self, frame);
+            }
+            // n < min || n > max
+            throw new ArgumentError(min, max);
         }
     }
 
@@ -976,49 +983,6 @@ abstract class PyMethodDescr extends MethodDescriptor {
                 super(objclass, argParser, null);
                 this.methods = prepareCandidates(
                         MethodSignature.GENERAL, candidates);
-            }
-
-            @Override
-            MethodHandle getHandle(Object self) {
-                // Work out how to call this descriptor on that object
-                int index = objclass.indexAccepted(self.getClass());
-                try {
-                    return methods[index];
-                } catch (ArrayIndexOutOfBoundsException iobe) {
-                    throw selfTypeError(self);
-                }
-            }
-        }
-
-        /**
-         * A variant of {@link PyMethodDescr.Positional} that allows for
-         * multiple accepted implementations of {@code objclass}.
-         */
-        static class Positional extends PyMethodDescr.Positional {
-            /**
-             * Handles for the particular implementations of a method.
-             * The method type of each is the same as
-             * {@link PyMethodDescr#method}, which itself will be set to
-             * "empty".
-             */
-            protected final MethodHandle[] methods;
-
-            /**
-             * Construct a method descriptor, a variant of
-             * {@link PyMethodDescr.Positional} that allows for multiple
-             * accepted implementations of {@code objclass}.
-             *
-             * @param objclass the class declaring the method
-             * @param argParser describing the signature of the method
-             * @param candidates handles to the implementations of that
-             *     method
-             */
-            // Compare CPython PyDescr_NewMethod in descrobject.c
-            Positional(PyType objclass, ArgParser argParser,
-                    List<MethodHandle> candidates) {
-                super(objclass, argParser, null);
-                this.methods = prepareCandidates(
-                        MethodSignature.POSITIONAL, candidates);
             }
 
             @Override
@@ -1191,6 +1155,49 @@ abstract class PyMethodDescr extends MethodDescriptor {
                 super(objclass, argParser, null);
                 this.methods = prepareCandidates(MethodSignature.O3,
                         candidates);
+            }
+
+            @Override
+            MethodHandle getHandle(Object self) {
+                // Work out how to call this descriptor on that object
+                int index = objclass.indexAccepted(self.getClass());
+                try {
+                    return methods[index];
+                } catch (ArrayIndexOutOfBoundsException iobe) {
+                    throw selfTypeError(self);
+                }
+            }
+        }
+
+        /**
+         * A variant of {@link PyMethodDescr.Positional} that allows for
+         * multiple accepted implementations of {@code objclass}.
+         */
+        static class Positional extends PyMethodDescr.Positional {
+            /**
+             * Handles for the particular implementations of a method.
+             * The method type of each is the same as
+             * {@link PyMethodDescr#method}, which itself will be set to
+             * "empty".
+             */
+            protected final MethodHandle[] methods;
+
+            /**
+             * Construct a method descriptor, a variant of
+             * {@link PyMethodDescr.Positional} that allows for multiple
+             * accepted implementations of {@code objclass}.
+             *
+             * @param objclass the class declaring the method
+             * @param argParser describing the signature of the method
+             * @param candidates handles to the implementations of that
+             *     method
+             */
+            // Compare CPython PyDescr_NewMethod in descrobject.c
+            Positional(PyType objclass, ArgParser argParser,
+                    List<MethodHandle> candidates) {
+                super(objclass, argParser, null);
+                this.methods = prepareCandidates(
+                        MethodSignature.POSITIONAL, candidates);
             }
 
             @Override

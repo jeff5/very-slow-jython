@@ -1,11 +1,10 @@
 package uk.co.farowl.vsj3.evo1;
 
-import static uk.co.farowl.vsj3.evo1.MethodDescriptor.checkNoArgs;
-import static uk.co.farowl.vsj3.evo1.MethodDescriptor.checkArgs;
-
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
+import java.util.List;
 
+import uk.co.farowl.vsj3.evo1.ArgumentError.Mode;
 import uk.co.farowl.vsj3.evo1.base.InterpreterError;
 import uk.co.farowl.vsj3.evo1.base.MethodKind;
 
@@ -121,7 +120,13 @@ public abstract class PyJavaMethod
                         self);
                 return new O1(ap, method, self, module);
             case O2:
+                method = MethodSignature.O2.prepareBound(ap, method,
+                        self);
+                return new O2(ap, method, self, module);
             case O3:
+                method = MethodSignature.O3.prepareBound(ap, method,
+                        self);
+                return new O3(ap, method, self, module);
             case POSITIONAL:
                 method = MethodSignature.POSITIONAL.prepareBound(ap,
                         method, self);
@@ -161,9 +166,9 @@ public abstract class PyJavaMethod
             case O1:
                 return new O1(ap, handle, self, null);
             case O2:
-                // return new O2(ap, handle, self, null);
+                return new O2(ap, handle, self, null);
             case O3:
-                // return new O3(ap, handle, self, null);
+                return new O3(ap, handle, self, null);
             case POSITIONAL:
                 return new Positional(ap, handle, self, null);
             case GENERAL:
@@ -174,30 +179,6 @@ public abstract class PyJavaMethod
                         descr.signature);
         }
     }
-
-    /**
-     * Invoke the method handle for the bound {@code self} (if any), and
-     * standard arguments ({@code Object[]} and {@code String[]}). The
-     * implementation will arrange {@code self} and the arguments as
-     * expected by the handle, or throw if they are not correct for
-     * that. In the general case, a call to {@link #argParser} is
-     * involved. We create sub-classes of {@link PyJavaMethod} to
-     * represent the finite repertoire of {@code MethodSignature}s, that
-     * override this method with simplified logic.
-     *
-     * @param args of the method call
-     * @param names of args given by keyword or {@code null}
-     * @return result of the method call
-     * @throws TypeError when the arguments ({@code args},
-     *     {@code kwargs}) are not correct for the method signature
-     * @throws ArgumentError as a shorthand for {@link TypeError}, which
-     *     the caller must convert with
-     *     {@link MethodDescriptor#typeError(ArgumentError, Object[])}
-     * @throws Throwable from the implementation of the special method
-     */
-    // XXX or should this just be called "call"?
-    abstract Object callBound(Object[] args, String[] names)
-            throws ArgumentError, TypeError, Throwable;
 
     // slot functions -------------------------------------------------
 
@@ -210,55 +191,28 @@ public abstract class PyJavaMethod
     }
 
     public Object __call__(Object[] args, String[] names)
-            throws Throwable {
-        /*
-         * XXX Consider specialising to numbers of arguments and keyword
-         * use, to call the optimised call(...), as in PyMethodDescr.
-         */
-        /*
-         * The method handle type is {@code (O,O[])O}. The parser will
-         * make an array of the args, and where allowed, gather excess
-         * arguments into a tuple or dict, and fill missing ones from
-         * defaults.
-         */
+            throws TypeError, Throwable {
         try {
-            // Call through the correct wrapped handle
-            return callBound(args, names);
+            if (names != null && names.length != 0) {
+                return call(args, names);
+            } else {
+                int n = args.length;
+                switch (n) {
+                    // case 0 (an error) handled by default clause
+                    case 1:
+                        return call(args[0]);
+                    case 2:
+                        return call(args[0], args[1]);
+                    case 3:
+                        return call(args[0], args[1], args[2]);
+                    case 4:
+                        return call(args[0], args[1], args[2], args[3]);
+                    default:
+                        return call(args);
+                }
+            }
         } catch (ArgumentError ae) {
-            /*
-             * Implementations may throw ArgumentError as a simplified
-             * encoding of a TypeError.
-             */
-            throw typeError(ae, args);
-        }
-    }
-
-    /*
-     * Although this class implements FastCall, it does not yet properly
-     * take advantage of the specialisation to number of arguments in
-     * signatures of call(...), overridden in the sub-classes and
-     * selected in __call__. See PyMethodDescr for a fully-worked
-     * application of the FastCall idea.
-     */
-
-    @Override
-    public Object call(Object[] args, String[] names) throws Throwable {
-        // This should *not* specialise to numbers of arguments.
-        /*
-         * The method handle type is {@code (O,O[])O}. The parser will
-         * make an array of the args, and where allowed, gather excess
-         * arguments into a tuple or dict, and fill missing ones from
-         * defaults.
-         */
-        try {
-            // Call through the correct wrapped handle
-            return callBound(args, names);
-        } catch (ArgumentError ae) {
-            /*
-             * Implementations may throw ArgumentError as a simplified
-             * encoding of a TypeError.
-             */
-            throw typeError(ae, args);
+            throw typeError(ae, args, names);
         }
     }
 
@@ -284,7 +238,10 @@ public abstract class PyJavaMethod
      * @return a {@code TypeError} to throw
      */
     // XXX Compare MethodDescriptor.typeError : unify?
-    protected TypeError typeError(ArgumentError ae, Object[] args) {
+    @Override
+    @SuppressWarnings("fallthrough")
+    public TypeError typeError(ArgumentError ae, Object[] args,
+            String[] names) {
         int n = args.length;
         switch (ae.mode) {
             case NOARGS:
@@ -293,6 +250,7 @@ public abstract class PyJavaMethod
                 return new TypeError("%s() %s (%d given)", __name__(),
                         ae, n);
             case NOKWARGS:
+                assert names != null && names.length > 0;
             default:
                 return new TypeError("%s() %s", __name__(), ae);
         }
@@ -318,10 +276,11 @@ public abstract class PyJavaMethod
         General(ArgParser argParser, MethodHandle handle, Object self,
                 String module) {
             super(argParser, handle, self, module);
+            assert handle.type() == MethodSignature.GENERAL.boundType;
         }
 
         @Override
-        Object callBound(Object[] args, String[] names)
+        public Object call(Object[] args, String[] names)
                 throws TypeError, Throwable {
             /*
              * The method handle type is {@code ([O])O}. The parser will
@@ -334,8 +293,71 @@ public abstract class PyJavaMethod
         }
     }
 
+    /**
+     * Base class for methods that accept between defined maximum and
+     * minimum numbers of arguments, that must be given by position.
+     * Maximum and minimum may be equal to a single acceptable number.
+     * <p>
+     * Arguments may not be given by keyword. There is no excess
+     * argument (varargs) collector.
+     * <p>
+     * The number of arguments required by the wrapped Java method sets
+     * a maximum allowable number of arguments. Fewer arguments than
+     * this may be given, to the extent that defaults specified by the
+     * parser make up the difference. The number of available defaults
+     * determines the minimum number of arguments to be supplied.
+     *
+     * @ImplNote Sub-classes must define {@link #call(Object[])}: the
+     *     default definition in {@link FastCall} is not enough.
+     */
+    private static abstract class AbstractPositional
+            extends PyJavaMethod {
+
+        /** Default values of the trailing arguments. */
+        protected final Object[] d;
+
+        /** Minimum number of positional arguments in a call. */
+        protected final int min;
+
+        /** Maximum number of positional arguments in a call. */
+        protected final int max;
+
+        /**
+         * Construct a method descriptor, identifying the implementation
+         * by a parser and a method handle.
+         */
+        // Compare CPython PyDescr_NewMethod in descrobject.c
+        AbstractPositional(ArgParser argParser, MethodHandle handle,
+                Object self, String module) {
+            super(argParser, handle, self, module);
+            assert !argParser.hasVarArgs();
+            // Cardinal values for positional argument processing
+            this.d = argParser.getDefaults();
+            this.max = argParser.argcount;
+            this.min = argParser.argcount - d.length;
+        }
+
+        @Override
+        public Object call(Object[] args, String[] names)
+                throws TypeError, Throwable {
+            if (names == null || names.length == 0) {
+                return call(args);
+            } else {
+                throw new ArgumentError(Mode.NOKWARGS);
+            }
+        }
+
+        @Override
+        public Object call(Object[] args) throws TypeError, Throwable {
+            // Make sure we find out if this is missing
+            throw new InterpreterError(
+                    "Sub-classes of AbstractPositional "
+                            + "must define call(Object[])");
+        }
+    }
+
     /** The implementation signature accepts no arguments. */
-    private static class NoArgs extends PyJavaMethod {
+    private static class NoArgs extends AbstractPositional {
 
         /**
          * Construct a method object, identifying the implementation by
@@ -351,25 +373,23 @@ public abstract class PyJavaMethod
         NoArgs(ArgParser argParser, MethodHandle handle, Object self,
                 String module) {
             super(argParser, handle, self, module);
+            assert handle.type() == MethodSignature.NOARGS.boundType;
         }
 
         @Override
-        Object callBound(Object[] args, String[] names)
-                throws Throwable {
+        public Object call(Object[] a) throws Throwable {
             // The method handle type is {@code ()O}.
-            checkNoArgs(args, names);
-            return handle.invokeExact();
+            if (a.length == 0) { return handle.invokeExact(); }
+            // n < min || n > max
+            throw new ArgumentError(min, max);
         }
     }
 
     /**
-     * The implementation signature accepts one positional arguments,
-     * with potentially a default value, specified by the parser.
+     * The implementation signature requires one argument, which may be
+     * supplied by {@link ArgParser#getDefaults()}.
      */
-    private static class O1 extends PyJavaMethod {
-
-        /** Default values of the trailing arguments. */
-        private final Object[] defaults;
+    private static class O1 extends AbstractPositional {
 
         /**
          * Construct a method object, identifying the implementation by
@@ -385,29 +405,171 @@ public abstract class PyJavaMethod
         O1(ArgParser argParser, MethodHandle handle, Object self,
                 String module) {
             super(argParser, handle, self, module);
-            this.defaults = argParser.getDefaults();
-            assert defaults.length <= 1;
+            assert handle.type() == MethodSignature.O1.boundType;
         }
 
         @Override
-        Object callBound(Object[] args, String[] names)
-                throws TypeError, Throwable {
+        public Object call(Object[] a) throws TypeError, Throwable {
             // The method handle type is {@code (O)O}.
-            checkArgs(args, 1 - defaults.length, 1, names);
-            return handle.invokeExact(
-                    (args.length == 1 ? args : defaults)[0]);
+            int n = a.length;
+            if (n == 1) {
+                // Number of arguments matches number of parameters
+                return handle.invokeExact(a[0]);
+            } else if (n == min) {
+                // Since min<=max, max==1 and n!=1, we have n==min==0
+                return handle.invokeExact(d[0]);
+            }
+            // n < min || n > max
+            throw new ArgumentError(min, max);
         }
     }
 
     /**
-     * The implementation signature accepts a number of positional
-     * arguments, with potential trailing defaults, specified by the
-     * parser.
+     * The implementation signature requires two arguments, which may be
+     * supplied by {@link ArgParser#getDefaults()}.
      */
-    private static class Positional extends PyJavaMethod {
+    private static class O2 extends AbstractPositional {
 
-        /** Default values of the trailing arguments. */
-        private final Object[] defaults;
+        /**
+         * Construct a method descriptor, identifying the implementation
+         * by a parser and a method handle.
+         *
+         * @param objclass the class declaring the method
+         * @param argParser describing the signature of the method
+         * @param method handle to invoke the wrapped method or
+         *     {@code null} signifying a matching empty handle.
+         */
+        // Compare CPython PyDescr_NewMethod in descrobject.c
+        O2(ArgParser argParser, MethodHandle handle, Object self,
+                String module) {
+            super(argParser, handle, self, module);
+            assert handle.type() == MethodSignature.O2.boundType;
+            assert max == 2;
+            assert max - min == d.length;
+        }
+
+        @Override
+        public Object call(Object[] a)
+                throws ArgumentError, TypeError, Throwable {
+            // The method handle type is (O,O)O.
+            int n = a.length, k;
+            if (n == 2) {
+                // Number of arguments matches number of parameters
+                return handle.invokeExact(a[0], a[1]);
+            } else if ((k = n - min) >= 0) {
+                if (n == 1) {
+                    return handle.invokeExact(a[0], d[k]);
+                } else if (n == 0)
+                    return handle.invokeExact(d[k++], d[k]);
+            }
+            // n < min || n > max
+            throw new ArgumentError(min, max);
+        }
+
+        @Override
+        public Object call() throws Throwable {
+            if (min == 0) { return handle.invokeExact(d[0], d[1]); }
+            throw new ArgumentError(min, max);
+        }
+
+        @Override
+        public Object call(Object a0) throws Throwable {
+            int k = 1 - min;
+            if (k >= 0) { return handle.invokeExact(a0, d[k]); }
+            throw new ArgumentError(min, max);
+        }
+
+        @Override
+        public Object call(Object self, Object a0, Object a1)
+                throws Throwable {
+            return handle.invokeExact(self, a0, a1);
+        }
+    }
+
+    /**
+     * The implementation signature requires three arguments, which may
+     * be supplied by {@link ArgParser#getDefaults()}.
+     */
+    private static class O3 extends AbstractPositional {
+
+        /**
+         * Construct a method descriptor, identifying the implementation
+         * by a parser and a method handle.
+         *
+         * @param objclass the class declaring the method
+         * @param argParser describing the signature of the method
+         * @param method handle to invoke the wrapped method or
+         *     {@code null} signifying a matching empty handle.
+         */
+        // Compare CPython PyDescr_NewMethod in descrobject.c
+        O3(ArgParser argParser, MethodHandle handle, Object self,
+                String module) {
+            super(argParser, handle, self, module);
+            assert handle.type() == MethodSignature.O3.boundType;
+            assert max == 3;
+            assert max - min == d.length;
+        }
+
+        @Override
+        public Object call(Object[] a)
+                throws ArgumentError, TypeError, Throwable {
+            // The method handle type is (O,O)O.
+            int n = a.length, k;
+            if (n == 3) {
+                // Number of arguments matches number of parameters
+                return handle.invokeExact(a[0], a[1], a[3]);
+            } else if ((k = n - min) >= 0) {
+                if (n == 2) {
+                    return handle.invokeExact(a[0], a[1], d[k]);
+                } else if (n == 1) {
+                    return handle.invokeExact(a[0], d[k++], d[k]);
+                } else {
+                    return handle.invokeExact(d[k++], d[k++], d[k]);
+                }
+            }
+            // n < min || n > max
+            throw new ArgumentError(min, max);
+        }
+
+        @Override
+        public Object call() throws Throwable {
+            if (min == 0) {
+                return handle.invokeExact(d[0], d[1], d[3]);
+            }
+            throw new ArgumentError(min, max);
+        }
+
+        @Override
+        public Object call(Object a0) throws Throwable {
+            int k = 1 - min;
+            if (k >= 0) { return handle.invokeExact(a0, d[k++], d[k]); }
+            throw new ArgumentError(min, max);
+        }
+
+        @Override
+        public Object call(Object a0, Object a1) throws Throwable {
+            int k = 2 - min;
+            if (k >= 0) { return handle.invokeExact(a0, a1, d[k]); }
+            throw new ArgumentError(min, max);
+        }
+
+        @Override
+        public Object call(Object a0, Object a1, Object a2)
+                throws Throwable {
+            return handle.invokeExact(a0, a1, a2);
+        }
+    }
+
+    /**
+     * A method represented by {@code Positional} only accepts arguments
+     * given by position. The constraints detailed for
+     * {@link AbstractPositional} apply.
+     * <p>
+     * {@link #fromParser(PyType, ArgParser, List) fromParser()} will
+     * only choose a {@code Positional} (or sub-class) representation of
+     * the method when these conditions apply.
+     */
+    private static class Positional extends AbstractPositional {
 
         /**
          * Construct a method object, identifying the implementation by
@@ -420,29 +582,32 @@ public abstract class PyJavaMethod
          * @param module name of the module supplying the definition (or
          *     {@code null} if representing a bound method of a type)
          */
+        // XXX Compare CPython XXX in XXX
         Positional(ArgParser argParser, MethodHandle handle,
                 Object self, String module) {
             super(argParser, handle, self, module);
-            this.defaults = argParser.getDefaults();
+            assert handle
+                    .type() == MethodSignature.POSITIONAL.boundType;
+            assert max == argParser.argcount;
+            assert max - min == d.length;
         }
 
         @Override
-        Object callBound(Object[] args, String[] names)
-                throws TypeError, Throwable {
+        public Object call(Object[] args) throws TypeError, Throwable {
             // The method handle type is {@code (O[])O}.
-            int max = argParser.argcount;
-            int min = max - defaults.length;
-            checkArgs(args, min, max, names);
-            // May need to fill a gap from defaults
-            int n = args.length, gap = max - n;
-            if (gap == 0) {
+            int n = args.length, k;
+            if (n == max) {
+                // Number of arguments matches number of parameters
                 return handle.invokeExact(args);
-            } else {
+            } else if ((k = n - min) >= 0) {
+                // Concatenate args[:] and defaults[k:]
                 Object[] frame = new Object[max];
                 System.arraycopy(args, 0, frame, 0, n);
-                System.arraycopy(defaults, n - min, frame, n, gap);
+                System.arraycopy(d, k, frame, n, max - n);
                 return handle.invokeExact(frame);
             }
+            // n < min || n > max
+            throw new ArgumentError(min, max);
         }
     }
 }

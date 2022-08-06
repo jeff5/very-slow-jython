@@ -1,7 +1,5 @@
 package uk.co.farowl.vsj3.evo1;
 
-import java.lang.invoke.MethodHandle;
-
 import uk.co.farowl.vsj3.evo1.ArgumentError.Mode;
 
 /**
@@ -17,16 +15,10 @@ abstract class MethodDescriptor extends Descriptor implements FastCall {
         super(descrtype, objclass, name);
     }
 
-    /**
-     * Translate a problem with the number and pattern of arguments, in
-     * a failed attempt to call the wrapped method, to a Python
-     * {@link TypeError}.
-     *
-     * @param ae expressing the problem
-     * @param args positional arguments (only the number will matter)
-     * @return a {@code TypeError} to throw
-     */
-    protected TypeError typeError(ArgumentError ae, Object[] args) {
+    @Override
+    @SuppressWarnings("fallthrough")
+    public TypeError typeError(ArgumentError ae, Object[] args,
+            String[] names) {
         int n = args.length;
         switch (ae.mode) {
             case NOARGS:
@@ -34,6 +26,7 @@ abstract class MethodDescriptor extends Descriptor implements FastCall {
             case MINMAXARGS:
                 return new TypeError("%s() %s (%d given)", name, ae, n);
             case NOKWARGS:
+                assert names != null && names.length > 0;
             default:
                 return new TypeError("%s() %s", name, ae);
         }
