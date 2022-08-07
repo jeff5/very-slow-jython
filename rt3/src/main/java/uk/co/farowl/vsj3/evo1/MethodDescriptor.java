@@ -25,6 +25,9 @@ abstract class MethodDescriptor extends Descriptor implements FastCall {
             case NUMARGS:
             case MINMAXARGS:
                 return new TypeError("%s() %s (%d given)", name, ae, n);
+            case SELF:
+                return new TypeError(DESCRIPTOR_NEEDS_ARGUMENT, name,
+                        objclass);
             case NOKWARGS:
                 assert names != null && names.length > 0;
             default:
@@ -66,7 +69,7 @@ abstract class MethodDescriptor extends Descriptor implements FastCall {
      * supplied. This is for use when implementing {@code __call__}
      * etc..
      *
-     * @param args positional argument tuple to be checked
+     * @param args positional argument array to be checked
      * @param expArgs expected number of positional arguments
      * @param names to be checked
      * @throws ArgumentError if the wrong number of positional arguments
@@ -85,7 +88,7 @@ abstract class MethodDescriptor extends Descriptor implements FastCall {
      * supplied. This is for use when implementing {@code __call__}
      * etc..
      *
-     * @param args positional argument tuple to be checked
+     * @param args positional argument array to be checked
      * @param minArgs minimum number of positional arguments
      * @param maxArgs maximum number of positional arguments
      * @param names to be checked
@@ -106,7 +109,7 @@ abstract class MethodDescriptor extends Descriptor implements FastCall {
      * arguments have been. This is for use when implementing optimised
      * alternatives to {@code __call__}.
      *
-     * @param args positional argument tuple to be checked
+     * @param args positional argument array to be checked
      * @param minArgs minimum number of positional arguments
      * @param maxArgs maximum number of positional arguments
      * @throws ArgumentError if the wrong number of positional arguments
@@ -117,6 +120,22 @@ abstract class MethodDescriptor extends Descriptor implements FastCall {
         int n = args.length;
         if (n < minArgs || n > maxArgs) {
             throw new ArgumentError(minArgs, maxArgs);
+        }
+    }
+
+    /**
+     * Check that at least one argument {@code self} has been supplied.
+     *
+     * @param args positional argument array to be checked
+     * @param names to be taken into account
+     * @throws ArgumentError if {@code self} is missing
+     */
+    final static void checkHasSelf(Object[] args, String[] names)
+            throws ArgumentError {
+        int nkwds = names == null ? 0 : names.length;
+        if (nkwds >= args.length) {
+            // Not even one argument (self) given by position
+            throw new ArgumentError(Mode.SELF);
         }
     }
 }

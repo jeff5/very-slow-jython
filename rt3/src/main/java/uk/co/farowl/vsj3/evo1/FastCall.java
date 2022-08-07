@@ -266,7 +266,7 @@ interface FastCall {
      * @param ae previously thrown by this object
      * @param s positional and keyword arguments
      * @param p position of arguments in the array
-     * @param n number of <b>positional</b> arguments
+     * @param n number of positional <b>and keyword</b> arguments
      * @param names of keyword arguments or {@code null}
      * @return Python {@code TypeError} to throw
      */

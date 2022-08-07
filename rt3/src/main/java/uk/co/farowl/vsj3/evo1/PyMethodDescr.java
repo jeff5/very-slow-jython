@@ -135,15 +135,15 @@ abstract class PyMethodDescr extends MethodDescriptor {
                 MethodHandle mh = candidates.get(0);
                 switch (sig) {
                     case NOARGS:
-                        return new NoArgs(objclass, ap, mh);
+//                        return new NoArgs(objclass, ap, mh);
                     case O1:
-                        return new O1(objclass, ap, mh);
+//                        return new O1(objclass, ap, mh);
                     case O2:
-                        return new O2(objclass, ap, mh);
+//                        return new O2(objclass, ap, mh);
                     case O3:
-                        return new O3(objclass, ap, mh);
+//                        return new O3(objclass, ap, mh);
                     case POSITIONAL:
-                        return new Positional(objclass, ap, mh);
+//                        return new Positional(objclass, ap, mh);
                     default:
                         return new General(objclass, ap, mh);
                 }
@@ -157,20 +157,20 @@ abstract class PyMethodDescr extends MethodDescriptor {
                  */
                 switch (sig) {
                     case NOARGS:
-                        return new Multiple.NoArgs(objclass, ap,
-                                candidates);
+//                        return new Multiple.NoArgs(objclass, ap,
+//                                candidates);
                     case O1:
-                        return new Multiple.O1(objclass, ap,
-                                candidates);
+//                        return new Multiple.O1(objclass, ap,
+//                                candidates);
                     case O2:
-                        return new Multiple.O2(objclass, ap,
-                                candidates);
+//                        return new Multiple.O2(objclass, ap,
+//                                candidates);
                     case O3:
-                        return new Multiple.O3(objclass, ap,
-                                candidates);
+//                        return new Multiple.O3(objclass, ap,
+//                                candidates);
                     case POSITIONAL:
-                        return new Multiple.Positional(objclass, ap,
-                                candidates);
+//                        return new Multiple.Positional(objclass, ap,
+//                                candidates);
                     default:
                         return new Multiple.General(objclass, ap,
                                 candidates);
@@ -369,7 +369,7 @@ abstract class PyMethodDescr extends MethodDescriptor {
      * @throws TypeError if {@code args[0]} is of the wrong type
      * @throws Throwable from the implementation of the special method
      */
-    public Object __call__(Object[] args, String[] names)
+    public Object std__call__(Object[] args, String[] names)
             throws TypeError, Throwable {
         try {
             if (names != null && names.length != 0) {
@@ -379,19 +379,36 @@ abstract class PyMethodDescr extends MethodDescriptor {
                 switch (n) {
                     // case 0 (an error) handled by default clause
                     case 1:
-                        return call(args[0]);
+                        //return call(args[0]);
                     case 2:
-                        return call(args[0], args[1]);
+                        //return call(args[0], args[1]);
                     case 3:
-                        return call(args[0], args[1], args[2]);
+                        //return call(args[0], args[1], args[2]);
                     case 4:
-                        return call(args[0], args[1], args[2], args[3]);
+                        //return call(args[0], args[1], args[2], args[3]);
                     default:
                         return call(args);
                 }
             }
         } catch (ArgumentError ae) {
             throw typeError(ae, args);
+        }
+    }
+
+    public Object __call__(Object[] args, String[] names)
+            throws TypeError, Throwable {
+        int m = args.length - 1, nk = names == null ? 0 : names.length;
+        if (m < nk) {
+            // Not even one argument (self) given by position
+            throw new TypeError(DESCRIPTOR_NEEDS_ARGUMENT, name,
+                    objclass.name);
+        } else {
+            // Call this with self and rest of args separately.
+            Object self = args[0];
+            MethodHandle mh = getHandle(self);
+            // Parse args without the leading element self
+            Object[] frame = argParser.parse(args, 1, m, names);
+            return mh.invokeExact(self, frame);
         }
     }
 
@@ -534,6 +551,57 @@ abstract class PyMethodDescr extends MethodDescriptor {
         General(PyType objclass, ArgParser argParser,
                 MethodHandle method) {
             super(objclass, argParser, MethodSignature.GENERAL, method);
+        }
+
+        /**
+         * {@inheritDoc}
+         * <p>
+         * Exceptionally, it pays to override the inherited
+         * implementation here because we have to use the fully general
+         * {@link ArgParser} and it is able to work on the slice
+         * {@code args[1:]} without a copy.
+         */
+        @Override
+        public Object call(Object[] args, String[] names)
+                throws ArgumentError, Throwable {
+            // Call this with self and rest of args separately.
+            checkHasSelf(args, names);
+            Object self = args[0];
+            MethodHandle mh = getHandle(self);
+            // Parse args without the leading element self
+            Object[] frame = argParser.parse(args, 1,  args.length - 1, names);
+            return mh.invokeExact(self, frame);
+        }
+
+        /**
+         * {@inheritDoc}
+         * <p>
+         * Exceptionally, it pays to override the inherited
+         * implementation here because we have to use the fully general
+         * {@link ArgParser} and it is able to work on the slice
+         * {@code s[p+1:p+n]} without a copy.
+         */
+        @Override
+        public Object vectorcall(Object[] s, int p, int n,
+                String[] names) throws ArgumentError, Throwable {
+            int m = n - 1, nk = names == null ? 0 : names.length;
+            if (m < nk) {
+                // Not even one argument (self) given by position
+                throw new ArgumentError(Mode.SELF);
+            }
+            // Call this with self separated.
+            Object self = s[p];
+            MethodHandle mh = getHandle(self);
+            // Parse args without the leading element self
+            Object[] frame = argParser.parse(s, p + 1, m, names);
+            return mh.invokeExact(self, frame);
+        }
+
+        /** Equivalent to {@code vectorcall(s, p, n, null)}. */
+        @Override
+        public Object vectorcall(Object[] s, int p, int n)
+                throws ArgumentError, Throwable {
+            return vectorcall(s, p, n, null);
         }
 
         @Override

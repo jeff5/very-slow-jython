@@ -16,7 +16,7 @@ class ArgumentError extends Exception {
     private static final long serialVersionUID = 1L;
 
     enum Mode {
-        NOARGS, NUMARGS, MINMAXARGS, NOKWARGS;
+        NOARGS, NUMARGS, MINMAXARGS, SELF, NOKWARGS;
 
         /**
          * Choose a mode from {@code NOARGS} to {@code MINMAXARGS} based
@@ -82,6 +82,8 @@ class ArgumentError extends Exception {
             case MINMAXARGS:
                 return String.format("takes from %d to %d arguments",
                         minArgs, maxArgs);
+            case SELF:
+                return "'self' required";
             case NOKWARGS:
                 return "takes no keyword arguments";
             default:

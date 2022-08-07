@@ -605,6 +605,23 @@ class ArgParser {
     }
 
     /**
+     * Parse CPython-style vector call arguments and create an array, using the
+     * arguments supplied and the defaults held in the parser.
+     *
+     * @param s positional and keyword arguments
+     * @param p position of arguments in the array
+     * @param n number of positional <b>and keyword</b> arguments
+     * @param names of keyword arguments or {@code null}
+     * @return array of parsed arguments
+     */
+    Object[] parse(Object[] s, int p, int n, String[] names) {
+        Object[] a = new Object[argnames.length];
+        FrameWrapper w = new ArrayFrameWrapper(a);
+        parseToFrame(w, s, p, n, names);
+        return a;
+    }
+
+    /**
      * Parse classic arguments and create an array, using the arguments
      * supplied and the defaults held in the parser.
      *

@@ -111,26 +111,26 @@ public abstract class PyJavaMethod
          * shape.
          */
         switch (sig) {
-            case NOARGS:
-                method = MethodSignature.NOARGS.prepareBound(ap, method,
-                        self);
-                return new NoArgs(ap, method, self, module);
-            case O1:
-                method = MethodSignature.O1.prepareBound(ap, method,
-                        self);
-                return new O1(ap, method, self, module);
-            case O2:
-                method = MethodSignature.O2.prepareBound(ap, method,
-                        self);
-                return new O2(ap, method, self, module);
-            case O3:
-                method = MethodSignature.O3.prepareBound(ap, method,
-                        self);
-                return new O3(ap, method, self, module);
-            case POSITIONAL:
-                method = MethodSignature.POSITIONAL.prepareBound(ap,
-                        method, self);
-                return new Positional(ap, method, self, module);
+//            case NOARGS:
+//                method = MethodSignature.NOARGS.prepareBound(ap, method,
+//                        self);
+//                return new NoArgs(ap, method, self, module);
+//            case O1:
+//                method = MethodSignature.O1.prepareBound(ap, method,
+//                        self);
+//                return new O1(ap, method, self, module);
+//            case O2:
+//                method = MethodSignature.O2.prepareBound(ap, method,
+//                        self);
+//                return new O2(ap, method, self, module);
+//            case O3:
+//                method = MethodSignature.O3.prepareBound(ap, method,
+//                        self);
+//                return new O3(ap, method, self, module);
+//            case POSITIONAL:
+//                method = MethodSignature.POSITIONAL.prepareBound(ap,
+//                        method, self);
+//                return new Positional(ap, method, self, module);
             default:
                 method = MethodSignature.GENERAL.prepareBound(ap,
                         method, self);
@@ -162,15 +162,15 @@ public abstract class PyJavaMethod
         // We must support the same optimisations as PyMethodDescr
         switch (descr.signature) {
             case NOARGS:
-                return new NoArgs(ap, handle, self, null);
+//                return new NoArgs(ap, handle, self, null);
             case O1:
-                return new O1(ap, handle, self, null);
+//                return new O1(ap, handle, self, null);
             case O2:
-                return new O2(ap, handle, self, null);
+//                return new O2(ap, handle, self, null);
             case O3:
-                return new O3(ap, handle, self, null);
+//                return new O3(ap, handle, self, null);
             case POSITIONAL:
-                return new Positional(ap, handle, self, null);
+//                return new Positional(ap, handle, self, null);
             case GENERAL:
                 return new General(ap, handle, self, null);
             default:
@@ -190,7 +190,7 @@ public abstract class PyJavaMethod
                     __name__(), PyObjectUtil.toAt(self));
     }
 
-    public Object __call__(Object[] args, String[] names)
+    public Object std__call__(Object[] args, String[] names)
             throws TypeError, Throwable {
         try {
             if (names != null && names.length != 0) {
@@ -214,6 +214,12 @@ public abstract class PyJavaMethod
         } catch (ArgumentError ae) {
             throw typeError(ae, args, names);
         }
+    }
+
+    public Object __call__(Object[] args, String[] names)
+            throws TypeError, Throwable {
+        Object[] frame = argParser.parse(args, names);
+        return handle.invokeExact(frame);
     }
 
     // exposed methods -----------------------------------------------
@@ -283,7 +289,7 @@ public abstract class PyJavaMethod
         public Object call(Object[] args, String[] names)
                 throws TypeError, Throwable {
             /*
-             * The method handle type is {@code ([O])O}. The parser will
+             * The method handle type is {@code (O[])O}. The parser will
              * make an array of the args, and where allowed, gather
              * excess arguments into a tuple or dict, and fill missing
              * ones from defaults.
