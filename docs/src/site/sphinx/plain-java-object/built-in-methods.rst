@@ -150,20 +150,20 @@ Natural Parameter Types
 
 A method accepting arguments from Python
 could declare every parameter to be ``Object``,
-and cast or convert arguments to types natural in their implementation
+and cast or convert arguments to types natural to the work
 as part of the program text.
 Or it could have a signature like that of ``__call__(Object[], String[])``
 itself, in order to support variable argument numbers and keywords.
 Every method would begin with code to pick apart these actual arguments
-into local variables.
-This would make them tedious to write.
+into strongly-typed local variables.
+This would make method bodies tedious to write.
 
 CPython solves this problem by generating a wrapper on the "natural" definition,
 using a tool in Python called Argument Clinic, defined in :pep:`436`.
 It means there are often two C functions:
 one with the natural name and stylised ``PyObject`` parameters,
 and one the author wrote with natural parameters
-but where the name has been modified name (adding `_impl`).
+but where the name has been modified (adding ``_impl``).
 
 Rather than generate code,
 we use annotations to define argument processing
@@ -183,16 +183,64 @@ An example is provided by:
 
 The ``PythonMethod`` annotation attracts the attention of the exposer,
 which creates an ``ArgParser`` to describe the signature.
+The annotation ``PositionalOnly`` marks
+the *last* parameter whose value *must* be given as an argument by position.
+These calls would be valid in Python, where ``s`` is a ``Simple`` object:
+
+..  code-block:: python
+
+    s.m3p2(1, 'hello', 4.5)
+    s.m3p2(2, 'hello', c=4.5)
+
 In help and similar contexts,
 this method would be reported as ``m3p2($self, a, b, /, c)``.
+
+The ``ArgParser`` that results from processing the annotations on the method
+is attached to the ``PyMethodDescr`` or ``PyJavaMethod``
+that represents the method to Python.
+
+The parameters in the example method are strongly typed
+(except by chance ``c`` is ``Object``).
+To the Python interpreter, every argument it supplies is just ``Object``.
+As we shall see,
+internally to the ``PyMethodDescr`` or ``PyJavaMethod``,
+each method is represented by a Java ``MethodHandle``
+that we ``invokeExact``,
+and that accepts only ``Object`` arguments.
+``Object`` is the static type of a Python object in code.
+This handle is built from the raw handle for the method
+and adaptors chosen by reflection.
+An adaptor may performa Python-specific conversion,
+for example to derive a Java ``String`` from the actual argument,
+or a simply cast their argument,
+for example to cast the returned ``PyTuple`` as an ``Object``.
+
+At the time of writing, only some standard types are supported.
+A consistent and sufficiently expressive framework for argument conversion
+is still to be elaborated.
+The Jython 2 ``__tojava__`` special method is almost what we want,
+but we need instead a method used during method handle construction,
+that returns an adaptor handle:
+
+..  code-block:: java
+
+    class MyType {
+        // ...
+        MethodHandle __adapt_to__(Class<?> c) {
+            // ...
+            assert ah.type() == methodType(c, Object.class)
+            return ah;
+        }
+
 
 Callable Object
 ---------------
 
 This implementation
 (after considering approaches closer to CPython's)
-adopts the signature ``__call__(Object[], String[])``
-that Jython 2 also chooses.
+follows Jython 2 in adopting
+the signature ``__call__(Object[], String[])``
+as the standard entrypoint.
 All the argument values from the call site
 are marshalled into the first ``Object[]`` array.
 The ``String[]`` array contains the keywords used at the call site,
@@ -206,17 +254,110 @@ the first in the argument array,
 while ``PyJavaMethod`` already has the target object
 as a member ``self``.
 
-The ``__call__`` methods of ``PyMethodDescr`` and ``PyJavaMethod`` both,
-in the general case,
-distribute the array of arguments across
+The ``__call__`` method of ``PyJavaMethod``
+distributes the array of arguments across
 the individually declared parameters of the implementation,
-using the services and data of the attached ``ArgParser``.
-The difference between the two is that
-a ``PyJavaMethod`` already binds the object that will be the first
-(the ``self``) argument and supplies it to the first parameter.
-If there are keyword or collector arguments,
-this argument processing may involve some re-ordering in a second array.
-In a simple case, specialisations can be written that hard-code the data moves.
+using the services and data of the attached ``ArgParser``,
+constructed by the exposer when it processes the definition.
+A sufficient implementation of ``__call__`` is:
+
+..  code-block:: java
+    :emphasize-lines: 11-15
+
+    public class PyJavaMethod implements CraftedPyObject {
+
+        /** The type of Python object this class implements. */
+        static final PyType TYPE = PyType.fromSpec( //
+                new PyType.Spec("builtin_function_or_method",
+                        MethodHandles.lookup()));
+        //...
+        final MethodHandle handle;
+        final ArgParser argParser;
+        //...
+        public Object __call__(Object[] args, String[] names)
+                throws TypeError, Throwable {
+            Object[] frame = argParser.parse(args, names);
+            return handle.invokeExact(frame);
+        }
+        //...
+    }
+
+This code is very simple because the hard work is done by ``argParser.parse``.
+The method handle adapts the called Java method to the array argument
+prepared by the ``ArgParser``.
+The constructor ensures ``handle.type()`` is ``(O[])O``.
+
+An instance of ``PyJavaMethod`` may be the result of a
+method declaration like:
+
+..  code-block:: java
+
+        @PythonStaticMethod
+        static PyTuple f3p2(int a, @PositionalOnly String b, Object c) {
+
+It may also be constructed by a binding,
+as in the expression ``s.m3p2`` above.
+An eventual call to ``PyMethodDescr.__get__``
+constructs a ``PyJavaMethod`` in which ``handle`` binds ``s``,
+so that argument processing may proceed unchanged from the static case.
+We also use this mechanism when we must bind a module instance
+into the ``PyJavaMethod`` as first argument.
+
+The body of ``__call__`` shown above is illustrative.
+(The reader will be able to find it, but not in ``__call__`` directly.)
+In practice,
+substantial optimisations are present to handle common cases,
+by which we move arguments directly to the Java method being called.
+
+Turning now to ``PyMethodDescr``,
+a direct invocation of ``__call__``
+(meaning something like ``int.__mul__(6, 7)``)
+has to treat the first element of the argument array as ``self``,
+and it must be an instance of the defining class (or of a sub-class).
+
+We must also deal with the potential complexity of multiple
+acceptable implementations
+(this causes the handle to vary with the Java type of ``self``),
+which is dealt with in ``getHandle``.
+Trivially, we must also check ``self`` is not missing.
+
+A sufficient, illustrative implementation of ``__call__`` is:
+
+..  code-block:: java
+    :emphasize-lines: 8-23
+
+    class PyMethodDescr extends MethodDescriptor {
+
+        static final PyType TYPE = PyType.fromSpec(
+                new PyType.Spec("method_descriptor", MethodHandles.lookup())
+                        .flagNot(Flag.BASETYPE)
+                        .flag(Flag.IS_METHOD_DESCR, Flag.IS_DESCR));
+        // ...
+        public Object __call__(Object[] args, String[] names)
+                throws TypeError, Throwable {
+            int m = args.length - 1, nk = names == null ? 0 : names.length;
+            if (m < nk) {
+                // Not even one argument (self) given by position
+                throw new TypeError(DESCRIPTOR_NEEDS_ARGUMENT, name,
+                        objclass.name);
+            } else {
+                // Call this with self and rest of args separately.
+                Object self = args[0];
+                MethodHandle mh = getHandle(self);
+                // Parse args without the leading element self
+                Object[] frame = argParser.parse(args, 1, m, names);
+                return mh.invokeExact(self, frame);
+            }
+        }
+        // ...
+    }
+
+Again, the hard work is done by ``argParser.parse``.
+By construction of the adapted method handle, ``mh.type()`` is ``(O,O[])O``.
+
+In practice, the code is not quite like this.
+Substantial optimisations are present to provide a fast path in common cases.
+
 
 Variants for Static and Class Methods
 -------------------------------------
@@ -239,7 +380,7 @@ The target handle would designate ``__call__`` on the implementation class.
 
 Note that the number of arguments in the ``Object[]`` array,
 whether there are varargs tuples or dictionaries,
-and the exact keywords (if any) are fixed by the program text.
+and the exact keywords (if any) are fixed by the calling program text.
 One may imagine call sites specialised to certain numbers of arguments,
 or to the absence of keywords,
 a ``CALL0``, ``CALL1``, ``CALLN``, ``CALLVA``, and so on.
@@ -255,9 +396,11 @@ so it is ready to apply to ``Object`` arguments.
 Imagine a method call as it commonly appears, in the form ``a.f(x,y)``.
 In many cases, it is equivalent to ``getattr(type(a),"f").__call__(a,x,y)``.
 If ``a`` has a consistent Python type, in which ``f`` is not redefined,
-then ``getattr(type(a),"f")`` is the same object every time the site is reached.
-If it has only one Java implementation, then
-its ``op_call`` could be bound into the site directly.
+then ``getattr(type(a),"f")`` is the same object
+every time the site is reached.
+If ``a`` has the same Java class each time, then
+its ``op_call`` could be bound into the site directly,
+guarded on a combination of the Java class of ``a``.
 
 In many ``PyMethodDescr`` and ``PyJavaMethod`` specialisations,
 ``__call__`` simply checks for an acceptable number of arguments,
@@ -304,65 +447,46 @@ However, if their validations fail
 it is still ``ArgParse`` that generates the error message users see.
 
 
+Unfinished work follows
+=======================
+
+..  note::
+    Evidently I intended the next sections to discuss aspects of the
+    signatures of methods,
+    maybe with a view to exploring optimisations,
+    but at the time unclear what optimisations were available.
+    Practical work in the code has made that a lot clearer.
+    A short survey is in order, but maybe this chapter already has enough
+    material that arguably belongs in Architecture
+    (because I think it is proved).
+
+
 .. _Built-in-methods-pos:
 
 Positional Parameters
 =====================
 
+
 .. _Built-in-methods-defaults:
-
-
-..  code-block:: java
-
-    class SimpleObject {
-        static PyType TYPE = PyType.fromSpec(
-                new Spec("Simple", MethodHandles.lookup()));
-        // ...
-        @PythonMethod
-        static PyTuple m3(SimpleObject self, int a, String b,
-                Object c) { ... }
-
-The ``PythonMethod`` annotation attracts the attention of the exposer,
-which creates an ``ArgParser`` to describe the signature,
-in this case an instance method with positional-only arguments.
-In help and similar contexts, it would be reported as:
-
-..  code-block:: text
-
-    m3($self, a, b, c, /)
-
-This is the output of ``ArgParser.toString()``.
-Names are retained in the ``ArgParser``
-to support error messages and documentation.
-
-The method descriptor holds a ``MethodHandle``
-in which the original obtained by reflection:
-
-..  code-block:: text
-
-    MethodHandle(SimpleObject,int,String,Object)PyTuple
-
-has been transformed into:
-
-..  code-block:: text
-
-    MethodHandle(Object[])Object
-
-so that it may be called with the ``Object[]`` argument of ``__call__``.
-
 
 Default Values
 ==============
+
+
 
 .. _Built-in-methods-kw:
 
 Keyword Parameters
 ==================
 
+
+
 .. _Built-in-methods-kwdefaults:
 
 Default Values with Keywords
 ============================
+
+
 
 .. _Built-in-methods-varargs:
 
