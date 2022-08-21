@@ -17,6 +17,7 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.invoke.MethodType;
 import java.lang.invoke.VarHandle;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -523,7 +524,7 @@ enum Slot {
      * @return the Slot corresponding, or {@code null}
      */
     public static Slot forMethodName(String name) {
-        return Util.getMethodNameTable().get(name);
+        return MethodNameLookup.table.get(name);
     }
 
     /**
@@ -1051,7 +1052,8 @@ enum Slot {
 
     /**
      * Helpers for {@link Slot} and {@link Signature} that can be used
-     * in the constructors.
+     * in the constructors of {@code Slot} values, before that class is
+     * properly initialised.
      */
     private static class Util {
 
@@ -1066,19 +1068,6 @@ enum Slot {
 
         /** Single re-used instance of {@code Slot.EmptyException} */
         static final EmptyException EMPTY = new EmptyException();
-
-        private static Map<String, Slot> methodNameTable = null;
-
-        static Map<String, Slot> getMethodNameTable() {
-            if (methodNameTable == null) {
-                Slot[] slots = Slot.values();
-                methodNameTable = new HashMap<>(2 * slots.length);
-                for (Slot s : slots) {
-                    methodNameTable.put(s.methodName, s);
-                }
-            }
-            return methodNameTable;
-        }
 
         /**
          * Helper for {@link Slot} constructors at the point they need a
@@ -1160,6 +1149,25 @@ enum Slot {
         @SuppressWarnings("unused")  // reflected in operandError
         static PyException defaultOperandError(Slot op) {
             return new TypeError("bad operand type for %s", op.opName);
+        }
+    }
+
+    /**
+     * Lookup from special method name to {@code Slot}, to support
+     * {@link Slot#forMethodName(String)}. We make this a class of its
+     * own to obtain a thread-safe lazy initialisation of the
+     * {@link MethodNameLookup#table} as a singleton, guaranteed to fill
+     * its table after creation of the Slot enum.
+     */
+    private static class MethodNameLookup {
+        /** Lookup from special method name to {@code Slot}. */
+        static final Map<String, Slot> table;
+
+        static {
+            Slot[] slots = Slot.values();
+            HashMap<String, Slot> t = new HashMap<>(2 * slots.length);
+            for (Slot s : slots) { t.put(s.methodName, s); }
+            table = Collections.unmodifiableMap(t);
         }
     }
 }
