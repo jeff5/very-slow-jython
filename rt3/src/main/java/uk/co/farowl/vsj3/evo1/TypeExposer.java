@@ -1,3 +1,5 @@
+// Copyright (c)2022 Jython Developers.
+// Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj3.evo1;
 
 import java.lang.annotation.Annotation;
@@ -72,9 +74,7 @@ class TypeExposer extends Exposer {
     }
 
     @Override
-    ScopeKind kind() {
-        return ScopeKind.TYPE;
-    }
+    ScopeKind kind() { return ScopeKind.TYPE; }
 
     /**
      * Build the result from the defining class.
@@ -173,7 +173,7 @@ class TypeExposer extends Exposer {
         // For clarity, name lambda expression for cast
         Function<Spec, WrapperSpec> cast =
                 // Test and cast a found Spec to MethodSpec
-                spec -> spec instanceof WrapperSpec ? (WrapperSpec) spec
+                spec -> spec instanceof WrapperSpec ? (WrapperSpec)spec
                         : null;
         // Now use the generic create/update
         addSpec(meth, slot.methodName, cast,
@@ -192,8 +192,9 @@ class TypeExposer extends Exposer {
      */
     private void addGetter(Method m, Getter anno) {
         addSpec(m, anno.value(), TypeExposer::castGetSet,
-                GetSetSpec::new, ms -> { getSetSpecs.add(ms); },
-                GetSetSpec::addGetter);
+                GetSetSpec::new, ms -> {
+                    getSetSpecs.add(ms);
+                }, GetSetSpec::addGetter);
     }
 
     /**
@@ -208,8 +209,9 @@ class TypeExposer extends Exposer {
      */
     private void addSetter(Method m, Setter anno) {
         addSpec(m, anno.value(), TypeExposer::castGetSet,
-                GetSetSpec::new, ms -> { getSetSpecs.add(ms); },
-                GetSetSpec::addSetter);
+                GetSetSpec::new, ms -> {
+                    getSetSpecs.add(ms);
+                }, GetSetSpec::addSetter);
     }
 
     /**
@@ -224,8 +226,9 @@ class TypeExposer extends Exposer {
      */
     private void addDeleter(Method m, Deleter anno) {
         addSpec(m, anno.value(), TypeExposer::castGetSet,
-                GetSetSpec::new, ms -> { getSetSpecs.add(ms); },
-                GetSetSpec::addDeleter);
+                GetSetSpec::new, ms -> {
+                    getSetSpecs.add(ms);
+                }, GetSetSpec::addDeleter);
     }
 
     /**
@@ -236,7 +239,7 @@ class TypeExposer extends Exposer {
      * @return {@code spec} or {@code null}
      */
     static GetSetSpec castGetSet(Spec spec) {
-        return spec instanceof GetSetSpec ? (GetSetSpec) spec : null;
+        return spec instanceof GetSetSpec ? (GetSetSpec)spec : null;
     }
 
     /**
@@ -290,7 +293,7 @@ class TypeExposer extends Exposer {
             memberSpecs.add(memberSpec);
         } else if (spec instanceof MemberSpec) {
             // Existing entry will be updated
-            memberSpec = (MemberSpec) spec;
+            memberSpec = (MemberSpec)spec;
         } else {
             // Existing entry is not compatible
             memberSpec = new MemberSpec(name);
@@ -380,9 +383,7 @@ class TypeExposer extends Exposer {
                 "%s field '%s' cannot be optional";
 
         @Override
-        Class<? extends Annotation> annoClass() {
-            return Member.class;
-        }
+        Class<? extends Annotation> annoClass() { return Member.class; }
 
         /**
          * {@inheritDoc}
@@ -481,9 +482,7 @@ class TypeExposer extends Exposer {
          *
          * @return true if delete is present
          */
-        boolean optional() {
-            return !deleters.isEmpty();
-        }
+        boolean optional() { return !deleters.isEmpty(); }
 
         /**
          * Add a getter to the collection.
@@ -708,12 +707,10 @@ class TypeExposer extends Exposer {
         @Override
         public void checkFormation() throws InterpreterError {
             // XXX Check the signature instead of in createDescr?
-         }
+        }
 
         @Override
-        void add(Method method) {
-            super.add(method);
-        }
+        void add(Method method) { super.add(method); }
 
         @Override
         Class<? extends Annotation> annoClass() {

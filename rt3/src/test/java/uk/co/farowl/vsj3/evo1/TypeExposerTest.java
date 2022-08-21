@@ -1,8 +1,8 @@
 package uk.co.farowl.vsj3.evo1;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.lang.invoke.MethodHandles;
@@ -10,14 +10,18 @@ import java.lang.invoke.MethodHandles.Lookup;
 import java.util.Map;
 import java.util.TreeMap;
 
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import uk.co.farowl.vsj3.evo1.Exposed.Deleter;
 import uk.co.farowl.vsj3.evo1.Exposed.DocString;
 import uk.co.farowl.vsj3.evo1.Exposed.Getter;
+import uk.co.farowl.vsj3.evo1.Exposed.KeywordCollector;
 import uk.co.farowl.vsj3.evo1.Exposed.Member;
+import uk.co.farowl.vsj3.evo1.Exposed.PositionalCollector;
 import uk.co.farowl.vsj3.evo1.Exposed.PositionalOnly;
 import uk.co.farowl.vsj3.evo1.Exposed.PythonMethod;
 import uk.co.farowl.vsj3.evo1.Exposed.PythonStaticMethod;
@@ -33,7 +37,7 @@ import uk.co.farowl.vsj3.evo1.TypeExposer.MemberSpec;
  * appropriate attribute specifications. This tests a large part of the
  * exposure mechanism, without activating the wider Python type system.
  */
-@DisplayName("For a type exposed from a Java definition")
+@DisplayName("The Fake built-in type ...")
 class TypeExposerTest {
 
     /**
@@ -98,6 +102,34 @@ class TypeExposerTest {
             return Py.tuple(a, b, c);
         }
 
+        // Signature: (a, b, /, *c)
+        @PythonStaticMethod
+        static PyTuple f2v(int a, String b,
+                @PositionalCollector PyTuple c) {
+            return Py.tuple(a, b, c);
+        }
+
+        // Signature: ($self, a, b, /, *c)
+        @PythonMethod
+        PyTuple m2v(int a, String b, @PositionalCollector PyTuple c) {
+            return Py.tuple(a, b, c);
+        }
+
+        // Signature: (a, b, /, *c)
+        @PythonStaticMethod
+        static PyTuple f2pvk(int a, String b,
+                @PositionalCollector PyTuple c,
+                @KeywordCollector PyDict d) {
+            return Py.tuple(a, b, c, d);
+        }
+
+        // Signature: ($self, a, b, /, *c)
+        @PythonMethod
+        PyTuple m2pvk(int a, String b, @PositionalCollector PyTuple c,
+                @KeywordCollector PyDict d) {
+            return Py.tuple(a, b, c, d);
+        }
+
         // Instance members -------------------------------------------
 
         // Plain int
@@ -106,7 +138,7 @@ class TypeExposerTest {
 
         // Plain float (with doc string)
         @Member
-        @DocString("My test x")
+        @DocString("Doc string for x")
         double x;
 
         // String with change of name.
@@ -181,251 +213,222 @@ class TypeExposerTest {
         }
     }
 
-    @Nested
-    @DisplayName("calling the Exposer")
-    class TestExposer {
+    /**
+     * We collect the method specifications here during set-up for
+     * examination in tests.
+     */
+    static Map<String, CallableSpec> methods = new TreeMap<>();
+    /**
+     * We collect the member specifications here during set-up for
+     * examination in tests.
+     */
+    static Map<String, MemberSpec> members = new TreeMap<>();
+    /**
+     * We collect the get-set attribute specifications here during
+     * set-up for examination in tests.
+     */
+    static Map<String, GetSetSpec> getsets = new TreeMap<>();
 
-        @Test
-        @DisplayName("produces a TypeExposer")
-        void getExposer() {
-            TypeExposer exposer =
-                    Exposer.exposeType(null, Fake.class, null);
-            assertNotNull(exposer);
-        }
+    /**
+     * Set-up method filling {@link #methods}, {@link #members} and
+     * {@link #getsets}.
+     */
+    @BeforeAll
+    static void createExposer() {
+        // type=null in order not to wake the type system
+        TypeExposer exposer =
+                Exposer.exposeType(null, Fake.class, null);
 
-        @Test
-        @DisplayName("finds the expected methods")
-        void getMethodSignatures() {
-            // type=null in order not to wake the type system
-            TypeExposer exposer =
-                    Exposer.exposeType(null, Fake.class, null);
-            // Fish out those things that are methods
-            Map<String, ArgParser> dict = new TreeMap<>();
-            for (Exposer.Spec s : exposer.specs.values()) {
-                if (s instanceof CallableSpec) {
-                    CallableSpec ms = (CallableSpec)s;
-                    dict.put(ms.name, ms.getParser());
-                }
+        // Populate the dictionaries used in the tests.
+        for (Exposer.Spec s : exposer.specs.values()) {
+            if (s instanceof CallableSpec) {
+                CallableSpec ms = (CallableSpec)s;
+                methods.put(ms.name, ms);
+            } else if (s instanceof MemberSpec) {
+                MemberSpec ms = (MemberSpec)s;
+                members.put(ms.name, ms);
+            } else if (s instanceof GetSetSpec) {
+                GetSetSpec gs = (GetSetSpec)s;
+                getsets.put(gs.name, gs);
             }
-            checkMethodSignatures(dict);
         }
+    }
 
-        private void
-                checkMethodSignatures(Map<String, ArgParser> dict) {
-            assertEquals(8, dict.size());
+    /**
+     * Check that a method, member or get-set for a given name.
+     *
+     * @param dict of members
+     * @param name of member
+     * @return the spec (for further checks)
+     */
+    private static <S extends Exposer.Spec> S find(Map<String, S> dict,
+            String name) {
+        S spec = dict.get(name);
+        assertNotNull(spec, () -> name + " not found");
+        return spec;
+    }
 
-            checkSignature(dict, "f0()");
-            checkSignature(dict, "m0($self, /)");
-            checkSignature(dict, "f3(a, b, c, /)");
-            checkSignature(dict, "m3($self, a, b, c, /)");
-            checkSignature(dict, "f3pk(a, b, c)");
-            checkSignature(dict, "m3pk($self, /, a, b, c)");
-            checkSignature(dict, "f3p2(a, b, /, c)");
-            checkSignature(dict, "m3p2($self, a, b, /, c)");
-        }
+    // ----------------------------------------------------------------
+    @Test
+    @DisplayName("has the expected number of methods.")
+    void numberOfMethods() {
+        assertEquals(12, methods.size(), "number of methods");
+    }
 
-        /**
-         * Check that a method with the expected signature is in the
-         * dictionary.
-         *
-         * @param dict dictionary
-         * @param spec signature
-         */
-        private void checkSignature(Map<String, ArgParser> dict,
-                String spec) {
-            int k = spec.indexOf('(');
-            assertTrue(k > 0);
-            String name = spec.substring(0, k);
-            String expect = spec.substring(k);
-            ArgParser ap = dict.get(name);
-            assertNotNull(ap, () -> name + " not found");
-            assertEquals(expect, ap.textSignature());
-        }
+    /**
+     * Check that a method with the expected signature is in the method
+     * table.
+     *
+     * @param sig signature
+     */
+    @DisplayName("has a method with signature ...")
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = { //
+            "f0()", //
+            "m0($self, /)", //
+            "f3(a, b, c, /)", //
+            "m3($self, a, b, c, /)", //
+            "f3pk(a, b, c)", //
+            "m3pk($self, /, a, b, c)", //
+            "f3p2(a, b, /, c)", //
+            "m3p2($self, a, b, /, c)", //
+            "f2v(a, b, /, *c)", //
+            "m2v($self, a, b, /, *c)", //
+            "f2pvk(a, b, /, *c, **d)", //
+            "m2pvk($self, a, b, /, *c, **d)", //
+    })
+    void checkSignature(String sig) {
+        int k = sig.indexOf('(');
+        assert k > 0;
+        String name = sig.substring(0, k);
+        String expect = sig.substring(k);
+        CallableSpec ms = find(methods, name);
+        ArgParser ap = ms.getParser();
+        assertEquals(expect, ap.textSignature());
+    }
 
-        @Test
-        @DisplayName("finds the expected members")
-        void getMembers() {
-            // type=null in order not to wake the type system
-            TypeExposer exposer =
-                    Exposer.exposeType(null, Fake.class, null);
-            // Fish out those things that are members
-            Map<String, MemberSpec> dict = new TreeMap<>();
-            for (Exposer.Spec s : exposer.specs.values()) {
-                if (s instanceof MemberSpec) {
-                    MemberSpec ms = (MemberSpec)s;
-                    dict.put(ms.name, ms);
-                }
-            }
-            checkMembers(dict);
-        }
+    // ----------------------------------------------------------------
+    @Test
+    @DisplayName("has the expected number of members.")
+    void numberOfMembers() {
+        assertEquals(9, members.size(), "number of members");
+    }
 
-        private void checkMembers(Map<String, MemberSpec> dict) {
+    @DisplayName("has a writable member ...")
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = { //
+            "i", //
+            "x", //
+            "text", // name for t
+            "s", //
+            "obj", //
+    })
+    void checkWritableMember(String name) {
+        MemberSpec ms = find(members, name);
+        assertFalse(ms.readonly, () -> name + " readonly");
+    }
 
-            assertEquals(9, dict.size());
+    @DisplayName("has a readonly member ...")
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = { //
+            "i2", //
+            "x2", //
+            "text2", //
+            "strhex2", //
+    })
+    void checkReadonlyMember(String name) {
+        MemberSpec ms = find(members, name);
+        assertTrue(ms.readonly, () -> name + " readonly");
+    }
 
-            MemberSpec ms;
+    @DisplayName("has an optional member ...")
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = { //
+            "s", //
+    })
+    void checkOptionalMember(String name) {
+        MemberSpec ms = find(members, name);
+        assertTrue(ms.optional, () -> name + " optional");
+    }
 
-            ms = checkMember(dict, "i");
+    @DisplayName("has a non-optional member ...")
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = { //
+            "i", //
+            "x", //
+            "text", // name for t
+            "obj", //
+            "i2", //
+            "x2", //
+            "text2", //
+            "strhex2", //
+    })
+    void checkMandatoryMember(String name) {
+        MemberSpec ms = find(members, name);
+        assertFalse(ms.optional, () -> name + " optional");
+    }
 
-            ms = checkMember(dict, "x");
-            assertEquals("My test x", ms.doc);
-            ms = checkMember(dict, "text");
-            assertNull(ms.doc);
+    @DisplayName("has a documented member ...")
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = { //
+            "x", //
+    })
+    void checkDocMember(String name) {
+        MemberSpec ms = find(members, name);
+        assertEquals(ms.doc, "Doc string for " + name);
+    }
 
-            ms = checkMemberOptional(dict, "s");
-            ms = checkMember(dict, "obj");
+    // ----------------------------------------------------------------
+    @Test
+    @DisplayName("has the expected number of get-set attributes.")
+    void numberOfGetSets() {
+        assertEquals(3, getsets.size(), "number of get-set attributes");
+    }
 
-            ms = checkMemberReadonly(dict, "i2");
-            ms = checkMemberReadonly(dict, "x2");
-            ms = checkMemberReadonly(dict, "text2");
-            ms = checkMemberReadonly(dict, "strhex2");
-        }
+    @DisplayName("has a readonly get-set ...")
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = { //
+            "count", //
+    })
+    void checkReadonlyGetSet(String name) {
+        GetSetSpec gs = find(getsets, name);
+        assertTrue(gs.readonly(), () -> name + " readonly");
+    }
 
-        /**
-         * Check that a member with the expected properties is in the
-         * dictionary and return the exposer specification object.
-         *
-         * @param dict dictionary
-         * @param name of member
-         * @param optional if it should be
-         * @param readonly if it should be
-         * @return the member spec (for further checks)
-         */
-        private MemberSpec checkMember(Map<String, MemberSpec> dict,
-                String name, boolean optional, boolean readonly) {
-            MemberSpec ms = dict.get(name);
-            assertNotNull(ms, () -> name + " not found");
-            assertEquals(optional, ms.optional,
-                    () -> name + " optional");
-            assertEquals(readonly, ms.readonly,
-                    () -> name + " readonly");
-            return ms;
-        }
+    @DisplayName("has a writable get-set ...")
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = { //
+            "foo", //
+            "thing", //
+    })
+    void checkWritableGetSet(String name) {
+        GetSetSpec gs = find(getsets, name);
+        assertFalse(gs.readonly(), () -> name + " readonly");
+        // There must be a setter for each implementation
+        assertEquals(gs.getters.size(), gs.setters.size(),
+                () -> name + " setter size mismatch");
+    }
 
-        /**
-         * Check that a member with the expected properties is in the
-         * dictionary and return the exposer specification object.
-         *
-         * @param dict dictionary
-         * @param name of member
-         */
-        private MemberSpec checkMember(Map<String, MemberSpec> dict,
-                String name) {
-            return checkMember(dict, name, false, false);
-        }
+    @DisplayName("has a non-optional get-set ...")
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = { //
+            "thing", //
+    })
+    void checkMandatoryGetSet(String name) {
+        GetSetSpec gs = find(getsets, name);
+        assertTrue(gs.optional(), () -> name + " optional");
+    }
 
-        /**
-         * Check that a member with the expected properties is in the
-         * dictionary and return the exposer specification object.
-         *
-         * @param dict dictionary
-         * @param name of member
-         */
-        private MemberSpec checkMemberReadonly(
-                Map<String, MemberSpec> dict, String name) {
-            return checkMember(dict, name, false, true);
-        }
-
-        /**
-         * Check that a member with the expected properties is in the
-         * dictionary and return the exposer specification object.
-         *
-         * @param dict dictionary
-         * @param name of member
-         */
-        private MemberSpec checkMemberOptional(
-                Map<String, MemberSpec> dict, String name) {
-            return checkMember(dict, name, true, false);
-        }
-
-        @Test
-        @DisplayName("finds the expected get-set attributes")
-        void getGetSets() {
-            // type=null in order not to wake the type system
-            TypeExposer exposer =
-                    Exposer.exposeType(null, Fake.class, null);
-            // Fish out those things that are get-sets
-            Map<String, GetSetSpec> dict = new TreeMap<>();
-            for (Exposer.Spec s : exposer.specs.values()) {
-                if (s instanceof GetSetSpec) {
-                    GetSetSpec gs = (GetSetSpec)s;
-                    dict.put(gs.name, gs);
-                }
-            }
-            checkGetSets(dict);
-        }
-
-        private void checkGetSets(Map<String, GetSetSpec> dict) {
-            assertEquals(3, dict.size());
-            checkGetSet(dict, "foo");
-            checkGetSetOptional(dict, "thing");
-            checkGetSetReadonly(dict, "count");
-        }
-
-        /**
-         * Check that a get-set with the expected properties is in the
-         * dictionary and return the exposer specification object.
-         *
-         * @param dict dictionary
-         * @param name of attribute
-         * @param optional if it should be
-         * @param readonly if it should be
-         * @return the member spec (for further checks)
-         */
-        private GetSetSpec checkGetSet(Map<String, GetSetSpec> dict,
-                String name, boolean optional, boolean readonly) {
-            GetSetSpec gs = dict.get(name);
-            assertNotNull(gs, () -> name + " not found");
-            assertEquals(optional, gs.optional(),
-                    () -> name + " optional");
-            assertEquals(readonly, gs.readonly(),
-                    () -> name + " readonly");
-            if (!readonly) {
-                assertEquals(gs.getters.size(), gs.setters.size(),
-                        () -> name + " setter size mismatch");
-            }
-            if (optional) {
-                assertEquals(gs.getters.size(), gs.deleters.size(),
-                        () -> name + " deleter size mismatch");
-            }
-            return gs;
-        }
-
-        /**
-         * Check that a member with the expected properties is in the
-         * dictionary and return the exposer specification object.
-         *
-         * @param dict dictionary
-         * @param name of member
-         */
-        private GetSetSpec checkGetSet(Map<String, GetSetSpec> dict,
-                String name) {
-            return checkGetSet(dict, name, false, false);
-        }
-
-        /**
-         * Check that a member with the expected properties is in the
-         * dictionary and return the exposer specification object.
-         *
-         * @param dict dictionary
-         * @param name of member
-         */
-        private GetSetSpec checkGetSetReadonly(
-                Map<String, GetSetSpec> dict, String name) {
-            return checkGetSet(dict, name, false, true);
-        }
-
-        /**
-         * Check that a member with the expected properties is in the
-         * dictionary and return the exposer specification object.
-         *
-         * @param dict dictionary
-         * @param name of member
-         */
-        private GetSetSpec checkGetSetOptional(
-                Map<String, GetSetSpec> dict, String name) {
-            return checkGetSet(dict, name, true, false);
-        }
-
+    @DisplayName("has an optional get-set ...")
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = { //
+            "thing", //
+    })
+    void checkOptionalGetSet(String name) {
+        GetSetSpec gs = find(getsets, name);
+        assertTrue(gs.optional(), () -> name + " optional");
+        // There must be a deleter for each implementation
+        assertEquals(gs.getters.size(), gs.deleters.size(),
+                () -> name + " deleter size mismatch");
     }
 }
