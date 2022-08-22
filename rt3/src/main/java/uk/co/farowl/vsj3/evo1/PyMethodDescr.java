@@ -1,3 +1,5 @@
+// Copyright (c)2022 Jython Developers.
+// Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj3.evo1;
 
 import java.lang.invoke.MethodHandle;
@@ -26,7 +28,7 @@ import uk.co.farowl.vsj3.evo1.base.MethodKind;
  */
 abstract class PyMethodDescr extends MethodDescriptor {
 
-    static final PyType TYPE = PyType.fromSpec(
+    static final PyType TYPE = PyType.fromSpec( //
             new PyType.Spec("method_descriptor", MethodHandles.lookup())
                     .flagNot(Flag.BASETYPE)
                     .flag(Flag.IS_METHOD_DESCR, Flag.IS_DESCR));
