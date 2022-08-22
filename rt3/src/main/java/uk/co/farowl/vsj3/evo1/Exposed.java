@@ -1,3 +1,5 @@
+// Copyright (c)2022 Jython Developers.
+// Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj3.evo1;
 
 import static java.lang.annotation.ElementType.FIELD;
@@ -203,8 +205,8 @@ public interface Exposed {
      * presented as a {@code String}: "None", an integer, or a
      * single-quoted string. For example <pre>
      *  PyList split(
-     *      @Default("None") Object sep,
-     *      @Default("-1") int maxsplit
+     *      &#64;Default("None") Object sep,
+     *      &#64;Default("-1") int maxsplit
      *  )
      * </pre>
      */

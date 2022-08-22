@@ -56,8 +56,8 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
 
     /** The type {@code str}. */
     public static final PyType TYPE = PyType.fromSpec( //
-            new PyType.Spec("str", MethodHandles.lookup())
-                    .methods(PyUnicodeMethods.class)
+            new PyType.Spec("str", MethodHandles.lookup()) //
+                    .methods(PyUnicodeMethods.class) //
                     .adopt(String.class));
 
     /**
@@ -197,6 +197,7 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
      * @param value to have
      */
     protected PyUnicode(PyType type, String value) {
+        // XXX type not used
         this((new IntArrayBuilder()).append(value.codePoints()));
     }
 
@@ -2387,7 +2388,6 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
     private static boolean isalnum(PySequence.OfInt s) {
         if (s.length() == 0) { return false; }
         for (int codepoint : s) {
-            ;
             if (!(Character.isLetterOrDigit(codepoint) || //
                     Character.getType(
                             codepoint) == Character.LETTER_NUMBER)) {
@@ -2449,7 +2449,6 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
     private static boolean isnumeric(PySequence.OfInt s) {
         if (s.length() == 0) { return false; }
         for (int codepoint : s) {
-            ;
             int type = Character.getType(codepoint);
             if (type != Character.DECIMAL_DIGIT_NUMBER
                     && type != Character.LETTER_NUMBER
@@ -2471,7 +2470,6 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         boolean cased = false;
         boolean previous_is_cased = false;
         for (int codepoint : s) {
-            ;
             if (Character.isUpperCase(codepoint)
                     || Character.isTitleCase(codepoint)) {
                 if (previous_is_cased) { return false; }
@@ -2497,7 +2495,6 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
     private static boolean isspace(PySequence.OfInt s) {
         if (s.length() == 0) { return false; }
         for (int codepoint : s) {
-            ;
             if (!isPythonSpace(codepoint)) { return false; }
         }
         return true;

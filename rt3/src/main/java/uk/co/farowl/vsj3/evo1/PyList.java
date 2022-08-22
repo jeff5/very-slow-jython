@@ -38,7 +38,9 @@ public class PyList extends ArrayList<Object> {
      * Construct a {@code list} with initial contents from an array
      * slice.
      *
-     * @param c initial contents
+     * @param a the array
+     * @param start of slice
+     * @param count of elements to take
      */
     PyList(Object[] a, int start, int count) {
         super(count);

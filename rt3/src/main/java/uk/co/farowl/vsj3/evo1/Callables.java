@@ -198,7 +198,7 @@ class Callables extends Abstract {
      * CPython, this is <b>not likely to be faster</b> than the standard
      * {@link #call(Object, Object[], String[]) call} method.
      *
-     * @see FastCall#vectorcall(Object[], int, int, PyTuple).
+     * @see FastCall#vectorcall(Object[], int, int, String[])
      *
      * @param callable target
      * @param stack positional and keyword arguments
@@ -236,7 +236,7 @@ class Callables extends Abstract {
      * CPython, this is <b>not likely to be faster</b> than the standard
      * {@link #call(Object, Object[], String[]) call} method.
      *
-     * @see FastCall#vectorcall(Object[], int, int, PyTuple).
+     * @see FastCall#vectorcall(Object[], int, int)
      *
      * @param callable target
      * @param stack positional and keyword arguments (the stack)

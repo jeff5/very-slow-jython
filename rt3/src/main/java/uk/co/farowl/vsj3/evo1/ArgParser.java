@@ -1,3 +1,5 @@
+// Copyright (c)2022 Jython Developers.
+// Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj3.evo1;
 
 import java.util.ArrayList;
@@ -732,7 +734,7 @@ class ArgParser {
 
     private static final String TOO_MANY_KWDEFAULTS =
             "More keyword defaults (%d given) than remain after "
-                    + "positional-only parameters (%d left)"
+                    + "positional-only parameters (%d left) "
                     + "when specifying '%s'";
 
     /** Get the name of arg i or make one up. */
