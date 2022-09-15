@@ -256,13 +256,8 @@ public class Abstract {
     public static Object getAttr(Object o, Object name)
             throws AttributeError, TypeError, Throwable {
         // Decisions are based on types of o and name
-        if (name instanceof String) {
-            return getAttr(o, name);
-        } else if (name instanceof PyUnicode) {
-            return getAttr(o, name.toString());
-        } else {
-            throw attributeNameTypeError(name);
-        }
+        return getAttr(o, PyUnicode.asString(name,
+                () -> attributeNameTypeError(name)));
     }
 
     /**
@@ -280,15 +275,9 @@ public class Abstract {
     // Compare CPython _PyObject_LookupAttr in object.c
     public static Object lookupAttr(Object o, Object name)
             throws TypeError, Throwable {
-        // Corresponds to object.c : PyObject_GetAttr
         // Decisions are based on types of o and name
-        if (name instanceof String) {
-            return lookupAttr(o, name);
-        } else if (name instanceof PyUnicode) {
-            return lookupAttr(o, name.toString());
-        } else {
-            throw attributeNameTypeError(name);
-        }
+        return lookupAttr(o, PyUnicode.asString(name,
+                () -> attributeNameTypeError(name)));
     }
 
     /**
@@ -348,13 +337,9 @@ public class Abstract {
     // Compare CPython PyObject_SetAttr in object.c
     public static void setAttr(Object o, Object name, Object value)
             throws AttributeError, TypeError, Throwable {
-        if (name instanceof String) {
-            setAttr(o, name, value);
-        } else if (name instanceof PyUnicode) {
-            setAttr(o, name.toString(), value);
-        } else {
-            throw attributeNameTypeError(name);
-        }
+        // Decisions are based on types of o and name
+        setAttr(o, PyUnicode.asString(name,
+                () -> attributeNameTypeError(name)), value);
     }
 
     /**
@@ -390,13 +375,9 @@ public class Abstract {
     // Compare CPython PyObject_SetAttr in object.c
     public static void delAttr(Object o, Object name)
             throws AttributeError, TypeError, Throwable {
-        if (name instanceof String) {
-            delAttr(o, name);
-        } else if (name instanceof PyUnicode) {
-            delAttr(o, name.toString());
-        } else {
-            throw attributeNameTypeError(name);
-        }
+        // Decisions are based on types of o and name
+        delAttr(o, PyUnicode.asString(name,
+                () -> attributeNameTypeError(name)));
     }
 
     /**
