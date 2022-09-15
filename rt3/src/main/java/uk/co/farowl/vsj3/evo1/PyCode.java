@@ -1,3 +1,5 @@
+// Copyright (c)2022 Jython Developers.
+// Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj3.evo1;
 
 import java.lang.invoke.MethodHandles;
@@ -263,31 +265,6 @@ public abstract class PyCode implements CraftedPyObject {
             Interpreter interpreter, PyDict globals, Object locals);
 
     // Plumbing -------------------------------------------------------
-
-    /**
-     * Check that all the objects in the tuple are {@code str}, and
-     * return them as an array of {@code PyUnicode}.
-     *
-     * @param tuple of names
-     * @param tupleName the name of the argument (for error production)
-     * @return the names as {@code PyUnicode[]}
-     */
-    protected static PyUnicode[] unames(PyTuple tuple,
-            String tupleName) {
-        PyUnicode[] u = new PyUnicode[tuple.size()];
-        int i = 0;
-        for (Object name : tuple) {
-            if (name instanceof PyUnicode) {
-                u[i++] = (PyUnicode)name;
-            } else if (name instanceof String) {
-                u[i++] = PyUnicode.fromJavaString((String)name);
-            } else {
-                throw Abstract.typeError(NAME_TUPLES_STRING, name,
-                        tupleName);
-            }
-        }
-        return u;
-    }
 
     /**
      * Check that all the objects in the tuple are {@code str}, and
