@@ -1,3 +1,5 @@
+// Copyright (c)2022 Jython Developers.
+// Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj3.evo1;
 
 import java.lang.invoke.MethodHandles;
@@ -48,8 +50,8 @@ public class PyDict extends AbstractMap<Object, Object>
      */
     protected <K, V> PyDict(PyType type, Map<K, V> map) {
         this(type);
+        // Cannot bulk add since keys may need Pythonising
         for (Map.Entry<K, V> e : map.entrySet()) {
-            // Cannot bulk add since keys may need Pythonising
             put(e.getKey(), e.getValue());
         }
     }
