@@ -20,8 +20,9 @@ import java.util.Map;
 import uk.co.farowl.vsj3.evo1.Abstract;
 import uk.co.farowl.vsj3.evo1.CPython38Code;
 import uk.co.farowl.vsj3.evo1.EOFError;
-import uk.co.farowl.vsj3.evo1.Exposed;
 import uk.co.farowl.vsj3.evo1.Exposed.Default;
+import uk.co.farowl.vsj3.evo1.Exposed.Member;
+import uk.co.farowl.vsj3.evo1.Exposed.PythonStaticMethod;
 import uk.co.farowl.vsj3.evo1.OSError;
 import uk.co.farowl.vsj3.evo1.Py;
 import uk.co.farowl.vsj3.evo1.PyBaseObject;
@@ -56,7 +57,7 @@ import uk.co.farowl.vsj3.evo1.stringlib.IntArrayBuilder;
 
 public class marshal /* extends JavaModule */ {
 
-    @Exposed.Member("version")
+    @Member("version")
     final static int VERSION = 4;
 
     /*
@@ -268,7 +269,7 @@ public class marshal /* extends JavaModule */ {
      *     has) an unsupported type
      * @throws OSError from file operations
      */
-    @Exposed.PythonStaticMethod
+    @PythonStaticMethod
     public static void dump(Object value, Object file,
             @Default("4") int version) throws ValueError, OSError {
         try (OutputStream os = StreamWriter.adapt(file)) {
@@ -296,7 +297,7 @@ public class marshal /* extends JavaModule */ {
      * @throws EOFError when a partial object is read
      * @throws OSError from file operations generally
      */
-    @Exposed.PythonStaticMethod
+    @PythonStaticMethod
     public static Object load(Object file) {
         try (InputStream is = StreamReader.adapt(file)) {
             Reader reader = new StreamReader(is);
@@ -319,7 +320,7 @@ public class marshal /* extends JavaModule */ {
      * @throws ValueError if the value has (or contains an object that
      *     has) an unsupported type
      */
-    @Exposed.PythonStaticMethod
+    @PythonStaticMethod
     public static PyBytes dumps(Object value, @Default("4") int version)
             throws ValueError {
         ByteArrayBuilder bb = new ByteArrayBuilder();
@@ -340,7 +341,7 @@ public class marshal /* extends JavaModule */ {
      * @throws TypeError when a container contains a null element.
      * @throws EOFError when a partial object is read
      */
-    @Exposed.PythonStaticMethod
+    @PythonStaticMethod
     public static Object loads(Object bytes) {
         try {
             ByteBuffer bb = BytesReader.adapt(bytes);
