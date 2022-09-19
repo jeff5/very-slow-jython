@@ -1,0 +1,89 @@
+/*
+ * idioms subproject (benchmarks for idioms used in VSJ).
+ *
+ * This sub-project builds an application that orchestrates 
+ * microbenchmenrks on idioms I use in code, believing them
+ * both elegant and efficient. Are they actually efficient?
+ *
+ * This sub-project tests various idioms in isolation.
+ */
+
+plugins {
+    id 'application'
+}
+
+dependencies {
+    implementation project(':rt3')
+    implementation 'org.openjdk.jmh:jmh-core:1.26'
+    annotationProcessor 'org.openjdk.jmh:jmh-generator-annprocess:1.26'
+}
+
+application {
+    mainClass = 'org.openjdk.jmh.Main'
+}
+
+
+task jmh(type: JavaExec, description: 'JMH Help') {
+    classpath = sourceSets.main.runtimeClasspath
+    main = 'org.openjdk.jmh.Main'
+    args '-h'
+}
+
+task lprof(type: JavaExec, description: 'JMH List profilers') {
+    classpath = sourceSets.main.runtimeClasspath
+    main = 'org.openjdk.jmh.Main'
+
+    args '-lprof'
+}
+
+task exceptionSupplier(type: JavaExec,
+        description: 'Exception provider benchmark') {
+    classpath = sourceSets.main.runtimeClasspath
+    main = 'org.openjdk.jmh.Main'
+
+    // Need variants of this task with different filters
+    // Trailing .* necessary!
+    args '.*BMExceptionSupplier.*'
+
+    //jvmArgs '-Xint' // JVM options added like this
+    //jvmArgs '-XX:CompileCommand=dontinline,*BMExceptionSupplier.asString'
+    //jvmArgs '-XX:CompileCommand=dontinline,*PyUnicode.asString'
+}
+
+task exceptionSupplierQuick(type: JavaExec,
+        description: 'Exception provider benchmark (quick test)') {
+    classpath = sourceSets.main.runtimeClasspath
+    main = 'org.openjdk.jmh.Main'
+
+   // JMH options
+    args '-f', '1'    // Forks
+    args '-wi', '6'   // Warmup iterations
+    args '-i', '5'    // Iterations in test
+
+    // Trailing .* necessary!
+    args '.*BMExceptionSupplier.*'
+
+    //jvmArgs '-Xint' // JVM options added like this
+    //jvmArgs '-XX:CompileCommand=dontinline,*BMExceptionSupplier.asString'
+    //jvmArgs '-XX:CompileCommand=dontinline,*PyUnicode.asString'
+}
+
+// Runs the "main loop" useful for exploring optimisation
+task exceptionSupplierLoop(type: JavaExec,
+        description: 'Explore BMExceptionSupplier assembly language') {
+    classpath = sourceSets.main.runtimeClasspath
+    main = 'uk.co.farowl.vsj3.evo1.BMExceptionSupplierMainLoop'
+
+    // Show optimisation happening
+    jvmArgs '-XX:+UnlockDiagnosticVMOptions'
+    //jvmArgs '-XX:+PrintInlining'
+    jvmArgs '-XX:CompileCommand=dontinline,*BMExceptionSupplier.checkAll'
+    jvmArgs '-XX:CompileCommand=dontinline,*BMExceptionSupplier.asString'
+    jvmArgs '-XX:CompileCommand=dontinline,*PyUnicode.asString'
+    //jvmArgs '-XX:+PrintCompilation'
+
+    // Disassembly requires hsdis-amd64.dll in Java bin directory
+    //jvmArgs '-XX:+PrintAssembly'  // Everything (a lot)
+    jvmArgs '-XX:CompileCommand=print,*BMExceptionSupplier.checkAll'
+}
+
