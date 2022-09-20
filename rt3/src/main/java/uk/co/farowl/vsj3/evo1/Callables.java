@@ -6,6 +6,7 @@ import java.lang.invoke.MethodHandle;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.function.Function;
 
 /** Compare CPython {@code Objects/call.c}: {@code Py_Object_*}. */
 class Callables extends Abstract {
@@ -89,7 +90,7 @@ class Callables extends Abstract {
             for (Map.Entry<Object, Object> e : kwDict.entrySet()) {
                 Object name = e.getKey();
                 kwnames[i++] = PyUnicode.asString(name,
-                        () -> keywordTypeError(name));
+                        Callables::keywordTypeError);
                 args[n++] = e.getValue();
             }
         }
@@ -370,9 +371,9 @@ class Callables extends Abstract {
         } else {
             String[] names = new String[n];
             for (int i = 0; i < n; i++) {
-                Object o = kwnames.get(i);
-                names[i] = PyUnicode.asString(o,
-                        () -> keywordTypeError(o));
+                Object name = kwnames.get(i);
+                names[i] = PyUnicode.asString(name,
+                        Callables::keywordTypeError);
             }
             return names;
         }

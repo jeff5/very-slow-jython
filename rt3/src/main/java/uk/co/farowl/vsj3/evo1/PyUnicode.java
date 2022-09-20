@@ -14,8 +14,8 @@ import java.util.PrimitiveIterator;
 import java.util.Set;
 import java.util.Spliterator;
 import java.util.Spliterators;
+import java.util.function.Function;
 import java.util.function.IntUnaryOperator;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.StreamSupport;
@@ -2503,9 +2503,9 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
     @PythonMethod
     static final Object __format__(Object self, Object formatSpec) {
 
-        String stringFormatSpec = coerceToString(formatSpec,
-                () -> Abstract.argumentTypeError("__format__",
-                        "specification", "str", formatSpec));
+        String stringFormatSpec = asString(formatSpec,
+                o -> Abstract.argumentTypeError("__format__",
+                        "specification", "str", o));
 
         try {
             // Parse the specification
@@ -2616,28 +2616,32 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
      * @throws TypeError if {@code v} is not a Python {@code str}
      */
     public static String asString(Object v) throws TypeError {
-        return asString(v,
-                () -> Abstract.requiredTypeError("a str", v));
+        return asString(v, o -> Abstract.requiredTypeError("a str", o));
     }
 
     /**
-     * Present a Python {@code str} as a Java {@code String} value or
-     * throw the specified exception. This is for use when the argument
-     * is expected to be a Python {@code str} or a sub-class of it.
+     * Present a qualifying object {@code v} as a Java {@code String}
+     * value or throw {@code E}. This is for use when the argument is
+     * expected to be a Python {@code str} or a sub-class of it.
+     * <p>
+     * The detailed form of exception is communicated in a
+     * lambda-function {@code exc} that will be called (if necessary)
+     * with {@code v} as argument. We use a {@code Function} to avoid
+     * binding a variable {@code v} at the call site.
      *
      * @param <E> type of exception to throw
      * @param v claimed {@code str}
-     * @param exc supplier for the exception to throw
+     * @param exc to supply the exception to throw wrapping {@code v}
      * @return {@code String} value
      * @throws E if {@code v} is not a Python {@code str}
      */
     public static <E extends PyException> String asString(Object v,
-            Supplier<E> exc) throws E {
+            Function<Object, E> exc) throws PyException {
         if (v instanceof String)
             return (String)v;
         else if (v instanceof PyUnicode)
             return ((PyUnicode)v).asString();
-        throw exc.get();
+        throw exc.apply(v);
     }
 
     // Iterator ------------------------------------------------------
@@ -2690,28 +2694,6 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
         else if (v instanceof PyUnicode)
             return ((PyUnicode)v).asString();
         throw PyObjectUtil.NO_CONVERSION;
-    }
-
-    /**
-     * Coerce a Python {@code str} to a Java String, or raise a
-     * specified exception. This is suitable for use where a method
-     * argument should be (exactly) a {@code str}, or a context specific
-     * exception has to be raised.
-     *
-     * @param <E> type of exception to throw
-     * @param arg to coerce
-     * @param exc supplier for actual exception
-     * @return {@code arg} as a {@code String}
-     */
-    static <E extends PyException> String coerceToString(Object arg,
-            Supplier<E> exc) {
-        if (arg instanceof String) {
-            return (String)arg;
-        } else if (arg instanceof PyUnicode) {
-            return ((PyUnicode)arg).asString();
-        } else {
-            throw exc.get();
-        }
     }
 
     /**

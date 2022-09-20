@@ -429,9 +429,9 @@ public class PyLong extends AbstractPyObject implements PyDict.Key {
     @PythonMethod
     static final Object __format__(Object self, Object formatSpec) {
 
-        String stringFormatSpec = PyUnicode.coerceToString(formatSpec,
-                () -> Abstract.argumentTypeError("__format__",
-                        "specification", "str", formatSpec));
+        String stringFormatSpec = PyUnicode.asString(formatSpec,
+                o -> Abstract.argumentTypeError("__format__",
+                        "specification", "str", o));
 
         try {
             // Parse the specification

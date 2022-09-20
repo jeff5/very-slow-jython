@@ -278,8 +278,8 @@ public abstract class PyCode implements CraftedPyObject {
         String[] s = new String[tuple.size()];
         int i = 0;
         for (Object name : tuple) {
-            s[i++] = PyUnicode.asString(name, () -> Abstract
-                    .typeError(NAME_TUPLES_STRING, name, tupleName));
+            s[i++] = PyUnicode.asString(name, o -> Abstract
+                    .typeError(NAME_TUPLES_STRING, o, tupleName));
         }
         return s;
     }

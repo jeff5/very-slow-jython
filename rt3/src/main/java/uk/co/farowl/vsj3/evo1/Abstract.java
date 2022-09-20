@@ -257,7 +257,7 @@ public class Abstract {
             throws AttributeError, TypeError, Throwable {
         // Decisions are based on types of o and name
         return getAttr(o, PyUnicode.asString(name,
-                () -> attributeNameTypeError(name)));
+                Abstract::attributeNameTypeError));
     }
 
     /**
@@ -277,7 +277,7 @@ public class Abstract {
             throws TypeError, Throwable {
         // Decisions are based on types of o and name
         return lookupAttr(o, PyUnicode.asString(name,
-                () -> attributeNameTypeError(name)));
+                Abstract::attributeNameTypeError));
     }
 
     /**
@@ -339,7 +339,7 @@ public class Abstract {
             throws AttributeError, TypeError, Throwable {
         // Decisions are based on types of o and name
         setAttr(o, PyUnicode.asString(name,
-                () -> attributeNameTypeError(name)), value);
+                Abstract::attributeNameTypeError), value);
     }
 
     /**
@@ -377,7 +377,7 @@ public class Abstract {
             throws AttributeError, TypeError, Throwable {
         // Decisions are based on types of o and name
         delAttr(o, PyUnicode.asString(name,
-                () -> attributeNameTypeError(name)));
+                Abstract::attributeNameTypeError));
     }
 
     /**

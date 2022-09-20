@@ -117,12 +117,12 @@ public class CPython38Code extends PyCode {
 
         PyBytes _bytecode = castBytes(bytecode, "bytecode");
 
-        PyTuple _consts = names(consts, "consts");
+        PyTuple _consts = castTuple(consts, "consts");
 
-        PyTuple _names = names(names, "names");
-        PyTuple _varnames = names(varnames, "varnames");
-        PyTuple _freevars = names(freevars, "freevars");
-        PyTuple _cellvars = names(cellvars, "cellvars");
+        PyTuple _names = castTuple(names, "names");
+        PyTuple _varnames = castTuple(varnames, "varnames");
+        PyTuple _freevars = castTuple(freevars, "freevars");
+        PyTuple _cellvars = castTuple(cellvars, "cellvars");
 
         String _filename = castString(filename, "filename");
         String _name = castString(name, "name");
@@ -187,21 +187,19 @@ public class CPython38Code extends PyCode {
             return (PyBytes)v;
         } catch (ClassCastException cce) {
             throw Abstract.argumentTypeError("code", arg, "bytes", v);
-
         }
     }
 
-    private static PyTuple names(Object v, String arg) {
+    private static PyTuple castTuple(Object v, String arg) {
         try {
             return (PyTuple)v;
         } catch (ClassCastException cce) {
             throw Abstract.argumentTypeError("code", arg, "tuple", v);
-
         }
     }
 
     private static String castString(Object v, String arg) {
-        return PyUnicode.asString(v, () -> Abstract
-                .argumentTypeError("code", arg, "str", v));
+        return PyUnicode.asString(v,
+                o -> Abstract.argumentTypeError("code", arg, "str", o));
     }
 }

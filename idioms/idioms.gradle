@@ -46,8 +46,14 @@ task exceptionSupplier(type: JavaExec,
     args '.*BMExceptionSupplier.*'
 
     //jvmArgs '-Xint' // JVM options added like this
-    //jvmArgs '-XX:CompileCommand=dontinline,*BMExceptionSupplier.asString'
-    //jvmArgs '-XX:CompileCommand=dontinline,*PyUnicode.asString'
+    /*
+     * In order to resolve the effect of a closure, we prevent the JVM
+     * from inlining the target method. Otherwise, the closure may be
+     * optimised away in these simple examples. In real use, this
+     * inlining is a good thing of course.
+     */
+    jvmArgs '-XX:CompileCommand=dontinline,*BMExceptionSupplier.asString'
+    jvmArgs '-XX:CompileCommand=dontinline,*PyUnicode.asString'
 }
 
 task exceptionSupplierQuick(type: JavaExec,
@@ -64,8 +70,8 @@ task exceptionSupplierQuick(type: JavaExec,
     args '.*BMExceptionSupplier.*'
 
     //jvmArgs '-Xint' // JVM options added like this
-    //jvmArgs '-XX:CompileCommand=dontinline,*BMExceptionSupplier.asString'
-    //jvmArgs '-XX:CompileCommand=dontinline,*PyUnicode.asString'
+    jvmArgs '-XX:CompileCommand=dontinline,*BMExceptionSupplier.asString'
+    jvmArgs '-XX:CompileCommand=dontinline,*PyUnicode.asString'
 }
 
 // Runs the "main loop" useful for exploring optimisation

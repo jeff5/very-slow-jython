@@ -121,15 +121,13 @@ public class BMExceptionSupplier {
     @Benchmark
     @Fork(4)
     public String asString_string_func() {
-        return asString(vs,
-                o -> Abstract.requiredTypeError("a str", o));
+        return asString(vs, BMExceptionSupplier::strRequired);
     }
 
     @Benchmark
     @Fork(4)
     public String asString_unicode_func() {
-        return asString(vu,
-                o -> Abstract.requiredTypeError("a str", o));
+        return asString(vu, BMExceptionSupplier::strRequired);
     }
 
     @Benchmark
@@ -137,8 +135,7 @@ public class BMExceptionSupplier {
     @Measurement(iterations = 10) // Need fewer since each long
     public void asString_mix_func(Blackhole bh) {
         for (Object v : vmix) {
-            String s = asString(v,
-                    o -> Abstract.requiredTypeError("a str", o));
+            String s = asString(v, BMExceptionSupplier::strRequired);
             bh.consume(s);
         }
     }
@@ -148,8 +145,7 @@ public class BMExceptionSupplier {
     @Measurement(iterations = 10)
     public String asString_int_func() {
         try {
-            return asString(vi,
-                    o -> Abstract.requiredTypeError("a str", o));
+            return asString(vi, BMExceptionSupplier::strRequired);
         } catch (Exception e) {
             return "";
         }
@@ -199,15 +195,13 @@ public class BMExceptionSupplier {
     @Benchmark
     @Fork(4)
     public String asString_string_py() {
-        return PyUnicode.asString(vs,
-                () -> Abstract.requiredTypeError("a str", vs));
+        return PyUnicode.asString(vs, BMExceptionSupplier::strRequired);
     }
 
     @Benchmark
     @Fork(4)
     public String asString_unicode_py() {
-        return PyUnicode.asString(vu,
-                () -> Abstract.requiredTypeError("a str", vu));
+        return PyUnicode.asString(vu, BMExceptionSupplier::strRequired);
     }
 
     @Benchmark
@@ -216,7 +210,7 @@ public class BMExceptionSupplier {
     public void asString_mix_py(Blackhole bh) {
         for (Object v : vmix) {
             String s = PyUnicode.asString(v,
-                    () -> Abstract.requiredTypeError("a str", v));
+                    BMExceptionSupplier::strRequired);
             bh.consume(s);
         }
     }
@@ -227,7 +221,7 @@ public class BMExceptionSupplier {
     public String asString_int_py() {
         try {
             return PyUnicode.asString(vi,
-                    () -> Abstract.requiredTypeError("a str", vi));
+                    BMExceptionSupplier::strRequired);
         } catch (Exception e) {
             return "";
         }
@@ -259,6 +253,16 @@ public class BMExceptionSupplier {
             } catch (Exception e) {}
         }
         return s;
+    }
+
+    /**
+     * Create a {@link TypeError} that a {@code str} is required.
+     * 
+     * @param o objectionable object
+     * @return {@code TypeError} to throw
+     */
+    static TypeError strRequired(Object o) {
+        return Abstract.requiredTypeError("a str", o);
     }
 
     /**
