@@ -5,6 +5,7 @@ package uk.co.farowl.vsj3.evo1;
 
 import java.lang.invoke.MethodHandles;
 
+import uk.co.farowl.vsj3.evo1.Exposed.Member;
 import uk.co.farowl.vsj3.evo1.PyType.Flag;
 
 /**
@@ -17,13 +18,13 @@ public class PySlice extends AbstractPyObject {
             new PyType.Spec("slice", MethodHandles.lookup())
                     .flagNot(Flag.BASETYPE));
 
-    @Exposed.Member
+    @Member
     final private Object start;
 
-    @Exposed.Member
+    @Member
     final private Object stop;
 
-    @Exposed.Member
+    @Member
     final private Object step;
 
     /**

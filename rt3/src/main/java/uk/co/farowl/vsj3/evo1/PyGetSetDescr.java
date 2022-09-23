@@ -71,8 +71,11 @@ abstract class PyGetSetDescr extends DataDescriptor {
     /** Documentation string for this attribute. */
     final String doc;
 
-    // void * arg to [gs]etter No uses found in CPython.
-    // Sub-class GetSetDef or give [gs]etter actual closures.
+    /*
+     * CPython has a void * argument to [gs]etter but no uses are found
+     * in the CPython code base. Sub-classing may be the Java way to
+     * provide a closure.
+     */
     // void *closure;
 
     /**
@@ -172,8 +175,8 @@ abstract class PyGetSetDescr extends DataDescriptor {
         final MethodHandle delete;  // MT = DELETER
 
         /**
-         * Construct a get-set descriptor, identifying by an array of
-         * method handles the implementation methods applicable to
+         * Construct a get-set descriptor, identifying by a method
+         * handle each implementation method applicable to
          * {@code objclass}. These methods will be identified in an
          * implementation by annotations {@link Getter}, {@link Setter},
          * {@link Deleter}.

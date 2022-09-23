@@ -459,7 +459,7 @@ public class PyType extends Operations implements DictPyObject {
      */
     private void fillDictionary(Spec spec) throws Clash {
         // Fill slots from implClass or bases
-        addMethods(spec);
+        addDefinitions(spec);
         // XXX Possibly belong distinct from fillDictionary
         defineOperations(spec);
         deduceFlags();
@@ -508,7 +508,7 @@ public class PyType extends Operations implements DictPyObject {
      *
      * @param spec to apply
      */
-    private void addMethods(Spec spec) {
+    private void addDefinitions(Spec spec) {
         // Add definitions found in the defining class to the type
         TypeExposer exposer = Exposer.exposeType(this,
                 spec.definingClass, spec.methodClass);

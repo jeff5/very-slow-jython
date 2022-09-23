@@ -73,6 +73,7 @@ class TypeExposerTest {
         }
 
         // Signature: ($self, a, b, c /)
+        @SuppressWarnings("static-method")
         @PythonMethod
         PyTuple m3(int a, String b, Object c) {
             return Py.tuple(a, b, c);
@@ -85,6 +86,7 @@ class TypeExposerTest {
         }
 
         // Signature: ($self, /, a, b, c)
+        @SuppressWarnings("static-method")
         @PythonMethod(positionalOnly = false)
         PyTuple m3pk(int a, String b, Object c) {
             return Py.tuple(a, b, c);
@@ -97,6 +99,7 @@ class TypeExposerTest {
         }
 
         // Signature: ($self, a, b, /, c)
+        @SuppressWarnings("static-method")
         @PythonMethod
         PyTuple m3p2(int a, @PositionalOnly String b, Object c) {
             return Py.tuple(a, b, c);
@@ -110,6 +113,7 @@ class TypeExposerTest {
         }
 
         // Signature: ($self, a, b, /, *c)
+        @SuppressWarnings("static-method")
         @PythonMethod
         PyTuple m2v(int a, String b, @PositionalCollector PyTuple c) {
             return Py.tuple(a, b, c);
@@ -124,6 +128,7 @@ class TypeExposerTest {
         }
 
         // Signature: ($self, a, b, /, *c)
+        @SuppressWarnings("static-method")
         @PythonMethod
         PyTuple m2pvk(int a, String b, @PositionalCollector PyTuple c,
                 @KeywordCollector PyDict d) {
@@ -207,7 +212,7 @@ class TypeExposerTest {
         }
 
         @Deleter("thing")
-        void deleteThing(Object v) throws TypeError, Throwable {
+        void deleteThing() throws TypeError, Throwable {
             thingValue = Double.NaN;
             count = 0;
         }
@@ -271,6 +276,7 @@ class TypeExposerTest {
     // ----------------------------------------------------------------
     @Test
     @DisplayName("has the expected number of methods.")
+    @SuppressWarnings("static-method")
     void numberOfMethods() {
         assertEquals(12, methods.size(), "number of methods");
     }
@@ -281,8 +287,8 @@ class TypeExposerTest {
      *
      * @param sig signature
      */
-    @DisplayName("has a method with signature ...")
     @ParameterizedTest(name = "{0}")
+    @DisplayName("has a method with signature ...")
     @ValueSource(strings = { //
             "f0()", //
             "m0($self, /)", //
@@ -297,6 +303,7 @@ class TypeExposerTest {
             "f2pvk(a, b, /, *c, **d)", //
             "m2pvk($self, a, b, /, *c, **d)", //
     })
+    @SuppressWarnings("static-method")
     void checkSignature(String sig) {
         int k = sig.indexOf('(');
         assert k > 0;
@@ -310,12 +317,13 @@ class TypeExposerTest {
     // ----------------------------------------------------------------
     @Test
     @DisplayName("has the expected number of members.")
+    @SuppressWarnings("static-method")
     void numberOfMembers() {
         assertEquals(9, members.size(), "number of members");
     }
 
-    @DisplayName("has a writable member ...")
     @ParameterizedTest(name = "{0}")
+    @DisplayName("has a writable member ...")
     @ValueSource(strings = { //
             "i", //
             "x", //
@@ -323,36 +331,39 @@ class TypeExposerTest {
             "s", //
             "obj", //
     })
+    @SuppressWarnings("static-method")
     void checkWritableMember(String name) {
         MemberSpec ms = find(members, name);
         assertFalse(ms.readonly, () -> name + " readonly");
     }
 
-    @DisplayName("has a readonly member ...")
     @ParameterizedTest(name = "{0}")
+    @DisplayName("has a readonly member ...")
     @ValueSource(strings = { //
             "i2", //
             "x2", //
             "text2", //
             "strhex2", //
     })
+    @SuppressWarnings("static-method")
     void checkReadonlyMember(String name) {
         MemberSpec ms = find(members, name);
         assertTrue(ms.readonly, () -> name + " readonly");
     }
 
-    @DisplayName("has an optional member ...")
     @ParameterizedTest(name = "{0}")
+    @DisplayName("has an optional member ...")
     @ValueSource(strings = { //
             "s", //
     })
+    @SuppressWarnings("static-method")
     void checkOptionalMember(String name) {
         MemberSpec ms = find(members, name);
         assertTrue(ms.optional, () -> name + " optional");
     }
 
-    @DisplayName("has a non-optional member ...")
     @ParameterizedTest(name = "{0}")
+    @DisplayName("has a non-optional member ...")
     @ValueSource(strings = { //
             "i", //
             "x", //
@@ -363,16 +374,18 @@ class TypeExposerTest {
             "text2", //
             "strhex2", //
     })
+    @SuppressWarnings("static-method")
     void checkMandatoryMember(String name) {
         MemberSpec ms = find(members, name);
         assertFalse(ms.optional, () -> name + " optional");
     }
 
-    @DisplayName("has a documented member ...")
     @ParameterizedTest(name = "{0}")
+    @DisplayName("has a documented member ...")
     @ValueSource(strings = { //
             "x", //
     })
+    @SuppressWarnings("static-method")
     void checkDocMember(String name) {
         MemberSpec ms = find(members, name);
         assertEquals(ms.doc, "Doc string for " + name);
@@ -381,26 +394,29 @@ class TypeExposerTest {
     // ----------------------------------------------------------------
     @Test
     @DisplayName("has the expected number of get-set attributes.")
+    @SuppressWarnings("static-method")
     void numberOfGetSets() {
         assertEquals(3, getsets.size(), "number of get-set attributes");
     }
 
-    @DisplayName("has a readonly get-set ...")
     @ParameterizedTest(name = "{0}")
+    @DisplayName("has a readonly get-set ...")
     @ValueSource(strings = { //
             "count", //
     })
+    @SuppressWarnings("static-method")
     void checkReadonlyGetSet(String name) {
         GetSetSpec gs = find(getsets, name);
         assertTrue(gs.readonly(), () -> name + " readonly");
     }
 
-    @DisplayName("has a writable get-set ...")
     @ParameterizedTest(name = "{0}")
+    @DisplayName("has a writable get-set ...")
     @ValueSource(strings = { //
             "foo", //
             "thing", //
     })
+    @SuppressWarnings("static-method")
     void checkWritableGetSet(String name) {
         GetSetSpec gs = find(getsets, name);
         assertFalse(gs.readonly(), () -> name + " readonly");
@@ -409,21 +425,23 @@ class TypeExposerTest {
                 () -> name + " setter size mismatch");
     }
 
-    @DisplayName("has a non-optional get-set ...")
     @ParameterizedTest(name = "{0}")
+    @DisplayName("has a non-optional get-set ...")
     @ValueSource(strings = { //
             "thing", //
     })
+    @SuppressWarnings("static-method")
     void checkMandatoryGetSet(String name) {
         GetSetSpec gs = find(getsets, name);
         assertTrue(gs.optional(), () -> name + " optional");
     }
 
-    @DisplayName("has an optional get-set ...")
     @ParameterizedTest(name = "{0}")
+    @DisplayName("has an optional get-set ...")
     @ValueSource(strings = { //
             "thing", //
     })
+    @SuppressWarnings("static-method")
     void checkOptionalGetSet(String name) {
         GetSetSpec gs = find(getsets, name);
         assertTrue(gs.optional(), () -> name + " optional");

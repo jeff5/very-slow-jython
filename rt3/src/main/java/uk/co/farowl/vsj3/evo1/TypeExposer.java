@@ -160,28 +160,6 @@ class TypeExposer extends Exposer {
     }
 
     /**
-     * Process a method that matches a slot name to a descriptor
-     * specification and add it to the table of specifications by name.
-     *
-     * @param meth method annotated
-     * @param slot annotation encountered
-     * @throws InterpreterError on duplicates or unsupported types
-     */
-    private void addWrapperSpec(Method meth, Slot slot)
-            throws InterpreterError {
-
-        // For clarity, name lambda expression for cast
-        Function<Spec, WrapperSpec> cast =
-                // Test and cast a found Spec to MethodSpec
-                spec -> spec instanceof WrapperSpec ? (WrapperSpec)spec
-                        : null;
-        // Now use the generic create/update
-        addSpec(meth, slot.methodName, cast,
-                (String ignored) -> new WrapperSpec(slot), ms -> {},
-                WrapperSpec::add);
-    }
-
-    /**
      * Process a method annotated as an exposed attribute get method,
      * into a specification, and find a {@link GetSetSpec} to the table
      * of specifications by name (or add one) to hold it.
@@ -238,8 +216,30 @@ class TypeExposer extends Exposer {
      * @param spec to cast
      * @return {@code spec} or {@code null}
      */
-    static GetSetSpec castGetSet(Spec spec) {
+    private static GetSetSpec castGetSet(Spec spec) {
         return spec instanceof GetSetSpec ? (GetSetSpec)spec : null;
+    }
+
+    /**
+     * Process a method that matches a slot name to a descriptor
+     * specification and add it to the table of specifications by name.
+     *
+     * @param meth method annotated
+     * @param slot annotation encountered
+     * @throws InterpreterError on duplicates or unsupported types
+     */
+    private void addWrapperSpec(Method meth, Slot slot)
+            throws InterpreterError {
+
+        // For clarity, name lambda expression for cast
+        Function<Spec, WrapperSpec> cast =
+                // Test and cast a found Spec to MethodSpec
+                spec -> spec instanceof WrapperSpec ? (WrapperSpec)spec
+                        : null;
+        // Now use the generic create/update
+        addSpec(meth, slot.methodName, cast,
+                (String ignored) -> new WrapperSpec(slot), ms -> {},
+                WrapperSpec::add);
     }
 
     /**
