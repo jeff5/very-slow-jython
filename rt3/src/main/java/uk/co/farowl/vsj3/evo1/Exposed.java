@@ -260,7 +260,8 @@ public interface Exposed {
          * Member can be deleted and subsequently it is an
          * {@link AttributeError} to get or delete it, until it is set
          * again. By default, when a member implemented by a reference
-         * type is deleted, it behaves as if set to {@code None}.
+         * type is deleted (is {@code null}), it behaves as if set to
+         * {@code None}.
          *
          * @return true if access following delete will raise an error
          */

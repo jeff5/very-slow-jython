@@ -407,7 +407,7 @@ class CPython38Frame extends PyFrame<CPython38Code> {
                         // Call with positional args only. Stack:
                         // f | arg[n] | -> res |
                         // ------------^sp -----^sp
-                        oparg |= opword & 0xff; // = N of args
+                        oparg |= opword & 0xff; // = n # of args
                         sp -= oparg + 1;
                         s[sp] = Callables.vectorcall(s[sp++], s, sp,
                                 oparg);

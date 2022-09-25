@@ -7,6 +7,7 @@ import java.lang.invoke.MethodHandles;
 import java.util.List;
 
 import uk.co.farowl.vsj3.evo1.ArgumentError.Mode;
+import uk.co.farowl.vsj3.evo1.Exposed.Member;
 import uk.co.farowl.vsj3.evo1.base.InterpreterError;
 import uk.co.farowl.vsj3.evo1.base.MethodKind;
 
@@ -37,6 +38,7 @@ public abstract class PyJavaMethod
      * ({@code object} or {@code type}). A function obtained from a
      * module may be a method bound to an instance of that module.
      */
+    @Member("__self__")
     final Object self;
 
     /**

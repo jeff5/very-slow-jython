@@ -25,9 +25,13 @@ import uk.co.farowl.vsj3.evo1.ModuleDef.MethodDef;
 
 /**
  * Test that a Python <b>module</b> defined in Java, using the scheme of
- * annotations defined in {@link Exposed} is processed correctly by a
- * {@link Exposer} to a {@link ModuleDef}. This tests a large part of
+ * annotations defined in {@link Exposed}, can be processed correctly by
+ * a {@link Exposer} to a {@link ModuleDef}. This tests a large part of
  * the exposure mechanism.
+ * <p>
+ * The class used in the test {@link FakeModule} is not actually a
+ * {@link PyModule}, but we go through the actions of the
+ * {@link ModuleExposer} so we can examine the intermediate results.
  */
 @DisplayName("For a module exposed from a Java definition")
 class ModuleExposerTest extends UnitTestSupport {
@@ -56,6 +60,7 @@ class ModuleExposerTest extends UnitTestSupport {
 
         // Signature: ($module, a, /)
         @PythonMethod
+        @SuppressWarnings("static-method")
         PyTuple m1(double a) {return Py.tuple(a);}
 
         // Signature: (a, b, c, /)
@@ -66,6 +71,7 @@ class ModuleExposerTest extends UnitTestSupport {
 
         // Signature: ($module, a, b, c, /)
         @PythonMethod
+        @SuppressWarnings("static-method")
         PyTuple m3(int a, String b, Object c) {
             return Py.tuple(a, b, c);
         }
@@ -78,6 +84,7 @@ class ModuleExposerTest extends UnitTestSupport {
 
         // Signature: ($module, /, a, b, c)
         @PythonMethod(positionalOnly = false)
+        @SuppressWarnings("static-method")
         PyTuple m3pk(int a, String b, Object c) {
             return Py.tuple(a, b, c);
         }
@@ -90,6 +97,7 @@ class ModuleExposerTest extends UnitTestSupport {
 
         // Signature: ($module, a, b, /, c)
         @PythonMethod
+        @SuppressWarnings("static-method")
         PyTuple m3p2(int a, @PositionalOnly String b, Object c) {
             return Py.tuple(a, b, c);
         }
