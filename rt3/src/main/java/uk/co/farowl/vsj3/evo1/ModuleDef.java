@@ -149,8 +149,8 @@ public class ModuleDef {
 
         @Override
         public String toString() {
-            return String.format("%s [%s]", argParser,
-                    getClass().getSimpleName());
+            return String.format("%s[%s]", getClass().getSimpleName(),
+                    argParser);
         }
     }
 }

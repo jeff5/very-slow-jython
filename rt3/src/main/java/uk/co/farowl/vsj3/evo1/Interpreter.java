@@ -29,10 +29,9 @@ class Interpreter {
 
     /** Create a new {@code Interpreter}. */
     Interpreter() {
-        // builtinsModule = new BuiltinsModule();
+        builtinsModule = new BuiltinsModule();
         // builtinsModule.init();
         // addModule(builtinsModule);
-        builtinsModule = null;
     }
 
     void addModule(PyModule m) {
