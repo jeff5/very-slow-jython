@@ -11,6 +11,7 @@ import java.lang.reflect.Modifier;
 import java.lang.reflect.Parameter;
 import java.math.BigInteger;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -134,13 +135,32 @@ abstract class Exposer {
      * @throws InterpreterError on duplicates or unsupported types
      */
     void scanJavaMethods(Class<?> defsClass) throws InterpreterError {
-
         // Iterate over methods looking for the relevant annotations
-        for (Method m : defsClass.getDeclaredMethods()) {
-            PythonMethod a =
-                    m.getDeclaredAnnotation(PythonMethod.class);
-            if (a != null) { addMethodSpec(m, a); }
+        for (Class<?> c : superClasses(defsClass)) {
+            for (Method m : c.getDeclaredMethods()) {
+                PythonMethod a =
+                        m.getDeclaredAnnotation(PythonMethod.class);
+                if (a != null) { addMethodSpec(m, a); }
+            }
         }
+    }
+
+    /**
+     * Walk down to a given class through all super-classes that might
+     * contain items to expose. We do not need to include classes not
+     * created with a knowledge of Jython. (This is why it doesn't start
+     * with {@code java.lang.Object}).
+     *
+     * @param c given ending class
+     * @return super-classes descending to {@code c}
+     */
+    static Collection<Class<?>> superClasses(Class<?> c) {
+        LinkedList<Class<?>> classes = new LinkedList<>();
+        while (c != null && c != Object.class) {
+            classes.addFirst(c);
+            c = c.getSuperclass();
+        }
+        return classes;
     }
 
     /**

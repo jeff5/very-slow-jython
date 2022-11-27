@@ -7,6 +7,7 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 
+import uk.co.farowl.vsj3.evo1.PyCode.Trait;
 import uk.co.farowl.vsj3.evo1.base.InterpreterError;
 
 /** A {@link PyFrame} for executing CPython 3.8 byte code. */
@@ -46,10 +47,10 @@ class CPython38Frame extends PyFrame<CPython38Code> {
     Object returnValue = Py.None;
 
     /**
-     * Create a {@code CPythonFrame}, which is a {@code PyFrame} with
+     * Create a {@code CPython38Frame}, which is a {@code PyFrame} with
      * the storage and mechanism to execute a module or isolated code
      * object (compiled to a {@link CPython38Code}.
-     *
+     *<p>
      * The caller specifies the local variables dictionary explicitly:
      * it may be the same as the {@code globals}.
      *
@@ -66,13 +67,16 @@ class CPython38Frame extends PyFrame<CPython38Code> {
 
         // The need for a dictionary of locals depends on the code
         EnumSet<PyCode.Trait> traits = code.traits;
-        if (traits.contains(PyCode.Trait.NEWLOCALS)
-                && traits.contains(PyCode.Trait.OPTIMIZED)) {
+        if (traits.containsAll(FAST_TRAITS)) {
             fastlocals = new Object[code.nlocals];
         } else {
             fastlocals = null;
         }
     }
+
+    /** Traits of a function body with fast locals. */
+    private static final EnumSet<Trait> FAST_TRAITS =
+            EnumSet.of(Trait.OPTIMIZED, Trait.NEWLOCALS);
 
     @Override
     Object eval() {

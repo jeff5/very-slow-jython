@@ -450,19 +450,14 @@ abstract class PyMethodDescr extends MethodDescriptor {
 
     // exposed methods -----------------------------------------------
 
-    /** @return name of the function or method */
-    // Compare CPython meth_get__name__ in methodobject.c
-    @Exposed.Getter
-    String __name__() { return argParser.name; }
-
     // Compare CPython method_get_doc in descrobject.c
     Object get_doc() {
-        return PyType.getDocFromInternalDoc(__name__(), argParser.doc);
+        return PyType.getDocFromInternalDoc(name, argParser.doc);
     }
 
     // Compare CPython method_get_text_signature in descrobject.c
     Object get_text_signature() {
-        return PyType.getTextSignatureFromInternalDoc(__name__(),
+        return PyType.getTextSignatureFromInternalDoc(name,
                 argParser.doc);
     }
 
@@ -507,7 +502,7 @@ abstract class PyMethodDescr extends MethodDescriptor {
                 // No match means no implementation we can use
                 throw new InterpreterError(
                         "'%s.%s' not implemented for %s", objclass.name,
-                        __name__(), objclass.classes[i]);
+                        name, objclass.classes[i]);
             }
         }
         return methods;

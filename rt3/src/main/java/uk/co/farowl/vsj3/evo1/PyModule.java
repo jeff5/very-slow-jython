@@ -1,7 +1,6 @@
 package uk.co.farowl.vsj3.evo1;
 
 import java.lang.invoke.MethodHandles;
-import java.util.Map;
 
 /** The Python {@code module} object. */
 public class PyModule implements CraftedPyObject, DictPyObject {
@@ -25,7 +24,6 @@ public class PyModule implements CraftedPyObject, DictPyObject {
      * @param type actual Python sub-class to being created
      * @param name of module
      */
-
     PyModule(PyType type, String name) {
         this.type = type;
         this.name = name;
@@ -44,8 +42,14 @@ public class PyModule implements CraftedPyObject, DictPyObject {
     @Override
     public PyType getType() { return type; }
 
+    /**
+     * The global dictionary of a module instance. This is always a Python
+     * {@code dict}.
+     *
+     * @return The globals of this module
+     */
     @Override
-    public Map<Object, Object> getDict() { return dict; }
+    public PyDict getDict() { return dict; }
 
     /**
      * Add a type by name to the dictionary.

@@ -257,11 +257,17 @@ public interface Exposed {
         boolean readonly() default false;
 
         /**
-         * Member can be deleted and subsequently it is an
-         * {@link AttributeError} to get or delete it, until it is set
-         * again. By default, when a member implemented by a reference
-         * type is deleted (is {@code null}), it behaves as if set to
-         * {@code None}.
+         * A member may be {@code null} from Java or deleted from Python
+         * (if not read-only). In this condition:
+         * <ul>
+         * <li>for a member annotated with {@code optional=true},
+         * attempts to {@code get} or {@code delete} the member will
+         * produce an {@link AttributeError}, until it is set again.
+         * </li>
+         * <li>where {@code optional=false} (default), a {@code get}
+         * will return {@code None} and {@code delete} will have no
+         * effect.</li>
+         * </ul>
          *
          * @return true if access following delete will raise an error
          */
@@ -272,7 +278,7 @@ public interface Exposed {
      * Identify a method as that to be called during a Python call to
      * {@code __getattribute__} naming an exposed attribute.
      * <p>
-     * The signature must be ()PyObject.
+     * The signature must be ()Object.
      */
     @Documented
     @Retention(RUNTIME)
@@ -283,6 +289,7 @@ public interface Exposed {
          * Exposed name of the attribute, if different from the Java
          * method name.
          *
+         * This name will relate the {@link Getter}, {@link Setter} and
          * {@link Deleter} in a single descriptor.
          *
          * @return name of the attribute
@@ -294,7 +301,7 @@ public interface Exposed {
      * Identify a method as that to be called during a Python call to
      * {@code __setattr__} naming an exposed attribute.
      * <p>
-     * The signature must be (PyObject)void.
+     * The signature must be (Object)void.
      */
     @Documented
     @Retention(RUNTIME)

@@ -10,11 +10,11 @@ import java.util.Map;
  * A {@code PyFrame} is the context for the execution of code. Different
  * concrete sub-classes of {@code PyFrame} exist to execute different
  * compiled representations of Python code. For example, there is one
- * for CPython 3.8 byte code and (we expect) another for Java byte code.
- * The type of code object supported is the parameter {@code C} to the
- * class.
+ * for CPython 3.8 byte code and (we expect) another for Java byte code
+ * compiled from Python. The type of code object supported is the
+ * parameter {@code C} to the class.
  * <p>
- * In order that argument processing may be uinform irrespective of
+ * In order that argument processing may be uniform irrespective of
  * concrete type, a {@code PyFrame} presents an abstraction that has
  * arguments laid out in an array. For example, the function
  * definition:<pre>
@@ -90,7 +90,8 @@ public abstract class PyFrame<C extends PyCode> {
     /** Interpreter owning this frame. */
     protected final Interpreter interpreter;
     /** Built-in objects. */
-    protected PyDict builtins;
+    // XXX Is this ever other than a PyDict?
+    protected Map<Object, Object> builtins;
     /** Global context (name space) of execution. */
     final PyDict globals;
     /** Local context (name space) of execution. (Assign if needed.) */
@@ -118,6 +119,7 @@ public abstract class PyFrame<C extends PyCode> {
             PyDict globals) throws TypeError {
         this.code = code;
         this.interpreter = interpreter;
+        this.builtins = interpreter.builtinsModule.getDict();
         this.globals = globals;
     }
 

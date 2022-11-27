@@ -122,40 +122,43 @@ class TypeExposer extends Exposer {
     void scanJavaMethods(Class<?> defsClass) throws InterpreterError {
 
         // Iterate over methods looking for those to expose
-        for (Method m : defsClass.getDeclaredMethods()) {
-            /*
-             * Note: method annotations (and special names) are not
-             * treated as alternatives, to catch exposure of methods by
-             * multiple routes.
-             */
+        for (Class<?> c : superClasses(defsClass)) {
+            for (Method m : c.getDeclaredMethods()) {
+                /*
+                 * Note: method annotations (and special names) are not
+                 * treated as alternatives, to catch exposure of methods
+                 * by multiple routes.
+                 */
 
-            // Check for instance method
-            PythonMethod pm =
-                    m.getDeclaredAnnotation(PythonMethod.class);
-            if (pm != null) { addMethodSpec(m, pm); }
+                // Check for instance method
+                PythonMethod pm =
+                        m.getDeclaredAnnotation(PythonMethod.class);
+                if (pm != null) { addMethodSpec(m, pm); }
 
-            // Check for static method
-            PythonStaticMethod psm =
-                    m.getDeclaredAnnotation(PythonStaticMethod.class);
-            if (psm != null) { addStaticMethodSpec(m, psm); }
+                // Check for static method
+                PythonStaticMethod psm = m.getDeclaredAnnotation(
+                        PythonStaticMethod.class);
+                if (psm != null) { addStaticMethodSpec(m, psm); }
 
-            // XXX Check for class method
-            // PythonClassMethod pcm =
-            // m.getDeclaredAnnotation(PythonClassMethod.class);
-            // if (pcm != null) { addClassMethodSpec(m, pcm); }
+                // XXX Check for class method
+                // PythonClassMethod pcm =
+                // m.getDeclaredAnnotation(PythonClassMethod.class);
+                // if (pcm != null) { addClassMethodSpec(m, pcm); }
 
-            // Check for getter, setter, deleter methods
-            Getter get = m.getAnnotation(Getter.class);
-            if (get != null) { addGetter(m, get); }
-            Setter set = m.getAnnotation(Setter.class);
-            if (set != null) { addSetter(m, set); }
-            Deleter del = m.getAnnotation(Deleter.class);
-            if (del != null) { addDeleter(m, del); }
+                // Check for getter, setter, deleter methods
+                Getter get = m.getAnnotation(Getter.class);
+                if (get != null) { addGetter(m, get); }
+                Setter set = m.getAnnotation(Setter.class);
+                if (set != null) { addSetter(m, set); }
+                Deleter del = m.getAnnotation(Deleter.class);
+                if (del != null) { addDeleter(m, del); }
 
-            // If it has a special method name record that definition.
-            String name = m.getName();
-            Slot slot = Slot.forMethodName(name);
-            if (slot != null) { addWrapperSpec(m, slot); }
+                // If it has a special method name record that
+                // definition.
+                String name = m.getName();
+                Slot slot = Slot.forMethodName(name);
+                if (slot != null) { addWrapperSpec(m, slot); }
+            }
         }
     }
 
@@ -250,12 +253,12 @@ class TypeExposer extends Exposer {
      * @throws InterpreterError on duplicates or unsupported types
      */
     void scanJavaFields(Class<?> defsClass) throws InterpreterError {
-
-        // Iterate over methods looking for those to expose
-        for (Field f : defsClass.getDeclaredFields()) {
-            // Check for instance method
-            Member m = f.getDeclaredAnnotation(Member.class);
-            if (m != null) { addMemberSpec(f, m); }
+        // Iterate over fields looking for the relevant annotations
+        for (Class<?> c : superClasses(defsClass)) {
+            for (Field f : c.getDeclaredFields()) {
+                Member m = f.getDeclaredAnnotation(Member.class);
+                if (m != null) { addMemberSpec(f, m); }
+            }
         }
     }
 

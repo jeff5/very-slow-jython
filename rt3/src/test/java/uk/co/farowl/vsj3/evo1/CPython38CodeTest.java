@@ -140,7 +140,9 @@ class CPython38CodeTest extends UnitTestSupport {
     void executeSimple(String name) {
         CPython38Code code = readCode(name);
         PyDict globals = new PyDict();
-        code.createFrame(null, globals, globals).eval();
+        Interpreter interp = new Interpreter();
+        CPython38Frame f = code.createFrame(interp, globals, globals);
+        f.eval();
         assertExpectedVariables(readResultDict(name), globals);
     }
 
