@@ -164,7 +164,9 @@ public interface Exposed {
     @Documented
     @Retention(RUNTIME)
     @Target({METHOD, FIELD, TYPE})
-    @interface DocString { String value(); }
+    @interface DocString {
+        String value();
+    }
 
     /**
      * Override the name of an parameter to a method defined in Java, as
@@ -176,7 +178,9 @@ public interface Exposed {
     @Documented
     @Retention(RUNTIME)
     @Target(PARAMETER)
-    @interface Name { String value(); }
+    @interface Name {
+        String value();
+    }
 
     /**
      * Declare that the annotated parameter is the last positional only
@@ -213,7 +217,9 @@ public interface Exposed {
     @Documented
     @Retention(RUNTIME)
     @Target(PARAMETER)
-    @interface Default { String value(); }
+    @interface Default {
+        String value();
+    }
 
     /**
      * Declare that the annotated parameter is the collector for excess
@@ -236,10 +242,35 @@ public interface Exposed {
     @interface KeywordCollector {}
 
     /**
-     * Identify a field (of supported type) of a Python object as an
-     * exposed member. Get, set and delete operations are provided
-     * automatically on a descriptor that will be entered in the
-     * dictionary of the type being defined.
+     * Identify a field of a Python object as an exposed attribute. Get,
+     * set and delete operations are provided automatically on a
+     * descriptor that will be entered in the dictionary of the type
+     * being defined. If the field is Java {@code final} it will be
+     * read-only.
+     * <p>
+     * Some primitive types and {@code String} receive special support
+     * for conversion from Python objects. A field of type
+     * {@code Object} may easily be made a member and will then receive
+     * any Python object.
+     * <p>
+     * The annotated field may have any Java reference type. In that
+     * case, an attempt to assign a Python object of the wrong Java type
+     * will raise a {@link TypeError}. This makes it possible to declare
+     * an attribute of a specific Python type. For example one enforce
+     * {@code tuple} values by declaring the field as a {@link PyTuple}.
+     * The field would also accept Python sub-classes of the attribute
+     * type, since they must be sub-classes in Java too.
+     * <p>
+     * This approach creates a limitation where the corresponding Python
+     * type has multiple Java implementations not related by Java
+     * inheritance and is not specially provided for (like
+     * {@code String}). The set operation of the {@link Member}
+     * attribute will reject instances that have the intended Python
+     * type but non-matching Java type (with a confusing
+     * {@link TypeError} to boot). A writable attribute of that type
+     * should be implemented as {@code Object} or using explicit
+     * {@link Getter}, {@link Setter} and {@link Deleter} methods.
+     *
      */
     @Documented
     @Retention(RUNTIME)
@@ -354,5 +385,4 @@ public interface Exposed {
     @Documented
     @Target(FIELD)
     @interface FrozenArray {}
-
 }

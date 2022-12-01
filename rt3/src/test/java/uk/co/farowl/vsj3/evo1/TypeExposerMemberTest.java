@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.lang.invoke.MethodHandles;
 import java.math.BigInteger;
+import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -29,10 +30,24 @@ import uk.co.farowl.vsj3.evo1.Exposed.Member;
 class TypeExposerMemberTest extends UnitTestSupport {
 
     /**
+     * Java base class of a Python type definition showing that some of
+     * the member definitions explored in the tests can be
+     * Java-inherited.
+     */
+    private static class BaseMembers {
+        @Member
+        int i;
+
+        /** String with change of name. */
+        @Member("text")
+        String t;
+    }
+
+    /**
      * A Python type definition that exhibits a range of member
      * definitions explored in the tests.
      */
-    private static class ObjectWithMembers {
+    private static class ObjectWithMembers extends BaseMembers {
 
         static PyType TYPE =
                 PyType.fromSpec(new PyType.Spec("ObjectWithMembers",
@@ -40,15 +55,8 @@ class TypeExposerMemberTest extends UnitTestSupport {
                                 .adopt(DerivedWithMembers.class));
 
         @Member
-        int i;
-
-        @Member
         @DocString("My test x")
         double x;
-
-        /** String with change of name. */
-        @Member("text")
-        String t;
 
         /** String can be properly deleted without popping up as None */
         @Member(optional = true)
@@ -70,15 +78,25 @@ class TypeExposerMemberTest extends UnitTestSupport {
         @Member(readonly = true, value = "text2")
         String t2;
 
+        /** {@code PyTuple} member. */
+        @Member
+        PyTuple tup;
+
         /** {@code PyUnicode} member: not practical to allow set. */
         @Member(readonly = true)
         PyUnicode strhex;
 
+        /**
+         * Give all the members values based on a single "seed"
+         *
+         * @param value starting value for all the members
+         */
         ObjectWithMembers(double value) {
             x2 = x = value;
             i2 = i = Math.round((float)value);
             t2 = t = s = String.format("%d", i);
             obj = i;
+            tup = new PyTuple(i, x, t);
             strhex = newPyUnicode(Integer.toString(i, 16));
         }
     }
@@ -615,6 +633,75 @@ class TypeExposerMemberTest extends UnitTestSupport {
             });
             assertSame(everything, o.obj);
             assertSame(System.err, p.obj);
+        }
+    }
+
+    @Nested
+    @DisplayName("implemented as a PyTuple")
+    class TestTuple extends BaseSettableReference {
+
+        PyTuple oRef, pRef;
+
+        @BeforeEach
+        void setup() throws AttributeError, Throwable {
+            setup("tup", 42, -1);
+            oRef = new PyTuple(42, 42.0, "42");
+            pRef = new PyTuple(-1, -1.0, "-1");
+        }
+
+        @Override
+        @Test
+        void descr_get_works() {
+            assertEquals(oRef, md.__get__(o, null));
+            assertEquals(pRef, md.__get__(p, null));
+        }
+
+        @Override
+        @Test
+        void abstract_getAttr_works() throws Throwable {
+            assertEquals(oRef, Abstract.getAttr(o, name));
+            assertEquals(pRef, Abstract.getAttr(p, name));
+        }
+
+        @Override
+        @Test
+        void descr_set_works() throws Throwable {
+            final Object tup2 = new PyTuple(2, 3, 4);
+            md.__set__(o, tup2);
+            assertEquals(tup2, o.tup);
+            // __set__ works after delete
+            md.__delete__(o);
+            assertNull(o.tup);
+            final Object tup3 = new PyTuple(3, 4, 5);
+            md.__set__(o, tup3);
+            assertEquals(tup3, o.tup);
+        }
+
+        @Override
+        @Test
+        void abstract_setAttr_works() throws Throwable {
+            final Object gumby =
+                    PyTuple.from(List.of("D", "P", "Gumby"));
+            Abstract.setAttr(o, name, gumby);
+            // Should get the same object
+            assertSame(gumby, o.tup);
+            // setAttr works after delete
+            Abstract.delAttr(o, name);
+            assertNull(o.tup);
+            final Object palin = PyTuple.EMPTY;
+            Abstract.setAttr(o, name, palin);
+            assertSame(palin, o.tup);
+        }
+
+        @Override
+        @Test
+        void set_detects_TypeError() throws Throwable {
+            // Things that are not a Python tuple
+            assertThrows(TypeError.class, () -> md.__set__(o, 1));
+            assertThrows(TypeError.class,
+                    () -> Abstract.setAttr(p, name, ""));
+            assertThrows(TypeError.class,
+                    () -> md.__set__(o, new Object()));
         }
     }
 

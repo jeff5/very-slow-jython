@@ -119,11 +119,11 @@ abstract class DataDescriptor extends Descriptor {
     }
 
     /**
-     * Create a {@link TypeError} with a message along the lines "N must
-     * be set to T, not a X object" involving the name N of this
+     * Create a {@link TypeError} with a message along the lines "'N'
+     * must be T, not 'X' as received" involving the name N of the
      * attribute, any descriptive phrase T and the type X of
-     * {@code value}, e.g. "<u>__dict__</u> must be set to <u>a
-     * dictionary</u>, not a '<u>list</u>' object".
+     * {@code value}, e.g. "'<u>__dict__</u>' must be <u>a
+     * dictionary</u>, not '<u>list</u>' as received".
      *
      * @param kind expected kind of thing
      * @param value provided to set this attribute in some object

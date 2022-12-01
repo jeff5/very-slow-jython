@@ -1053,11 +1053,11 @@ public class Abstract {
     }
 
     /**
-     * Create a {@link TypeError} with a message along the lines "N must
-     * be set to T, not a X object" involving the name N of the
+     * Create a {@link TypeError} with a message along the lines "'N'
+     * must be T, not 'X' as received" involving the name N of the
      * attribute, any descriptive phrase T and the type X of
-     * {@code value}, e.g. "<u>__dict__</u> must be set to <u>a
-     * dictionary</u>, not a '<u>list</u>' object".
+     * {@code value}, e.g. "'<u>__dict__</u>' must be <u>a
+     * dictionary</u>, not '<u>list</u>' as received".
      *
      * @param name of the attribute
      * @param kind expected kind of thing
@@ -1066,14 +1066,16 @@ public class Abstract {
      */
     static TypeError attrMustBe(String name, String kind,
             Object value) {
-        String msg = "%.50s must be set to %.50s, not a '%.50s' object";
-        return new TypeError(msg, name, kind,
+        return new TypeError(ATTR_TYPE, name, kind,
                 PyType.of(value).getName());
     }
 
+    private static final String ATTR_TYPE =
+            "'%.50s' must be %.50s, not '%.50s' as received";
+
     /**
-     * Create a {@link TypeError} with a message along the lines "N must
-     * be set to a string, not a X object".
+     * Create a {@link TypeError} with a message along the lines "'N'
+     * must be a string, not 'X' as received".
      *
      * @param name of the attribute
      * @param value provided to set this attribute in some object
