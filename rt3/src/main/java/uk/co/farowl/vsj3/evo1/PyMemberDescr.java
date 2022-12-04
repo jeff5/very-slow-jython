@@ -481,9 +481,7 @@ abstract class PyMemberDescr extends DataDescriptor {
                 handle.set(obj, value);
             } catch (ClassCastException cce) {
                 // Raise TypeError mentioning Python type of field.
-                Class<?> javaType = handle.varType();
-                String typeName = PyType.fromClass(javaType).getName();
-                throw attrMustBe(typeName, value);
+                throw attrMustBe(handle.varType(), value);
             }
         }
     }

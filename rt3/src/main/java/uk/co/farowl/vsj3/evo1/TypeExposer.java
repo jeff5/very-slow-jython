@@ -645,9 +645,10 @@ class TypeExposer extends Exposer {
 
                 // We should have a value in each of method[]
                 if (method[i] == null) {
-                    throw new InterpreterError(
-                            "'%s.%s' not defined for %s", objclass.name,
-                            name, objclass.classes[i]);
+                    PyGetSetDescr.Type dt =
+                            PyGetSetDescr.Type.fromMethodType(mt);
+                    throw new InterpreterError(ATTR_NOT_IMPL, dt, name,
+                            objclass.name, objclass.classes[i]);
                 }
             }
 
@@ -659,6 +660,10 @@ class TypeExposer extends Exposer {
              */
             return method;
         }
+
+        private static String ATTR_NOT_IMPL =
+                "%s of attribute '%s' of '%s' objects"
+                        + " is not defined for implementation %s";
 
         @Override
         Class<? extends Annotation> annoClass() {

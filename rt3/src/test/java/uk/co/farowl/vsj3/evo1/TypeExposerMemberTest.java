@@ -133,16 +133,23 @@ class TypeExposerMemberTest extends UnitTestSupport {
         ObjectWithMembers p;
 
         void setup(String name, String doc, double oValue,
-                double pValue) {
+                double pValue) throws Throwable {
             this.name = name;
             this.doc = doc;
-            this.md =
-                    (PyMemberDescr)ObjectWithMembers.TYPE.lookup(name);
-            this.o = new ObjectWithMembers(oValue);
-            this.p = new ObjectWithMembers(pValue);
+            try {
+                this.md = (PyMemberDescr)ObjectWithMembers.TYPE
+                        .lookup(name);
+                this.o = new ObjectWithMembers(oValue);
+                this.p = new ObjectWithMembers(pValue);
+            } catch (ExceptionInInitializerError eie) {
+                // Errors detected by the Exposer get wrapped so:
+                Throwable t = eie.getCause();
+                throw t == null ? eie : t;
+            }
         }
 
-        void setup(String name, double oValue, double pValue) {
+        void setup(String name, double oValue, double pValue)
+                throws Throwable {
             setup(name, null, oValue, pValue);
         }
 
@@ -688,9 +695,9 @@ class TypeExposerMemberTest extends UnitTestSupport {
             // setAttr works after delete
             Abstract.delAttr(o, name);
             assertNull(o.tup);
-            final Object palin = PyTuple.EMPTY;
-            Abstract.setAttr(o, name, palin);
-            assertSame(palin, o.tup);
+            final Object empty = PyTuple.EMPTY;
+            Abstract.setAttr(o, name, empty);
+            assertSame(empty, o.tup);
         }
 
         @Override

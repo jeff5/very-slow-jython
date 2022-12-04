@@ -309,7 +309,12 @@ public interface Exposed {
      * Identify a method as that to be called during a Python call to
      * {@code __getattribute__} naming an exposed attribute.
      * <p>
-     * The signature must be ()Object.
+     * The signature must be {@code ()T} where {@code T} can be
+     * {@code Object} if the implementor has no reason to do otherwise.
+     * (One reason might be type safety when calling the same method
+     * from Java.) The annotated method is responsible for converting to
+     * {@code T} from however the attribute is represented internally to
+     * the type.
      */
     @Documented
     @Retention(RUNTIME)
@@ -332,7 +337,13 @@ public interface Exposed {
      * Identify a method as that to be called during a Python call to
      * {@code __setattr__} naming an exposed attribute.
      * <p>
-     * The signature must be (Object)void.
+     * The signature must be {@code (T)V} where {@code T} is often
+     * {@code Object}. The annotated method is responsible for
+     * converting this to the form in which the attribute is represented
+     * internally to the type. If {@code T}is something more specific
+     * than {@code Object}, a cast occurs to this Java type during the
+     * descriptor call, which if it fails will raise a Python
+     * {@link TypeError}.
      */
     @Documented
     @Retention(RUNTIME)
@@ -355,7 +366,7 @@ public interface Exposed {
      * Identify a method as that to be called during a Python call to
      * {@code __delattr__} naming an exposed attribute.
      * <p>
-     * The signature must be {@code ()void}.
+     * The signature must be {@code ()V}.
      */
     @Documented
     @Retention(RUNTIME)

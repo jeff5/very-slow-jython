@@ -15,7 +15,6 @@ import uk.co.farowl.vsj3.evo1.PyType.Flag;
 import uk.co.farowl.vsj3.evo1.Slot.EmptyException;
 import uk.co.farowl.vsj3.evo1.base.InterpreterError;
 
-
 /**
  * Descriptor for an attribute that has been defined by a series of
  * {@link Getter}, {@link Setter} and {@link Deleter} that annotate
@@ -34,10 +33,13 @@ abstract class PyGetSetDescr extends DataDescriptor {
             PyType.fromSpec(new PyType.Spec("getset_descriptor", LOOKUP)
                     .flagNot(Flag.BASETYPE));
 
+    /** The method handle type (O)O. */
     // CPython: PyObject *(*getter)(PyObject *, void *)
     static final MethodType GETTER = MethodType.methodType(O, O);
+    /** The method handle type (O,O)V. */
     // CPython: int (*setter)(PyObject *, PyObject *, void *)
     static final MethodType SETTER = MethodType.methodType(V, O, O);
+    /** The method handle type (O)V. */
     static final MethodType DELETER = MethodType.methodType(V, O);
 
     /** A handle on {@link #emptyGetter(PyObject)} */
@@ -151,7 +153,7 @@ abstract class PyGetSetDescr extends DataDescriptor {
         /**
          * A handle on the getter defined by the unique implementation
          * of {@link Descriptor#objclass} for this attribute. The method
-         * type is {@link #GETTER} {= @code (O)O}.
+         * type is {@link #GETTER} = {@code (O)O}.
          */
         // CPython: PyObject *(*getter)(PyObject *, void *)
         // Compare CPython PyGetSetDef::get
@@ -160,7 +162,7 @@ abstract class PyGetSetDescr extends DataDescriptor {
         /**
          * A handle on the setter defined by the unique implementation
          * of {@link Descriptor#objclass} for this attribute. The method
-         * type is {@link #SETTER} {= @code (O,O)V}.
+         * type is {@link #SETTER} = {@code (O,O)V}.
          */
         // CPython: int (*setter)(PyObject *, PyObject *, void *)
         // Compare CPython PyGetSetDef::set
@@ -169,7 +171,7 @@ abstract class PyGetSetDescr extends DataDescriptor {
         /**
          * A handle on the deleter defined by the unique implementation
          * of {@link Descriptor#objclass} for this attribute. The method
-         * type is {@link #DELETER} {= @code (O)V}.
+         * type is {@link #DELETER} = {@code (O)V}.
          */
         // Compare CPython PyGetSetDef::set with null
         final MethodHandle delete;  // MT = DELETER
@@ -219,14 +221,10 @@ abstract class PyGetSetDescr extends DataDescriptor {
         }
 
         @Override
-        boolean readonly() {
-            return set == EMPTY_SETTER;
-        }
+        boolean readonly() { return set == EMPTY_SETTER; }
 
         @Override
-        boolean optional() {
-            return delete != EMPTY_DELETER;
-        }
+        boolean optional() { return delete != EMPTY_DELETER; }
     }
 
     /**
@@ -337,14 +335,10 @@ abstract class PyGetSetDescr extends DataDescriptor {
         }
 
         @Override
-        boolean readonly() {
-            return set.length == 0;
-        }
+        boolean readonly() { return set.length == 0; }
 
         @Override
-        boolean optional() {
-            return delete.length != 0;
-        }
+        boolean optional() { return delete.length != 0; }
     }
 
     // CPython get-set table (to convert to annotations):
@@ -394,9 +388,7 @@ abstract class PyGetSetDescr extends DataDescriptor {
 
     // Compare CPython getset_repr in descrobject.c
     @SuppressWarnings("unused")
-    private Object __repr__() {
-        return descrRepr("attribute");
-    }
+    private Object __repr__() { return descrRepr("attribute"); }
 
     /**
      * {@inheritDoc}
@@ -452,7 +444,14 @@ abstract class PyGetSetDescr extends DataDescriptor {
             try {
                 checkSet(obj);
                 MethodHandle mh = getWrappedSet(obj.getClass());
-                mh.invokeExact(obj, value);
+                try {
+                    mh.invokeExact(obj, value);
+                } catch (ClassCastException e) {
+                    // XXX: how to determine target type?
+                    // Determine kind or class when creating descriptor?
+                    // Parameter kind() to Setter?
+                    throw attrMustBe("correct type", value);
+                }
             } catch (EmptyException e) {
                 throw cannotWriteAttr();
             }
@@ -473,7 +472,7 @@ abstract class PyGetSetDescr extends DataDescriptor {
         throw EMPTY;
     }
 
-    // Compare CPython getset_set in descrobject.c with NULL
+    // Compare CPython getset_set in descrobject.c with NULL value
     @Override
     void __delete__(Object obj) throws TypeError, Throwable {
         try {
@@ -502,5 +501,34 @@ abstract class PyGetSetDescr extends DataDescriptor {
     static Object getset_get_doc(PyGetSetDescr descr) {
         if (descr.doc == null) { return Py.None; }
         return descr.doc;
+    }
+
+    /**
+     * A mapping from symbolic names for the types of method handle in a
+     * {@code PyGetSetDescr} to other properties like the method handle
+     * type.
+     */
+    enum Type {
+        Getter(PyGetSetDescr.GETTER), //
+        Setter(PyGetSetDescr.SETTER), //
+        Deleter(PyGetSetDescr.DELETER); //
+
+        final MethodType methodType;
+
+        Type(MethodType mt) { this.methodType = mt; }
+
+        /**
+         * Map the method handle type back to the
+         * {@code PyGetSetDescr.Type} that has it or {@code null}.
+         *
+         * @param mt to match
+         * @return matching type or {@code null}
+         */
+        static Type fromMethodType(MethodType mt) {
+            for (Type t : Type.values()) {
+                if (mt == t.methodType) { return t; }
+            }
+            return null;
+        }
     }
 }
