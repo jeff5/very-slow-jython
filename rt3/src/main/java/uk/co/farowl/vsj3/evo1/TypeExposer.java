@@ -173,9 +173,8 @@ class TypeExposer extends Exposer {
      */
     private void addGetter(Method m, Getter anno) {
         addSpec(m, anno.value(), TypeExposer::castGetSet,
-                GetSetSpec::new, ms -> {
-                    getSetSpecs.add(ms);
-                }, GetSetSpec::addGetter);
+                GetSetSpec::new, ms -> getSetSpecs.add(ms),
+                GetSetSpec::addGetter);
     }
 
     /**
@@ -190,9 +189,8 @@ class TypeExposer extends Exposer {
      */
     private void addSetter(Method m, Setter anno) {
         addSpec(m, anno.value(), TypeExposer::castGetSet,
-                GetSetSpec::new, ms -> {
-                    getSetSpecs.add(ms);
-                }, GetSetSpec::addSetter);
+                GetSetSpec::new, ms -> getSetSpecs.add(ms),
+                GetSetSpec::addSetter);
     }
 
     /**
@@ -207,9 +205,8 @@ class TypeExposer extends Exposer {
      */
     private void addDeleter(Method m, Deleter anno) {
         addSpec(m, anno.value(), TypeExposer::castGetSet,
-                GetSetSpec::new, ms -> {
-                    getSetSpecs.add(ms);
-                }, GetSetSpec::addDeleter);
+                GetSetSpec::new, ms -> getSetSpecs.add(ms),
+                GetSetSpec::addDeleter);
     }
 
     /**
@@ -463,6 +460,8 @@ class TypeExposer extends Exposer {
         final List<Method> setters;
         /** Collects the deleters declared (often just one). */
         final List<Method> deleters;
+        /** Java class of attribute from setter parameter. */
+        Class<?> klass = Object.class;
 
         GetSetSpec(String name) {
             super(name, ScopeKind.TYPE);
@@ -509,6 +508,8 @@ class TypeExposer extends Exposer {
             setters.add(method);
             // There may be a @DocString annotation
             maybeAddDoc(method);
+            // Process parameters of the Setter
+            determineAttrType(method);
         }
 
         /**
@@ -521,6 +522,30 @@ class TypeExposer extends Exposer {
             deleters.add(method);
             // There may be a @DocString annotation
             maybeAddDoc(method);
+        }
+
+        /**
+         * Deduce the attribute type from the (raw) set method
+         * signature. We do this in order to give a sensible
+         * {@link TypeError} when a cast fails for the
+         * {@link PyGetSetDescr#__set__} operation.
+         *
+         * @param method annotated with a {@code Setter}
+         */
+        private void determineAttrType(Method method) {
+            // Save class of value accepted (if signature is sensible)
+            int modifiers = method.getModifiers();
+            int v = (modifiers & Modifier.STATIC) != 0 ? 1 : 0;
+            Class<?>[] paramClasses = method.getParameterTypes();
+            if (paramClasses.length == v + 1) {
+                Class<?> valueClass = paramClasses[v];
+                if (valueClass == klass) {
+                    // No change
+                } else if (klass.isAssignableFrom(valueClass)) {
+                    // The parameter is more specific than klass
+                    klass = valueClass;
+                }
+            }
         }
 
         @Override
@@ -578,7 +603,7 @@ class TypeExposer extends Exposer {
             }
 
             return new PyGetSetDescr.Multiple(objclass, name, g, s, d,
-                    doc);
+                    doc, klass);
         }
 
         private MethodHandle[] unreflect(PyType objclass, Lookup lookup,

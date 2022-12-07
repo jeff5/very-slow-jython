@@ -73,6 +73,9 @@ abstract class PyGetSetDescr extends DataDescriptor {
     /** Documentation string for this attribute. */
     final String doc;
 
+    /** Java class of attribute accepted by set method. */
+    final Class<?> klass;
+
     /*
      * CPython has a void * argument to [gs]etter but no uses are found
      * in the CPython code base. Sub-classing may be the Java way to
@@ -87,11 +90,14 @@ abstract class PyGetSetDescr extends DataDescriptor {
      * @param objclass to which descriptor applies
      * @param name of attribute
      * @param doc documentation string
+     * @param klass Java class of attribute accepted by set method
      */
     // Compare CPython PyDescr_NewGetSet
-    PyGetSetDescr(PyType objclass, String name, String doc) {
+    PyGetSetDescr(PyType objclass, String name, String doc,
+            Class<?> klass) {
         super(TYPE, objclass, name);
         this.doc = doc;
+        this.klass = klass;
     }
 
     /**
@@ -189,11 +195,13 @@ abstract class PyGetSetDescr extends DataDescriptor {
          * @param set handle on setter method (or {@code null})
          * @param delete handle on deleter method (or {@code null})
          * @param doc documentation string
+         * @param klass Java class of attribute accepted by set method
          */
         // Compare CPython PyDescr_NewGetSet
         Single(PyType objclass, String name, MethodHandle get,
-                MethodHandle set, MethodHandle delete, String doc) {
-            super(objclass, name, doc);
+                MethodHandle set, MethodHandle delete, String doc,
+                Class<?> klass) {
+            super(objclass, name, doc, klass);
             this.get = get != null ? get : EMPTY_GETTER;
             this.set = set != null ? set : EMPTY_SETTER;
             this.delete = delete != null ? delete : EMPTY_DELETER;
@@ -267,11 +275,13 @@ abstract class PyGetSetDescr extends DataDescriptor {
          * @param set operation
          * @param delete operation
          * @param doc documentation string
+         * @param klass Java class of attribute accepted by set method
          */
         // Compare CPython PyDescr_NewGetSet
         Multiple(PyType objclass, String name, MethodHandle[] get,
-                MethodHandle[] set, MethodHandle delete[], String doc) {
-            super(objclass, name, doc);
+                MethodHandle[] set, MethodHandle delete[], String doc,
+                Class<?> klass) {
+            super(objclass, name, doc, klass);
             this.get = get;
             this.set = set != null ? set : EMPTY_MH_ARRAY;
             this.delete = delete != null ? delete : EMPTY_MH_ARRAY;
@@ -447,10 +457,13 @@ abstract class PyGetSetDescr extends DataDescriptor {
                 try {
                     mh.invokeExact(obj, value);
                 } catch (ClassCastException e) {
-                    // XXX: how to determine target type?
-                    // Determine kind or class when creating descriptor?
-                    // Parameter kind() to Setter?
-                    throw attrMustBe("correct type", value);
+                    /*
+                     * A cast of 'value' to the argument type of the set
+                     * method has failed (so not Object). The required
+                     * class is hidden in the handle, but we wrote it in
+                     * this.klass during exposure.
+                     */
+                    throw attrMustBe(klass, value);
                 }
             } catch (EmptyException e) {
                 throw cannotWriteAttr();

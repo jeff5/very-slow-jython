@@ -136,7 +136,8 @@ class TypeExposerGetSetTest extends UnitTestSupport {
 
         @Getter
         Object s() {
-            return errorIfNull(s, (o) -> new AttributeError("s"));
+            return errorIfNull(s,
+                    (o) -> Abstract.noAttributeError(this, "s"));
         }
 
         @Setter
@@ -144,7 +145,7 @@ class TypeExposerGetSetTest extends UnitTestSupport {
 
         @Deleter("s")
         void _s() {
-            errorIfNull(s, (o) -> new AttributeError("s"));
+            errorIfNull(s, (o) -> Abstract.noAttributeError(this, "s"));
             s = null;
         }
 
@@ -272,12 +273,15 @@ class TypeExposerGetSetTest extends UnitTestSupport {
         @Getter
         Object tup() { return defaultIfNull(getTup(), Py.None); }
 
+        /*
+         * Notice the strongly typed argument to the Setter. This makes
+         * checks in the method body unnecessary. PyGetSetDescr.__set__
+         * will check the supplied value and report a mismatch in terms
+         * of Python types.
+         *
+         */
         @Setter
-        void tup(PyTuple v) {
-            PyTuple t = check(v, PyTuple.TYPE,
-                    o -> Abstract.attrMustBe("tup", "a tuple", o));
-            setTup(t);
-        }
+        void tup(PyTuple v) { setTup(v); }
 
         @Deleter("tup")
         void _tup() { setTup(null); }
