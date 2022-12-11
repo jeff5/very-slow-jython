@@ -4,6 +4,7 @@ package uk.co.farowl.vsj3.evo1;
 
 import java.util.Map;
 import java.util.StringJoiner;
+import java.util.function.Function;
 
 /**
  * Miscellaneous static helpers commonly needed to implement Python
@@ -76,4 +77,55 @@ public class PyObjectUtil {
      */
     public static final StopIteration STOP_ITERATION =
             new StopIteration();
+
+    // Helpers for methods and attributes -----------------------------
+
+    /**
+     * Return a default value if {@code v} is {@code null}. This may be
+     * used a wrapper on an expression typically to return a field
+     * during attribute access when "not set" should be represented to
+     * Python.
+     *
+     * @param <T> type of {@code v}
+     * @param v to return if not {@code null}
+     * @param defaultValue to return if {@code v} is {@code null}
+     * @return {@code v} or {@code defaultValue}
+     */
+    static <T> T defaultIfNull(T v, T defaultValue) {
+        return v != null ? v : defaultValue;
+    }
+
+    /**
+     * Throw an exception if {@code v} is {@code null}.
+     *
+     * @param <T> type of {@code v}
+     * @param <E> type of exception to throw
+     * @param v to return if not {@code null}
+     * @param exc supplier of exception to throw
+     * @return {@code v}
+     * @throws E if {@code v} is {@code null}
+     */
+    static <T, E extends PyException> T errorIfNull(T v,
+            Function<T, E> exc) throws E {
+        if (v != null) { return v; }
+        throw exc.apply(v);
+    }
+
+    /**
+     * Return {@code v} if it is of the expected Python type, otherwise
+     * throw supplied exception.
+     *
+     * @param <T> type of {@code v}
+     * @param <E> type of exception to throw
+     * @param v to return if of expected type
+     * @param type expected
+     * @param exc supplier of exception to throw
+     * @return {@code v}
+     * @throws E if {@code v} is not of expected type
+     */
+    static <T, E extends PyException> T typeChecked(T v, PyType type,
+            Function<T, E> exc) {
+        if (type.check(v)) { return v; }
+        throw exc.apply(v);
+    }
 }

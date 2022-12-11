@@ -67,14 +67,14 @@ public class CPython38Code extends PyCode {
             PyTuple freevars,       // ref'd here, def'd outer
             PyTuple cellvars,       // def'd here, ref'd nested
 
-            String filename,     // loaded from
-            String name,         // of function etc.
+            String filename,        // loaded from
+            String name,            // of function etc.
             int firstlineno,        // of source
             PyBytes lnotab          // map opcode address to source
     ) {
         super(argcount, posonlyargcount, kwonlyargcount, nlocals, flags,
                 consts, names, varnames, freevars, cellvars, filename,
-                name, firstlineno);
+                name, name, firstlineno);
         // A few of these (just a few) are local to this class.
         this.wordcode = wordcode(code);
         this.stacksize = stacksize;
@@ -159,10 +159,29 @@ public class CPython38Code extends PyCode {
 
     // Java API -------------------------------------------------------
 
+    /**
+     * Create a {@code PyFunction} that will execute this {@code PyCode}
+     * (adequate for module-level code).
+     *
+     * @param interpreter providing the module context
+     * @param globals name space to treat as global variables
+     * @param qualname qualified name of function
+     * @return the function
+     */
+    // Compare CPython PyFunction_NewWithQualName in funcobject.c
+    // ... with the interpreter required by architecture
     @Override
-    CPython38Frame createFrame(Interpreter interpreter, PyDict globals,
-            Object locals) {
-        return new CPython38Frame(interpreter, this, globals, locals);
+    CPython38Function createFunction(Interpreter interpreter,
+            PyDict globals) {
+        return new CPython38Function(interpreter, this, globals);
+    }
+
+    @Override
+    CPython38Function createFunction(Interpreter interpreter,
+            PyDict globals, Object[] defaults, PyDict kwdefaults,
+            Object annotations, PyCell[] closure) {
+        return new CPython38Function(interpreter, this, globals,
+                defaults, kwdefaults, annotations, closure);
     }
 
     // Plumbing -------------------------------------------------------

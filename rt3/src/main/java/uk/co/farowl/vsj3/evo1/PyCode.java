@@ -102,6 +102,10 @@ public abstract class PyCode implements CraftedPyObject {
     /** Name of function etc. */
     final String name;
 
+    /** Fully qualified name of function etc. */
+    // We borrow a simplifying feature not exposed until Python 3.11
+    final String qualname;
+
     /* Masks for co_flags above */
     public static final int CO_OPTIMIZED = 0x0001;
     public static final int CO_NEWLOCALS = 0x0002;
@@ -166,7 +170,8 @@ public abstract class PyCode implements CraftedPyObject {
             PyTuple cellvars,       // def'd here, ref'd nested
 
             String filename,        // loaded from
-            String name,            // of function etc.
+            String name,            // simple name of function etc.
+            String qualname,        // qualified name of function etc.
             int firstlineno         // of source
     ) {
         this.argcount = argcount;
@@ -184,6 +189,7 @@ public abstract class PyCode implements CraftedPyObject {
 
         this.filename = filename;
         this.name = name;
+        this.qualname = qualname;
         this.firstlineno = firstlineno;
 
         this.traits = traitsFrom(flags);
@@ -253,16 +259,44 @@ public abstract class PyCode implements CraftedPyObject {
     public PyType getType() { return TYPE; }
 
     /**
-     * Create a {@code PyFrame} that will execute this {@code PyCode}
+     * Create a {@code PyFunction} that will execute this
+     * {@code PyCode}. The strongly-typed {@code defaults},
+     * {@code kwdefaults} , {@code closure} and {@code annotations} may
+     * be {@code null} if they would otherwise be empty.
+     * {@code annotations} is always exposed as a {@code dict}, but may
+     * be presented to the constructor as a {@code dict} or
+     * {@code tuple} of keys and values (or {@code null}).
+     *
+     * @param interpreter providing the module context
+     * @param globals name space to treat as global variables
+     * @param defaults default positional argument values or
+     *     {@code null}
+     * @param kwdefaults default keyword argument values or {@code null}
+     * @param annotations type annotations ({@code dict}, {@code null}
+     *     or maybe {@code tuple})
+     * @param closure variables referenced but not defined here, must be
+     *     size expected by code or {@code null} if empty.
+     * @return the function from this code
+     */
+    abstract PyFunction<?> createFunction(Interpreter interpreter,
+            PyDict globals, Object[] defaults, PyDict kwdefaults,
+            Object annotations, PyCell[] closure);
+
+    /**
+     * Create a {@code PyFunction} that will execute this {@code PyCode}
      * (adequate for module-level code).
      *
      * @param interpreter providing the module context
      * @param globals name space to treat as global variables
-     * @param locals name space to treat as local variables
-     * @return the frame
+     * @return the function
      */
-    abstract PyFrame<? extends PyCode> createFrame(
-            Interpreter interpreter, PyDict globals, Object locals);
+    // Compare CPython PyFunction_New in funcobject.c
+    // ... with the interpreter required by architecture
+    PyFunction<?> createFunction(Interpreter interpreter,
+            PyDict globals) {
+        return createFunction(interpreter, globals, Py.EMPTY_ARRAY,
+                Py.dict(), Py.dict(), PyCell.EMPTY_ARRAY);
+    }
 
     // Plumbing -------------------------------------------------------
 

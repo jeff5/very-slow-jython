@@ -78,6 +78,9 @@ class ArgParser {
      * {@code argcount + kwonlyargcount
                 + (hasVarArgs() ? 1 : 0) + (hasVarKeywords() ? 1 : 0)}
      */
+    // FIXME: use the (start of) co.varnames when in a function
+    // We do not need to make a copy, just reference it and count.
+    // Maybe a view of the array?
     /*
      * Here and elsewhere we use the same names as the CPython code,
      * even though it tends to say "argument" when it could mean that or
@@ -350,7 +353,7 @@ class ArgParser {
         // Make a new array of the names, including the collectors.
         this.argnames = interned(names, N);
 
-        assert argnames.length == argcount + kwonlyargcount
+        assert argnames.length >= argcount + kwonlyargcount
                 + (hasVarArgs() ? 1 : 0) + (hasVarKeywords() ? 1 : 0);
     }
 
@@ -607,8 +610,8 @@ class ArgParser {
     }
 
     /**
-     * Parse CPython-style vector call arguments and create an array, using the
-     * arguments supplied and the defaults held in the parser.
+     * Parse CPython-style vector call arguments and create an array,
+     * using the arguments supplied and the defaults held in the parser.
      *
      * @param s positional and keyword arguments
      * @param p position of arguments in the array
@@ -653,6 +656,7 @@ class ArgParser {
      * @return {@code this}
      */
     ArgParser defaults(Object... values) {
+        // XXX we could safely keep a reference (but document that).
         if (values == null || values.length == 0) {
             defaults = null;
         } else {
@@ -693,6 +697,7 @@ class ArgParser {
      * @return {@code this}
      */
     ArgParser kwdefaults(Map<Object, Object> kwd) {
+        // FIXME we should keep a reference (see PyFunction use).
         if (kwd == null || kwd.isEmpty())
             kwdefaults = null;
         else {

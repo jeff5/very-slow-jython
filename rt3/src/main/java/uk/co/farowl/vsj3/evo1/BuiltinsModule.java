@@ -60,7 +60,7 @@ class BuiltinsModule extends JavaModule implements Exposed {
     @PythonStaticMethod
     @DocString("Return the dictionary containing the current scope's global variables.")
     static Object globals() throws Throwable {
-        return Interpreter.getFrame().globals;
+        return Interpreter.getFrame().getGlobals();
     }
 
     @PythonStaticMethod

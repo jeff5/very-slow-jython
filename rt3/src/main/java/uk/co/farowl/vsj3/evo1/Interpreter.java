@@ -49,9 +49,11 @@ class Interpreter {
      * @param locals local variables (may be same as {@code globals})
      * @return result of evaluation
      */
+    // Compare CPython PyEval_EvalCode in ceval.c
     Object evalCode(PyCode code, PyDict globals, Object locals) {
         globals.putIfAbsent("__builtins__", builtinsModule);
-        PyFrame<?> f = code.createFrame(this, globals, locals);
+        PyFunction<?> func = code.createFunction(this, globals);
+        PyFrame<?, ?> f = func.createFrame(locals);
         return f.eval();
     }
 
@@ -83,7 +85,7 @@ class Interpreter {
      *
      * @return the current frame or null
      */
-    static PyFrame<?> getFrame() {
+    static PyFrame<?, ?> getFrame() {
         // return ThreadState.get().frame;
         return null;
     }
@@ -96,8 +98,8 @@ class Interpreter {
      * @return current {@code Interpreter} or {@code null}
      */
     static Interpreter get() {
-        PyFrame<?> f = null; // ThreadState.get().frame;
-        return f != null ? f.interpreter : null;
+        PyFrame<?, ?> f = null; // ThreadState.get().frame;
+        return f != null ? f.getInterpreter() : null;
     }
 
 }

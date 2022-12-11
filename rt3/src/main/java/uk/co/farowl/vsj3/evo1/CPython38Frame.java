@@ -11,7 +11,8 @@ import uk.co.farowl.vsj3.evo1.PyCode.Trait;
 import uk.co.farowl.vsj3.evo1.base.InterpreterError;
 
 /** A {@link PyFrame} for executing CPython 3.8 byte code. */
-class CPython38Frame extends PyFrame<CPython38Code> {
+class CPython38Frame
+        extends PyFrame<CPython38Code, PyFunction<CPython38Code>> {
 
     /*
      * Translation note: NB: in a CPython frame all local storage
@@ -50,33 +51,81 @@ class CPython38Frame extends PyFrame<CPython38Code> {
      * Create a {@code CPython38Frame}, which is a {@code PyFrame} with
      * the storage and mechanism to execute a module or isolated code
      * object (compiled to a {@link CPython38Code}.
-     *<p>
-     * The caller specifies the local variables dictionary explicitly:
-     * it may be the same as the {@code globals}.
+     * <p>
+     * This will set the {@link #func} and (sometimes) {@link #locals}
+     * fields of the frame. The {@code globals} and {@code builtins}
+     * properties, exposed to Python as {@code f_globals} and
+     * {@code f_builtins}, are determined by {@code func}.
+     * <p>
+     * The func argument also locates the code object for the frame, the
+     * properties of which determine many characteristics of the frame.
+     * <ul>
+     * <li>If the {@code code} argument has the {@link Trait#NEWLOCALS}
+     * the {@code locals} argument is ignored.
+     * <ul>
+     * <li>If the code does not additionally have the trait
+     * {@link Trait#OPTIMIZED}, a new empty {@code dict} will be
+     * provided as {@link #locals}.</li>
+     * <li>Otherwise, the code has the trait {@code OPTIMIZED}, and
+     * {@link #locals} will be {@code null} until possibly set
+     * later.</li>
+     * </ul>
+     * </li>
+     * <li>Otherwise, {@code code} does not have the trait
+     * {@code NEWLOCALS} and expects an object with the map protocol
+     * to act as {@link PyFrame#locals}.
+     * <ul>
+     * <li>If the argument {@code locals} is not {@code null} it
+     * specifies {@link #locals}.</li>
+     * <li>Otherwise, the argument {@code locals} is {@code null} and
+     * {@link #locals} will be the same as {@code #globals}.</li>
+     * </ul>
+     * </li>
+     * </ul>
      *
-     * @param code that this frame executes
-     * @param interpreter providing the module context
-     * @param globals global name space
-     * @param locals local name space
+     * @param func that this frame executes
+     * @param locals local name space (may be {@code null})
      */
-    CPython38Frame(Interpreter interpreter, CPython38Code code,
-            PyDict globals, Object locals) {
-        super(interpreter, code, globals, locals);
-        valuestack = new Object[code.stacksize];
-        freevars = EMPTY_CELL_ARRAY;
+    // Compare CPython _PyFrame_New_NoTrack in frameobject.c
+    protected CPython38Frame(CPython38Function func, Object locals) {
+
+        // Initialise the basics.
+        super(func);
+
+        CPython38Code code = func.code;
+        this.valuestack = new Object[code.stacksize];
+        int nfastlocals = 0;
+        int nfreevars = 0;
 
         // The need for a dictionary of locals depends on the code
         EnumSet<PyCode.Trait> traits = code.traits;
-        if (traits.containsAll(FAST_TRAITS)) {
-            fastlocals = new Object[code.nlocals];
+        if (traits.contains(Trait.NEWLOCALS)) {
+            // Ignore locals argument
+            if (traits.contains(Trait.OPTIMIZED)) {
+                // We can create it later but probably won't need to
+                this.locals = null;
+                // Instead locals are in an array
+                nfastlocals = code.nlocals;
+                nfreevars = code.cellvars.length;
+            } else {
+                this.locals = new PyDict();
+            }
+        } else if (locals == null) {
+            // Default to same as globals.
+            this.locals = func.globals;
         } else {
-            fastlocals = null;
+            /*
+             * Use supplied locals. As it may not implement j.u.Map, we
+             * wrap any Python object as a Map. Depending on the
+             * operations attempted, this may break later.
+             */
+            this.locals = locals;
         }
+        this.fastlocals = nfastlocals > 0 ? new Object[nfastlocals]
+                : EMPTY_OBJECT_ARRAY;
+        this.freevars = nfreevars > 0 ? new PyCell[nfreevars]
+                : EMPTY_CELL_ARRAY;
     }
-
-    /** Traits of a function body with fast locals. */
-    private static final EnumSet<Trait> FAST_TRAITS =
-            EnumSet.of(Trait.OPTIMIZED, Trait.NEWLOCALS);
 
     @Override
     Object eval() {
@@ -91,9 +140,25 @@ class CPython38Frame extends PyFrame<CPython38Code> {
         final char[] wordcode = code.wordcode;
         final int END = wordcode.length;
 
+        final PyDict globals = func.globals;
+        final PyDict builtins = func.builtins;;
+
+        Map<Object, Object> locals = localsMapOrNull();
+
+        /*
+         * We read each 16-bit instruction from wordcode[] into opword.
+         * Bits 8-15 are the opcode itself. The bottom 8 bits are an
+         * argument that (in principle) must be or-ed into the existing
+         * value of oparg to complete the argument. (oparg may contain
+         * bits already thanks to EXTENDED_ARG processing.) For some
+         * opcodes 8 bits are enough to express the argument and all we
+         * need is opword & 0xff.
+         */
+        int opword;
         /*
          * Opcode argument (where needed). See also case EXTENDED_ARG.
-         * Every opcode that consumes oparg must set it to zero.
+         * Every opcode that consumes oparg must set it to zero, even if
+         * all it uses is opword & 0xff.
          */
         int oparg = 0;
 
@@ -110,7 +175,7 @@ class CPython38Frame extends PyFrame<CPython38Code> {
              * array, our ip is half the CPython ip. The latter, and all
              * jump arguments, are always even.
              */
-            int opword = wordcode[ip];
+            opword = wordcode[ip];
 
             // Comparison with CPython macros in c.eval:
             // TOP() : s[sp-1]
@@ -437,7 +502,7 @@ class CPython38Frame extends PyFrame<CPython38Code> {
                     case Opcode.CALL_FUNCTION_EX:
                         // Call with positional & kw args. Stack:
                         // f | args | kwdict? | -> res |
-                        // ---------------------^sp -----^sp
+                        // --------------------^sp -----^sp
                         // opword is 0 (no kwdict) or 1 (kwdict present)
                         w = (opword & 0x1) == 0 ? null : s[--sp];
                         v = s[--sp]; // args tuple
@@ -504,6 +569,7 @@ class CPython38Frame extends PyFrame<CPython38Code> {
     // Supporting definitions and methods -----------------------------
 
     private static final PyCell[] EMPTY_CELL_ARRAY = PyCell.EMPTY_ARRAY;
+    private static final Object[] EMPTY_OBJECT_ARRAY = new Object[0];
 
     private static final String NAME_ERROR_MSG =
             "name '%.200s' is not defined";
@@ -631,7 +697,7 @@ class CPython38Frame extends PyFrame<CPython38Code> {
      * @param obj of whichg the callable is an attribute
      * @param name of callable attribute
      * @param offset in stack at which to place results
-     * @throws AttributeError ifthe named attribute does not exist
+     * @throws AttributeError if the named attribute does not exist
      * @throws Throwable from other errors
      */
     // Compare CPython _PyObject_GetMethod in object.c
