@@ -189,7 +189,7 @@ abstract class Exposer {
         // Now use the generic create/update
         addSpec(meth, anno.value(), cast,
                 (String name) -> new MethodSpec(name, kind()),
-                ms -> { methodSpecs.add(ms); }, addMethod);
+                ms -> methodSpecs.add(ms), addMethod);
     }
 
     /**
@@ -218,7 +218,7 @@ abstract class Exposer {
         // Now use the generic create/update
         addSpec(meth, anno.value(), cast,
                 (String name) -> new StaticMethodSpec(name, kind()),
-                ms -> { methodSpecs.add(ms); }, addMethod);
+                ms -> methodSpecs.add(ms), addMethod);
     }
 
     /**
@@ -670,9 +670,9 @@ abstract class Exposer {
             if (parser == null && parameterNames != null
                     && parameterNames.length >= posonlyargcount) {
                 parser = new ArgParser(name, scopeKind, methodKind,
-                        varArgsIndex >= 0, varKeywordsIndex >= 0,
-                        posonlyargcount, kwonlyargcount, parameterNames,
-                        regargcount);
+                        parameterNames, regargcount, posonlyargcount,
+                        kwonlyargcount, varArgsIndex >= 0,
+                        varKeywordsIndex >= 0);
                 parser.defaults(defaults).kwdefaults(kwdefaults);
             }
             return parser;
@@ -1248,9 +1248,9 @@ abstract class Exposer {
                 throws InterpreterError {
 
             ArgParser ap = new ArgParser(name, scopeKind,
-                    MethodKind.INSTANCE, varArgsIndex >= 0,
-                    varKeywordsIndex >= 0, posonlyargcount,
-                    kwonlyargcount, parameterNames, regargcount);
+                    MethodKind.INSTANCE, parameterNames, regargcount,
+                    posonlyargcount, kwonlyargcount, varArgsIndex >= 0,
+                    varKeywordsIndex >= 0);
             ap.defaults(defaults).kwdefaults(kwdefaults);
 
             // Methods have self + this many args:

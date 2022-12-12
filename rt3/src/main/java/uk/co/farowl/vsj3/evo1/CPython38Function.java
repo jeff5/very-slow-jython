@@ -87,10 +87,10 @@ package uk.co.farowl.vsj3.evo1;
     protected void buildParser() {
         CPython38Code c = code;
         ArgParser ap = new ArgParser(name, // name is unchanged
+                c.names, c.argcount, c.posonlyargcount,
+                c.kwonlyargcount,
                 c.traits.contains(PyCode.Trait.VARARGS),
-                c.traits.contains(PyCode.Trait.VARKEYWORDS),
-                c.posonlyargcount, c.kwonlyargcount, c.names,
-                c.argcount);
+                c.traits.contains(PyCode.Trait.VARKEYWORDS));
         argParser = ap.defaults(defaults).kwdefaults(kwdefaults);
     }
 

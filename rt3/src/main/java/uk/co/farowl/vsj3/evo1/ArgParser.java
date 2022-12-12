@@ -24,8 +24,9 @@ import uk.co.farowl.vsj3.evo1.base.MethodKind;
  * Python implementation, and arranges them into an array. This array is
  * either created by the parser, or designated by the caller. The parser
  * may therefore be used to prepare arguments for a pure a Java method
- * (or {@code MethodHandle}) accepting an array, or to insert them as
- * initial values in an interpreter frame ({@code PyFrame}).
+ * (or {@code MethodHandle}) that accepts an array, or to insert
+ * arguments as initial values of local variables in an an optimised
+ * interpreter frame ({@link PyFrame}).
  * <p>
  * The fields of the parser that determine the acceptable numbers of
  * positional arguments and their names are essentially those of a
@@ -33,16 +34,68 @@ import uk.co.farowl.vsj3.evo1.base.MethodKind;
  * that mirror the defaults built into a {@code function} object
  * ({@link PyFunction}).
  * <p>
+ * Consider for example a function that in Python would have the
+ * function definition:<pre>
+ * def func(a, b, c=3, d=4, /, e=5, f=6, *aa, g=7, h, i=9, **kk):
+ *     pass
+ * </pre> This could be described by a constructor call and modifiers:
+ * <pre>
+ * String[] names = {"a", "b", "c", "d",  "e", "f",  "g", "h", "i",
+ *         "aa", "kk"};
+ * ArgParser ap = new ArgParser("func", names,
+ *         names.length - 2, 4, 3, true, true) //
+ *                 .defaults(3, 4, 5, 6) //
+ *                 .kwdefaults(7, null, 9);
+ * </pre> Note that "aa" and "kk" are at the end of the parameter names.
+ * (This is how a CPython frame is laid out.)
+ * <p>
+ * Defaults are provided, after the parser has been constructed, as
+ * values corresponding to parameter names, when right-justified in the
+ * space to which they apply. (See diagram below.) Both the positional
+ * and keyword defaults are given by position in this formulation. The
+ * {@link #kwdefaults(Object...)} call is allowed to supply {@code null}
+ * values at positions it does not define.
+ * <p>
+ * When parsed to an array, the layout of the argument values, in
+ * relation to fields of the parser will be as follows.
+ * <table class="lined">
+ * <caption>A Python {@code frame}</caption>
+ * <tr>
+ * <td class="row-label">names</td>
+ * <td>a</td>
+ * <td>b</td>
+ * <td>c</td>
+ * <td>d</td>
+ * <td>e</td>
+ * <td>f</td>
+ * <td>g</td>
+ * <td>h</td>
+ * <td>i</td>
+ * <td>aa</td>
+ * <td>kk</td>
+ * </tr>
+ * <tr>
+ * <td class="row-label" rowspan=3>layout</td>
+ * <td colspan=4>posOnly</td>
+ * <td colspan=2></td>
+ * <td colspan=3>kwOnly</td>
+ * </tr>
+ * <tr>
+ * <td colspan=2></td>
+ * <td colspan=4>defaults</td>
+ * <td colspan=3 style="border-style: dashed;">kwdefaults</td>
+ * </tr>
+ * </table>
+ * <p>
  * The most readable way of specifying a parser (although one that is a
  * little costly to construct) is to list the parameters as they would
  * be declared in Python, including the furniture that marks up the
  * positional-only, keyword-only, positional varargs, and keyword
  * varargs. This is the API offered by
- * {@link #fromSignature(String, String...)} but it only features in
- * unit tests.
- * <p>
- * In practice, we construct the parser with a complex of arguments
- * derived by inspection of the method signature.
+ * {@link #fromSignature(String, String...)}. In practice we only use
+ * this in unit tests. For serious applications we construct the
+ * {@code ArgParser} with a complex of arguments derived by inspection
+ * of the Java or Python signature.
  */
 class ArgParser {
 
@@ -74,19 +127,19 @@ class ArgParser {
      * Names of parameters that could be satisfied by position or
      * keyword, including the collector parameters. Elements are
      * guaranteed to be interned, and not {@code null} or empty. The
-     * length of this array is the number of named parameters:
+     * array must name all the parameters, of which there are:
      * {@code argcount + kwonlyargcount
                 + (hasVarArgs() ? 1 : 0) + (hasVarKeywords() ? 1 : 0)}
+     * <p>
+     * It is often is longer since it suits us to re-use an array that
+     * names all the local variables of a frame.
      */
-    // FIXME: use the (start of) co.varnames when in a function
-    // We do not need to make a copy, just reference it and count.
-    // Maybe a view of the array?
     /*
-     * Here and elsewhere we use the same names as the CPython code,
-     * even though it tends to say "argument" when it could mean that or
-     * "parameter". In comments and documentation "positional parameter"
-     * means a parameter eligible to be satisfied by an argument given
-     * by position.
+     * Here and elsewhere we use the same field names as the CPython
+     * code, even though it tends to say "argument" when it could mean
+     * that or "parameter". In comments and documentation
+     * "positional parameter" means a parameter eligible to be satisfied
+     * by an argument given by position.
      */
     final String[] argnames;
 
@@ -143,42 +196,47 @@ class ArgParser {
     final int varKeywordsIndex;
 
     /**
-     * Create a parser, for a named function, with defined numbers of
-     * positional-only and keyword-only parameters, and naming the
-     * parameters. Parameters that may only be satisfied by arguments
-     * given by position need not be named. ("" is acceptable in the
-     * names array.)
+     * Construct a parser for a named function, with defined numbers of
+     * positional-only and keyword-only parameters, and parameter names
+     * in an array prepared by client code.
      * <p>
-     * Overflow of positional and/or keyword arguments into a
-     * {@code tuple} or {@code dict} may also be allowed. For example, a
-     * function that in Python would have the signature with the
-     * function definition:<pre>
+     * The array of names is used in-place (not copied). The client code
+     * must therefore ensure that it cannot be modified after the parser
+     * has been constructed.
+     * <p>
+     * The array of names may be longer than is necessary: the caller
+     * specifies how much of the array should be treated as regular
+     * parameter names, and whether zero, one or two further elements
+     * will name collectors for excess positional or keyword arguments.
+     * The rest of the elements will not be examined by the parser. The
+     * motivation for this design is to permit efficient construction
+     * when the the array of names is the local variable names in a
+     * Python {@code code} object.
+     *
+     * @param name of the function
+     * @param names of the parameters including any collectors (varargs)
+     * @param regargcount number of regular (non-collector) parameters
+     * @param posOnly number of positional-only parameters
+     * @param kwOnly number of keyword-only parameters
+     * @param varargs whether there is positional collector
+     * @param varkw whether there is a keywords collector
+     */
+    // XXX Referenced from CPython38Function.buildParser
+    ArgParser(String name, String[] names, int regargcount, int posOnly,
+            int kwOnly, boolean varargs, boolean varkw) {
+        this(name, ScopeKind.TYPE, MethodKind.STATIC, names,
+                regargcount, posOnly, kwOnly, varargs, varkw);
+    }
+
+    /**
+     * Construct a parser from descriptive parameters that may be
+     * derived from a the annotated declarations ({@link Exposed}
+     * methods) that appear in type and module definitions written in
+     * Java. For;<pre>
      * def func(a, b, c=3, d=4, /, e=5, f=6, *aa, g=7, h, i=9, **kk):
      *     pass
-     * # func.__defaults__ == (3, 4, 5, 6)
-     * # func.__kwdefaults__ == {'g': 7, 'i': 9}
-     * </pre>would be described by a constructor call: <pre>
-     * private static ArgParser parser =
-     *     new ArgParser("func", "aa", "kk", 4, 3, //
-     *             "a", "b", "c", "d", "e", "f", "g", "h", "i")
-     *                     .defaults(3, 4, 5, 6) //
-     *                     .kwdefaults(7, null, 9);
-     *
-     * </pre> Note that "aa" and "kk" are given separately, not amongst
-     * the parameter names. In the parsing result array, they will be at
-     * the end. (This is how a CPython frame is laid out.)
-     * <p>
-     * Defaults are provided, after the parser has been constructed, as
-     * values corresponding to parameter names, when right-justified in
-     * the space to which they apply. (See diagram below.) Both the
-     * positional and keyword defaults are given by position in this
-     * formulation. The {@link #kwdefaults(Object...)} call is allowed
-     * to supply {@code null} values at positions it does not define.
-     * <p>
-     * When parsed to an array, the layout of the argument values, in
-     * relation to fields of the parser will be as follows.
+     * </pre>The constructor arguments should specify this layout:
      * <table class="lined">
-     * <caption>A Python {@code frame}</caption>
      * <tr>
      * <td class="row-label">names</td>
      * <td>a</td>
@@ -198,6 +256,8 @@ class ArgParser {
      * <td colspan=4>posOnly</td>
      * <td colspan=2></td>
      * <td colspan=3>kwOnly</td>
+     * <td>varargs</td>
+     * <td>varkw</td>
      * </tr>
      * <tr>
      * <td colspan=2></td>
@@ -207,31 +267,18 @@ class ArgParser {
      * </table>
      *
      * @param name of the function
-     * @param varargs name of the positional collector or {@code null}
-     * @param varkw name of the keywords collector or {@code null}
-     * @param posOnly number of positional-only parameters
-     * @param kwdOnly number of keyword-only parameters
-     * @param names of the (non-collector) parameters
-     */
-    ArgParser(String name, String varargs, String varkw, int posOnly,
-            int kwdOnly, String... names) {
-        this(name, ScopeKind.TYPE, MethodKind.STATIC, varargs, varkw,
-                posOnly, kwdOnly, names);
-    }
-
-    /**
-     * @param name of the function
      * @param scopeKind whether module, etc.
      * @param methodKind whether static, etc.
-     * @param varargs name of the positional collector or {@code null}
-     * @param varkw name of the keywords collector or {@code null}
+     * @param names of the parameters including any collectors (varargs)
+     * @param regargcount number of regular (non-collector) parameters
      * @param posOnly number of positional-only parameters
-     * @param kwdOnly number of keyword-only parameters
-     * @param names of the (non-collector) parameters
+     * @param kwOnly number of keyword-only parameters
+     * @param varargs whether there is positional collector
+     * @param varkw whether there is a keywords collector
      */
     ArgParser(String name, ScopeKind scopeKind, MethodKind methodKind,
-            String varargs, String varkw, int posOnly, int kwdOnly,
-            String... names) {
+            String[] names, int regargcount, int posOnly, int kwOnly,
+            boolean varargs, boolean varkw) {
 
         // Name of function
         this.name = name;
@@ -239,112 +286,11 @@ class ArgParser {
         this.scopeKind = scopeKind;
 
         // Total parameter count *except* possible varargs, varkwargs
-        int N = names.length;
-        this.regargcount = N;
-
-        // Fill in other cardinal points
-        this.posonlyargcount = posOnly;
-        this.kwonlyargcount = kwdOnly;
-        this.argcount = N - kwdOnly;
-
-        // There may be positional and/or keyword collectors
-        this.varArgsIndex = varargs != null ? N++ : -1;
-        this.varKeywordsIndex = varkw != null ? N++ : -1;
-
-        // Make a new array of the names, including the collectors.
-        String[] argnames = this.argnames = interned(names, N);
-
-        if (varargs != null)
-            argnames[varArgsIndex] = varargs.intern();
-        if (varkw != null)
-            argnames[varKeywordsIndex] = varkw.intern();
-
-        // Check for empty names
-        for (int i = posOnly; i < N; i++) {
-            if (argnames[i].length() == 0) {
-                // We found a "" name beyond positional only.
-                throw new InterpreterError(MISPLACED_EMPTY, name,
-                        argnames.toString());
-            }
-        }
-
-        assert argnames.length == argcount + kwonlyargcount
-                + (hasVarArgs() ? 1 : 0) + (hasVarKeywords() ? 1 : 0);
-    }
-
-    /**
-     * Construct a parser for a named function, with defined numbers of
-     * positional-only and keyword-only parameters, and parameter names
-     * in an array prepared by client code.
-     * <p>
-     * The capabilities of this parser, are exactly the same as one
-     * defined by
-     * {@link #ArgParser(String, String, String, int, int, String...)}.
-     * The parser in the example there may be generated by: <pre>
-     * String[] names = {"a", "b", "c", "d", "e", "f", "g", "h", "i",
-     *         "aa", "kk"};
-     * ArgParser ap = new ArgParser("func", true, true, 4, 3, names,
-     *         names.length - 2) //
-     *                 .defaults(3, 4, 5, 6) //
-     *                 .kwdefaults(7, null, 9);
-     * </pre> The differences allow the array of names to be used
-     * in-place (not copied). The client code must therefore ensure that
-     * it cannot be modified after the parser has been constructed.
-     * <p>
-     * The array of names may be longer than is necessary: the caller
-     * specifies how much of the array should be treated as regular
-     * parameter names, and whether zero, one or two further elements
-     * will name collectors for excess positional or keyword arguments.
-     * The rest of the elements will not be examined by the parser. The
-     * motivation for this design is to permit efficient construction
-     * when the the array of names is the local variable names in a
-     * Python {@code code} object.
-     *
-     * @param name of the function
-     * @param varargs whether there is positional collector
-     * @param varkw whether there is a keywords collector
-     * @param posOnly number of positional-only parameters
-     * @param kwdOnly number of keyword-only parameters
-     * @param names of the parameters including any collectors (varargs)
-     * @param count number of regular (non-collector) parameters
-     */
-    ArgParser(String name, boolean varargs, boolean varkw, int posOnly,
-            int kwdOnly, String[] names, int count) {
-        this(name, ScopeKind.TYPE, MethodKind.STATIC, varargs, varkw,
-                posOnly, kwdOnly, names, count);
-    }
-
-    /**
-     * Construct a parser from descriptive parameters that may be
-     * derived from a the annotated declarations ({@link Exposed}
-     * methods) that appear in type and module definitions written in
-     * Java.
-     *
-     * @param name of the function
-     * @param scopeKind whether module, etc.
-     * @param methodKind whether static, etc.
-     * @param varargs whether there is positional collector
-     * @param varkw whether there is a keywords collector
-     * @param posOnly number of positional-only parameters
-     * @param kwdOnly number of keyword-only parameters
-     * @param names of the parameters including any collectors (varargs)
-     * @param count number of regular (non-collector) parameters
-     */
-    ArgParser(String name, ScopeKind scopeKind, MethodKind methodKind,
-            boolean varargs, boolean varkw, int posOnly, int kwdOnly,
-            String[] names, int count) {
-
-        // Name of function
-        this.name = name;
-        this.methodKind = methodKind;
-        this.scopeKind = scopeKind;
-
-        // Total parameter count *except* possible varargs, varkwargs
-        int N = Math.min(count, names.length);
+        int N = Math.min(regargcount, names.length);
         this.regargcount = N;
         this.posonlyargcount = posOnly;
-        this.kwonlyargcount = kwdOnly;
-        this.argcount = N - kwdOnly;
+        this.kwonlyargcount = kwOnly;
+        this.argcount = N - kwOnly;
 
         // There may be positional and/or keyword collectors
         this.varArgsIndex = varargs ? N++ : -1;
@@ -417,12 +363,31 @@ class ArgParser {
 
         // Total parameter count *except* possible varargs, varkwargs
         int N = args.size();
+
+        /*
+         * If there was no "/" or "*", all are positional arguments.
+         * This is consistent with the output of inspect.signature,
+         * where e.g. inspect.signature(exec) is (source, globals=None,
+         * locals=None, /).
+         */
         if (posCount == 0) { posCount = N; }
+
+        // Number of regular arguments (not *, **)
+        int regArgCount = N;
+        int kwOnly = N - posCount;
+
+        // Add any *args to the names
+        if (varargs != null) { args.add(varargs); N++; }
+
+        // Add any **kwargs to the names
+        if (varkw != null) { args.add(varkw); N++; }
 
         String[] names =
                 N == 0 ? NO_STRINGS : args.toArray(new String[N]);
+
         return new ArgParser(name, ScopeKind.TYPE, MethodKind.STATIC,
-                varargs, varkw, posOnly, N - posCount, names);
+                names, regArgCount, posOnly, kwOnly, varargs != null,
+                varkw != null);
     }
 
     /**
@@ -640,9 +605,6 @@ class ArgParser {
         parseToFrame(w, args, kwargs);
         return a;
     }
-
-    private static final String MISPLACED_EMPTY =
-            "Misplaced empty keyword in ArgParser spec for %s %s";
 
     /**
      * Provide the positional defaults. If L values are provided, they
