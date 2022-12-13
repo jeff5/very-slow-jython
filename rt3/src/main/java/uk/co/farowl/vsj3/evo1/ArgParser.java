@@ -607,23 +607,22 @@ class ArgParser {
     }
 
     /**
-     * Provide the positional defaults. If L values are provided, they
-     * correspond to {@code arg[max-L] ... arg[max-1]}, where
-     * {@code max} is the index of the first keyword-only parameter, or
-     * the number of parameters if there are no keyword-only parameters.
-     * The minimum number of positional arguments will then be
-     * {@code max-L}.
+     * Provide the positional defaults. * The {@code ArgParser} keeps a
+     * reference to this array, so that subsequent changes to it will
+     * affect argument parsing. (Concurrent access to the array and
+     * parser is a client issue.)
+     * <p>
+     * If L values are provided, they correspond to
+     * {@code arg[max-L] ... arg[max-1]}, where {@code max} is the index
+     * of the first keyword-only parameter, or the number of parameters
+     * if there are no keyword-only parameters. The minimum number of
+     * positional arguments will then be {@code max-L}.
      *
      * @param values replacement positional defaults (or {@code null})
      * @return {@code this}
      */
     ArgParser defaults(Object... values) {
-        // XXX we could safely keep a reference (but document that).
-        if (values == null || values.length == 0) {
-            defaults = null;
-        } else {
-            defaults = Arrays.copyOf(values, values.length);
-        }
+        defaults = values;
         checkShape();
         return this;
     }
@@ -653,19 +652,17 @@ class ArgParser {
     }
 
     /**
-     * Provide the keyword-only defaults, perhaps as a {@code dict}.
+     * Provide the keyword-only defaults, perhaps as a {@code dict}. The
+     * {@code ArgParser} keeps a reference to this map, so that
+     * subsequent changes to it will affect argument parsing, as
+     * required for a Python {@link PyFunction function}. (Concurrent
+     * access to the mapping and parser is a client issue.)
      *
      * @param kwd replacement keyword defaults (or {@code null})
      * @return {@code this}
      */
     ArgParser kwdefaults(Map<Object, Object> kwd) {
-        // FIXME we should keep a reference (see PyFunction use).
-        if (kwd == null || kwd.isEmpty())
-            kwdefaults = null;
-        else {
-            kwdefaults = new HashMap<>();
-            kwdefaults.putAll(kwd);
-        }
+        kwdefaults = kwd;
         checkShape();
         return this;
     }
@@ -678,6 +675,7 @@ class ArgParser {
      * number of parameters.
      */
     private void checkShape() {
+        // XXX This may be too fussy, given that Python function is not
         final int N = argcount;
         final int L = defaults == null ? 0 : defaults.length;
         final int K = kwonlyargcount;

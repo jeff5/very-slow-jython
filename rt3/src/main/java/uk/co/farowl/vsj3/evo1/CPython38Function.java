@@ -65,7 +65,6 @@ package uk.co.farowl.vsj3.evo1;
     @Override
     void setKwdefaults(PyDict kwdefaults) {
         this.kwdefaults = kwdefaults;
-        // FIXME ArgParser must retain ref since client can update map
         argParser.kwdefaults(this.kwdefaults);
     }
 
@@ -93,25 +92,4 @@ package uk.co.farowl.vsj3.evo1;
                 c.traits.contains(PyCode.Trait.VARKEYWORDS));
         argParser = ap.defaults(defaults).kwdefaults(kwdefaults);
     }
-
-    // /**
-    // * Create a {@code PyFrame} that will execute this
-    // * {@code PyFunction} (adequate for module-level code).
-    // *
-    // * @param interpreter providing the module context
-    // * @param globals name space to treat as global variables
-    // * @param locals name space to treat as local variables
-    // * @return the frame
-    // */
-    // @Override
-    // CPython38Frame createFrame() {
-    //
-    // // FIXME not dealing with function locals correctly
-    // PyDict locals = new PyDict();
-    //
-    // return code.createFrame(interpreter, globals,
-    // locals);
-    //
-    // }
-
 }
