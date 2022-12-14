@@ -79,10 +79,10 @@ public abstract class PyFunction<C extends PyCode>
     private PyDict dict;
 
     /**
-     * The {@code __module__} attribute, can be anything or null meaning
-     * None
+     * The {@code __module__} attribute, can be anything or {@code null}
+     * meaning {@code None}
      */
-    @Exposed.Member(value = "__module__", optional = true)
+    @Exposed.Member(value = "__module__")
     Object module;
 
     /**

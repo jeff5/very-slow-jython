@@ -72,8 +72,8 @@ class CPython38Frame
      * </ul>
      * </li>
      * <li>Otherwise, {@code code} does not have the trait
-     * {@code NEWLOCALS} and expects an object with the map protocol
-     * to act as {@link PyFrame#locals}.
+     * {@code NEWLOCALS} and expects an object with the map protocol to
+     * act as {@link PyFrame#locals}.
      * <ul>
      * <li>If the argument {@code locals} is not {@code null} it
      * specifies {@link #locals}.</li>
@@ -246,9 +246,17 @@ class CPython38Frame
                         try {
                             locals.put(name, s[--sp]);
                         } catch (NullPointerException npe) {
-                            throw new SystemError(
-                                    "no locals found when storing '%s'",
-                                    name);
+                            throw noLocals("storing", name);
+                        }
+                        break;
+
+                    case Opcode.DELETE_NAME:
+                        name = names[oparg | opword & 0xff];
+                        oparg = 0;
+                        try {
+                            locals.remove(name);
+                        } catch (NullPointerException npe) {
+                            throw noLocals("deleting", name);
                         }
                         break;
 
@@ -279,8 +287,26 @@ class CPython38Frame
                         // ---^sp ---------------------^sp
                         n = opword & 0xff;
                         m = oparg >> 8;
-                        oparg = 0;
                         sp = unpackIterable(s[--sp], n, m, s, sp);
+                        oparg = 0;
+                        break;
+
+                    case Opcode.STORE_ATTR:
+                        // o.name = v
+                        // v | o | -> |
+                        // -------^sp -^sp
+                        name = names[oparg | opword & 0xff];
+                        Abstract.setAttr(s[--sp], name, s[--sp]);
+                        oparg = 0;
+                        break;
+
+                    case Opcode.DELETE_ATTR:
+                        // del o.name
+                        // o | -> |
+                        // ---^sp -^sp
+                        name = names[oparg | opword & 0xff];
+                        Abstract.delAttr(s[--sp], name);
+                        oparg = 0;
                         break;
 
                     case Opcode.LOAD_NAME:
@@ -289,9 +315,7 @@ class CPython38Frame
                         try {
                             v = locals.get(name);
                         } catch (NullPointerException npe) {
-                            throw new SystemError(
-                                    "no locals found when loading '%s'",
-                                    name);
+                            throw noLocals("loading", name);
                         }
 
                         if (v == null) {
@@ -369,6 +393,15 @@ class CPython38Frame
                         sp -= oparg * 2;
                         s[sp] = PyDict.fromKeyValuePairs(s, sp++,
                                 oparg);
+                        oparg = 0;
+                        break;
+
+                    // k1 | ... | kN | names | -> | map |
+                    // -----------------------^sp -------^sp
+                    // Build dictionary from the N=oparg names as a
+                    // tuple and values on the stack in order.
+                    case Opcode.BUILD_CONST_KEY_MAP:
+                        sp = constKeyMap(sp, oparg | opword & 0xff);
                         oparg = 0;
                         break;
 
@@ -510,6 +543,14 @@ class CPython38Frame
                         oparg = 0;
                         break;
 
+                    case Opcode.MAKE_FUNCTION:
+                        // Make a function object. Stack:
+                        // code | name | 0-4 args | -> func |
+                        // ------------------------^sp ---------^sp
+                        sp = makeFunction(opword & 0xff, sp);
+                        oparg = 0;
+                        break;
+
                     case Opcode.EXTENDED_ARG:
                         /*
                          * This opcode extends the effective opcode
@@ -579,6 +620,8 @@ class CPython38Frame
             "not enough values to unpack (expected %d, got %d)";
     private static final String TOO_MANY_TO_UNPACK =
             "too many values to unpack (expected %d)";
+    private static final String BAD_BUILD_CONST_KEY_MAP =
+            "bad BUILD_CONST_KEY_MAP keys argument";
 
     /**
      * Store the elements of a Python iterable in a slice
@@ -805,5 +848,102 @@ class CPython38Frame
 
         // All the look-ups and descriptors came to nothing :(
         throw Abstract.noAttributeError(obj, name);
+    }
+
+    /**
+     * Support the BUILD_CONST_KEY_MAP opcode. The stack has this
+     * layout:<pre>
+     * k1 | ... | kN | names | -> | map |
+     * -----------------------^sp -------^sp
+     * </pre> We use this to build a dictionary from the {@code N=oparg}
+     * names stored as as a {@code tuple} and stacked values in order.
+     *
+     * @param sp current stack pointer
+     * @param oparg number of values expected
+     * @return new stack pointer
+     * @throws SystemError if {@code names} is not the expected size (or
+     *     not a {@code tuple})
+     */
+    private int constKeyMap(int sp, int oparg) throws SystemError {
+        // Shorthand
+        Object[] s = valuestack;
+        Object o = s[--sp];
+        try {
+            PyTuple keys = (PyTuple)o;
+            if (keys.size() == oparg) {
+                PyDict map = new PyDict();
+                sp -= oparg;
+                for (int i = 0; i < oparg; i++) {
+                    map.put(keys.get(i), s[sp + i]);
+                }
+                s[sp++] = map;
+                return sp;
+            }
+        } catch (ClassCastException cce) {
+            // Fall through
+        }
+        throw new SystemError(BAD_BUILD_CONST_KEY_MAP);
+    }
+
+    /**
+     * Support the MAKE_FUNCTION opcode. The stack has this layout:<pre>
+     *  code | name | 0-4 args | -> func |
+     *  ------------------------^sp ---------^sp
+     * </pre> Here {@code code} is a code object for the function and
+     * {@code name} is a name supplied at the call site. The zero to
+     * four extra arguments {@code defaults}, {@code kwdefaults},
+     * {@code annotations} and {@code closure} in that order if present,
+     * and {@code oparg} is a bit map to tell us which of them is
+     * actually present.
+     * <p>
+     * The stack pointer moves by an amount that depends on
+     * {@code oparg}, so we return the new value from the method.
+     *
+     * @param oparg specifies which optional extras are on the stack
+     * @param sp the stack pointer
+     * @return the new stack pointer
+     */
+    private int makeFunction(int oparg, int sp) {
+        // Shorthands
+        Object[] s = valuestack;
+        PyFunction<?> f = this.func;
+
+        Object qualname = s[--sp]; // Not in 3.11 since in code object
+        PyCode code = (PyCode)s[--sp];
+
+        PyFunction<?> func;
+        if (oparg == 0) {
+            // Simple case: function object with no extras.
+            func = code.createFunction(f.interpreter, f.globals);
+        } else {
+            // Optional extras specified: extract the arguments.
+            PyCell[] closure = (oparg & 8) == 0 ? null
+                    : ((PyTuple)s[--sp]).toArray(PyCell.class);
+            Object annotations = (oparg & 4) == 0 ? null : s[--sp];
+            PyDict kwdefaults =
+                    (oparg & 2) == 0 ? null : (PyDict)s[--sp];
+            PyTuple defaults =
+                    (oparg & 1) == 0 ? null : (PyTuple)s[--sp];
+            func = code.createFunction(f.interpreter, f.globals,
+                    defaults.toArray(), kwdefaults, annotations,
+                    closure);
+        }
+
+        // Override name from code with name from stack (before 3.11)
+        func.setQualname(qualname);
+
+        s[sp++] = func;
+        return sp;
+    }
+
+    /**
+     * Generate error to throw when we cannot access locals.
+     *
+     * @param action "loading", "storing" or "deleting"
+     * @param name variable name
+     * @return
+     */
+    private static SystemError noLocals(String action, String name) {
+        return new SystemError("no locals found when %s '%s'", name);
     }
 }

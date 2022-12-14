@@ -136,7 +136,8 @@ class CPython38CodeTest extends UnitTestSupport {
             "bool_left_arith", "bool_right_arith", "comparison",
             "simple_if", "multi_if", "simple_loop", "iterables",
             "tuple_index", "tuple_dot_product", "list_index",
-            "attr_access_builtin", "call_method_builtin"})
+            "attr_access_builtin", "call_method_builtin",
+            "function_def"})
     void executeSimple(String name) {
         CPython38Code code = readCode(name);
         PyDict globals = new PyDict();
@@ -274,8 +275,8 @@ class CPython38CodeTest extends UnitTestSupport {
             Object v = test.get(k);
             assertNotNull(v, () -> String
                     .format("variable %s missing from result", k));
-            assertPythonEquals(x, v,
-                    () -> String.format("%s = %s (not %s)", k, v, x));
+            assertPythonEquals(x, v, () -> String
+                    .format("%s = %s (expected %s)", k, v, x));
         }
     }
 }

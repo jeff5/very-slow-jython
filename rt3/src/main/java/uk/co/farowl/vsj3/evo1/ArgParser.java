@@ -284,6 +284,7 @@ class ArgParser {
         this.name = name;
         this.methodKind = methodKind;
         this.scopeKind = scopeKind;
+        this.argnames = names;
 
         // Total parameter count *except* possible varargs, varkwargs
         int N = Math.min(regargcount, names.length);
@@ -295,9 +296,6 @@ class ArgParser {
         // There may be positional and/or keyword collectors
         this.varArgsIndex = varargs ? N++ : -1;
         this.varKeywordsIndex = varkw ? N++ : -1;
-
-        // Make a new array of the names, including the collectors.
-        this.argnames = interned(names, N);
 
         assert argnames.length >= argcount + kwonlyargcount
                 + (hasVarArgs() ? 1 : 0) + (hasVarKeywords() ? 1 : 0);
@@ -493,21 +491,6 @@ class ArgParser {
         }
 
         return sj.toString();
-    }
-
-    /**
-     * Return a copy of a {@code String} array in which every element is
-     * interned, in a new , possibly larger, array. We intern the
-     * strings to enable the fast path in keyword argument processing.
-     *
-     * @param a to intern
-     * @param N size of array to return
-     * @return array of equivalent interned strings
-     */
-    private String[] interned(String[] a, int N) {
-        String[] s = new String[Math.max(N, a.length)];
-        for (int i = 0; i < a.length; i++) { s[i] = a[i].intern(); }
-        return s;
     }
 
     /**

@@ -85,8 +85,9 @@ package uk.co.farowl.vsj3.evo1;
      */
     protected void buildParser() {
         CPython38Code c = code;
+        int regargcount = c.argcount+ c.kwonlyargcount;
         ArgParser ap = new ArgParser(name, // name is unchanged
-                c.names, c.argcount, c.posonlyargcount,
+                c.varnames, regargcount, c.posonlyargcount,
                 c.kwonlyargcount,
                 c.traits.contains(PyCode.Trait.VARARGS),
                 c.traits.contains(PyCode.Trait.VARKEYWORDS));
