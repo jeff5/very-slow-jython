@@ -104,9 +104,8 @@ class TypeExposerGetSetTest extends UnitTestSupport {
      * a type {@code ObjectWithGetSets}.
      * <p>
      * As well as giving us less to type, using a base allows us to show
-     * that Getter annotations (etc.) are inherited. showing that some
-     * of the get-set attribute definitions explored in the tests can be
-     * Java-inherited.
+     * that some of the get-set attribute definitions explored in the
+     * tests can be Java-inherited.
      */
     private static abstract class BaseGetSets {
 
@@ -325,24 +324,6 @@ class TypeExposerGetSetTest extends UnitTestSupport {
         static <T, E extends PyException> T errorIfNull(T v,
                 Function<T, E> exc) throws E {
             if (v != null) { return v; }
-            throw exc.apply(v);
-        }
-
-        /**
-         * Return {@code v} if it is of the expected type, otherwise
-         * throw supplied exception.
-         *
-         * @param <T> type of {@code v}
-         * @param <E> type of exception to throw
-         * @param v to return if of expected type
-         * @param type expected
-         * @param exc supplier of exception to throw
-         * @return {@code v}
-         * @throws E if {@code v} is not of expected type
-         */
-        static <T, E extends PyException> T check(T v, PyType type,
-                Function<T, E> exc) {
-            if (type.check(v)) { return v; }
             throw exc.apply(v);
         }
     }
