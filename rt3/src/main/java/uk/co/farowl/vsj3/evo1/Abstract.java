@@ -1185,11 +1185,24 @@ public class Abstract {
 
     /**
      * Convert any {@code Throwable} except an {@code Error} to a
-     * {@code RuntimeException}, so that it becomes an unchecked
-     * exception. An {@code Error} is re-thrown directly. We use this in
-     * circumstances where a method cannot be declared to throw the
-     * exceptions that methods within it are declared to throw, and no
-     * specific handling is available locally.
+     * {@code RuntimeException}, as by
+     * {@link #asUnchecked(Throwable, String, Object...) asUnchecked(t,
+     * ...)} with a default message.
+     *
+     * @param t to propagate or encapsulate
+     * @return run-time exception to throw
+     */
+    static RuntimeException asUnchecked(Throwable t) {
+        return asUnchecked(t, "non-Python Exception");
+    }
+
+    /**
+     * Convert any {@code Throwable} except an {@code Error} to a
+     * {@code RuntimeException}, so that (if not already) it becomes an
+     * unchecked exception. An {@code Error} is re-thrown directly. We
+     * use this in circumstances where a method cannot be declared to
+     * throw the exceptions that methods within it are declared to
+     * throw, and no specific handling is available locally.
      * <p>
      * In particular, we use it where a call is made to
      * {@code MethodHandle.invokeExact}. That is declared to throw
@@ -1198,15 +1211,19 @@ public class Abstract {
      * error that the local code cannot be expected to handle.
      *
      * @param t to propagate or encapsulate
+     * @param during format string for detail message, typically like
+     *     "during map.get(%.50s)" where {@code args} contains the key.
+     * @param args to insert into format string.
      * @return run-time exception to throw
      */
-    static RuntimeException asUnchecked(Throwable t) {
+    static RuntimeException asUnchecked(Throwable t, String during,
+            Object... args) {
         if (t instanceof RuntimeException)
             return (RuntimeException)t;
         else if (t instanceof Error)
             throw (Error)t;
         else
-            return new InterpreterError(t, "non-Python Exception");
+            return new InterpreterError(t, during, args);
     }
 
     /**

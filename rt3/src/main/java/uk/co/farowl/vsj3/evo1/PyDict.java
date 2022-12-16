@@ -205,6 +205,12 @@ public class PyDict extends AbstractMap<Object, Object>
         return get(key);
     }
 
+    @SuppressWarnings("unused")
+    private void __setitem__(Object key, Object value) {
+        // This may be over-simplifying things but ... :)
+        put(key, value);
+    }
+
     // methods --------------------------------------------------------
 
     Object update(Object args) {

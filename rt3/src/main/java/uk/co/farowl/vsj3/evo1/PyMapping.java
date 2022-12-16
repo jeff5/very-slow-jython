@@ -22,27 +22,45 @@ public class PyMapping extends PySequence {
      * {@code Map<Object, Object>}, this will be the object itself.
      * Otherwise, it will be an adapter on the provided object.
      *
-     * @param <K> Object (distinguished here for readability)
-     * @param <V> Object (distinguished here for readability)
      * @param o to present as a map
      * @return the map
      */
-    static <K, V> Map<K, V> map(Object o) {
-        if (PyDict.TYPE.check(o)) {
-            return (Map<K, V>)o;
+    static Map<Object, Object> map(Object o) {
+        if (o instanceof PyDict) {
+            return (PyDict)o;
         } else {
-            return new MapWrapper<K, V>(o);
+            return new MapWrapper(o);
         }
     }
 
-    static class MapWrapper<K, V> extends AbstractMap<K, V> {
+    static class MapWrapper extends AbstractMap<Object, Object> {
         private final Object map;
 
         MapWrapper(Object map) { this.map = map; }
 
         @Override
-        public Set<Entry<K, V>> entrySet() {
+        public Set<Entry<Object, Object>> entrySet() {
             return new EntrySetImpl();
+        }
+
+        @Override
+        public Object get(Object key) {
+            try {
+                return getItem(map, key);
+            } catch (Throwable t) {
+                // Tunnel out non-Python errors as internal
+                throw asUnchecked(t, "during map.get(%.50s)", key);
+            }
+        }
+
+        @Override
+        public Object put(Object key, Object value) {
+            try {
+                setItem(map, key, value);
+                return null;
+            } catch (Throwable t) {
+                throw asUnchecked(t, "during map.put(%.50s, ...)", key);
+            }
         }
 
         /**
@@ -50,10 +68,11 @@ public class PyMapping extends PySequence {
          * {@link MapWrapper#entrySet()}, and provides the view of the
          * entries in the object supplied to the constructor.
          */
-        private class EntrySetImpl extends AbstractSet<Entry<K, V>> {
+        private class EntrySetImpl
+                extends AbstractSet<Entry<Object, Object>> {
 
             @Override
-            public Iterator<Entry<K, V>> iterator() {
+            public Iterator<Entry<Object, Object>> iterator() {
                 return new EntrySetIteratorImpl();
             }
 
@@ -62,7 +81,7 @@ public class PyMapping extends PySequence {
                 try {
                     return PySequence.size(map);
                 } catch (Throwable t) {
-                    throw asUnchecked(t);
+                    throw asUnchecked(t, "during map.size()");
                 }
             }
         }
@@ -74,7 +93,7 @@ public class PyMapping extends PySequence {
          * It is backed by a Python iterator on the underlying map.
          */
         private class EntrySetIteratorImpl
-                implements Iterator<Entry<K, V>> {
+                implements Iterator<Entry<Object, Object>> {
 
             /**
              * A key object waits here that has been read from the map,
@@ -82,15 +101,15 @@ public class PyMapping extends PySequence {
              * returned in a pair by {@link #next()},
              */
             private final Object keyIterator;
-            private K nextKey = null;
-            private K currKey = null;
+            private Object nextKey = null;
+            private Object currKey = null;
             private boolean exhausted = false;
 
             EntrySetIteratorImpl() throws TypeError {
                 try {
                     this.keyIterator = Abstract.getIterator(map);
                 } catch (Throwable t) {
-                    throw asUnchecked(t);
+                    throw asUnchecked(t, "getting iterator");
                 }
             }
 
@@ -108,12 +127,12 @@ public class PyMapping extends PySequence {
                     // This does not advance this iterator, but ...
                     try {
                         // ... we advance keyIterator to peek at next.
-                        nextKey = (K)Abstract.next(keyIterator);
+                        nextKey = Abstract.next(keyIterator);
                     } catch (StopIteration si) {
                         exhausted = true;
                         return false;
                     } catch (Throwable t) {
-                        throw asUnchecked(t);
+                        throw asUnchecked(t, "during map.hasNext()");
                     }
                 }
                 assert nextKey != null;
@@ -122,17 +141,17 @@ public class PyMapping extends PySequence {
             }
 
             @Override
-            public Entry<K, V> next() {
+            public Entry<Object, Object> next() {
                 if (hasNext()) {
                     // hasNext()==true has already set nextKey
-                    K k = nextKey;
+                    Object k = nextKey;
                     try {
-                        V v = (V)getItem(map, k);
+                        Object v = getItem(map, k);
                         currKey = k;
                         nextKey = null;
-                        return new SimpleEntry<K, V>(k, v);
+                        return new SimpleEntry<Object, Object>(k, v);
                     } catch (Throwable t) {
-                        throw asUnchecked(t);
+                        throw asUnchecked(t, "during map.next()");
                     }
                 } else {
                     throw new NoSuchElementException("Python iterator");
@@ -149,11 +168,11 @@ public class PyMapping extends PySequence {
                         delItem(map, currKey);
                         currKey = null;
                     } catch (Throwable t) {
-                        throw asUnchecked(t);
+                        throw asUnchecked(t, "during map.remove(%.50s)",
+                                currKey);
                     }
                 }
             }
         }
-
     }
 }

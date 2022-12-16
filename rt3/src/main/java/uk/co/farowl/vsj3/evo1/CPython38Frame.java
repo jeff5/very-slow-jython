@@ -143,6 +143,7 @@ class CPython38Frame
         final PyDict globals = func.globals;
         final PyDict builtins = func.builtins;;
 
+        // Wrap locals (any type) as a minimal kind of Java map
         Map<Object, Object> locals = localsMapOrNull();
 
         /*

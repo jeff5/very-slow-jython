@@ -9,8 +9,12 @@ import java.io.BufferedInputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.lang.invoke.MethodHandles;
 import java.nio.file.Path;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Map.Entry;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.DisplayNameGeneration;
@@ -20,6 +24,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
+import uk.co.farowl.vsj3.evo1.PyDict.Key;
+import uk.co.farowl.vsj3.evo1.PyDict.KeyHolder;
+import uk.co.farowl.vsj3.evo1.PyType.Flag;
 import uk.co.farowl.vsj3.evo1.base.InterpreterError;
 import uk.co.farowl.vsj3.evo1.modules.marshal;
 
@@ -148,6 +155,27 @@ class CPython38CodeTest extends UnitTestSupport {
         assertExpectedVariables(readResultDict(name), globals);
     }
 
+    @SuppressWarnings("static-method")
+    @DisplayName("We can execute with custom locals ...")
+    @ParameterizedTest(name = "{0}.py")
+    @ValueSource(strings = {"load_store_name", "attr_access_builtin",
+            "call_method_builtin"})
+    void executeCustomLocals(String name) {
+        CPython38Code code = readCode(name);
+        PyDict globals = new PyDict();
+        Interpreter interp = new Interpreter();
+        PyFunction<?> fn = code.createFunction(interp, globals);
+        // locals is a custom type with __setitem__ and __getitem__
+        CustomMap locals = new CustomMap();
+        PyFrame<?, ?> f = fn.createFrame(locals);
+        f.eval();
+        // Merge results in locals to globals for test
+        for (Entry<Object, Object> e : locals) {
+            globals.put(e.getKey(), e.getValue());
+        }
+        assertExpectedVariables(readResultDict(name), globals);
+    }
+
     // Supporting constants and methods -------------------------------
 
     /** The Gradle build directory. */
@@ -271,12 +299,93 @@ class CPython38CodeTest extends UnitTestSupport {
             Map<Object, Object> test) {
         for (Map.Entry<Object, Object> e : ref.entrySet()) {
             Object k = e.getKey();
-            Object x = ref.get(k);
+            Object x = e.getValue();
             Object v = test.get(k);
             assertNotNull(v, () -> String
-                    .format("variable %s missing from result", k));
+                    .format("variable '%s' missing from result", k));
             assertPythonEquals(x, v, () -> String
                     .format("%s = %s (expected %s)", k, v, x));
         }
+    }
+
+    /**
+     * A built-in that supports the Python mapping protocol but isn't a
+     * {@code Map<Object,Object>}, which is a type that gets privileged
+     * treatment at multiple points in the interpreter. We can give this
+     * to the {@code PyFrame} as {@link PyFrame#locals} and it is
+     * supposed to work. See test
+     * {@link CPython38CodeTest#executeCustomLocals(String)}.
+     */
+    static class CustomMap extends AbstractPyObject
+            implements Iterable<Map.Entry<Object, Object>> {
+
+        /** The type of Python object this class implements. */
+        public static final PyType TYPE = PyType.fromSpec( //
+                new PyType.Spec("CustomMapping", MethodHandles.lookup())
+                        .flagNot(Flag.BASETYPE));
+
+        /** The dictionary as a hash map preserving insertion order. */
+        private final LinkedHashMap<Key, Object> map =
+                new LinkedHashMap<Key, Object>();
+
+        protected CustomMap() { super(TYPE); }
+
+        @Override
+        public Iterator<Entry<Object, Object>> iterator() {
+            /*
+             * Return a custom iterator that understands that the keys
+             * of the internal map are just holders of the actual key.
+             */
+            return new Iterator<Entry<Object, Object>>() {
+                Iterator<Entry<Key, Object>> mapIter =
+                        map.entrySet().iterator();
+
+                @Override
+                public boolean hasNext() { return mapIter.hasNext(); }
+
+                @Override
+                public Entry<Object, Object> next() {
+                    Entry<Key, Object> mapNext = mapIter.next();
+                    Object key = mapNext.getKey().get();
+                    return Map.entry(key, mapNext.getValue());
+                }
+            };
+        }
+
+        // slot functions
+        // -------------------------------------------------
+
+        @SuppressWarnings("unused")
+        private Object __getitem__(Object key) {
+            return map.get(toKey(key));
+        }
+
+        @SuppressWarnings("unused")
+        private void __setitem__(Object key, Object value) {
+            map.put(toKey(key), value);
+        }
+
+        @Override
+        public PyType getType() { return TYPE; }
+
+        @Override
+        public String toString() { return map.toString(); }
+
+        // plumbing
+        // -------------------------------------------------------
+
+        /**
+         * Turn an object into a {@link Key} suitable for lookup in
+         * {@link #map}.
+         *
+         * @param key to return or wrap
+         */
+        private static Key toKey(Object key) {
+            if (key instanceof Key)
+                return (Key)key;
+            else
+                return new KeyHolder(key);
+        }
+
     }
 }
