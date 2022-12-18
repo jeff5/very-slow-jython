@@ -221,6 +221,20 @@ public class Py {
         }
     }
 
+    /**
+     * Return the unique numerical identiy of a given Python object.
+     * Objects with the same id() are identical as long as both exist.
+     * By implementing it here, we encapsulate the problem of qualified
+     * type name and what "address" or "identity" should mean.
+     *
+     * @param o the object
+     * @return the Python {@code id(o)}
+     */
+    static int id(Object o) {
+        // For the time being identity means:
+        return System.identityHashCode(o);
+    }
+
     // Interpreter ---------------------------------------------------
 
 // /**

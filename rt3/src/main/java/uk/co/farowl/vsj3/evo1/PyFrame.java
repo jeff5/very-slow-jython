@@ -160,6 +160,29 @@ public abstract class PyFrame<C extends PyCode, F extends PyFunction<C>> {
         this.code = func.code;
     }
 
+
+    // slot methods --------------------------------------------------
+
+    @SuppressWarnings("unused")
+    private Object __repr__() { return toString(); }
+
+    @SuppressWarnings("unused")
+    private Object __str__() { return toString(); }
+
+    // Java API ------------------------------------------------------
+
+    @Override
+    // Compare CPython frame_repr in frameobject.c
+    public String toString() {
+        int lineno = code.firstlineno;
+        if (lineno == 0) { lineno = -1; }
+        String file = code.filename, q = "'";
+        if (file == null) { file = ""; q = ""; }
+        return String.format(
+                "<frame at %#x, file %s%s%s, line %d, code %s>",
+                Py.id(this), q, file, q, lineno, code.name);
+    }
+
     /** Push the frame to the stack of the current thread. */
     void push() {
         // Push this frame to stack

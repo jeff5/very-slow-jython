@@ -389,6 +389,14 @@ public abstract class PyFunction<C extends PyCode>
         }
     }
 
+    // slot methods --------------------------------------------------
+
+    @SuppressWarnings("unused")
+    private Object __repr__() { return toString(); }
+
+    @SuppressWarnings("unused")
+    private Object __str__() { return toString(); }
+
     // plumbing ------------------------------------------------------
 
     @Override
@@ -396,6 +404,13 @@ public abstract class PyFunction<C extends PyCode>
 
     @Override
     public PyType getType() { return TYPE; }
+
+    @Override
+    // Compare CPython func_repr in funcobject.c
+    public String toString() {
+        return String.format("<function %.100s at %#x>", qualname,
+                Py.id(this));
+    }
 
     /**
      * Check that the number of free variables expected by the given

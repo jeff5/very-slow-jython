@@ -373,6 +373,12 @@ public class PyTuple extends AbstractList<Object>
         return count;
     }
 
+    @SuppressWarnings("unused")
+    private Object __repr__() { return toString(); }
+
+    @SuppressWarnings("unused")
+    private Object __str__() { return toString(); }
+
     /*
      * @ExposedMethod(defaults = {"null", "null"}, doc =
      * BuiltinDocs.tuple_index_doc)

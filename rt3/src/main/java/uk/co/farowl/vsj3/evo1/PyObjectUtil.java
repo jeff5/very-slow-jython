@@ -45,11 +45,9 @@ public class PyObjectUtil {
      * @return string denoting {@code o}
      */
     static String toAt(Object o) {
-        // For the time being identity means:
-        int id = System.identityHashCode(o);
         // For the time being type name means:
         String typeName = PyType.of(o).name;
-        return String.format("%s object at %#x", typeName, id);
+        return String.format("%s object at %#x", typeName, Py.id(o));
     }
 
     /**

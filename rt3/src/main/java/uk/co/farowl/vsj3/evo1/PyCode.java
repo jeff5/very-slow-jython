@@ -253,11 +253,31 @@ public abstract class PyCode implements CraftedPyObject {
     @Getter
     PyTuple co_cellvars() { return PyTuple.from(cellvars); }
 
+
+    // slot methods --------------------------------------------------
+
+    @SuppressWarnings("unused")
+    private Object __repr__() { return toString(); }
+
+    @SuppressWarnings("unused")
+    private Object __str__() { return toString(); }
+
+
     // Java API -------------------------------------------------------
 
     @Override
     public PyType getType() { return TYPE; }
 
+    @Override
+    // Compare CPython code_repr in codeobject.c
+    public String toString() {
+        int lineno = firstlineno != 0 ? firstlineno : -1;
+        String file = filename, q = "\"";
+        if (file == null) { file = "???"; q = ""; }
+        return String.format(
+                "<code object %s at %#x, file %s%s%s, line %d>", name,
+                Py.id(this), q, file, q, lineno);
+    }
     /**
      * Create a {@code PyFunction} that will execute this
      * {@code PyCode}. The strongly-typed {@code defaults},
