@@ -381,7 +381,7 @@ class CPython38Frame
                         sp -= oparg;
                         tpl = new PyTuple.Builder();
                         for (int i = 0; i < oparg; i++) {
-                            tpl.append((List<?>)s[sp + i]);
+                            tpl.extend((List<?>)s[sp + i]);
                         }
                         s[sp++] = tpl.take();
                         oparg = 0;

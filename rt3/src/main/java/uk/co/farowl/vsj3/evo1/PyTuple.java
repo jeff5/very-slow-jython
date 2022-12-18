@@ -531,7 +531,7 @@ public class PyTuple extends AbstractList<Object>
          * @param seq supplying elements to append
          * @return this builder
          */
-        public Builder append(Collection<?> seq) {
+        public Builder extend(Collection<?> seq) {
             ensure(seq.size());
             for (Object v : seq) { value[len++] = v; }
             return this;
@@ -543,7 +543,7 @@ public class PyTuple extends AbstractList<Object>
          * @param iter supplying elements to append
          * @return this builder
          */
-        public Builder append(Iterator<?> iter) {
+        public Builder extend(Iterator<?> iter) {
             while (iter.hasNext()) { append(iter.next()); }
             return this;
         }
