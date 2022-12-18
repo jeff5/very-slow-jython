@@ -739,13 +739,13 @@ class ArgParser {
          * positional or keyword defaults to make up the shortfall.
          *
          * @param stack positional and keyword arguments
-         * @param start position of arguments in the array
+         * @param pos position of arguments in the array
          * @param nargs number of positional arguments
          */
-        void setPositionalArguments(Object[] stack, int start,
+        void setPositionalArguments(Object[] stack, int pos,
                 int nargs) {
             int n = Math.min(nargs, argcount);
-            for (int i = 0, j = start; i < n; i++)
+            for (int i = 0, j = pos; i < n; i++)
                 setLocal(i, stack[j++]);
         }
 
@@ -834,13 +834,14 @@ class ArgParser {
          */
         void setKeywordArguments(Object[] stack, int kwstart,
                 String[] kwnames) {
-            /*
-             * Create a dictionary for the excess keyword parameters,
-             * and insert it in the local variables at the proper
-             * position.
-             */
+
             PyDict kwdict = null;
             if (varKeywordsIndex >= 0) {
+                /*
+                 * Create a dictionary for the excess keyword
+                 * parameters, and insert it in the local variables at
+                 * the proper position.
+                 */
                 kwdict = Py.dict();
                 setLocal(varKeywordsIndex, kwdict);
             }
@@ -874,11 +875,6 @@ class ArgParser {
                         throw new TypeError(MULTIPLE_VALUES, name, key);
                 }
             }
-
-            if (varKeywordsIndex >= 0) {
-                setLocal(varKeywordsIndex, kwdict);
-            }
-
         }
 
         /**
@@ -1222,9 +1218,8 @@ class ArgParser {
          * The intended use is that {@code start = 1} allows space for a
          * {@code self} reference not in the argument list. The capacity
          * of the array, between the start index and the end, must be
-         * sufficient to hold the parse result. The destination array
-         * must be sufficient to hold the parse result and may be
-         * larger, e.g. to accommodate other local variables.
+         * sufficient to hold the parse result may be larger, e.g. to
+         * accommodate other local variables.
          *
          * @param vars destination array
          * @param start at which to place first parsed argument
@@ -1254,6 +1249,13 @@ class ArgParser {
         void setPositionalArguments(PyTuple argsTuple) {
             int n = Math.min(argsTuple.value.length, argcount);
             System.arraycopy(argsTuple.value, 0, vars, start, n);
+        }
+
+        @Override
+        void setPositionalArguments(Object[] stack, int pos,
+                int nargs) {
+            int n = Math.min(nargs, argcount);
+            System.arraycopy(stack, pos, vars, start, n);
         }
     }
 
@@ -1333,11 +1335,14 @@ class ArgParser {
          */
 
         // Set parameters from the positional arguments in the call.
-        frame.setPositionalArguments(stack, start, nargs);
+        if (nargs > 0) {
+            frame.setPositionalArguments(stack, start, nargs);
+        }
 
         // Set parameters from the keyword arguments in the call.
-        if (nkwargs > 0)
+        if (varKeywordsIndex >= 0 || nkwargs > 0) {
             frame.setKeywordArguments(stack, start + nargs, kwnames);
+        }
 
         if (nargs > argcount) {
 
@@ -1374,7 +1379,7 @@ class ArgParser {
      *
      * @param frame to populate with argument values
      * @param args all arguments, positional then keyword
-     * @param kwnames of keyword arguments
+     * @param kwnames of keyword arguments (or {@code null})
      */
     void parseToFrame(FrameWrapper frame, Object[] args,
             String[] kwnames) {
@@ -1392,11 +1397,12 @@ class ArgParser {
          */
 
         // Set parameters from the positional arguments in the call.
-        frame.setPositionalArguments(args, 0, nargs);
+        if (nargs > 0) { frame.setPositionalArguments(args, 0, nargs); }
 
         // Set parameters from the keyword arguments in the call.
-        if (nkwargs > 0)
+        if (varKeywordsIndex >= 0 || nkwargs > 0) {
             frame.setKeywordArguments(args, nargs, kwnames);
+        }
 
         if (nargs > argcount) {
 

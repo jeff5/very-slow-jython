@@ -70,11 +70,35 @@ package uk.co.farowl.vsj3.evo1;
 
 
     @Override
-    PyFrame<CPython38Code, PyFunction<CPython38Code>>
-            createFrame(Object locals) {
+    CPython38Frame createFrame(Object locals) {
         return new CPython38Frame(this, locals);
     }
 
+
+    // slot methods --------------------------------------------------
+
+    @Override
+    Object __call__(Object[] args, String[] names) throws Throwable {
+
+        // Create a loose frame
+        CPython38Frame frame = createFrame(null);
+
+        // Fill the local variables that are arguments
+        ArgParser.FrameWrapper wrapper =
+                argParser.new ArrayFrameWrapper(frame.fastlocals);
+        argParser.parseToFrame(wrapper, args, names);
+
+        // XXX Copy arguments that should be cells?
+
+        // Run the function body
+        return frame.eval();
+    }
+
+    // FastCall support ----------------------------------------------
+
+
+
+    // plumbing ------------------------------------------------------
     /**
      * Build {@link #argParser} to match the function object. The parser
      * must reflect variable names and the frame layout implied by the

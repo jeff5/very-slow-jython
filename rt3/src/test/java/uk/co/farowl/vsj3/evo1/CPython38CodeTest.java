@@ -137,7 +137,7 @@ class CPython38CodeTest extends UnitTestSupport {
     }
 
     @SuppressWarnings("static-method")
-    @DisplayName("We can execute ...")
+    @DisplayName("We can execute simple ...")
     @ParameterizedTest(name = "{0}.py")
     @ValueSource(strings = {"load_store_name", "unary_op", "binary_op",
             "bool_left_arith", "bool_right_arith", "comparison",
@@ -146,6 +146,20 @@ class CPython38CodeTest extends UnitTestSupport {
             "attr_access_builtin", "call_method_builtin",
             "function_def"})
     void executeSimple(String name) {
+        CPython38Code code = readCode(name);
+        PyDict globals = new PyDict();
+        Interpreter interp = new Interpreter();
+        PyFunction<?> fn = code.createFunction(interp, globals);
+        PyFrame<?, ?> f = fn.createFrame(globals);
+        f.eval();
+        assertExpectedVariables(readResultDict(name), globals);
+    }
+
+    @SuppressWarnings("static-method")
+    @DisplayName("We can execute complex ...")
+    @ParameterizedTest(name = "{0}.py")
+    @ValueSource(strings = {"function_call"})
+    void executeComplex(String name) {
         CPython38Code code = readCode(name);
         PyDict globals = new PyDict();
         Interpreter interp = new Interpreter();

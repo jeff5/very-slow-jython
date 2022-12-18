@@ -11,7 +11,7 @@ public class UnboundLocalError extends NameError {
      */
     @SuppressWarnings("hiding")
     public static final PyType TYPE = PyType.fromSpec(
-            new PyType.Spec("NameError", MethodHandles.lookup())
+            new PyType.Spec("UnboundLocalError", MethodHandles.lookup())
                     .base(NameError.TYPE));
 
     /**

@@ -68,15 +68,22 @@ def copy(srcfile, dstfile):
 
 def execute(pycfile, varfile, disfile):
     "Execute a program and save the local variables"
-    print(f"  Generate: {os.path.basename(varfile)}")
     print(f"  Generate: {os.path.basename(disfile)}")
     co = getcode(pycfile)
-    lcl, gbl = dict(), dict()
-    exec(co, gbl, lcl)
-    with open(varfile, 'wb') as f:
-        marshal.dump(lcl, f)
     with open(disfile, 'wt', encoding='utf-8') as f:
-        dis.disassemble(co, file=f)
+        # Dumps code blocks of nested functions
+        dis.dis(co, file=f)
+    print(f"  Generate: {os.path.basename(varfile)}")
+    gbl = dict()
+    exec(co, gbl)
+    # Remove items forced in by exec
+    del gbl['__builtins__']
+    # try:
+    #     print("   ", list(gbl.keys()))
+    # except UnicodeEncodeError:
+    #     pass
+    with open(varfile, 'wb') as f:
+        marshal.dump(gbl, f)
 
 
 def generate(reldir, name, source, generated):
@@ -88,6 +95,7 @@ def generate(reldir, name, source, generated):
     generated:  directory of the compiled/generated files
     """
     srcfile, srctime = filetime([source, reldir], [name, 'py'])
+    #print(f"   {name}.py")
     #print(f"      source: {srctime:15.3f}")
 
     dstfile, dsttime = filetime([generated, reldir], [name, 'py'])

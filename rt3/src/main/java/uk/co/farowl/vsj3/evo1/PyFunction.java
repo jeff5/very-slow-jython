@@ -389,13 +389,31 @@ public abstract class PyFunction<C extends PyCode>
         }
     }
 
+
     // slot methods --------------------------------------------------
+
+    /**
+     * Canonical {@code __call__} slot with Jython conventions, making
+     * function implementations callable.
+     *
+     * @param args all the arguments (position then keyword)
+     * @param names of the keyword arguments (or {@code null})
+     * @return the return from the call
+     * @throws Throwable for errors raised in the function
+     */
+    abstract Object __call__(Object[] args, String[] names)
+            throws Throwable;
 
     @SuppressWarnings("unused")
     private Object __repr__() { return toString(); }
 
     @SuppressWarnings("unused")
     private Object __str__() { return toString(); }
+
+
+    // FastCall support ----------------------------------------------
+
+    // XXX ... is needed.
 
     // plumbing ------------------------------------------------------
 

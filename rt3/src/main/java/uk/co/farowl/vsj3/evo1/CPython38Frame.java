@@ -6,6 +6,7 @@ import java.lang.invoke.MethodHandle;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 import uk.co.farowl.vsj3.evo1.PyCode.Trait;
 import uk.co.farowl.vsj3.evo1.base.InterpreterError;
@@ -193,8 +194,24 @@ class CPython38Frame
                     case Opcode.NOP:
                         break;
 
+                    case Opcode.LOAD_FAST:
+                        v = fastlocals[oparg | opword & 0xff];
+                        if (v == null) {
+                            name = code.varnames[oparg | opword & 0xff];
+                            throw new UnboundLocalError(
+                                    UNBOUNDLOCAL_ERROR_MSG, name);
+                        }
+                        s[sp++] = v;
+                        oparg = 0;
+                        break;
+
                     case Opcode.LOAD_CONST:
                         s[sp++] = consts[oparg | opword & 0xff];
+                        oparg = 0;
+                        break;
+
+                    case Opcode.STORE_FAST:
+                        fastlocals[oparg | opword & 0xff]   = s[--sp];                     oparg = 0;
                         oparg = 0;
                         break;
 
@@ -615,6 +632,11 @@ class CPython38Frame
 
     private static final String NAME_ERROR_MSG =
             "name '%.200s' is not defined";
+    private static final String UNBOUNDLOCAL_ERROR_MSG =
+            "local variable '%.200s' referenced before assignment";
+    private static final String UNBOUNDFREE_ERROR_MSG =
+            "free variable '%.200s' referenced before assignment"
+                    + " in enclosing scope";
     private static final String UNPACK_EXPECTED_AT_LEAST =
             "not enough values to unpack (expected at least %d, got %d)";
     private static final String UNPACK_EXPECTED =
