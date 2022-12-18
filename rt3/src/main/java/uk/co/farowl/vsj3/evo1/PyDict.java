@@ -174,6 +174,25 @@ public class PyDict extends AbstractMap<Object, Object>
                     PyType.of(src).getName());
     }
 
+    /**
+     * Optimised get on two {@code PyDict} specifically to support the
+     * {@code LOAD_GLOBAL} opcode. We avoid the cost of a second key
+     * holder.
+     *
+     * @param globals first dictionary to search
+     * @param builtins final dictionary to search
+     * @param key to find
+     * @return found object or {@code null}
+     */
+    // Compare CPython _PyDict_LoadGlobal in dictobject.c
+    static Object loadGlobal(PyDict globals, PyDict builtins,
+            String key) {
+        Key k = toKey(key);
+        Object v = globals.map.get(k);
+        if (v == null) { v = builtins.map.get(k); }
+        return v;
+    }
+
     // slot functions -------------------------------------------------
 
     @SuppressWarnings("unused")

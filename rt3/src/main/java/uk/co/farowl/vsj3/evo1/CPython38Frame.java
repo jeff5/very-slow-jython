@@ -328,6 +328,7 @@ class CPython38Frame
                         break;
 
                     case Opcode.LOAD_NAME:
+                        // Resolve against locals, globals and builtins
                         name = names[oparg | opword & 0xff];
                         oparg = 0;
                         try {
@@ -337,15 +338,25 @@ class CPython38Frame
                         }
 
                         if (v == null) {
-                            v = globals.get(name);
-                            if (v == null) {
-                                v = builtins.get(name);
-                                if (v == null)
-                                    throw new NameError(NAME_ERROR_MSG,
-                                            name);
-                            }
+                            v = PyDict.loadGlobal(globals, builtins,
+                                    name);
+                            if (v == null)
+                                throw new NameError(NAME_ERROR_MSG,
+                                        name);
                         }
                         s[sp++] = v; // PUSH
+                        break;
+
+                    case Opcode.LOAD_GLOBAL:
+                        // Resolve against globals and builtins
+                        name = names[oparg | opword & 0xff];
+                        oparg = 0;
+                        v = PyDict.loadGlobal(globals, builtins, name);
+                        if (v == null) {
+                            // CPython: not if error is already current
+                            throw new NameError(NAME_ERROR_MSG, name);
+                        }
+                        s[sp++] = v;
                         break;
 
                     case Opcode.BUILD_TUPLE:

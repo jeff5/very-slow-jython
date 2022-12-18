@@ -7,10 +7,11 @@ def fdef(a, b):
 
 flam = lambda a, b : (a, b)
 
+# We don't have str.format at the time of writing
+def fmt(text, value):
+    return text + '=' + value.__repr__()
+
 def g(a, b, c=93, d=94, *args, r, s=97, t=98, **kwargs):
-    # We don't have str.format at the time of writing
-    def fmt(text, value):
-        return text + '=' + value.__repr__()
     parts = [
         fmt('g: a', a),
         fmt('b', b),
@@ -25,9 +26,6 @@ def g(a, b, c=93, d=94, *args, r, s=97, t=98, **kwargs):
     return ", ".join(parts)
 
 def h(*args, **kwargs):
-    # We don't have str.format at the time of writing
-    def fmt(text, value):
-        return text + '=' + value.__repr__()
     parts = [
         fmt('h: args', args),
         fmt('kwargs', kwargs),
@@ -99,5 +97,5 @@ h_r5 = h(*(1, 2, 3), **{'a': 11, 'b': 12, 'c': 13})
 
 
 # Delete since function object not marshallable:
-del fdef, flam, g, h, f1
+del fdef, flam, fmt, g, h, f1
 
