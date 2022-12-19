@@ -5,6 +5,7 @@ package uk.co.farowl.vsj3.evo1;
 import java.util.Map;
 import java.util.StringJoiner;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 /**
  * Miscellaneous static helpers commonly needed to implement Python
@@ -101,12 +102,12 @@ public class PyObjectUtil {
      * @param v to return if not {@code null}
      * @param exc supplier of exception to throw
      * @return {@code v}
-     * @throws E if {@code v} is {@code null}
+     * @throws {@code E} if {@code v} is {@code null}
      */
     static <T, E extends PyException> T errorIfNull(T v,
-            Function<T, E> exc) throws E {
+            Supplier<E> exc) throws E {
         if (v != null) { return v; }
-        throw exc.apply(v);
+        throw exc.get();
     }
 
     /**

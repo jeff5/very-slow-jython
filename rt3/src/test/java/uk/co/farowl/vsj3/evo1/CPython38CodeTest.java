@@ -158,7 +158,7 @@ class CPython38CodeTest extends UnitTestSupport {
     @SuppressWarnings("static-method")
     @DisplayName("We can execute complex ...")
     @ParameterizedTest(name = "{0}.py")
-    @ValueSource(strings = {"function_call"})
+    @ValueSource(strings = {"function_call", "function_closure"})
     void executeComplex(String name) {
         CPython38Code code = readCode(name);
         PyDict globals = new PyDict();

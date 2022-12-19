@@ -32,23 +32,6 @@ def h(*args, **kwargs):
     ]
     return ", ".join(parts)
 
-def f1(a, b, u=1):
-    z = 1
-    a = (a + b) * u
-    def f2(c = -1, v = 2):
-        nonlocal z
-        y = 11 + z
-        z = v
-        def f3(d, e):
-            nonlocal y, z
-            w = 111
-            x = w + y + z
-            y = 3 + w
-            z = 4
-            return [a, b, c, d, e, x, y, z]
-        return f3
-    return f2()
-
 
 fdef_r = fdef(11, 12)
 flam_r = flam(21, 22)
@@ -91,11 +74,6 @@ h_r5 = h(*(1, 2, 3), **{'a': 11, 'b': 12, 'c': 13})
     # args=(1, 2, 3), kwargs={'a': 11, 'b': 12, 'c': 13}
 
 
-
-### Tests involving f1, f2, f3 to test closure handling.
-
-
-
 # Delete since function object not marshallable:
-del fdef, flam, fmt, g, h, f1
+del fdef, flam, fmt, g, h
 

@@ -6,7 +6,6 @@ import java.lang.invoke.MethodHandle;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
 
 import uk.co.farowl.vsj3.evo1.PyCode.Trait;
 import uk.co.farowl.vsj3.evo1.base.InterpreterError;
@@ -96,7 +95,6 @@ class CPython38Frame
         CPython38Code code = func.code;
         this.valuestack = new Object[code.stacksize];
         int nfastlocals = 0;
-        int nfreevars = 0;
 
         // The need for a dictionary of locals depends on the code
         EnumSet<PyCode.Trait> traits = code.traits;
@@ -107,7 +105,6 @@ class CPython38Frame
                 this.locals = null;
                 // Instead locals are in an array
                 nfastlocals = code.nlocals;
-                nfreevars = code.cellvars.length;
             } else {
                 this.locals = new PyDict();
             }
@@ -122,10 +119,30 @@ class CPython38Frame
              */
             this.locals = locals;
         }
+
+        // Initialise local variables (plain and cell)
         this.fastlocals = nfastlocals > 0 ? new Object[nfastlocals]
                 : EMPTY_OBJECT_ARRAY;
-        this.freevars = nfreevars > 0 ? new PyCell[nfreevars]
-                : EMPTY_CELL_ARRAY;
+        this.freevars =
+                PyCell.array(code.cellvars.length, func.closure);
+    }
+
+    /**
+     * Copy arguments that should be cells after parsing arguments into
+     * locals. We are copying into the locally-defined cell variables
+     * (named in {@code code.cellvars}), which start at index 0, and are
+     * followed by those initialised by the closure of the function
+     * (named in {@code code.freevars}).
+     */
+    void argsToCells() {
+        int[] cell2arg = code.cell2arg;
+        if (cell2arg != null) {
+            assert cell2arg.length == code.cellvars.length;
+            for (int i = 0; i < cell2arg.length; i++) {
+                int j = cell2arg[i];
+                if (j >= 0) { freevars[i].set(fastlocals[j]); }
+            }
+        }
     }
 
     @Override
@@ -166,6 +183,7 @@ class CPython38Frame
 
         // Local variables used repeatedly in the loop
         Object v, w;
+        PyCell cell;
         int n, m;
         String name;
         PyTuple.Builder tpl;
@@ -185,6 +203,9 @@ class CPython38Frame
             // POP() : s[--sp]
             // PUSH(v) : s[sp++] = v
             // SET_TOP(v) : s[sp-1] = v
+            // GETLOCAL(oparg) : fastlocals[oparg | opword & 0xff];
+            // PyCell_GET(cell) : cell.get()
+            // PyCell_SET(cell, v) : cell.set(v)
 
             try {
                 // Interpret opcode
@@ -197,9 +218,7 @@ class CPython38Frame
                     case Opcode.LOAD_FAST:
                         v = fastlocals[oparg | opword & 0xff];
                         if (v == null) {
-                            name = code.varnames[oparg | opword & 0xff];
-                            throw new UnboundLocalError(
-                                    UNBOUNDLOCAL_ERROR_MSG, name);
+                            throw unboundFast(oparg | opword & 0xff);
                         }
                         s[sp++] = v;
                         oparg = 0;
@@ -211,7 +230,7 @@ class CPython38Frame
                         break;
 
                     case Opcode.STORE_FAST:
-                        fastlocals[oparg | opword & 0xff]   = s[--sp];                     oparg = 0;
+                        fastlocals[oparg | opword & 0xff] = s[--sp];
                         oparg = 0;
                         break;
 
@@ -357,6 +376,46 @@ class CPython38Frame
                             throw new NameError(NAME_ERROR_MSG, name);
                         }
                         s[sp++] = v;
+                        break;
+
+                    case Opcode.DELETE_FAST:
+                        oparg |= opword & 0xff;
+                        if (fastlocals[oparg] == null) {
+                            throw unboundFast(oparg);
+                        }
+                        fastlocals[oparg] = null;
+                        oparg = 0;
+                        break;
+
+                    case Opcode.DELETE_DEREF:
+                        cell = freevars[oparg | opword & 0xff];
+                        if (cell.get() == null) {
+                            throw unboundCell(oparg | opword & 0xff);
+                        }
+                        cell.del();
+                        oparg = 0;
+                        break;
+
+                    case Opcode.LOAD_CLOSURE:
+                        v = freevars[oparg | opword & 0xff];
+                        s[sp++] = v;
+                        oparg = 0;
+                        break;
+
+                    case Opcode.LOAD_DEREF:
+                        cell = freevars[oparg | opword & 0xff];
+                        v = cell.get();
+                        if (v == null) {
+                            throw unboundCell(oparg | opword & 0xff);
+                        }
+                        s[sp++] = v;
+                        oparg = 0;
+                        break;
+
+                    case Opcode.STORE_DEREF:
+                        cell = freevars[oparg | opword & 0xff];
+                        cell.set(s[--sp]);
+                        oparg = 0;
                         break;
 
                     case Opcode.BUILD_TUPLE:
@@ -617,6 +676,7 @@ class CPython38Frame
                  * An InterpreterError signals an internal error,
                  * recognised by our implementation: stop.
                  */
+                System.err.println(ie);
                 throw ie;
             } catch (Throwable t) {
                 /*
@@ -638,7 +698,6 @@ class CPython38Frame
 
     // Supporting definitions and methods -----------------------------
 
-    private static final PyCell[] EMPTY_CELL_ARRAY = PyCell.EMPTY_ARRAY;
     private static final Object[] EMPTY_OBJECT_ARRAY = new Object[0];
 
     private static final String NAME_ERROR_MSG =
@@ -956,11 +1015,10 @@ class CPython38Frame
             Object annotations = (oparg & 4) == 0 ? null : s[--sp];
             PyDict kwdefaults =
                     (oparg & 2) == 0 ? null : (PyDict)s[--sp];
-            PyTuple defaults =
-                    (oparg & 1) == 0 ? null : (PyTuple)s[--sp];
+            Object[] defaults = (oparg & 1) == 0 ? null
+                    : ((PyTuple)s[--sp]).toArray();
             func = code.createFunction(f.interpreter, f.globals,
-                    defaults.toArray(), kwdefaults, annotations,
-                    closure);
+                    defaults, kwdefaults, annotations, closure);
         }
 
         // Override name from code with name from stack (before 3.11)
@@ -979,5 +1037,45 @@ class CPython38Frame
      */
     private static SystemError noLocals(String action, String name) {
         return new SystemError("no locals found when %s '%s'", name);
+    }
+
+    /**
+     * Create an {@link UnboundLocalError} to throw naming a fast local
+     * variable that was "referenced before assignment". The name is
+     * obtained from the index in {@link #fastlocals} of the missing
+     * variable, by consulting the code object.
+     *
+     * @param oparg index in {@link #fastlocals} of the variable
+     * @return exception to throw
+     */
+    private UnboundLocalError unboundFast(int oparg) {
+        String name = code.varnames[oparg];
+        return new UnboundLocalError(UNBOUNDLOCAL_ERROR_MSG, name);
+    }
+
+    /**
+     * Create a {@link NameError} (or specific sub-class
+     * {@link UnboundLocalError} to throw naming a cell variable that
+     * was "referenced before assignment". The name is obtained from the
+     * index in {@link #freevars} of the empty cell, by consulting the
+     * code object.
+     *
+     * @param oparg index in {@link #freevars} of the empty cell
+     * @return exception to throw
+     */
+    // Compare CPython format_exc_unbound in ceval.c
+    private NameError unboundCell(int oparg) {
+        String[] cellvars = code.cellvars;
+        // XXX Justify in narrative and by implementation our claim:
+        // CPython suppresses if _PyErr_Occurred but we do not need to
+        if (oparg < cellvars.length) {
+            // Cells near the start are local variables to this scope
+            String name = cellvars[oparg];
+            return new UnboundLocalError(UNBOUNDLOCAL_ERROR_MSG, name);
+        } else {
+            // Cells beyond cellvars.length are free in this scope
+            String name = code.freevars[oparg - cellvars.length];
+            return new NameError(UNBOUNDFREE_ERROR_MSG, name);
+        }
     }
 }

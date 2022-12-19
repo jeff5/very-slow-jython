@@ -35,7 +35,6 @@ public abstract class PyFunction<C extends PyCode>
      * but only with the right implementation type for the concrete
      * class of the function.
      */
-    // XXX Is this constrain non-conforming (if types ever mix)?
     protected C code;
 
     /**
@@ -261,8 +260,7 @@ public abstract class PyFunction<C extends PyCode>
      */
     @Exposed.Setter("__code__")
     void setCode(C code) {
-        checkFreevars(code);
-
+        this.code = checkFreevars(code);
     }
 
     /** @return the {@code __name__} attribute. */
@@ -439,7 +437,7 @@ public abstract class PyFunction<C extends PyCode>
      * @return {@code c}
      */
     protected C checkFreevars(C c) {
-        PyObjectUtil.errorIfNull(c, v -> new TypeError(
+        PyObjectUtil.errorIfNull(c, () -> new TypeError(
                 "__code__ must be set to a code object"));
         int nfree = c.freevars.length;
         int nclosure = closure == null ? 0 : closure.length;

@@ -61,31 +61,23 @@ public abstract class PyCode implements CraftedPyObject {
     final int firstlineno;
 
     // Questionable: would a Java Python frame need this?
-    /** Constant objects needed by the code, not {@code null}. */
+    /** Constant objects needed by the code. Not {@code null}. */
     final Object[] consts;
 
-    /**
-     * Names referenced in the code (elements guaranteed to be of type
-     * {@code str}), not {@code null}.
-     */
+    /** Names referenced in the code. Not {@code null}. */
     final String[] names;
 
-    /**
-     * Args and non-cell locals (elements guaranteed to be of type
-     * {@code str}), not {@code null}.
-     */
+    /** Args and non-cell locals. Not {@code null}. */
     final String[] varnames;
 
     /**
-     * Names referenced but not defined here (elements guaranteed to be
-     * of type {@code str}), not {@code null}. These variables will be
-     * set from the closure of the function.
+     * Names referenced but not defined here. These variables will be
+     * set from the closure of the function. Not {@code null}.
      */
     final String[] freevars;
 
     /**
-     * Names defined here and referenced elsewhere (elements guaranteed
-     * to be of type {@code str}), not {@code null}.
+     * Names defined here and referenced elsewhere. Not {@code null}.
      */
     final String[] cellvars;
 
@@ -253,7 +245,6 @@ public abstract class PyCode implements CraftedPyObject {
     @Getter
     PyTuple co_cellvars() { return PyTuple.from(cellvars); }
 
-
     // slot methods --------------------------------------------------
 
     @SuppressWarnings("unused")
@@ -261,7 +252,6 @@ public abstract class PyCode implements CraftedPyObject {
 
     @SuppressWarnings("unused")
     private Object __str__() { return toString(); }
-
 
     // Java API -------------------------------------------------------
 
@@ -278,6 +268,7 @@ public abstract class PyCode implements CraftedPyObject {
                 "<code object %s at %#x, file %s%s%s, line %d>", name,
                 Py.id(this), q, file, q, lineno);
     }
+
     /**
      * Create a {@code PyFunction} that will execute this
      * {@code PyCode}. The strongly-typed {@code defaults},

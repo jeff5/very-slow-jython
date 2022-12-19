@@ -1,6 +1,5 @@
 package uk.co.farowl.vsj3.evo1;
 
-
 /** A {@link PyFunction} defined in CPython 3.8 byte code. */
  class CPython38Function extends PyFunction<CPython38Code> {
 
@@ -43,12 +42,6 @@ package uk.co.farowl.vsj3.evo1;
     }
 
     @Override
-    CPython38Code getCode() {
-        // TODO Auto-generated method stub
-        return null;
-    }
-
-    @Override
     Object getDefaults() { return tupleOrNone(defaults); }
 
     @Override
@@ -88,7 +81,8 @@ package uk.co.farowl.vsj3.evo1;
                 argParser.new ArrayFrameWrapper(frame.fastlocals);
         argParser.parseToFrame(wrapper, args, names);
 
-        // XXX Copy arguments that should be cells?
+        // Copy arguments that should be cells
+        frame.argsToCells();
 
         // Run the function body
         return frame.eval();
