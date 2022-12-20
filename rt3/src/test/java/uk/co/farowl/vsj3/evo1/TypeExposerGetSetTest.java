@@ -404,7 +404,6 @@ class TypeExposerGetSetTest extends UnitTestSupport {
      * canonical {@code ObjectWithGetSets}.
      */
     private static class AdoptedWithGetSets extends BaseGetSets {
-        // FIXME not used in tests
 
         /** Primitive integer attribute (not optional). */
         BigInteger i;
@@ -445,7 +444,7 @@ class TypeExposerGetSetTest extends UnitTestSupport {
         DerivedWithGetSets(PyType subType, double value) {
             super(subType, value);
         }
-        // FIXME not implemented or used
+        // XXX not implemented or used
     }
 
     /**

@@ -598,7 +598,6 @@ public abstract class PyJavaMethod
          * @param module name of the module supplying the definition (or
          *     {@code null} if representing a bound method of a type)
          */
-        // XXX Compare CPython XXX in XXX
         Positional(ArgParser argParser, MethodHandle handle,
                 Object self, String module) {
             super(argParser, handle, self, module);

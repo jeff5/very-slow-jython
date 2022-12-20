@@ -1520,8 +1520,7 @@ public class marshal /* extends JavaModule */ {
              */
             CPython38Code code = (CPython38Code)v;
             w.writeByte(TYPE_CODE);
-            // Write the fields (quite complicated)
-            // XXX
+            // XXX Write the fields (quite complicated)
         }
 
         @Override

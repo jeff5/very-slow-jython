@@ -115,12 +115,11 @@ public abstract class PyFunction<C extends PyCode>
         this.interpreter = interpreter;
 
         /*
-         * XXX: Several problems: general setCode is abstract, so use
-         * may not be safe in a constructor. Also, it must check
-         * consistency between the code object and numbers of arguments,
-         * presence of collector arguments, etc. in the declaration of
-         * this function, which may not yet be established.
+         * Set code object: must check consistency between the code
+         * object and numbers of arguments, presence of collector
+         * arguments, etc. in the declaration of this function.
          */
+        // XXX Might this depend on things only the sub-class knows?
         setCode(code);
 
         this.globals = globals;
