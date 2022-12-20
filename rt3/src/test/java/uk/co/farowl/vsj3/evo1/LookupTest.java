@@ -27,15 +27,12 @@ class LookupTest extends UnitTestSupport {
     /**
      * A {@code KeyTuple} holds a single Python value, realised in each
      * of the accepted implementations of some Python type.
-     *
      */
     private abstract static class KeyTuple {
 
         final Object py;
 
-        KeyTuple(Object py) {
-            this.py = py;
-        }
+        KeyTuple(Object py) { this.py = py; }
     }
 
     private static final String A = "a";
@@ -50,11 +47,13 @@ class LookupTest extends UnitTestSupport {
      */
     private static class StrKeyTuple extends KeyTuple {
 
-        final String s;
+        final String s, t;
 
         StrKeyTuple(String s) {
             super(newPyUnicode(s));
             this.s = s;
+            this.t = new String(s);  // equal but distinct objects
+            assert this.t != this.s;
         }
     }
 
@@ -182,6 +181,7 @@ class LookupTest extends UnitTestSupport {
 
             // Retrieve the same value by the various keys
             assertSequentialInts(dict, strKeyTuples, k -> k.s);
+            assertSequentialInts(dict, strKeyTuples, k -> k.t);
             assertSequentialInts(dict, strKeyTuples, k -> k.py);
         }
 

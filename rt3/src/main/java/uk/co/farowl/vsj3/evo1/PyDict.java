@@ -339,11 +339,13 @@ public class PyDict extends AbstractMap<Object, Object>
         private final Object key;
 
         /**
-         * Create a key on the given object Python {@code __eq__}
-         * definitions on objects offered as keys.
+         * Create a wrapper on the given {@code Object} so it may be
+         * used as a {@link Key} in the map that implements a
+         * {@code PyDict}. This {@code Key} will be equal to another
+         * {@code Key} when the contained values are equal according to
+         * Python.
          *
          * @param key to wrap
-         * @throws PyException from {@code __eq__}
          */
         KeyHolder(Object key) { this.key = key; }
 
@@ -354,12 +356,6 @@ public class PyDict extends AbstractMap<Object, Object>
         @Override
         public int hashCode() { return pythonHash(this); }
 
-        /**
-         * Impose Python {@code __eq__} definitions on objects offered
-         * as keys.
-         *
-         * @throws PyException from {@code __eq__}
-         */
         @Override
         public boolean equals(Object other) throws PyException {
             return pythonEquals(this, other);
@@ -372,6 +368,51 @@ public class PyDict extends AbstractMap<Object, Object>
     }
 
     /**
+     * This is a wrapper that gives Python semantics to {@code String}s
+     * used as keys. It is a counterpart to the general
+     * {@link KeyHolder}.
+     */
+    static class StringKeyHolder implements Key {
+
+        /** The actual key this object is holding. */
+        private final String key;
+
+        /**
+         * Create a wrapper on the given {@code String} so it may be
+         * used as a {@link Key} in the map that implements a
+         * {@code PyDict}. This {@code Key} will be equal to another
+         * {@code Key} when the contained values are equal according to
+         * Python.
+         *
+         * @param key to wrap
+         */
+        StringKeyHolder(String key) { this.key = key; }
+
+        @Override
+        public String get() { return key; }
+
+        @Override
+        public int hashCode() {
+            // str.__hash__() is identical to String.hashCode()
+            return key.hashCode();
+        }
+
+        @Override
+        public boolean equals(Object other) throws PyException {
+            if (other instanceof StringKeyHolder) {
+                String otherKey = ((StringKeyHolder)other).key;
+                return key.equals(otherKey);
+            }
+            return pythonEquals(this, other);
+        }
+
+        @Override
+        public String toString() {
+            return String.format("StringKeyHolder(%s)", key);
+        }
+    }
+
+    /**
      * Turn an object into a {@link Key} suitable for lookup in
      * {@link #map}.
      *
@@ -380,6 +421,8 @@ public class PyDict extends AbstractMap<Object, Object>
     private static Key toKey(Object key) {
         if (key instanceof Key)
             return (Key)key;
+        else if (key instanceof String)
+            return new StringKeyHolder((String)key);
         else
             return new KeyHolder(key);
     }
@@ -410,7 +453,6 @@ public class PyDict extends AbstractMap<Object, Object>
      * Convenience function for Python objects that implement
      * {@link PyDict.Key}, to impose Python semantics for {@code ==} on
      * {@code Object.equals}. See {@link Key#equals(Object)}.
-     *
      *
      * @param key to test equal
      * @param other to test equal
