@@ -1,10 +1,11 @@
+// Copyright (c)2022 Jython Developers.
+// Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj3.evo1;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.lang.invoke.MethodHandles;
-import java.math.BigInteger;
 
 import org.junit.jupiter.api.Test;
 
@@ -18,6 +19,7 @@ import uk.co.farowl.vsj3.evo1.PyType.Spec;
 public class PyTest {
 
     /** Test PyTuple.toString is its repr. */
+    @SuppressWarnings("static-method")
     @Test
     void testTupleToString() {
         assertEquals("()", Py.tuple().toString());
@@ -27,6 +29,7 @@ public class PyTest {
     }
 
     /** Test PyDict.toString is its repr. */
+    @SuppressWarnings("static-method")
     @Test
     void testDictToString() {
         PyDict d = Py.dict();
@@ -38,6 +41,7 @@ public class PyTest {
     }
 
     /** Test PyException to String for a simple case. */
+    @SuppressWarnings("static-method")
     @Test
     void testExceptionToString() {
         PyException e = new TypeError("test");
@@ -45,6 +49,7 @@ public class PyTest {
     }
 
     /** Test PyException repr for a simple case. */
+    @SuppressWarnings("static-method")
     @Test
     void testExceptionRepr() {
         PyException e = new TypeError("test");
@@ -55,20 +60,17 @@ public class PyTest {
     private static class HasToString implements CraftedPyObject {
 
         @Override
-        public PyType getType() {
-            throw new RuntimeException();
-        }
+        public PyType getType() { throw new RuntimeException(); }
 
         @Override
-        public String toString() {
-            return Py.defaultToString(this);
-        }
+        public String toString() { return Py.defaultToString(this); }
     }
 
     /**
      * Test implementation of default toString() always gives us
      * something, when __str__ or __repr__ are not defined.
      */
+    @SuppressWarnings("static-method")
     @Test
     void testToString() {
         String s = (new HasToString()).toString();
@@ -86,15 +88,15 @@ public class PyTest {
         @Override
         public PyType getType() { return type; }
 
-        Object __repr__() {
-            return "grim!";
-        }
+        @SuppressWarnings("static-method")
+        Object __repr__() { return "grim!"; }
     }
 
     /**
      * Test implementation of default toString() always gives us
      * something, and __str__ or __repr__ if it can.
      */
+    @SuppressWarnings("static-method")
     @Test
     void testToStringRepr() {
         String s = (new HasRepr()).toString();
@@ -111,15 +113,15 @@ public class PyTest {
         @Override
         public PyType getType() { return type; }
 
-        Object __str__() {
-            return "w00t!";
-        }
+        @SuppressWarnings("static-method")
+        Object __str__() { return "w00t!"; }
     }
 
     /**
      * Test implementation of default toString() always gives us
      * something, and __str__ or __repr__ if it can.
      */
+    @SuppressWarnings("static-method")
     @Test
     void testToStringStr() {
         String s = (new HasStr()).toString();

@@ -2572,20 +2572,6 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
     }
 
     /**
-     * Create a {@code str} from a format and arguments. Note Java
-     * {@code String.format} semantics are applied, not the CPython
-     * ones.
-     *
-     * @param fmt format string (Java semantics)
-     * @param args arguments
-     * @return formatted string
-     */
-    @Deprecated // XXX possibly want a version with Python semantics
-    static PyUnicode fromFormat(String fmt, Object... args) {
-        return new PyUnicode(TYPE, String.format(fmt, args));
-    }
-
-    /**
      * Represent the `str` value in readable form, escaping lone
      * surrogates. The {@code PyUnicode.toString()} is intended to
      * produce a readable output, not always the closest Java

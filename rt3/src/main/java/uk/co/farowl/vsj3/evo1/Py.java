@@ -1,8 +1,9 @@
+// Copyright (c)2022 Jython Developers.
+// Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj3.evo1;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
-import java.math.BigInteger;
 
 /** Common run-time constants and constructors. */
 public class Py {
@@ -37,66 +38,6 @@ public class Py {
     static final Object NotImplemented =
             new Singleton("NotImplemented") {};
 
-    /**
-     * Return Python {@code int} for Java {@code int}.
-     *
-     * @param value to represent
-     * @return equivalent {@code int}
-     * @deprecated Use primitive auto-boxed or {@code Integer.valueOf}.
-     */
-    @Deprecated
-    public static Integer val(int value) {
-        return value;
-    }
-
-    /**
-     * Return Python {@code int} for Java {@code long}.
-     *
-     * @param value to represent
-     * @return equivalent {@code int}
-     */
-    public static BigInteger val(long value) {
-        return BigInteger.valueOf(value);
-    }
-
-    /**
-     * Return Python {@code int} for Java {@code BigInteger}.
-     *
-     * @param value to wrap
-     * @return equivalent {@code int}
-     * @deprecated Use BigInteger directly.
-     */
-    @Deprecated
-    public static BigInteger val(BigInteger value) {
-        return value;
-    }
-
-    /**
-     * Return Python {@code float} for Java {@code double}.
-     *
-     * @param value to represent
-     * @return equivalent {@code float}
-     * @deprecated Use primitive auto-boxed or {@code Double.valueOf}.
-     */
-    // @Deprecated // Just use primitive auto-boxed
-    @Deprecated
-    public static Double val(double value) {
-        return value;
-    }
-
-    /**
-     * Return Python {@code bool} (one of {@link #True} or
-     * {@link #False}) for Java {@code boolean}.
-     *
-     * @param value to represent
-     * @return equivalent {@code bool}
-     * @deprecated Use primitive auto-boxed or {@code Boolean.valueOf}.
-     */
-    @Deprecated // Just
-    static Boolean val(boolean value) {
-        return value;
-    }
-
     /** Python {@code False} object. */
     public static final Boolean False = false;
 
@@ -110,18 +51,6 @@ public class Py {
      */
     static PyBaseObject object() {
         return new PyBaseObject();
-    }
-
-    /**
-     * Return Python {@code str} for Java {@code String}.
-     *
-     * @param value to wrap
-     * @return equivalent {@code str}
-     * @deprecated Use {@code String} directly.
-     */
-    @Deprecated
-    public static Object str(String value) {
-        return value;
     }
 
 // /**

@@ -1,4 +1,4 @@
-// Copyright (c)2021 Jython Developers.
+// Copyright (c)2022 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj3.evo1;
 
@@ -12,7 +12,6 @@ import java.util.Map;
 import uk.co.farowl.vsj3.evo1.Exposed.PythonMethod;
 import uk.co.farowl.vsj3.evo1.PyObjectUtil.NoConversion;
 import uk.co.farowl.vsj3.evo1.Slot.EmptyException;
-import uk.co.farowl.vsj3.evo1.base.InterpreterError;
 import uk.co.farowl.vsj3.evo1.stringlib.IntegerFormatter;
 import uk.co.farowl.vsj3.evo1.stringlib.InternalFormat;
 import uk.co.farowl.vsj3.evo1.stringlib.InternalFormat.AbstractFormatter;
@@ -722,18 +721,4 @@ public class PyLong extends AbstractPyObject implements PyDict.Key {
 
     private static final String TOO_LARGE =
             "%s too large to convert to %s";
-
-    /**
-     * We received an argument that should be impossible in a correct
-     * interpreter. We use this when conversion of an
-     * {@code Object self} argument may theoretically fail, but we know
-     * that we should only reach that point by paths that guarantee
-     * {@code self`} to be some kind on {@code float}.
-     *
-     * @param o actual argument
-     * @return exception to throw
-     */
-    private static InterpreterError impossible(Object o) {
-        return Abstract.impossibleArgumentError(TYPE.name, o);
-    }
 }

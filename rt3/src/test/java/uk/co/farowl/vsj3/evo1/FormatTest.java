@@ -1,10 +1,9 @@
-// Copyright (c)2021 Jython Developers.
+// Copyright (c)2022 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj3.evo1;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
-import static uk.co.farowl.vsj3.evo1.PyObjectUtil.NO_CONVERSION;
 
 import java.math.BigInteger;
 import java.util.stream.Stream;
@@ -17,12 +16,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
-
-import uk.co.farowl.vsj3.evo1.PyObjectUtil.NoConversion;
-import uk.co.farowl.vsj3.evo1.stringlib.InternalFormat;
-import uk.co.farowl.vsj3.evo1.stringlib.InternalFormat.FormatError;
-import uk.co.farowl.vsj3.evo1.stringlib.InternalFormat.Spec;
-import uk.co.farowl.vsj3.evo1.stringlib.TextFormatter;;
 
 /**
  * Tests of formatting of built-in types to string using their

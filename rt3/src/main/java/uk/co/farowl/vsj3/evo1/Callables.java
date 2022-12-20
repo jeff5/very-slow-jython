@@ -6,7 +6,6 @@ import java.lang.invoke.MethodHandle;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.function.Function;
 
 /** Compare CPython {@code Objects/call.c}: {@code Py_Object_*}. */
 class Callables extends Abstract {

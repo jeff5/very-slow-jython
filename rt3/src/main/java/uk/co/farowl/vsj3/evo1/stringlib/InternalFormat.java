@@ -100,33 +100,6 @@ public class InternalFormat {
         }
 
         /**
-         * Signals the client's intention to make a PyString (or other
-         * byte-like) interpretation of {@link #result}, rather than a
-         * PyUnicode one. Only formatters that could produce characters
-         * &gt;255 are affected by this (e.g. c-format). Idiom:
-         *
-         * <pre>
-         * MyFormatter f = new MyFormatter( InternalFormatter.fromText(formatSpec) );
-         * f.setBytes(!(formatSpec instanceof PyUnicode));
-         * // ... formatting work
-         * return f.getPyResult();
-         * </pre>
-         *
-         * @param bytes true to signal the intention to make a byte-like
-         *     interpretation
-         */
-        @Deprecated
-        public void setBytes(boolean bytes) { this.bytes = bytes; }
-
-        /**
-         * Whether initialised for a byte-like interpretation.
-         *
-         * @return bytes attribute
-         */
-        @Deprecated
-        public boolean isBytes() { return bytes; }
-
-        /**
          * Format an object into the buffer according to the
          * specification with which this instance has been initialised.
          * The specific behaviour, and the acceptable types, are for a
