@@ -120,6 +120,7 @@ processTestResources.dependsOn(compileTestPythonExamples)
 // Generate (selected) Python abstract object API members
 // Task defined in root buildSrc
 task generateDynamicAPIevo1(type: DynamicAPIevo1Task) {
+    dependsOn(compileJava)
     source = "src/main/dynamicAPI"
     // Mix output into Java plugin directory :(
     destinationDir = file("$buildDir/classes/java/main")
