@@ -54,7 +54,7 @@ public class PyFloat extends AbstractPyObject {
                         1, argsLen);
         }
 
-        // XXX This does not yet deal correctly with the type argument
+        // ... This does not yet deal correctly with the type argument
 
         if (x == null)
             return ZERO;

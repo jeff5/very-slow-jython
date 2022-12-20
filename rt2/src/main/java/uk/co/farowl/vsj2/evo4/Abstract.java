@@ -799,7 +799,7 @@ public class Abstract {
      *             other causes
      */
     // Compare CPython _PyObject_LookupSpecial in typeobject.c
-    // XXX consider adding to PyType: here to satisfy local references
+    // ... consider adding to PyType: here to satisfy local references
     private PyObject lookupSpecial(PyObject self, PyUnicode name)
             throws Throwable {
         PyObject res;

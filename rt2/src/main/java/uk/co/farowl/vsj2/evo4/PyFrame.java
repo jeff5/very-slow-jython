@@ -566,7 +566,7 @@ abstract class PyFrame implements PyObject {
      * message and return status. Also, when called there is *always* a
      * problem, and therefore an exception.
      */
-    // XXX Do not report kw arguments given: unnatural constraint.
+    // ... Do not report kw arguments given: unnatural constraint.
     /*
      * The caller must defer the test until after kw processing, just so
      * the actual kw-args given can be reported accurately. Otherwise,

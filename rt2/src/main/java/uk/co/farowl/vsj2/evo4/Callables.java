@@ -67,7 +67,7 @@ class Callables extends Abstract {
         if (kwargs == null || kwargs instanceof PyDict)
             kw = (PyDict) kwargs;
         else {
-            // TODO: Treat kwargs as an iterable of (key,value) pairs
+            // Later: Treat kwargs as an iterable of (key,value) pairs
             // Throw TypeError if not convertible
             kw = Py.dict();
             // Check kwargs iterable, and correctly typed
@@ -79,7 +79,7 @@ class Callables extends Abstract {
         if (args instanceof PyTuple)
             ar = (PyTuple) args;
         else {
-            // TODO: Treat args as an iterable of objects
+            // Later: Treat args as an iterable of objects
             // Throw TypeError if not convertible
             ar = Py.tuple();
             // Construct PyTuple with whatever checks on values

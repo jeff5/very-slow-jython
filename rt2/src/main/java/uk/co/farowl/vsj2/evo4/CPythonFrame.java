@@ -743,7 +743,7 @@ class CPythonFrame extends PyFrame {
             "free variable '%.200s' referenced before assignment"
                     + " in enclosing scope";
 
-    // XXX move this error reporting stuff to base PyFrame
+    // ... move this error reporting stuff to base PyFrame
 
     private static String getFuncName(PyObject func) {
         // if (func instanceof PyMethod) return
@@ -757,7 +757,7 @@ class CPythonFrame extends PyFrame {
     }
 
     private static String getFuncDesc(PyObject func) {
-        // XXX De-comment when PyMethod defined
+        // ... De-comment when PyMethod defined
         if (// func instanceof PyMethod ||
         func instanceof PyFunction || func instanceof PyJavaFunction)
             return "()";

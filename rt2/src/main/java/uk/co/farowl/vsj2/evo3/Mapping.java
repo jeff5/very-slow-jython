@@ -21,7 +21,7 @@ class Mapping extends Abstract {
             return (int) mh.invokeExact(o);
         } catch (Slot.EmptyException e) {}
 
-        if (Slot.mp_length.isDefinedFor(oType)) // XXX sq_ or mp_?
+        if (Slot.mp_length.isDefinedFor(oType)) // ... sq_ or mp_?
             // Caller should have tried Abstract.size
             throw typeError(NOT_MAPPING, o);
         throw typeError(HAS_NO_LEN, o);

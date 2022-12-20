@@ -28,7 +28,7 @@ class PyMethodDescr extends Descriptor implements VectorCallable {
         super(descrtype, objclass, method.name);
         this.methodDef = method;
 
-        // XXX What does the vectorcall stuff turn into?
+        // ... What does the vectorcall stuff turn into?
         MethodHandle vectorcall = method.getVectorHandle();
 
         /*
@@ -74,8 +74,8 @@ class PyMethodDescr extends Descriptor implements VectorCallable {
         this(TYPE, objclass, method);
     }
 
-    // XXX Think I don't need: have Java constructor.
-    // XXX But what does the vectorcall stuff turn into?
+    // ... Think I don't need: have Java constructor.
+    // ... But what does the vectorcall stuff turn into?
     // PyObject PyDescr_NewMethod(PyType type, MethodDef method)
     // {
     // /* Figure out correct vectorcall function to use */
@@ -183,7 +183,7 @@ class PyMethodDescr extends Descriptor implements VectorCallable {
         } else {
             PyObject[] a = args.value;
             PyObject[] stack = new PyObject[a.length + kwargs.size()];
-            // XXX must order the names as declaration expects
+            // ... must order the names as declaration expects
             PyTuple kwnames = Callables.unpackDict(a, kwargs, stack);
             return call(stack, kwnames);
         }
@@ -192,7 +192,7 @@ class PyMethodDescr extends Descriptor implements VectorCallable {
     // Compare CPython method_call in descrobject.c
     @Override
     public PyObject call(PyObject... args) throws Throwable {
-        // XXX where do we deal with default arguments? Here?
+        // ... where do we deal with default arguments? Here?
         return (PyObject) callHandle.invokeExact(args);
     }
 

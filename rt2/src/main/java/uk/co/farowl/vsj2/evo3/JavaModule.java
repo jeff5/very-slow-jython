@@ -107,7 +107,7 @@ public abstract class JavaModule extends PyModule {
     }
 
     /** Build one method definition for the given method. */
-    // XXX Functions only: extend to methods descriptors IDC.
+    // ... Functions only: extend to methods descriptors IDC.
     private static MethodDef getMethodDef(Method m) {
 
         String name = m.getName();
@@ -117,7 +117,7 @@ public abstract class JavaModule extends PyModule {
         EnumSet<Flag> f = EnumSet.noneOf(Flag.class);
         if (Modifier.isStatic(modifiers))
             f.add(Flag.STATIC);
-        // XXX Always STATIC at present:
+        // ... Always STATIC at present:
 
         // May also have DocString annotation
         String doc = "";

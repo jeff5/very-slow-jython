@@ -138,7 +138,7 @@ class PyType implements PyObject {
     }
 
     /** Set the MRO, but at present only single base. */
-    // XXX note may retain a reference to declaredBases
+    // ... note may retain a reference to declaredBases
     private void setMROfromBases(PyType[] declaredBases) {
         int n;
 
@@ -314,7 +314,7 @@ class PyType implements PyObject {
 
         /** @return the cumulative bases as an array. */
         PyType[] getBases() {
-            if (bases.isEmpty()) // XXX return empty array (see uses)?
+            if (bases.isEmpty()) // ... return empty array (see uses)?
                 return ONLY_OBJECT; // None specified: default
             else
                 return bases.toArray(new PyType[bases.size()]);

@@ -50,7 +50,7 @@ class PyByteCode4 {
     }
 
     /** Test bases and MRO in certain exception types. */
-    // @Test // FIXME not working yet
+    // @Test // not working yet
     void testExceptionsMRO() {
 
         PyType OBJECT = PyBaseObject.TYPE;

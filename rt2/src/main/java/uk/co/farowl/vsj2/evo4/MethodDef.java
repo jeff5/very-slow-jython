@@ -255,7 +255,7 @@ class MethodDef {
     MethodDef(String name, MethodHandle mh, EnumSet<Flag> flags,
             String doc) {
         this.name = name;
-        this.natural = mh; // XXX stop-gap until constructor replaced
+        this.natural = mh; // ... stop-gap until constructor replaced
         this.meth = mh;
         this.doc = doc;
         this.flags = calcFlags(flags);
@@ -510,7 +510,7 @@ class MethodDef {
      * @return required handle
      */
     MethodHandle getBoundHandle(PyObject o) {
-        // XXX Defend against n = 0
+        // ... Defend against n = 0
         int n = meth.type().parameterCount();
         MethodHandle vec = meth.bindTo(o).asSpreader(MHUtil.OA, n - 1);
         return vec;

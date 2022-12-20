@@ -116,7 +116,7 @@ class PyList extends ArrayList<PyObject> implements PySequence {
     // methods -------------------------------------------------
 
     PyObject extend(PyObject iterable) {
-        // XXX: stop-gap implementation until iterables supported
+        // ...: stop-gap implementation until iterables supported
         if (iterable instanceof PyList)
             addAll((PyList) iterable);
         else if (iterable instanceof PyTuple) {

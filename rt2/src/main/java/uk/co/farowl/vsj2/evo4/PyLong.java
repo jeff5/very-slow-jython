@@ -134,7 +134,7 @@ class PyLong implements PyObject {
                         2, argsLen);
         }
 
-        // XXX This does not yet deal correctly with the type argument
+        // ... This does not yet deal correctly with the type argument
 
         if (x == null) {
             // Zero-arg int() ... unless invalidly like int(base=10)
@@ -418,7 +418,7 @@ class PyLong implements PyObject {
     // Compare CPython longobject.c :: PyLong_FromUnicodeObject
     static PyLong fromUnicode(PyUnicode u, int base) throws ValueError {
         try {
-            // XXX maybe check 2<=base<=36 even if Number.asLong does?
+            // ... maybe check 2<=base<=36 even if Number.asLong does?
             return new PyLong(new BigInteger(u.toString(), base));
         } catch (NumberFormatException e) {
             throw new ValueError(

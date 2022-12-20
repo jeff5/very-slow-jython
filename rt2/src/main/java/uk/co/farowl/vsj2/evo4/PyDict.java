@@ -72,7 +72,7 @@ class PyDict extends LinkedHashMap<PyObject, PyObject>
      */
     // Compare CPython dict_merge and _PyDict_MergeEx in dictobject.c
     void merge(PyObject src, MergeMode mode) throws KeyError {
-        // XXX: stop-gap implementation
+        // ...: stop-gap implementation
         if (src instanceof PyDict) {
             Set<Map.Entry<PyObject, PyObject>> entries =
                     ((PyDict) src).entrySet();
@@ -108,7 +108,7 @@ class PyDict extends LinkedHashMap<PyObject, PyObject>
     // methods -------------------------------------------------
 
     PyObject update(PyObject args) {
-        // XXX: stop-gap implementation
+        // ...: stop-gap implementation
         if (args instanceof PyDict)
             merge(args, MergeMode.PUT);
         else

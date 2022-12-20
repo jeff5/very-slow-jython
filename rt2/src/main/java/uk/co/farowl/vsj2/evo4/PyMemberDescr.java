@@ -305,7 +305,7 @@ abstract class PyMemberDescr extends DataDescriptor {
         delete(obj);
     }
 
-    // XXX GetSetDef in CPython, but @Member appropriate in our case
+    // ... GetSetDef in CPython, but @Member appropriate in our case
     // Compare CPython member_get_doc in descrobject.c
     static PyObject member_get_doc(PyMemberDescr descr) {
         if (descr.doc == null) { return Py.None; }

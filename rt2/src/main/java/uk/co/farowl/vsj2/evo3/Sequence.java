@@ -100,6 +100,6 @@ class Sequence extends Abstract {
     private static final String NOT_SEQUENCE =
             "%.200s is not a sequence";
     private static final String NOT_INDEXING =
-            // XXX is this different from Abstract.NOT_SUBSCRIPTABLE?
+            // ... is this different from Abstract.NOT_SUBSCRIPTABLE?
             "'%.200s' object does not support indexing";
 }

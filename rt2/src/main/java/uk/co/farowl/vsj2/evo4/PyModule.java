@@ -47,7 +47,7 @@ class PyModule implements PyObject {
      * @param t the type
      */
     void add(PyType t) {
-        // XXX should type names be PyUnicode?
+        // ... should type names be PyUnicode?
         dict.put(t.getName(), t);
     }
 

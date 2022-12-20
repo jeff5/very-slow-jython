@@ -436,7 +436,7 @@ class PyType implements PyObjectDict {
      */
     private void fillDictionary(Spec spec) {
 
-        // XXX How is inheritance respected?
+        // ... How is inheritance respected?
 
         // Fill slots from implClass or bases
         addMembers(spec);
@@ -444,7 +444,7 @@ class PyType implements PyObjectDict {
         addMethods(spec);
         addWrappers(spec);
 
-        // XXX Possibly belong elsewhere
+        // ... Possibly belong elsewhere
         setAllSlots();
         deduceFlags();
     }
@@ -550,7 +550,7 @@ class PyType implements PyObjectDict {
     }
 
     /** Set the MRO, but at present only single base. */
-    // XXX note may retain a reference to declaredBases
+    // ... note may retain a reference to declaredBases
     private void setMROfromBases() {
 
         int n = bases.length;
@@ -931,7 +931,7 @@ class PyType implements PyObjectDict {
          * @return this
          */
         /*
-         * XXX Better encapsulation to have methods for things we want
+         * ... Better encapsulation to have methods for things we want
          * to set/unset. Most PyType.flags members should not be
          * manipulated through the Spec and are derived in construction,
          * or as a side effect of setting something else.
@@ -1088,18 +1088,18 @@ class PyType implements PyObjectDict {
                     oNamespace.getType());
         }
 
-        // XXX This is still rather crude
+        // ... This is still rather crude
 
         // Construct a type with an empty dictionary
 
         String name = oName.toString();
 
-        // XXX How do I decide the base (and find the implClass)?
+        // ... How do I decide the base (and find the implClass)?
         // Should depend on base and be .Derived: how does that work?
 
         Class<? extends PyObject> implClass = PyBaseObject.class;
 
-        // XXX Why is this the right lookup? Why need one anyway?
+        // ... Why is this the right lookup? Why need one anyway?
 
         Spec spec =
                 new Spec(name, implClass, LOOKUP).flag(Flag.MUTABLE);
@@ -1402,7 +1402,7 @@ class PyType implements PyObjectDict {
      */
     // Compare CPython best_base in typeobject.c
     private static PyType bestBase(PyType[] bases) {
-        // XXX This is a stop-gap answer: revisit in due course.
+        // ... This is a stop-gap answer: revisit in due course.
         /*
          * Follow the logic of CPython typeobject.c, but adapted to a
          * Java context.
@@ -1444,7 +1444,7 @@ class PyType implements PyObjectDict {
     // Compare CPython _PyType_GetDocFromInternalDoc
     // in typeobject.c
     static PyObject getDocFromInternalDoc(String name, String doc) {
-        // TODO Auto-generated method stub
+        // Later: Auto-generated method stub
         return null;
     }
 
@@ -1452,7 +1452,7 @@ class PyType implements PyObjectDict {
     // in typeobject.c
     static PyObject getTextSignatureFromInternalDoc(String name,
             String doc) {
-        // TODO Auto-generated method stub
+        // Later: Auto-generated method stub
         return null;
     }
 }

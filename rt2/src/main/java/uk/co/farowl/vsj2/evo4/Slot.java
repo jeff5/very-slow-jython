@@ -100,7 +100,7 @@ enum Slot {
     /** Name of implementation method to bind to this slot. */
     final String methodName;
     /** Name of implementation method as {@link PyUnicode}. */
-    // XXX Do not provoke type system by setting in constructor.
+    // ... Do not provoke type system by setting in constructor.
     PyUnicode name_strobj;
     /** Name to use in error messages */
     final String opName;
@@ -126,7 +126,7 @@ enum Slot {
         this.signature = signature;
         this.slotHandle = Util.slotHandle(this);
         this.altSlotHandle = alt == null ? null : alt.slotHandle;
-        // XXX Need something convenient as in CPython.
+        // ... Need something convenient as in CPython.
         this.doc = "Doc of " + this.opName;
     }
 
@@ -307,7 +307,7 @@ enum Slot {
         if (def == null) {
             // No definition available for the special method
             if (this == op_next) {
-                // XXX We should special-case __next__
+                // ... We should special-case __next__
                 /*
                  * In CPython, this slot is sometimes null=empty, and
                  * sometimes _PyObject_NextNotImplemented. PyIter_Check
@@ -651,7 +651,7 @@ enum Slot {
          * @param wrapped a handle to an implementation of that slot
          * @return a slot wrapper descriptor
          */
-        // XXX should be abstract, but only when defined for each
+        // ... should be abstract, but only when defined for each
         /* abstract */ PyWrapperDescr makeSlotWrapper(PyType objclass,
                 Slot slot, MethodHandle wrapped) {
             return new PyWrapperDescr(objclass, slot, wrapped) {

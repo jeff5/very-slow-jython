@@ -93,7 +93,7 @@ public class PyRT {
             try {
                 fallbackMH = lookup.findVirtual(UnaryOpCallSite.class,
                         "fallback", UOP);
-                // XXX Move to Slot so may generate handle once?
+                // ... Move to Slot so may generate handle once?
                 OPERAND_ERROR = lookup.findStatic(UnaryOpCallSite.class,
                         "operandError",
                         UOP.insertParameterTypes(0, Slot.class));
@@ -125,7 +125,7 @@ public class PyRT {
             PyType vType = v.getType();
             MethodHandle resultMH, targetMH;
             /*
-             * XXX The logic of the next bit is inadequate for derived
+             * ... The logic of the next bit is inadequate for derived
              * Python types which have the same Java class and
              * (obviously) different Python types. These may have to
              * guard on Python type or always indirect (if the type is
@@ -147,7 +147,7 @@ public class PyRT {
             return (PyObject) resultMH.invokeExact(v);
         }
 
-        // XXX Possibly move to Slot so may generate handle once.
+        // ... Possibly move to Slot so may generate handle once.
         static PyObject operandError(Slot op, PyObject v) {
             throw Number.operandError(op, v);
         }
@@ -172,7 +172,7 @@ public class PyRT {
                         "fallback", BINOP);
                 notImplementedMH = dropArguments(
                         constant(O, Py.NotImplemented), 0, O, O);
-                // XXX Move to Slot so may generate handle once?
+                // ... Move to Slot so may generate handle once?
                 OPERAND_ERROR = lookup.findStatic(
                         BinaryOpCallSite.class, "operandError",
                         BINOP.insertParameterTypes(0, Slot.class));
@@ -207,7 +207,7 @@ public class PyRT {
             PyType wType = w.getType();
             MethodHandle resultMH, targetMH;
             /*
-             * XXX The logic of the next bit is inadequate for derived
+             * ... The logic of the next bit is inadequate for derived
              * Python types which have the same Java class and
              * (obviously) different Python types. These may have to
              * guard on Python type or always indirect (if the type is
@@ -313,7 +313,7 @@ public class PyRT {
             return foldArguments(g, a);
         }
 
-        // XXX Possibly move to Slot so may generate handle once.
+        // ... Possibly move to Slot so may generate handle once.
         static PyObject operandError(Slot op, PyObject v, PyObject w) {
             throw Number.operandError(op, v, w);
         }

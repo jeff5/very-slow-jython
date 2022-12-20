@@ -129,7 +129,7 @@ enum Comparison {
 
         @Override
         PyObject apply(PyObject v, PyObject w) throws Throwable {
-            return Py.NotImplemented; // XXX implement me!
+            return Py.NotImplemented; // ... implement me!
         }
     },
 

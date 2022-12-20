@@ -233,7 +233,7 @@ public class Number extends Abstract {
                 if (resultType == PyLong.TYPE)
                     return (PyLong) result;
                 else if (resultType.isSubTypeOf(PyLong.TYPE))
-                    // XXX Sub-types not implemented yet
+                    // ... Sub-types not implemented yet
                     // CPython issues DeprecationWarning on sub-type.
                     return (PyLong) result;
                 else
@@ -277,7 +277,7 @@ public class Number extends Abstract {
             if (valueType == PyLong.TYPE)
                 return ((PyLong) value).asSize();
             else if (valueType.isSubTypeOf(PyLong.TYPE))
-                // XXX Sub-types not implemented: maybe can't cast
+                // ... Sub-types not implemented: maybe can't cast
                 return ((PyLong) value).asSize();
             else
                 // Number.index guarantees we never reach here
@@ -332,7 +332,7 @@ public class Number extends Abstract {
             return PyLong.from((PyLong) result);
         }
 
-        // XXX Not implemented: else try the __trunc__ method
+        // ... Not implemented: else try the __trunc__ method
 
         if ((o instanceof PyUnicode))
             return PyLong.fromUnicode((PyUnicode) o, 10);
@@ -402,7 +402,7 @@ public class Number extends Abstract {
      * @param w right operand (only {@code w.getType()} is used)
      * @return exception to throw
      */
-    // XXX Possibly move to Slot so may bind early.
+    // ... Possibly move to Slot so may bind early.
     static PyException operandError(Slot op, PyObject v, PyObject w) {
         return new TypeError(UNSUPPORTED_TYPES, op.opName,
                 v.getType().getName(), w.getType().getName());
