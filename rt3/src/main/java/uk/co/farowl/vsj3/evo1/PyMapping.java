@@ -33,6 +33,10 @@ public class PyMapping extends PySequence {
         }
     }
 
+    /**
+     * A wrapper on objects that conform to the Python mapping protocol,
+     * to make them act (almost) as a Java {@code Map}.
+     */
     static class MapWrapper extends AbstractMap<Object, Object> {
         private final Object map;
 
@@ -53,10 +57,34 @@ public class PyMapping extends PySequence {
             }
         }
 
+        /**
+         * @return {@code null}
+         * @implNote This implementation always returns {@code null} as
+         *     if there was previously no binding for the key in the
+         *     map. This is to avoid the cost of interrogating the
+         *     wrapped object.
+         */
         @Override
         public Object put(Object key, Object value) {
             try {
                 setItem(map, key, value);
+                return null;
+            } catch (Throwable t) {
+                throw asUnchecked(t, "during map.put(%.50s, ...)", key);
+            }
+        }
+
+        /**
+         * @return {@code null}
+         * @implNote This implementation always returns {@code null} as
+         *     if there was previously no binding for the key in the
+         *     map. This is to avoid the cost of interrogating the
+         *     wrapped object.
+         */
+        @Override
+        public Object remove(Object key) {
+            try {
+                delItem(map, key);
                 return null;
             } catch (Throwable t) {
                 throw asUnchecked(t, "during map.put(%.50s, ...)", key);

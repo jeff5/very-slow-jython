@@ -643,8 +643,13 @@ public class PyType extends Operations implements DictPyObject {
      *
      * @return name of this type
      */
-    @Getter("__qualname__") // XXX __qualname__ logic not entirely right
     public String getName() { return name; }
+
+    @Getter // XXX __qualname__ logic not entirely right
+    String __qualname__() { return name; }
+
+    @Getter // XXX __name__ logic not entirely right
+    String __name__() { return name; }
 
     /**
      * Find the index of the given class in the accepted classes for

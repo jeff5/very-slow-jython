@@ -16,6 +16,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.DisplayNameGeneration;
 import org.junit.jupiter.api.DisplayNameGenerator;
@@ -144,7 +145,7 @@ class CPython38CodeTest extends UnitTestSupport {
             "simple_if", "multi_if", "simple_loop", "iterables",
             "tuple_index", "tuple_dot_product", "list_index",
             "attr_access_builtin", "call_method_builtin",
-            "function_def"})
+            "function_def", "builtins_module"})
     void executeSimple(String name) {
         CPython38Code code = readCode(name);
         PyDict globals = new PyDict();
@@ -173,7 +174,7 @@ class CPython38CodeTest extends UnitTestSupport {
     @DisplayName("We can execute with custom locals ...")
     @ParameterizedTest(name = "{0}.py")
     @ValueSource(strings = {"load_store_name", "attr_access_builtin",
-            "call_method_builtin"})
+            "call_method_builtin", "builtins_module"})
     void executeCustomLocals(String name) {
         CPython38Code code = readCode(name);
         PyDict globals = new PyDict();
@@ -187,6 +188,24 @@ class CPython38CodeTest extends UnitTestSupport {
         for (Entry<Object, Object> e : locals) {
             globals.put(e.getKey(), e.getValue());
         }
+        assertExpectedVariables(readResultDict(name), globals);
+    }
+
+    @Disabled("Strategy needed on intepreter, function, frame builtins")
+    @SuppressWarnings("static-method")
+    @DisplayName("We can execute with custom builtins ...")
+    @ParameterizedTest(name = "{0}.py")
+    @ValueSource(strings = {"builtins_module"})
+    void executeCustomBuiltins(String name) {
+        CPython38Code code = readCode(name);
+        PyDict globals = new PyDict();
+        Interpreter interp = new Interpreter();
+        PyFunction<?> fn = code.createFunction(interp, globals);
+        // builtins is a custom type with __setitem__ and __getitem__
+        CustomMap builtins = new CustomMap();
+        globals.put("__builtins__", builtins);
+        PyFrame<?, ?> f = fn.createFrame(globals);
+        f.eval();
         assertExpectedVariables(readResultDict(name), globals);
     }
 
@@ -378,6 +397,9 @@ class CPython38CodeTest extends UnitTestSupport {
         private void __setitem__(Object key, Object value) {
             map.put(toKey(key), value);
         }
+
+        @SuppressWarnings("unused")
+        private void __delitem__(Object key) { map.remove(toKey(key)); }
 
         @Override
         public PyType getType() { return TYPE; }
