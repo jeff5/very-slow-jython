@@ -22,16 +22,17 @@ application {
     mainClass = 'org.openjdk.jmh.Main'
 }
 
+compileJava.dependsOn(':rt3:generateDynamicAPIevo1')
 
 task jmh(type: JavaExec, description: 'JMH Help') {
     classpath = sourceSets.main.runtimeClasspath
-    main = 'org.openjdk.jmh.Main'
+    mainClass = 'org.openjdk.jmh.Main'
     args '-h'
 }
 
 task lprof(type: JavaExec, description: 'JMH List profilers') {
     classpath = sourceSets.main.runtimeClasspath
-    main = 'org.openjdk.jmh.Main'
+    mainClass = 'org.openjdk.jmh.Main'
 
     args '-lprof'
 }
@@ -39,7 +40,7 @@ task lprof(type: JavaExec, description: 'JMH List profilers') {
 task exceptionSupplier(type: JavaExec,
         description: 'Exception provider benchmark') {
     classpath = sourceSets.main.runtimeClasspath
-    main = 'org.openjdk.jmh.Main'
+    mainClass = 'org.openjdk.jmh.Main'
 
     // Need variants of this task with different filters
     // Trailing .* necessary!
@@ -59,7 +60,7 @@ task exceptionSupplier(type: JavaExec,
 task exceptionSupplierQuick(type: JavaExec,
         description: 'Exception provider benchmark (quick test)') {
     classpath = sourceSets.main.runtimeClasspath
-    main = 'org.openjdk.jmh.Main'
+    mainClass = 'org.openjdk.jmh.Main'
 
    // JMH options
     args '-f', '1'    // Forks
@@ -78,7 +79,7 @@ task exceptionSupplierQuick(type: JavaExec,
 task exceptionSupplierLoop(type: JavaExec,
         description: 'Explore BMExceptionSupplier assembly language') {
     classpath = sourceSets.main.runtimeClasspath
-    main = 'uk.co.farowl.vsj3.evo1.BMExceptionSupplierMainLoop'
+    mainClass = 'uk.co.farowl.vsj3.evo1.BMExceptionSupplierMainLoop'
 
     // Show optimisation happening
     jvmArgs '-XX:+UnlockDiagnosticVMOptions'

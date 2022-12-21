@@ -21,6 +21,7 @@ dependencies {
 
 
 compileJava {
+    dependsOn(':rt3:generateDynamicAPIevo1')
 
     // Diagnostic to confirm (primarily) that the path contains:
     // ~/rt3/build/classes/java/main
@@ -42,7 +43,7 @@ application {
 
 task jmh(type: JavaExec, description: 'JMH Help') {
     classpath = sourceSets.main.runtimeClasspath
-    main = 'org.openjdk.jmh.Main'
+    mainClass = 'org.openjdk.jmh.Main'
     args '-h'
 }
 
@@ -50,7 +51,7 @@ task jmh(type: JavaExec, description: 'JMH Help') {
 task lprof(type: JavaExec, description: 'JMH List profilers') {
     // Maybe need variants of this task with different filters
     classpath = sourceSets.main.runtimeClasspath
-    main = 'org.openjdk.jmh.Main'
+    mainClass = 'org.openjdk.jmh.Main'
 
     args '-lprof'
 }
@@ -58,7 +59,7 @@ task lprof(type: JavaExec, description: 'JMH List profilers') {
 
 task unary(type: JavaExec, description: 'Unary operations') {
     classpath = sourceSets.main.runtimeClasspath
-    main = 'org.openjdk.jmh.Main'
+    mainClass = 'org.openjdk.jmh.Main'
 
     // Need variants of this task with different filters
     // Trailing .* necessary!
@@ -69,7 +70,7 @@ task unary(type: JavaExec, description: 'Unary operations') {
 
 task unaryQuick(type: JavaExec, description: 'Unary operations (quick test)') {
     classpath = sourceSets.main.runtimeClasspath
-    main = 'org.openjdk.jmh.Main'
+    mainClass = 'org.openjdk.jmh.Main'
 
     // JMH options
     args '-f', '1'    // Forks
@@ -82,7 +83,7 @@ task unaryQuick(type: JavaExec, description: 'Unary operations (quick test)') {
 
 task binary(type: JavaExec, description: 'Binary operations') {
     classpath = sourceSets.main.runtimeClasspath
-    main = 'org.openjdk.jmh.Main'
+    mainClass = 'org.openjdk.jmh.Main'
 
     // Need variants of this task with different filters
     // Trailing .* necessary!
@@ -93,7 +94,7 @@ task binary(type: JavaExec, description: 'Binary operations') {
 
 task binaryQuick(type: JavaExec, description: 'Binary operations (quick test)') {
     classpath = sourceSets.main.runtimeClasspath
-    main = 'org.openjdk.jmh.Main'
+    mainClass = 'org.openjdk.jmh.Main'
 
     // JMH options
     args '-f', '1'    // Forks
@@ -108,7 +109,7 @@ task binaryQuick(type: JavaExec, description: 'Binary operations (quick test)') 
 task mainloop(type: JavaExec,
         description: 'Explore generated assembly language') {
     classpath = sourceSets.main.runtimeClasspath
-    main = 'uk.co.farowl.vsj3dybm.evo1.MainLoop'
+    mainClass = 'uk.co.farowl.vsj3dybm.evo1.MainLoop'
 
     // Show optimisation happening
     jvmArgs '-XX:+UnlockDiagnosticVMOptions'

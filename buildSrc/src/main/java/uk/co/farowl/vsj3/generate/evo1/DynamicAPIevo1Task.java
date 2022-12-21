@@ -58,7 +58,7 @@ public class DynamicAPIevo1Task extends AbstractCompile {
     void generateDynamicAPI() throws Exception {
 
         // Reassurance
-        // System.out.println("generateDynamicAPI");
+        // System.out.println("=== generateDynamicAPI");
         // System.out.printf(" getSource() = %s\n",
         // getSource().getFiles());
         // System.out.printf(" getDestinationDirectory() = %s\n",
@@ -99,7 +99,7 @@ public class DynamicAPIevo1Task extends AbstractCompile {
                     .file(unit.getClassName() + ".class").getAsFile();
 
             // More reassurance
-            System.out.printf("  generating %s\n", classFile);
+            System.out.printf("    generating %s\n", classFile);
 
             // Write the generated code to the class file
             try (FileOutputStream classFileStream =

@@ -123,7 +123,7 @@ task generateDynamicAPIevo1(type: DynamicAPIevo1Task) {
     dependsOn(compileJava)
     source = "src/main/dynamicAPI"
     // Mix output into Java plugin directory :(
-    destinationDir = file("$buildDir/classes/java/main")
+    destinationDirectory = file("$buildDir/classes/java/main")
     // Must be set but not actually consulted :(
     classpath = layout.files("$buildDir/classes/java/main")
 }
