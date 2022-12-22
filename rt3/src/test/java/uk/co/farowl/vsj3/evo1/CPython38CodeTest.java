@@ -16,7 +16,6 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.DisplayNameGeneration;
 import org.junit.jupiter.api.DisplayNameGenerator;
@@ -191,7 +190,6 @@ class CPython38CodeTest extends UnitTestSupport {
         assertExpectedVariables(readResultDict(name), globals);
     }
 
-    @Disabled("Strategy needed on intepreter, function, frame builtins")
     @SuppressWarnings("static-method")
     @DisplayName("We can execute with custom builtins ...")
     @ParameterizedTest(name = "{0}.py")
@@ -200,10 +198,15 @@ class CPython38CodeTest extends UnitTestSupport {
         CPython38Code code = readCode(name);
         PyDict globals = new PyDict();
         Interpreter interp = new Interpreter();
-        PyFunction<?> fn = code.createFunction(interp, globals);
-        // builtins is a custom type with __setitem__ and __getitem__
+        // builtins is a custom type with __setitem__ and __getitem__,
         CustomMap builtins = new CustomMap();
         globals.put("__builtins__", builtins);
+        // ... but containing all the expected members.
+        for (Map.Entry<Object, Object> e : interp.builtinsModule
+                .getDict().entrySet()) {
+            builtins.__setitem__(e.getKey(), e.getValue());
+        }
+        PyFunction<?> fn = code.createFunction(interp, globals);
         PyFrame<?, ?> f = fn.createFrame(globals);
         f.eval();
         assertExpectedVariables(readResultDict(name), globals);

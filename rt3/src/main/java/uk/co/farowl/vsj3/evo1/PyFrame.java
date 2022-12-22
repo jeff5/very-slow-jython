@@ -117,15 +117,14 @@ public abstract class PyFrame<C extends PyCode, F extends PyFunction<C>> {
     Interpreter getInterpreter() { return func.getInterpreter(); }
 
     /**
-     * The dictionary of built-in objects, exposed as read-only
-     * {@code f_builtins}. This is the built-ins supplied by
-     * {@link #func}.
+     * The built-in objects, exposed as read-only {@code f_builtins}.
+     * This is the built-ins supplied by {@link #func}. It will be
+     * accessed using the Python mapping protocol.
      *
-     * @return the dictionary of built-in objects.
+     * @return the built-in objects.
      */
-    // XXX Is this ever other than a PyDict?
     @Exposed.Getter("f_builtins")
-    PyDict getBuiltins() { return func.builtins; }
+    Object getBuiltins() { return func.builtins; }
 
     /**
      * Get the global context (name space) against which this frame is

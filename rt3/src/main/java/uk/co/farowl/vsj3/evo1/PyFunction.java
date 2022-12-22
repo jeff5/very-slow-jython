@@ -45,11 +45,13 @@ public abstract class PyFunction<C extends PyCode>
     final PyDict globals;
 
     /**
-     * The read-only {@code __builtins__} attribute is a {@code dict}:
-     * other mappings won't do.
+     * The read-only {@code __builtins__} attribute is often a
+     * {@code dict} but may be any object. It will be accessed using the
+     * Python mapping protocol by the interpreter, at which point an
+     * error may be raised. Not {@code null}.
      */
     @Exposed.Member(value = "__builtins__", readonly = true)
-    final PyDict builtins;
+    final Object builtins;
 
     /** The (positional) {@code __defaults__} or {@code null}. */
     protected Object[] defaults;
@@ -92,54 +94,6 @@ public abstract class PyFunction<C extends PyCode>
 
     /** The function qualified name ({@code __qualname__} attribute). */
     private String qualname;
-
-    /**
-     * Create a simple Python {@code function} with qualified name. This
-     * might be the result of a function {@code def} statement. The
-     * following are {@code null} after this constructor:
-     * {@link #defaults}, {@link #kwdefaults}, {@link #closure},
-     * {@link #doc}, {@link #dict}, {@link #module},
-     * {@link #annotations}.
-     *
-     * @param interpreter provides import context
-     * @param code compiled code object
-     * @param globals at the point of definition
-     * @param qualname fully qualified name (or {@code null} to default
-     *     to {@code code.name})
-     */
-    // Compare PyFunction_NewWithQualName in funcobject.c
-    // but our design references an interpreter too.
-    PyFunction(Interpreter interpreter, C code, PyDict globals,
-            String qualname) {
-        super(TYPE);
-        this.interpreter = interpreter;
-
-        /*
-         * Set code object: must check consistency between the code
-         * object and numbers of arguments, presence of collector
-         * arguments, etc. in the declaration of this function.
-         */
-        // XXX Might this depend on things only the sub-class knows?
-        setCode(code);
-
-        this.globals = globals;
-        this.name = code.name;
-        this.qualname = qualname != null ? qualname : this.name;
-        // Or support code.qualname?
-
-        // Get __doc__ from first constant in code (if str)
-        Object doc;
-        Object[] consts = code.consts;
-        if (consts.length >= 1 && PyUnicode.TYPE.check(doc = consts[0]))
-            this.doc = doc;
-        else
-            this.doc = Py.None;
-
-        // __module__ = globals['__name__'] or null.
-        this.module = globals.get("__name__");
-
-        this.builtins = getBuiltinsDict();
-    }
 
     /**
      * Create a PyFunction supplying most of the attributes at
@@ -192,7 +146,7 @@ public abstract class PyFunction<C extends PyCode>
 
         // __module__ = globals['__name__'] or null.
         this.module = globals.get("__name__");
-        this.builtins = getBuiltinsDict();
+        this.builtins = getBuiltinsFromGlobals();
 
         // We differ from CPython in having these in construction
         this.defaults = defaults;
@@ -206,23 +160,24 @@ public abstract class PyFunction<C extends PyCode>
 
     /**
      * Look in {@code __globals__} then the {@code interpreter} to find
-     * the dictionary of built-in objects.
+     * the container of built-in objects.
      *
      * @return the {@code __builtins__} of the function
      */
-    private PyDict getBuiltinsDict() {
+    // Compare CPython _PyEval_BuiltinsFromGlobals in frameobject.c
+    private Object getBuiltinsFromGlobals() {
         Object builtins = globals.get("__builtins__");
         if (builtins != null) {
             if (PyModule.TYPE.check(builtins)) {
                 return ((PyModule)builtins).getDict();
             }
+            return builtins;
         }
         /*
          * Difference from CPython: this is always known and will be
          * used by the frame created by a call, not the builtins of a
          * previous frame.
          */
-        assert interpreter.builtinsModule.dict != null;
         return interpreter.builtinsModule.dict;
     }
 
@@ -258,9 +213,7 @@ public abstract class PyFunction<C extends PyCode>
      * @param code new code object to assign
      */
     @Exposed.Setter("__code__")
-    void setCode(C code) {
-        this.code = checkFreevars(code);
-    }
+    void setCode(C code) { this.code = checkFreevars(code); }
 
     /** @return the {@code __name__} attribute. */
     @Exposed.Getter("__name__")
@@ -386,7 +339,6 @@ public abstract class PyFunction<C extends PyCode>
         }
     }
 
-
     // slot methods --------------------------------------------------
 
     /**
@@ -406,7 +358,6 @@ public abstract class PyFunction<C extends PyCode>
 
     @SuppressWarnings("unused")
     private Object __str__() { return toString(); }
-
 
     // FastCall support ----------------------------------------------
 

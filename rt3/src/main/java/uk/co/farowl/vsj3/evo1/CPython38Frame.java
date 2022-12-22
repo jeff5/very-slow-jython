@@ -48,6 +48,13 @@ class CPython38Frame
     Object returnValue = Py.None;
 
     /**
+     * The built-in objects from {@link #func}, wrapped (if necessary)
+     * to make it a {@code Map}. Inside the wrapper it will be accessed
+     * using the Python mapping protocol.
+     */
+    private final Map<Object, Object> builtins;
+
+    /**
      * Create a {@code CPython38Frame}, which is a {@code PyFrame} with
      * the storage and mechanism to execute a module or isolated code
      * object (compiled to a {@link CPython38Code}.
@@ -120,6 +127,9 @@ class CPython38Frame
             this.locals = locals;
         }
 
+        // Locally present the func.__builtins__ as a Map
+        this.builtins = PyMapping.map(func.builtins);
+
         // Initialise local variables (plain and cell)
         this.fastlocals = nfastlocals > 0 ? new Object[nfastlocals]
                 : EMPTY_OBJECT_ARRAY;
@@ -159,7 +169,6 @@ class CPython38Frame
         final int END = wordcode.length;
 
         final PyDict globals = func.globals;
-        final PyDict builtins = func.builtins;;
 
         // Wrap locals (any type) as a minimal kind of Java map
         Map<Object, Object> locals = localsMapOrNull();
@@ -357,8 +366,7 @@ class CPython38Frame
                         }
 
                         if (v == null) {
-                            v = PyDict.loadGlobal(globals, builtins,
-                                    name);
+                            v = globals.loadGlobal(builtins, name);
                             if (v == null)
                                 throw new NameError(NAME_ERROR_MSG,
                                         name);
@@ -370,7 +378,7 @@ class CPython38Frame
                         // Resolve against globals and builtins
                         name = names[oparg | opword & 0xff];
                         oparg = 0;
-                        v = PyDict.loadGlobal(globals, builtins, name);
+                        v = globals.loadGlobal(builtins, name);
                         if (v == null) {
                             // CPython: not if error is already current
                             throw new NameError(NAME_ERROR_MSG, name);

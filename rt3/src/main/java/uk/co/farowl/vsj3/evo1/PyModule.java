@@ -11,10 +11,10 @@ public class PyModule implements CraftedPyObject, DictPyObject {
 
     protected final PyType type;
 
-    /** Name of this module. **/
+    /** Name of this module. Not {@code null}. **/
     final String name;
 
-    /** Dictionary (globals) of this module. **/
+    /** Dictionary (globals) of this module. Not {@code null}. **/
     final PyDict dict;
 
     /**
@@ -35,16 +35,14 @@ public class PyModule implements CraftedPyObject, DictPyObject {
      *
      * @param name of module
      */
-    PyModule(String name) {
-        this(TYPE, name);
-    }
+    PyModule(String name) { this(TYPE, name); }
 
     @Override
     public PyType getType() { return type; }
 
     /**
-     * The global dictionary of a module instance. This is always a Python
-     * {@code dict}.
+     * The global dictionary of a module instance. This is always a
+     * Python {@code dict} and never {@code null}.
      *
      * @return The globals of this module
      */
@@ -56,9 +54,7 @@ public class PyModule implements CraftedPyObject, DictPyObject {
      *
      * @param t the type
      */
-    void add(PyType t) {
-        dict.put(t.getName(), t);
-    }
+    void add(PyType t) { dict.put(t.getName(), t); }
 
     /**
      * Add an object by name to the module dictionary.
@@ -66,9 +62,7 @@ public class PyModule implements CraftedPyObject, DictPyObject {
      * @param name to use as key
      * @param o value for key
      */
-    void add(String name, Object o) {
-        dict.put(name, o);
-    }
+    void add(String name, Object o) { dict.put(name, o); }
 
     /**
      * Initialise the module instance. This is the Java equivalent of

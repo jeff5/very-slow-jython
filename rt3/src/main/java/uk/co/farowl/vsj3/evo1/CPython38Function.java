@@ -27,6 +27,15 @@ package uk.co.farowl.vsj3.evo1;
         buildParser();
     }
 
+    /**
+     * Create a Python {@code function} object defined in CPython 3.8
+     * code in a simplified form suitable to represent execution of a
+     * top-level module.
+     *
+     * @param interpreter providing the module context
+     * @param code defining the function
+     * @param globals name space to treat as global variables
+     */
     public CPython38Function(Interpreter interpreter, CPython38Code code,
             PyDict globals) {
         this(interpreter, code, globals, null, null, null, null);
