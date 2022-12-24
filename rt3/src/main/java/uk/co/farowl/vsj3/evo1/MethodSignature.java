@@ -17,7 +17,7 @@ import uk.co.farowl.vsj3.evo1.base.MethodKind;
 /**
  * The {@code enum MethodSignature} enumerates the method signatures for
  * which an optimised implementation is possible. Sub-classes of
- * {@link PyJavaMethod} and {@link PyMethodDescr} correspond to these
+ * {@link PyJavaFunction} and {@link PyMethodDescr} correspond to these
  * values. It is not required that each value have a distinct optimised
  * sub-class. This {@code enum} is used internally to choose between
  * these sub-classes.

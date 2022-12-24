@@ -9,7 +9,7 @@ import uk.co.farowl.vsj3.evo1.ArgumentError.Mode;
  * This class provides some common behaviour and support methods that
  * would otherwise be duplicated. This is also home to some static
  * methods in support of both sub-classes and other callable objects
- * (e.g. {@link PyJavaMethod}).
+ * (e.g. {@link PyJavaFunction}).
  */
 abstract class MethodDescriptor extends Descriptor implements FastCall {
 

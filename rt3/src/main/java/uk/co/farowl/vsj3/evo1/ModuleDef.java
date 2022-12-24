@@ -78,7 +78,7 @@ public class ModuleDef {
             ArgParser ap = md.argParser;
             MethodHandle mh = md.handle;
             d.put(md.argParser.name,
-                    PyJavaMethod.fromParser(ap, mh, module, this.name));
+                    PyJavaFunction.fromParser(ap, mh, module, this.name));
         }
     }
 
@@ -94,9 +94,9 @@ public class ModuleDef {
      * <p>
      * When a method is declared in Java as an instance method of the
      * module, the {@code MethodDef} that describes it discounts the
-     * {@code self} argument. The {@link PyJavaMethod} created from it
+     * {@code self} argument. The {@link PyJavaFunction} created from it
      * binds the module instance that is its target, so that it is is
-     * correct for a call to that {@code PyJavaMethod}. This is
+     * correct for a call to that {@code PyJavaFunction}. This is
      * consistent with CPython.
      */
     // Compare CPython struct PyMethodDef

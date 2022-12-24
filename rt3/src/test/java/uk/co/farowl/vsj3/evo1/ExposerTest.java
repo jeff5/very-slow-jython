@@ -222,7 +222,7 @@ class ExposerTest {
     /**
      * Test that attribute access on {@link PyMethodDescr}s from the
      * {@link Exposer} create bound method objects of type
-     * {@link PyJavaMethod}, for methods annotated in the test class
+     * {@link PyJavaFunction}, for methods annotated in the test class
      * {@link PyObjectWithMethods}.
      *
      * @throws Throwable unexpectedly
@@ -238,7 +238,7 @@ class ExposerTest {
         PyMethodDescr length = (PyMethodDescr) PyObjectWithMethods.TYPE
                 .lookup("length");
         // Get the bound method (bound to a)
-        PyJavaMethod bm = (PyJavaMethod) length.__get__(a, null);
+        PyJavaFunction bm = (PyJavaFunction) length.__get__(a, null);
 
         assertNotNull(bm);
         assertSame(a, bm.self);
@@ -249,7 +249,7 @@ class ExposerTest {
     }
 
     /**
-     * Test that we can call {@link PyJavaMethod}s created by attribute
+     * Test that we can call {@link PyJavaFunction}s created by attribute
      * access on methods annotated in the test class
      * {@link PyObjectWithMethods}.
      *
@@ -263,7 +263,7 @@ class ExposerTest {
         Object result;
 
         // bm = a.length
-        PyJavaMethod bm = (PyJavaMethod) Abstract.getAttr(a, "length");
+        PyJavaFunction bm = (PyJavaFunction) Abstract.getAttr(a, "length");
         assertNotNull(bm);
         assertEquals(a, bm.self);
 
@@ -272,7 +272,7 @@ class ExposerTest {
         assertEquals(hello.length(), PyNumber.index(result));
 
         // m = a.density
-        bm = (PyJavaMethod) Abstract.getAttr(a, "density");
+        bm = (PyJavaFunction) Abstract.getAttr(a, "density");
 
         // Force a classic call
         // result = bm("l") # = 0.25

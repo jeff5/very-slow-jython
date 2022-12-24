@@ -46,7 +46,7 @@ although we do not usually use it that way:
 'dadophony'
 
 The second is
-``PyJavaMethod`` (the Python type ``builtin_function_or_method``),
+``PyJavaFunction`` (the Python type ``builtin_function_or_method``),
 which in CPython is implemented by ``PyCFunctionObject``.
 It represents the method bound to an instance during attribute access,
 either by use of the dot operator,
@@ -85,7 +85,7 @@ Relationships amongst the Classes
 
 ``PyMethodDescr`` belongs to a broad hierarchy of descriptors.
 As we have seen,
-binding it to a target object gives rise to a ``PyJavaMethod``.
+binding it to a target object gives rise to a ``PyJavaFunction``.
 This is a Python behaviour and so far is identical in CPython.
 
 ..  uml::
@@ -105,23 +105,23 @@ This is a Python behaviour and so far is identical in CPython.
         argNames : String[]
     }
 
-    abstract class PyJavaMethod {
+    abstract class PyJavaFunction {
         module : String
         handle : MethodHandle
         ~__call__() : Object
     }
-    PyJavaMethod -right-> ArgParser : argParser
-    PyJavaMethod -left-> Object : self
+    PyJavaFunction -right-> ArgParser : argParser
+    PyJavaFunction -left-> Object : self
 
     abstract class PyMethodDescr {
         signature : MethodSignature
         method : MethodHandle
-        ~__get__() : PyJavaMethod
+        ~__get__() : PyJavaFunction
         ~__call__() : Object
     }
     MethodDescriptor <|-- PyMethodDescr
     PyMethodDescr -right-> ArgParser : argParser
-    PyMethodDescr ..> PyJavaMethod : <<creates>>
+    PyMethodDescr ..> PyJavaFunction : <<creates>>
 
 Behind both of these visible classes is the ``ArgParser``,
 as the diagram shows,
@@ -134,7 +134,7 @@ and the default values where given.
 It is capable of expressing the full range of parameter lists
 encountered when defining a method or function in Python.
 
-``PyMethodDescr`` and ``PyJavaMethod`` are both abstract classes.
+``PyMethodDescr`` and ``PyJavaFunction`` are both abstract classes.
 As we shall see,
 concrete classes derived from each
 provide efficient argument processing during calls,
@@ -267,12 +267,12 @@ We should explore instead a method resembling:
             return ah;
         }
 
-The bound counterpart ``PyJavaMethod`` works similarly,
+The bound counterpart ``PyJavaFunction`` works similarly,
 but the "self" of a method call is already stored as ``__self__``.
 
 
-Callable ``PyJavaMethod``
-=========================
+Callable ``PyJavaFunction``
+===========================
 
 When the interpreter calls ``__call__(Object[], String[])``,
 all the argument values from the call site
@@ -281,7 +281,7 @@ The ``String[]`` array contains the keywords used at the call site,
 in the same order as their values,
 which are the last in the ``Object[]`` array.
 
-The ``__call__`` method of ``PyJavaMethod``
+The ``__call__`` method of ``PyJavaFunction``
 distributes the array of arguments across
 the individually declared parameters of the implementation,
 using the services and data of the attached ``ArgParser``.
@@ -290,7 +290,7 @@ A sufficient implementation of ``__call__`` is:
 ..  code-block:: java
     :emphasize-lines: 12-16
 
-    public class PyJavaMethod implements CraftedPyObject {
+    public class PyJavaFunction implements CraftedPyObject {
 
         /** The type of Python object this class implements. */
         static final PyType TYPE = PyType.fromSpec( //
@@ -313,7 +313,7 @@ This code is very simple because the hard work is done by ``argParser.parse``.
 The method handle adapts the called Java method to the array argument
 prepared by the ``ArgParser``.
 
-An instance of ``PyJavaMethod`` may be the result of a
+An instance of ``PyJavaFunction`` may be the result of a
 method declaration like:
 
 ..  code-block:: java
@@ -327,7 +327,7 @@ to match the elements of the array to the parameters ``a``, ``b`` and ``c``,
 and the return from ``PyTuple`` to ``Object``.
 When representing a static function, member ``self`` is ``null``.
 
-A ``PyJavaMethod`` may also be constructed by binding a ``PyMethodDescr``
+A ``PyJavaFunction`` may also be constructed by binding a ``PyMethodDescr``
 declared as:
 
 ..  code-block:: java
@@ -337,16 +337,16 @@ declared as:
 
 The source expression ``o.m3`` leads to
 an eventual call to ``PyMethodDescr.__get__``,
-and a ``PyJavaMethod`` in which member ``self`` is ``o``.
+and a ``PyJavaFunction`` in which member ``self`` is ``o``.
 (This is exposed to Python as ``__self__``.)
 
 In order to avoid complicating call processing with a test ``self==null``,
-the ``MethodHandle`` in a bound ``PyJavaMethod``
+the ``MethodHandle`` in a bound ``PyJavaFunction``
 still has the signature ``(O[])O`` appropriate to a function.
-When a ``PyJavaMethod`` is formed by binding a ``PyMethodDescr``,
+When a ``PyJavaFunction`` is formed by binding a ``PyMethodDescr``,
 we simply take the handle in the  ``PyMethodDescr``
 and bind ``self`` into the first argument,
-to get the handle stored in the ``PyJavaMethod``.
+to get the handle stored in the ``PyJavaFunction``.
 
 The body of ``__call__`` shown above is illustrative.
 (The reader will be able to find it, but not in ``__call__`` directly.)
@@ -410,7 +410,7 @@ Substantial optimisations are present to provide a fast path in common cases.
 Variants for Static and Class Methods
 =====================================
 
-We have demonstrated in passing already how ``PyJavaMethod`` represents
+We have demonstrated in passing already how ``PyJavaFunction`` represents
 a Java ``static`` method,
 as well as arising from a method binding.
 When encountered in the context of a built-in type,
@@ -430,7 +430,7 @@ Efficient calls from CPython byte code
 ======================================
 
 The account we have given so far of the construction of
-``PyMethodDescr`` and ``PyJavaMethod``,
+``PyMethodDescr`` and ``PyJavaFunction``,
 and how we implement ``__call__`` in them,
 is a simplified one.
 It works that way only when the call is sufficiently complicated
@@ -472,8 +472,8 @@ the CPython byte code support (in ``Callables.java``) includes
 ``call(Object callable, PyTuple argTuple, PyDict kwDict)``.
 
 
-Calling a ``PyJavaMethod`` as a function
-----------------------------------------
+Calling a ``PyJavaFunction`` as a function
+------------------------------------------
 
 When the call is simpler,
 CPython generates simpler byte code.
@@ -523,7 +523,7 @@ Thus, ``Callables.vectorcall`` is pointed at a slice of the stack
 containing the arguments.
 
 In the case of a built-in,
-``f`` will be a ``PyJavaMethod``,
+``f`` will be a ``PyJavaFunction``,
 which is a class that implements the interface ``FastCall``,
 and so we take the fast path in the following method:
 
@@ -576,23 +576,23 @@ provides a default implementation for ``vectorcall`` like this:
 This unpacks the 3 arguments in our example onto the Java stack,
 for a specialised 3-argument ``call`` method.
 
-``PyMethodDescr`` and ``PyJavaMethod``
+``PyMethodDescr`` and ``PyJavaFunction``
 are both abstract classes.
 Concrete classes derived from each
 provide efficient argument processing during calls,
 falling back on ``ArgParser`` only in complex cases.
-When we constructed the ``PyJavaMethod`` representation of ``f3``,
-we actually created an instance of a sub-class ``PyJavaMethod.O3``,
+When we constructed the ``PyJavaFunction`` representation of ``f3``,
+we actually created an instance of a sub-class ``PyJavaFunction.O3``,
 guided by the description in the ``ArgParser`` for ``f3``,
 which tells us it takes 3 arguments given by position only.
 
-The method handle expected in ``PyJavaMethod.O3``
+The method handle expected in ``PyJavaFunction.O3``
 has signature ``(O,O,O)O`` not ``(O[])O``, that is,
 it performs the argument conversion but does not expect an array.
 We do not therefore need ``ArgParser.parse``,
 the utility that marshals arguments into an array.
 
-Finally, ``PyJavaMethod.O3``
+Finally, ``PyJavaFunction.O3``
 overrides ``FastCall.call(Object, Object, Object)`` like this:
 
 ..  code-block:: java
@@ -637,7 +637,7 @@ Where we might have had ``2 LOAD_ATTR 1 (m3)``,
 we find instead ``2 LOAD_METHOD  1 (m3)``.
 
 ``LOAD_ATTR`` would have called ``PyMethodDescr.__get__``
-and returned a bound ``PyJavaMethod``,
+and returned a bound ``PyJavaFunction``,
 later called with ``CALL_FUNCTION``.
 
 The special ``LOAD_METHOD`` looks up ``m3`` in ``type(o)``
@@ -662,7 +662,7 @@ so it behaves (almost) like ``CALL_FUNCTION 4``.
 
 We implement these opcodes in our CPython byte code interpreter.
 Similar optimisations are available in ``PyMethodDescr``
-to those described for ``PyJavaMethod``,
+to those described for ``PyJavaFunction``,
 using sub-classes again to specialise based on the defining signature.
 
 
@@ -688,7 +688,7 @@ no knowledge is available about the object being called.
 The several opcodes that CPython uses to make calls
 may be mapped approximately to types of call site,
 in the way we have indicated for unary and binary operations.
-The types ``PyMethodDescr`` and ``PyJavaMethod``,
+The types ``PyMethodDescr`` and ``PyJavaFunction``,
 and their several implementing Java classes,
 would be possible guard classes.
 
@@ -703,7 +703,7 @@ the site will be a general ``__call__``.
 At run-time,
 one may begin to specialise handles for the particular callables encountered.
 Under a guard that has matched the sub-type of
-``PyMethodDescr`` or ``PyJavaMethod`` presented,
+``PyMethodDescr`` or ``PyJavaFunction`` presented,
 it should be possible to bind the exact implementation of ``call``
 that would have been selected.
 If the guard can be on the instance of callable,
@@ -738,7 +738,7 @@ where an interest in the uses of the ``MethodHandle``
 has led us to a study of methods defined in Java,
 before we try to re-introduce the ``PyFunction``.
 
-Specialisations of ``PyMethodDescr`` and ``PyJavaMethod``,
+Specialisations of ``PyMethodDescr`` and ``PyJavaFunction``,
 possible when the signature is simple enough,
 do not need to use ``ArgParser.parse`` on the main path
 when processing a call.

@@ -159,8 +159,8 @@ class ModuleExposerTest extends UnitTestSupport {
             for (MethodDef md : def.getMethods()) {
                 ArgParser ap = md.argParser;
                 MethodHandle mh = md.handle;
-                PyJavaMethod m =
-                        PyJavaMethod.fromParser(ap, mh, fake, def.name);
+                PyJavaFunction m =
+                        PyJavaFunction.fromParser(ap, mh, fake, def.name);
                 dict.put(md.argParser.name, m);
             }
             // And here we check what's in it
@@ -211,7 +211,7 @@ class ModuleExposerTest extends UnitTestSupport {
         assertTrue(k > 0);
         String name = spec.substring(0, k);
         String expect = spec.substring(k);
-        PyJavaMethod pjm = (PyJavaMethod)dict.get(name);
+        PyJavaFunction pjm = (PyJavaFunction)dict.get(name);
         assertEquals(expect, pjm.argParser.textSignature());
     }
 

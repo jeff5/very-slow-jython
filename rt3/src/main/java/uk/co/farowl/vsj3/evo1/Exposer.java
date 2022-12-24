@@ -1290,7 +1290,7 @@ abstract class Exposer {
         }
 
         @Override
-        PyJavaMethod asAttribute(PyType objclass, Lookup lookup) {
+        PyJavaFunction asAttribute(PyType objclass, Lookup lookup) {
             // TODO Auto-generated method stub
             return null;
         }

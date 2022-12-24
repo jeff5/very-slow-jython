@@ -19,7 +19,7 @@ import uk.co.farowl.vsj3.evo1.base.MethodKind;
 /**
  * Test that functions exposed by a Python <b>module</b> defined in
  * Java, using the scheme of annotations defined in {@link Exposed},
- * result in {@link PyJavaMethod} descriptors with characteristics that
+ * result in {@link PyJavaFunction} descriptors with characteristics that
  * correspond to the definition.
  * <p>
  * The first test in each case is to examine the fields in the parser
@@ -43,7 +43,7 @@ class ModuleExposerMethodTest {
         /** The module we create. */
         PyModule module = new ExampleModule();
         /** The function to examine or call. */
-        PyJavaMethod func;
+        PyJavaFunction func;
         /** The parser in the function we examine. */
         ArgParser ap;
         /** The expected result of calling the function */
@@ -293,7 +293,7 @@ class ModuleExposerMethodTest {
         @BeforeEach
         void setup() throws AttributeError, Throwable {
             // func = module.m0
-            func = (PyJavaMethod)Abstract.getAttr(module, "m0");
+            func = (PyJavaFunction)Abstract.getAttr(module, "m0");
             ap = func.argParser;
         }
 
@@ -357,7 +357,7 @@ class ModuleExposerMethodTest {
         @BeforeEach
         void setup() throws AttributeError, Throwable {
             // func = module.f0
-            func = (PyJavaMethod)Abstract.getAttr(module, "f0");
+            func = (PyJavaFunction)Abstract.getAttr(module, "f0");
             ap = func.argParser;
         }
 
@@ -377,7 +377,7 @@ class ModuleExposerMethodTest {
         @BeforeEach
         void setup() throws AttributeError, Throwable {
             // func = module.m1
-            func = (PyJavaMethod)Abstract.getAttr(module, "m1");
+            func = (PyJavaFunction)Abstract.getAttr(module, "m1");
             ap = func.argParser;
             exp = new Object[] {module, 42.0};
         }
@@ -442,7 +442,7 @@ class ModuleExposerMethodTest {
         @BeforeEach
         void setup() throws AttributeError, Throwable {
             // func = module.f1
-            func = (PyJavaMethod)Abstract.getAttr(module, "f1");
+            func = (PyJavaFunction)Abstract.getAttr(module, "f1");
             ap = func.argParser;
             exp = new Object[] {42.0};
         }
@@ -463,7 +463,7 @@ class ModuleExposerMethodTest {
         @BeforeEach
         void setup() throws AttributeError, Throwable {
             // func = module.m3
-            func = (PyJavaMethod)Abstract.getAttr(module, "m3");
+            func = (PyJavaFunction)Abstract.getAttr(module, "m3");
             ap = func.argParser;
             exp = new Object[] {module, 1, "2", 3};
         }
@@ -529,7 +529,7 @@ class ModuleExposerMethodTest {
         @BeforeEach
         void setup() throws AttributeError, Throwable {
             // func = module.f3
-            func = (PyJavaMethod)Abstract.getAttr(module, "f3");
+            func = (PyJavaFunction)Abstract.getAttr(module, "f3");
             ap = func.argParser;
             exp = new Object[] {1, "2", 3};
         }
@@ -550,7 +550,7 @@ class ModuleExposerMethodTest {
         @BeforeEach
         void setup() throws AttributeError, Throwable {
             // func = module.m3pk
-            func = (PyJavaMethod)Abstract.getAttr(module, "m3pk");
+            func = (PyJavaFunction)Abstract.getAttr(module, "m3pk");
             ap = func.argParser;
             exp = new Object[] {module, 1, "2", 3};
         }
@@ -614,7 +614,7 @@ class ModuleExposerMethodTest {
         @BeforeEach
         void setup() throws AttributeError, Throwable {
             // func = module.f3pk
-            func = (PyJavaMethod)Abstract.getAttr(module, "f3pk");
+            func = (PyJavaFunction)Abstract.getAttr(module, "f3pk");
             ap = func.argParser;
             exp = new Object[] {1, "2", 3};
         }
@@ -639,7 +639,7 @@ class ModuleExposerMethodTest {
         @BeforeEach
         void setup() throws AttributeError, Throwable {
             // func = module.m3p2
-            func = (PyJavaMethod)Abstract.getAttr(module, "m3p2");
+            func = (PyJavaFunction)Abstract.getAttr(module, "m3p2");
             ap = func.argParser;
             exp = new Object[] {module, 1, "2", 3};
         }
@@ -708,7 +708,7 @@ class ModuleExposerMethodTest {
         @BeforeEach
         void setup() throws AttributeError, Throwable {
             // func = module.f3p2
-            func = (PyJavaMethod)Abstract.getAttr(module, "f3p2");
+            func = (PyJavaFunction)Abstract.getAttr(module, "f3p2");
             ap = func.argParser;
             exp = new Object[] {1, "2", 3};
         }

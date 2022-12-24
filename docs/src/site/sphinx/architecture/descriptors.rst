@@ -1093,10 +1093,10 @@ will supersede this before the first implementation.
         getType()
     }
 
-    PyJavaFunction <|--left-- PyJavaMethod
-    PyJavaMethod --> PyObject : self
+    PyJavaFunction <|--left-- PyJavaFunction
+    PyJavaFunction --> PyObject : self
 
-    PyMethodDescr ..> PyJavaMethod : <<creates>>
+    PyMethodDescr ..> PyJavaFunction : <<creates>>
 
 
 In CPython,
@@ -1126,9 +1126,9 @@ Thus in ``'hello'.replace('ell', 'ipp')``,
 the call to ``__get__`` returns the object ``'hello'.replace``,
 and then that is called with the arguments ``('ell', 'ipp')``.
 
-We represent this binding object by an instance of the ``PyJavaMethod`` class.
+We represent this binding object by an instance of the ``PyJavaFunction`` class.
 (In CPython the object created is another use of ``PyCFunctionObject``.)
-Observe that ``PyJavaMethod`` is frequently an ephemeral object,
+Observe that ``PyJavaFunction`` is frequently an ephemeral object,
 existing only until the call can be made.
 
 A ``PyMethodDescr`` is itself a callable object,
@@ -1137,7 +1137,7 @@ In ``str.replace('hello', 'ell', 'ipp')``,
 ``__get__`` returns the object ``str.replace``,
 which is the descriptor itself,
 and then that is called with the arguments ``('hello', 'ell', 'ipp')``.
-No binding ``PyJavaMethod`` is necessary in this case.
+No binding ``PyJavaFunction`` is necessary in this case.
 
 
 Optimising Method Calls
@@ -1197,7 +1197,7 @@ The attribute access becomes a call to ``PyMethodDescr.__get__``,
 that is the equivalent of ``str.__dict__['replace'].__get__('hello', str)``.
 
 This has to return something that may be called with the given arguments.
-That "something" is here a ``PyJavaMethod``,
+That "something" is here a ``PyJavaFunction``,
 in which the ``self`` field is assigned the string ``'hello'``.
 (In CPython, it is a ``PyCFunctionObject``.)
 
@@ -1208,7 +1208,7 @@ in which the ``self`` field is assigned the string ``'hello'``.
     participant "s = 'hello'" as s
     participant "str : PyType" as str
     participant "d : PyMethodDescr" as d
-    participant "m : PyJavaMethod" as m
+    participant "m : PyJavaFunction" as m
 
     prog -> s ++ : ~__getattribute__("replace")
         s -> str ++ : lookup("replace")
@@ -1224,7 +1224,7 @@ in which the ``self`` field is assigned the string ``'hello'``.
         return "hippo"
 
 
-We can see that calling the ``PyJavaMethod``
+We can see that calling the ``PyJavaFunction``
 leads effectively to ``str.replace('hello', 'ell', 'ipp')``.
 This, by the way, should also work if used directly in Python.
 We look at that next,
@@ -1851,10 +1851,10 @@ looking forward to possible use in a ``CallSite``.
     PyMethodDescr -right-> MethodDef : method
     PyJavaFunction --up--> MethodDef : methodDef
 
-    PyJavaFunction <|-left- PyJavaMethod
-    PyClassMethodDescr ..> PyJavaMethod : <<creates>>
+    PyJavaFunction <|-left- PyJavaFunction
+    PyClassMethodDescr ..> PyJavaFunction : <<creates>>
 
-    PyJavaMethod --> PyObject : self
+    PyJavaFunction --> PyObject : self
     note on link : In this case self\nis a PyType
 
 
@@ -1875,7 +1875,7 @@ the ``type`` argument is made the target, not the ``obj`` argument.
 This is different from ``PyMethodDescr`` where ``d.__get__(null, type)``
 returns ``d``
 and only ``d.__get__(obj, type)`` produces a bound method.
-In ``PyClassMethodDescr`` both return a ``PyJavaMethod``,
+In ``PyClassMethodDescr`` both return a ``PyJavaFunction``,
 in which the target ``self`` is the type.
 (If the ``obj`` argument is given but not the ``type`` argument,
 then ``type(obj)`` is used.)
@@ -1913,7 +1913,7 @@ we must access it directly from the dictionary of the type:
 
 A direct call to the descriptor requires
 that the type be supplied in the call.
-No binding ``PyJavaMethod`` is produced in this case.
+No binding ``PyJavaFunction`` is produced in this case.
 
 
 Calling a Class Method normally in Python
@@ -1936,7 +1936,7 @@ the equivalent in types,
 looks in the dictionary of the target object itself (the type ``int``).
 It finds a descriptor (a ``PyClassMethodDescr``),
 on which to call ``__get__(None, int)``.
-This has to return a ``PyJavaMethod``,
+This has to return a ``PyJavaFunction``,
 in which the ``self`` field is assigned the type ``int``.
 
 ..  uml::
@@ -1945,7 +1945,7 @@ in which the ``self`` field is assigned the type ``int``.
     participant prog
     participant "int : PyType" as int
     participant "d : PyClassMethodDescr" as d
-    participant "m : PyJavaMethod" as m
+    participant "m : PyJavaFunction" as m
 
     prog -> int ++ : ~__getattribute__("from_bytes")
         int -> int : d = lookup("from_bytes")
@@ -1960,7 +1960,7 @@ in which the ``self`` field is assigned the type ``int``.
         return 435475931745
 
 
-We can see that calling the ``PyJavaMethod``
+We can see that calling the ``PyJavaFunction``
 leads effectively to:
 
 ..  code-block:: python
@@ -1968,7 +1968,7 @@ leads effectively to:
     int.__dict__['from_bytes'].__get__(None, int)(b'abcde', 'little')
 
 The optimisation in CPython
-that avoids creation of an ephemeral ``PyJavaMethod``,
+that avoids creation of an ephemeral ``PyJavaFunction``,
 and which we referred to as we discussed ``PyMethodDescr``,
 operates also for class method calls.
 We'll examine the sequence that produces next.

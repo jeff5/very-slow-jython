@@ -256,26 +256,26 @@ which we now present.
         handle : MethodHandle
     }
     MethodDef --> ArgParser : argParser
-    MethodDef ...> PyJavaMethod : <<creates>>
+    MethodDef ...> PyJavaFunction : <<creates>>
 
     class ArgParser {
         name : String
         argNames : String[]
     }
 
-    abstract class PyJavaMethod {
+    abstract class PyJavaFunction {
         module : String
         handle : MethodHandle
         ~__call__() : Object
     }
-    PyJavaMethod -right-> ArgParser : argParser
-    PyJavaMethod -up-> JavaModule : self
-    PyJavaMethod "*" <--- JavaModule : dict
+    PyJavaFunction -right-> ArgParser : argParser
+    PyJavaFunction -up-> JavaModule : self
+    PyJavaFunction "*" <--- JavaModule : dict
 
-    PyJavaMethod <|-- NoArgs
-    PyJavaMethod <|-- O1
-    PyJavaMethod <|-- Positional
-    PyJavaMethod <|-- General
+    PyJavaFunction <|-- NoArgs
+    PyJavaFunction <|-- O1
+    PyJavaFunction <|-- Positional
+    PyJavaFunction <|-- General
 
 ``PyModule`` is the Python ``module`` object.
 We define an abstract subclass ``JavaModule``,
@@ -294,10 +294,10 @@ This completes the once-per-class processing.
 Each time an instance of the module must be created,
 the superclass constructor (``JavaModule(ModuleDef)``)
 reads the definition built earlier.
-It inserts a bound ``PyJavaMethod`` into the module's dictionary
+It inserts a bound ``PyJavaFunction`` into the module's dictionary
 for each ``MethodDef`` in the ``ModuleDef``.
 In each case,
-it chooses the appropriate concrete subclass of ``PyJavaMethod``
+it chooses the appropriate concrete subclass of ``PyJavaFunction``
 for the signature in the ``ArgParser``,
 so that efficient calls will be possible in simple cases.
 
