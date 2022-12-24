@@ -220,7 +220,7 @@ An example is provided by:
         @PythonMethod
         PyTuple m3(int a, String b, Object c) { ... }
 
-The ``PythonMethod`` annotation attracts the attention of the exposer,
+The ``PythonMethod`` annotation attracts the attention of the ``TypeExposer``,
 which creates an ``ArgParser`` to describe the signature.
 In help and similar contexts,
 this method would be reported as ``m3($self, a, b, c/)``.

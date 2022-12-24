@@ -47,7 +47,8 @@ enum MethodSignature {
     /**
      * The type of method handles matching this method signature when it
      * describes a bound or static method. For {@code POSITIONAL} this
-     * is the type {@code (O[])O}.
+     * is the type {@code (O[])O}. For {@code NOARGS} this is the type
+     * {@code ()O}. For {@code O1} this is the type {@code (O)O}.
      */
     final MethodType boundType;
 
@@ -55,7 +56,9 @@ enum MethodSignature {
      * The type of method handles matching this method signature when it
      * describes an instance method. This differs from
      * {@link #boundType} by a preceding {@code O}. For
-     * {@code POSITIONAL} this is the type {@code (O, O[])O}.
+     * {@code POSITIONAL} this is the type {@code (O,O[])O}. For
+     * {@code NOARGS} this is the type {@code (O)O}. For {@code O1} this
+     * is the type {@code (O,O)O}.
      */
     final MethodType instanceType;
 
@@ -240,13 +243,10 @@ enum MethodSignature {
          */
         MethodType mt = raw.type();
         MethodHandle[] af = Clinic.argumentFilter(mt, pos);
+        // filterArguments returns raw if af.size empty or all nulls
         MethodHandle mh = filterArguments(raw, pos, af);
         MethodHandle rf = Clinic.returnFilter(mt);
         if (rf != null) { mh = filterReturnValue(mh, rf); }
-        /*
-         * Let the method definition enforce specific constraints and
-         * conversions on the handle.
-         */
         return mh;
     }
 }

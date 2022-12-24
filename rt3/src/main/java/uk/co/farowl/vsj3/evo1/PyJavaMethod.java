@@ -12,9 +12,17 @@ import uk.co.farowl.vsj3.evo1.base.InterpreterError;
 import uk.co.farowl.vsj3.evo1.base.MethodKind;
 
 /**
- * The Python {@code builtin_function_or_method} object. Java
- * sub-classes represent either a built-in function or a built-in method
- * bound to a particular object.
+ * The Python {@code builtin_function_or_method} object. Instances
+ * represent either a built-in function or a built-in method bound to a
+ * particular object which may be the result of binding a
+ * {@link PyMethodDescr}.
+ * <p>
+ * Private sub-classes of {@code PyJavaMethod} express several
+ * implementations tuned to the signature of the method and override one
+ * or more {@code call()} methods from {@link FastCall} to optimise the
+ * flow of arguments. Instances are obtained by calling
+ * {@link PyJavaMethod#fromParser(PyType, ArgParser, List) fromParser}
+ * or {@link PyJavaMethod#from(PyMethodDescr, Object)}.
  */
 public abstract class PyJavaMethod
         implements CraftedPyObject, FastCall {
@@ -32,11 +40,11 @@ public abstract class PyJavaMethod
 
     /**
      * The object to which this is bound as target (or {@code null}).
-     * Conventions (adopted from CPython) around this field are that it
-     * should be {@code null} when representing a static method of a
-     * built-in class, and otherwise contain the bound target
-     * ({@code object} or {@code type}). A function obtained from a
-     * module may be a method bound to an instance of that module.
+     * This field should be {@code null} in an instance that represents
+     * a static method of a built-in class, and should otherwise contain
+     * the bound target ({@code object} or {@code type}). A function
+     * obtained from a module may be a method bound to an instance of
+     * that module.
      */
     @Member("__self__")
     final Object self;
@@ -44,8 +52,8 @@ public abstract class PyJavaMethod
     /**
      * A Java {@code MethodHandle} that implements the function or bound
      * method. The type of this handle varies according to the sub-class
-     * of {@code PyJavaMethod}, but it is definitely "prepared" to
-     * accept {@code Object.class} instances or arrays, not the actual
+     * of {@code PyJavaMethod}, but it has been "prepared" so it accepts
+     * {@code Object.class} instances or arrays, not the actual
      * parameter types of the method definition in Java.
      */
     final MethodHandle handle;
@@ -175,12 +183,8 @@ public abstract class PyJavaMethod
                 return new O3(ap, handle, self, null);
             case POSITIONAL:
                 return new Positional(ap, handle, self, null);
-            case GENERAL:
-                return new General(ap, handle, self, null);
             default:
-                throw new InterpreterError(
-                        "Optimisation not supported: %s",
-                        descr.signature);
+                return new General(ap, handle, self, null);
         }
     }
 
@@ -194,6 +198,18 @@ public abstract class PyJavaMethod
                     __name__(), PyObjectUtil.toAt(self));
     }
 
+    /**
+     * Invoke the Java method this method descriptor points to, using
+     * the standard {@code __call__} arguments supplied, default
+     * arguments and other information described in the associated
+     * {@link #argParser} for the method.
+     *
+     * @param args all arguments as supplied in the call
+     * @param names of keyword arguments
+     * @return result of calling the method represented
+     * @throws TypeError if the pattern of arguments is unacceptable
+     * @throws Throwable from the implementation of the special method
+     */
     Object __call__(Object[] args, String[] names)
             throws TypeError, Throwable {
         try {
@@ -202,15 +218,14 @@ public abstract class PyJavaMethod
             } else {
                 int n = args.length;
                 switch (n) {
-                    // case 0 (an error) handled by default clause
+                    case 0:
+                        return call();
                     case 1:
                         return call(args[0]);
                     case 2:
                         return call(args[0], args[1]);
                     case 3:
                         return call(args[0], args[1], args[2]);
-                    case 4:
-                        return call(args[0], args[1], args[2], args[3]);
                     default:
                         return call(args);
                 }
@@ -275,15 +290,17 @@ public abstract class PyJavaMethod
     /**
      * The implementation may have any signature allowed by
      * {@link ArgParser}.
+     * {@link #fromParser(ArgParser, MethodHandle, Object, String)
+     * fromParser()} will choose a {@code General} representation of the
+     * function or method when no optimisations apply.
      */
     private static class General extends PyJavaMethod {
-
         /**
          * Construct a method object, identifying the implementation by
          * a parser and a method handle.
          *
          * @param argParser describing the signature of the method
-         * @param handle a prepared prepared to the method defined
+         * @param handle a prepared handle to the method
          * @param self object to which bound (or {@code null} if a
          *     static method)
          * @param module name of the module supplying the definition (or
@@ -399,6 +416,11 @@ public abstract class PyJavaMethod
             // n < min || n > max
             throw new ArgumentError(min, max);
         }
+
+        @Override
+        public Object call() throws Throwable {
+            return handle.invokeExact();
+        }
     }
 
     /**
@@ -437,6 +459,17 @@ public abstract class PyJavaMethod
             }
             // n < min || n > max
             throw new ArgumentError(min, max);
+        }
+
+        @Override
+        public Object call() throws Throwable {
+            if (min == 0) { return handle.invokeExact(d[0]); }
+            throw new ArgumentError(min, max);
+        }
+
+        @Override
+        public Object call(Object a0) throws Throwable {
+            return handle.invokeExact(a0);
         }
     }
 
@@ -529,7 +562,7 @@ public abstract class PyJavaMethod
         @Override
         public Object call(Object[] a)
                 throws ArgumentError, TypeError, Throwable {
-            // The method handle type is (O,O)O.
+            // The method handle type is (O,O,O)O.
             int n = a.length, k;
             if (n == 3) {
                 // Number of arguments matches number of parameters

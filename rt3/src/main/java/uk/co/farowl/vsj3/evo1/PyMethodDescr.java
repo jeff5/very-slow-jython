@@ -367,9 +367,10 @@ abstract class PyMethodDescr extends MethodDescriptor {
      *
      * @param args all arguments beginning with {@code self}
      * @param names of keyword arguments
-     * @return result of calling the wrapped method
-     * @throws TypeError if {@code args[0]} is of the wrong type
-     * @throws Throwable from the implementation of the special method
+     * @return result of calling the method represented
+     * @throws TypeError if {@code args[0]} is of the wrong type or the
+     *     pattern of arguments is unacceptable (number, keyword use).
+     * @throws Throwable from the implementation of the method
      */
     Object __call__(Object[] args, String[] names)
             throws TypeError, Throwable {
