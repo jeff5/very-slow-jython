@@ -100,10 +100,8 @@ public abstract class PyJavaFunction
      *
      * @param ap argument parser (provides name etc.)
      * @param method raw handle to the method defined
-     * @param self object to which bound (or {@code null} if a static
-     *     method)
-     * @param module name of the module supplying the definition (or
-     *     {@code null} if representing a bound method of a type)
+     * @param self object to which bound (the module)
+     * @param module name of the module supplying the definition
      * @return A bound or unbound method supporting the signature
      */
     // Compare CPython PyCFunction_NewEx in methodobject.c

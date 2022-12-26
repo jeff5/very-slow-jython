@@ -244,7 +244,7 @@ which we now present.
     abstract class JavaModule {
     }
     PyModule <|-- JavaModule
-    JavaModule *-right-> ModuleDef : DEF
+    JavaModule -right-> ModuleDef : definition
 
     class ModuleDef {
         name : String
@@ -307,9 +307,125 @@ except for the ``ArgParser`` that contains all we need to call it
 and create explicit error messages.
 
 
+An Attempt at ``builtins``
+**************************
 
-A ``builtins`` Module
-*********************
+Let's try to define a ``builtins`` module
+containing just a few familiar objects.
+
+..  code-block:: java
+
+    package uk.co.farowl.vsj3.evo1;
+    // ...
+    class BuiltinsModule extends JavaModule {
+
+        private static final ModuleDef DEFINITION =
+                new ModuleDef("builtins", MethodHandles.lookup());
+
+        BuiltinsModule() {
+            super(DEFINITION);
+            add("None", Py.None);
+            add("int", PyLong.TYPE);
+        }
+    // ... methods
+    }
+
+We have implemented two different annotations on methods
+``PythonMethod`` and ``PythonStaticMethod``
+for use in slightly different circumstances.
 
 
+Using ``PythonStaticMethod``
+============================
 
+The function ``abs`` is very simple.
+It just calls the abstract API method that invokes the slot on the argument.
+We declare ``abs`` to be ``static``
+and use the matching annotation ``PythonStaticMethod`` to expose it.
+
+..  code-block:: java
+
+    class BuiltinsModule extends JavaModule {
+
+        // ... as previously
+
+        @PythonStaticMethod
+        @DocString("Return the absolute value of the argument.")
+        static Object abs(Object x) throws Throwable {
+            return PyNumber.absolute(x);
+        }
+    }
+
+The exposer creates a direct ``MethodHandle`` on the ``abs`` method,
+which has type ``(Object)Object``,
+and stores it in the ``MethodDef``.
+
+The ``JavaModule`` constructor (per instance) writes it into
+the ``handle`` field of the ``PyJavaFunction`` representing ``abs``.
+It sets the ``self`` field, exposed as ``__self__``,
+to the module instance as expected by Python,
+but we do not need it when we call ``abs`` through the handle.
+This is the simple way to create a module-level function.
+
+The CPython equivalent of this is very similar:
+
+..  code-block:: c
+
+    static PyObject *
+    builtin_abs(PyObject *module, PyObject *x)
+    {
+        return PyNumber_Absolute(x);
+    }
+
+The significant difference is the presence of the ``module`` parameter,
+which will be satisfied by the stored ``self``
+(the module instance)
+in the call the CPython ``PyCFunction`` makes.
+It isn't used.
+
+
+Using ``PythonMethod``
+======================
+
+We could emulate CPython more closely.
+We could declare ``abs`` to be an *instance* method of the module,
+and use the annotation ``PythonMethod``, like this:
+
+..  code-block:: java
+
+        @PythonMethod
+        @DocString("Return the absolute value of the argument.")
+        Object abs(Object x) throws Throwable {
+            return PyNumber.absolute(x);
+        }
+
+An instance method has access to the module state implicitly of course
+(or explicitly as ``this``),
+should we need it in our code.
+
+For a function defined by an instance method,
+``handle`` is slightly more complicated than in the static case.
+The exposer creates a direct ``MethodHandle`` as before in the ``MethodDef``,
+but this time of type ``(BuiltinsModule,Object)Object``.
+
+The ``JavaModule`` constructor (per instance)
+binds the handle to the instance it is creating (``this``),
+to produce a handle of type ``(Object)Object`` as previously.
+It writes the *bound* handle in the ``handle`` field
+of the ``PyJavaFunction`` representing ``abs``.
+Again, the ``self`` field (``__self__``)
+will be the module instance ``this`` as expected by Python.
+
+We favour the simplicity of the static approach
+in any function where the module state is not needed.
+There are few examples of CPython modules with state in the standard library.
+The dialect registry of the ``csv`` module provides a case:
+methods ``reader``, ``writer`` and methods acting on the registry
+(provided from compiled module ``_csv``)
+will need the ``PythonMethod`` annotation when we get to them.
+
+Incidentally, we could have declared ``abs`` static
+with an explicit ``module`` argument and the ``PythonMethod`` annotation,
+which we sometimes do for adopted implementations
+in the defining class of a *type*
+but there's no reason to do that in a module.

@@ -865,9 +865,6 @@ we have not tested it with multiple threads and interpreters.
 
 ..  uml::
 
-    class Runtime << singleton >> {
-    }
-
     class Interpreter {
         sysdict
         builtins
@@ -875,12 +872,12 @@ we have not tested it with multiple threads and interpreters.
     }
 
     class PyModule {
-        md_dict : Mapping
+        dict : Mapping
     }
 
     'Runtime --> "1.." Interpreter
 
-    Interpreter -right-> "*" PyModule : modules
+    Interpreter "1" -right- "*" PyModule
 
     Thread -> "0..1" ThreadState : current
 
@@ -892,8 +889,6 @@ we have not tested it with multiple threads and interpreters.
     class PyFrame {
         locals : Mapping
     }
-
-    'PyModule --> Interpreter : interpreter
 
     class PyFunction {
         globals : PyDict

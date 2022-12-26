@@ -2,6 +2,9 @@ package uk.co.farowl.vsj3.evo1;
 
 import java.lang.invoke.MethodHandles;
 
+import uk.co.farowl.vsj3.evo1.Exposed.DocString;
+import uk.co.farowl.vsj3.evo1.Exposed.PythonStaticMethod;
+
 /**
  * The {@code builtins} module.
  *
@@ -9,13 +12,13 @@ import java.lang.invoke.MethodHandles;
  * the {@code core} package because it needs privileged access to the
  * core implementation that extension modules do not.
  */
-class BuiltinsModule extends JavaModule implements Exposed {
+class BuiltinsModule extends JavaModule {
 
-    private static final ModuleDef DEF =
+    private static final ModuleDef DEFINITION =
             new ModuleDef("builtins", MethodHandles.lookup());
 
     BuiltinsModule() {
-        super(DEF);
+        super(DEFINITION);
 
         // This list is taken from CPython bltinmodule.c
         add("None", Py.None);
