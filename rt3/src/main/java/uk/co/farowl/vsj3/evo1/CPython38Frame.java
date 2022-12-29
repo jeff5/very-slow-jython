@@ -150,7 +150,10 @@ class CPython38Frame
             assert cell2arg.length == code.cellvars.length;
             for (int i = 0; i < cell2arg.length; i++) {
                 int j = cell2arg[i];
-                if (j >= 0) { freevars[i].set(fastlocals[j]); }
+                if (j >= 0) {
+                    freevars[i].set(fastlocals[j]);
+                    fastlocals[j] = null;
+                }
             }
         }
     }
@@ -158,9 +161,13 @@ class CPython38Frame
     @Override
     Object eval() {
 
+        // Push this frame onto the stack of the thread state.
+        ThreadState tstate = ThreadState.get();
+        tstate.push(this);
+
         // Evaluation stack and index
         final Object[] s = valuestack;
-        int sp = this.stacktop;
+        int sp = stacktop;
 
         // Cached references from code
         final String[] names = code.names;
@@ -169,6 +176,7 @@ class CPython38Frame
         final int END = wordcode.length;
 
         final PyDict globals = func.globals;
+        assert globals != null;
 
         // Wrap locals (any type) as a minimal kind of Java map
         Map<Object, Object> locals = localsMapOrNull();
@@ -205,6 +213,14 @@ class CPython38Frame
              * jump arguments, are always even.
              */
             opword = wordcode[ip];
+
+            /*
+             * Here every so often, or maybe inside the try, and
+             * conditional on the opcode, CPython would have us check
+             * for asynchronous events that need handling. Some are not
+             * relevant to this implementation (GIL drop request). Some
+             * probably are.
+             */
 
             // Comparison with CPython macros in c.eval:
             // TOP() : s[sp-1]
@@ -702,6 +718,91 @@ class CPython38Frame
 
         // ThreadState.get().swap(back);
         return returnValue;
+    }
+
+    @Override
+    // Compare CPython PyFrame_FastToLocalsWithError in frameobject.c
+    // Also PyFrame_FastToLocals in frameobject.c
+    void fastToLocals() {
+        // If the circumstances, locals will be a PyDict. Make sure.
+        PyDict locals;
+        if (this.locals == null) {
+            this.locals = locals = Py.dict();
+        } else if (this.locals instanceof PyDict) {
+            locals = (PyDict)this.locals;
+        } else {
+            throw new SystemError("non-dict frame locals.");
+        }
+
+        // Copy fastlocals into the dict using keys in code.varnames
+        fastToDict(locals);
+
+        // Copy the contents of cell variables (defined here).
+        String[] cellvars = code.cellvars;
+        if (cellvars.length > 0) { cellsToDict(cellvars, locals); }
+
+        // Copy the contents of free cell variables (defined elsewhere).
+        String[] freevars = code.freevars;
+        if (freevars.length > 0) {
+            /*
+             * We check the frame is OPTIMIZED, since if it is not, it
+             * is a class namespace. We don't want to accidentally copy
+             * free variables into the locals dict used by the class.
+             */
+            if (code.traits.contains(Trait.OPTIMIZED)) {
+                cellsToDict(freevars, locals);
+            }
+        }
+    }
+
+    /**
+     * Copy the {@link #fastlocals} to the dictionary. The potential
+     * number of variables is given by the length of
+     * {@code code.varnames}, although all do not necessarily have
+     * values.
+     *
+     * @param dict destination
+     */
+    private void fastToDict(PyDict dict) {
+        Object[] values = fastlocals;
+        int j = 0;
+        for (String key : code.varnames) {
+            Object value = values[j++];
+            if (value == null) {
+                dict.remove(key);
+            } else {
+                dict.put(key, value);
+            }
+        }
+    }
+
+    /**
+     * Copy names and cell contents to the dictionary. The potential
+     * number of copies is given by the number of names. Cells are
+     * always allocated, although all do not necessarily hold values.
+     *
+     * @param names {@code code.cellvars} or {@code code.freevars}
+     * @param dict destination
+     */
+    private void cellsToDict(String[] names, PyDict dict) {
+        // We'll be copying the values in these cells to the dictionary
+        PyCell[] values = freevars;
+        /*
+         * If the names given are the cellvars, we'll start at zero.
+         * Otherwise the names are the freevars and we start after the
+         * cellvars.
+         */
+        int j = names == code.cellvars ? 0 : code.cellvars.length;
+        assert names == code.freevars;
+        for (String key : names) {
+            assert values[j] != null; // no missing cells
+            Object value = values[j++].get();
+            if (value == null) {
+                dict.remove(key);
+            } else {
+                dict.put(key, value);
+            }
+        }
     }
 
     // Supporting definitions and methods -----------------------------

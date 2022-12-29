@@ -17,6 +17,19 @@ public class PyMapping extends PySequence {
     protected PyMapping() {}    // only static methods here
 
     /**
+     * Check that an object o is a Python mapping, defined as supporting
+     * {@code __getitem__}.
+     *
+     * @param o to test
+     * @return whether defines {@code __getitem__}
+     */
+    // Compare CPython PyMapping_Check in abstract.c
+    static boolean check(Object o) {
+        Operations ops = Operations.of(o);
+        return Slot.op_getitem.isDefinedFor(ops);
+    }
+
+    /**
      * Return the mapping object {@code o} as a Java {@code Map}. If
      * {@code o} is one of several built-in types that implement Java
      * {@code Map<Object, Object>}, this will be the object itself.

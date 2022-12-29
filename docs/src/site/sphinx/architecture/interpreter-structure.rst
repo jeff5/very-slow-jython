@@ -881,7 +881,7 @@ we have not tested it with multiple threads and interpreters.
 
     Thread -> "0..1" ThreadState : current
 
-    ThreadState *--> "0..1" PyFrame : frame
+    ThreadState --- PyFrame : frame
 
     PyFrame -right-> PyFrame : back
     PyFrame --> PyFunction : func

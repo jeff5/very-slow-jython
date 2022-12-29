@@ -149,9 +149,8 @@ class CPython38CodeTest extends UnitTestSupport {
         CPython38Code code = readCode(name);
         PyDict globals = new PyDict();
         Interpreter interp = new Interpreter();
-        PyFunction<?> fn = code.createFunction(interp, globals);
-        PyFrame<?, ?> f = fn.createFrame(globals);
-        f.eval();
+        Object r = interp.eval(code, globals);
+        assertEquals(Py.None, r);
         assertExpectedVariables(readResultDict(name), globals);
     }
 
@@ -163,9 +162,8 @@ class CPython38CodeTest extends UnitTestSupport {
         CPython38Code code = readCode(name);
         PyDict globals = new PyDict();
         Interpreter interp = new Interpreter();
-        PyFunction<?> fn = code.createFunction(interp, globals);
-        PyFrame<?, ?> f = fn.createFrame(globals);
-        f.eval();
+        Object r = interp.eval(code, globals);
+        assertEquals(Py.None, r);
         assertExpectedVariables(readResultDict(name), globals);
     }
 
@@ -178,11 +176,10 @@ class CPython38CodeTest extends UnitTestSupport {
         CPython38Code code = readCode(name);
         PyDict globals = new PyDict();
         Interpreter interp = new Interpreter();
-        PyFunction<?> fn = code.createFunction(interp, globals);
         // locals is a custom type with __setitem__ and __getitem__
         CustomMap locals = new CustomMap();
-        PyFrame<?, ?> f = fn.createFrame(locals);
-        f.eval();
+        Object r = interp.eval(code, globals, locals);
+        assertEquals(Py.None, r);
         // Merge results in locals to globals for test
         for (Entry<Object, Object> e : locals) {
             globals.put(e.getKey(), e.getValue());
@@ -396,7 +393,6 @@ class CPython38CodeTest extends UnitTestSupport {
             return map.get(toKey(key));
         }
 
-        @SuppressWarnings("unused")
         private void __setitem__(Object key, Object value) {
             map.put(toKey(key), value);
         }

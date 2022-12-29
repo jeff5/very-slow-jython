@@ -128,6 +128,17 @@ public class PyDict extends AbstractMap<Object, Object>
     }
 
     /**
+     * Override {@code Map.remove} to give keys Python semantics.
+     *
+     * @param key for which the entry is to be removed
+     * @return previous value associated
+     */
+    @Override
+    public Object remove(Object key) {
+        return map.remove(toKey(key));
+    }
+
+    /**
      * Override {@code Map.putIfAbsent} to give keys Python semantics.
      *
      * @param key with which the specified value is to be associated

@@ -19,12 +19,15 @@ public abstract class PyFunction<C extends PyCode>
             new PyType.Spec("function", MethodHandles.lookup())
                     .flagNot(Flag.BASETYPE));
 
-    /** The interpreter that defines the import context. */
+    /**
+     * The interpreter that defines the import context. Not
+     * {@code null}.
+     */
     final Interpreter interpreter;
 
     /**
      * Get the interpreter that defines the import context, which was
-     * current when this function was defined.
+     * current when this function was defined. Not {@code null}.
      *
      * @return interpreter that defines the import context
      */
@@ -33,13 +36,13 @@ public abstract class PyFunction<C extends PyCode>
     /**
      * The {@code __code__} attribute: a code object, which is writable,
      * but only with the right implementation type for the concrete
-     * class of the function.
+     * class of the function. Not {@code null}.
      */
     protected C code;
 
     /**
      * The read-only {@code __globals__} attribute is a {@code dict}:
-     * other mappings won't do.
+     * other mappings won't do. Not {@code null}.
      */
     @Exposed.Member(value = "__globals__", readonly = true)
     final PyDict globals;
@@ -66,7 +69,10 @@ public abstract class PyFunction<C extends PyCode>
     @Exposed.FrozenArray
     protected PyCell[] closure;
 
-    /** The {@code __doc__} attribute, can be set to anything. */
+    /**
+     * The {@code __doc__} attribute, can be set to anything or
+     * {@code null}.
+     */
     // (but only a str prints in help)
     @Exposed.Member("__doc__")
     Object doc;
@@ -112,9 +118,10 @@ public abstract class PyFunction<C extends PyCode>
      *     {@code kwdefaults}, {@code annotations} and {@code closure}
      *     rather than added after construction.
      *
-     * @param interpreter providing the module context
-     * @param code to execute
-     * @param globals name space to treat as global variables
+     * @param interpreter providing the module context not {@code null}
+     * @param code to execute not {@code null}
+     * @param globals name space to treat as global variables not
+     *     {@code null}
      * @param defaults default positional argument values or
      *     {@code null}
      * @param kwdefaults default keyword argument values or {@code null}
@@ -131,6 +138,7 @@ public abstract class PyFunction<C extends PyCode>
 
         // We differ from CPython in requiring this reference
         this.interpreter = interpreter;
+        assert interpreter != null;
 
         this.globals = globals;
         this.name = code.name;

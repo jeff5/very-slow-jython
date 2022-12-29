@@ -42,19 +42,39 @@ class Interpreter {
     }
 
     /**
-     * Execute the code object and return the result.
+     * Execute the code object and return the result. This is quite like
+     * {@link BuiltinsModule#exec(Object, Object, Object, Object)
+     * builtins.exec()}, except that it works without a surrounding
+     * {@link PyFrame}, from which it could infer {@code globals} and
+     * {@code locals}. It will create a frame, but it may be on an empty
+     * stack.
      *
      * @param code compiled code object
      * @param globals global context dictionary
-     * @param locals local variables (may be same as {@code globals})
+     * @param locals local variables (a Python mapping), may be the same
+     *     as {@code globals} or {@code null}
      * @return result of evaluation
      */
     // Compare CPython PyEval_EvalCode in ceval.c
-    Object evalCode(PyCode code, PyDict globals, Object locals) {
+    Object eval(PyCode code, PyDict globals, Object locals) {
+        if (locals == null) { locals = globals; }
         globals.putIfAbsent("__builtins__", builtinsModule);
         PyFunction<?> func = code.createFunction(this, globals);
         PyFrame<?, ?> f = func.createFrame(locals);
         return f.eval();
+    }
+
+    /**
+     * Execute the code object and return the result. This is the
+     * equivalent of {@link #eval(PyCode, PyDict, Object) eval(code,
+     * globals, globals)}
+     *
+     * @param code compiled code object
+     * @param globals global context dictionary
+     * @return result of evaluation
+     */
+    Object eval(PyCode code, PyDict globals) {
+        return eval(code, globals, globals);
     }
 
     /**
@@ -77,17 +97,6 @@ class Interpreter {
      */
     Object getBuiltin(String name) {
         return builtinsModule.dict.get(name);
-    }
-
-    /**
-     * Get the current frame or null in there is none. The current frame
-     * is the one at the top of the stack in the current ThreadState.
-     *
-     * @return the current frame or null
-     */
-    static PyFrame<?, ?> getFrame() {
-        // return ThreadState.get().frame;
-        return null;
     }
 
     /**

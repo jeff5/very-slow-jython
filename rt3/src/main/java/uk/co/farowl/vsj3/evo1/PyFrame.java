@@ -118,8 +118,12 @@ public abstract class PyFrame<C extends PyCode, F extends PyFunction<C>> {
 
     /**
      * The built-in objects, exposed as read-only {@code f_builtins}.
-     * This is the built-ins supplied by {@link #func}. It will be
-     * accessed using the Python mapping protocol.
+     * This is the built-ins supplied by {@link #func}, often the
+     * {@code dict} of the {@code builtins} module of the
+     * {@link Interpreter} that created it, or another {@code dict}, but
+     * may be any object. It will be accessed using the Python mapping
+     * protocol when interpreting byte code, at which point an error may
+     * be raised. Not {@code null}.
      *
      * @return the built-in objects.
      */
@@ -129,8 +133,8 @@ public abstract class PyFrame<C extends PyCode, F extends PyFunction<C>> {
     /**
      * Get the global context (name space) against which this frame is
      * executing, exposed as read-only (but mutable) attribute
-     * {@code f_global}. This is the name space supplied by
-     * {@link #func}.
+     * {@code f_globals}. This is the name space supplied by
+     * {@link #func}. Not {@code null}.
      *
      * @return the global name space.
      */
@@ -145,20 +149,35 @@ public abstract class PyFrame<C extends PyCode, F extends PyFunction<C>> {
     Object locals;
 
     /**
+     * Get the local variables (name space) against which this frame is
+     * executing, exposed as read-only (but mutable) attribute
+     * {@code f_locals}. Not {@code null}.
+     *
+     * @return the local name space.
+     */
+    @Exposed.Getter("f_locals")
+    Object getLocals() {
+        fastToLocals();
+        return locals;
+    }
+
+    /**
      * Foundation constructor on which subclass constructors rely. This
      * provides a "loose" frame that is not yet part of any stack until
-     * explicitly pushed (with {@link #push()}. In particular, the
-     * {@link #back} pointer is {@code null} in the newly-created frame.
+     * explicitly pushed (with {@link ThreadState#push()}. In
+     * particular, the {@link #back} pointer is {@code null} in the
+     * newly-created frame.
      * <p>
      * A frame always belongs to an {@link Interpreter} via its
      * function, but it does not necessarily belong to a particular
      * {@code ThreadState}.
+     *
+     * @param func defining the code and globals
      */
-    protected PyFrame(F func) throws TypeError {
+    protected PyFrame(F func) {
         this.func = func;
         this.code = func.code;
     }
-
 
     // slot methods --------------------------------------------------
 
@@ -182,13 +201,6 @@ public abstract class PyFrame<C extends PyCode, F extends PyFunction<C>> {
                 Py.id(this), q, file, q, lineno, code.name);
     }
 
-    /** Push the frame to the stack of the current thread. */
-    void push() {
-        // Push this frame to stack
-        // ThreadState tstate = ThreadState.get();
-        // back = tstate.swap(this);
-    }
-
     /** Provide {@link #locals} as a Java Map. */
     protected Map<Object, Object> localsMapOrNull() {
         if (locals == null) {
@@ -199,9 +211,22 @@ public abstract class PyFrame<C extends PyCode, F extends PyFunction<C>> {
     }
 
     /**
-     * Execute the code in this frame.
+     * Execute the code in this frame, pushing it to the stack of the
+     * current {@link ThreadState}.
      *
      * @return return value of the frame
      */
+    // Compare CPython PyEval_EvalFrameEx in ceval.c
     abstract Object eval();
+
+    /**
+     * Convert (or update) a dictionary representation of the local
+     * variables (including cell variables) held in
+     * {@link PyFrame#locals}. Each type of {@code frame} is free to use
+     * its own internal representation of its local variables, but each
+     * must provide this conversion.
+     */
+    // Compare CPython PyFrame_FastToLocalsWithError in frameobject.c
+    // Also PyFrame_FastToLocals in frameobject.c
+    abstract void fastToLocals();
 }

@@ -960,7 +960,7 @@ public class Abstract {
      * [name] argument must be T, not X", involving a function name, an
      * argument name, an expected type description T and the type X of
      * {@code o}, e.g. "split() separator argument must be str or None,
-     * 'tuple'".
+     * not 'tuple'".
      *
      * @param f name of function or operation
      * @param name of argument
