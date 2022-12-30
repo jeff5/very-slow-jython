@@ -6,7 +6,9 @@
 
 rootProject.name = 'very-slow-jython'
 
-include 'docs'      // narrative of the project
+// Disabling docs for now as the plug-in doesn't build diagrams.
+//include 'docs'      // narrative of the project
+
 include 'rt1'       // model runtime phase 1 (using AST)
 include 'rt2'       // model runtime phase 2 (using method handles)
 include 'rt2bm'     // benchmarks for runtime phase 2
