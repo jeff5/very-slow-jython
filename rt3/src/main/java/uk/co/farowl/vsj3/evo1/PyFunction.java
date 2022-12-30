@@ -64,7 +64,7 @@ public abstract class PyFunction<C extends PyCode>
 
     /**
      * The read-only {@code __closure__} attribute, or {@code null}. See
-     * {@link #__closure__()} access method
+     * {@link #setClosure(Collection) __closure__} access method
      */
     @Exposed.FrozenArray
     protected PyCell[] closure;
@@ -239,20 +239,25 @@ public abstract class PyFunction<C extends PyCode>
     @Exposed.Getter("__qualname__")
     String getQualname() { return qualname; }
 
+    /**
+     * Set the the positional {@code __qualname__} string.
+     *
+     * @param qualname to set
+     */
     @Exposed.Setter("__qualname__")
     void setQualname(Object qualname) {
         this.qualname = PyUnicode.asString(qualname,
                 v -> Abstract.attrMustBeString("__qualname__", v));
     }
 
-    /**
-     * @return the positional {@code __defaults__ tuple}.
-     */
+    /** @return the positional {@code __defaults__ tuple}. */
     @Exposed.Getter("__defaults__")
     Object getDefaults() { return tupleOrNone(defaults); }
 
     /**
      * Set the the positional {@code __defaults__ tuple}.
+     *
+     * @param defaults to set
      */
     @Exposed.Setter("__defaults__")
     abstract void setDefaults(PyTuple defaults);
@@ -410,17 +415,27 @@ public abstract class PyFunction<C extends PyCode>
     private static String FREE_VARS =
             "%s() requires a code object with %d free vars, not %d";
 
-    /** @return Python {@code None} if Java {@code null}. */
+    /**
+     * Return the argument if it is not {@code null}, or {@code None} if
+     * it is.
+     *
+     * @param o object to return is not {@code null}
+     * @return {@code o} or {@code None} if {@code o} was {@code null}.
+     */
     protected static Object nullIsNone(Object o) {
         return o == null ? Py.None : o;
     }
 
     /**
-     * @return tuple from argument array or {@code None} if Java
-     *     {@code null}.
+     * Present an array as a tuple, or if the expression variable is
+     * {@code null}, as a Python {@code None}.
+     *
+     * @param <E> element type of the array
+     * @param a array providing elements or {@code null}
+     * @return tuple from argument array or {@code None} if the array
+     *     was Java {@code null}.
      */
     protected static <E> Object tupleOrNone(E[] a) {
         return a == null ? Py.None : PyTuple.from(a);
     }
-
 }

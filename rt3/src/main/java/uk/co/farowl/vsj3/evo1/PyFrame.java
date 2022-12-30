@@ -163,7 +163,7 @@ public abstract class PyFrame<C extends PyCode> {
     /**
      * Foundation constructor on which subclass constructors rely. This
      * provides a "loose" frame that is not yet part of any stack until
-     * explicitly pushed (with {@link ThreadState#push()}. In
+     * explicitly pushed (with {@link ThreadState#push(PyFrame)}). In
      * particular, the {@link #back} pointer is {@code null} in the
      * newly-created frame.
      * <p>
@@ -200,7 +200,14 @@ public abstract class PyFrame<C extends PyCode> {
                 Py.id(this), q, file, q, lineno, code.name);
     }
 
-    /** Provide {@link #locals} as a Java Map. */
+    /**
+     * Provide {@link #locals} as a Java Map. This does not re-compute
+     * {@code locals} as a dictionary in the way of
+     * {@link #fastToLocals()}, but only dresses an existing value as a
+     * Java {@code Map} (if it is not {@code null}).
+     *
+     * @return as a Java {@code Map}
+     */
     protected Map<Object, Object> localsMapOrNull() {
         if (locals == null) {
             return null;

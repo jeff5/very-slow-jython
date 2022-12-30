@@ -102,7 +102,7 @@ public class PyObjectUtil {
      * @param v to return if not {@code null}
      * @param exc supplier of exception to throw
      * @return {@code v}
-     * @throws {@code E} if {@code v} is {@code null}
+     * @throws E if {@code v} is {@code null}
      */
     static <T, E extends PyException> T errorIfNull(T v,
             Supplier<E> exc) throws E {

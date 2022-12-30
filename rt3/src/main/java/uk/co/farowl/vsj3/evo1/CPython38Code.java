@@ -165,7 +165,6 @@ public class CPython38Code extends PyCode {
      *
      * @param interpreter providing the module context
      * @param globals name space to treat as global variables
-     * @param qualname qualified name of function
      * @return the function
      */
     // Compare CPython PyFunction_NewWithQualName in funcobject.c

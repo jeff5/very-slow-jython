@@ -236,6 +236,7 @@ class ArgParser {
      *     pass
      * </pre>The constructor arguments should specify this layout:
      * <table class="lined">
+     * <caption>A Python {@code frame}</caption>
      * <tr>
      * <td class="row-label">names</td>
      * <td>a</td>

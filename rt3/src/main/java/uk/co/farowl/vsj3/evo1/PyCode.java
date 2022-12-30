@@ -141,6 +141,7 @@ public abstract class PyCode implements CraftedPyObject {
      * @param cellvars value of {@link #cellvars} must be {@code str}
      * @param filename value of {@link #filename} must be {@code str}
      * @param name value of {@link #name}
+     * @param qualname value of {@link #qualname}
      * @param firstlineno value of {@link #firstlineno}
      */
     public PyCode( //

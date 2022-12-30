@@ -203,8 +203,9 @@ public class PyTuple extends AbstractList<Object>
      * entirely suitable for enforcing a specified Python type where the
      * desired type has multiple implementations.
      *
-     * @param <T> the Java type element the tuple has to contain
+     * @param <T> the Java type of element the tuple has to contain
      * @param <E> type of exception to throw
+     * @param klass a class object for the element Java type
      * @param exc to supply the exception based on the offending element
      * @return {@code T[]} array of tuple elements
      * @throws E if an element is not of Java type {@code T}
@@ -235,7 +236,8 @@ public class PyTuple extends AbstractList<Object>
      * throw an {@link InterpreterError} if we encounter an element that
      * is not of the required Java type (or a sub-type).
      *
-     * @param <T> the Java type element the tuple has to contain
+     * @param <T> the Java type of element the tuple has to contain
+     * @param klass a class object for the element Java type
      * @return {@code T[]} array of tuple elements
      * @throws InterpreterError if an element is not of Java type
      *     {@code T}

@@ -21,8 +21,8 @@ import uk.co.farowl.vsj3.evo1.base.MethodKind;
  * implementations tuned to the signature of the method and override one
  * or more {@code call()} methods from {@link FastCall} to optimise the
  * flow of arguments. Instances are obtained by calling
- * {@link PyJavaFunction#fromParser(PyType, ArgParser, List) fromParser}
- * or {@link PyJavaFunction#from(PyMethodDescr, Object)}.
+ * {@link PyJavaFunction#fromParser(ArgParser, MethodHandle, Object, String)
+ * fromParser} or {@link PyJavaFunction#from(PyMethodDescr, Object)}.
  */
 public abstract class PyJavaFunction
         implements CraftedPyObject, FastCall {

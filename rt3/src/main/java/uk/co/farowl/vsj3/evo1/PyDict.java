@@ -186,7 +186,7 @@ public class PyDict extends AbstractMap<Object, Object>
     }
 
     /**
-     * Optimised get on this {@code PyDict} and come other {@code Map},
+     * Optimised get on this {@code PyDict} and some other {@code Map},
      * specifically to support the {@code LOAD_GLOBAL} opcode. We avoid
      * the cost of a second key holder if the second mapping is also a
      * {@code PyDict}, which it commonly is.

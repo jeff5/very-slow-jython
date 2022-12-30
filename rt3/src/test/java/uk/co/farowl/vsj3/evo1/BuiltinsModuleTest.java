@@ -109,6 +109,8 @@ class BuiltinsModuleTest extends UnitTestSupport {
         /**
          * A test of {@code builtins.exec} using code objects read from
          * the {@code pythonExample} directory.
+         *
+         * @param name of the module to load
          */
         @DisplayName("exec(file)")
         @ParameterizedTest(name = "{0}.py")
@@ -244,7 +246,7 @@ class BuiltinsModuleTest extends UnitTestSupport {
          * {@link Callables#call(Object)}.
          *
          * @return result of evaluation
-         * @throws Throwable
+         * @throws Throwable since we have no idea what the code is
          */
         abstract Object body() throws Throwable;
 
