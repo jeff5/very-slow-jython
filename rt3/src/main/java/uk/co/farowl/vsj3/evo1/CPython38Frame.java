@@ -12,7 +12,7 @@ import uk.co.farowl.vsj3.evo1.base.InterpreterError;
 
 /** A {@link PyFrame} for executing CPython 3.8 byte code. */
 class CPython38Frame
-        extends PyFrame<CPython38Code, PyFunction<CPython38Code>> {
+        extends PyFrame<CPython38Code> {
 
     /*
      * Translation note: NB: in a CPython frame all local storage

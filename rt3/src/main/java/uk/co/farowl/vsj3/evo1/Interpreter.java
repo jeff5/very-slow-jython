@@ -60,7 +60,7 @@ class Interpreter {
         if (locals == null) { locals = globals; }
         globals.putIfAbsent("__builtins__", builtinsModule);
         PyFunction<?> func = code.createFunction(this, globals);
-        PyFrame<?, ?> f = func.createFrame(locals);
+        PyFrame<?> f = func.createFrame(locals);
         return f.eval();
     }
 
@@ -84,31 +84,7 @@ class Interpreter {
      * @param name of the attribute ({@code String} or {@code str})
      * @return value of the attribute
      */
-    Object getBuiltin(PyUnicode name) {
-        return builtinsModule.dict.get(name);
-    }
-
-    /**
-     * Get the value of an attribute of the built-in module, equivalent
-     * to {@code builtinsModule.dict.get(name)}.
-     *
-     * @param name of the attribute ({@code String} or {@code str})
-     * @return value of the attribute
-     */
     Object getBuiltin(String name) {
         return builtinsModule.dict.get(name);
     }
-
-    /**
-     * Get the current {@code Interpreter} (via the top stack-frame of
-     * the current {@code ThreadState}). There is no current interpreter
-     * if the stack is empty.
-     *
-     * @return current {@code Interpreter} or {@code null}
-     */
-    static Interpreter get() {
-        PyFrame<?, ?> f = null; // ThreadState.get().frame;
-        return f != null ? f.getInterpreter() : null;
-    }
-
 }

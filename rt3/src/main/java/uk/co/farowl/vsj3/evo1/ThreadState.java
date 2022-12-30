@@ -25,7 +25,7 @@ class ThreadState {
     // Intentionally missing: Interpreter interp;
 
     /** The top frame of the call stack. */
-    PyFrame<?, ?> frame = null;
+    PyFrame<? extends PyCode> frame = null;
 
     // Missing: recursion control recursion state and config
     // Missing: tracing/profiling (do we need that?)
@@ -54,7 +54,7 @@ class ThreadState {
      *
      * @param frame new stack top.
      */
-    void push(PyFrame<?, ?> frame) {
+    void push(PyFrame<? extends PyCode> frame) {
         // XXX Increment & check interpreter stack depth?
         assert frame.back == null;
         frame.back = this.frame;
@@ -68,9 +68,9 @@ class ThreadState {
      *
      * @return stack top prior to call.
      */
-    PyFrame<?, ?> pop() {
+    PyFrame<? extends PyCode> pop() {
         // XXX Decrement interpreter stack depth?
-        PyFrame<?, ?> prevFrame = this.frame;
+        PyFrame<? extends PyCode> prevFrame = this.frame;
         this.frame = prevFrame.back;
         prevFrame.back = null;
         return prevFrame;
@@ -102,7 +102,7 @@ class ThreadState {
      */
     // Compare CPython PyEval_GetFrame in ceval.c
     // Compare CPython 3.11 PyThreadState_GetFrame in pystate.c
-    PyFrame<?, ?> getFrame() {
+    PyFrame<? extends PyCode> getFrame() {
         if (frame != null) {
             return frame;
         } else {

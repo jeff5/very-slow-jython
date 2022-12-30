@@ -98,7 +98,6 @@ class BuiltinsModule extends JavaModule {
         ThreadState tstate = ThreadState.get();
         PyDict globalsDict;
         boolean localsGiven = locals != Py.None && locals != null;
-        Object v = null;
 
         /*
          * Establish globalsDict and locals object we shall actually use
@@ -173,8 +172,8 @@ class BuiltinsModule extends JavaModule {
 
             PyFunction<?> func = code.createFunction(interp,
                     globalsDict, null, null, null, free);
-            PyFrame<?, ?> frame = func.createFrame(locals);
-            v = frame.eval();
+            PyFrame<?> frame = func.createFrame(locals);
+            frame.eval();
 
         } else {
             /*
@@ -202,7 +201,6 @@ class BuiltinsModule extends JavaModule {
             // else
             // v = PyRun_String(str, Py_file_input, globals, locals);
         }
-        assert v != null;
     }
 
     /**

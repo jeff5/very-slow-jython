@@ -289,9 +289,9 @@ public abstract class PyCode implements CraftedPyObject {
      *     size expected by code or {@code null} if empty.
      * @return the function from this code
      */
-    abstract PyFunction<?> createFunction(Interpreter interpreter,
-            PyDict globals, Object[] defaults, PyDict kwdefaults,
-            Object annotations, PyCell[] closure);
+    abstract PyFunction<? extends PyCode> createFunction(
+            Interpreter interpreter, PyDict globals, Object[] defaults,
+            PyDict kwdefaults, Object annotations, PyCell[] closure);
 
     /**
      * Create a {@code PyFunction} that will execute this {@code PyCode}
@@ -303,7 +303,7 @@ public abstract class PyCode implements CraftedPyObject {
      */
     // Compare CPython PyFunction_New in funcobject.c
     // ... with the interpreter required by architecture
-    PyFunction<?> createFunction(Interpreter interpreter,
+    PyFunction<? extends PyCode> createFunction(Interpreter interpreter,
             PyDict globals) {
         return createFunction(interpreter, globals, Py.EMPTY_ARRAY,
                 Py.dict(), Py.dict(), PyCell.EMPTY_ARRAY);
@@ -413,7 +413,7 @@ public abstract class PyCode implements CraftedPyObject {
             // Ensure the bit we just tested is clear
             flags &= ~m;
         }
-        return EnumSet.copyOf(traits);
+        return traits.isEmpty() ? EnumSet.noneOf(Trait.class)
+                : EnumSet.copyOf(traits);
     }
-
 }

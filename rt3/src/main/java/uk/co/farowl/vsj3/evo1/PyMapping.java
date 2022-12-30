@@ -104,6 +104,15 @@ public class PyMapping extends PySequence {
             }
         }
 
+        @Override
+        public String toString() {
+            StringBuilder builder = new StringBuilder();
+            builder.append("MapWrapper [map=");
+            builder.append(map);
+            builder.append("]");
+            return builder.toString();
+        }
+
         /**
          * An instance of this class is returned by
          * {@link MapWrapper#entrySet()}, and provides the view of the

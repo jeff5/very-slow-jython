@@ -75,9 +75,8 @@ import java.util.Map;
  * choose.
  *
  * @param <C> The type of code that this frame executes
- * @param <F> The type of function supplying code of type C
  */
-public abstract class PyFrame<C extends PyCode, F extends PyFunction<C>> {
+public abstract class PyFrame<C extends PyCode> {
 
     /** The Python type {@code frame}. */
     public static final PyType TYPE = PyType.fromSpec( //
@@ -86,10 +85,10 @@ public abstract class PyFrame<C extends PyCode, F extends PyFunction<C>> {
                     .flagNot(PyType.Flag.BASETYPE));
 
     /** Frames form a stack by chaining through the back pointer. */
-    PyFrame<?, ?> back;
+    PyFrame<? extends PyCode> back;
 
     /** Function of which this is a frame. */
-    final F func;
+    final PyFunction<? extends C> func;
 
     /**
      * Code this frame is to execute, exposed as immutable
@@ -174,7 +173,7 @@ public abstract class PyFrame<C extends PyCode, F extends PyFunction<C>> {
      *
      * @param func defining the code and globals
      */
-    protected PyFrame(F func) {
+    protected PyFrame(PyFunction<? extends C> func) {
         this.func = func;
         this.code = func.code;
     }
@@ -212,7 +211,7 @@ public abstract class PyFrame<C extends PyCode, F extends PyFunction<C>> {
 
     /**
      * Execute the code in this frame, pushing it to the stack of the
-     * current {@link ThreadState}.
+     * current {@link ThreadState} and popping it afterwards.
      *
      * @return return value of the frame
      */

@@ -191,12 +191,14 @@ public abstract class PyFunction<C extends PyCode>
 
     /**
      * Create a {@code PyFrame} that will execute this
-     * {@code PyFunction}.
+     * {@code PyFunction}. This frame should be "loose":
+     * {@link PyFrame#back} should be {@code null} and it should not be
+     * on any thread's stack.
      *
      * @param locals name space to treat as local variables
      * @return the frame
      */
-    abstract PyFrame<C, PyFunction<C>> createFrame(Object locals);
+    abstract PyFrame<? extends C> createFrame(Object locals);
 
     // attribute access ----------------------------------------
 

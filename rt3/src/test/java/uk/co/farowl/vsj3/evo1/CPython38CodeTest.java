@@ -204,7 +204,7 @@ class CPython38CodeTest extends UnitTestSupport {
             builtins.__setitem__(e.getKey(), e.getValue());
         }
         PyFunction<?> fn = code.createFunction(interp, globals);
-        PyFrame<?, ?> f = fn.createFrame(globals);
+        PyFrame<?> f = fn.createFrame(globals);
         f.eval();
         assertExpectedVariables(readResultDict(name), globals);
     }
@@ -328,7 +328,7 @@ class CPython38CodeTest extends UnitTestSupport {
      * @param ref dictionary of reference results
      * @param test dictionary of results to test
      */
-    private static void assertExpectedVariables(Map<Object, Object> ref,
+    static void assertExpectedVariables(Map<Object, Object> ref,
             Map<Object, Object> test) {
         for (Map.Entry<Object, Object> e : ref.entrySet()) {
             Object k = e.getKey();
