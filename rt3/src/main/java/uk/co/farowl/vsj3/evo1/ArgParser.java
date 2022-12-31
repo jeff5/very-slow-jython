@@ -220,7 +220,6 @@ class ArgParser {
      * @param varargs whether there is positional collector
      * @param varkw whether there is a keywords collector
      */
-    // XXX Referenced from CPython38Function.buildParser
     ArgParser(String name, String[] names, int regargcount, int posOnly,
             int kwOnly, boolean varargs, boolean varkw) {
         this(name, ScopeKind.TYPE, MethodKind.STATIC, names,
