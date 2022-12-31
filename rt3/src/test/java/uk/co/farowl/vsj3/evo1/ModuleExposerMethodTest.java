@@ -1,3 +1,5 @@
+// Copyright (c)2022 Jython Developers.
+// Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj3.evo1;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -19,7 +21,7 @@ import uk.co.farowl.vsj3.evo1.base.MethodKind;
 /**
  * Test that functions exposed by a Python <b>module</b> defined in
  * Java, using the scheme of annotations defined in {@link Exposed},
- * result in {@link PyJavaFunction} descriptors with characteristics that
+ * result in {@link PyJavaFunction} objects with characteristics that
  * correspond to the definition.
  * <p>
  * The first test in each case is to examine the fields in the parser
@@ -50,7 +52,7 @@ class ModuleExposerMethodTest {
         Object[] exp;
 
         /**
-         * A parser attached to the method descriptor should have field
+         * A parser attached to the function object should have field
          * values that correctly reflect the signature and annotations
          * in the defining class.
          */
