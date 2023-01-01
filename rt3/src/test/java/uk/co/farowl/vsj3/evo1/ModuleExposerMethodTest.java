@@ -1,4 +1,4 @@
-// Copyright (c)2022 Jython Developers.
+// Copyright (c)2023 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj3.evo1;
 
@@ -168,7 +168,10 @@ class ModuleExposerMethodTest {
         static final ModuleDef DEF =
                 new ModuleDef("example", MethodHandles.lookup());
 
-        ExampleModule() { super(DEF); }
+        ExampleModule() {
+            super(DEF);
+            exec();
+        }
 
         /**
          * See {@link StaticNoParams}: no parameters are allowed.

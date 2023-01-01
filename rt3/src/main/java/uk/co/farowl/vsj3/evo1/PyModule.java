@@ -1,3 +1,5 @@
+// Copyright (c)2023 Jython Developers.
+// Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj3.evo1;
 
 import java.lang.invoke.MethodHandles;
@@ -65,11 +67,11 @@ public class PyModule implements CraftedPyObject, DictPyObject {
     void add(String name, Object o) { dict.put(name, o); }
 
     /**
-     * Initialise the module instance. This is the Java equivalent of
-     * the module body. The main action will be to add entries to
-     * {@link #dict}. These become the members (globals) of the module.
+     * Initialise the module instance. The main action will be to add
+     * entries to {@link #dict}. These become the members (globals) of
+     * the module.
      */
-    void init() {}
+    void exec() {}
 
     @Override
     public String toString() {

@@ -30,7 +30,7 @@ class Interpreter {
     /** Create a new {@code Interpreter}. */
     Interpreter() {
         builtinsModule = new BuiltinsModule();
-        builtinsModule.init();
+        builtinsModule.exec();
         // addModule(builtinsModule);
     }
 

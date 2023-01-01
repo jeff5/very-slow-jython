@@ -1,3 +1,5 @@
+// Copyright (c)2023 Jython Developers.
+// Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj3.evo1;
 
 import java.lang.invoke.MethodHandles;
@@ -26,6 +28,12 @@ class BuiltinsModule extends JavaModule {
     /** Construct an instance of the {@code builtins} module. */
     BuiltinsModule() {
         super(DEFINITION);
+    }
+
+    /** Execute the body of the module. */
+    @Override
+    void exec() {
+        super.exec();
 
         // This list is taken from CPython bltinmodule.c
         add("None", Py.None);
