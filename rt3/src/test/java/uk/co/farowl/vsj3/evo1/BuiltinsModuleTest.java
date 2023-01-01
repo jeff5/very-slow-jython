@@ -60,18 +60,19 @@ class BuiltinsModuleTest extends UnitTestSupport {
         Interpreter interp;
         PyDict globals;
         Object locals;
+        /* BuiltinsModule? */ PyModule builtins;
 
         @BeforeEach
         void setup() {
             interp = new Interpreter();
             globals = Py.dict();
             locals = PyMapping.map(new HashMap<>());
+            builtins = interp.builtinsModule;
         }
 
         @Test
         @DisplayName("abs")
         void testAbs() throws Throwable {
-            PyModule builtins = new BuiltinsModule();
             Object f = Abstract.getAttr(builtins, "abs");
             Object r = Callables.callFunction(f, -5.0);
             assertEquals(5.0, r);
@@ -166,7 +167,6 @@ class BuiltinsModuleTest extends UnitTestSupport {
         @Test
         @DisplayName("len")
         void testLen() throws Throwable {
-            PyModule builtins = new BuiltinsModule();
             Object f = Abstract.getAttr(builtins, "len");
             Object r = Callables.callFunction(f, "hello");
             assertEquals(5, r);
@@ -175,27 +175,26 @@ class BuiltinsModuleTest extends UnitTestSupport {
         @Test
         @DisplayName("max")
         void testMax() throws Throwable {
-            PyModule builtins = new BuiltinsModule();
             Object f = Abstract.getAttr(builtins, "max");
-            // XXX Only max(tuple) for now
-            Object r = Callables.callFunction(f, Py.tuple(4, 5.0, 6));
+            Object r = Callables.callFunction(f, 4, 4.2, 5.0, 6);
+            assertEquals(6, r);
+            r = Callables.callFunction(f, Py.tuple(4, 4.2, 5.0, 6));
             assertEquals(6, r);
         }
 
         @Test
         @DisplayName("min")
         void testMin() throws Throwable {
-            PyModule builtins = new BuiltinsModule();
             Object f = Abstract.getAttr(builtins, "min");
-            // XXX Only min(tuple) for now
-            Object r = Callables.callFunction(f, Py.tuple(4, 5.0, 6));
+            Object r = Callables.callFunction(f, 4, 5.0, 6, 4.2);
+            assertEquals(4, r);
+            r = Callables.callFunction(f, Py.tuple(4, 5.0, 6, 4.2));
             assertEquals(4, r);
         }
 
         @Test
         @DisplayName("repr")
         void testRepr() throws Throwable {
-            PyModule builtins = new BuiltinsModule();
             Object f = Abstract.getAttr(builtins, "repr");
             assertEquals("123", Callables.callFunction(f, 123));
             assertEquals("'spam'", Callables.callFunction(f, "spam"));

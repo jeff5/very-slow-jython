@@ -1,10 +1,13 @@
 package uk.co.farowl.vsj3.evo1;
 
 import java.lang.invoke.MethodHandles;
+import java.util.Iterator;
 
 import uk.co.farowl.vsj3.evo1.Exposed.Default;
 import uk.co.farowl.vsj3.evo1.Exposed.DocString;
 import uk.co.farowl.vsj3.evo1.Exposed.KeywordOnly;
+import uk.co.farowl.vsj3.evo1.Exposed.Name;
+import uk.co.farowl.vsj3.evo1.Exposed.PositionalCollector;
 import uk.co.farowl.vsj3.evo1.Exposed.PositionalOnly;
 import uk.co.farowl.vsj3.evo1.Exposed.PythonStaticMethod;
 
@@ -219,6 +222,13 @@ class BuiltinsModule extends JavaModule {
 
     }
 
+    /**
+     * Return the dictionary containing the current scope's global
+     * variables.
+     *
+     * @return the current scope's local variables.
+     * @throws SystemError if there is no current scope.
+     */
     @PythonStaticMethod
     @DocString("Return the dictionary containing the current scope's global variables.")
     static Object globals() throws Throwable {
@@ -249,60 +259,121 @@ class BuiltinsModule extends JavaModule {
         return ThreadState.get().getLocals();
     }
 
-    @PythonStaticMethod
-    @DocString("With a single iterable argument, return its biggest item. "
-            + "With two or more arguments, return the largest.")
+    /**
+     * Implementation of {@code max()}.
+     *
+     * @param arg1 a first argument or iterable of arguments
+     * @param args contains other positional arguments
+     * @param key function
+     * @param dflt to return when iterable is empty
+     * @return {@code max} result or {@code dflt}
+     * @throws Throwable from calling {@code key} or comparison
+     */
+    @PythonStaticMethod(positionalOnly = false)
+    @DocString("Return the largest item in an iterable"
+            + " or the largest of two or more arguments.")
     // Simplified version of max()
-    static Object max(PyTuple args) throws Throwable {
-        return minmax(args, Comparison.GT);
-    }
-
-    @PythonStaticMethod
-    @DocString("With a single iterable argument, return its smallest item. "
-            + "With two or more arguments, return the smallest.")
-    // Simplified version of max()
-    static Object min(PyTuple args) throws Throwable {
-        return minmax(args, Comparison.LT);
+    static Object max(Object arg1,
+            @KeywordOnly @Default("None") Object key,
+            @Name("default") @Default("None") Object dflt,
+            @PositionalCollector PyTuple args) throws Throwable {
+        // @PositionalCollector has to be last.
+        return minmax(arg1, args, key, dflt, Comparison.GT);
     }
 
     /**
-     * Implementation of both {@link #min(PyTuple)} and
-     * {@link #max(PyTuple)}.
+     * Implementation of {@code min()}.
      *
-     * @param args contains arguments or one iterable of arguments
+     * @param arg1 a first argument or iterable of arguments
+     * @param args contains other positional arguments
+     * @param key function
+     * @param dflt to return when iterable is empty
+     * @return {@code min} result or {@code dflt}
+     * @throws Throwable from calling {@code key} or comparison
+     */
+    @PythonStaticMethod(positionalOnly = false)
+    @DocString("Return the smallest item in an iterable"
+            + " or the smallest of two or more arguments.")
+    // Simplified version of min()
+    static Object min(Object arg1,
+            @KeywordOnly @Default("None") Object key,
+            @Name("default") @Default("None") Object dflt,
+            @PositionalCollector PyTuple args) throws Throwable {
+        // @PositionalCollector has to be last.
+        return minmax(arg1, args, key, dflt, Comparison.LT);
+    }
+
+    /**
+     * Implementation of both
+     * {@link #min(Object, Object, Object, PyTuple) min()} and
+     * {@link #max(Object, Object, Object, PyTuple) max()}.
+     *
+     * @param arg1 a first argument or iterable of arguments
+     * @param args contains other positional arguments
+     *
+     * @param key function
+     * @param dflt to return when iterable is empty
      * @param op {@code LT} for {@code min} and {@code GT} for
      *     {@code max}.
      * @return min or max result as appropriate
-     * @throws Throwable
+     * @throws Throwable from calling {@code op} or {@code key}
      */
-    private static Object minmax(PyTuple args, Comparison op)
-            throws Throwable {
+    // Compare CPython min_max in Python/bltinmodule.c
+    private static Object minmax(Object arg1, PyTuple args, Object key,
+            Object dflt, Comparison op) throws Throwable {
 
-        Object v, item, result;
         int n = args.size();
+        Object result;
+        Iterator<Object> others;
+        assert key != null;
 
-        if (n > 1)
-            // Positional mode: args contains the values to compare
-            v = args;
-        else {
-            // Single argument: an iterable the values to compare
-            v = args.get(0);
-            n = PySequence.size(v);
+        if (n > 0) {
+            /*
+             * Positional mode: arg1 is the first value, args contains
+             * the other values to compare
+             */
+            result = key == Py.None ? arg1
+                    : Callables.callFunction(key, arg1);
+            others = args.iterator();
+            if (dflt != Py.None) {
+                String name = op == Comparison.LT ? "min" : "max";
+                throw new TypeError(DEFAULT_WITHOUT_ITERABLE, name);
+            }
+
+        } else {
+            // Single iterable argument of the values to compare
+            result = null;
+            // XXX define PySequence.iterable like PyMapping.map?
+            others = PySequence.fastList(arg1, null).iterator();
         }
-
-        if (n == 0)
-            throw new ValueError("%s() arg is an empty sequence",
-                    op == Comparison.LT ? "min" : "max");
 
         // Now we can get on with the comparison
-        result = PySequence.getItem(v, 0);
-        for (int i = 1; i < n; i++) {
-            item = PySequence.getItem(v, i);
-            if (Abstract.richCompareBool(item, result, op))
+        while (others.hasNext()) {
+            Object item = others.next();
+            if (key != Py.None) {
+                item = Callables.callFunction(key, item);
+            }
+            if (result == null) {
                 result = item;
+            } else if (Abstract.richCompareBool(item, result, op)) {
+                result = item;
+            }
         }
-        return result;
+
+        // result may be null if the single iterable argument is empty
+        if (result != null) {
+            return result;
+        } else if (dflt != Py.None) {
+            assert dflt != null;
+            return dflt;
+        } else {
+            String name = op == Comparison.LT ? "min" : "max";
+            throw new ValueError("%s() arg is an empty sequence", name);
+        }
     }
+
+    private static final String DEFAULT_WITHOUT_ITERABLE =
+            "Cannot specify a default for %s() with multiple positional arguments";
 
     @PythonStaticMethod
     @DocString("Return the canonical string representation of the object.\n"

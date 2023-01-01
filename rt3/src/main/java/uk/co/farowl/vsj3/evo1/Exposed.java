@@ -225,7 +225,14 @@ public interface Exposed {
      * Declare that the annotated parameter is the collector for excess
      * positional arguments. This is equivalent to preceding the name
      * with "*" in a Python signature. The type must be {@link PyTuple}.
+     * <p>
+     * A {@code PositionalCollector} argument must be last in the Java
+     * declaration, or followed by a {@link KeywordCollector} only, as
+     * it is in a Python {@code frame}. It will appear in its natural
+     * position, as {@code *name} between positional and keyword
+     * arguments, in the Python method signature.
      */
+    // XXX Try to place between positional and keywords in Java?
     @Documented
     @Retention(RUNTIME)
     @Target(PARAMETER)
@@ -235,6 +242,11 @@ public interface Exposed {
      * Declare that the annotated parameter is the collector for excess
      * keyword arguments. This is equivalent to preceding the name with
      * "**" in a Python signature. The type must be {@link PyDict}.
+     * <p>
+     * A {@code KeywordCollector} argument must be last in the Java
+     * declaration, as it is in a Python {@code frame}. It will appear
+     * in its natural position, as {@code **name} after keyword
+     * arguments, in the Python method signature.
      */
     @Documented
     @Retention(RUNTIME)
