@@ -5,11 +5,6 @@
 # This happens in opcodes LOAD_NAME and LOAD_GLOBAL.
 
 # Access sample objects from the builtins module implicitly
-# globals['__builtins__'] not defined/used automatically
-#bi_true = __builtins__['True']
-#bi_int_name = __builtins__['int'].__name__
-
-# Access sample objects from the builtins module implicitly
 # Opcode is LOAD_NAME
 
 int_name = int.__name__
@@ -28,5 +23,13 @@ def f(x):
 
 aj, min_name = f(-123_000_000_000)
 
+# Sometimes __builtins__ is not the builtins module. Find it with:
+bi = max.__self__
+
+# Check explicit attribute access to the (real) builtins module
+bi_int_name = bi.int.__name__
+bi_max_name = bi.max.__name__
+
+
 # Not marshallable
-del f
+del bi, f

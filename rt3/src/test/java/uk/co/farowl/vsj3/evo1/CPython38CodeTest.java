@@ -197,12 +197,13 @@ class CPython38CodeTest extends UnitTestSupport {
         Interpreter interp = new Interpreter();
         // builtins is a custom type with __setitem__ and __getitem__,
         CustomMap builtins = new CustomMap();
-        globals.put("__builtins__", builtins);
         // ... but containing all the expected members.
         for (Map.Entry<Object, Object> e : interp.builtinsModule
                 .getDict().entrySet()) {
             builtins.__setitem__(e.getKey(), e.getValue());
         }
+        // Add custom builtins to globals for createFunction to find
+        globals.put("__builtins__", builtins);
         PyFunction<?> fn = code.createFunction(interp, globals);
         PyFrame<?> f = fn.createFrame(globals);
         f.eval();

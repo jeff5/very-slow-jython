@@ -39,6 +39,13 @@ public class PyModule implements CraftedPyObject, DictPyObject {
      */
     PyModule(String name) { this(TYPE, name); }
 
+    /**
+     * Initialise the module instance. The main action will be to add
+     * entries to {@link #dict}. These become the members (globals) of
+     * the module.
+     */
+    void exec() {}
+
     @Override
     public PyType getType() { return type; }
 
@@ -50,6 +57,11 @@ public class PyModule implements CraftedPyObject, DictPyObject {
      */
     @Override
     public PyDict getDict() { return dict; }
+
+    @Override
+    public String toString() {
+        return String.format("<module '%s'>", name);
+    }
 
     /**
      * Add a type by name to the dictionary.
@@ -65,16 +77,4 @@ public class PyModule implements CraftedPyObject, DictPyObject {
      * @param o value for key
      */
     void add(String name, Object o) { dict.put(name, o); }
-
-    /**
-     * Initialise the module instance. The main action will be to add
-     * entries to {@link #dict}. These become the members (globals) of
-     * the module.
-     */
-    void exec() {}
-
-    @Override
-    public String toString() {
-        return String.format("<module '%s'>", name);
-    }
 }

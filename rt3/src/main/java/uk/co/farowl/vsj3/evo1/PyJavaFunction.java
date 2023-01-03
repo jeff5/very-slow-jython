@@ -7,6 +7,7 @@ import java.lang.invoke.MethodHandles;
 import java.util.List;
 
 import uk.co.farowl.vsj3.evo1.ArgumentError.Mode;
+import uk.co.farowl.vsj3.evo1.Exposed.Getter;
 import uk.co.farowl.vsj3.evo1.Exposed.Member;
 import uk.co.farowl.vsj3.evo1.base.InterpreterError;
 import uk.co.farowl.vsj3.evo1.base.MethodKind;
@@ -234,7 +235,7 @@ public abstract class PyJavaFunction
 
     /** @return name of the function or method */
     // Compare CPython meth_get__name__ in methodobject.c
-    @Exposed.Getter
+    @Getter
     String __name__() { return argParser.name; }
 
     // plumbing ------------------------------------------------------
