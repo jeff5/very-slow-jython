@@ -1,3 +1,5 @@
+// Copyright (c)2023 Jython Developers.
+// Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj3.evo1.modules;
 
 import java.io.DataInputStream;
@@ -1120,7 +1122,7 @@ public class marshal /* extends JavaModule */ {
     static {
         register(new SingletonCodec(TYPE_NULL, null));
         register(new SingletonCodec(TYPE_NONE, Py.None));
-        // register(new SingletonCodec(TYPE_ELLIPSIS, Py.Ellipsis));
+        register(new SingletonCodec(TYPE_ELLIPSIS, Py.Ellipsis));
     }
 
     /**

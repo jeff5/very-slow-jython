@@ -1,42 +1,21 @@
-// Copyright (c)2022 Jython Developers.
+// Copyright (c)2023 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj3.evo1;
 
 import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
 
 /** Common run-time constants and constructors. */
 public class Py {
 
-    private static class Singleton implements CraftedPyObject {
-
-        final PyType type;
-
-        @Override
-        public PyType getType() { return type; }
-
-        String name;
-
-        Singleton(String name) {
-            this.name = name;
-            type = PyType.fromSpec(
-                    new PyType.Spec(name, MethodHandles.lookup())
-                            .canonical(getClass())
-                            .flagNot(PyType.Flag.BASETYPE));
-        }
-
-        @Override
-        public String toString() {
-            return name;
-        }
-    }
-
     /** Python {@code None} object. */
-    public static final Object None = new Singleton("None") {};
+    public static final PyNone None = PyNone.INSTANCE;
+
+    /** Python {@code ...} (ellipsis) object. */
+    public static final PyEllipsis Ellipsis = PyEllipsis.INSTANCE;
 
     /** Python {@code NotImplemented} object. */
-    static final Object NotImplemented =
-            new Singleton("NotImplemented") {};
+    public static final PyNotImplemented NotImplemented =
+            PyNotImplemented.INSTANCE;
 
     /** Python {@code False} object. */
     public static final Boolean False = false;
@@ -47,11 +26,9 @@ public class Py {
     /**
      * Return a Python {@code object}.
      *
-     * @return {@code object()}
+     * @return a new {@code object}
      */
-    static PyBaseObject object() {
-        return new PyBaseObject();
-    }
+    static PyBaseObject object() { return new PyBaseObject(); }
 
 // /**
 // * Return Python {@code bytes} for Java {@code byte[]} (copy).
@@ -105,9 +82,7 @@ public class Py {
      *
      * @return {@code dict()}
      */
-    public static PyDict dict() {
-        return new PyDict();
-    }
+    public static PyDict dict() { return new PyDict(); }
 
     /** Empty (zero-length) array of {@link Object}. */
     static final Object[] EMPTY_ARRAY = new Object[0];

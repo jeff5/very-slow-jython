@@ -37,7 +37,7 @@ class BuiltinsModule extends JavaModule {
 
         // This list is taken from CPython bltinmodule.c
         add("None", Py.None);
-        // add("Ellipsis", Py.Ellipsis);
+        add("Ellipsis", Py.Ellipsis);
         add("NotImplemented", Py.NotImplemented);
         add("False", Py.False);
         add("True", Py.True);

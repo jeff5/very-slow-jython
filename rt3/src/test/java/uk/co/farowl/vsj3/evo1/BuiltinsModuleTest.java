@@ -198,8 +198,11 @@ class BuiltinsModuleTest extends UnitTestSupport {
             Object f = Abstract.getAttr(builtins, "repr");
             assertEquals("123", Callables.callFunction(f, 123));
             assertEquals("'spam'", Callables.callFunction(f, "spam"));
-            // XXX implement None.__repr__
-            // assertEquals("None", Callables.callFunction(f, Py.None));
+            assertEquals("None", Callables.callFunction(f, Py.None));
+            assertEquals("NotImplemented",
+                    Callables.callFunction(f, Py.NotImplemented));
+            assertEquals("Ellipsis",
+                    Callables.callFunction(f, Py.Ellipsis));
         }
     }
 
