@@ -11,8 +11,7 @@ import uk.co.farowl.vsj3.evo1.PyCode.Trait;
 import uk.co.farowl.vsj3.evo1.base.InterpreterError;
 
 /** A {@link PyFrame} for executing CPython 3.8 byte code. */
-class CPython38Frame
-        extends PyFrame<CPython38Code> {
+class CPython38Frame extends PyFrame<CPython38Code> {
 
     /*
      * Translation note: NB: in a CPython frame all local storage
@@ -257,6 +256,10 @@ class CPython38Frame
                     case Opcode.STORE_FAST:
                         fastlocals[oparg | opword & 0xff] = s[--sp];
                         oparg = 0;
+                        break;
+
+                    case Opcode.DUP_TOP:
+                        s[sp++] = s[sp - 2];
                         break;
 
                     case Opcode.UNARY_NEGATIVE:
@@ -574,6 +577,31 @@ class CPython38Frame
                         ip = ((oparg | opword & 0xff) >> 1) - 1;
                         oparg = 0;
                         break;
+
+                    case Opcode.GET_ITER:
+                        // Replace an iterable with an iterator
+                        // obj | -> iter(obj) |
+                        // -----^sp -----------^sp
+                        s[sp - 1] = Abstract.getIterator(s[sp - 1]);
+                        break;
+
+                    case Opcode.FOR_ITER: {
+                        // Push the next item of an iterator:
+                        // iter | -> iter | next |
+                        // ------^sp -------------^sp
+                        // or or pop and jump if it is exhausted:
+                        // iter | ->
+                        // ------^sp ^sp
+                        Object next = Abstract.next(s[sp - 1]);
+                        if (next != null) {
+                            s[sp++] = next;
+                        } else {
+                            ip += (oparg | opword & 0xff) >> 1;
+                            --sp;
+                        }
+                        oparg = 0;
+                        break;
+                    }
 
                     case Opcode.LOAD_METHOD:
                         // Designed to work in tandem with CALL_METHOD.

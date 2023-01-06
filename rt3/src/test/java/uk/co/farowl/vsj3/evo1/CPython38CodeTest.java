@@ -1,3 +1,5 @@
+// Copyright (c)2023 Jython Developers.
+// Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj3.evo1;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -31,8 +33,8 @@ import uk.co.farowl.vsj3.evo1.base.InterpreterError;
 import uk.co.farowl.vsj3.evo1.modules.marshal;
 
 /**
- * Test that read code objects from prepared {@code .pyc} files and
- * execute the byte code.
+ * Test that we can read code objects from prepared {@code .pyc} files
+ * and execute the byte code.
  *
  * These files are prepared in the Gradle build using a compatible
  * version of CPython, from Python source in
@@ -52,6 +54,16 @@ class CPython38CodeTest extends UnitTestSupport {
             "tuple_index", "tuple_dot_product", "list_index",
             "simple_if", "multi_if", "simple_loop", "list_dot_product"})
     void loadCodeObject(String name) {
+        PyCode code = readCode(name);
+        assertPythonType(PyCode.TYPE, code);
+    }
+
+    @SuppressWarnings("static-method")
+    @DisplayName("marshal can read nested code objects")
+    @ParameterizedTest(name = "from {0}")
+    @ValueSource(strings = {"function_def", "function_call",
+            "function_closure"})
+    void loadNestedCodeObjects(String name) {
         PyCode code = readCode(name);
         assertPythonType(PyCode.TYPE, code);
     }
@@ -136,15 +148,20 @@ class CPython38CodeTest extends UnitTestSupport {
         }
     }
 
+    /**
+     * Tests of individual operations up to calling a built-in method,
+     * without control structures in Python.
+     *
+     * @param name of the Python example
+     */
     @SuppressWarnings("static-method")
     @DisplayName("We can execute simple ...")
     @ParameterizedTest(name = "{0}.py")
     @ValueSource(strings = {"load_store_name", "unary_op", "binary_op",
             "bool_left_arith", "bool_right_arith", "comparison",
-            "simple_if", "multi_if", "simple_loop", "iterables",
-            "tuple_index", "tuple_dot_product", "list_index",
+            "iterables", "tuple_index", "list_index",
             "attr_access_builtin", "call_method_builtin",
-            "function_def", "builtins_module"})
+            "builtins_module"})
     void executeSimple(String name) {
         CPython38Code code = readCode(name);
         PyDict globals = new PyDict();
@@ -154,10 +171,36 @@ class CPython38CodeTest extends UnitTestSupport {
         assertExpectedVariables(readResultDict(name), globals);
     }
 
+    /**
+     * Tests involving transfer of control including {@code for} loops.
+     *
+     * @param name of the Python example
+     */
+    @SuppressWarnings("static-method")
+    @DisplayName("We can execute branches and loops ...")
+    @ParameterizedTest(name = "{0}.py")
+    @ValueSource(strings = {"simple_if", "multi_if", "simple_loop",
+            "tuple_dot_product", "list_dot_product", "for_loop"})
+    void executeBranchAndLoop(String name) {
+        CPython38Code code = readCode(name);
+        PyDict globals = new PyDict();
+        Interpreter interp = new Interpreter();
+        Object r = interp.eval(code, globals);
+        assertEquals(Py.None, r);
+        assertExpectedVariables(readResultDict(name), globals);
+    }
+
+    /**
+     * Tests involving multiple code objects, such as function
+     * definition. and call.
+     *
+     * @param name of the Python example
+     */
     @SuppressWarnings("static-method")
     @DisplayName("We can execute complex ...")
     @ParameterizedTest(name = "{0}.py")
-    @ValueSource(strings = {"function_call", "function_closure"})
+    @ValueSource(strings = {"function_def", "function_call",
+            "function_closure"})
     void executeComplex(String name) {
         CPython38Code code = readCode(name);
         PyDict globals = new PyDict();
@@ -167,6 +210,13 @@ class CPython38CodeTest extends UnitTestSupport {
         assertExpectedVariables(readResultDict(name), globals);
     }
 
+    /**
+     * A selection of other tests repeated with locals namespace
+     * implemented as a custom type with {@code __setitem__} and
+     * {@code __getitem__}.
+     *
+     * @param name of the Python example
+     */
     @SuppressWarnings("static-method")
     @DisplayName("We can execute with custom locals ...")
     @ParameterizedTest(name = "{0}.py")
@@ -187,6 +237,13 @@ class CPython38CodeTest extends UnitTestSupport {
         assertExpectedVariables(readResultDict(name), globals);
     }
 
+    /**
+     * A selection of other tests repeated with the {@code __builtins__}
+     * namespace implemented as a custom type with {@code __setitem__}
+     * and {@code __getitem__}.
+     *
+     * @param name of the Python example
+     */
     @SuppressWarnings("static-method")
     @DisplayName("We can execute with custom builtins ...")
     @ParameterizedTest(name = "{0}.py")
