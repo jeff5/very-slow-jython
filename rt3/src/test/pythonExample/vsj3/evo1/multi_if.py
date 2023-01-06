@@ -1,6 +1,7 @@
 # multi_if.py
 
-a, b = False, False
+a = False
+b = False
 
 if a and b:
     r = 2
@@ -9,7 +10,8 @@ elif a or b:
 else:
     r = 0
 
-a, b = False, True
+a = False
+b = True
 if a and b:
     r1 = 2
 elif a or b:
@@ -17,7 +19,8 @@ elif a or b:
 else:
     r1 = 0
 
-a, b = True, False
+a = True
+b = False
 if a and b:
     r2 = 2
 elif a or b:
@@ -25,7 +28,8 @@ elif a or b:
 else:
     r2 = 0
 
-a, b = True, True
+a = True
+b = True
 if a and b:
     r3 = 2
 elif a or b:
