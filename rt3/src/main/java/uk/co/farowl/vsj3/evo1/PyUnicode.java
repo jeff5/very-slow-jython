@@ -26,6 +26,7 @@ import uk.co.farowl.vsj3.evo1.Exposed.PythonMethod;
 import uk.co.farowl.vsj3.evo1.PyObjectUtil.NoConversion;
 import uk.co.farowl.vsj3.evo1.PySequence.Delegate;
 import uk.co.farowl.vsj3.evo1.PySlice.Indices;
+import uk.co.farowl.vsj3.evo1.PyType.Flag;
 import uk.co.farowl.vsj3.evo1.base.InterpreterError;
 import uk.co.farowl.vsj3.evo1.stringlib.IntArrayBuilder;
 import uk.co.farowl.vsj3.evo1.stringlib.IntArrayReverseBuilder;
@@ -343,13 +344,16 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
 
     private static boolean contains(CodepointDelegate s, Object o) {
         try {
-            CodepointDelegate p = adapt(s);
+            CodepointDelegate p = adapt(o);
             PySlice.Indices slice = getSliceIndices(s, null, null);
             return find(s, p, slice) >= 0;
         } catch (NoConversion nc) {
-            throw Abstract.requiredTypeError("a string", o);
+            throw Abstract.typeError(IN_STRING_TYPE, o);
         }
     }
+
+    private static final String IN_STRING_TYPE =
+            "'in <string>' requires string as left operand, not %s";
 
     @SuppressWarnings("unused")
     private Object __add__(Object w) throws Throwable {
@@ -2635,9 +2639,9 @@ public class PyUnicode implements CraftedPyObject, PyDict.Key {
     /** The Python {@code str_iterator}. */
     private static class PyStrIterator extends AbstractPyIterator {
 
-        static final PyType TYPE =
-                PyType.fromSpec(new PyType.Spec("str_iterator",
-                        MethodHandles.lookup()));
+        static final PyType TYPE = PyType.fromSpec(
+                new PyType.Spec("str_iterator", MethodHandles.lookup())
+                        .flagNot(Flag.BASETYPE));
 
         private final CodepointIterator iterator;
 

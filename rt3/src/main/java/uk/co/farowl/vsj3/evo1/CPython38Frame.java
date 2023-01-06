@@ -529,6 +529,8 @@ class CPython38Frame extends PyFrame<CPython38Code> {
                         break;
 
                     case Opcode.COMPARE_OP:
+                        // v | w | -> | op(v,w) |
+                        // -------^sp -----------^sp
                         w = s[--sp]; // POP
                         v = s[sp - 1]; // TOP
                         s[sp - 1] = Comparison.from(opword & 0xff)

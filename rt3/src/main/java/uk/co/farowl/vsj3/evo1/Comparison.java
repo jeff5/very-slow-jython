@@ -72,42 +72,48 @@ enum Comparison {
         }
     },
 
-    /** The (reflected) {@code __contains__} operation. */
+    /**
+     * The {@code in} operation (reflected {@code __contains__}). Note
+     * that "{@code v in seq}" compiles to<pre>
+     *    LOAD_NAME    0 (v)
+     *    LOAD_NAME    1 (seq)
+     *    COMPARE_OP   6 (in)
+     * </pre> which must lead to {@code seq.__contains__(v)}.
+     */
     IN("in", Slot.op_contains) {
 
         @Override
-        boolean toBool(int c) {
-            return c >= 0;
-        }
+        boolean toBool(int c) { return c >= 0; }
 
         @Override
-        Object apply(Object v, Object w) throws Throwable {
-            Operations vOps = Operations.of(v);
+        Object apply(Object v, Object seq) throws Throwable {
+            Operations ops = Operations.of(seq);
             try {
-                MethodHandle contains = slot.getSlot(vOps);
-                return (boolean) contains.invokeExact(w, v);
+                MethodHandle contains = slot.getSlot(ops);
+                return (boolean)contains.invokeExact(seq, v);
             } catch (Slot.EmptyException e) {
-                throw new TypeError(NOT_CONTAINER, vOps.type(v).name);
+                throw new TypeError(NOT_CONTAINER, ops.type(seq).name);
             }
         }
     },
 
-    /** The inverted (reflected) {@code __contains__} operation. */
+    /**
+     * The inverted {@code in} operation (reflected
+     * {@code __contains__}).
+     */
     NOT_IN("not in", Slot.op_contains) {
 
         @Override
-        boolean toBool(int c) {
-            return c < 0;
-        }
+        boolean toBool(int c) { return c < 0; }
 
         @Override
-        Object apply(Object v, Object w) throws Throwable {
-            Operations vOps = Operations.of(v);;
+        Object apply(Object v, Object seq) throws Throwable {
+            Operations ops = Operations.of(seq);
             try {
-                MethodHandle contains = slot.getSlot(vOps);
-                return (boolean) contains.invokeExact(w, v);
+                MethodHandle contains = slot.getSlot(ops);
+                return !(boolean)contains.invokeExact(seq, v);
             } catch (Slot.EmptyException e) {
-                throw new TypeError(NOT_CONTAINER, vOps.type(v).name);
+                throw new TypeError(NOT_CONTAINER, ops.type(seq).name);
             }
         }
     },
