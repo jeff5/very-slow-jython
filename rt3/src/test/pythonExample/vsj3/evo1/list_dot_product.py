@@ -1,5 +1,8 @@
 # list_dot_product.py
 
+# Multiply-add of float vectors (without for loops)
+# Also, multiplication as repetition.
+
 n = 2
 
 a = [1.2, 3.4, 5.6, 7.8] * (3 * n)

@@ -288,14 +288,14 @@ class CPython38Frame extends PyFrame<CPython38Code> {
                     case Opcode.BINARY_SUBSCR: // w[v]
                         // w | v | -> | w[v] |
                         // -------^sp --------^sp
-                        v = s[--sp]; // POP
+                        v = s[--sp];
                         s[sp - 1] = PySequence.getItem(s[sp - 1], v);
                         break;
 
                     case Opcode.STORE_SUBSCR: // w[v] = u
                         // u | w | v | -> |
                         // -----------^sp -^sp
-                        sp -= 3; // STACK_SHRINK(3);
+                        sp -= 3;
                         // setItem(w, v, u)
                         PySequence.setItem(s[sp + 1], s[sp + 2], s[sp]);
                         break;

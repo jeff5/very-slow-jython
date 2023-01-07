@@ -189,7 +189,7 @@ public abstract class PyJavaFunction
 
     // slot functions -------------------------------------------------
 
-    protected Object __repr__() throws Throwable {
+    protected Object __repr__() {
         if (self == null || self instanceof PyModule)
             return String.format("<built-in function %s>", __name__());
         else

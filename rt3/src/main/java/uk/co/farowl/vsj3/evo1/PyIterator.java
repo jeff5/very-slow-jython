@@ -1,4 +1,4 @@
-// Copyright (c)2021 Jython Developers.
+// Copyright (c)2023 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj3.evo1;
 
@@ -73,6 +73,4 @@ public class PyIterator extends AbstractPyIterator {
 
     @Override
     Object __iter__() { return this; }
-
-
 }

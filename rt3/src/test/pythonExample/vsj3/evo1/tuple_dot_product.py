@@ -1,5 +1,7 @@
 # tuple_dot_product.py
 
+# Multiply-add of int and float vectors (without for loops)
+
 a = (2, 3, 4)
 b = (3, 4, 6)
 n = 3

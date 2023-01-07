@@ -130,15 +130,6 @@ public class PyList implements List<Object>, CraftedPyObject {
     public PyList(Collection<?> c) { this(TYPE, c); }
 
     /**
-     * Return a Python {@code list} object, specifying initial
-     * contents.
-     *
-     * @param elements initial element values
-     * @return list of elements
-     */
-    public static PyList of(Object... elements) { return new PyList(List.of(elements)); }
-
-    /**
      * Construct a {@code list} with initial contents from an array
      * slice.
      *
@@ -151,6 +142,15 @@ public class PyList implements List<Object>, CraftedPyObject {
         int stop = start + count;
         for (int i = start; i < stop; i++) { add(a[i]); }
     }
+
+    /**
+     * Return a Python {@code list} object, specifying initial
+     * contents.
+     *
+     * @param elements initial element values
+     * @return list of elements
+     */
+    public static PyList of(Object... elements) { return new PyList(List.of(elements)); }
 
     @Override
     public PyType getType() { return type; }
