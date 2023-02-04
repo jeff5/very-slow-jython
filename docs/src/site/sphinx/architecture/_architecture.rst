@@ -25,9 +25,11 @@ and then tested ideas that address them.
     :maxdepth: 2
 
     arch-plain-java-object
+    object-implementation
+    type-slots
+    arch-attribute-access
     interpreter-structure
     code-and-frame
-    object-implementation
     compiled-code
     functions-in-java
     descriptors

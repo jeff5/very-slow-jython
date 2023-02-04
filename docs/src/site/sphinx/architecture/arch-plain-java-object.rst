@@ -58,19 +58,29 @@ Essential Idea
 We have to explain how the run-time Python interpreter
 can give Python semantics to objects on its stack,
 that themselves may know nothing about Python.
-(In Jython 2,
+
+In Jython 2,
 ``PyObject`` is a fat base class
 defining all the methods the interpreter might need,
 which specific types of Python object redefine.
 Every object the Jython 2 interpreter handles
-must be "Python aware".)
+must be "Python aware".
+Pre-existing and other Python-unaware classes
+must be handled via a proxy that is a ``PyObject``.
+
+We are seeking a solution in which the object is handled directly
+and its Python character is supplied by another object
+we can reach quickly when we need it.
+That other object is the Java ``Class``,
+which will hold the extra information in a ``ClassValue``.
+
 
 Solution Architecture
 ---------------------
 
 Python places object behaviour in the Python ``type`` of the object,
 so the problem becomes how to find that from an instance:
-to find ``builtins.int``, for example, from a ``java.lang.Integer``.
+to find the type object ``int``, for example, from a ``java.lang.Integer``.
 Our solution is to use a ``ClassValue``
 to map each Java ``Class`` to an ``Operations`` object,
 which can then determine the Python type (``PyType``) of the object.
@@ -128,15 +138,16 @@ In the implicit case,
 the ``Operations`` object that we reach may itself be
 the ``PyType`` representing a Python type object.
 If the Java class is one of several implementations of a Python type,
+in the way that ``PyLong`` and ``Integer`` are both Python ``int``\s,
 each must have its own instance of ``Operations``.
 One will be the actual ``PyType``,
 while the others are (sub-classes of) ``Operations``
-from which the actual type may be determined.
+from which the actual type is determined.
 
 In the explicit case,
-the Java class may have to implement many distinct Python types,
+one Java class may have to implement many distinct Python types,
 and in that case the ``Operations`` object is just a trampoline
-to get us the actual type.
+to get us the actual type by reading the object.
 
 
 

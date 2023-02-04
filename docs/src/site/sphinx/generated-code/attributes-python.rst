@@ -332,7 +332,7 @@ The correct Java class is one that all the bases may extend,
 and which may also have an instance dictionary (or slots, or both).
 
 
-.. _instance-dictionary-python:
+.. _instance-dictionary-python-vsj2:
 
 The Instance Dictionary
 =======================

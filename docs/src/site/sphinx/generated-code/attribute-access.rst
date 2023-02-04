@@ -1,5 +1,6 @@
 ..  generated-code/attribute-access.rst
 
+.. _Attribute-access-vsj2:
 
 Access to Attributes
 ####################
@@ -104,7 +105,7 @@ We also add ``op_getattribute``, ``op_getattr``,
 but no new apparatus is required in that class to accomplish that.
 
 To understand why Python needs both ``op_getattribute`` and ``op_getattr``,
-see the section :ref:`getattribute-and-getattr`.
+see the section :ref:`getattribute-and-getattr-vsj2`.
 
 CPython does not have a separate slot for deletion operations:
 it uses the ``tp_setttro`` slot (same as ``op_setattr``)
@@ -152,7 +153,7 @@ Note that CPython falls back on the legacy slot ``tp_getattr``.
 We will discuss the ``PyUnicode_Check(name)`` shortly.
 
 
-.. _candidate-getattr:
+.. _candidate-getattr-vsj2:
 
 Candidate ``getAttr``
 ---------------------
@@ -175,7 +176,7 @@ A candidate ``getAttr`` (strongly typed to ``PyUnicode``) is:
         }
 
 In fact, this is a slight over-simplification
-as we shall see in :ref:`getattribute-and-getattr`.
+as we shall see in :ref:`getattribute-and-getattr-vsj2`.
 
 In most contexts,
 we expect it to be known statically that the name is a ``PyUnicode``,
@@ -295,7 +296,7 @@ and absolutely all ``type``\s have one,
 so we examine that next.
 
 
-.. _instance-dictionary:
+.. _instance-dictionary-vsj2:
 
 The Instance Dictionary
 =======================
@@ -422,7 +423,7 @@ we turn to that next.
 The Mechanism of Attribute Access
 *********************************
 
-.. _getattribute-and-getattr:
+.. _getattribute-and-getattr-vsj2:
 
 ``__getattribute__`` and ``__getattr__``
 ========================================
@@ -437,7 +438,7 @@ and the instance dictionary of the object,
 in the order defined by the Python data model.
 
 The situation is similar for Python-defined types.
-In the :ref:`candidate-getattr`,
+In the :ref:`candidate-getattr-vsj2`,
 we showed a simplified custom ``getAttr()``
 sufficient for the example that preceded it.
 It matches the CPython ``PyObject_GenericGetAttr``,
@@ -480,7 +481,7 @@ re-inserts ``slot_tp_getattr_hook``.
 ..  _Attribute access in Python 2.2:
     https://docs.python.org/3/whatsnew/2.2.html#attribute-access
 
-.. _Python Data Model:
+..  _Python Data Model:
     https://docs.python.org/3/reference/datamodel.html
 
 
@@ -526,7 +527,7 @@ In our implementation,
 the ``Slot``\s are not API, and so this is an internal matter.
 
 
-.. _descriptors-in-concept:
+.. _descriptors-in-concept-vsj2:
 
 Descriptors in Concept
 ======================
@@ -560,7 +561,7 @@ is critical to a full understanding of the implementations of
 in the coming sections.
 
 
-.. _object-getattribute:
+.. _object-getattribute-vsj2:
 
 Implementing ``object.__getattribute__``
 ========================================
@@ -652,7 +653,7 @@ and which should put a definitive end to the attempt.
         }
 
 
-.. _object-setattr:
+.. _object-setattr-vsj2:
 
 Implementing ``object.__setattr__``
 ===================================
@@ -737,7 +738,7 @@ The standard implementation of ``__setattr__`` is as follows:
         }
 
 
-.. _object-delattr:
+.. _object-delattr-vsj2:
 
 Implementing ``object.__delattr__``
 ===================================
@@ -825,7 +826,7 @@ but from within the slot function (and with a less helpful message).
 
 
 
-.. _type-getattribute:
+.. _type-getattribute-vsj2:
 
 Implementing ``type.__getattribute__``
 ======================================
@@ -938,7 +939,7 @@ but an exception is the descriptor of a class method
 which returns the method bound to the type.
 
 
-.. _type-setattr:
+.. _type-setattr-vsj2:
 
 Implementing ``type.__setattr__``
 =================================
@@ -1018,14 +1019,14 @@ the type must be given the chance to re-compute internal data structures,
 in particular, the affected type slots.
 
 
-.. _type-delattr:
+.. _type-delattr-vsj2:
 
 Implementing ``type.__delattr__``
 =================================
 
 There is nothing to write concerning ``type.__delattr__``
-that is not already covered in :ref:`object-delattr`
-and :ref:`type-setattr`.
+that is not already covered in :ref:`object-delattr-vsj2`
+and :ref:`type-setattr-vsj2`.
 
 
 

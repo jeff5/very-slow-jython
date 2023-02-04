@@ -289,10 +289,40 @@ public class Abstract {
     }
 
     /**
+     * Python {@code o.name} returning {@code null} when not found (in
+     * place of {@code AttributeError} as would
+     * {@link #getAttr(Object, String)}). Other exceptions that may be
+     * raised in the process propagate.
+     *
+     * @param o the object in which to look for the attribute
+     * @param name of the attribute sought
+     * @return the attribute or {@code null}
+     * @throws Throwable on other errors than {@code AttributeError}
+     */
+    // Compare CPython _PyObject_LookupAttr in object.c
+    public static Object lookupAttr(Object o, String name)
+            throws TypeError, Throwable {
+        // Decisions are based on type of o (that of name is known)
+        Operations ops = Operations.of(o);
+        try {
+            // Invoke __getattribute__
+            return ops.op_getattribute.invokeExact(o, name);
+        } catch (EmptyException | AttributeError e) {
+            try {
+                // Not found or not defined: fall back on __getattr__.
+                return ops.op_getattr.invokeExact(o, name);
+            } catch (EmptyException | AttributeError ignored) {
+                // __getattr__ not defined, original exception stands.
+                return null;
+            }
+        }
+    }
+
+    /**
      * Python {@code o.name}: returning {@code null} when not found (in
      * place of {@code AttributeError} as would
      * {@link #getAttr(Object, Object)}). Other exceptions that may be
-     * raised in the process, propagate.
+     * raised in the process propagate.
      *
      * @param o the object in which to look for the attribute
      * @param name of the attribute sought
@@ -306,30 +336,6 @@ public class Abstract {
         // Decisions are based on types of o and name
         return lookupAttr(o, PyUnicode.asString(name,
                 Abstract::attributeNameTypeError));
-    }
-
-    /**
-     * Python {@code o.name} returning {@code null} when not found (in
-     * place of {@code AttributeError} as would
-     * {@link #getAttr(Object, String)}). Other exceptions that may be
-     * raised in the process, propagate.
-     *
-     * @param o the object in which to look for the attribute
-     * @param name of the attribute sought
-     * @return the attribute or {@code null}
-     * @throws Throwable on other errors than {@code AttributeError}
-     */
-    // Compare CPython _PyObject_LookupAttr in object.c
-    public static Object lookupAttr(Object o, String name)
-            throws TypeError, Throwable {
-        // Decisions are based on type of o (that of name is known)
-        try {
-            // Invoke __getattribute__
-            MethodHandle getattro = Operations.of(o).op_getattribute;
-            return getattro.invokeExact(o, name);
-        } catch (EmptyException | AttributeError e) {
-            return null;
-        }
     }
 
     /**
@@ -851,9 +857,8 @@ public class Abstract {
     // Plumbing -------------------------------------------------------
 
     /**
-     * Crafted error supporting {@link #getAttr(Object, PyUnicode)},
-     * {@link #setAttr(Object, PyUnicode, Object)}, and
-     * {@link #delAttr(Object, PyUnicode)}.
+     * Crafted error supporting {@link #setAttr(Object, String, Object)
+     * setAttr} and {@link #delAttr(Object, String) delAttr}.
      *
      * @param o object accessed
      * @param name of attribute
@@ -878,10 +883,12 @@ public class Abstract {
         }
         // Can we even read this object's attributes?
         Operations ops = Operations.of(o);
-        kind = Slot.op_getattribute.isDefinedFor(ops) ? "only read-only"
-                : "no";
+        String typeName = ops.type(o).name;
+        boolean readable = Slot.op_getattribute.isDefinedFor(ops)
+                || Slot.op_getattr.isDefinedFor(ops);
+        kind = readable ? "only read-only" : "no";
         // Now we know what to say
-        return new TypeError(fmt, ops, kind, mode, name);
+        return new TypeError(fmt, typeName, kind, mode, name);
     }
 
     // Convenience functions constructing errors --------------------
