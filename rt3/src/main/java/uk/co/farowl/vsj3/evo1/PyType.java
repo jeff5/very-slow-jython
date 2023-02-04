@@ -1563,16 +1563,15 @@ public class PyType extends Operations implements DictPyObject {
      * {@link Slot#op_getattribute} has signature
      * {@link Signature#GETATTR} and provides attribute read access on
      * this type object and its metatype. This is very like
-     * {@code object.__getattribute__}
-     * ({@link PyBaseObject#__getattribute__(Object, String)}), but the
-     * instance is replaced by a type object, and that object's type is
-     * a meta-type (which is also a {@code type}).
+     * {@code object.__getattribute__}, but the instance is replaced by
+     * a type object, and that object's type is a meta-type (which is
+     * also a {@code type}).
      * <p>
      * The behavioural difference is that in looking for attributes on a
      * type:
      * <ul>
-     * <li>we use {@link #lookup(String)} to search along along the
-     * MRO, and</li>
+     * <li>we use {@link #lookup(String)} to search along along the MRO,
+     * and</li>
      * <li>if we find a descriptor, we use it.
      * ({@code object.__getattribute__} does not check for descriptors
      * on the instance.)</li>

@@ -131,12 +131,12 @@ enum Slot {
      * Defines {@link Operations#op_iter}, get an iterator, with
      * signature {@link Signature#UNARY}.
      */
-    op_iter(Signature.UNARY), // unexplored territory
+    op_iter(Signature.UNARY),
     /**
      * Defines {@link Operations#op_next}, advance an iterator, with
      * signature {@link Signature#UNARY}.
      */
-    op_next(Signature.UNARY), // unexplored territory
+    op_next(Signature.UNARY),
 
     /**
      * Defines {@link Operations#op_get}, descriptor {@code __get__},

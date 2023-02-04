@@ -24,7 +24,7 @@ def run_command(cmd_list):
 # -- General information about the project --------------------------------
 
 project = u'The Very Slow Jython Project'
-copyright = u'2021, Jeff Allen'
+copyright = u'2023, Jeff Allen'
 author = u'Jeff Allen'
 #language = None
 

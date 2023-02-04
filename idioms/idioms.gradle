@@ -37,6 +37,8 @@ task lprof(type: JavaExec, description: 'JMH List profilers') {
     args '-lprof'
 }
 
+
+
 task exceptionSupplier(type: JavaExec,
         description: 'Exception provider benchmark') {
     classpath = sourceSets.main.runtimeClasspath
@@ -93,4 +95,19 @@ task exceptionSupplierLoop(type: JavaExec,
     //jvmArgs '-XX:+PrintAssembly'  // Everything (a lot)
     jvmArgs '-XX:CompileCommand=print,*BMExceptionSupplier.checkAll'
 }
+
+
+
+task evalLoop1(type: JavaExec,
+        description: 'Frame.eval benchmark') {
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'org.openjdk.jmh.Main'
+
+    // Need variants of this task with different filters
+    // Trailing .* necessary!
+    args '.*EvalLoop1.*'
+
+    //jvmArgs '-Xint' // JVM options added like this
+}
+
 

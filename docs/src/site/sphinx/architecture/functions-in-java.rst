@@ -11,7 +11,7 @@ This section is for discussion of
 conventions around the definition and calling of functions defined in Java.
 We might include in this:
 
-* Functions in modules defined in Jave.
+* Functions in modules defined in Java.
 * Abstract API intended to be public.
 * Private methods within the interpreter.
 * Methods in "discovered" Java objects.  
