@@ -1,4 +1,4 @@
-// Copyright (c)2022 Jython Developers.
+// Copyright (c)2023 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj3.evo1;
 
@@ -485,8 +485,8 @@ abstract class Operations {
          * Return a handle of the correct type for the slot, but that
          * indirects through the type object of the first argument.
          *
-         * @param s
-         * @return
+         * @param s slot for which this is to be a handle
+         * @return a handle that indirects through a type on the object
          */
         private static MethodHandle indirectSlot(Slot s) {
             /*

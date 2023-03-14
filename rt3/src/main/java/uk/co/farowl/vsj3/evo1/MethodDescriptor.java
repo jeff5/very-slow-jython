@@ -1,4 +1,4 @@
-// Copyright (c)2022 Jython Developers.
+// Copyright (c)2023 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj3.evo1;
 
@@ -13,6 +13,15 @@ import uk.co.farowl.vsj3.evo1.ArgumentError.Mode;
  */
 abstract class MethodDescriptor extends Descriptor implements FastCall {
 
+    /**
+     * Constructor specifying the Python type, as returned by
+     * {@link #getType()}. As this is a base for the implementation of
+     * all sorts of Python types, it needs to be told which one it is.
+     *
+     * @param objclass that defines the attribute being described
+     * @param name of the object described as {@code __name__}
+     * @param descrtype actual Python type being created
+     */
     MethodDescriptor(PyType descrtype, PyType objclass, String name) {
         super(descrtype, objclass, name);
     }

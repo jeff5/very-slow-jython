@@ -2,7 +2,7 @@
 
 
 Introduction
-############
+************
 
 Here we will test the idea that we may treat any Java object
 as a Python object,

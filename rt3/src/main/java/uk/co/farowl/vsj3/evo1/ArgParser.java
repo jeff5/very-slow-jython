@@ -1,4 +1,4 @@
-// Copyright (c)2022 Jython Developers.
+// Copyright (c)2023 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj3.evo1;
 
@@ -545,13 +545,15 @@ class ArgParser {
      * Parse {@code __call__} arguments and create an array, using the
      * arguments supplied and the defaults held in the parser.
      *
-     * @param args all arguments, positional then keyword
-     * @param names of keyword arguments
+     * @param args all arguments, positional then keyword, (or
+     *     {@code null})
+     * @param names of keyword arguments (or {@code null})
      * @return array of parsed arguments
      */
     Object[] parse(Object[] args, String[] names) {
         Object[] a = new Object[argnames.length];
         FrameWrapper w = new ArrayFrameWrapper(a);
+        if (args == null) { args = NO_OBJECTS; names = NO_STRINGS; }
         parseToFrame(w, args, 0, args.length, names);
         return a;
     }

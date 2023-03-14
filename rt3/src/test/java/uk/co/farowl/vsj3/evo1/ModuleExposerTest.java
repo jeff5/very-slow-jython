@@ -149,8 +149,8 @@ class ModuleExposerTest extends UnitTestSupport {
         void hasMethods() {
             /*
              * As FakeModule is not a PyModule, we must work a bit
-             * harder to take care of things normally automatic. Make a
-             * ModuleDef to hold the MethodDefs from the Exposer.
+             * harder to take care of things later masde automatic. Make
+             * a ModuleDef to hold the MethodDefs from the Exposer.
              */
             ModuleDef def = new ModuleDef("example", FakeModule.LOOKUP);
             // An instance of the "module" to bind in PyJavaMethods
@@ -161,8 +161,8 @@ class ModuleExposerTest extends UnitTestSupport {
             for (MethodDef md : def.getMethods()) {
                 ArgParser ap = md.argParser;
                 MethodHandle mh = md.handle;
-                PyJavaFunction m =
-                        PyJavaFunction.fromParser(ap, mh, fake, def.name);
+                PyJavaFunction m = PyJavaFunction.fromParser(ap, mh,
+                        fake, def.name);
                 dict.put(md.argParser.name, m);
             }
             // And here we check what's in it

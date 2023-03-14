@@ -239,7 +239,7 @@ class BuiltinsModule extends JavaModule {
      */
     @PythonStaticMethod
     @DocString("Return the dictionary containing the current scope's global variables.")
-    static Object globals() throws Throwable {
+    static Object globals() throws SystemError {
         return ThreadState.get().getGlobals();
     }
 

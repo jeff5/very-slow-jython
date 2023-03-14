@@ -1,4 +1,4 @@
-// Copyright (c)2022 Jython Developers.
+// Copyright (c)2023 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj3.evo1;
 
@@ -37,6 +37,7 @@ import uk.co.farowl.vsj3.evo1.Exposed.PythonStaticMethod;
 import uk.co.farowl.vsj3.evo1.ModuleDef.MethodDef;
 import uk.co.farowl.vsj3.evo1.base.InterpreterError;
 import uk.co.farowl.vsj3.evo1.base.MethodKind;
+import uk.co.farowl.vsj3.evo1.base.MissingFeature;
 
 /**
  * An object for tabulating the attributes of classes that define Python
@@ -1224,14 +1225,14 @@ abstract class Exposer {
          * <p>
          * In a type, the attribute must be represented by a descriptor
          * for the Python method from this specification. This method
-         * create a {@code PyMethodDescr} from the specification.
+         * creates a {@code PyMethodDescr} from the specification.
          * <p>
          * Note that a specification describes the methods as declared,
          * and that there may be any number of them, even if there is
          * only one implementation of the target type. The specification
          * may therefore have collected multiple Java definitions of the
          * same name.
-         *
+         * <p>
          * This method creates a descriptor that matches them to the
          * accepted implementations of the owning class. The descriptor
          * returned will contain one method handle for each accepted
@@ -1289,10 +1290,46 @@ abstract class Exposer {
             super(name, scopeKind);
         }
 
+        /**
+         * {@inheritDoc}
+         * <p>
+         * In a type, the attribute representing a static
+         * Python method
+         * is a {@code PyStaticMethod} wrapping a {@code PyJavaFunction}. This method creates it
+         *  from the specification.
+         * <p>
+         * Note that a specification describes the method as declared,
+         * and that there must be exactly one, even if there are multiple
+         * implementations of the type.
+         *
+         * @param objclass Python type that owns the descriptor
+         * @param lookup authorisation to access members
+         * @return descriptor for access to the method
+         * @throws InterpreterError if the method type is not supported
+         */
         @Override
-        PyJavaFunction asAttribute(PyType objclass, Lookup lookup) {
-            // TODO Auto-generated method stub
-            return null;
+        PyStaticMethod asAttribute(PyType objclass, Lookup lookup) {
+            assert methodKind == MethodKind.STATIC;
+            ArgParser ap = getParser();
+
+            // There should be exactly one candidate implementation.
+            if (methods.size() != 1) {
+                throw new InterpreterError(
+                        "static method %s has %d definitions in ", name,
+                        methods.size(), getJavaName());
+            }
+
+            Method m = methods.get(0);
+            try {
+                // Convert m to a handle (if accessible)
+                MethodHandle mh = lookup.unreflect(m);
+                assert mh.type().parameterCount() == regargcount;
+                PyJavaFunction javaFunction = PyJavaFunction.fromParser(ap, mh, objclass,
+                        null);
+                return new PyStaticMethod(objclass, javaFunction);
+            } catch (IllegalAccessException e) {
+                throw cannotGetHandle(m, e);
+            }
         }
 
         @Override

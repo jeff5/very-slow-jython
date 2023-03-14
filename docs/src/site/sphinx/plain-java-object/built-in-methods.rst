@@ -3,7 +3,7 @@
 .. _Built-in-methods:
 
 Methods on Built-in Types
-#########################
+*************************
 
 We have outlined how the special methods defined by the Python data model
 may be implemented for types defined in Java.
@@ -30,9 +30,14 @@ with a graduated scale of difficulty in the signatures.
 This was the test fixture against which solution development proceeded.
 
 The Visible Classes
-*******************
+===================
 
-In fact we need two main object types to implement methods or functions.
+We need handful of types to implement the methods of built-in types
+(types defined in Java).
+
+Instance Methods
+----------------
+Two classes are visible features in the implementation of instance methods.
 
 The first is
 ``PyMethodDescr`` (the Python type ``method_descriptor``),
@@ -40,6 +45,8 @@ which appears in the dictionary of a ``PyType`` under the method name.
 It is callable and may be applied to an instance as first argument,
 although we do not usually use it that way:
 
+>>> type(str.__dict__['replace'])
+<class 'method_descriptor'>
 >>> type(str.replace)
 <class 'method_descriptor'>
 >>> str.replace("cacophony", 'c', 'd')
@@ -73,23 +80,215 @@ in an application of ``str.replace()``,
 is held by the callable ``builtin_function_or_method``,
 then given to ``str.replace`` as first argument when it is called:
 
->>> r = str.replace.__get__("cacophony")
+>>> r = str.replace.__get__("cacophony")  # or r = "cacophany".replace
 >>> r.__self__
 'cacophony'
 >>> r.__call__('c', 'd')
 'dadophony'
 
 
-Relationships amongst the Classes
-*********************************
+Static Methods
+--------------
 
-``PyMethodDescr`` belongs to a broad hierarchy of descriptors.
-As we have seen,
-binding it to a target object gives rise to a ``PyJavaFunction``.
-This is a Python behaviour and so far is identical in CPython.
+Static methods are quite rare in the Python built-ins
+but ``str.maketrans`` is one.
+Unlike the instance case (exemplified by ``str.replace`` above)
+it matters whether we look in the dictionary directly
+or get the attribute off the type.
+
+>>> type(str.__dict__['maketrans'])
+<class 'staticmethod'>
+>>> type(str.maketrans)
+<class 'builtin_function_or_method'>
+>>> str.__dict__['maketrans'].__func__ == str.maketrans
+True
+
+We see that the dictionary of the type has a descriptor for the static method
+that in turn holds the ``builtin_function_or_method``
+in an attribute ``__func__``.
+Attribute access on the type (or on an instance) naming that descriptor,
+and therefore calling the descriptor's ``__get__`` method,
+simply retrieves the stored function.
+
+``builtin_function_or_method`` is a type we have already encountered
+as the *bound* form of an instance method.
+It was created during attribute access (calling ``__get__``)
+on a ``method_descriptor``.
+We observed that after attribute access ``r = "cacophany".replace``,
+``r.__self__`` preserved the bound target.
+In the case of a static method, ``__self__`` is empty,
+that is, the function is *unbound*:
+
+>>> repr(str.maketrans.__self__)
+'None'
+
+Comparison with static methods in Python
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The class ``staticmethod``
+is most frequently encountered as a decorator ``@staticmethod``
+on methods of a class defined in Python.
+Consider the definition:
+
+..  code-block:: python
+
+    class C:
+
+        def m(self, *args):
+            print("m args =", args)
+
+        @staticmethod
+        def sm(*args):
+            print("sm args =", args)
+
+We find attribute behaviour similar to the built-in:
+
+>>> type(C.__dict__['sm'])
+<class 'staticmethod'>
+>>> type(C.sm)
+<class 'function'>
+>>> C.__dict__['sm'].__func__
+<function C.sm at 0x00000248FFB31800>
+>>> C.sm(2,3,4)
+sm args = (2, 3, 4)
+
+In fact ``staticmethod`` may wrap any object
+and  ``__func__`` or attribute access simply returns it.
+The ``staticmethod`` wrapper serves to prevent
+the attribute producing a bound method when interpreted as a descriptor.
+
+Suppose we now define a function ``f``
+and add it to the class ``C`` like this:
+
+>>> def f(*args):
+...     print("f args =", args)
+...
+>>> C.f = f
+>>> type(C.__dict__['f'])
+<class 'function'>
+>>> C.f(2,3,4)
+f args = (2, 3, 4)
+>>> C().f(2,3,4)
+f args = (<__main__.C object at 0x00000218E598E550>, 2, 3, 4)
+
+In this last line we see that when ``f`` is invoked as an instance attribute,
+the instance becomes the first argument.
+This is because a Python ``function`` has a ``__get__``
+with binding behaviour.
+
+>>> f.__get__(1)
+<bound method f of 1>
+
+If we want ``f`` to behave as a static method of ``C``
+we have to wrap it with ``staticmethod``:
+
+>>> C.sf = staticmethod(f)
+>>> C().sf(2,3,4)
+f args = (2, 3, 4)
+
+Posing an unwrapped ``builtin_function_or_method``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+A ``builtin_function_or_method`` does not have a ``__get__``.
+If we insert one in the dictionary of a type directly,
+it behaves as a static method:
+
+>>> C.p = print
+>>> type(C.__dict__['p'])
+<class 'builtin_function_or_method'>
+>>> C.p(2,3,4)
+2 3 4
+>>> C().p(2,3,4)
+2 3 4
+
+It therefore does not seem to be entirely necessary
+to wrap a method defined in Java in ``staticmethod``,
+only to refrain from wrapping it in a ``method_descriptor``.
+
+Despite having no binding *behaviour* itself,
+a ``builtin_function_or_method`` may bind a ``__self__``,
+which in this case is a module:
+
+>>> C.__dict__['p'].__self__
+<module 'builtins' (built-in)>
+
+Summary
+^^^^^^^
+
+In a type defined in Java,
+attribute access produces a ``builtin_function_or_method``
+(``PyJavaFunction``).
+The entry in the dictionary of the type
+is a descriptor of type ``staticmethod`` (``PyStaticMethod`` in Java),
+although that wrapping does not seem entirely necessary.
+In general, attribute access produces whatever ``staticmethod`` wraps.
+
+
+Class Methods
+-------------
+
+We shall use the class method ``float.fromhex`` for exploration:
+
+>>> type(float.__dict__['fromhex'])
+<class 'classmethod_descriptor'>
+>>> type(float.fromhex)
+<class 'builtin_function_or_method'>
+>>> float.fromhex.__self__
+<class 'float'>
+(1.0).fromhex.__self__
+<class 'float'>
+
+The case of a class method is quite like that of the instance method.
+There is a specific descriptor ``classmethod_descriptor``
+(in the place of ``method_descriptor``)
+that creates a ``builtin_function_or_method`` during attribute access.
+The ``builtin_function_or_method`` is bound to the *class*.
+Attribute access on an instance leads to the same result as on the type,
+although a fresh bound object is produced each time
+(in CPython, at least):
+
+>>> (1.0).fromhex == float.fromhex
+True
+>>> (1.0).fromhex is float.fromhex
+False
+
+Notice that the actual type being bound determines the bound method produced:
+
+>>> class MyFloat(float): pass
+...
+>>> MyFloat.fromhex.__self__
+<class '__main__.MyFloat'>
+>>> MyFloat(1).fromhex.__self__
+<class '__main__.MyFloat'>
+>>> float.__dict__['fromhex'].__get__(MyFloat(1)).__self__
+<class '__main__.MyFloat'>
+
+We shall need an object type ``PyClassMethodDescr``
+to represent ``classmethod_descriptor``
+but it can probably share some implementation with ``PyMethodDescr``.
+
+Are we missing the decorator ``classmethod`` in this analysis? No.
+It is used *only* with the methods of classes defined in Python.
+
+
+Relationships amongst the Classes
+=================================
+
+Instance Methods
+----------------
+As we have seen, attribute access involving a ``PyMethodDescr``
+gives rise to a ``PyJavaFunction`` bound to an object
+through ``__self__``.
+The classes ``PyMethodDescr`` (``method_descriptor``)
+and ``PyJavaFunction`` (``builtin_function_or_method``)
+are visible parts of Python behaviour
+and identical in CPython.
+
+Our use (invisibly) of inheritance from ``Descriptor``
+is comparable to CPython's use of a common prefix (``PyDescr_COMMON``)
+to the implementing ``struct``\s.
 
 ..  uml::
-    :caption: Classes supporting method definition
+    :caption: Classes supporting instance method definition
 
     abstract class Descriptor {
         name : String
@@ -111,7 +310,7 @@ This is a Python behaviour and so far is identical in CPython.
         ~__call__() : Object
     }
     PyJavaFunction -right-> ArgParser : argParser
-    PyJavaFunction -left-> Object : self
+    PyJavaFunction -left-> Object : " ~__self__"
 
     abstract class PyMethodDescr {
         signature : MethodSignature
@@ -123,26 +322,138 @@ This is a Python behaviour and so far is identical in CPython.
     PyMethodDescr -right-> ArgParser : argParser
     PyMethodDescr ..> PyJavaFunction : <<creates>>
 
-Behind both of these visible classes is the ``ArgParser``,
-as the diagram shows,
-which is created for each method by the exposer by reflection
+Behind both of the visible classes is the ``ArgParser``,
+as the diagram shows.
+The parser is created for each method by the exposer by reflection
 on the defining class of a type or module.
 An ``ArgParser`` holds the information necessary to parse call arguments:
 the "shape" of the parameter list
 (number and names, how many are positional only or keyword),
 and the default values where given.
+It is somewhat the counterpart of CPython's ``MethodDef``,
+but not like it in detail.
 It is capable of expressing the full range of parameter lists
 encountered when defining a method or function in Python.
 
-``PyMethodDescr`` and ``PyJavaFunction`` are both abstract classes.
-As we shall see,
-concrete classes derived from each
+``PyMethodDescr`` and ``PyJavaFunction`` are abstract classes.
+Concrete classes derived from each
 provide efficient argument processing during calls,
 falling back on ``ArgParser`` only in complex cases.
 
 
+Static Methods
+--------------
+The description of a static method involves ``PyJavaFunction`` again.
+The entry in the dictionary of the type is a
+``PyStaticMethod`` (``staticmethod``) object.
+This is a (non-data) descriptor in Python
+because it defines ``__get__`` (but not ``__set__``).
+
+``PyStaticMethod`` does not Java-extend ``Descriptor``.
+(The equivalent observation in CPython is that the ``staticmethod`` struct
+does not have the preamble ``PyDescr_COMMON``.)
+Attributes we show in the diagram as fields (``__name__`` etc.)
+are actually in the instance dictionary,
+copied from the callable when it is set.
+
+..  uml::
+    :caption: Classes supporting static method definition
+
+    abstract class PyStaticMethod {
+        ~__module__
+        ~__name__
+        ~__qualname__
+        ~__get__() : Object
+        ~__call__() : Object
+    }
+
+    class ArgParser {
+        name : String
+        argNames : String[]
+    }
+
+    abstract class PyJavaFunction {
+        module : String
+        handle : MethodHandle
+        ~__call__() : Object
+    }
+    PyJavaFunction -right-> ArgParser : argParser
+
+    PyStaticMethod --> Object : callable
+
+    'Object <|-- PyFunction
+    Object <|-- PyJavaFunction
+
+The class ``staticmethod`` in Python may be used as a wrapper on any object,
+which ``__get__`` will return.
+In this context (a type defined in Java),
+this object will always be an unbound ``PyJavaFunction``.
+The net effect of calling ``__get__`` within attribute access,
+whether on a type or an instance,
+is to discard the ``self`` argument,
+such that a subsequent call only receives the arguments after ``self``.
+
+
+Class Methods
+-------------
+The differences from instance methods are quite minor:
+
+*  The descriptor in the dictionary of the type is a ``PyClassMethodDescr``,
+   a specialisation of ``PyMethodDescr``
+   redefining ``__get__`` and ``__call__``.
+*  The ``PyJavaFunction`` is bound to the *type* when created by ``__get__``.
+   This is the type, or the type of the instance,
+   on which the attribute access was requested.
+   The differing definitions of ``__getattribute__`` on ``type`` and ``obj``
+   are relevant here.
+
+
+..  uml::
+    :caption: Classes supporting class method definition
+
+    abstract class Descriptor {
+        name : String
+        objclass : PyType
+    }
+
+    abstract class MethodDescriptor {
+    }
+    Descriptor <|-- MethodDescriptor
+
+
+    class ArgParser {
+        name : String
+        argNames : String[]
+    }
+
+    abstract class PyJavaFunction {
+        module : String
+        handle : MethodHandle
+        ~__call__() : Object
+    }
+    PyJavaFunction -right-> ArgParser : argParser
+    PyJavaFunction -left-> PyType :  " ~__self__"
+
+    abstract class PyMethodDescr {
+        signature : MethodSignature
+        method : MethodHandle
+        ~__get__() : PyJavaFunction
+        ~__call__() : Object
+    }
+    MethodDescriptor <|-- PyMethodDescr
+    PyMethodDescr -right-> ArgParser : argParser
+
+    abstract class PyClassMethodDescr {
+        ~__get__() : PyJavaFunction
+        ~__call__() : Object
+    }
+    PyMethodDescr <|-- PyClassMethodDescr
+    PyClassMethodDescr ..> PyJavaFunction : <<creates>>
+
+
+
 Design Features
-***************
+===============
 
 The objectives of the design are:
 
@@ -181,7 +492,7 @@ We'll discuss the design objectives in turn.
 
 
 Natural Parameter Types
-=======================
+-----------------------
 
 A method accepting arguments from Python
 could declare every parameter to be ``Object``,
@@ -272,7 +583,7 @@ but the "self" of a method call is already stored as ``__self__``.
 
 
 Callable ``PyJavaFunction``
-===========================
+---------------------------
 
 When the interpreter calls ``__call__(Object[], String[])``,
 all the argument values from the call site
@@ -310,53 +621,13 @@ A sufficient implementation of ``__call__`` is:
     }
 
 This code is very simple because the hard work is done by ``argParser.parse``.
-The method handle adapts the called Java method to the array argument
+The method handle was built by the exposer
+from the raw handle of the Java method represented by the ``PyJavaFunction``.
+It adapts the Java method's arguments to the array argument
 prepared by the ``ArgParser``.
 
-An instance of ``PyJavaFunction`` may be the result of a
-method declaration like:
-
-..  code-block:: java
-
-        @PythonStaticMethod
-        static PyTuple f3(int a, String b, Object c) { ... }
-
-The constructor ensures ``handle.type()`` is ``(O[])O``.
-The handle is constructed with the necessary casts and conversions
-to match the elements of the array to the parameters ``a``, ``b`` and ``c``,
-and the return from ``PyTuple`` to ``Object``.
-When representing a static function, member ``self`` is ``null``.
-
-A ``PyJavaFunction`` may also be constructed by binding a ``PyMethodDescr``
-declared as:
-
-..  code-block:: java
-
-        @PythonMethod
-        PyTuple m3(int a, String b, Object c) { ... }
-
-The source expression ``o.m3`` leads to
-an eventual call to ``PyMethodDescr.__get__``,
-and a ``PyJavaFunction`` in which member ``self`` is ``o``.
-(This is exposed to Python as ``__self__``.)
-
-In order to avoid complicating call processing with a test ``self==null``,
-the ``MethodHandle`` in a bound ``PyJavaFunction``
-still has the signature ``(O[])O`` appropriate to a function.
-When a ``PyJavaFunction`` is formed by binding a ``PyMethodDescr``,
-we simply take the handle in the  ``PyMethodDescr``
-and bind ``self`` into the first argument,
-to get the handle stored in the ``PyJavaFunction``.
-
-The body of ``__call__`` shown above is illustrative.
-(The reader will be able to find it, but not in ``__call__`` directly.)
-In practice,
-substantial optimisations are present to handle common cases,
-in which we move arguments directly to the Java method being called.
-
-
 Callable ``PyMethodDescr``
-==========================
+--------------------------
 
 Turning now to ``PyMethodDescr``,
 a direct invocation of ``__call__``
@@ -408,7 +679,7 @@ Substantial optimisations are present to provide a fast path in common cases.
 
 
 Variants for Static and Class Methods
-=====================================
+-------------------------------------
 
 We have demonstrated in passing already how ``PyJavaFunction`` represents
 a Java ``static`` method,
@@ -426,8 +697,100 @@ Examples from the interpreter are:
 At the time of writing class methods are not implemented.
 
 
+Using ``PythonStaticMethod``
+----------------------------
+
+We shall see in :ref:`Modules-in-java`
+that when we define a Python *module* in Java,
+methods appear in its dictionary as ``PyJavaFunction`` objects.
+When we define a Python *type* in Java, a method declaration like:
+
+..  code-block:: java
+
+        @PythonStaticMethod
+        static PyTuple f3(int a, String b, Object c) { ... }
+
+also creates an instance of ``PyJavaFunction``,
+but the exposer immediately wraps it in a ``PyStaticMethod``,
+which is the implementation of the ``staticmethod`` decorator.
+There are not many static methods in CPython's built-in types.
+``str.maketrans`` provides an example
+(here in 3.11 where the ``__repr__`` is explicit about the callable).
+
+..  code-block:: python
+
+    >>> str.__dict__['maketrans']
+    <staticmethod(<built-in method maketrans of type object at 0x00007FFC59599470>)>
+    >>> str.maketrans
+    <built-in method maketrans of type object at 0x00007FFC59599470>
+    >>> "".maketrans
+    <built-in method maketrans of type object at 0x00007FFC59599470>
+
+Notice that the true nature of the ``maketrans`` attribute
+is only evident if we look in the dictionary itself.
+Binding (the ``.`` operator) to the type or instance
+produces the underlying ``builtin_function_or_method``.
+
+The object instances in Java are approximately:
+
+..  uml::
+    :caption: Instance model of ``str.maketrans``
+
+    object "maketrans : PyJavaFunction" as maketrans {
+        self
+        handle = PyUnicode.maketrans
+    }
+
+    object " : PyStaticMethod" as sm {
+        __get__()
+    }
+
+    object "str : PyType" as str {
+        __dict__
+    }
+
+    str --> sm : maketrans
+    sm --> maketrans : callable
+
+
+The constructor ensures ``handle.type()`` is ``(O[])O``.
+The handle is constructed with the necessary casts and conversions
+to match the elements of the array to the parameters ``a``, ``b`` and ``c``,
+and the return from ``PyTuple`` to ``Object``.
+When representing a static function, member ``self`` is ``null``.
+
+A ``PyJavaFunction`` may also be constructed by binding a ``PyMethodDescr``
+declared as:
+
+..  code-block:: java
+
+        @PythonMethod
+        PyTuple m3(int a, String b, Object c) { ... }
+
+The source expression ``o.m3`` leads to
+an eventual call to ``PyMethodDescr.__get__``,
+and a ``PyJavaFunction`` in which member ``self`` is ``o``.
+(This is exposed to Python as ``__self__``.)
+
+In order to avoid complicating call processing with a test ``self==null``,
+the ``MethodHandle`` in a bound ``PyJavaFunction``
+still has the signature ``(O[])O`` appropriate to a function.
+When a ``PyJavaFunction`` is formed by binding a ``PyMethodDescr``,
+we simply take the handle in the  ``PyMethodDescr``
+and bind ``self`` into the first argument,
+to get the handle stored in the ``PyJavaFunction``.
+
+The body of ``__call__`` shown above is illustrative.
+(The reader will be able to find it, but not in ``__call__`` directly.)
+In practice,
+substantial optimisations are present to handle common cases,
+in which we move arguments directly to the Java method being called.
+
+
+
+
 Efficient calls from CPython byte code
-======================================
+--------------------------------------
 
 The account we have given so far of the construction of
 ``PyMethodDescr`` and ``PyJavaFunction``,
@@ -473,7 +836,7 @@ the CPython byte code support (in ``Callables.java``) includes
 
 
 Calling a ``PyJavaFunction`` as a function
-------------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 When the call is simpler,
 CPython generates simpler byte code.
@@ -615,7 +978,7 @@ and interrogating its ``ml_flags`` field
 
 
 Calling a ``PyMethodDescr`` as a method
----------------------------------------
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 CPython has another trick up its sleeve when it compiles a method call.
 We'll treat this only briefly.
@@ -667,7 +1030,7 @@ using sub-classes again to specialise based on the defining signature.
 
 
 Prospect of efficient ``invokedynamic`` call sites
-==================================================
+--------------------------------------------------
 
 When the interpreter calls ``__call__(Object[], String[])``,
 all the argument values from the call site
@@ -719,7 +1082,7 @@ but the guard applied at run-time has to take all of them into account.
 
 
 Common Code with Python Methods
-===============================
+-------------------------------
 
 In the most general case,
 processing supplied arguments to the declared parameter positions,
@@ -745,4 +1108,105 @@ when processing a call.
 However, if their validations fail
 (e.g. of the number of arguments)
 it is still ``ArgParse`` that generates the error message users see.
+
+
+
+Annotations identifying Python Methods
+======================================
+
+..  note:: This material may not be needed now static and class methods
+    have been properly explored.
+
+    But making it about the annotations, maybe a section is.
+
+
+Using ``PythonStaticMethod``
+----------------------------
+
+We shall see in :ref:`Modules-in-java`
+that when we define a Python *module* in Java,
+methods appear in its dictionary as ``PyJavaFunction`` objects.
+When we define a Python *type* in Java, a method declaration like:
+
+..  code-block:: java
+
+        @PythonStaticMethod
+        static PyTuple f3(int a, String b, Object c) { ... }
+
+also creates an instance of ``PyJavaFunction``,
+but the exposer immediately wraps it in a ``PyStaticMethod``,
+which is the implementation of the ``staticmethod`` decorator.
+There are not many static methods in CPython's built-in types.
+``str.maketrans`` provides an example
+(here in 3.11 where the ``__repr__`` is explicit about the callable).
+
+..  code-block:: python
+
+    >>> str.__dict__['maketrans']
+    <staticmethod(<built-in method maketrans of type object at 0x00007FFC59599470>)>
+    >>> str.maketrans
+    <built-in method maketrans of type object at 0x00007FFC59599470>
+    >>> "".maketrans
+    <built-in method maketrans of type object at 0x00007FFC59599470>
+
+Notice that the true nature of the ``maketrans`` attribute
+is only evident if we look in the dictionary itself.
+Binding (the ``.`` operator) to the type or instance
+produces the underlying ``builtin_function_or_method``.
+
+The object instances in Java are approximately:
+
+..  uml::
+    :caption: Instance model of ``str.maketrans``
+
+    object "maketrans : PyJavaFunction" as maketrans {
+        self
+        handle = PyUnicode.maketrans
+    }
+
+    object " : PyStaticMethod" as sm {
+        __get__()
+    }
+
+    object "str : PyType" as str {
+        __dict__
+    }
+
+    str --> sm : maketrans
+    sm --> maketrans : callable
+
+
+The constructor ensures ``handle.type()`` is ``(O[])O``.
+The handle is constructed with the necessary casts and conversions
+to match the elements of the array to the parameters ``a``, ``b`` and ``c``,
+and the return from ``PyTuple`` to ``Object``.
+When representing a static function, member ``self`` is ``null``.
+
+A ``PyJavaFunction`` may also be constructed by binding a ``PyMethodDescr``
+declared as:
+
+..  code-block:: java
+
+        @PythonMethod
+        PyTuple m3(int a, String b, Object c) { ... }
+
+The source expression ``o.m3`` leads to
+an eventual call to ``PyMethodDescr.__get__``,
+and a ``PyJavaFunction`` in which member ``self`` is ``o``.
+(This is exposed to Python as ``__self__``.)
+
+In order to avoid complicating call processing with a test ``self==null``,
+the ``MethodHandle`` in a bound ``PyJavaFunction``
+still has the signature ``(O[])O`` appropriate to a function.
+When a ``PyJavaFunction`` is formed by binding a ``PyMethodDescr``,
+we simply take the handle in the  ``PyMethodDescr``
+and bind ``self`` into the first argument,
+to get the handle stored in the ``PyJavaFunction``.
+
+The body of ``__call__`` shown above is illustrative.
+(The reader will be able to find it, but not in ``__call__`` directly.)
+In practice,
+substantial optimisations are present to handle common cases,
+in which we move arguments directly to the Java method being called.
+
 

@@ -25,9 +25,9 @@ import uk.co.farowl.vsj3.evo1.base.MethodKind;
  * definitions.
  * <p>
  * The first test in each case is to examine the fields in the parser
- * that attaches to the {@link ModuleDef.MethodDef}. Then we call the
- * function using the {@code __call__} special method, and using our
- * "fast call" signatures.
+ * that attaches to the {@link PyMethodDescr}. Then we call the bound
+ * and unbound versions of the method using the {@code __call__} special
+ * method, and using our "fast call" signatures.
  * <p>
  * There is a nested test suite for each signature pattern.
  */
@@ -113,6 +113,7 @@ class TypeExposerMethodTest {
                 int posonlycount) {
             assertEquals(name, ap.name);
             assertEquals(kind, ap.methodKind);
+            assertEquals(ScopeKind.TYPE, ap.scopeKind);
             assertEquals(count, ap.argnames.length);
             assertEquals(count, ap.argcount);
             assertEquals(posonlycount, ap.posonlyargcount);
@@ -175,15 +176,14 @@ class TypeExposerMethodTest {
         void check_result(PyTuple result) {
             assertArrayEquals(exp, result.value);
         }
-
     }
 
     /**
      * A Python type definition that exhibits a range of method
-     * signatures explored in the tests. Methods named {@code m*()} are
-     * instance methods to Python, declared to Java as either instance
-     * methods ({@code this} is {@code self}) or as static methods
-     * ({@code self} is the first parameter).
+     * signatures explored in the tests. All the methods {@code m*()}
+     * are instance methods to Python, but may be declared to Java as
+     * either instance methods ({@code this} is {@code self}) or as
+     * static methods ({@code self} is the first parameter).
      */
     static class SimpleObject {
 

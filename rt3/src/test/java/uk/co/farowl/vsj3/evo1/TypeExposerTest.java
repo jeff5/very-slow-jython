@@ -29,6 +29,7 @@ import uk.co.farowl.vsj3.evo1.Exposed.Setter;
 import uk.co.farowl.vsj3.evo1.Exposer.CallableSpec;
 import uk.co.farowl.vsj3.evo1.TypeExposer.GetSetSpec;
 import uk.co.farowl.vsj3.evo1.TypeExposer.MemberSpec;
+import uk.co.farowl.vsj3.evo1.base.MethodKind;
 
 /**
  * Test that the annotations defined in {@link Exposed}, and intended
@@ -312,6 +313,10 @@ class TypeExposerTest {
         CallableSpec ms = find(methods, name);
         ArgParser ap = ms.getParser();
         assertEquals(expect, ap.textSignature());
+        MethodKind expectedMethodKind = name.startsWith("f")
+                ? MethodKind.STATIC : MethodKind.INSTANCE;
+        assertEquals(expectedMethodKind, ap.methodKind);
+        assertEquals(ScopeKind.TYPE, ap.scopeKind);
     }
 
     // ----------------------------------------------------------------

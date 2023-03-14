@@ -1,4 +1,4 @@
-// Copyright (c)2022 Jython Developers.
+// Copyright (c)2023 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj3.evo1;
 
@@ -25,7 +25,7 @@ class Callables extends Abstract {
      *
      * @param callable target
      * @param args all the arguments (position then keyword)
-     * @param names of the keyword arguments
+     * @param names of the keyword arguments or {@code null}
      * @return the return from the call to the object
      * @throws TypeError if target is not callable
      * @throws Throwable for errors raised in the function
@@ -83,6 +83,7 @@ class Callables extends Abstract {
             kwnames = null;
 
         } else {
+            // Convert to arrays of arguments and names
             int n = argTuple.size(), m = kwDict.size(), i = 0;
             args = argTuple.toArray(new Object[n + m]);
             kwnames = new String[m];
@@ -94,19 +95,24 @@ class Callables extends Abstract {
             }
         }
 
-        try { // XXX FastCall possible
-            /*
-             * In CPython, there are specific cases here that look for
-             * support for vector call and PyCFunction (would be
-             * PyJavaFunction) leading to PyVectorcall_Call or
-             * cfunction_call_varargs respectively on the args, kwargs
-             * arguments.
-             */
-            MethodHandle call = Operations.of(callable).op_call;
-            return call.invokeExact(callable, args, kwnames);
-        } catch (Slot.EmptyException e) {
-            throw typeError(OBJECT_NOT_CALLABLE, callable);
-        }
+        return call(callable, args, kwnames);
+    }
+
+    /**
+     * Call an object with the classic positional-only CPython call
+     * protocol, that is, with a tuple of arguments given by position
+     * and no dictionary of key-value pairs.
+     *
+     * @param callable target
+     * @param argTuple positional arguments
+     * @return the return from the call to the object
+     * @throws TypeError if target is not callable
+     * @throws Throwable for errors raised in the function
+     */
+    // Compare CPython PyObject_Call in call.c
+    static Object call(Object callable, PyTuple argTuple)
+            throws TypeError, Throwable {
+        return call(callable, argTuple.toArray(), null);
     }
 
     /**
@@ -296,7 +302,10 @@ class Callables extends Abstract {
 
     /**
      * Call an object with positional arguments supplied from Java as
-     * {@code Object}s.
+     * {@code Object}s. This is equivalent to
+     * {@code call(callable, args, NO_KEYWORDS)}. The name differs from
+     * {@link #call(Object, Object[], String[]) call} only to separate
+     * the call signatures.
      *
      * @param callable target
      * @param args positional arguments
