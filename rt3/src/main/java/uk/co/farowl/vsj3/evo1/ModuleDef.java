@@ -77,8 +77,8 @@ public class ModuleDef {
         PyDict d = module.dict;
         for (MethodDef md : methods) {
             // Create function by binding to the module
-            PyJavaFunction func = PyJavaFunction.fromParser(
-                    md.argParser, md.handle, module, this.name);
+            PyJavaFunction func = PyJavaFunction.forModule(md.argParser,
+                    md.handle, module, this.name);
             d.put(md.argParser.name, func);
         }
     }

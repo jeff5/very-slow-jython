@@ -2,10 +2,10 @@ package uk.co.farowl.vsj3.evo1;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.lang.invoke.MethodHandles;
-import java.util.Arrays;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -59,6 +59,20 @@ class TypeExposerStaticMethodTest {
          * in the defining class.
          */
         abstract void has_expected_fields();
+
+        /**
+         * The type dictionary entry has the expected content.
+         *
+         * @throws Throwable unexpectedly
+         */
+        @Test
+        void wraps_expected_function() {
+            PyStaticMethod s = (PyStaticMethod)PyType.of(obj).getDict()
+                    .get(ap.name);
+            PyJavaFunction f = (PyJavaFunction)s.__get__(null, null);
+            assertEquals(ap.name, f.__name__());
+            assertNull(f.self);  // unbound
+        }
 
         /**
          * Call the function using the {@code __call__} special method
@@ -160,7 +174,7 @@ class TypeExposerStaticMethodTest {
          */
         void setup(String name, Object o)
                 throws AttributeError, Throwable {
-            // A static method should return a PyJavaFunction
+            // A static method should bind as a PyJavaFunction
             descr = (PyStaticMethod)PyType.of(o).lookup(name);
             obj = o;
             func = (PyJavaFunction)Abstract.getAttr(obj, name);
@@ -402,8 +416,8 @@ class TypeExposerStaticMethodTest {
     }
 
     /**
-     * {@link SimpleObject#f3(int, String, Object)}
-     * accepts 3 arguments that <b>must</b> be given by position.
+     * {@link SimpleObject#f3(int, String, Object)} accepts 3 arguments
+     * that <b>must</b> be given by position.
      */
     @Nested
     @DisplayName("with positional-only parameters by default")
@@ -472,9 +486,9 @@ class TypeExposerStaticMethodTest {
     }
 
     /**
-     * {@link SimpleObject#f3pd(int, String, Object)}
-     * accepts 3 arguments that <b>must</b> be given by position but two
-     * have defaults.
+     * {@link SimpleObject#f3pd(int, String, Object)} accepts 3
+     * arguments that <b>must</b> be given by position but two have
+     * defaults.
      */
     @Nested
     @DisplayName("with positional-only parameters and default values")

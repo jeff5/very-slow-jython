@@ -37,7 +37,6 @@ import uk.co.farowl.vsj3.evo1.Exposed.PythonStaticMethod;
 import uk.co.farowl.vsj3.evo1.ModuleDef.MethodDef;
 import uk.co.farowl.vsj3.evo1.base.InterpreterError;
 import uk.co.farowl.vsj3.evo1.base.MethodKind;
-import uk.co.farowl.vsj3.evo1.base.MissingFeature;
 
 /**
  * An object for tabulating the attributes of classes that define Python
@@ -339,8 +338,9 @@ abstract class Exposer {
         }
 
         /**
-         * Create an attribute for the type being defined (suitable as
-         * an entry in its dictionary).
+         * Create an attribute for a type being defined (suitable as an
+         * entry in its dictionary). Note this is called only during
+         * type definition, not at module level.
          *
          * @param objclass defining type
          * @param lookup authorisation to access methods or fields
@@ -1293,14 +1293,14 @@ abstract class Exposer {
         /**
          * {@inheritDoc}
          * <p>
-         * In a type, the attribute representing a static
-         * Python method
-         * is a {@code PyStaticMethod} wrapping a {@code PyJavaFunction}. This method creates it
-         *  from the specification.
+         * In a type, the attribute representing a static Python method
+         * is a {@code PyStaticMethod} wrapping a
+         * {@code PyJavaFunction}. This method creates it from the
+         * specification.
          * <p>
          * Note that a specification describes the method as declared,
-         * and that there must be exactly one, even if there are multiple
-         * implementations of the type.
+         * and that there must be exactly one, even if there are
+         * multiple implementations of the type.
          *
          * @param objclass Python type that owns the descriptor
          * @param lookup authorisation to access members
@@ -1324,8 +1324,8 @@ abstract class Exposer {
                 // Convert m to a handle (if accessible)
                 MethodHandle mh = lookup.unreflect(m);
                 assert mh.type().parameterCount() == regargcount;
-                PyJavaFunction javaFunction = PyJavaFunction.fromParser(ap, mh, objclass,
-                        null);
+                PyJavaFunction javaFunction =
+                        PyJavaFunction.forStaticMethod(ap, mh);
                 return new PyStaticMethod(objclass, javaFunction);
             } catch (IllegalAccessException e) {
                 throw cannotGetHandle(m, e);

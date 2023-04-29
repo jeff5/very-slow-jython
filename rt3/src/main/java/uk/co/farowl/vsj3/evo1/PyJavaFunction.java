@@ -22,7 +22,7 @@ import uk.co.farowl.vsj3.evo1.base.MethodKind;
  * implementations tuned to the signature of the method and override one
  * or more {@code call()} methods from {@link FastCall} to optimise the
  * flow of arguments. Instances are obtained by calling
- * {@link PyJavaFunction#fromParser(ArgParser, MethodHandle, Object, String)
+ * {@link PyJavaFunction#forModule(ArgParser, MethodHandle, Object, String)
  * fromParser} or {@link PyJavaFunction#from(PyMethodDescr, Object)}.
  */
 public abstract class PyJavaFunction
@@ -106,7 +106,7 @@ public abstract class PyJavaFunction
      * @return A bound or unbound method supporting the signature
      */
     // Compare CPython PyCFunction_NewEx in methodobject.c
-    static PyJavaFunction fromParser(ArgParser ap, MethodHandle method,
+    static PyJavaFunction forModule(ArgParser ap, MethodHandle method,
             Object self, String module) {
         /*
          * Note this is a recommendation on the assumption all
@@ -146,6 +146,53 @@ public abstract class PyJavaFunction
                 method = MethodSignature.GENERAL.prepareBound(ap,
                         method, self);
                 return new General(ap, method, self, module);
+        }
+    }
+
+    /**
+     * Construct a {@code PyJavaFunction} from an {@link ArgParser} and
+     * {@code MethodHandle} for the implementation method. This is the
+     * factory we use to create a static method in a type.
+     *
+     * @param ap argument parser (provides name etc.)
+     * @param method raw handle to the method defined
+     * @return An unbound method supporting the signature
+     */
+    // Compare CPython PyCFunction_NewEx in methodobject.c
+    static PyJavaFunction forStaticMethod(ArgParser ap,
+            MethodHandle method) {
+        /*
+         * Note this is a recommendation on the assumption all
+         * optimisations are supported. The actual choice is made in the
+         * switch statement.
+         */
+        MethodSignature sig = MethodSignature.fromParser(ap);
+
+        assert ap.methodKind != MethodKind.CLASS;
+
+        /*
+         * In each case, we must prepare a method handle of the chosen
+         * shape.
+         */
+        switch (sig) {
+            case NOARGS:
+                method = MethodSignature.NOARGS.prepare(ap, method);
+                return new NoArgs(ap, method, null, null);
+            case O1:
+                method = MethodSignature.O1.prepare(ap, method);
+                return new O1(ap, method, null, null);
+            case O2:
+                method = MethodSignature.O2.prepare(ap, method);
+                return new O2(ap, method, null, null);
+            case O3:
+                method = MethodSignature.O3.prepare(ap, method);
+                return new O3(ap, method, null, null);
+            case POSITIONAL:
+                method = MethodSignature.POSITIONAL.prepare(ap, method);
+                return new Positional(ap, method, null, null);
+            default:
+                method = MethodSignature.GENERAL.prepare(ap, method);
+                return new General(ap, method, null, null);
         }
     }
 
@@ -274,7 +321,7 @@ public abstract class PyJavaFunction
     /**
      * The implementation may have any signature allowed by
      * {@link ArgParser}.
-     * {@link #fromParser(ArgParser, MethodHandle, Object, String)
+     * {@link #forModule(ArgParser, MethodHandle, Object, String)
      * fromParser()} will choose a {@code General} representation of the
      * function or method when no optimisations apply.
      */

@@ -161,7 +161,7 @@ class ModuleExposerTest extends UnitTestSupport {
             for (MethodDef md : def.getMethods()) {
                 ArgParser ap = md.argParser;
                 MethodHandle mh = md.handle;
-                PyJavaFunction m = PyJavaFunction.fromParser(ap, mh,
+                PyJavaFunction m = PyJavaFunction.forModule(ap, mh,
                         fake, def.name);
                 dict.put(md.argParser.name, m);
             }

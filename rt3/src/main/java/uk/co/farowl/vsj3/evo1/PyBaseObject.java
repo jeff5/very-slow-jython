@@ -212,7 +212,7 @@ public class PyBaseObject extends AbstractPyObject {
         /*
          * The name wasn't in the instance dictionary (or there wasn't
          * an instance dictionary). typeAttr is the result of look-up on
-         * the type: a value , a non-data descriptor, or null if the
+         * the type: a value, a non-data descriptor, or null if the
          * attribute was not found.
          */
         if (descrGet != null) {

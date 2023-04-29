@@ -24,7 +24,12 @@ class ModuleExposer extends Exposer {
     ModuleExposer() {}
 
     /**
-     * Build the result from the defining class.
+     * Build the result from the defining class. We populate this
+     * {@code ModuleExposer} with {@link MethodSpec} and
+     * {@link StaticMethodSpec} objects that describe the methods we
+     * discover in the {@code definingClass}. A subsequent call to
+     * {@link #getMethodDefs(Lookup)} will return {@link MethodDef}
+     * objects from them.
      *
      * @param definingClass to scan for definitions
      */

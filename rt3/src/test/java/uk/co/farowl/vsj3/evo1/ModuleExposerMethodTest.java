@@ -64,6 +64,20 @@ class ModuleExposerMethodTest {
         abstract void has_expected_fields();
 
         /**
+         * The module dictionary entry has the expected content.
+         *
+         * @throws Throwable unexpectedly
+         */
+        @Test
+        void has_expected_dict_entry() {
+            PyJavaFunction f =
+                    (PyJavaFunction)module.getDict().get(ap.name);
+            assertEquals(ap.name, f.__name__());
+            assertEquals(f.self, module);
+            assertEquals(module, func.self);
+        }
+
+        /**
          * Call the function using the {@code __call__} special method
          * with arguments correct for the function's specification. The
          * function should obtain the correct result (and not throw).
