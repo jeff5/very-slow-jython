@@ -164,10 +164,9 @@ abstract class Exposer {
     }
 
     /**
-     * Process an annotation that identifies a method of a Python type
-     * or module defined in Java as one to be exposed to Python, into a
-     * specification for a method descriptor, and add it to the table of
-     * specifications by name.
+     * Process an annotation that identifies an instance method of a
+     * Python type or module defined in Java, into a specification for a
+     * method, and add it to the table of specifications by name.
      *
      * @param anno annotation encountered
      * @param meth method annotated
@@ -193,10 +192,9 @@ abstract class Exposer {
     }
 
     /**
-     * Process an annotation that identifies a method of a Python type
-     * or module defined in Java as one to be exposed to Python, into a
-     * specification for a method descriptor, and add it to the table of
-     * specifications by name.
+     * Process an annotation that identifies a static method of a Python
+     * type or module defined in Java, into a specification for a
+     * method, and add it to the table of specifications by name.
      *
      * @param anno annotation encountered
      * @param meth method annotated
@@ -1325,7 +1323,7 @@ abstract class Exposer {
                 MethodHandle mh = lookup.unreflect(m);
                 assert mh.type().parameterCount() == regargcount;
                 PyJavaFunction javaFunction =
-                        PyJavaFunction.forStaticMethod(ap, mh);
+                        PyJavaFunction.forStaticMethod(ap, mh, null);
                 return new PyStaticMethod(objclass, javaFunction);
             } catch (IllegalAccessException e) {
                 throw cannotGetHandle(m, e);

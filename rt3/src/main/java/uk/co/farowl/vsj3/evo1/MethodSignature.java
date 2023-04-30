@@ -188,9 +188,14 @@ enum MethodSignature {
                 mh = adapt(raw, 0);
                 expectedType = boundType;
                 break;
+            case NEW:  // TODO needs checking adaptors
+                // First parameter is a PyType: start adaptors at one
+                mh = adapt(raw, 1);
+                expectedType = boundType;
+                break;
             case INSTANCE:
             case CLASS:
-                // Skip self parameter: start adaptation at one
+                // Skip self parameter: start adaptors at one
                 mh = adapt(raw, 1);
                 expectedType = instanceType;
                 break;

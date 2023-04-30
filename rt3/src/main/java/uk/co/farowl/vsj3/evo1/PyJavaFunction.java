@@ -43,9 +43,13 @@ public abstract class PyJavaFunction
      * The object to which this is bound as target (or {@code null}).
      * This field should be {@code null} in an instance that represents
      * a static method of a built-in class, and should otherwise contain
-     * the bound target ({@code object} or {@code type}). A function
-     * obtained from a module may be a method bound to an instance of
-     * that module.
+     * the bound target ({@code object} or {@code type}), which should
+     * also have been bound into the {@link #handle} supplied in
+     * construction. A function obtained from a module may be a method
+     * bound to an instance of that module. An instance representing the
+     * {@code __new__} of a type is anomalous in that {@code self}
+     * contains the defining type, but it is not bound into the first
+     * argument of {@link #handle}.
      */
     @Member("__self__")
     final Object self;
@@ -115,7 +119,8 @@ public abstract class PyJavaFunction
          */
         MethodSignature sig = MethodSignature.fromParser(ap);
 
-        assert ap.methodKind != MethodKind.CLASS;
+        assert ap.methodKind == MethodKind.INSTANCE
+                || ap.methodKind == MethodKind.STATIC;
 
         /*
          * In each case, we must prepare a method handle of the chosen
@@ -152,15 +157,17 @@ public abstract class PyJavaFunction
     /**
      * Construct a {@code PyJavaFunction} from an {@link ArgParser} and
      * {@code MethodHandle} for the implementation method. This is the
-     * factory we use to create a static method in a type.
+     * factory we use to create a static method in a type, including the
+     * {@code __new__} method.
      *
      * @param ap argument parser (provides name etc.)
      * @param method raw handle to the method defined
+     * @param self object to which bound (or {@code null})
      * @return An unbound method supporting the signature
      */
     // Compare CPython PyCFunction_NewEx in methodobject.c
     static PyJavaFunction forStaticMethod(ArgParser ap,
-            MethodHandle method) {
+            MethodHandle method, Object self) {
         /*
          * Note this is a recommendation on the assumption all
          * optimisations are supported. The actual choice is made in the
@@ -168,7 +175,8 @@ public abstract class PyJavaFunction
          */
         MethodSignature sig = MethodSignature.fromParser(ap);
 
-        assert ap.methodKind != MethodKind.CLASS;
+        assert ap.methodKind == MethodKind.STATIC
+                || ap.methodKind == MethodKind.NEW;
 
         /*
          * In each case, we must prepare a method handle of the chosen
@@ -177,22 +185,22 @@ public abstract class PyJavaFunction
         switch (sig) {
             case NOARGS:
                 method = MethodSignature.NOARGS.prepare(ap, method);
-                return new NoArgs(ap, method, null, null);
+                return new NoArgs(ap, method, self, null);
             case O1:
                 method = MethodSignature.O1.prepare(ap, method);
-                return new O1(ap, method, null, null);
+                return new O1(ap, method, self, null);
             case O2:
                 method = MethodSignature.O2.prepare(ap, method);
-                return new O2(ap, method, null, null);
+                return new O2(ap, method, self, null);
             case O3:
                 method = MethodSignature.O3.prepare(ap, method);
-                return new O3(ap, method, null, null);
+                return new O3(ap, method, self, null);
             case POSITIONAL:
                 method = MethodSignature.POSITIONAL.prepare(ap, method);
-                return new Positional(ap, method, null, null);
+                return new Positional(ap, method, self, null);
             default:
                 method = MethodSignature.GENERAL.prepare(ap, method);
-                return new General(ap, method, null, null);
+                return new General(ap, method, self, null);
         }
     }
 

@@ -2,6 +2,8 @@
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj3.evo1.base;
 
+import uk.co.farowl.vsj3.evo1.PyType;
+
 /**
  * Enum describing whether a method is an instance, static or class
  * method (in Python).
@@ -13,13 +15,22 @@ public enum MethodKind {
      * to declare one it will simply be the first parameter.) In a call
      * from Python that uses dot notation, which is attribute lookup,
      * the target object (or its type) is used to find the method, but
-     * is not bound to the first parameter.
+     * the object is not bound to the first parameter.
      */
     /*
      * In CPython STATIC cannot be used for functions in modules, but we
      * find it useful to expose Java static methods that way.
      */
     STATIC,
+
+    /**
+     * The method must be defined by a Java static method. An initial
+     * self or module argument is not expected. The first parameter must
+     * be a {@link PyType}. In a call from Python that uses dot
+     * notation, which is attribute lookup, the target object (or its
+     * type) is used to find the method.
+     */
+    NEW,
 
     /**
      * The first argument is self or a module. The method must be

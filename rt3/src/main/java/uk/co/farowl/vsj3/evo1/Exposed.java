@@ -50,7 +50,6 @@ public interface Exposed {
     @Retention(RUNTIME)
     @Target(METHOD)
     @interface PythonMethod {
-
         /**
          * Exposed name of the method if different from the declaration.
          *
@@ -88,8 +87,9 @@ public interface Exposed {
          * default for methods defined in Python where it would have to
          * be expressed as {@code def g(a, b, c, /)}.
          *
-         * @return {@code true} (the default) if and only if this is the
-         *     primary definition of the method
+         * @return {@code true} (the default) if and only if the
+         *     parameters should be interpreted as positional from the
+         *     start.
          */
         boolean positionalOnly() default true;
     }
@@ -114,14 +114,13 @@ public interface Exposed {
      * documentation string (in the Python sense), by means of the
      * &#064;{@link DocString} annotation.
      * <p>
-     * Only one method of the given name, in a given class class, may be
+     * Only one method of the given name, in a given class, may be
      * annotated as a {@code PythonStaticMethod}.
      */
     @Documented
     @Retention(RUNTIME)
     @Target(METHOD)
     @interface PythonStaticMethod {
-
         /**
          * Exposed name of the function if different from the
          * declaration.
@@ -133,28 +132,50 @@ public interface Exposed {
         /**
          * The element {@code positionalOnly=false} is used to indicate
          * that the arguments in a call to the annotated method may be
-         * provided by keyword. This provides the call with the
-         * semantics of a function defined in Python, where <pre>
-         * def g(a, b, c):
-         *     print(a, b, c)
-         * </pre> may be called as <pre>
-         * &gt;&gt;&gt; g(b=2, c=3, a=1)
-         * 1 2 3
-         * &gt;&gt;&gt; g(**dict(b=2, c=3, a=1))
-         * 1 2 3
-         * </pre> It is as if we had annotated an imaginary parameter
-         * before the first declared parameter (or {@code self}) with
-         * &#064;{@link PositionalOnly}.
-         * <p>
-         * The default {@code positional=true} is the more frequent case
-         * for built-in function, although it is the opposite of the
-         * default for methods defined in Python where it would have to
-         * be expressed as {@code def g(a, b, c, /)}.
+         * provided by keyword. The semantics are the same as
+         * {@link PythonMethod#positionalOnly()}
          *
-         * @return {@code true} (the default) if and only if this is the
-         *     primary definition of the method
+         * @return {@code true} (the default) if and only if the
+         *     parameters should be interpreted as positional from the
+         *     start.
          */
         boolean positionalOnly() default true;
+    }
+
+    /**
+     * Identify a Python {@code __new__} method of a type defined in
+     * Java and exposed to Python. The signature must be a supported
+     * type for which coercions can be found for its parameters.
+     * <p>
+     * When found in the classes that define a built-in type, this
+     * annotation results in a {@code builtin_function_or_method} object
+     * in the dictionary of the type. It is not valid in a class that
+     * defines a built-in module.
+     * <p>
+     * Annotations may appear on the parameters of a method annotated
+     * with {@code PythonNewMethod}. These further describe the method,
+     * defining the parameters as positional-only parameters, or
+     * providing default values. A method may also be annotated with a
+     * documentation string (in the Python sense), by means of the
+     * &#064;{@link DocString} annotation.
+     * <p>
+     * Only one method called {@code __new__} may be annotated as a
+     * {@code PythonNewMethod} in a given class. The element
+     * {@code positionalOnly=false} is not available on
+     * {@code PythonNewMethod}: the type parameter must always be given
+     * first, and cannot be given by keyword.
+     */
+    @Documented
+    @Retention(RUNTIME)
+    @Target(METHOD)
+    @interface PythonNewMethod {
+        /**
+         * Exposed name of the function if different from the
+         * declaration.
+         *
+         * @return name of the function
+         */
+        String value() default "";
     }
 
     /**
