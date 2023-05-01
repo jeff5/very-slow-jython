@@ -1,4 +1,4 @@
-// Copyright (c)2022 Jython Developers.
+// Copyright (c)2023 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj3.evo1;
 
@@ -26,11 +26,15 @@ class Clinic {
     private static final Lookup LOOKUP = MethodHandles.lookup();
 
     private static final Class<?> O = Object.class;
+    private static final Class<?> T = PyType.class;
 
     // Handles for converters from Python to Java types for args
     private static final MethodHandle intArgMH;
     private static final MethodHandle doubleArgMH;
     private static final MethodHandle stringArgMH;
+
+    // Handle used specifically to validate __new__ calls
+    private static final MethodHandle newValidationMH;
 
     // Handles for converters from Java types to Python for returns
     private static final MethodHandle voidValueMH;
@@ -51,6 +55,10 @@ class Clinic {
                     MethodType.methodType(double.class, O));
             stringArgMH = LOOKUP.findStatic(Clinic.class, "stringArg",
                     MethodType.methodType(String.class, O));
+
+            newValidationMH =
+                    LOOKUP.findVirtual(T, "validatedNewArgument",
+                            MethodType.methodType(T, O));
 
             voidValueMH = MethodHandles.constant(O, Py.None);
 
@@ -104,6 +112,7 @@ class Clinic {
      */
     static MethodHandle[] argumentFilter(MethodType mt, int pos) {
         final int n = mt.parameterCount() - pos;
+        assert n >= 0;
         MethodHandle[] filter = new MethodHandle[n];
         for (int p = 0; p < n; p++) {
             Class<?> pt = mt.parameterType(pos + p);
@@ -120,6 +129,20 @@ class Clinic {
      */
     static MethodHandle[] argumentFilter(MethodType mt) {
         return argumentFilter(mt, 0);
+    }
+
+    /**
+     * A single argument filter designed specifically for application as
+     * the argument filter on a {@code __new__} implementation. Where
+     * the filter is applied, the argument is validated by a call to
+     * {@link PyType#validatedNewArgument(Object)} made on the provided
+     * {@code self}.
+     *
+     * @param self Python type against which to validate.
+     * @return filter-adaptors to expect {@code Object}.
+     */
+    static MethodHandle newValidationFilter(PyType self) {
+        return newValidationMH.bindTo(self);
     }
 
     /**
@@ -152,24 +175,24 @@ class Clinic {
      * The logic of this method defines the standard for converting
      * Python types to a specified Java type.
      *
-     * @param c Java type
+     * @param c Java type expected by the method
      * @return filter converting Python object to {@code c}.
      */
     private static MethodHandle adaptParameterToObject(Class<?> c) {
         if (c.isPrimitive()) {
-            if (c == int.class) {
+            if (c == int.class)
                 return Clinic.intArgMH;
-            } else if (c == double.class) { return Clinic.doubleArgMH; }
+            else if (c == double.class)
+                return Clinic.doubleArgMH;
         } else {
-            if (c == String.class) {
-                return Clinic.stringArgMH;
-            } else if (c == O) {
-                // The method expects a Object
+            if (c == O)
+                // The method expects exactly an Object
                 return null;
-            } else if (O.isAssignableFrom(c)) {
+            else if (c == String.class)
+                return Clinic.stringArgMH;
+            else if (O.isAssignableFrom(c))
                 // The method expects some sub-class of Object
                 return null;
-            }
         }
         throw new InterpreterError(
                 "Cannot convert Python object to Java %s",
@@ -187,7 +210,7 @@ class Clinic {
             throws TypeError, Throwable {
         Class<? extends Object> c = o.getClass();
         if (c == PyUnicode.class) {
-            return ((PyUnicode) o).toString();
+            return ((PyUnicode)o).toString();
         } else {
             return Abstract.str(o).toString();
         }
@@ -199,7 +222,7 @@ class Clinic {
      * The logic of this method defines the standard for converting
      * specified Java types to Python.
      *
-     * @param c Java type
+     * @param c Java type of the return value
      * @return filter converting {@code c} to a Python object.
      */
     private static MethodHandle adaptReturnToObject(Class<?> c) {

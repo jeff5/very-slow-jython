@@ -1,4 +1,4 @@
-// Copyright (c)2022 Jython Developers.
+// Copyright (c)2023 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj3.evo1;
 
@@ -119,13 +119,11 @@ public abstract class PyJavaFunction
          */
         MethodSignature sig = MethodSignature.fromParser(ap);
 
+        assert ap.scopeKind == ScopeKind.MODULE;
         assert ap.methodKind == MethodKind.INSTANCE
                 || ap.methodKind == MethodKind.STATIC;
 
-        /*
-         * In each case, we must prepare a method handle of the chosen
-         * shape.
-         */
+        // In each case, prepare a method handle of the chosen shape.
         switch (sig) {
             case NOARGS:
                 method = MethodSignature.NOARGS.prepareBound(ap, method,
@@ -157,8 +155,7 @@ public abstract class PyJavaFunction
     /**
      * Construct a {@code PyJavaFunction} from an {@link ArgParser} and
      * {@code MethodHandle} for the implementation method. This is the
-     * factory we use to create a static method in a type, including the
-     * {@code __new__} method.
+     * factory we use to create a static method in a type.
      *
      * @param ap argument parser (provides name etc.)
      * @param method raw handle to the method defined
@@ -167,7 +164,7 @@ public abstract class PyJavaFunction
      */
     // Compare CPython PyCFunction_NewEx in methodobject.c
     static PyJavaFunction forStaticMethod(ArgParser ap,
-            MethodHandle method, Object self) {
+            MethodHandle method) {
         /*
          * Note this is a recommendation on the assumption all
          * optimisations are supported. The actual choice is made in the
@@ -175,17 +172,64 @@ public abstract class PyJavaFunction
          */
         MethodSignature sig = MethodSignature.fromParser(ap);
 
-        assert ap.methodKind == MethodKind.STATIC
-                || ap.methodKind == MethodKind.NEW;
+        assert ap.scopeKind == ScopeKind.TYPE;
+        assert ap.methodKind == MethodKind.STATIC;
 
-        /*
-         * In each case, we must prepare a method handle of the chosen
-         * shape.
-         */
+        // In each case, prepare a method handle of the chosen shape.
         switch (sig) {
             case NOARGS:
                 method = MethodSignature.NOARGS.prepare(ap, method);
-                return new NoArgs(ap, method, self, null);
+                return new NoArgs(ap, method, null, null);
+            case O1:
+                method = MethodSignature.O1.prepare(ap, method);
+                return new O1(ap, method, null, null);
+            case O2:
+                method = MethodSignature.O2.prepare(ap, method);
+                return new O2(ap, method, null, null);
+            case O3:
+                method = MethodSignature.O3.prepare(ap, method);
+                return new O3(ap, method, null, null);
+            case POSITIONAL:
+                method = MethodSignature.POSITIONAL.prepare(ap, method);
+                return new Positional(ap, method, null, null);
+            default:
+                method = MethodSignature.GENERAL.prepare(ap, method);
+                return new General(ap, method, null, null);
+        }
+    }
+
+    /**
+     * Construct a {@code PyJavaFunction} from an {@link ArgParser} and
+     * {@code MethodHandle} for a {@code __new__} method. Although
+     * {@code __new__} is a static method the {@code PyJavaFunction} we
+     * produce is bound to the defining {@code PyType self}.
+     *
+     * @param ap argument parser (provides argument names etc.)
+     * @param method raw handle to the method defined
+     * @param self defining type object to which bound
+     * @return A bound method supporting the signature
+     */
+    // Compare CPython PyCFunction_NewEx in methodobject.c
+    static PyJavaFunction forNewMethod(ArgParser ap,
+            MethodHandle method, PyType self) {
+        /*
+         * Note this is a recommendation on the assumption all
+         * optimisations are supported. The actual choice is made in the
+         * switch statement.
+         */
+        MethodSignature sig = MethodSignature.fromParser(ap);
+
+        assert ap.scopeKind == ScopeKind.TYPE;
+        assert ap.methodKind == MethodKind.NEW;
+        assert sig != MethodSignature.NOARGS;
+
+        // Adapt the method handle to validate its first argument
+        method = MethodHandles.filterArguments(method, 0,
+                Clinic.newValidationFilter(self));
+
+        // In each case, prepare a method handle of the chosen shape.
+        switch (sig) {
+            // __new__ cannot be NOARGS
             case O1:
                 method = MethodSignature.O1.prepare(ap, method);
                 return new O1(ap, method, self, null);

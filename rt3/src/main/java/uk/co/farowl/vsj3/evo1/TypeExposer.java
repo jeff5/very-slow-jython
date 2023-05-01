@@ -971,7 +971,7 @@ class TypeExposer extends Exposer {
                 MethodHandle mh = lookup.unreflect(m);
                 assert mh.type().parameterCount() == regargcount;
                 PyJavaFunction javaFunction =
-                        PyJavaFunction.forStaticMethod(ap, mh, type);
+                        PyJavaFunction.forNewMethod(ap, mh, type);
                 return javaFunction;
             } catch (IllegalAccessException e) {
                 throw cannotGetHandle(m, e);

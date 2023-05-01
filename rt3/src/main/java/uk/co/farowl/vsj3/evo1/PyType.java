@@ -766,6 +766,65 @@ public class PyType extends Operations implements DictPyObject {
     }
 
     /**
+     * Validate the argument presented first in a call to
+     * {@code __new__} against {@code this} as the defining type. This
+     * first argument is the required sub-type, called {@code cls} in
+     * the Python documentation for {@code __new__}. It must specify a
+     * Python sub-type of the one that defined {@code __new__}.
+     * <p>
+     * We apply this validation to {@code __new__} calls in every Python
+     * type defined in Java. It is implemented as a wrapper on the
+     * handle in the {@link PyJavaFunction} that exposes {@code __new__}
+     * for that type. Invoking that handle, will call a Java method
+     * that, in simple cases, is defined by:<pre>
+     * T __new__(PyType cls, ...) {
+     *     if (cls == T.TYPE)
+     *         return new T(...);
+     *     else
+     *         return new S(cls, ...);
+     * }
+     * </pre> where {@code S} is a Java sub-class of {@code T}. The
+     * instance of S created will subsequently claim a Python type
+     * {@code cls} in its {@code __class__} attribute. The validation
+     * enforces the constraint that instances of {@code S} may only be
+     * instances of a Python sub-type of the type T represents. (If
+     * {@code __class__} is assignable in instances, we must apply the
+     * validation in the setter too.)
+     * <p>
+     * The {@code __new__} of a class defined in Python is a harmless
+     * {@code staticmethod}. It doesn't matter how defective it is
+     * until, during {@code super().__new__}, we reach a built-in type
+     * and then this validation will be applied.
+     *
+     * @param self of the __new__ function object
+     * @param arg0 first argument to the {@code __new__} call
+     * @return arg0 if the checks succeed
+     * @throws TypeError if the checks fail
+     */
+    // Compare CPython tp_new_wrapper in typeobject.c
+    PyType validatedNewArgument(Object arg0) throws TypeError {
+        if (arg0 == this) {
+            // Quick success in the frequent case
+            return this;
+        } else if (!(arg0 instanceof PyType)) {
+            // arg0 wasn't even a type
+            throw new TypeError(
+                    "%s.__new__(X): X must be a type object not %s",
+                    this.getName(), PyType.of(arg0).getName());
+        } else {
+            PyType cls = (PyType)arg0;
+            if (!cls.isSubTypeOf(this)) {
+                String name = getName(), clsName = cls.getName();
+                throw new TypeError(
+                        "%s.__new__(%s): %s is not a subtype of %s", //
+                        name, clsName, clsName, name);
+            } else {
+                return cls;
+            }
+        }
+    }
+
+    /**
      * Return whether special methods in this type may be assigned new
      * meanings after type creation (or may be safely cached).
      *
@@ -1508,11 +1567,11 @@ public class PyType extends Operations implements DictPyObject {
          * created, and we're creating one of this type. Note names are
          * of *last* elements, so remain valid after the shift.
          */
-        Object[] fullargs = new Object[args.length + 1];
-        fullargs[0] = this;
-        System.arraycopy(args, 0, fullargs, 1, args.length);
+        Object[] allargs = new Object[args.length + 1];
+        allargs[0] = this;
+        System.arraycopy(args, 0, allargs, 1, args.length);
 
-        Object obj = Callables.call(_new, fullargs, names);
+        Object obj = Callables.call(_new, allargs, names);
         assert obj != null;
 
         /*

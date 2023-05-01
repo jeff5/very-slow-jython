@@ -1,3 +1,5 @@
+// Copyright (c)2023 Jython Developers.
+// Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj3.evo1;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -41,6 +43,9 @@ class TypeExposerNewMethodTest extends UnitTestSupport {
      * in each nested case.
      */
     abstract static class Standard {
+
+        /** We frequently need to pass no keyword arguments. */
+        static final String[] NONAMES = new String[0];
 
         // Working variables for the tests
         /** Descriptor by type access to examine or call. */
@@ -91,6 +96,33 @@ class TypeExposerNewMethodTest extends UnitTestSupport {
          * @throws Throwable unexpectedly
          */
         abstract void supports_keywords() throws Throwable;
+
+        /**
+         * Call the method using the {@code __call__} special method but
+         * not even the first argument is provided. The method should
+         * throw {@link TypeError}.
+         *
+         * @throws Throwable unexpectedly
+         */
+        @Test
+        void raises_TypeError_if_no_args() throws Throwable {
+            // We call type.__new__()
+            final Object[] args = new Object[0];
+            String[] names = {};
+            assertThrows(TypeError.class,
+                    () -> func.__call__(args, names));
+        }
+
+        /**
+         * Call the method using the {@code __call__} special method but
+         * the first argument is not a {@code PyType} or that
+         * {@code PyType} is not a sub-type of the defining type. The
+         * method should throw {@link TypeError}.
+         *
+         * @throws Throwable unexpectedly
+         */
+        abstract void raises_TypeError_if_not_subtype()
+                throws Throwable;
 
         /**
          * Call the method using the {@code __call__} special method and
@@ -175,6 +207,30 @@ class TypeExposerNewMethodTest extends UnitTestSupport {
             TestTypeBase obj = (TestTypeBase)result;
             assertArrayEquals(exp, obj.constructorArgs);
         }
+
+        /**
+         * Check that TypeError is thrown when the first argument to a
+         * working call has been replaced with either a non-type or a
+         * type that is not a sub-type.
+         *
+         * @param args values to method call
+         * @param names keyword names
+         * @throws Throwable unexpectedly
+         */
+        void check_not_subtype(Object[] args, String[] names)
+                throws Throwable {
+            // Prove correct by repeating supports_keywords()
+            Object r = func.__call__(args, names);
+            check_result(r);
+            // Repeat with args[0] not a type at all
+            args[0] = "incorrect";
+            assertThrows(TypeError.class,
+                    () -> func.__call__(args, names));
+            // Repeat with args[0] not sub-type
+            args[0] = PyLong.TYPE;
+            assertThrows(TypeError.class,
+                    () -> func.__call__(args, names));
+        }
     }
 
     static class TestTypeBase {
@@ -249,9 +305,15 @@ class TypeExposerNewMethodTest extends UnitTestSupport {
         void supports_keywords() throws Throwable {
             // We call type.__new__(type)
             Object[] args = {type};
-            String[] names = {};
-            Object r = func.__call__(args, names);
+            Object r = func.__call__(args, NONAMES);
             check_result(r);
+        }
+
+        @Override
+        @Test
+        void raises_TypeError_if_not_subtype() throws Throwable {
+            Object[] args = {type};
+            check_not_subtype(args, NONAMES);
         }
 
         /** To set anything by keyword is a {@code TypeError}. */
@@ -338,9 +400,15 @@ class TypeExposerNewMethodTest extends UnitTestSupport {
         void supports_keywords() throws Throwable {
             // We call type.__new__(type, 42.0)
             Object[] args = {type, 42.0};
-            String[] names = {};
-            Object r = func.__call__(args, names);
+            Object r = func.__call__(args, NONAMES);
             check_result(r);
+        }
+
+        @Override
+        @Test
+        void raises_TypeError_if_not_subtype() throws Throwable {
+            Object[] args = {type, 42.0};
+            check_not_subtype(args, NONAMES);
         }
 
         @Override
@@ -426,9 +494,15 @@ class TypeExposerNewMethodTest extends UnitTestSupport {
         void supports_keywords() throws Throwable {
             // We call type.__new__(type, 1, '2', 3)
             Object[] args = {type, 1, "2", 3};
-            String[] names = {};
-            Object r = func.__call__(args, names);
+            Object r = func.__call__(args, NONAMES);
             check_result(r);
+        }
+
+        @Override
+        @Test
+        void raises_TypeError_if_not_subtype() throws Throwable {
+            Object[] args = {type, 1, "2", 3};
+            check_not_subtype(args, NONAMES);
         }
 
         @Override
@@ -517,9 +591,15 @@ class TypeExposerNewMethodTest extends UnitTestSupport {
         void supports_keywords() throws Throwable {
             // We call type.__new__(type, 1)
             Object[] args = {type, 1};
-            String[] names = {};
-            Object r = func.__call__(args, names);
+            Object r = func.__call__(args, NONAMES);
             check_result(r);
+        }
+
+        @Override
+        @Test
+        void raises_TypeError_if_not_subtype() throws Throwable {
+            Object[] args = {type, 1};
+            check_not_subtype(args, NONAMES);
         }
 
         @Override
@@ -598,8 +678,7 @@ class TypeExposerNewMethodTest extends UnitTestSupport {
         void supports__call__() throws Throwable {
             // We call type.__new__(type, 1, '2', 3)
             Object[] args = {type, 1, "2", 3};
-            String[] names = {};
-            Object r = func.__call__(args, names);
+            Object r = func.__call__(args, null);
             check_result(r);
         }
 
@@ -611,6 +690,14 @@ class TypeExposerNewMethodTest extends UnitTestSupport {
             String[] names = {"c", "b"};
             Object r = func.__call__(args, names);
             check_result(r);
+        }
+
+        @Override
+        @Test
+        void raises_TypeError_if_not_subtype() throws Throwable {
+            Object[] args = {type, 1, 3, "2"};
+            String[] names = {"c", "b"};
+            check_not_subtype(args, names);
         }
 
         @Override
@@ -690,8 +777,7 @@ class TypeExposerNewMethodTest extends UnitTestSupport {
         void supports__call__() throws Throwable {
             // We call type.__new__(type, 1, '2', 3)
             Object[] args = {type, 1, "2", 3};
-            String[] names = {};
-            Object r = func.__call__(args, names);
+            Object r = func.__call__(args, null);
             check_result(r);
         }
 
@@ -704,6 +790,14 @@ class TypeExposerNewMethodTest extends UnitTestSupport {
             String[] names = {"c"};
             Object r = func.__call__(args, names);
             check_result(r);
+        }
+
+        @Override
+        @Test
+        void raises_TypeError_if_not_subtype() throws Throwable {
+            Object[] args = {type, 1, "2", 3};
+            String[] names = {"c"};
+            check_not_subtype(args, names);
         }
 
         @Override

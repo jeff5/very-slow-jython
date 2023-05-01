@@ -1,4 +1,4 @@
-// Copyright (c)2022 Jython Developers.
+// Copyright (c)2023 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj3.evo1;
 
@@ -188,7 +188,7 @@ enum MethodSignature {
                 mh = adapt(raw, 0);
                 expectedType = boundType;
                 break;
-            case NEW:  // TODO needs checking adaptors
+            case NEW:
                 // First parameter is a PyType: start adaptors at one
                 mh = adapt(raw, 1);
                 expectedType = boundType;
@@ -251,13 +251,10 @@ enum MethodSignature {
      * @return handle compatible with {@code methodDef}
      */
     private static final MethodHandle adapt(MethodHandle raw, int pos) {
-        /*
-         * To begin with, adapt the arguments after self to expect a
-         * java.lang.Object, if Clinic knows how to convert them.
-         */
+        // Create the filter based on actual types in raw
         MethodType mt = raw.type();
         MethodHandle[] af = Clinic.argumentFilter(mt, pos);
-        // filterArguments returns raw if af.size empty or all nulls
+        // filterArguments returns raw if af.size==0 or all nulls
         MethodHandle mh = filterArguments(raw, pos, af);
         MethodHandle rf = Clinic.returnFilter(mt);
         if (rf != null) { mh = filterReturnValue(mh, rf); }

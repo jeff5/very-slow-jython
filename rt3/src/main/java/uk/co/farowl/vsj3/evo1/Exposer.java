@@ -1329,7 +1329,7 @@ abstract class Exposer {
                 MethodHandle mh = lookup.unreflect(m);
                 assert mh.type().parameterCount() == regargcount;
                 PyJavaFunction javaFunction =
-                        PyJavaFunction.forStaticMethod(ap, mh, null);
+                        PyJavaFunction.forStaticMethod(ap, mh);
                 return new PyStaticMethod(objclass, javaFunction);
             } catch (IllegalAccessException e) {
                 throw cannotGetHandle(m, e);
