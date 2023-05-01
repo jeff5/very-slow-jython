@@ -1,4 +1,4 @@
-// Copyright (c)2021 Jython Developers.
+// Copyright (c)2023 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj3.evo1;
 
@@ -358,7 +358,7 @@ public class PyNumber extends Abstract {
      * Returns the {@code o} converted to an integer object. This is the
      * equivalent of the Python expression {@code int(o)}. It will refer
      * to the {@code __int__}, {@code __index_} and {@code __trunc__}
-     * special methods of {@code o}, in that order, an then (if
+     * special methods of {@code o}, in that order, and then (if
      * {@code o} is string or bytes-like) attempt a conversion from text
      * assuming decimal base.
      *

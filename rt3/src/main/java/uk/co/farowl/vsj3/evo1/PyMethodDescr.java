@@ -1,4 +1,4 @@
-// Copyright (c)2022 Jython Developers.
+// Copyright (c)2023 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj3.evo1;
 
@@ -453,13 +453,13 @@ abstract class PyMethodDescr extends MethodDescriptor {
 
     // Compare CPython method_get_doc in descrobject.c
     Object get_doc() {
-        return PyType.getDocFromInternalDoc(name, argParser.doc);
+        return PyType.getDocFromInternalDoc(name, argParser.doc());
     }
 
     // Compare CPython method_get_text_signature in descrobject.c
     Object get_text_signature() {
         return PyType.getTextSignatureFromInternalDoc(name,
-                argParser.doc);
+                argParser.doc());
     }
 
     // plumbing ------------------------------------------------------

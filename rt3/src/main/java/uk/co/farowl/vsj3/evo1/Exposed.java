@@ -1,4 +1,4 @@
-// Copyright (c)2022 Jython Developers.
+// Copyright (c)2023 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj3.evo1;
 
@@ -204,9 +204,8 @@ public interface Exposed {
     }
 
     /**
-     * Declare that the annotated parameter is the last positional only
-     * parameter. This is equivalent to following it with ", /" in a
-     * Python signature.
+     * Annotates the <b>last</b> positional-only parameter. This is
+     * equivalent to following it with ", /" in a Python signature.
      */
     @Documented
     @Retention(RUNTIME)
@@ -214,9 +213,8 @@ public interface Exposed {
     @interface PositionalOnly {}
 
     /**
-     * Declare that the annotated parameter is the first keyword only
-     * parameter. This is equivalent to preceding it with "*, " in a
-     * Python signature.
+     * Annotates the <b>first</b> keyword-only parameter. This is
+     * equivalent to preceding it with "*, " in a Python signature.
      */
     @Documented
     @Retention(RUNTIME)
@@ -243,9 +241,9 @@ public interface Exposed {
     }
 
     /**
-     * Declare that the annotated parameter is the collector for excess
-     * positional arguments. This is equivalent to preceding the name
-     * with "*" in a Python signature. The type must be {@link PyTuple}.
+     * Annotates the collector for excess positional arguments. This is
+     * equivalent to preceding the name with "*" in a Python signature.
+     * The type must be {@link PyTuple}.
      * <p>
      * A {@code PositionalCollector} argument must be last in the Java
      * declaration, or followed by a {@link KeywordCollector} only, as
@@ -260,9 +258,9 @@ public interface Exposed {
     @interface PositionalCollector {}
 
     /**
-     * Declare that the annotated parameter is the collector for excess
-     * keyword arguments. This is equivalent to preceding the name with
-     * "**" in a Python signature. The type must be {@link PyDict}.
+     * Annotates the collector for excess keyword arguments. This is
+     * equivalent to preceding the name with "**" in a Python signature.
+     * The type must be {@link PyDict}.
      * <p>
      * A {@code KeywordCollector} argument must be last in the Java
      * declaration, as it is in a Python {@code frame}. It will appear

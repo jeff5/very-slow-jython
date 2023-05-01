@@ -163,10 +163,8 @@ class ArgParser {
     /** The number of keyword-only parameters. */
     final int kwonlyargcount;
 
-    /**
-     * The documentation string of the method.
-     */
-    String doc;
+    /** The documentation string of the method. */
+    private String doc;
 
     /**
      * The (positional) default parameters or {@code null} if there are
@@ -418,6 +416,16 @@ class ArgParser {
      */
     boolean hasVarKeywords() { return varKeywordsIndex >= 0; }
 
+    /** @return the documentation string (or {@code null}). */
+    String doc() {
+        return doc;
+    }
+
+    /** @param doc the documentation string (or {@code null}). */
+    void doc(String doc) {
+        this.doc = doc;
+    }
+
     /**
      * The representation of an {@code ArgParser} is based on the
      * {@code __text_signature__} attribute of built-in methods (see
@@ -591,7 +599,7 @@ class ArgParser {
     }
 
     /**
-     * Provide the positional defaults. * The {@code ArgParser} keeps a
+     * Provide the positional defaults. The {@code ArgParser} keeps a
      * reference to this array, so that subsequent changes to it will
      * affect argument parsing. (Concurrent access to the array and
      * parser is a client issue.)

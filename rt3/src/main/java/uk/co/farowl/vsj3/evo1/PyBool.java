@@ -1,6 +1,12 @@
+// Copyright (c)2023 Jython Developers.
+// Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj3.evo1;
 
 import java.lang.invoke.MethodHandles;
+
+import uk.co.farowl.vsj3.evo1.Exposed.Default;
+import uk.co.farowl.vsj3.evo1.Exposed.DocString;
+import uk.co.farowl.vsj3.evo1.Exposed.PythonNewMethod;
 
 /**
  * The Python {@code bool} object. The only instances of {@code bool} in
@@ -19,6 +25,26 @@ public final class PyBool {
                     .flagNot(PyType.Flag.BASETYPE));
 
     private PyBool() {}  // enforces the doubleton :)
+
+
+    // Constructor from Python ----------------------------------------
+
+    /**
+     * @param cls ignored since {@code bool} cannot be sub-classed.
+     * @param x to convert to its truth value.
+     * @return {@code False} or {@code True}
+     * @throws Throwable on argument type or other errors
+     */
+    @PythonNewMethod
+    @DocString("bool(x) -> bool\n" + "\n"
+            + "Returns True when the argument x is true, False otherwise.\n"
+            + "The builtins True and False are the only two instances of the class bool.\n"
+            + "The class bool is a subclass of the class int, and cannot be subclassed.")
+    static Object __new__(PyType cls, @Default("False") Object x)
+            throws Throwable {
+        assert cls == TYPE;  // Guaranteed by construction (maybe)
+        return Abstract.isTrue(x);
+    }
 
     // special methods ------------------------------------------------
 

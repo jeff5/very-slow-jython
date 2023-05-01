@@ -1,4 +1,4 @@
-// Copyright (c)2022 Jython Developers.
+// Copyright (c)2023 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj3.evo1;
 
@@ -1441,43 +1441,92 @@ public class PyType extends Operations implements DictPyObject {
         return String.format("<class '%s'>", name);
     }
 
-    // @formatter:off
-    //    /**
-    //     * Handle calls to a type object, which will normally be for
-    //     * construction of an object of that type, except for the special
-    //     * case {@code type(obj)}, which enquires the Python type of the
-    //     * object.
-    //     *
-    //     * @param args argument tuple (length 1 in a type enquiry).
-    //     * @param names of keyword arguments (empty or {@code null} in a type
-    //     *     enquiry).
-    //     * @return new object (or a type if an enquiry).
-    //     * @throws TypeError when cannot create instances
-    //     * @throws Throwable from implementation slot functions
-    //     */
-    //    protected Object __call__(Object[] args, String[] names)
-    //            throws TypeError, Throwable {
-    //        try {
-    //            // Create the instance with given arguments.
-    //            Object o = op_new.invokeExact(this, args, names);
-    //            // Check for special case type enquiry: yes afterwards!
-    //            // (PyType.__new__ performs both functions.)
-    //            if (isTypeEnquiry(this, args, names)) { return o; }
-    //            // As __new__ may be user-defined, check type as expected.
-    //            Operations ops = Operations.of(o);
-    //            if (ops.type(o).isSubTypeOf(this)) {
-    //                // Initialise the object just returned (if necessary).
-    //                if (Slot.op_init.isDefinedFor(ops))
-    //                    ops.op_init.invokeExact(o, args, names);
-    //            }
-    //            return o;
-    //        } catch (EmptyException e) {
-    //            // this.op_new is empty (not TYPE.op_new)
-    //            throw new TypeError("cannot create '%.100s' instances",
-    //                    name);
-    //        }
-    //    }
-     // @formatter:on
+    /**
+     * Handle calls to a type object, which will normally be a request
+     * to construct a Python object of the type this object describes.
+     * For example the call {@code int()} is a request to create a
+     * Python {@code int}, although we often think of it as a built-in
+     * function. The exception is when the type represented is
+     * {@code type} itself and there is one argument. The call
+     * {@code type(obj)} enquires the Python type of the object, which
+     * is even more like a built-in function. The call
+     * {@code type(name, bases, dict)} constructs a new type (instance
+     * of {@code type}).
+     *
+     * @param args argument list (length 1 in a type enquiry).
+     * @param names of keyword arguments (empty or {@code null} in a
+     *     type enquiry).
+     * @return new object (or a type if an enquiry).
+     * @throws TypeError when cannot create instances
+     * @throws Throwable from implementation slot functions
+     */
+    protected Object __call__(Object[] args, String[] names)
+            throws TypeError, Throwable {
+        /*
+         * CPython says: type_call() must not be called with an
+         * exception set, because it can clear it (directly or
+         * indirectly) and so the caller loses its exception
+         */
+
+        /*
+         * Special case: type(x) should return the Python type of x, but
+         * only if this is exactly the type 'type'.
+         */
+        if (this == PyType.TYPE) {
+            assert (args != null);
+            int nargs = args.length;
+            int nkwargs = names == null ? 0 : names.length;
+
+            if (nargs == 1 && nkwargs == 0) {
+                // Call is exactly type(x) so this is a type enquiry
+                return PyType.of(args[0]);
+            } else if (nargs - nkwargs != 3) {
+                /*
+                 * Call is type(x, bases, dict [, **kwds]) ... so 3
+                 * positional arguments but could be keyword args too.
+                 */
+                throw new TypeError("type() takes 1 or 3 arguments");
+            }
+        }
+
+        // Cases:
+        // this represents a type whose instances are not types
+        // this represents the type 'type' exactly.
+        // this represents a sub-type of 'type' (a metatype)
+
+        // XXX Replace with newInstance.get(this, args, kwargs)
+        // where newInstance is a function caching the lookup result.
+        Object _new = this.lookup("__new__");
+        if (_new == null) {
+            throw new TypeError("cannot create instances of '%s'",
+                    this.getName());
+        }
+
+        /*
+         * We prepend args with this type as first argument since in
+         * __new__ the first argument is the type of the instance being
+         * created, and we're creating one of this type. Note names are
+         * of *last* elements, so remain valid after the shift.
+         */
+        Object[] fullargs = new Object[args.length + 1];
+        fullargs[0] = this;
+        System.arraycopy(args, 0, fullargs, 1, args.length);
+
+        Object obj = Callables.call(_new, fullargs, names);
+        assert obj != null;
+
+        /*
+         * If obj is an instance of this type (or of a sub-type) call
+         * any __init__ defined for it. Not being an instance is not an
+         * error if that's what __new__ wants to do.
+         */
+        PyType objtype = PyType.of(obj);
+        if (objtype.isSubTypeOf(this)
+                && Slot.op_init.isDefinedFor(objtype)) {
+            objtype.op_init.invokeExact(obj, args, names);
+        }
+        return obj;
+    }
 
     /**
      * Create a new Python {@code type} or execute the built-in
@@ -1865,7 +1914,7 @@ public class PyType extends Operations implements DictPyObject {
     // XXX Consider implementing in ArgParser instead
     static Object getDocFromInternalDoc(String name, String doc) {
         // TODO Auto-generated method stub
-        return null;
+        return Py.None;
     }
 
     // Compare CPython: PyType_GetTextSignatureFromInternalDoc
@@ -1874,6 +1923,6 @@ public class PyType extends Operations implements DictPyObject {
     static Object getTextSignatureFromInternalDoc(String name,
             String doc) {
         // TODO Auto-generated method stub
-        return null;
+        return Py.None;
     }
 }

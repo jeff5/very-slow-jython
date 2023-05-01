@@ -1,4 +1,4 @@
-// Copyright (c)2022 Jython Developers.
+// Copyright (c)2023 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj3.evo1;
 
@@ -9,7 +9,11 @@ import java.lang.invoke.MethodHandles;
 import java.math.BigInteger;
 import java.util.Map;
 
+import uk.co.farowl.vsj3.evo1.Exposed.Default;
+import uk.co.farowl.vsj3.evo1.Exposed.DocString;
+import uk.co.farowl.vsj3.evo1.Exposed.PositionalOnly;
 import uk.co.farowl.vsj3.evo1.Exposed.PythonMethod;
+import uk.co.farowl.vsj3.evo1.Exposed.PythonNewMethod;
 import uk.co.farowl.vsj3.evo1.PyObjectUtil.NoConversion;
 import uk.co.farowl.vsj3.evo1.Slot.EmptyException;
 import uk.co.farowl.vsj3.evo1.stringlib.IntegerFormatter;
@@ -44,7 +48,7 @@ public class PyLong extends AbstractPyObject implements PyDict.Key {
     /** The minimum Java {@code long} as a {@code BigInteger}. */
     static final BigInteger MIN_LONG =
             BigInteger.valueOf(Long.MIN_VALUE);
-    /** The maximum vJava {@code long} as a {@code BigInteger}. */
+    /** The maximum Java {@code long} as a {@code BigInteger}. */
     static final BigInteger MAX_LONG =
             BigInteger.valueOf(Long.MAX_VALUE);
 
@@ -81,65 +85,70 @@ public class PyLong extends AbstractPyObject implements PyDict.Key {
 
     // Constructor from Python ----------------------------------------
 
-    @SuppressWarnings("fallthrough")
-    static Object __new__(PyType subType, Object[] args,
-            String[] kwnames) throws Throwable {
-        Object x = null, obase = null;
-        int argsLen = args.length;
-        switch (argsLen) {
-            case 2:
-                obase = args[1]; // fall through
-            case 1:
-                x = args[0]; // fall through
-            case 0:
-                break;
-            default:
-                throw new TypeError(
-                        "int() takes at most %d arguments (%d given)",
-                        2, argsLen);
-        }
-
-        return __new__impl(subType, x, obase);
-    }
-
     /**
-     * Implementation of {@code __new__} with classic arguments
-     * unpacked.
-     *
-     * @param subType actual sub-type of int to produce
+     * @param cls actual sub-type of {@code int} to produce
      * @param x {@code int}-like or {@code str}-like value or
-     *     {@code null}.
-     * @param obase number base ({@code x} must be {@code str}-like)
+     *     {@code None}.
+     * @param obase number base ({@code x} must be {@code str}-like) or
+     *     {@code None}
      * @return an {@code int} or sub-class with the right value
      * @throws Throwable on argument type or other errors
      */
-    private static Object __new__impl(PyType subType, Object x,
-            Object obase) throws Throwable {
+    @PythonNewMethod
+    @DocString("int([x]) -> integer\n" + "int(x, base=10) -> integer\n"
+            + "\n"
+            + "Convert a number or string to an integer, or return 0 if no arguments\n"
+            + "are given.  If x is a number, return x.__int__().  For floating point\n"
+            + "numbers, this truncates towards zero.\n" + "\n"
+            + "If x is not a number or if base is given, then x must be a string,\n"
+            + "bytes, or bytearray instance representing an integer literal in the\n"
+            + "given base.  The literal can be preceded by '+' or '-' and be surrounded\n"
+            + "by whitespace.  The base defaults to 10.  Valid bases are 0 and 2-36.\n"
+            + "Base 0 means to interpret the base from the string as an integer literal.\n"
+            + ">>> int('0b100', base=0)\n" + "4")
+    static Object __new__(PyType cls,
+            @Default("None") @PositionalOnly Object x,
+            @Default("None") Object base) throws Throwable {
+        if (cls == TYPE)
+            return intImpl(x, base);
+        else
+            return longSubtypeNew(cls, x, base);
+    }
 
-        if (subType != TYPE) {
-            return longSubtypeNew(subType, x, obase);
-        }
+    /**
+     * Create an int from the arguments (not a sub-type).
+     *
+     * @param x {@code int}-like or {@code str}-like value or
+     *     {@code None}.
+     * @param base number base ({@code x} must be {@code str}-like) or
+     *     {@code None}
+     * @return an {@code int} with the right value
+     * @throws Throwable on argument type or other errors
+     */
+    private static Object intImpl(Object x, Object base)
+            throws Throwable {
 
-        if (x == null) {
+        if (x == Py.None) {
             // Zero-arg int() ... unless invalidly like int(base=10)
-            if (obase != null) {
+            if (base != Py.None) {
                 throw new TypeError("int() missing string argument");
             }
             return 0;
-        }
 
-        if (obase == null)
+        } else if (base == Py.None) {
             return PyNumber.asLong(x);
-        else {
-            int base = PyNumber.asSize(obase, null);
-            if (base != 0 && (base < 2 || base > 36))
+
+        } else {
+            int b = PyNumber.asSize(base, null);
+            if (b != 0 && (b < 2 || b > 36)) {
                 throw new ValueError(
                         "int() base must be >= 2 and <= 36, or 0");
-            else if (PyUnicode.TYPE.check(x))
-                return PyLong.fromUnicode(x, base);
-            // else if ... support for bytes-like objects
-            else
+            } else if (PyUnicode.TYPE.check(x)) {
+                return PyLong.fromUnicode(x, b);
+                // else if ... support for bytes-like objects
+            } else {
                 throw new TypeError(NON_STR_EXPLICIT_BASE);
+            }
         }
     }
 
@@ -153,12 +162,12 @@ public class PyLong extends AbstractPyObject implements PyDict.Key {
      *
      * @throws Throwable on argument type or other errors
      */
-    private static Object longSubtypeNew(PyType subType, Object x,
-            Object obase) throws Throwable {
+    private static Object longSubtypeNew(PyType cls, Object x,
+            Object base) throws Throwable {
         // Create a regular int from whatever arguments we got.
-        Object v = __new__impl(TYPE, x, obase);
+        Object v = intImpl(x, base);
         // create a sub-type instance from the value in tmp
-        return new PyLong.Derived(subType, PyLong.asBigInteger(v));
+        return new PyLong.Derived(cls, PyLong.asBigInteger(v));
     }
 
     // Representations of the value -----------------------------------

@@ -19,22 +19,21 @@ import uk.co.farowl.vsj3.evo1.base.MethodKind;
 
 /**
  * Test that {@code __new__} methods exposed by Python <b>types</b>
- * defined in
- * Java, using the scheme of annotations defined in {@link Exposed},
- * result in method objects that correspond to
- * their definitions.
+ * defined in Java, using the scheme of annotations defined in
+ * {@link Exposed}, result in method objects that correspond to their
+ * definitions.
  * <p>
  * The first test in each case is to examine the fields in the parser
  * that attaches to the {@link PyJavaFunction}. Then we call the
  * function using the {@code __call__} special method, and using our
  * "fast call" signatures.
  * <p>
- * There is a nested test suite for each signature pattern.
- * Since we are dealing with {@code __new__},
- * each fresh signature needs a fresh class to define it.
+ * There is a nested test suite for each signature pattern. Since we are
+ * dealing with {@code __new__}, each fresh signature needs a fresh
+ * class to define it.
  */
 @DisplayName("A __new__ method exposed by a type")
-class TypeExposerNewMethodTest extends UnitTestSupport{
+class TypeExposerNewMethodTest extends UnitTestSupport {
 
     /**
      * Certain nested test classes implement these as standard. A base
@@ -139,14 +138,15 @@ class TypeExposerNewMethodTest extends UnitTestSupport{
 
         /**
          * Check that the fields of the parser match expectations for a
-         * {@code __new__} method with no collector parameters and a certain
-         * number of positional-only parameters after type.
+         * {@code __new__} method with no collector parameters and a
+         * certain number of positional-only parameters after type.
          *
          * @param count of parameters after type
          * @param posonly count of positional-only parameters
          */
         void no_collector_new(int count, int posonly) {
-            no_collector(MethodKind.NEW, "__new__", count+1, posonly+1);
+            no_collector(MethodKind.NEW, "__new__", count + 1,
+                    posonly + 1);
         }
 
         /**
@@ -156,8 +156,7 @@ class TypeExposerNewMethodTest extends UnitTestSupport{
          * @throws AttributeError if method not found
          * @throws Throwable other errors
          */
-        void setup(PyType t)
-                throws AttributeError, Throwable {
+        void setup(PyType t) throws AttributeError, Throwable {
             // _new__ appears as a bound PyJavaFunction
             type = t;
             func = (PyJavaFunction)t.lookup("__new__");
@@ -186,31 +185,41 @@ class TypeExposerNewMethodTest extends UnitTestSupport{
         }
     }
 
-
     /**
-     * A Python type definition where {@code __new__}
-     *  requires the sub-type and has
-     * no further parameters.
-     * Tests are in
+     * A Python type definition where {@code __new__} requires the
+     * sub-type and has no further parameters. Tests are in
      * {@link NoParams}.
      */
     static class TT0 extends TestTypeBase {
         static PyType TYPE = PyType
                 .fromSpec(new Spec("TT0", MethodHandles.lookup()));
+
         private TT0() {}
+
         @PythonNewMethod
         static TT0 __new__(PyType type) {
-            if (type==TYPE) return new TT0(); else return new Derived(type);}
+            if (type == TYPE)
+                return new TT0();
+            else
+                return new Derived(type);
+        }
+
         static class Derived extends TT0 {
-            private PyType type; PyType getType() {return type;}
-            protected Derived(PyType type) {super();this.type = type;}
+            private PyType type;
+
+            PyType getType() { return type; }
+
+            protected Derived(PyType type) {
+                super();
+                this.type = type;
+            }
         }
     }
 
-    /** {@link TT0#__new__(PyType) TT0.__new__}
-         *  requires the sub-type and has
-     * no further parameters.
- */
+    /**
+     * {@link TT0#__new__(PyType) TT0.__new__} requires the sub-type and
+     * has no further parameters.
+     */
     @Nested
     @DisplayName("with no parameters")
     class NoParams extends Standard {
@@ -266,29 +275,39 @@ class TypeExposerNewMethodTest extends UnitTestSupport{
     }
 
     /**
-     * A Python type definition where {@code __new__}
-     *  requires the sub-type and has a further
-         * single positional parameter.
-     * Tests are in
-     * {@link OnePos}.
+     * A Python type definition where {@code __new__} requires the
+     * sub-type and has a further single positional parameter. Tests are
+     * in {@link OnePos}.
      */
     static class TT1 extends TestTypeBase {
         static PyType TYPE = PyType
                 .fromSpec(new Spec("TT1", MethodHandles.lookup()));
-        private TT1(double a) {super(a);}
+
+        private TT1(double a) { super(a); }
+
         @PythonNewMethod
-        static TT1 __new__(PyType type,double a) {
-            if (type==TYPE) return new TT1(a); else return new Derived(type,a);}
+        static TT1 __new__(PyType type, double a) {
+            if (type == TYPE)
+                return new TT1(a);
+            else
+                return new Derived(type, a);
+        }
+
         static class Derived extends TT1 {
-            private PyType type; PyType getType() {return type;}
-            protected Derived(PyType type,double a) {super(a);this.type = type;}
+            private PyType type;
+
+            PyType getType() { return type; }
+
+            protected Derived(PyType type, double a) {
+                super(a);
+                this.type = type;
+            }
         }
     }
 
     /**
-     * {@link TT1#__new__(PyType, double) TT1.__new__}
-     *  requires the sub-type and
-     *   1 argument that <b>must</b> be given by position.
+     * {@link TT1#__new__(PyType, double) TT1.__new__} requires the
+     * sub-type and 1 argument that <b>must</b> be given by position.
      */
     @Nested
     @DisplayName("with a single positional-only parameter by default")
@@ -344,29 +363,39 @@ class TypeExposerNewMethodTest extends UnitTestSupport{
     }
 
     /**
-     * A Python type definition where {@code __new__}
-     *  requires the sub-type and has a further
-         * 3 positional parameters.
-     * Tests are in
+     * A Python type definition where {@code __new__} requires the
+     * sub-type and has a further 3 positional parameters. Tests are in
      * {@link PositionalByDefault}.
      */
     static class TT3 extends TestTypeBase {
         static PyType TYPE = PyType
                 .fromSpec(new Spec("TT3", MethodHandles.lookup()));
-        private TT3(int a, String b, Object c) {super(a,b,c);}
+
+        private TT3(int a, String b, Object c) { super(a, b, c); }
+
         @PythonNewMethod
-        static TT3 __new__(PyType type,int a, String b, Object c) {
-            if (type==TYPE) return new TT3(a,b,c); else return new Derived(type,a,b,c);}
+        static TT3 __new__(PyType type, int a, String b, Object c) {
+            if (type == TYPE)
+                return new TT3(a, b, c);
+            else
+                return new Derived(type, a, b, c);
+        }
+
         static class Derived extends TT3 {
-            private PyType type; PyType getType() {return type;}
-            protected Derived(PyType type,int a, String b, Object c) {super(a,b,c);this.type = type;}
+            private PyType type;
+
+            PyType getType() { return type; }
+
+            protected Derived(PyType type, int a, String b, Object c) {
+                super(a, b, c);
+                this.type = type;
+            }
         }
     }
 
     /**
      * {@link TT3#__new__(PyType, int, String, Object) TT3.__new__}
-     *  accepts 3 arguments
-     * that <b>must</b> be given by position.
+     * accepts 3 arguments that <b>must</b> be given by position.
      */
     @Nested
     @DisplayName("with positional-only parameters by default")
@@ -422,32 +451,42 @@ class TypeExposerNewMethodTest extends UnitTestSupport{
     }
 
     /**
-     * A Python type definition where {@code __new__}
-     *  requires the sub-type and has a further
-         * 2 positional parameters
-         *  and 1 that may be given by position or keyword.
-     * Tests are in
+     * A Python type definition where {@code __new__} requires the
+     * sub-type and has a further 2 positional parameters and 1 that may
+     * be given by position or keyword. Tests are in
      * {@link PositionalWithDefaults}.
      */
     static class TT3pd extends TestTypeBase {
         static PyType TYPE = PyType
                 .fromSpec(new Spec("TT3pd", MethodHandles.lookup()));
-        private TT3pd(int a, String b, Object c) {super(a,b,c);}
+
+        private TT3pd(int a, String b, Object c) { super(a, b, c); }
+
         @PythonNewMethod
-        static TT3pd __new__(PyType type,int a, @Default("2") String b,
+        static TT3pd __new__(PyType type, int a, @Default("2") String b,
                 @Default("3") Object c) {
-            if (type==TYPE) return new TT3pd(a,b,c); else return new Derived(type,a,b,c);}
+            if (type == TYPE)
+                return new TT3pd(a, b, c);
+            else
+                return new Derived(type, a, b, c);
+        }
+
         static class Derived extends TT3pd {
-            private PyType type; PyType getType() {return type;}
-            protected Derived(PyType type,int a, String b, Object c) {super(a,b,c);this.type = type;}
+            private PyType type;
+
+            PyType getType() { return type; }
+
+            protected Derived(PyType type, int a, String b, Object c) {
+                super(a, b, c);
+                this.type = type;
+            }
         }
     }
 
     /**
      * {@link TT3pd#__new__(PyType, int, String, Object) TT3pd.__new__}
-     *  accepts 3
-     * arguments that <b>must</b> be given by position but two have
-     * defaults.
+     * accepts 3 arguments that <b>must</b> be given by position but two
+     * have defaults.
      */
     @Nested
     @DisplayName("with positional-only parameters and default values")
@@ -462,9 +501,7 @@ class TypeExposerNewMethodTest extends UnitTestSupport{
 
         @Override
         @Test
-        void has_expected_fields() {
-            no_collector_new(3, 3);
-        }
+        void has_expected_fields() { no_collector_new(3, 3); }
 
         @Override
         @Test
@@ -505,31 +542,41 @@ class TypeExposerNewMethodTest extends UnitTestSupport{
     }
 
     /**
-     * A Python type definition where {@code __new__}
-     *  requires the sub-type and has a further
-         * 3 positional parameters
-         *  that may be given by position or keyword.
-     * Tests are in
+     * A Python type definition where {@code __new__} requires the
+     * sub-type and has a further 3 positional parameters that may be
+     * given by position or keyword. Tests are in
      * {@link PositionalOrKeywordParams}.
      */
     static class TT3pk extends TestTypeBase {
         static PyType TYPE = PyType
                 .fromSpec(new Spec("TT3pk", MethodHandles.lookup()));
-        private TT3pk(int a, String b, Object c) {super(a,b,c);}
+
+        private TT3pk(int a, String b, Object c) { super(a, b, c); }
+
         @PythonNewMethod // not positionalOnly=false to spare type
-        static TT3pk __new__(@PositionalOnly PyType type,int a, @Default("2") String b,
-                @Default("3") Object c) {
-            if (type==TYPE) return new TT3pk(a,b,c); else return new Derived(type,a,b,c);}
+        static TT3pk __new__(@PositionalOnly PyType type, int a,
+                @Default("2") String b, @Default("3") Object c) {
+            if (type == TYPE)
+                return new TT3pk(a, b, c);
+            else
+                return new Derived(type, a, b, c);
+        }
+
         static class Derived extends TT3pk {
-            private PyType type; PyType getType() {return type;}
-            protected Derived(PyType type,int a, String b, Object c) {super(a,b,c);this.type = type;}
+            private PyType type;
+
+            PyType getType() { return type; }
+
+            protected Derived(PyType type, int a, String b, Object c) {
+                super(a, b, c);
+                this.type = type;
+            }
         }
     }
 
     /**
      * {@link TT3pk#__new__(PyType, int, String, Object) TT3pk.__new__}
-     *  accepts 3
-     * arguments that may be given by position or keyword.
+     * accepts 3 arguments that may be given by position or keyword.
      */
     @Nested
     @DisplayName("with positional-or-keyword parameters")
@@ -586,31 +633,42 @@ class TypeExposerNewMethodTest extends UnitTestSupport{
     }
 
     /**
-     * A Python type definition where {@code __new__}
-     *  requires the sub-type and has a further
-         * 2 positional parameters
-         *  and 1 that may be given by position or keyword.
-     *  Tests are in
+     * A Python type definition where {@code __new__} requires the
+     * sub-type and has a further 2 positional parameters and 1 that may
+     * be given by position or keyword. Tests are in
      * {@link SomePositionalOnlyParams}.
      */
     static class TT3p2 extends TestTypeBase {
         static PyType TYPE = PyType
                 .fromSpec(new Spec("TT3p2", MethodHandles.lookup()));
-        private TT3p2(int a, String b, Object c) {super(a, b, c);}
+
+        private TT3p2(int a, String b, Object c) { super(a, b, c); }
+
         @PythonNewMethod
-        static TT3p2 __new__(PyType type, int a, @PositionalOnly String b, Object c) {
-            if (type==TYPE) return new TT3p2(a, b, c); else return new Derived(type,a,b,c);}
+        static TT3p2 __new__(PyType type, int a,
+                @PositionalOnly String b, Object c) {
+            if (type == TYPE)
+                return new TT3p2(a, b, c);
+            else
+                return new Derived(type, a, b, c);
+        }
+
         static class Derived extends TT3p2 {
-            private PyType type; PyType getType() {return type;}
-            protected Derived(PyType type, int a, String b, Object c) {super(a,b,c);this.type = type;}
+            private PyType type;
+
+            PyType getType() { return type; }
+
+            protected Derived(PyType type, int a, String b, Object c) {
+                super(a, b, c);
+                this.type = type;
+            }
         }
     }
 
     /**
      * {@link TT3p2#__new__(PyType, int, String, Object) TT3p2.__new__}
-     *  accepts 3
-     * arguments, two of which may be given by position only, and the
-     * last by either position or keyword.
+     * accepts 3 arguments, two of which may be given by position only,
+     * and the last by either position or keyword.
      */
     @Nested
     @DisplayName("with two positional-only parameters")

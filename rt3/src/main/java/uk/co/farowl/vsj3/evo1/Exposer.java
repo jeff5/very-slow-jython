@@ -672,7 +672,8 @@ abstract class Exposer {
                         parameterNames, regargcount, posonlyargcount,
                         kwonlyargcount, varArgsIndex >= 0,
                         varKeywordsIndex >= 0);
-                parser.defaults(defaults).kwdefaults(kwdefaults);
+                parser.defaults(defaults).kwdefaults(kwdefaults)
+                        .doc(doc);
             }
             return parser;
         }
@@ -1128,6 +1129,10 @@ abstract class Exposer {
         private static Object eval(String s) {
             if (s == null || s.equals("None")) {
                 return Py.None;
+            } else if (s.equals("False") || s.equals("false")) {
+                return true;
+            } else if (s.equals("True") || s.equals("true")) {
+                return true;
             } else if (s.matches(REGEX_INT)) {
                 // Small integer if we can; big if we can't
                 BigInteger b = new BigInteger(s);
@@ -1137,9 +1142,10 @@ abstract class Exposer {
                     return b;
                 }
             } else if (s.matches(REGEX_FLOAT)) {
-                return Float.valueOf(s);
+                return Double.valueOf(s);
             } else if (s.matches(REGEX_STRING)) {
-                return Float.valueOf(s);
+                // TODO Parse this properly as a str constant
+                return s.substring(1, s.length()-1);
             } else {
                 // A somewhat lazy fall-back
                 return s;
