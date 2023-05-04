@@ -106,13 +106,14 @@ public class PyLong extends AbstractPyObject implements PyDict.Key {
             + "by whitespace.  The base defaults to 10.  Valid bases are 0 and 2-36.\n"
             + "Base 0 means to interpret the base from the string as an integer literal.\n"
             + ">>> int('0b100', base=0)\n" + "4")
-    static Object __new__(PyType cls,
+    private static Object __new__(PyType cls,
             @Default("None") @PositionalOnly Object x,
             @Default("None") Object base) throws Throwable {
+        Object v = intImpl(x, base);
         if (cls == TYPE)
-            return intImpl(x, base);
+            return v;
         else
-            return longSubtypeNew(cls, x, base);
+            return new PyLong.Derived(cls, PyLong.asBigInteger(v));
     }
 
     /**
@@ -154,21 +155,6 @@ public class PyLong extends AbstractPyObject implements PyDict.Key {
 
     private static final String NON_STR_EXPLICIT_BASE =
             "int() can't convert non-string with explicit base";
-
-    /**
-     * Wimpy, slow approach to {@code __new__} calls for sub-types of
-     * {@code int}, that will temporarily create a regular {@code int}
-     * from the arguments.
-     *
-     * @throws Throwable on argument type or other errors
-     */
-    private static Object longSubtypeNew(PyType cls, Object x,
-            Object base) throws Throwable {
-        // Create a regular int from whatever arguments we got.
-        Object v = intImpl(x, base);
-        // create a sub-type instance from the value in tmp
-        return new PyLong.Derived(cls, PyLong.asBigInteger(v));
-    }
 
     // Representations of the value -----------------------------------
 
