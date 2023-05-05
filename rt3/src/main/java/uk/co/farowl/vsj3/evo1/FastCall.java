@@ -1,4 +1,4 @@
-// Copyright (c)2022 Jython Developers.
+// Copyright (c)2023 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj3.evo1;
 
@@ -23,9 +23,9 @@ interface FastCall {
      * ({@code Object[]} and {@code String[]}), providing all the
      * argument values from the caller and names for those given by
      * keyword. If no other methods are implemented, a call to any other
-     * interface method will land here with an array of the
-     * arguments.This is to provide implementations of {@code __call__}
-     * with a default when no more optimal call is possible.
+     * interface method will land here with an array of the arguments.
+     * This is to provide implementations of {@code __call__} with a
+     * default when no more optimal call is possible.
      * <p>
      * {@code np = args.length - names.length} arguments are given by
      * position, and the keyword arguments are
@@ -292,5 +292,51 @@ interface FastCall {
     default TypeError typeError(ArgumentError ae, Object[] s, int p,
             int n) {
         return typeError(ae, s, p, p + n, null);
+    }
+
+    /**
+     * A class that wraps any {@code Object} so that it presents the
+     * {@link FastCall} interface. Any type of {@code call} will
+     * eventually try to invoke the {@code __call__} special method on
+     * the object passed to the constructor.
+     * <p>
+     * This will not make a slow {@code __call__} fast, but it
+     * <i>will</i> make a {@code FastCall} slow.
+     */
+    static class Slow implements FastCall {
+
+        private final Object callable;
+
+        Slow(Object callable) { this.callable = callable; }
+
+        @Override
+        public Object call(Object[] args, String[] names)
+                throws ArgumentError, Throwable {
+            // Call it slowly.
+            return Callables.call(callable, args, names);
+        }
+
+        @Override
+        public TypeError typeError(ArgumentError ae, Object[] args,
+                String[] names) {
+            /*
+             * The underlying callable has thrown an ArgumentError,
+             * which is quite unlikely unless it also implements
+             * FastCall.
+             */
+            if (callable instanceof FastCall) {
+                return ((FastCall)callable).typeError(ae, args, names);
+            } else {
+                // We'll do our best to make a message somehow.
+                String name;
+                try {
+                    name = PyUnicode.asString(Abstract.repr(callable));
+                } catch (Throwable e) {
+                    name = "callable";
+                }
+                // Probably meaningful interpretation of the error
+                return PyJavaFunction.typeError(name, ae, args, names);
+            }
+        }
     }
 }

@@ -23,7 +23,8 @@ import uk.co.farowl.vsj3.evo1.base.InterpreterError;
  * The Python {@code type} object. Type objects are normally created
  * (when created from Java) by a call to {@link PyType#fromSpec(Spec)}.
  */
-public class PyType extends Operations implements DictPyObject {
+public class PyType extends Operations
+        implements DictPyObject, FastCall {
     /*
      * The static initialisation of PyType is a delicate business, since
      * it occurs early in the initialisation of the run-time system. The
@@ -81,6 +82,8 @@ public class PyType extends Operations implements DictPyObject {
 
     /** An empty array of type objects */
     static final PyType[] EMPTY_TYPE_ARRAY = new PyType[0];
+    /** An empty array of String objects */
+    private static final String[] NO_KEYWORDS = new String[0];
     /** Lookup object on {@code PyType}. */
     private static Lookup LOOKUP = MethodHandles.lookup();
     /** The type object of {@code type} objects. */
@@ -200,6 +203,13 @@ public class PyType extends Operations implements DictPyObject {
     private final Map<String, Object> dict = new LinkedHashMap<>();
 
     /**
+     * The cached value of {@code __new__} found along the MRO of this
+     * type, or {@code null}. This is for the convenience of
+     * {@link #__call__(Object[], String[])}.
+     */
+    private FastCall newMethod;
+
+    /**
      * Partially construct a {@code type} object for {@code type}, and
      * by side-effect the type object of its base {@code object}. The
      * special constructor solves the problem that each of these has to
@@ -317,9 +327,9 @@ public class PyType extends Operations implements DictPyObject {
                  */
                 Operations ops = clash.existing;
                 if (ops instanceof PyType && Arrays.equals(type.classes,
-                        ((PyType) ops).classes))
+                        ((PyType)ops).classes))
                     // Graciously accept it as the result. (I think.)
-                    type = (PyType) ops;
+                    type = (PyType)ops;
                 else
                     // Something bad is happening. -> SystemError?
                     throw new InterpreterError(clash, "constructing %s",
@@ -463,6 +473,28 @@ public class PyType extends Operations implements DictPyObject {
         // XXX Possibly belong distinct from fillDictionary
         defineOperations(spec);
         deduceFlags();
+        // Cache the definition of __new__
+        cacheNew();
+
+    }
+
+    /**
+     * Look up the definition of __new__ and cache it in a form we can
+     * call efficiently.
+     */
+    private void cacheNew() {
+        Object v = this.lookup("__new__");
+        // assert v!=null; // Surely object.__new__ found if no other.
+        if (v instanceof PyStaticMethod) {
+            // The arguments are ignored. We just get v.__func__.
+            v = ((PyStaticMethod)v).__get__(null, null);
+        }
+        // Normally, we get some kind of FastCall implementation
+        if (v instanceof FastCall) {
+            this.newMethod = (FastCall)v;
+        } else {
+            this.newMethod = new Slow(v);
+        }
     }
 
     /**
@@ -613,25 +645,30 @@ public class PyType extends Operations implements DictPyObject {
     }
 
     /**
-     * Called from {@link #__setattr__(String, Object)} after an
-     * attribute has been set or deleted. This gives the type the
-     * opportunity to recompute slots and perform any other actions.
+     * Called from {@link #__setattr__(String, Object)} and
+     * {@link #__delattr__(String)} after an attribute has been set or
+     * deleted. This gives the type the opportunity to recompute slots
+     * and perform any other actions.
      *
      * @param name of the attribute modified
      */
     protected void updateAfterSetAttr(String name) {
 
         // XXX What if a slot-wrapper is removed, not replaced?
-        // XXX Should also visit sub-classes
+        // XXX Should also visit sub-classes.
 
-        // If the update is a slot wrapper change, slots must follow.
-        Slot s = Slot.forMethodName(name);
-        if (s != null) {
+        Slot s;
+        if ((s = Slot.forMethodName(name)) != null) {
+            // Update affects a slot wrapper.
             Object def = dict.get(name);
             for (Class<?> impl : classes) {
                 Operations ops = Operations.fromClass(impl);
                 s.setDefinition(ops, def);
             }
+
+        } else if ("__name__".equals(name)) {
+            // Update affects __new__.
+            cacheNew();
         }
     }
 
@@ -721,7 +758,9 @@ public class PyType extends Operations implements DictPyObject {
      * @param o object to test
      * @return {@code true} iff {@code o} is exactly of this type
      */
-    public boolean checkExact(Object o) { return PyType.of(o) == this; }
+    public boolean checkExact(Object o) {
+        return PyType.of(o) == this;
+    }
 
     /**
      * Determine if this type is a Python sub-type of {@code b} (if
@@ -796,7 +835,6 @@ public class PyType extends Operations implements DictPyObject {
      * until, during {@code super().__new__}, we reach a built-in type
      * and then this validation will be applied.
      *
-     * @param self of the __new__ function object
      * @param arg0 first argument to the {@code __new__} call
      * @return arg0 if the checks succeed
      * @throws TypeError if the checks fail
@@ -961,15 +999,10 @@ public class PyType extends Operations implements DictPyObject {
      */
     public enum Flag {
         /**
-         * Special methods may be assigned new meanings in the
-         * {@code type}, after creation.
+         * This type allows the creation of new instances (by
+         * {@code __call__}, say).
          */
-        MUTABLE,
-        /**
-         * An object of this type can change to another type (within
-         * "layout" constraints).
-         */
-        VARIABLE,
+        INSTANTIABLE,
         /**
          * This type the type allows sub-classing (is acceptable as a
          * base).
@@ -992,6 +1025,16 @@ public class PyType extends Operations implements DictPyObject {
          * {@link Opcode#LOAD_METHOD}).
          */
         IS_METHOD_DESCR,
+        /**
+         * Special methods may be assigned new meanings in the
+         * {@code type}, after creation.
+         */
+        MUTABLE,
+        /**
+         * An object of this type can change to another type (within
+         * "layout" constraints).
+         */
+        VARIABLE,
     }
 
     /**
@@ -1142,12 +1185,13 @@ public class PyType extends Operations implements DictPyObject {
          * Python types, instances of which are able to migrate between
          * these types by {@code __class__} assignment. The
          * {@link Operations} object of the implementation class will be
-         * an  {@code Operations.}{@link Derived}.
+         * an {@code Operations.}{@link Derived}.
          *
          * @param name of the type
          * @param implClass in which operations are defined
          */
-        public Spec(String name, Class<? extends DerivedPyObject> implClass) {
+        public Spec(String name,
+                Class<? extends DerivedPyObject> implClass) {
             this(name, implClass, null);
         }
 
@@ -1315,7 +1359,7 @@ public class PyType extends Operations implements DictPyObject {
          * @return new default flags
          */
         static EnumSet<Flag> getDefaultFlags() {
-            return EnumSet.of(Flag.BASETYPE);
+            return EnumSet.of(Flag.BASETYPE, Flag.INSTANTIABLE);
         }
 
         /**
@@ -1521,70 +1565,8 @@ public class PyType extends Operations implements DictPyObject {
      */
     protected Object __call__(Object[] args, String[] names)
             throws TypeError, Throwable {
-        /*
-         * CPython says: type_call() must not be called with an
-         * exception set, because it can clear it (directly or
-         * indirectly) and so the caller loses its exception
-         */
-
-        /*
-         * Special case: type(x) should return the Python type of x, but
-         * only if this is exactly the type 'type'.
-         */
-        if (this == PyType.TYPE) {
-            assert (args != null);
-            int nargs = args.length;
-            int nkwargs = names == null ? 0 : names.length;
-
-            if (nargs == 1 && nkwargs == 0) {
-                // Call is exactly type(x) so this is a type enquiry
-                return PyType.of(args[0]);
-            } else if (nargs - nkwargs != 3) {
-                /*
-                 * Call is type(x, bases, dict [, **kwds]) ... so 3
-                 * positional arguments but could be keyword args too.
-                 */
-                throw new TypeError("type() takes 1 or 3 arguments");
-            }
-        }
-
-        // Cases:
-        // this represents a type whose instances are not types
-        // this represents the type 'type' exactly.
-        // this represents a sub-type of 'type' (a metatype)
-
-        // XXX Replace with newInstance.get(this, args, kwargs)
-        // where newInstance is a function caching the lookup result.
-        Object _new = this.lookup("__new__");
-        if (_new == null) {
-            throw new TypeError("cannot create instances of '%s'",
-                    this.getName());
-        }
-
-        /*
-         * We prepend args with this type as first argument since in
-         * __new__ the first argument is the type of the instance being
-         * created, and we're creating one of this type. Note names are
-         * of *last* elements, so remain valid after the shift.
-         */
-        Object[] allargs = new Object[args.length + 1];
-        allargs[0] = this;
-        System.arraycopy(args, 0, allargs, 1, args.length);
-
-        Object obj = Callables.call(_new, allargs, names);
-        assert obj != null;
-
-        /*
-         * If obj is an instance of this type (or of a sub-type) call
-         * any __init__ defined for it. Not being an instance is not an
-         * error if that's what __new__ wants to do.
-         */
-        PyType objtype = PyType.of(obj);
-        if (objtype.isSubTypeOf(this)
-                && Slot.op_init.isDefinedFor(objtype)) {
-            objtype.op_init.invokeExact(obj, args, names);
-        }
-        return obj;
+        // Delegate to FastCall.call
+        return call(args, names);
     }
 
     /**
@@ -1603,8 +1585,8 @@ public class PyType extends Operations implements DictPyObject {
      *     there are keywords
      * @throws Throwable for other errors
      */
-    static Object __new__(PyType metatype, Object[] args, String[] names)
-            throws TypeError, Throwable {
+    static Object __new__(PyType metatype, Object[] args,
+            String[] names) throws TypeError, Throwable {
 
         // Special case: type(x) should return type(x)
         if (isTypeEnquiry(metatype, args, names)) {
@@ -1643,7 +1625,7 @@ public class PyType extends Operations implements DictPyObject {
         Spec spec =
                 new Spec(name, implClass, LOOKUP).flag(Flag.MUTABLE);
 
-        PyTuple bases = ((PyTuple) oBases);
+        PyTuple bases = ((PyTuple)oBases);
         if (bases.size() == 0)
             spec.base(OBJECT_TYPE);
         else {
@@ -1656,7 +1638,7 @@ public class PyType extends Operations implements DictPyObject {
 
         // Populate the dictionary from the name space
 
-        PyDict namespace = (PyDict) oNamespace;
+        PyDict namespace = (PyDict)oNamespace;
         for (Map.Entry<Object, Object> e : namespace.entrySet()) {
             Object k = e.getKey();
             Object v = e.getValue();
@@ -1716,7 +1698,7 @@ public class PyType extends Operations implements DictPyObject {
                 // metaAttr is a data descriptor so call its __get__.
                 try {
                     // Note the cast of 'this', to match op_get
-                    return descrGet.invokeExact(metaAttr, (Object) this,
+                    return descrGet.invokeExact(metaAttr, (Object)this,
                             metatype);
                 } catch (Slot.EmptyException e) {
                     /*
@@ -1744,7 +1726,7 @@ public class PyType extends Operations implements DictPyObject {
                  * are dereferencing a type.
                  */
                 return Operations.of(attr).op_get.invokeExact(attr,
-                        (Object) null, this);
+                        (Object)null, this);
             } catch (Slot.EmptyException e) {
                 // We do not catch AttributeError: it's definitive.
                 // Not a descriptor: the attribute itself.
@@ -1760,7 +1742,7 @@ public class PyType extends Operations implements DictPyObject {
         if (descrGet != null) {
             // metaAttr may be a non-data descriptor: call __get__.
             try {
-                return descrGet.invokeExact(metaAttr, (Object) this,
+                return descrGet.invokeExact(metaAttr, (Object)this,
                         metatype);
             } catch (Slot.EmptyException e) {}
         }
@@ -1816,7 +1798,7 @@ public class PyType extends Operations implements DictPyObject {
                 // Try descriptor __set__
                 try {
                     metaAttrOps.op_set.invokeExact(metaAttr,
-                            (Object) this, value);
+                            (Object)this, value);
                     if (special) { updateAfterSetAttr(name); }
                     return;
                 } catch (Slot.EmptyException e) {
@@ -1867,7 +1849,7 @@ public class PyType extends Operations implements DictPyObject {
                 // Try descriptor __delete__
                 try {
                     metaAttrOps.op_delete.invokeExact(metaAttr,
-                            (Object) this);
+                            (Object)this);
                     if (special) { updateAfterSetAttr(name); }
                     return;
                 } catch (Slot.EmptyException e) {
@@ -1894,7 +1876,112 @@ public class PyType extends Operations implements DictPyObject {
         return;
     }
 
-    // plumbing --------------------------------------------------
+    // FastCAll implementation ---------------------------------------
+
+    /*
+     * These methods may be called instead of __call_ to take advantage
+     * of potentially efficient handling of arguments in a type's
+     * __new__ method. There is a short-cut in Callables.call that
+     * detects the FastCall interface. In a CallSite, the MethodHandle
+     * could be formed with this in mind.
+     */
+
+    @Override
+    public Object call(Object a0) throws Throwable {
+        if (this == PyType.TYPE) {
+            // Call is exactly type(x) so this is a type enquiry
+            return PyType.of(a0);
+        }
+        Object obj = newMethod.call(this, a0);
+        maybeInit(obj, a0);
+        return obj;
+    }
+
+    @Override
+    public Object call(Object a0, Object a1) throws Throwable {
+        // Note that this cannot be a type enquiry
+        Object obj = newMethod.call(this, a0, a1);
+        maybeInit(obj, a0, a1);
+        return obj;
+    }
+
+    @Override
+    public Object call(Object[] args, String[] names)
+            throws ArgumentError, Throwable {
+        /*
+         * Special case: type(x) should return the Python type of x, but
+         * only if this is exactly the type 'type'.
+         */
+        if (this == PyType.TYPE) {
+            // Deal with two special cases
+            assert (args != null);
+            int nk = names == null ? 0 : names.length;
+            int np = args.length - nk;
+
+            if (np == 1 && nk == 0) {
+                // Call is exactly type(x) so this is a type enquiry
+                return PyType.of(args[0]);
+
+            } else if (np != 3) {
+                // Call ought to be type(x, bases, dict [, **kwds])
+                // __new__ will check too but we prefer this message.
+                throw new TypeError("type() takes 1 or 3 arguments");
+            }
+        }
+
+        // Call __new__ of the type described by this type object
+        Object obj = Callables.call(newMethod, this, args, names);
+
+        // Call obj.__init__ if it is defined and type(obj) == this
+        maybeInit(obj, args, names);
+        return obj;
+    }
+
+    @Override
+    public TypeError typeError(ArgumentError ae, Object[] args,
+            String[] names) {
+        // Almost certainly not called, but let __new__ explain
+        return newMethod.typeError(ae, args, names);
+    }
+
+    /**
+     * Call {@code obj.__init__(args, names)} if it is defined and if
+     * {@code type(obj) == this}.
+     *
+     * @param obj returned from {@code __new__}
+     * @param args passed to __new__
+     * @param names passed to __new__
+     * @throws Throwable Python errors from {@code __init__}
+     */
+    private void maybeInit(Object obj, Object[] args, String[] names)
+            throws Throwable {
+        /*
+         * If obj is an instance of this type (or of a sub-type) call
+         * any __init__ defined for it. Not being an instance is not an
+         * error if that's what __new__ wants to do.
+         */
+        assert obj != null;
+        PyType objtype = PyType.of(obj);
+        if (objtype.isSubTypeOf(this)
+                && Slot.op_init.isDefinedFor(objtype)) {
+            objtype.op_init.invokeExact(obj, args, names);
+        }
+    }
+
+    /**
+     * Call {@code obj.__init__(args)} if it is defined and if
+     * {@code type(obj) == this}.
+     *
+     * @param obj returned from {@code __new__}
+     * @param args passed to __new__
+     * @throws Throwable Python errors from {@code __init__}
+     */
+    private void maybeInit(Object obj, Object... args)
+            throws TypeError, Throwable {
+        maybeInit(obj, args, NO_KEYWORDS);
+    }
+
+    // plumbing ------------------------------------------------------
 
     private static final String NEW_ARG_MUST_BE =
             "type.__new__() argument %d must be %s, not %s";
@@ -1961,7 +2048,7 @@ public class PyType extends Operations implements DictPyObject {
         int i = 0;
         for (Object name : tuple) {
             if (name instanceof PyType)
-                t[i++] = (PyType) name;
+                t[i++] = (PyType)name;
             else
                 throw new TypeError(msg);
         }
@@ -1969,7 +2056,6 @@ public class PyType extends Operations implements DictPyObject {
     }
 
     // Compare CPython _PyType_GetDocFromInternalDoc
-    // in typeobject.c
     // XXX Consider implementing in ArgParser instead
     static Object getDocFromInternalDoc(String name, String doc) {
         // TODO Auto-generated method stub
@@ -1977,7 +2063,6 @@ public class PyType extends Operations implements DictPyObject {
     }
 
     // Compare CPython: PyType_GetTextSignatureFromInternalDoc
-    // in typeobject.c
     // XXX Consider implementing in ArgParser instead
     static Object getTextSignatureFromInternalDoc(String name,
             String doc) {

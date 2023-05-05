@@ -159,7 +159,6 @@ public abstract class PyJavaFunction
      *
      * @param ap argument parser (provides name etc.)
      * @param method raw handle to the method defined
-     * @param self object to which bound (or {@code null})
      * @return An unbound method supporting the signature
      */
     // Compare CPython PyCFunction_NewEx in methodobject.c
@@ -351,22 +350,35 @@ public abstract class PyJavaFunction
      * @param args positional arguments (only the number will matter)
      * @return a {@code TypeError} to throw
      */
-    // XXX Compare MethodDescriptor.typeError : unify?
     @Override
-    @SuppressWarnings("fallthrough")
     public TypeError typeError(ArgumentError ae, Object[] args,
             String[] names) {
+        return typeError(__name__(), ae, args, names);
+    }
+
+    /**
+     * Translate a problem with the number and pattern of arguments, and
+     * a method name, to a Python {@link TypeError}.
+     *
+     * @param name of method
+     * @param ae previously thrown by this object
+     * @param args all arguments given, positional then keyword
+     * @param names of keyword arguments or {@code null}
+     * @return Python {@code TypeError} to throw
+     */
+    @SuppressWarnings("fallthrough")
+    static TypeError typeError(String name, ArgumentError ae,
+            Object[] args, String[] names) {
         int n = args.length;
         switch (ae.mode) {
             case NOARGS:
             case NUMARGS:
             case MINMAXARGS:
-                return new TypeError("%s() %s (%d given)", __name__(),
-                        ae, n);
+                return new TypeError("%s() %s (%d given)", name, ae, n);
             case NOKWARGS:
                 assert names != null && names.length > 0;
             default:
-                return new TypeError("%s() %s", __name__(), ae);
+                return new TypeError("%s() %s", name, ae);
         }
     }
 
