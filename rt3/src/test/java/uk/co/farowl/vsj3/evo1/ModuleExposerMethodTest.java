@@ -65,8 +65,6 @@ class ModuleExposerMethodTest {
 
         /**
          * The module dictionary entry has the expected content.
-         *
-         * @throws Throwable unexpectedly
          */
         @Test
         void has_expected_dict_entry() {

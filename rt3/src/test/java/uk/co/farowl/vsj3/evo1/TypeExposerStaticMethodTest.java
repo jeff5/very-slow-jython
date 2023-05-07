@@ -1,3 +1,5 @@
+// Copyright (c)2023 Jython Developers.
+// Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj3.evo1;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -62,8 +64,6 @@ class TypeExposerStaticMethodTest {
 
         /**
          * The type dictionary entry has the expected content.
-         *
-         * @throws Throwable unexpectedly
          */
         @Test
         void wraps_expected_function() {

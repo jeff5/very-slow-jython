@@ -69,8 +69,6 @@ class TypeExposerNewMethodTest extends UnitTestSupport {
 
         /**
          * The type dictionary entry has the expected content.
-         *
-         * @throws Throwable unexpectedly
          */
         @Test
         void wraps_expected_function() {
