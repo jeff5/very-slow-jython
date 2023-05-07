@@ -23,13 +23,6 @@ public class Py {
     /** Python {@code True} object. */
     public static final Boolean True = true;
 
-    /**
-     * Return a Python {@code object}.
-     *
-     * @return a new {@code object}
-     */
-    static PyBaseObject object() { return new PyBaseObject(); }
-
 // /**
 // * Return Python {@code bytes} for Java {@code byte[]} (copy).
 // *

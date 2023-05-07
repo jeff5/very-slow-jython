@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Map;
 
 import uk.co.farowl.vsj3.evo1.Exposed.Getter;
+import uk.co.farowl.vsj3.evo1.Exposed.PythonNewMethod;
 import uk.co.farowl.vsj3.evo1.Slot.Signature;
 import uk.co.farowl.vsj3.evo1.base.InterpreterError;
 
@@ -39,15 +40,23 @@ public class PyType extends Operations
      * built in the obvious sequence.
      */
 
-    // *** The order of these initialisations is critical
-
     /**
      * Classes for which the type system has to prepare {@code PyType}
      * objects in two stages, deferring the filling of the dictionary of
-     * the type until all classes in this set have completed their
-     * static initialisation in Java and built a {@code PyType}.
-     * Generally, this is because these types are necessary to create
-     * entries in the dictionary of any type.
+     * the type until all the classes in this set have completed their
+     * static initialisation in Java and built a {@code PyType}. We have
+     * these reasons (at least) for putting a type on the list:
+     * <ol>
+     * <li>The type is encountered in static initialisation of the above
+     * (e.g. an instance is referenced when initialising
+     * {@link Py}).</li>
+     * <li>The type has accepted non-canonical implementations we could
+     * encounter before the canonical class is loaded.</li>
+     * <li>The type must exist for us to create entries in the
+     * dictionary of any other type.</li>
+     * </ol>
+     * The completeness of this list is critical and the order important
+     * too.
      */
     // Use an ordered list so we have full control over sequence.
     static final Map<Class<?>, BootstrapTask> bootstrapTasks =
@@ -61,18 +70,24 @@ public class PyType extends Operations
                 // Really special cases
                 PyBaseObject.class, //
                 PyType.class,
-                // The entries are descriptors so defer those
-                PyMemberDescr.class, //
-                PyGetSetDescr.class, //
-                PyWrapperDescr.class, //
-                PyMethodDescr.class, //
-                // And sometimes things go wrong :(
-                BaseException.class, //
-                // Types with multiple implementations
+                // Types loaded when class Py is touched
+                PyNone.class, //
+                PyEllipsis.class, //
+                PyNotImplemented.class, //
+                // These accept native Java types as implementation"
                 PyUnicode.class, //
                 PyLong.class, //
                 PyBool.class, //
                 PyFloat.class, //
+                // Sometimes things go wrong :(
+                BaseException.class, //
+                // These entries are the descriptors we need
+                PyMemberDescr.class, //
+                PyGetSetDescr.class, //
+                PyWrapperDescr.class, //
+                PyMethodDescr.class, //
+                PyJavaFunction.class, //
+                PyStaticMethod.class, //
         };
         // Fill the map from the list.
         for (Class<?> c : bootstrapClasses) {
@@ -339,25 +354,26 @@ public class PyType extends Operations
         } else {
             /*
              * Some bootstrap types are waiting for their dictionaries.
-             * It is not safe to create descriptors in the dictionary).
+             * It is not safe to create descriptors in the dictionary
+             * until we can do that for all of them.
              */
             BootstrapTask.shelve(spec, type);
 
-            /*
-             * However, the current type may be the last bootstrap type
-             * we were waiting for.
-             */
             if (BootstrapTask.allReady()) {
                 /*
-                 * Complete the types we had to shelve. Doing so may
-                 * create new types, so we empty the waiting list into a
-                 * private copy.
+                 * The current type was the last bootstrap type we were
+                 * waiting for. We now complete construction of the
+                 * types we had to shelve.
+                 *
+                 * It is an error to encounter any new types in the
+                 * process: the list in PyType.bootstrapClasses has to
+                 * be a complete set. In order to enforce this, we lock
+                 * BootstrapTask.shelve() against further additions to
+                 * bootstrapTasks.
                  */
-                List<BootstrapTask> tasks =
-                        new ArrayList<>(bootstrapTasks.values());
-                bootstrapTasks.clear();
+                BootstrapTask.lock();
 
-                for (BootstrapTask task : tasks) {
+                for (BootstrapTask task : bootstrapTasks.values()) {
                     try {
                         task.type.fillDictionary(task.spec);
                     } catch (Clash clash) {
@@ -366,6 +382,9 @@ public class PyType extends Operations
                                 "constructing %s", task.type);
                     }
                 }
+
+                // Further types to complete uninterrupted
+                bootstrapTasks.clear();
 
                 /*
                  * Bootstrapping is over: the type we return will be
@@ -415,8 +434,16 @@ public class PyType extends Operations
      */
     private static class BootstrapTask {
 
+        // We set this when all waiting classes have a spec
+        private static boolean locked = false;
         Spec spec;
         PyType type;
+
+        /**
+         * Lock {@link PyType#bootstrapTasks} against further additions
+         * via {@link #shelve(Spec, PyType)}.
+         */
+        static void lock() { locked = true; }
 
         /**
          * Place a partially-completed {@code type} on the
@@ -428,11 +455,15 @@ public class PyType extends Operations
         static void shelve(Spec spec, PyType type) {
             Class<?> key = spec.definingClass();
             BootstrapTask t = bootstrapTasks.get(key);
-            if (t == null)
+            if (t == null) {
                 // Not present: add an entry.
+                if (locked) {
+                    throw new InterpreterError(LATE_CLASS, key);
+                }
                 bootstrapTasks.put(key, t = new BootstrapTask());
-            else if (t.spec != null)
+            } else if (t.spec != null) {
                 throw new InterpreterError(REPEAT_CLASS, key);
+            }
             // Fill the entry as partially initialised.
             t.spec = spec;
             t.type = type;
@@ -457,7 +488,9 @@ public class PyType extends Operations
         }
 
         private static final String REPEAT_CLASS =
-                "PyType bootstrapping: class %s encountered twice";
+                "PyType bootstrapping: %s encountered twice";
+        private static final String LATE_CLASS =
+                "PyType bootstrapping: unexpected late %s";
     }
 
     /**
@@ -484,7 +517,7 @@ public class PyType extends Operations
      */
     private void cacheNew() {
         Object v = this.lookup("__new__");
-        // assert v!=null; // Surely object.__new__ found if no other.
+        assert v != null;  // Surely object.__new__ found if no other.
         if (v instanceof PyStaticMethod) {
             // The arguments are ignored. We just get v.__func__.
             v = ((PyStaticMethod)v).__get__(null, null);
@@ -1570,58 +1603,43 @@ public class PyType extends Operations
     }
 
     /**
-     * Create a new Python {@code type} or execute the built-in
-     * {@code type()}, depending on the number of arguments in
-     * {@code args}. Because {@code type} is a type, calling it for type
-     * enquiry looks initially like a constructor call, except for the
-     * number of arguments. {@code __new__} is a special method, but not
-     * a slot (there is no {@code Slot.op_new} in this implementation.
+     * Create a new Python {@code type}. This implements type creation
+     * from Python, normally during a {@code class} statement. It may
+     * also be called via<pre>
+     * type('B', (A,), {})
+     * </pre> listing the bases in a {@code tuple} and the name space
+     * from which the members and other special features may be taken as
+     * a {@code dict}. Despite the passing resemblance of the arguments
+     * to the idiom {@code (self, *args, **kwargs)} the {@code PyTuple}
+     * and {@code PyDict} are not collectors for arguments by position
+     * and keyword.
      *
      * @param metatype the subclass of type to be created
-     * @param args supplied positionally to the call in Python
-     * @param names supplied as keywords to the call in Python
+     * @param name of the new type
+     * @param oBases bases of the new type ({@code tuple})
+     * @param oNamespace namespace for the type
      * @return the created type
      * @throws TypeError if the wrong number of arguments is given or
      *     there are keywords
-     * @throws Throwable for other errors
      */
-    static Object __new__(PyType metatype, Object[] args,
-            String[] names) throws TypeError, Throwable {
+    @PythonNewMethod
+    static Object __new__(PyType metatype, String name, Object oBases,
+            Object oNamespace) throws TypeError {
 
-        // Special case: type(x) should return type(x)
-        if (isTypeEnquiry(metatype, args, names)) {
-            return PyType.of(args[0]);
-        }
-
-        // Type creation call
-        Object oBases, oName, oNamespace;
-
-        if (args.length != 3) {
-            throw new TypeError("type() takes 1 or 3 arguments");
-        } else if (!PyUnicode.TYPE.check(oName = args[0])) {
-            throw new TypeError(NEW_ARG_MUST_BE, 0, PyUnicode.TYPE,
-                    PyType.of(oName));
-        } else if (!PyTuple.TYPE.check(oBases = args[1])) {
+        if (!PyTuple.TYPE.check(oBases))
             throw new TypeError(NEW_ARG_MUST_BE, 1, PyTuple.TYPE.name,
                     PyType.of(oBases));
-        } else if (!PyDict.TYPE.check(oNamespace = args[2])) {
+        else if (!PyDict.TYPE.check(oNamespace))
             throw new TypeError(NEW_ARG_MUST_BE, 2, PyDict.TYPE.name,
                     PyType.of(oNamespace));
-        }
 
-        // XXX This is still rather crude
-
-        // Construct a type with an empty dictionary
-
-        String name = oName.toString();
+        // XXX This is still rather crude. Much more work needed.
 
         // XXX How do I decide the base (and find the implClass)?
         // Should depend on base and be .Derived: how does that work?
-
         Class<?> implClass = PyBaseObject.class;
 
         // XXX Why is this the right lookup? Why need one anyway?
-
         Spec spec =
                 new Spec(name, implClass, LOOKUP).flag(Flag.MUTABLE);
 
@@ -1962,8 +1980,8 @@ public class PyType extends Operations
          */
         assert obj != null;
         PyType objtype = PyType.of(obj);
-        if (objtype.isSubTypeOf(this)
-                && Slot.op_init.isDefinedFor(objtype)) {
+        if (Slot.op_init.isDefinedFor(objtype)
+                && objtype.isSubTypeOf(this)) {
             objtype.op_init.invokeExact(obj, args, names);
         }
     }
@@ -2026,17 +2044,6 @@ public class PyType extends Operations
         else {
             return bases[0];
         }
-    }
-
-    /**
-     * Helper for {@link #__call__} and {@link #__new__}. This is a type
-     * enquiry if {@code type} is {@link PyType#TYPE} and there is just
-     * one argument.
-     */
-    private static boolean isTypeEnquiry(PyType type, Object[] args,
-            String[] names) {
-        return type == TYPE && args.length == 1
-                && (names == null || names.length == 0);
     }
 
     /**

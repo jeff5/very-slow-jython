@@ -5,6 +5,7 @@ import java.util.Map;
 
 import uk.co.farowl.vsj3.evo1.Exposed.DocString;
 import uk.co.farowl.vsj3.evo1.Exposed.Getter;
+import uk.co.farowl.vsj3.evo1.Exposed.PythonNewMethod;
 import uk.co.farowl.vsj3.evo1.Slot.Signature;
 
 /**
@@ -47,10 +48,7 @@ public class PyBaseObject extends AbstractPyObject {
      */
     protected PyBaseObject(PyType type) { super(type); }
 
-    /** Constructor for {@code object}. */
-    public PyBaseObject() {
-        super(TYPE);
-    }
+    private PyBaseObject() { super(TYPE); }
 
     // Exposed attributes ---------------------------------------------
 
@@ -125,19 +123,15 @@ public class PyBaseObject extends AbstractPyObject {
      * implementation.
      *
      * @param type actual Python sub-class being created
-     * @param args should be empty
-     * @param kwargs should be empty
      * @return newly-created implementation object
-     * @throws TypeError if arguments are not empty
      */
-    static Object __new__(PyType type, PyTuple args, PyDict kwargs)
-            throws TypeError {
-        // Assert no arguments
-        if (args.isEmpty() && (kwargs == null || kwargs.isEmpty())) {
+    @PythonNewMethod
+    static Object __new__(PyType type) {
+        if (type == TYPE)
+            return new Object();
+        else
+            // TODO Support Derived as distinct class?
             return new PyBaseObject(type);
-        } else {
-            throw new TypeError("object() takes no arguments");
-        }
     }
 
     /**

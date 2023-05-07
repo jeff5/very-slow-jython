@@ -224,8 +224,9 @@ public class UnitTestSupport {
      *
      * @param x value expected
      * @param o to test
+     * @return whether equal in Python
      */
-    private static boolean pythonEquals(Object x, Object o) {
+    static boolean pythonEquals(Object x, Object o) {
         try {
             if (x instanceof PyList && o instanceof PyList) {
                 // XXX Special case as we do not have PyList.__eq__

@@ -3,11 +3,15 @@
 package uk.co.farowl.vsj3.evo1;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
-import java.lang.invoke.MethodHandles;
 import java.math.BigInteger;
 import java.util.StringJoiner;
+import java.util.function.Consumer;
+import java.util.function.Predicate;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.DisplayName;
@@ -15,8 +19,6 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-
-import uk.co.farowl.vsj3.evo1.PyType.Spec;
 
 /**
  * Tests of some basic mechanisms in {@link PyType} when exercised from
@@ -26,27 +28,10 @@ import uk.co.farowl.vsj3.evo1.PyType.Spec;
  * {@code type.__init__} in a range of circumstances.
  */
 @DisplayName("PyType implements")
-class PyTypeTest extends UnitTestSupport {
+class PyTypeTest {
 
-    /**
-     * A Python type definition we may use to test various operations on
-     * type objects.
-     * <p>
-     * An identically-named Python type {@code Simple} is defined by
-     * {@link TypeExposerMethodTest.SimpleObject}. Here we deliberately
-     * invite confusion in order to verify that tests are sufficiently
-     * isolated that we never need to worry about that again.
-     */
-    static class SimpleObject {
-        static PyType TYPE = PyType
-                .fromSpec(new Spec("Simple", MethodHandles.lookup()));
-    }
-
-    /** Base of tests that examine types. */
-    abstract static class AbstractTypeTest {
-        // Subterfuge to initialise the type system :(
-        @SuppressWarnings("unused")
-        private static Object DUMMY = UnitTestSupport.OBJECT;
+    /** Base of tests that call {@code type}. */
+    abstract static class AbstractCallTypeTest extends UnitTestSupport {
 
         /**
          * Provide a stream of types and selected characteristics as
@@ -59,8 +44,7 @@ class PyTypeTest extends UnitTestSupport {
         static Stream<Arguments> enquiryExamples() {
             return Stream.of(
                     // A type and a value that should have that type
-                    enquiryExample(PyBaseObject.TYPE,
-                            new PyBaseObject()), //
+                    enquiryExample(PyBaseObject.TYPE, new Object()), //
                     enquiryExample(PyLong.TYPE, 1), //
                     enquiryExample(PyBool.TYPE, true), //
                     enquiryExample(PyType.TYPE, PyLong.TYPE)  //
@@ -84,21 +68,46 @@ class PyTypeTest extends UnitTestSupport {
         /**
          * Provide a stream of types and selected characteristics as
          * parameter sets to the tests of types. Each example is
-         * essentially a tuple of a type object, a value ofe that type,
-         * and arguments to for the type object that would yield an
-         * equal value when used as a constructor.
+         * essentially a tuple of a type object, a way to recognise the
+         * correct value has been constructed, and arguments for the
+         * type object that would yield an equal value when used as a
+         * constructor.
          *
          * @return the examples for search tests.
          */
         static Stream<Arguments> instanceExamples() {
             final BigInteger BIG = BigInteger.valueOf(10_000_000_000L);
             return Stream.of(
-                    // A type, value and args to construct the value
+                    // A specification for each test
+                    instanceExample(PyBaseObject.TYPE,
+                            o -> PyType.of(o) == PyBaseObject.TYPE,
+                            "is an object"), //
                     instanceExample(PyLong.TYPE, 1, 1), //
                     instanceExample(PyLong.TYPE, 10, BigInteger.TEN), //
+                    instanceExample(PyLong.TYPE, 42, 42), //
                     instanceExample(PyLong.TYPE, BIG, BIG), //
                     instanceExample(PyBool.TYPE, true, 1) //
             );
+        }
+
+        /**
+         * Construct an instance construction problem with a test on the
+         * result specified by the caller.
+         *
+         * @param type concerned
+         * @param test to apply to the result as a predicate
+         * @param strTest human readable statement of test (for display)
+         * @param args to {@code type.__call__} to produce the value
+         * @return example data for a test
+         */
+        private static Arguments instanceExample(PyType type,
+                Predicate<Object> test, String strTest,
+                Object... args) {
+            String strType = type.getName();
+            StringJoiner argJoiner = new StringJoiner(", ");
+            for (Object v : args) { argJoiner.add(v.toString()); }
+            return arguments(type, args, test, strType,
+                    argJoiner.toString(), strTest);
         }
 
         /**
@@ -112,18 +121,15 @@ class PyTypeTest extends UnitTestSupport {
          */
         private static Arguments instanceExample(PyType type,
                 Object value, Object... args) {
-            String ostr = value.toString();
-            String tname = type.getName();
-            StringJoiner sj = new StringJoiner(", ");
-            for (Object v : args) { sj.add(v.toString()); }
-            return arguments(type, value, ostr, tname,
-                    args, sj.toString());
+            Predicate<Object> test = o -> pythonEquals(value, o);
+            String strTest = String.format("== %s", value);
+            return instanceExample(type, test, strTest, args);
         }
     }
 
     @Nested
     @DisplayName("type.__call__")
-    class CallTest extends AbstractTypeTest {
+    class CallTest extends AbstractCallTypeTest {
         /**
          * Test type enquiry.
          *
@@ -131,7 +137,7 @@ class PyTypeTest extends UnitTestSupport {
          * @param obj on which to call {@code type()}
          * @param ostr string form of obj for display only
          * @param tname string form of type for display only
-         * @throws Throwable
+         * @throws Throwable unexpectedly
          */
         @DisplayName("enquiry type(obj)")
         @ParameterizedTest(name = "type({2}) is {3}")
@@ -147,27 +153,153 @@ class PyTypeTest extends UnitTestSupport {
          * Test instance construction.
          *
          * @param type to use as constructor
-         * @param value expected as result
-         * @param ostr string form of obj for display only
-         * @param tname string form of type for display only
-         * @param args to produce the value
-         * @throws Throwable
+         * @param args to {@code __call__}
+         * @param test whether result is as expected
+         * @param strType string form of type for display only
+         * @param strArgs string form of args for display only
+         * @param strTest string form of test for display only
+         * @throws Throwable unexpectedly
          */
         @DisplayName("construction <type>(args)")
-        @ParameterizedTest(name = "{3}({5}) == {2}")
+        @ParameterizedTest(name = "{3}({4}) {5}")
         @MethodSource("instanceExamples")
-        void instance(PyType type, Object value, String ostr,
-                String tname, Object[] args, String argstr)
-                throws Throwable {
+        void instance(PyType type, Object[] args,
+                Predicate<Object> test, String strType, String strArgs,
+                String strTest) throws Throwable {
             Object r = Callables.call(type, args, null);
-            assertPythonEquals(value, r);
+            assertTrue(test.test(r), strTest);
         }
     }
 
-    // construction of a new plain type
+    /** Base of tests that create new types. */
+    abstract static class AbstractNewTypeTest extends UnitTestSupport {
+
+        private static final PyType INT = PyLong.TYPE;
+        private static final PyType TYPE = PyType.TYPE;
+
+        /**
+         * Provide a stream of metatypes and parameter sets to the tests
+         * of new type creation. Each example is essentially a tuple of
+         * a metatype , bases of the new type, the namespace and a test
+         * of the new type.
+         *
+         * @return the examples for search tests.
+         */
+        static Stream<Arguments> newExamples() {
+
+            return Stream.of(
+                    // A specification for each test
+                    newExample(TYPE, "A", new PyType[] {OBJECT},
+                            new PyDict(), //
+                            t -> newTypeCheck("A", OBJECT, t)) // ,
+            // newExample(TYPE, "MyInt", new PyType[] {INT},
+            // new PyDict(),
+            // t -> newTypeCheck("MyInt", INT, t, 42)) // , //
+            );
+        }
+
+        /**
+         * Construct an instance construction problem with a test on the
+         * result specified by the caller.
+         *
+         * @param metatype to select the constructor
+         * @param name of the new type
+         * @param bases to the new type
+         * @param namespace for the new type
+         * @param test to apply to the result
+         * @return example data for a test
+         */
+        private static Arguments newExample(PyType metatype,
+                String name, PyType[] bases, PyDict namespace,
+                Consumer<PyType> test) {
+            String strMetatype = metatype.getName();
+            String strNamespace = namespace.toString();
+            StringJoiner b = new StringJoiner(", ", "(", ")");
+            for (PyType t : bases) { b.add(t.getName()); }
+            return arguments(metatype, name, PyTuple.from(bases),
+                    namespace, test, strMetatype, b.toString(),
+                    strNamespace);
+        }
+
+        /**
+         * Check a new type for expected attributes and behaviour.
+         *
+         * @param name the type should bear
+         * @param base of the new type
+         * @param type the new type
+         * @param args arguments when making an instance
+         */
+        static void newTypeCheck(String name, PyType base, PyType type,
+                Object... args) {
+            try {
+                // Properties the type should have
+                assertEquals(name, type.name);
+                assertSame(base, type.getBase());
+
+                // Make an instance of the new type
+                Object o = Callables.call(type, args, null);
+                assertPythonType(type, o);
+            } catch (Throwable t) {
+                throw Abstract.asUnchecked(t);
+            }
+        }
+    }
+
+    @Nested
+    @DisplayName("type.__new__")
+    class NewTypeTest extends AbstractNewTypeTest {
+        /**
+         * Test type construction by the 3-argument call to type.
+         *
+         * @param metatype to select the constructor
+         * @param name of the new type
+         * @param bases to the new type
+         * @param namespace for the new type
+         * @param test to apply to the result
+         * @param strMetatype string form of {@code metatype}
+         * @param strBases string form of {@code bases}
+         * @param strNamespace string form of {@code namespace}
+         * @throws Throwable unexpectedly
+         */
+        @DisplayName("definition <metatype>(name, bases, namespace)")
+        @ParameterizedTest(name = "{5}(\"{1}\", {6}, {7}) tests ok")
+        @MethodSource("newExamples")
+        void newType(PyType metatype, String name, PyTuple bases,
+                PyDict namespace, Consumer<PyType> test,
+                String strMetatype, String strBases,
+                String strNamespace) throws Throwable {
+            PyType t = (PyType)Callables.callFunction(metatype, name,
+                    bases, namespace);
+            // Customised test specified by caller
+            test.accept(t);
+        }
+
+        /**
+         * Test type construction by the 3-argument call to type.
+         *
+         * @param metatype to select the constructor
+         * @param name of the new type
+         * @param bases to the new type
+         * @param namespace for the new type
+         * @param test whether result is as expected
+         * @param strMetatype string form of {@code metatype}
+         * @throws Throwable unexpectedly
+         */
+        @DisplayName("<metatype>(name, bases, namespace) type error")
+        @ParameterizedTest(name = "{5}(\"{1}\", ...)")
+        @MethodSource("newExamples")
+        void newTypeError(PyType metatype, String name, PyTuple bases,
+                PyDict namespace, Consumer<PyType> test,
+                String strMetatype) throws Throwable {
+            assertThrows(TypeError.class, () -> Callables
+                    .callFunction(metatype, name, 1, namespace));
+            assertThrows(TypeError.class, () -> Callables
+                    .callFunction(metatype, name, bases, Py.None));
+        }
+    }
 
     // creation of a metatype
 
-    // construction of with a metatype
+    // construction with a metatype
 
 }
