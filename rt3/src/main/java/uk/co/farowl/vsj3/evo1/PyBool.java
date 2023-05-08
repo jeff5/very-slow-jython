@@ -36,10 +36,13 @@ public final class PyBool {
      * @throws Throwable on argument type or other errors
      */
     @PythonNewMethod
-    @DocString("bool(x) -> bool\n" + "\n"
-            + "Returns True when the argument x is true, False otherwise.\n"
-            + "The builtins True and False are the only two instances of the class bool.\n"
-            + "The class bool is a subclass of the class int, and cannot be subclassed.")
+    @DocString("""
+            bool(x) -> bool
+
+            Returns True when the argument x is true, False otherwise.
+            The builtins True and False are the only two instances of the class bool.
+            The class bool is a subclass of the class int, and cannot be subclassed.
+            """)
     static Object __new__(PyType cls, @Default("False") Object x)
             throws Throwable {
         assert cls == TYPE;  // Guaranteed by construction (maybe)
