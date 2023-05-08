@@ -1,4 +1,4 @@
-// Copyright (c)2022 Jython Developers.
+// Copyright (c)2023 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj3.evo1;
 
@@ -9,7 +9,7 @@ import java.util.Map;
  * A {@code PyFrame} is the context for the execution of code. Different
  * concrete sub-classes of {@code PyFrame} exist to execute different
  * compiled representations of Python code and classes of function. For
- * example, there is one for CPython 3.8 byte code and (we expect)
+ * example, there is one for CPython 3.11 byte code and (we expect)
  * another for Java byte code compiled from Python. The type of code
  * object supported is the parameter {@code C} to the class, and the
  * type of function is parameter {@code F}, which must be compatible

@@ -1,7 +1,7 @@
 package uk.co.farowl.vsj3.evo1;
 
-/** Constants for opcodes taken from CPython 3.8 {@code opcode.h} */
-class Opcode38 {
+/** Constants for opcodes taken from CPython 3.11 {@code opcode.h} */
+class Opcode311 {
 
     static final int POP_TOP = 1;
     static final int ROT_TWO = 2;

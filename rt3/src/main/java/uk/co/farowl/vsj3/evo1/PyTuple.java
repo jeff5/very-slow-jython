@@ -1,5 +1,4 @@
-// Copyright (c)2021 Jython Developers.
-// Copyright (c) Corporation for National Research Initiatives
+// Copyright (c)2023 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj3.evo1;
 
@@ -350,10 +349,10 @@ public class PyTuple extends AbstractList<Object>
 
     private int __hash__() throws Throwable {
         /*
-         * Ported from C in CPython 3.8, which in turn is based on the
-         * xxHash specification. We do not attempt to maintain historic
-         * hash of () or avoid returning -1. Seed the accumulator based
-         * on the length.
+         * Ported from C in CPython 3.11 tupleobject.c, which in turn is
+         * based on the xxHash specification. We do not attempt to
+         * maintain historic hash of the empty tuple or avoid returning
+         * -1. Seed the accumulator based on the length.
          */
         int acc = H32P5 * value.length;
         for (Object x : value) {

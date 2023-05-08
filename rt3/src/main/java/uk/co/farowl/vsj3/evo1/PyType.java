@@ -920,7 +920,7 @@ public class PyType extends Operations
     /**
      * Return whether an instance of this type defines {@code __get__}
      * participates in the optimised call pattern supported by
-     * {@link Opcode38#LOAD_METHOD}.
+     * {@link Opcode311#LOAD_METHOD}.
      *
      * @return whether a method descriptor
      */

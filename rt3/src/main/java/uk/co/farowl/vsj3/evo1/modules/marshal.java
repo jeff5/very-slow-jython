@@ -20,7 +20,7 @@ import java.util.List;
 import java.util.Map;
 
 import uk.co.farowl.vsj3.evo1.Abstract;
-import uk.co.farowl.vsj3.evo1.CPython38Code;
+import uk.co.farowl.vsj3.evo1.CPython311Code;
 import uk.co.farowl.vsj3.evo1.EOFError;
 import uk.co.farowl.vsj3.evo1.Exposed.Default;
 import uk.co.farowl.vsj3.evo1.Exposed.Member;
@@ -1520,7 +1520,7 @@ public class marshal /* extends JavaModule */ {
              * We intend different concrete sub-classes of PyCode, that
              * create different frame types, but at the moment only one.
              */
-            CPython38Code code = (CPython38Code)v;
+            CPython311Code code = (CPython311Code)v;
             w.writeByte(TYPE_CODE);
             // XXX Write the fields (quite complicated)
         }
@@ -1530,7 +1530,7 @@ public class marshal /* extends JavaModule */ {
             return Map.of(TYPE_CODE, CodeCodec::read);
         }
 
-        private static CPython38Code read(Reader r, boolean ref) {
+        private static CPython311Code read(Reader r, boolean ref) {
 
             // Get an index now to ensure encounter-order numbering
             int idx = ref ? r.reserveRef() : -1;
@@ -1539,6 +1539,9 @@ public class marshal /* extends JavaModule */ {
             int argcount = r.readInt();
             int posonlyargcount = r.readInt();
             int kwonlyargcount = r.readInt();
+
+            // TODO Different in 3.11 see marshal.c
+
             int nlocals = r.readInt();
             int stacksize = r.readInt();
             int flags = r.readInt();
@@ -1555,7 +1558,7 @@ public class marshal /* extends JavaModule */ {
 
             // PySys_Audit("code.__new__", blah ...);
 
-            CPython38Code v = CPython38Code.create(argcount,
+            CPython311Code v = CPython311Code.create(argcount,
                     posonlyargcount, kwonlyargcount, nlocals, stacksize,
                     flags, code, consts, names, varnames, freevars,
                     cellvars, filename, name, firstlineno, lnotab);

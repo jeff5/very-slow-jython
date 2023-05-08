@@ -8,7 +8,7 @@ import marshal, py_compile, dis
 # It is written in ./__pycache__ and called NAME.cpython-38.pyc
 
 CACHE = '__pycache__'
-COMPILER = 'cpython-38'
+COMPILER = 'cpython-311'
 
 
 HELP =  """Command: compile_examples srcdir dstdir

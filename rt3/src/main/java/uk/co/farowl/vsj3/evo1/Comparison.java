@@ -8,7 +8,7 @@ import uk.co.farowl.vsj3.evo1.Slot.EmptyException;
 
 /**
  * Selects a particular "rich comparison" operation from the repertoire
- * supported by {@link Opcode38#COMPARE_OP}, the argument to which is
+ * supported by {@link Opcode311#COMPARE_OP}, the argument to which is
  * the {@code code} attribute of the name in this {@code enum}.
  *
  * @apiNote The order matches CPython's enumeration of operations used
@@ -175,7 +175,7 @@ enum Comparison {
     public String toString() { return text; }
 
     /**
-     * Translate CPython {@link Opcode38#COMPARE_OP} opcode argument to
+     * Translate CPython {@link Opcode311#COMPARE_OP} opcode argument to
      * Comparison constant.
      *
      * @param oparg opcode argument
