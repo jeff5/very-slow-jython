@@ -4,6 +4,11 @@
 
 Creation and Initialisation
 ***************************
+.. note::
+    Re-visit 3.11 source code and correct details where different.
+    Anything involving opcodes will have changed.
+    A lot has changed to support concurrent interpreters.
+
 
 When we outlined how special and other methods may be implemented
 in types defined in Java,

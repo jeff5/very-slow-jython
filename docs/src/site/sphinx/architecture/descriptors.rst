@@ -16,6 +16,10 @@ based on a study of the CPython 3.8 source,
 and depicting in UML a proposed Java implementation.
 
 .. note::
+    Re-visit 3.11 source code and correct details where different.
+    Elements visible to Python should not have changed.
+
+.. note::
 
     The description here assumes we shall follow the CPython implementation,
     and reproduce in Java classes the several data structures

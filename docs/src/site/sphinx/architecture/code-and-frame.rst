@@ -4,6 +4,10 @@
 Types of ``code`` and ``frame`` Object
 ######################################
 
+.. note::
+    Re-visit 3.11 source code and correct details where different.
+    Anything involving opcodes will have changed.
+
 Several Types of Code
 *********************
 

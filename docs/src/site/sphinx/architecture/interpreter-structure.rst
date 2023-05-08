@@ -4,6 +4,11 @@
 Interpreter Structure
 #####################
 
+.. note::
+    Re-visit 3.11 source code and correct details where different.
+    Anything involving opcodes will have changed.
+    A lot has changed to support concurrent interpreters.
+
 .. note:: This section,
     although repeatedly re-written,
     still contains much thinking aloud.
@@ -68,7 +73,6 @@ but here the C API is hedged with warnings that suggest
 this will not mix properly with the use of multiple interpreters.
 In spite of much helpful refactoring and re-writing between
 CPython 3.5 (when the present very slow project began),
-through CPython 3.8 (target for now),
 up to CPython 3.11 (current at the time of this writing),
 that warning remains necessary
 (see :ref:`CPython-sub-interpreters`).
