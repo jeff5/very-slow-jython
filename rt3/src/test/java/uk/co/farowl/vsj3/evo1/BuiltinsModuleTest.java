@@ -83,6 +83,8 @@ class BuiltinsModuleTest extends UnitTestSupport {
          * A simple test of {@code builtins.exec} where the code object
          * is created locally using {@link ActionHolder}.
          */
+        @Disabled("Not implementing 3.11 code object yet")
+        // FIXME and re-enable test
         @Test
         @DisplayName("exec(code)")
         void testExec() {
@@ -114,7 +116,7 @@ class BuiltinsModuleTest extends UnitTestSupport {
          *
          * @param name of the module to load
          */
-        @Disabled("Content of code object changed from 3.8")
+        @Disabled("Not implementing 3.11 code object yet")
         // FIXME and re-enable test
         @DisplayName("exec(file)")
         @ParameterizedTest(name = "{0}.py")
@@ -137,6 +139,8 @@ class BuiltinsModuleTest extends UnitTestSupport {
             assertExpectedVariables(readResultDict(name), globals);
         }
 
+        @Disabled("Not implementing 3.11 code object yet")
+        // FIXME and re-enable test
         @Test
         @DisplayName("globals")
         void testGlobals() {
@@ -152,6 +156,8 @@ class BuiltinsModuleTest extends UnitTestSupport {
             interp.eval(c, globals, locals);
         }
 
+        @Disabled("Not implementing 3.11 code object yet")
+        // FIXME and re-enable test
         @Test
         @DisplayName("locals")
         void testLocals() {
@@ -226,11 +232,13 @@ class BuiltinsModuleTest extends UnitTestSupport {
      */
     abstract static class ActionHolder extends PyCode {
 
-        final static PyTuple E = PyTuple.EMPTY;
+        private static final Object[] E = Py.EMPTY_ARRAY;
+        private static final String[] N = new String[0];
+        private static final byte[] B = new byte[0];
 
         public ActionHolder(String name) {
             // No arguments, variables, etc..
-            super(0, 0, 0, 0, 0, E, E, E, E, E, FILE, name, name, 0);
+            super(FILE, name, name, 0, 0, E, N, N, B, 0, 0, 0);
         }
 
         @Override

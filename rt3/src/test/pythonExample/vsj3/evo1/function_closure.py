@@ -5,7 +5,7 @@
 
 # Each outer function returns its nested function for inspection
 def f1(a, b, u=1):
-        # cell vars are (cell|free): (a, b, z |)
+    # cell vars are (cell|free): (a, b, z |)
     z = 1
     a = (a + b) * u
     def f2(c = -1, v = 2):

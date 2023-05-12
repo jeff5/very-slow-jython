@@ -9,6 +9,7 @@ import java.util.Map;
 
 import uk.co.farowl.vsj3.evo1.PyCode.Trait;
 import uk.co.farowl.vsj3.evo1.base.InterpreterError;
+import uk.co.farowl.vsj3.evo1.base.MissingFeature;
 
 /** A {@link PyFrame} for executing CPython 3.11 byte code. */
 class CPython311Frame extends PyFrame<CPython311Code> {
@@ -97,43 +98,44 @@ class CPython311Frame extends PyFrame<CPython311Code> {
 
         // Initialise the basics.
         super(func);
+        throw new MissingFeature("3.11 local variable order");
 
-        CPython311Code code = func.code;
-        this.valuestack = new Object[code.stacksize];
-        int nfastlocals = 0;
-
-        // The need for a dictionary of locals depends on the code
-        EnumSet<PyCode.Trait> traits = code.traits;
-        if (traits.contains(Trait.NEWLOCALS)) {
-            // Ignore locals argument
-            if (traits.contains(Trait.OPTIMIZED)) {
-                // We can create it later but probably won't need to
-                this.locals = null;
-                // Instead locals are in an array
-                nfastlocals = code.nlocals;
-            } else {
-                this.locals = new PyDict();
-            }
-        } else if (locals == null) {
-            // Default to same as globals.
-            this.locals = func.globals;
-        } else {
-            /*
-             * Use supplied locals. As it may not implement j.u.Map, we
-             * wrap any Python object as a Map. Depending on the
-             * operations attempted, this may break later.
-             */
-            this.locals = locals;
-        }
-
-        // Locally present the func.__builtins__ as a Map
-        this.builtins = PyMapping.map(func.builtins);
-
-        // Initialise local variables (plain and cell)
-        this.fastlocals = nfastlocals > 0 ? new Object[nfastlocals]
-                : EMPTY_OBJECT_ARRAY;
-        this.freevars =
-                PyCell.array(code.cellvars.length, func.closure);
+//        CPython311Code code = func.code;
+//        this.valuestack = new Object[code.stacksize];
+//        int nfastlocals = 0;
+//
+//        // The need for a dictionary of locals depends on the code
+//        EnumSet<PyCode.Trait> traits = code.traits;
+//        if (traits.contains(Trait.NEWLOCALS)) {
+//            // Ignore locals argument
+//            if (traits.contains(Trait.OPTIMIZED)) {
+//                // We can create it later but probably won't need to
+//                this.locals = null;
+//                // Instead locals are in an array
+//                nfastlocals = code.nlocals;
+//            } else {
+//                this.locals = new PyDict();
+//            }
+//        } else if (locals == null) {
+//            // Default to same as globals.
+//            this.locals = func.globals;
+//        } else {
+//            /*
+//             * Use supplied locals. As it may not implement j.u.Map, we
+//             * wrap any Python object as a Map. Depending on the
+//             * operations attempted, this may break later.
+//             */
+//            this.locals = locals;
+//        }
+//
+//        // Locally present the func.__builtins__ as a Map
+//        this.builtins = PyMapping.map(func.builtins);
+//
+//        // Initialise local variables (plain and cell)
+//        this.fastlocals = nfastlocals > 0 ? new Object[nfastlocals]
+//                : EMPTY_OBJECT_ARRAY;
+//        this.freevars =
+//                PyCell.array(code.cellvars.length, func.closure);
     }
 
     /**
@@ -144,17 +146,18 @@ class CPython311Frame extends PyFrame<CPython311Code> {
      * (named in {@code code.freevars}).
      */
     void argsToCells() {
-        int[] cell2arg = code.cell2arg;
-        if (cell2arg != null) {
-            assert cell2arg.length == code.cellvars.length;
-            for (int i = 0; i < cell2arg.length; i++) {
-                int j = cell2arg[i];
-                if (j >= 0) {
-                    freevars[i].set(fastlocals[j]);
-                    fastlocals[j] = null;
-                }
-            }
-        }
+        throw new MissingFeature("3.11 local variable order");
+//        int[] cell2arg = code.cell2arg;
+//        if (cell2arg != null) {
+//            assert cell2arg.length == code.cellvars.length;
+//            for (int i = 0; i < cell2arg.length; i++) {
+//                int j = cell2arg[i];
+//                if (j >= 0) {
+//                    freevars[i].set(fastlocals[j]);
+//                    fastlocals[j] = null;
+//                }
+//            }
+//        }
     }
 
     @Override
@@ -754,35 +757,36 @@ class CPython311Frame extends PyFrame<CPython311Code> {
     // Compare CPython PyFrame_FastToLocalsWithError in frameobject.c
     // Also PyFrame_FastToLocals in frameobject.c
     void fastToLocals() {
-        // If the circumstances, locals will be a PyDict. Make sure.
-        PyDict locals;
-        if (this.locals == null) {
-            this.locals = locals = Py.dict();
-        } else if (this.locals instanceof PyDict) {
-            locals = (PyDict)this.locals;
-        } else {
-            throw new SystemError("non-dict frame locals.");
-        }
-
-        // Copy fastlocals into the dict using keys in code.varnames
-        fastToDict(locals);
-
-        // Copy the contents of cell variables (defined here).
-        String[] cellvars = code.cellvars;
-        if (cellvars.length > 0) { cellsToDict(cellvars, locals); }
-
-        // Copy the contents of free cell variables (defined elsewhere).
-        String[] freevars = code.freevars;
-        if (freevars.length > 0) {
-            /*
-             * We check the frame is OPTIMIZED, since if it is not, it
-             * is a class namespace. We don't want to accidentally copy
-             * free variables into the locals dict used by the class.
-             */
-            if (code.traits.contains(Trait.OPTIMIZED)) {
-                cellsToDict(freevars, locals);
-            }
-        }
+        throw new MissingFeature("3.11 local variable order");
+        // // If the circumstances, locals will be a PyDict. Make sure.
+        // PyDict locals;
+        // if (this.locals == null) {
+        // this.locals = locals = Py.dict();
+        // } else if (this.locals instanceof PyDict) {
+        // locals = (PyDict)this.locals;
+        // } else {
+        // throw new SystemError("non-dict frame locals.");
+        // }
+        //
+        // // Copy fastlocals into the dict using keys in code.varnames
+        // fastToDict(locals);
+        //
+        // // Copy the contents of cell variables (defined here).
+        // String[] cellvars = code.cellvars;
+        // if (cellvars.length > 0) { cellsToDict(cellvars, locals); }
+        //
+        // // Copy the contents of free cell variables (defined elsewhere).
+        // String[] freevars = code.freevars;
+        // if (freevars.length > 0) {
+        // /*
+        // * We check the frame is OPTIMIZED, since if it is not, it
+        // * is a class namespace. We don't want to accidentally copy
+        // * free variables into the locals dict used by the class.
+        // */
+        // if (code.traits.contains(Trait.OPTIMIZED)) {
+        // cellsToDict(freevars, locals);
+        // }
+        // }
     }
 
     /**
@@ -794,16 +798,17 @@ class CPython311Frame extends PyFrame<CPython311Code> {
      * @param dict destination
      */
     private void fastToDict(PyDict dict) {
-        Object[] values = fastlocals;
-        int j = 0;
-        for (String key : code.varnames) {
-            Object value = values[j++];
-            if (value == null) {
-                dict.remove(key);
-            } else {
-                dict.put(key, value);
-            }
-        }
+        throw new MissingFeature("3.11 local variable order");
+//        Object[] values = fastlocals;
+//        int j = 0;
+//        for (String key : code.varnames) {
+//            Object value = values[j++];
+//            if (value == null) {
+//                dict.remove(key);
+//            } else {
+//                dict.put(key, value);
+//            }
+//        }
     }
 
     /**
@@ -815,24 +820,25 @@ class CPython311Frame extends PyFrame<CPython311Code> {
      * @param dict destination
      */
     private void cellsToDict(String[] names, PyDict dict) {
-        // We'll be copying the values in these cells to the dictionary
-        PyCell[] values = freevars;
-        /*
-         * If the names given are the cellvars, we'll start at zero.
-         * Otherwise the names are the freevars and we start after the
-         * cellvars.
-         */
-        int j = names == code.cellvars ? 0 : code.cellvars.length;
-        assert names == code.freevars;
-        for (String key : names) {
-            assert values[j] != null; // no missing cells
-            Object value = values[j++].get();
-            if (value == null) {
-                dict.remove(key);
-            } else {
-                dict.put(key, value);
-            }
-        }
+        throw new MissingFeature("3.11 local variable order");
+//        // We'll be copying the values in these cells to the dictionary
+//        PyCell[] values = freevars;
+//        /*
+//         * If the names given are the cellvars, we'll start at zero.
+//         * Otherwise the names are the freevars and we start after the
+//         * cellvars.
+//         */
+//        int j = names == code.cellvars ? 0 : code.cellvars.length;
+//        assert names == code.freevars;
+//        for (String key : names) {
+//            assert values[j] != null; // no missing cells
+//            Object value = values[j++].get();
+//            if (value == null) {
+//                dict.remove(key);
+//            } else {
+//                dict.put(key, value);
+//            }
+//        }
     }
 
     // Supporting definitions and methods -----------------------------
@@ -1187,8 +1193,9 @@ class CPython311Frame extends PyFrame<CPython311Code> {
      * @return exception to throw
      */
     private UnboundLocalError unboundFast(int oparg) {
-        String name = code.varnames[oparg];
-        return new UnboundLocalError(UNBOUNDLOCAL_ERROR_MSG, name);
+        throw new MissingFeature("3.11 local variable order");
+        // String name = code.varnames[oparg];
+        // return new UnboundLocalError(UNBOUNDLOCAL_ERROR_MSG, name);
     }
 
     /**
@@ -1203,17 +1210,19 @@ class CPython311Frame extends PyFrame<CPython311Code> {
      */
     // Compare CPython format_exc_unbound in ceval.c
     private NameError unboundCell(int oparg) {
-        String[] cellvars = code.cellvars;
-        // XXX Justify in narrative and by implementation our claim:
-        // CPython suppresses if _PyErr_Occurred but we do not need to
-        if (oparg < cellvars.length) {
-            // Cells near the start are local variables to this scope
-            String name = cellvars[oparg];
-            return new UnboundLocalError(UNBOUNDLOCAL_ERROR_MSG, name);
-        } else {
-            // Cells beyond cellvars.length are free in this scope
-            String name = code.freevars[oparg - cellvars.length];
-            return new NameError(UNBOUNDFREE_ERROR_MSG, name);
-        }
+        throw new MissingFeature("3.11 local variable order");
+        // String[] cellvars = code.cellvars;
+        // // XXX Justify in narrative and by implementation our claim:
+        // // CPython suppresses if _PyErr_Occurred but we do not need
+        // to
+        // if (oparg < cellvars.length) {
+        // // Cells near the start are local variables to this scope
+        // String name = cellvars[oparg];
+        // return new UnboundLocalError(UNBOUNDLOCAL_ERROR_MSG, name);
+        // } else {
+        // // Cells beyond cellvars.length are free in this scope
+        // String name = code.freevars[oparg - cellvars.length];
+        // return new NameError(UNBOUNDFREE_ERROR_MSG, name);
+        // }
     }
 }

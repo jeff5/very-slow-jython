@@ -1535,33 +1535,37 @@ public class marshal /* extends JavaModule */ {
             // Get an index now to ensure encounter-order numbering
             int idx = ref ? r.reserveRef() : -1;
 
-            /* XXX ignore long->int overflows for now */
             int argcount = r.readInt();
             int posonlyargcount = r.readInt();
             int kwonlyargcount = r.readInt();
-
-            // TODO Different in 3.11 see marshal.c
-
-            int nlocals = r.readInt();
             int stacksize = r.readInt();
+
             int flags = r.readInt();
             Object code = r.readObject();
+
             Object consts = r.readObject();
             Object names = r.readObject();
-            Object varnames = r.readObject();
-            Object freevars = r.readObject();
-            Object cellvars = r.readObject();
+            Object localsplusnames = r.readObject();
+            Object localspluskinds = r.readObject();
+
             Object filename = r.readObject();
             Object name = r.readObject();
+            Object qualname = r.readObject();
+
             int firstlineno = r.readInt();
-            Object lnotab = r.readObject();
+            Object linetable = r.readObject();
+            Object exceptiontable = r.readObject();
 
             // PySys_Audit("code.__new__", blah ...);
 
-            CPython311Code v = CPython311Code.create(argcount,
-                    posonlyargcount, kwonlyargcount, nlocals, stacksize,
-                    flags, code, consts, names, varnames, freevars,
-                    cellvars, filename, name, firstlineno, lnotab);
+            CPython311Code v = CPython311Code.create( //
+                    filename, name, qualname, flags, //
+                    code, firstlineno, linetable, //
+                    consts, names, //
+                    localsplusnames, localspluskinds, //
+                    argcount, posonlyargcount, kwonlyargcount,
+                    stacksize, //
+                    exceptiontable);
 
             return r.defineRef(v, idx);
         }

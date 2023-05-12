@@ -208,6 +208,15 @@ public class PyBytes extends AbstractList<Integer>
      */
     public PySequence.OfInt asSequence() { return delegate; }
 
+    /**
+     * Return the contents of the object as an array of of {@code byte}.
+     *
+     * @return array of {@code byte}
+     */
+    public byte[] asByteArray() {
+        return Arrays.copyOf(value, value.length);
+    }
+
     // Plumbing -------------------------------------------------------
 
     /**

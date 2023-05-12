@@ -86,133 +86,133 @@ class BuiltinsModule extends JavaModule {
      * @param closure free variables expected, only when source is a
      *     {@code code} object)
      */
-    @PythonStaticMethod
-    @DocString("Execute the given source in the context of globals "
-            + "and locals.")
-    // More doc. Multiline strings would be useful. :(
-    // +"The source may be a string representing one or more Python"
-    // +"statements\n"
-    // +"or a code object as returned by compile().\n"
-    // +"The globals must be a dictionary and locals can be any"
-    // +"mapping,\n"
-    // +"defaulting to the current globals and locals.\n"
-    // +"If only globals is given, locals defaults to it.\n"
-    // +"The closure must be a tuple of cellvars, and can only be"
-    // +"used\n"
-    // +"when source is a code object requiring exactly that many"
-    // +"cellvars."
-    // )
-    static void exec(Object source, @Default("None") Object globals,
-            @PositionalOnly @Default("None") Object locals,
-            @KeywordOnly @Default("None") Object closure) {
-
-        ThreadState tstate = ThreadState.get();
-        PyDict globalsDict;
-        boolean localsGiven = locals != Py.None && locals != null;
-
-        /*
-         * Establish globalsDict and locals object we shall actually use
-         * when we run the code.
-         */
-        if (globals == Py.None || globals == null) {
-            /*
-             * No globals given, so we're going to have to get it from
-             * the stack. (Fails if stack is empty.)
-             */
-            globalsDict = tstate.getGlobals();
-            if (!localsGiven) {
-                // No locals given. Get from stack too.
-                locals = tstate.getLocals();
-            }
-        } else {
-            // globals argument given: check it is sensible.
-            globalsDict = (PyDict)PyObjectUtil.typeChecked(globals,
-                    PyDict.TYPE, o -> Abstract.argumentTypeError("exec",
-                            "globals", "a dict", o));
-            if (!localsGiven) {
-                // No locals given. Use globals as locals too.
-                locals = globalsDict;
-            }
-        }
-
-        /*
-         * If we didn't choose them ourselves, check that the locals
-         * given as an argument are a mapping.
-         */
-        if (localsGiven && !PyMapping.check(locals)) {
-            throw Abstract.argumentTypeError("exec", "locals",
-                    "a mapping or None", locals);
-        }
-
-        /*
-         * Ensure the globalsDict specifies the builtins. PyFunction
-         * will look for it here before asking the Interpreter.
-         */
-        Interpreter interp = tstate.getInterpreter();
-        globalsDict.putIfAbsent("__builtins__", tstate.getBuiltins());
-
-        // Get the closure tuple (if given) as an array of cells.
-        final PyCell[] free;
-        if (closure == Py.None) {
-            free = null;
-        } else if (PyTuple.TYPE.checkExact(closure)) {
-            free = ((PyTuple)closure).toArray(PyCell.class,
-                    o -> closureError("tuple of cells", o));
-        } else {
-            throw closureError("a tuple", closure);
-        }
-
-        if (PyCode.TYPE.check(source)) {
-            // The source has been supplied compiled.
-            PyCode code = (PyCode)source;
-
-            // Check the closure matches code expectations
-            int nfree = code.freevars.length;
-            if (nfree == 0) {
-                if (free != null) {
-                    throw new TypeError(CANNOT_USE_CLOSURE);
-                }
-            } else {
-                if (free == null || free.length != nfree) {
-                    throw new TypeError(CLOSURE_LENGTH, nfree);
-                }
-            }
-
-            // CPython: auditable event
-            // if (audit("exec", "O", source) < 0) { return null; }
-
-            PyFunction<?> func = code.createFunction(interp,
-                    globalsDict, null, null, null, free);
-            PyFrame<?> frame = func.createFrame(locals);
-            frame.eval();
-
-        } else {
-            /*
-             * The source is s string so we have to compile it. A
-             * closure is not allowed in this case.
-             */
-            if (closure != null) {
-                throw new TypeError(CLOSURE_ONLY_WHEN_CODE);
-            }
-
-            // Unported CPython: not ready to reproduce compilation
-            // PyBytes source_copy;
-            // ByteBuffer str; // Or other suitable bytes!
-            // Normalise source to UTF8 bytes
-            // CompilerFlags cf = CompilerFlags.INIT;
-            // cf.cf_flags = PyCF_SOURCE_IS_UTF8;
-            // str = _Py_SourceAsString(source, "exec",
-            // "string, bytes or code", &cf,
-            // &source_copy);
-            // if (str == null) {
-            // return null;}
-            // if (PyEval_MergeCompilerFlags(&cf))
-            // v = PyRun_StringFlags(str, Py_file_input, globals,
-            // locals, &cf);
-            // else
-            // v = PyRun_String(str, Py_file_input, globals, locals);
-        }
-    }
+//    @PythonStaticMethod
+//    @DocString("Execute the given source in the context of globals "
+//            + "and locals.")
+//    // More doc. Multiline strings would be useful. :(
+//    // +"The source may be a string representing one or more Python"
+//    // +"statements\n"
+//    // +"or a code object as returned by compile().\n"
+//    // +"The globals must be a dictionary and locals can be any"
+//    // +"mapping,\n"
+//    // +"defaulting to the current globals and locals.\n"
+//    // +"If only globals is given, locals defaults to it.\n"
+//    // +"The closure must be a tuple of cellvars, and can only be"
+//    // +"used\n"
+//    // +"when source is a code object requiring exactly that many"
+//    // +"cellvars."
+//    // )
+//    static void exec(Object source, @Default("None") Object globals,
+//            @PositionalOnly @Default("None") Object locals,
+//            @KeywordOnly @Default("None") Object closure) {
+//
+//        ThreadState tstate = ThreadState.get();
+//        PyDict globalsDict;
+//        boolean localsGiven = locals != Py.None && locals != null;
+//
+//        /*
+//         * Establish globalsDict and locals object we shall actually use
+//         * when we run the code.
+//         */
+//        if (globals == Py.None || globals == null) {
+//            /*
+//             * No globals given, so we're going to have to get it from
+//             * the stack. (Fails if stack is empty.)
+//             */
+//            globalsDict = tstate.getGlobals();
+//            if (!localsGiven) {
+//                // No locals given. Get from stack too.
+//                locals = tstate.getLocals();
+//            }
+//        } else {
+//            // globals argument given: check it is sensible.
+//            globalsDict = (PyDict)PyObjectUtil.typeChecked(globals,
+//                    PyDict.TYPE, o -> Abstract.argumentTypeError("exec",
+//                            "globals", "a dict", o));
+//            if (!localsGiven) {
+//                // No locals given. Use globals as locals too.
+//                locals = globalsDict;
+//            }
+//        }
+//
+//        /*
+//         * If we didn't choose them ourselves, check that the locals
+//         * given as an argument are a mapping.
+//         */
+//        if (localsGiven && !PyMapping.check(locals)) {
+//            throw Abstract.argumentTypeError("exec", "locals",
+//                    "a mapping or None", locals);
+//        }
+//
+//        /*
+//         * Ensure the globalsDict specifies the builtins. PyFunction
+//         * will look for it here before asking the Interpreter.
+//         */
+//        Interpreter interp = tstate.getInterpreter();
+//        globalsDict.putIfAbsent("__builtins__", tstate.getBuiltins());
+//
+//        // Get the closure tuple (if given) as an array of cells.
+//        final PyCell[] free;
+//        if (closure == Py.None) {
+//            free = null;
+//        } else if (PyTuple.TYPE.checkExact(closure)) {
+//            free = ((PyTuple)closure).toArray(PyCell.class,
+//                    o -> closureError("tuple of cells", o));
+//        } else {
+//            throw closureError("a tuple", closure);
+//        }
+//
+//        if (PyCode.TYPE.check(source)) {
+//            // The source has been supplied compiled.
+//            PyCode code = (PyCode)source;
+//
+//            // Check the closure matches code expectations
+//            int nfree = code.freevars.length;
+//            if (nfree == 0) {
+//                if (free != null) {
+//                    throw new TypeError(CANNOT_USE_CLOSURE);
+//                }
+//            } else {
+//                if (free == null || free.length != nfree) {
+//                    throw new TypeError(CLOSURE_LENGTH, nfree);
+//                }
+//            }
+//
+//            // CPython: auditable event
+//            // if (audit("exec", "O", source) < 0) { return null; }
+//
+//            PyFunction<?> func = code.createFunction(interp,
+//                    globalsDict, null, null, null, free);
+//            PyFrame<?> frame = func.createFrame(locals);
+//            frame.eval();
+//
+//        } else {
+//            /*
+//             * The source is s string so we have to compile it. A
+//             * closure is not allowed in this case.
+//             */
+//            if (closure != null) {
+//                throw new TypeError(CLOSURE_ONLY_WHEN_CODE);
+//            }
+//
+//            // Unported CPython: not ready to reproduce compilation
+//            // PyBytes source_copy;
+//            // ByteBuffer str; // Or other suitable bytes!
+//            // Normalise source to UTF8 bytes
+//            // CompilerFlags cf = CompilerFlags.INIT;
+//            // cf.cf_flags = PyCF_SOURCE_IS_UTF8;
+//            // str = _Py_SourceAsString(source, "exec",
+//            // "string, bytes or code", &cf,
+//            // &source_copy);
+//            // if (str == null) {
+//            // return null;}
+//            // if (PyEval_MergeCompilerFlags(&cf))
+//            // v = PyRun_StringFlags(str, Py_file_input, globals,
+//            // locals, &cf);
+//            // else
+//            // v = PyRun_String(str, Py_file_input, globals, locals);
+//        }
+//    }
 
     /**
      * Create a {@link TypeError} with a message along the lines "exec()

@@ -8,6 +8,7 @@ import java.util.Arrays;
 import java.util.EnumSet;
 
 import uk.co.farowl.vsj3.evo1.Exposed.Getter;
+import uk.co.farowl.vsj3.evo1.Exposed.Member;
 
 /**
  * The Python {@code code} object. A {@code code} object describes the
@@ -34,6 +35,11 @@ public abstract class PyCode implements CraftedPyObject {
     public static final PyType TYPE = PyType.fromSpec( //
             new PyType.Spec("code", MethodHandles.lookup())
                     .flagNot(PyType.Flag.BASETYPE));
+    /*
+     * It is not easy to say, while there is only one concrete sub-class
+     * to learn from, which attributes may safely be be in the base, and
+     * which implemented in the sub-class to suit its local needs.
+     */
 
     /**
      * Characteristics of a {@code PyCode} (as CPython co_flags). These
@@ -47,16 +53,30 @@ public abstract class PyCode implements CraftedPyObject {
     /** Characteristics of this {@code PyCode} (as CPython co_flags). */
     final EnumSet<Trait> traits;
 
-    /** Number of positional parameters (not counting {@code *args}). */
-    final int argcount;
-    /** Number of positional-only parameters. */
-    final int posonlyargcount;
-    /** Number of keyword-only parameters. */
-    final int kwonlyargcount;
-    /** Number of local variables. */
-    final int nlocals;
+    /** Source file from which compiled. */
+    @Member("co_filename")
+    final String filename;
+
+    /** Name of function etc. */
+    @Member("co_name")
+    final String name;
+    /** Fully qualified name of function etc. */
+    @Member("co_qualname")
+    final String qualname;
+
     /** int expression of {@link #traits} compatible with CPython. */
     final int flags;
+
+    /** Number of positional parameters (not counting {@code *args}). */
+    @Member("co_argcount")
+    final int argcount;
+    /** Number of positional-only parameters. */
+    @Member("co_posonlyargcount")
+    final int posonlyargcount;
+    /** Number of keyword-only parameters. */
+    @Member("co_kwonlyargcount")
+    final int kwonlyargcount;
+
     /** First source line number. */
     final int firstlineno;
 
@@ -67,36 +87,9 @@ public abstract class PyCode implements CraftedPyObject {
     /** Names referenced in the code. Not {@code null}. */
     final String[] names;
 
-    /** Args and non-cell locals. Not {@code null}. */
-    final String[] varnames;
-
-    /**
-     * Names referenced but not defined here. These variables will be
-     * set from the closure of the function. Not {@code null}.
-     */
-    final String[] freevars;
-
-    /**
-     * Names defined here and referenced elsewhere. Not {@code null}.
-     */
-    final String[] cellvars;
-
-    /* ---------------------- See CPython code.h ------------------ */
-    /** Constant to be stored in {@link #cell2arg} as default. */
-    static final int CELL_NOT_AN_ARG = -1;
-
-    /** Maps cell indexes to corresponding arguments. */
-    final int[] cell2arg;
-
-    /** Where it was loaded from */
-    final String filename;
-
-    /** Name of function etc. */
-    final String name;
-
-    /** Fully qualified name of function etc. */
-    // We borrow a simplifying feature not exposed until Python 3.11
-    final String qualname;
+    // ??? Here or in 3.11 sub-class?
+    final String[] localsplusnames;
+    final byte[] localspluskinds;
 
     /* Masks for co_flags above */
     public static final int CO_OPTIMIZED = 0x0001;
@@ -122,63 +115,48 @@ public abstract class PyCode implements CraftedPyObject {
     public static final int CO_ITERABLE_COROUTINE = 0x0100;
     public static final int CO_ASYNC_GENERATOR = 0x0200;
 
+    // Construct with arrays not tuples.
     /**
-     * Full constructor based on CPython's
-     * {@code PyCode_NewWithPosOnlyArgs}. The {@link #traits} of the
-     * code are supplied here as CPython reports them: as a bit array in
-     * an integer, but the constructor makes a conversion, and it is the
-     * {@link #traits} which should be used at the Java level.
+     * Full constructor. The {@link #traits} of the code are supplied
+     * here as CPython reports them: as a bit array in an integer, but
+     * the constructor makes a conversion, and it is the {@link #traits}
+     * which should be used at the Java level.
+     *
+     * @param filename value of {@link #filename} must be {@code str}
+     * @param name value of {@link #name}
+     * @param qualname value of {@link #qualname}
+     * @param flags value of {@link #flags} and {@link #traits}
+     *
+     * @param firstlineno value of {@link #firstlineno}
      *
      * @param argcount value of {@link #argcount}
      * @param posonlyargcount value of {@link #posonlyargcount}
      * @param kwonlyargcount value of {@link #kwonlyargcount}
-     * @param nlocals value of {@link #nlocals}
-     * @param flags value of {@link #flags} and {@link #traits}
+     *
      * @param consts value of {@link #consts}
      * @param names value of {@link #names}
-     * @param varnames value of {@link #varnames} must be {@code str}
-     * @param freevars value of {@link #freevars} must be {@code str}
-     * @param cellvars value of {@link #cellvars} must be {@code str}
-     * @param filename value of {@link #filename} must be {@code str}
-     * @param name value of {@link #name}
-     * @param qualname value of {@link #qualname}
-     * @param firstlineno value of {@link #firstlineno}
      */
     public PyCode( //
-            int argcount,           // co_argcount
-            int posonlyargcount,    // co_posonlyargcount
-            int kwonlyargcount,     // co_kwonlyargcount
-
-            int nlocals,            // co_nlocals
-
-            int flags,              // co_flags
-
-            PyTuple consts,         // co_consts
-
-            PyTuple names,          // names ref'd in code
-            PyTuple varnames,       // args and non-cell locals
-
-            PyTuple freevars,       // ref'd here, def'd outer
-
-            PyTuple cellvars,       // def'd here, ref'd nested
-
-            String filename,        // loaded from
-            String name,            // simple name of function etc.
-            String qualname,        // qualified name of function etc.
-            int firstlineno         // of source
-    ) {
+            // Grouped as _PyCodeConstructor in pycore_code.h
+            // Metadata
+            String filename, String name, String qualname, //
+            int flags,
+            // The code
+            int firstlineno, // ??? sensible given filename
+            // Used by the code
+            Object[] consts, String[] names, //
+            // Mapping frame offsets to information
+            String[] localsplusnames, byte[] localspluskinds,
+            // Parameter navigation with varnames
+            int argcount, int posonlyargcount, int kwonlyargcount) {
         this.argcount = argcount;
         this.posonlyargcount = posonlyargcount;
         this.kwonlyargcount = kwonlyargcount;
-        this.nlocals = nlocals;
 
         this.flags = flags;
-        this.consts = consts.toArray();
+        this.consts = consts;
 
-        this.names = names(names, "names");
-        this.varnames = names(varnames, "varnames");
-        this.freevars = names(freevars, "frevars");
-        this.cellvars = names(cellvars, "callvars");
+        this.names = names;
 
         this.filename = filename;
         this.name = name;
@@ -186,10 +164,12 @@ public abstract class PyCode implements CraftedPyObject {
         this.firstlineno = firstlineno;
 
         this.traits = traitsFrom(flags);
-        if (varnames.size() != nlocals)
-            throw new ValueError("code: varnames is too small");
+// if (varnames.size() != nlocals)
+// throw new ValueError("code: varnames is too small");
 
-        this.cell2arg = calcCell2arg();
+        // Here or in sub-class?
+        this.localsplusnames = localsplusnames;
+        this.localspluskinds = localspluskinds;
     }
 
     // Attributes -----------------------------------------------------
@@ -228,7 +208,9 @@ public abstract class PyCode implements CraftedPyObject {
      * @return {@link #varnames} as a {@code tuple}
      */
     @Getter
-    PyTuple co_varnames() { return PyTuple.from(varnames); }
+    PyTuple co_varnames() {
+        return null; // PyTuple.from(varnames);
+    }
 
     /**
      * Get {@link #freevars} as a {@code tuple}.
@@ -236,7 +218,9 @@ public abstract class PyCode implements CraftedPyObject {
      * @return {@link #freevars} as a {@code tuple}
      */
     @Getter
-    PyTuple co_freevars() { return PyTuple.from(freevars); }
+    PyTuple co_freevars() {
+        return null; // PyTuple.from(freevars);
+    }
 
     /**
      * Get {@link #cellvars} as a {@code tuple}.
@@ -244,7 +228,9 @@ public abstract class PyCode implements CraftedPyObject {
      * @return {@link #cellvars} as a {@code tuple}
      */
     @Getter
-    PyTuple co_cellvars() { return PyTuple.from(cellvars); }
+    PyTuple co_cellvars() {
+        return null; // PyTuple.from(cellvars);
+    }
 
     // slot methods --------------------------------------------------
 
@@ -313,14 +299,15 @@ public abstract class PyCode implements CraftedPyObject {
     // Plumbing -------------------------------------------------------
 
     /**
-     * Check that all the objects in the tuple are {@code str}, and
-     * return them as an array of {@code String}.
+     * Check that all the argument is a tuple and that all objects in it
+     * are {@code str}, and return them as an array of {@code String}.
      *
-     * @param tuple of names
+     * @param v of names
      * @param tupleName the name of the argument (for error production)
      * @return the names as {@code String[]}
      */
-    protected static String[] names(PyTuple tuple, String tupleName) {
+    protected static String[] names(Object v, String tupleName) {
+        PyTuple tuple = castTuple(v, tupleName);
         String[] s = new String[tuple.size()];
         int i = 0;
         for (Object name : tuple) {
@@ -334,37 +321,43 @@ public abstract class PyCode implements CraftedPyObject {
             "name tuple must contain only strings, not '%s' (in %s)";
 
     /**
-     * Create mapping between cells and arguments if needed. Helper for
-     * constructor. Returns {@code null} if the mapping is not needed.
+     * @param v to check is a Python {@code bytes}
+     * @param arg name of argument (for message only)
+     * @return {@code v}
+     * @throws TypeError if {@code v} cannot be cast to {@code bytes}
      */
-    private int[] calcCell2arg() {
-        // Return array (lazily created on first finding we need one)
-        int[] cell2arg = null;
-        int ncells = cellvars.length;
-        if (ncells > 0) {
-            // This many of the varnames are arguments
-            int nargs = argcount + kwonlyargcount
-                    + (traits.contains(Trait.VARARGS) ? 1 : 0)
-                    + (traits.contains(Trait.VARKEYWORDS) ? 1 : 0);
-            // For each cell name, see if it matches an argument
-            for (int i = 0; i < ncells; i++) {
-                String cellName = cellvars[i];
-                for (int j = 0; j < nargs; j++) {
-                    String argName = varnames[j];
-                    if (cellName.equals(argName)) {
-                        // A match: enter it in the cell2arg array
-                        if (cell2arg == null) {
-                            // In which case the array had better exist.
-                            cell2arg = new int[ncells];
-                            Arrays.fill(cell2arg, CELL_NOT_AN_ARG);
-                        }
-                        cell2arg[i] = j;
-                        break;
-                    }
-                }
-            }
-        }
-        return cell2arg;
+    protected static PyBytes castBytes(Object v, String arg)
+            throws TypeError {
+        if (v instanceof PyBytes b)
+            return b;
+        else
+            throw Abstract.argumentTypeError("code", arg, "bytes", v);
+    }
+
+    /**
+     * @param v to check is a Python {@code tuple}
+     * @param arg name of argument (for message only)
+     * @return {@code v}
+     * @throws TypeError if {@code v} cannot be cast to {@code tuple}
+     */
+    protected static PyTuple castTuple(Object v, String arg) {
+        if (v instanceof PyTuple t)
+            return t;
+        else
+            throw Abstract.argumentTypeError("code", arg, "tuple", v);
+    }
+
+    /**
+     * Cast a Python {@code str} to a Java String or raise a
+     * {@code TypeError} mentioning an argument name.
+     *
+     * @param v to check and cast/convert
+     * @param argName the name of the argument (for error production)
+     * @return {@code v}
+     */
+    protected static String castString(Object v, String argName) {
+        return PyUnicode.asString(v, o -> Abstract
+                .argumentTypeError("code", argName, "str", o));
     }
 
     /**

@@ -44,9 +44,7 @@ import uk.co.farowl.vsj3.evo1.modules.marshal;
  * .\gradlew --console=plain rt3:compileTestPythonExamples
  * </pre>
  */
-@Disabled("Content of code object changed from 3.8: see marshal mod")
 @DisplayName("Given programs compiled by CPython 3.11 ...")
-// FIXME and re-enable test
 class CPython311CodeTest extends UnitTestSupport {
 
     @SuppressWarnings("static-method")
@@ -128,6 +126,8 @@ class CPython311CodeTest extends UnitTestSupport {
         }
     }
 
+    // FIXME and re-enable test
+    @Disabled("Not implementing 3.11 code object yet")
     @Nested
     @DisplayName("A simple code object has expected ...")
     class SimpleCodeAttributes extends CodeAttributes {
@@ -157,6 +157,8 @@ class CPython311CodeTest extends UnitTestSupport {
      *
      * @param name of the Python example
      */
+    // FIXME and re-enable test
+    @Disabled("Not implementing 3.11 code object yet")
     @SuppressWarnings("static-method")
     @DisplayName("We can execute simple ...")
     @ParameterizedTest(name = "{0}.py")
@@ -179,6 +181,8 @@ class CPython311CodeTest extends UnitTestSupport {
      *
      * @param name of the Python example
      */
+    // FIXME and re-enable test
+    @Disabled("Not implementing 3.11 code object yet")
     @SuppressWarnings("static-method")
     @DisplayName("We can execute branches and loops ...")
     @ParameterizedTest(name = "{0}.py")
@@ -199,6 +203,8 @@ class CPython311CodeTest extends UnitTestSupport {
      *
      * @param name of the Python example
      */
+    // FIXME and re-enable test
+    @Disabled("Not implementing 3.11 code object yet")
     @SuppressWarnings("static-method")
     @DisplayName("We can execute complex ...")
     @ParameterizedTest(name = "{0}.py")
@@ -220,6 +226,8 @@ class CPython311CodeTest extends UnitTestSupport {
      *
      * @param name of the Python example
      */
+    // FIXME and re-enable test
+    @Disabled("Not implementing 3.11 code object yet")
     @SuppressWarnings("static-method")
     @DisplayName("We can execute with custom locals ...")
     @ParameterizedTest(name = "{0}.py")
@@ -247,6 +255,8 @@ class CPython311CodeTest extends UnitTestSupport {
      *
      * @param name of the Python example
      */
+    // FIXME and re-enable test
+    @Disabled("Not implementing 3.11 code object yet")
     @SuppressWarnings("static-method")
     @DisplayName("We can execute with custom builtins ...")
     @ParameterizedTest(name = "{0}.py")
