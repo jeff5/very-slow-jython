@@ -234,11 +234,11 @@ class BuiltinsModuleTest extends UnitTestSupport {
 
         private static final Object[] E = Py.EMPTY_ARRAY;
         private static final String[] N = new String[0];
-        private static final byte[] B = new byte[0];
+        private static final Variable[] V = new Variable[0];
 
         public ActionHolder(String name) {
             // No arguments, variables, etc..
-            super(FILE, name, name, 0, 0, E, N, N, B, 0, 0, 0);
+            super(FILE, name, name, 0, 0, E, N, V, 0, 0, 0);
         }
 
         @Override

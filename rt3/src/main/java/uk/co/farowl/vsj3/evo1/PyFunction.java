@@ -302,7 +302,7 @@ public abstract class PyFunction<C extends PyCode>
 //                try {
 //                    this.closure = closure.toArray(new PyCell[n]);
 //                } catch (ArrayStoreException e) {
-//                    // The closure is not tuple of cells only
+//                    // The closure is not a tuple of cells only
 //                    for (Object o : closure) {
 //                        if (!(o instanceof PyCell)) {
 //                            throw Abstract.typeError(

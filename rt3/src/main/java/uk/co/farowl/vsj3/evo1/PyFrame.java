@@ -67,7 +67,8 @@ import java.util.Map;
  * function object during each call. {@code defaults} apply in the
  * position show, in order, while {@code kwdefaults} (in a map) apply to
  * keywords wherever the name matches. The names in the frame are those
- * in the {@link PyCode#varnames} field of the associated code object
+ * in the {@link PyCode#co_varnames} field of the associated code
+ * object.
  * <p>
  * The frame presents an abstraction of an array of named local
  * variables, and two more of cell and free variables, while concrete

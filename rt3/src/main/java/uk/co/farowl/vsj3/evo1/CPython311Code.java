@@ -13,17 +13,25 @@ import uk.co.farowl.vsj3.evo1.stringlib.ByteArrayBuilder;
  */
 public class CPython311Code extends PyCode {
 
-    // Here or in super-class?
-    // final String[] localsplusnames;
-    // final byte[] localspluskinds;
+    /**
+     * Table of byte code address ranges mapped to source lines,
+     * presentable as defined in PEP 626.
+     */
+    // See CPython lnotab_notes.txt
+    final byte[] linetable;
 
     /** Number of entries needed for evaluation stack. */
     final int stacksize;
 
+    /**
+     * Table of byte code address ranges mapped to handler addresses in
+     * a compact byte encoding (defined by CPython and appearing in the
+     * serialised form of a {@code code} object).
+     */
+    final byte[] exceptiontable;
+
     /** Instruction opcodes, not {@code null}. */
     final char[] wordcode;
-
-    final byte[] exceptiontable;
 
     /**
      * Full constructor based on CPython's
@@ -41,21 +49,28 @@ public class CPython311Code extends PyCode {
      * @param filename {@code co_filename}
      * @param name {@code co_name}
      * @param qualname {@code co_qualname}
-     * @param flags @code co_flags} a bitmap of traits
+     * @param flags {@code co_flags} a bitmap of traits
      *
-     * @param bytecode {@code co_code}
-     * @param firstlineno {@code co_firstlineno}
-     * @param linetable {@code co_linetable}
+     * @param wordcode {@code co_code} as unsigned 16-bit words
+     * @param firstlineno mapping byte code ranges to source lines
+     * @param linetable mapping byte code ranges to source lines
      *
      * @param consts {@code co_consts}
      * @param names {@code co_names}
      *
-     * @param localsplusnames variable names
-     * @param localspluskinds variable kinds, each a bitmap
+     * @param layout variable names and properties, in the order
+     *     {@code co_varnames + co_cellvars + co_freevars} but without
+     *     repetition.
      *
-     * @param argcount {@code co_argcount}
-     * @param posonlyargcount {@code co_posonlyargcount}
-     * @param kwonlyargcount {@code co_kwonlyargcount}
+     * @param argcount {@code co_argcount} the number of positional
+     *     parameters (including positional-only arguments and arguments
+     *     with default values)
+     * @param posonlyargcount {@code co_posonlyargcount} the number of
+     *     positional-only arguments (including arguments with default
+     *     values)
+     * @param kwonlyargcount {@code co_kwonlyargcount} the number of
+     *     keyword-only arguments (including arguments with default
+     *     values)
      *
      * @param stacksize {@code co_stacksize}
      * @param exceptiontable supports exception processing
@@ -66,12 +81,11 @@ public class CPython311Code extends PyCode {
             String filename, String name, String qualname, //
             int flags,
             // The code
-            char[] wordcode, int firstlineno, Object linetable,
+            char[] wordcode, int firstlineno, byte[] linetable,
             // Used by the code
             Object[] consts, String[] names,
             // Mapping frame offsets to information
-            String[] localsplusnames, //
-            byte[] localspluskinds,
+            Variable[] layout,
             // Parameter navigation with varnames
             int argcount, int posonlyargcount, int kwonlyargcount,
             // Needed to support execution
@@ -79,16 +93,17 @@ public class CPython311Code extends PyCode {
         super(filename, name, qualname, flags, //
                 firstlineno, //
                 consts, names, //
-                localsplusnames, localspluskinds, //
+                layout, //
                 argcount, posonlyargcount, kwonlyargcount);
 
         // A few of these (just a few) are local to this class.
         this.wordcode = wordcode;
+        this.linetable = linetable;
         this.stacksize = stacksize;
         this.exceptiontable = exceptiontable;
-        // Here or in super-class?
-        // this.localsplusnames = localsplusnames;
-        // this.localspluskinds = localspluskinds;
+
+        // TODO Fix-up wordcode from layout
+
     }
 
     /**
@@ -112,14 +127,16 @@ public class CPython311Code extends PyCode {
      * @param name ({@code str}) = {@code co_name}
      * @param qualname ({@code str}) = {@code co_qualname}
      * @param flags ({@code int}) = @code co_flags} a bitmap of traits
+     *
      * @param bytecode ({@code bytes}) = {@code co_code}
      * @param firstlineno ({@code int}) = {@code co_firstlineno}
      * @param linetable ({@code bytes}) = {@code co_linetable}
+     *
      * @param consts ({@code tuple}) = {@code co_consts}
      * @param names ({@code tuple[str]}) = {@code co_names}
+     *
      * @param localsplusnames ({@code tuple[str]}) variable names
-     * @param localspluskinds ({@code bytes}) variable kinds, each a
-     *     bitmap
+     * @param localspluskinds ({@code bytes}) variable kinds
      * @param argcount ({@code int}) = {@code co_argcount}
      * @param posonlyargcount ({@code int}) = {@code co_posonlyargcount}
      * @param kwonlyargcount ({@code int}) = {@code co_kwonlyargcount}
@@ -139,41 +156,46 @@ public class CPython311Code extends PyCode {
             Object consts, Object names,
             // Mapping frame offsets to information
             Object localsplusnames, Object localspluskinds,
-            // For navigation within localsplusnames
+            // For navigation within localsplus
             int argcount, int posonlyargcount, int kwonlyargcount,
             // Needed to support execution
             int stacksize, Object exceptiontable) {
 
-        // Order of checks based on _PyCode_Validate FWIW
+        // Order of checks and casts based on _PyCode_Validate FWIW
+        if (argcount < posonlyargcount || posonlyargcount < 0
+                || kwonlyargcount < 0) {
+            throw new ValueError("code: argument counts inconsistent");
+        }
+        if (stacksize < 0) {
+            throw new ValueError("code: bad stacksize");
+        }
+        if (flags < 0) {
+            throw new ValueError("code: bad flags argument");
+        }
+
         PyBytes _bytecode = castBytes(bytecode, "bytecode");
         PyTuple _consts = castTuple(consts, "consts");
         String[] _names = names(names, "names");
 
-        String[] _localsplusnames =
-                names(localsplusnames, "localsplusnames");
-        PyBytes _localspluskinds =
-                castBytes(localspluskinds, "localspluskinds");
-        if (_localspluskinds.size() != _localsplusnames.length) {
-            throw new ValueError(
-                    "lengths not equal localspluskinds(%d) _localsplusnames(%d)",
-                    _localspluskinds.size(), _localsplusnames.length);
-        }
+        // Compute a Variable[] layout array from localsplus* arrays
+        Variable[] _layout = layout(totalargs(argcount, flags),
+                localsplusnames, localspluskinds);
 
-        String _filename = castString(filename, "filename");
         String _name = castString(name, "name");
         String _qualname = castString(qualname, "qualname");
+        String _filename = castString(filename, "filename");
 
         PyBytes _linetable = castBytes(linetable, "linetable");
         PyBytes _exceptiontable =
                 castBytes(exceptiontable, "exceptiontable");
 
+        // Everything is the right type and size
         return new CPython311Code(//
                 _filename, _name, _qualname, flags, //
                 wordcode(_bytecode), firstlineno,
                 _linetable.asByteArray(), //
-                _consts.toArray(), //
-                _names, //
-                _localsplusnames, _localspluskinds.asByteArray(), //
+                _consts.toArray(), _names, //
+                _layout, //
                 argcount, posonlyargcount, kwonlyargcount, //
                 stacksize, _exceptiontable.asByteArray());
     }
@@ -238,5 +260,4 @@ public class CPython311Code extends PyCode {
         wordbuf.get(code, 0, len);
         return code;
     }
-
 }

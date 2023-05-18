@@ -86,9 +86,26 @@ class CPython311CodeTest extends UnitTestSupport {
         final String name;
         final PyCode code;
 
-        CodeAttributes(String name) {
+        CodeAttributes(String name, String... fnames) {
+            // The code object of the module
             this.name = name;
-            this.code = readCode(name);
+            PyCode code = readCode(name);
+            // For each function name given, follow the nesting
+            for (String fn : fnames) {
+                // Function code objects are amongst the constants
+                boolean found = false;
+                for (Object o : code.consts) {
+                    if (o instanceof PyCode c) {
+                        if (c.name.equals(fn)) {
+                            found = true;
+                            code = c;
+                            break;
+                        }
+                    }
+                }
+                assert found;
+            }
+            this.code = code;
         }
 
         @Test
@@ -114,20 +131,42 @@ class CPython311CodeTest extends UnitTestSupport {
         }
 
         @Test
-        protected void co_name() {
-            assertEquals("<module>", code.name);
-        }
+        void co_name() { assertEquals("<module>", code.name); }
 
-        abstract void co_names();
+        void co_names() { checkNames(code.co_names(), EMPTY_STRINGS); }
 
         @Test
         void co_varnames() {
-            assertEquals(0, code.co_varnames().size());
+            checkNames(code.co_varnames(), EMPTY_STRINGS);
+        }
+
+        /**
+         * Check {@code code} name enquiry against the expected list.
+         *
+         * @param names result from code object
+         * @param exp expected names in expected order
+         */
+        void checkNames(PyTuple names, String... exp) {
+            assertEquals(exp.length, names.size());
+            for (int i = 0; i < exp.length; i++) {
+                assertPythonEquals(exp[i], names.get(i));
+            }
+        }
+
+        /**
+         * Check {@code code} values enquiry against the expected list.
+         *
+         * @param values result from code object
+         * @param exp expected values in expected order
+         */
+        void checkValues(PyTuple values, Object... exp) {
+            assertEquals(exp.length, values.size());
+            for (int i = 0; i < exp.length; i++) {
+                assertPythonEquals(exp[i], values.get(i));
+            }
         }
     }
 
-    // FIXME and re-enable test
-    @Disabled("Not implementing 3.11 code object yet")
     @Nested
     @DisplayName("A simple code object has expected ...")
     class SimpleCodeAttributes extends CodeAttributes {
@@ -147,7 +186,113 @@ class CPython311CodeTest extends UnitTestSupport {
         @Test
         void co_consts() {
             // Fairly reliably 3 consts and a None to return
-            assertEquals(4, code.co_consts().size());
+            assertEquals(4, code.consts.length);
+        }
+    }
+
+    @Nested
+    @DisplayName("The code for function_call.g has expected ...")
+    class FunctionCodeAttributes extends CodeAttributes {
+
+        FunctionCodeAttributes() { super("function_call", "g"); }
+
+        @Test
+        @Override
+        void co_name() { assertPythonEquals("g", code.name); }
+
+        @Test
+        @Override
+        void co_names() { checkNames(code.co_names(), "fmt", "join"); }
+
+        @Test
+        @Override
+        void co_varnames() {
+            checkNames(code.co_varnames(), "a", "b", "c", "d", "r", "s",
+                    "t", "args", "kwargs", "parts");
+        }
+
+        @Test
+        void co_consts() {
+            // Sensitive to CPython compiler changes but ...
+            checkValues(code.co_consts(), Py.None, "g: a", "b", "c",
+                    "d", "args", "r", "s", "t", "kwargs", ", ");
+        }
+    }
+
+    @Nested
+    @DisplayName("The code for function_closure.f1 has expected ...")
+    class FunctionCodeAttributes_f1 extends CodeAttributes {
+
+        FunctionCodeAttributes_f1() { super("function_closure", "f1"); }
+
+        @Override
+        @Test
+        void co_cellvars() {
+            checkNames(code.co_cellvars(), "a", "b", "z");
+        }
+
+        @Test
+        @Override
+        void co_name() { assertPythonEquals("f1", code.name); }
+
+        @Test
+        @Override
+        void co_varnames() {
+            checkNames(code.co_varnames(), "u", "f2");
+        }
+    }
+
+    @Nested
+    @DisplayName("The code for function_closure.f2 has expected ...")
+    class FunctionCodeAttributes_f2 extends CodeAttributes {
+
+        FunctionCodeAttributes_f2() {
+            super("function_closure", "f1", "f2");
+        }
+
+        @Override
+        @Test
+        void co_cellvars() { checkNames(code.co_cellvars(), "c", "y"); }
+
+        @Override
+        @Test
+        void co_freevars() {
+            checkNames(code.co_freevars(), "a", "b", "z");
+        }
+
+        @Test
+        @Override
+        void co_name() { assertPythonEquals("f2", code.name); }
+
+        @Test
+        @Override
+        void co_varnames() {
+            checkNames(code.co_varnames(), "v", "f3");
+        }
+    }
+
+    @Nested
+    @DisplayName("The code for function_closure.f3 has expected ...")
+    class FunctionCodeAttributes_f3 extends CodeAttributes {
+
+        FunctionCodeAttributes_f3() {
+            super("function_closure", "f1", "f2", "f3");
+        }
+
+        @Override
+        @Test
+        void co_freevars() {
+            checkNames(code.co_freevars(), "a", "b", "c", "y", "z");
+        }
+
+        @Test
+        @Override
+        void co_name() { assertPythonEquals("f3", code.name); }
+
+        @Test
+        @Override
+        void co_varnames() {
+            checkNames(code.co_varnames(), "d", "e", "w", "x");
         }
     }
 
@@ -315,6 +460,7 @@ class CPython311CodeTest extends UnitTestSupport {
 
     private static final String PYC_SUFFIX = "pyc";
     private static final String VAR_SUFFIX = "var";
+    private static final String[] EMPTY_STRINGS = {};
 
     /**
      * Read a {@code code} object with {@code marshal}. The method looks
@@ -480,8 +626,7 @@ class CPython311CodeTest extends UnitTestSupport {
         @Override
         public String toString() { return map.toString(); }
 
-        // plumbing
-        // -------------------------------------------------------
+        // plumbing --------------------------------------------------
 
         /**
          * Turn an object into a {@link Key} suitable for lookup in

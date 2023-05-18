@@ -116,7 +116,7 @@ package uk.co.farowl.vsj3.evo1;
         CPython311Code c = code;
         int regargcount = c.argcount+ c.kwonlyargcount;
         ArgParser ap = new ArgParser(name, // name is unchanged
-                c.localsplusnames, regargcount, c.posonlyargcount,
+                c.names, regargcount, c.posonlyargcount,
                 c.kwonlyargcount,
                 c.traits.contains(PyCode.Trait.VARARGS),
                 c.traits.contains(PyCode.Trait.VARKEYWORDS));
