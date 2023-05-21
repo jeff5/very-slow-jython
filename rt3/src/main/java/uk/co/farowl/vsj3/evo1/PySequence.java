@@ -209,9 +209,10 @@ public class PySequence extends Abstract {
      * @param <E> the type of exception to throw
      * @param o to present as a list
      * @param exc a supplier (e.g. lambda expression) for the exception
+     *     to throw if an iterator cannot be formed (or {@code null} for
+     *     a default {@code TypeError})
      * @return the iterable (if a {@code List}) or its contents
-     * @throws E to throw if an iterator cannot be formed (or
-     *     {@code null} for a default {@code TypeError})
+     * @throws E if an iterator cannot be formed
      * @throws Throwable from the implementation of {@code o}.
      */
     // Compare CPython PySequence_Fast in abstract.c

@@ -65,7 +65,7 @@ enum Comparison {
      * that "{@code v in seq}" compiles to<pre>
      *    LOAD_NAME    0 (v)
      *    LOAD_NAME    1 (seq)
-     *    COMPARE_OP   6 (in)
+     *    CONTAINS_OP  0
      * </pre> which must lead to {@code seq.__contains__(v)}.
      */
     IN("in", Slot.op_contains) {

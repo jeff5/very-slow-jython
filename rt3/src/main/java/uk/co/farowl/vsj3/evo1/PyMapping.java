@@ -53,7 +53,53 @@ public class PyMapping extends PySequence {
     static class MapWrapper extends AbstractMap<Object, Object> {
         private final Object map;
 
+        /**
+         * Create a wrapper on an object to treat it as a Python mapping
+         * producing a Java {@code Map<Object,Object>} from it.
+         *
+         * @param map to wrap
+         */
         MapWrapper(Object map) { this.map = map; }
+
+        // XXX Add a static method to check if possible.
+        // Look for __getitem__, keys (etc. if write needed).
+
+        /**
+         * Determine whether an object claimed to be a map supports the
+         * operations necessary to be read and iterated as a Python
+         * mapping.
+         *
+         * @param map to test
+         * @return true iff {@code __getitem__} and {@code keys()} are
+         *     defined.
+         */
+        static boolean check(Object map) { return check(map, true); }
+
+        /**
+         * Determine whether an object claimed to be a map supports the
+         * operations necessary to be read, written and iterated as a
+         * Python mapping.
+         *
+         * @param map to test
+         * @return true iff {@code __getitem__}, {@code __setitem__} and
+         *     {@code keys()} are defined.
+         */
+        static boolean checkWrite(Object map) {
+            return check(map, false);
+        }
+
+        // Helper for check and checkWrite
+        private static boolean check(Object map, boolean readonly) {
+            Operations ops = Operations.of(map);
+            try {
+                return Slot.op_getitem.isDefinedFor(ops)
+                        && Abstract.lookupAttr(map, "keys") != null
+                        && (readonly
+                                || Slot.op_setitem.isDefinedFor(ops));
+            } catch (Throwable e) {
+                return false;
+            }
+        }
 
         @Override
         public Set<Entry<Object, Object>> entrySet() {
@@ -157,7 +203,7 @@ public class PyMapping extends PySequence {
 
             EntrySetIteratorImpl() throws TypeError {
                 try {
-                    this.keyIterator = Abstract.getIterator(map);
+                    keyIterator = Callables.callMethod(map, "keys");
                 } catch (Throwable t) {
                     throw asUnchecked(t, "getting iterator");
                 }

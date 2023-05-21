@@ -52,6 +52,55 @@ public class PyObjectUtil {
     }
 
     /**
+     * Produce a {@code String} name for a function-like object or its
+     * {@code str()} if it doesn't even have a
+     * {@code __qualname__}.<pre>
+     *     def functionStr(func):
+     *         try:
+     *             qualname = func.__qualname__
+     *         except AttributeError:
+     *             return str(func)
+     *         try:
+     *             module = func.__module__
+     *             if module is not None and mod != 'builtins':
+     *                 return ".".join(module, qualname)
+     *         except AttributeError:
+     *             pass
+     *         return qualname
+     * </pre> This differs from its CPython counterpart
+     * {@code _PyObject_FunctionStr} by decisively not adding
+     * parentheses.
+     *
+     * @param func the function
+     * @return a name for {@code func}
+     */
+    // Compare CPython _PyObject_FunctionStr in object.c
+    static String functionStr(Object func) {
+        Object name;
+        try {
+            Object qualname = Abstract.lookupAttr(func, "__qualname__");
+            if (qualname != null) {
+                Object module = Abstract.lookupAttr(func, "__module__");
+                if (module != null && module != Py.None
+                        && Abstract.richCompareBool("builtins", module,
+                                Comparison.NE)) {
+                    name = Callables.callMethod(".", "join", module,
+                            qualname);
+                }
+                name = qualname;
+            } else {
+                name = Abstract.str(func);
+            }
+            return PyUnicode.asString(name);
+        } catch (Throwable e) {
+            // Unlike CPython fall back on a generic answer
+            return "function";
+        }
+    }
+
+    // Some singleton exceptions --------------------------------------
+
+    /**
      * The type of exception thrown when an attempt to convert an object
      * to a common data type fails. This type of exception carries no
      * stack context, since it is used only as a sort of "alternative

@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.ListIterator;
 import java.util.StringJoiner;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 import uk.co.farowl.vsj3.evo1.base.InterpreterError;
 import uk.co.farowl.vsj3.evo1.PyObjectUtil.NoConversion;
@@ -479,8 +480,25 @@ public class PyList implements List<Object>, CraftedPyObject {
      */
     // @ExposedMethod(doc = BuiltinDocs.list_extend_doc)
     final synchronized void list_extend(Object o) throws Throwable {
+        list_extend(o, null);
+    }
+
+    /**
+     * Append the elements in the argument sequence to the end of the
+     * list, {@code s[len(s):len(s)] = o}.
+     *
+     * @param <E> the type of exception to throw
+     * @param o the sequence of items to append to the list.
+     * @param exc a supplier (e.g. lambda expression) for the exception
+     *     to throw if an iterator cannot be formed (or {@code null} for
+     *     a default {@code TypeError})
+     * @throws E to throw if an iterator cannot be formed
+     * @throws Throwable from the implementation of {@code o}.
+     */
+    final <E extends PyException> void list_extend(Object o,
+            Supplier<E> exc) throws E, Throwable {
         changed = true;
-        list.addAll(PySequence.fastList(o, null));
+        list.addAll(PySequence.fastList(o, exc));
     }
 
     // @ExposedMethod(type = MethodType.BINARY, doc = BuiltinDocs.list___iadd___doc)

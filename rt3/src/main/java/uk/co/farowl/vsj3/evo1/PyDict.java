@@ -1,4 +1,4 @@
-// Copyright (c)2022 Jython Developers.
+// Copyright (c)2023 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj3.evo1;
 
@@ -7,6 +7,7 @@ import java.util.AbstractMap;
 import java.util.AbstractSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -134,9 +135,7 @@ public class PyDict extends AbstractMap<Object, Object>
      * @return previous value associated
      */
     @Override
-    public Object remove(Object key) {
-        return map.remove(toKey(key));
-    }
+    public Object remove(Object key) { return map.remove(toKey(key)); }
 
     /**
      * Override {@code Map.putIfAbsent} to give keys Python semantics.
@@ -152,37 +151,21 @@ public class PyDict extends AbstractMap<Object, Object>
 
     /** Modes for use with {@link #merge(Object, MergeMode)}. */
     enum MergeMode {
-        PUT, IF_ABSENT, UNIQUE
-    }
-
-    /**
-     * Merge the mapping {@code src} into this {@code dict}. This
-     * supports the {@code BUILD_MAP_UNPACK_WITH_CALL} opcode.
-     *
-     * @param src to merge in
-     * @param mode what to do about duplicates
-     * @throws KeyError on duplicate key (and {@link MergeMode#UNIQUE})
-     */
-    // Compare CPython dict_merge and _PyDict_MergeEx in dictobject.c
-    void merge(Object src, MergeMode mode) throws KeyError {
-        // XXX: stop-gap implementation
-        if (src instanceof PyDict) {
-            Set<Map.Entry<Object, Object>> entries =
-                    ((PyDict)src).entrySet();
-            for (Map.Entry<Object, Object> e : entries) {
-                Object k = e.getKey();
-                Object v = e.getValue();
-                if (mode == MergeMode.PUT)
-                    put(k, v);
-                else {
-                    Object u = putIfAbsent(k, v);
-                    if (u != null && mode == MergeMode.UNIQUE)
-                        throw new KeyError.Duplicate(k);
-                }
-            }
-        } else
-            throw new AttributeError("Unsupported mapping type %s",
-                    PyType.of(src).getName());
+        /**
+         * Ignore the operation if the key is already in the map.
+         * (CPython mode 0: first occurrence wins).
+         */
+        IF_ABSENT,
+        /**
+         * Overwrite any existing entry with the same key. (CPython mode
+         * 1: last occurrence wins).
+         */
+        PUT,
+        /**
+         * Raise a {@link KeyError} if the key is already in the map.
+         * (CPython mode 2.)
+         */
+        UNIQUE
     }
 
     /**
@@ -207,6 +190,46 @@ public class PyDict extends AbstractMap<Object, Object>
             }
         }
         return v;
+    }
+
+    /**
+     * Update this dictionary from a sequence of key-value pairs, in the
+     * chosen mode. The sequence is any iterable object producing
+     * iterable objects of length 2, typically a {@code list} of
+     * {@code tuple}s.
+     *
+     * @param seq sequence of KV pairs to merge
+     * @param mode merge policy
+     * @throws TypeError
+     * @throws KeyError
+     * @throws Throwable
+     */
+    // Compare CPython PyDict_MergeFromSeq2 in dictobject.c
+    void mergeFromSeq(Object seq, MergeMode mode)
+            throws TypeError, KeyError, Throwable {
+
+        // Python-iterate over the sequence
+        Object it = Abstract.getIterator(seq);
+        for (int i = 0;; i++) {
+            Object item = Abstract.next(it); // seq[i]
+            // Convert item to List and verify length 2.
+            try {
+                List<Object> fast = PySequence.fastList(item, null);
+                if (fast.size() != 2) {
+                    throw new ValueError(KV_TUPLE_LENGTH, i,
+                            fast.size());
+                }
+                // Update/merge with this (key, value) pair.
+                mergeSingle(fast.get(0), fast.get(1), mode);
+            } catch (TypeError te) {
+                /*
+                 * We could not give PySequence.fastList a custom
+                 * exception supplier because the message refers to
+                 * non-final i.
+                 */
+                throw new TypeError(CANNOT_CONVERT_SEQ, i);
+            }
+        }
     }
 
     // slot functions -------------------------------------------------
@@ -248,14 +271,25 @@ public class PyDict extends AbstractMap<Object, Object>
 
     // methods --------------------------------------------------------
 
-    Object update(Object args) {
-        // XXX: stop-gap implementation
-        if (args instanceof PyDict)
-            merge(args, MergeMode.PUT);
-        else
-            throw new AttributeError("Unsupported mapping", args);
-        return Py.None;
-    }
+    /**
+     * Update the dictionary with the contents of another mapping
+     * object, allowing replacement of matching keys. This supports the
+     * {@code UPDATE_DICT} opcode.
+     *
+     * @param o to merge into this dictionary
+     */
+    // Compare CPython PyDict_Update in dictobject.c
+    void update(Object o) { mergeObject(o, MergeMode.PUT); }
+
+    /**
+     * Merge the contents of another mapping into this dictionary
+     * allowing replacement of matching keys only as specified.
+     *
+     * @param o to merge into this dictionary
+     * @param mode policy on replacement
+     */
+    // Compare CPython _PyDict_MergeEx in dictobject.c
+    void merge(Object o, MergeMode mode) { mergeObject(o, mode); }
 
     // Non-Python API -------------------------------------------------
 
@@ -545,10 +579,11 @@ public class PyDict extends AbstractMap<Object, Object>
         public boolean hasNext() { return mapIterator.hasNext(); }
 
         /**
-         * {@inheritDoc} The difference from the underlying
-         * {@link mapIterator} is that the key in the entry returned by
-         * this method is the object embedded in the {@link KeyHolder},
-         * which is the key as far as Python is concerned.
+         * {@inheritDoc} The difference from the iterator on the
+         * underlying private map is that the key in the entry returned
+         * by this method is the object embedded in the
+         * {@link KeyHolder}, which is the key as far as Python is
+         * concerned.
          */
         @Override
         public Entry<Object, Object> next() {
@@ -563,8 +598,12 @@ public class PyDict extends AbstractMap<Object, Object>
 
     // plumbing -------------------------------------------------------
 
+    private static final String ELEMENT_N =
+            "dictionary update sequence element %d ";
+    private static final String CANNOT_CONVERT_SEQ =
+            "cannot convert " + ELEMENT_N + "to a sequence";
     private static final String KV_TUPLE_LENGTH =
-            "dictionary update sequence element %d has length %d; 2 is required";
+            ELEMENT_N + "has length %d; 2 is required";
 
     /**
      * Compare this dictionary with the other {@code dict} for equality.
@@ -596,4 +635,63 @@ public class PyDict extends AbstractMap<Object, Object>
         }
     }
 
+    /**
+     * Merge a key-value pair into this {@code dict}.
+     *
+     * @param k key
+     * @param v value
+     * @param mode what to do about duplicates
+     * @throws KeyError on duplicate key (if {@code mode == }
+     *     {@link MergeMode#UNIQUE})
+     */
+    private void mergeSingle(Object k, Object v, MergeMode mode)
+            throws KeyError {
+        if (mode == MergeMode.PUT) {
+            put(k, v);
+        } else {
+            // Sensitive to whether already present
+            Object u = putIfAbsent(k, v);
+            if (u != null && mode == MergeMode.UNIQUE) {
+                throw new KeyError.Duplicate(k);
+            }
+        }
+    }
+
+    /**
+     * Merge the mapping {@code src} into this {@code dict}.
+     *
+     * @param src a mapping to merge in
+     * @param mode what to do about duplicates
+     * @throws KeyError on duplicate key (if {@code mode == }
+     *     {@link MergeMode#UNIQUE})
+     */
+    // Compare CPython dict_merge in dictobject.c
+    private void mergeObject(Object src, MergeMode mode)
+            throws KeyError, AttributeError {
+
+        // Try to make src a Java Map
+        Map<Object, Object> map;
+        if (src instanceof PyDict) {
+            map = (PyDict)src;
+        } else if (PyMapping.MapWrapper.check(src)) {
+            map = PyMapping.map(src);
+        } else {
+            throw new AttributeError("'%.200s' object is not a mapping",
+                    PyType.of(src).getName());
+        }
+
+        // Now update according to the mode, using Java semantics.
+        if (mode == MergeMode.PUT) {
+            putAll(map);
+        } else {
+            // Sensitive to whether already present
+            for (Map.Entry<Object, Object> e : map.entrySet()) {
+                Object k = e.getKey();
+                Object u = putIfAbsent(k, e.getValue());
+                if (u != null && mode == MergeMode.UNIQUE) {
+                    throw new KeyError.Duplicate(k);
+                }
+            }
+        }
+    }
 }

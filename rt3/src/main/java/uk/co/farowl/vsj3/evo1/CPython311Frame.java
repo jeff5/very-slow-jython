@@ -3,6 +3,7 @@
 package uk.co.farowl.vsj3.evo1;
 
 import java.lang.invoke.MethodHandle;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 
@@ -10,6 +11,7 @@ import uk.co.farowl.vsj3.evo1.PyCode.CellArgument;
 import uk.co.farowl.vsj3.evo1.PyCode.CellVariable;
 import uk.co.farowl.vsj3.evo1.PyCode.FreeVariable;
 import uk.co.farowl.vsj3.evo1.PyCode.Trait;
+import uk.co.farowl.vsj3.evo1.PyDict.MergeMode;
 import uk.co.farowl.vsj3.evo1.base.InterpreterError;
 import uk.co.farowl.vsj3.evo1.base.MissingFeature;
 
@@ -107,44 +109,44 @@ class CPython311Frame extends PyFrame<CPython311Code> {
 
         // Initialise the basics.
         super(func);
-        throw new MissingFeature("3.11 local variable order");
 
-        // CPython311Code code = func.code;
-        // this.valuestack = new Object[code.stacksize];
-        // int nfastlocals = 0;
-        //
-        // // The need for a dictionary of locals depends on the code
-        // EnumSet<PyCode.Trait> traits = code.traits;
-        // if (traits.contains(Trait.NEWLOCALS)) {
-        // // Ignore locals argument
-        // if (traits.contains(Trait.OPTIMIZED)) {
-        // // We can create it later but probably won't need to
-        // this.locals = null;
-        // // Instead locals are in an array
-        // nfastlocals = code.nlocals;
-        // } else {
-        // this.locals = new PyDict();
-        // }
-        // } else if (locals == null) {
-        // // Default to same as globals.
-        // this.locals = func.globals;
-        // } else {
-        // /*
-        // * Use supplied locals. As it may not implement j.u.Map, we
-        // * wrap any Python object as a Map. Depending on the
-        // * operations attempted, this may break later.
-        // */
-        // this.locals = locals;
-        // }
-        //
-        // // Locally present the func.__builtins__ as a Map
-        // this.builtins = PyMapping.map(func.builtins);
-        //
-        // // Initialise local variables (plain and cell)
-        // this.fastlocals = nfastlocals > 0 ? new Object[nfastlocals]
-        // : EMPTY_OBJECT_ARRAY;
-        // this.freevars =
-        // PyCell.array(code.cellvars.length, func.closure);
+        CPython311Code code = func.code;
+        this.valuestack = new Object[code.stacksize];
+        int nfastlocals = 0;
+
+        // The need for a dictionary of locals depends on the code
+        EnumSet<PyCode.Trait> traits = code.traits;
+        if (traits.contains(Trait.NEWLOCALS)) {
+            // Ignore locals argument
+            if (traits.contains(Trait.OPTIMIZED)) {
+                // We can create it later but probably won't need to
+                this.locals = null;
+                // Instead locals are in an array
+                nfastlocals = code.nlocals;
+            } else {
+                this.locals = new PyDict();
+            }
+        } else if (locals == null) {
+            // Default to same as globals.
+            this.locals = func.globals;
+        } else {
+            /*
+             * Use supplied locals. As it may not implement j.u.Map, we
+             * wrap any Python object as a Map. Depending on the
+             * operations attempted, this may break later.
+             */
+            this.locals = locals;
+        }
+
+        // Locally present the func.__builtins__ as a Map
+        this.builtins = PyMapping.map(func.builtins);
+
+        // Initialise local variables (plain and cell)
+        this.fastlocals = nfastlocals > 0 ? new Object[nfastlocals]
+                : EMPTY_OBJECT_ARRAY;
+        this.freevars = func.closure;
+        this.cellvars = code.ncellvars > 0 ? new PyCell[code.ncellvars]
+                : PyCell.EMPTY_ARRAY;
     }
 
     /**
@@ -193,38 +195,47 @@ class CPython311Frame extends PyFrame<CPython311Code> {
         Map<Object, Object> locals = localsMapOrNull();
 
         /*
+         * Because we use a word array, our ip is half the CPython ip.
+         * The latter, and all jump arguments, are always even, so we
+         * have to halve the jump distances or destinations.
+         */
+        int ip = 0;
+
+        /*
          * We read each 16-bit instruction from wordcode[] into opword.
          * Bits 8-15 are the opcode itself. The bottom 8 bits are an
-         * argument that (in principle) must be or-ed into the existing
-         * value of oparg to complete the argument. (oparg may contain
-         * bits already thanks to EXTENDED_ARG processing.) For some
-         * opcodes 8 bits are enough to express the argument and all we
-         * need is opword & 0xff.
+         * argument. (The oparg after an EXTENDED_ARG gets special
+         * treatment to produce the chaining of argument values.)
          */
-        int opword;
-        /*
-         * Opcode argument (where needed). See also case EXTENDED_ARG.
-         * Every opcode that consumes oparg must set it to zero, even if
-         * all it uses is opword & 0xff.
-         */
-        int oparg = 0;
+        int opword = wordcode[ip++];
 
-        // Local variables used repeatedly in the loop
-        Object v, w;
-        PyCell cell;
-        int n, m;
-        String name;
-        PyTuple.Builder tpl;
-        PyList lst;
+        // Opcode argument (where needed).
+        int oparg = opword & 0xff;
 
-        loop: for (int ip = 0; ip < END; ip++) {
-            /*
-             * Pick up the next instruction. Because we use a word
-             * array, our ip is half the CPython ip. The latter, and all
-             * jump arguments, are always even.
-             */
-            opword = wordcode[ip];
+        // @formatter:off
+        // The structure of the interpreter loop is:
+        // while (ip < END) {
+        //     switch (opword >> 8) {
+        //     case Opcode311.LOAD_CONST:
+        //         s[sp++] = consts[oparg];
+        //         break;
+        //     // other cases
+        //     case Opcode311.EXTENDED_ARG:
+        //         opword = wordcode[ip++];
+        //         oparg = (oparg << 8) | opword & 0xff;
+        //         continue;
+        //     default:
+        //         throw new InterpreterError("");
+        //     }
+        //     opword = wordcode[ip++];
+        //     oparg = opword & 0xff;
+        // }
+        // @formatter:on
 
+        // Holds keyword names argument between KW_NAMES and CALL
+        PyTuple kwnames = null;
+
+        loop: while (ip < END) {
             /*
              * Here every so often, or maybe inside the try, and
              * conditional on the opcode, CPython would have us check
@@ -239,7 +250,7 @@ class CPython311Frame extends PyFrame<CPython311Code> {
             // POP() : s[--sp]
             // PUSH(v) : s[sp++] = v
             // SET_TOP(v) : s[sp-1] = v
-            // GETLOCAL(oparg) : fastlocals[oparg | opword & 0xff];
+            // GETLOCAL(oparg) : fastlocals[oparg];
             // PyCell_GET(cell) : cell.get()
             // PyCell_SET(cell, v) : cell.set(v)
 
@@ -249,60 +260,56 @@ class CPython311Frame extends PyFrame<CPython311Code> {
                     // Cases ordered as CPython to aid comparison
 
                     case Opcode311.NOP:
+                    case Opcode311.RESUME:
+                    case Opcode311.CACHE:
                         break;
 
-                    case Opcode311.LOAD_FAST:
-                        v = fastlocals[oparg | opword & 0xff];
-                        if (v == null) {
-                            throw unboundFast(oparg | opword & 0xff);
-                        }
+                    case Opcode311.LOAD_FAST: {
+                        Object v = fastlocals[oparg];
+                        if (v == null) { throw unboundFast(oparg); }
                         s[sp++] = v;
-                        oparg = 0;
                         break;
+                    }
 
                     case Opcode311.LOAD_CONST:
-                        s[sp++] = consts[oparg | opword & 0xff];
-                        oparg = 0;
+                        s[sp++] = consts[oparg];
                         break;
 
                     case Opcode311.STORE_FAST:
-                        fastlocals[oparg | opword & 0xff] = s[--sp];
-                        oparg = 0;
+                        fastlocals[oparg] = s[--sp];
                         break;
 
-                    case Opcode311.DUP_TOP:
-                        s[sp++] = s[sp - 2];
+                    case Opcode311.PUSH_NULL:
+                        s[sp++] = null;
                         break;
 
-                    case Opcode311.UNARY_NEGATIVE:
-                        s[sp - 1] = PyNumber.negative(s[sp - 1]);
+                    case Opcode311.UNARY_NEGATIVE: {
+                        int top = sp - 1;
+                        s[top] = PyNumber.negative(s[top]);
                         break;
+                    }
 
-                    case Opcode311.UNARY_INVERT:
-                        s[sp - 1] = PyNumber.invert(s[sp - 1]);
+                    case Opcode311.UNARY_INVERT: {
+                        int top = sp - 1;
+                        s[top] = PyNumber.invert(s[top]);
                         break;
+                    }
 
-                    case Opcode311.BINARY_MULTIPLY:
-                        w = s[--sp]; // POP
-                        s[sp - 1] = PyNumber.multiply(s[sp - 1], w);
-                        break;
-
-                    case Opcode311.BINARY_ADD:
-                        w = s[--sp]; // POP
-                        s[sp - 1] = PyNumber.add(s[sp - 1], w);
-                        break;
-
-                    case Opcode311.BINARY_SUBTRACT:
-                        w = s[--sp]; // POP
-                        s[sp - 1] = PyNumber.subtract(s[sp - 1], w);
-                        break;
-
-                    case Opcode311.BINARY_SUBSCR: // w[v]
+                    case Opcode311.BINARY_SUBSCR: {
                         // w | v | -> | w[v] |
                         // -------^sp --------^sp
-                        v = s[--sp];
-                        s[sp - 1] = PySequence.getItem(s[sp - 1], v);
+                        Object v = s[--sp];
+                        int top = sp - 1;
+                        s[top] = PySequence.getItem(s[top], v);
                         break;
+                    }
+
+                    case Opcode311.LIST_APPEND: {
+                        Object v = s[--sp];
+                        PyList list = (PyList)s[sp - oparg];
+                        list.add(v);
+                        break;
+                    }
 
                     case Opcode311.STORE_SUBSCR: // w[v] = u
                         // u | w | v | -> |
@@ -317,31 +324,31 @@ class CPython311Frame extends PyFrame<CPython311Code> {
                         // ip = END; ?
                         break loop;
 
-                    case Opcode311.STORE_NAME:
-                        name = names[oparg | opword & 0xff];
-                        oparg = 0;
+                    case Opcode311.STORE_NAME: {
+                        String name = names[oparg];
                         try {
                             locals.put(name, s[--sp]);
                         } catch (NullPointerException npe) {
                             throw noLocals("storing", name);
                         }
                         break;
+                    }
 
-                    case Opcode311.DELETE_NAME:
-                        name = names[oparg | opword & 0xff];
-                        oparg = 0;
+                    case Opcode311.DELETE_NAME: {
+                        String name = names[oparg];
                         try {
                             locals.remove(name);
                         } catch (NullPointerException npe) {
                             throw noLocals("deleting", name);
                         }
                         break;
+                    }
 
-                    case Opcode311.UNPACK_SEQUENCE:
+                    case Opcode311.UNPACK_SEQUENCE: {
                         // w | -> w[n-1] | ... | w[0] |
                         // ---^sp ---------------------^sp
-                        oparg |= opword & 0xff; // n
-                        w = s[--sp];
+                        // n = oparg
+                        Object w = s[--sp];
                         if (w instanceof PyTuple
                                 || w instanceof PyList) {
                             List<?> seq = (List<?>)w;
@@ -349,47 +356,41 @@ class CPython311Frame extends PyFrame<CPython311Code> {
                                 int i = sp + oparg;
                                 for (Object o : seq) { s[--i] = o; }
                                 sp += oparg;
-                                oparg = 0;
                                 break;
                             }
                             // Wrong size: slow path to error message
                         }
                         // unpack iterable w to s[sp...sp+n]
                         sp = unpackIterable(w, oparg, -1, s, sp);
-                        oparg = 0;
                         break;
+                    }
 
                     case Opcode311.UNPACK_EX:
                         // w | -> w[N-1] | ... | w[0] |
                         // ---^sp ---------------------^sp
-                        n = opword & 0xff;
-                        m = oparg >> 8;
-                        sp = unpackIterable(s[--sp], n, m, s, sp);
-                        oparg = 0;
+                        sp = unpackIterable(s[--sp], oparg & 0xff,
+                                oparg >> 8, s, sp);
                         break;
 
                     case Opcode311.STORE_ATTR:
                         // o.name = v
                         // v | o | -> |
                         // -------^sp -^sp
-                        name = names[oparg | opword & 0xff];
-                        Abstract.setAttr(s[--sp], name, s[--sp]);
-                        oparg = 0;
+                        Abstract.setAttr(s[--sp], names[oparg],
+                                s[--sp]);
                         break;
 
                     case Opcode311.DELETE_ATTR:
                         // del o.name
                         // o | -> |
                         // ---^sp -^sp
-                        name = names[oparg | opword & 0xff];
-                        Abstract.delAttr(s[--sp], name);
-                        oparg = 0;
+                        Abstract.delAttr(s[--sp], names[oparg]);
                         break;
 
-                    case Opcode311.LOAD_NAME:
+                    case Opcode311.LOAD_NAME: {
                         // Resolve against locals, globals and builtins
-                        name = names[oparg | opword & 0xff];
-                        oparg = 0;
+                        String name = names[oparg];
+                        Object v;
                         try {
                             v = locals.get(name);
                         } catch (NullPointerException npe) {
@@ -404,57 +405,49 @@ class CPython311Frame extends PyFrame<CPython311Code> {
                         }
                         s[sp++] = v; // PUSH
                         break;
+                    }
 
-                    case Opcode311.LOAD_GLOBAL:
+                    case Opcode311.LOAD_GLOBAL: {
                         // Resolve against globals and builtins
-                        name = names[oparg | opword & 0xff];
-                        oparg = 0;
-                        v = globals.loadGlobal(builtins, name);
+                        String name = names[oparg];
+                        Object v = globals.loadGlobal(builtins, name);
                         if (v == null) {
                             // CPython: not if error is already current
                             throw new NameError(NAME_ERROR_MSG, name);
                         }
                         s[sp++] = v;
                         break;
+                    }
 
                     case Opcode311.DELETE_FAST:
-                        oparg |= opword & 0xff;
                         if (fastlocals[oparg] == null) {
                             throw unboundFast(oparg);
                         }
                         fastlocals[oparg] = null;
-                        oparg = 0;
                         break;
 
-                    case Opcode311.DELETE_DEREF:
-                        cell = freevars[oparg | opword & 0xff];
+                    case Opcode311.DELETE_DEREF: {
+                        PyCell cell = freevars[oparg];
                         if (cell.get() == null) {
-                            throw unboundCell(oparg | opword & 0xff);
+                            throw unboundCell(oparg);
                         }
                         cell.del();
-                        oparg = 0;
                         break;
+                    }
 
                     case Opcode311.LOAD_CLOSURE:
-                        v = freevars[oparg | opword & 0xff];
-                        s[sp++] = v;
-                        oparg = 0;
+                        s[sp++] = freevars[oparg];
                         break;
 
-                    case Opcode311.LOAD_DEREF:
-                        cell = freevars[oparg | opword & 0xff];
-                        v = cell.get();
-                        if (v == null) {
-                            throw unboundCell(oparg | opword & 0xff);
-                        }
+                    case Opcode311.LOAD_DEREF: {
+                        Object v = freevars[oparg].get();
+                        if (v == null) { throw unboundCell(oparg); }
                         s[sp++] = v;
-                        oparg = 0;
                         break;
+                    }
 
                     case Opcode311.STORE_DEREF:
-                        cell = freevars[oparg | opword & 0xff];
-                        cell.set(s[--sp]);
-                        oparg = 0;
+                        freevars[oparg].set(s[--sp]);
                         break;
 
                     case Opcode311.BUILD_TUPLE:
@@ -462,184 +455,240 @@ class CPython311Frame extends PyFrame<CPython311Code> {
                         // -------------------------^sp -------^sp
                         // Group the N=oparg elements on the stack
                         // into a single tuple.
-                        oparg |= opword & 0xff;
                         sp -= oparg;
                         s[sp] = new PyTuple(s, sp++, oparg);
-                        oparg = 0;
                         break;
 
                     case Opcode311.BUILD_LIST:
                         // w[0] | ... | w[oparg-1] | -> | lst |
                         // -------------------------^sp -------^sp
-                        // Group the N=oparg elements on the stack
-                        // into a single list.
-                        oparg |= opword & 0xff;
+                        /*
+                         * Group the N=oparg elements on the stack into
+                         * a single list.
+                         */
                         sp -= oparg;
                         s[sp] = new PyList(s, sp++, oparg);
-                        oparg = 0;
                         break;
 
-                    // case Opcode.BUILD_TUPLE_UNPACK_WITH_CALL:
-
-                    case Opcode311.BUILD_TUPLE_UNPACK:
-                        // w[0] | ... | w[oparg-1] | -> | sum |
-                        // -------------------------^sp -------^sp
-                        // Concatenate the N=oparg iterables on the
-                        // stack into a single tuple.
-                        oparg |= opword & 0xff;
-                        sp -= oparg;
-                        tpl = new PyTuple.Builder();
-                        for (int i = 0; i < oparg; i++) {
-                            tpl.extend((List<?>)s[sp + i]);
-                        }
-                        s[sp++] = tpl.take();
-                        oparg = 0;
+                    case Opcode311.LIST_TO_TUPLE: {
+                        int top = sp - 1;
+                        s[top] = PyTuple.from((PyList)s[top]);
                         break;
+                    }
 
-                    case Opcode311.BUILD_LIST_UNPACK:
-                        // w[0] | ... | w[oparg-1] | -> | sum |
-                        // -------------------------^sp -------^sp
-                        // Concatenate the N=oparg iterables on the
-                        // stack into a single list.
-                        oparg |= opword & 0xff;
-                        sp -= oparg;
-                        lst = new PyList();
-                        for (int i = 0; i < oparg; i++) {
-                            lst.addAll((List<?>)s[sp + i]);
-                        }
-                        s[sp++] = lst;
-                        oparg = 0;
+                    case Opcode311.LIST_EXTEND: {
+                        Object iterable = s[--sp];
+                        PyList list = (PyList)s[sp - oparg];
+                        list.list_extend(iterable, () -> Abstract
+                                .typeError(VALUE_AFTER_STAR, iterable));
                         break;
+                    }
 
                     case Opcode311.BUILD_MAP:
                         // k1 | v1 | ... | kN | vN | -> | map |
                         // -------------------------^sp -------^sp
-                        // Build dictionary from the N=oparg key-value
-                        // pairs on the stack in order.
-                        oparg |= opword & 0xff;
+                        /*
+                         * Build dictionary from the N=oparg key-value
+                         * pairs on the stack in order.
+                         */
                         sp -= oparg * 2;
                         s[sp] = PyDict.fromKeyValuePairs(s, sp++,
                                 oparg);
-                        oparg = 0;
                         break;
 
-                    // k1 | ... | kN | names | -> | map |
-                    // -----------------------^sp -------^sp
-                    // Build dictionary from the N=oparg names as a
-                    // tuple and values on the stack in order.
                     case Opcode311.BUILD_CONST_KEY_MAP:
-                        sp = constKeyMap(sp, oparg | opword & 0xff);
-                        oparg = 0;
+                        // v1 | ... | vN | keys | -> | map |
+                        // ----------------------^sp -------^sp
+                        /*
+                         * Build dictionary from the N=oparg keys as a
+                         * tuple and values on the stack in order.
+                         */
+                        sp = constKeyMap(sp, oparg);
                         break;
 
-                    case Opcode311.LOAD_ATTR:
+                    case Opcode311.DICT_UPDATE: {
+                        // map | ... | v | -> | map | ... |
+                        // ---------------^sp -------------^sp
+                        /*
+                         * Update a dictionary from another map v on the
+                         * stack. There are N=oparg arguments including
+                         * v on the stack, but only v is merged. In
+                         * practice N=1 or 2.
+                         */
+                        Object map = s[--sp];
+                        PyDict dict = (PyDict)s[sp - oparg];
+                        try {
+                            dict.update(map);
+                        } catch (AttributeError ae) {
+                            throw new TypeError(
+                                    "'%.200s' object is not a mapping",
+                                    PyType.of(map));
+                        }
+                        break;
+                    }
+
+                    case Opcode311.DICT_MERGE: {
+                        // f | map | ... | v | -> | f | map | ... |
+                        // -------------------^sp -----------------^sp
+                        /*
+                         * Update a dictionary from another map v on the
+                         * stack. There are N=oparg arguments including
+                         * v on the stack, but only v is merged. In
+                         * practice N=1. The function f is only used as
+                         * context in error messages.
+                         */
+                        Object map = s[--sp];
+                        PyDict dict = (PyDict)s[sp - oparg];
+                        try {
+                            dict.merge(map, MergeMode.UNIQUE);
+                        } catch (AttributeError ae) {
+                            throw kwargsTypeError(s[sp - (oparg + 2)],
+                                    map);
+                        } catch (KeyError.Duplicate ke) {
+                            throw kwargsKeyError(ke,
+                                    s[sp - (oparg + 2)]);
+                        }
+                        break;
+                    }
+
+                    case Opcode311.LOAD_ATTR: {
                         // v | -> | v.name |
                         // ---^sp ----------^sp
-                        name = names[oparg | opword & 0xff];
-                        oparg = 0;
-                        s[sp - 1] = Abstract.getAttr(s[sp - 1], name);
+                        int top = sp - 1;
+                        s[top] = Abstract.getAttr(s[top], names[oparg]);
                         break;
+                    }
 
-                    case Opcode311.COMPARE_OP:
+                    case Opcode311.COMPARE_OP: {
                         // v | w | -> | op(v,w) |
                         // -------^sp -----------^sp
-                        w = s[--sp]; // POP
-                        v = s[sp - 1]; // TOP
-                        s[sp - 1] = Comparison.from(opword & 0xff)
-                                .apply(v, w);
-                        oparg = 0;
+                        Object w = s[--sp]; // POP
+                        int top = sp - 1;
+                        Object v = s[top]; // TOP
+                        s[top] = Comparison.from(oparg).apply(v, w);
                         break;
+                    }
+
+                    case Opcode311.IS_OP: {
+                        // v | w | -> | (v is w) ^ oparg |
+                        // -------^sp --------------------^sp
+                        Object w = s[--sp]; // POP
+                        int top = sp - 1;
+                        Object v = s[top]; // TOP
+                        Comparison op = oparg == 0 ? Comparison.IS
+                                : Comparison.IS_NOT;
+                        s[top] = op.apply(v, w);
+                        break;
+                    }
+
+                    case Opcode311.CONTAINS_OP: {
+                        // v | w | -> | (v in w) ^ oparg |
+                        // -------^sp --------------------^sp
+                        Object w = s[--sp]; // POP
+                        int top = sp - 1;
+                        Object v = s[top]; // TOP
+                        Comparison op = oparg == 0 ? Comparison.IN
+                                : Comparison.NOT_IN;
+                        s[top] = op.apply(v, w);
+                        break;
+                    }
 
                     case Opcode311.JUMP_FORWARD:
-                        ip += (oparg | opword & 0xff) >> 1;
-                        oparg = 0;
+                        ip += oparg >> 1;
                         break;
 
-                    case Opcode311.POP_JUMP_IF_FALSE:
-                        v = s[--sp]; // POP
-                        if (!Abstract.isTrue(v))
-                            ip = ((oparg | opword & 0xff) >> 1) - 1;
-                        oparg = 0;
-                        break;
-
-                    case Opcode311.POP_JUMP_IF_TRUE:
-                        v = s[--sp]; // POP
-                        if (Abstract.isTrue(v))
-                            ip = ((oparg | opword & 0xff) >> 1) - 1;
-                        oparg = 0;
-                        break;
-
-                    case Opcode311.JUMP_IF_FALSE_OR_POP:
-                        v = s[--sp]; // POP
+                    case Opcode311.JUMP_IF_FALSE_OR_POP: {
+                        Object v = s[--sp]; // POP
                         if (!Abstract.isTrue(v)) {
                             sp += 1;    // UNPOP
-                            ip = ((oparg | opword & 0xff) >> 1) - 1;
+                            ip = (oparg >> 1) - 1;
                         }
-                        oparg = 0;
                         break;
+                    }
 
-                    case Opcode311.JUMP_IF_TRUE_OR_POP:
-                        v = s[--sp]; // POP
+                    case Opcode311.JUMP_IF_TRUE_OR_POP: {
+                        Object v = s[--sp]; // POP
                         if (Abstract.isTrue(v)) {
                             sp += 1;    // UNPOP
-                            ip = ((oparg | opword & 0xff) >> 1) - 1;
+                            ip = (oparg >> 1) - 1;
                         }
-                        oparg = 0;
                         break;
+                    }
 
-                    case Opcode311.JUMP_ABSOLUTE:
-                        ip = ((oparg | opword & 0xff) >> 1) - 1;
-                        oparg = 0;
-                        break;
-
-                    case Opcode311.GET_ITER:
+                    case Opcode311.GET_ITER: {
                         // Replace an iterable with an iterator
                         // obj | -> iter(obj) |
                         // -----^sp -----------^sp
-                        s[sp - 1] = Abstract.getIterator(s[sp - 1]);
+                        int top = sp - 1;
+                        s[top] = Abstract.getIterator(s[top]);
                         break;
+                    }
 
                     case Opcode311.FOR_ITER: {
                         // Push the next item of an iterator:
                         // iter | -> iter | next |
                         // ------^sp -------------^sp
-                        // or or pop and jump if it is exhausted:
-                        // iter | ->
-                        // ------^sp ^sp
+                        // or pop and jump if it is exhausted:
+                        // iter | -> |
+                        // ------^sp -^sp
                         Object next = Abstract.next(s[sp - 1]);
                         if (next != null) {
                             s[sp++] = next;
                         } else {
-                            ip += (oparg | opword & 0xff) >> 1;
+                            ip += oparg >> 1;
                             --sp;
                         }
-                        oparg = 0;
                         break;
                     }
 
                     case Opcode311.LOAD_METHOD:
-                        // Designed to work in tandem with CALL_METHOD.
-                        // If we can bypass temporary bound method:
+                        /*
+                         * Emitted when compiling obj.meth(...). Works
+                         * in tandem with CALL. If we can bypass
+                         * temporary bound method:
+                         */
                         // obj | -> | desc | self |
                         // -----^sp ---------------^sp
                         // Otherwise almost conventional LOAD_ATTR:
                         // obj | -> | null | meth |
                         // -----^sp ---------------^sp
-                        name = names[oparg | opword & 0xff];
-                        oparg = 0;
-                        getMethod(s[--sp], name, sp);
+                        getMethod(s[--sp], names[oparg], sp);
                         sp += 2;
                         break;
 
-                    case Opcode311.CALL_METHOD:
-                        // Designed to work in tandem with LOAD_METHOD.
-                        // If bypassed the method binding:
+                    case Opcode311.PRECALL:
+                        /*
+                         * CPython gains from recognising that a
+                         * callable is actually a bound method, and so
+                         * each call is includes a PUSH_NULL beforehand.
+                         * PRECALL uses that space to un-bundle (if it
+                         * can) the callable into an unbound callable
+                         * and its 'self' argument.
+                         *
+                         * There is no proof this would help in Jython.
+                         * It might, but we can safely make this a no-op
+                         * and CALL will still do the right thing.
+                         */
+                        break;
+
+                    case Opcode311.KW_NAMES:
+                        assert (kwnames == null);
+                        assert PyTuple.TYPE.checkExact(consts[oparg]);
+                        kwnames = (PyTuple)consts[oparg];
+                        break;
+
+                    case Opcode311.CALL: {
+                        /*
+                         * Works in tandem with LOAD_METHOD or PRECALL.
+                         * If LOAD_METHOD bypassed the method binding or
+                         * PRECALL un-bundled a bound object:
+                         */
                         // desc | self | arg[n] | -> | res |
                         // ----------------------^sp -------^sp
                         // Otherwise:
                         // null | meth | arg[n] | -> | res |
                         // ----------------------^sp -------^sp
-                        oparg |= opword & 0xff; // = N of args
+                        // oparg = n
                         sp -= oparg + 2;
                         if (s[sp] != null) {
                             // We bypassed the method binding. Stack:
@@ -647,85 +696,128 @@ class CPython311Frame extends PyFrame<CPython311Code> {
                             // ^sp
                             // call desc(self, arg1 ... argN)
                             s[sp] = Callables.vectorcall(s[sp++], s, sp,
-                                    oparg + 1);
+                                    oparg + 1, kwnames);
                         } else {
                             // meth is the bound method self.name
                             // null | meth | arg[n] |
                             // ^sp
                             // call meth(arg1 ... argN)
                             s[sp++] = Callables.vectorcall(s[sp], s,
-                                    sp + 1, oparg);
+                                    sp + 1, oparg, kwnames);
                         }
-                        oparg = 0;
-                        break;
-
-                    case Opcode311.CALL_FUNCTION:
-                        // Call with positional args only. Stack:
-                        // f | arg[n] | -> res |
-                        // ------------^sp -----^sp
-                        oparg |= opword & 0xff; // = n # of args
-                        sp -= oparg + 1;
-                        s[sp] = Callables.vectorcall(s[sp++], s, sp,
-                                oparg);
-                        oparg = 0;
-                        break;
-
-                    case Opcode311.CALL_FUNCTION_KW: {
-                        // Call with n positional & m by kw. Stack:
-                        // f | arg[n] | kwnames | -> res |
-                        // ----------------------^sp -----^sp
-                        // knames is a tuple of m names
-                        assert PyTuple.TYPE.checkExact(s[sp - 1]);
-                        PyTuple kwnames = (PyTuple)s[sp - 1];
-                        oparg |= opword & 0xff; // = n+m
-                        assert kwnames.size() <= oparg;
-                        sp -= oparg + 2;
-                        s[sp] = Callables.vectorcall(s[sp++], s, sp,
-                                oparg, kwnames);
-                        oparg = 0;
+                        kwnames = null;
                         break;
                     }
 
-                    case Opcode311.CALL_FUNCTION_EX:
+                    case Opcode311.CALL_FUNCTION_EX: {
                         // Call with positional & kw args. Stack:
                         // f | args | kwdict? | -> res |
                         // --------------------^sp -----^sp
-                        // opword is 0 (no kwdict) or 1 (kwdict present)
-                        w = (opword & 0x1) == 0 ? null : s[--sp];
-                        v = s[--sp]; // args tuple
-                        s[sp - 1] = Callables.callEx(s[sp - 1], v, w);
-                        oparg = 0;
+                        // oparg is 0 (no kwdict) or 1 (kwdict present)
+                        Object w = (oparg & 0x1) == 0 ? null : s[--sp];
+                        Object v = s[--sp]; // args tuple
+                        sp -= 1;
+                        assert s[sp - 1] == null; // from PUSH_NULL
+                        s[sp - 1] = Callables.callEx(s[sp], v, w);
                         break;
+                    }
 
                     case Opcode311.MAKE_FUNCTION:
                         // Make a function object. Stack:
                         // code | name | 0-4 args | -> func |
                         // ------------------------^sp ---------^sp
-                        sp = makeFunction(opword & 0xff, sp);
-                        oparg = 0;
+                        sp = makeFunction(oparg, sp);
                         break;
 
-                    case Opcode311.EXTENDED_ARG:
-                        /*
-                         * This opcode extends the effective opcode
-                         * argument of the next opcode that has one.
-                         */
-                        // before: ........xxxxxxxx00000000
-                        // after : xxxxxxxxaaaaaaaa00000000
-                        oparg = (oparg | opword & 0xff) << 8;
-                        /*
-                         * When we encounter an argument to a "real"
-                         * opcode, we need only mask it to 8 bits and or
-                         * it with the already aligned oparg prefix.
-                         * Every opcode that consumes oparg must set it
-                         * to zero to reset this logic.
-                         */
+                    case Opcode311.BINARY_OP: {
+                        Object w = s[--sp]; // POP
+                        int top = sp - 1;
+                        Object v = s[top]; // TOP
+                        s[top] = switch (oparg) {
+                            default -> //
+                                    Py.NotImplemented;
+                            case Opcode311.NB_ADD -> //
+                                    PyNumber.add(v, w);
+                            case Opcode311.NB_AND -> //
+                                    PyNumber.and(v, w);
+                            // case Opcode311.NB_FLOOR_DIVIDE -> //
+                            // PyNumber.FloorDivide(v, w);
+                            // case Opcode311.NB_LSHIFT -> //
+                            // PyNumber.Lshift(v, w);
+                            // case Opcode311.NB_MATRIX_MULTIPLY -> //
+                            // PyNumber.MatrixMultiply(v, w);
+                            case Opcode311.NB_MULTIPLY -> //
+                                    PyNumber.multiply(v, w);
+                            // case Opcode311.NB_REMAINDER -> //
+                            // PyNumber.Remainder(v, w);
+                            case Opcode311.NB_OR -> //
+                                    PyNumber.or(v, w);
+                            // case Opcode311.NB_POWER -> //
+                            // PyNumber.PowerNoMod(v, w);
+                            // case Opcode311.NB_RSHIFT -> //
+                            // PyNumber.Rshift(v, w);
+                            case Opcode311.NB_SUBTRACT -> //
+                                    PyNumber.subtract(v, w);
+                            // case Opcode311.NB_TRUE_DIVIDE -> //
+                            // PyNumber.TrueDivide(v, w);
+                            case Opcode311.NB_XOR -> //
+                                    PyNumber.xor(v, w);
+                            // case Opcode311.NB_INPLACE_ADD -> //
+                            // PyNumber.InPlaceAdd(v, w);
+                            // case Opcode311.NB_INPLACE_AND -> //
+                            // PyNumber.InPlaceAnd(v, w);
+                            // case Opcode311.NB_INPLACE_FLOOR_DIVIDE ->
+                            // //
+                            // PyNumber.InPlaceFloorDivide(v, w);
+                            // case Opcode311.NB_INPLACE_LSHIFT -> //
+                            // PyNumber.InPlaceLshift(v, w);
+                            // case Opcode311.NB_INPLACE_MATRIX_MULTIPLY
+                            // -> //
+                            // PyNumber.InPlaceMatrixMultiply(v, w);
+                            // case Opcode311.NB_INPLACE_MULTIPLY -> //
+                            // PyNumber.InPlaceMultiply(v, w);
+                            // case Opcode311.NB_INPLACE_REMAINDER -> //
+                            // PyNumber.InPlaceRemainder(v, w);
+                            // case Opcode311.NB_INPLACE_OR -> //
+                            // PyNumber.InPlaceOr(v, w);
+                            // case Opcode311.NB_INPLACE_POWER -> //
+                            // PyNumber.InPlacePowerNoMod(v, w);
+                            // case Opcode311.NB_INPLACE_RSHIFT -> //
+                            // PyNumber.InPlaceRshift(v, w);
+                            // case Opcode311.NB_INPLACE_SUBTRACT -> //
+                            // PyNumber.InPlaceSubtract(v, w);
+                            // case Opcode311.NB_INPLACE_TRUE_DIVIDE ->
+                            // //
+                            // PyNumber.InPlaceTrueDivide(v, w);
+                            // case Opcode311.NB_INPLACE_XOR -> //
+                            // PyNumber.InPlaceXor(v, w);
+                        };
                         break;
+                    }
+
+                    case Opcode311.EXTENDED_ARG:
+                        // Pick up the next instruction.
+                        opword = wordcode[ip++];
+                        // The current oparg *prefixes* the next oparg,
+                        // which could of course be another
+                        // EXTENDED_ARG. (Trust me, it'll be fine.)
+                        oparg = (oparg << 8) | opword & 0xff;
+                        // This is *instead of* the post-switch fetch.
+                        continue;
 
                     default:
                         throw new InterpreterError("ip: %d, opcode: %d",
-                                2 * ip, opword >> 8);
+                                2 * (ip - 1), opword >> 8);
                 } // switch
+
+                /*
+                 * Pick up the next instruction and argument. Because we
+                 * use a word array, our ip is half the CPython ip. The
+                 * latter, and all jump arguments, are always even, so
+                 * we have to halve the jump distances or destinations.
+                 */
+                opword = wordcode[ip++];
+                oparg = opword & 0xff;
 
             } catch (PyException pye) {
                 /*
@@ -753,8 +845,8 @@ class CPython311Frame extends PyFrame<CPython311Code> {
                 // Should handle within Python, but for now, stop.
                 t.printStackTrace();
                 throw new InterpreterError(t,
-                        "Non-PyException at ip: %d, opcode: %d", 2 * ip,
-                        opword >> 8);
+                        "Non-PyException at ip: %d, opcode: %d",
+                        2 * (ip - 1), opword >> 8);
             }
         } // loop
 
@@ -831,7 +923,8 @@ class CPython311Frame extends PyFrame<CPython311Code> {
      */
     private void cellsToDict(String[] names, PyDict dict) {
         throw new MissingFeature("3.11 local variable order");
-        // // We'll be copying the values in these cells to the dictionary
+        // // We'll be copying the values in these cells to the
+        // dictionary
         // PyCell[] values = freevars;
         // /*
         // * If the names given are the cellvars, we'll start at zero.
@@ -870,6 +963,8 @@ class CPython311Frame extends PyFrame<CPython311Code> {
             "too many values to unpack (expected %d)";
     private static final String BAD_BUILD_CONST_KEY_MAP =
             "bad BUILD_CONST_KEY_MAP keys argument";
+    private static final String VALUE_AFTER_STAR =
+            "Value after * must be an iterable, not %.200s";
 
     /**
      * Store the elements of a Python iterable in a slice
@@ -1101,15 +1196,15 @@ class CPython311Frame extends PyFrame<CPython311Code> {
     /**
      * Support the BUILD_CONST_KEY_MAP opcode. The stack has this
      * layout:<pre>
-     * k1 | ... | kN | names | -> | map |
-     * -----------------------^sp -------^sp
+     * v1 | ... | vN | keys | -> | map |
+     * ----------------------^sp -------^sp
      * </pre> We use this to build a dictionary from the {@code N=oparg}
-     * names stored as as a {@code tuple} and stacked values in order.
+     * keys stored as as a {@code tuple} and stacked values in order.
      *
      * @param sp current stack pointer
      * @param oparg number of values expected
      * @return new stack pointer
-     * @throws SystemError if {@code names} is not the expected size (or
+     * @throws SystemError if {@code keys} is not the expected size (or
      *     not a {@code tuple})
      */
     private int constKeyMap(int sp, int oparg) throws SystemError {
@@ -1235,5 +1330,46 @@ class CPython311Frame extends PyFrame<CPython311Code> {
         // String name = code.freevars[oparg - cellvars.length];
         // return new NameError(UNBOUNDFREE_ERROR_MSG, name);
         // }
+    }
+
+    /**
+     * Create a {@link TypeError} to throw when keyword arguments appear
+     * not to be a mapping. PyDict.merge raises AttributeError
+     * (percolated from an attempt to get 'keys' attribute) if its
+     * second argument is not a mapping, which we convert to a
+     * TypeError.
+     *
+     * @param func providing a function name for context
+     * @param kwargs the alleged mapping
+     * @return an exception to throw
+     */
+    // Compare CPython format_kwargs_error in ceval.c
+    private static TypeError kwargsTypeError(Object func,
+            Object kwargs) {
+        String funcstr = PyObjectUtil.functionStr(func);
+        return Abstract.argumentTypeError(funcstr, "**", "a mapping",
+                kwargs);
+    }
+
+    /**
+     * Create a {@link TypeError} to throw when a duplicate key turns up
+     * while merging keyword arguments to a function call.
+     *
+     * @param ke the duplicate key error
+     * @param func providing a function name for context
+     * @return an exception to throw
+     */
+    // Compare CPython format_kwargs_error in ceval.c
+    private static TypeError kwargsKeyError(KeyError.Duplicate ke,
+            Object func) {
+        /*
+         * PyDict.merge raises KeyError.Duplicate (percolated from an
+         * attempt to assign an existing key), which we convert to a
+         * TypeError.
+         */
+        String funcstr = PyObjectUtil.functionStr(func);
+        return new TypeError(
+                "%s got multiple values for keyword argument '%s'",
+                funcstr, ke.key);
     }
 }

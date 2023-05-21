@@ -302,16 +302,15 @@ class CPython311CodeTest extends UnitTestSupport {
      *
      * @param name of the Python example
      */
-    // FIXME and re-enable test
-    @Disabled("Not implementing 3.11 code object yet")
     @SuppressWarnings("static-method")
     @DisplayName("We can execute simple ...")
     @ParameterizedTest(name = "{0}.py")
     @ValueSource(strings = {"load_store_name", "unary_op", "binary_op",
             "bool_left_arith", "bool_right_arith", "comparison",
             "iterables", "tuple_index", "list_index",
-            "attr_access_builtin", "call_method_builtin",
-            "builtins_module"})
+            "attr_access_builtin", "call_method_builtin"
+    // , "builtins_module" // FIXME and re-enable test
+    })
     void executeSimple(String name) {
         CPython311Code code = readCode(name);
         PyDict globals = new PyDict();
@@ -319,6 +318,16 @@ class CPython311CodeTest extends UnitTestSupport {
         Object r = interp.eval(code, globals);
         assertEquals(Py.None, r);
         assertExpectedVariables(readResultDict(name), globals);
+    }
+
+    // FIXME and add to preceding test
+    @Disabled("Not implementing 3.11 code object yet")
+    @SuppressWarnings("static-method")
+    @DisplayName("We can execute builtins_module test ...")
+    @ParameterizedTest(name = "{0}.py")
+    @ValueSource(strings = {"builtins_module"})
+    void executeSimple2(String name) {
+        executeSimple(name);
     }
 
     /**
