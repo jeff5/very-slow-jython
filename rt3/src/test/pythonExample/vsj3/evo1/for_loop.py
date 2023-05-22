@@ -4,6 +4,7 @@
 # This is primarily a test of creating iterators
 # on the types involved.
 
+# Opcodes GET_ITER, FOR_ITER, JUMP_BACKWARD
 
 tuple_sum = 0
 for i in (13, 14, 15):

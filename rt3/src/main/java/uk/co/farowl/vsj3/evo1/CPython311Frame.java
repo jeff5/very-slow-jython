@@ -300,7 +300,6 @@ class CPython311Frame extends PyFrame<CPython311Code> {
 
                     case Opcode311.RETURN_VALUE:
                         returnValue = s[--sp]; // POP
-                        assert ip == END;
                         break loop;
 
                     case Opcode311.STORE_NAME: {
@@ -575,14 +574,60 @@ class CPython311Frame extends PyFrame<CPython311Code> {
                     }
 
                     case Opcode311.JUMP_FORWARD:
-                        ip += oparg >> 1;
+                        ip += oparg;
                         break;
+
+                    case Opcode311.JUMP_BACKWARD: {
+                        ip -= oparg;
+                        break;
+                    }
+
+                    case Opcode311.POP_JUMP_BACKWARD_IF_FALSE: {
+                        if (!Abstract.isTrue(s[--sp])) { ip -= oparg; }
+                        break;
+                    }
+                    case Opcode311.POP_JUMP_FORWARD_IF_FALSE: {
+                        if (!Abstract.isTrue(s[--sp])) { ip += oparg; }
+                        break;
+                    }
+
+                    case Opcode311.POP_JUMP_BACKWARD_IF_TRUE: {
+                        if (Abstract.isTrue(s[--sp])) { ip -= oparg; }
+                        break;
+
+                    }
+
+                    case Opcode311.POP_JUMP_FORWARD_IF_TRUE: {
+                        if (Abstract.isTrue(s[--sp])) { ip += oparg; }
+                        break;
+
+                    }
+
+                    case Opcode311.POP_JUMP_BACKWARD_IF_NOT_NONE: {
+                        if (s[--sp] != Py.None) { ip -= oparg; }
+                        break;
+                    }
+
+                    case Opcode311.POP_JUMP_FORWARD_IF_NOT_NONE: {
+                        if (s[--sp] != Py.None) { ip += oparg; }
+                        break;
+                    }
+
+                    case Opcode311.POP_JUMP_BACKWARD_IF_NONE: {
+                        if (s[--sp] == Py.None) { ip -= oparg; }
+                        break;
+                    }
+
+                    case Opcode311.POP_JUMP_FORWARD_IF_NONE: {
+                        if (s[--sp] == Py.None) { ip += oparg; }
+                        break;
+                    }
 
                     case Opcode311.JUMP_IF_FALSE_OR_POP: {
                         Object v = s[--sp]; // POP
                         if (!Abstract.isTrue(v)) {
                             sp += 1;    // UNPOP
-                            ip = (oparg >> 1) - 1;
+                            ip += oparg;
                         }
                         break;
                     }
@@ -591,8 +636,20 @@ class CPython311Frame extends PyFrame<CPython311Code> {
                         Object v = s[--sp]; // POP
                         if (Abstract.isTrue(v)) {
                             sp += 1;    // UNPOP
-                            ip = (oparg >> 1) - 1;
+                            ip += oparg;
                         }
+                        break;
+                    }
+
+                    case Opcode311.JUMP_BACKWARD_NO_INTERRUPT: {
+                        // Same as plain JUMP_BACKWARD for us
+                        ip -= oparg;
+                        break;
+                    }
+
+                    case Opcode311.JUMP_BACKWARD_QUICK: {
+                        // Same as plain JUMP_BACKWARD for us
+                        ip -= oparg;
                         break;
                     }
 
@@ -616,8 +673,8 @@ class CPython311Frame extends PyFrame<CPython311Code> {
                         if (next != null) {
                             s[sp++] = next;
                         } else {
-                            ip += oparg >> 1;
                             --sp;
+                            ip += oparg;
                         }
                         break;
                     }
@@ -709,6 +766,13 @@ class CPython311Frame extends PyFrame<CPython311Code> {
                         // ------------------------^sp ---------^sp
                         sp = makeFunction(oparg, sp);
                         break;
+
+                    case Opcode311.COPY: {
+                            assert(oparg != 0);
+                            Object v = s[sp-oparg];
+                            s[sp++] = v;
+                            break;
+                        }
 
                     case Opcode311.BINARY_OP: {
                         Object w = s[--sp]; // POP
