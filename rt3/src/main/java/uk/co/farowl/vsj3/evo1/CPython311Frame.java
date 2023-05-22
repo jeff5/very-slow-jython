@@ -149,28 +149,6 @@ class CPython311Frame extends PyFrame<CPython311Code> {
                 : PyCell.EMPTY_ARRAY;
     }
 
-    /**
-     * Copy arguments that should be cells after parsing arguments into
-     * locals. We are copying into the locally-defined cell variables
-     * (named in {@code code.cellvars}), which start at index 0, and are
-     * followed by those initialised by the closure of the function
-     * (named in {@code code.freevars}).
-     */
-    void argsToCells() {
-        throw new MissingFeature("3.11 local variable order");
-        // int[] cell2arg = code.cell2arg;
-        // if (cell2arg != null) {
-        // assert cell2arg.length == code.cellvars.length;
-        // for (int i = 0; i < cell2arg.length; i++) {
-        // int j = cell2arg[i];
-        // if (j >= 0) {
-        // freevars[i].set(fastlocals[j]);
-        // fastlocals[j] = null;
-        // }
-        // }
-        // }
-    }
-
     @Override
     Object eval() {
 
@@ -214,18 +192,19 @@ class CPython311Frame extends PyFrame<CPython311Code> {
 
         // @formatter:off
         // The structure of the interpreter loop is:
-        // while (ip < END) {
+        // while (ip <= END) {
         //     switch (opword >> 8) {
         //     case Opcode311.LOAD_CONST:
-        //         s[sp++] = consts[oparg];
-        //         break;
+        //         s[sp++] = consts[oparg]; break;
         //     // other cases
+        //     case Opcode311.RETURN_VALUE:
+        //         returnValue = s[--sp]; break loop;
         //     case Opcode311.EXTENDED_ARG:
         //         opword = wordcode[ip++];
         //         oparg = (oparg << 8) | opword & 0xff;
         //         continue;
         //     default:
-        //         throw new InterpreterError("");
+        //         throw new InterpreterError("...");
         //     }
         //     opword = wordcode[ip++];
         //     oparg = opword & 0xff;
@@ -235,7 +214,7 @@ class CPython311Frame extends PyFrame<CPython311Code> {
         // Holds keyword names argument between KW_NAMES and CALL
         PyTuple kwnames = null;
 
-        loop: while (ip < END) {
+        loop: while (ip <= END) {
             /*
              * Here every so often, or maybe inside the try, and
              * conditional on the opcode, CPython would have us check
@@ -321,7 +300,7 @@ class CPython311Frame extends PyFrame<CPython311Code> {
 
                     case Opcode311.RETURN_VALUE:
                         returnValue = s[--sp]; // POP
-                        // ip = END; ?
+                        assert ip == END;
                         break loop;
 
                     case Opcode311.STORE_NAME: {
@@ -409,12 +388,14 @@ class CPython311Frame extends PyFrame<CPython311Code> {
 
                     case Opcode311.LOAD_GLOBAL: {
                         // Resolve against globals and builtins
-                        String name = names[oparg];
+                        String name = names[oparg >> 1];
                         Object v = globals.loadGlobal(builtins, name);
                         if (v == null) {
                             // CPython: not if error is already current
                             throw new NameError(NAME_ERROR_MSG, name);
                         }
+                        // Optionally push a null to satisfy [PRE]CALL
+                        if ((oparg & 1) != 0) { s[sp++] = null; }
                         s[sp++] = v;
                         break;
                     }
@@ -1230,14 +1211,13 @@ class CPython311Frame extends PyFrame<CPython311Code> {
 
     /**
      * Support the MAKE_FUNCTION opcode. The stack has this layout:<pre>
-     *  code | name | 0-4 args | -> func |
-     *  ------------------------^sp ---------^sp
-     * </pre> Here {@code code} is a code object for the function and
-     * {@code name} is a name supplied at the call site. The zero to
-     * four extra arguments {@code defaults}, {@code kwdefaults},
-     * {@code annotations} and {@code closure} in that order if present,
-     * and {@code oparg} is a bit map to tell us which of them is
-     * actually present.
+     *  code | 0-4 args | -> func |
+     *  -----------------^sp ---------^sp
+     * </pre> Here {@code code} is a code object for the function
+     * supplied at the call site. The zero to four extra arguments
+     * {@code defaults}, {@code kwdefaults}, {@code annotations} and
+     * {@code closure} in that order if present, and {@code oparg} is a
+     * bit map to tell us which of them is actually present.
      * <p>
      * The stack pointer moves by an amount that depends on
      * {@code oparg}, so we return the new value from the method.
@@ -1249,12 +1229,10 @@ class CPython311Frame extends PyFrame<CPython311Code> {
     private int makeFunction(int oparg, int sp) {
         // Shorthands
         Object[] s = valuestack;
-        PyFunction<?> f = this.func;
+        PyFunction<?> f = this.func, func;
 
-        Object qualname = s[--sp]; // Not in 3.11 since in code object
         PyCode code = (PyCode)s[--sp];
 
-        PyFunction<?> func;
         if (oparg == 0) {
             // Simple case: function object with no extras.
             func = code.createFunction(f.interpreter, f.globals);
@@ -1270,9 +1248,6 @@ class CPython311Frame extends PyFrame<CPython311Code> {
             func = code.createFunction(f.interpreter, f.globals,
                     defaults, kwdefaults, annotations, closure);
         }
-
-        // Override name from code with name from stack (before 3.11)
-        func.setQualname(qualname);
 
         s[sp++] = func;
         return sp;

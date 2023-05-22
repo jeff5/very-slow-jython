@@ -6,7 +6,6 @@
 
 # Access sample objects from the builtins module implicitly
 # Opcode is LOAD_NAME
-
 int_name = int.__name__
 max_name = max.__name__
 

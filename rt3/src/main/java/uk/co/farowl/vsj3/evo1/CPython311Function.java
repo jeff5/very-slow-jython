@@ -92,9 +92,6 @@ package uk.co.farowl.vsj3.evo1;
                 argParser.new ArrayFrameWrapper(frame.fastlocals);
         argParser.parseToFrame(wrapper, args, names);
 
-        // Copy arguments that should be cells
-        frame.argsToCells();
-
         // Run the function body
         return frame.eval();
     }
