@@ -83,8 +83,6 @@ class BuiltinsModuleTest extends UnitTestSupport {
          * A simple test of {@code builtins.exec} where the code object
          * is created locally using {@link ActionHolder}.
          */
-        @Disabled("Not implementing 3.11 code object yet")
-        // FIXME and re-enable test
         @Test
         @DisplayName("exec(code)")
         void testExec() {
@@ -116,8 +114,6 @@ class BuiltinsModuleTest extends UnitTestSupport {
          *
          * @param name of the module to load
          */
-        @Disabled("Not implementing 3.11 code object yet")
-        // FIXME and re-enable test
         @DisplayName("exec(file)")
         @ParameterizedTest(name = "{0}.py")
         @ValueSource(strings = {"load_store_name", "unary_op",
@@ -139,8 +135,6 @@ class BuiltinsModuleTest extends UnitTestSupport {
             assertExpectedVariables(readResultDict(name), globals);
         }
 
-        @Disabled("Not implementing 3.11 code object yet")
-        // FIXME and re-enable test
         @Test
         @DisplayName("globals")
         void testGlobals() {
@@ -156,8 +150,6 @@ class BuiltinsModuleTest extends UnitTestSupport {
             interp.eval(c, globals, locals);
         }
 
-        @Disabled("Not implementing 3.11 code object yet")
-        // FIXME and re-enable test
         @Test
         @DisplayName("locals")
         void testLocals() {
@@ -216,13 +208,17 @@ class BuiltinsModuleTest extends UnitTestSupport {
     }
 
     /**
-     * An action defined in Java that Python will treat as a
-     * {@code code} object. We use this trick to call functions in tests
-     * where the function needs information from the execution
-     * environment that can only be found through the current stack
-     * frame, that is, through the {@link ThreadState} of the current
-     * Java {@code Thread}. Most of the functions we test, although
-     * Python objects, do not refer to the {@code ThreadeState}.
+     * This is a Python {@code code} object where the behaviour is
+     * defined in Java through the {@link ActionHolder#body() body()}
+     * method. We use this trick to call functions in tests where the
+     * function needs information from the execution environment that
+     * can only be found through the current stack frame.
+     * <p>
+     * Most of the functions we test, although Python objects, do not
+     * refer to the {@code ThreadeState}, and so it won't matter that
+     * the current Java {@code Thread} test provides no current Python
+     * frame, function and code object. Call built-in function locals,
+     * however, and we need all three.
      * <p>
      * The class is a microcosm of the interpreter architectural
      * pattern: {@code code-function-frame}.
