@@ -45,9 +45,6 @@ package uk.co.farowl.vsj3.evo1;
 
    @Override
     void setCode(CPython311Code code) {
-        // if (code == null) {
-        // throw Abstract.attrMustBe("__code__", "a code object", code);
-        // }
         super.setCode(code);
         buildParser();
     }
@@ -112,8 +109,10 @@ package uk.co.farowl.vsj3.evo1;
     protected void buildParser() {
         CPython311Code c = code;
         int regargcount = c.argcount+ c.kwonlyargcount;
+        // FIXME: re-think representation of layout
+        String[] varnames = c.co_varnames().toArray(String.class);
         ArgParser ap = new ArgParser(name, // name is unchanged
-                c.names, regargcount, c.posonlyargcount,
+                varnames, regargcount, c.posonlyargcount,
                 c.kwonlyargcount,
                 c.traits.contains(PyCode.Trait.VARARGS),
                 c.traits.contains(PyCode.Trait.VARKEYWORDS));

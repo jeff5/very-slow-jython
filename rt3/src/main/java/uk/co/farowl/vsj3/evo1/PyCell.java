@@ -22,6 +22,16 @@ public class PyCell implements Supplier<Object>, CraftedPyObject {
     /** Handy constant where no cells are needed in a frame. */
     static final PyCell[] EMPTY_ARRAY = new PyCell[0];
 
+    /** Create an empty cell. */
+    PyCell() {}
+
+    /**
+     * Create a cell wuthe the given initial value.
+     *
+     * @param initial value
+     */
+    PyCell(Object initial) { this.obj = initial; }
+
     // Java API -------------------------------------------------------
 
     /**

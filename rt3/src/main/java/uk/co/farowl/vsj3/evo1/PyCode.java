@@ -387,6 +387,9 @@ public abstract class PyCode implements CraftedPyObject {
             super(name, index);
             this.argIndex = argIndex;
         }
+
+        @Override
+        boolean isLocal() { return true; }
     }
 
     /**

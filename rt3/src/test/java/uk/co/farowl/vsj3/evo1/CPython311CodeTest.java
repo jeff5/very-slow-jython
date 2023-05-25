@@ -18,7 +18,6 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.DisplayNameGeneration;
 import org.junit.jupiter.api.DisplayNameGenerator;
@@ -238,7 +237,7 @@ class CPython311CodeTest extends UnitTestSupport {
         @Test
         @Override
         void co_varnames() {
-            checkNames(code.co_varnames(), "u", "f2");
+            checkNames(code.co_varnames(), "a", "b", "u", "f2");
         }
     }
 
@@ -267,7 +266,7 @@ class CPython311CodeTest extends UnitTestSupport {
         @Test
         @Override
         void co_varnames() {
-            checkNames(code.co_varnames(), "v", "f3");
+            checkNames(code.co_varnames(), "c", "v", "f3");
         }
     }
 
@@ -344,8 +343,6 @@ class CPython311CodeTest extends UnitTestSupport {
      *
      * @param name of the Python example
      */
-    // FIXME and re-enable test
-    @Disabled("Not implementing 3.11 code object yet")
     @SuppressWarnings("static-method")
     @DisplayName("We can execute complex ...")
     @ParameterizedTest(name = "{0}.py")
@@ -367,8 +364,6 @@ class CPython311CodeTest extends UnitTestSupport {
      *
      * @param name of the Python example
      */
-    // FIXME and re-enable test
-    @Disabled("Not implementing 3.11 code object yet")
     @SuppressWarnings("static-method")
     @DisplayName("We can execute with custom locals ...")
     @ParameterizedTest(name = "{0}.py")
@@ -396,8 +391,6 @@ class CPython311CodeTest extends UnitTestSupport {
      *
      * @param name of the Python example
      */
-    // FIXME and re-enable test
-    @Disabled("Not implementing 3.11 code object yet")
     @SuppressWarnings("static-method")
     @DisplayName("We can execute with custom builtins ...")
     @ParameterizedTest(name = "{0}.py")

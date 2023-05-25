@@ -11,6 +11,7 @@ import uk.co.farowl.vsj3.evo1.PyCode.CellArgument;
 import uk.co.farowl.vsj3.evo1.PyCode.CellVariable;
 import uk.co.farowl.vsj3.evo1.PyCode.FreeVariable;
 import uk.co.farowl.vsj3.evo1.PyCode.Trait;
+import uk.co.farowl.vsj3.evo1.PyCode.Variable;
 import uk.co.farowl.vsj3.evo1.PyDict.MergeMode;
 import uk.co.farowl.vsj3.evo1.base.InterpreterError;
 import uk.co.farowl.vsj3.evo1.base.MissingFeature;
@@ -243,6 +244,29 @@ class CPython311Frame extends PyFrame<CPython311Code> {
                     case Opcode311.CACHE:
                         break;
 
+                    case Opcode311.LOAD_CLOSURE: {
+                        /*
+                         * Push a cell variable as a cell. In CPython,
+                         * this is the same as LOAD_FAST but we keep
+                         * cell and free variables in their own arrays.
+                         * In an optimisation we would have a
+                         * LOAD_CELL_CLOSURE and LOAD_FREE_CLOSURE.
+                         */
+                        // Convert CPython argument to array index
+                        Variable v = code.layout[oparg];
+                        PyCell cell;
+                        if (v.isCell()) {
+                            // Cell is in cellvars
+                            cell = cellvars[v.index];
+                        } else {
+                            // Cell is in freevars = closure
+                            assert v.isFree();
+                            cell = freevars[v.index];
+                        }
+                        s[sp++] = cell;
+                        break;
+                    }
+
                     case Opcode311.LOAD_FAST: {
                         Object v = fastlocals[oparg];
                         if (v == null) { throw unboundFast(oparg); }
@@ -406,8 +430,40 @@ class CPython311Frame extends PyFrame<CPython311Code> {
                         fastlocals[oparg] = null;
                         break;
 
+                    case Opcode311.MAKE_CELL: {
+                        Variable v = code.layout[oparg];
+                        if (v.isLocal()) {
+                            // Cell-argument
+                            assert v.isCell();
+                            assert ((CellArgument)v).argIndex == oparg;
+                            assert cellvars[v.index] == null;
+                            // Initial value delivered to fastlocals
+                            cellvars[v.index] =
+                                    new PyCell(fastlocals[oparg]);
+                        } else if (v.isCell()) {
+                            // New empty cell
+                            assert cellvars[v.index] == null;
+                            cellvars[v.index] = new PyCell();
+                        } else {
+                            // Free should be present as closure
+                            assert v.isFree();
+                            assert freevars[v.index] != null;
+                        }
+                        break;
+                    }
+
                     case Opcode311.DELETE_DEREF: {
-                        PyCell cell = freevars[oparg];
+                        // Convert CPython argument to array index
+                        Variable v = code.layout[oparg];
+                        PyCell cell;
+                        if (v.isCell()) {
+                            // Cell is in cellvars
+                            cell = cellvars[v.index];
+                        } else {
+                            // Cell is in freevars = closure
+                            assert v.isFree();
+                            cell = freevars[v.index];
+                        }
                         if (cell.get() == null) {
                             throw unboundCell(oparg);
                         }
@@ -415,21 +471,45 @@ class CPython311Frame extends PyFrame<CPython311Code> {
                         break;
                     }
 
-                    case Opcode311.LOAD_CLOSURE:
-                        s[sp++] = freevars[oparg];
-                        break;
-
                     case Opcode311.LOAD_DEREF: {
-                        Object v = freevars[oparg].get();
-                        if (v == null) { throw unboundCell(oparg); }
-                        s[sp++] = v;
+                        // Convert CPython argument to array index
+                        Variable v = code.layout[oparg];
+                        PyCell cell;
+                        if (v.isCell()) {
+                            // Cell is in cellvars
+                            cell = cellvars[v.index];
+                        } else {
+                            // Cell is in freevars = closure
+                            assert v.isFree();
+                            cell = freevars[v.index];
+                        }
+                        Object w = cell.get();
+                        if (w == null) { throw unboundCell(oparg); }
+                        s[sp++] = w;
                         break;
                     }
 
-                    case Opcode311.STORE_DEREF:
-                        freevars[oparg].set(s[--sp]);
+                    case Opcode311.STORE_DEREF: {
+                        // Convert CPython argument to array index
+                        Variable v = code.layout[oparg];
+                        PyCell cell;
+                        if (v.isCell()) {
+                            // Cell is in cellvars
+                            cell = cellvars[v.index];
+                        } else {
+                            // Cell is in freevars = closure
+                            assert v.isFree();
+                            cell = freevars[v.index];
+                        }
+                        cell.set(s[--sp]);
                         break;
+                    }
 
+                    case Opcode311.COPY_FREE_VARS: {
+                        // We did this when we created the frame
+                        // freevars = func.closure;
+                        break;
+                    }
                     case Opcode311.BUILD_TUPLE:
                         // w[0] | ... | w[oparg-1] | -> | tpl |
                         // -------------------------^sp -------^sp
@@ -768,11 +848,11 @@ class CPython311Frame extends PyFrame<CPython311Code> {
                         break;
 
                     case Opcode311.COPY: {
-                            assert(oparg != 0);
-                            Object v = s[sp-oparg];
-                            s[sp++] = v;
-                            break;
-                        }
+                        assert (oparg != 0);
+                        Object v = s[sp - oparg];
+                        s[sp++] = v;
+                        break;
+                    }
 
                     case Opcode311.BINARY_OP: {
                         Object w = s[--sp]; // POP
@@ -1355,20 +1435,19 @@ class CPython311Frame extends PyFrame<CPython311Code> {
      */
     // Compare CPython format_exc_unbound in ceval.c
     private NameError unboundCell(int oparg) {
-        throw new MissingFeature("3.11 local variable order");
-        // String[] cellvars = code.cellvars;
-        // // XXX Justify in narrative and by implementation our claim:
-        // // CPython suppresses if _PyErr_Occurred but we do not need
-        // to
-        // if (oparg < cellvars.length) {
-        // // Cells near the start are local variables to this scope
-        // String name = cellvars[oparg];
-        // return new UnboundLocalError(UNBOUNDLOCAL_ERROR_MSG, name);
-        // } else {
-        // // Cells beyond cellvars.length are free in this scope
-        // String name = code.freevars[oparg - cellvars.length];
-        // return new NameError(UNBOUNDFREE_ERROR_MSG, name);
-        // }
+        // Convert CPython argument to array index
+        Variable v = code.layout[oparg];
+        if (v.isCell()) {
+            // Cell is in cellvars
+            assert cellvars[v.index] != null;
+            return new UnboundLocalError(UNBOUNDLOCAL_ERROR_MSG,
+                    v.name);
+        } else {
+            // Cell is in freevars = closure
+            assert v.isFree();
+            assert freevars[v.index] != null;
+            return new NameError(UNBOUNDFREE_ERROR_MSG, v.name);
+        }
     }
 
     /**
