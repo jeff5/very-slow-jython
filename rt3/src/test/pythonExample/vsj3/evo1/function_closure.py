@@ -38,6 +38,7 @@ f2_cellvars = f2.__code__.co_cellvars  # made in f2
 f2_freevars = f2.__code__.co_freevars  # from outer
 
 f2_closure = f2.__closure__  # corresponding to names in freevars
+f2_closure_len = len(f2_closure)
 
 f3_name = f3.__name__
 f3_qualname = f3.__qualname__
@@ -46,8 +47,12 @@ f3_cellvars = f3.__code__.co_cellvars  # made in f3
 f3_freevars = f3.__code__.co_freevars  # from outer
 
 f3_closure = f3.__closure__  # corresponding to names in freevars
+f3_closure_len = len(f3_closure)
 
 
 # Delete since function object not marshallable:
 del f1, f2, f3
+
+# Cells are not marshallable either.
+del f2_closure, f3_closure
 
