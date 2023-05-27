@@ -14,7 +14,6 @@ import uk.co.farowl.vsj3.evo1.PyCode.Trait;
 import uk.co.farowl.vsj3.evo1.PyCode.Variable;
 import uk.co.farowl.vsj3.evo1.PyDict.MergeMode;
 import uk.co.farowl.vsj3.evo1.base.InterpreterError;
-import uk.co.farowl.vsj3.evo1.base.MissingFeature;
 
 /** A {@link PyFrame} for executing CPython 3.11 byte code. */
 class CPython311Frame extends PyFrame<CPython311Code> {
@@ -146,9 +145,8 @@ class CPython311Frame extends PyFrame<CPython311Code> {
         this.fastlocals = nfastlocals > 0 ? new Object[nfastlocals]
                 : EMPTY_OBJECT_ARRAY;
         this.freevars = func.closure;
-        this.cellvars = code.cellvars.length > 0 ?
-                new PyCell[code.cellvars.length]
-                : PyCell.EMPTY_ARRAY;
+        this.cellvars = code.cellvars.length > 0
+                ? new PyCell[code.cellvars.length] : PyCell.EMPTY_ARRAY;
     }
 
     @Override
@@ -322,6 +320,14 @@ class CPython311Frame extends PyFrame<CPython311Code> {
                         sp -= 3;
                         // setItem(w, v, u)
                         PySequence.setItem(s[sp + 1], s[sp + 2], s[sp]);
+                        break;
+
+                    case Opcode311.DELETE_SUBSCR: // del w[v]
+                        // w | v | -> |
+                        // -------^sp -^sp
+                        sp -= 2;
+                        // delItem(w, v)
+                        PySequence.delItem(s[sp], s[sp + 1]);
                         break;
 
                     case Opcode311.RETURN_VALUE:
@@ -933,8 +939,10 @@ class CPython311Frame extends PyFrame<CPython311Code> {
                         continue;
 
                     default:
-                        throw new InterpreterError("ip: %d, opcode: %d",
-                                2 * (ip - 1), opword >> 8);
+                        throw new InterpreterError(
+                                "%s at ip: %d, unknown opcode: %d",
+                                code.qualname, 2 * (ip - 1),
+                                opword >> 8);
                 } // switch
 
                 /*
@@ -985,90 +993,46 @@ class CPython311Frame extends PyFrame<CPython311Code> {
     // Compare CPython PyFrame_FastToLocalsWithError in frameobject.c
     // Also PyFrame_FastToLocals in frameobject.c
     void fastToLocals() {
-        throw new MissingFeature("3.11 local variable order");
-        // // If the circumstances, locals will be a PyDict. Make sure.
-        // PyDict locals;
-        // if (this.locals == null) {
-        // this.locals = locals = Py.dict();
-        // } else if (this.locals instanceof PyDict) {
-        // locals = (PyDict)this.locals;
-        // } else {
-        // throw new SystemError("non-dict frame locals.");
-        // }
-        //
-        // // Copy fastlocals into the dict using keys in code.varnames
-        // fastToDict(locals);
-        //
-        // // Copy the contents of cell variables (defined here).
-        // String[] cellvars = code.cellvars;
-        // if (cellvars.length > 0) { cellsToDict(cellvars, locals); }
-        //
-        // // Copy the contents of free cell variables (defined
-        // elsewhere).
-        // String[] freevars = code.freevars;
-        // if (freevars.length > 0) {
-        // /*
-        // * We check the frame is OPTIMIZED, since if it is not, it
-        // * is a class namespace. We don't want to accidentally copy
-        // * free variables into the locals dict used by the class.
-        // */
-        // if (code.traits.contains(Trait.OPTIMIZED)) {
-        // cellsToDict(freevars, locals);
-        // }
-        // }
-    }
+        PyDict locals;
+        if (this.locals == null) {
+            this.locals = locals = Py.dict();
+        } else {
+            // In the circumstances of use, locals must be a PyDict.
+            try {
+                locals = (PyDict)this.locals;
+            } catch (ClassCastException cce) {
+                throw new InterpreterError("non-dict frame locals.");
+            }
+        }
 
-    /**
-     * Copy the {@link #fastlocals} to the dictionary. The potential
-     * number of variables is given by the length of
-     * {@code code.varnames}, although all do not necessarily have
-     * values.
-     *
-     * @param dict destination
-     */
-    private void fastToDict(PyDict dict) {
-        throw new MissingFeature("3.11 local variable order");
-        // Object[] values = fastlocals;
-        // int j = 0;
-        // for (String key : code.varnames) {
-        // Object value = values[j++];
-        // if (value == null) {
-        // dict.remove(key);
-        // } else {
-        // dict.put(key, value);
-        // }
-        // }
-    }
-
-    /**
-     * Copy names and cell contents to the dictionary. The potential
-     * number of copies is given by the number of names. Cells are
-     * always allocated, although all do not necessarily hold values.
-     *
-     * @param names {@code code.cellvars} or {@code code.freevars}
-     * @param dict destination
-     */
-    private void cellsToDict(String[] names, PyDict dict) {
-        throw new MissingFeature("3.11 local variable order");
-        // // We'll be copying the values in these cells to the
-        // dictionary
-        // PyCell[] values = freevars;
-        // /*
-        // * If the names given are the cellvars, we'll start at zero.
-        // * Otherwise the names are the freevars and we start after the
-        // * cellvars.
-        // */
-        // int j = names == code.cellvars ? 0 : code.cellvars.length;
-        // assert names == code.freevars;
-        // for (String key : names) {
-        // assert values[j] != null; // no missing cells
-        // Object value = values[j++].get();
-        // if (value == null) {
-        // dict.remove(key);
-        // } else {
-        // dict.put(key, value);
-        // }
-        // }
+        // Use the layout as an index to find the values
+        for (Variable v : code.layout.vars()) {
+            Object value;
+            if (v.isLocal())
+                value = fastlocals[v.index];
+            else if (v.isCell())
+                value = cellvars[v.index].get();
+            else {
+                assert v.isFree();
+                if (code.traits.contains(Trait.OPTIMIZED)) {
+                    value = freevars[v.index].get();
+                } else {
+                    /*
+                     * Apparently this is a class namespace. Avoid
+                     * copying the free variables into the locals dict
+                     * used by the class.
+                     */
+                    continue;
+                }
+            }
+            // In general, we are adjusting pre-existing dictionary.
+            String key = v.name;
+            if (value == null) {
+                locals.remove(key);
+            } else {
+                locals.put(key, value);
+            }
+        }
     }
 
     // Supporting definitions and methods -----------------------------

@@ -347,7 +347,7 @@ class CPython311CodeTest extends UnitTestSupport {
     @DisplayName("We can execute complex ...")
     @ParameterizedTest(name = "{0}.py")
     @ValueSource(strings = {"function_def", "function_call",
-            "function_closure"})
+            "function_closure", "function_locals"})
     void executeComplex(String name) {
         CPython311Code code = readCode(name);
         PyDict globals = new PyDict();
@@ -368,7 +368,8 @@ class CPython311CodeTest extends UnitTestSupport {
     @DisplayName("We can execute with custom locals ...")
     @ParameterizedTest(name = "{0}.py")
     @ValueSource(strings = {"load_store_name", "attr_access_builtin",
-            "call_method_builtin", "builtins_module"})
+            "call_method_builtin", "builtins_module",
+            "function_locals"})
     void executeCustomLocals(String name) {
         CPython311Code code = readCode(name);
         PyDict globals = new PyDict();
@@ -394,7 +395,7 @@ class CPython311CodeTest extends UnitTestSupport {
     @SuppressWarnings("static-method")
     @DisplayName("We can execute with custom builtins ...")
     @ParameterizedTest(name = "{0}.py")
-    @ValueSource(strings = {"builtins_module"})
+    @ValueSource(strings = {"builtins_module", "function_locals"})
     void executeCustomBuiltins(String name) {
         CPython311Code code = readCode(name);
         PyDict globals = new PyDict();

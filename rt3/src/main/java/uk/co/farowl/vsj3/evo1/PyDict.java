@@ -269,6 +269,12 @@ public class PyDict extends AbstractMap<Object, Object>
         put(key, value);
     }
 
+    @SuppressWarnings("unused")
+    private void __delitem__(Object key) {
+        // This may be over-simplifying things but ... :)
+        remove(key);
+    }
+
     // methods --------------------------------------------------------
 
     /**
