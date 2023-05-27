@@ -406,7 +406,7 @@ public abstract class PyFunction<C extends PyCode>
     protected C checkFreevars(C c) {
         PyObjectUtil.errorIfNull(c, () -> new TypeError(
                 "__code__ must be set to a code object"));
-        int nfree = c.nfreevars;
+        int nfree = c.freevars.length;
         int nclosure = closure == null ? 0 : closure.length;
         if (nclosure != nfree) {
             throw new ValueError(FREE_VARS, name, nclosure, nfree);

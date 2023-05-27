@@ -3,10 +3,10 @@
 package uk.co.farowl.vsj3.evo1;
 
 /** A {@link PyFunction} defined in CPython 3.11 byte code. */
- class CPython311Function extends PyFunction<CPython311Code> {
+class CPython311Function extends PyFunction<CPython311Code> {
 
-     /** Argument parser matched to {@link #code}. */
-     private ArgParser argParser;
+    /** Argument parser matched to {@link #code}. */
+    private ArgParser argParser;
 
     /**
      * Create a Python {@code function} object defined in CPython 3.11
@@ -26,7 +26,8 @@ package uk.co.farowl.vsj3.evo1;
             Object annotations, PyCell[] closure) {
         super(interpreter, code, globals, defaults, kwdefaults,
                 annotations, closure);
-        buildParser();
+        this.argParser = code.buildParser().defaults(defaults)
+                .kwdefaults(kwdefaults);
     }
 
     /**
@@ -38,15 +39,16 @@ package uk.co.farowl.vsj3.evo1;
      * @param code defining the function
      * @param globals name space to treat as global variables
      */
-    public CPython311Function(Interpreter interpreter, CPython311Code code,
-            PyDict globals) {
+    public CPython311Function(Interpreter interpreter,
+            CPython311Code code, PyDict globals) {
         this(interpreter, code, globals, null, null, null, null);
     }
 
-   @Override
+    @Override
     void setCode(CPython311Code code) {
         super.setCode(code);
-        buildParser();
+        argParser = code.buildParser().defaults(defaults)
+                .kwdefaults(kwdefaults);
     }
 
     @Override
@@ -69,12 +71,10 @@ package uk.co.farowl.vsj3.evo1;
         argParser.kwdefaults(this.kwdefaults);
     }
 
-
     @Override
     CPython311Frame createFrame(Object locals) {
         return new CPython311Frame(this, locals);
     }
-
 
     // slot methods --------------------------------------------------
 
@@ -95,27 +95,5 @@ package uk.co.farowl.vsj3.evo1;
 
     // FastCall support ----------------------------------------------
 
-
-
     // plumbing ------------------------------------------------------
-    /**
-     * Build {@link #argParser} to match the function object. The parser
-     * must reflect variable names and the frame layout implied by the
-     * code object, and also the default values of arguments held by the
-     * function itself. We have to re-compute this if ever we replace
-     * the code object in the function. This is called by
-     * {@link #setCode(CPython311Code)}.
-     */
-    protected void buildParser() {
-        CPython311Code c = code;
-        int regargcount = c.argcount+ c.kwonlyargcount;
-        // FIXME: re-think representation of layout
-        String[] varnames = c.co_varnames().toArray(String.class);
-        ArgParser ap = new ArgParser(name, // name is unchanged
-                varnames, regargcount, c.posonlyargcount,
-                c.kwonlyargcount,
-                c.traits.contains(PyCode.Trait.VARARGS),
-                c.traits.contains(PyCode.Trait.VARKEYWORDS));
-        argParser = ap.defaults(defaults).kwdefaults(kwdefaults);
-    }
 }

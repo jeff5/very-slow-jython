@@ -77,8 +77,11 @@ public class Py {
      */
     public static PyDict dict() { return new PyDict(); }
 
-    /** Empty (zero-length) array of {@link Object}. */
+    /** Empty (zero-length) array of {@code Object}. */
     static final Object[] EMPTY_ARRAY = new Object[0];
+
+    /** Empty (zero-length) array of {@code String}. */
+    static final String[] EMPTY_STRING_ARRAY = new String[0];
 
     /**
      * Convenient default toString implementation that tries __str__, if

@@ -123,7 +123,7 @@ class CPython311Frame extends PyFrame<CPython311Code> {
                 // We can create it later but probably won't need to
                 this.locals = null;
                 // Instead locals are in an array
-                nfastlocals = code.nlocals;
+                nfastlocals = code.varnames.length;
             } else {
                 this.locals = new PyDict();
             }
@@ -146,7 +146,8 @@ class CPython311Frame extends PyFrame<CPython311Code> {
         this.fastlocals = nfastlocals > 0 ? new Object[nfastlocals]
                 : EMPTY_OBJECT_ARRAY;
         this.freevars = func.closure;
-        this.cellvars = code.ncellvars > 0 ? new PyCell[code.ncellvars]
+        this.cellvars = code.cellvars.length > 0 ?
+                new PyCell[code.cellvars.length]
                 : PyCell.EMPTY_ARRAY;
     }
 
@@ -166,6 +167,7 @@ class CPython311Frame extends PyFrame<CPython311Code> {
         final Object[] consts = code.consts;
         final char[] wordcode = code.wordcode;
         final int END = wordcode.length;
+        final Variable[] vars = code.layout.vars();
 
         final PyDict globals = func.globals;
         assert globals != null;
@@ -253,7 +255,7 @@ class CPython311Frame extends PyFrame<CPython311Code> {
                          * LOAD_CELL_CLOSURE and LOAD_FREE_CLOSURE.
                          */
                         // Convert CPython argument to array index
-                        Variable v = code.layout[oparg];
+                        Variable v = vars[oparg];
                         PyCell cell;
                         if (v.isCell()) {
                             // Cell is in cellvars
@@ -431,7 +433,7 @@ class CPython311Frame extends PyFrame<CPython311Code> {
                         break;
 
                     case Opcode311.MAKE_CELL: {
-                        Variable v = code.layout[oparg];
+                        Variable v = vars[oparg];
                         if (v.isLocal()) {
                             // Cell-argument
                             assert v.isCell();
@@ -454,7 +456,7 @@ class CPython311Frame extends PyFrame<CPython311Code> {
 
                     case Opcode311.DELETE_DEREF: {
                         // Convert CPython argument to array index
-                        Variable v = code.layout[oparg];
+                        Variable v = vars[oparg];
                         PyCell cell;
                         if (v.isCell()) {
                             // Cell is in cellvars
@@ -473,7 +475,7 @@ class CPython311Frame extends PyFrame<CPython311Code> {
 
                     case Opcode311.LOAD_DEREF: {
                         // Convert CPython argument to array index
-                        Variable v = code.layout[oparg];
+                        Variable v = vars[oparg];
                         PyCell cell;
                         if (v.isCell()) {
                             // Cell is in cellvars
@@ -491,7 +493,7 @@ class CPython311Frame extends PyFrame<CPython311Code> {
 
                     case Opcode311.STORE_DEREF: {
                         // Convert CPython argument to array index
-                        Variable v = code.layout[oparg];
+                        Variable v = vars[oparg];
                         PyCell cell;
                         if (v.isCell()) {
                             // Cell is in cellvars
@@ -1418,9 +1420,8 @@ class CPython311Frame extends PyFrame<CPython311Code> {
      * @return exception to throw
      */
     private UnboundLocalError unboundFast(int oparg) {
-        throw new MissingFeature("3.11 local variable order");
-        // String name = code.varnames[oparg];
-        // return new UnboundLocalError(UNBOUNDLOCAL_ERROR_MSG, name);
+        String name = code.varnames[oparg];
+        return new UnboundLocalError(UNBOUNDLOCAL_ERROR_MSG, name);
     }
 
     /**
@@ -1436,7 +1437,7 @@ class CPython311Frame extends PyFrame<CPython311Code> {
     // Compare CPython format_exc_unbound in ceval.c
     private NameError unboundCell(int oparg) {
         // Convert CPython argument to array index
-        Variable v = code.layout[oparg];
+        Variable v = code.layout.vars()[oparg];
         if (v.isCell()) {
             // Cell is in cellvars
             assert cellvars[v.index] != null;

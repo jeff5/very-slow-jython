@@ -3,6 +3,9 @@
 package uk.co.farowl.vsj3.evo1;
 
 import java.nio.CharBuffer;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.Predicate;
 
 import uk.co.farowl.vsj3.evo1.Exposed.Getter;
 import uk.co.farowl.vsj3.evo1.stringlib.ByteArrayBuilder;
@@ -85,7 +88,7 @@ public class CPython311Code extends PyCode {
             // Used by the code
             Object[] consts, String[] names,
             // Mapping frame offsets to information
-            Variable[] layout,
+            Layout layout,
             // Parameter navigation with varnames
             int argcount, int posonlyargcount, int kwonlyargcount,
             // Needed to support execution
@@ -177,9 +180,9 @@ public class CPython311Code extends PyCode {
         PyTuple _consts = castTuple(consts, "consts");
         String[] _names = names(names, "names");
 
-        // Compute a Variable[] layout array from localsplus* arrays
-        Variable[] _layout = layout(totalargs(argcount, flags),
-                localsplusnames, localspluskinds);
+        // Compute a layout from localsplus* arrays
+        LayoutImpl _layout = new LayoutImpl(localsplusnames,
+                localspluskinds, totalargs(argcount, flags));
 
         String _name = castString(name, "name");
         String _qualname = castString(qualname, "qualname");
@@ -244,7 +247,161 @@ public class CPython311Code extends PyCode {
                 defaults, kwdefaults, annotations, closure);
     }
 
+    /**
+     * Build an {@link ArgParser} to match the code object and given
+     * defaults. This is a call-back when constructing a
+     * {@code CPython311Function} from this {@code code} object and also
+     * when the code object of a function is replaced. The method
+     * ensures the parser reflects the variable names and the frame
+     * layout implied by the code object. The caller (the function
+     * definition) supplies the default values of arguments on return.
+     *
+     * @return parser reflecting the frame layout of this code object
+     */
+    ArgParser buildParser() {
+        int regargcount = argcount + kwonlyargcount;
+        return new ArgParser(name, layout.varnames(), regargcount,
+                posonlyargcount, kwonlyargcount,
+                traits.contains(PyCode.Trait.VARARGS),
+                traits.contains(PyCode.Trait.VARKEYWORDS));
+    }
+
     // Plumbing -------------------------------------------------------
+
+    private static final String NAME_TUPLES_STRING =
+            "name tuple must contain only strings, not '%s' (in %s)";
+    private static final String LENGTHS_UNEQUAL =
+            "lengths unequal localspluskinds(%d) _localsplusnames(%d)";
+
+    private static final int CO_FAST_LOCAL = 0x20, CO_FAST_CELL = 0x40,
+            CO_FAST_FREE = 0x80;
+
+    /**
+     * Store information about the variables required by a
+     * {@link CPython311Code} object and where they will be stored in
+     * the frame it creates.
+     */
+    static class LayoutImpl implements Layout {
+        private final Variable[] vars;
+        // private final int nvarnames, ncellvars, nfreevars;
+
+        /**
+         * Construct a {@code Layout} based on a representation used
+         * internally by CPython that appears in the stream
+         * {@code marshal} writes, e.g. in a {@code .pyc} file.
+         *
+         * @param localsplusnames tuple of all the names
+         * @param localspluskinds bytes of kinds of variables
+         * @param nargs the number (leading) that are arguments
+         */
+        LayoutImpl(
+                // Mapping frame offsets to information
+                Object localsplusnames, Object localspluskinds,
+                // For navigation within localsplus
+                int nargs) {
+
+            PyTuple nameTuple =
+                    castTuple(localsplusnames, "localsplusnames");
+            PyBytes kindBytes =
+                    castBytes(localspluskinds, "localspluskinds");
+
+            int n = nameTuple.size();
+            this.vars = new Variable[n];
+            // this.names = new String[n];
+
+            if (kindBytes.size() != n) {
+                throw new ValueError(LENGTHS_UNEQUAL, kindBytes.size(),
+                        n);
+            }
+
+            // Compute indexes into name arrays as we go
+            int nloc = 0, nfree = 0, ncell = 0;
+
+            /*
+             * Step through localsplus* categorising the variables using
+             * entries in vars. At the end, we have a mapping from the
+             * index CPython uses to the kind of variable (as a class)
+             * and where we shall keep it.
+             */
+            for (int i = 0; i < n; i++) {
+
+                String s = PyUnicode.asString(nameTuple.get(i),
+                        o -> Abstract.typeError(NAME_TUPLES_STRING, o,
+                                "localsplusnames"));
+                int kindByte = kindBytes.get(i);
+
+                if ((kindByte & CO_FAST_LOCAL) != 0) {
+                    if ((kindByte & CO_FAST_CELL) != 0) {
+                        // Argument referenced by nested scope
+                        assert nloc < nargs;
+                        vars[i] = new CellArgument(s, ncell++, nloc++);
+                    } else {
+                        // Plain argument or local variable in frame
+                        vars[i] = new Variable(s, nloc++);
+                    }
+
+                } else if ((kindByte & CO_FAST_CELL) != 0) {
+                    // Locally defined but referenced in nested scope
+                    vars[i] = new CellVariable(s, ncell++);
+
+                } else if ((kindByte & CO_FAST_FREE) != 0) {
+                    // Supplied from a containing scope
+                    vars[i] = new FreeVariable(s, nfree++);
+                }
+            }
+
+            // If we wanted to cache them ...
+            // nvarnames = nloc;
+            // ncellvars = ncell;
+            // nfreevars = nfree;
+        }
+
+        @Override
+        public String[] varnames() {
+            return getVarNames(Variable::isLocal);
+        }
+
+        @Override
+        public String[] cellvars() {
+            return getVarNames(Variable::isCell);
+        }
+
+        @Override
+        public String[] freevars() {
+            return getVarNames(Variable::isFree);
+        }
+
+        private String[] getVarNames(Predicate<Variable> p) {
+            List<String> names = new ArrayList<>();
+            for (Variable v : vars) {
+                if (p.test(v)) { names.add(v.name); }
+            }
+            return names.toArray(EMPTY_STRING_ARRAY);
+        }
+
+        @Override
+        public Variable get(int index) { return vars[index]; }
+
+        @Override
+        public Variable[] vars() { return vars; }
+
+        /**
+         * Encode the type of this variable (as expressed through the
+         * actual class) to a bit-set form for the serialisation of a
+         * {@code code} object by the {@code marshal} module.
+         *
+         * @param index of variable in a CPython frame
+         * @return bit-map form of concrete class
+         */
+        byte getKind(int index) {
+            Variable v = vars[index];
+            int kind = 0;
+            if (v.isLocal()) { kind |= CO_FAST_LOCAL; }
+            if (v.isCell()) { kind |= CO_FAST_CELL; }
+            if (v.isFree()) { kind |= CO_FAST_FREE; }
+            return (byte)kind;
+        }
+    }
 
     /**
      * Convert the contents of a Python {@code bytes} to 16-bit word

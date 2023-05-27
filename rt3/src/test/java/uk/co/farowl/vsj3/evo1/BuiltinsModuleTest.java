@@ -11,7 +11,6 @@ import static uk.co.farowl.vsj3.evo1.CPython311CodeTest.readResultDict;
 import java.util.HashMap;
 
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -229,12 +228,31 @@ class BuiltinsModuleTest extends UnitTestSupport {
     abstract static class ActionHolder extends PyCode {
 
         private static final Object[] E = Py.EMPTY_ARRAY;
-        private static final String[] N = new String[0];
+        private static final String[] N = Py.EMPTY_STRING_ARRAY;
         private static final Variable[] V = new Variable[0];
+        private static final Layout L = new Layout() {
 
+            @Override
+            public String[] varnames() { return N; }
+
+            @Override
+            public String[] cellvars() { return N; }
+
+            @Override
+            public String[] freevars() { return N; }
+
+            @Override
+            public Variable[] vars() { return V; }
+        };
+
+        /**
+         * Construct a special code object wrapping a Java body.
+         *
+         * @param name of code object
+         */
         public ActionHolder(String name) {
             // No arguments, variables, etc..
-            super(FILE, name, name, 0, 0, E, N, V, 0, 0, 0);
+            super(FILE, name, name, 0, 0, E, N, L, 0, 0, 0);
         }
 
         @Override

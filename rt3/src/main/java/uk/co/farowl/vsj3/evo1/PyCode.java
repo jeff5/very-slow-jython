@@ -4,10 +4,7 @@ package uk.co.farowl.vsj3.evo1;
 
 import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.EnumSet;
-import java.util.List;
-import java.util.function.Predicate;
 
 import uk.co.farowl.vsj3.evo1.Exposed.Getter;
 import uk.co.farowl.vsj3.evo1.Exposed.Member;
@@ -89,33 +86,45 @@ public abstract class PyCode implements CraftedPyObject {
     /** Names referenced in the code. Not {@code null}. */
     final String[] names;
 
+    /*
+     * In CPython 3.11 variable names are in one consolidated array,
+     * aligned to the one consolidated frame holding all the local
+     * variables, whether plain, cell or free. We find it helpful to
+     * have three such arrays for the variables, and corresponding
+     * arrays for the names.
+     */
+    /**
+     * Non-cell locals, beginning with the arguments. These are the
+     * variables eligible for access by the FAST_LOAD family of opcodes.
+     * Essentially this is {@code co_varnames}. (Not {@code null}.)
+     */
+    final String[] varnames;
+
+    /**
+     * Names of {@link PyCell} variables defined in this {@code code}
+     * and referenced elsewhere. Essentially this is
+     * {@code co_cellvars}. (Not {@code null}.)
+     */
+    final String[] cellvars;
+
+    /**
+     * Names referenced but not defined here. These are names of
+     * {@link PyCell} variables (in the frame of this {@code code}) have
+     * been created in another execution frame and passed as the closure
+     * of a function. Essentially this is {@code co_freevars}. (Not
+     * {@code null}.)
+     */
+    final String[] freevars;
+
     /**
      * Describe the layout of the frame local variables (including
-     * arguments), local cell and free cell variables.
+     * arguments), cell and free variables. {@link #varnames},
+     * {@link #cellvars} and {@link #freevars} are derived from this
+     * during construction, but we need it during execution as well.
      */
     // CPython specific at first glance but not after reflection.
     // Compare CPython 3.11 localsplusnames and localspluskinds
-    final Variable[] layout;
-
-    // Values derived from layout as optimisation (in CPython)
-
-    /**
-     * The number of plain local variables including parameters of the
-     * function. This is the number of variables eligible for access by
-     * the FAST_LOAD family of opcodes.
-     */
-    final int nlocals;
-    /**
-     * Total number of cell variables to create for the execution frame.
-     * These are {@link PyCell} objects created with the frame.
-     */
-    final int ncellvars;
-    /**
-     * The number of free variables. These are {@link PyCell}s that will
-     * have been created in another execution frame and passed as the
-     * closure of a function.
-     */
-    final int nfreevars;
+    final Layout layout;
 
     // Bit masks appearing in flags
     /** The code uses fast local local variables, not a map. */
@@ -202,7 +211,7 @@ public abstract class PyCode implements CraftedPyObject {
             // Used by the code
             Object[] consts, String[] names, //
             // Mapping frame offsets to information
-            Variable[] layout,
+            Layout layout,
             // Parameter navigation with varnames
             int argcount, int posonlyargcount, int kwonlyargcount) {
         this.argcount = argcount;
@@ -220,27 +229,13 @@ public abstract class PyCode implements CraftedPyObject {
         this.firstlineno = firstlineno;
 
         this.traits = traitsFrom(flags);
-// if (varnames.size() != nlocals)
-// throw new ValueError("code: varnames is too small");
 
+        // Get the names of plain, cell and free variables
         this.layout = layout;
-
-        int nloc = 0, ncell = 0, nfree = 0;
-        for (Variable v : layout) {
-            if (v.isLocal()) { nloc++; }
-            if (v.isCell()) { ncell++; }
-            if (v.isFree()) { nfree++; }
-        }
-        // number of local variables including args
-        this.nlocals = nloc;
-        // number of cell variables including cell args
-        this.ncellvars = ncell;
-        // number of free variables
-        this.nfreevars = nfree;
+        this.varnames = layout.varnames();
+        this.cellvars = layout.cellvars();
+        this.freevars = layout.freevars();
     }
-
-    private static final int CO_FAST_LOCAL = 0x20, CO_FAST_CELL = 0x40,
-            CO_FAST_FREE = 0x80;
 
     /**
      * In a {@code code} object, there is an instance of
@@ -254,7 +249,7 @@ public abstract class PyCode implements CraftedPyObject {
      * (plain, cell or free), to specify where the value is held. This
      * array is supplied at construction as the {@code layout} argument
      * to the constructor
-     * {@link PyCode#PyCode(String, String, String, int, int, Object[], String[], Variable[], int, int, int)
+     * {@link PyCode#PyCode(String, String, String, int, int, Object[], String[], Layout, int, int, int)
      * PyCode(...)} and certain sub-class constructors.
      * <p>
      * The concrete class {@code Variable} describes a plain local
@@ -267,6 +262,7 @@ public abstract class PyCode implements CraftedPyObject {
     static class Variable {
         /** The variable name. */
         final String name;
+
         /** Index in the array where the value is stored. */
         final int index;
 
@@ -308,21 +304,6 @@ public abstract class PyCode implements CraftedPyObject {
          * @return {@code true} iff exactly .
          */
         boolean isFree() { return false; }
-
-        /**
-         * Encode the type of this variable (as expressed through the
-         * actual class) to a bit-set form for the serialisation of a
-         * {@code code} object by the {@code marshal} module.
-         *
-         * @return bit-map form of concrete classz
-         */
-        byte getKind() {
-            int kind = 0;
-            if (isLocal()) { kind |= CO_FAST_LOCAL; }
-            if (isCell()) { kind |= CO_FAST_CELL; }
-            if (isFree()) { kind |= CO_FAST_FREE; }
-            return (byte)kind;
-        }
 
         @Override
         public String toString() {
@@ -415,75 +396,30 @@ public abstract class PyCode implements CraftedPyObject {
     }
 
     /**
-     * Compute the array describing variables used locally to frames of
-     * a particular {@code code} object, from a representation used
-     * internally by CPython that appears in the stream {@code marshal}
-     * writes, e.g. in a {@code .pyc} file. The return value is suitable
-     * as the {@code layout} argument to certain {@code PyCode}
-     * constructors.
-     *
-     * @param nargs
-     * @param localsplusnames
-     * @param localspluskinds
-     * @return
+     * Interface on a store of information about the variables required
+     * by a code object and where they will be stored in the frame it
+     * creates. It is used to initialise
      */
-    static Variable[] layout(int nargs, Object localsplusnames,
-            Object localspluskinds) {
+    interface Layout {
+        /** @return names of plain variables (including arguments). */
+        String[] varnames();
 
-        PyTuple nameTuple =
-                castTuple(localsplusnames, "localsplusnames");
-        int n = nameTuple.size();
-        PyBytes kindBytes =
-                castBytes(localspluskinds, "localspluskinds");
-        if (kindBytes.size() != n) {
-            throw new ValueError(LENGTHS_UNEQUAL, kindBytes.size(), n);
-        }
+        /** @return names of cell variables (including arguments). */
+        String[] cellvars();
 
-        int nlocals = 0;
+        /** @return names of free variables. */
+        String[] freevars();
 
-        Variable[] v = new Variable[n];
-        int nfree = 0, ncell = 0;
+        /** @return an array of all the variables. */
+        Variable[] vars();
 
-        for (int i = 0; i < n; i++) {
-
-            String s = PyUnicode.asString(nameTuple.get(i),
-                    o -> Abstract.typeError(NAME_TUPLES_STRING, o,
-                            "localsplusnames"));
-            int kindByte = kindBytes.get(i);
-
-            if ((kindByte & CO_FAST_LOCAL) != 0) {
-                if ((kindByte & CO_FAST_CELL) != 0) {
-                    // Argument referenced by nested scope
-                    assert nlocals < nargs;
-                    v[i] = new CellArgument(s, ncell++, nlocals++);
-                } else {
-                    // Plain argument or local variable in frame
-                    v[i] = new Variable(s, nlocals++);
-                }
-
-            } else if ((kindByte & CO_FAST_CELL) != 0) {
-                // Locally defined but referenced in nested scope
-                v[i] = new CellVariable(s, ncell++);
-
-            } else if ((kindByte & CO_FAST_FREE) != 0) {
-                // Supplied from a containing scope
-                v[i] = new FreeVariable(s, nfree++);
-            }
-        }
-
-        return v;
-    }
-
-    private List<String> getVarNames(Predicate<Variable> p) {
-        // Collect the names in layout entries matching p
-        return Arrays.stream(layout).filter(p).map(v -> v.name)
-                .toList();
-    }
-
-    private int getVarCount(Predicate<Variable> p) {
-        // Count the names in layout entries matching p
-        // Cast is safe since array length < 2**31
-        return (int)Arrays.stream(layout).filter(p).count();
+        /**
+         * Return details (name and kind) of one variable.
+         *
+         * @param index of variable
+         * @return details (name and kind) of one variable.
+         */
+        default Variable get(int index) { return vars()[index]; }
     }
 
     // Attributes -----------------------------------------------------
@@ -522,9 +458,7 @@ public abstract class PyCode implements CraftedPyObject {
      * @return {@code co_varnames} as a {@code tuple}
      */
     @Getter
-    PyTuple co_varnames() {
-        return PyTuple.from(getVarNames(Variable::isLocal));
-    }
+    PyTuple co_varnames() { return PyTuple.from(varnames); }
 
     /**
      * Get {@code co_cellvars} as a {@code tuple}.
@@ -532,9 +466,7 @@ public abstract class PyCode implements CraftedPyObject {
      * @return {@code co_cellvars} as a {@code tuple}
      */
     @Getter
-    PyTuple co_cellvars() {
-        return PyTuple.from(getVarNames(Variable::isCell));
-    }
+    PyTuple co_cellvars() { return PyTuple.from(cellvars); }
 
     /**
      * Get {@code co_freevars} as a {@code tuple}.
@@ -542,9 +474,7 @@ public abstract class PyCode implements CraftedPyObject {
      * @return {@code co_freevars} as a {@code tuple}
      */
     @Getter
-    PyTuple co_freevars() {
-        return PyTuple.from(getVarNames(Variable::isFree));
-    }
+    PyTuple co_freevars() { return PyTuple.from(freevars); }
 
     // slot methods --------------------------------------------------
 
@@ -642,10 +572,12 @@ public abstract class PyCode implements CraftedPyObject {
 
     // Plumbing -------------------------------------------------------
 
+    /** Empty (zero-length) array of {@code String}. */
+    protected static final String[] EMPTY_STRING_ARRAY =
+            Py.EMPTY_STRING_ARRAY;
+
     private static final String NAME_TUPLES_STRING =
             "name tuple must contain only strings, not '%s' (in %s)";
-    private static final String LENGTHS_UNEQUAL =
-            "lengths unequal localspluskinds(%d) _localsplusnames(%d)";
 
     /**
      * Check that all the argument is a tuple and that all objects in it
