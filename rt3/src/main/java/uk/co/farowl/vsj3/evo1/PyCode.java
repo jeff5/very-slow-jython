@@ -5,6 +5,7 @@ package uk.co.farowl.vsj3.evo1;
 import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
 import java.util.EnumSet;
+import java.util.stream.Stream;
 
 import uk.co.farowl.vsj3.evo1.Exposed.Getter;
 import uk.co.farowl.vsj3.evo1.Exposed.Member;
@@ -45,6 +46,7 @@ public abstract class PyCode implements CraftedPyObject {
      * Characteristics of a {@code PyCode} (as CPython co_flags). These
      * are not all relevant to all code types.
      */
+    // XXX Consider not having this, only flags.
     enum Trait {
         OPTIMIZED, NEWLOCALS, VARARGS, VARKEYWORDS, NESTED, GENERATOR,
         COROUTINE, ITERABLE_COROUTINE, ASYNC_GENERATOR
@@ -76,57 +78,17 @@ public abstract class PyCode implements CraftedPyObject {
     @Member("co_kwonlyargcount")
     final int kwonlyargcount;
 
-    /** First source line number. */
+    /** First source line number of this code. */
     final int firstlineno;
 
-    // Questionable: would a Java Python frame need this?
     /** Constant objects needed by the code. Not {@code null}. */
     final Object[] consts;
 
     /** Names referenced in the code. Not {@code null}. */
     final String[] names;
 
-    /*
-     * In CPython 3.11 variable names are in one consolidated array,
-     * aligned to the one consolidated frame holding all the local
-     * variables, whether plain, cell or free. We find it helpful to
-     * have three such arrays for the variables, and corresponding
-     * arrays for the names.
-     */
-    /**
-     * Non-cell locals, beginning with the arguments. These are the
-     * variables eligible for access by the FAST_LOAD family of opcodes.
-     * Essentially this is {@code co_varnames}. (Not {@code null}.)
-     */
-    final String[] varnames;
-
-    /**
-     * Names of {@link PyCell} variables defined in this {@code code}
-     * and referenced elsewhere. Essentially this is
-     * {@code co_cellvars}. (Not {@code null}.)
-     */
-    final String[] cellvars;
-
-    /**
-     * Names referenced but not defined here. These are names of
-     * {@link PyCell} variables (in the frame of this {@code code}) have
-     * been created in another execution frame and passed as the closure
-     * of a function. Essentially this is {@code co_freevars}. (Not
-     * {@code null}.)
-     */
-    final String[] freevars;
-
-    /**
-     * Describe the layout of the frame local variables (including
-     * arguments), cell and free variables. {@link #varnames},
-     * {@link #cellvars} and {@link #freevars} are derived from this
-     * during construction, but we need it during execution as well.
-     */
-    // CPython specific at first glance but not after reflection.
-    // Compare CPython 3.11 localsplusnames and localspluskinds
-    final Layout layout;
-
-    // Bit masks appearing in flags
+    // Bit masks appearing in flags.
+    // XXX Some of these should be CPython-specific.
     /** The code uses fast local local variables, not a map. */
     public static final int CO_OPTIMIZED = 0x0001;
     /** A new {@code dict} should be created for local variables. */
@@ -187,10 +149,6 @@ public abstract class PyCode implements CraftedPyObject {
      * @param consts {@code co_consts}
      * @param names {@code co_names}
      *
-     * @param layout variable names and properties, in the order
-     *     {@code co_varnames + co_cellvars + co_freevars} but without
-     *     repetition.
-     *
      * @param argcount {@code co_argcount} the number of positional
      *     parameters (including positional-only arguments and arguments
      *     with default values)
@@ -210,8 +168,6 @@ public abstract class PyCode implements CraftedPyObject {
             int firstlineno, // ??? sensible given filename
             // Used by the code
             Object[] consts, String[] names, //
-            // Mapping frame offsets to information
-            Layout layout,
             // Parameter navigation with varnames
             int argcount, int posonlyargcount, int kwonlyargcount) {
         this.argcount = argcount;
@@ -229,170 +185,31 @@ public abstract class PyCode implements CraftedPyObject {
         this.firstlineno = firstlineno;
 
         this.traits = traitsFrom(flags);
-
-        // Get the names of plain, cell and free variables
-        this.layout = layout;
-        this.varnames = layout.varnames();
-        this.cellvars = layout.cellvars();
-        this.freevars = layout.freevars();
     }
 
     /**
-     * In a {@code code} object, there is an instance of
-     * {@code Variable} for each variable that must be accommodated in
-     * the frame when the code runs. This is mostly relevant to function
-     * (or method) bodies: there is no such storage for code blocks that
-     * expect their locals to be in a dictionary.
-     * <p>
-     * Every {@code PyCode} holds an array of these {@code Variable}s to
-     * enumerate the local variables and, according to their kind
-     * (plain, cell or free), to specify where the value is held. This
-     * array is supplied at construction as the {@code layout} argument
-     * to the constructor
-     * {@link PyCode#PyCode(String, String, String, int, int, Object[], String[], Layout, int, int, int)
-     * PyCode(...)} and certain sub-class constructors.
-     * <p>
-     * The concrete class {@code Variable} describes a plain local
-     * variable or argument whose value is held as an {@code Object}.
-     * Three other cases, where the value is held in a {@link PyCell},
-     * are dealt with by sub-classes of {@code Variable}:
-     * {@link CellVariable}, {@link CellArgument} and
-     * {@link FreeVariable}.
+     * Traits characterising local variables of the frame this code
+     * object will produce.
      */
-    static class Variable {
-        /** The variable name. */
-        final String name;
-
-        /** Index in the array where the value is stored. */
-        final int index;
-
+    enum VariableTrait {
         /**
-         * Base constructor and constructor for an argument or a private
-         * local variable.
-         *
-         * @param name sets {@link #name}
-         * @param index sets {@link #index}
+         * Belongs in {@code co_varnames}. For legacy reasons this means
+         * parameters to the function (even if they are also cell
+         * variables), and other local variables that are not cells (or
+         * free).
          */
-        Variable(String name, int index) {
-            this.name = name;
-            this.index = index;
-        }
-
+        PLAIN,
         /**
-         * True if and only if this is a plain (direct) local variable
-         * or argument, not stored in a {@link PyCell}, exactly of class
-         * {@code Variable}.
-         *
-         * @return {@code true} iff plain local variable or argument.
+         * Belongs in {@code co_cellvars}. This means the non-free cell
+         * variables, even if they are also parameters to the function,
+         * in which case they have the {@link #PLAIN} trait too.
          */
-        boolean isLocal() { return true; }
-
+        CELL,
         /**
-         * True if and only if this is stored in a {@link PyCell}
-         * allocated for the current frame, exactly of class
-         * {@link CellVariable} or {@link CellArgument}.
-         *
-         * @return {@code true} iff exactly .
+         * Belongs in {@code co_freevars}. These are just the free cell
+         * variables. (They cannot also be parameters.)
          */
-        boolean isCell() { return false; }
-
-        /**
-         * True if and only if this is stored in a {@link PyCell}
-         * allocated by a different frame, exactly of class
-         * {@link FreeVariable}.
-         *
-         * @return {@code true} iff exactly .
-         */
-        boolean isFree() { return false; }
-
-        @Override
-        public String toString() {
-            return String.format("%s%s%s[%d] %s",
-                    isLocal() ? "LOCAL " : "", isCell() ? "CELL " : "",
-                    isFree() ? "FREE " : "", index, name);
-        }
-    }
-
-    /**
-     * A {@code CellVariable} is a {@link Variable} that describes a
-     * variable allocated here and shared with other frames. It is held
-     * in a {@link PyCell} allocated when the frame is created.
-     */
-    static class CellVariable extends Variable {
-        /**
-         * Constructor for variable created here and shared with other
-         * frames (for nested scopes).
-         *
-         * @param name sets {@link #name}
-         * @param index sets {@link #index}
-         */
-        CellVariable(String name, int index) { super(name, index); }
-
-        @Override
-        boolean isLocal() { return false; }
-
-        @Override
-        boolean isCell() { return true; }
-    }
-
-    /**
-     * A {@code CellArgument} is a {@link CellVariable} that describes
-     * an argument allocated here and shared with other frames. It is
-     * held in a {@link PyCell} allocated when the frame is created but
-     * initialised from an entry in the plain storage to which arguments
-     * are delivered when processing a call.
-     */
-    /*
-     * This design appears not to appreciate the virtues of a change in
-     * the CPython approach (in 3.11) that has the locals in a single
-     * linear array, whose elements are cast to PyCell if necessary. We
-     * do not favour this because casts in Java are checked at run-time:
-     * our design is to maintains type-safe separation.
-     */
-    static class CellArgument extends CellVariable {
-        /**
-         * The index in the plain arguments from which to take the
-         * initial value.
-         */
-        final int argIndex;
-
-        /**
-         * Constructor for a variable that is an argument here and
-         * shared with other frames (for nested scopes).
-         *
-         * @param name sets {@link #name}
-         * @param index sets {@link #index}
-         * @param argIndex sets {@link #argIndex}
-         */
-        CellArgument(String name, int index, int argIndex) {
-            super(name, index);
-            this.argIndex = argIndex;
-        }
-
-        @Override
-        boolean isLocal() { return true; }
-    }
-
-    /**
-     * A {@code FreeVariable} is a {@link Variable} that describes a
-     * variable free in the frame. It is held in a {@link PyCell} in an
-     * array supplied as a closure in a function object.
-     */
-    static class FreeVariable extends Variable {
-        /**
-         * Constructor for a variable that is created in another frame
-         * (and possibly nested scopes).
-         *
-         * @param name sets {@link #name}
-         * @param index sets {@link #index}
-         */
-        FreeVariable(String name, int index) { super(name, index); }
-
-        @Override
-        boolean isLocal() { return false; }
-
-        @Override
-        boolean isFree() { return true; }
+        FREE
     }
 
     /**
@@ -401,26 +218,100 @@ public abstract class PyCode implements CraftedPyObject {
      * creates. It is used to initialise
      */
     interface Layout {
-        /** @return names of plain variables (including arguments). */
-        String[] varnames();
 
-        /** @return names of cell variables (including arguments). */
-        String[] cellvars();
-
-        /** @return names of free variables. */
-        String[] freevars();
-
-        /** @return an array of all the variables. */
-        Variable[] vars();
+        /** @return total number of local variables. */
+        default int size() {
+            // This can't overflow since it is the size of an array.
+            return (int)localnames().count();
+        }
 
         /**
-         * Return details (name and kind) of one variable.
+         * Return name of one local frame variable.
          *
          * @param index of variable
-         * @return details (name and kind) of one variable.
+         * @return name of one variable.
          */
-        default Variable get(int index) { return vars()[index]; }
+        String name(int index);
+
+        /**
+         * Return the {@link VariableTrait}s of the variable at a given
+         * index .
+         *
+         * @param index of variable
+         * @return traits of the local variable
+         */
+        EnumSet<VariableTrait> traits(int index);
+
+        /**
+         * Return a stream of the names of all the local variables These
+         * are the parameters and then the other plain, cell and free
+         * variables, but occurring only once each (whereas
+         * {@code co_cellvars} will repeat names from
+         * {@code co_varnames} if they are parameters.
+         *
+         * @return names of all local variables.
+         */
+        Stream<String> localnames();
+
+        /**
+         * Return a stream of the names of variables to include in
+         * {@code co_varnames}. These are the parameters and then the
+         * plain (non-cell, non-free) variables. Note that some of the
+         * arguments may be cell variables.
+         *
+         * @return names of non-cell and parameters variables.
+         */
+        Stream<String> varnames();
+
+        /**
+         * Return a stream of the names of variables to include in
+         * {@code co_cellvars}. These are the variables defined by this
+         * {@code code} object and stored as cells. Note that some of
+         * the parameters may be cell variables.
+         *
+         * @return names of cell variables (may be parameters).
+         */
+        Stream<String> cellvars();
+
+        /**
+         * Return a stream of the names of variables to include in
+         * {@code co_freevars}. These are the variables stored as cells
+         * but defined in another {@code code} object.
+         *
+         * @return names of free variables.
+         */
+        Stream<String> freevars();
+
+        /** @return the length of {@code co_varnames} */
+        default int nvarnames() {
+            // This can't overflow since it is the size of an array.
+            return (int)varnames().count();
+        }
+
+        /** @return the length of {@code co_cellvars} */
+        default int ncellvars() {
+            // This can't overflow since it is the size of an array.
+            return (int)cellvars().count();
+        }
+
+        /** @return the length of {@code co_freevars} */
+        default int nfreevars() {
+            // This can't overflow since it is the size of an array.
+            return (int)freevars().count();
+        }
     }
+
+    /**
+     * Describe the layout of the frame local variables (at least the
+     * arguments), cell and free variables. {@link #co_varnames},
+     * {@link #co_cellvars} and {@link #co_freevars} are derived from
+     * this, and the signature of the code as a function.
+     *
+     * @return a {@link Layout} object describing the variables
+     */
+    // CPython specific at first glance but not after reflection.
+    // Compare CPython 3.11 localsplusnames and localspluskinds
+    abstract Layout layout();
 
     // Attributes -----------------------------------------------------
 
@@ -458,7 +349,7 @@ public abstract class PyCode implements CraftedPyObject {
      * @return {@code co_varnames} as a {@code tuple}
      */
     @Getter
-    PyTuple co_varnames() { return PyTuple.from(varnames); }
+    PyTuple co_varnames() { return new PyTuple(layout().varnames()); }
 
     /**
      * Get {@code co_cellvars} as a {@code tuple}.
@@ -466,7 +357,7 @@ public abstract class PyCode implements CraftedPyObject {
      * @return {@code co_cellvars} as a {@code tuple}
      */
     @Getter
-    PyTuple co_cellvars() { return PyTuple.from(cellvars); }
+    PyTuple co_cellvars() { return new PyTuple(layout().cellvars()); }
 
     /**
      * Get {@code co_freevars} as a {@code tuple}.
@@ -474,7 +365,7 @@ public abstract class PyCode implements CraftedPyObject {
      * @return {@code co_freevars} as a {@code tuple}
      */
     @Getter
-    PyTuple co_freevars() { return PyTuple.from(freevars); }
+    PyTuple co_freevars() { return new PyTuple(layout().freevars()); }
 
     // slot methods --------------------------------------------------
 

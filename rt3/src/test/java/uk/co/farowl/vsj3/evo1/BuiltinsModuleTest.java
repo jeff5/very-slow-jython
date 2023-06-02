@@ -8,7 +8,10 @@ import static uk.co.farowl.vsj3.evo1.CPython311CodeTest.assertExpectedVariables;
 import static uk.co.farowl.vsj3.evo1.CPython311CodeTest.readCode;
 import static uk.co.farowl.vsj3.evo1.CPython311CodeTest.readResultDict;
 
+import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.stream.Stream;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -229,20 +232,35 @@ class BuiltinsModuleTest extends UnitTestSupport {
 
         private static final Object[] E = Py.EMPTY_ARRAY;
         private static final String[] N = Py.EMPTY_STRING_ARRAY;
-        private static final Variable[] V = new Variable[0];
         private static final Layout L = new Layout() {
 
             @Override
-            public String[] varnames() { return N; }
+            public Stream<String> localnames() {
+                return Arrays.stream(N);
+            }
 
             @Override
-            public String[] cellvars() { return N; }
+            public Stream<String> varnames() {
+                return Arrays.stream(N);
+            }
 
             @Override
-            public String[] freevars() { return N; }
+            public Stream<String> cellvars() {
+                return Arrays.stream(N);
+            }
 
             @Override
-            public Variable[] vars() { return V; }
+            public Stream<String> freevars() {
+                return Arrays.stream(N);
+            }
+
+            @Override
+            public String name(int index) { return N[index]; }
+
+            @Override
+            public EnumSet<VariableTrait> traits(int index) {
+                return EnumSet.noneOf(VariableTrait.class);
+            }
         };
 
         /**
@@ -252,8 +270,11 @@ class BuiltinsModuleTest extends UnitTestSupport {
          */
         public ActionHolder(String name) {
             // No arguments, variables, etc..
-            super(FILE, name, name, 0, 0, E, N, L, 0, 0, 0);
+            super(FILE, name, name, 0, 0, E, N, 0, 0, 0);
         }
+
+        @Override
+        Layout layout() { return L; }
 
         @Override
         Function createFunction(Interpreter interpreter, PyDict globals,
@@ -284,6 +305,14 @@ class BuiltinsModuleTest extends UnitTestSupport {
          */
         static class Function extends PyFunction<ActionHolder> {
 
+            /**
+             * Create a parameterless Python function wrapping the given
+             * action.
+             *
+             * @param interpreter the owning interpreter
+             * @param code the action
+             * @param globals name space context for the function
+             */
             Function(Interpreter interpreter, ActionHolder code,
                     PyDict globals) {
                 super(interpreter, code, globals, null, null, null,
@@ -320,6 +349,13 @@ class BuiltinsModuleTest extends UnitTestSupport {
          * instance is created by {@link Function#createFrame(Object)}.
          */
         static class Frame extends PyFrame<ActionHolder> {
+            /**
+             * Create a Python frame representing the running state of
+             * the code in the function.
+             *
+             * @param func to execute in {@code eval()}
+             * @param locals local variables as a {@code dict}
+             */
             Frame(Function func, Object locals) {
                 super(func);
                 this.locals = locals;

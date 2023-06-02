@@ -6,11 +6,12 @@ import java.util.Map;
 
 import uk.co.farowl.vsj3.evo1.PyType.Flag;
 import uk.co.farowl.vsj3.evo1.base.InterpreterError;
-import uk.co.farowl.vsj3.evo1.base.MissingFeature;
 
 /**
  * Python {@code function} object as created by a function definition
  * and subsequently called.
+ *
+ * @param <C> implementing class of {@code code} object
  */
 public abstract class PyFunction<C extends PyCode>
         extends AbstractPyObject implements DictPyObject {
@@ -288,36 +289,35 @@ public abstract class PyFunction<C extends PyCode>
     <E> void setClosure(Collection<E> closure) {
 
         int n = closure == null ? 0 : closure.size();
-        throw new MissingFeature("3.11 local variable order");
-//        int nfree = code.freevars.length;
-//
-//        if (nfree == 0) {
-//            if (n == 0)
-//                this.closure = null;
-//            else
-//                throw new TypeError("%s closure must be empty/None",
-//                        code.name);
-//        } else {
-//            if (n == nfree) {
-//                try {
-//                    this.closure = closure.toArray(new PyCell[n]);
-//                } catch (ArrayStoreException e) {
-//                    // The closure is not a tuple of cells only
-//                    for (Object o : closure) {
-//                        if (!(o instanceof PyCell)) {
-//                            throw Abstract.typeError(
-//                                    "closure: expected cell, found %s",
-//                                    o);
-//                        }
-//                    }
-//                    throw new InterpreterError(
-//                            "Failed to make closure from %s", closure);
-//                }
-//            } else
-//                throw new ValueError(
-//                        "%s requires closure of length %d, not %d",
-//                        code.name, nfree, n);
-//        }
+        int nfree = code.layout().nfreevars();
+
+        if (nfree == 0) {
+            if (n == 0)
+                this.closure = null;
+            else
+                throw new TypeError("%s closure must be empty/None",
+                        code.name);
+        } else {
+            if (n == nfree) {
+                try {
+                    this.closure = closure.toArray(new PyCell[n]);
+                } catch (ArrayStoreException e) {
+                    // The closure is not a tuple of cells only
+                    for (Object o : closure) {
+                        if (!(o instanceof PyCell)) {
+                            throw Abstract.typeError(
+                                    "closure: expected cell, found %s",
+                                    o);
+                        }
+                    }
+                    throw new InterpreterError(
+                            "Failed to make closure from %s", closure);
+                }
+            } else
+                throw new ValueError(
+                        "%s requires closure of length %d, not %d",
+                        code.name, nfree, n);
+        }
     }
 
     /** @return the {@code __dict__} attribute. */
@@ -406,7 +406,7 @@ public abstract class PyFunction<C extends PyCode>
     protected C checkFreevars(C c) {
         PyObjectUtil.errorIfNull(c, () -> new TypeError(
                 "__code__ must be set to a code object"));
-        int nfree = c.freevars.length;
+        int nfree = c.layout().nfreevars();
         int nclosure = closure == null ? 0 : closure.length;
         if (nclosure != nfree) {
             throw new ValueError(FREE_VARS, name, nclosure, nfree);

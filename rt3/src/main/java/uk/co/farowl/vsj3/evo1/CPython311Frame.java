@@ -7,47 +7,21 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 
-import uk.co.farowl.vsj3.evo1.PyCode.CellArgument;
-import uk.co.farowl.vsj3.evo1.PyCode.CellVariable;
-import uk.co.farowl.vsj3.evo1.PyCode.FreeVariable;
+import uk.co.farowl.vsj3.evo1.CPython311Code.CPythonLayout;
+import uk.co.farowl.vsj3.evo1.PyCode.Layout;
 import uk.co.farowl.vsj3.evo1.PyCode.Trait;
-import uk.co.farowl.vsj3.evo1.PyCode.Variable;
+import uk.co.farowl.vsj3.evo1.PyCode.VariableTrait;
 import uk.co.farowl.vsj3.evo1.PyDict.MergeMode;
 import uk.co.farowl.vsj3.evo1.base.InterpreterError;
 
 /** A {@link PyFrame} for executing CPython 3.11 byte code. */
 class CPython311Frame extends PyFrame<CPython311Code> {
 
-    /*
-     * Translation note: NB: in a CPython frame all local storage
-     * local:cell:free:valuestack is one array into which pointers are
-     * set during frame construction. For CPython byte code in Java,
-     * three arrays seems to suit.
+    /**
+     * All local variables, named in {@link Layout#localnames()
+     * code.layout.localnames}.
      */
-
-    /** Simple local variables, named in {@link PyCode#co_varnames}. */
     final Object[] fastlocals;
-
-    /**
-     * Non-local variables used in the current scope <b>and</b> in a
-     * nested scope. They are named in {@link PyCode#co_cellvars}.
-     * <p>
-     * These are accessed by the opcodes LOAD_DEREF, STORE_DEREF, etc.
-     * when the variable type is {@link CellVariable} or
-     * {@link CellArgument}.
-     */
-    final PyCell[] cellvars;
-
-    /**
-     * Non-local variables used in the current scope or a nested scope,
-     * <b>and</b> in an enclosing scope are named in
-     * {@link PyCode#co_freevars}. During a call, these are provided in
-     * the function closure.
-     * <p>
-     * These are accessed by the opcodes LOAD_DEREF, STORE_DEREF, etc.
-     * when the variable type is {@link FreeVariable}.
-     */
-    final PyCell[] freevars;
 
     /** Value stack. */
     final Object[] valuestack;
@@ -112,7 +86,7 @@ class CPython311Frame extends PyFrame<CPython311Code> {
 
         CPython311Code code = func.code;
         this.valuestack = new Object[code.stacksize];
-        int nfastlocals = 0;
+        int nfast = 0;
 
         // The need for a dictionary of locals depends on the code
         EnumSet<PyCode.Trait> traits = code.traits;
@@ -122,7 +96,7 @@ class CPython311Frame extends PyFrame<CPython311Code> {
                 // We can create it later but probably won't need to
                 this.locals = null;
                 // Instead locals are in an array
-                nfastlocals = code.varnames.length;
+                nfast = code.layout.size();
             } else {
                 this.locals = new PyDict();
             }
@@ -142,11 +116,9 @@ class CPython311Frame extends PyFrame<CPython311Code> {
         this.builtins = PyMapping.map(func.builtins);
 
         // Initialise local variables (plain and cell)
-        this.fastlocals = nfastlocals > 0 ? new Object[nfastlocals]
-                : EMPTY_OBJECT_ARRAY;
-        this.freevars = func.closure;
-        this.cellvars = code.cellvars.length > 0
-                ? new PyCell[code.cellvars.length] : PyCell.EMPTY_ARRAY;
+        this.fastlocals =
+                nfast > 0 ? new Object[nfast] : EMPTY_OBJECT_ARRAY;
+        // Free variables are initialised by opcode COPY_FREE_VARS
     }
 
     @Override
@@ -165,7 +137,6 @@ class CPython311Frame extends PyFrame<CPython311Code> {
         final Object[] consts = code.consts;
         final char[] wordcode = code.wordcode;
         final int END = wordcode.length;
-        final Variable[] vars = code.layout.vars();
 
         final PyDict globals = func.globals;
         assert globals != null;
@@ -244,29 +215,7 @@ class CPython311Frame extends PyFrame<CPython311Code> {
                     case Opcode311.CACHE:
                         break;
 
-                    case Opcode311.LOAD_CLOSURE: {
-                        /*
-                         * Push a cell variable as a cell. In CPython,
-                         * this is the same as LOAD_FAST but we keep
-                         * cell and free variables in their own arrays.
-                         * In an optimisation we would have a
-                         * LOAD_CELL_CLOSURE and LOAD_FREE_CLOSURE.
-                         */
-                        // Convert CPython argument to array index
-                        Variable v = vars[oparg];
-                        PyCell cell;
-                        if (v.isCell()) {
-                            // Cell is in cellvars
-                            cell = cellvars[v.index];
-                        } else {
-                            // Cell is in freevars = closure
-                            assert v.isFree();
-                            cell = freevars[v.index];
-                        }
-                        s[sp++] = cell;
-                        break;
-                    }
-
+                    case Opcode311.LOAD_CLOSURE:
                     case Opcode311.LOAD_FAST: {
                         Object v = fastlocals[oparg];
                         if (v == null) { throw unboundFast(oparg); }
@@ -439,39 +388,15 @@ class CPython311Frame extends PyFrame<CPython311Code> {
                         break;
 
                     case Opcode311.MAKE_CELL: {
-                        Variable v = vars[oparg];
-                        if (v.isLocal()) {
-                            // Cell-argument
-                            assert v.isCell();
-                            assert ((CellArgument)v).argIndex == oparg;
-                            assert cellvars[v.index] == null;
-                            // Initial value delivered to fastlocals
-                            cellvars[v.index] =
-                                    new PyCell(fastlocals[oparg]);
-                        } else if (v.isCell()) {
-                            // New empty cell
-                            assert cellvars[v.index] == null;
-                            cellvars[v.index] = new PyCell();
-                        } else {
-                            // Free should be present as closure
-                            assert v.isFree();
-                            assert freevars[v.index] != null;
-                        }
+                        Object v = fastlocals[oparg];
+                        assert v == null || !(v instanceof PyCell);
+                        // Initial value in same element of fastlocals.
+                        fastlocals[oparg] = new PyCell(v);
                         break;
                     }
 
                     case Opcode311.DELETE_DEREF: {
-                        // Convert CPython argument to array index
-                        Variable v = vars[oparg];
-                        PyCell cell;
-                        if (v.isCell()) {
-                            // Cell is in cellvars
-                            cell = cellvars[v.index];
-                        } else {
-                            // Cell is in freevars = closure
-                            assert v.isFree();
-                            cell = freevars[v.index];
-                        }
+                        PyCell cell = (PyCell)fastlocals[oparg];
                         if (cell.get() == null) {
                             throw unboundCell(oparg);
                         }
@@ -480,17 +405,7 @@ class CPython311Frame extends PyFrame<CPython311Code> {
                     }
 
                     case Opcode311.LOAD_DEREF: {
-                        // Convert CPython argument to array index
-                        Variable v = vars[oparg];
-                        PyCell cell;
-                        if (v.isCell()) {
-                            // Cell is in cellvars
-                            cell = cellvars[v.index];
-                        } else {
-                            // Cell is in freevars = closure
-                            assert v.isFree();
-                            cell = freevars[v.index];
-                        }
+                        PyCell cell = (PyCell)fastlocals[oparg];
                         Object w = cell.get();
                         if (w == null) { throw unboundCell(oparg); }
                         s[sp++] = w;
@@ -498,26 +413,23 @@ class CPython311Frame extends PyFrame<CPython311Code> {
                     }
 
                     case Opcode311.STORE_DEREF: {
-                        // Convert CPython argument to array index
-                        Variable v = vars[oparg];
-                        PyCell cell;
-                        if (v.isCell()) {
-                            // Cell is in cellvars
-                            cell = cellvars[v.index];
-                        } else {
-                            // Cell is in freevars = closure
-                            assert v.isFree();
-                            cell = freevars[v.index];
-                        }
+                        PyCell cell = (PyCell)fastlocals[oparg];
                         cell.set(s[--sp]);
                         break;
                     }
 
                     case Opcode311.COPY_FREE_VARS: {
-                        // We did this when we created the frame
-                        // freevars = func.closure;
+                        /*
+                         * Fill locals from the function closure. The
+                         * compiler inserts this in code that needs it.
+                         */
+                        CPythonLayout layout = code.layout;
+                        assert oparg == layout.nfreevars;
+                        System.arraycopy(func.closure, 0, fastlocals,
+                                layout.free0, layout.nfreevars);
                         break;
                     }
+
                     case Opcode311.BUILD_TUPLE:
                         // w[0] | ... | w[oparg-1] | -> | tpl |
                         // -------------------------^sp -------^sp
@@ -993,8 +905,10 @@ class CPython311Frame extends PyFrame<CPython311Code> {
     // Compare CPython PyFrame_FastToLocalsWithError in frameobject.c
     // Also PyFrame_FastToLocals in frameobject.c
     void fastToLocals() {
+        // We re-use the frame locals dict, if we have one.
         PyDict locals;
         if (this.locals == null) {
+            // Let's have one!
             this.locals = locals = Py.dict();
         } else {
             // In the circumstances of use, locals must be a PyDict.
@@ -1005,28 +919,14 @@ class CPython311Frame extends PyFrame<CPython311Code> {
             }
         }
 
-        // Use the layout as an index to find the values
-        for (Variable v : code.layout.vars()) {
-            Object value;
-            if (v.isLocal())
-                value = fastlocals[v.index];
-            else if (v.isCell())
-                value = cellvars[v.index].get();
-            else {
-                assert v.isFree();
-                if (code.traits.contains(Trait.OPTIMIZED)) {
-                    value = freevars[v.index].get();
-                } else {
-                    /*
-                     * Apparently this is a class namespace. Avoid
-                     * copying the free variables into the locals dict
-                     * used by the class.
-                     */
-                    continue;
-                }
-            }
+        // Work through the frame pulling out names and values
+        Layout layout = code.layout;
+        int n = layout.size();
+        for (int i = 0; i < n; i++) {
+            Object value = fastlocals[i];
+            if (value instanceof PyCell cell) { value = cell.get(); }
             // In general, we are adjusting pre-existing dictionary.
-            String key = v.name;
+            String key = layout.name(i);
             if (value == null) {
                 locals.remove(key);
             } else {
@@ -1384,7 +1284,7 @@ class CPython311Frame extends PyFrame<CPython311Code> {
      * @return exception to throw
      */
     private UnboundLocalError unboundFast(int oparg) {
-        String name = code.varnames[oparg];
+        String name = code.layout.name(oparg);
         return new UnboundLocalError(UNBOUNDLOCAL_ERROR_MSG, name);
     }
 
@@ -1400,18 +1300,15 @@ class CPython311Frame extends PyFrame<CPython311Code> {
      */
     // Compare CPython format_exc_unbound in ceval.c
     private NameError unboundCell(int oparg) {
-        // Convert CPython argument to array index
-        Variable v = code.layout.vars()[oparg];
-        if (v.isCell()) {
+        String name = code.layout.name(oparg);
+        EnumSet<VariableTrait> traits = code.layout.traits(oparg);
+        if (traits.contains(VariableTrait.CELL)) {
             // Cell is in cellvars
-            assert cellvars[v.index] != null;
-            return new UnboundLocalError(UNBOUNDLOCAL_ERROR_MSG,
-                    v.name);
+            return new UnboundLocalError(UNBOUNDLOCAL_ERROR_MSG, name);
         } else {
             // Cell is in freevars = closure
-            assert v.isFree();
-            assert freevars[v.index] != null;
-            return new NameError(UNBOUNDFREE_ERROR_MSG, v.name);
+            assert traits.contains(VariableTrait.FREE);
+            return new NameError(UNBOUNDFREE_ERROR_MSG, name);
         }
     }
 
