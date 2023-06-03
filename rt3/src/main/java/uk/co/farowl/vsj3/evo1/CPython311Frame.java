@@ -212,7 +212,6 @@ class CPython311Frame extends PyFrame<CPython311Code> {
 
                     case Opcode311.NOP:
                     case Opcode311.RESUME:
-                    case Opcode311.CACHE:
                         break;
 
                     case Opcode311.LOAD_CLOSURE:
@@ -253,6 +252,7 @@ class CPython311Frame extends PyFrame<CPython311Code> {
                         Object v = s[--sp];
                         int top = sp - 1;
                         s[top] = PySequence.getItem(s[top], v);
+                        ip += Opcode311.INLINE_CACHE_ENTRIES_BINARY_SUBSCR;
                         break;
                     }
 
@@ -269,6 +269,7 @@ class CPython311Frame extends PyFrame<CPython311Code> {
                         sp -= 3;
                         // setItem(w, v, u)
                         PySequence.setItem(s[sp + 1], s[sp + 2], s[sp]);
+                        ip += Opcode311.INLINE_CACHE_ENTRIES_STORE_SUBSCR;
                         break;
 
                     case Opcode311.DELETE_SUBSCR: // del w[v]
@@ -315,12 +316,14 @@ class CPython311Frame extends PyFrame<CPython311Code> {
                                 int i = sp + oparg;
                                 for (Object o : seq) { s[--i] = o; }
                                 sp += oparg;
+                                ip += Opcode311.INLINE_CACHE_ENTRIES_UNPACK_SEQUENCE;
                                 break;
                             }
                             // Wrong size: slow path to error message
                         }
                         // unpack iterable w to s[sp...sp+n]
                         sp = unpackIterable(w, oparg, -1, s, sp);
+                        ip += Opcode311.INLINE_CACHE_ENTRIES_UNPACK_SEQUENCE;
                         break;
                     }
 
@@ -337,6 +340,7 @@ class CPython311Frame extends PyFrame<CPython311Code> {
                         // -------^sp -^sp
                         Abstract.setAttr(s[--sp], names[oparg],
                                 s[--sp]);
+                        ip += Opcode311.INLINE_CACHE_ENTRIES_STORE_ATTR;
                         break;
 
                     case Opcode311.DELETE_ATTR:
@@ -375,8 +379,10 @@ class CPython311Frame extends PyFrame<CPython311Code> {
                             throw new NameError(NAME_ERROR_MSG, name);
                         }
                         // Optionally push a null to satisfy [PRE]CALL
-                        if ((oparg & 1) != 0) { s[sp++] = null; }
+                        s[sp] = null;
+                        sp += oparg & 1;
                         s[sp++] = v;
+                        ip += Opcode311.INLINE_CACHE_ENTRIES_LOAD_GLOBAL;
                         break;
                     }
 
@@ -536,6 +542,7 @@ class CPython311Frame extends PyFrame<CPython311Code> {
                         // ---^sp ----------^sp
                         int top = sp - 1;
                         s[top] = Abstract.getAttr(s[top], names[oparg]);
+                        ip += Opcode311.INLINE_CACHE_ENTRIES_LOAD_ATTR;
                         break;
                     }
 
@@ -546,6 +553,7 @@ class CPython311Frame extends PyFrame<CPython311Code> {
                         int top = sp - 1;
                         Object v = s[top]; // TOP
                         s[top] = Comparison.from(oparg).apply(v, w);
+                        ip += Opcode311.INLINE_CACHE_ENTRIES_COMPARE_OP;
                         break;
                     }
 
@@ -692,6 +700,7 @@ class CPython311Frame extends PyFrame<CPython311Code> {
                         // -----^sp ---------------^sp
                         getMethod(s[--sp], names[oparg], sp);
                         sp += 2;
+                        ip += Opcode311.INLINE_CACHE_ENTRIES_LOAD_METHOD;
                         break;
 
                     case Opcode311.PRECALL:
@@ -707,6 +716,7 @@ class CPython311Frame extends PyFrame<CPython311Code> {
                          * It might, but we can safely make this a no-op
                          * and CALL will still do the right thing.
                          */
+                        ip += Opcode311.INLINE_CACHE_ENTRIES_PRECALL;
                         break;
 
                     case Opcode311.KW_NAMES:
@@ -744,6 +754,7 @@ class CPython311Frame extends PyFrame<CPython311Code> {
                                     sp + 1, oparg, kwnames);
                         }
                         kwnames = null;
+                        ip += Opcode311.INLINE_CACHE_ENTRIES_CALL;
                         break;
                     }
 
@@ -837,6 +848,7 @@ class CPython311Frame extends PyFrame<CPython311Code> {
                             // case Opcode311.NB_INPLACE_XOR -> //
                             // PyNumber.InPlaceXor(v, w);
                         };
+                        ip += Opcode311.INLINE_CACHE_ENTRIES_BINARY_OP;
                         break;
                     }
 
