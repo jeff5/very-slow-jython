@@ -2,7 +2,7 @@
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj3.evo1;
 
-import java.nio.CharBuffer;
+import java.nio.ShortBuffer;
 import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.Spliterator;
@@ -27,11 +27,11 @@ public class CPython311Code extends PyCode {
     final CPythonLayout layout;
 
     /**
-     * Instruction opcodes, not {@code null}, using {@code char} simply
-     * as an unsigned short.
+     * Instruction opcodes, not {@code null}. Treat these as unsigned
+     * 16-bit patterns in which the low 8 bits is the argument and the
+     * upper 8 bits is the opcode itself.
      */
-    // A bit tacky but short[] leads to masking operations in eval().
-    final char[] wordcode;
+    final short[] wordcode;
 
     /**
      * Table of byte code address ranges mapped to source lines,
@@ -98,7 +98,7 @@ public class CPython311Code extends PyCode {
             String filename, String name, String qualname, //
             int flags,
             // The code
-            char[] wordcode, int firstlineno, byte[] linetable,
+            short[] wordcode, int firstlineno, byte[] linetable,
             // Used by the code
             Object[] consts, String[] names,
             // Mapping frame offsets to information
@@ -227,7 +227,7 @@ public class CPython311Code extends PyCode {
     PyBytes co_code() {
         ByteArrayBuilder builder =
                 new ByteArrayBuilder(2 * wordcode.length);
-        for (char opword : wordcode) {
+        for (short opword : wordcode) {
             // Opcode is high byte and goes first in byte code
             builder.append(opword >> 8).append(opword);
         }
@@ -503,10 +503,11 @@ public class CPython311Code extends PyCode {
      * @param bytecode as compiled by Python as bytes
      * @return 16-bit word code
      */
-    private static char[] wordcode(PyBytes bytecode) {
-        CharBuffer wordbuf = bytecode.getNIOByteBuffer().asCharBuffer();
+    private static short[] wordcode(PyBytes bytecode) {
+        ShortBuffer wordbuf =
+                bytecode.getNIOByteBuffer().asShortBuffer();
         final int len = wordbuf.remaining();
-        char[] code = new char[len];
+        short[] code = new short[len];
         wordbuf.get(code, 0, len);
         return code;
     }

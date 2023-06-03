@@ -125,24 +125,11 @@ class CPython311Frame extends PyFrame<CPython311Code> {
     Object eval() {
 
         // Push this frame onto the stack of the thread state.
-        ThreadState tstate = ThreadState.get();
-        tstate.push(this);
+        ThreadState.get().push(this);
 
         // Evaluation stack and index
         final Object[] s = valuestack;
         int sp = stacktop;
-
-        // Cached references from code
-        final String[] names = code.names;
-        final Object[] consts = code.consts;
-        final char[] wordcode = code.wordcode;
-        final int END = wordcode.length;
-
-        final PyDict globals = func.globals;
-        assert globals != null;
-
-        // Wrap locals (any type) as a minimal kind of Java map
-        Map<Object, Object> locals = localsMapOrNull();
 
         /*
          * Because we use a word array, our ip is half the CPython ip.
@@ -157,7 +144,8 @@ class CPython311Frame extends PyFrame<CPython311Code> {
          * argument. (The oparg after an EXTENDED_ARG gets special
          * treatment to produce the chaining of argument values.)
          */
-        int opword = wordcode[ip++];
+        final CPython311Code code = this.code;
+        int opword = code.wordcode[ip++] & 0xffff;
 
         // Opcode argument (where needed).
         int oparg = opword & 0xff;
@@ -172,16 +160,28 @@ class CPython311Frame extends PyFrame<CPython311Code> {
         //     case Opcode311.RETURN_VALUE:
         //         returnValue = s[--sp]; break loop;
         //     case Opcode311.EXTENDED_ARG:
-        //         opword = wordcode[ip++];
+        //         opword = wordcode[ip++] & 0xffff;
         //         oparg = (oparg << 8) | opword & 0xff;
         //         continue;
         //     default:
         //         throw new InterpreterError("...");
         //     }
-        //     opword = wordcode[ip++];
+        //     opword = wordcode[ip++] & 0xffff;
         //     oparg = opword & 0xff;
         // }
         // @formatter:on
+
+        // Cached references from code
+        final String[] names = code.names;
+        final Object[] consts = code.consts;
+        final short[] wordcode = code.wordcode;
+        final int END = wordcode.length;
+
+        final PyDict globals = func.globals;
+        assert globals != null;
+
+        // Wrap locals (any type) as a minimal kind of Java map
+        Map<Object, Object> locals = localsMapOrNull();
 
         // Holds keyword names argument between KW_NAMES and CALL
         PyTuple kwnames = null;
@@ -842,7 +842,7 @@ class CPython311Frame extends PyFrame<CPython311Code> {
 
                     case Opcode311.EXTENDED_ARG:
                         // Pick up the next instruction.
-                        opword = wordcode[ip++];
+                        opword = wordcode[ip++] & 0xffff;
                         // The current oparg *prefixes* the next oparg,
                         // which could of course be another
                         // EXTENDED_ARG. (Trust me, it'll be fine.)
@@ -863,7 +863,7 @@ class CPython311Frame extends PyFrame<CPython311Code> {
                  * latter, and all jump arguments, are always even, so
                  * we have to halve the jump distances or destinations.
                  */
-                opword = wordcode[ip++];
+                opword = wordcode[ip++] & 0xffff;
                 oparg = opword & 0xff;
 
             } catch (PyException pye) {
