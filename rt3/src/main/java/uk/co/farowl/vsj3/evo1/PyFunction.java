@@ -1,9 +1,15 @@
+// Copyright (c)2023 Jython Developers.
+// Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj3.evo1;
 
 import java.lang.invoke.MethodHandles;
 import java.util.Collection;
 import java.util.Map;
 
+import uk.co.farowl.vsj3.evo1.Exposed.FrozenArray;
+import uk.co.farowl.vsj3.evo1.Exposed.Getter;
+import uk.co.farowl.vsj3.evo1.Exposed.Member;
+import uk.co.farowl.vsj3.evo1.Exposed.Setter;
 import uk.co.farowl.vsj3.evo1.PyType.Flag;
 import uk.co.farowl.vsj3.evo1.base.InterpreterError;
 
@@ -28,14 +34,6 @@ public abstract class PyFunction<C extends PyCode>
     final Interpreter interpreter;
 
     /**
-     * Get the interpreter that defines the import context, which was
-     * current when this function was defined. Not {@code null}.
-     *
-     * @return interpreter that defines the import context
-     */
-    Interpreter getInterpreter() { return interpreter; }
-
-    /**
      * The {@code __code__} attribute: a code object, which is writable,
      * but only with the right implementation type for the concrete
      * class of the function. Not {@code null}.
@@ -46,7 +44,7 @@ public abstract class PyFunction<C extends PyCode>
      * The read-only {@code __globals__} attribute is a {@code dict}:
      * other mappings won't do. Not {@code null}.
      */
-    @Exposed.Member(value = "__globals__", readonly = true)
+    @Member(value = "__globals__", readonly = true)
     final PyDict globals;
 
     /**
@@ -55,7 +53,7 @@ public abstract class PyFunction<C extends PyCode>
      * Python mapping protocol by the interpreter, at which point an
      * error may be raised. Not {@code null}.
      */
-    @Exposed.Member(value = "__builtins__", readonly = true)
+    @Member(value = "__builtins__", readonly = true)
     final Object builtins;
 
     /** The (positional) {@code __defaults__} or {@code null}. */
@@ -68,7 +66,7 @@ public abstract class PyFunction<C extends PyCode>
      * The read-only {@code __closure__} attribute, or {@code null}. See
      * {@link #setClosure(Collection) __closure__} access method
      */
-    @Exposed.FrozenArray
+    @FrozenArray
     protected PyCell[] closure;
 
     /**
@@ -76,7 +74,7 @@ public abstract class PyFunction<C extends PyCode>
      * {@code null}.
      */
     // (but only a str prints in help)
-    @Exposed.Member("__doc__")
+    @Member("__doc__")
     Object doc;
 
     /** The function name ({@code __name__} attribute). */
@@ -91,7 +89,7 @@ public abstract class PyFunction<C extends PyCode>
      * The {@code __module__} attribute, can be anything or {@code null}
      * meaning {@code None}
      */
-    @Exposed.Member(value = "__module__")
+    @Member(value = "__module__")
     Object module;
 
     /**
@@ -202,7 +200,7 @@ public abstract class PyFunction<C extends PyCode>
      */
     abstract PyFrame<? extends C> createFrame(Object locals);
 
-    // attribute access ----------------------------------------
+    // attributes ----------------------------------------------------
 
     /*
      * XXX From Java it would be convenient to have a type-safe
@@ -216,7 +214,7 @@ public abstract class PyFunction<C extends PyCode>
     /**
      * @return the {@code __code__} object of this function.
      */
-    @Exposed.Getter("__code__")
+    @Getter("__code__")
     C getCode() { return code; }
 
     /**
@@ -224,21 +222,21 @@ public abstract class PyFunction<C extends PyCode>
      *
      * @param code new code object to assign
      */
-    @Exposed.Setter("__code__")
+    @Setter("__code__")
     void setCode(C code) { this.code = checkFreevars(code); }
 
     /** @return the {@code __name__} attribute. */
-    @Exposed.Getter("__name__")
+    @Getter("__name__")
     String getName() { return name; }
 
-    @Exposed.Setter("__name__")
+    @Setter("__name__")
     void setName(Object name) {
         this.name = PyUnicode.asString(name,
                 v -> Abstract.attrMustBeString("__name__", v));
     }
 
     /** @return the {@code __qualname__}, the qualified name. */
-    @Exposed.Getter("__qualname__")
+    @Getter("__qualname__")
     String getQualname() { return qualname; }
 
     /**
@@ -246,14 +244,14 @@ public abstract class PyFunction<C extends PyCode>
      *
      * @param qualname to set
      */
-    @Exposed.Setter("__qualname__")
+    @Setter("__qualname__")
     void setQualname(Object qualname) {
         this.qualname = PyUnicode.asString(qualname,
                 v -> Abstract.attrMustBeString("__qualname__", v));
     }
 
     /** @return the positional {@code __defaults__ tuple}. */
-    @Exposed.Getter("__defaults__")
+    @Getter("__defaults__")
     Object getDefaults() { return tupleOrNone(defaults); }
 
     /**
@@ -261,22 +259,22 @@ public abstract class PyFunction<C extends PyCode>
      *
      * @param defaults to set
      */
-    @Exposed.Setter("__defaults__")
+    @Setter("__defaults__")
     abstract void setDefaults(PyTuple defaults);
 
     /**
      * @return the keyword dict {@code __kwdefaults__} or {@code None}.
      */
-    @Exposed.Getter("__kwdefaults__")
+    @Getter("__kwdefaults__")
     Object getKwdefaults() { return kwdefaults; }
 
-    @Exposed.Setter("__kwdefaults__")
+    @Setter("__kwdefaults__")
     abstract void setKwdefaults(PyDict kwdefaults);
 
     /**
      * @return the {@code __closure__ tuple} or {@code None}.
      */
-    @Exposed.Getter("__closure__")
+    @Getter("__closure__")
     Object getClosure() { return tupleOrNone(closure); }
 
     /**
@@ -321,16 +319,16 @@ public abstract class PyFunction<C extends PyCode>
     }
 
     /** @return the {@code __dict__} attribute. */
-    @Exposed.Getter("__dict__")
+    @Getter("__dict__")
     PyDict __dict__() { return dict; }
 
-    @Exposed.Setter("__dict__")
+    @Setter("__dict__")
     void __dict__(PyDict dict) { this.dict = dict; }
 
     /**
      * @return the {@code __annotations__} attribute as a {@code dict}.
      */
-    @Exposed.Getter("__annotations__")
+    @Getter("__annotations__")
     PyDict getAnnotations() {
         if (annotations == null) { annotations = Py.dict(); }
         return annotations;
@@ -343,7 +341,7 @@ public abstract class PyFunction<C extends PyCode>
      *
      * @param anno specifying the annotations.
      */
-    @Exposed.Setter("__annotations__")
+    @Setter("__annotations__")
     void setAnnotations(Object anno) {
         if (anno instanceof PyDict) {
             annotations = (PyDict)anno;
@@ -396,6 +394,14 @@ public abstract class PyFunction<C extends PyCode>
     }
 
     /**
+     * Get the interpreter that defines the import context, which was
+     * current when this function was defined. Not {@code null}.
+     *
+     * @return interpreter that defines the import context
+     */
+    Interpreter getInterpreter() { return interpreter; }
+
+    /**
      * Check that the number of free variables expected by the given
      * code object matches the length of the existing {@link #closure}
      * (or is zero if {@code closure==null}).
@@ -416,17 +422,6 @@ public abstract class PyFunction<C extends PyCode>
 
     private static String FREE_VARS =
             "%s() requires a code object with %d free vars, not %d";
-
-    /**
-     * Return the argument if it is not {@code null}, or {@code None} if
-     * it is.
-     *
-     * @param o object to return is not {@code null}
-     * @return {@code o} or {@code None} if {@code o} was {@code null}.
-     */
-    protected static Object nullIsNone(Object o) {
-        return o == null ? Py.None : o;
-    }
 
     /**
      * Present an array as a tuple, or if the expression variable is

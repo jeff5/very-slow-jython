@@ -144,6 +144,17 @@ public class PyObjectUtil {
     }
 
     /**
+     * Return the argument if it is not {@code null}, or {@code None} if
+     * it is.
+     *
+     * @param o object to return is not {@code null}
+     * @return {@code o} or {@code None} if {@code o} was {@code null}.
+     */
+    static Object noneIfNull(Object o) {
+        return o == null ? Py.None : o;
+    }
+
+    /**
      * Throw an exception if {@code v} is {@code null}.
      *
      * @param <T> type of {@code v}
@@ -157,6 +168,19 @@ public class PyObjectUtil {
             Supplier<E> exc) throws E {
         if (v != null) { return v; }
         throw exc.get();
+    }
+
+    /**
+     * Present an array as a tuple, or if the expression variable is
+     * {@code null}, as a Python {@code None}.
+     *
+     * @param <E> element type of the array
+     * @param a array providing elements or {@code null}
+     * @return tuple from argument array or {@code None} if the array
+     *     was Java {@code null}.
+     */
+    protected static <E> Object tupleOrNone(E[] a) {
+        return a == null ? Py.None : PyTuple.from(a);
     }
 
     /**

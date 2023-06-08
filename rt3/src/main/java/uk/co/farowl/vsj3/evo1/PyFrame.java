@@ -100,6 +100,31 @@ public abstract class PyFrame<C extends PyCode> {
     final C code;
 
     /**
+     * Local context (name space) of execution. (Assign if needed.) This
+     * is allowed to be any type, but if it is ever actually used, the
+     * interpreter will expect it to support the mapping protocol.
+     */
+    Object locals;
+
+    /**
+     * Foundation constructor on which subclass constructors rely. This
+     * provides a "loose" frame that is not yet part of any stack until
+     * explicitly pushed (with {@link ThreadState#push(PyFrame)}). In
+     * particular, the {@link #back} pointer is {@code null} in the
+     * newly-created frame.
+     * <p>
+     * A frame always belongs to an {@link Interpreter} via its
+     * function, but it does not necessarily belong to a particular
+     * {@code ThreadState}.
+     *
+     * @param func defining the code and globals
+     */
+    protected PyFrame(PyFunction<? extends C> func) {
+        this.func = func;
+        this.code = func.code;
+    }
+
+    /**
      * Get the code object this frame is executing, exposed as read-only
      * {@code f_code}.
      *
@@ -142,13 +167,6 @@ public abstract class PyFrame<C extends PyCode> {
     PyDict getGlobals() { return func.globals; }
 
     /**
-     * Local context (name space) of execution. (Assign if needed.) This
-     * is allowed to be any type, but if it is ever actually used, the
-     * interpreter will expect it to support the mapping protocol.
-     */
-    Object locals;
-
-    /**
      * Get the local variables (name space) against which this frame is
      * executing, exposed as read-only (but mutable) attribute
      * {@code f_locals}. Not {@code null}.
@@ -159,24 +177,6 @@ public abstract class PyFrame<C extends PyCode> {
     Object getLocals() {
         fastToLocals();
         return locals;
-    }
-
-    /**
-     * Foundation constructor on which subclass constructors rely. This
-     * provides a "loose" frame that is not yet part of any stack until
-     * explicitly pushed (with {@link ThreadState#push(PyFrame)}). In
-     * particular, the {@link #back} pointer is {@code null} in the
-     * newly-created frame.
-     * <p>
-     * A frame always belongs to an {@link Interpreter} via its
-     * function, but it does not necessarily belong to a particular
-     * {@code ThreadState}.
-     *
-     * @param func defining the code and globals
-     */
-    protected PyFrame(PyFunction<? extends C> func) {
-        this.func = func;
-        this.code = func.code;
     }
 
     // slot methods --------------------------------------------------

@@ -949,7 +949,7 @@ class CPython311Frame extends PyFrame<CPython311Code> {
 
     // Supporting definitions and methods -----------------------------
 
-    private static final Object[] EMPTY_OBJECT_ARRAY = new Object[0];
+    private static final Object[] EMPTY_OBJECT_ARRAY = Py.EMPTY_ARRAY;
 
     private static final String NAME_ERROR_MSG =
             "name '%.200s' is not defined";
@@ -1326,10 +1326,10 @@ class CPython311Frame extends PyFrame<CPython311Code> {
 
     /**
      * Create a {@link TypeError} to throw when keyword arguments appear
-     * not to be a mapping. PyDict.merge raises AttributeError
-     * (percolated from an attempt to get 'keys' attribute) if its
-     * second argument is not a mapping, which we convert to a
-     * TypeError.
+     * not to be a mapping. {@code dict.merge} raises
+     * {@link AttributeError} (percolated from an attempt to get 'keys'
+     * attribute) if its second argument is not a mapping, which we
+     * convert to a {@link TypeError}.
      *
      * @param func providing a function name for context
      * @param kwargs the alleged mapping

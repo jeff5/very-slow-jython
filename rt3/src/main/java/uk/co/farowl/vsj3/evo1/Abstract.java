@@ -470,45 +470,6 @@ public class Abstract {
     }
 
     /**
-     * Return {@code true} iff {@code derived} is a Python sub-class of
-     * {@code cls} (including where it is the same class). The answer is
-     * found by traversing the {@code __bases__} tuples recursively,
-     * therefore does not depend on the MRO or respect
-     * {@code __subclasscheck__}.
-     *
-     * @param derived candidate derived type
-     * @param cls type that may be an ancestor of {@code derived}
-     * @return whether {@code derived} is a sub-class of {@code cls}
-     * @throws Throwable from looking up {@code __bases__}
-     */
-    // Compare CPython abstract_issubclass in abstract.c
-    private static boolean isSubclassHelper(Object derived, Object cls)
-            throws Throwable {
-        while (derived != cls) {
-            // Consider the bases of derived
-            PyTuple bases = getBasesOf(derived);
-            int n;
-            // derived is a subclass of cls if any of its bases is
-            if (bases == null || (n = bases.size()) == 0) {
-                // The __bases__ tuple is missing or empty ...
-                return false;
-            } else if (n == 1) {
-                // The answer is the answer for that single base.
-                derived = bases.get(0);
-            } else {
-                // several bases so work through them in sequence
-                for (int i = 0; i < n; i++) {
-                    if (isSubclassHelper(bases.get(i), cls))
-                        return true;
-                }
-                // And not otherwise
-                return false;
-            }
-        }
-        return true;
-    }
-
-    /**
      * Return {@code true} iff the type of {@code inst} is an instance
      * of {@code cls}.
      *
@@ -905,6 +866,45 @@ public class Abstract {
             "%.200s object is not iterable";
     static final String DESCR_NOT_DEFINING =
             "Type marked as %.20s descriptor does not define %.50s";
+
+    /**
+     * Return {@code true} iff {@code derived} is a Python sub-class of
+     * {@code cls} (including where it is the same class). The answer is
+     * found by traversing the {@code __bases__} tuples recursively,
+     * therefore does not depend on the MRO or respect
+     * {@code __subclasscheck__}.
+     *
+     * @param derived candidate derived type
+     * @param cls type that may be an ancestor of {@code derived}
+     * @return whether {@code derived} is a sub-class of {@code cls}
+     * @throws Throwable from looking up {@code __bases__}
+     */
+    // Compare CPython abstract_issubclass in abstract.c
+    private static boolean isSubclassHelper(Object derived, Object cls)
+            throws Throwable {
+        while (derived != cls) {
+            // Consider the bases of derived
+            PyTuple bases = getBasesOf(derived);
+            int n;
+            // derived is a subclass of cls if any of its bases is
+            if (bases == null || (n = bases.size()) == 0) {
+                // The __bases__ tuple is missing or empty ...
+                return false;
+            } else if (n == 1) {
+                // The answer is the answer for that single base.
+                derived = bases.get(0);
+            } else {
+                // several bases so work through them in sequence
+                for (int i = 0; i < n; i++) {
+                    if (isSubclassHelper(bases.get(i), cls))
+                        return true;
+                }
+                // And not otherwise
+                return false;
+            }
+        }
+        return true;
+    }
 
     /**
      * Create a {@link TypeError} with a message involving the type of

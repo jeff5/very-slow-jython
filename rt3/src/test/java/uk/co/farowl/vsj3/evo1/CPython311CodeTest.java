@@ -473,23 +473,23 @@ class CPython311CodeTest extends UnitTestSupport {
             // Wrap a marshal reader around the input stream
             marshal.Reader reader = new marshal.StreamReader(s);
 
-            // First 8 bytes is a header
+            // First 4 bytes is a magic header
             int magic = reader.readShort();
-            assert magic == MAGIC_NUMBER;
             int magic2 = reader.readShort();
-            assert magic2 == 0x0a0d;
-            for (int i = 0; i < 3; i++) { //
-                reader.readInt();
-            }
+            boolean good = magic == MAGIC_NUMBER && magic2 == 0x0a0d;
+
+            // Undocumented
+            for (int i = 0; i < 3; i++) { reader.readInt(); }
 
             // Next should be a code object
-            Object o = reader.readObject();
-            if (o instanceof PyCode) {
-                return (CPython311Code)o;
-            } else {
-                throw new InterpreterError(
-                        "Not a CPython code object: %s", name);
+            if (good) {
+                Object o = reader.readObject();
+                if (o instanceof PyCode) { return (CPython311Code)o; }
             }
+
+            // Didn't return a code object
+            throw new InterpreterError("Not a CPython code object: %s",
+                    name);
 
         } catch (IOException ioe) {
             throw new InterpreterError(ioe);

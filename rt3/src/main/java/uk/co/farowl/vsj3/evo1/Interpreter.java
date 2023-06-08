@@ -1,3 +1,5 @@
+// Copyright (c)2023 Jython Developers.
+// Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj3.evo1;
 
 import uk.co.farowl.vsj3.evo1.base.InterpreterError;
@@ -34,6 +36,12 @@ class Interpreter {
         // addModule(builtinsModule);
     }
 
+    /**
+     * Add the given module to the interpreter's list of modules
+     * (effectively the source of {@code sys.modules}).
+     *
+     * @param m to add
+     */
     void addModule(PyModule m) {
         if (modules.putIfAbsent(m.name, m) != null)
             throw new InterpreterError(

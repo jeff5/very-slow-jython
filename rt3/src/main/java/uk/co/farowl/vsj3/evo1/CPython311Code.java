@@ -219,11 +219,9 @@ public class CPython311Code extends PyCode {
     // Attributes -----------------------------------------------------
 
     @Override
-    @Getter
     int co_stacksize() { return stacksize; }
 
     @Override
-    @Getter
     PyBytes co_code() {
         ByteArrayBuilder builder =
                 new ByteArrayBuilder(2 * wordcode.length);
@@ -464,7 +462,7 @@ public class CPython311Code extends PyCode {
                 public boolean
                         tryAdvance(Consumer<? super String> action) {
                     if (remaining > 0) {
-                        while ((kinds[i++] & mask) == 0); // nothing
+                        while ((kinds[i++] & mask) == 0) {} // nothing
                         action.accept(localnames[i - 1]);
                         remaining -= 1;
                         return true;
