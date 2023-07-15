@@ -1,6 +1,11 @@
 # Run unit tests on rt3 sub-project (GitHub action)
 name: rt3 unit tests
+
 on: [push]
+
+permissions:
+    contents: read
+
 jobs:
   rt3-unit-tests-Ubuntu-jdk-17:
     runs-on: ubuntu-latest
@@ -14,7 +19,7 @@ jobs:
         uses: actions/setup-java@v2
         with:
           java-version: '17'
-          distribution: 'adopt'
+          distribution: 'temurin'
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v4
