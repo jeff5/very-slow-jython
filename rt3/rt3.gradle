@@ -30,13 +30,22 @@ test {
 // Sources and destinations when generating Java object implementations
 
 def genSourcesDir = "$buildDir/generated/sources"
-def genOutputDir = "$genSourcesDir/javaTemplate"
-def genJavaDir = "$genOutputDir/java/main"
-def genTestJavaDir = "$genOutputDir/java/test"
 
-def genInputDir = getProject().file('src/main/javaTemplate')
-def genTestInputDir = getProject().file('src/test/javaTemplate')
+def javaTemplateOutputDir = "$genSourcesDir/javaTemplate"
+def javaTemplateOutputMain = "$javaTemplateOutputDir/java/main"
+def javaTemplateOutputTest = "$javaTemplateOutputDir/java/test"
+def javaTemplateInputMain = getProject().file('src/main/javaTemplate')
+def javaTemplateInputTest = getProject().file('src/test/javaTemplate')
 
+def asdlOutputDir = "$genSourcesDir/asdl"
+def asdlOutputMain = "$asdlOutputDir/java/main"
+def asdlInputMain = getProject().file('src/main/asdl')
+
+def pegenOutputDir = "$genSourcesDir/pegen"
+def pegenOutputMain = "$pegenOutputDir/java/main"
+def pegenInputMain = getProject().file('src/main/pegen')
+
+def astPackage = 'uk.co.farowl.vsj3.evo1.ast'
 
 // Source and destinations of Python source test material
 
@@ -51,13 +60,15 @@ sourceSets {
 
     main {
         java {
-            srcDir genJavaDir
+            srcDir javaTemplateOutputMain
+            srcDir asdlOutputMain
+            srcDir pegenOutputMain
         }
     }
 
     test {
         java {
-            srcDir genTestJavaDir
+            srcDir javaTemplateOutputTest
         }
         resources {
             srcDir testPythonExampleOutputDir
@@ -84,8 +95,8 @@ task generateJavaEvo1(type: PythonExec,
         description: 'Generate object definitions from templates' ) {
     args getProject().file('tools/python/vsj3evo1/java_object_gen.py')
     args '--verbose'
-    args genInputDir
-    args genJavaDir
+    args javaTemplateInputMain
+    args javaTemplateOutputMain
 }
 compileJava.dependsOn(generateJavaEvo1)
 
@@ -109,12 +120,53 @@ task compileTestPythonExamples(type: PythonExec,
         })
     outputs.dir(testPythonExampleOutputDir)
     // Exec task is python -m compile_examples <src> <dst>
-    args '-m'
-    args 'compile_examples'
+    args '-m', 'compile_examples'
     args testPythonExampleInputDir
     args testPythonExampleOutputDir
 }
 processTestResources.dependsOn(compileTestPythonExamples)
+
+
+// Generate Python AST sources to the build tree
+
+task generatePythonAST(type: PythonExec,
+        description: 'Generate Python AST sources') {
+    // Clues for the incremental build
+    inputs.files("$asdlInputMain/Python.asdl")
+    outputs.dir(asdlOutputDir)
+    // python -m asdl_java [-a AST_PACKAGE] [input_file] [output_dir]
+    args '-m', 'asdl_java'
+    args '--core-package', 'uk.co.farowl.vsj3.evo1'
+    args '--ast-package', astPackage
+    args "$asdlInputMain/Python.asdl"
+    args asdlOutputMain
+}
+
+
+// Generate Python Parser source (and some further AST classes)
+
+task generatePythonParser(type: PythonExec,
+        description: 'Generate Python parser sources') {
+    // Clues for the incremental build
+    inputs.files(
+        fileTree(asdlOutputMain) {
+            include '**/*.java'
+        })
+    outputs.dir(asdlOutputDir)
+    // python -m pegen_main java [input_file] [output_dir]
+    args '-m', 'pegen_main', 'java'
+    args '--c-files', "$pegenInputMain/cfiles"
+    args '--core-package', 'uk.co.farowl.vsj3.evo1'
+    args '--ast-package', astPackage
+    args '--parser-package', 'uk.co.farowl.vsj3.evo1.parser'
+    // Hack around (probable) need to use legacy checked-in cache
+    //args '--type-map', "$asdlOutputMain/.c_java_type_cache"
+    args '--type-map', getProject().file('tools/python/lib/pegen/asdl_types')
+    args "$pegenInputMain/python.gram"
+    args pegenOutputMain
+}
+generatePythonParser.dependsOn(generatePythonAST)
+compileJava.dependsOn(generatePythonParser)
 
 
 // Generate (selected) Python abstract object API members

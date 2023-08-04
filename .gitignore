@@ -10,6 +10,7 @@
 **/_build/
 **/_static/
 **/_templates/
+**/__pycache__/
 
 # Places and extensions I use for non-SCM-able scraps
 /scraps/
