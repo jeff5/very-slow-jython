@@ -1,4 +1,5 @@
 from datetime import datetime
+from os import PathLike
 from typing import List, TextIO, Optional
 from pathlib import Path
 
@@ -52,10 +53,10 @@ class JavaGeneratorContext:
     source files) and generated Java files (new and previous),
     plus the package names needed to read or create those files.
     """
-    def __init__(self, cfiles: Path, dest_path: Path,
+    def __init__(self, cfiles: PathLike, dest_path: PathLike,
                  core_package: str, ast_package: str,
                  parser_package: str, parser_name: str,
-                 type_map: Path,
+                 type_map: PathLike,
                  generator: str):
         """Create context for Java code generation
 
@@ -313,12 +314,18 @@ class ActionTranslator:
                     self.type_map[c_name] = java_expr
 
         cfiles = self.generator_context.cfiles
-        parser = self.parser_context
-        parser.define_macro('Py_LOCAL_INLINE(t)', 't')
-        parser.add_types('PyTypeObject', 'PyObject', 'Token')
-        a = parser.parse_file(cfiles / 'pegen.h')
-        parser.parse_file(cfiles / 'pegen.c')
-        ah = parser.parse_file(cfiles / 'action_helpers.c')
+
+        # The context holds information gleaned from multiple files
+        context = self.parser_context
+
+        # Some items we insert by hand
+        context.define_macro('Py_LOCAL_INLINE(t)', 't')
+        context.add_types('PyTypeObject', 'PyObject', 'Token')
+
+        # Read macros and definitions from the CPython C files
+        a = context.parse_file(cfiles / 'pegen.h')
+        context.parse_file(cfiles / 'pegen.c')
+        ah = context.parse_file(cfiles / 'action_helpers.c')
 
         # We need to extract and generate code for `TARGETS_TYPE`
         for item in a:
@@ -397,19 +404,16 @@ class ActionTranslator:
                     if str(item.params[0].type) == 'Parser*':
                         self.methods[name] = [self.translate_type(p.type) for p in item.params[1:]]
 
-        #parser.parse_file(base_path.joinpath('Include', 'internal', 'pycore_asdl.h'))
-        #parser.parse_file(base_path.joinpath('Parser', 'pegen.h'))
-        #parser.parse_file(base_path.joinpath('Parser', 'pegen.c'))
-        #parser.parse_file(base_path.joinpath('Parser', 'action_helpers.c'))
+        #context.parse_file(base_path.joinpath('Include', 'internal', 'pycore_asdl.h'))
 
-        parser.define_macro('INVALID_VERSION_CHECK(p, version, msg, node)',
+        context.define_macro('INVALID_VERSION_CHECK(p, version, msg, node)',
                                   '((this.feature_version >= version) ? node : '
                                   'RAISE_SYNTAX_ERROR("%s only supported in Python 3.%i and greater", msg, version))')
 
         # Add all the available types to the parser's type list
         for key in self.type_map:
             if '.' not in key and key.endswith('_ty'):
-                parser.add_types(key)
+                context.add_types(key)
 
         #for key in self.type_map:
         #    print(f"{key:>40} => {self.type_map[key]}")
@@ -459,18 +463,21 @@ class ActionTranslator:
         return tp
 
 
-if __name__ == '__main__':
-
+def main():
     # __file__ = src/python/pegen/action_translator.py
+    generated = Path(__file__).parents[3].joinpath('generated')
+    # cache = generated / '.c_java_type_cache'
+    cache = Path(__file__).parent / 'asdl_types'
     action_translator = ActionTranslator(
         JavaGeneratorContext(
             # Paths reflect Pegen2 project layout
-            Path(__file__).parents[2] / 'c',
-            Path(__file__).parents[3] / 'generated',
+            Path(__file__).parents[2] / 'cfiles',
+            generated,
             'org.python.object',
             'org.python.ast',
             'org.python.parser',
             'GeneratedParser',
+            cache,
             __file__
         )
     )
@@ -490,3 +497,7 @@ if __name__ == '__main__':
     _translate_action('_PyAST_AsyncFunctionDef ( n -> v . Name . id , ( params ) ? params : CHECK ( arguments_ty , _PyPegen_empty_arguments ( p ) ) , b , NULL , a , NEW_TYPE_COMMENT ( p , tc ) , EXTRA )')
     # Fails if we use generated .c_java_type_cache as intended instead of legacy asdl_types file:
     _translate_action('CHECK_VERSION ( stmt_ty , 5 , "Async functions are" , _PyAST_AsyncFunctionDef ( n -> v . Name . id , ( params ) ? params : CHECK ( arguments_ty , _PyPegen_empty_arguments ( p ) ) , b , NULL , a , NEW_TYPE_COMMENT ( p , tc ) , EXTRA ) )')
+
+
+if __name__ == '__main__':
+    main()

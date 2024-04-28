@@ -5,7 +5,7 @@ Generate Java code from an ASDL description.
 The code is based on asdl_c.py, although specific to Java, of course.
 """
 import sys
-from typing import Optional
+from typing import Optional, Callable
 
 import asdl
 
@@ -15,6 +15,7 @@ from codegen.javagen import (
     JavaClass,
     JavaPseudoEnum,
     JavaVariable,
+    JavaVisitor,
     JavaVisitorInterface,
     default_value_for_j_type,
     to_java_name,
@@ -22,7 +23,6 @@ from codegen.javagen import (
 from codegen.java_type_converter import (
     add_type,
     set_cache_file_path,
-    translate as get_java_type,
 )
 
 
@@ -60,6 +60,8 @@ class AsdlJavaContext:
         self.generator = AsdlJavaContext._generator_name(generator)
         self.type_map = type_map
         self._ast_path = None  # meaning not computed/created
+        # NamingVisitor fills and StructVisitor uses:
+        self.asdl_java_type: dict[str, str]
 
     @staticmethod
     def _generator_name(generator: Optional[str]) -> Optional[str]:
@@ -113,8 +115,10 @@ class StructVisitor(asdl.VisitorBase):
         self.context = context
         self.package = context.ast_package
         self.cls_stack = [context.base_type]
-        self.visitor_stack = []
-        self.java_classes = []
+        self.default_visitor = JavaVisitor("ASTDefaultVisitor", base_cls=None,
+                                           package=self.package, modifiers=['public'])
+        self.visitor_stack = [(self.cls_stack[0], self.default_visitor)]
+        self.java_classes = [self.default_visitor]
 
     def write_java_classes(self):
         """
@@ -126,24 +130,35 @@ class StructVisitor(asdl.VisitorBase):
         for jc in self.java_classes:
             jc.save_to_file(path, generator)
 
-    def begin_class(self, name: str, create_visitor: bool = False):
+    def begin_class(self, name: str,
+                    cls_type: Callable[..., JavaClass] = JavaClass,
+                    create_visitor: bool = False):
         base_cls = self.cls_stack[-1]
-        cls = JavaClass(name, base_cls=base_cls, package=self.package)
+        cls = cls_type(name, base_cls=base_cls, package=self.package, modifiers=['public'])
         self.cls_stack.append(cls)
         self.java_classes.append(cls)
-        for (_, iface) in self.visitor_stack:
-            iface.add(cls)
+        if cls.visitable:
+            for (_, visitor) in self.visitor_stack:
+                visitor.add_visit_method(cls)
         if create_visitor:
             iface = JavaVisitorInterface(name + 'Visitor',
                                          package=self.package)
             self.visitor_stack.append((cls, iface))
             self.java_classes.append(iface)
+            # The default visitor implements this interface too
+            self.default_visitor.add_interface(iface)
         return cls
 
     def end_class(self):
         cls = self.cls_stack.pop()
         if self.visitor_stack and self.visitor_stack[-1][0] == cls:
             self.visitor_stack.pop()
+
+    def get_java_type(self, asdl_type_name: str, is_seq: bool = False) -> str:
+        """Map an ASDL type to its Java type"""
+        if is_seq:
+            return self.get_java_type(asdl_type_name) + '[]'  # or PyList ?
+        return self.context.asdl_java_type[asdl_type_name]
 
     @property
     def current_class(self):
@@ -156,53 +171,121 @@ class StructVisitor(asdl.VisitorBase):
     def visitType(self, type):
         self.visit(type.value, type.name)
 
-    def visitSum(self, sum, name):
+    def visitSum(self, sum, asdl_name):
         if is_simple(sum):
-            cls = JavaPseudoEnum( to_java_name(name, start_with_upper=True) )
-            for field in sum.types:
-                cls.add(field.name)
+            self.sum_as_enum(sum, asdl_name)
         else:
-            self.sum_with_constructors(sum, name)
+            self.sum_with_constructors(sum, asdl_name)
 
-    def sum_with_constructors(self, sum, name):
-        raw_name = name
-        name = 'AST' + to_java_name(name, start_with_upper=True)
-        add_type(raw_name, name)
-        add_type(raw_name + '_ty', name)
-        cls = self.begin_class(name, True)
+    def sum_as_enum(self, sum, asdl_name):
+        java_name = self.get_java_type(asdl_name)
+        cls = self.begin_class(java_name, JavaPseudoEnum)
+        for field in sum.types:
+            cls.add(field.name)
+        self.end_class()
+
+    def sum_with_constructors(self, sum, asdl_name):
+        java_name = self.get_java_type(asdl_name)
+        cls = self.begin_class(java_name, JavaClass, True)
         for field in sum.attributes:
-            type = get_java_type(field.type)
+            type = self.get_java_type(field.type)
             init = default_value_for_j_type(type)
             cls.add(JavaVariable(field.name, type, init))
         for t in sum.types:
-            self.visit(t, name)
+            self.visit(t)
         self.end_class()
 
-    def visitConstructor(self, cons, base_name=None):
-        cls = self.begin_class(cons.name)
-        add_type(cons.name, cls.name)
+    def visitConstructor(self, cons):
+        cls = self.begin_class(self.get_java_type(cons.name))
         for field in cons.fields:
             self.visit(field)
         self.end_class()
 
     def visitField(self, field):
-        if field.type == 'int' and field.name.startswith('is_'):
-            java_type = 'boolean'
-        else:
-            java_type = get_java_type(field.type, field.seq)
+        java_type = self.get_java_type(field.type, field.seq)
         self.current_class.add(
             JavaVariable(field.name, java_type, is_optional=field.opt))
 
-    def visitProduct(self, product, name):
-        cls = self.begin_class(to_java_name(name))
+    def visitProduct(self, product, asdl_name):
+        cls = self.begin_class(self.get_java_type(asdl_name))
         for field in product.fields:
             self.visit(field)
         for field in product.attributes:
             # rudimentary attribute handling
-            type = get_java_type(field.type)
+            type = self.get_java_type(field.type)
             assert type in asdl.builtin_types, type
             cls.add(JavaVariable(field.name, type))
         self.end_class()
+
+
+class NamingVisitor(asdl.VisitorBase):
+    """
+    Visitor to survey the names used in AST elements in C and Java.
+
+    We survey only the types defined (and constructor names), to
+    ensure we encounter them before the fields or attributes that
+    may use these types.
+    """
+
+    # ASDL's 4 builtin types are: identifier, int, string, and constant
+    _ASDL_JAVA_TYPE = dict(
+        identifier='String',
+        int='int',
+        string='String',
+        constant='Object',
+    )
+
+    def __init__(self, context: AsdlJavaContext):
+        super().__init__()
+        self.context = context
+        context.asdl_java_type = dict(NamingVisitor._ASDL_JAVA_TYPE)
+        self.asdl_java_type = context.asdl_java_type
+        self.c_java_type: dict[str, str] = dict()
+
+    def add_asdl(self, asdl_name: str, java_name: str):
+        self.asdl_java_type[asdl_name] = java_name
+
+    def add_c(self, c_name: str, java_name: str):
+        self.c_java_type[c_name] = java_name
+
+    def visitModule(self, mod: asdl.Module):
+        for dfn in mod.dfns:
+            self.visit(dfn)
+
+    def visitType(self, t: asdl.Type):
+        self.visit(t.value, t.name)
+
+    def visitSum(self, sum: asdl.Sum, name: str):
+        if is_enum := is_simple(sum):
+            java_name = to_java_name(name, prefix='_', start_with_upper=True)
+        else:
+            java_name = to_java_name(name, prefix='AST', start_with_upper=True)
+        self.add_asdl(name, java_name)
+        # CPython has a corresponding type name_ty
+        self.add_c(f'{name}_ty', java_name)
+        for cons in sum.types:
+            self.visit(cons, is_enum, java_name)
+
+    def visitConstructor(self, cons: asdl.Constructor, is_enum: bool, qualifier: str):
+        name = cons.name
+        java_name = to_java_name(name)
+        self.add_asdl(name, java_name)
+        if is_enum:
+            # CPython has an enum constant called name, that in Java
+            # is scoped within the pseudo-enum class.
+            self.add_c(name, f'{qualifier}.{java_name}')
+        else:
+            # CPython has a factory _PyAST_name returning name_ty,
+            # that in Java becomes a constructor call.
+            self.add_c(f'_PyAST_{name}', f'new {java_name}')
+
+    def visitProduct(self, product: asdl.Product, name: str):
+        java_name = to_java_name(name, start_with_upper=True)
+        self.add_asdl(name, java_name)
+        # CPython has a corresponding type name_ty
+        self.add_c(f'{name}_ty', java_name)
+        # CPython has a factory returning name_ty called:
+        self.add_c(f'_PyAST_{name}', f'new {java_name}')
 
 
 def write_source(context: AsdlJavaContext, mod):
@@ -215,6 +298,7 @@ def write_source(context: AsdlJavaContext, mod):
 def main(context: AsdlJavaContext, input_file: str, dump_module=False):
     set_cache_file_path(context.type_map)
 
+    # Build an AST of the ASDL that describes the AST of the language.
     mod = asdl.parse(input_file)
     if dump_module:
         print('Parsed Module:')
@@ -222,6 +306,17 @@ def main(context: AsdlJavaContext, input_file: str, dump_module=False):
     if not asdl.check(mod):
         sys.exit(1)
 
+    # Gather the names of data types and their translations to Java.
+    # We do this before we encounter them as field types.
+    names = NamingVisitor(context)
+    names.visit(mod)
+
+    # Pre-load java_type_converter global dictionary with C decisions.
+    for key, value in names.c_java_type.items():
+        add_type(key, value)
+
+    # Walk the tree generating Java classes for the types it defines.
+    # These are the AST classes we use in the parser.
     write_source(context, mod)
 
 

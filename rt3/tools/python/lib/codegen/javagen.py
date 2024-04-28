@@ -16,12 +16,14 @@ projects without much adaption, too.
 @author: Tobias Kohn
 """
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, Set, Tuple
+from typing import Callable, Dict, List, Optional, Set, Tuple, Iterable
 from datetime import datetime
 
 
-# We need a set of all Java keywords in order to avoid naming variables like one of the keywords.
+# We need a set of all reserved names in order to avoid Java keywords
+# and identifiers commonly appearing unqualified in the code.
 _JAVA_KEYWORDS = {
+    # Keywords
     'abstract', 'continue', 'for', 'new', 'switch',
     'assert', 'default', 'goto', 'package', 'synchronized',
     'boolean', 'do', 'if', 'private', 'this',
@@ -32,6 +34,8 @@ _JAVA_KEYWORDS = {
     'char', 'final', 'interface', 'static', 'void',
     'class', 'finally', 'long', 'strictfp', 'volatile',
     'const', 'float', 'native', 'super', 'while',
+    # Commonly used names
+    'List', 'Set', 'Map',
 }
 
 # Used by `default_value_for_j_type`
@@ -64,6 +68,8 @@ _JAVA_DEFAULT_METHODS = {
     'toString',
 }
 
+_JAVA_MODIFIERS = ['public', 'protected', 'private', 'abstract', 'static', 'final', 'strictfp']
+
 
 def default_value_for_j_type(j_type: str) -> str:
     """
@@ -73,18 +79,44 @@ def default_value_for_j_type(j_type: str) -> str:
     return _JAVA_DEFAULT_VALUES.get(j_type, 'null')
 
 
-def to_java_name(name: str, start_with_upper: bool = True) -> str:
+def to_java_name(name: str, *, prefix=None,
+                 start_with_upper: Optional[bool] = None,
+                 suffix=None) -> str:
     """
-    Translates a Python identifier in 'snake case' to 'camel case' as is standard in Java.  If `start_with_upper` is
-    set to `True` the first letter is an uppercase character, otherwise it will be a lowercase character.  If the
-    resulting name is a Java keyword, an underline `_` will be appended.
+    Translate a Python identifier in 'snake case' to 'camel case'.
+
+    Options allow the caller to specify a prefix and a suffix on the name.
+    `start_with_upper` optionally determines whether the first letter of
+    the result (after the optional prefix) will be uppercase or lowercase.
+    If the final result would be a reserved word (keywords ad some others),
+    an underscore `_` will be appended.
     """
-    name = name.title().replace('_', '')
-    if name and not start_with_upper:
-        name = name[0].lower() + name[1:]
+    segments = []
+    first = True
+    if prefix is not None:
+        segments.append(prefix)
+    for s in name.split('_'):
+        if s:
+            c = s[0]
+            if first and start_with_upper is not None:
+                # start_with_upper decides case
+                if start_with_upper:
+                    if c.islower():
+                        s = c.upper() + s[1:]
+                else:
+                    if c.isupper():
+                        s = c.lower() + s[1:]
+            elif c.islower():
+                s = c.upper() + s[1:]
+        segments.append(s)
+        first = False
+    if suffix is not None:
+        segments.append(suffix)
+    name = ''.join(segments)
     if name in _JAVA_KEYWORDS:
         name += '_'
     return name
+
 
 class JavaVariable:
     """
@@ -115,6 +147,9 @@ class JavaVariable:
         self.is_exposed = is_exposed
         if is_optional is True and init_value is None:
             self.init_value = default_value_for_j_type(j_type)
+
+    def __repr__(self):
+        return f"{self.__class__.__name__}({self.name!r}, {self.j_type!r})"
 
     def __str__(self):
         if self.init_value:
@@ -239,7 +274,7 @@ class JavaVariable:
         """
         s = ' static' if self.is_static else ''
         n = self.j_name
-        return f"  public{s} void set{self.title_name}({self.j_type} {n}) {{\n    this.{n} = n;\n  }}"
+        return f"  public{s} void set{self.title_name}({self.j_type} {n}) {{\n    this.{n} = {n};\n  }}"
 
     @property
     def title_name(self) -> str:
@@ -297,6 +332,9 @@ class JavaMethod:
             is_override = name in _JAVA_DEFAULT_METHODS
         self.is_override = is_override
 
+    def __repr__(self):
+        return f"{self.__class__.__name__}({self.cls!r}, {self.name!r}, {self.return_j_type!r})"
+
     def __str__(self):
         return self._get_head() + ';'
 
@@ -305,7 +343,7 @@ class JavaMethod:
         Returns the list of arguments where `n` specifies the number of maximum number of arguments to include.  This
         allows you to easily get the argument lists for overloaded variants.
         """
-        if self.args:
+        if self.all_args:
             if isinstance(n, int) and 0 <= n <= len(self.all_args):
                 return ', '.join(a.param_decl for a in self.all_args[:n])
             else:
@@ -508,7 +546,7 @@ class JavaMemoizedMethod(JavaMethod):
         self.hash_j_type = hash_j_type
         self.memo_class = mc = JavaClass(
             'Memo',
-            prefix='private static',
+            modifiers='private static'.split(),
             generics=['U']
         )
         mc.add( JavaVariable('item', 'U', is_final=True, is_exposed=True) )
@@ -660,25 +698,27 @@ class JavaClass:
             name: str,
             base_cls = None,
             package: Optional[str] = None,
+            visitable: bool = True,
             *,
             comment: Optional[str] = None,
             generics: Optional[List[str]|str] = None,
-            prefix: Optional[str] = None
+            modifiers: Iterable = frozenset()
     ):
         self.name = name
         self.base_cls = base_cls if base_cls != '' else None
         self.package = package
+        self.visitable: bool = visitable
         self.constructor = JavaMethod(self, name, name)
         if isinstance(generics, str):
             generics = generics.split(',')
         self.comment = comment      # type: Optional[str]
         self.fields = []            # type: List[JavaVariable]
-        self.interfaces = set()     # type: Set[str]
+        self.interfaces = set()     # type: Set[JavaInterface]
         self.methods = []           # type: List[JavaMethod]
         self.imports = set()        # type: Set[str]
         self.nested_cls = {}        # type: Dict[str, JavaClass]
         self.generics = generics    # type: Optional[List[str]]
-        self.prefix = prefix        # type: Optional[str]
+        self.modifiers = set(modifiers)  # type: set
         self.expose_fields = None   # type: Optional[str]
 
     def __repr__(self):
@@ -712,9 +752,10 @@ class JavaClass:
         self.add(var)
         return var
 
-    def add_interface(self, name: str):
-        if name is not None:
-            self.interfaces.add(name)
+    def add_interface(self, iface):
+        assert isinstance(iface, JavaInterface)
+        if iface is not None:
+            self.interfaces.add(iface)
 
     def add_method(self, name: str, return_j_type: str|None = None) -> JavaMethod:
         method = JavaMethod(self, name, return_j_type)
@@ -762,7 +803,7 @@ class JavaClass:
         else:
             base_cls = ''
         if self.interfaces:
-            interfaces = ' implements ' + ' with '.join(self.interfaces)
+            interfaces = ' implements ' + ', '.join(i.name for i in self.interfaces)
         else:
             interfaces = ''
         lines = []
@@ -772,7 +813,7 @@ class JavaClass:
             for i in sorted(self.imports):
                 lines.append(f"import {i};")
             lines.append('')
-        prefix = self.prefix + ' ' if self.prefix else ''
+        prefix = (' '.join(m for m in _JAVA_MODIFIERS if m in self.modifiers) + ' ') if self.modifiers else ''
         generics = f"<{', '.join(self.generics)}>" if self.generics else ''
         lines.append(f"{self.get_comment()}{prefix}class {self.name}{generics}{base_cls}{interfaces} {{")
         # Add fields
@@ -791,8 +832,8 @@ class JavaClass:
                 decl = cls.declaration.replace('\n', '\n  ')
                 lines.append('  ' + decl)
                 lines.append('')
-        # Add constructor (if there are any fields)
-        if self.fields:
+        # Add constructors if there are any fields (even by inheritance).
+        if self.all_fields:
             lines.append(self.constructor.get_all_declarations())
             lines.append('')
         # Add getters and setters
@@ -875,11 +916,11 @@ class JavaPseudoEnum(JavaClass):
     This is not really an enum as we need the ability to have a specific base class.
     """
 
-    def __init__(self, name: str, base_cls: str|JavaClass|None = None):
-        super().__init__(name, base_cls)
+    def __init__(self, name: str, base_cls: str|JavaClass|None = None, package: Optional[str] = None, **kwds):
+        super().__init__(name, base_cls, package, visitable=False, **kwds)
         self.values = []            # type: List[Tuple[str, list]]
         self.add(JavaVariable('name', 'String', is_final=True, is_private=True))
-        self.add(JavaMethod(self, 'toString', 'String', body='return self.name;'))
+        self.add(JavaMethod(self, 'toString', 'String', body='return this.name;'))
         self.add(JavaMethod(self, 'valueOf', name, JavaVariable('s', 'String'), body=self._get_valueOf_method))
 
     def add(self, item):
@@ -919,6 +960,22 @@ class JavaPseudoEnum(JavaClass):
         return '\n'.join(code)
 
 
+class JavaVisitor(JavaClass):
+    """
+    Represents an actual visitor.  Simply add any classes that should be
+    visited by this visitor, and it will create a method doing so.
+    """
+    def __init__(self, name: str, base_cls: str|JavaClass|None = None, package: Optional[str] = None, **kwds):
+        super().__init__(name, base_cls, package, visitable=False, **kwds)
+
+    def add_visit_method(self, item: JavaClass):
+        """Add a method implementation corresponding to the class"""
+        self.methods.append(
+            JavaMethod(self, 'visit', 'void', JavaVariable('node', item.name),
+                       body='// TODO visit fields of a ' + repr(item))
+        )
+
+
 class JavaInterface:
     """
     Represents a Java interface.
@@ -936,13 +993,13 @@ class JavaInterface:
             *,
             comment: Optional[str] = None,
             generics: Optional[List[str]] = None,
-            prefix: Optional[str] = None
+            modifiers: Iterable[str] = frozenset()
     ):
         self.name = name
         self.package = package
         self.comment = comment
         self.generics = generics
-        self.prefix = prefix
+        self.modifiers = set(modifiers)  # type: Set[str]
         self.fields = []            # type: List[JavaVariable]
         self.methods = []           # type: List[JavaMethod]
         self.imports = set()        # type: Set[str]
@@ -1003,7 +1060,7 @@ class JavaInterface:
             for i in sorted(self.imports):
                 code.append(f"import {i};")
             code.append('')
-        prefix = self.prefix + ' ' if self.prefix else ''
+        prefix = (' '.join(m for m in _JAVA_MODIFIERS if m in self.modifiers) + ' ') if self.modifiers else ''
         generics = f"<{','.join(self.generics)}>" if self.generics else ''
         code.append(f"{self.get_comment()}{prefix}interface {self.name}{generics} {{\n")
         for field in self.fields:
@@ -1055,17 +1112,16 @@ class JavaVisitorInterface(JavaInterface):
     visited by this visitor, and it will create the methods for you.
     """
 
-    def add(self, item):
-        if isinstance(item, JavaClass):
-            self.methods.append(
-                JavaMethod(self, 'visit', 'void', JavaVariable('node', item.name))
-            )
-            item.add(
-                JavaMethod(item, 'accept', 'void', JavaVariable('visitor', self.name),
-                           body = 'visitor.visit(this);')
-            )
-        else:
-            super().add(item)
+    def add_visit_method(self, item: JavaClass):
+        """Add a method implementation corresponding to the class"""
+        self.methods.append(
+            JavaMethod(self, 'visit', 'void', JavaVariable('node', item.name))
+        )
+        item.methods.append(
+            JavaMethod(item, 'accept', 'void', JavaVariable('visitor', self.name),
+                       body = 'visitor.visit(this);')
+        )
+
 
 
 class JavaCodeScope:
@@ -1111,26 +1167,32 @@ class JavaCodeScope:
         return ''
 
 
-if __name__ == '__main__':
+def main():
     # Here is a simple class with some fields and methods
     jc = JavaClass('Test', 'Ancestor')
-    jc.add_field('caption', 'String').is_final= True
+    jc.add_field('caption', 'String').is_final = True
     jc.add_field('posX', 'int').is_optional = True
     jc.add_field('posY', 'int').is_optional = True
-    m = jc.add_method('show')
-    m.add('this.visible = true;')
+    jm = jc.add_method('show')
+    jm.add('this.visible = true;')
     jc.add(JavaMemoizedMethod(jc, 'eval', 'int', [JavaVariable('code', 'String')],
-                              body = 'return Integer.parse(code);',
+                              body='return Integer.parse(code);',
                               hash_arg='code', hash_j_type='String'))
     print(jc.declaration)
     # jc.save_to_file()
     print('-' * 50)
+
     # The interface is generated automatically from the class above
     iface = JavaInterface('TestI')
     iface.add_all(jc)
     print(iface.declaration)
     print('-' * 50)
+
     # Enums are fully reimplemented, allowing us the flexibility to have custom base classes
     en = JavaPseudoEnum('BinOp')
     en.add(['Add', 'Sub', 'Mul', 'Div'])
     print(en.declaration)
+
+
+if __name__ == '__main__':
+    main()

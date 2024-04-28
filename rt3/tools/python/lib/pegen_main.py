@@ -62,8 +62,6 @@ def generate_java_code(
 
     if args.type_map is None:
         args.type_map = args.output_dir / '.c_java_type_cache'
-        # TODO: Remove this hack: read .c_java_type_cache when correct
-        args.type_map = Path(__file__).parent / 'pegen' / 'asdl_types'
 
     generator_context = JavaGeneratorContext(
         args.c_files,

@@ -48,7 +48,7 @@ import java.util.Map;
 import java.util.Set;
 
 import {ast_package}.*;
-import {core_package}.*;
+//import {core_package}.*;  // only using primitives for now
 """
 
 MODULE_SUFFIX = """
@@ -73,11 +73,6 @@ private static class Memo<U> {
     }
 }
 """
-
-# Since we are generating the parser for Jython, we could use ``PyObject`` here.  However,
-# using a generic type parameter means that the parser module is only loosely coupled and
-# less tied to the design of Jython itself.
-#TYPE = "T"
 
 
 class InvalidNodeVisitor(GrammarVisitor):

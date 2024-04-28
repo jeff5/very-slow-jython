@@ -36,8 +36,8 @@ _CACHE_FILE_PATH: Path = Path.cwd() / '.c_java_type_cache'
 
 _CACHE_FILE_LOADED = False
 
-# This is the mapping from C- to Java-types
-# The initialisation here will most probably be overwritten once we have a cache file, of course, but we still need
+# This is the mapping from C (not ASDL) to Java-types.
+# We add to this map during the processing of the ASDL for the AST, but need
 # these basic conversions to start with.
 type_map = {
     'char': 'char',
@@ -57,7 +57,8 @@ type_map = {
     'void*': 'Object',
     # Types specific to our Python translator:
     'Py_ssize_t': 'int',
-    # The following come from the ASDL language (see `asdl.py`, although the mapping is our own)
+    # The following come from the ASDL language (see `asdl.py`). The mapping
+    # is our own choice to Java built-in types.
     'constant': 'Object',
     'identifier': 'String',
     'string': 'String',
