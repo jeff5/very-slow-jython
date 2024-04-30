@@ -17,10 +17,8 @@ version = '0.4.0-SNAPSHOT'
 
 allprojects {
 
-    apply plugin: 'java'
-    sourceCompatibility = '17'
-
     tasks.withType(JavaCompile) {
+        sourceCompatibility = JavaVersion.VERSION_17
         options.encoding = 'UTF-8'
     }
 
