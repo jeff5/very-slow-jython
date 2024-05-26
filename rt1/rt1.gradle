@@ -4,15 +4,14 @@
  */
 
 plugins {
+    id 'java'
     id 'antlr'
     id 'uk.co.farowl.asdl.compiler'
+    id 'jvm-test-suite'
 }
 
 dependencies {
     antlr "org.antlr:antlr4:4.7" // use ANTLR version 4
-
-    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.10.+'
-    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.10.+'
 }
 
 // Import the plug-in task so we can use it as a task type.
@@ -31,6 +30,14 @@ sourceSets {
         java {
             srcDir "$generatedAsdl/test"
             srcDir "$generatedAsdl/test-ex"
+        }
+    }
+}
+
+testing {
+    suites {
+        test {
+            useJUnitJupiter() 
         }
     }
 }
@@ -74,3 +81,4 @@ compileTestJava {
     dependsOn generateTestEx1DataModel
     dependsOn generateTestEx5DataModel
 }
+

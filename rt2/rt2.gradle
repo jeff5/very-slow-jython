@@ -4,17 +4,20 @@
 
 plugins {
     id 'java-library'
+    id 'jvm-test-suite'
 }
 
 
-dependencies {
-    //implementation 'org.ow2.asm:asm:9.0'
+dependencies {}
 
-    // JUnit 5 dependencies
-    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.10.+'
-    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.10.+'
+// Configure the jvm-test-suite plug-in
+testing {
+    suites {
+        test {
+            useJUnitJupiter() 
+        }
+    }
 }
-
 
 
 // Some adjustments to Javadoc to ensure complex tables readable

@@ -4,25 +4,22 @@
 
 plugins {
     id 'java-library'
+    id 'jvm-test-suite'
 }
 
-// Our locally-rolled class-generator
+// Our locally-rolled class-generator (generates support for dy3bm)
 import uk.co.farowl.vsj3.generate.evo1.DynamicAPIevo1Task
 
 
-dependencies {
-    //implementation 'org.ow2.asm:asm:9.+'
-
-    // JUnit 5 dependencies
-    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.10.+'
-    testImplementation 'org.junit.jupiter:junit-jupiter-params:5.10.+'
-    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.10.+'
-}
+// dependencies {}
 
 
-test {
-    useJUnitPlatform {  // JUnit5 as standard
-        includeEngines 'junit-jupiter'
+// Configure the jvm-test-suite plug-in
+testing {
+    suites {
+        test {
+            useJUnitJupiter() 
+        }
     }
 }
 
@@ -233,3 +230,4 @@ tasks.withType(JavaCompile) {
     // retain parameter names (for use by exposer)
     options.compilerArgs.add('-parameters')
 }
+
