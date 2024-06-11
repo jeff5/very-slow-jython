@@ -4,6 +4,9 @@
 **/bin/
 /local/
 **/venv/
+**/venv/
+**/.venv/
+**/*-env/
 
 # Generated during build
 **/build/

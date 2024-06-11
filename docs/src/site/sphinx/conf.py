@@ -24,7 +24,7 @@ def run_command(cmd_list):
 # -- General information about the project --------------------------------
 
 project = u'The Very Slow Jython Project'
-copyright = u'2023, Jeff Allen'
+copyright = u'2024, Jeff Allen'
 author = u'Jeff Allen'
 #language = None
 
@@ -33,9 +33,9 @@ author = u'Jeff Allen'
 # built documents.
 #
 # The short X.Y version.
-version = u'0.3'
+version = u'0.4'
 # The full version, including alpha/beta/rc tags.
-release = u'0.3'
+release = u'0.4'
 
 
 # -- General configuration ------------------------------------------------
@@ -69,7 +69,6 @@ print("plantuml =", plantuml)
 master_doc = 'index' # The master toctree document.
 
 # templates_path = ['_templates']
-exclude_trees = ['.build']
 # source_suffix = ['.rst', '.md']
 source_suffix = '.rst'
 source_encoding = 'utf-8-sig'
@@ -89,7 +88,7 @@ source_encoding = 'utf-8-sig'
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This patterns also effect to html_static_path and html_extra_path
-exclude_patterns = ['_build', 'venv', 'Thumbs.db', '.DS_Store']
+exclude_patterns = ['*-env', 'venv', '.venv', 'Thumbs.db', '.DS_Store']
 
 
 # The reST default role (used for this markup: `text`) to use for all
