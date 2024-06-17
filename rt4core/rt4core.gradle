@@ -1,0 +1,172 @@
+/*
+ * rt4core subproject (model interpreter runtime).
+ */
+
+plugins {
+    id 'java-library'
+    id 'jvm-test-suite'
+}
+
+
+repositories {
+    // Use Maven Central for resolving dependencies.
+    mavenCentral()
+}
+
+
+// Configure the jvm-test-suite plug-in
+testing {
+    suites {
+        test {
+            useJUnitJupiter() 
+        }
+    }
+}
+
+
+// dependencies {}
+
+
+// Sources and destinations when generating Java object implementations
+
+def genSourcesDir = "$buildDir/generated/sources"
+def genOutputDir = "$genSourcesDir/javaTemplate"
+def genJavaDir = "$genOutputDir/java/main"
+def genTestJavaDir = "$genOutputDir/java/test"
+
+def genInputDir = getProject().file('src/main/javaTemplate')
+def genTestInputDir = getProject().file('src/test/javaTemplate')
+
+
+// Source and destinations of Python source test material
+
+// We compile these to code objects to test the CPython interpreter.
+def testPythonExampleInputDir = getProject().file('src/test/pythonExample')
+
+def pythonExampleOutput = "$buildDir/generated/sources/pythonExample"
+def testPythonExampleOutputDir = "$pythonExampleOutput/test"
+
+
+sourceSets {
+
+    main {
+        java {
+            srcDir genJavaDir
+        }
+    }
+
+    test {
+        java {
+            srcDir genTestJavaDir
+        }
+        resources {
+            srcDir testPythonExampleOutputDir
+        }
+    }
+}
+
+
+
+// A task that runs Python with the tools library on the path
+
+class PythonExec extends Exec {
+
+    PythonExec() {
+        executable 'python'
+        environment('PYTHONPATH', getProject().file('tools/python/lib'))
+    }
+}
+
+// Generate Python object definitions
+
+//task generateJava(type: PythonExec,
+//        description: 'Generate object definitions from templates' ) {
+//    args getProject().file('tools/python/java_object_gen.py')
+//    args '--verbose'
+//    args genInputDir
+//    args genJavaDir
+//}
+//classes.dependsOn(generateJava)
+
+
+// Report the version of Python available
+
+task pythonVersion(type: PythonExec) {
+    args '-V'
+}
+//generateJava.dependsOn(pythonVersion)
+
+
+// Copy and compile Python source examples to the build tree
+
+//task compileTestPythonExamples(type: PythonExec,
+//        description: 'Copy and compile Python test examples') {
+//    // Clues for the incremental build
+//    inputs.files(
+//        fileTree(testPythonExampleInputDir) {
+//            include '**/*.py'
+//        })
+//    outputs.dir(testPythonExampleOutputDir)
+//    // Exec task is python -m compile_examples <src> <dst>
+//    args '-m'
+//    args 'compile_examples'
+//    args testPythonExampleInputDir
+//    args testPythonExampleOutputDir
+//}
+//processTestResources.dependsOn(compileTestPythonExamples)
+
+
+// Task to generate javadoc for test code
+task testJavadoc(type:Javadoc,
+        description: 'Generate Javadoc for tests',
+        dependsOn:javadoc ) {
+    source = sourceSets.test.allJava
+    classpath = sourceSets.test.compileClasspath
+    //println "testJavadoc.classpath = $classpath.asPath"
+
+    // rt4 API javadoc already at ${buildDir}/docs/javadoc
+    title = "rt4 Unit Tests"
+    destinationDir = file("${buildDir}/docs/unittests")
+
+    // We want to click though to the objects under test
+    options.links.add("../javadoc")
+}
+
+
+// Some adjustments to Javadoc to ensure complex tables readable
+
+tasks.withType(Javadoc) {
+
+    options.showFromPackage()
+    options.encoding = 'UTF-8'
+
+    // addStringOption inserts one "-" for us :/
+    // CSS adjustments (initially only for table style)
+    options.addStringOption("-add-stylesheet",
+        "src/main/javadoc/project-styles.css")
+
+    // Enable "custom" tags used in JDK Javadoc since JSR-335.
+    // https://nipafx.dev/javadoc-tags-apiNote-implSpec-implNote
+    options.tags(
+        "apiNote:a:API Note:",
+        "implSpec:a:Implementation Requirements:",
+        "implNote:a:Implementation Note:",
+        // Unfortunately we must add these standard tags too,
+        // so they come after the ones we want to enable.
+        "param", "return", "throws",
+        "since", "version", "serialData", "see")
+}
+
+
+tasks.withType(JavaCompile) {
+
+    options.encoding = 'UTF-8'
+
+    // Use only public API
+    options.compilerArgs.addAll(['--release', '17'])
+    // deprecation is noisy
+    options.deprecation = true
+    // retain parameter names (for use by exposer)
+    options.compilerArgs.add('-parameters')
+}
+

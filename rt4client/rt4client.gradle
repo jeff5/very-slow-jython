@@ -1,0 +1,48 @@
+/*
+ * rt4client subproject (uses API from the core rt4 sub-project).
+ */
+
+plugins {
+    // Apply the Java application plugin.
+    id 'application'
+    id 'jvm-test-suite'
+}
+
+
+repositories {
+    // Use Maven Central for resolving dependencies.
+    mavenCentral()
+}
+
+
+dependencies {
+    implementation project(':rt4core')
+}
+
+
+application {
+    mainModule = 'uk.co.farowl.rt4client'
+    mainClass = 'uk.co.farowl.vsj4c.app.ClientApp'
+}
+
+// Configure the jvm-test-suite plug-in
+testing {
+    suites {
+        test {
+            useJUnitJupiter() 
+        }
+    }
+}
+
+
+tasks.withType(JavaCompile) {
+
+    options.encoding = 'UTF-8'
+
+    // Use only public API
+    options.compilerArgs.addAll(['--release', '17'])
+    // deprecation is noisy
+    options.deprecation = true
+    // retain parameter names (for use by exposer)
+    options.compilerArgs.add('-parameters')
+}

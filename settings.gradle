@@ -18,8 +18,9 @@ include 'dy2bm'     // benchmarks for runtime phase 2 (using indy)
 include 'rt3'       // model runtime phase 3 (using java.lang.Object)
 include 'rt3bm'     // benchmarks for runtime phase 3
 include 'dy3bm'     // benchmarks for runtime phase 3 (using indy)
+include 'rt4core'   // model runtime core phase 4 (modular API)
+include 'rt4client' // sample API client of rt4
 include 'idioms'    // benchmarks for implementation idioms
-include 'samples'   // sample applications
 
 // Sub-project build files are named after the sub-project.
 

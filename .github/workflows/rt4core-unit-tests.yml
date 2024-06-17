@@ -1,0 +1,42 @@
+# Run unit tests on rt4 core sub-project (GitHub action)
+name: rt4 core unit tests
+
+on: [push]
+
+permissions:
+    contents: read
+
+jobs:
+  rt4-unit-tests-Ubuntu-jdk-17:
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - run: echo "Branch ${{ github.ref }} of repository ${{ github.repository }}."
+      - uses: actions/checkout@v4
+
+      - uses: gradle/wrapper-validation-action@v3
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v4
+        with:
+          # This has to match the language version we're targeting
+          python-version: '3.11'
+
+      - name: Unit test with Gradle
+        run: ./gradlew --no-daemon rt4core:test
+
+      - name: Clean up Gradle cache
+        # Remove some files from the Gradle cache, so they aren't cached
+        # by GitHub Actions. Restoring these files from a GitHub Actions
+        # cache might cause problems for future builds.
+        #https://docs.github.com/en/actions/guides/building-and-testing-java-with-gradle#caching-dependencies
+        run: |
+          rm -f ~/.gradle/caches/modules-2/modules-2.lock
+          rm -f ~/.gradle/caches/modules-2/gc.properties
