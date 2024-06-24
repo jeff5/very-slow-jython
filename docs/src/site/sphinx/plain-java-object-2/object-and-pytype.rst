@@ -47,14 +47,14 @@ to any named method (``__len__`` for example):
         value = [1,2,3]
     }
     object "PyList : Class" as PyList.class
-    object "list : PyType" as listType
+    object "list : SimpleType" as listType
 
     x ..> PyList.class
     PyList.class --> listType : registry
-    listType --> listType
+    listType --> listType : type
 
     object " : Map" as dict
-    listType --> dict : dict
+    listType --> dict : " ~__dict__"
 
     object " : PyWrapperDescr" as len {
         name = "__len__"
@@ -163,7 +163,7 @@ This prepared class is called ``PyList.Derived``.
 
     ' object "PyList : Class" as PyList.class
     ' PyList.class --> listType : registry
-    ' listType --> listType
+    ' listType --> listType : type
 
     object "x : PyList.Derived" as x {
         __dict__ = {'a':42}
@@ -180,11 +180,11 @@ This prepared class is called ``PyList.Derived``.
 
     object "PyList.Derived : Class" as PyList.Derived.class
 
-    object "list : PyType" as listType
-    object "L : PyType" as LType
-    object "L1 : PyType" as L1Type
-    object "L2 : PyType" as L2Type
-    object "L3 : PyType" as L3Type
+    object "list : SimpleType" as listType
+    object "L : ReplaceableType" as LType
+    object "L1 : ReplaceableType" as L1Type
+    object "L2 : ReplaceableType" as L2Type
+    object "L3 : ReplaceableType" as L3Type
 
     LType --> listType : base
     L1Type --> listType : base
@@ -215,7 +215,7 @@ The MRO of ``L4`` is ``(L4, L3, L, L2, list, object)``.
 
     ' object "PyList : Class" as PyList.class
     ' PyList.class --> listType : registry
-    ' listType --> listType
+    ' listType --> listType : type
 
     object "x4 : PyList.Derived" as x4 {
         __dict__ = {'a': 42, 'b': 47, 'c': 48}
@@ -223,11 +223,11 @@ The MRO of ``L4`` is ``(L4, L3, L, L2, list, object)``.
 
     object "PyList.Derived : Class" as PyList.Derived.class
 
-    object "list : PyType" as listType
-    object "L : PyType" as LType
-    object "L2 : PyType" as L2Type
-    object "L3 : PyType" as L3Type
-    object "L4 : PyType" as L4Type
+    object "list : SimpleType" as listType
+    object "L : ReplaceableType" as LType
+    object "L2 : ReplaceableType" as L2Type
+    object "L3 : ReplaceableType" as L3Type
+    object "L4 : ReplaceableType" as L4Type
 
     L3Type -right-> LType : base
     L2Type -right-> listType : base
@@ -246,12 +246,15 @@ The MRO of ``L4`` is ``(L4, L3, L, L2, list, object)``.
 
 When we need the type of an object,
 its Java class leads us to its ``Representation``,
-but for derived classes the ``Representation`` consults the object itself.
-The ``Representation`` is the same for each object in the example,
-but the Python type may be distinct (and assignable).
+but for derived classes the representation is a ``SharedRepresentation``
+that consults the object itself.
+The ``SharedRepresentation`` is the same for each object in the example,
+but the Python type will be distinct (and in principle assignable),
+since it references a ``ReplaceableType``
+of the common ``SharedRepresentation``.
 
-We shall see shortly that this does not work in general, and later that
-we must be able to create representation classes in Java
+We shall see shortly that this does not work in general,
+and later that we must be able to create representation classes in Java
 as we encounter new class definitions in Python.
 We must then somehow retrieve representations we already made,
 where their "layout" is the same as CPython would perceive it,
@@ -352,7 +355,7 @@ and multiple inheritance:
 
     ' object "PyList : Class" as PyList.class
     ' PyList.class --> listType : registry
-    ' listType --> listType
+    ' listType --> listType : type
 
     object "xs : PyList.Derived" as xs {
         slots = [42]
@@ -373,18 +376,18 @@ and multiple inheritance:
 
     object "PyList.Derived : Class" as PyList.Derived.class
 
-    object "list : PyType" as listType
+    object "list : SimpleType" as listType
 
-    object "LS : PyType" as LSType {
+    object "LS : ReplaceableType" as LSType {
         slotNames = ["a"]
     }
-    object "LS1 : PyType" as LS1Type {
+    object "LS1 : ReplaceableType" as LS1Type {
         slotNames = ["a"]
     }
-    object "LS2 : PyType" as LS2Type {
+    object "LS2 : ReplaceableType" as LS2Type {
         slotNames = ["b"]
     }
-    object "LS4 : PyType" as LS4Type {
+    object "LS4 : ReplaceableType" as LS4Type {
         slotNames = []
     }
 
@@ -429,19 +432,19 @@ and multiple inheritance:
 
     object "PyList.Derived : Class" as PyList.Derived.class
 
-    object "list : PyType" as listType {
+    object "list : SimpleType" as listType {
         slotNames = []
     }
-    object "LS : PyType" as LSType {
+    object "LS : ReplaceableType" as LSType {
         slotNames = ["a"]
     }
-    object "LS3 : PyType" as LS3Type {
+    object "LS3 : ReplaceableType" as LS3Type {
         slotNames = ["a","b"]
     }
-    object "LS5 : PyType" as LS5Type {
+    object "LS5 : ReplaceableType" as LS5Type {
         slotNames = ["a"]
     }
-    object "LS6 : PyType" as LS6Type {
+    object "LS6 : ReplaceableType" as LS6Type {
         slotNames = ["a"]
     }
 
@@ -486,19 +489,19 @@ The MRO of ``LS7`` is ``(LS7, LS6, LS3, LS, list, object)``.
 
     object "PyList.Derived : Class" as PyList.Derived.class
 
-    object "list : PyType" as listType {
+    object "list :SimpleType" as listType {
         slotNames = []
     }
-    object "LS : PyType" as LSType {
+    object "LS : ReplaceableType" as LSType {
         slotNames = ["a"]
     }
-    object "LS3 : PyType" as LS3Type {
+    object "LS3 : ReplaceableType" as LS3Type {
         slotNames = ["a","b"]
     }
-    object "LS6 : PyType" as LS6Type {
+    object "LS6 : ReplaceableType" as LS6Type {
         slotNames = ["a"]
     }
-    object "LS7 : PyType" as LS7Type {
+    object "LS7 : ReplaceableType" as LS7Type {
         slotNames = ["a","b","c"]
     }
 
@@ -519,12 +522,299 @@ The MRO of ``LS7`` is ``(LS7, LS6, LS3, LS, list, object)``.
 
 
 
+``Object``, ``object`` and Python ``class``
+===========================================
+
+Suppose we define two classes in Python that have base ``object``,
+in the simplest way possible.
+
+..  code-block:: python
+
+    class A: pass
+    class A2(A): pass
+
+    a = A(); a.x = 42
+    a2 = A2(); a2.y = 43
+
+We can represent these objects and types as follows:
+
+..  uml::
+    :caption: ``object`` and subclasses
+
+    object "Object : Class" as Object.class
+
+    object "o : Object" as o
+    o .right.> Object.class
+    object " : AdoptedRepresentation" as Object.rep
+    Object.class -right-> Object.rep : registry
+
+    object "object : AdoptiveType" as objectType
+    Object.rep -right- objectType
+
+    object "a : PyObjectBase" as a {
+        type = A
+        __dict__ = {'x':42}
+    }
+    object "a2 : PyObjectBase" as a2 {
+        type = A2
+        __dict__ = {'y':43}
+    }
+
+    object "PyObjectBase : Class" as PyObjectBase.class
+
+    object "A : ReplaceableType" as AType
+    AType -up-> objectType : base
+    object "A2 : ReplaceableType" as A2Type
+    A2Type -up-> AType : base
+
+    object " : SharedRepresentation" as PyObjectBase.rep
+    a .right.> PyObjectBase.class
+    a2 .up.> PyObjectBase.class
+
+    PyObjectBase.class -right-> PyObjectBase.rep : registry
+    AType -left-> PyObjectBase.rep
+    A2Type --left-> PyObjectBase.rep
+
+    'a --> AType : type
+    'a2 --> A2Type : type
+
+Notice that the Java class of ``a`` and ``a2`` is the same ``PyObjectBase``,
+that is, the have the same representation,
+an instance of ``SharedRepresentation``.
+Imagine we pick up either of these and ask its Python type:
+the class leads us to the same representation,
+from which there is no navigation to ``A`` or ``A2``.
+However, ``SharedRepresentation.pythonType(Object o)``
+consults the argument for its actual type.
+
+The Java class of ``o`` is simply ``Object``,
+which is the (single) adopted representation of ``object``.
+
+
+Type Objects for ``type``
+=========================
+
+In the preceding diagrams,
+we depicted objects and the web of connections
+we use to navigate to their Python type.
+But the type objects we reached are themselves Python objects,
+and they have a type object too.
+
+It is well known that the ``type`` of ``type`` is type itself.
+We have already come across three variant implementations of ``type``
+in the examples.
+Suppose we start with one instance of each implementation.
+We should be able to navigate from each of them to the same object.
+
+..  uml::
+    :caption: Type Objects for ``type``
+
+    object "list : SimpleType" as listType
+    object "A : ReplaceableType" as AType
+    object "object : AdoptiveType" as objectType
+
+    object "PyType : Class" as PyType.class
+    object "SimpleType : Class" as SimpleType.class
+    object "ReplaceableType : Class" as ReplaceableType.class
+    object "AdoptiveType : Class" as AdoptiveType.class
+
+    listType ..> SimpleType.class
+    AType ..> ReplaceableType.class
+    objectType ..> AdoptiveType.class
+
+    object "type : SimpleType" as type {
+        name = "type"
+    }
+    type --> type : type
+
+    PyType.class --> type : registry
+    SimpleType.class -down-> type
+    ReplaceableType.class -down-> type
+    AdoptiveType.class -down-> type
+
+    type .up.> SimpleType.class
+
+
+We choose to implement ``type`` as a ``SimpleType``.
+Although ``type`` has multiple implementations in Java
+(``SimpleType``, ``ReplaceableType`` and ``AdoptiveType``),
+we need not treat them as adopted (and so use ``AdoptiveType``),
+since they all extend ``PyType``.
+
+We have not yet considered metatypes (subtypes of ``type``).
+Let's take the example from the Python documentation:
+
+..  code-block:: python
+
+    class Meta(type): pass
+    class MyClass(metaclass=Meta): pass
+    class MySubclass(MyClass): pass
+
+    x = MyClass()
+    y = MySubclass()
+
+We understand that when we create a class, we create an instance of ``type``.
+In simple cases, the type of a class is exactly ``type``.
+
+..  code-block:: python
+
+    >>> class C: pass
+    ...
+    >>> type(C)
+    <class 'type'>
+    >>> type(C())
+    <class '__main__.C'>
+
+Looked at the other way,
+``type`` and ``C`` are both instances of ``type``,
+but ``C(...)`` produces only new ``C`` objects,
+while ``type(...)`` is a constructor of new types.
+This is because ``type.__call__`` defers to ``__new__``
+in the particular ``type`` object itself,
+which is ``type.__new__`` in ``type`` and ``object.__new__`` in ``C``.
+
+It is also worth reflecting that we get exactly the same result
+if we de-sugar class creation to a constructor call:
+
+..  code-block:: python
+
+    >>> C = type("C", (), {})
+    >>> type(C)
+    <class 'type'>
+    >>> type(C())
+    <class '__main__.C'>
+
+An object that produces new types, and is *not* ``type`` itself,
+is disorienting at first.
+To help with the orientation,
+let us de-sugar class creation involving a metaclass:
+
+..  code-block:: python
+
+    >>> D = Meta("D", (), {})
+    >>> type(D)
+    <class '__main__.Meta'>
+    >>> isinstance(D, type)
+    True
+    >>> type(D())
+    <class '__main__.D'>
+
+Metatypes like ``Meta`` are subclasses of ``type``
+in the way that ``L``, ``L1``, ``L2`` are subclasses ``list``
+(to borrow from an earlier example).
+It follows that an instance of the metatype,
+that is, a type defined by calling the metatype,
+should be represented in Java by a sub-type of ``PyType``,
+just as instances of ``L`` etc.
+are represented by a subtype of ``PyList``.
+
+Secondly, each metatype is itself an instance of ``type``,
+since it may be called to make objects.
+Its class is directly ``type``:
+
+..  code-block:: python
+
+    >>> Meta.__class__
+    <class 'type'>
+
+Each metatype itself should therefore be realised by
+a Java subclass of ``PyType``, specifically ``ReplaceableType``,
+for which the shared representation is always the same.
+
+The behaviour of metatypes with respect to class assignment
+is just the same as any other family of subclasses:
+all metatypes have the same representation.
+Assignment of a replacement metatype is allowed
+to the ``__class__`` member of any instance of a metatype
+(if simply derived from ``type`` without ``__slots__``).
+Any of the (simply derived) classes created by metatypes
+may be given a new metatype,
+but ``type`` itself cannot be assigned to their ``__class__``.
+We can illustrate this by extending the example with another metatype:
+
+..  code-block:: python
+
+    class Other(type): pass
+    class MyOtherClass(list, metaclass=Other): pass
+
+    z = MyOtherClass()
+    assert type(MyOtherClass) == Other
+
+In the above, ``MyOtherClass.__class__ = Meta`` would be possible.
+The assignability of ``__class__`` in instances
+of the classes produced by metatypes, depends on their own bases,
+not the properties of the metatypes that made them,
+so ``z.__class__ = MyClass`` would fail
+because of the involvement of ``list``,
+not for any difference in metatype.
+
+..  uml::
+    :caption: Type Objects for Metatypes (Subclasses of ``type``)
+
+    object "x : PyBaseObject" as x
+    x --> MyClass : type
+    object "y : PyBaseObject" as y
+    y --> MySubclass : type
+
+    'object "PyType : Class" as PyType.class
+    object "PyType.Derived : Class" as PyType.Derived.class
+    'object "SimpleType : Class" as SimpleType.class
+    'object "ReplaceableType : Class" as ReplaceableType.class
+
+    object "metas : SharedRepresentation" as metas.rep
+    'object "objects : SharedRepresentation" as objects.rep
+
+    object "type : SimpleType" as type {
+        name = "type"
+    }
+    'type ..> SimpleType.class
+    type --> type : type
+
+    object "Meta : ReplaceableType" as Meta {
+        name = "Meta"
+    }
+    Meta --> type : type
+    Meta --> type : base
+    Meta --> metas.rep
+
+    object "MyClass : PyType.Derived" as MyClass {
+        name = "MyClass"
+    }
+    MyClass ..>  PyType.Derived.class
+    MyClass --> Meta : type
+
+    object "MySubclass : PyType.Derived" as MySubclass {
+        name = "MySubclass"
+    }
+    MySubclass ..> PyType.Derived.class
+    MySubclass --> Meta : type
+
+    'PyType.class --> type : registry
+    'SimpleType.class --> type : registry
+    'ReplaceableType.class --> type : registry
+    PyType.Derived.class --> metas.rep : registry
+
+
+    object "z : PyBaseObject" as z
+    z --> MyOtherClass : type
+
+    object "Other : ReplaceableType" as Other {
+        name = "Other"
+    }
+    Other --> type
+    Other --> type
+    Other --> metas.rep
+
+    object "MyOtherClass : PyType.Derived" as MyOtherClass {
+        name = "MyOtherClass"
+    }
+    MyOtherClass ..>  PyType.Derived.class
+    MyOtherClass --> Other : type
+
 
 
 
 .. note:: Still editing from here on.
-
-
 
 
 ``PyType`` and ``Representation`` for ``float``
@@ -533,9 +823,6 @@ The MRO of ``LS7`` is ``(LS7, LS6, LS3, LS, list, object)``.
 The type 'float' is defined by the class ``PyFloat``,
 but ``java.lang.Double`` is adopted as its representation
 (and we might also allow ``java.lang.Float``).
-
-
-
 
 .. _Operations-builtin-float-neg-2:
 

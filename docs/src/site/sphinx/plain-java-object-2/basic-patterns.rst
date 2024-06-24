@@ -1,8 +1,8 @@
 ..  plain-java-object-2/basic-patterns.rst
 
 
-``Object`` and ``PyType`` Revisited
-***********************************
+``Object`` and ``PyType`` Basic Patterns
+****************************************
 
 In this section we set out the plain Java object approach
 to representing Python objects.
@@ -47,8 +47,9 @@ will relate to the type in one of three ways:
 
 #. The ``Representation`` object is *one-to-one* with the ``PyType``.
    This is frequently the case for built-in types,
-   where a Java class has been crafted to treat instances of itself
-   as instances in Python of a given built-in type.
+   where a Java class has been crafted so that instances of itself,
+   and of its Java subclasses,
+   are treated as instances in Python of a given built-in type.
    It is also the case for types representing a "found" Java class
    (one that has not been specified programmatically to the runtime system).
 #. The ``Representation`` object is shared by a group of Python types,
@@ -61,7 +62,9 @@ will relate to the type in one of three ways:
 #. The ``Representation`` object is one of several for the same ``PyType``.
    This is the case for a small number of built-in types,
    where a Java class has been crafted to treat instances of
-   specified Java classes as instances in Python of a given built-in type.
+   specified Java classes,
+   not related by inheritance,
+   as instances in Python of a given built-in type.
    We refer to the additional representations as "adopted".
 
 In ``rt3`` we called the ``Representation`` class ``Operations``,
@@ -94,7 +97,7 @@ is itself the ``PyType``.
     class Class<T> {}
 
     T .right.> Class
-    Class "1" -right-> "1" Representation
+    Class "1..*" -right-> "1" Representation
 
     abstract class Representation {
         pythonType(o)
@@ -109,6 +112,29 @@ is itself the ``PyType``.
     SimpleType -up-|> Representation
     PyType <|.. SimpleType
 
+
+..  uml::
+    :caption: Plain Java Object Pattern: ``SimpleType`` *(rethink)*
+
+    class Class<T> {}
+
+    T .right.> Class
+    Class "1..*" -right-> "1" Representation
+
+    abstract class Representation {
+        pythonType(o)
+        javaType()
+    }
+
+    abstract class PyType {
+        getDict()
+        lookup(attr)
+    }
+
+    PyType -up-|> Representation
+    PyType <|-- SimpleType
+
+
 When the type ``T`` is a "found" Java type,
 the ``PyType`` implementation will be created dynamically,
 its bases found from the Java super-types,
@@ -122,19 +148,23 @@ and we can arrange to include descriptors for them
 in the dictionary of the ``PyType``.
 We describe this as a "crafted" type.
 Usually the methods will be implemented in a single class
-that defines the type and implements the instances.
-They will mostly be instance methods (in Java) of that class.
+that defines the type and implements the instances,
+and they will be instance methods (in Java) of that class.
+
+An extension of this pattern allows us to use subclasses
+as alternative implementations of the same Python type.
+These subclasses will share the ``Representation``
+created for their common ancestor.
 
 In principle, another class may provide implementations,
-if it has sufficient access to the internals of the Java class
-used to represent instances.
+if it has sufficient access to the Java classes that represent instances.
 The methods will have to be Java ``static``,
 and take the representing Java type as their first argument
 if they are instance methods in Python.
 
 
-Shared Representation (Mutable Types)
--------------------------------------
+Shared Representation (Replaceable Types)
+-----------------------------------------
 
 Where several types are represented by the same Java class,
 a single ``Representation`` will be cited by multiple ``PyType``\s.
@@ -143,16 +173,16 @@ that the ``Representation`` consults when asked for the Python type.
 (This is why ``Representation.pythonType()`` takes an argument.)
 
 Typically ``__class__`` assignment is possible on instances of these types,
-as long as the replacement value is another ``MutableType`` that
+as long as the replacement value is another ``ReplaceableType`` that
 cites the common ``Representation``.
 
 ..  uml::
     :caption: Plain Java Object Pattern: Shared Representation
 
     class Class<T> {}
-    class SharedRepresentation<T> {}
+    class SharedRepresentation {}
     T .right.> Class
-    Class "1" -right-> "1" SharedRepresentation
+    Class "1..*" -right-> "1" SharedRepresentation
 
     abstract class Representation {
         pythonType(o)
@@ -169,11 +199,46 @@ cites the common ``Representation``.
     }
 
     T .up.|> WithType
+    T --> ReplaceableType
 
     SharedRepresentation -up-|> Representation
-    SharedRepresentation "1" -- "*" MutableType
+    SharedRepresentation "1" -- "*" ReplaceableType
 
-    PyType <|.. MutableType
+    PyType <|.. ReplaceableType
+
+
+..  uml::
+    :caption: Plain Java Object Pattern: Shared Representation *(rethink)*
+
+    class Class<T> {}
+    class SharedRepresentation {}
+    T .right.> Class
+    Class "1..*" -right-> "1" SharedRepresentation
+
+    abstract class Representation {
+        pythonType(o)
+        javaType()
+    }
+
+    abstract class PyType {
+        getDict()
+        lookup(attr)
+    }
+
+    interface WithType {
+        getType()
+    }
+
+    T .up.|> WithType
+    T --> ReplaceableType
+
+    SharedRepresentation -up-|> Representation
+    SharedRepresentation "1" -- "*" ReplaceableType
+
+    ' Representation <|-- PyType
+    PyType --|> Representation
+    'PyType <|-- ReplaceableType
+    ReplaceableType -right-|> PyType
 
 
 Instances of a class defined in Python
@@ -201,9 +266,9 @@ For example, several kinds of boxed integer all represent Python ``int``.
     :caption: Plain Java Object Pattern: Adopted Representations
 
     class Class<T> {}
-    class AdoptiveRepresentation<T> {}
+    class AdoptedRepresentation {}
     T .right.> Class
-    Class "1" -right-> "1" AdoptiveRepresentation
+    Class "1..*" -right-> "1" AdoptedRepresentation
 
     abstract class Representation {
         pythonType(o)
@@ -215,19 +280,49 @@ For example, several kinds of boxed integer all represent Python ``int``.
         lookup(attr)
     }
 
-    AdoptiveRepresentation -up-|> Representation
-    AdoptiveRepresentation "*" -- "1" AdoptiveType
+    AdoptedRepresentation -up-|> Representation
+    AdoptedRepresentation "*" -- "1" AdoptiveType
 
     PyType <|.. AdoptiveType
 
+
+..  uml::
+    :caption: Plain Java Object Pattern: Adopted Representations *(rethink)*
+
+    class Class<T> {}
+    class AdoptedRepresentation {}
+    T .right.> Class
+    Class "1..*" -right-> "1" AdoptedRepresentation
+
+    abstract class Representation {
+        pythonType(o)
+        javaType()
+    }
+
+    abstract class PyType {
+        getDict()
+        lookup(attr)
+    }
+
+    AdoptedRepresentation -up-|> Representation
+    AdoptedRepresentation "*" -- "1" AdoptiveType
+
+    ' Representation <|-right- PyType
+    ' PyType <|-down- AdoptiveType
+    AdoptiveType -up-|> PyType
+    PyType -up-|> Representation
+
+
 When we implement a Python type this way,
-as before, we arrange to include a descriptor for each method
-in the dictionary of the ``PyType``.
+we arrange to include a descriptor for each method
+in the dictionary of the ``PyType``, just as before.
 These descriptors may have to be a little special,
 because a single method from the Python perspective
-has to know a definition in Java
+has to have a definition in Java
 applicable to each accepted representation of the type.
-There may be one for each, one for all, or a number between these extremes.
+There may be one for each accepted representation,
+one that works for for all,
+or a number between these extremes.
 
 We could implement all the methods of an adoptive type in one class,
 but this can be large and repetitive so we often supply definitions as

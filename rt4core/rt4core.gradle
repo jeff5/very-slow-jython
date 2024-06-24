@@ -125,7 +125,7 @@ task testJavadoc(type:Javadoc,
     //println "testJavadoc.classpath = $classpath.asPath"
 
     // rt4 API javadoc already at ${buildDir}/docs/javadoc
-    title = "rt4 Unit Tests"
+    title = "rt4core Unit Tests"
     destinationDir = file("${buildDir}/docs/unittests")
 
     // We want to click though to the objects under test
@@ -133,11 +133,34 @@ task testJavadoc(type:Javadoc,
 }
 
 
+// Task to generate javadoc for the module API (what client apps use)
+task moduleJavadoc(type:Javadoc,
+        description: 'Generate Javadoc for module API') {
+    source = sourceSets.main.allJava
+    title = "rt4core Client API"
+    destinationDir = file("${buildDir}/docs/api")
+
+    // addStringOption adds a "-" for us so "--module" is spelled:/
+    //options.addStringOption("-module", "uk.co.farowl.rt4core")
+    options.addStringOption("-show-packages", "exported")
+    options.addStringOption("-show-module-contents", "api")
+}
+
+
+// Task to generate javadoc for project maintainers (down to private)
+task internalJavadoc(type:Javadoc,
+        description: 'Generate project internal Javadoc') {
+    source = sourceSets.main.allJava
+    options.showFromPrivate()
+    title = "rt4core Project Internal"
+    destinationDir = file("${buildDir}/docs/internal")
+}
+
+
 // Some adjustments to Javadoc to ensure complex tables readable
 
 tasks.withType(Javadoc) {
 
-    options.showFromPackage()
     options.encoding = 'UTF-8'
 
     // addStringOption inserts one "-" for us :/

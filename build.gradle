@@ -24,7 +24,6 @@ allprojects {
 
     tasks.withType(Javadoc) {
         options.encoding = 'UTF-8'
-        options.showFromPackage()
     }
 
     repositories {
