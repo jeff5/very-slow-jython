@@ -21,25 +21,33 @@ but it needs refining through tests.
 Special Methods
 ===============
 
-We content that special methods are methods first and special later.
+We contend that special methods are methods first and special later.
 
 Type objects, with their tables of slots,
 are highly recognisable in the CPython code base.
 A large part of ``typeobject.c`` is devoted to
 filling, inheriting and invoking type slots, with all their quirks.
 At first these look fundamental to any implementation,
-and we need method handles for them to embed in out call sites,
-so we started there in ``rt3`` with the ``Operations`` object.
+and it appears need method handles for them to embed in our call sites.
+We started there in ``rt3`` with the ``Operations`` object,
+and eventually had slot-wrapper objects to call them as methods,
+as in CPython.
 
-In retrospect,
-having created the means to expose and call other methods,
-and found that these can contain method handles,
-we can recognise that slots are an optimisation.
+We then created the means to expose and call other methods,
+and found that these could contain method handles.
+In retrospect, we recognise that type slots are an optimisation
+applied to selected methods that occur repeatedly in objects.
+
 This time we shall start with general method exposure.
-Methods that are special (as in the Python data model),
-have well-known names and an expected signature,
-that permit certain optimisations when interpreting Python byte code
-or supporting call sites in Python compiled to JVM byte code.
+Methods that are special (as in the Python data model)
+will be less special than before.
+A special method has a well-known name and an expected signature.
+This permits certain optimisations when interpreting Python byte code
+or supporting call sites in Python compiled to JVM byte code,
+but much of the apparatus around special methods
+is the same as for methods in general .
+We can choose where to apply this optimisation,
+independent of the repertoire of special methods in the data model.
 
 
 A Jython API using Java modules
@@ -51,8 +59,8 @@ whose work is in a different Java package from Jython.
 Java modularity (project Jigsaw) gives us effective control of visibility,
 provided we choose packages wisely.
 The re-start is an opportunity to work out how that applies.
-``rt4`` will be a modular project.
-We shall have a distinct client project
+``rt4core`` will be a modular project.
+We shall have a distinct ``rt4client`` project
 to represent the module space of an application or extension,
 with "black box" unit tests in that project.
 As a matter of detail, we drop the ``evo`` level from package names.

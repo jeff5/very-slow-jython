@@ -1,8 +1,9 @@
 ..  plain-java-object-2/object-and-pytype.rst
 
+.. _Instance-models-object-type:
 
-Instance Models of ``Object`` and ``PyType``
-********************************************
+Instance Models of ``object`` and ``type``
+******************************************
 
 We have laid out the basic patterns in the previous section,
 but only some of this territory was explored in ``rt3`` work.
