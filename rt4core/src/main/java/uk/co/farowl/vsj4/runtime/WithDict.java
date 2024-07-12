@@ -13,7 +13,7 @@ public interface WithDict {
      * The instance dictionary. This is not necessarily a Python
      * {@code dict}, and may not be directly writable. Some implementing
      * types override the signature to specify the return is a
-     * fully-fledged {@link PyDict}.
+     * fully-fledged Python {@code dict}.
      *
      * @return instance dictionary
      */

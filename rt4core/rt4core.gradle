@@ -2,6 +2,9 @@
  * rt4core subproject (model interpreter runtime).
  */
 
+import org.gradle.internal.jvm.JavaModuleDetector
+import org.gradle.api.internal.tasks.compile.CompilationSourceDirs
+
 plugins {
     id 'java-library'
     id 'jvm-test-suite'
@@ -14,17 +17,58 @@ repositories {
 }
 
 
+dependencies {
+    // We standardise on SLF4J for logging from the library
+    implementation 'org.slf4j:slf4j-api:2.0.13'
+}
+
+
 // Configure the jvm-test-suite plug-in
 testing {
     suites {
         test {
-            useJUnitJupiter() 
+            useJUnitJupiter()
+            dependencies {
+                // Include a logging provider (JDK 1.4)
+                runtimeOnly 'org.slf4j:slf4j-jdk14:2.0.13'
+            }
+        }
+        /* A test suite where each test runs in its own JVM.
+         * We follow the Gradle 8.8 notes on the JVM Test Suite Plugin.
+         * and the example of configuring integration tests.
+         */
+        kernelTest(JvmTestSuite) {
+            useJUnitJupiter()
+
+            dependencies {
+                implementation project()
+                // Include a logging provider (JDK 1.4)
+                runtimeOnly 'org.slf4j:slf4j-jdk14:2.0.13'
+            }
+
+            targets {
+                all {
+                    testTask.configure {
+                        // Important: fresh JVM with every kernel test
+                        forkEvery = 1
+                        // Log output will prove kernel is recreated
+                        systemProperties.put(
+                            'java.util.logging.SimpleFormatter.format',
+                            '%1$tH:%1$tm:%1$tS %4$s (%3$s) %5$s%n')
+                        testLogging.showStandardStreams = true
+                    }
+                }
+            }
         }
     }
 }
 
+test.dependsOn(kernelTest)
 
-// dependencies {}
+
+tasks.named('check') { 
+    dependsOn(testing.suites.kernelTest)
+}
 
 
 // Sources and destinations when generating Java object implementations
@@ -48,7 +92,6 @@ def testPythonExampleOutputDir = "$pythonExampleOutput/test"
 
 
 sourceSets {
-
     main {
         java {
             srcDir genJavaDir
@@ -64,7 +107,6 @@ sourceSets {
         }
     }
 }
-
 
 
 // A task that runs Python with the tools library on the path
@@ -116,24 +158,7 @@ task pythonVersion(type: PythonExec) {
 //processTestResources.dependsOn(compileTestPythonExamples)
 
 
-// Task to generate javadoc for test code
-task testJavadoc(type:Javadoc,
-        description: 'Generate Javadoc for tests',
-        dependsOn:javadoc ) {
-    source = sourceSets.test.allJava
-    classpath = sourceSets.test.compileClasspath
-    //println "testJavadoc.classpath = $classpath.asPath"
-
-    // rt4 API javadoc already at ${buildDir}/docs/javadoc
-    title = "rt4core Unit Tests"
-    destinationDir = file("${buildDir}/docs/unittests")
-
-    // We want to click though to the objects under test
-    options.links.add("../javadoc")
-}
-
-
-// Task to generate javadoc for the module API (what client apps use)
+// Task to generate javadoc for the module API (that client apps use)
 task moduleJavadoc(type:Javadoc,
         description: 'Generate Javadoc for module API') {
     source = sourceSets.main.allJava
@@ -147,13 +172,61 @@ task moduleJavadoc(type:Javadoc,
 }
 
 
+javadoc {
+    title = "rt4core Public API"
+    options.addStringOption("-show-packages", "exported")
+    options.addStringOption("-show-module-contents", "api")
+}
+
+
 // Task to generate javadoc for project maintainers (down to private)
 task internalJavadoc(type:Javadoc,
         description: 'Generate project internal Javadoc') {
-    source = sourceSets.main.allJava
-    options.showFromPrivate()
+
+    source(sourceSets.main.allJava)
     title = "rt4core Project Internal"
-    destinationDir = file("${buildDir}/docs/internal")
+    destinationDir = file("${buildDir}/docs/internalJavadoc")
+
+    def ccp = sourceSets.main.compileClasspath
+    //println "ccp.files = ${ccp.files}"
+    classpath.from(ccp)
+
+    options.showFromPackage()
+    //options.showFromPrivate()
+}
+
+
+// Task to generate javadoc for test code
+task testJavadoc(type:Javadoc,
+        description: 'Generate Javadoc for tests',
+        dependsOn: internalJavadoc) {
+
+    source(sourceSets.test.allJava)
+    title = "rt4core Unit Tests"
+    destinationDir = file("${buildDir}/docs/testJavadoc")
+
+    // Ensure the test support (JUnit) is on the class path
+    def tccp = sourceSets.test.compileClasspath
+    //println "tccp.files = ${tccp.files}"
+
+    classpath.from(tccp)
+    //options.inferModulePath(false)
+
+    /* We have used the class path not the module path because
+     * otherwise javadoc complains the JUnit API is not in the
+     * module graph (not in module-info.java) and fails badly.
+     * This way we get non-modular Javadoc for the tests :( and
+     * a warning about linked classes in the same package being
+     * modular, but it is only a warning.
+     */
+    //options.modulePath(new ArrayList(tccp.files))
+    //println "options.modulePath = ${options.modulePath}"
+
+    options.showFromPackage()
+
+    // rt4 internal javadoc already at ${buildDir}/docs/javadoc
+    // We want to click through to the objects under test
+    options.links.add("../internalJavadoc")
 }
 
 
@@ -178,6 +251,14 @@ tasks.withType(Javadoc) {
         // so they come after the ones we want to enable.
         "param", "return", "throws",
         "since", "version", "serialData", "see")
+
+    doFirst {
+        // A bit of reassurance: this was hard to get right
+        println "inferModulePath = ${modularity.inferModulePath.getOrNull()}"
+        println "module path = ${options.modulePath}"
+        FileCollection roots = layout.files(CompilationSourceDirs.inferSourceRoots(source))
+        println "roots.files = ${roots.files}"
+    }
 }
 
 

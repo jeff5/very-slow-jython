@@ -17,6 +17,9 @@ repositories {
 
 dependencies {
     implementation project(':rt4core')
+    implementation 'org.slf4j:slf4j-api:2.0.13'
+
+    runtimeOnly 'org.slf4j:slf4j-jdk14:2.0.13'
 }
 
 

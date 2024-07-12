@@ -3,4 +3,6 @@ module uk.co.farowl.rt4core {
     // exports uk.co.farowl.vsj4.core;
     exports uk.co.farowl.vsj4.runtime;
     exports uk.co.farowl.vsj4.support;
+
+    requires transitive org.slf4j;
 }
