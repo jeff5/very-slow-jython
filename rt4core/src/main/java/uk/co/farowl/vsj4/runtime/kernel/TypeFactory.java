@@ -2,7 +2,6 @@ package uk.co.farowl.vsj4.runtime.kernel;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -17,53 +16,65 @@ import uk.co.farowl.vsj4.runtime.TypeSpec;
 import uk.co.farowl.vsj4.support.InterpreterError;
 
 /**
- * Static factory and utility methods related to {@link PyType} and
- * {@link TypeRegistry}.
+ * Factory object that is the home of Python type creation and
+ * management. In normal operation, one instance of this will be created
+ * and held statically by the {@link PyType} class. We may create and
+ * destroy instances for test purposes.
  */
 public class TypeFactory {
 
     /** Logger for the type factory. */
-    static final Logger logger =
-            LoggerFactory.getLogger(TypeFactory.class);
-
-    /** No instances allowed. */
-    private TypeFactory() {}
+    final Logger logger = LoggerFactory.getLogger(TypeFactory.class);
 
     /**
-     * The classic singleton pattern, but holds multiple objects we must
-     * create only once (and together).
+     * A TypeRegistry in which results, the association of a class with
+     * a {@link Representation}, behind which there is always a
+     * {@link PyType} will be published.
      */
-    private static class Singletons {
-        // Get the singleton TypeRegistry (may create it)
-        @SuppressWarnings("unused")
-        static TypeRegistry registry = TypeRegistry.getInstance();
-        // We create the workshop for the factory
-        static Workshop workshop = new Workshop();
-        /** The (initially partial) type object for 'type'. */
-        static final SimpleType type;
+    final TypeRegistry registry;
+    /** The workshop for the factory. */
+    final Workshop workshop;
+    /** The (initially partial) type object for 'type'. */
+    final SimpleType type;
+    /** The (initially partial) type object for 'object'. */
+    final AdoptiveType object;
 
+    /**
+     * Construct a {@code TypeFactory}. Normally this constructor is
+     * used exactly once from {@link PyType}.
+     */
+    public TypeFactory() {
+        this.registry = new TypeRegistry();
+        this.workshop = new Workshop();
         /*
-         * We need a specification for each type, to populate the types
-         * later with their methods. (We couldn't have constructed the
-         * types from specifications because even partial type
+         * Create type objects for type and object. We need a
+         * specification for each type as well, so the workshop can the
+         * types later with their methods. (We couldn't have constructed
+         * the types from specifications because even partial type
          * construction doesn't work until 'type' and 'object' exist.
          * There's nothing more bootstrappy than these types.)
          */
-        static {
-            logger.info("Creating partial type for 'object'");
-            AdoptiveType object = new AdoptiveType();
-            TypeSpec specOfObject = new PrimordialTypeSpec(object,
-                    AbstractPyBaseObject.LOOKUP);
-            workshop.shelve(specOfObject.freeze(), object);
+        logger.info("Creating partial type for 'object'");
+        this.object = new AdoptiveType();
+        TypeSpec specOfObject = new PrimordialTypeSpec(object,
+                AbstractPyBaseObject.LOOKUP);
+        workshop.shelve(specOfObject, object);
 
-            logger.info("Creating partial type for 'type'");
-            type = new SimpleType(object);
-            TypeSpec specOfType =
-                    new PrimordialTypeSpec(type, AbstractPyType.LOOKUP)
-                            .extendFrom(AbstractPyType.Derived.class);
-            workshop.shelve(specOfType.freeze(), type);
-        }
+        logger.info("Creating partial type for 'type'");
+        this.type = new SimpleType(object);
+        TypeSpec specOfType =
+                new PrimordialTypeSpec(type, AbstractPyType.LOOKUP)
+                        .extendFrom(AbstractPyType.Derived.class);
+        workshop.shelve(specOfType, type);
     }
+
+    /**
+     * Return the registry where this factory posts its type and
+     * representation information.
+     *
+     * @return the registry
+     */
+    public TypeRegistry getRegistry() { return registry; }
 
     /**
      * A specification we make retrospectively from a type object. We do
@@ -102,13 +113,12 @@ public class TypeFactory {
      * @param spec specification
      * @return the constructed {@code PyType}
      */
-    public static PyType typeFrom(TypeSpec spec) {
+    public PyType typeFrom(TypeSpec spec) {
         /*
          * We are able to make (the right kind of) type object but
          * cannot always guarantee to fill its dictionary. In that case,
          * it would ideally not escape yet, but how?
          */
-        Workshop workshop = Singletons.workshop;
         PyType type = workshop.createTypeFrom(spec);
 
         return type;
@@ -121,9 +131,9 @@ public class TypeFactory {
      *
      * @return the type
      */
-    public static PyType typeForType() {
-        // This reference will initialise Singletons if necessary.
-        return Singletons.type;
+    public PyType typeForType() {
+        // Becomes PyType.TYPE.
+        return type;
     }
 
     /**
@@ -142,7 +152,7 @@ public class TypeFactory {
      * dictionary of any other type.</li>
      * </ol>
      */
-    private static class Workshop {
+    private class Workshop {
         /**
          * Mapping from Java class to the work in progress (a
          * partially-built type and its specification).
@@ -152,10 +162,15 @@ public class TypeFactory {
 
         // XXX How to deal nicely with specific type of PyType?
         void shelve(TypeSpec spec, PyType type) {
-            // FIXME: add to tasks by every class implicated.
-            // XXX: is some kind of dependency ordering required?
+            // No more change allowed (even if client kept a ref).
+            spec.freeze();
 
+            // Create a task to fill in the rest of the type
             Task wt = new Task(type, spec);
+
+            // FIXME: is some kind of dependency ordering required?
+
+            // File the task under every class involved
             Class<?> c;
             if ((c = spec.getCanonical()) != null) { shelve(c, wt); }
             if ((c = spec.getExtendingClass()) != null) {

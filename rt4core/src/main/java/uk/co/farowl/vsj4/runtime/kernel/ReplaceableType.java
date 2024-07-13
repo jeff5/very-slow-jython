@@ -14,8 +14,17 @@ import uk.co.farowl.vsj4.runtime.PyType;
  */
 public final class ReplaceableType extends PyType {
 
+    /** The representation shared by this type and others. */
     final Representation.Shared representation;
 
+    /**
+     * Construct one of several types that share a single representation
+     * in Java.
+     *
+     * @param name of the type (fully qualified).
+     * @param representation shared
+     * @param bases of the new type
+     */
     ReplaceableType(String name, Representation.Shared representation,
             PyType[] bases) {
         super(name, representation.javaType, bases);
@@ -23,6 +32,5 @@ public final class ReplaceableType extends PyType {
     }
 
     @Override
-    public PyType pythonType(Object x) { // TODO Auto-generated method stub
-    return null; }
+    public PyType pythonType(Object x) { return this; }
 }

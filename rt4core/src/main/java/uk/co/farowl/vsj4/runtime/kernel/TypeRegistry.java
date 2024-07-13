@@ -1,3 +1,5 @@
+// Copyright (c)2024 Jython Developers.
+// Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime.kernel;
 
 import java.util.Map;
@@ -13,38 +15,18 @@ import uk.co.farowl.vsj4.runtime.kernel.Representation.Shared;
 import uk.co.farowl.vsj4.support.InterpreterError;
 
 /**
- * Mapping from Java class to the {@code Representation} that provides
+ * Mapping from Java class to the {@link Representation} that provides
  * instances of the class with Python semantics. We refer to this as a
- * "type registry" because that is almost always the goal when we
- * consult it.
+ * "type registry" because the {@code Representation} retrieved contains
+ * some type information and leads directly to more.
  * <p>
- * There is only one instance of this class and it is returned by
- * {@link TypeRegistry#getInstance()}.
+ * In normal operation (outside test cases) there is only one instance
+ * of this class, created by {@link PyType}.
  */
-class TypeRegistry extends ClassValue<Representation> {
+public class TypeRegistry extends ClassValue<Representation> {
 
     /** Logger for the type registry. */
     private final Logger logger;
-
-    /** A singleton holder following Pugh (cs.umd.edu). */
-    private static class Singleton {
-        static final TypeRegistry instance = new TypeRegistry();
-    }
-
-    /** Only used by Singleton. */
-    private TypeRegistry() {
-        // This is the first thing the run-time system does.
-        this.logger = LoggerFactory.getLogger(TypeRegistry.class);
-        logger.info("Run-time system is waking up.");
-    }
-
-    /**
-     * There is just one instance of {@code TypeRegistry}, returned by
-     * this method.
-     *
-     * @return the single instance.
-     */
-    static TypeRegistry getInstance() { return Singleton.instance; }
 
     /**
      * Mapping from Java class to {@link Representation}. This is the
@@ -57,40 +39,11 @@ class TypeRegistry extends ClassValue<Representation> {
     private final Map<Class<?>, Representation> map =
             new WeakHashMap<>();
 
-    /**
-     * Post an association from a Java class to an
-     * {@code Representation}, that will be bound into
-     * {@link Representation#registry} when a look-up is made.
-     *
-     * @param c Java class
-     * @param r representation to bind to the class
-     * @throws Clash when the class is already mapped
-     */
-    synchronized void set(Class<?> c, Representation r) throws Clash {
-        Representation old = map.putIfAbsent(c, r);
-        if (old != null) { throw new Clash(c, old); }
-    }
-
-    /**
-     * Post associations from multiple Java classes to corresponding
-     * {@code Representation}s, that will be bound into
-     * {@link Representation#registry} when look-ups are made.
-     *
-     * @param c Java classes
-     * @param r representations to bind to the class
-     * @throws Clash when one of the classes is already mapped
-     */
-    synchronized void set(Class<?>[] c, Representation[] r)
-            throws Clash {
-        int i, n = c.length;
-        for (i = 0; i < n; i++) {
-            Representation old = map.putIfAbsent(c[i], r[i]);
-            if (old != null) {
-                // We failed to insert c[i]: erase what we did
-                for (int j = 0; j < i; j++) { map.remove(c[j]); }
-                throw new Clash(c[i], old);
-            }
-        }
+    /** Only used by TypeFactory. */
+    TypeRegistry() {
+        // This is the first thing the run-time system does.
+        this.logger = LoggerFactory.getLogger(TypeRegistry.class);
+        logger.info("Run-time system is waking up.");
     }
 
     /**
@@ -206,6 +159,58 @@ class TypeRegistry extends ClassValue<Representation> {
         }
     }
 
+    /**
+     * Register the {@link Representation} for a Java class. Subsequent
+     * enquiry through {@link #get(Class)} will yield the given
+     * {@code Representation}. This is a one-time action on this
+     * registry, affecting the state of the {@code Class} object: the
+     * association cannot be changed, but the {@code Representation} may
+     * be mutated (where it allows that). It is an error to attempt to
+     * associate a different {@code Representation} with a class already
+     * bound in the same registry.
+     *
+     * @param c class with which associated
+     * @param rep the representation object
+     * @throws Clash when the class is already mapped
+     */
+    synchronized void register(Class<?> c, Representation rep)
+            throws Clash {
+        Representation old = map.putIfAbsent(c, rep);
+        if (old != null) { throw new Clash(c, old); }
+    }
+
+    /**
+     * Register the given {@link Representation}s for multiple Java
+     * classes, as with {@link #register(Class, Representation)}. All
+     * succeed or fail together.
+     *
+     * @param c classes with which associated
+     * @param reps the representation objects
+     * @throws Clash when one of the classes is already mapped
+     */
+    synchronized void register(Class<?>[] c, Representation reps[])
+            throws Clash {
+        int i, n = c.length;
+        for (i = 0; i < n; i++) {
+            Representation old = map.putIfAbsent(c[i], reps[i]);
+            if (old != null) {
+                // We failed to insert c[i]: erase what we did
+                for (int j = 0; j < i; j++) { map.remove(c[j]); }
+                throw new Clash(c[i], old);
+            }
+        }
+    }
+
+    /**
+     * Map an object to the {@code Representation} object that provides
+     * it with Python semantics, based on its class.
+     *
+     * @param obj for which representation is required
+     * @return {@code Representation} providing Python semantics
+     */
+    public Representation of(Object obj) {
+        return get(obj.getClass());
+    }
 
     /**
      * Ensure a class is statically initialised. Static initialisation
@@ -231,7 +236,9 @@ class TypeRegistry extends ClassValue<Representation> {
      * an initialised class. If it posted a {@link Representation} for
      * itself, it will be found immediately. Otherwise the method tries
      * successive super-classes until one is found that has already been
-     * posted.<p>This is only non-private for diagnostic or test use.
+     * posted.
+     * <p>
+     * This is only non-private for diagnostic or test use.
      *
      * @param c class to resolve
      * @return representation object for {@code c} or {@code null}
@@ -276,6 +283,9 @@ class TypeRegistry extends ClassValue<Representation> {
          * Create an exception reporting that an attempt was made to
          * register a second {@link Representation} for a class already
          * in the registry.
+         *
+         * @param klass being registered
+         * @param existing representation for that class
          */
         Clash(Class<?> klass, Representation existing) {
             this.klass = klass;

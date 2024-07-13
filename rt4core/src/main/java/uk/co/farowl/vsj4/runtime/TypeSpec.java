@@ -597,7 +597,7 @@ public class TypeSpec {
 
     /**
      * Get the classes additionally defining methods for the type. See
-     * {@link #methodImpl(Class...)}.
+     * {@link #methodImpls(Class...)}.
      *
      * @return classes additionally defining methods for the type
      */
@@ -612,7 +612,8 @@ public class TypeSpec {
      * {@code __rsub__(MyObject, Object)} that coerces its right-hand
      * argument on each call. (This method has to exist to satisfy the
      * Python data model.) The method may be defined in the
-     * {@link #defining()}, or {@link #methodClass()}
+     * {@link #canonical(Class) canonical} class,
+     *  or {@link #methodImpls(Class...) methodImpls}.
      * <p>
      * A separate class is necessary since the method definition for
      * {@code __rsub__(MyObject, Object)} must sometimes return
@@ -634,7 +635,7 @@ public class TypeSpec {
 
     /**
      * Get the class defining binary class-specific operations for the
-     * type. See {@link #binops(Class)}. {@code null} if there isn't
+     * type. See {@link #binopImpl(Class)}. {@code null} if there isn't
      * one.
      *
      * @return class defining binary class-specific operations (or

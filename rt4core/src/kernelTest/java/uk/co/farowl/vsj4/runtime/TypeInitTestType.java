@@ -1,9 +1,7 @@
-package uk.co.farowl.vsj4.runtime.kernel;
+package uk.co.farowl.vsj4.runtime;
 
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
-
-import uk.co.farowl.vsj4.runtime.PyType;
 
 /**
  * Test that the Python type system comes into operation in a consistent
@@ -19,5 +17,5 @@ class TypeInitTestType extends TypeInitTest {
 
     /** Deliberate creation of the type registry singleton. */
     @BeforeAll
-    static void setUp() throws Exception { type = PyType.TYPE; };
+    static void setUp() { type = PyType.TYPE; }
 }

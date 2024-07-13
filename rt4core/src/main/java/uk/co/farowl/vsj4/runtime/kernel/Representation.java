@@ -61,68 +61,6 @@ public abstract class Representation {
     }
 
     /**
-     * Mapping from Java class to the {@code Representation} that
-     * provides instances of the class with Python semantics.
-     */
-    static final TypeRegistry registry = TypeRegistry.getInstance();
-
-    /**
-     * Register the {@link Representation} for a Java class. Subsequent
-     * enquiries through {@link #of(Object)} and
-     * {@link #fromClass(Class)} will yield this {@code Representation}
-     * object. This is a one-time action on the JVM-wide registry,
-     * affecting the state of the {@code Class} object: the association
-     * cannot be changed, but the {@code Representation} may be mutated
-     * (where it allows that). It is an error to attempt to associate
-     * different {@code Representation} with a class already bound.
-     *
-     * @param c class with which associated
-     * @param rep the representation object
-     * @throws Clash when the class is already mapped
-     */
-    static void register(Class<?> c, Representation rep) throws Clash {
-        Representation.registry.set(c, rep);
-    }
-
-    /**
-     * Register the {@link Representation}s for multiple Java classes,
-     * as with {@link #register(Class, Representation)}. All succeed or
-     * fail together.
-     *
-     * @param c classes with which associated
-     * @param reps the representation objects
-     * @throws Clash when one of the classes is already mapped
-     */
-    static void register(Class<?>[] c, Representation reps[])
-            throws Clash {
-        Representation.registry.set(c, reps);
-    }
-
-    /**
-     * Map a Java class to the {@code Representation} object that
-     * provides Python semantics to instances of the class.
-     *
-     * @param c class for which representation is required
-     * @return {@code Representation} providing Python semantics
-     */
-    static Representation fromClass(Class<?> c) {
-        // Normally, this is completely straightforward
-        // TODO deal with re-entrancy and concurrency
-        return registry.get(c);
-    }
-
-    /**
-     * Map an object to the {@code Representation} object that provides
-     * it with Python semantics.
-     *
-     * @param obj for which representation is required
-     * @return {@code Representation} providing Python semantics
-     */
-    public static Representation of(Object obj) {
-        return fromClass(obj.getClass());
-    }
-
-    /**
      * Get the Python type of the object <i>given that</i> this is the
      * representation object for it.
      *
@@ -272,10 +210,11 @@ public abstract class Representation {
         /**
          * Create a {@code Representation} object that is the
          * implementation of potentially many types defined in Python.
+         *
+         * @param javaType extension point Java class
          */
         Shared(Class<? extends ExtensionPoint> javaType) {
             super(javaType);
-            // setAllSlots();
         }
 
         @Override
