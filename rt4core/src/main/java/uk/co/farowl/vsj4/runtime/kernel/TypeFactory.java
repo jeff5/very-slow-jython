@@ -18,8 +18,8 @@ import uk.co.farowl.vsj4.support.InterpreterError;
 /**
  * Factory object that is the home of Python type creation and
  * management. In normal operation, one instance of this will be created
- * and held statically by the {@link PyType} class. We may create and
- * destroy instances for test purposes.
+ * and held statically by the {@link PyType} class. Exceptionally, we
+ * create and destroy instances for test purposes.
  */
 public class TypeFactory {
 
@@ -41,8 +41,13 @@ public class TypeFactory {
 
     /**
      * Construct a {@code TypeFactory}. Normally this constructor is
-     * used exactly once from {@link PyType}.
+     * used exactly once from {@link PyType}. Exceptionally, we create
+     * instances for test purposes.
+     *
+     * @deprecated Do not create a {@code TypeFactory} other than the
+     *     one {@code PyType} holds statically.
      */
+    @Deprecated
     public TypeFactory() {
         this.registry = new TypeRegistry();
         this.workshop = new Workshop();
@@ -83,6 +88,12 @@ public class TypeFactory {
      */
     private static class PrimordialTypeSpec extends TypeSpec {
 
+        /**
+         * Create a specification retrospectively from a type object.
+         *
+         * @param type to reverse
+         * @param lookup to supply to the {@link TypeSpec}
+         */
         PrimordialTypeSpec(PyType type, Lookup lookup) {
             super(type.getName(), lookup);
             this.canonical(type.javaType).bases(type.bases);
@@ -99,10 +110,6 @@ public class TypeFactory {
     /** Lookup object with package visibility. */
     static Lookup LOOKUP =
             MethodHandles.lookup().dropLookupMode(Lookup.PRIVATE);
-    /** An empty array of type objects */
-    static final PyType[] EMPTY_TYPE_ARRAY = new PyType[0];
-    /** An empty array of type objects */
-    static final List<PyType> EMPTY_TYPE_LIST = List.of();
 
     /**
      * Construct a type from the given specification. The type object
@@ -130,11 +137,34 @@ public class TypeFactory {
      * applied.
      *
      * @return the type
+     * @deprecated Use {@link PyType#TYPE} instead. This method is
+     *     public only so that {@code PyType} may use it to initialise
+     *     that member.
      */
-    public PyType typeForType() {
+    @Deprecated
+    public synchronized PyType typeForType() {
         // Becomes PyType.TYPE.
         return type;
     }
+
+    /** Create and complete the bootstrap types.
+     * These are the adoptive types and those
+     * types required to create descriptors.
+     * {@link PyType#TYPE} should have been initialised before
+     *  this method is called so that types being defined now may refer to it.
+     * <p>
+     * We include the adoptive types
+     * to ensure that each adopted Java class becomes bound to
+     * its {@link Representation} before it gets used from Python.
+     * Descriptor
+     */
+    public synchronized void createBootstrapTypes() {
+        assert PyType.TYPE!=null;
+
+
+
+        logger.info("Type system ready.");
+     }
 
     /**
      * The type system has to prepare {@code PyType} objects in two

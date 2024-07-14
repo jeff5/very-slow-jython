@@ -46,18 +46,46 @@ public abstract sealed class PyType extends AbstractPyType
         permits SimpleType, ReplaceableType, AdoptiveType,
         AbstractPyType.Derived {
     /**
-     * The type factory to which this run-time system goes for all type
+     * The type factory to which the run-time system goes for all type
      * objects.
      */
+    @SuppressWarnings("deprecation")
     static final TypeFactory factory = new TypeFactory();
+
+    /** The type object of {@code type} objects. */
+    @SuppressWarnings("deprecation")
+    public static final PyType TYPE = factory.typeForType();
+
     /**
      * The type registry to which this run-time system goes for all
      * class look-ups.
      */
-    static final TypeRegistry registry = factory.getRegistry();
+    static final TypeRegistry registry;
+
+    /** An empty array of type objects */
+    public static final PyType[] EMPTY_ARRAY;
+
+    /*
+     * The static initialisation of this class, above and in the next
+     * block, brings the type system into existence in the *only* way it
+     * should happen. At this point, 'type' and 'object' exist in their
+     * "Java ready" form, but they are not "Python ready", and nothing
+     * else exists. The block intends to make all the bootstrap types
+     * Java ready, then Python ready, before any type object becomes
+     * visible.
+     */
+    static {
+        // This cute re-use also proves 'type' and 'object' exist.
+        EMPTY_ARRAY = TYPE.base.bases;
+        assert EMPTY_ARRAY.length == 0;
+        // Get all the bootstrap types ready for Python.
+        factory.createBootstrapTypes();
+        // Publish registry for use (package visible)
+        registry = factory.getRegistry();
+    }
 
     /**
-     * Constructor used only by (permitted) subclasses of PyType.
+     * Constructor used by (permitted) subclasses of {@code PyType}.
      *
      * @param name of the type (fully qualified)
      * @param javaType implementing Python instances of the type
@@ -99,7 +127,4 @@ public abstract sealed class PyType extends AbstractPyType
     public static PyType fromSpec(TypeSpec spec) {
         return factory.typeFrom(spec);
     }
-
-    /** The type object of {@code type} objects. */
-    public static final PyType TYPE = factory.typeForType();
 }

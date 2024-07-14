@@ -211,7 +211,6 @@ task testJavadoc(type:Javadoc,
     //println "tccp.files = ${tccp.files}"
 
     classpath.from(tccp)
-    //options.inferModulePath(false)
 
     /* We have used the class path not the module path because
      * otherwise javadoc complains the JUnit API is not in the
@@ -220,6 +219,7 @@ task testJavadoc(type:Javadoc,
      * a warning about linked classes in the same package being
      * modular, but it is only a warning.
      */
+    //modularity.inferModulePath = false
     //options.modulePath(new ArrayList(tccp.files))
     //println "options.modulePath = ${options.modulePath}"
 

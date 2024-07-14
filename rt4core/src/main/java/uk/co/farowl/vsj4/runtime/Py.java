@@ -8,6 +8,11 @@ public class Py {
     /** The (static singleton) registry created by PyType. */
     private static final TypeRegistry registry = PyType.registry;
 
+    static {
+        // Failure indicates type system initialisation problem.
+        assert registry != null;
+    }
+
     /** Instances are not allowed. */
     private Py() {};
 }

@@ -68,7 +68,9 @@ class TypeFactoryTest {
     @Test
     @DisplayName("'object' exists")
     void object_exists() {
+        @SuppressWarnings("deprecation")
         TypeFactory factory = new TypeFactory();
+        @SuppressWarnings("deprecation")
         PyType object = factory.typeForType().getBase();
         assertNotNull(object);
         assertInstanceOf(AdoptiveType.class, object);
@@ -80,6 +82,7 @@ class TypeFactoryTest {
     @Disabled("Representation.of not implemented yet")
     @DisplayName("there is a type for Object.class")
     void creates_object_type() {
+        @SuppressWarnings("deprecation")
         TypeFactory factory = new TypeFactory();
         TypeRegistry registry = factory.getRegistry();
         Representation rep = registry.lookup(Object.class);
@@ -93,7 +96,9 @@ class TypeFactoryTest {
     @Test
     @DisplayName("'type' exists")
     void type_exists() {
+        @SuppressWarnings("deprecation")
         TypeFactory factory = new TypeFactory();
+        @SuppressWarnings("deprecation")
         PyType type = factory.typeForType();
         assertNotNull(type);
         assertInstanceOf(SimpleType.class, type);
@@ -105,6 +110,7 @@ class TypeFactoryTest {
     @Disabled("Representation.of not implemented yet")
     @DisplayName("there is a type for PyType.class")
     void creates_type_type() {
+        @SuppressWarnings("deprecation")
         TypeFactory factory = new TypeFactory();
         TypeRegistry registry = factory.getRegistry();
         Representation rep = registry.lookup(PyType.class);
@@ -120,6 +126,7 @@ class TypeFactoryTest {
     @Disabled("Representation.of not implemented yet")
     @DisplayName("Subclasses of PyType share a type object")
     void type_subclasses_share_type() {
+        @SuppressWarnings("deprecation")
         TypeFactory factory = new TypeFactory();
         TypeRegistry registry = factory.getRegistry();
         // Lookup for the base type
