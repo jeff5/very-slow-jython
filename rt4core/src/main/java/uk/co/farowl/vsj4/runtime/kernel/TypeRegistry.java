@@ -5,13 +5,7 @@ package uk.co.farowl.vsj4.runtime.kernel;
 import java.util.Map;
 import java.util.WeakHashMap;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import uk.co.farowl.vsj4.runtime.Crafted;
-import uk.co.farowl.vsj4.runtime.ExtensionPoint;
 import uk.co.farowl.vsj4.runtime.PyType;
-import uk.co.farowl.vsj4.runtime.kernel.Representation.Shared;
 import uk.co.farowl.vsj4.support.InterpreterError;
 
 /**
@@ -21,29 +15,35 @@ import uk.co.farowl.vsj4.support.InterpreterError;
  * some type information and leads directly to more.
  * <p>
  * In normal operation (outside test cases) there is only one instance
- * of this class, created by {@link PyType}.
+ * of this class, owned by a {@link TypeFactory}, in turn created by
+ * {@link PyType}. Note that only the owning factory has a write
+ * interface to the registry.
  */
 public class TypeRegistry extends ClassValue<Representation> {
 
-    /** Logger for the type registry. */
-    private final Logger logger;
-
     /**
-     * Mapping from Java class to {@link Representation}. This is the
-     * map that backs this {@link TypeRegistry}. This map is protected
-     * from concurrent modification by synchronising on the containing
-     * {@code Registry} object. The keys are weak to allow classes to be
-     * unloaded. (Concurrent GC is not a threat to the consistency of
-     * the registry since a class we are working on cannot be unloaded.)
+     * The mapping from Java class to {@link Representation} that backs
+     * this {@link TypeRegistry}, using entries published by the owning
+     * {@link TypeFactory}.
+     * <p>
+     * The keys are weak to allow classes to be unloaded. (Concurrent GC
+     * is not a threat to the consistency of the registry since a class
+     * we are looking up cannot be unloaded.)
+     * <p>
+     * This map is protected from concurrent modification by
+     * synchronising on the containing {@code Registry}, but that lock
+     * must not be held during type object creation to avoid a deadlock
+     * when the factory posts its answer.
      */
-    private final Map<Class<?>, Representation> map =
+    protected final Map<Class<?>, Representation> map =
             new WeakHashMap<>();
 
-    /** Only used by TypeFactory. */
-    TypeRegistry() {
-        // This is the first thing the run-time system does.
-        this.logger = LoggerFactory.getLogger(TypeRegistry.class);
-        logger.info("Run-time system is waking up.");
+    /** The owning {@link TypeFactory}. */
+    private final TypeFactory factory;
+
+    /** Only used by {@link TypeFactory}. */
+    TypeRegistry(TypeFactory factory) {
+        this.factory = factory;
     }
 
     /**
@@ -65,7 +65,7 @@ public class TypeRegistry extends ClassValue<Representation> {
      * {@link PyType}s were created.
      */
     @Override
-    protected synchronized Representation computeValue(Class<?> c) {
+    protected Representation computeValue(Class<?> c) {
 
         /*
          * Representation.registry contained no mapping (as a
@@ -86,119 +86,27 @@ public class TypeRegistry extends ClassValue<Representation> {
          * first, the class value will bind that same Representation
          * object.
          */
+        Representation rep = lookup(c);
 
-        /*
-         * XXX There is more to say about re-entrancy (this thread) and
-         * concurrency. This design does not mean that another thread,
-         * or even the current one, has not already produced a competing
-         * Representation objects to post.
-         */
-
-        Representation rep = map.get(c);
-
-        if (rep != null) {
+        if (rep == null) {
             /*
-             * An answer already exists, for example because a PyType
-             * was built (cases 1 & 2), but it was not yet attached to
-             * the Class c. Our return from computeValue() will bind it
-             * there for future use.
+             * We ask the owning TypeFactory to (create and) register a
+             * representation for c. Note that we may block here if
+             * another thread has the factory. The factory will check
+             * for the possibility that thread posted a mapping for c
+             * while we were waiting.
              */
-            return rep;
-
-        } else if (ExtensionPoint.class.isAssignableFrom(c)) {
-            // Case 3, 5: one of the derived cases
-            // Ensure c and super-classes statically initialised.
-            ensureInit(c);
-            // This shouldn't have produced an entry for c
-            assert map.get(c) == null;
-            @SuppressWarnings("unchecked")
-            var d = (Class<? extends ExtensionPoint>)c;
-            map.put(c, rep = new Shared(d));
-            return rep;
-
-        } else if (Crafted.class.isAssignableFrom(c)) {
-            // Case 1: one of the crafted (but not derived) cases
-            // Ensure c and super-classes statically initialised.
-            ensureInit(c);
-            /*
-             * A Crafted implementation defines a type during
-             * initialisation, so it should have posted c or an ancestor
-             * of c to the map.
-             */
-            rep = findRep(c);
-            if (rep == null) {
-                // May be impossible once Object is mapped (first job).
-                String fmt = "No representation found for class %s";
-                throw new InterpreterError(
-                        String.format(fmt, c.getTypeName()));
-            }
-            // Fill in entries from c to its ancestral head
-            Class<?> head = rep.javaType;
-            while (c != head) {
-                map.put(c, rep);
-                c = c.getSuperclass();
-            }
-            return rep;
-
-        } else {
-            // Case 4: found Java type
-            // XXX Stop gap. Needs specialised exposure.
-            /*
-             * A Lookup object cannot be provided from here. Access to
-             * members of c will be determined by package and class at
-             * he point of use, in relation to c, according to Java
-             * rules. It follows that descriptors in the PyType cannot
-             * build method handles in advance of constructing the call
-             * site.
-             */
-            // TypeSpec spec = new TypeSpec(c.getSimpleName(),
-            // MethodHandles.publicLookup().in(c));
-            rep = null; // PyType.fromSpec(spec);
-            // Must post answer to map ourselves?
-            return rep;
+            factory.ensureTypeFor(c);
+            rep = lookup(c);
         }
-    }
 
-    /**
-     * Register the {@link Representation} for a Java class. Subsequent
-     * enquiry through {@link #get(Class)} will yield the given
-     * {@code Representation}. This is a one-time action on this
-     * registry, affecting the state of the {@code Class} object: the
-     * association cannot be changed, but the {@code Representation} may
-     * be mutated (where it allows that). It is an error to attempt to
-     * associate a different {@code Representation} with a class already
-     * bound in the same registry.
-     *
-     * @param c class with which associated
-     * @param rep the representation object
-     * @throws Clash when the class is already mapped
-     */
-    synchronized void register(Class<?> c, Representation rep)
-            throws Clash {
-        Representation old = map.putIfAbsent(c, rep);
-        if (old != null) { throw new Clash(c, old); }
-    }
-
-    /**
-     * Register the given {@link Representation}s for multiple Java
-     * classes, as with {@link #register(Class, Representation)}. All
-     * succeed or fail together.
-     *
-     * @param c classes with which associated
-     * @param reps the representation objects
-     * @throws Clash when one of the classes is already mapped
-     */
-    synchronized void register(Class<?>[] c, Representation reps[])
-            throws Clash {
-        int i, n = c.length;
-        for (i = 0; i < n; i++) {
-            Representation old = map.putIfAbsent(c[i], reps[i]);
-            if (old != null) {
-                // We failed to insert c[i]: erase what we did
-                for (int j = 0; j < i; j++) { map.remove(c[j]); }
-                throw new Clash(c[i], old);
-            }
+        if (rep == null) {
+            // May be impossible once Object is mapped (first job).
+            String fmt = "No representation found for class %s";
+            throw new InterpreterError(
+                    String.format(fmt, c.getTypeName()));
         }
+        return rep;
     }
 
     /**
@@ -213,37 +121,17 @@ public class TypeRegistry extends ClassValue<Representation> {
     }
 
     /**
-     * Ensure a class is statically initialised. Static initialisation
-     * will normally create a {@link PyType} and call
-     * {@link #set(Class, Representation)} to post a result to
-     * {@link #map}.
-     *
-     * @param c to initialise
-     */
-    private static void ensureInit(Class<?> c) {
-        String name = c.getName();
-        try {
-            Class.forName(name, true, c.getClassLoader());
-        } catch (ClassNotFoundException e) {
-            throw new InterpreterError("failed to initialise class %s",
-                    name);
-        }
-    }
-
-    /**
      * Find the {@code Representation} for this class, trying
      * super-classes, or fail returning {@code null}. {@code c} must be
      * an initialised class. If it posted a {@link Representation} for
      * itself, it will be found immediately. Otherwise the method tries
      * successive super-classes until one is found that has already been
      * posted.
-     * <p>
-     * This is only non-private for diagnostic or test use.
      *
      * @param c class to resolve
      * @return representation object for {@code c} or {@code null}
      */
-    final Representation findRep(Class<?> c) {
+    final synchronized Representation findRep(Class<?> c) {
         Representation rep;
         Class<?> prev;
         while ((rep = map.get(prev = c)) == null) {
@@ -264,38 +152,8 @@ public class TypeRegistry extends ClassValue<Representation> {
      * @param c class to resolve
      * @return representation object for {@code c} or {@code null}.
      */
-    Representation lookup(Class<?> c) { return map.get(c); }
-
-    /**
-     * Exception reporting a duplicate {@link Representation}.
-     */
-    static class Clash extends Exception {
-        private static final long serialVersionUID = 1L;
-        /** Class being redefined. */
-        final Class<?> klass;
-        /**
-         * The representation object already in the registry for
-         * {@link #klass}
-         */
-        final Representation existing;
-
-        /**
-         * Create an exception reporting that an attempt was made to
-         * register a second {@link Representation} for a class already
-         * in the registry.
-         *
-         * @param klass being registered
-         * @param existing representation for that class
-         */
-        Clash(Class<?> klass, Representation existing) {
-            this.klass = klass;
-            this.existing = existing;
-        }
-
-        @Override
-        public String getMessage() {
-            return String.format("repeat Python representation for %s",
-                    klass);
-        }
+    synchronized Representation lookup(Class<?> c) {
+        return map.get(c);
     }
+
 }

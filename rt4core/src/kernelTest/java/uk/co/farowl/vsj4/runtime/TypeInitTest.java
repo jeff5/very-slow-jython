@@ -1,3 +1,5 @@
+// Copyright (c)2024 Jython Developers.
+// Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -49,10 +51,10 @@ class TypeInitTest {
     /**
      * The action that triggers the type system. Override this to choose
      * an event that starts the system. It must be annotated in the
-     * subclass with {@code @BeforeEach}.
+     * subclass with {@code @BeforeAll}.
      */
     @BeforeAll
-    static void setUp() {};
+    static void setUpClass() {};
 
     /** After setUp() a type exists for {@code object}. */
     @Test

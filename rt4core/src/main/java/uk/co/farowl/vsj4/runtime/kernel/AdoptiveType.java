@@ -1,3 +1,5 @@
+// Copyright (c)2024 Jython Developers.
+// Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime.kernel;
 
 import uk.co.farowl.vsj4.runtime.PyType;
@@ -48,7 +50,7 @@ public final class AdoptiveType extends PyType {
     AdoptiveType() {
         // There is no canonical class and no bases.
         this("object", null, 1, new PyType[0]);
-        // We have to fill in adopted type as PrimordialTypeSpec won't.
+        // We have to adopt Object here.
         this.adopted[0] =
                 new Representation.Adopted(Object.class, this);
     }
@@ -62,9 +64,22 @@ public final class AdoptiveType extends PyType {
      * @param i index of representation
      * @param a the representation
      */
+    @Deprecated
     void setAdopted(int i, Representation.Adopted a) {
         assert adopted[i] == null;
         adopted[i] = a;
+    }
+
+    /**
+     * Provide a representation, so store at the first non-null entry in
+     * the array of adopted representations.
+     *
+     * @param a the representation
+     */
+    void adopt(Representation.Adopted a) {
+        int i = 0;
+        while (adopted[i++] != null) {}
+        adopted[--i] = a;
     }
 
     /**

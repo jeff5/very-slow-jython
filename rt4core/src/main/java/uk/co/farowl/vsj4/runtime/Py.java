@@ -1,3 +1,5 @@
+// Copyright (c)2024 Jython Developers.
+// Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
 
 import uk.co.farowl.vsj4.runtime.kernel.TypeRegistry;
@@ -12,6 +14,9 @@ public class Py {
         // Failure indicates type system initialisation problem.
         assert registry != null;
     }
+
+    /** Python {@code None} object. */
+    public static final PyNone None = PyNone.INSTANCE;
 
     /** Instances are not allowed. */
     private Py() {};

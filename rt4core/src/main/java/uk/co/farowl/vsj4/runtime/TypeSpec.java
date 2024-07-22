@@ -1,3 +1,5 @@
+// Copyright (c)2024 Jython Developers.
+// Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
 
 import java.lang.invoke.MethodHandle;
@@ -21,23 +23,7 @@ import uk.co.farowl.vsj4.support.InterpreterError;
  */
 public class TypeSpec {
 
-// /**
-// * A specification may define a simple or an adoptive type according
-// * to whether any adoptions were specified. If the type allows
-// * subclasses (in Python), there must be an extension point class
-// * that will give rise to a replaceable type.
-// */
-// protected enum TypeKind {
-// SIMPLE, ADOPTIVE;
-// }
-
-// /**
-// * Specific kind of type object to build. Decided by
-// * {@link #freeze()}, and so {@code null} indicates specification is
-// * in progress, and otherwise prevent mutation.
-// */
-// private TypeKind typeKind = null;
-
+    /** If {@code true}, accept no further specification actions. */
     private boolean frozen = false;
 
     /**
@@ -79,7 +65,7 @@ public class TypeSpec {
 
     /**
      * The class that will be used to represent instances of Python
-     * subclasses. See {@link #extendFrom(Class)}.
+     * subclasses. See {@link #extendAt(Class)}.
      */
     private Class<? extends ExtensionPoint> extensionPoint;
 
@@ -364,7 +350,7 @@ public class TypeSpec {
      * @param klass represents Python sub-classes
      * @return {@code this}
      */
-    public TypeSpec extendFrom(Class<? extends ExtensionPoint> klass) {
+    public TypeSpec extendAt(Class<? extends ExtensionPoint> klass) {
         if (this.extensionPoint != null) {
             throw repeatError("extension point");
         } else {
@@ -376,11 +362,13 @@ public class TypeSpec {
 
     /**
      * The class that will be used to represent instances of Python
-     * subclasses. See {@link #extendFrom(Class)}.
+     * subclasses. See {@link #extendAt(Class)}.
      *
      * @return the extending class for the type
      */
-    public Class<?> getExtendingClass() { return extensionPoint; }
+    public Class<? extends ExtensionPoint> getExtensionPoint() {
+        return extensionPoint;
+    }
 
     /**
      * Specify Java classes that must be adopted by the Python type as
@@ -500,13 +488,13 @@ public class TypeSpec {
 
     /**
      * Return the accumulated list of bases. If no bases were added, the
-     * result is just {@code [object]}, except when we do this for
-     * object itself, for which it is a zero-length array.
+     * result is empty (to be interpreted as just {@code [object]}.
+     * (We can't make that substitution here because {@code TypeSpec} has to work before {@code object} is published.)
      *
-     * @return array of the bases of this type
+     * @return the bases of this type
      */
-    public PyType[] getBases() {
-        return bases.toArray(new PyType[bases.size()]);
+    public List<PyType> getBases() {
+        return Collections.unmodifiableList(bases);
     }
 
     /**
@@ -612,8 +600,8 @@ public class TypeSpec {
      * {@code __rsub__(MyObject, Object)} that coerces its right-hand
      * argument on each call. (This method has to exist to satisfy the
      * Python data model.) The method may be defined in the
-     * {@link #canonical(Class) canonical} class,
-     *  or {@link #methodImpls(Class...) methodImpls}.
+     * {@link #canonical(Class) canonical} class, or
+     * {@link #methodImpls(Class...) methodImpls}.
      * <p>
      * A separate class is necessary since the method definition for
      * {@code __rsub__(MyObject, Object)} must sometimes return
@@ -670,7 +658,7 @@ public class TypeSpec {
     // Something helpful in debugging (__repr__ is different)
     @Override
     public String toString() {
-        String fmt = "'%s' %s %s defining=%s";
+        String fmt = "'%s' %s %s lookup=%s";
         return String.format(fmt, name, bases, features,
                 lookup.lookupClass().getSimpleName());
     }

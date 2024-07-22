@@ -1,3 +1,5 @@
+// Copyright (c)2024 Jython Developers.
+// Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime.kernel;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -26,7 +28,7 @@ import uk.co.farowl.vsj4.support.InterpreterError;
  * static initialisation of {@link PyType}, but for the purpose of
  * testing, we make and discard instances repeatedly.
  * <p>
- * The design keeps the number of {@code materially} different
+ * The design keeps the number of <i>materially</i> different
  * initialisation paths to a minimum, by funnelling all causes into
  * essentially the same bootstrap process, because it is difficult to
  * reason about initialisation. Correct eventual operation depends on

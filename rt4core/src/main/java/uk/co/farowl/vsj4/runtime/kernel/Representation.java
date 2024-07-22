@@ -10,13 +10,9 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.invoke.MethodType;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import uk.co.farowl.vsj4.runtime.Crafted;
 import uk.co.farowl.vsj4.runtime.ExtensionPoint;
 import uk.co.farowl.vsj4.runtime.PyType;
-import uk.co.farowl.vsj4.runtime.kernel.TypeRegistry.Clash;
 import uk.co.farowl.vsj4.support.InterpreterError;
 
 /**
@@ -218,6 +214,12 @@ public abstract class Representation {
         }
 
         @Override
+        public String toString() {
+            return String.format("Shared[%s]",
+                    javaType().getSimpleName());
+        }
+
+        @Override
         public PyType pythonType(Object x) {
             if (x instanceof ExtensionPoint ex)
                 return ex.getType();
@@ -229,5 +231,4 @@ public abstract class Representation {
             }
         }
     }
-
 }

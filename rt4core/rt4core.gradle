@@ -53,9 +53,12 @@ testing {
                         // Important: fresh JVM with every kernel test
                         forkEvery = 1
                         // Log output will prove kernel is recreated
-                        systemProperties.put(
-                            'java.util.logging.SimpleFormatter.format',
-                            '%1$tH:%1$tm:%1$tS %4$s (%3$s) %5$s%n')
+                        systemProperty(
+                            'java.util.logging.config.file',
+                            getProject().file('config/kernelTest.logging.properties') )
+                        systemProperty(
+                            'uk.co.farowl.vsj4.runtime.BootstrapTest.times',
+                            'false')
                         testLogging.showStandardStreams = true
                     }
                 }

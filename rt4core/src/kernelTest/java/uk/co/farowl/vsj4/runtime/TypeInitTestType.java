@@ -1,3 +1,5 @@
+// Copyright (c)2024 Jython Developers.
+// Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
 
 import org.junit.jupiter.api.BeforeAll;
@@ -7,15 +9,15 @@ import org.junit.jupiter.api.DisplayName;
  * Test that the Python type system comes into operation in a consistent
  * state after getting {@link PyType#TYPE} The tests are all in the
  * superclass: this class supplies only the initialising event in
- * {@link #setUp()}.
+ * {@link #setUpClass()}.
  */
 @DisplayName("After getting PyType.TYPE ...")
 class TypeInitTestType extends TypeInitTest {
 
-    /** Initialised in {@link #setUp()}. */
+    /** Initialised in {@link #setUpClass()}. */
     static PyType type;
 
     /** Deliberate creation of the type registry singleton. */
     @BeforeAll
-    static void setUp() { type = PyType.TYPE; }
+    static void setUpClass() { type = PyType.TYPE; }
 }

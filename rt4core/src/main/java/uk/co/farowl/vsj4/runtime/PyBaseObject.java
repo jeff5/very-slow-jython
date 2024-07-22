@@ -1,3 +1,5 @@
+// Copyright (c)2024 Jython Developers.
+// Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
 
 import uk.co.farowl.vsj4.runtime.kernel.AbstractPyBaseObject;
@@ -18,7 +20,7 @@ public final class PyBaseObject extends AbstractPyBaseObject {
              * gets initialised, and the whole type system behind it,
              * before the first type object becomes visible.
              */
-            PyType.TYPE.getBase();
+            PyType.of(new Object());
 
     /**
      * Construct an instance of a proper subclass of {@code object}.
