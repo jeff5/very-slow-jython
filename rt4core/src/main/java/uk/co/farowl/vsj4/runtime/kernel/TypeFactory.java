@@ -10,6 +10,7 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.function.Supplier;
 
@@ -20,6 +21,7 @@ import uk.co.farowl.vsj4.runtime.Crafted;
 import uk.co.farowl.vsj4.runtime.ExtensionPoint;
 import uk.co.farowl.vsj4.runtime.PyType;
 import uk.co.farowl.vsj4.runtime.TypeSpec;
+import uk.co.farowl.vsj4.runtime.bootstrap.PyFloatImpl;
 import uk.co.farowl.vsj4.runtime.kernel.Representation.Adopted;
 import uk.co.farowl.vsj4.runtime.kernel.Representation.Shared;
 import uk.co.farowl.vsj4.support.InterpreterError;
@@ -78,42 +80,55 @@ public class TypeFactory {
      * used exactly once from {@link PyType}. Exceptionally, we create
      * instances for test purposes.
      *
-     * @throws Clash when a representing class is already bound
-     *
      * @deprecated Do not create a {@code TypeFactory} other than the
      *     one {@code PyType} holds statically.
      */
     @Deprecated
-    public TypeFactory() throws Clash {
+    public TypeFactory() {
         // This is the first thing the run-time system does.
         logger.info("Type factory being created.");
 
         this.registry = new Registry();
         this.workshop = new Workshop();
-        /*
-         * Create type objects for type and object. We need a
-         * specification for each type as well, so the workshop can the
-         * types later with their methods. (We couldn't have constructed
-         * the types from specifications because even partial type
-         * construction doesn't work until 'type' and 'object' exist.
-         * There's nothing more bootstrappy than these types.)
-         */
+
+        // The corresponding decrement is in createBootstrapTypes().
         this.reentrancyCount = 1;
 
+        /*
+         * Create type objects for type and object. We need special
+         * constructors because nothing is more bootstrappy than these
+         * types.
+         */
         logger.atDebug().setMessage(CREATING_PARTIAL_TYPE)
                 .addArgument(indent).addArgument("object").log();
         this.objectType = new AdoptiveType();
-        TypeSpec specOfObject = new PrimordialTypeSpec(objectType,
-                AbstractPyBaseObject.LOOKUP);
-        workshop.add(specOfObject, objectType);
 
         logger.atDebug().setMessage(CREATING_PARTIAL_TYPE)
                 .addArgument(indent).addArgument("type").log();
         this.typeType = new SimpleType(objectType);
+
+        /*
+         * We need a specification for each type as well, which we
+         * create from their type objects, not the other way around, as
+         * PyType.fromSpec is not safe until.
+         */
+        TypeSpec specOfObject = new PrimordialTypeSpec(objectType,
+                AbstractPyBaseObject.LOOKUP);
         TypeSpec specOfType =
                 new PrimordialTypeSpec(typeType, AbstractPyType.LOOKUP)
                         .extendAt(AbstractPyType.Derived.class);
-        workshop.add(specOfType, typeType);
+
+        /*
+         * Add the specifications to the workshop so it can complete the
+         * types later with their methods.
+         */
+        try {
+            workshop.add(specOfObject, objectType);
+            workshop.add(specOfType, typeType);
+        } catch (Clash clash) {
+            // If we can't get this far ...
+            throw new InterpreterError(clash);
+        }
 
         // This cute re-use also proves 'type' and 'object' exist.
         this.OBJECT_ONLY = typeType.bases;
@@ -414,18 +429,23 @@ public class TypeFactory {
      * @throws Clash when a representing class is already bound
      */
     public synchronized void createBootstrapTypes() throws Clash {
-        assert PyType.TYPE != null;
-        /*
-         * This reverses reentrancyCount = 1 in the constructor.
-         * reentrancyCount doesn't lock anything, but it defers attempts
-         * at type completion, and various checks we can only satisfy
-         * when at top level.
-         */
-        reentrancyCount -= 1;
-        assert reentrancyCount == 0;
+        // Definition classes should be able to assume:
+        assert PyType.TYPE == typeType;
+
+
+        ensureInit(PyFloatImpl.class);
 
         // Give all waiting types their Python nature
         workshop.exposeWaitingTypes();
+
+        /*
+         * This reverses reentrancyCount = 1 in the constructor.
+         * reentrancyCount doesn't lock anything, but it defers
+         * publication, and various checks we can only satisfy when at
+         * top level.
+         */
+        reentrancyCount -= 1;
+        assert reentrancyCount == 0;
 
         // Publish the Python-ready types.
         workshop.publishAll();
@@ -485,6 +505,23 @@ public class TypeFactory {
          */
         final Map<Class<?>, Representation> unpublished =
                 new HashMap<>();
+
+        @Override
+        public String toString() {
+            StringBuilder buf = new StringBuilder(100);
+            for (Entry<TypeSpec, Task> task : tasks.entrySet()) {
+                buf.append(task.getKey());
+                buf.append('\n');
+            }
+
+            for (Entry<Class<?>, Representation> rep : unpublished
+                    .entrySet()) {
+                buf.append(rep.getKey().getTypeName()).append(" -> ")
+                        .append(rep.getValue());
+                buf.append('\n');
+            }
+            return buf.toString();
+        }
 
         /**
          * Determine whether there are unfinished tasks and unpublished

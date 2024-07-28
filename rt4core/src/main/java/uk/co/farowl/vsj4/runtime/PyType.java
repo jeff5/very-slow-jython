@@ -106,47 +106,47 @@ public abstract sealed class PyType extends AbstractPyType
         logger.info("Type system is waking up.");
         bootstrapNanoTime = System.nanoTime();
 
+        /*
+         * Kick the whole type machine into life. We go via variables f
+         * and t so that we can suppress the deprecation messages, which
+         * are for the discouragement of others, not because PyType
+         * should use some alternative method.
+         */
+        @SuppressWarnings("deprecation")
+        TypeFactory f = new TypeFactory();
+        @SuppressWarnings("deprecation")
+        PyType t = f.typeForType();
+
         try {
             /*
-             * Kick the whole type machine into life. Deprecation
-             * messages associated with the TypeFactory are for the
-             * discouragement of others, not because there's any
-             * alternative.
-             */
-            @SuppressWarnings("deprecation")
-            TypeFactory f = new TypeFactory();
-
-            /*
              * At this point, 'type' and 'object' exist in their
-             * "Java ready" forms, but they are not "Python ready", and
-             * nothing much else exists. We let them leak out but only
-             * to this thread for now, as no other can touch PyType yet.
+             * "Java ready" forms, but they are not "Python ready". We
+             * let them leak out so that the bootstrap process itself
+             * may use them. No *other* thread can get to them until
+             * this thread leaves the static initialisation of PyType.
              */
-            @SuppressWarnings("deprecation")
-            PyType t = f.typeForType();
             TYPE = t;
+            factory = f;
+            registry = f.getRegistry();
 
             /*
-             * Get all the bootstrap types ready for Python. Note that
-             * the Java classes of bootstrap types are not visible as
-             * public API because it would be possible for another
-             * thread to touch one during the bootstrap. That would
-             * block this thread.
+             * Get all the bootstrap types ready for Python. Bootstrap
+             * type implementations are not visible as public API
+             * because it would be possible for another thread to touch
+             * one during the bootstrap and that would block this
+             * thread.
              */
             f.createBootstrapTypes();
 
-            /*
-             * After the bootstrap, it is now safe to publish. When this
-             * thread leaves the static initialisation of PyType,
-             * threads previously blocked on a call become runnable.
-             */
-            factory = f;
-            registry = f.getRegistry();
         } catch (Clash clash) {
             // Maybe a bootstrap type was used prematurely?
             throw new InterpreterError(clash);
         }
 
+        /*
+         * We like to know how long this took. Also used in
+         * BootstrapTest to verify there is just one bootstrap thread.
+         */
         readyNanoTime = System.nanoTime();
 
         logger.atInfo()

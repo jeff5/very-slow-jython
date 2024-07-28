@@ -117,18 +117,23 @@ class TypeInitTest {
         }
     }
 
-    /** After setUp() we can look up {@code Double.class}. */
+    /**
+     * After setUp() we can look up {@code Double.class} and get
+     * {@code float}. The potential for failure consists in treating
+     * {@code Double} as a found Java type before the Python type
+     * {@code float} can adopt it.
+     */
     @Test
-    @Disabled("'float' not yet implemented")
     @DisplayName("we can look up a type for Double.class")
     void lookup_type_double() {
         TypeRegistry registry = PyType.registry;
         Representation rep = registry.get(Double.class);
         assertNotNull(rep);
-        assertInstanceOf(AdoptiveType.class, rep);
         PyType type = rep.pythonType(null);
-        assertSame(rep, type);
+        assertInstanceOf(AdoptiveType.class, type);
+        assertNotSame(rep, type);
         assertEquals("float", type.getName());
+        assertSame(PyFloat.TYPE, type);
     }
 
 }

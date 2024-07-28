@@ -662,7 +662,7 @@ public class TypeSpec {
     // Something helpful in debugging (__repr__ is different)
     @Override
     public String toString() {
-        String fmt = "'%s' %s %s lookup=%s";
+        String fmt = "'%s' %s %s (lookup:%s)";
         return String.format(fmt, name, bases, features,
                 lookup.lookupClass().getSimpleName());
     }

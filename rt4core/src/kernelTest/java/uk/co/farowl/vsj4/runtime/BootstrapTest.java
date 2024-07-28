@@ -70,7 +70,7 @@ class BootstrapTest {
             "uk.co.farowl.vsj4.runtime.BootstrapTest.times";
 
     /** Threads of each kind. */
-    static final int NTHREADS = 50; // suggest at least 5
+    static final int NTHREADS = 100; // suggest at least 15
     /** Threads to run. */
     static final List<InitThread> threads = new ArrayList<>();
     /** A barrier they all wait behind. */
@@ -87,43 +87,26 @@ class BootstrapTest {
      */
     @BeforeAll
     static void setUpClass() {
-        /*
-         * Create NTHREADS of each type of thread. They differ only in
-         * which action comes first.
-         */
+        // Create NTHREADS randomly choosing which action comes first.
         for (int i = 0; i < NTHREADS; i++) {
-            InitThread init = new InitThread() {
-                @Override
-                void action() {
-                    reg = PyType.registry;
-                    firstNanoTime = System.nanoTime();
-                    objectType = PyBaseObject.TYPE;
-                    floatType = PyFloat.TYPE;
-                }
-            };
-            threads.add(init);
+            threads.add(switch (random.nextInt(3)) {
 
-            init = new InitThread() {
-                @Override
-                void action() {
-                    floatType = PyFloat.TYPE;
-                    firstNanoTime = System.nanoTime();
-                    reg = PyType.registry;
-                    objectType = PyBaseObject.TYPE;
-                }
-            };
-            threads.add(init);
+                case 0 -> new InitThread() {
+                    @Override
+                    void action() { reg = PyType.registry; }
+                };
 
-            init = new InitThread() {
-                @Override
-                void action() {
-                    objectType = PyBaseObject.TYPE;
-                    firstNanoTime = System.nanoTime();
-                    floatType = PyFloat.TYPE;
-                    reg = PyType.registry;
-                }
-            };
-            threads.add(init);
+                case 1 -> new InitThread() {
+                    @Override
+                    void action() { floatType = PyFloat.TYPE; }
+                };
+                default -> new InitThread() {
+                    @Override
+                    void action() {
+                        objectType = PyBaseObject.TYPE;
+                    }
+                };
+            });
         }
 
         // Create a barrier of matching capacity.
@@ -131,6 +114,7 @@ class BootstrapTest {
 
         // Start the threads in a shuffled order.
         Collections.shuffle(threads, random);
+        logger.info("{} threads prepared.", threads.size());
         for (Thread t : threads) { t.start(); }
 
         // Wait for the threads to finish.
@@ -230,8 +214,9 @@ class BootstrapTest {
         PyType floatType;
 
         /**
-         * Each implementation of {@code action()} retrieves the same
-         * data, but in a different order.
+         * Each implementation of {@code InitThread} retrieves the same
+         * data, but chooses to do one action first by overriding this
+         * method. {@link #otherActions()} then completes the work.
          */
         abstract void action();
 
@@ -249,11 +234,20 @@ class BootstrapTest {
             // Perform the action: *raw* nanos before and after.
             startNanoTime = System.nanoTime();
             action();
+            firstNanoTime = System.nanoTime();
+            otherActions();
             finishNanoTime = System.nanoTime();
             // *Only afterwards* make relative to bootstrap time.
             startNanoTime -= PyType.bootstrapNanoTime;
             firstNanoTime -= PyType.bootstrapNanoTime;
             finishNanoTime -= PyType.bootstrapNanoTime;
+        }
+
+        /** The required actions apart from the one already done. */
+        void otherActions() {
+            if (objectType == null) { objectType = PyBaseObject.TYPE; }
+            if (floatType == null) { floatType = PyFloat.TYPE; }
+            if (reg == null) { reg = PyType.registry; }
         }
 
         @Override

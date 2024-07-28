@@ -5,10 +5,7 @@ package uk.co.farowl.vsj4.runtime;
 /** Static methods for handling Python {@code float}. */
 public final class PyFloat {
     /** The type object {@code float}. */
-    public static final PyType TYPE =
-            // XXX dummy
-            PyType.TYPE.getBase();
-            //PyType.forClass(double.class);
+    public static final PyType TYPE = PyType.of(0.0);
 
     private PyFloat() {}; // No instances.
 }
