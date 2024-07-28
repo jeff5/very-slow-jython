@@ -20,6 +20,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import uk.co.farowl.vsj4.runtime.kernel.TypeRegistry;
 
@@ -45,29 +47,36 @@ import uk.co.farowl.vsj4.runtime.kernel.TypeRegistry;
  * We test this by starting a lot of threads, as close to simultaneously
  * as we can manage, that access {@code PyType} static members in a
  * variety of orders. Each thread records when it started and when it
- * got its first answer. {@code PyType} keeps track of when the
- * bootstrap started and finished. The bootstrap times should be between
- * thread start and first answer for all the threads, and they should
- * all get the same answers.
+ * got its first answer. {@code PyType} itself keeps track of when the
+ * bootstrap started and finished. The bootstrap should complete before
+ * any thread gets its first answer, and (for a satisfactory test)
+ * multiple threads should be racing before the bootstrap begins. They
+ * should all get the same answers.
  */
 @DisplayName("When multiple threads use the type system")
 @TestMethodOrder(MethodOrderer.MethodName.class)
 class BootstrapTest {
 
+    /** Logger for the test. */
+    static final Logger logger =
+            LoggerFactory.getLogger(BootstrapTest.class);
+
     /** Random (or deterministic) order. */
     static final long seed = System.currentTimeMillis();
-    // static final long seed = 1234L; // For semi-repeatable
+    // static final long seed = 1234L; // Somewhat repeatable
 
     /** If defined, dump the times recorded by threads. */
     static final String DUMP_PROPERTY =
             "uk.co.farowl.vsj4.runtime.BootstrapTest.times";
 
     /** Threads of each kind. */
-    static final int NTHREADS = 10;
+    static final int NTHREADS = 50; // suggest at least 5
     /** Threads to run. */
     static final List<InitThread> threads = new ArrayList<>();
     /** A barrier they all wait behind. */
     static CyclicBarrier barrier;
+    /** Source of random behaviour. */
+    static Random random = new Random(seed);
 
     /**
      * We create multiple threads for each of several ways the type
@@ -121,7 +130,7 @@ class BootstrapTest {
         barrier = new CyclicBarrier(threads.size());
 
         // Start the threads in a shuffled order.
-        Collections.shuffle(threads, new Random(seed));
+        Collections.shuffle(threads, random);
         for (Thread t : threads) { t.start(); }
 
         // Wait for the threads to finish.
@@ -165,12 +174,12 @@ class BootstrapTest {
     /** Some threads started before the bootstrap started. */
     @Test
     @DisplayName("A race takes place")
-    void aRace() {
-        // All relative start times should be negative
+    void aRaceTookPlace() {
+        // Enough relative start times should be negative
         long competitors = threads.stream()
                 .filter(t -> t.startNanoTime <= 0L).count();
-        PyType.logger.info("{} threads were racing.", competitors);
-        assertTrue(competitors > 1L, () -> String
+        logger.info("{} threads were racing.", competitors);
+        assertTrue(competitors > 10L, () -> String
                 .format("Only %d competitors.", competitors));
     }
 
@@ -183,17 +192,16 @@ class BootstrapTest {
         // All first actions should be after type system ready.
         long hasty = threads.stream()
                 .filter(t -> t.firstNanoTime < ready).count();
-        PyType.logger.info(
-                "{} threads failed to wait for the type system.",
+        logger.info("{} threads failed to wait for the type system.",
                 hasty);
         assertEquals(0L, hasty, () -> String
                 .format("%d threads failed to wait.", hasty));
     }
 
-    /** All the threads see the same registry. */
+    /** All the threads see the same type registry. */
     @Test
-    @DisplayName("All threads see the same the registry")
-    void registryCorrect() {
+    @DisplayName("All threads see the same type registry")
+    void sameTypeRegistry() {
         TypeRegistry registry = PyType.registry;
         for (InitThread init : threads) {
             assertSame(registry, init.reg);
@@ -201,9 +209,9 @@ class BootstrapTest {
     }
 
     /**
-     * A thread that performs an action on the type system, so that we
-     * may test the outcome is the same for all threads. We keep track
-     * of times in nanoseconds so we can be sure of the order of events.
+     * A thread that performs actions on the type system, so that we may
+     * test the outcome is the same for all threads. We keep track of
+     * times in nanoseconds so we can be sure of the order of events.
      * All times are relative to the bootstrap time so that they are
      * reasonably printable.
      */
@@ -232,6 +240,7 @@ class BootstrapTest {
             // Wait at the barrier until every thread arrives.
             try {
                 barrier.await();
+                // sleep(random.nextInt(3) * 1000);
             } catch (InterruptedException | BrokenBarrierException e) {
                 // This shouldn't happen.
                 fail("A thread was interrupted at the barrier.");

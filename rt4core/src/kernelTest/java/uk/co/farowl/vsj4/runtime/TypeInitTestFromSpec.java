@@ -29,7 +29,7 @@ class TypeInitTestFromSpec extends TypeInitTest {
                 new TypeSpec("MyType", MethodHandles.lookup()));
     }
 
-    /** Deliberate creation of the type registry singleton. */
+    /** Start by using a Python type defined in Java. */
     @BeforeAll
     static void setUpClass() { myType = new MyType(); }
 }

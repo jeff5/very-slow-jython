@@ -8,11 +8,14 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 
 /**
- * When a Python class defined in Java names another as a base, and
+ * When a Python class defined in Java names another as a member, and
  * neither type has yet been created for Python, reentrant calls are
  * made to {@link PyType#fromSpec(TypeSpec)}. This test exercises that
  * process (in the {@code @BeforeAll} set up), and in its cases verifies
  * invariants we claim for the {@code TypeFactory}.
+ * <p>
+ * This test is inadequate as it stands to drive the type system into
+ * reentrant behaviour as we'd like.
  */
 @DisplayName("On Java-defining a Python class referring to another")
 class TypeInitTestReentrant extends TypeInitTest {
@@ -20,11 +23,7 @@ class TypeInitTestReentrant extends TypeInitTest {
     /** Result of trigger action (if any). */
     protected static MyOther object;
 
-    /**
-     * The action that triggers the type system. Override this to choose
-     * an event that starts the system. It must be annotated in the
-     * subclass with {@code @BeforeAll}.
-     */
+    /** Start by using a complex Python type defined in Java. */
     @BeforeAll
     static void setUpClass() { object = new MyOther(); };
 

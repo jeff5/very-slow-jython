@@ -19,7 +19,7 @@ class TypeInitTestRegistry extends TypeInitTest {
     /** Initialised in {@link #setUpClass()}. */
     static TypeRegistry registry;
 
-    /** Deliberate creation of the type registry singleton. */
+    /** Start by touching the type registry singleton itself. */
     @BeforeAll
     static void setUpClass() { registry = PyType.registry; };
 }

@@ -17,7 +17,7 @@ class TypeInitTestType extends TypeInitTest {
     /** Initialised in {@link #setUpClass()}. */
     static PyType type;
 
-    /** Deliberate creation of the type registry singleton. */
+    /** Start by touching the type object {@code type}. */
     @BeforeAll
     static void setUpClass() { type = PyType.TYPE; }
 }

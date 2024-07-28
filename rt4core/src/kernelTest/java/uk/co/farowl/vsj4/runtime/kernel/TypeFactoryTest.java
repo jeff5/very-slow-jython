@@ -19,20 +19,22 @@ import org.slf4j.LoggerFactory;
 
 import uk.co.farowl.vsj4.runtime.PyType;
 import uk.co.farowl.vsj4.runtime.kernel.Representation.Adopted;
+import uk.co.farowl.vsj4.runtime.kernel.TypeFactory.Clash;
 import uk.co.farowl.vsj4.support.InterpreterError;
 
 /**
  * Test that the Python type system, {@link TypeFactory} and instances
  * of a few associated classes, may be brought into operation in a
- * consistent state. This is normally a singleton, created during the
- * static initialisation of {@link PyType}, but for the purpose of
- * testing, we make and discard instances repeatedly.
+ * consistent state. The {@code TypeFactory} is normally a singleton,
+ * created during the static initialisation of {@link PyType}, but for
+ * the purpose of testing, we make and discard instances repeatedly.
  * <p>
  * The design keeps the number of <i>materially</i> different
- * initialisation paths to a minimum, by funnelling all causes into
- * essentially the same bootstrap process, because it is difficult to
- * reason about initialisation. Correct eventual operation depends on
- * the order of events that the JVM ultimately determines.
+ * initialisation paths to a minimum. In practice, we funnel all actions
+ * that cause initialisation into essentially the same bootstrap
+ * process, in the static initialisation of {@link PyType}. It is too
+ * difficult to reason about otherwise. In this test we subvert that to
+ * test copies of the parts separately.
  * <p>
  * When testing, we arrange to run each test involving initialisation in
  * a new JVM. (See the {@code kernelTest} target in the build.)
@@ -66,10 +68,14 @@ class TypeFactoryTest {
         }
     }
 
-    /** A type exists for {@code object}. */
+    /**
+     * A type exists for {@code object}.
+     *
+     * @throws Clash when class conflicts arise.
+     */
     @Test
     @DisplayName("'object' exists")
-    void object_exists() {
+    void object_exists() throws Exception {
         @SuppressWarnings("deprecation")
         TypeFactory factory = new TypeFactory();
         @SuppressWarnings("deprecation")
@@ -79,11 +85,15 @@ class TypeFactoryTest {
         assertEquals("object", object.getName());
     }
 
-    /** We can look up {@code Object.class}. */
+    /**
+     * We can look up {@code Object.class}.
+     *
+     * @throws Clash when class conflicts arise.
+     */
     @Test
     @Disabled("Representation.of not implemented yet")
     @DisplayName("there is a type for Object.class")
-    void creates_object_type() {
+    void creates_object_type() throws Exception {
         @SuppressWarnings("deprecation")
         TypeFactory factory = new TypeFactory();
         TypeRegistry registry = factory.getRegistry();
@@ -94,10 +104,14 @@ class TypeFactoryTest {
         assertEquals("object", type.getName());
     }
 
-    /** After setUp() a type exists for {@code type}. */
+    /**
+     * After setUp() a type exists for {@code type}.
+     *
+     * @throws Clash when class conflicts arise.
+     */
     @Test
     @DisplayName("'type' exists")
-    void type_exists() {
+    void type_exists() throws Exception {
         @SuppressWarnings("deprecation")
         TypeFactory factory = new TypeFactory();
         @SuppressWarnings("deprecation")
@@ -107,11 +121,15 @@ class TypeFactoryTest {
         assertEquals("type", type.getName());
     }
 
-    /** After setUp() we can look up {@code PyType.class}. */
+    /**
+     * After setUp() we can look up {@code PyType.class}.
+     *
+     * @throws Clash when class conflicts arise.
+     */
     @Test
     @Disabled("Representation.of not implemented yet")
     @DisplayName("there is a type for PyType.class")
-    void creates_type_type() {
+    void creates_type_type() throws Exception {
         @SuppressWarnings("deprecation")
         TypeFactory factory = new TypeFactory();
         TypeRegistry registry = factory.getRegistry();
@@ -123,11 +141,15 @@ class TypeFactoryTest {
         assertEquals("type", type.getName());
     }
 
-    /** After setUp() all type implementations have the same type. */
+    /**
+     * After setUp() all type implementations have the same type.
+     *
+     * @throws Clash when class conflicts arise.
+     */
     @Test
     @Disabled("Representation.of not implemented yet")
     @DisplayName("Subclasses of PyType share a type object")
-    void type_subclasses_share_type() {
+    void type_subclasses_share_type() throws Clash {
         @SuppressWarnings("deprecation")
         TypeFactory factory = new TypeFactory();
         TypeRegistry registry = factory.getRegistry();

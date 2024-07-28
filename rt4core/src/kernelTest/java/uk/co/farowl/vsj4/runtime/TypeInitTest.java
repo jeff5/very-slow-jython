@@ -27,20 +27,20 @@ import uk.co.farowl.vsj4.runtime.kernel.TypeRegistry;
  * run in a fresh JVM, to make the same set of tests after the type
  * system is woken in the several materially different ways possible:
  * <ol>
- * <li>A call to {@link TypeRegistry#get(Class)}, which be the result of
+ * <li>A call to {@link TypeRegistry#get(Class)}, such as occurs during
  * a Python operation (or type enquiry) on any object at all.</li>
- * <li>Initialising the class of a built-in type that entails a call to
+ * <li>Initialising the class of a Python type defined in Java that
+ * entails a call to
  * {@link PyType#fromSpec(uk.co.farowl.vsj4.runtime.TypeSpec)
  * PyType.fromSpec}. Initialisation precedes any call or reference to a
- * to a member (such as the static {@code TYPE}).</li>
- * <li>As an extension of 2, any reference to the type objects for
- * {@code type} or {@code object}, which are created with their own
- * alternative to {@code PyType.fromSpec()}.</li>
+ * member (such as the static {@code TYPE}).</li>
+ * <li>As a variant of 2, any reference to the type objects for
+ * {@code type} or {@code object}, which have to be created without
+ * using {@code PyType.fromSpec()}.</li>
  * </ol>
  * The design keeps the number of <i>materially</i> different ways to a
  * minimum, by funnelling all causes into essentially the same bootstrap
- * process, and placing all static initialisation on the one class
- * {@link PyType}.
+ * process, rooted in the static initialisation of {@link PyType}.
  * <p>
  * When testing, we arrange to run each subclass of this test in a new
  * JVM. (See the {@code kernelTest} target in the build.)
@@ -68,7 +68,6 @@ class TypeInitTest {
 
     /** After setUp() we can look up {@code Object.class}. */
     @Test
-    @Disabled("TypeRegistry.get not implemented yet")
     @DisplayName("we can look up a type for Object.class")
     void lookup_object_type() {
         TypeRegistry registry = PyType.registry;
@@ -91,7 +90,6 @@ class TypeInitTest {
 
     /** After setUp() we can look up {@code PyType.class}. */
     @Test
-    @Disabled("TypeRegistry.get not implemented yet")
     @DisplayName("we can look up a type for PyType.class")
     void lookup_type_type() {
         TypeRegistry registry = PyType.registry;
@@ -105,21 +103,32 @@ class TypeInitTest {
 
     /** After setUp() all type implementations have the same type. */
     @Test
-    @Disabled("TypeRegistry.get not implemented yet")
     @DisplayName("Subclasses of PyType share a type object")
     void type_subclasses_share_type() {
         // Lookup for the base type
         TypeRegistry registry = PyType.registry;
         Representation repType = registry.get(PyType.class);
-        assertNotNull(repType);
-        PyType typeType = repType.pythonType(null);
+        assertSame(PyType.TYPE, repType);
         // Lookup each Java subclass has the same type
         for (Class<? extends PyType> c : List.of(SimpleType.class,
                 AdoptiveType.class, ReplaceableType.class)) {
             Representation rep = registry.get(c);
-            assertNotSame(repType, rep);
-            PyType type = rep.pythonType(null);
-            assertSame(typeType, type);
+            assertSame(repType, rep);
         }
     }
+
+    /** After setUp() we can look up {@code Double.class}. */
+    @Test
+    @Disabled("'float' not yet implemented")
+    @DisplayName("we can look up a type for Double.class")
+    void lookup_type_double() {
+        TypeRegistry registry = PyType.registry;
+        Representation rep = registry.get(Double.class);
+        assertNotNull(rep);
+        assertInstanceOf(AdoptiveType.class, rep);
+        PyType type = rep.pythonType(null);
+        assertSame(rep, type);
+        assertEquals("float", type.getName());
+    }
+
 }
