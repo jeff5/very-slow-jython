@@ -2,21 +2,25 @@ package uk.co.farowl.vsj4.runtime.kernel;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+import uk.co.farowl.vsj4.runtime.Crafted;
 import uk.co.farowl.vsj4.runtime.ExtensionPoint;
 import uk.co.farowl.vsj4.runtime.PyType;
 import uk.co.farowl.vsj4.support.MissingFeature;
 
 /**
- * The Python {@code type} object is implemented by subclasses of
- * {@link PyType}, although only {@code PyType} is in the public API.
- * This class provides members common to them all the classes, and used
- * internally in the run-time system, but that we do not intend to
- * expose as API from {@code PyType} itself.
+ * {@code AbstractPyType} is the Java base of Python {@code type}
+ * objects. Only {@code PyType} is in the public API and actual
+ * implementations further subclass that. This class provides members
+ * common to all the implementations, and accessible internally in the
+ * run-time system, without being exposed as API from {@code PyType}
+ * itself.
  */
-public abstract class AbstractPyType extends Representation {
+public abstract class AbstractPyType extends Representation
+        implements Crafted {
 
     /** Name of the type (fully-qualified). */
     final String name;
@@ -47,14 +51,19 @@ public abstract class AbstractPyType extends Representation {
     protected PyType[] mro;
 
     /**
-     * The dictionary of the type is always an ordered {@code Map}. It
-     * is only accessible (outside the core) through a
-     * {@code mappingproxy} that renders it a read-only
-     * {@code dict}-like object. Internally names are stored as
-     * {@code String} for speed and accessed via
-     * {@link #lookup(String)}.
+     * The real dictionary of the type is always an ordered {@code Map}.
+     * Internally names are stored as {@code String} for speed and
+     * accessed via {@link #lookup(String)}.
      */
-    private final Map<String, Object> dict = new LinkedHashMap<>();
+    private final Map<String, Object> _dict;
+
+    /**
+     * Read-only view of the dictionary of the type, always an ordered
+     * {@code Map}. It is exposed to Python through a
+     * {@code mappingproxy} that renders it a read-only
+     * {@code dict}-like object.
+     */
+    protected final Map<Object, Object> dict;
 
     /**
      * Base constructor of type objects. We establish values for members
@@ -78,7 +87,13 @@ public abstract class AbstractPyType extends Representation {
         this.name = name;
         this.bases = bases;
         this.base = bases.length > 0 ? bases[0] : null;
+
+        this._dict = new LinkedHashMap<>();
+        // XXX Ought to be a mappingproxy?
+        this.dict = Collections.unmodifiableMap(this._dict);
     }
+
+    public PyType getType() { return PyType.TYPE; }
 
     /**
      * Return the name of the type.
@@ -110,7 +125,49 @@ public abstract class AbstractPyType extends Representation {
      *
      * @return a copy of the MRO of this type
      */
-    protected PyType[] getMro() { return mro.clone(); }
+    protected PyType[] getMRO() { return mro.clone(); }
+
+    /**
+     * The dictionary of the {@code type} in a read-only view.
+     *
+     * @return dictionary of the {@code type} in a read-only view.
+     */
+    // @Getter("__dict__")
+    public final Map<Object, Object> getDict() { return dict; }
+
+    /**
+     * Look for a name, returning the entry directly from the first
+     * dictionary along the MRO containing key {@code name}. This may be
+     * a descriptor, but no {@code __get__} takes place on it: the
+     * descriptor itself will be returned. This method does not throw an
+     * exception if the name is not found, but returns {@code null} like
+     * a {@code Map.get}
+     *
+     * @param name to look up, must be exactly a {@code str}
+     * @return dictionary entry or null
+     */
+    // Compare CPython _PyType_Lookup in typeobject.c
+    // and find_name_in_mro in typeobject.c
+    Object lookup(String name) {
+
+        /*
+         * CPython wraps this in a cache keyed by (type, name) and
+         * sensitive to the "version" of this type. (Version changes
+         * when any change occurs, even in a super-class, that would
+         * alter the result of a look-up.) We do not reproduce that at
+         * present.
+         */
+
+        // CPython checks here to see in this type is "ready".
+        // Could we be "not ready" in some loop of types?
+
+        for (PyType base : mro) {
+            Object res;
+            if ((res = base.dict.get(name)) != null)
+                return res;
+        }
+        return null;
+    }
 
     /** Lookup object with package visibility. */
     static Lookup LOOKUP =
@@ -148,11 +205,6 @@ public abstract class AbstractPyType extends Representation {
         protected Derived(PyType metaclass, String name,
                 Class<?> javaType, PyType[] bases) {
             super(name, javaType, bases);
-        }
-
-        @Override
-        public Map<Object, Object> getDict() {
-            throw new MissingFeature("metaclass __dict__");
         }
 
         @Override

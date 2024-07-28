@@ -120,10 +120,8 @@ public abstract class Representation {
     // ---------------------------------------------------------------
 
     /**
-     * Representation for an accepted implementation (non-canonical
-     * implementation) are represented by an instance of this class. The
-     * representation of a canonical implementation is represented by
-     * the {@link PyType} itself.
+     * A {@code Representation} that relates an adopted representation
+     * to its {@link AdoptiveType}.
      */
     static class Adopted extends Representation {
 
@@ -132,7 +130,7 @@ public abstract class Representation {
 
         /**
          * Index of this implementation in the type (see
-         * {@link PyType#indexAccepted(Class)}.
+         * {@link AdoptiveType#getAdopted(int)}.
          */
         final private int index;
 

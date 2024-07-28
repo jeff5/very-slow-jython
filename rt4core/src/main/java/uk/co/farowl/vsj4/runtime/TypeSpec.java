@@ -45,7 +45,7 @@ public class TypeSpec {
     /**
      * A collection of additional classes in which to look up
      * implementations of methods (not fields) composing the type. See
-     * {@link #methods(Class)}.
+     * {@link #methodImpl(Class)}.
      */
     private List<Class<?>> methodImpls = new LinkedList<>();
 
@@ -83,7 +83,7 @@ public class TypeSpec {
 
     /**
      * Additional class in which to look up binary class-specific
-     * methods or {@code null}. See {@link #binops(Class)}.
+     * methods or {@code null}. See {@link #binopImpl(Class)}.
      */
     private Class<?> binopClass;
 
@@ -297,8 +297,9 @@ public class TypeSpec {
     public String getName() { return name; }
 
     /**
-     * Type features, a subset of the type flags, that in turn have
-     * similar semantics to similarly-named CPython type flags.
+     * Get the type features specified with {@link #add(Feature)}.
+     * {@code Feature} flags have similar semantics to similarly-named
+     * CPython type flags.
      *
      * @return the features
      */
@@ -306,7 +307,7 @@ public class TypeSpec {
 
     /**
      * The class that will be used to represent instances of the Python
-     * type.
+     * type being specified.
      * <p>
      * Passing the special value {@code null} indicates the type has no
      * canonical representation. (It must be given at last one adopted
@@ -335,8 +336,8 @@ public class TypeSpec {
 
     /**
      * The class that will be used to represent instances of Python
-     * subclasses of the type being specified (or {@code null}). This is
-     * known as the <i>extension point</i> class.
+     * subclasses of the Python type being specified (or {@code null}).
+     * This is known as the <i>extension point</i> class.
      * <p>
      * This class must be acceptable (in Java) as the {@code self}
      * argument of methods of the base type. In most cases, a
@@ -361,7 +362,7 @@ public class TypeSpec {
     }
 
     /**
-     * The class that will be used to represent instances of Python
+     * Get the class that will be used to represent instances of Python
      * subclasses. See {@link #extendAt(Class)}.
      *
      * @return the extending class for the type
@@ -488,8 +489,9 @@ public class TypeSpec {
 
     /**
      * Return the accumulated list of bases. If no bases were added, the
-     * result is empty (to be interpreted as just {@code [object]}.
-     * (We can't make that substitution here because {@code TypeSpec} has to work before {@code object} is published.)
+     * result is empty (to be interpreted as just {@code [object]}. (We
+     * can't make that substitution here because {@code TypeSpec} has to
+     * work before {@code object} is published.)
      *
      * @return the bases of this type
      */
@@ -498,7 +500,8 @@ public class TypeSpec {
     }
 
     /**
-     * Add a feature to the type (becomes a type flag).
+     * Add a feature to the type. {@code Feature} flags have similar
+     * semantics to similarly-named CPython type flags.
      *
      * @param f to add to the current features
      * @return {@code this}
@@ -516,7 +519,8 @@ public class TypeSpec {
     }
 
     /**
-     * Add features to the type (become a type flags).
+     * Add features to the type. {@code Feature} flags have similar
+     * semantics to similarly-named CPython type flags.
      *
      * @param f to add to the current features
      * @return {@code this}
@@ -541,7 +545,7 @@ public class TypeSpec {
 
     /**
      * Specify that the Python type being specified will be represented
-     * by a an instance of this Python sub-class of {@code type}, i.e.
+     * by an instance of this Python sub-class of {@code type}, that is,
      * something other than {@code PyType.TYPE}.
      *
      * @param metaclass to specify (or null for {@code type}

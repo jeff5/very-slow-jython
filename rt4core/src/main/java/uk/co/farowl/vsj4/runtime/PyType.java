@@ -12,6 +12,7 @@ import uk.co.farowl.vsj4.runtime.kernel.ReplaceableType;
 import uk.co.farowl.vsj4.runtime.kernel.Representation;
 import uk.co.farowl.vsj4.runtime.kernel.SimpleType;
 import uk.co.farowl.vsj4.runtime.kernel.TypeFactory;
+import uk.co.farowl.vsj4.runtime.kernel.TypeFactory.Clash;
 import uk.co.farowl.vsj4.runtime.kernel.TypeRegistry;
 import uk.co.farowl.vsj4.support.InterpreterError;
 
@@ -105,39 +106,46 @@ public abstract sealed class PyType extends AbstractPyType
         logger.info("Type system is waking up.");
         bootstrapNanoTime = System.nanoTime();
 
-        /*
-         * Kick the whole type machine into life. Deprecation messages
-         * associated with the TypeFactory are for the discouragement of
-         * others, not because there's any alternative.
-         */
-        @SuppressWarnings("deprecation")
-        TypeFactory f = new TypeFactory();
+        try {
+            /*
+             * Kick the whole type machine into life. Deprecation
+             * messages associated with the TypeFactory are for the
+             * discouragement of others, not because there's any
+             * alternative.
+             */
+            @SuppressWarnings("deprecation")
+            TypeFactory f = new TypeFactory();
 
-        /*
-         * At this point, 'type' and 'object' exist in their
-         * "Java ready" forms, but they are not "Python ready", and
-         * nothing much else exists. We let them leak out but only to
-         * this thread for now, as no other can touch PyType yet.
-         */
-        @SuppressWarnings("deprecation")
-        PyType t = f.typeForType();
-        TYPE = t;
+            /*
+             * At this point, 'type' and 'object' exist in their
+             * "Java ready" forms, but they are not "Python ready", and
+             * nothing much else exists. We let them leak out but only
+             * to this thread for now, as no other can touch PyType yet.
+             */
+            @SuppressWarnings("deprecation")
+            PyType t = f.typeForType();
+            TYPE = t;
 
-        /*
-         * Get all the bootstrap types ready for Python. Note that the
-         * Java classes of bootstrap types are not visible as public API
-         * because it would be possible for another thread to touch one
-         * during the bootstrap. That would block this thread.
-         */
-        f.createBootstrapTypes();
+            /*
+             * Get all the bootstrap types ready for Python. Note that
+             * the Java classes of bootstrap types are not visible as
+             * public API because it would be possible for another
+             * thread to touch one during the bootstrap. That would
+             * block this thread.
+             */
+            f.createBootstrapTypes();
 
-        /*
-         * After the bootstrap, it is now safe to publish. When this
-         * thread leaves the static initialisation of PyType, threads
-         * previously blocked on a call become runnable.
-         */
-        factory = f;
-        registry = f.getRegistry();
+            /*
+             * After the bootstrap, it is now safe to publish. When this
+             * thread leaves the static initialisation of PyType,
+             * threads previously blocked on a call become runnable.
+             */
+            factory = f;
+            registry = f.getRegistry();
+        } catch (Clash clash) {
+            // Maybe a bootstrap type was used prematurely?
+            throw new InterpreterError(clash);
+        }
 
         readyNanoTime = System.nanoTime();
 
@@ -207,6 +215,10 @@ public abstract sealed class PyType extends AbstractPyType
      * @return the new type
      */
     public static PyType fromSpec(TypeSpec spec) {
-        return factory.fromSpec(spec);
+        try {
+            return factory.fromSpec(spec);
+        } catch (Clash clash) {
+            throw new InterpreterError(clash);
+        }
     }
 }

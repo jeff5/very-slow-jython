@@ -6,6 +6,7 @@ import java.util.Map;
 import java.util.WeakHashMap;
 
 import uk.co.farowl.vsj4.runtime.PyType;
+import uk.co.farowl.vsj4.runtime.kernel.TypeFactory.Clash;
 import uk.co.farowl.vsj4.support.InterpreterError;
 
 /**
@@ -19,7 +20,7 @@ import uk.co.farowl.vsj4.support.InterpreterError;
  * {@link PyType}. Note that only the owning factory has a write
  * interface to the registry.
  */
-public class TypeRegistry extends ClassValue<Representation> {
+public abstract class TypeRegistry extends ClassValue<Representation> {
 
     /**
      * The mapping from Java class to {@link Representation} that backs
@@ -37,14 +38,6 @@ public class TypeRegistry extends ClassValue<Representation> {
      */
     protected final Map<Class<?>, Representation> map =
             new WeakHashMap<>();
-
-    /** The owning {@link TypeFactory}. */
-    private final TypeFactory factory;
-
-    /** Only used by {@link TypeFactory}. */
-    TypeRegistry(TypeFactory factory) {
-        this.factory = factory;
-    }
 
     /**
      * Find a {@code Representation} for the given class. There are five
@@ -68,92 +61,82 @@ public class TypeRegistry extends ClassValue<Representation> {
     protected Representation computeValue(Class<?> c) {
 
         /*
-         * Representation.registry contained no mapping (as a
-         * ClassValue) for c at the time this thread called get(). We
-         * will either find an answer ready in opsMap, or construct one
-         * and post it there.
-         *
-         * It is possible that other threads have already passed through
-         * get() and blocked behind this thread at the entrance to
-         * computeValue(). This synchronisation guarantees that this
-         * thread completes the critical section before another thread
-         * enters.
-         *
-         * Threads entering subsequently, and needing a binding for the
-         * same class c, will therefore find the same value found or
-         * constructed by this thread. Even if the second thread
-         * overtakes this one after the protected region, and returns
-         * first, the class value will bind that same Representation
-         * object.
+         * Representation.registry.get() (which is ClassValue.get())
+         * contained no cached mapping for c. We will either find an
+         * answer ready in the public map, or try to construct one and
+         * post it to the public map.
          */
-        Representation rep = lookup(c);
-
-        if (rep == null) {
-            /*
-             * We ask the owning TypeFactory to (create and) register a
-             * representation for c. Note that we may block here if
-             * another thread has the factory. The factory will check
-             * for the possibility that thread posted a mapping for c
-             * while we were waiting.
-             */
-            factory.ensureTypeFor(c);
-            rep = lookup(c);
-        }
-
-        if (rep == null) {
-            // May be impossible once Object is mapped (first job).
-            String fmt = "No representation found for class %s";
-            throw new InterpreterError(
-                    String.format(fmt, c.getTypeName()));
-        }
-        return rep;
-    }
-
-    /**
-     * Map an object to the {@code Representation} object that provides
-     * it with Python semantics, based on its class.
-     *
-     * @param obj for which representation is required
-     * @return {@code Representation} providing Python semantics
-     */
-    public Representation of(Object obj) {
-        return get(obj.getClass());
-    }
-
-    /**
-     * Find the {@code Representation} for this class, trying
-     * super-classes, or fail returning {@code null}. {@code c} must be
-     * an initialised class. If it posted a {@link Representation} for
-     * itself, it will be found immediately. Otherwise the method tries
-     * successive super-classes until one is found that has already been
-     * posted.
-     *
-     * @param c class to resolve
-     * @return representation object for {@code c} or {@code null}
-     */
-    final synchronized Representation findRep(Class<?> c) {
         Representation rep;
-        Class<?> prev;
-        while ((rep = map.get(prev = c)) == null) {
-            // c has not been posted, but perhaps its superclass?
-            c = prev.getSuperclass();
-            if (c == null) {
-                // prev was Object, or primitive or an interface
-                return null;
-            }
+
+        if ((rep = lookup(c)) == null) {
+            /*
+             * We did not find c published so we have to create a
+             * representation for it using the type factory. If some
+             * other thread completes a type for c before this one,
+             * we'll return promptly with that.
+             */
+            rep = findOrCreate(c);
         }
+
+        /*
+         * It is possible that other threads are racing this one to
+         * define c. This is not a problem: they all have the same
+         * answer, and one of them will get to cache it.
+         */
         return rep;
     }
 
     /**
-     * Lookup the {@code Representation} for this class directly in the
-     * map, or return {@code null}.
+     * Find this class in the published registry map (only), and return
+     * the {@code Representation} for it or {@code null} if it was not
+     * found.
      *
      * @param c class to resolve
      * @return representation object for {@code c} or {@code null}.
      */
-    synchronized Representation lookup(Class<?> c) {
+    synchronized final Representation lookup(Class<?> c) {
         return map.get(c);
     }
+
+    /**
+     * Find this class in the published registry map, or in
+     * work-in-progress in the factory, and return the
+     * {@code Representation} for it or {@code null} if it was not
+     * found.
+     * <p>
+     * This method is overridden by the registry implementation the
+     * {@link TypeFactory} provides.
+     *
+     * @implNote This method should not be synchronised on the registry
+     *     because it is likely to block waiting to use the factory.
+     *
+     * @param c class to resolve
+     * @return representation object for {@code c} or {@code null}.
+     */
+    abstract Representation find(Class<?> c);
+
+    /**
+     * Find this class in the published registry map, or in
+     * work-in-progress in the factory, or create a type and return the
+     * {@code Representation}. This method is provided by the registry
+     * implementation the {@link TypeFactory} provides.
+     * <p>
+     * The registry calls this when it did not find {@code c} published.
+     * It that point, it looks like we have to create a representation
+     * for it using type factory. But some other thread could already
+     * doing that.
+     * <p>
+     * So this method will wait until it can get ownership of the
+     * factory (to be sure no other thread is working on {@code c}), and
+     * only if there is still no published answer, go on to create one.
+     *
+     * @implNote This method must take the lock on the factory before it
+     *     locks the registry because it is likely to wait for the
+     *     factory.
+     *
+     * @param c class to resolve
+     * @return representation object for {@code c}.
+     */
+    abstract Representation findOrCreate(Class<?> c);
 
 }

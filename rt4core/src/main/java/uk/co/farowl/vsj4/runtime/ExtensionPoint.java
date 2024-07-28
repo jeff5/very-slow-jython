@@ -3,8 +3,9 @@ package uk.co.farowl.vsj4.runtime;
 /**
  * {@code ExtensionPoint} is an interface that identifies an object as
  * eligible to be the implementation of classes defined in Python. A
- * Java class that is the implementation of Python types that allow
- * assignment to {@code __class__} must implement this interface.
+ * Java class must implement this interface if it is
+ * the implementation of Python types that allow
+ * assignment to {@code __class__}.
  * <p>
  * Given a built-in Python class with Java implementation {@code A}, the
  * normal idiom is to define a nested subclass {@code A.Derived},
