@@ -392,27 +392,6 @@ public class TypeFactory {
     }
 
     /**
-     * Ensure a class is statically initialised. Static initialisation
-     * of a class that defines a Python type will normally create a
-     * {@link PyType} and its representations through a call to
-     * {@link PyType#fromSpec(TypeSpec)}, although a found Java class
-     * will clearly need explicit actions in the caller.
-     *
-     * @param c to initialise
-     */
-    private static void ensureInit(Class<?> c) {
-        if (!c.isPrimitive()) {
-            String name = c.getName();
-            try {
-                Class.forName(name, true, c.getClassLoader());
-            } catch (ClassNotFoundException e) {
-                throw new InterpreterError(e,
-                        "failed to initialise class %s", name);
-            }
-        }
-    }
-
-    /**
      * Create and complete the bootstrap types. These are the adoptive
      * types and those types required to create descriptors.
      * {@link PyType#TYPE} should have been initialised before this
@@ -423,7 +402,7 @@ public class TypeFactory {
      * used from Python.
      * <p>
      * This method finishes what the constructor began. The design of
-     * {@link PyType} ensures all te steps are called before a type
+     * {@link PyType} ensures all the steps are called before a type
      * becomes visible outside the thread.
      *
      * @throws Clash when a representing class is already bound
@@ -433,7 +412,7 @@ public class TypeFactory {
         assert PyType.TYPE == typeType;
 
 
-        ensureInit(PyFloatImpl.class);
+        TypeRegistry.ensureInit(PyFloatImpl.class);
 
         // Give all waiting types their Python nature
         workshop.exposeWaitingTypes();

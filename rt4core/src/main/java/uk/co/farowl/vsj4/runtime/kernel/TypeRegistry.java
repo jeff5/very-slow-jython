@@ -6,6 +6,7 @@ import java.util.Map;
 import java.util.WeakHashMap;
 
 import uk.co.farowl.vsj4.runtime.PyType;
+import uk.co.farowl.vsj4.runtime.TypeSpec;
 import uk.co.farowl.vsj4.runtime.kernel.TypeFactory.Clash;
 import uk.co.farowl.vsj4.support.InterpreterError;
 
@@ -70,10 +71,18 @@ public abstract class TypeRegistry extends ClassValue<Representation> {
 
         if ((rep = lookup(c)) == null) {
             /*
-             * We did not find c published so we have to create a
-             * representation for it using the type factory. If some
-             * other thread completes a type for c before this one,
-             * we'll return promptly with that.
+             * We did not find c published. First we ensure it is
+             * initialised. This thread will block here if another
+             * thread is already initialising c. That's ok, as we do not
+             * hold any type system lock at this point.
+             */
+            ensureInit(c);
+            /*
+             * We now ask the type factory to find or create a
+             * representation for c. Initialisation of c (by this or
+             * another thread) *may* already have created and registered
+             * the representation we seek. If so, the type factory will
+             * return promptly with it. If not, it will make one.
              */
             rep = findOrCreate(c);
         }
@@ -122,13 +131,12 @@ public abstract class TypeRegistry extends ClassValue<Representation> {
      * implementation the {@link TypeFactory} provides.
      * <p>
      * The registry calls this when it did not find {@code c} published.
-     * It that point, it looks like we have to create a representation
-     * for it using type factory. But some other thread could already
-     * doing that.
-     * <p>
-     * So this method will wait until it can get ownership of the
-     * factory (to be sure no other thread is working on {@code c}), and
-     * only if there is still no published answer, go on to create one.
+     * At that point, we <b>may</b> have to create a representation for
+     * {@code c} using the type factory, or some other thread could
+     * already be doing that. This method will wait until it can get
+     * ownership of the factory (to be sure no other thread can work on
+     * {@code c}), and only if there is still no published answer, go on
+     * to create one.
      *
      * @implNote This method must take the lock on the factory before it
      *     locks the registry because it is likely to wait for the
@@ -138,5 +146,26 @@ public abstract class TypeRegistry extends ClassValue<Representation> {
      * @return representation object for {@code c}.
      */
     abstract Representation findOrCreate(Class<?> c);
+
+    /**
+     * Ensure a class is statically initialised. Static initialisation
+     * of a class that defines a Python type will normally create a
+     * {@link PyType} and its representations through a call to
+     * {@link PyType#fromSpec(TypeSpec)}, although a found Java class
+     * will clearly need explicit actions in the caller.
+     *
+     * @param c to initialise
+     */
+    static void ensureInit(Class<?> c) {
+        if (!c.isPrimitive()) {
+            String name = c.getName();
+            try {
+                Class.forName(name, true, c.getClassLoader());
+            } catch (ClassNotFoundException e) {
+                throw new InterpreterError(e,
+                        "failed to initialise class %s", name);
+            }
+        }
+    }
 
 }
