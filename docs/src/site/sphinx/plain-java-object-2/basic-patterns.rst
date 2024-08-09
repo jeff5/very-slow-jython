@@ -237,15 +237,18 @@ the boxed types (``Integer`` and ``Long`` for a start),
 and ``Boolean`` (so that ``bool`` may be a subclass of ``int``).
 The Java classes accepted by a type fall into three categories:
 
-#. Canonical representation:
-   an optional crafted implementation of the type.
-   Often, the defining class is also the canonical representation.
-   Alternatively, there is no canonical representation,
-   and the defining class is the extension point class.
+#. The defining representation:
+   a crafted representation of the type.
+   There is always a defining class to register the new type
+   and identify its representations.
+   Often, an instance of that class represents an instance of the new type.
+   (In the most frequent pattern,
+   which is not the adoptive pattern,
+   the defining class is the only representation.)
 #. Adopted representations:
    classes that we allow to represent the Python type.
    These are generally pre-existing representations
-   of an equivalent type in Java (e.g. ``Double`` for ``float``).
+   of an equivalent type in Java (e.g. ``Double`` is adopted as ``float``).
 #. Additional accepted classes:
    additional classes that are acceptable as ``self``
    to the methods of a type,
@@ -253,11 +256,21 @@ The Java classes accepted by a type fall into three categories:
    The only example so far is that ``Boolean`` is accepted by ``int``,
    so that ``bool`` may be a Python subclass of ``int``.
 
+We also need the idea of a *canonical* representation.
+This is the representation that a subclass of the type
+will extend in Java.
+If the Python type allows subclassed,
+it will be the defining representation, if there is one,
+or the first adopted type.
+
 Each accepted class must lead to its own ``Representation`` object,
-but only the canonical and adopted classes lead to the same Python type.
+but only the defining and adopted classes lead to the same Python type.
 A Java subclass of a class accepted by a built-in type,
 not bound already to a different ``Representation``,
 will be treated as equivalent to its accepted base.
+For example the several concrete subclasses of ``PyType``
+are all bound to the one ``Representation``,
+leading to Python type ``type``.
 
 ..  uml::
     :caption: Plain Java Object Pattern: Adopted Representations
