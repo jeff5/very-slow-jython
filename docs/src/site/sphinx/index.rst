@@ -21,6 +21,7 @@ Contents
     treepython/_treepython
     generated-code/_generated-code
     plain-java-object/_plain-java-object
+    plain-java-object-2/_plain-java-object-2
     performance/_performance
     architecture/_architecture
     coding/_coding

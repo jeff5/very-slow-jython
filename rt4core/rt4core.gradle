@@ -1,0 +1,280 @@
+/*
+ * rt4core subproject (model interpreter runtime).
+ */
+
+import org.gradle.internal.jvm.JavaModuleDetector
+import org.gradle.api.internal.tasks.compile.CompilationSourceDirs
+
+plugins {
+    id 'java-library'
+    id 'jvm-test-suite'
+}
+
+
+repositories {
+    // Use Maven Central for resolving dependencies.
+    mavenCentral()
+}
+
+
+dependencies {
+    // We standardise on SLF4J for logging from the library
+    implementation 'org.slf4j:slf4j-api:2.0.13'
+}
+
+
+// Configure the jvm-test-suite plug-in
+testing {
+    suites {
+        test {
+            useJUnitJupiter()
+            dependencies {
+                // Include a logging provider (JDK 1.4)
+                runtimeOnly 'org.slf4j:slf4j-jdk14:2.0.13'
+            }
+        }
+        /* A test suite where each test runs in its own JVM.
+         * We follow the Gradle 8.8 notes on the JVM Test Suite Plugin.
+         * and the example of configuring integration tests.
+         */
+        kernelTest(JvmTestSuite) {
+            useJUnitJupiter()
+
+            dependencies {
+                implementation project()
+                implementation 'org.slf4j:slf4j-api:2.0.13'
+                // Include a logging provider (JDK 1.4)
+                runtimeOnly 'org.slf4j:slf4j-jdk14:2.0.13'
+            }
+
+            targets {
+                all {
+                    testTask.configure {
+                        // Important: fresh JVM with every kernel test
+                        forkEvery = 1
+                        // Log output will prove kernel is recreated
+                        systemProperty(
+                            'java.util.logging.config.file',
+                            getProject().file('config/kernelTest.logging.properties') )
+                        systemProperty(
+                            'uk.co.farowl.vsj4.runtime.BootstrapTest.times',
+                            'false')
+                        testLogging.showStandardStreams = true
+                    }
+                }
+            }
+        }
+    }
+}
+
+test.dependsOn(kernelTest)
+
+
+tasks.named('check') { 
+    dependsOn(testing.suites.kernelTest)
+}
+
+
+// Sources and destinations when generating Java object implementations
+
+def genSourcesDir = "$buildDir/generated/sources"
+def genOutputDir = "$genSourcesDir/javaTemplate"
+def genJavaDir = "$genOutputDir/java/main"
+def genTestJavaDir = "$genOutputDir/java/test"
+
+def genInputDir = getProject().file('src/main/javaTemplate')
+def genTestInputDir = getProject().file('src/test/javaTemplate')
+
+
+// Source and destinations of Python source test material
+
+// We compile these to code objects to test the CPython interpreter.
+def testPythonExampleInputDir = getProject().file('src/test/pythonExample')
+
+def pythonExampleOutput = "$buildDir/generated/sources/pythonExample"
+def testPythonExampleOutputDir = "$pythonExampleOutput/test"
+
+
+sourceSets {
+    main {
+        java {
+            srcDir genJavaDir
+        }
+    }
+
+    test {
+        java {
+            srcDir genTestJavaDir
+        }
+        resources {
+            srcDir testPythonExampleOutputDir
+        }
+    }
+}
+
+
+// A task that runs Python with the tools library on the path
+
+class PythonExec extends Exec {
+
+    PythonExec() {
+        executable 'python'
+        environment('PYTHONPATH', getProject().file('tools/python/lib'))
+    }
+}
+
+// Generate Python object definitions
+
+//task generateJava(type: PythonExec,
+//        description: 'Generate object definitions from templates' ) {
+//    args getProject().file('tools/python/java_object_gen.py')
+//    args '--verbose'
+//    args genInputDir
+//    args genJavaDir
+//}
+//classes.dependsOn(generateJava)
+
+
+// Report the version of Python available
+
+task pythonVersion(type: PythonExec) {
+    args '-V'
+}
+//generateJava.dependsOn(pythonVersion)
+
+
+// Copy and compile Python source examples to the build tree
+
+//task compileTestPythonExamples(type: PythonExec,
+//        description: 'Copy and compile Python test examples') {
+//    // Clues for the incremental build
+//    inputs.files(
+//        fileTree(testPythonExampleInputDir) {
+//            include '**/*.py'
+//        })
+//    outputs.dir(testPythonExampleOutputDir)
+//    // Exec task is python -m compile_examples <src> <dst>
+//    args '-m'
+//    args 'compile_examples'
+//    args testPythonExampleInputDir
+//    args testPythonExampleOutputDir
+//}
+//processTestResources.dependsOn(compileTestPythonExamples)
+
+
+// Task to generate javadoc for the module API (that client apps use)
+task moduleJavadoc(type:Javadoc,
+        description: 'Generate Javadoc for module API') {
+    source = sourceSets.main.allJava
+    title = "rt4core Client API"
+    destinationDir = file("${buildDir}/docs/api")
+
+    // addStringOption adds a "-" for us so "--module" is spelled:/
+    //options.addStringOption("-module", "uk.co.farowl.rt4core")
+    options.addStringOption("-show-packages", "exported")
+    options.addStringOption("-show-module-contents", "api")
+}
+
+
+javadoc {
+    title = "rt4core Public API"
+    options.addStringOption("-show-packages", "exported")
+    options.addStringOption("-show-module-contents", "api")
+}
+
+
+// Task to generate javadoc for project maintainers (down to private)
+task internalJavadoc(type:Javadoc,
+        description: 'Generate project internal Javadoc') {
+
+    source(sourceSets.main.allJava)
+    title = "rt4core Project Internal"
+    destinationDir = file("${buildDir}/docs/internalJavadoc")
+
+    def ccp = sourceSets.main.compileClasspath
+    //println "ccp.files = ${ccp.files}"
+    classpath.from(ccp)
+
+    options.showFromPackage()
+    //options.showFromPrivate()
+}
+
+
+// Task to generate javadoc for test code
+task testJavadoc(type:Javadoc,
+        description: 'Generate Javadoc for tests',
+        dependsOn: internalJavadoc) {
+
+    source(sourceSets.test.allJava, sourceSets.kernelTest.allJava)
+    title = "rt4core Unit Tests"
+    destinationDir = file("${buildDir}/docs/testJavadoc")
+
+    // Ensure the test support (JUnit) is on the class path
+    def tccp = sourceSets.test.compileClasspath
+    //println "tccp.files = ${tccp.files}"
+
+    classpath.from(tccp)
+
+    /* We have used the class path not the module path because
+     * otherwise javadoc complains the JUnit API is not in the
+     * module graph (not in module-info.java) and fails badly.
+     * This way we get non-modular Javadoc for the tests :( and
+     * a warning about linked classes in the same package being
+     * modular, but it is only a warning.
+     */
+    //modularity.inferModulePath = false
+    //options.modulePath(new ArrayList(tccp.files))
+    //println "options.modulePath = ${options.modulePath}"
+
+    options.showFromPackage()
+
+    // rt4 internal javadoc already at ${buildDir}/docs/javadoc
+    // We want to click through to the objects under test
+    options.links.add("../internalJavadoc")
+}
+
+
+// Some adjustments to Javadoc to ensure complex tables readable
+
+tasks.withType(Javadoc) {
+
+    options.encoding = 'UTF-8'
+
+    // addStringOption inserts one "-" for us :/
+    // CSS adjustments (initially only for table style)
+    options.addStringOption("-add-stylesheet",
+        "src/main/javadoc/project-styles.css")
+
+    // Enable "custom" tags used in JDK Javadoc since JSR-335.
+    // https://nipafx.dev/javadoc-tags-apiNote-implSpec-implNote
+    options.tags(
+        "apiNote:a:API Note:",
+        "implSpec:a:Implementation Requirements:",
+        "implNote:a:Implementation Note:",
+        // Unfortunately we must add these standard tags too,
+        // so they come after the ones we want to enable.
+        "param", "return", "throws",
+        "since", "version", "serialData", "see")
+
+    doFirst {
+        // A bit of reassurance: this was hard to get right
+        println "inferModulePath = ${modularity.inferModulePath.getOrNull()}"
+        println "module path = ${options.modulePath}"
+        FileCollection roots = layout.files(CompilationSourceDirs.inferSourceRoots(source))
+        println "roots.files = ${roots.files}"
+    }
+}
+
+
+tasks.withType(JavaCompile) {
+
+    options.encoding = 'UTF-8'
+
+    // Use only public API
+    options.compilerArgs.addAll(['--release', '17'])
+    // deprecation is noisy
+    options.deprecation = true
+    // retain parameter names (for use by exposer)
+    options.compilerArgs.add('-parameters')
+}
+

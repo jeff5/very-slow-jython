@@ -50,13 +50,18 @@ at the cost of some duplication.
 
 This project builds using Gradle.
 
-The latest work is in the sub-project `rt3`.
-At the time of this note,
+The most comprehensive work is in the sub-project `rt3`,
+and a revision of that is under construction in the `rt4` sub-project.
+
+`rt3` at the time of this note,
 it just runs [JUnit tests](rt3/src/test).
 These are the same tests run by a GitHub action
 attached to the project.
+`rt4` is just beginning and will follow the same pattern,
+with the addition of an `rt4client` sub-project that depends on `rt4`,
+and explores the API towards client programs and extensions.
 
-There is no command-line interpreter or REPL.
+There is no command-line interpreter or REPL in either work.
 
 ### Bytecode Interpreter
 

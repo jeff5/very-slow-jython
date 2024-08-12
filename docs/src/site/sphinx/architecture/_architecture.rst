@@ -4,6 +4,13 @@
 Architecture
 ############
 
+..  note:: This chapter
+    (uniquely in the document as a whole)
+    tries to capture the latest thinking rather than the journey.
+    But parts are not always revised as things move on,
+    so tends to be more inconsistent than the rest.
+    (When settled, it should be in part of the Jython project.)
+
 Previous chapters describe actual implementation experiments.
 This chapter is for stepping back from the realised code.
 Apart from analysis (of CPython etc.),
