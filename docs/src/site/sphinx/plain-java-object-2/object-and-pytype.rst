@@ -87,7 +87,7 @@ to any named method (``__len__`` for example):
 
 
 Simple Sub-classes of  ``list``
-===============================
+-------------------------------
 
 How do we represent an instance of a Python subclass of ``list``?
 Straightforward subclasses are possible like this:
@@ -263,7 +263,7 @@ if we are to implement Python's class assignment fully.
 
 
 Sub-classes of  ``list`` using ``__slots__``
-============================================
+--------------------------------------------
 
 There is another way to define subclasses, using ``__slots__``.
 When a special tuple of names ``__slots__`` is defined at class level,
@@ -814,8 +814,8 @@ not for any difference in metatype.
     MyOtherClass --> Other : type
 
 
-``PyType`` and ``Representation`` for ``float``
-===============================================
+Representing ``float``
+======================
 
 The type ``float`` is defined by the class ``PyFloat``,
 but ``java.lang.Double`` is adopted as a representation
