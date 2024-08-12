@@ -814,89 +814,81 @@ not for any difference in metatype.
     MyOtherClass --> Other : type
 
 
-
-
-.. note:: Still editing from here on.
-
-
 ``PyType`` and ``Representation`` for ``float``
 ===============================================
 
-The type 'float' is defined by the class ``PyFloat``,
-but ``java.lang.Double`` is adopted as its representation
+The type ``float`` is defined by the class ``PyFloat``,
+but ``java.lang.Double`` is adopted as a representation
 (and we might also allow ``java.lang.Float``).
+We show here how the ``Representation`` helps us navigate to
+the correct implementation of a method,
+when representations have been adopted.
 
 .. _Operations-builtin-float-neg-2:
 
 A Unary Operation ``float.__neg__``
 -----------------------------------
 
-In VSJ 2 we created the means to build a ``PyType``
-for classes crafted to represent Python objects.
-An example is ``PyFloat``,
-representing the type ``float`` and its instances.
-There the ``PyType`` provided a ``MethodHandle`` to each method of ``float``,
-including the special methods (such as ``__neg__``)
-for which it also acted as a cache.
+In :ref:`Representation-builtin-list`,
+we saw how a ``SimpleType`` object,
+which is incidentally also a ``Representation`` object,
+allowed us to navigate to a ``MethodHandle`` on
+the implementation of that type's special methods.
+In the signature of those methods the ``self`` argument had type ``PyList``.
+We will draw the comparable diagram for ``PyFloat``,
+a type with adopted representations.
 
-Suppose we want to do the same again,
-but now also to allow instances of ``java.lang.Double``
-to represent instances of ``float``.
-For each method, including the special methods,
-we shall have to provide an implementation applicable to ``PyFloat``,
-as before,
-and also one applicable to ``Double``.
-
-In fact, since the range and precision of ``Double``
-are the same as those of ``PyFloat``,
-we could manage without ``PyFloat`` entirely,
-were it not that we need to define subclasses of ``float`` in Python.
-Sub-classes in Python must be represented by subclasses in Java
-(with a few exceptions)
-and ``Double`` cannot be subclassed.
-
-
-Descriptive Structures
-----------------------
-
-Let's just address unary negative to begin with.
 Suppose that in the course of executing a ``UNARY_NEGATIVE`` opcode,
 the interpreter picks up an ``Object`` from the stack
 and finds it to be a ``Double``.
 How does it locate the particular implementation of ``__neg__``?
 
+For ``float``, there will be these implementations:
+
+..  code-block:: java
+
+    PyFloatMethods {
+        // ...
+        static double __neg__(PyFloat self) { return -self.value; }
+        static double __neg__(Double self) { return -self; }
+
+Rather than a single handle,
+the special method wrapper we enter into the dictionary of the type
+will contain an array of handles.
+To choose the correct one,
+we need to know that ``PyFloat`` is representation 0
+and ``Double`` is representation 1.
+
 The structure we propose looks like this,
 when realised for two floating-point values:
 
 ..  uml::
-    :caption: Instance model of ``float`` and its operations
+    :caption: Instance model of ``float`` and its ``__neg__`` method
 
     object "1e42 : PyFloat" as x
     object "PyFloat : Class" as PyFloat.class
 
-    object " : MethodHandle" as xneg {
+    object " : MethodHandle" as pyFloatNeg {
         target = PyFloatMethods.__neg__(PyFloat)
     }
 
-    object "float : PyType" as floatType
+    object "float : AdoptiveType" as floatType
 
-    x --> PyFloat.class
-    PyFloat.class --> floatType : ops
-    floatType --> floatType
-    floatType --> xneg : op_neg
+    x ..> PyFloat.class
+    PyFloat.class --> floatType : registry
 
     object "42.0 : Double" as y
     object "Double : Class" as Double.class
-    object " : Operations" as yOps
-
-    object " : MethodHandle" as yneg {
+    object " : AdoptedRepresentation" as doubleRep {
+        index = 1
+    }
+    object " : MethodHandle" as doubleNeg {
         target = PyFloatMethods.__neg__(Double)
     }
 
-    y --> Double.class
-    Double.class --> yOps : ops
-    yOps -left-> floatType : type
-    yOps --> yneg : op_neg
+    y ..> Double.class
+    Double.class --> doubleRep : registry
+    doubleRep -left-> floatType : type
 
     object " : Map" as dict
     object " : PyWrapperDescr" as neg {
@@ -905,106 +897,388 @@ when realised for two floating-point values:
 
     floatType --> dict : dict
     dict --> neg
-    neg --> xneg
-    neg --> yneg
+    neg --> pyFloatNeg : 0
+    neg --> doubleNeg : 1
+
+When the interpreter picks up the ``Double`` 42.0,
+it traverses the ``Double`` class to the ``AdoptedRepresentation``.
+We are effectively looking up the bound attribute ``(42.0).__neg__``,
+and we can see that we must implement this so that
+it first consults the dictionary of the type,
+then uses the index it knows to select and invoke the correct handle,
+which is at index 1.
+
+If the orignal object had been a ``PyFloat``,
+the representation found would be the type object itself and
+the index would have been 0.
+
+Note that the lookup of ``float.__neg__`` will find us the *descriptor*
+containing a handle for every representation.
+It is the binding operation that selects one
+according to the implementation type of the target object.
+If we came to this binding cold, as in ``getattr(42.0, "__neg__")``,
+we would have to look up the representation of 42.0 to find the index.
+Coming as we have from the representation object itself,
+we should be able to avoid that repeat lookup.
 
 
-We separate the responsibilities of ``PyType``,
-where they have to adapt to the specific Java implementation,
-into:
+A Subclass of ``float``
+-----------------------
 
-* an ``Operations`` object specialised to one Java implementation class, and
-* the ``PyType`` containing the information common to all implementations.
+A Python subclass of ``float`` will always be implemented by
+a Java subclass of ``PyFloat``, say ``PyFloat.Derived``,
+that is mapped in the registry to a shared representation.
+The specific type will be designated by a field on each instance.
 
-A ``PyType`` is a particular kind of ``Operations`` object,
-describing the *canonical implementation* (``PyFloat`` in this case).
-The ``Operations`` object for an alternative *adopted implementation*,
-is not a ``PyType``.
+Suppose that we have defined:
 
-There can only be one descriptor for ``float.__neg__``,
-in the dictionary of the ``type`` for float.
-How does it describe the several implementations?
-The descriptor must reference all the implementations of its method,
-and during execution we must choose one
-that matches the class of object appearing as ``self``.
+..  code-block:: python
 
-There may not have to be an implementation for each representation:
-an implementation method accepting ``Object self``,
-or some common base class, would match them all.
+    class MyFloat(float):
+        def __repr__(self):
+            return super().__repr__() + " inches"
 
-As before, we shall have a caching scheme,
-in which a slot on each ``Operations`` object,
-including the ``PyType``,
-holds the handle for its particular Java class.
-In the present case, that cache will be the ``op_neg`` slot.
+Then the object structure behind an instance ``MyFloat(42)`` is:
+
+..  uml::
+    :caption: Instance model of a subclass of ``float``
+
+    object "42.0 : PyFloat.Derived" as x
+    object "PyFloat.Derived : Class" as PyFloat.Derived.class
+
+    object " : MethodHandle" as pyFloatNeg {
+        target = PyFloatMethods.__neg__(PyFloat)
+    }
+
+    object "float : AdoptiveType" as floatType
+    object " : SharedRepresentation" as PyFloat.Derived.rep
+    object "MyFloat : ReplaceableType" as myFloatType
+
+    x ..> PyFloat.Derived.class
+    PyFloat.Derived.class --> PyFloat.Derived.rep : registry
+
+    object " : Map" as floatDict
+    object " : PyWrapperDescr" as neg {
+        name = "__neg__"
+    }
+
+    floatType --> floatDict : dict
+    floatDict --> neg
+    neg --> pyFloatNeg : 0
+
+    object " : Map" as myFloatDict
+    object " : PyMethodDescr" as repr {
+        objtype = MyFloat
+        name = "__repr__"
+    }
+
+    x --> myFloatType : type
+    myFloatType --> myFloatDict : dict
+    myFloatType -up-> floatType : base
+    myFloatDict --> repr
+
+Now if ``x = MyFloat(42)``,
+then to print out ``x`` we first traverse the Java class of ``x``,
+which is ``PyFloat.Derived``,
+to a ``SharedRepresentation`` that bounces us back to ``x``
+to obtain the real type ``MyFloat``.
+We shall then find ``__repr__``
+in the dictionary of ``MyFloat`` and call that Python method.
+To calculate ``-x``, we shall begin the same way,
+then have to search up the MRO,
+eventually finding implementation 0 of ``float.__neg__``.
+
+Since the range and precision of ``Double``
+are the same as those of ``PyFloat.value``,
+we could manage without ``PyFloat`` entirely,
+were it not that we need to define subclasses of ``float`` in Python.
+Sub-classes in Python must be represented by subclasses in Java
+and ``Double`` cannot be subclassed.
 
 
-Method Implementations
+Possibility of Caching on the ``Representation``
+------------------------------------------------
+
+We know that in CPython,
+special methods like ``__neg__`` map to pointers in a type object.
+Suppose we want to do the same.
+The corresponding idea is to give the ``Representation``,
+and therefore every ``PyType``,
+a ``MethodHandle`` for each special method.
+
+Code for operation ``neg``,
+in the Abstract API that supports the interpreter,
+accepts and returns arguments of declared type ``Object``.
+The direct handle for ``PyFloat.__neg__``, depending on the index,
+has type ``(Double)Object`` or ``(PyFloat)Object``.
+For a handle to be invoked exactly by the API method,
+it must have type ``(Object)Object``,
+and therefore we must wrap the direct handle with ``MethodHandle.asType``,
+which is effectively a checked cast.
+
+..  uml::
+    :caption: Instance model with a short-cut modelled after CPython
+
+    object "1e42 : PyFloat" as x
+    object "PyFloat : Class" as PyFloat.class
+
+    object " : MethodHandle" as pyFloatNeg {
+        target = PyFloatMethods.__neg__(PyFloat)
+    }
+    object " : MethodHandle" as pyFloatNegMH
+
+    object "float : AdoptiveType" as floatType
+
+    x ..> PyFloat.class
+    PyFloat.class --> floatType : registry
+    floatType --> pyFloatNegMH : op_neg
+    pyFloatNegMH --> pyFloatNeg : target
+
+    object "42.0 : Double" as y
+    object "Double : Class" as Double.class
+    object " : AdoptedRepresentation" as doubleRep {
+        index = 1
+    }
+    object " : MethodHandle" as doubleNeg {
+        target = PyFloatMethods.__neg__(Double)
+    }
+    object " : MethodHandle" as doubleNegMH
+
+    y ..> Double.class
+    Double.class --> doubleRep : registry
+    doubleRep -left-> floatType : type
+    doubleRep --> doubleNegMH : op_neg
+    doubleNegMH --> doubleNeg : target
+
+    object " : Map" as floatDict
+    object " : PyWrapperDescr" as neg {
+        name = "__neg__"
+    }
+
+    floatType --> floatDict : dict
+    floatDict --> neg
+    neg --> pyFloatNeg : 0
+    neg --> doubleNeg : 1
+
+
+Notice that when we repeat this with a subclass,
+it is the type object (not the shared representation)
+that holds the specific method handle.
+The ``SharedRepresentation``,
+redirects to the type object designated by the specific instance,
+before we access the short cut handle.
+And this handle is on the ``__call__`` method of the descriptor,
+with its ``self`` argument bound to the specific descriptor
+from the dictionary of ``MyFloat``.
+This ``__call__`` method creates a frame to run the Python method.
+
+..  uml::
+    :caption: Subclass instance model with a short-cut modelled after CPython
+
+    object "1e42 : PyFloat" as x
+    object "PyFloat : Class" as PyFloat.class
+
+    object " : MethodHandle" as pyFloatNeg {
+        target = PyFloatMethods.__neg__(PyFloat)
+    }
+    object " : MethodHandle" as pyFloatNegMH
+
+    object "float : AdoptiveType" as floatType
+
+    x ..> PyFloat.class
+    PyFloat.class --> floatType : registry
+    floatType --> pyFloatNegMH : op_neg
+    pyFloatNegMH --> pyFloatNeg : target
+
+    object " : MethodHandle" as doubleNeg {
+        target = PyFloatMethods.__neg__(Double)
+    }
+
+    object " : Map" as floatDict
+    object " : PyWrapperDescr" as neg {
+        name = "__neg__"
+    }
+
+    floatType --> floatDict : dict
+    floatDict --> neg
+    neg --> pyFloatNeg : 0
+    neg --> doubleNeg : 1
+
+
+    object "42.0 : PyFloat.Derived" as z
+    object "PyFloat.Derived : Class" as PyFloat.Derived.class
+
+    object " : SharedRepresentation" as PyFloat.Derived.rep
+    object "MyFloat : ReplaceableType" as myFloatType
+
+    z ..> PyFloat.Derived.class
+    PyFloat.Derived.class --> PyFloat.Derived.rep : registry
+
+
+    object " : Map" as myFloatDict
+    object " : PyMethodDescr" as myFloatRepr {
+        objtype = MyFloat
+        name = "__repr__"
+    }
+    object " : MethodHandle" as myFloatReprMH {
+        target = PyMethodDescr.__call__(...)
+    }
+    myFloatReprMH --> myFloatRepr : self
+
+    z --> myFloatType : type
+    myFloatType --> myFloatDict : dict
+    myFloatType -up-> floatType : base
+    myFloatDict --> myFloatRepr
+    myFloatType --> pyFloatNegMH : op_neg
+    myFloatType --> myFloatReprMH : op_repr
+
+
+
+Motivation for Caching
 ----------------------
 
-Methods defined in Java are exposed as Python methods
-thanks to the class ``TypeExposer`` returned by ``Exposer.exposeType``.
-We don't propose to describe how that works here,
-only the data structures it finally supplies to the runtime.
-The ``TypeExposer`` discovers slot methods automatically
-without the annotations necessary to identify other methods.
+The idea that type objects contain slots is so ingrained that
+there is a visibly different descriptor type for these methods,
+although there are very few places where
+Python is sensitive to the difference between
+``WrapperDescriptorType`` and ``MethodDescriptorType``, for example.
 
-At the time of writing,
-the design provides for multiple styles of definition
-of a special method implementation as:
+..  code-block:: python
 
-1. an instance method in the canonical class,
-#. a static method in the canonical class, or
-#. a static method in an auxiliary class.
+    >>> float.__neg__
+    <slot wrapper '__neg__' of 'float' objects>
 
-This last option is the one we use predominantly for types like ``float``,
-that have multiple implementing classes and many methods,
-since we may generate it with a script.
-We are able to choose the style method-by-method, with some constraints.
-The operations on ``Double`` have to be ``static`` methods:
-we can't very well open up ``java.lang.Double`` and add them there!
+Not every special method gets the special treatment, however.
 
-When we come to study the implementation of ``int``,
-we shall find that the types that can appear as ``self``
-are more than just the adopted implementations.
-This is because java.lang.Boolean has to be accepted by operations
-as if it were a type of ``int``.
-We shall use the term *accepted* implementations for the full list.
+..  code-block:: python
 
-In the style we apply to ``__neg__`` and many other ``float`` methods,
-we create a new class in which ``static`` methods
-define the operations for the canonical and all accepted implementations.
-We could reasonably think of the canonical implementation as
-the *first accepted* implementation (implementation zero).
+    >>> float.__reduce__
+    <method '__reduce__' of 'object' objects>
+    >>> float.__subclasshook__
+    <built-in method __subclasshook__ of type object at 0x00007FF9D398BC50>
 
-The defining implementation class will specify, during initialisation,
-the Java classes that are the canonical, adopted and
-other accepted implementations,
-and the name of the extra classes defining the methods.
-The defining class now begins something like this:
+The motivation for slots in CPython is
+to get quickly from the abstract API method,
+``PyNumber_Negative`` say,
+to the special method implementation specific to the type.
+Done conventionally, this would be slow:
+an attribute lookup along the MRO,
+then argument checks, descriptor binding and finally the call itself.
 
-..  code-block:: java
+In the Abstract API, the call is already known to match the signature,
+and can be made safely via the pointer cached in the type object.
+Only a call from Python, like ``x.__neg__()``,
+takes the slow path via the descriptor.
+This is of significant benefit when interpreting CPython byte code
+and where the methods are mainly from built-in types.
 
-    public class PyFloat extends AbstractPyObject {
+In a subclass of ``float``, say where ``__neg__`` has been redefined,
+the dictionary of the subtype contains
+a descriptor for the method defined in Python,
+which takes precedence over the wrapper descriptor in that of ``float``.
+The type slot (ordinarily a copy of that in the parent class)
+contains a redirect function.
+Thus the interpreter invokes the handle from the type object,
+but the function takes the slow path via the descriptor.
+Only methods that have actually been overridden get this treatment:
+a subclass of ``float`` that does not redefine ``__neg__``
+still benefits from the shortcut.
 
-        static final PyType TYPE = PyType.fromSpec( //
-                new PyType.Spec("float", MethodHandles.lookup())
-                        .adopt(Double.class)
-                        .methods(PyFloatMethods.class));
+This decision is not final with the construction of the type concerned,
+since a method may be redefined dynamically.
+Changes to types,
+at least where they affect the methods that fill type slots,
+must propagate down the inheritance hierarchy.
+Therefore each type keeps track of its descendants to notify them of changes.
+(The cascade cannot start with a built-in type as they are all immutable.)
 
-It suits us still to define some methods by hand in ``PyFloat``,
-but the class containing (most of) the methods is ``PyFloatMethods``.
-It is generated by a script, as it is somewhat repetitious:
 
-..  code-block:: java
+Is Caching Beneficial for Jython?
+---------------------------------
 
-    class PyFloatMethods {
-        // ...
-        static Object __abs__(PyFloat self)
-                { return Math.abs(self.value); }
-        static Object __abs__(Double self) { return Math.abs(self); }
-        static Object __neg__(PyFloat self) { return -self.value; }
-        static Object __neg__(Double self) { return -self; }
+The short answer is that we are unable to decide just yet.
+That is why in ``rt4``
+we will avoid shaping the runtime around
+the implementation of special methods.
+
+In our highest performing code, we expect that
+operations (like ``ast.USub``) will be compiled to mutable call sites.
+On first encountering a ``Double`` argument,
+the site will specialise itself with a ``MethodHandle`` on
+``PyFloat.__neg__(Double)`` guarded by a test for ``Double``.
+(If it later encounters an ``Integer`` it will add a clause for that too.)
+The handle is found once and never changes
+(``float`` is immutable, and ``int``)
+so there is no benefit in having a quick way to look it up.
+
+In a subclass  of ``float`` where a definition has been overidden,
+we will end up on a slow path anyway,
+because we are setting up a Python call frame.
+(It is rare to replace a method implemented in Java with another.)
+It may be a slow operation for the overridden method only,
+since methods inherited from ``float``
+still have their Java implementations.
+Or it may be a more general slow-down:
+once a mutable type is in the MRO,
+we can no longer safely bind method handles into the call site,
+without taking precautions against the redefinition
+that can occur between calls to any method.
+
+Another consideration is that
+some code encounters many different Java classes.
+A call site in a library compiled from Python
+will de-optimise to the slow path when
+the tree of guarded handles grows too large.
+The Abstract API is another place where
+many different classes arrive at a single method.
+The interpreter of CPython byte code,
+which we need too,
+and Python operations in modules,
+both rely on calls to the Abstract API.
+We should not use call sites to implement the Abstract API,
+since they will eventually de-optimise.
+
+The safest course of action with mutable subclasses, and
+code that encounters objects of many types,
+is to look up the descriptor along the MRO every time.
+
+Suppose we think this is too slow.
+There are two steps in the conventional chain of objects that
+frustrate simply caching the handle we find first,
+whether in the type object or on the call site:
+
+1. The type has to be looked up on each object that arrives there.
+   The Java class is not enough:
+   the same Java class represents instances from multiple Python types.
+#. Each type has its own MRO in which dictionaries are, in general, mutable.
+   What we find in the first lookup may be invalidated by subsequent change
+   anywhere along the MRO.
+
+The first of these requirements makes the case for a cache of handles
+on a ``ReplaceableType`` (only).
+A call site embedding the handle itself would have to
+follow a guard on the Java class with one on the Python type.
+But a handle in the call site that invokes the handle on the type,
+need be guarded only by the class of the object.
+We still need the apparatus to refresh the handle in the type,
+as the appropriate method definition changes (second requirement),
+but it is not as onerous as updating every call site.
+
+Another solution is to augment lookup along the MRO with a cache,
+so that we get to the descriptor more quickly.
+This again requires that each mutable type
+keep track of its descendants for cache invalidation.
+This is roughly what Jython 2 does.
+
+The cost in space and time of
+a set of method handles on each type object,
+or of caching lookups in some other structure,
+is not negligible,
+nor that of propagating change in any scheme.
+We'll try to make finding and calling an un-cached descriptor
+as slick as possible,
+but for the time being,
+we do not create method handle slots as we did in ``rt3``.
 
 
 Summary Examples
@@ -1053,7 +1327,7 @@ Here they are and some further examples in summary form.
 When we define a new class in Python, it has one or more bases,
 all of them specified as Python type objects.
 If no bases are specified in the class definition,
-there is one base ``object``.
+there is one base, which is ``object``.
 
 A Java class must be created or found to represent the new class,
 that is assignment compatible with the ``self`` argument
@@ -1067,7 +1341,7 @@ The representation of the new class is then an immediate subclass of
 the "most derived" Python type implemented in Java.
 The constraints Python imposes,
 expressed first as consistent memory layout in C,
-ensure that the most-derived type is uniquely identifiable n Java.
+ensure that the most-derived type is uniquely identifiable in Java.
 This subclass adds only slots or an instance dictionary to its parent,
 and so we may define it in advance as the *extension point* class,
 which by convention is a nested class ``Derived``.

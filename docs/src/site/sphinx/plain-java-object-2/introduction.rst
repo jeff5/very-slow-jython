@@ -22,6 +22,8 @@ Special Methods
 ===============
 
 We contend that special methods are methods first and special later.
+They are not special enough to
+make the runtime revolve around their implementation.
 
 Type objects, with their tables of slots,
 are highly recognisable in the CPython code base.
