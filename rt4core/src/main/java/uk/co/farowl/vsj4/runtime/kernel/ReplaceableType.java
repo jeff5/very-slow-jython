@@ -1,15 +1,14 @@
 package uk.co.farowl.vsj4.runtime.kernel;
 
-import uk.co.farowl.vsj4.runtime.ExtensionPoint;
 import uk.co.farowl.vsj4.runtime.PyType;
 
 /**
  * A Python type object used where multiple Python types share a single
- * representation in Java, which may be replaced on instances by
- * {@code __class__} assignment, if other constraints allow. Often
- * (always?) the Java class of implementations {@link ExtensionPoint}.
- * The Java implementation of Python instance methods in such a type
- * will have the common Java type (or a superclass) as their
+ * representation in Java, making them all acceptable for assignment to
+ * the {@code __class__} member of Python instances of any of them. The
+ * common representation encapsulates what Python terms the "layout
+ * constraints". The Java implementation of Python instance methods in
+ * such a type will have the common Java type (or a superclass) as their
  * {@code self} parameter.
  */
 public final class ReplaceableType extends PyType {

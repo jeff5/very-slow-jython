@@ -6,8 +6,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodHandles.Lookup;
 import java.util.List;
 
 import org.junit.jupiter.api.BeforeAll;
@@ -18,7 +21,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import uk.co.farowl.vsj4.runtime.PyType;
-import uk.co.farowl.vsj4.runtime.kernel.Representation.Adopted;
 import uk.co.farowl.vsj4.runtime.kernel.TypeFactory.Clash;
 import uk.co.farowl.vsj4.support.InterpreterError;
 
@@ -46,6 +48,10 @@ class TypeFactoryTest {
     static final Logger logger =
             LoggerFactory.getLogger(TypeFactoryTest.class);
 
+    /** A lookup with package scope as in {@link PyType}. */
+    static Lookup LOOKUP =
+            MethodHandles.lookup().dropLookupMode(Lookup.PRIVATE);
+
     /**
      * Statically initialise the type system. Any reference to a
      * {@code PyType} member or subclass creates the static singleton
@@ -68,52 +74,25 @@ class TypeFactoryTest {
         }
     }
 
-    /**
-     * A type exists for {@code object}.
-     *
-     * @throws Clash when class conflicts arise.
-     */
+    /** A type exists for {@code object}. */
     @Test
     @DisplayName("'object' exists")
-    void object_exists() throws Clash {
+    void object_exists() {
         @SuppressWarnings("deprecation")
-        TypeFactory factory = new TypeFactory();
+        TypeFactory factory = new TypeFactory(LOOKUP);
         @SuppressWarnings("deprecation")
         PyType object = factory.typeForType().getBase();
         assertNotNull(object);
-        assertInstanceOf(AdoptiveType.class, object);
+        assertInstanceOf(SimpleType.class, object);
         assertEquals("object", object.getName());
     }
 
-    /**
-     * We can look up {@code Object.class}.
-     *
-     * @throws Clash when class conflicts arise.
-     */
-    @Test
-    @Disabled("Representation.of not implemented yet")
-    @DisplayName("there is a type for Object.class")
-    void creates_object_type() throws Clash {
-        @SuppressWarnings("deprecation")
-        TypeFactory factory = new TypeFactory();
-        TypeRegistry registry = factory.getRegistry();
-        Representation rep = registry.lookup(Object.class);
-        assertNotNull(rep);
-        assertInstanceOf(Adopted.class, rep);
-        PyType type = rep.pythonType(null);
-        assertEquals("object", type.getName());
-    }
-
-    /**
-     * After setUp() a type exists for {@code type}.
-     *
-     * @throws Clash when class conflicts arise.
-     */
+    /** A type exists for {@code type}. */
     @Test
     @DisplayName("'type' exists")
-    void type_exists() throws Clash {
+    void type_exists() {
         @SuppressWarnings("deprecation")
-        TypeFactory factory = new TypeFactory();
+        TypeFactory factory = new TypeFactory(LOOKUP);
         @SuppressWarnings("deprecation")
         PyType type = factory.typeForType();
         assertNotNull(type);
@@ -121,49 +100,25 @@ class TypeFactoryTest {
         assertEquals("type", type.getName());
     }
 
-    /**
-     * After setUp() we can look up {@code PyType.class}.
-     *
-     * @throws Clash when class conflicts arise.
-     */
+    /** No type object is public for {@code PyType.class}. */
     @Test
-    @Disabled("Representation.of not implemented yet")
-    @DisplayName("there is a type for PyType.class")
-    void creates_type_type() throws Clash {
+    @DisplayName("PyType.class is not registered")
+    void type_type_unpublished() {
         @SuppressWarnings("deprecation")
-        TypeFactory factory = new TypeFactory();
+        TypeFactory factory = new TypeFactory(LOOKUP);
         TypeRegistry registry = factory.getRegistry();
         Representation rep = registry.lookup(PyType.class);
-        assertNotNull(rep);
-        assertInstanceOf(SimpleType.class, rep);
-        PyType type = rep.pythonType(null);
-        assertSame(rep, type);
-        assertEquals("type", type.getName());
+        assertNull(rep);
     }
 
-    /**
-     * After setUp() all type implementations have the same type.
-     *
-     * @throws Clash when class conflicts arise.
-     */
+    /** No type object is public for {@code Object.class}. */
     @Test
-    @Disabled("Representation.of not implemented yet")
-    @DisplayName("Subclasses of PyType share a type object")
-    void type_subclasses_share_type() throws Clash {
+    @DisplayName("Object.class is not registered")
+    void object_type_unpublished() {
         @SuppressWarnings("deprecation")
-        TypeFactory factory = new TypeFactory();
+        TypeFactory factory = new TypeFactory(LOOKUP);
         TypeRegistry registry = factory.getRegistry();
-        // Lookup for the base type
-        Representation repType = registry.lookup(PyType.class);
-        assertNotNull(repType);
-        PyType typeType = repType.pythonType(null);
-        // Lookup each Java subclass has the same type
-        for (Class<? extends PyType> c : List.of(SimpleType.class,
-                AdoptiveType.class, ReplaceableType.class)) {
-            Representation rep = registry.lookup(c);
-            assertNotSame(repType, rep);
-            PyType type = rep.pythonType(null);
-            assertSame(typeType, type);
-        }
+        Representation rep = registry.lookup(Object.class);
+        assertNull(rep);
     }
 }

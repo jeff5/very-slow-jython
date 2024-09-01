@@ -1,10 +1,11 @@
+// Copyright (c)2024 Jython Developers.
+// Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime.kernel;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.util.Map;
 
-import uk.co.farowl.vsj4.runtime.ExtensionPoint;
 import uk.co.farowl.vsj4.runtime.PyBaseObject;
 import uk.co.farowl.vsj4.runtime.PyType;
 
@@ -15,7 +16,7 @@ import uk.co.farowl.vsj4.runtime.PyType;
  * intend to expose as API from {@link PyBaseObject} itself.
  */
 // Compare CPython PyBaseObject_Type in typeobject.c
-public abstract class AbstractPyBaseObject implements ExtensionPoint {
+public abstract class AbstractPyBaseObject {
 
     // TODO expose as __class__
     private PyType type;
@@ -33,27 +34,8 @@ public abstract class AbstractPyBaseObject implements ExtensionPoint {
         this.type = type;
     }
 
-    @Override
-    public Map<Object, Object> getDict() {
-        // TODO Auto-generated method stub
-        return null;
-    }
-
-    @Override
     public PyType getType() {
-        // TODO Auto-generated method stub
-        return null;
-    }
-
-    @Override
-    public Object getSlot(int i) {
-        // TODO Auto-generated method stub
-        return null;
-    }
-
-    @Override
-    public void setSlot(int i, Object value) {
-        // TODO Auto-generated method stub
+        return type;
     }
 
     /** Lookup object with package visibility. */

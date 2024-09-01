@@ -8,4 +8,5 @@
  * This package is not exported. Classes {@code public} in this package
  * are accessible across the module, but not to client programs.
  */
+// XXX Should all be package-private in kernel instead?
 package uk.co.farowl.vsj4.runtime.bootstrap;

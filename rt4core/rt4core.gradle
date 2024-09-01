@@ -18,6 +18,8 @@ repositories {
 
 
 dependencies {
+    // We generate byte code with ASM
+    //implementation 'org.ow2.asm:asm:9.7'
     // We standardise on SLF4J for logging from the library
     implementation 'org.slf4j:slf4j-api:2.0.13'
 }

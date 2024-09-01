@@ -8,7 +8,7 @@ import java.util.Map;
  * {@code type} object, for example, implements {@link #getDict()} to
  * return only an unmodifiable view of its dictionary.
  */
-public interface WithDict {
+public interface WithDict extends Crafted {
     /**
      * The instance dictionary. This is not necessarily a Python
      * {@code dict}, and may not be directly writable. Some implementing

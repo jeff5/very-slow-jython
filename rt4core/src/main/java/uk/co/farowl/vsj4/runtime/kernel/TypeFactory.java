@@ -18,12 +18,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import uk.co.farowl.vsj4.runtime.Crafted;
-import uk.co.farowl.vsj4.runtime.ExtensionPoint;
+import uk.co.farowl.vsj4.runtime.PyFloat;
 import uk.co.farowl.vsj4.runtime.PyType;
 import uk.co.farowl.vsj4.runtime.TypeSpec;
-import uk.co.farowl.vsj4.runtime.bootstrap.PyFloatImpl;
 import uk.co.farowl.vsj4.runtime.kernel.Representation.Adopted;
-import uk.co.farowl.vsj4.runtime.kernel.Representation.Shared;
 import uk.co.farowl.vsj4.support.InterpreterError;
 
 /**
@@ -51,6 +49,9 @@ public class TypeFactory {
     /** Logger for the type factory. */
     final Logger logger = LoggerFactory.getLogger(TypeFactory.class);
 
+    /** Access rights to the runtime package. */
+    final Lookup runtimeLookup;
+
     /**
      * A TypeRegistry in which results, the association of a class with
      * a {@link Representation}, behind which there is always a
@@ -62,11 +63,14 @@ public class TypeFactory {
     /** The (initially partial) type object for 'type'. */
     final SimpleType typeType;
     /** The (initially partial) type object for 'object'. */
-    final AdoptiveType objectType;
+    final SimpleType objectType;
+
     /** An empty array of type objects */
     final PyType[] EMPTY_ARRAY;
-    /** An empty array of type objects */
+    /** An array containing just type object {@code object} */
     private final PyType[] OBJECT_ONLY;
+    /** An array containing just type object {@code type} */
+    private final PyType[] TYPE_ONLY;
 
     /** We count reentrant calls here. */
     private int reentrancyCount;
@@ -78,15 +82,19 @@ public class TypeFactory {
     /**
      * Construct a {@code TypeFactory}. Normally this constructor is
      * used exactly once from {@link PyType}. Exceptionally, we create
-     * instances for test purposes.
+     * instances for test purposes. The parameter {@code runtimeLookup}
+     * allows the caller to give lookup rights to the kernel.
      *
      * @deprecated Do not create a {@code TypeFactory} other than the
      *     one {@code PyType} holds statically.
+     * @param runtimeLookup giving access to the callers package
      */
-    @Deprecated
-    public TypeFactory() {
+    @Deprecated  // ... to stop other use even in the runtime.
+    public TypeFactory(Lookup runtimeLookup) {
         // This is the first thing the run-time system does.
         logger.info("Type factory being created.");
+
+        this.runtimeLookup = runtimeLookup;
 
         this.registry = new Registry();
         this.workshop = new Workshop();
@@ -101,7 +109,7 @@ public class TypeFactory {
          */
         logger.atDebug().setMessage(CREATING_PARTIAL_TYPE)
                 .addArgument(indent).addArgument("object").log();
-        this.objectType = new AdoptiveType();
+        this.objectType = new SimpleType();
 
         logger.atDebug().setMessage(CREATING_PARTIAL_TYPE)
                 .addArgument(indent).addArgument("type").log();
@@ -110,13 +118,12 @@ public class TypeFactory {
         /*
          * We need a specification for each type as well, which we
          * create from their type objects, not the other way around, as
-         * PyType.fromSpec is not safe until.
+         * PyType.fromSpec is not safe at this stage.
          */
         TypeSpec specOfObject = new PrimordialTypeSpec(objectType,
                 AbstractPyBaseObject.LOOKUP);
         TypeSpec specOfType =
-                new PrimordialTypeSpec(typeType, AbstractPyType.LOOKUP)
-                        .extendAt(AbstractPyType.Derived.class);
+                new PrimordialTypeSpec(typeType, AbstractPyType.LOOKUP);
 
         /*
          * Add the specifications to the workshop so it can complete the
@@ -135,6 +142,7 @@ public class TypeFactory {
         assert OBJECT_ONLY.length == 1;
         this.EMPTY_ARRAY = typeType.base.bases;
         assert EMPTY_ARRAY.length == 0;
+        this.TYPE_ONLY = new PyType[] {typeType};
     }
 
     /**
@@ -267,7 +275,7 @@ public class TypeFactory {
                 // Make a type to represent the class.
                 // XXX What lookup should be used here?
                 TypeSpec spec = new TypeSpec(c.getTypeName(), LOOKUP)
-                        .canonical(c);
+                        .canonicalBase(c);
                 rep = fromSpec(spec);
             }
 
@@ -350,7 +358,7 @@ public class TypeFactory {
         reentrancyCount += 1;
         logger.atDebug().setMessage(CREATING_PARTIAL_TYPE)
                 .addArgument(indent).addArgument(spec.getName()).log();
-        // Crate a type and add it to the work in progress.
+        // Create a type and add it to the work in progress.
         PyType type = workshop.addPartialFromSpec(spec);
         reentrancyCount -= 1;
         if (reentrancyCount == 0) {
@@ -411,8 +419,19 @@ public class TypeFactory {
         // Definition classes should be able to assume:
         assert PyType.TYPE == typeType;
 
+        /*
+         * Create specifications for the bootstrap types. There seems no
+         * safe way to create these local to the defining classes. We
+         * make them in a local array because we only need them here.
+         */
+        final TypeSpec[] bootstrapSpecs =
+                {new TypeSpec("float", MethodHandles.lookup())
+                        .primary(PyFloat.class).adopt(Double.class)};
 
-        TypeRegistry.ensureInit(PyFloatImpl.class);
+        for (TypeSpec spec : bootstrapSpecs) {
+            // Add the type and representations to work in progress
+            PyType type = PyType.fromSpec(spec);
+        }
 
         // Give all waiting types their Python nature
         workshop.exposeWaitingTypes();
@@ -458,11 +477,11 @@ public class TypeFactory {
      * <ol>
      * <li>The type is encountered in static initialisation of the type
      * system (e.g. an instance is referenced when initialising
-     * {@code Py}).</li>
-     * <li>The type has accepted non-canonical implementations we could
-     * encounter before the canonical class is loaded.</li>
+     * {@code PyType}).</li>
      * <li>The type must exist for us to create entries in the
-     * dictionary of any other type.</li>
+     * dictionary of any other type (a descriptor type).</li>
+     * <li>The type appears before the descriptor types it
+     * <i>requires</i>.</li>
      * </ol>
      */
     private class Workshop {
@@ -530,9 +549,10 @@ public class TypeFactory {
             String name = spec.freeze().getName();
 
             // It has these (potentially > 1) representations:
-            Class<?> canonical = spec.getCanonical();
+            Class<?> primary = spec.getPrimary();
             List<Class<?>> adopted = spec.getAdopted();
 
+            // Get the list of Python bases, or implicitly object.
             PyType[] bases;
             List<PyType> baseList = spec.getBases();
             if (baseList.isEmpty()) {
@@ -541,29 +561,28 @@ public class TypeFactory {
                 bases = baseList.toArray(new PyType[baseList.size()]);
             }
 
+            // Result of the construction
             PyType newType;
 
             if (adopted.isEmpty()) {
                 /*
                  * The type is not adoptive: the representation is the
-                 * canonical class.
+                 * primary class.
                  */
-                assert canonical != null;
-                SimpleType st = new SimpleType(name, canonical, bases);
+                assert primary != null;
+                SimpleType st = new SimpleType(name, primary, bases);
                 tasks.put(spec, new Task(newType = st, spec));
-                addRepresentation(canonical, st);
+                addRepresentation(primary, st);
             } else {
                 /*
                  * The type adopts one or more classes: the
-                 * representations may include the canonical class.
+                 * representations may include the primary class.
                  */
                 int na = adopted.size();
                 AdoptiveType at =
-                        new AdoptiveType(name, canonical, na, bases);
+                        new AdoptiveType(name, primary, na, bases);
                 tasks.put(spec, new Task(newType = at, spec));
-                if (canonical != null) {
-                    addRepresentation(canonical, at);
-                }
+                if (primary != null) { addRepresentation(primary, at); }
                 for (Class<?> c : adopted) {
                     Adopted r = new Adopted(c, at);
                     at.adopt(r);
@@ -571,8 +590,6 @@ public class TypeFactory {
                 }
             }
 
-            // If there is an extension point, add a representation.
-            addExtension(spec);
             return newType;
         }
 
@@ -589,18 +606,15 @@ public class TypeFactory {
          */
         void add(TypeSpec spec, SimpleType st) throws Clash {
             // No further change once we start
-            Class<?> canonical = spec.freeze().getCanonical();
+            Class<?> primary = spec.freeze().getPrimary();
             /*
              * The type is not adoptive: the representation is the
              * canonical class.
              */
             assert spec.getAdopted().isEmpty();
-            assert canonical != null;
+            assert primary != null;
             tasks.put(spec, new Task(st, spec));
-            addRepresentation(canonical, st);
-
-            // If there is an extension point, add a representation.
-            addExtension(spec);
+            addRepresentation(primary, st);
         }
 
         /**
@@ -617,35 +631,16 @@ public class TypeFactory {
          */
         void add(TypeSpec spec, AdoptiveType at) throws Clash {
             // No further change once we start
-            Class<?> canonical = spec.freeze().getCanonical();
+            Class<?> primary = spec.freeze().getPrimary();
             tasks.put(spec, new Task(at, spec));
-            // Add the canonical representation if there is one.
-            if (canonical != null) { addRepresentation(canonical, at); }
+            // Add the primary representation if there is one.
+            if (primary != null) { addRepresentation(primary, at); }
             // Add each adopted representation.
             for (int i = 0; i < at.getAdoptedCount(); i++) {
                 Adopted r = at.getAdopted(i);
-                addRepresentation(r.javaType, r);
-            }
-            // If there is an extension point, add a representation.
-            addExtension(spec);
-        }
-
-        /**
-         * Add a representation for the extension point class (if there
-         * is one) that represents Python subclasses on the new type.
-         * Note that there is no type object for the shared
-         * representation until a class is defined in Python that uses
-         * it as a base, and then a new one each time.
-         *
-         * @param spec specification for the type
-         * @throws Clash when the extension point is already bound
-         */
-        private void addExtension(TypeSpec spec) throws Clash {
-            Class<? extends ExtensionPoint> ep =
-                    spec.getExtensionPoint();
-            if (ep != null) {
-                Shared shared = new Shared(ep);
-                addRepresentation(ep, shared);
+                Class<?> klass = r.javaType;
+                // Add klass -> r to registry if not duplicating
+                if (klass != primary) { addRepresentation(klass, r); }
             }
         }
 
@@ -807,7 +802,7 @@ public class TypeFactory {
          */
         PrimordialTypeSpec(PyType type, Lookup lookup) {
             super(type.getName(), lookup);
-            this.canonical(type.javaType).bases(type.bases);
+            this.primary(type.javaType).bases(type.bases);
             if (type instanceof AdoptiveType at) {
                 int n = at.getAdoptedCount();
                 for (int i = 0; i < n; i++) {

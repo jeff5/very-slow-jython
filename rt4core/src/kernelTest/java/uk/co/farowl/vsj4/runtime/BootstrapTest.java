@@ -3,6 +3,7 @@
 package uk.co.farowl.vsj4.runtime;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
@@ -23,6 +24,7 @@ import org.junit.jupiter.api.TestMethodOrder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import uk.co.farowl.vsj4.runtime.kernel.AdoptiveType;
 import uk.co.farowl.vsj4.runtime.kernel.TypeRegistry;
 
 /**
@@ -120,13 +122,16 @@ class BootstrapTest {
         // Wait for the threads to finish.
         for (Thread t : threads) {
             try {
-                t.join();
+                t.join(1000);
             } catch (InterruptedException e) {
-                // Check for deadlock?
+                // Check completion later
             }
         }
 
-        // Dump the thread times by start time
+        // Make sure they all stop (so the test does).
+        for (Thread t : threads) { ensureStopped(t); }
+
+        // Dump the thread times by start time.
         if (truthy(DUMP_PROPERTY)) { dumpThreads(); }
     };
 
@@ -155,6 +160,25 @@ class BootstrapTest {
         for (InitThread t : threads) { System.out.println(t); }
     }
 
+    @SuppressWarnings("deprecation")
+    private static void ensureStopped(Thread t) {
+        if (t.isAlive()) {
+            logger.warn("Forcing stop {}", t.getName());
+            t.stop();
+        }
+    }
+
+    /** All threads completed. */
+    @Test
+    @DisplayName("All threads complete")
+    void allComplete() {
+        long completed = threads.stream()
+                .filter(t -> t.finishNanoTime > 0L).count();
+        assertTrue(completed == threads.size(),
+                () -> String.format("%d threads did not complete.",
+                        threads.size() - completed));
+    }
+
     /** Some threads started before the bootstrap started. */
     @Test
     @DisplayName("A race takes place")
@@ -167,7 +191,7 @@ class BootstrapTest {
                 .format("Only %d competitors.", competitors));
     }
 
-    /** Bootstrap completed before the first action competed. */
+    /** Bootstrap completed before the first action completed. */
     @Test
     @DisplayName("The bootstrap completes before any action.")
     void bootstrapBeforeAction() {
@@ -189,6 +213,17 @@ class BootstrapTest {
         TypeRegistry registry = PyType.registry;
         for (InitThread init : threads) {
             assertSame(registry, init.reg);
+        }
+    }
+
+    /** All the threads see a correct PyFloat.TYPE. */
+    @Test
+    @DisplayName("All threads see 'float'")
+    void sameFloat() {
+        PyType f = PyFloat.TYPE;
+        assertInstanceOf(AdoptiveType.class, f);
+        for (InitThread init : threads) {
+            assertSame(f, init.floatType);
         }
     }
 

@@ -62,7 +62,7 @@ class TypeInitTest {
     void object_exists() {
         PyType object = PyBaseObject.TYPE;
         assertNotNull(object);
-        assertInstanceOf(AdoptiveType.class, object);
+        assertInstanceOf(SimpleType.class, object);
         assertEquals("object", object.getName());
     }
 
@@ -72,9 +72,9 @@ class TypeInitTest {
     void lookup_object_type() {
         TypeRegistry registry = PyType.registry;
         Representation rep = registry.get(Object.class);
-        assertNotNull(rep);
+        assertInstanceOf(SimpleType.class, rep);
         PyType type = rep.pythonType(new Object());
-        assertNotSame(type, rep);
+        assertSame(type, rep);
         assertEquals("object", type.getName());
     }
 

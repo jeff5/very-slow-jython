@@ -2,6 +2,9 @@
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
 
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodHandles.Lookup;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -87,12 +90,21 @@ public abstract sealed class PyType extends AbstractPyType
      * in tests.
      */
     static final long bootstrapNanoTime;
+
     /**
      * High-resolution time (the result of {@link System#nanoTime()}) at
      * which the type system completed static initialisation. This is
      * used in tests.
      */
     static final long readyNanoTime;
+
+    /**
+     * A lookup with package scope. This lookup object is provided to
+     * the type factory to grant it package-level access to the run-time
+     * system.
+     */
+    static Lookup RUNTIME_LOOKUP =
+            MethodHandles.lookup().dropLookupMode(Lookup.PRIVATE);
 
     /*
      * The next block intends to make all the bootstrap types Java
@@ -113,7 +125,7 @@ public abstract sealed class PyType extends AbstractPyType
          * should use some alternative method.
          */
         @SuppressWarnings("deprecation")
-        TypeFactory f = new TypeFactory();
+        TypeFactory f = new TypeFactory(RUNTIME_LOOKUP);
         @SuppressWarnings("deprecation")
         PyType t = f.typeForType();
 
@@ -165,6 +177,7 @@ public abstract sealed class PyType extends AbstractPyType
      */
     protected PyType(String name, Class<?> javaType, PyType[] bases) {
         super(name, javaType, bases);
+        // this.mro = MROCalculator.getMRO(this, this.bases);
     }
 
     @Override

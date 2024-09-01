@@ -42,33 +42,9 @@ public final class AdoptiveType extends PyType {
         this.adopted = new Representation.Adopted[adoptedCount];
     }
 
-    /**
-     * Partially construct a {@code type} object for {@code object}.
-     * This constructor is <b>only used once</b>, during the static
-     * initialisation of the type system.
-     */
-    AdoptiveType() {
-        // There is no canonical class and no bases.
-        this("object", null, 1, new PyType[0]);
-        // We have to adopt Object here.
-        this.adopted[0] =
-                new Representation.Adopted(Object.class, this);
-    }
 
     @Override
     public PyType pythonType(Object x) { return this; }
-
-    /**
-     * Provide a representation by index.
-     *
-     * @param i index of representation
-     * @param a the representation
-     */
-    @Deprecated
-    void setAdopted(int i, Representation.Adopted a) {
-        assert adopted[i] == null;
-        adopted[i] = a;
-    }
 
     /**
      * Provide a representation, so store at the first non-null entry in

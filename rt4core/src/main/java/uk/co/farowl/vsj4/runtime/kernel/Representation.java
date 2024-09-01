@@ -11,7 +11,6 @@ import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.invoke.MethodType;
 
 import uk.co.farowl.vsj4.runtime.Crafted;
-import uk.co.farowl.vsj4.runtime.ExtensionPoint;
 import uk.co.farowl.vsj4.runtime.PyType;
 import uk.co.farowl.vsj4.support.InterpreterError;
 
@@ -160,15 +159,14 @@ public abstract class Representation {
 
     /**
      * The {@link Representation} for a Python class defined in Python.
-     * Many Python classes may be implemented by the same Java class,
-     * the actual type being indicated by the instance.
+     * Many Python classes may be represented by the same Java class,
+     * the actual Python type being indicated by the instance.
      */
     static class Shared extends Representation {
 
         /**
-         * {@code MethodHandle} of type {@code (ExtensionPoint)PyType},
-         * to get the actual Python type of an {@link ExtensionPoint}
-         * object.
+         * {@code MethodHandle} of type {@code (Object)PyType}, to get
+         * the actual Python type of an {@link Object} object.
          */
         private static final MethodHandle getType;
 
@@ -207,7 +205,7 @@ public abstract class Representation {
          *
          * @param javaType extension point Java class
          */
-        Shared(Class<? extends ExtensionPoint> javaType) {
+        Shared(Class<?> javaType) {
             super(javaType);
         }
 
@@ -219,11 +217,11 @@ public abstract class Representation {
 
         @Override
         public PyType pythonType(Object x) {
-            if (x instanceof ExtensionPoint ex)
-                return ex.getType();
+            if (x instanceof Crafted c)
+                return c.getType();
             else {
                 String msg = String.format(
-                        "class %.100s registered as ExtensionPoint",
+                        "class %.100s registered as Shared",
                         x.getClass().getTypeName());
                 throw new InterpreterError(msg);
             }

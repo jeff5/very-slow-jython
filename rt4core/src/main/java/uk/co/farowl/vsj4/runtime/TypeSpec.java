@@ -50,24 +50,31 @@ public class TypeSpec {
     private List<Class<?>> methodImpls = new LinkedList<>();
 
     /**
-     * The class that will be used to represent instances of the Python
-     * type. See {@link #canonical(Class)}. It may be {@code null} in a
-     * type that adopts all its representations.
+     * The class that will be the base (in Java) of classes that
+     * represent the instances subclasses (in Python) of the type being
+     * defined. Methods defined by the type must be able to receive
+     * instances of the specified class as their the {@code self}
+     * argument.
+     *
+     * See {@link #canonicalBase(Class)}.
+     *
+     * It may be {@code null} in a type that adopts all its
+     * representations.
      */
-    private Class<?> canonical;
+    private Class<?> canonicalBase;
 
     /**
-     * If {@code true}, there is definitely no canonical class; if
-     * {@code false} one has either been specified or should be
-     * inferred.
+     * The primary class that will represent the instances of the type
+     * being defined. Methods defined by the type must be able to
+     * receive instances of the specified class as their the
+     * {@code self} argument.
+     *
+     * See {@link #primary(Class)}.
+     *
+     * It may be {@code null} in a type that adopts all its
+     * representations.
      */
-    private boolean noCanonical = false;
-
-    /**
-     * The class that will be used to represent instances of Python
-     * subclasses. See {@link #extendAt(Class)}.
-     */
-    private Class<? extends ExtensionPoint> extensionPoint;
+    private Class<?> primary;
 
     /**
      * A collection of classes that are adopted representations for the
@@ -90,9 +97,9 @@ public class TypeSpec {
     /**
      * A collection of classes that are allowed to appear as the "other"
      * parameter in binary operations, in addition to
-     * {@link #canonical}, {@link #adopted} and {@link #accepted}. The
-     * main use for this is to allow efficient mixed {@code float} and
-     * {@code int} operations.
+     * {@link #canonicalBase}, {@link #adopted} and {@link #accepted}.
+     * The main use for this is to allow efficient mixed {@code float}
+     * and {@code int} operations.
      */
     private List<Class<?>> binopOthers = EMPTY;
 
@@ -115,6 +122,14 @@ public class TypeSpec {
      * methods.
      */
     private final List<Class<?>> classes = new ArrayList<>();
+
+    /**
+     * Names of slots (fields) in the representation of the type being
+     * specified. There is a difference between leaving this at null
+     * (instances will get a dictionary) and an empty list (instances
+     * will not get a dictionary, but define no slots).
+     */
+    private List<String> slots = null;
 
     /**
      * Create (begin) a specification for a Python {@code type}. This is
@@ -156,16 +171,17 @@ public class TypeSpec {
     }
 
     /**
-     * Mark the specification as complete. (No further mutation actions
-     * are possible and certain internal normalisations will occur.)
-     * This is to guard against certain sequencing errors.
+     * Mark the specification as complete. (No further mutations are
+     * possible.) Certain internal derivations are made and consistency
+     * is checked so that the specification easier to use.
      *
      * @return {@code this}
+     * @throws InterpreterError if inconsistent in some way
      */
-    public TypeSpec freeze() {
+    public TypeSpec freeze() throws InterpreterError {
         /*
          * If we are not frozen yet, it means we have yet to finalise
-         * the canonical representation and extension point.
+         * the canonical base representation and extension point.
          */
         if (frozen == false) {
             /*
@@ -175,34 +191,39 @@ public class TypeSpec {
              */
             frozen = true;
 
-            /*
-             * The lookup class may be an extension point, if eligible
-             * and a different one was not explicitly specified.
-             */
-            boolean LUisEP = extensionPointIsLookupClass();
-
-            if (LUisEP) {
-                /*
-                 * Assumption: the lookup class is never an
-                 * ExtensonPoint "accidentally".
-                 */
-                features.add(Feature.BASETYPE);
-            } else {
-                /*
-                 * The lookup class is not an extension point but it
-                 * might be the canonical class.
-                 */
-                canonicalIsLookupClass();
+            // The primary class defaults to the lookup class
+            if (lookup != null && primary == null) {
+                primary = lookup.lookupClass();
             }
+
+            // The canonical base defaults to the primary class
+            if (primary != null) {
+                if (canonicalBase == null) {
+                    canonicalBase = primary;
+                } else if (!primary.isAssignableFrom(canonicalBase)) {
+                    throw specError(CANONICAL_INCONSISTENT,
+                            canonicalBase.getSimpleName(),
+                            primary.getSimpleName());
+                }
+            }
+
+            // XXX what about no lookup?
+
+            // Question of "first adopted" vs primary/canonical.
 
             /*
              * Form a list of classes ordered most to least specific. We
-             * treat duplicates as errors.
+             * treat duplicates as errors. The partition of the list is
+             * [canonical|adopted|accepted].
              */
             int adoptedIndex = 0, acceptedIndex = 0;
-            if (canonical != null) {
-                classes.add(canonical);
-                adoptedIndex = acceptedIndex = 1;
+            if (primary != null) {
+                // It is ok for the first adopted to be canonical.
+                if (adopted.isEmpty()
+                        || adopted.get(0) != primary) {
+                    classes.add(primary);
+                    adoptedIndex = acceptedIndex = 1;
+                }
             }
 
             for (Class<?> c : adopted) {
@@ -218,69 +239,26 @@ public class TypeSpec {
                 }
             }
 
-            // Now replace adopted and accepted
+            // Now update adopted and accepted lists
             adopted = classes.subList(adoptedIndex, acceptedIndex);
             accepted = classes.subList(acceptedIndex, classes.size());
+
+            // FIXME new rules now not doing ExtensionPoint
 
             // FIXME process binopOthers to extended array
 
             // Checks for various specification errors.
-            if (canonical == null) {
+            if (canonicalBase == null) {
                 if (adopted.isEmpty()) {
-                    throw specError(NO_CANONICAL_OR_ADOPTED);
+                    throw specError(NO_PRIMARY_OR_ADOPTED);
                 }
-                if (!adopted.get(0).isAssignableFrom(extensionPoint)) {
-                    throw specError(EP_NOT_SUBCLASS);
-                }
-            } else if (extensionPoint != null) {
-                if (!canonical.isAssignableFrom(extensionPoint)) {
-                    throw specError(EP_NOT_SUBCLASS);
-                }
-            } else {
                 if (features.contains(Feature.BASETYPE)) {
-                    throw specError("BASETYPE but no extension point");
+                    throw specError("BASETYPE but no canonical base");
                 }
             }
         }
 
         return this;
-    }
-
-    /**
-     * Assign the lookup class to {@link #extensionPoint} if
-     * appropriate.
-     *
-     * @return whether the assignment was made
-     */
-    @SuppressWarnings("unchecked")
-    private boolean extensionPointIsLookupClass() {
-        Class<?> lu = lookup.lookupClass();
-        if (!ExtensionPoint.class.isAssignableFrom(lu)) {
-            // Not possible (so not intended).
-            return false;
-        }
-        if (extensionPoint != null && extensionPoint != lu) {
-            // Intended, but also contradicted by extendFrom()
-            throw specError(BOTH_LOOKUP_AND_ANOTHER_EP);
-        }
-        extensionPoint = (Class<? extends ExtensionPoint>)lu;
-        return true;
-    }
-
-    /**
-     * Assign the lookup class to {@link #canonical} if appropriate.
-     *
-     * @return whether the assignment was made
-     */
-    private boolean canonicalIsLookupClass() {
-        Class<?> lu = lookup.lookupClass();
-        if (noCanonical || canonical != null) {
-            // We don't want one or already chose one.
-            return false;
-        }
-        // Lookup class is intended as a representation
-        canonical = lu;
-        return true;
     }
 
     /** Check that {@link #freeze()} has not yet been called. */
@@ -306,70 +284,63 @@ public class TypeSpec {
     public EnumSet<Feature> getFeatures() { return features; }
 
     /**
-     * The class that will be used to represent instances of the Python
-     * type being specified.
+     * The class that will represent the instances of the type being
+     * defined. Methods defined by the type must be able to receive
+     * instances of the specified class as their {@code self} argument.
      * <p>
-     * Passing the special value {@code null} indicates the type has no
-     * canonical representation. (It must be given at last one adopted
-     * representation via {@link #adopt(Class...)}).
+     * The default value is the defining class (obtained from the lookup
+     * object in {@link #TypeSpec(String, Lookup)}), so this method need
+     * not be called in simple cases. It is useful where a class
+     * different from these defaults is the presentation.
      *
-     * @param klass represents instances of the type (or {@code null})
+     * @param klass is the primary representation class of instances
      * @return {@code this}
      */
-    public TypeSpec canonical(Class<?> klass) {
-        if (klass == null) {
-            if (noCanonical) { throw repeatError("canonical(null)"); }
-            noCanonical = true;
-        } else if (canonical != null) {
-            throw repeatError("canonical representation");
-        }
-        this.canonical = klass;
+    public TypeSpec primary(Class<?> klass) {
+        if (primary != null) { throw repeatError("primary class"); }
+        this.primary = klass;
         return this;
     }
 
     /**
-     * Get the canonical class (or {@code null} if there isn't one).
-     *
-     * @return a copy of all the operand classes
-     */
-    public Class<?> getCanonical() { return canonical; }
-
-    /**
-     * The class that will be used to represent instances of Python
-     * subclasses of the Python type being specified (or {@code null}).
-     * This is known as the <i>extension point</i> class.
+     * The class that will be the base (in Java) of classes that
+     * represent the instances subclasses (in Python) of the type being
+     * defined. Methods defined by the type must be able to receive
+     * instances of the specified class as their {@code self} argument.
      * <p>
-     * This class must be acceptable (in Java) as the {@code self}
-     * argument of methods of the base type. In most cases, a
-     * "canonical" Java class has been created (and identified as a
-     * representation), and the extension point class is a sub-class of
-     * it. Another possibility is that the defining class is the
-     * extension point class, and is not a representation. If no
-     * extension point class is specified, no Python subclasses are
-     * possible.
+     * The default value is the same class that is used to represent
+     * instances of the Python type, which in turn defaults to the
+     * defining class, so this method need not be called in simple
+     * cases. It is useful where a class different from these defaults
+     * is the base for subclasses.
      *
-     * @param klass represents Python sub-classes
+     * @param klass is a base for instances of every subclass
      * @return {@code this}
      */
-    public TypeSpec extendAt(Class<? extends ExtensionPoint> klass) {
-        if (this.extensionPoint != null) {
-            throw repeatError("extension point");
-        } else {
-            if (klass != null) { features.add(Feature.BASETYPE); }
-            this.extensionPoint = klass;
+    public TypeSpec canonicalBase(Class<?> klass) {
+        if (canonicalBase != null) {
+            throw repeatError("canonical base class");
         }
+        this.canonicalBase = klass;
         return this;
     }
 
     /**
-     * Get the class that will be used to represent instances of Python
-     * subclasses. See {@link #extendAt(Class)}.
+     * Get the primary representation class This may be {@code null}
+     * before {@link #freeze()} is called.
      *
-     * @return the extending class for the type
+     * @return primary representation class for instances
      */
-    public Class<? extends ExtensionPoint> getExtensionPoint() {
-        return extensionPoint;
-    }
+    public Class<?> getPrimary() { return primary; }
+
+    /**
+     * Get the canonical base class to be the base of representations of
+     * subclasses of this type. This may be {@code null} before
+     * {@link #freeze()} is called.
+     *
+     * @return canonical base for instances of every subclass
+     */
+    public Class<?> getCanonicalBase() { return canonicalBase; }
 
     /**
      * Specify Java classes that must be adopted by the Python type as
@@ -419,7 +390,7 @@ public class TypeSpec {
     /**
      * Specify additional Java classes that must be accepted as
      * {@code self} arguments in methods of the type, in addition to the
-     * canonical and adopted representations. The use for this is with
+     * primary and adopted representations. The use for this is with
      * Python subclasses defined by unrelated Java classes. The only
      * known example is where {@code int} must accepts a Java
      * {@code Boolean} (Python {@code bool}).
@@ -484,6 +455,26 @@ public class TypeSpec {
     public TypeSpec bases(PyType... bases) {
         // checkNotFrozen(); // Covered in base()
         for (PyType b : bases) { base(b); }
+        return this;
+    }
+
+    /**
+     * Specify some variable slots for the type, as if with
+     * {@code __slots__} in a class definition. Successive slots given
+     * are cumulative and ordered.
+     *
+     * @param slotNames to append to the __slots__
+     * @return {@code this}
+     */
+    public TypeSpec slots(String... slotNames) {
+        checkNotFrozen();
+        if (slots == null) { slots = new LinkedList<>(); }
+        for (String name : slotNames) {
+            if (slots.contains(name)) {
+                throw repeatError("slot \"" + name + "\" specified");
+            }
+            slots.add(name);
+        }
         return this;
     }
 
@@ -604,7 +595,7 @@ public class TypeSpec {
      * {@code __rsub__(MyObject, Object)} that coerces its right-hand
      * argument on each call. (This method has to exist to satisfy the
      * Python data model.) The method may be defined in the
-     * {@link #canonical(Class) canonical} class, or
+     * {@link #canonicalBase(Class) canonical base} class, or
      * {@link #methodImpls(Class...) methodImpls}.
      * <p>
      * A separate class is necessary since the method definition for
@@ -636,7 +627,7 @@ public class TypeSpec {
     Class<?> getBinopClass() { return binopClass; }
 
     /**
-     * Get all the operand classes for the type, in order, the canonical
+     * Get all the operand classes for the type, in order, the primary
      * at index 0 (if there is one), followed by adopted and accepted
      * classes.
      *
@@ -672,8 +663,9 @@ public class TypeSpec {
             "both lookup and another class are extension points";
     private static final String EP_NOT_SUBCLASS =
             "extension point not subclass of representation";
-    private static final String NO_CANONICAL_OR_ADOPTED =
-            "no canonical or adopted representation";
+    private static final String CANONICAL_INCONSISTENT = "Canonical base %s inconsistent with primary %s";
+    private static final String NO_PRIMARY_OR_ADOPTED =
+            "no primary or adopted representation";
 
     /**
      * In several places, we have to order a list of classes so that we
@@ -711,13 +703,14 @@ public class TypeSpec {
      * Construct an {@link InterpreterError} along the lines "[err]
      * while defining '[name]'."
      *
-     * @param err qualifying the error
+     * @param err qualifying the error (a format string)
+     * @param args to formatted message
      * @return to throw
      */
-    private InterpreterError specError(String err) {
+    private InterpreterError specError(String err, Object... args) {
         StringBuilder sb = new StringBuilder(100);
-        sb.append(err).append(" while defining '").append(name)
-                .append("'.");
+        sb.append(String.format(err, args)).append(" while defining '")
+                .append(name).append("'.");
         return new InterpreterError(sb.toString());
     }
 
@@ -741,9 +734,8 @@ public class TypeSpec {
      * @return to throw
      */
     private InterpreterError repeatError(String method, Class<?> c) {
-        String msg = String.format("repeat %s(%s) specified", method,
+        return specError("repeat %s(%s) specified", method,
                 c.getTypeName());
-        return specError(msg);
     }
 
 }

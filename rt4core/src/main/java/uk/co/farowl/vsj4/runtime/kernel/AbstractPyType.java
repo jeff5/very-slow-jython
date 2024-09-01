@@ -1,3 +1,5 @@
+// Copyright (c)2024 Jython Developers.
+// Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime.kernel;
 
 import java.lang.invoke.MethodHandles;
@@ -7,7 +9,6 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 import uk.co.farowl.vsj4.runtime.Crafted;
-import uk.co.farowl.vsj4.runtime.ExtensionPoint;
 import uk.co.farowl.vsj4.runtime.PyType;
 import uk.co.farowl.vsj4.support.MissingFeature;
 
@@ -184,8 +185,7 @@ public abstract class AbstractPyType extends Representation
      * {@code MyClass} will be an instance of this class (but
      * {@code Meta} will not).
      */
-    public final class Derived extends PyType
-            implements ExtensionPoint {
+    public final class Derived extends PyType {
 
         // TODO expose as __class__
         private PyType type;
@@ -210,12 +210,10 @@ public abstract class AbstractPyType extends Representation
         @Override
         public PyType getType() { return type; }
 
-        @Override
         public Object getSlot(int i) {
             throw new MissingFeature("metaclass __slots__");
         }
 
-        @Override
         public void setSlot(int i, Object value) {
             throw new MissingFeature("metaclass __slots__");
         }
