@@ -116,3 +116,40 @@ with combinations of bases.
 
 Note the synthetic class visible in the error message.
 
+Creating a Representation
+-------------------------
+
+When we create a type (such as ``float``)
+from a representation (Java) class that we write ourselves,
+the class definition exists first,
+a type specification can be written that refers to it,
+and the specification given to the type factory to
+create a ``Representation`` object and a type object.
+We generally find it convenient to request creation of the type
+during static initialisation of the representation class.
+
+When we execute a class definition in Python,
+execution supplies us with the specification first,
+in the form of the Python bases, a name, a metatype,
+and a few other characteristics (like ``__slots__``).
+From these we can deduce the form of the representation class,
+create or find the class and its ``Representation`` object,
+and create a new type object to reference it.
+We write "create or find the class" because
+when a representation class is needed of the same form as previously,
+we wish to re-use the previous class and ``Representation``,
+not just for efficiency,
+but because the types ought to be mutually replaceable (layout compatible),
+which we only achieve when instances belong to the same Java class.
+
+We hypothesise that ...
+
+The specification of the representation class is deducible from
+the list of Python bases of the type requested,
+by replacing each with its representation (Java) class.
+We then eliminate superclasses and superinterfaces as duplicates,
+leaving an essential core (single) base class and minimal set of interfaces.
+We can use the bse and interfaces,
+the sequence of slot names, and
+the presence of an instace dictionary,
+as a key to look up a prior representation with the same description.

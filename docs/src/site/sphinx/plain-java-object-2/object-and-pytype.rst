@@ -5,6 +5,12 @@
 Instance Models of ``object`` and ``type``
 ******************************************
 
+..  note:: ``object`` now ``SimpleType``, no longer ``AdoptiveType``
+
+..  note:: Check for  ``PyBaseObject``
+
+
+
 We have laid out the basic patterns in the previous section,
 but only some of this territory was explored in ``rt3`` work.
 In ``rt4`` we take the opportunity to adjust even the tested ideas a little.
@@ -152,12 +158,17 @@ a single class in Java.
 In the exampes presented, all the subclasses of ``list``
 are interchangeable in Python
 (even the subclass of a subclass, but not ``list`` itself).
-They all therefore must share the same representation in Java.
-A Java subclass of ``PyList``,
-with ``__dict__`` and an explicit ``type``,
-may be created in advance,
+They all therefore must share the same representation in Java,
+a Java subclass of ``PyList``,
+with ``__dict__`` and an explicit ``type``.
+
+In this simple case of a predictable need,
+the class we need may be created in advance,
 and used for all such Python subclasses of ``list``.
-This prepared class is called ``PyList.Derived``.
+We shall denote this prepared class by ``PyList.Derived``
+on the assumption it can be a nested class of ``PyList``.
+Later we shall find this idea does not stretch to cover all our needs,
+but we work with it for now.
 
 ..  uml::
     :caption: Instance model for simple subclasses of ``list``
@@ -546,50 +557,59 @@ We can represent these objects and types as follows:
 
     object "o : Object" as o
     o .right.> Object.class
-    object " : AdoptedRepresentation" as Object.rep
-    Object.class -right-> Object.rep : registry
 
-    object "object : AdoptiveType" as objectType
-    Object.rep -right- objectType
+    object "object : SimpleType" as objectType
+    Object.class -right-> objectType : registry
 
-    object "a : PyObjectBase" as a {
+    object "a : ObjectBase" as a {
         type = A
         __dict__ = {'x':42}
     }
-    object "a2 : PyObjectBase" as a2 {
+    object "a2 : ObjectBase" as a2 {
         type = A2
         __dict__ = {'y':43}
     }
 
-    object "PyObjectBase : Class" as PyObjectBase.class
+    object "ObjectBase : Class" as ObjectBase.class
 
     object "A : ReplaceableType" as AType
     AType -up-> objectType : base
     object "A2 : ReplaceableType" as A2Type
     A2Type -up-> AType : base
 
-    object " : SharedRepresentation" as PyObjectBase.rep
-    a .right.> PyObjectBase.class
-    a2 .up.> PyObjectBase.class
+    object " : SharedRepresentation" as ObjectBase.rep
+    a .right.> ObjectBase.class
+    a2 .up.> ObjectBase.class
 
-    PyObjectBase.class -right-> PyObjectBase.rep : registry
-    AType -left-> PyObjectBase.rep
-    A2Type --left-> PyObjectBase.rep
+    ObjectBase.class -right-> ObjectBase.rep : registry
+    AType -left-> ObjectBase.rep
+    A2Type --left-> ObjectBase.rep
 
     'a --> AType : type
     'a2 --> A2Type : type
 
-Notice that the Java class of ``a`` and ``a2`` is the same ``PyObjectBase``,
-that is, the have the same representation,
+Notice that the Java class of ``a`` and ``a2`` is the same ``ObjectBase``,
+that is, they have the same representation and therefore
+the same ``Representation`` object,
 an instance of ``SharedRepresentation``.
-Imagine we pick up either of these and ask its Python type:
+This is another prepared representation like ``PyList.Derived`` above.
+There is a PyObjectBase in CPython with similar function.
+Nevertheless,
+we remind the reader that this approach proves insufficient later.
+
+Imagine we pick up either ``a`` or ``a2`` and ask its Python type:
 the class leads us to the same representation,
 from which there is no navigation to ``A`` or ``A2``.
 However, ``SharedRepresentation.pythonType(Object o)``
 consults the argument for its actual type.
 
 The Java class of ``o`` is simply ``Object``,
-which is the (single) adopted representation of ``object``.
+which is the (single) representation of ``object``.
+We might think that object should therefore be an ``AdoptiveType``,
+since it is a pre-existing (not crafted) implementation,
+and it is the base of all classes in Java (not ``final``)
+we are able to nominate it the primary of a ``SimpleType``.
+
 
 
 Type Objects for ``type``
@@ -613,7 +633,7 @@ because each of them represents an instance of the ``type`` type.
 
     object "list : SimpleType" as listType
     object "A : ReplaceableType" as AType
-    object "object : AdoptiveType" as objectType
+    object "float : AdoptiveType" as floatType
 
     object "PyType : Class" as PyType.class
     object "SimpleType : Class" as SimpleType.class
@@ -622,7 +642,7 @@ because each of them represents an instance of the ``type`` type.
 
     listType ..> SimpleType.class
     AType ..> ReplaceableType.class
-    objectType ..> AdoptiveType.class
+    floatType ..> AdoptiveType.class
 
     object "type : SimpleType" as type {
         name = "type"
@@ -1293,36 +1313,44 @@ Here they are and some further examples in summary form.
     :widths: auto
 
     * - Type
-      - Style
-      - Representations
+      - Primary
+      - Adopted
+      - Canonical Base
 
     * - ``object``
-      - adoptive
+      - ``Object``
+      -
       - ``Object``
 
     * - ``type``
-      - simple
       - ``PyType``
+      -
+      - ``SimpleType``
 
     * - ``list``
-      - simple
+      - ``PyList``
+      -
       - ``PyList``
 
     * - ``str``
-      - adoptive
-      - ``PyUnicode``, ``String``, ``Character``
+      - ``PyUnicode``
+      - ``String``, ``Character``
+      - ``PyUnicode``
 
     * - ``int``
-      - adoptive
-      - ``PyLong``, ``BigInteger``, ``Long``, ``Integer``, ``Short``, ``Byte``
+      - ``PyLong``
+      - ``Integer``, ``BigInteger``, ``Long``, ``Short``, ``Byte``
+      - ``PyLong``
 
     * - ``float``
-      - adoptive
-      - ``PyFloat``, ``Double``, ``Float``
+      - ``PyFloat``
+      - ``Double``, ``Float``
+      - ``PyFloat``
 
     * - ``bool``
-      - adoptive
-      - ``Boolean`` (final)
+      - ``Boolean``
+      - ``Boolean``
+      - (final)
 
 When we define a new class in Python, it has one or more bases,
 all of them specified as Python type objects.
