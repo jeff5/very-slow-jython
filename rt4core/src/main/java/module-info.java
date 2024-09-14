@@ -7,4 +7,6 @@ module uk.co.farowl.rt4core {
     exports uk.co.farowl.vsj4.support;
 
     requires transitive org.slf4j;
+    requires org.objectweb.asm;
+    requires org.objectweb.asm.tree;
 }

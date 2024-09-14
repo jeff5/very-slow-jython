@@ -6,7 +6,7 @@ package uk.co.farowl.vsj4.runtime;
  * A base class for Python singletons {@code None},
  * {@code NotImplemented}, {@code ...}.
  */
-abstract class Singleton implements Crafted {
+abstract class Singleton implements WithClass {
 
     /** The Python type of the object implemented. */
     private final PyType type;

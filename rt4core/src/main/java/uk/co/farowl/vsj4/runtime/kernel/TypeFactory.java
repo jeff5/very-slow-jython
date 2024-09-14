@@ -17,7 +17,7 @@ import java.util.function.Supplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import uk.co.farowl.vsj4.runtime.Crafted;
+import uk.co.farowl.vsj4.runtime.WithClass;
 import uk.co.farowl.vsj4.runtime.PyFloat;
 import uk.co.farowl.vsj4.runtime.PyType;
 import uk.co.farowl.vsj4.runtime.TypeSpec;
@@ -300,7 +300,7 @@ public class TypeFactory {
          * The argument {@code c} is a class that has been statically
          * initialised.
          * <p>
-         * If {@code c} implements {@code Crafted}, and some superclass
+         * If {@code c} implements {@code WithClass}, and some superclass
          * of {@code c} is already registered (in the published or
          * unpublished map), the same {@link Representation} will be
          * registered for {@code c} also in the unpublished map.
@@ -313,7 +313,7 @@ public class TypeFactory {
          * {@code c}, or any superclass up to {@code d}, returns the
          * same {@code Representation} as for {@code d}.
          * <p>
-         * In anomalous cases, {@code c} implements {@code Crafted}
+         * In anomalous cases, {@code c} implements {@code WithClass}
          * without extending a registered representation. This is not
          * necessarily an error. The method will return {@code null},
          * and no registration will occur.
@@ -324,7 +324,7 @@ public class TypeFactory {
         Representation resolve(Class<?> c) {
             Representation r;
             if ((r = find(c)) == null) {
-                if (Crafted.class.isAssignableFrom(c)) {
+                if (WithClass.class.isAssignableFrom(c)) {
                     // c may be a crafted type that inherits r
                     if ((r = resolve(c.getSuperclass())) != null) {
                         workshop.unpublished.put(c, r);

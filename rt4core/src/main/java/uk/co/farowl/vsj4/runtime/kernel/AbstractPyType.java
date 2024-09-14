@@ -8,7 +8,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-import uk.co.farowl.vsj4.runtime.Crafted;
+import uk.co.farowl.vsj4.runtime.WithClass;
 import uk.co.farowl.vsj4.runtime.PyType;
 import uk.co.farowl.vsj4.support.MissingFeature;
 
@@ -21,7 +21,7 @@ import uk.co.farowl.vsj4.support.MissingFeature;
  * itself.
  */
 public abstract class AbstractPyType extends Representation
-        implements Crafted {
+        implements WithClass {
 
     /** Name of the type (fully-qualified). */
     final String name;

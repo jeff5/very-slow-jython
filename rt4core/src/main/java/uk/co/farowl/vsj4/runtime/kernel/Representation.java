@@ -10,7 +10,7 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.invoke.MethodType;
 
-import uk.co.farowl.vsj4.runtime.Crafted;
+import uk.co.farowl.vsj4.runtime.WithClass;
 import uk.co.farowl.vsj4.runtime.PyType;
 import uk.co.farowl.vsj4.support.InterpreterError;
 
@@ -190,7 +190,7 @@ public abstract class Representation {
                 // getType = λ x : x.getType()
                 // .type() = (Object)PyType
                 getType = LOOKUP
-                        .findVirtual(Crafted.class, "getType",
+                        .findVirtual(WithClass.class, "getType",
                                 MethodType.methodType(T))
                         .asType(MethodType.methodType(T, O));
             } catch (NoSuchMethodException | IllegalAccessException e) {
@@ -217,7 +217,7 @@ public abstract class Representation {
 
         @Override
         public PyType pythonType(Object x) {
-            if (x instanceof Crafted c)
+            if (x instanceof WithClass c)
                 return c.getType();
             else {
                 String msg = String.format(

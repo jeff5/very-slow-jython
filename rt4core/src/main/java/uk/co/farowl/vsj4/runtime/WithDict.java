@@ -1,14 +1,18 @@
+// Copyright (c)2024 Jython Developers.
+// Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
 
 import java.util.Map;
 
 /**
- * A Python object where objects have an explicit dictionary (that is
- * not necessarily a Python {@code dict} or directly writable). A
- * {@code type} object, for example, implements {@link #getDict()} to
- * return only an unmodifiable view of its dictionary.
+ * An instance of a class implementing {@code WithClass} possesses a
+ * dictionary, generally exposed as a {@code __dict__} attribute. The
+ * dictionary is not necessarily a Python {@code dict} or directly
+ * writable. (A {@code type} object, for example, implements
+ * {@link #getDict()} to return only an unmodifiable view of its
+ * dictionary.) See also {@link WithDictAssignment}.
  */
-public interface WithDict extends Crafted {
+public interface WithDict extends WithClass {
     /**
      * The instance dictionary. This is not necessarily a Python
      * {@code dict}, and may not be directly writable. Some implementing
@@ -17,5 +21,6 @@ public interface WithDict extends Crafted {
      *
      * @return instance dictionary
      */
+    // @Exposed.Get(name="__dict__")
     Map<Object, Object> getDict();
 }

@@ -19,7 +19,8 @@ repositories {
 
 dependencies {
     // We generate byte code with ASM
-    //implementation 'org.ow2.asm:asm:9.7'
+    implementation 'org.ow2.asm:asm:9.7'
+    implementation 'org.ow2.asm:asm-tree:9.7'
     // We standardise on SLF4J for logging from the library
     implementation 'org.slf4j:slf4j-api:2.0.13'
 }
@@ -28,14 +29,29 @@ dependencies {
 // Configure the jvm-test-suite plug-in
 testing {
     suites {
+        // The pre-defined test suite.
         test {
             useJUnitJupiter()
             dependencies {
                 // Include a logging provider (JDK 1.4)
                 runtimeOnly 'org.slf4j:slf4j-jdk14:2.0.13'
             }
+
+            targets {
+                all {
+                    testTask.configure {
+                        // Log output will show when kernel is re-used
+                        systemProperty(
+                            'java.util.logging.config.file',
+                            getProject().file('config/test.logging.properties') )
+                        testLogging.showStandardStreams = true
+                    }
+                }
+            }
         }
-        /* A test suite where each test runs in its own JVM.
+
+        /*
+         * A test suite where each test runs in its own JVM.
          * We follow the Gradle 8.8 notes on the JVM Test Suite Plugin.
          * and the example of configuring integration tests.
          */

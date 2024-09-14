@@ -21,16 +21,10 @@ import uk.co.farowl.vsj4.support.InterpreterError;
  * fluent interface makes this configuration readable as a single long
  * statement.
  */
-public class TypeSpec {
+public class TypeSpec extends NamedSpec {
 
     /** If {@code true}, accept no further specification actions. */
     private boolean frozen = false;
-
-    /**
-     * Name of the class being specified. It may begin with the dotted
-     * package name.
-     */
-    final String name;
 
     /** Delegated authorisation to resolve names. */
     private final Lookup lookup;
@@ -134,7 +128,8 @@ public class TypeSpec {
     /**
      * Create (begin) a specification for a Python {@code type}. This is
      * the beginning normally made by built-in classes in their static
-     * initialisation.
+     * initialisation. The name of the class being specified may begin
+     * with the dotted (Python) package name.
      * <p>
      * The caller supplies a {@link Lookup} object which must grant
      * sufficient access to implementing class(es), for fields and
@@ -143,7 +138,6 @@ public class TypeSpec {
      * single Java class that represents the Python type and defines its
      * methods.
      * <p>
-     *
      * {@link PyType#fromSpec(TypeSpec)} will interrogate the
      * implementation class reflectively to discover attributes the type
      * should have, and will form type dictionary entries with
@@ -161,11 +155,11 @@ public class TypeSpec {
      * the lookup classes (see {code Lookup.lookupClass()}) to be
      * different from the caller. Usually they are the same.
      *
-     * @param name of the type
+     * @param name of the type being specified (may be dotted name)
      * @param lookup authorisation to access {@code implClass}
      */
     public TypeSpec(String name, Lookup lookup) {
-        this.name = name;
+        super(name);
         this.lookup = lookup;
         methodImpls.add(lookup.lookupClass());
     }
@@ -178,6 +172,7 @@ public class TypeSpec {
      * @return {@code this}
      * @throws InterpreterError if inconsistent in some way
      */
+    @Override
     public TypeSpec freeze() throws InterpreterError {
         /*
          * If we are not frozen yet, it means we have yet to finalise
@@ -219,8 +214,7 @@ public class TypeSpec {
             int adoptedIndex = 0, acceptedIndex = 0;
             if (primary != null) {
                 // It is ok for the first adopted to be canonical.
-                if (adopted.isEmpty()
-                        || adopted.get(0) != primary) {
+                if (adopted.isEmpty() || adopted.get(0) != primary) {
                     classes.add(primary);
                     adoptedIndex = acceptedIndex = 1;
                 }
@@ -261,18 +255,14 @@ public class TypeSpec {
         return this;
     }
 
-    /** Check that {@link #freeze()} has not yet been called. */
-    private void checkNotFrozen() {
-        if (frozen) { specError("specification changed after frozen"); }
-    }
-
     /**
      * Name of the class being specified. It may begin with the dotted
      * package name.
      *
      * @return name specified for the type.
      */
-    public String getName() { return name; }
+    @Override
+    public String getName() { return super.getName(); }
 
     /**
      * Get the type features specified with {@link #add(Feature)}.
@@ -371,8 +361,7 @@ public class TypeSpec {
         if (adopted == EMPTY) { adopted = new LinkedList<>(); }
         for (Class<?> c : classes) {
             if (orderedAdd(adopted, c) == false) {
-                throw repeatError(
-                        "duplicate adopt(" + c.getTypeName() + ")");
+                throw repeatError("adopt", c);
             }
         }
         return this;
@@ -439,7 +428,7 @@ public class TypeSpec {
         if (base == null) {
             throw specError("base type is null (not yet created?)");
         } else if (bases.indexOf(base) >= 0) {
-            throw repeatError("base " + base.getName());
+            throw repeatError("base", base.getName());
         }
         bases.add(base);
         return this;
@@ -471,7 +460,7 @@ public class TypeSpec {
         if (slots == null) { slots = new LinkedList<>(); }
         for (String name : slotNames) {
             if (slots.contains(name)) {
-                throw repeatError("slot \"" + name + "\" specified");
+                throw repeatError("slot", name);
             }
             slots.add(name);
         }
@@ -663,7 +652,8 @@ public class TypeSpec {
             "both lookup and another class are extension points";
     private static final String EP_NOT_SUBCLASS =
             "extension point not subclass of representation";
-    private static final String CANONICAL_INCONSISTENT = "Canonical base %s inconsistent with primary %s";
+    private static final String CANONICAL_INCONSISTENT =
+            "Canonical base %s inconsistent with primary %s";
     private static final String NO_PRIMARY_OR_ADOPTED =
             "no primary or adopted representation";
 
@@ -698,44 +688,4 @@ public class TypeSpec {
         i.add(c);
         return true;
     }
-
-    /**
-     * Construct an {@link InterpreterError} along the lines "[err]
-     * while defining '[name]'."
-     *
-     * @param err qualifying the error (a format string)
-     * @param args to formatted message
-     * @return to throw
-     */
-    private InterpreterError specError(String err, Object... args) {
-        StringBuilder sb = new StringBuilder(100);
-        sb.append(String.format(err, args)).append(" while defining '")
-                .append(name).append("'.");
-        return new InterpreterError(sb.toString());
-    }
-
-    /**
-     * Construct an {@link InterpreterError} along the lines "repeat
-     * [err] while defining '[name]'."
-     *
-     * @param thing qualifying the error
-     * @return to throw
-     */
-    private InterpreterError repeatError(String thing) {
-        return specError("repeat " + thing + "specified");
-    }
-
-    /**
-     * Construct an {@link InterpreterError} along the lines "repeat
-     * [method]([c]) while defining '[name]'."
-     *
-     * @param method naming the method called
-     * @param c the class being added
-     * @return to throw
-     */
-    private InterpreterError repeatError(String method, Class<?> c) {
-        return specError("repeat %s(%s) specified", method,
-                c.getTypeName());
-    }
-
 }

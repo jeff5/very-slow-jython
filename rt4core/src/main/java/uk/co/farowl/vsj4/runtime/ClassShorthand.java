@@ -13,5 +13,5 @@ public interface ClassShorthand extends JavaClassShorthand {
     /** Shorthand for {@code PyTuple.class}. */
     //static final Class<PyTuple> TUPLE = PyTuple.class;
     /** Shorthand for {@code PyDict.class}. */
-    //static final Class<PyDict> DICT = PyDict.class;
+    static final Class<PyDict> DICT = PyDict.class;
 }
