@@ -1,5 +1,6 @@
 package uk.co.farowl.vsj4.runtime.kernel;
 
+import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
@@ -23,22 +24,24 @@ import uk.co.farowl.vsj4.runtime.NamedSpec;
  * {@code TypeFactory}, and only after that fails, to read it to create
  * the {@code Class} and {@code Representation}.
  */
-class RepresentationSpec extends NamedSpec {
+class RepresentationSpec extends NamedSpec implements Cloneable {
 
     /** Base class the representation {@code extends}. */
     private final Class<?> base;
     /** Interfaces the representation {@code implements}. */
-    private final List<Class<?>> interfaces =
-            new LinkedList<Class<?>>();
-    /** Names of slots to be added as members or {@code null}. */
-    private List<String> slots;
+    private List<Class<?>> interfaces = EMPTY;
+    /** Names of slots to be added as members or {@link #NONAMES}. */
+    private List<String> slots = NONAMES;
     /** Whether to create a __dict__ member. */
     private boolean hasDict;
 
     /**
-     * Create (or begin) a specification.
+     * Create (or begin) a specification. Note that the name given here
+     * is provisional, reflecting the Python class (and useful for error
+     * messages). The name of the Java class created according to the
+     * specification will be different.
      *
-     * @param name Simple name of the representation class.
+     * @param name provisional name of the representation class.
      * @param base the representation {@code extends}.
      */
     RepresentationSpec(String name, Class<?> base) {
@@ -56,11 +59,14 @@ class RepresentationSpec extends NamedSpec {
             // Prevent further change to the specification.
             frozen = true;
 
-            if (slots == null) {
-                // No __slots__ => __dict__. (Not the converse.)
+            if (slots == NONAMES) {
+                // No slots => __dict__. (Not the converse.)
                 hasDict = true;
+                slots = List.of();
             } else {
-                // We have slots. Freeze the list.
+                // May or may not have a dictionary.
+                // We have slots. Sort and freeze the list.
+                Collections.sort(slots);
                 slots = Collections.unmodifiableList(slots);
             }
         }
@@ -73,14 +79,6 @@ class RepresentationSpec extends NamedSpec {
      * @return class the representation {@code extends}
      */
     Class<?> getBase() { return base; }
-
-    /**
-     * Return the class the representation {@code extends}, as a string
-     * in the internal form used by the JVM (see JVMS section 4.2).
-     *
-     * @return class the representation {@code extends}
-     */
-    String getBaseName() { return internalName(base); }
 
     /**
      * Set the name of the class being created.
@@ -102,12 +100,14 @@ class RepresentationSpec extends NamedSpec {
      */
     RepresentationSpec addInterface(Class<?> iface) {
         checkNotFrozen();
-        if (interfaces.indexOf(iface) >= 0) {
-            throw repeatError("addInterface", iface);
-        } else if (!iface.isInterface()) {
+        if (!iface.isInterface()) {
             String msg = String.format("%s is not an interface",
                     iface.getTypeName());
             throw specError(msg);
+        } else if (interfaces == EMPTY) {
+            interfaces = new LinkedList<Class<?>>();
+        } else if (interfaces.indexOf(iface) >= 0) {
+            throw repeatError("addInterface", iface);
         }
         this.interfaces.add(iface);
         return this;
@@ -119,9 +119,19 @@ class RepresentationSpec extends NamedSpec {
      * @param ifaces new interfaces
      * @return {@code this}
      */
-    RepresentationSpec addInterfaces(Class<?>... ifaces) {
+    RepresentationSpec addInterfaces(Collection<Class<?>> ifaces) {
         for (Class<?> iface : ifaces) { addInterface(iface); }
         return this;
+    }
+
+    /**
+     * Add multiple interfaces (guarding against repetition).
+     *
+     * @param ifaces new interfaces
+     * @return {@code this}
+     */
+    RepresentationSpec addInterfaces(Class<?>... ifaces) {
+        return addInterfaces(List.of(ifaces));
     }
 
     /**
@@ -132,36 +142,35 @@ class RepresentationSpec extends NamedSpec {
     List<Class<?>> getInterfaces() { return interfaces; }
 
     /**
-     * Return list of interfaces the representation {@code implements},
-     * as strings in the internal form used by the JVM (see JVMS section
-     * 4.2).
-     *
-     * @return interfaces the representation {@code implements}
-     */
-    String[] getInterfaceNames() {
-        String[] names = new String[interfaces.size()];
-        int i = 0;
-        for (Class<?> iface : interfaces) {
-            names[i++] = internalName(iface);
-        }
-        assert i == names.length;
-        return names;
-    }
-
-    /**
-     * Add one named slot (guarding against repetition).
+     * Add one named slot (guarding against repetition). If a
+     * specification is created and no slots added before it is used,
+     * that is implicitly a request to add a dictionary.
      *
      * @param slotName new slot
      * @return {@code this}
      */
     RepresentationSpec addSlot(String slotName) {
         checkNotFrozen();
-        if (slots == null) {
+        if (slots == NONAMES) {
             slots = new LinkedList<>();
         } else if (slots.indexOf(slotName) >= 0) {
             throw repeatError("addSlot", "slotName");
         }
         this.slots.add(slotName);
+        return this;
+    }
+
+    /**
+     * Add multiple named slots (guarding against repetition). Note that
+     * An empty collection still counts as defining {@code __slots__}.
+     *
+     * @param slots new slot names
+     * @return {@code this}
+     */
+    RepresentationSpec addSlots(Collection<String> slots) {
+        // An empty collection still counts as defining __slots__
+        if (slots == NONAMES) { slots = new LinkedList<>(); }
+        for (String slot : slots) { addSlot(slot); }
         return this;
     }
 
@@ -172,22 +181,13 @@ class RepresentationSpec extends NamedSpec {
      * @return {@code this}
      */
     RepresentationSpec addSlots(String... slots) {
-        for (String slot : slots) { addSlot(slot); }
-        return this;
+        return addSlots(List.of(slots));
     }
 
     /**
-     * Whether to create a {@code __dict__} member.
+     * Return names of {@code __slots__} to be added as members.
      *
-     * @return whether to create a {@code __dict__}
-     */
-    boolean hasSlots() { return slots!=null; }
-
-    /**
-     * Return names of {@code __slots__} to be added as members or
-     * {@code null}.
-     *
-     * @return names of {@code __slots__} to be added or {@code null}
+     * @return names of {@code __slots__} to be added
      */
     List<String> getSlots() { return slots; }
 
@@ -217,34 +217,67 @@ class RepresentationSpec extends NamedSpec {
      */
     boolean hasDict() { return hasDict; }
 
-    /**
-     * Name of class in internal form (JVMS section 4.2), which is the
-     * form we need for ASM.
-     *
-     * @param c to interrogate
-     * @return internal form of name
-     */
-    private static String internalName(Class<?> c) {
-        return c.getName().replace('.', '/');
-    }
-
     @Override
     public String toString() {
         StringBuilder b = new StringBuilder();
         b.append(name);
         b.append(" extends ").append(base.getSimpleName());
-        if (!interfaces.isEmpty()) {
+        if (interfaces != EMPTY) {
             StringJoiner sj =
                     new StringJoiner(", ", " implements ", " ");
             for (Class<?> c : interfaces) { sj.add(c.getSimpleName()); }
             b.append(sj.toString());
         }
-        if (hasSlots()) {
-            StringJoiner sj = new StringJoiner(", ", " (", ") ");
-            for (String s : slots) { sj.add(s); }
-            b.append(" slots =").append(sj.toString());
-        }
         if (hasDict()) { b.append(" +dict"); }
+        if (slots != NONAMES) {
+            StringJoiner sj = new StringJoiner(", ", " +slots(", ") ");
+            for (String s : slots) { sj.add(s); }
+            b.append(sj.toString());
+        }
         return b.toString();
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        freeze();
+        if (obj instanceof RepresentationSpec r) {
+            r.freeze();
+            if (getBase() != r.getBase()) { return false; }
+            if (hasDict() != r.hasDict()) { return false; }
+            if (!getSlots().equals(r.getSlots())) { return false; }
+            if (!getInterfaces().equals(r.getInterfaces())) {
+                return false;
+            }
+            return true;
+        }
+        return false;
+    }
+
+    @Override
+    public int hashCode() {
+        freeze();
+        int h = getBase().hashCode();
+        if (hasDict()) { h *= 9; }
+        // Need not hash hasSlots().
+        for (String s : getSlots()) { h += s.hashCode(); }
+        for (Class<?> i : getInterfaces()) { h += i.hashCode(); }
+        return h;
+    }
+
+    @Override
+    public RepresentationSpec clone() {
+        RepresentationSpec spec = new RepresentationSpec(name, base);
+        if (interfaces != EMPTY) { spec.addInterfaces(interfaces); }
+        if (slots != NONAMES) { spec.addSlots(slots); }
+        spec.hasDict = hasDict;
+        if (frozen) {
+            /*
+             * Slightly tricky, however the changes wrought by freeze()
+             * should only compute missing values and not change the
+             * membership of any lists.
+             */
+            spec.freeze();
+        }
+        return spec;
     }
 }

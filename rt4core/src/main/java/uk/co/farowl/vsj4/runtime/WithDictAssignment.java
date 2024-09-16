@@ -37,7 +37,7 @@ public interface WithDictAssignment extends WithDict {
 
     /**
      * Called during {@code __dict__} assignment (that is, during the
-     * implementation of {@link #setType(Object)}) to check that the
+     * implementation of {@link #setDict(Object)}) to check that the
      * object being assigned is acceptable. It is only acceptable if the
      * representation class of the new type is exactly that of the
      * caller. The declared type of {@code type} is {@code Object} to

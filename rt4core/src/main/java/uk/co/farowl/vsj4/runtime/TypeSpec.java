@@ -647,7 +647,6 @@ public class TypeSpec extends NamedSpec {
                 lookup.lookupClass().getSimpleName());
     }
 
-    private static List<Class<?>> EMPTY = Collections.emptyList();
     private static final String BOTH_LOOKUP_AND_ANOTHER_EP =
             "both lookup and another class are extension points";
     private static final String EP_NOT_SUBCLASS =

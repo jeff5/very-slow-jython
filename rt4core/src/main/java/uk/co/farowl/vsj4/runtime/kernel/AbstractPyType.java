@@ -94,6 +94,7 @@ public abstract class AbstractPyType extends Representation
         this.dict = Collections.unmodifiableMap(this._dict);
     }
 
+    @Override
     public PyType getType() { return PyType.TYPE; }
 
     /**
@@ -173,54 +174,4 @@ public abstract class AbstractPyType extends Representation
     /** Lookup object with package visibility. */
     static Lookup LOOKUP =
             MethodHandles.lookup().dropLookupMode(Lookup.PRIVATE);
-
-    /**
-     * Extension point class for {@link PyType}. <i>Instances</i> (in
-     * Java) of this class represent {@code instances} (in Python) of a
-     * metaclass. Given the program text: <pre>
-     * class Meta(type): pass
-     * class MyClass(metaclass=Meta): pass
-     * </pre>
-     * <p>
-     * {@code MyClass} will be an instance of this class (but
-     * {@code Meta} will not).
-     */
-    public final class Derived extends PyType {
-
-        // TODO expose as __class__
-        private PyType type;
-
-        /**
-         * Construct an instance of a proper subclass of {@code type}.
-         * This is the constructor that creates a type object
-         * representing a class defined with the {@code metaclass}
-         * keyword argument, which becomes the actual type of this type.
-         *
-         * @param metaclass actual Python type of this {@code type}
-         *     object (a proper subclass of {@code type})
-         * @param name of the type (fully qualified)
-         * @param javaType implementing Python instances of the type
-         * @param bases of the new type
-         */
-        protected Derived(PyType metaclass, String name,
-                Class<?> javaType, PyType[] bases) {
-            super(name, javaType, bases);
-        }
-
-        @Override
-        public PyType getType() { return type; }
-
-        public Object getSlot(int i) {
-            throw new MissingFeature("metaclass __slots__");
-        }
-
-        public void setSlot(int i, Object value) {
-            throw new MissingFeature("metaclass __slots__");
-        }
-
-        @Override
-        public PyType pythonType(Object x) {
-            throw new MissingFeature("metaclass pythonType()");
-        }
-    }
 }

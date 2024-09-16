@@ -4,10 +4,10 @@ package uk.co.farowl.vsj4.runtime.kernel;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
-import java.util.Map;
 
 import uk.co.farowl.vsj4.runtime.PyBaseObject;
 import uk.co.farowl.vsj4.runtime.PyType;
+import uk.co.farowl.vsj4.runtime.WithClass;
 
 /**
  * The Python {@code object} type and its subclasses are implemented by
@@ -16,7 +16,7 @@ import uk.co.farowl.vsj4.runtime.PyType;
  * intend to expose as API from {@link PyBaseObject} itself.
  */
 // Compare CPython PyBaseObject_Type in typeobject.c
-public abstract class AbstractPyBaseObject {
+public abstract class AbstractPyBaseObject implements WithClass {
 
     // TODO expose as __class__
     private PyType type;
@@ -34,6 +34,7 @@ public abstract class AbstractPyBaseObject {
         this.type = type;
     }
 
+    @Override
     public PyType getType() {
         return type;
     }

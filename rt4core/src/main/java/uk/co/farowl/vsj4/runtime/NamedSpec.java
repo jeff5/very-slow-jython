@@ -1,11 +1,19 @@
 package uk.co.farowl.vsj4.runtime;
 
+import java.util.List;
+
 import uk.co.farowl.vsj4.support.InterpreterError;
 
 /**
- * Some logic common to {@link RepresentationSpec} and {@link TypeSpec}.
+ * Some logic common to specifications for the Python types and Java
+ * representation classes.
  */
 public abstract class NamedSpec {
+
+    /** Unmodifiable empty list. */
+    protected static final List<Class<?>> EMPTY = List.of();
+    /** Unmodifiable empty list. */
+    protected static final List<String> NONAMES = List.of();
 
     /** Simple name of the representation class. */
     protected String name;
@@ -27,7 +35,10 @@ public abstract class NamedSpec {
      */
     protected NamedSpec(String name) { this.name = name; }
 
-    /** Return name specified to constructor. */
+    /** Return name specified to constructor.
+     *
+     * @return name of specified object
+     */
     public String getName() {
         return name;
     }

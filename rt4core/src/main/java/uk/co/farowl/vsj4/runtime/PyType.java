@@ -8,7 +8,6 @@ import java.lang.invoke.MethodHandles.Lookup;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import uk.co.farowl.vsj4.runtime.kernel.AbstractPyBaseObject;
 import uk.co.farowl.vsj4.runtime.kernel.AbstractPyType;
 import uk.co.farowl.vsj4.runtime.kernel.AdoptiveType;
 import uk.co.farowl.vsj4.runtime.kernel.ReplaceableType;
@@ -27,37 +26,13 @@ import uk.co.farowl.vsj4.support.InterpreterError;
  * {@code type}, {@code str}, {@code int}, etc. and any class defined in
  * Python, are instances in Java of a subclass of {@code PyType}.
  * <p>
- * A particular Java subclass of {@code PyType}, implementing
- * {@link ExtensionPoint}, is used to represent those types that are
- * instances of Python subclasses of {@code type} (known as
- * <i>metaclasses</i>). Given the program text: <pre>
- * class Meta(type): pass
- * class MyClass(metaclass=Meta): pass
- * mc = MyClass()
- * </pre>
- * <p>
- * The following will be the implementation types of the objects
- * defined:
- * <ul>
- * <li>{@code Meta} will be an instance in Java of
- * {@link ReplaceableType}, a subclass of {@code PyType} that is not an
- * extension point class.</li>
- * <li>{@code MyClass} will be an instance in Java of
- * {@link AbstractPyType.Derived}, a subclass of {@code PyType}
- * implementing {@link ExtensionPoint}.</li>
- * <li>{@code mc} will be an instance in Java of
- * {@link AbstractPyBaseObject}, a subclass of {@code Object}
- * implementing {@link ExtensionPoint}.</li>
- * </ul>
- * <p>
  * {@code PyType} also offers type object lookup and creation methods,
  * for example {@link PyType#fromSpec(TypeSpec)}. For this purpose it
  * holds the single static instance of the Python type factory, which
  * comes into being upon first use of the {@code PyType} class.
  */
 public abstract sealed class PyType extends AbstractPyType
-        permits SimpleType, ReplaceableType, AdoptiveType,
-        AbstractPyType.Derived {
+        permits SimpleType, ReplaceableType, AdoptiveType {
 
     /** Logger for (the public face of) the type system. */
     static final Logger logger = LoggerFactory.getLogger(PyType.class);

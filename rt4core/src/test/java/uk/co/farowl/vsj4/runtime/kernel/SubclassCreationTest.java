@@ -8,37 +8,31 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.OutputStream;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.StringJoiner;
 import java.util.stream.Stream;
 
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
 import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.Order;
-import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import uk.co.farowl.vsj4.runtime.PyBaseObject;
 import uk.co.farowl.vsj4.runtime.PyDict;
 import uk.co.farowl.vsj4.runtime.PyFloat;
 import uk.co.farowl.vsj4.runtime.PyType;
-import uk.co.farowl.vsj4.runtime.TypeSpec;
 import uk.co.farowl.vsj4.runtime.WithClassAssignment;
 import uk.co.farowl.vsj4.runtime.WithDict;
 import uk.co.farowl.vsj4.runtime.WithDictAssignment;
-import uk.co.farowl.vsj4.runtime.WithSlots;
 
 /**
  * This is a test of a process behind class definition in Python. The
@@ -63,7 +57,7 @@ import uk.co.farowl.vsj4.runtime.WithSlots;
  * representation class, and any additional characteristics of the type
  * object.
  */
-@DisplayName("A Python subclass ...")
+@DisplayName("A Java representation of a Python class ...")
 class SubclassCreationTest {
 
     /**
@@ -76,104 +70,128 @@ class SubclassCreationTest {
                     .replace(".kernel", ".subclasses"),
             "TEST$%s$%d");
 
-    /** {@code ClassLoader} for the tests. */
-    // XXX Not really sure where this comes from IRL.
-    static class TestClassLoader extends ClassLoader {
-        public Class<?> defineClass(byte[] b) {
-            return defineClass(null, b, 0, b.length);
-        }
+    /**
+     * Provide a stream of examples as parameter sets to the tests.
+     *
+     * @return the examples for representation tests.
+     */
+    static Stream<Arguments> specExamples() {
+        return Stream.of(//
+                // No bases no slots
+                subclassExample(HCD_O.class, "O"), //
+                // Simple base, no slots
+                subclassExample(HCD_F.class, "F", PyFloat.TYPE), //
+                // No bases, slots
+                subclassExample(HCS_Oa.class, "Oa", List.of(),
+                        List.of("a")), //
+                // Simple base, slots
+                subclassExample(HCS_Fabc.class, "Fabc", PyFloat.TYPE,
+                        List.of("c", "a", "b")) //
+        );
     }
 
-    /** {@code ClassLoader} for the tests. */
-    static final TestClassLoader LOADER = new TestClassLoader();
+    /**
+     * Construct parameters for a test of subclass creation, with the
+     * implied Python base {@code object}, no {@code __slots__} and an
+     * instance dictionary. The reference result is expressed through a
+     * hand-crafted class.
+     *
+     * @param refClass the reference result
+     * @param name of the Python type to create
+     * @return parameters for the test
+     */
+    private static Arguments subclassExample(Class<?> refClass,
+            String name) {
+        return subclassExample(refClass, name, List.of());
+    }
 
     /**
-     * Base of tests that create and compare Java representations of
-     * Python subclasses.
+     * Construct parameters for a test of subclass creation, with a
+     * single Python base, {@code __slots__} and no instance dictionary.
+     * The reference result is expressed through a hand-crafted class.
+     *
+     * @param refClass the reference result
+     * @param name of the Python type to create
+     * @param base (single) of the Python type or {@code null}
+     * @param slots {@code __slots__} or {@code null}
+     * @return parameters for the test
      */
-    abstract static class AbstractSubclassTest {
-        /**
-         * Provide a stream of examples as parameter sets to the tests.
-         *
-         * @return the examples for representation tests.
-         */
-        static Stream<Arguments> dictExamples() {
-            return Stream.of(//
-                    // No bases no slots
-                    subclassExample(HCD_O.class, "O1"), //
-                    subclassExample(HCD_O.class, "O2"), //
-                    subclassExample(HCD_F.class, "F1", PyFloat.TYPE) //
-            );
+    private static Arguments subclassExample(Class<?> refClass,
+            String name, PyType base, List<String> slots) {
+        if (base == null) { base = PyBaseObject.TYPE; }
+        return subclassExample(refClass, name, List.of(base), slots);
+    }
+
+    /**
+     * Construct parameters for a test of subclass creation, with a
+     * single Python base, no {@code __slots__} and an instance
+     * dictionary. The reference result is expressed through a
+     * hand-crafted class.
+     *
+     * @param refClass the reference result
+     * @param name of the Python type to create
+     * @param base (single) of the Python type or {@code null}
+     * @return parameters for the test
+     */
+    private static Arguments subclassExample(Class<?> refClass,
+            String name, PyType base) {
+        if (base == null) { base = PyBaseObject.TYPE; }
+        return subclassExample(refClass, name, List.of(base), null);
+    }
+
+    /**
+     * Construct parameters for a test of subclass creation, with Python
+     * bases, no {@code __slots__} and an instance dictionary. The
+     * reference result is expressed through a hand-crafted class.
+     *
+     * @param refClass the reference result
+     * @param name of the Python type to create
+     * @param bases of the Python type (empty means {@code object})
+     * @return parameters for the test
+     */
+    private static Arguments subclassExample(Class<?> refClass,
+            String name, List<PyType> bases) {
+        return subclassExample(refClass, name, bases, null);
+    }
+
+    /**
+     * Construct parameters for a test of subclass creation, with Python
+     * bases, and either {@code __slots__} or an instance dictionary.
+     * The reference result is expressed through a hand-crafted class.
+     *
+     * @param refClass the reference result
+     * @param name of the Python type to create
+     * @param bases of the Python type (empty means {@code object})
+     * @param slots {@code __slots__} or {@code null}
+     * @return parameters for the test
+     */
+    private static Arguments subclassExample(Class<?> refClass,
+            String name, List<PyType> bases, List<String> slots) {
+
+        // Make a string title "class name(b0, b1, b2):"
+        StringBuilder title = new StringBuilder(80);
+        title.append("class ").append(name);
+        if (bases.size() > 0) {
+            StringJoiner sj = new StringJoiner(", ", "(", ")");
+            for (PyType b : bases) { sj.add(b.getName()); }
+            title.append(sj.toString());
         }
+        title.append(':');
 
-        /**
-         * Construct parameters for a test of subclass creation, where
-         * the reference result is expressed through a hand-crafted
-         * class.
-         *
-         * @param refClass the reference result
-         * @param name of the Python type to create
-         * @param bases of the Python type (empty means {@code object})
-         * @return parameters for the test
+        /*
+         * Find the most-derived representations of all the bases, i.e.
+         * b's canonical class is assignable from baseClass for all b.
+         * We're not as thorough here as we must be in PyType, just
+         * aiming to catch mistakes building a test.
          */
-        private static Arguments subclassExample(Class<?> refClass,
-                String name, PyType... bases) {
-            return subclassExample(refClass, name, bases, Map.of());
-        }
 
-        /**
-         * Construct parameters for a test of subclass creation, where
-         * the reference result is expressed through a hand-crafted
-         * class.
-         *
-         * @param refClass the reference result
-         * @param name of the Python type to create
-         * @param base (single) of the Python type
-         * @param namespace of the Python class
-         * @return parameters for the test
-         */
-        private static Arguments subclassExample(Class<?> refClass,
-                String name, PyType base,
-                Map<String, Object> namespace) {
-            PyType[] bases = {base};
-            return subclassExample(refClass, name, bases, namespace);
-        }
+        Class<?> baseClass = Object.class;
+        Set<Class<?>> interfaces = new HashSet<>();
 
-        /**
-         * Construct parameters for a test of subclass creation, where
-         * the reference result is expressed through a hand-crafted
-         * class.
-         *
-         * @param refClass the reference result
-         * @param name of the Python type to create
-         * @param bases of the Python type (empty means {@code object})
-         * @param namespace of the Python class
-         * @return parameters for the test
-         */
-        private static Arguments subclassExample(Class<?> refClass,
-                String name, PyType[] bases,
-                Map<String, Object> namespace) {
-
-            // Make a string title "class name(b0, b1, b2):"
-            StringBuilder title = new StringBuilder(80);
-            title.append("class ").append(name);
-            if (bases.length > 0) {
-                StringJoiner sj = new StringJoiner(", ", "(", ")");
-                for (PyType b : bases) { sj.add(b.getName()); }
-                title.append(sj.toString());
-            }
-            title.append(':');
-
-            /*
-             * Find the most-derived representations of all the bases,
-             * i.e. b's canonical class is assignable from baseClass for
-             * all b.
-             */
-            // We are not collecting interfaces for now.
-            Class<?> baseClass = Object.class;
-            for (PyType b : bases) {
-                Class<?> canonical = b.javaType();
-                if (canonical != baseClass) {
+        for (PyType b : bases) {
+            Class<?> canonical = b.javaType();
+            if (canonical != baseClass) {
+                if (baseLike(canonical)) {
                     if (baseClass.isAssignableFrom(canonical)) {
                         // b.canonical is the more derived: take it
                         baseClass = canonical;
@@ -183,22 +201,46 @@ class SubclassCreationTest {
                         // Neither more nor less: that's bad
                         fail("cannot resolve bases " + title);
                     }
+                } else if (interfaceLike(canonical)) {
+                    // Collect interfaces
+                    interfaces.add(canonical);
+                } else {
+                    fail(String.format(
+                            "neither base nor interface %s in %s",
+                            b.getName(), title));
                 }
             }
-
-            // We may have slots
-            if (namespace.containsKey("__slots__")) {
-                title.append("with __slots__");
-            }
-
-            // Create a specification
-            RepresentationSpec spec =
-                    new RepresentationSpec(name, baseClass);
-
-            return arguments(refClass, title.toString(), spec);
         }
 
+        // Create a specification
+        RepresentationSpec spec =
+                new RepresentationSpec(name, baseClass);
+        spec.addInterfaces(interfaces);
+
+        // We may have slots
+        if (slots != null) {
+            spec.addSlots(slots);
+            StringJoiner sj =
+                    new StringJoiner("', '", " __slots__ = ('",
+                            slots.size() == 1 ? "',)" : "')");
+            for (String s : slots) { sj.add(s); }
+            title.append(sj.toString());
+        }
+
+        return arguments(refClass, title.toString(), spec);
     }
+
+    private static boolean baseLike(Class<?> c) {
+        int m = c.getModifiers();
+        return !(Modifier.isInterface(m) || Modifier.isFinal(m)
+                || Modifier.isPrivate(m));
+    }
+
+    private static boolean interfaceLike(Class<?> c) {
+        int m = c.getModifiers();
+        return Modifier.isInterface(m);
+    }
+    // }
 
     /** A bridge method, generated by the compiler (JVMS 4.6). */
     static final int ACC_BRIDGE = 0x40;
@@ -207,159 +249,158 @@ class SubclassCreationTest {
     /** Not in our prototype source code if any of these modifiers. */
     static final int SYNTHETIC = ACC_SYNTHETIC | ACC_BRIDGE;
 
-    /** Tests of subclasses that have a {@code __dict__} attribute. */
-    @Nested
-    @TestMethodOrder(OrderAnnotation.class)
-    @DisplayName("a Python subclass with __dict__")
-    class TestWithDict extends AbstractSubclassTest {
+    /**
+     * We verify that when two specifications are equal, we do not
+     * create a second the subclass representation. This is essential
+     * for the operation of class assignment to be possible between
+     * sufficiently similar types.
+     *
+     * @param refClass a local class like the one we need
+     * @param title roughly equivalent Python class definition
+     * @param spec we are trying to satisfy.
+     */
+    @DisplayName("is represented without duplication")
+    @ParameterizedTest(name = "when defined by {1}")
+    @MethodSource("specExamples")
+    void withoutDuplication(Class<?> refClass, String title,
+            RepresentationSpec spec) {
+        /*
+         * When run as a single test in the IDE, this first call to
+         * findOrCreateSubclass will create the class, and the second
+         * call should return that class from the cache. When run as a
+         * batch, this may not be the first test, so one of the other
+         * tests may already have created the class and both calls will
+         * return the class from the cache. This does not invalidate the
+         * test.
+         */
+        // Get a Java subclass representation for refspec
+        RepresentationSpec refspec = spec.clone();
+        assertEquals(spec, refspec, "clones not equal");
+        Class<?> refc = factory.findOrCreateSubclass(refspec);
 
-        @Order(100)
-        @DisplayName("can be represented in Java")
-        @ParameterizedTest(name = "when defined by {1}")
-        @MethodSource("dictExamples")
-        void createRep(Class<?> refClass, String title,
-                RepresentationSpec spec) {
-            // Get subclass representation
-            byte[] b = factory.findOrCreateSubclass(spec);
+        // Get a Java subclass representation for spec
+        Class<?> c = factory.findOrCreateSubclass(spec);
+        // It should be the same as for refspec
+        assertSame(refc, c);
+    }
 
-            // Write so we can dump it later.
-            String fn = spec.getName() + ".class";
-            try (OutputStream f = new FileOutputStream(fn)) {
-                f.write(b);
-            } catch (IOException e) {
-                fail("writing class file");
-            }
+    @DisplayName("has the expected superclass and modifiers")
+    @ParameterizedTest(name = "when defined by {1}")
+    @MethodSource("specExamples")
+    void createRep(Class<?> refClass, String title,
+            RepresentationSpec spec) {
+        // Get subclass representation
+        Class<?> c = factory.findOrCreateSubclass(spec);
 
-            // Create actual class object (but do not initialise).
-            Class<?> c = LOADER.defineClass(b);
+        // c should have the same super class as the reference.
+        Class<?> refSuper = refClass.getSuperclass();
+        Class<?> cSuper = c.getSuperclass();
+        assertSame(refSuper, cSuper);
 
-            // c should have the same super class as the reference.
-            Class<?> refSuper = refClass.getSuperclass();
-            Class<?> cSuper = c.getSuperclass();
-            assertSame(refSuper, cSuper);
+        // c should have the same modifier bits as the reference
+        int refModifiers = refClass.getModifiers();
+        // except the reference class is static.
+        refModifiers &= ~Modifier.STATIC;
+        assertModifiersMatch(c.getName(), refModifiers,
+                c.getModifiers());
+    }
 
-            // c should have the same modifier bits as the reference
-            int refModifiers = refClass.getModifiers();
-            // except the reference class is static.
-            refModifiers &= ~Modifier.STATIC;
-            assertModifiersMatch(c.getName(), refModifiers,
-                    c.getModifiers());
+    @DisplayName("declares the expected fields")
+    @ParameterizedTest(name = "when defined by {1}")
+    @MethodSource("specExamples")
+    void expectedFields(Class<?> refClass, String title,
+            RepresentationSpec spec) {
+        // Get subclass representation
+        Class<?> c = factory.findOrCreateSubclass(spec);
+
+        // Collect the fields declared by the reference.
+        Map<String, Field> fields = new HashMap<>();
+        for (Field f : refClass.getDeclaredFields()) {
+            fields.put(f.getName(), f);
         }
 
-        @Order(110)
-        @DisplayName("declares the expected fields")
-        @ParameterizedTest(name = "when defined by {1}")
-        @MethodSource("dictExamples")
-        void expectedFields(Class<?> refClass, String title,
-                RepresentationSpec spec) {
-            // Get subclass representation
-            byte[] b = factory.findOrCreateSubclass(spec);
-            Class<?> c = LOADER.defineClass(b);
-
-            // Collect the fields declared by the reference.
-            Map<String, Field> fields = new HashMap<>();
-            for (Field f : refClass.getDeclaredFields()) {
-                fields.put(f.getName(), f);
-            }
-
-            // c should have the same fields as the reference.
-            List<Field> extras = new LinkedList<>();
-            for (Field f : c.getDeclaredFields()) {
-                // Compare the same-name reference field
-                String name = f.getName();
-                Field ref = fields.get(name);
-                if (ref != null) {
-                    assertSame(ref.getType(), f.getType());
-                    assertModifiersMatch(name, ref.getModifiers(),
-                            f.getModifiers());
-                    fields.remove(name);
-                } else {
-                    extras.add(f);
-                }
-            }
-
-            // What is left in fields was missing from c.
-            if (!fields.isEmpty()) {
-                fail(String.format("missing field(s): %s",
-                        fields.keySet()));
-            }
-            // What landed in extras was unexpected in c.
-            if (!extras.isEmpty()) {
-                fail(String.format("unexpected field(s): %s",
-                        fields.keySet()));
+        // c should have the same fields as the reference.
+        List<Field> extras = new LinkedList<>();
+        for (Field f : c.getDeclaredFields()) {
+            // Compare the same-name reference field
+            String name = f.getName();
+            Field ref = fields.get(name);
+            if (ref != null) {
+                assertSame(ref.getType(), f.getType());
+                assertModifiersMatch(name, ref.getModifiers(),
+                        f.getModifiers());
+                fields.remove(name);
+            } else {
+                extras.add(f);
             }
         }
 
-        @Order(120)
-        @DisplayName("declares the expected methods")
-        @ParameterizedTest(name = "when defined by {1}")
-        @MethodSource("dictExamples")
-        void expectedMethods(Class<?> refClass, String title,
-                RepresentationSpec spec) {
-            // Get subclass representation
-            byte[] b = factory.findOrCreateSubclass(spec);
-            Class<?> c = LOADER.defineClass(b);
+        // What is left in fields was missing from c.
+        if (!fields.isEmpty()) {
+            fail(String.format("missing field(s): %s",
+                    fields.keySet()));
+        }
+        // What landed in extras was unexpected in c.
+        if (!extras.isEmpty()) {
+            fail(String.format("unexpected field(s): %s",
+                    fields.keySet()));
+        }
+    }
 
-            // Collect the methods declared by the reference.
-            Map<String, Method> methods = new HashMap<>();
-            for (Method m : refClass.getDeclaredMethods()) {
-                // Assumes we wrote only one method with each name.
-                if ((m.getModifiers() & SYNTHETIC) == 0) {
-                    // Not a synthetic or bridge method.
-                    String name = m.getName();
-                    Method previous = methods.put(name, m);
-                    assertNull(previous, name);
-                }
-            }
+    @DisplayName("declares the expected methods")
+    @ParameterizedTest(name = "when defined by {1}")
+    @MethodSource("specExamples")
+    void expectedMethods(Class<?> refClass, String title,
+            RepresentationSpec spec) {
+        // Get subclass representation
+        Class<?> c = factory.findOrCreateSubclass(spec);
 
-            // c should have the same methods as the reference.
-            List<Method> extras = new LinkedList<>();
-            for (Method m : c.getDeclaredMethods()) {
-                // Compare the same-name reference methods
-                // Assumes there is only one method with each name.
+        // Collect the methods declared by the reference.
+        Map<String, Method> methods = new HashMap<>();
+        for (Method m : refClass.getDeclaredMethods()) {
+            // Assumes we wrote only one method with each name.
+            if ((m.getModifiers() & SYNTHETIC) == 0) {
+                // Not a synthetic or bridge method.
                 String name = m.getName();
-                Method ref = methods.get(name);
-                if (ref != null) {
-                    assertSame(ref.getReturnType(), m.getReturnType());
-                    assertModifiersMatch(name, ref.getModifiers(),
-                            m.getModifiers());
-                    // Parameters should match in number and type.
-                    Class<?>[] mp = m.getParameterTypes();
-                    Class<?>[] rp = ref.getParameterTypes();
-                    int n = rp.length;
-                    assertEquals(n, mp.length);
-                    for (int i = 0; i < n; i++) {
-                        assertSame(rp[i], mp[i]);
-                    }
-                    methods.remove(name);
-                } else {
-                    extras.add(m);
-                }
-            }
-
-            // What is left in methods was missing from c.
-            if (!methods.isEmpty()) {
-                fail(String.format("missing method(s): %s",
-                        methods.keySet()));
-            }
-            // What landed in extras was unexpected in c.
-            if (!extras.isEmpty()) {
-                fail(String.format("unexpected method(s): %s",
-                        methods.keySet()));
+                Method previous = methods.put(name, m);
+                assertNull(previous, name);
             }
         }
 
-        @Order(200)
-        @DisplayName("is represented without duplication")
-        @Disabled("Currently we always create a new one")
-        @ParameterizedTest(name = "when defined by {1}")
-        @MethodSource("dictExamples")
-        void findExistingRep(Class<?> refClass, String title,
-                TypeSpec spec) {
-            // Look for subclass representation
-            // PyType sub = PyType.fromSpec(spec);
-            // assertInstanceOf(ReplaceableType.class, sub);
+        // c should have the same methods as the reference.
+        List<Method> extras = new LinkedList<>();
+        for (Method m : c.getDeclaredMethods()) {
+            // Compare the same-name reference methods
+            // Assumes there is only one method with each name.
+            String name = m.getName();
+            Method ref = methods.get(name);
+            if (ref != null) {
+                assertSame(ref.getReturnType(), m.getReturnType());
+                assertModifiersMatch(name, ref.getModifiers(),
+                        m.getModifiers());
+                // Parameters should match in number and type.
+                Class<?>[] mp = m.getParameterTypes();
+                Class<?>[] rp = ref.getParameterTypes();
+                int n = rp.length;
+                assertEquals(n, mp.length);
+                for (int i = 0; i < n; i++) {
+                    assertSame(rp[i], mp[i]);
+                }
+                methods.remove(name);
+            } else {
+                extras.add(m);
+            }
+        }
 
+        // What is left in methods was missing from c.
+        if (!methods.isEmpty()) {
+            fail(String.format("missing method(s): %s",
+                    methods.keySet()));
+        }
+        // What landed in extras was unexpected in c.
+        if (!extras.isEmpty()) {
+            fail(String.format("unexpected method(s): %s",
+                    methods.keySet()));
         }
     }
 
@@ -486,7 +527,7 @@ class SubclassCreationTest {
             implements WithClassAssignment {
 
         /** Type of this object. */
-        PyType $type;
+        private PyType $type;
 
         HCD_T(PyType metaType, String name) {
             super(name, HCD_T.class, new PyType[] {PyType.TYPE});
@@ -504,23 +545,22 @@ class SubclassCreationTest {
     }
 
     /**
-     * A hand-crafted model of the Java representation that formed when
-     * a Python class is defined by:<pre>
-     * class HCSObject:
-     *     __slots__ = ('a', 'b')
+     * A hand-crafted model of the Java representation that should be
+     * formed when a Python class is defined by:<pre>
+     * class Oa:
+     *     __slots__ = ('a',)
      * </pre>
      */
-    static class HCS_O implements WithSlots, WithClassAssignment {
+    static class HCS_Oa implements WithClassAssignment {
 
         /** Type of this object. */
-        PyType $type;
+        private PyType $type;
+
         /* Variables corresponding to {@code __slots__} names. */
         // @Exposed.Member
         Object a;
-        // @Exposed.Member
-        Object b;
 
-        HCS_O(ReplaceableType actualType) { this.$type = actualType; }
+        HCS_Oa(ReplaceableType actualType) { this.$type = actualType; }
 
         @Override
         public PyType getType() { return $type; }
@@ -529,16 +569,40 @@ class SubclassCreationTest {
         public void setType(Object replacementType) {
             $type = checkClassAssignment(replacementType);
         }
+    }
 
-        @Override
-        public Object getSlot(int i) {
-            // TODO Do we do this?
-            return null;
+    /**
+     * A hand-crafted model of the Java representation that should be
+     * formed when a Python class is defined by:<pre>
+     * class Fabc(float):
+     *     __slots__ = ('a', 'b', 'c')
+     * </pre>
+     */
+    static class HCS_Fabc extends PyFloat
+            implements WithClassAssignment {
+
+        /** Type of this object. */
+        private PyType $type;
+
+        /* Variables corresponding to {@code __slots__} names. */
+        // @Exposed.Member
+        Object a;
+        // @Exposed.Member
+        Object b;
+        // @Exposed.Member
+        Object c;
+
+        HCS_Fabc(ReplaceableType actualType, double value) {
+            super(value);
+            this.$type = actualType;
         }
 
         @Override
-        public void setSlot(int i, Object value) {
-            // TODO Do we do this?
+        public PyType getType() { return $type; }
+
+        @Override
+        public void setType(Object replacementType) {
+            $type = checkClassAssignment(replacementType);
         }
     }
 }
