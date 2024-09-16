@@ -121,7 +121,7 @@ public class TypeFactory {
          * PyType.fromSpec is not safe at this stage.
          */
         TypeSpec specOfObject = new PrimordialTypeSpec(objectType,
-                AbstractPyBaseObject.LOOKUP);
+                AbstractPyObject.LOOKUP);
         TypeSpec specOfType =
                 new PrimordialTypeSpec(typeType, AbstractPyType.LOOKUP);
 
@@ -300,10 +300,11 @@ public class TypeFactory {
          * The argument {@code c} is a class that has been statically
          * initialised.
          * <p>
-         * If {@code c} implements {@code WithClass}, and some superclass
-         * of {@code c} is already registered (in the published or
-         * unpublished map), the same {@link Representation} will be
-         * registered for {@code c} also in the unpublished map.
+         * If {@code c} implements {@code WithClass}, and some
+         * superclass of {@code c} is already registered (in the
+         * published or unpublished map), the same
+         * {@link Representation} will be registered for {@code c} also
+         * in the unpublished map.
          * <p>
          * This is the normal case where {@code c} is a subclass of a
          * Java representation {@code d} of a Python type. That

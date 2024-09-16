@@ -21,12 +21,11 @@ import java.util.StringJoiner;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
-import uk.co.farowl.vsj4.runtime.PyBaseObject;
+import uk.co.farowl.vsj4.runtime.PyObject;
 import uk.co.farowl.vsj4.runtime.PyDict;
 import uk.co.farowl.vsj4.runtime.PyFloat;
 import uk.co.farowl.vsj4.runtime.PyType;
@@ -118,7 +117,7 @@ class SubclassCreationTest {
      */
     private static Arguments subclassExample(Class<?> refClass,
             String name, PyType base, List<String> slots) {
-        if (base == null) { base = PyBaseObject.TYPE; }
+        if (base == null) { base = PyObject.TYPE; }
         return subclassExample(refClass, name, List.of(base), slots);
     }
 
@@ -135,7 +134,7 @@ class SubclassCreationTest {
      */
     private static Arguments subclassExample(Class<?> refClass,
             String name, PyType base) {
-        if (base == null) { base = PyBaseObject.TYPE; }
+        if (base == null) { base = PyObject.TYPE; }
         return subclassExample(refClass, name, List.of(base), null);
     }
 

@@ -104,9 +104,7 @@ class BootstrapTest {
                 };
                 default -> new InitThread() {
                     @Override
-                    void action() {
-                        objectType = PyBaseObject.TYPE;
-                    }
+                    void action() { objectType = PyObject.TYPE; }
                 };
             });
         }
@@ -280,7 +278,7 @@ class BootstrapTest {
 
         /** The required actions apart from the one already done. */
         void otherActions() {
-            if (objectType == null) { objectType = PyBaseObject.TYPE; }
+            if (objectType == null) { objectType = PyObject.TYPE; }
             if (floatType == null) { floatType = PyFloat.TYPE; }
             if (reg == null) { reg = PyType.registry; }
         }

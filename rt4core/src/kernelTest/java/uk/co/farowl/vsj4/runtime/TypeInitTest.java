@@ -60,7 +60,7 @@ class TypeInitTest {
     @Test
     @DisplayName("PyBaseObject.TYPE exists")
     void object_exists() {
-        PyType object = PyBaseObject.TYPE;
+        PyType object = PyObject.TYPE;
         assertNotNull(object);
         assertInstanceOf(SimpleType.class, object);
         assertEquals("object", object.getName());
