@@ -108,8 +108,8 @@ public abstract class TypeRegistry extends ClassValue<Representation> {
     }
 
     /**
-     * Find this class in the published registry map, or in
-     * work-in-progress in the factory, and return the
+     * Find (do not create) this class in the published registry map, or
+     * in work-in-progress in the factory, and return the
      * {@code Representation} for it or {@code null} if it was not
      * found.
      * <p>

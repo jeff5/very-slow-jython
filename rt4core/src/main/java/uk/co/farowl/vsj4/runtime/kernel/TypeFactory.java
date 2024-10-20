@@ -18,10 +18,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import uk.co.farowl.vsj4.runtime.WithClass;
+import uk.co.farowl.vsj4.runtime.Feature;
 import uk.co.farowl.vsj4.runtime.PyFloat;
 import uk.co.farowl.vsj4.runtime.PyType;
 import uk.co.farowl.vsj4.runtime.TypeSpec;
 import uk.co.farowl.vsj4.runtime.kernel.Representation.Adopted;
+import uk.co.farowl.vsj4.runtime.kernel.Representation.Shared;
 import uk.co.farowl.vsj4.support.InterpreterError;
 
 /**
@@ -66,7 +68,7 @@ public class TypeFactory {
     final SimpleType objectType;
 
     /** An empty array of type objects */
-    final PyType[] EMPTY_ARRAY;
+    final PyType[] EMPTY_TYPE_ARRAY;
     /** An array containing just type object {@code object} */
     private final PyType[] OBJECT_ONLY;
     /** An array containing just type object {@code type} */
@@ -140,8 +142,8 @@ public class TypeFactory {
         // This cute re-use also proves 'type' and 'object' exist.
         this.OBJECT_ONLY = typeType.bases;
         assert OBJECT_ONLY.length == 1;
-        this.EMPTY_ARRAY = typeType.base.bases;
-        assert EMPTY_ARRAY.length == 0;
+        this.EMPTY_TYPE_ARRAY = typeType.base.bases;
+        assert EMPTY_TYPE_ARRAY.length == 0;
         this.TYPE_ONLY = new PyType[] {typeType};
     }
 
@@ -453,7 +455,7 @@ public class TypeFactory {
     }
 
     /**
-     * Create an error to throw when the an attempt is made to define a
+     * Create an error to throw when an attempt is made to define a
      * mapping from a class to a Representation and the class is already
      * bound.
      *
@@ -463,11 +465,26 @@ public class TypeFactory {
      */
     private Clash alreadyBoundError(Class<?> c,
             Representation existing) {
+        return new Clash(topLevelSpec(), c, existing);
+    }
+
+    /**
+     * Get the first spec in the workshop's list. This will be the the
+     * top level one that began the current cluster of definitions.
+     *
+     * @return first spec in the workshop's list
+     */
+    private TypeSpec topLevelSpec() {
         // Get the first spec (the top level one).
         Iterator<TypeSpec> i = workshop.tasks.keySet().iterator();
-        TypeSpec spec = i.hasNext() ? i.next() : null;
-        return new Clash(spec, c, existing);
+        TypeSpec spec = i.hasNext() ? i.next() : NULL_SPEC;
+        return spec;
     }
+
+    /** TypeSpec object used when no top-level context is available. */
+    private static final TypeSpec NULL_SPEC =
+            new TypeSpec("<null>", MethodHandles.publicLookup())
+                    .freeze();
 
     /**
      * The type system has to prepare {@code PyType} objects in two
@@ -565,15 +582,44 @@ public class TypeFactory {
             // Result of the construction
             PyType newType;
 
-            if (adopted.isEmpty()) {
+            if (spec.getFeatures().contains(Feature.REPLACEABLE)) {
+                assert primary != null;
+                assert adopted.isEmpty();
                 /*
-                 * The type is not adoptive: the representation is the
-                 * primary class.
+                 * The type is replaceable: the representation is the
+                 * primary class, but it is allowable that it already
+                 * have a representation.
+                 */
+                Shared sr;
+                Representation existing = registry.find(primary);
+                if (existing == null) {
+                    // It doesn't exist, so we create and add it.
+                    sr = new Shared(primary);
+                    unpublished.put(primary, sr);
+                } else if (existing instanceof Shared s) {
+                    // It does exist and is a Shared type
+                    sr = s;
+                } else {
+                    // A representation exists but is the wrong type.
+                    throw new Clash(spec, primary, existing);
+                }
+
+                // Create a type referencing sr.
+                ReplaceableType rt =
+                        new ReplaceableType(name, sr, bases);
+                tasks.put(spec, new Task(newType = rt, spec));
+
+            } else if (adopted.isEmpty()) {
+                /*
+                 * The type is not adoptive: the Representation is the
+                 * PyType itself with the primary as its representation
+                 * class.
                  */
                 assert primary != null;
                 SimpleType st = new SimpleType(name, primary, bases);
                 tasks.put(spec, new Task(newType = st, spec));
                 addRepresentation(primary, st);
+
             } else {
                 /*
                  * The type adopts one or more classes: the
@@ -784,7 +830,7 @@ public class TypeFactory {
         }
 
         private static final String CLASS_ALREADY_BOUND =
-                "Interpreting specification %s the type system"
+                "Interpreting specification %s, the type system"
                         + " found class %s was already bound to %s";
     }
 
@@ -794,7 +840,6 @@ public class TypeFactory {
      * cannot be created by the normal process from a specification.
      */
     private static class PrimordialTypeSpec extends TypeSpec {
-
         /**
          * Create a specification retrospectively from a type object.
          *
@@ -811,7 +856,5 @@ public class TypeFactory {
                 }
             }
         }
-
     }
-
 }

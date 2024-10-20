@@ -36,6 +36,9 @@ public class TypeSpec extends NamedSpec {
     private EnumSet<Feature> features =
             EnumSet.of(Feature.INSTANTIABLE);
 
+    /** Documentation string for the type. */
+    private String doc;
+
     /**
      * A collection of additional classes in which to look up
      * implementations of methods (not fields) composing the type. See
@@ -272,6 +275,13 @@ public class TypeSpec extends NamedSpec {
      * @return the features
      */
     public EnumSet<Feature> getFeatures() { return features; }
+
+    /**
+     * Return the documentation string for the type.
+     *
+     * @return documentation string (or {@code null})
+     */
+    public String getDoc() { return doc; }
 
     /**
      * The class that will represent the instances of the type being
@@ -523,6 +533,16 @@ public class TypeSpec extends NamedSpec {
         return this;
     }
 
+    /** Specify the documentation string for the type.
+     *
+     * @param doc documentation string
+     * @return {@code this}
+     */
+    public TypeSpec doc(String doc) {
+        checkNotFrozen();
+        this.doc = doc;
+        return this;
+    }
     /**
      * Specify that the Python type being specified will be represented
      * by an instance of this Python sub-class of {@code type}, that is,

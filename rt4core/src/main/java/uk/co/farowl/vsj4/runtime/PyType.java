@@ -209,4 +209,75 @@ public abstract sealed class PyType extends AbstractPyType
             throw new InterpreterError(clash);
         }
     }
+
+    // Special methods -----------------------------------------------
+
+    protected Object __repr__() throws Throwable {
+        return String.format("<class '%s'>", getName());
+    }
+
+    /**
+     * Handle calls to a type object, which will normally be a request
+     * to construct a Python object of the type this object describes.
+     * For example the call {@code int()} is a request to create a
+     * Python {@code int}, although we often think of it as a built-in
+     * function. The exception is when the type represented is
+     * {@code type} itself and there is one argument. The call
+     * {@code type(obj)} enquires the Python type of the object, which
+     * is even more like a built-in function. The call
+     * {@code type(name, bases, dict)} constructs a new type (instance
+     * of {@code type}).
+     *
+     * @param args argument list (length 1 in a type enquiry).
+     * @param names of keyword arguments (empty or {@code null} in a
+     *     type enquiry).
+     * @return new object (or a type if an enquiry).
+     * @throws TypeError when cannot create instances
+     * @throws Throwable from implementation slot functions
+     */
+    protected Object __call__(Object[] args, String[] names)
+            throws /*TypeError, */ Throwable {
+        // Delegate to FastCall.call
+        return call(args, names);
+    }
+
+    //@Override
+    public Object call(Object[] args, String[] names)
+            throws /*ArgumentError,*/ Throwable {
+        /*
+         * Special case: type(x) should return the Python type of x, but
+         * only if this is exactly the type 'type'.
+         */
+        if (this == PyType.TYPE) {
+            // Deal with two special cases
+            assert (args != null);
+            int nk = names == null ? 0 : names.length;
+            int np = args.length - nk;
+
+            if (np == 1 && nk == 0) {
+                // Call is exactly type(x) so this is a type enquiry
+                return PyType.of(args[0]);
+
+            } else if (np != 3) {
+                // Call ought to be type(x, bases, dict [, **kwds])
+                // __new__ will check too but we prefer this message.
+                // XXX Should be a TypeError
+                throw PyErr.format(PyExc.TypeError,
+                        "type() takes 1 or 3 arguments");
+                // throw new TypeError("type() takes 1 or 3 arguments");
+                // throw new InterpreterError(
+                // "type() takes 1 or 3 arguments");
+            }
+        }
+
+        // Call __new__ of the type described by this type object
+        // XXX What's the implementation in VSJ4 (before FastCall)?
+        // Object obj = Callables.call(newMethod, this, args, names);
+        Object obj = null;
+
+        // Call obj.__init__ if it is defined and type(obj) == this
+        // maybeInit(obj, args, names);
+        return obj;
+    }
+
 }
