@@ -45,7 +45,7 @@ public class PyExc {
             String excname, String excdoc) {
         TypeSpec spec = new TypeSpec(excname, LOOKUP).base(excbase)
                 // Share the same Java class as representation
-                .primary(excbase.javaType())
+                .primary(excbase.javaClass())
                 // This will be a replaceable type.
                 .add(Feature.REPLACEABLE, Feature.IMMUTABLE)
                 .doc(excdoc);

@@ -42,17 +42,17 @@ public abstract class Representation {
      * and <i>not</i> related by inheritance must be described in
      * separate {@code Representation}s.
      */
-    protected final Class<?> javaType;
+    protected final Class<?> javaClass;
 
     /**
      * Create a {@code Representation} relating a (base) Java class to a
      * type. Creation of a {@code Representation} does not register the
      * association.
      *
-     * @param javaType the base of classes represented
+     * @param javaClass the base of classes represented
      */
-    protected Representation(Class<?> javaType) {
-        this.javaType = javaType;
+    protected Representation(Class<?> javaClass) {
+        this.javaClass = javaClass;
     }
 
     /**
@@ -82,7 +82,7 @@ public abstract class Representation {
      *
      * @return base class of the implementation
      */
-    public Class<?> javaType() { return javaType; }
+    public Class<?> javaClass() { return javaClass; }
 
     /**
      * Fast check that the target is exactly a Python {@code int}. We
@@ -152,7 +152,7 @@ public abstract class Representation {
 
         @Override
         public String toString() {
-            String javaName = javaType().getSimpleName();
+            String javaName = javaClass().getSimpleName();
             return javaName + " as " + type.toString();
         }
     }
@@ -212,7 +212,7 @@ public abstract class Representation {
         @Override
         public String toString() {
             return String.format("Shared[%s]",
-                    javaType().getSimpleName());
+                    javaClass().getSimpleName());
         }
 
         @Override

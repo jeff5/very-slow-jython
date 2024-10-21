@@ -188,7 +188,7 @@ class SubclassCreationTest {
         Set<Class<?>> interfaces = new HashSet<>();
 
         for (PyType b : bases) {
-            Class<?> canonical = b.javaType();
+            Class<?> canonical = b.javaClass();
             if (canonical != baseClass) {
                 if (baseLike(canonical)) {
                     if (baseClass.isAssignableFrom(canonical)) {

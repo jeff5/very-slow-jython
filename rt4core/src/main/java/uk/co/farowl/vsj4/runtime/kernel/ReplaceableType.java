@@ -26,7 +26,7 @@ public final class ReplaceableType extends PyType {
      */
     ReplaceableType(String name, Representation.Shared representation,
             PyType[] bases) {
-        super(name, representation.javaType, bases);
+        super(name, representation.javaClass, bases);
         this.representation = representation;
     }
 

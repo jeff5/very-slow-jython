@@ -685,7 +685,7 @@ public class TypeFactory {
             // Add each adopted representation.
             for (int i = 0; i < at.getAdoptedCount(); i++) {
                 Adopted r = at.getAdopted(i);
-                Class<?> klass = r.javaType;
+                Class<?> klass = r.javaClass;
                 // Add klass -> r to registry if not duplicating
                 if (klass != primary) { addRepresentation(klass, r); }
             }
@@ -848,11 +848,11 @@ public class TypeFactory {
          */
         PrimordialTypeSpec(PyType type, Lookup lookup) {
             super(type.getName(), lookup);
-            this.primary(type.javaType).bases(type.bases);
+            this.primary(type.javaClass).bases(type.bases);
             if (type instanceof AdoptiveType at) {
                 int n = at.getAdoptedCount();
                 for (int i = 0; i < n; i++) {
-                    this.adopt(at.getAdopted(i).javaType);
+                    this.adopt(at.getAdopted(i).javaClass);
                 }
             }
         }

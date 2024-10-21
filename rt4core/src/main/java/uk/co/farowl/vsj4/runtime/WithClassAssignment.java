@@ -42,7 +42,7 @@ public interface WithClassAssignment extends WithClass {
         if (replacementType == null) {
             msg = "__class__ attribute cannot be deleted";
         } else if (replacementType instanceof PyType t) {
-            if (this.getClass() == t.javaType()) {
+            if (this.getClass() == t.javaClass()) {
                 // t = replacementType is an acceptable type
                 return t;
             }

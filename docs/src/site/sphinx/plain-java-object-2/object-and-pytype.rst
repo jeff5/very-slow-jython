@@ -5,12 +5,6 @@
 Instance Models of ``object`` and ``type``
 ******************************************
 
-..  note:: ``object`` now ``SimpleType``, no longer ``AdoptiveType``
-
-..  note:: Check for  ``PyBaseObject``
-
-
-
 We have laid out the basic patterns in the previous section,
 but only some of this territory was explored in ``rt3`` work.
 In ``rt4`` we take the opportunity to adjust even the tested ideas a little.
@@ -773,9 +767,9 @@ not for any difference in metatype.
 ..  uml::
     :caption: Type Objects for Metatypes (Subclasses of ``type``)
 
-    object "x : PyBaseObject" as x
+    object "x : PyObject" as x
     x --> MyClass : type
-    object "y : PyBaseObject" as y
+    object "y : PyObject" as y
     y --> MySubclass : type
 
     'object "PyType : Class" as PyType.class
@@ -817,7 +811,7 @@ not for any difference in metatype.
     PyType.Derived.class --> metas.rep : registry
 
 
-    object "z : PyBaseObject" as z
+    object "z : PyObject" as z
     z --> MyOtherClass : type
 
     object "Other : ReplaceableType" as Other {
