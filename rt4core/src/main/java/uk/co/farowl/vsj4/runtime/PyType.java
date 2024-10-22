@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory;
 
 import uk.co.farowl.vsj4.runtime.kernel.AbstractPyType;
 import uk.co.farowl.vsj4.runtime.kernel.AdoptiveType;
+import uk.co.farowl.vsj4.runtime.kernel.MROCalculator;
 import uk.co.farowl.vsj4.runtime.kernel.ReplaceableType;
 import uk.co.farowl.vsj4.runtime.kernel.Representation;
 import uk.co.farowl.vsj4.runtime.kernel.SimpleType;
@@ -152,7 +153,22 @@ public abstract sealed class PyType extends AbstractPyType
      */
     protected PyType(String name, Class<?> javaType, PyType[] bases) {
         super(name, javaType, bases);
-        // this.mro = MROCalculator.getMRO(this, this.bases);
+        // XXX Ought to call "mro" after dictionary filled.
+        this.mro = mro();
+    }
+
+    /**
+     * Calculate a new MRO for this type by the default algorithm. This
+     * method is exposed as the method {@code mro} of type
+     * {@code objects} and may be overridden in a Python subclass of
+     * {@code type} (a "metatype") to customise the MRO in the types it
+     * creates.
+     *
+     * @return a new MRO for the type
+     */
+    // @Exposed.Method
+    final PyType[] mro() {
+        return MROCalculator.getMRO(this, this.bases);
     }
 
     @Override
@@ -236,14 +252,14 @@ public abstract sealed class PyType extends AbstractPyType
      * @throws Throwable from implementation slot functions
      */
     protected Object __call__(Object[] args, String[] names)
-            throws /*TypeError, */ Throwable {
+            throws /* TypeError, */ Throwable {
         // Delegate to FastCall.call
         return call(args, names);
     }
 
-    //@Override
+    // @Override
     public Object call(Object[] args, String[] names)
-            throws /*ArgumentError,*/ Throwable {
+            throws /* ArgumentError, */ Throwable {
         /*
          * Special case: type(x) should return the Python type of x, but
          * only if this is exactly the type 'type'.

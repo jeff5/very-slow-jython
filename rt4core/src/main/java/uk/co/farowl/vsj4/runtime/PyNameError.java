@@ -13,9 +13,11 @@ public class PyNameError extends PyBaseException {
     /** The type object of Python {@code NameError} exceptions. */
     public static final PyType TYPE = PyType
             .fromSpec(new TypeSpec("NameError", MethodHandles.lookup())
-                    .base(PyBaseException.TYPE)
+                    .base(PyExc.Exception)
                     .add(Feature.REPLACEABLE, Feature.IMMUTABLE)
                     .doc("Name not found globally."));
+
+    private static final long serialVersionUID = 1L;
 
     /** The problematic name. */
     private String name;

@@ -44,7 +44,7 @@ public class PyExc {
     private static PyType extendsException(PyType excbase,
             String excname, String excdoc) {
         TypeSpec spec = new TypeSpec(excname, LOOKUP).base(excbase)
-                // Share the same Java class as representation
+                // Share the same Java representation class as base
                 .primary(excbase.javaClass())
                 // This will be a replaceable type.
                 .add(Feature.REPLACEABLE, Feature.IMMUTABLE)

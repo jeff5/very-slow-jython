@@ -8,9 +8,8 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
-import uk.co.farowl.vsj4.runtime.WithClass;
 import uk.co.farowl.vsj4.runtime.PyType;
-import uk.co.farowl.vsj4.support.MissingFeature;
+import uk.co.farowl.vsj4.runtime.WithClass;
 
 /**
  * {@code AbstractPyType} is the Java base of Python {@code type}
@@ -20,8 +19,8 @@ import uk.co.farowl.vsj4.support.MissingFeature;
  * run-time system, without being exposed as API from {@code PyType}
  * itself.
  */
-public abstract class AbstractPyType extends Representation
-        implements WithClass {
+public abstract sealed class AbstractPyType extends Representation
+        implements WithClass permits PyType {
 
     /** Name of the type (fully-qualified). */
     final String name;
@@ -50,39 +49,38 @@ public abstract class AbstractPyType extends Representation
      * {@code __bases__}.
      */
     protected PyType[] mro;
-
     /**
-     * The real dictionary of the type is always an ordered {@code Map}.
-     * Internally names are stored as {@code String} for speed and
-     * accessed via {@link #lookup(String)}.
+     * The writable dictionary of the type is private because the type
+     * controls writing strictly. Even in the core it is only accessible
+     * through a read-only view {@link #dict}.
      */
     private final Map<String, Object> _dict;
-
     /**
-     * Read-only view of the dictionary of the type, always an ordered
-     * {@code Map}. It is exposed to Python through a
-     * {@code mappingproxy} that renders it a read-only
-     * {@code dict}-like object.
+     * The dictionary of the type is always an ordered {@code Map}. It
+     * is made accessible here through a wrapper that renders it a
+     * read-only {@code dict}-like object. Internally names are stored
+     * as {@code String} for speed and accessed via
+     * {@link #lookup(String)}.
      */
-    protected final Map<Object, Object> dict;
+    protected final Map<String, Object> dict;
 
     /**
      * Base constructor of type objects. We establish values for members
      * common to the several {@link PyType} implementations.
      *
      * @param name of the type (final). May include package name.
-     * @param javaType of instances or {@code null}.
+     * @param javaClass of instances or {@code null}.
      * @param bases array of the bases (as in a class definition).
      */
-    protected AbstractPyType(String name, Class<?> javaType,
+    protected AbstractPyType(String name, Class<?> javaClass,
             PyType[] bases) {
-        super(javaType);
+        super(javaClass);
         /*
          * These assertions mainly check our assumptions about the needs
          * of sub-types. They are retained only in testing.
          */
         assert name != null;
-        assert javaType != null || this instanceof AdoptiveType;
+        assert javaClass != null || this instanceof AdoptiveType;
         assert bases != null;
 
         this.name = name;
@@ -90,7 +88,6 @@ public abstract class AbstractPyType extends Representation
         this.base = bases.length > 0 ? bases[0] : null;
 
         this._dict = new LinkedHashMap<>();
-        // XXX Ought to be a mappingproxy?
         this.dict = Collections.unmodifiableMap(this._dict);
     }
 
@@ -135,7 +132,12 @@ public abstract class AbstractPyType extends Representation
      * @return dictionary of the {@code type} in a read-only view.
      */
     // @Getter("__dict__")
-    public final Map<Object, Object> getDict() { return dict; }
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    public final Map<Object, Object> getDict() {
+        // XXX Ought to be a mappingproxy
+        // For now just erase type: safe (I think) since unmodifiable.
+        return (Map)dict;
+    }
 
     /**
      * Look for a name, returning the entry directly from the first
@@ -146,7 +148,7 @@ public abstract class AbstractPyType extends Representation
      * a {@code Map.get}
      *
      * @param name to look up, must be exactly a {@code str}
-     * @return dictionary entry or null
+     * @return dictionary entry or {@code null} if not found
      */
     // Compare CPython _PyType_Lookup in typeobject.c
     // and find_name_in_mro in typeobject.c
@@ -161,7 +163,7 @@ public abstract class AbstractPyType extends Representation
          */
 
         // CPython checks here to see in this type is "ready".
-        // Could we be "not ready" in some loop of types?
+        // Could we be "not ready" in some loop of types? Think not.
 
         for (PyType base : mro) {
             Object res;
