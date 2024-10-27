@@ -12,6 +12,7 @@ import java.util.LinkedList;
 import java.util.List;
 
 import uk.co.farowl.vsj4.support.InterpreterError;
+import uk.co.farowl.vsj4.support.MissingFeature;
 
 /**
  * A specification for a Python type that acts as a complex argument to
@@ -407,7 +408,13 @@ public class TypeSpec extends NamedSpec {
      */
     public TypeSpec accept(Class<?>... classes) {
         checkNotFrozen();
-        if (accepted == EMPTY) { accepted = new LinkedList<>(); }
+        if (accepted == EMPTY) {
+            accepted = new LinkedList<>();
+
+            // XXX Not clear this works with Representation.index
+            // Design thinking needed to do without accepted classes.
+            throw new MissingFeature("Accepted classes for %s", name);
+        }
         for (Class<?> c : classes) {
             if (orderedAdd(accepted, c) == false) {
                 throw specError(

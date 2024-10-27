@@ -11,4 +11,6 @@ public class Util {
     public static final Object[] EMPTY_ARRAY = new Object[0];
     /** An empty array of String. */
     public static final String[] EMPTY_STRING_ARRAY = new String[0];
+    /** Single re-used instance of {@code EmptyException}. */
+    public static final EmptyException MH_EMPTY = new EmptyException();
 }

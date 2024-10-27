@@ -5,25 +5,26 @@ package uk.co.farowl.vsj4.runtime;
 import java.lang.invoke.MethodHandles;
 
 /**
- * The Python {@code NameError} exception, and the same class also
- * represents {@code UnboundLocalError}.
+ * The Python {@code AttributeError} exception.
  */
-public class PyNameError extends PyBaseException {
+public class PyAttributeError extends PyBaseException {
 
-    /** The type object of Python {@code NameError} exceptions. */
-    public static final PyType TYPE = PyType
-            .fromSpec(new TypeSpec("NameError", MethodHandles.lookup())
+    /** The type object of Python {@code AttributeError} exceptions. */
+    public static final PyType TYPE = PyType.fromSpec(
+            new TypeSpec("AttributeError", MethodHandles.lookup())
                     .base(PyExc.Exception)
                     .add(Feature.REPLACEABLE, Feature.IMMUTABLE)
-                    .doc("Name not found globally."));
+                    .doc("Attribute not found."));
 
     private static final long serialVersionUID = 1L;
 
-    /** The problematic name. */
+    /** The problematic attribute name. */
     private String name;
+    /** The object that didn't have {@code name} as an attribute. */
+    private Object obj;
 
     /** Constructor resembling {@code __new__}. */
-    public PyNameError(PyType type, Object[] args, String[] kwds) {
+    public PyAttributeError(PyType type, Object[] args, String[] kwds) {
         super(type, args, kwds);
         // Stop-gap argument processing to show principle
         // XXX Should the be in __init__ (and use the exposer)
@@ -33,6 +34,9 @@ public class PyNameError extends PyBaseException {
             switch (kwd) {
                 case "name":
                     this.name = (String)args[i];
+                    break;
+                case "obj":
+                    this.obj = args[i];
                     break;
                 default: // ignore
             }

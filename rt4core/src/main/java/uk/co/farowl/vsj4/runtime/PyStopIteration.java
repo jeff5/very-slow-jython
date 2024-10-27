@@ -8,22 +8,22 @@ import java.lang.invoke.MethodHandles;
  * The Python {@code NameError} exception, and the same class also
  * represents {@code UnboundLocalError}.
  */
-public class PyNameError extends PyBaseException {
+public class PyStopIteration extends PyBaseException {
 
     /** The type object of Python {@code NameError} exceptions. */
-    public static final PyType TYPE = PyType
-            .fromSpec(new TypeSpec("NameError", MethodHandles.lookup())
+    public static final PyType TYPE = PyType.fromSpec(
+            new TypeSpec("StopIteration", MethodHandles.lookup())
                     .base(PyExc.Exception)
                     .add(Feature.REPLACEABLE, Feature.IMMUTABLE)
-                    .doc("Name not found globally."));
+                    .doc("Signal the end from iterator.__next__()."));
 
     private static final long serialVersionUID = 1L;
 
-    /** The problematic name. */
-    private String name;
+    /** The generator return value. */
+    private Object value;
 
     /** Constructor resembling {@code __new__}. */
-    public PyNameError(PyType type, Object[] args, String[] kwds) {
+    public PyStopIteration(PyType type, Object[] args, String[] kwds) {
         super(type, args, kwds);
         // Stop-gap argument processing to show principle
         // XXX Should the be in __init__ (and use the exposer)
@@ -31,8 +31,8 @@ public class PyNameError extends PyBaseException {
         assert i >= 0;
         for (String kwd : kwds) {
             switch (kwd) {
-                case "name":
-                    this.name = (String)args[i];
+                case "value":
+                    this.value = args[i];
                     break;
                 default: // ignore
             }

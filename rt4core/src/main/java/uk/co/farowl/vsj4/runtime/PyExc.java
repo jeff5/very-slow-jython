@@ -53,20 +53,50 @@ public class PyExc {
     }
 
     /**
-     * BaseException is the base type in Python of all exceptions and is
-     * implemented by {@link PyBaseException}.
+     * {@code BaseException} is the base type in Python of all
+     * exceptions and is implemented by {@link PyBaseException}.
      */
     public static PyType BaseException = PyBaseException.TYPE;
     /** Exception extends {@link PyBaseException}. */
     public static PyType Exception =
             extendsException(BaseException, "Exception",
                     "Common base class for all non-exit exceptions.");
-    /** TypeError extends {@link Exception}. */
+    /** {@code TypeError} extends {@link Exception}. */
     public static PyType TypeError = extendsException(Exception,
             "TypeError", "Inappropriate argument type.");
     /**
-     * NameError extends {@code Exception} and is implemented by
+     * {@code NameError} extends {@code Exception} and is implemented by
      * {@link PyNameError}.
      */
     public static PyType NameError = PyNameError.TYPE;
+
+    /**
+     * {@code AttributeError} extends {@code Exception} and is
+     * implemented by {@link PyAttributeError}.
+     */
+    public static PyType AttributeError = PyAttributeError.TYPE;
+
+    /** {@code LookupError} extends {@link Exception}. */
+    public static PyType LookupError = extendsException(Exception,
+            "LookupError", "Base class for lookup errors.");
+    /** {@code IndexError} extends {@link LookupError}. */
+    public static PyType IndexError = extendsException(LookupError,
+            "IndexError", "Sequence index out of range.");
+
+    /*
+     * Warnings are Exception objects, but do not get thrown (I think),
+     * being used as "categories" in the warnings module.
+     */
+
+    /** {@code Warning} extends {@link Exception}. */
+    public static PyType Warning = extendsException(Exception,
+            "Warning", "Base class for warning categories.");
+    /** {@code DeprecationWarning} extends {@link Warning}. */
+    public static PyType DeprecationWarning = extendsException(Warning,
+            "DeprecationWarning",
+            "Base class for warnings about deprecated features.");
+    /** {@code RuntimeWarning} extends {@link Warning}. */
+    public static PyType RuntimeWarning = extendsException(Warning,
+            "RuntimeWarning",
+            "Base class for warnings about dubious runtime behavior.");
 }

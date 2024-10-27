@@ -61,9 +61,9 @@ public class PyObject extends AbstractPyObject {
      */
 
     /**
-     * {@link Slot#op_repr} has signature {@link Signature#UNARY} and
-     * sometimes reproduces the source-code representation of the
-     * object.
+     * {@link SpecialMethod#op_repr} has signature
+     * {@link Signature#UNARY} and sometimes reproduces the source-code
+     * representation of the object.
      *
      * @param self target of the operation
      * @return string form

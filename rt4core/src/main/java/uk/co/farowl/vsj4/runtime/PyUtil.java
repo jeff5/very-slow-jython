@@ -2,6 +2,8 @@
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
 
+import java.lang.invoke.MethodHandle;
+
 /**
  * Miscellaneous static helpers commonly needed to implement Python
  * objects in Java.
@@ -24,6 +26,48 @@ public class PyUtil {
         // For the time being type name means:
         String typeName = PyType.of(o).getName();
         return String.format("%s object at %#x", typeName, Py.id(o));
+    }
+
+    /**
+     * Convenient default toString implementation that tries __str__, if
+     * defined, but always falls back to something. Use as:<pre>
+     * public String toString() {
+     *     return PyUtil.defaultToString(this);
+     * }
+     * </pre>
+     *
+     * @param o object to represent
+     * @return a string representation
+     */
+    static String defaultToString(Object o) {
+        if (o == null)
+            return "null";
+        else {
+            PyType type = null;
+            try {
+                type = PyType.of(o);
+                Object d = type.lookup("__str__");
+                if (d instanceof MethodDescriptor str) {
+                    Object res = str.call(o);
+                    return res.toString();
+                }
+            } catch (Throwable e) {}
+
+            // Even o.__str__ not working.
+            String name = "";
+            try {
+                // Got a Python type at all?
+                name = type.getName();
+            } catch (Throwable e) {
+                // Maybe during start-up. Fall back to Java.
+                Class<?> c = o.getClass();
+                if (c.isAnonymousClass())
+                    name = c.getName();
+                else
+                    name = c.getSimpleName();
+            }
+            return "<" + name + " object>";
+        }
     }
 
     // Some singleton exceptions --------------------------------------

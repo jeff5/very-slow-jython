@@ -2,12 +2,8 @@
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
 
-import static uk.co.farowl.vsj4.support.internal.Util.EMPTY_ARRAY;
-import static uk.co.farowl.vsj4.support.internal.Util.EMPTY_STRING_ARRAY;
-
 import java.lang.invoke.MethodHandles;
-import java.util.Arrays;
-import java.util.Map;;
+import java.util.Map;
 
 /**
  * The Python {@code BaseException} exception and many common Python
@@ -54,13 +50,11 @@ public class PyBaseException extends RuntimeException
     // XXX align constructor more directly to CPython.
 
     /**
-     * The argument array given to the constructor, which is also the
+     * The arguments given to the constructor, which is also the
      * arguments from {@code __new__} or {@code __init__}. Not
      * {@code null}.
      */
-    /* XXX Should be tuple */
-    private Object[] args;
-    // private PyTuple args;
+    private PyTuple args;
 
     private Object notes;
     private Object traceback;
@@ -89,7 +83,7 @@ public class PyBaseException extends RuntimeException
         super(String.format(msg, vals));
         this.type = type;
         msg = this.getMessage();
-        this.args = msg.length() > 0 ? new Object[] {msg} : EMPTY_ARRAY;
+        this.args = msg.length() > 0 ? new PyTuple(msg) : PyTuple.EMPTY;
     }
 
     /** Constructor specifying Python argument array. */
@@ -98,15 +92,10 @@ public class PyBaseException extends RuntimeException
         // Ensure Python type is valid for Java class.
         this.type = TYPE; // For the check
         this.type = checkClassAssignment(type);
-        // XXX Extract helper to support __init__
         // Fossilise the positional args
-        if (args == null || args.length == 0) {
-            this.args = EMPTY_ARRAY; // XXX PyTuple.EMPTY
-        } else {
-            if (kwds == null) { kwds = EMPTY_STRING_ARRAY; }
-            this.args = Arrays.copyOfRange(args, 0,
-                    args.length - kwds.length);
-        }
+        int n = args == null ? 0 : args.length;
+        if (kwds != null) { n -= kwds.length; }
+        this.args = n == 0 ? PyTuple.EMPTY : new PyTuple(args, 0, n);
     }
 
     @Override
@@ -137,9 +126,13 @@ public class PyBaseException extends RuntimeException
     }
 
     @Override
+    public String getMessage() {
+        return args.size() > 0 ? PyUnicode.asString(args.get(0)) : "";
+    }
+
+    @Override
     public String toString() {
-        String msg = args.length > 0 ? args[0].toString() : "";
-        return String.format("%s: %s", type.getName(), msg);
+        return String.format("%s: %s", type.getName(), getMessage());
     }
 
     // special methods ------------------------------------------------
