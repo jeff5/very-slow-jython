@@ -4,8 +4,10 @@ package uk.co.farowl.vsj4.runtime.kernel;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import uk.co.farowl.vsj4.runtime.PyType;
@@ -49,6 +51,7 @@ public abstract sealed class AbstractPyType extends Representation
      * {@code __bases__}.
      */
     protected PyType[] mro;
+
     /**
      * The writable dictionary of the type is private because the type
      * controls writing strictly. Even in the core it is only accessible
@@ -127,6 +130,35 @@ public abstract sealed class AbstractPyType extends Representation
     protected PyType[] getMRO() { return mro.clone(); }
 
     /**
+     * An immutable list of every Java class that was named as primary,
+     * adopted or accepted in the specification of this type, in order.
+     * These are the base Java classes of objects that can legitimately
+     * be presented as {@code self} to methods of the type. In most
+     * cases, this is a list with exactly one element: the single base
+     * class of instances the type, unique to it or shared with other
+     * types by which it may be replaced on an object. Only an adoptive
+     * type is able to support multiple accepted {@code self} classes.
+     *
+     * @return the representations of {@code self}
+     */
+    public abstract List<Class<?>> selfClasses();
+
+    /**
+     * Find the index in this type corresponding to the class of an
+     * object passed as {@code self} to a method of the type.
+     *
+     * @deprecated This entry point exists to support legacy VSJ3 code
+     *     ported to VSJ4. There is a better way than this using the
+     *     index available from a {@code Representation}.
+     * @param selfClass to seek
+     * @return index in {@link #selfClasses()} or -1
+     */
+    @Deprecated
+    public int indexAccepted(Class<?> selfClass) {
+        return selfClasses().indexOf(selfClass);
+    }
+
+    /**
      * The dictionary of the {@code type} in a read-only view.
      *
      * @return dictionary of the {@code type} in a read-only view.
@@ -152,7 +184,7 @@ public abstract sealed class AbstractPyType extends Representation
      */
     // Compare CPython _PyType_Lookup in typeobject.c
     // and find_name_in_mro in typeobject.c
-    Object lookup(String name) {
+    public Object lookup(String name) {
 
         /*
          * CPython wraps this in a cache keyed by (type, name) and

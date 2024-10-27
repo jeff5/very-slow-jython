@@ -12,16 +12,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import uk.co.farowl.vsj4.runtime.WithClass;
 import uk.co.farowl.vsj4.runtime.Feature;
 import uk.co.farowl.vsj4.runtime.PyFloat;
 import uk.co.farowl.vsj4.runtime.PyType;
 import uk.co.farowl.vsj4.runtime.TypeSpec;
+import uk.co.farowl.vsj4.runtime.WithClass;
 import uk.co.farowl.vsj4.runtime.kernel.Representation.Adopted;
 import uk.co.farowl.vsj4.runtime.kernel.Representation.Shared;
 import uk.co.farowl.vsj4.support.InterpreterError;
@@ -569,6 +570,7 @@ public class TypeFactory {
             // It has these (potentially > 1) representations:
             Class<?> primary = spec.getPrimary();
             List<Class<?>> adopted = spec.getAdopted();
+            List<Class<?>> accepted = spec.getAccepted();
 
             // Get the list of Python bases, or implicitly object.
             PyType[] bases;
@@ -585,6 +587,7 @@ public class TypeFactory {
             if (spec.getFeatures().contains(Feature.REPLACEABLE)) {
                 assert primary != null;
                 assert adopted.isEmpty();
+                assert accepted.isEmpty();
                 /*
                  * The type is replaceable: the representation is the
                  * primary class, but it is allowable that it already
@@ -601,7 +604,8 @@ public class TypeFactory {
                     sr = s;
                 } else {
                     // A representation exists but is the wrong type.
-                    throw new Clash(spec, primary, existing);
+                    throw new Clash(spec, Clash.Mode.NOT_SHARABLE,
+                            primary, existing);
                 }
 
                 // Create a type referencing sr.
@@ -609,7 +613,7 @@ public class TypeFactory {
                         new ReplaceableType(name, sr, bases);
                 tasks.put(spec, new Task(newType = rt, spec));
 
-            } else if (adopted.isEmpty()) {
+            } else if (adopted.isEmpty() && accepted.isEmpty()) {
                 /*
                  * The type is not adoptive: the Representation is the
                  * PyType itself with the primary as its representation
@@ -622,22 +626,47 @@ public class TypeFactory {
 
             } else {
                 /*
-                 * The type adopts one or more classes: the
-                 * representations may include the primary class.
+                 * The type adopts/accepts one or more classes: the
+                 * representations will include the type itself for the
+                 * primary class, new representations for adopted
+                 * classes, and unregistered new representations of the
+                 * accepted classes (a rarity).
                  */
-                int na = adopted.size();
-                AdoptiveType at =
-                        new AdoptiveType(name, primary, na, bases);
-                tasks.put(spec, new Task(newType = at, spec));
-                if (primary != null) { addRepresentation(primary, at); }
-                for (Class<?> c : adopted) {
-                    Adopted r = new Adopted(c, at);
-                    at.adopt(r);
-                    addRepresentation(c, r);
-                }
+                assert primary != null;
+                // We hand off access to the registry as this object.
+                Registrar registrar = new Registrar();
+                // Construct the type, registering representations.
+                newType = new AdoptiveType(name, primary, bases,
+                        registrar, adopted, accepted);
+                // Check that nothing went wrong.
+                if (registrar.clash != null) { throw registrar.clash; }
+                // Make exposing the type a Task for later.
+                tasks.put(spec, new Task(newType, spec));
+                addRepresentation(primary, newType);
             }
 
             return newType;
+        }
+
+        /**
+         * Helper class used to access the registry in
+         * {@code new AdoptiveType()}. It is a {@code BiConsumer}, but
+         * it has to store any exception generated, since a
+         * {@code BiConsumer.accept} method cannot throw.
+         */
+        private class Registrar
+                implements BiConsumer<Class<?>, Adopted> {
+            /** What went wrong. */
+            Clash clash = null;
+
+            @Override
+            public void accept(Class<?> c, Adopted r) {
+                try {
+                    addRepresentation(c, r);
+                } catch (Clash e) {
+                    this.clash = e;
+                }
+            }
         }
 
         /**
@@ -664,32 +693,32 @@ public class TypeFactory {
             addRepresentation(primary, st);
         }
 
-        /**
-         * Add an existing partial Python type, assumed consistent with
-         * the specification, to the work in progress. The type is "Java
-         * ready" but not "Python ready". This method is a variant of
-         * {@link #addPartialFromSpec(TypeSpec)} where the type object
-         * already exists (quite possibly, only used for
-         * {@code object}).
-         *
-         * @param spec specifying the new type
-         * @param at the new type
-         * @throws Clash when {@code at} is already bound
-         */
-        void add(TypeSpec spec, AdoptiveType at) throws Clash {
-            // No further change once we start
-            Class<?> primary = spec.freeze().getPrimary();
-            tasks.put(spec, new Task(at, spec));
-            // Add the primary representation if there is one.
-            if (primary != null) { addRepresentation(primary, at); }
-            // Add each adopted representation.
-            for (int i = 0; i < at.getAdoptedCount(); i++) {
-                Adopted r = at.getAdopted(i);
-                Class<?> klass = r.javaClass;
-                // Add klass -> r to registry if not duplicating
-                if (klass != primary) { addRepresentation(klass, r); }
-            }
-        }
+// /**
+// * Add an existing partial Python type, assumed consistent with
+// * the specification, to the work in progress. The type is "Java
+// * ready" but not "Python ready". This method is a variant of
+// * {@link #addPartialFromSpec(TypeSpec)} where the type object
+// * already exists (quite possibly, only used for
+// * {@code object}).
+// *
+// * @param spec specifying the new type
+// * @param at the new type
+// * @throws Clash when {@code at} is already bound
+// */
+// void add(TypeSpec spec, AdoptiveType at) throws Clash {
+// // No further change once we start
+// Class<?> primary = spec.freeze().getPrimary();
+// tasks.put(spec, new Task(at, spec));
+// // Add the primary representation if there is one.
+// if (primary != null) { addRepresentation(primary, at); }
+// // Add each adopted representation.
+// for (int i = 0; i < at.getAdoptedCount(); i++) {
+// Adopted r = at.getAdopted(i);
+// Class<?> klass = r.javaClass;
+// // Add klass -> r to registry if not duplicating
+// if (klass != primary) { addRepresentation(klass, r); }
+// }
+// }
 
         /**
          * Add a class representation to the workshop's
@@ -802,10 +831,45 @@ public class TypeFactory {
         private static final long serialVersionUID = 1L;
         /** Context of the clash. */
         final TypeSpec context;
-        /** Class being redefined. */
+        /** Type of clash. */
+        final Mode mode;
+        /** Class being referenced. */
         final Class<?> klass;
         /** Representation already registered for {@link #klass} */
         final Representation existing;
+
+        /** Types of clash. */
+        public enum Mode {
+            /** New representation requested but exists already. */
+            EXISTING("class %s was already bound to %s"),
+            /** Representation needed for sharing is not suitable. */
+            NOT_SHARABLE("class %s was bound to non-shared %s"),
+            /** Representation needed as "accepted self" is missing. */
+            MISSING("no representation for class %s");
+
+            String fmt;
+
+            Mode(String fmt) { this.fmt = fmt; }
+        }
+
+        /**
+         * Create an exception reporting a specified type of problem in
+         * the registry with a Java representation class in the context
+         * of a an attempt to define a specific new type.
+         *
+         * @param context specification being worked
+         * @param mode of the clash
+         * @param klass being registered
+         * @param existing representation for that class
+         */
+        Clash(TypeSpec context, Mode mode, Class<?> klass,
+                Representation existing) {
+            assert mode == Mode.MISSING || existing != null;
+            this.context = context;
+            this.mode = mode;
+            this.klass = klass;
+            this.existing = existing;
+        }
 
         /**
          * Create an exception reporting that an attempt was made to
@@ -819,19 +883,31 @@ public class TypeFactory {
         Clash(TypeSpec context, Class<?> klass,
                 Representation existing) {
             this.context = context;
+            this.mode = Mode.EXISTING;
             this.klass = klass;
             this.existing = existing;
         }
 
+        /**
+         * Create an exception reporting that a representation needed
+         * for a given class could not be found. (This arises when
+         * accepting, not adopting, a representation.)
+         *
+         * @param context specification being worked
+         * @param klass being sought
+         */
+        Clash(TypeSpec context, Class<?> klass) {
+            this(context, Mode.MISSING, klass, null);
+        }
+
         @Override
         public String getMessage() {
-            return String.format(CLASS_ALREADY_BOUND, context.getName(),
+            return String.format(PREAMBLE + mode.fmt, context.getName(),
                     klass.getTypeName(), existing);
         }
 
-        private static final String CLASS_ALREADY_BOUND =
-                "Interpreting specification %s, the type system"
-                        + " found class %s was already bound to %s";
+        private static final String PREAMBLE =
+                "Interpreting specification %s, the type system found ";
     }
 
     /**
@@ -848,13 +924,9 @@ public class TypeFactory {
          */
         PrimordialTypeSpec(PyType type, Lookup lookup) {
             super(type.getName(), lookup);
-            this.primary(type.javaClass).bases(type.bases);
-            if (type instanceof AdoptiveType at) {
-                int n = at.getAdoptedCount();
-                for (int i = 0; i < n; i++) {
-                    this.adopt(at.getAdopted(i).javaClass);
-                }
-            }
+            // I think the primordial types are only simple
+            assert type instanceof SimpleType;
+            this.primary(type.javaClass()).bases(type.bases);
         }
     }
 }

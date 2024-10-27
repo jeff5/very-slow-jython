@@ -15,17 +15,13 @@ public class Py {
         assert registry != null;
     }
 
-    /** Python {@code None} object. */
-    public static final PyNone None = PyNone.INSTANCE;
-
-    /** Instances are not allowed. */
-    private Py() {};
+    private Py() {};    // Instances are not allowed.
 
     /**
      * Return the unique numerical identity of a given Python object.
-     * Objects with the same id() are identical as long as both exist.
-     * By implementing it here, we encapsulate the problem of qualified
-     * type name and what "address" or "identity" should mean.
+     * Objects with the same {@code id()} are identical as long as both
+     * exist. By implementing it here, we encapsulate the problem of
+     * qualified type name and what "address" or "identity" should mean.
      *
      * @param o the object
      * @return the Python {@code id(o)}
@@ -34,4 +30,23 @@ public class Py {
         // For the time being identity means:
         return System.identityHashCode(o);
     }
+
+    /** Python {@code None} object. */
+    public static final PyNone None = PyNone.INSTANCE;
+
+    /** Python {@code None} object. */
+    public static final PyNotImplemented NotImplemented =
+            PyNotImplemented.INSTANCE;
+
+    /**
+     * Return a new, empty {@link PyDict}.
+     *
+     * @return new, empty {@link PyDict}.
+     */
+    public static PyDict dict() { return new PyDict(); }
+
+    /** The Python {@code False} singleton is {@code Boolean.FALSE}. */
+    public static final Boolean False = Boolean.FALSE;
+    /** The Python {@code True} singleton is {@code Boolean.TRUE}. */
+    public static final Boolean True = Boolean.TRUE;
 }

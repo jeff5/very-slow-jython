@@ -21,7 +21,7 @@ import uk.co.farowl.vsj4.support.InterpreterError;
  * type). In cases where instances of the the Java class can represent
  * objects with multiple Python types,
  * {@link Representation#pythonType(Object)} refers to the Python object
- * itself for a the actual type.
+ * itself for the actual type.
  * <p>
  * The run-time system will form a mapping from each Java class to an
  * instance of (a specific sub-class of) {@code Representation}. Apart
@@ -124,27 +124,26 @@ public abstract class Representation {
      */
     static class Adopted extends Representation {
 
-        /** The type of which this is an accepted implementation. */
-        final private AdoptiveType type;
+        /** The type of which this is an adopted representation. */
+        final AdoptiveType type;
 
         /**
          * Index of this implementation in the type (see
          * {@link AdoptiveType#getAdopted(int)}.
          */
-        final private int index;
+        final int index;
 
         /**
          * Create a {@code Representation} object associating a Python
          * type with the Java type.
          *
-         * @param javaType implementing it
+         * @param javaClass implementing it
          * @param type of which this is an accepted implementation
          */
-        Adopted(Class<?> javaType, AdoptiveType type) {
-            super(javaType);
+        Adopted(int index, Class<?> javaClass, AdoptiveType type) {
+            super(javaClass);
             this.type = type;
-            this.index = 0; // XXX an argument? Instead of javaType??
-            // setAllSlots();
+            this.index = index;
         }
 
         @Override
@@ -205,9 +204,7 @@ public abstract class Representation {
          *
          * @param javaType extension point Java class
          */
-        Shared(Class<?> javaType) {
-            super(javaType);
-        }
+        Shared(Class<?> javaType) { super(javaType); }
 
         @Override
         public String toString() {
@@ -227,4 +224,9 @@ public abstract class Representation {
             }
         }
     }
+
+    /** Cache of {@link SpecialMethod#__hash__} */
+    MethodHandle op_hash;
+    /** Cache of {@link SpecialMethod#__call__} */
+    MethodHandle op_call;
 }

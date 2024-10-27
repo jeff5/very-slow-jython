@@ -226,6 +226,78 @@ public abstract sealed class PyType extends AbstractPyType
         }
     }
 
+    /**
+     * {@code true} iff the type of {@code o} is a Python sub-type of
+     * {@code this} (including exactly {@code this} type). This is
+     * likely to be used in the form:<pre>
+     * if(!PyUnicode.TYPE.check(oName)) throw ...
+     * </pre>
+     *
+     * @param o object to test
+     * @return {@code true} iff {@code o} is of a sub-type of this type
+     */
+    boolean check(Object o) {
+        PyType t = PyType.of(o);
+        return t == this || t.isSubTypeOf(this);
+    }
+
+    /**
+     * {@code true} iff the Python type of {@code o} is exactly
+     * {@code this}, not a Python sub-type of {@code this}, nor just any
+     * Java sub-class of {@code PyType}. This is likely to be used in
+     * the form:<pre>
+     * if(!PyUnicode.TYPE.checkExact(oName)) throw ...
+     * </pre>
+     *
+     * @param o object to test
+     * @return {@code true} iff {@code o} is exactly of this type
+     */
+    public boolean checkExact(Object o) {
+        return PyType.of(o) == this;
+    }
+
+    /**
+     * Determine if this type is a Python sub-type of {@code b} (if
+     * {@code b} is on the MRO of this type).
+     *
+     * @param b to test
+     * @return {@code true} if {@code this} is a sub-type of {@code b}
+     */
+    // Compare CPython PyType_IsSubtype in typeobject.c
+    boolean isSubTypeOf(PyType b) {
+        if (mro != null) {
+            /*
+             * Deal with multiple inheritance without recursion by
+             * walking the MRO tuple
+             */
+            for (PyType base : mro) {
+                if (base == b)
+                    return true;
+            }
+            return false;
+        } else
+            // a is not completely initialised yet; follow base
+            return type_is_subtype_base_chain(b);
+    }
+
+    /**
+     * Determine if this type is a Python sub-type of {@code b} by
+     * chaining through the {@link #base} property. (This is a fall-back
+     * when {@link #mro} is not valid.)
+     *
+     * @param b to test
+     * @return {@code true} if {@code this} is a sub-type of {@code b}
+     */
+    // Compare CPython type_is_subtype_base_chain in typeobject.c
+    private boolean type_is_subtype_base_chain(PyType b) {
+        PyType t = this;
+        while (t != b) {
+            t = t.base;
+            if (t == null) { return b == PyObject.TYPE; }
+        }
+        return true;
+    }
+
     // Special methods -----------------------------------------------
 
     protected Object __repr__() throws Throwable {
@@ -295,5 +367,4 @@ public abstract sealed class PyType extends AbstractPyType
         // maybeInit(obj, args, names);
         return obj;
     }
-
 }

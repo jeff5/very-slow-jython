@@ -267,6 +267,8 @@ where their "layout" is the same as CPython would perceive it,
 if we are to implement Python's class assignment fully.
 
 
+.. _Representation-builtin-list-slots:
+
 Sub-classes of  ``list`` using ``__slots__``
 --------------------------------------------
 
@@ -527,6 +529,7 @@ The MRO of ``LS7`` is ``(LS7, LS6, LS3, LS, list, object)``.
     xs7 --> LS7Type : type
 
 
+.. _Representation-builtin-object:
 
 ``Object``, ``object`` and Python ``class``
 ===========================================
@@ -605,6 +608,7 @@ and it is the base of all classes in Java (not ``final``)
 we are able to nominate it the primary of a ``SimpleType``.
 
 
+.. _Representation-builtin-type:
 
 Type Objects for ``type``
 =========================
@@ -827,6 +831,7 @@ not for any difference in metatype.
     MyOtherClass ..>  PyType.Derived.class
     MyOtherClass --> Other : type
 
+.. _Representation-builtin-float:
 
 Representing ``float``
 ======================
@@ -1010,8 +1015,13 @@ Sub-classes in Python must be represented by subclasses in Java
 and ``Double`` cannot be subclassed.
 
 
+.. _Representation-with-cache:
+
 Possibility of Caching on the ``Representation``
-------------------------------------------------
+================================================
+
+Model
+-----
 
 We know that in CPython,
 special methods like ``__neg__`` map to pointers in a type object.
@@ -1293,6 +1303,217 @@ We'll try to make finding and calling an un-cached descriptor
 as slick as possible,
 but for the time being,
 we do not create method handle slots as we did in ``rt3``.
+
+
+.. _Representation-builtin-int-bool:
+
+Representing ``int`` and ``bool``
+=================================
+
+The type ``int`` is defined by the class ``PyLong``.
+The name is chosen to make porting from the CPython API easier.
+The pattern there for ``int`` things is ``PyLong_*``,
+rather than ``PyInteger_*``,
+for historical reasons.
+
+``java.lang.Integer`` and ``java.math.BigInteger``
+are adopted as representations of ``int``.
+We might also allow ``Long``, ``Short`` and ``Byte``.
+So far, this is very much like our account of ``float``,
+and the same approach can be taken successfully,
+with just one problem.
+
+The type ``bool``, implemented by ``PyBoolean``,
+is represented by the Java type ``java.lang.Boolean``.
+``PyBoolean`` is *not* a representation of ``bool``:
+it is just where we keep some implementation methods.
+We only use the constants ``Boolean.TRUE`` and ``Boolean.FALSE``
+when we represent Python ``True`` and ``False``.
+An application *might* create other instances of ``Boolean``,
+although that practice is deprecated.
+We should recognise these as valid, but not create them.
+
+The complication is that ``bool`` is a subclass of ``int`` in Python,
+while ``Boolean`` is not a subclass of ``PyLong``,
+the canonical representation of ``int``.
+What we have decided concerning Python subclasses of ``float``,
+while it works for subclasses of ``PyLong``,
+does not quite work for ``bool``.
+
+Many a method from ``int`` is inherited by ``bool``,
+for example:
+
+..  code-block:: python
+
+    >>> bool.__neg__
+    <slot wrapper '__neg__' of 'int' objects>
+    >>> bool.__add__
+    <slot wrapper '__add__' of 'int' objects>
+    bool.__radd__
+    <slot wrapper '__radd__' of 'int' objects>
+
+This means that when we look up such a method on ``bool``,
+or when we try to evaluate ``-x``, ``x+i``, or ``i+x``,
+where ``x`` is a ``bool``,
+the method name will resolve to an entry in the dictionary of ``int``.
+Each method descriptor of ``int`` contains an array of implementations
+(as ``MethodHandle``\s).
+Following the pattern established for ``float``,
+the ``self`` argument of these implementations support ``PyLong``,
+the adopted representations of ``int``, and subclasses of those,
+but not ``Boolean`` since that is not a representation of ``int``.
+
+The VSJ3 answer to this was to provide a means
+for types to accept additional classes as ``self``
+that are not representations of the type.
+Extra implementations of the methods were provided,
+at the end of the array in each method descriptor,
+where ``self`` matched the subclass representation class.
+Thus the inherited descriptor would have an entry
+applicable to the non-representation subclass.
+
+This seems basically sound, but we must revisit it,
+as a few things have changed in the implementation for VSJ4.
+We hope to avoid additional complexity in the implementation,
+given that the only discovered application is ``bool``.
+
+
+.. _Operations-builtin-int-bool-neg:
+
+The Unary Operation ``__neg__``
+-------------------------------
+
+We build on the explanation we gave for ``float``,
+where in the course of executing a ``UNARY_NEGATIVE`` opcode,
+the interpreter picks up an ``Object`` from the stack.
+In the cases where the object happens to be
+an ``Integer`` or a ``BigInteger``,
+the model in :ref:`Representation-builtin-float`
+is a good enough guide already to what takes place.
+
+But suppose it finds it to be Python ``True``.
+How does it locate the particular implementation of ``__neg__``?
+As a start, we arrange that
+the implementations of ``int.__neg__`` include one for ``Boolean``:
+
+..  code-block:: java
+
+    PyLongMethods {
+        // ...
+        static Object __neg__(PyLong self) { return self.value.negate(); }
+        static Object __neg__(Integer self) { return -self; }
+        static Object __neg__(BigInteger self) { return self.negate(); }
+        static Object __neg__(Boolean self) { return self ? -1 :0; }
+
+The special method descriptor in the dictionary of ``int``
+will contain an array of handles to these implementations.
+Each ``Representation`` of ``int``
+will specify its own location in the array,
+but the ``Representation`` of ``bool`` cannot,
+since it is already ``Representation`` 0 of ``bool``.
+We shall have to find it another way.
+
+The structure we propose looks like this,
+when realised for integer ``42`` and boolean ``True``:
+
+..  uml::
+    :caption: Instance model of ``int``, ``bool`` and their ``__neg__``
+
+    object "42 : Integer" as x
+    object "Integer : Class" as Integer.class
+    object " : MethodHandle" as integerNeg {
+        target = PyLongMethods.__neg__(Integer)
+    }
+    object "int : AdoptedRepresentation" as intRepresentation {
+        index = 3
+    }
+    object "int : AdoptiveType" as intType
+    x ..> Integer.class
+    Integer.class --> intRepresentation : registry
+    intRepresentation --> intType : type
+    object " : Map" as intDict
+    intType --> intDict : dict
+    object " : PyWrapperDescr" as neg {
+        name = "__neg__"
+    }
+    intDict --> neg
+
+
+    object "True : Boolean" as True
+    object "Boolean : Class" as Boolean.class
+    object " : MethodHandle" as booleanNeg {
+        target = PyLongMethods.__neg__(Boolean)
+    }
+    object "bool : SimpleType" as boolType {
+        index = 0
+    }
+    True ..> Boolean.class
+    Boolean.class --> boolType : registry
+    object " : Map" as boolDict
+    boolType --> boolDict : dict
+
+    neg --> integerNeg : 2
+    neg --> booleanNeg : 3
+    boolType -right-> intType : base
+
+Note that ``bool`` is a ``SimpleType``,
+so it serves as the ``Representation`` itself.
+
+When we come to choose an implementation of ``__neg__``,
+we first find the representation and type registered for ``Boolean``.
+The dictionary of type ``bool`` does not contain ``__neg__``,
+and so we traverse the MRO of ``bool`` and find ``__neg__`` in ``int``.
+
+When we find an attribute amongst the ancestors of a class,
+we always look up method implementation zero.
+Normally this is exactly the right choice,
+because the subclass representation will normally extend
+the primary representation of its parent.
+``bool`` is the exception to this rule,
+where (in the example at least) we need to use index 3,
+which isn't even a registered representation for ``int``.
+This implies that
+we must search for the matching ``MethodHandle``.
+
+Notice that when we find a method descriptor in a type dictionary,
+we cannot safely invoke any handle in it,
+even when there is only one.
+This is because method descriptors may be moved between types,
+at least if the receiving type is mutable.
+
+..  code-block:: python
+
+    >>> class F(float): pass
+    ...
+    >>> F.__neg__ = int.__neg__
+    >>> F(42)
+    42.0
+    >>> -F(42)
+    Traceback (most recent call last):
+      File "<pyshell#48>", line 1, in <module>
+        -F(42)
+    TypeError: descriptor '__neg__' requires a 'int' object but received a 'F'
+    >>> F.__neg__.__objclass__
+    <class 'int'>
+
+We see that Python must check the ``self`` argument against
+the (Python) type for which the method descriptor is intended,
+stored in ``__objclass__``.
+We conclude that Jython must check the Java class of ``self`` against
+the Java type of (all) the handles available.
+We can do this *instead of* the Python type check
+and still produce the same message if no handle fits.
+
+We have to turn the ``if``-test into a loop,
+in case we are dealing with an "accepted" representation.
+In all cases except ``bool``,
+either the first handle we fits, or we shall be raising an error,
+and so the cost of the test is not great in non-error cases.
+If we implement the caching of handles on ``Representation``\s,
+the entire look up, including this test,
+need only be performed when the handle is cached
+(once or once per change).
+
 
 
 Summary Examples

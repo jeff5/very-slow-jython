@@ -2,6 +2,8 @@
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime.kernel;
 
+import java.util.List;
+
 import uk.co.farowl.vsj4.runtime.PyType;
 
 /**
@@ -50,4 +52,7 @@ public non-sealed class SimpleType extends PyType {
 
     @Override
     public SimpleType pythonType(Object x) { return this; }
+
+    @Override
+    public List<Class<?>> selfClasses() { return List.of(javaClass); }
 }
