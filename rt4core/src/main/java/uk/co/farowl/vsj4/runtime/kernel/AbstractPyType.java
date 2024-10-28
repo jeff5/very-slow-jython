@@ -130,16 +130,33 @@ public abstract sealed class AbstractPyType extends Representation
     protected PyType[] getMRO() { return mro.clone(); }
 
     /**
+     * An immutable list of the {@link Representation}s of this type.
+     * These are the representations of the primary or adopted classes
+     * in the specification of this type, in order.
+     * <p>
+     * For a {@link SimpleType}, this is a list with exactly one
+     * element: the type itself. In other cases, the single element is a
+     * {@link Shared representation shared} with those types that may
+     * replace this type on an object. Only an {@link AdoptiveType} is
+     * able to support multiple representations.
+     *
+     * @return the representations of {@code self}
+     */
+    public abstract List<Representation> representations();
+
+    /**
      * An immutable list of every Java class that was named as primary,
      * adopted or accepted in the specification of this type, in order.
      * These are the base Java classes of objects that can legitimately
-     * be presented as {@code self} to methods of the type. In most
-     * cases, this is a list with exactly one element: the single base
-     * class of instances the type, unique to it or shared with other
-     * types by which it may be replaced on an object. Only an adoptive
-     * type is able to support multiple accepted {@code self} classes.
+     * be presented as {@code self} to methods of the type.
+     * <p>
+     * These are also the classes of the {@link #representations()}, in
+     * order, except that the non-representation classes also accepted
+     * as {@code self} (if any) are appended. A method descriptor in an
+     * adoptive type uses this list to ensure it has an implementation
+     * for each self class.
      *
-     * @return the representations of {@code self}
+     * @return the bases of classes allowed as {@code self}
      */
     public abstract List<Class<?>> selfClasses();
 

@@ -59,6 +59,13 @@ public abstract class Representation {
      * Get the Python type of the object <i>given that</i> this is the
      * representation object for it.
      *
+     * @implSpec If this object is also a type object, it will answer
+     *     that it itself is that type. (Do not do this in
+     *     {@code PyType} so that the method does not become API.) An
+     *     {@link Adopted} representation knows its {@link AdoptiveType}
+     *     directly, while a {@link Shared} representation must consult
+     *     the object.
+     *
      * @param x subject of the enquiry
      * @return {@code type(x)}
      */
@@ -214,9 +221,14 @@ public abstract class Representation {
 
         @Override
         public PyType pythonType(Object x) {
-            if (x instanceof WithClass c)
-                return c.getType();
+            if (x instanceof WithClass wcx)
+                return wcx.getType();
             else {
+                /*
+                 * The TypeFactory has a bug if it created this
+                 * Representation. Or the type system has a bug if it
+                 * allowed anything else to do so.
+                 */
                 String msg = String.format(
                         "class %.100s registered as Shared",
                         x.getClass().getTypeName());

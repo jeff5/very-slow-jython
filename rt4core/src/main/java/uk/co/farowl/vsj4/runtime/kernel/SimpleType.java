@@ -51,8 +51,17 @@ public non-sealed class SimpleType extends PyType {
     }
 
     @Override
-    public SimpleType pythonType(Object x) { return this; }
+    public List<Representation> representations() {
+        return List.of(this);
+    }
 
     @Override
     public List<Class<?>> selfClasses() { return List.of(javaClass); }
+
+    @Override
+    public PyType pythonType(Object x) {
+        // I don't *think* we should be asked this question unless:
+        assert javaClass.isAssignableFrom(x.getClass());
+        return this;
+    }
 }

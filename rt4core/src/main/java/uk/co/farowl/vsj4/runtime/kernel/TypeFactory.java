@@ -12,7 +12,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 
 import org.slf4j.Logger;
@@ -23,7 +22,6 @@ import uk.co.farowl.vsj4.runtime.PyFloat;
 import uk.co.farowl.vsj4.runtime.PyType;
 import uk.co.farowl.vsj4.runtime.TypeSpec;
 import uk.co.farowl.vsj4.runtime.WithClass;
-import uk.co.farowl.vsj4.runtime.kernel.Representation.Adopted;
 import uk.co.farowl.vsj4.runtime.kernel.Representation.Shared;
 import uk.co.farowl.vsj4.support.InterpreterError;
 
@@ -600,7 +598,7 @@ public class TypeFactory {
                     sr = new Shared(primary);
                     unpublished.put(primary, sr);
                 } else if (existing instanceof Shared s) {
-                    // It does exist and is a Shared type
+                    // It does exist and is a Shared type: just use it.
                     sr = s;
                 } else {
                     // A representation exists but is the wrong type.
@@ -608,7 +606,7 @@ public class TypeFactory {
                             primary, existing);
                 }
 
-                // Create a type referencing sr.
+                // Create a type referencing the shared representation.
                 ReplaceableType rt =
                         new ReplaceableType(name, sr, bases);
                 tasks.put(spec, new Task(newType = rt, spec));
@@ -621,52 +619,36 @@ public class TypeFactory {
                  */
                 assert primary != null;
                 SimpleType st = new SimpleType(name, primary, bases);
-                tasks.put(spec, new Task(newType = st, spec));
                 addRepresentation(primary, st);
+                tasks.put(spec, new Task(newType = st, spec));
 
             } else {
                 /*
                  * The type adopts/accepts one or more classes: the
-                 * representations will include the type itself for the
-                 * primary class, new representations for adopted
-                 * classes, and unregistered new representations of the
-                 * accepted classes (a rarity).
+                 * representations will be the type itself for the
+                 * primary class and new representations for adopted
+                 * classes. Accepted classes (a rarity) are recorded as
+                 * self-classes but no representation is created.
                  */
                 assert primary != null;
-                // We hand off access to the registry as this object.
-                Registrar registrar = new Registrar();
-                // Construct the type, registering representations.
-                newType = new AdoptiveType(name, primary, bases,
-                        registrar, adopted, accepted);
-                // Check that nothing went wrong.
-                if (registrar.clash != null) { throw registrar.clash; }
+
+                // Construct the type, creating representations.
+                AdoptiveType at = new AdoptiveType(name, primary, bases,
+                        adopted, accepted);
+
+                // Register all the representations (primary, adopted).
+                List<Representation> reps = at.representations();
+                List<Class<?>> classes = at.selfClasses();
+                for (int i = 0; i <= adopted.size(); i++) {
+                    // Note this checks for attempted duplication.
+                    addRepresentation(classes.get(i), reps.get(i));
+                }
+
                 // Make exposing the type a Task for later.
-                tasks.put(spec, new Task(newType, spec));
-                addRepresentation(primary, newType);
+                tasks.put(spec, new Task(newType = at, spec));
             }
 
             return newType;
-        }
-
-        /**
-         * Helper class used to access the registry in
-         * {@code new AdoptiveType()}. It is a {@code BiConsumer}, but
-         * it has to store any exception generated, since a
-         * {@code BiConsumer.accept} method cannot throw.
-         */
-        private class Registrar
-                implements BiConsumer<Class<?>, Adopted> {
-            /** What went wrong. */
-            Clash clash = null;
-
-            @Override
-            public void accept(Class<?> c, Adopted r) {
-                try {
-                    addRepresentation(c, r);
-                } catch (Clash e) {
-                    this.clash = e;
-                }
-            }
         }
 
         /**
@@ -693,38 +675,12 @@ public class TypeFactory {
             addRepresentation(primary, st);
         }
 
-// /**
-// * Add an existing partial Python type, assumed consistent with
-// * the specification, to the work in progress. The type is "Java
-// * ready" but not "Python ready". This method is a variant of
-// * {@link #addPartialFromSpec(TypeSpec)} where the type object
-// * already exists (quite possibly, only used for
-// * {@code object}).
-// *
-// * @param spec specifying the new type
-// * @param at the new type
-// * @throws Clash when {@code at} is already bound
-// */
-// void add(TypeSpec spec, AdoptiveType at) throws Clash {
-// // No further change once we start
-// Class<?> primary = spec.freeze().getPrimary();
-// tasks.put(spec, new Task(at, spec));
-// // Add the primary representation if there is one.
-// if (primary != null) { addRepresentation(primary, at); }
-// // Add each adopted representation.
-// for (int i = 0; i < at.getAdoptedCount(); i++) {
-// Adopted r = at.getAdopted(i);
-// Class<?> klass = r.javaClass;
-// // Add klass -> r to registry if not duplicating
-// if (klass != primary) { addRepresentation(klass, r); }
-// }
-// }
-
         /**
          * Add a class representation to the workshop's
          * {@link #unpublished} map during construction of a partial
-         * type. The class must not already be mapped in either the
-         * published registry or the local unpublished representations.
+         * type. We check that the class is not already mapped in either
+         * the published registry or the local unpublished
+         * representations.
          * <p>
          * Add the specification to {@link #tasks} before invoking this
          * method or the context will be missing from the error message
@@ -736,8 +692,6 @@ public class TypeFactory {
          */
         private void addRepresentation(Class<?> c, Representation r)
                 throws Clash {
-            // This is in the course of processing *some* spec
-            assert !tasks.isEmpty();
             // Look up c in both published and unpublished maps.
             Representation existing = registry.find(c);
             if (existing != null) {
@@ -880,7 +834,7 @@ public class TypeFactory {
          * @param klass being registered
          * @param existing representation for that class
          */
-        Clash(TypeSpec context, Class<?> klass,
+        private Clash(TypeSpec context, Class<?> klass,
                 Representation existing) {
             this.context = context;
             this.mode = Mode.EXISTING;
@@ -896,7 +850,7 @@ public class TypeFactory {
          * @param context specification being worked
          * @param klass being sought
          */
-        Clash(TypeSpec context, Class<?> klass) {
+        private Clash(TypeSpec context, Class<?> klass) {
             this(context, Mode.MISSING, klass, null);
         }
 

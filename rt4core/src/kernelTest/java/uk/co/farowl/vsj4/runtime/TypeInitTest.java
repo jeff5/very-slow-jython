@@ -2,16 +2,11 @@
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNotSame;
-import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.List;
 
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -96,12 +91,13 @@ class TypeInitTest {
         Representation rep = registry.get(PyType.class);
         assertNotNull(rep);
         assertInstanceOf(SimpleType.class, rep);
-        PyType type = rep.pythonType(null);
+        PyType type = rep.pythonType(rep);
         assertSame(rep, type);
         assertEquals("type", type.getName());
     }
 
     /** After setUp() all type implementations have the same type. */
+    @SuppressWarnings("static-method")
     @Test
     @DisplayName("Subclasses of PyType share a type object")
     void type_subclasses_share_type() {
@@ -123,13 +119,14 @@ class TypeInitTest {
      * {@code Double} as a found Java type before the Python type
      * {@code float} can adopt it.
      */
+    @SuppressWarnings("static-method")
     @Test
     @DisplayName("we can look up a type for Double.class")
     void lookup_type_double() {
         TypeRegistry registry = PyType.registry;
         Representation rep = registry.get(Double.class);
         assertNotNull(rep);
-        PyType type = rep.pythonType(null);
+        PyType type = rep.pythonType(1.0);
         assertInstanceOf(AdoptiveType.class, type);
         assertNotSame(rep, type);
         assertEquals("float", type.getName());

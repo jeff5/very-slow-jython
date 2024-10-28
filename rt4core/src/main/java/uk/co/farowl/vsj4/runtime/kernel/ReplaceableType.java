@@ -5,6 +5,8 @@ package uk.co.farowl.vsj4.runtime.kernel;
 import java.util.List;
 
 import uk.co.farowl.vsj4.runtime.PyType;
+import uk.co.farowl.vsj4.runtime.WithClass;
+import uk.co.farowl.vsj4.runtime.WithClassAssignment;
 
 /**
  * A Python type object used where multiple Python types share a single
@@ -34,9 +36,19 @@ public final class ReplaceableType extends PyType {
         this.representation = representation;
     }
 
+
     @Override
-    public PyType pythonType(Object x) { return this; }
+    public List<Representation> representations() {
+        return List.of(representation);
+    }
 
     @Override
     public List<Class<?>> selfClasses() { return List.of(javaClass); }
+
+    @Override
+    public PyType pythonType(Object x) {
+        // I don't *think* we should be asked this question unless:
+        assert javaClass.isAssignableFrom(x.getClass());
+        return this;
+    }
 }

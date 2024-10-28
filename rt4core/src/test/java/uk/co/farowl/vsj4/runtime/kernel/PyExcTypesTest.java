@@ -87,6 +87,7 @@ class PyExcTypesTest {
         return arguments(type, repName, cls, a, kwds);
     }
 
+    @SuppressWarnings("static-method")
     @DisplayName("share the expected Java representations ...")
     @MethodSource("representationClasses")
     @ParameterizedTest(name = "{0} -> {1}")
