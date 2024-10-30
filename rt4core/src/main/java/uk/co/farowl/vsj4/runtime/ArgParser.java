@@ -11,28 +11,28 @@ import java.util.StringJoiner;
 
 import uk.co.farowl.vsj4.support.InterpreterError;
 import uk.co.farowl.vsj4.support.MethodKind;
-import uk.co.farowl.vsj4.support.internal.ScopeKind;
+import uk.co.farowl.vsj4.support.ScopeKind;
 
 /**
  * This class provides a parser for the positional and keyword arguments
- * supplied during a call to a built-in function or method. The purpose
- * of an argument parser is to provide the body of a function, or
- * perhaps a {@code MethodHandle} with an array of values, corresponding
- * in order and number to its parameters (formal arguments).
+ * supplied during a call to a function or method. This parser
+ * transforms several argument presentations that occur in a Python
+ * implementation, and arranges them into an array.
  * <p>
- * This parser transforms several argument presentations that occur in a
- * Python implementation, and arranges them into an array. This array is
- * either created by the parser, or designated by the caller. The parser
- * may therefore be used to prepare arguments for a pure a Java method
- * (or {@code MethodHandle}) that accepts an array, or to insert
- * arguments as initial values of local variables in an an optimised
- * interpreter frame ({@link PyFrame}).
+ * This array is either created by the parser, or designated by the
+ * caller. The parser may therefore be used to prepare arguments for a
+ * pure a Java method (or {@code MethodHandle}) that accepts an array,
+ * or to insert arguments as initial values of local variables in an an
+ * optimised interpreter frame ({@link PyFrame}). Alternatively, the
+ * {@code ArgParser} may be read simply as a description of the function
+ * signature, in order to select an optimised call that avoids the
+ * intermediate copy.
  * <p>
- * The fields of the parser that determine the acceptable numbers of
+ * The fields of the parser that determine the acceptable number of
  * positional arguments and their names are essentially those of a
- * {@code code} object ({@link PyCode}). Defaults are provided values
- * that mirror the defaults built into a {@code function} object
- * ({@link PyFunction}).
+ * {@code code} object ({@link PyCode}). Default values are provided for
+ * in a way that parallels the semantics of the Python {@code function}
+ * object ({@link PyFunction}), even for those defined in Java.
  * <p>
  * Consider for example a function that in Python would have the
  * function definition:<pre>

@@ -367,4 +367,21 @@ public abstract sealed class PyType extends AbstractPyType
         // maybeInit(obj, args, names);
         return obj;
     }
+
+    // plumbing ------------------------------------------------------
+    // Compare CPython _PyType_GetDocFromInternalDoc
+    // XXX Consider implementing in ArgParser instead
+    static Object getDocFromInternalDoc(String name, String doc) {
+        // TODO Auto-generated method stub
+        return Py.None;
+    }
+
+    // Compare CPython: PyType_GetTextSignatureFromInternalDoc
+    // XXX Consider implementing in ArgParser instead
+    static Object getTextSignatureFromInternalDoc(String name,
+            String doc) {
+        // TODO Auto-generated method stub
+        return Py.None;
+    }
+
 }

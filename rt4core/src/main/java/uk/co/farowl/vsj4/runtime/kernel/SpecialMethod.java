@@ -14,6 +14,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
+import uk.co.farowl.vsj4.runtime.ArgumentError;
 import uk.co.farowl.vsj4.runtime.ClassShorthand;
 import uk.co.farowl.vsj4.runtime.PyBaseException;
 import uk.co.farowl.vsj4.runtime.PyErr;
@@ -467,9 +468,9 @@ public enum SpecialMethod {
     op_contains(Signature.BINARY_PREDICATE);
 
     /** Method signature to match when filling this slot. */
-    final Signature signature;
+    public final Signature signature;
     /** Name of implementation method to bind e.g. {@code "__add__"}. */
-    final String methodName;
+    public final String methodName;
     /** Name to use in error messages, e.g. {@code "+"} */
     final String opName;
     /** The alternate slot e.g. {@code __radd__} in {@code __add__}. */
@@ -482,7 +483,7 @@ public enum SpecialMethod {
     final VarHandle slotHandle;
 
     /** Description to use in help messages */
-    final String doc;
+    public final String doc;
 
     /** Throws a {@link PyBaseException TypeError} (same signature) */
     private MethodHandle operandError;
@@ -649,14 +650,14 @@ public enum SpecialMethod {
      *
      * @return the invocation type of slots of this name.
      */
-    MethodType getType() { return signature.empty.type(); }
+    public MethodType getType() { return signature.empty.type(); }
 
     /**
      * Get the default that fills the slot when it is "empty".
      *
      * @return empty method handle for this type of slot
      */
-    MethodHandle getEmpty() { return signature.empty; }
+    public MethodHandle getEmpty() { return signature.empty; }
 
     /**
      * Get a handle to throw a {@link PyBaseException TypeError} with a
@@ -772,7 +773,7 @@ public enum SpecialMethod {
      * <caption>Signature shorthands</caption>
      * </table>
      */
-    enum Signature {
+    public enum Signature {
 
         /*
          * The makeDescriptor overrides returning anonymous sub-classes
@@ -892,14 +893,14 @@ public enum SpecialMethod {
         /**
          * The signature was defined with this nominal method type.
          */
-        final MethodType type;
+        public final MethodType type;
         /**
          * When empty, the slot should hold this handle. The method type
          * of this handle also tells us the method type by which the
          * slot must always be invoked, see
          * {@link SpecialMethod#getType()}.
          */
-        final MethodHandle empty;
+        public final MethodHandle empty;
 
         /**
          * Constructor to which we specify the signature of the slot,
@@ -931,6 +932,38 @@ public enum SpecialMethod {
             }
         }
 
+        /**
+         * Invoke the given method handle for the given target
+         * {@code self}, having arranged the arguments as expected by a
+         * slot. We create {@code enum} members of {@code Signature} to
+         * handle different slot signatures, in which this method
+         * accepts arguments in a generic way (from the interpreter,
+         * say) and adapts them to the specific needs of a wrapped
+         * method. The caller guarantees that the wrapped method has the
+         * {@code Signature} to which the call is addressed.
+         *
+         * @param wrapped handle of the method to call
+         * @param self target object of the method call
+         * @param args of the method call
+         * @param names of trailing arguments in {@code args}
+         * @return result of the method call
+         * @throws ArgumentError when the arguments ({@code args},
+         *     {@code names}) are not correct for the {@code Signature}
+         * @throws Throwable from the implementation of the special
+         *     method
+         */
+        // Compare CPython wrap_* in typeobject.c
+        // XXX Why not just call the handle in the method descriptor?
+        /*
+         * PyWrapperDescr calls this, but doesn't it already have the
+         * information to hand?
+         */
+        public/* abstract */ Object callWrapped(MethodHandle wrapped,
+                Object self, Object[] args, String[] names)
+                throws ArgumentError, Throwable {
+            //checkNoArgs(args, names);
+            return wrapped.invokeExact(self);
+        }
     }
 
     /**

@@ -39,7 +39,18 @@ public class Py {
             PyNotImplemented.INSTANCE;
 
     /**
-     * Return a new, empty {@link PyDict}.
+     * Return a {@link PyTuple tuple} of the arguments (which may or may
+     * not be a new object).
+     *
+     * @param a of the {@code tuple}
+     * @return a {@link PyTuple} of the argument.
+     */
+    public static PyTuple tuple(Object... a) {
+        return a.length == 0 ? PyTuple.EMPTY : new PyTuple(a);
+    }
+
+    /**
+     * Return a new, empty {@link PyDict dict}.
      *
      * @return new, empty {@link PyDict}.
      */

@@ -26,9 +26,9 @@ import uk.co.farowl.vsj4.support.internal.Util;
  * therefore obtained by calling
  * {@link PyMethodDescr#fromParser(PyType, ArgParser, List) fromParser}.
  */
-abstract class PyMethodDescr extends MethodDescriptor {
+public abstract class PyMethodDescr extends MethodDescriptor {
 
-    static final PyType TYPE = PyType.fromSpec( //
+    public static final PyType TYPE = PyType.fromSpec( //
             new TypeSpec("method_descriptor", MethodHandles.lookup())
                     .add(Feature.IMMUTABLE));
 
@@ -453,9 +453,7 @@ abstract class PyMethodDescr extends MethodDescriptor {
         else {
             // Return a callable binding the method and the target
             check(obj);
-            // XXX PyJavaFunction not ported yet from VSJ3
-            // return PyJavaFunction.from(this, obj);
-            return null;
+            return PyJavaFunction.from(this, obj);
         }
     }
 
@@ -463,17 +461,13 @@ abstract class PyMethodDescr extends MethodDescriptor {
 
     // Compare CPython method_get_doc in descrobject.c
     Object get_doc() {
-        // FIXME docstring processing (maybe in Util)
-        return "";
-        // return PyType.getDocFromInternalDoc(name, argParser.doc());
+        return PyType.getDocFromInternalDoc(name, argParser.doc());
     }
 
     // Compare CPython method_get_text_signature in descrobject.c
     Object get_text_signature() {
-        // FIXME docstring processing (maybe in Util)
-        return "";
-        // return PyType.getTextSignatureFromInternalDoc(name,
-        // argParser.doc());
+        return PyType.getTextSignatureFromInternalDoc(name,
+                argParser.doc());
     }
 
     // plumbing ------------------------------------------------------
@@ -503,31 +497,30 @@ abstract class PyMethodDescr extends MethodDescriptor {
          * this type.
          */
         for (int i = 0; i < N; i++) {
+
             // Seek most specific match for the i.th self-class
-            Class<?> ac = selfClasses.get(i);
+            Class<?> sc = selfClasses.get(i);
             MethodHandle match = null;
             // The candidates are sorted most specific first
             for (MethodHandle mh : candidates) {
                 MethodType mt = mh.type();
-                if (mt.parameterType(0).isAssignableFrom(ac)) {
+                if (mt.parameterType(0).isAssignableFrom(sc)) {
                     match = mh;
                     break;
                 }
             }
 
             if (match != null) {
-                /*
-                 * Prepare the implementation handle to match the
-                 * invocation type in callMethod.
-                 */
+                // Prepare handle to match the invocation type.
                 methods[i] = sig.prepare(argParser, match);
             } else {
                 // No match means no implementation we can use
                 throw new InterpreterError(
                         "'%s.%s' not implemented for %s",
-                        objclass.getName(), name, ac);
+                        objclass.getName(), name, sc);
             }
         }
+
         return methods;
     }
 

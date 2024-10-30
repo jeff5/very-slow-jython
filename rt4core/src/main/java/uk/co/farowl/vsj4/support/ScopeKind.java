@@ -1,8 +1,12 @@
 // Copyright (c)2024 Jython Developers.
 // Licensed to PSF under a contributor agreement.
-package uk.co.farowl.vsj4.support.internal;
+package uk.co.farowl.vsj4.support;
 
-/** Exposers are of type or module kind. */
+/**
+ * The scope within which a method was be found affects argument
+ * processing, how it is processed for exposure, and how its signature
+ * is presented in documentation.
+ */
 public enum ScopeKind {
 
     MODULE("$module"), //

@@ -9,7 +9,7 @@ import java.util.NoSuchElementException;
 
 /** Placeholder until implemented. */
 // FIXME implement me
-class PyTuple extends AbstractList<Object> implements WithClass {
+public class PyTuple extends AbstractList<Object> implements WithClass {
 
     /** The Python type object for {@code tuple}. */
     public static final PyType TYPE = PyType.fromSpec( //
