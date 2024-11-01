@@ -320,7 +320,7 @@ public abstract sealed class PyType extends AbstractPyType
      * @param names of keyword arguments (empty or {@code null} in a
      *     type enquiry).
      * @return new object (or a type if an enquiry).
-     * @throws TypeError when cannot create instances
+     * @throws PyBaseException(TypeError) when cannot create instances
      * @throws Throwable from implementation slot functions
      */
     protected Object __call__(Object[] args, String[] names)
@@ -349,17 +349,13 @@ public abstract sealed class PyType extends AbstractPyType
             } else if (np != 3) {
                 // Call ought to be type(x, bases, dict [, **kwds])
                 // __new__ will check too but we prefer this message.
-                // XXX Should be a TypeError
                 throw PyErr.format(PyExc.TypeError,
                         "type() takes 1 or 3 arguments");
-                // throw new TypeError("type() takes 1 or 3 arguments");
-                // throw new InterpreterError(
-                // "type() takes 1 or 3 arguments");
             }
         }
 
         // Call __new__ of the type described by this type object
-        // XXX What's the implementation in VSJ4 (before FastCall)?
+        // XXX Call __new__ and __init__ via Callables or SpecialMethod
         // Object obj = Callables.call(newMethod, this, args, names);
         Object obj = null;
 

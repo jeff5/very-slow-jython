@@ -503,7 +503,7 @@ public enum SpecialMethod {
         this.methodName = dunder(methodName);
         this.alt = alt;
         // If doc is short, assume it's a symbol. Fall back on name.
-        this.opName = (doc != null || doc.length() <= 3) ? doc : name();
+        this.opName = (doc != null && doc.length() <= 3) ? doc : name();
         // Make up the docstring from whatever shorthand we got.
         this.doc = docstring(doc);
         this.slotHandle = Util.cacheVH(this);
