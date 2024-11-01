@@ -11,6 +11,13 @@ plugins {
 }
 
 
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+
 repositories {
     // Use Maven Central for resolving dependencies.
     mavenCentral()
@@ -290,9 +297,11 @@ tasks.withType(JavaCompile) {
 
     // Use only public API
     options.compilerArgs.addAll(['--release', '17'])
-    // deprecation is noisy
+    // Deprecation is noisy
     options.deprecation = true
-    // retain parameter names (for use by exposer)
+    // Retain parameter names (for use by exposer)
+    // The IDE may have a compiler setting necessary for the exposer:
+    // "Store information about method parameters"
     options.compilerArgs.add('-parameters')
 }
 
