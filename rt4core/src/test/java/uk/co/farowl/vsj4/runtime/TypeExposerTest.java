@@ -38,9 +38,10 @@ import uk.co.farowl.vsj4.support.ScopeKind;
 /**
  * Test that the annotations defined in {@link Exposed}, and intended
  * for exposing attributes of a type defined in Java, are processed
- * correctly by a {@link Exposer} to a {@link TypeExposer} containing
- * appropriate attribute specifications. This tests a large part of the
- * exposure mechanism, without activating the wider Python type system.
+ * correctly by a {@link Exposer} to a {@link TypeExposerImplementation}
+ * containing appropriate attribute specifications. This tests a large
+ * part of the exposure mechanism, without activating the wider Python
+ * type system.
  * <p>
  * Under an IDE, tests may fail reporting that the method signature has
  * argument names like {@code (arg0, arg1, arg2)} in place of
@@ -259,7 +260,7 @@ class TypeExposerTest {
     @BeforeAll
     static void createExposer() {
         // type=null in order not to wake the type system
-        TypeExposer exposer =
+        TypeExposerImplementation exposer =
                 Exposer.exposeType(null, Fake.class, null);
 
         // Populate the dictionaries used in the tests.

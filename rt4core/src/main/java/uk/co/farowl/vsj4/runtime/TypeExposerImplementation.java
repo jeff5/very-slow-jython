@@ -14,14 +14,19 @@ import java.util.Map;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import uk.co.farowl.vsj4.runtime.Exposed.PythonMethod;
 import uk.co.farowl.vsj4.runtime.Exposed.PythonNewMethod;
 import uk.co.farowl.vsj4.runtime.kernel.SpecialMethod;
+import uk.co.farowl.vsj4.runtime.kernel.TypeExposer;
+import uk.co.farowl.vsj4.runtime.kernel.TypeFactory;
 import uk.co.farowl.vsj4.support.InterpreterError;
 import uk.co.farowl.vsj4.support.MethodKind;
 import uk.co.farowl.vsj4.support.ScopeKind;
 
-class TypeExposer extends Exposer {
+class TypeExposerImplementation extends Exposer implements TypeExposer {
 
     /**
      * Type for which attributes are to be exposed (or {@code null}
@@ -36,14 +41,14 @@ class TypeExposer extends Exposer {
      * eventually become descriptors in a built-in object type. Every
      * entry here is also a value in {@link Exposer#specs}.
      */
-// final Set<MemberSpec> memberSpecs;
+    // final Set<MemberSpec> memberSpecs;
 
     /**
      * The table of intermediate descriptions for get-sets. They will
      * eventually become descriptors in a built-in object type. Every
      * entry here is also a value in {@link Exposer#specs}.
      */
-// final Set<GetSetSpec> getSetSpecs;
+    // final Set<GetSetSpec> getSetSpecs;
 
     /**
      * Construct the {@code TypeExposer} instance for a particular
@@ -56,7 +61,7 @@ class TypeExposer extends Exposer {
      *
      * @param type being exposed
      */
-    TypeExposer(PyType type) {
+    TypeExposerImplementation(PyType type) {
         this.type = type;
         // this.memberSpecs = new TreeSet<>();
         // this.getSetSpecs = new TreeSet<>();
@@ -65,34 +70,24 @@ class TypeExposer extends Exposer {
     @Override
     ScopeKind kind() { return ScopeKind.TYPE; }
 
-    /**
-     * Build the result from the defining class.
-     *
-     * @param definingClass to scan for definitions
-     */
-    void expose(Class<?> definingClass) {
+    @Override
+    public void expose(Class<?> definingClass) {
         // Scan the defining class for exposed and special methods
         scanJavaMethods(definingClass);
         // ... and for fields.
         // scanJavaFields(definingClass);
     }
 
-    /**
-     * For each name having a definition in {@link #specs}, construct
-     * the attribute and add it to the map passed in. The map is
-     * normally the dictionary of the type. Attributes may rely on a
-     * {@code MethodHandle} or {@code VarHandle}, so a lookup object
-     * must be provided that can create them.
-     *
-     * @param dict to which the attributes should be delivered
-     * @param lookup authorisation to access members
-     */
-    void populate(Map<? super String, Object> dict, Lookup lookup) {
+    @Override
+    public void populate(Map<? super String, Object> dict, Lookup lookup) {
+        logger.atDebug().addArgument(type.getName())
+                .log("Populating type '{}'");
         if (type == null)
             // type may only properly be null during certain tests
             throw new InterpreterError(
                     "Cannot generate descriptors for type 'null'");
         for (Spec spec : specs.values()) {
+            logger.atTrace().addArgument(spec.name).log("-  Add {}");
             spec.checkFormation();
             Object attr = spec.asAttribute(type, lookup);
             dict.put(spec.name, attr);
@@ -109,6 +104,8 @@ class TypeExposer extends Exposer {
      */
     @Override
     void scanJavaMethods(Class<?> defsClass) throws InterpreterError {
+
+        logger.atTrace().addArgument(defsClass).log("Finding methods in {}");
 
         // Iterate over methods looking for those to expose
         for (Class<?> c : superClasses(defsClass)) {

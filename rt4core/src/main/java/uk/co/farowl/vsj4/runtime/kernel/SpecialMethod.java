@@ -66,48 +66,59 @@ public enum SpecialMethod {
      * same entries, and no duplicates. There may yet be special methods
      * here that need not be cached, and maybe properties it would be
      * useful to add.
+     *
+     * CPython's table begins with duplicates of __getattribute__,
+     * __getattr__, __setattr__, and __delattr__ that do not come with a
+     * documentation string. These are the versions that take C-string
+     * names, rather than string objects. We omit these as ours take a
+     * Java String, which is a str.
      */
     /**
      * Defines {@link Representation#op_repr}, support for built-in
      * {@code repr()}, with signature {@link Signature#UNARY}.
      */
-    op_repr(Signature.UNARY),
+    op_repr(Signature.UNARY, "Return repr(self)."),
     /**
      * Defines {@link Representation#op_hash}, support for object
      * hashing, with signature {@link Signature#LEN}.
      */
-    op_hash(Signature.LEN),
+    op_hash(Signature.LEN, "Return hash(self)."),
     /**
      * Defines {@link Representation#op_call}, support for calling an
      * object, with signature {@link Signature#CALL}.
      */
-    op_call(Signature.CALL),
+    op_call(Signature.CALL,
+            "($self, /, *args, **kwargs) Call self as a function."),
     /**
      * Defines {@link Representation#op_str}, support for built-in
      * {@code str()}, with signature {@link Signature#UNARY}.
      */
-    op_str(Signature.UNARY),
+    op_str(Signature.UNARY, "Return str(self)."),
 
     /**
      * Defines {@link Representation#op_getattribute}, attribute get,
      * with signature {@link Signature#GETATTR}.
      */
-    op_getattribute(Signature.GETATTR),
+    op_getattribute(Signature.GETATTR,
+            "($self, name, /) Return getattr(self, name)."),
     /**
      * Defines {@link Representation#op_getattr}, attribute get, with
      * signature {@link Signature#GETATTR}.
      */
-    op_getattr(Signature.GETATTR),
+    op_getattr(Signature.GETATTR,
+            "($self, name, /) Return getattr(self, name)."),
     /**
      * Defines {@link Representation#op_setattr}, attribute set, with
      * signature {@link Signature#SETATTR}.
      */
-    op_setattr(Signature.SETATTR),
+    op_setattr(Signature.SETATTR,
+            "($self, name, value, /) Implement setattr(self, name, value)."),
     /**
      * Defines {@link Representation#op_delattr}, attribute deletion,
      * with signature {@link Signature#DELATTR}.
      */
-    op_delattr(Signature.DELATTR),
+    op_delattr(Signature.DELATTR,
+            "($self, name, /) Implement delattr(self, name)."),
 
     /**
      * Defines {@link Representation#op_lt}, the {@code <} operation,
@@ -144,228 +155,226 @@ public enum SpecialMethod {
      * Defines {@link Representation#op_iter}, get an iterator, with
      * signature {@link Signature#UNARY}.
      */
-    op_iter(Signature.UNARY),
+    op_iter(Signature.UNARY, "Implement iter(self)."),
     /**
      * Defines {@link Representation#op_next}, advance an iterator, with
      * signature {@link Signature#UNARY}.
      */
-    op_next(Signature.UNARY),
+    op_next(Signature.UNARY, "Implement next(self)."),
 
     /**
      * Defines {@link Representation#op_get}, descriptor
      * {@code __get__}, with signature {@link Signature#DESCRGET}.
      */
-    op_get(Signature.DESCRGET),
+    op_get(Signature.DESCRGET,
+            "($self, instance, owner=None, /) Return an attribute of instance, which is of type owner."),
     /**
      * Defines {@link Representation#op_set}, descriptor
      * {@code __set__}, with signature {@link Signature#SETITEM}.
      */
-    op_set(Signature.SETITEM),
+    op_set(Signature.SETITEM,
+            "($self, instance, value, /) Set an attribute of instance to value."),
     /**
      * Defines {@link Representation#op_delete}, descriptor
      * {@code __delete__}, with signature {@link Signature#DELITEM}.
      */
-    op_delete(Signature.DELITEM),
+    op_delete(Signature.DELITEM,
+            "($self, instance, /) Delete an attribute of instance."),
 
     /**
      * Defines {@link Representation#op_init}, object {@code __init__},
      * with signature {@link Signature#INIT}.
      */
-    op_init(Signature.INIT),
+    op_init(Signature.INIT,
+            "($self, /, *args, **kwargs) Initialize self."
+                    + "  See help(type(self)) for accurate signature."),
 
-    // __new__ is not a slot
-    // __del__ is not a slot
+    // __new__ is not enumerated here (too special)
+    // __del__ is not in our implementation
 
     /**
      * Defines {@link Representation#op_await}, with signature
      * {@link Signature#UNARY}.
      */
-    op_await(Signature.UNARY), // unexplored territory
+    op_await(Signature.UNARY, // unexplored territory
+            "Return an iterator to be used in await expression."),
     /**
      * Defines {@link Representation#op_aiter}, with signature
      * {@link Signature#UNARY}.
      */
-    op_aiter(Signature.UNARY), // unexplored territory
+    op_aiter(Signature.UNARY, // unexplored territory
+            "Return an awaitable, that resolves in"
+                    + " an asynchronous iterator."),
+
     /**
      * Defines {@link Representation#op_anext}, with signature
      * {@link Signature#UNARY}.
      */
-    op_anext(Signature.UNARY), // unexplored territory
-
-    // Binary ops: reflected form comes first so we can reference it.
+    op_anext(Signature.UNARY, // unexplored territory
+            "Return a value or raise StopAsyncIteration."),
+    /**
+     * Defines {@link Representation#op_add}, the {@code +} operation,
+     * with signature {@link Signature#BINARY}.
+     */
+    op_add(Signature.BINARY, "+"),
     /**
      * Defines {@link Representation#op_radd}, the reflected {@code +}
      * operation, with signature {@link Signature#BINARY}.
      */
-    op_radd(Signature.BINARY, "+"),
+    op_radd(Signature.BINARY, "+", op_add),
+    /**
+     * Defines {@link Representation#op_sub}, the {@code -} operation,
+     * with signature {@link Signature#BINARY}.
+     */
+    op_sub(Signature.BINARY, "-"),
     /**
      * Defines {@link Representation#op_rsub}, the reflected {@code -}
      * operation, with signature {@link Signature#BINARY}.
      */
-    op_rsub(Signature.BINARY, "-"),
+    op_rsub(Signature.BINARY, "-", op_sub),
+    /**
+     * Defines {@link Representation#op_mul}, the {@code *} operation,
+     * with signature {@link Signature#BINARY}.
+     */
+    op_mul(Signature.BINARY, "*"),
     /**
      * Defines {@link Representation#op_rmul}, the reflected {@code *}
      * operation, with signature {@link Signature#BINARY}.
      */
-    op_rmul(Signature.BINARY, "*"),
+    op_rmul(Signature.BINARY, "*", op_mul),
+    /**
+     * Defines {@link Representation#op_mod}, the {@code %} operation,
+     * with signature {@link Signature#BINARY}.
+     */
+    op_mod(Signature.BINARY, "%"),
     /**
      * Defines {@link Representation#op_rmod}, the reflected {@code %}
      * operation, with signature {@link Signature#BINARY}.
      */
-    op_rmod(Signature.BINARY, "%"),
+    op_rmod(Signature.BINARY, "%", op_mod),
+    /**
+     * Defines {@link Representation#op_divmod}, the {@code divmod}
+     * operation, with signature {@link Signature#BINARY}.
+     */
+    op_divmod(Signature.BINARY, "divmod()"),
     /**
      * Defines {@link Representation#op_rdivmod}, the reflected
      * {@code divmod} operation, with signature
      * {@link Signature#BINARY}.
      */
-    op_rdivmod(Signature.BINARY, "divmod()"),
+    op_rdivmod(Signature.BINARY, "divmod()", op_divmod),
+    /**
+     * Defines {@link Representation#op_pow}, the {@code pow} operation,
+     * with signature {@link Signature#TERNARY}.
+     */
+    op_pow(Signature.TERNARY, // unexplored territory
+            "($self, value, mod=None, /) Return pow(self, value, mod)."),
     /**
      * Defines {@link Representation#op_rpow}, the reflected {@code pow}
      * operation, with signature {@link Signature#BINARY} (not
      * {@link Signature#TERNARY} since only an infix operation can be
      * reflected).
      */
-    op_rpow(Signature.BINARY, "**"), // unexplored territory
-    /**
-     * Defines {@link Representation#op_rlshift}, the reflected
-     * {@code <<} operation, with signature {@link Signature#BINARY}.
-     */
-    op_rlshift(Signature.BINARY, "<<"),
-    /**
-     * Defines {@link Representation#op_rrshift}, the reflected
-     * {@code >>} operation, with signature {@link Signature#BINARY}.
-     */
-    op_rrshift(Signature.BINARY, ">>"),
-    /**
-     * Defines {@link Representation#op_rand}, the reflected {@code &}
-     * operation, with signature {@link Signature#BINARY}.
-     */
-    op_rand(Signature.BINARY, "&"),
-    /**
-     * Defines {@link Representation#op_rxor}, the reflected {@code ^}
-     * operation, with signature {@link Signature#BINARY}.
-     */
-    op_rxor(Signature.BINARY, "^"),
-    /**
-     * Defines {@link Representation#op_ror}, the reflected {@code |}
-     * operation, with signature {@link Signature#BINARY}.
-     */
-    op_ror(Signature.BINARY, "|"),
-    /**
-     * Defines {@link Representation#op_rfloordiv}, the reflected
-     * {@code //} operation, with signature {@link Signature#BINARY}.
-     */
-    op_rfloordiv(Signature.BINARY, "//"),
-    /**
-     * Defines {@link Representation#op_rtruediv}, the reflected
-     * {@code /} operation, with signature {@link Signature#BINARY}.
-     */
-    op_rtruediv(Signature.BINARY, "/"),
-    /**
-     * Defines {@link Representation#op_rmatmul}, the reflected
-     * {@code @} operation, with signature {@link Signature#BINARY}.
-     */
-    op_rmatmul(Signature.BINARY, "@"),
-
-    /**
-     * Defines {@link Representation#op_add}, the {@code +} operation,
-     * with signature {@link Signature#BINARY}.
-     */
-    op_add(Signature.BINARY, "+", op_radd),
-    /**
-     * Defines {@link Representation#op_sub}, the {@code -} operation,
-     * with signature {@link Signature#BINARY}.
-     */
-    op_sub(Signature.BINARY, "-", op_rsub),
-    /**
-     * Defines {@link Representation#op_mul}, the {@code *} operation,
-     * with signature {@link Signature#BINARY}.
-     */
-    op_mul(Signature.BINARY, "*", op_rmul),
-    /**
-     * Defines {@link Representation#op_mod}, the {@code %} operation,
-     * with signature {@link Signature#BINARY}.
-     */
-    op_mod(Signature.BINARY, "%", op_rmod),
-    /**
-     * Defines {@link Representation#op_divmod}, the {@code divmod}
-     * operation, with signature {@link Signature#BINARY}.
-     */
-    op_divmod(Signature.BINARY, "divmod()", op_rdivmod),
-    /**
-     * Defines {@link Representation#op_pow}, the {@code pow} operation,
-     * with signature {@link Signature#TERNARY}.
-     */
-    op_pow(Signature.TERNARY, "**", op_rpow), // unexplored territory
+    op_rpow(Signature.TERNARY, // unexplored territory
+            "($self, value, mod=None, /) Return pow(value, self, mod).",
+            op_pow),
 
     /**
      * Defines {@link Representation#op_neg}, the unary {@code -}
      * operation, with signature {@link Signature#UNARY}.
      */
-    op_neg(Signature.UNARY, "unary -"),
+    op_neg(Signature.UNARY, "-"),
     /**
      * Defines {@link Representation#op_pos}, the unary {@code +}
      * operation, with signature {@link Signature#UNARY}.
      */
-    op_pos(Signature.UNARY, "unary +"),
+    op_pos(Signature.UNARY, "+"),
     /**
      * Defines {@link Representation#op_abs}, the {@code abs()}
      * operation, with signature {@link Signature#UNARY}.
      */
-    op_abs(Signature.UNARY, "abs()"),
+    op_abs(Signature.UNARY, "abs(self)"),
     /**
      * Defines {@link Representation#op_bool}, conversion to a truth
      * value, with signature {@link Signature#PREDICATE}.
      */
-    op_bool(Signature.PREDICATE),
+    op_bool(Signature.PREDICATE, "True if self else False"),
     /**
      * Defines {@link Representation#op_invert}, the unary {@code ~}
      * operation, with signature {@link Signature#UNARY}.
      */
-    op_invert(Signature.UNARY, "unary ~"),
+    op_invert(Signature.UNARY, "~"),
 
     /**
      * Defines {@link Representation#op_lshift}, the {@code <<}
      * operation, with signature {@link Signature#BINARY}.
      */
-    op_lshift(Signature.BINARY, "<<", op_rlshift),
+    op_lshift(Signature.BINARY, "<<"),
+    /**
+     * Defines {@link Representation#op_rlshift}, the reflected
+     * {@code <<} operation, with signature {@link Signature#BINARY}.
+     */
+    op_rlshift(Signature.BINARY, "<<", op_lshift),
     /**
      * Defines {@link Representation#op_rshift}, the {@code >>}
      * operation, with signature {@link Signature#BINARY}.
      */
-    op_rshift(Signature.BINARY, ">>", op_rrshift),
+    op_rshift(Signature.BINARY, ">>"),
+    /**
+     * Defines {@link Representation#op_rrshift}, the reflected
+     * {@code >>} operation, with signature {@link Signature#BINARY}.
+     */
+    op_rrshift(Signature.BINARY, ">>", op_rshift),
+
     /**
      * Defines {@link Representation#op_and}, the {@code &} operation,
      * with signature {@link Signature#BINARY}.
      */
-    op_and(Signature.BINARY, "&", op_rand),
+    op_and(Signature.BINARY, "&"),
+    /**
+     * Defines {@link Representation#op_rand}, the reflected {@code &}
+     * operation, with signature {@link Signature#BINARY}.
+     */
+    op_rand(Signature.BINARY, "&", op_and),
     /**
      * Defines {@link Representation#op_xor}, the {@code ^} operation,
      * with signature {@link Signature#BINARY}.
      */
-    op_xor(Signature.BINARY, "^", op_rxor),
+    op_xor(Signature.BINARY, "^"),
+    /**
+     * Defines {@link Representation#op_rxor}, the reflected {@code ^}
+     * operation, with signature {@link Signature#BINARY}.
+     */
+    op_rxor(Signature.BINARY, "^", op_xor),
     /**
      * Defines {@link Representation#op_or}, the {@code |} operation,
      * with signature {@link Signature#BINARY}.
      */
-    op_or(Signature.BINARY, "|", op_ror),
+    op_or(Signature.BINARY, "|"),
+    /**
+     * Defines {@link Representation#op_ror}, the reflected {@code |}
+     * operation, with signature {@link Signature#BINARY}.
+     */
+    op_ror(Signature.BINARY, "|", op_or),
 
     /**
      * Defines {@link Representation#op_int}, conversion to an integer
      * value, with signature {@link Signature#UNARY}.
      */
-    op_int(Signature.UNARY),
+    op_int(Signature.UNARY, "int(self)"),
     /**
      * Defines {@link Representation#op_float}, conversion to a float
      * value, with signature {@link Signature#UNARY}.
      */
-    op_float(Signature.UNARY),
+    op_float(Signature.UNARY, "float(self)"),
+
+    // in-place: unexplored territory
 
     /**
      * Defines {@link Representation#op_iadd}, the {@code +=} operation,
      * with signature {@link Signature#BINARY}.
      */
-    op_iadd(Signature.BINARY, "+="), // in-place: unexplored territory
+    op_iadd(Signature.BINARY, "+="),
     /**
      * Defines {@link Representation#op_isub}, the {@code -=} operation,
      * with signature {@link Signature#BINARY}.
@@ -401,12 +410,22 @@ public enum SpecialMethod {
      * Defines {@link Representation#op_floordiv}, the {@code //}
      * operation, with signature {@link Signature#BINARY}.
      */
-    op_floordiv(Signature.BINARY, "//", op_rfloordiv),
+    op_floordiv(Signature.BINARY, "//"),
+    /**
+     * Defines {@link Representation#op_rfloordiv}, the reflected
+     * {@code //} operation, with signature {@link Signature#BINARY}.
+     */
+    op_rfloordiv(Signature.BINARY, "//", op_floordiv),
     /**
      * Defines {@link Representation#op_truediv}, the {@code /}
      * operation, with signature {@link Signature#BINARY}.
      */
-    op_truediv(Signature.BINARY, "/", op_rtruediv),
+    op_truediv(Signature.BINARY, "/"),
+    /**
+     * Defines {@link Representation#op_rtruediv}, the reflected
+     * {@code /} operation, with signature {@link Signature#BINARY}.
+     */
+    op_rtruediv(Signature.BINARY, "/", op_truediv),
     /**
      * Defines {@link Representation#op_ifloordiv}, the {@code //=}
      * operation, with signature {@link Signature#BINARY}.
@@ -422,13 +441,20 @@ public enum SpecialMethod {
      * Defines {@link Representation#op_index}, conversion to an index
      * value, with signature {@link Signature#UNARY}.
      */
-    op_index(Signature.UNARY),
+    op_index(Signature.UNARY,
+            "Return self converted to an integer, if self is suitable "
+                    + "for use as an index into a list."),
 
     /**
      * Defines {@link Representation#op_matmul}, the {@code @} (matrix
      * multiply) operation, with signature {@link Signature#BINARY}.
      */
-    op_matmul(Signature.BINARY, "@", op_rmatmul),
+    op_matmul(Signature.BINARY, "@"),
+    /**
+     * Defines {@link Representation#op_rmatmul}, the reflected
+     * {@code @} operation, with signature {@link Signature#BINARY}.
+     */
+    op_rmatmul(Signature.BINARY, "@", op_matmul),
     /**
      * Defines {@link Representation#op_imatmul}, the {@code @=} (matrix
      * multiply in place) operation, with signature
@@ -438,34 +464,36 @@ public enum SpecialMethod {
 
     /*
      * Note that CPython repeats for "mappings" the following "sequence"
-     * slots, and slots for __add_ and __mul__, but that we do not need
-     * to.
+     * slots, and slots for __add_ and __mul__, __iadd_ and __imul__,
+     * but that we do not need to.
      */
     /**
      * Defines {@link Representation#op_len}, support for built-in
      * {@code len()}, with signature {@link Signature#LEN}.
      */
-    op_len(Signature.LEN, "len()"),
+    op_len(Signature.LEN, "len(self)"),
     /**
      * Defines {@link Representation#op_getitem}, get at index, with
      * signature {@link Signature#BINARY}.
      */
-    op_getitem(Signature.BINARY),
+    op_getitem(Signature.BINARY, "($self, key, /) Return self[key]."),
     /**
      * Defines {@link Representation#op_setitem}, set at index, with
      * signature {@link Signature#SETITEM}.
      */
-    op_setitem(Signature.SETITEM),
+    op_setitem(Signature.SETITEM,
+            "($self, key, value, /) Set self[key] to value."),
     /**
      * Defines {@link Representation#op_delitem}, delete from index,
      * with signature {@link Signature#DELITEM}.
      */
-    op_delitem(Signature.DELITEM),
+    op_delitem(Signature.DELITEM, "($self, key, /) Delete self[key]."),
     /**
      * Defines {@link Representation#op_contains}, the {@code in}
      * operation, with signature {@link Signature#BINARY_PREDICATE}.
      */
-    op_contains(Signature.BINARY_PREDICATE);
+    op_contains(Signature.BINARY_PREDICATE,
+            "($self, key, /) Return key in self.");
 
     /** Method signature to match when filling this slot. */
     public final Signature signature;
@@ -473,7 +501,10 @@ public enum SpecialMethod {
     public final String methodName;
     /** Name to use in error messages, e.g. {@code "+"} */
     final String opName;
-    /** The alternate slot e.g. {@code __radd__} in {@code __add__}. */
+    /**
+     * The {@code null}, except in a reversed op, where it designates
+     * the forward op e.g. in {@code op_radd} it is {@code op_add}.
+     */
     final SpecialMethod alt;
 
     /**
@@ -542,34 +573,76 @@ public enum SpecialMethod {
     }
 
     /**
-     * Use the length and content of the given string to generate a
-     * standard documentation string according to a few patterns.
+     * Use the length and content of the given string, backed up by name
+     * and signature, to generate a standard documentation string
+     * according to a few patterns. This is a treat for maintainers who
+     * hate typing strings.
      *
      * @param doc basis of documentation string or {@code null}
      * @return generated documentation string
      */
     // Compare CPython *SLOT macros in typeobject.c
     private String docstring(String doc) {
-        // XXX Make convenient. What CPython macros do is:
-        // Unary:
-        // NAME "($self, /)\n--\n\n" DOC)
-        // In-place (ends with = but not <=, ==, !=, >=):
-        // NAME "($self, value, /)\n--\n\nReturn self" DOC "value.")
-        // Binary L op R:
-        // NAME "($self, value, /)\n--\n\nReturn self" DOC "value.")
-        // Binary R op L:
-        // NAME "($self, value, /)\n--\n\nReturn value" DOC "self.")
-        // Binary L op R not infix:
-        // NAME "($self, value, /)\n--\n\n" DOC)
-        // Binary R op L not infix:
-        // NAME "($self, value, /)\n--\n\n" DOC)
+        String sig, help;
+        int rp;
 
-        // We may add:
-        // Use the signature, e.g. BINARY -> ($self, value, /)
-        // If starts with "("
-        // NAME DOC
-        // Otherwise the string itself
-        return doc;
+        if (doc == null) {
+            // Shouldn't be in this position
+            sig = "";
+            help = "?";
+
+        } else if (doc.length() <= 3) {
+            // doc provides only an operator: make the rest up
+
+            switch (signature) {
+                case UNARY:
+                    sig = "/";  // ($self, /)
+                    help = "unary " + doc + "self";
+                    break;
+                case BINARY:
+                    sig = "value, /";  // ($self, value, /)
+                    if (doc.endsWith("=")
+                            && !"<= == != >=".contains(doc)) {
+                        // In-place binary operation.
+                        help = "Return self " + doc + " value.";
+                    } else if (alt == null) {
+                        // Binary L op R.
+                        help = "Return self " + doc + " value.";
+                    } else {
+                        // Binary R op L
+                        help = "Return value " + doc + " self.";
+                    }
+                    break;
+                default:
+                    assert false; // Can't use short doc here
+                    sig = "?";
+                    help = doc;
+            }
+
+        } else if (doc.startsWith("($self, ")
+                && (rp = doc.indexOf(')')) > 0) {
+            // long doc with explicit signature
+            sig = doc.substring(8, rp);
+            help = doc.substring(rp + 1).trim();
+
+        } else {
+            // long doc without explicit signature
+            switch (signature) {
+                case UNARY, LEN, PREDICATE:
+                    sig = "/";  // ($self, /)
+                    break;
+                case BINARY:
+                    sig = "value, /";  // ($self, value, /)
+                    break;
+                default:
+                    assert false; // Must have explicit names
+                    sig = "?";
+            }
+            help = doc;
+        }
+
+        return String.format("%s($self, %s)\n--\n\n%s", methodName, sig,
+                help);
     }
 
     @Override
@@ -609,7 +682,7 @@ public enum SpecialMethod {
      * {@code SpecialMethod}. This comes either from the corresponding
      * cache field of the given {@link Representation} object, or is a
      * handle on an unbound method found by lookup on the type. When the
-     * representation is a shared on, the handle will find the type
+     * representation is a shared one, the handle will find the type
      * using {@link Representation#pythonType(Object)}.
      *
      * @param rep target representation object
@@ -617,10 +690,11 @@ public enum SpecialMethod {
      */
     public MethodHandle handle(Representation rep) {
         if (slotHandle != null) {
+            // The handle is cached on the Representation
             return (MethodHandle)slotHandle.get(rep);
         } else {
-            // Here we should return a handle to call from type.
-            // We can prepare statically this once per member.
+            // Here we should get from type a handle to call.
+            // We can prepare this statically once per member.
             throw new MissingFeature("Handle to invoke special method");
         }
     }
@@ -961,7 +1035,7 @@ public enum SpecialMethod {
         public/* abstract */ Object callWrapped(MethodHandle wrapped,
                 Object self, Object[] args, String[] names)
                 throws ArgumentError, Throwable {
-            //checkNoArgs(args, names);
+            // checkNoArgs(args, names);
             return wrapped.invokeExact(self);
         }
     }

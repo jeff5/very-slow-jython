@@ -11,6 +11,7 @@ import java.util.EnumSet;
 import java.util.LinkedList;
 import java.util.List;
 
+import uk.co.farowl.vsj4.runtime.kernel.SimpleType;
 import uk.co.farowl.vsj4.support.InterpreterError;
 import uk.co.farowl.vsj4.support.MissingFeature;
 
@@ -20,15 +21,34 @@ import uk.co.farowl.vsj4.support.MissingFeature;
  * definition of a Python object creates one of these data structures
  * during static initialisation, configuring it using the mutators. A
  * fluent interface makes this configuration readable as a single long
- * statement.
+ * statement. The normal idiom is:<pre>
+ * public static PyType TYPE = PyType.fromSpec(
+ *    new TypeSpec("Example", MethodHandles.lookup()));
+ * </pre> The Python name of the class being specified may begin with
+ * the dotted (Python) package name.
+ * <p>
+ * Recall that {@code MethodHandles.lookup} is context sensitive: it
+ * captures the identity of the class from which it was called, in the
+ * {@code Lookup} it returns. In the example, this class becomes the
+ * (primary) Java representation class for instances of the type, and
+ * the source of fields and method definitions. It is possible to adjust
+ * this behaviour though choice of constructor and mutators on the
+ * specification before {@code PyType.fromSpec} reads it.
  */
 public class TypeSpec extends NamedSpec {
 
-    /** If {@code true}, accept no further specification actions. */
-    private boolean frozen = false;
-
     /** Delegated authorisation to resolve names. */
     private final Lookup lookup;
+
+    /**
+     * If {@code true} the class creating the {@code Lookup} object will
+     * be treated as the primary representation and examined as a method
+     * implementation class. (This is frequently the case.) If
+     * {@code false}, the mutators {@link #primary} and optionally
+     * {@link #methodImpl(Class)} must be used to specify those
+     * explicitly. See {@link #TypeSpec(String, Lookup, boolean)}.
+     */
+    private final boolean defaultToLookup;
 
     /**
      * Type features, a subset of the type flags, that in turn have
@@ -131,41 +151,64 @@ public class TypeSpec extends NamedSpec {
 
     /**
      * Create (begin) a specification for a Python {@code type}. This is
-     * the beginning normally made by built-in classes in their static
-     * initialisation. The name of the class being specified may begin
-     * with the dotted (Python) package name.
+     * the beginning normally made by types defined in Java, during the
+     * static initialisation of their defining class. The Python name of
+     * the class being specified may begin with the dotted (Python)
+     * package name.
      * <p>
-     * The caller supplies a {@link Lookup} object which must grant
-     * sufficient access to implementing class(es), for fields and
-     * method definitions to be exposed reflectively. This makes it the
-     * <i>defining</i> class. In simple cases, lookup is created in the
-     * single Java class that represents the Python type and defines its
-     * methods.
+     * The caller supplies a {@code Lookup} object which must grant
+     * sufficient access to implementing class(es) for fields and method
+     * definitions to be exposed reflectively. Recall that
+     * {@code MethodHandles.lookup} is context sensitive: it captures
+     * the identity of the class from which it was called, in the
+     * {@code Lookup} it returns. By default, this class becomes the
+     * (primary) Java representation class for instances of the type,
+     * and the source of fields and method definitions.
+     * <p>
+     * It is possible to specify a different primary representation
+     * class and other sources using methods of this class to mutate the
+     * specification. It is possible to prevent the lookup class being a
+     * source of methods and field accessors using the alternative
+     * constructor {@link #TypeSpec(String, Lookup, boolean)
+     * TypeSpec(String, Lookup, boolean)}.
      * <p>
      * {@link PyType#fromSpec(TypeSpec)} will interrogate the
-     * implementation class reflectively to discover attributes the type
-     * should have, and will form type dictionary entries with
+     * implementation classes reflectively to discover attributes the
+     * type should have, and will form type dictionary entries with
      * {@link MethodHandle}s or {@link VarHandle}s on qualifying
-     * members. An implementation class may declare methods and fields
-     * as {@code private}, and annotate them to be exposed to Python, as
-     * long as the lookup object provided to the {@code TypeSpec}
-     * confers the right to access them.
+     * members.
      * <p>
      * A {@code TypeSpec} given private or package access to members
      * should not be passed to untrusted code. {@code PyType} does not
      * hold onto the {@code TypeSpec} after completing the type object.
-     * <p>
-     * Additional classes may be given containing the implementation and
-     * the lookup classes (see {code Lookup.lookupClass()}) to be
-     * different from the caller. Usually they are the same.
      *
      * @param name of the type being specified (may be dotted name)
      * @param lookup authorisation to access {@code implClass}
      */
     public TypeSpec(String name, Lookup lookup) {
+        this(name, lookup, true);
+    }
+
+    /**
+     * Create (begin) a specification for a Python {@code type}. This is
+     * identical to {@link #TypeSpec(String, Lookup)}, except that the
+     * class creating the {@code Lookup} object will not be treated as
+     * the primary representation or examined as a method implementation
+     * class. The mutators {@link #primary} and optionally
+     * {@link #methodImpl(Class)} must be used to specify those
+     * explicitly.
+     *
+     * @param name of the type being specified (may be dotted name)
+     * @param lookup authorisation to access {@code implClass}
+     * @param defaultToLookup if false, do not look for methods in the
+     *     lookup class itself
+     */
+    public TypeSpec(String name, Lookup lookup,
+            boolean defaultToLookup) {
         super(name);
         this.lookup = lookup;
-        methodImpls.add(lookup.lookupClass());
+        this.defaultToLookup = defaultToLookup;
+        if (defaultToLookup) { methodImpls.add(lookup.lookupClass()); }
     }
 
     /**
@@ -190,50 +233,60 @@ public class TypeSpec extends NamedSpec {
              */
             frozen = true;
 
-            // The primary class defaults to the lookup class
-            if (lookup != null && primary == null) {
-                primary = lookup.lookupClass();
-            }
+            // We need to decide:
+            // Primary: javaClass in the type.
+            // Canonical: the Java base of Python subclasses.
+            // MethodImpls: where we will look up methods.
 
-            // The canonical base defaults to the primary class
-            if (primary != null) {
-                if (canonicalBase == null) {
-                    canonicalBase = primary;
-                } else if (!primary.isAssignableFrom(canonicalBase)) {
-                    throw specError(CANONICAL_INCONSISTENT,
-                            canonicalBase.getSimpleName(),
-                            primary.getSimpleName());
+            // The primary class defaults to the lookup class
+            if (primary == null) {
+                if (defaultToLookup) {
+                    primary = lookup.lookupClass();
+                } else {
+                    throw specError(PRIMARY_NOT_GIVEN);
                 }
             }
 
-            // XXX what about no lookup?
-
-            // Question of "first adopted" vs primary/canonical.
+            // The canonical base defaults to the primary class
+            if (canonicalBase == null) {
+                canonicalBase = primary;
+            } else if (!primary.isAssignableFrom(canonicalBase)) {
+                // It must be acceptable as a self-argument
+                throw specError(CANONICAL_INCONSISTENT,
+                        canonicalBase.getSimpleName(),
+                        primary.getSimpleName());
+            }
 
             /*
              * Form a list of classes ordered most to least specific. We
              * treat duplicates as errors. The partition of the list is
-             * [canonical|adopted|accepted].
+             * [primary|adopted|accepted].
              */
-            int adoptedIndex = 0, acceptedIndex = 0;
-            if (primary != null) {
-                // It is ok for the first adopted to be canonical.
-                if (adopted.isEmpty() || adopted.get(0) != primary) {
-                    classes.add(primary);
-                    adoptedIndex = acceptedIndex = 1;
-                }
-            }
+            int adoptedIndex = 1, acceptedIndex = 1;
+            classes.add(primary);
 
             for (Class<?> c : adopted) {
-                if (orderedAdd(classes, c) == false) {
+                // Add adopted class c
+                int index = orderedAdd(classes, c);
+                // Check for rejection or ordering before primary
+                if (index < 0) {
                     throw repeatError("adopt", c);
+                } else if (index < adoptedIndex) {
+                    throw specError(SUBCLASS_PRIMARY, "adopted", c,
+                            primary);
                 }
                 acceptedIndex++;
             }
 
             for (Class<?> c : accepted) {
-                if (orderedAdd(classes, c) == false) {
+                // Add accepted class c
+                int index = orderedAdd(classes, c);
+                // Check for rejection or ordering before adopted
+                if (index < 0) {
                     throw repeatError("accept", c);
+                } else if (index < acceptedIndex) {
+                    throw specError(SUBCLASS_PRIMARY, "accepted", c,
+                            primary);
                 }
             }
 
@@ -241,23 +294,18 @@ public class TypeSpec extends NamedSpec {
             adopted = classes.subList(adoptedIndex, acceptedIndex);
             accepted = classes.subList(acceptedIndex, classes.size());
 
-            // FIXME new rules now not doing ExtensionPoint
-
             // FIXME process binopOthers to extended array
-
-            // Checks for various specification errors.
-            if (canonicalBase == null) {
-                if (adopted.isEmpty()) {
-                    throw specError(NO_PRIMARY_OR_ADOPTED);
-                }
-                if (features.contains(Feature.BASETYPE)) {
-                    throw specError("BASETYPE but no canonical base");
-                }
-            }
         }
 
         return this;
     }
+
+    private static final String PRIMARY_NOT_GIVEN =
+            "no primary representation was specified";
+    private static final String CANONICAL_INCONSISTENT =
+            "Canonical base %s inconsistent with primary %s";
+    private static final String SUBCLASS_PRIMARY =
+            "%s %s is subclass of primary %s";
 
     /**
      * Name of the class being specified. It may begin with the dotted
@@ -267,6 +315,15 @@ public class TypeSpec extends NamedSpec {
      */
     @Override
     public String getName() { return super.getName(); }
+
+    /**
+     * The {@code Lookup} object provided in the constructor, which
+     * represents a delegated authority to access methods and fields of
+     * the defining classes.
+     *
+     * @return lookup specified in construction.
+     */
+    public Lookup getLookup() { return lookup; }
 
     /**
      * Get the type features specified with {@link #add(Feature)}.
@@ -313,7 +370,9 @@ public class TypeSpec extends NamedSpec {
      * instances of the Python type, which in turn defaults to the
      * defining class, so this method need not be called in simple
      * cases. It is useful where a class different from these defaults
-     * is the base for subclasses.
+     * is the base for subclasses. For example, the canonical base of
+     * {@code type} (primary class {@link PyType} is {@link SimpleType},
+     * to ensure metatypes have that implementation.
      *
      * @param klass is a base for instances of every subclass
      * @return {@code this}
@@ -371,7 +430,7 @@ public class TypeSpec extends NamedSpec {
         checkNotFrozen();
         if (adopted == EMPTY) { adopted = new LinkedList<>(); }
         for (Class<?> c : classes) {
-            if (orderedAdd(adopted, c) == false) {
+            if (orderedAdd(adopted, c) < 0) {
                 throw repeatError("adopt", c);
             }
         }
@@ -416,7 +475,7 @@ public class TypeSpec extends NamedSpec {
             throw new MissingFeature("Accepted classes for %s", name);
         }
         for (Class<?> c : classes) {
-            if (orderedAdd(accepted, c) == false) {
+            if (orderedAdd(accepted, c) < 0) {
                 throw specError(
                         "duplicate accept(" + c.getTypeName() + ")");
             }
@@ -540,7 +599,8 @@ public class TypeSpec extends NamedSpec {
         return this;
     }
 
-    /** Specify the documentation string for the type.
+    /**
+     * Specify the documentation string for the type.
      *
      * @param doc documentation string
      * @return {@code this}
@@ -550,6 +610,7 @@ public class TypeSpec extends NamedSpec {
         this.doc = doc;
         return this;
     }
+
     /**
      * Specify that the Python type being specified will be represented
      * by an instance of this Python sub-class of {@code type}, that is,
@@ -565,25 +626,11 @@ public class TypeSpec extends NamedSpec {
     }
 
     /**
-     * Provide an additional class in which to look for the
+     * Provide additional classes in which to look for the
      * implementation of the methods. By default, the lookup class given
      * in the constructor is searched. A separate class is useful when
-     * the method definitions are generated by a script, as for types
-     * that admit multiple realisations in Java.
-     *
-     * @param c additional class defining methods
-     * @return {@code this}
-     */
-    public TypeSpec methodImpl(Class<?> c) {
-        checkNotFrozen();
-        methodImpls.add(c);
-        return this;
-    }
-
-    /**
-     * Provide additional classes in which to look for the
-     * implementation of the methods. This is just
-     * {@link #methodImpl(Class)} repeated.
+     * there are many method definitions (e.g. generated by a script),
+     * as for types that admit multiple representations in Java.
      *
      * @param cls additional classes defining methods
      * @return {@code this}
@@ -595,12 +642,12 @@ public class TypeSpec extends NamedSpec {
     }
 
     /**
-     * Get the classes additionally defining methods for the type. See
-     * {@link #methodImpls(Class...)}.
+     * Get the classes defining methods for the type, starting with the
+     * lookup class. See {@link #methodImpls(Class...)}.
      *
-     * @return classes additionally defining methods for the type
+     * @return classes defining methods for the type
      */
-    List<Class<?>> getMethodImpls() { return methodImpls; }
+    public List<Class<?>> getMethodImpls() { return methodImpls; }
 
     /**
      * Set the class in which to look up binary class-specific
@@ -674,15 +721,6 @@ public class TypeSpec extends NamedSpec {
                 lookup.lookupClass().getSimpleName());
     }
 
-    private static final String BOTH_LOOKUP_AND_ANOTHER_EP =
-            "both lookup and another class are extension points";
-    private static final String EP_NOT_SUBCLASS =
-            "extension point not subclass of representation";
-    private static final String CANONICAL_INCONSISTENT =
-            "Canonical base %s inconsistent with primary %s";
-    private static final String NO_PRIMARY_OR_ADOPTED =
-            "no primary or adopted representation";
-
     /**
      * In several places, we have to order a list of classes so that we
      * try a more specific match before a less specific one. This method
@@ -693,25 +731,27 @@ public class TypeSpec extends NamedSpec {
      *
      * @param list to add to
      * @param c to add
-     * @return {@code true} if added, {@code false} if a duplicate.
+     * @return place where added or {@code -1} if a duplicate.
      */
-    private static boolean orderedAdd(List<Class<?>> list, Class<?> c) {
+    private static int orderedAdd(List<Class<?>> list, Class<?> c) {
         var i = list.listIterator();
+        int index = 0;
         while (i.hasNext()) {
-            Class<?> x = i.next();
+            Class<?> x = i.next();  // = list[index]
             if (x.isAssignableFrom(c)) {
                 if (x.equals(c)) {
                     // Duplicate: do not add.
-                    return false;
+                    return -1;
                 }
                 // x is less specific than c: insert c before x.
                 i.previous();
                 i.add(c);
-                return true;
+                return index;
             }
+            index++;
         }
         // There is no next() so add means append.
         i.add(c);
-        return true;
+        return index;
     }
 }

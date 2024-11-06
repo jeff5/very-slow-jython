@@ -237,8 +237,8 @@ public abstract class Representation {
         }
     }
 
-    /** Cache of {@link SpecialMethod#__hash__} */
-    MethodHandle op_hash;
+    /** Cache of {@link SpecialMethod#__str__} */
+    MethodHandle op_str;
     /** Cache of {@link SpecialMethod#__call__} */
     MethodHandle op_call;
 }

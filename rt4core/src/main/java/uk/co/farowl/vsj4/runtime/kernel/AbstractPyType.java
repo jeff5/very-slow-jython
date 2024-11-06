@@ -9,7 +9,11 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import uk.co.farowl.vsj4.runtime.PyBaseException;
+import uk.co.farowl.vsj4.runtime.PyErr;
+import uk.co.farowl.vsj4.runtime.PyExc;
 import uk.co.farowl.vsj4.runtime.PyType;
+import uk.co.farowl.vsj4.runtime.TypeSpec;
 import uk.co.farowl.vsj4.runtime.WithClass;
 
 /**
@@ -224,4 +228,83 @@ public abstract sealed class AbstractPyType extends Representation
     /** Lookup object with package visibility. */
     static Lookup LOOKUP =
             MethodHandles.lookup().dropLookupMode(Lookup.PRIVATE);
+
+    /**
+     * Load the dictionary of this type with attributes discovered by an
+     * exposer. This is a package-visible hook with direct access to the
+     * dictionary, for {@link TypeFactory} to use during type
+     * construction.
+     *
+     * @param exposer from which to populate the dictionary
+     * @param supplying the lookup object
+     */
+    void populateDict(TypeExposer exposer, TypeSpec spec) {
+        exposer.populate(_dict, spec.getLookup());
+    }
+
+ // Special methods -----------------------------------------------
+
+    protected Object __repr__() throws Throwable {
+        return String.format("<class '%s'>", getName());
+    }
+
+    /**
+     * Handle calls to a type object, which will normally be a request
+     * to construct a Python object of the type this object describes.
+     * For example the call {@code int()} is a request to create a
+     * Python {@code int}, although we often think of it as a built-in
+     * function. The exception is when the type represented is
+     * {@code type} itself and there is one argument. The call
+     * {@code type(obj)} enquires the Python type of the object, which
+     * is even more like a built-in function. The call
+     * {@code type(name, bases, dict)} constructs a new type (instance
+     * of {@code type}).
+     *
+     * @param args argument list (length 1 in a type enquiry).
+     * @param names of keyword arguments (empty or {@code null} in a
+     *     type enquiry).
+     * @return new object (or a type if an enquiry).
+     * @throws PyBaseException(TypeError) when cannot create instances
+     * @throws Throwable from implementation slot functions
+     */
+    protected Object __call__(Object[] args, String[] names)
+            throws /* TypeError, */ Throwable {
+        // Delegate to FastCall.call
+        return call(args, names);
+    }
+
+    // @Override
+    public Object call(Object[] args, String[] names)
+            throws /* ArgumentError, */ Throwable {
+        /*
+         * Special case: type(x) should return the Python type of x, but
+         * only if this is exactly the type 'type'.
+         */
+        if (this == PyType.TYPE) {
+            // Deal with two special cases
+            assert (args != null);
+            int nk = names == null ? 0 : names.length;
+            int np = args.length - nk;
+
+            if (np == 1 && nk == 0) {
+                // Call is exactly type(x) so this is a type enquiry
+                return PyType.of(args[0]);
+
+            } else if (np != 3) {
+                // Call ought to be type(x, bases, dict [, **kwds])
+                // __new__ will check too but we prefer this message.
+                throw PyErr.format(PyExc.TypeError,
+                        "type() takes 1 or 3 arguments");
+            }
+        }
+
+        // Call __new__ of the type described by this type object
+        // XXX Call __new__ and __init__ via Callables or SpecialMethod
+        // Object obj = Callables.call(newMethod, this, args, names);
+        Object obj = null;
+
+        // Call obj.__init__ if it is defined and type(obj) == this
+        // maybeInit(obj, args, names);
+        return obj;
+    }
 }

@@ -5,23 +5,20 @@ package uk.co.farowl.vsj4.runtime.kernel;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertSame;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
-import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
 
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import uk.co.farowl.vsj4.runtime.PyType;
-import uk.co.farowl.vsj4.runtime.kernel.TypeFactory.Clash;
 import uk.co.farowl.vsj4.support.InterpreterError;
 
 /**
@@ -52,6 +49,22 @@ class TypeFactoryTest {
     static Lookup LOOKUP =
             MethodHandles.lookup().dropLookupMode(Lookup.PRIVATE);
 
+    /** Satisfy the reference in the {@code TypeFactory} constructor. */
+    Function<PyType, TypeExposer> nullFactory =
+            //new Function<TypeExposer, PyType>() {
+            (PyType t) -> new TypeExposer() {
+                final PyType type = t;
+                @Override
+                public void expose(Class<?> definingClass) {
+                    // Do nothing
+                 }
+                @Override
+                public void populate(Map<? super String, Object> dict,
+                        Lookup lookup) {
+                    // Do nothing
+                }
+            };
+
     /**
      * Statically initialise the type system. Any reference to a
      * {@code PyType} member or subclass creates the static singleton
@@ -79,7 +92,7 @@ class TypeFactoryTest {
     @DisplayName("'object' exists")
     void object_exists() {
         @SuppressWarnings("deprecation")
-        TypeFactory factory = new TypeFactory(LOOKUP);
+        TypeFactory factory = new TypeFactory(LOOKUP, nullFactory);
         @SuppressWarnings("deprecation")
         PyType object = factory.typeForType().getBase();
         assertNotNull(object);
@@ -92,7 +105,7 @@ class TypeFactoryTest {
     @DisplayName("'type' exists")
     void type_exists() {
         @SuppressWarnings("deprecation")
-        TypeFactory factory = new TypeFactory(LOOKUP);
+        TypeFactory factory = new TypeFactory(LOOKUP, nullFactory);
         @SuppressWarnings("deprecation")
         PyType type = factory.typeForType();
         assertNotNull(type);
@@ -105,7 +118,7 @@ class TypeFactoryTest {
     @DisplayName("PyType.class is not registered")
     void type_type_unpublished() {
         @SuppressWarnings("deprecation")
-        TypeFactory factory = new TypeFactory(LOOKUP);
+        TypeFactory factory = new TypeFactory(LOOKUP, nullFactory);
         TypeRegistry registry = factory.getRegistry();
         Representation rep = registry.lookup(PyType.class);
         assertNull(rep);
@@ -116,7 +129,7 @@ class TypeFactoryTest {
     @DisplayName("Object.class is not registered")
     void object_type_unpublished() {
         @SuppressWarnings("deprecation")
-        TypeFactory factory = new TypeFactory(LOOKUP);
+        TypeFactory factory = new TypeFactory(LOOKUP, nullFactory);
         TypeRegistry registry = factory.getRegistry();
         Representation rep = registry.lookup(Object.class);
         assertNull(rep);

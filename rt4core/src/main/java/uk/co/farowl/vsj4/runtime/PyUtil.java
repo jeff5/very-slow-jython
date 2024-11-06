@@ -22,7 +22,7 @@ public class PyUtil {
      * @param o the object (not its type)
      * @return string denoting {@code o}
      */
-    static String toAt(Object o) {
+    public static String toAt(Object o) {
         // For the time being type name means:
         String typeName = PyType.of(o).getName();
         return String.format("%s object at %#x", typeName, Py.id(o));

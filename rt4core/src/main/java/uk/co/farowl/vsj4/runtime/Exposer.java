@@ -24,6 +24,9 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import uk.co.farowl.vsj4.runtime.Exposed.Default;
 import uk.co.farowl.vsj4.runtime.Exposed.DocString;
 import uk.co.farowl.vsj4.runtime.Exposed.Getter;
@@ -43,6 +46,10 @@ import uk.co.farowl.vsj4.support.ScopeKind;
  * types or modules.
  */
 abstract class Exposer {
+
+    /** Logger for this exposer. */
+    protected final Logger logger =
+            LoggerFactory.getLogger(Exposer.class);
 
     /**
      * The index of intermediate descriptions by name, in which we may
@@ -110,11 +117,13 @@ abstract class Exposer {
      * @return a type exposer able to deliver the attributes
      * @throws InterpreterError on errors of definition
      */
-    static TypeExposer exposeType(PyType type, Class<?> definingClass,
-            Class<?> methodClass) throws InterpreterError {
+    static TypeExposerImplementation exposeType(PyType type,
+            Class<?> definingClass, Class<?> methodClass)
+            throws InterpreterError {
 
         // Create an instance of Exposer to hold specs, type.
-        TypeExposer exposer = new TypeExposer(type);
+        TypeExposerImplementation exposer =
+                new TypeExposerImplementation(type);
 
         // Scan the defining class for definitions
         exposer.expose(definingClass);
@@ -129,8 +138,8 @@ abstract class Exposer {
     /**
      * Add to {@link #specs}, definitions found in the given class and
      * annotated for exposure. (Note that the that the override
-     * {@link TypeExposer#scanJavaMethods(Class)} also adds a method if
-     * it has a the name of a special method.)
+     * {@link TypeExposerImplementation#scanJavaMethods(Class)} also
+     * adds a method if it has a the name of a special method.)
      *
      * @param defsClass to introspect for definitions
      * @throws InterpreterError on duplicates or unsupported types
