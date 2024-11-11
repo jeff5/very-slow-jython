@@ -328,8 +328,8 @@ public class TypeFactory {
             if (rep == null) {
                 // Make a type to represent the class.
                 // XXX What lookup should be used here?
-                TypeSpec spec = new TypeSpec(c.getTypeName(), LOOKUP)
-                        .canonicalBase(c);
+                TypeSpec spec = new TypeSpec(c.getTypeName(),
+                        MethodHandles.publicLookup()).primary(c);
                 rep = fromSpec(spec);
             }
 

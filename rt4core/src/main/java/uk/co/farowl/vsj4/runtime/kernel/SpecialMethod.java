@@ -14,7 +14,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
-import uk.co.farowl.vsj4.runtime.ArgumentError;
 import uk.co.farowl.vsj4.runtime.ClassShorthand;
 import uk.co.farowl.vsj4.runtime.PyBaseException;
 import uk.co.farowl.vsj4.runtime.PyErr;
@@ -557,99 +556,41 @@ public enum SpecialMethod {
         this(signature, doc, null, alt);
     }
 
-    /** Compute corresponding double-underscore method name. */
-    private String dunder(String methodName) {
-        if (methodName != null)
-            // XXX Is the method name ever not derived from name()
-            return methodName;
-        else {
-            // Map xx_add to __add__
-            String s = name();
-            int i = s.indexOf('_');
-            if (i == 2)
-                s = "__" + s.substring(i + 1) + "__";
-            return s;
+    /**
+     * Get the {@code MethodHandle} for the implementation of this
+     * {@code SpecialMethod}. This comes either from the corresponding
+     * cache field of the given {@link Representation} object, or is a
+     * handle on an unbound method found by lookup on the type. When the
+     * representation is a shared one, the handle will find the type
+     * using {@link Representation#pythonType(Object)}.
+     *
+     * @param rep target representation object
+     * @return current contents of this slot in {@code rep}
+     */
+    public MethodHandle handle(Representation rep) {
+        // FIXME: Consider thread safety of slots
+        if (slotHandle != null) {
+            // The handle is cached on the Representation
+            return (MethodHandle)slotHandle.get(rep);
+        } else {
+            // Here we should get from type a handle to call.
+            // We can prepare this statically once per member.
+            throw new MissingFeature("Handle to invoke special method");
         }
     }
 
     /**
-     * Use the length and content of the given string, backed up by name
-     * and signature, to generate a standard documentation string
-     * according to a few patterns. This is a treat for maintainers who
-     * hate typing strings.
+     * Get the {@code MethodHandle} of this slot's "alternate" operation
+     * from the given representation object. For a binary operation this
+     * is the reflected operation.
      *
-     * @param doc basis of documentation string or {@code null}
-     * @return generated documentation string
+     * @param rep target representation object
+     * @return current contents of the alternate slot in {@code t}
+     * @throws NullPointerException if there is no alternate
      */
-    // Compare CPython *SLOT macros in typeobject.c
-    private String docstring(String doc) {
-        String sig, help;
-        int rp;
-
-        if (doc == null) {
-            // Shouldn't be in this position
-            sig = "";
-            help = "?";
-
-        } else if (doc.length() <= 3) {
-            // doc provides only an operator: make the rest up
-
-            switch (signature) {
-                case UNARY:
-                    sig = "/";  // ($self, /)
-                    help = "unary " + doc + "self";
-                    break;
-                case BINARY:
-                    sig = "value, /";  // ($self, value, /)
-                    if (doc.endsWith("=")
-                            && !"<= == != >=".contains(doc)) {
-                        // In-place binary operation.
-                        help = "Return self " + doc + " value.";
-                    } else if (alt == null) {
-                        // Binary L op R.
-                        help = "Return self " + doc + " value.";
-                    } else {
-                        // Binary R op L
-                        help = "Return value " + doc + " self.";
-                    }
-                    break;
-                default:
-                    assert false; // Can't use short doc here
-                    sig = "?";
-                    help = doc;
-            }
-
-        } else if (doc.startsWith("($self, ")
-                && (rp = doc.indexOf(')')) > 0) {
-            // long doc with explicit signature
-            sig = doc.substring(8, rp);
-            help = doc.substring(rp + 1).trim();
-
-        } else {
-            // long doc without explicit signature
-            switch (signature) {
-                case UNARY, LEN, PREDICATE:
-                    sig = "/";  // ($self, /)
-                    break;
-                case BINARY:
-                    sig = "value, /";  // ($self, value, /)
-                    break;
-                default:
-                    assert false; // Must have explicit names
-                    sig = "?";
-            }
-            help = doc;
-        }
-
-        return String.format("%s($self, %s)\n--\n\n%s", methodName, sig,
-                help);
-    }
-
-    @Override
-    public java.lang.String toString() {
-        // Programmer-friendly description
-        return "SpecialMethod." + name() + " ( " + methodName
-                + getType() + " ) [" + signature.name() + "]";
+    public MethodHandle getAltSlot(Representation rep)
+            throws NullPointerException {
+        return (MethodHandle)alt.slotHandle.get(rep);
     }
 
     /**
@@ -674,28 +615,6 @@ public enum SpecialMethod {
                     throw slotTypeError(this, mh);
                 }
             }
-        }
-    }
-
-    /**
-     * Get the {@code MethodHandle} for the implementation of this
-     * {@code SpecialMethod}. This comes either from the corresponding
-     * cache field of the given {@link Representation} object, or is a
-     * handle on an unbound method found by lookup on the type. When the
-     * representation is a shared one, the handle will find the type
-     * using {@link Representation#pythonType(Object)}.
-     *
-     * @param rep target representation object
-     * @return current contents of this slot in {@code rep}
-     */
-    public MethodHandle handle(Representation rep) {
-        if (slotHandle != null) {
-            // The handle is cached on the Representation
-            return (MethodHandle)slotHandle.get(rep);
-        } else {
-            // Here we should get from type a handle to call.
-            // We can prepare this statically once per member.
-            throw new MissingFeature("Handle to invoke special method");
         }
     }
 
@@ -763,20 +682,6 @@ public enum SpecialMethod {
     }
 
     /**
-     * Get the {@code MethodHandle} of this slot's "alternate" operation
-     * from the given representation object. For a binary operation this
-     * is the reflected operation.
-     *
-     * @param rep target representation object
-     * @return current contents of the alternate slot in {@code t}
-     * @throws NullPointerException if there is no alternate
-     */
-    MethodHandle getAltSlot(Representation rep)
-            throws NullPointerException {
-        return (MethodHandle)alt.slotHandle.get(rep);
-    }
-
-    /**
      * Set the {@code MethodHandle} of this slot's operation in the
      * given operations object.
      *
@@ -787,6 +692,13 @@ public enum SpecialMethod {
         if (mh == null || !mh.type().equals(getType()))
             throw slotTypeError(this, mh);
         slotHandle.set(rep, mh);
+    }
+
+    @Override
+    public java.lang.String toString() {
+        // Programmer-friendly description
+        return "SpecialMethod." + name() + " ( " + methodName
+                + getType() + " ) [" + signature.name() + "]";
     }
 
     /**
@@ -868,6 +780,7 @@ public enum SpecialMethod {
          * The signature {@code (O,O)O}, for example
          * {@link SpecialMethod#op_add} or
          * {@link SpecialMethod#op_getitem}.
+         *
          */
         // In CPython: binaryfunc
         BINARY(O, O, O),
@@ -881,10 +794,10 @@ public enum SpecialMethod {
         /**
          * The signature {@code (O,O[],S[])O}, used for
          * {@link SpecialMethod#op_call}. Note that in Jython, standard
-         * calls are what CPython refers to as vector calls (although
-         * they cannot use a stack slice as the array).
+         * calls approximate what CPython refers to as vector calls
+         * (although they cannot use a stack slice as the array).
          */
-        // Not in CPython
+        // Not in CPython (uses ternaryfunc for call)
         CALL(O, O, OA, SA),
 
         /**
@@ -932,7 +845,8 @@ public enum SpecialMethod {
          * The signature {@code (O,S)O}, used for
          * {@link SpecialMethod#op_getattr}.
          */
-        // In CPython: getattrofunc
+        // In CPython: getattrofunc is (O,O)O
+        // In CPython: getattrfunc is (O,S)O
         GETATTR(O, O, S),
 
         /**
@@ -1004,39 +918,6 @@ public enum SpecialMethod {
                 throw new InterpreterError(
                         "Special methods must be instance methods");
             }
-        }
-
-        /**
-         * Invoke the given method handle for the given target
-         * {@code self}, having arranged the arguments as expected by a
-         * slot. We create {@code enum} members of {@code Signature} to
-         * handle different slot signatures, in which this method
-         * accepts arguments in a generic way (from the interpreter,
-         * say) and adapts them to the specific needs of a wrapped
-         * method. The caller guarantees that the wrapped method has the
-         * {@code Signature} to which the call is addressed.
-         *
-         * @param wrapped handle of the method to call
-         * @param self target object of the method call
-         * @param args of the method call
-         * @param names of trailing arguments in {@code args}
-         * @return result of the method call
-         * @throws ArgumentError when the arguments ({@code args},
-         *     {@code names}) are not correct for the {@code Signature}
-         * @throws Throwable from the implementation of the special
-         *     method
-         */
-        // Compare CPython wrap_* in typeobject.c
-        // XXX Why not just call the handle in the method descriptor?
-        /*
-         * PyWrapperDescr calls this, but doesn't it already have the
-         * information to hand?
-         */
-        public/* abstract */ Object callWrapped(MethodHandle wrapped,
-                Object self, Object[] args, String[] names)
-                throws ArgumentError, Throwable {
-            // checkNoArgs(args, names);
-            return wrapped.invokeExact(self);
         }
     }
 
@@ -1163,6 +1044,94 @@ public enum SpecialMethod {
             return PyErr.format(PyExc.TypeError,
                     "bad operand type for %s", op.opName);
         }
+    }
+
+    /** Compute corresponding double-underscore method name. */
+    private String dunder(String methodName) {
+        if (methodName != null)
+            // XXX Is the method name ever not derived from name()
+            return methodName;
+        else {
+            // Map xx_add to __add__
+            String s = name();
+            int i = s.indexOf('_');
+            if (i == 2)
+                s = "__" + s.substring(i + 1) + "__";
+            return s;
+        }
+    }
+
+    /**
+     * Use the length and content of the given string, backed up by name
+     * and signature, to generate a standard documentation string
+     * according to a few patterns. This is a treat for maintainers who
+     * hate typing strings.
+     *
+     * @param doc basis of documentation string or {@code null}
+     * @return generated documentation string
+     */
+    // Compare CPython *SLOT macros in typeobject.c
+    private String docstring(String doc) {
+        String sig, help;
+        int rp;
+
+        if (doc == null) {
+            // Shouldn't be in this position
+            sig = "";
+            help = "?";
+
+        } else if (doc.length() <= 3) {
+            // doc provides only an operator: make the rest up
+
+            switch (signature) {
+                case UNARY:
+                    sig = "/";  // ($self, /)
+                    help = "unary " + doc + "self";
+                    break;
+                case BINARY:
+                    sig = "value, /";  // ($self, value, /)
+                    if (doc.endsWith("=")
+                            && !"<= == != >=".contains(doc)) {
+                        // In-place binary operation.
+                        help = "Return self " + doc + " value.";
+                    } else if (alt == null) {
+                        // Binary L op R.
+                        help = "Return self " + doc + " value.";
+                    } else {
+                        // Binary R op L
+                        help = "Return value " + doc + " self.";
+                    }
+                    break;
+                default:
+                    assert false; // Can't use short doc here
+                    sig = "?";
+                    help = doc;
+            }
+
+        } else if (doc.startsWith("($self, ")
+                && (rp = doc.indexOf(')')) > 0) {
+            // long doc with explicit signature
+            sig = doc.substring(8, rp);
+            help = doc.substring(rp + 1).trim();
+
+        } else {
+            // long doc without explicit signature
+            switch (signature) {
+                case UNARY, LEN, PREDICATE:
+                    sig = "/";  // ($self, /)
+                    break;
+                case BINARY:
+                    sig = "value, /";  // ($self, value, /)
+                    break;
+                default:
+                    assert false; // Must have explicit names
+                    sig = "?";
+            }
+            help = doc;
+        }
+
+        return String.format("%s($self, %s)\n--\n\n%s", methodName, sig,
+                help);
     }
 
     /**

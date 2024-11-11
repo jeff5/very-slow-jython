@@ -37,7 +37,7 @@ public class Abstract {
      *
      * @param o object
      * @return the string representation of {@code o}
-     * @throws PyBaseException(TypeError) if {@code __repr__} returns a
+     * @throws PyBaseException (TypeError) if {@code __repr__} returns a
      *     non-string
      * @throws Throwable from invoked implementation of {@code __repr__}
      */
@@ -47,10 +47,10 @@ public class Abstract {
         if (o == null) {
             return "<null>";
         } else {
-            Representation rep = PyType.registry.get(o.getClass());
+            Representation rep = PyType.representationOf(o);
+            MethodHandle mh = rep.handle(SpecialMethod.op_repr, o);
             try {
-                Object res =
-                        SpecialMethod.op_repr.handle(rep).invoke(o);
+                Object res = mh.invoke(o);
                 if (PyUnicode.TYPE.check(res)) {
                     return res;
                 } else {
@@ -68,7 +68,7 @@ public class Abstract {
      *
      * @param o object
      * @return the string representation of {@code o}
-     * @throws PyBaseException(TypeError) if {@code __str__} or
+     * @throws PyBaseException (TypeError) if {@code __str__} or
      *     {@code __repr__} returns a non-string
      * @throws Throwable from invoked implementations of {@code __str__}
      *     or {@code __repr__}
@@ -130,7 +130,7 @@ public class Abstract {
      *
      * @param v to hash
      * @return the hash
-     * @throws PyBaseException(TypeError) if {@code v} is an unhashable
+     * @throws PyBaseException (TypeError) if {@code v} is an unhashable
      *     type
      * @throws Throwable on errors within {@code __hash__}
      */
@@ -268,8 +268,8 @@ public class Abstract {
         Representation rep = PyType.registry.get(o.getClass());
         try {
             // Invoke __getattribute__.
-            return SpecialMethod.op_getattribute.handle(rep)
-                    .invokeExact(o, name);
+            MethodHandle mh = SpecialMethod.op_getattribute.handle(rep);
+            return mh.invokeExact(o, name);
         } catch (EmptyException | PyAttributeError e) {
             try {
                 // Not found or not defined: fall back on __getattr__.
@@ -290,7 +290,7 @@ public class Abstract {
      * @param name of attribute
      * @return {@code o.name}
      * @throws PyAttributeError if non-existent etc.
-     * @throws PyBaseException(TypeError) if the name is not a
+     * @throws PyBaseException (TypeError) if the name is not a
      *     {@code str}
      * @throws Throwable on other errors
      */
@@ -343,7 +343,7 @@ public class Abstract {
      * @param o the object in which to look for the attribute
      * @param name of the attribute sought
      * @return the attribute or {@code null}
-     * @throws PyBaseException(TypeError) if {@code name} is not a
+     * @throws PyBaseException (TypeError) if {@code name} is not a
      *     Python {@code str}
      * @throws Throwable on other errors
      */
@@ -387,7 +387,7 @@ public class Abstract {
      * @param name of attribute
      * @param value to set
      * @throws PyAttributeError if non-existent etc.
-     * @throws PyBaseException(TypeError) if the name is not a
+     * @throws PyBaseException (TypeError) if the name is not a
      *     {@code str}
      * @throws Throwable on other errors
      */
@@ -429,7 +429,7 @@ public class Abstract {
      * @param o object to operate on
      * @param name of attribute
      * @throws PyAttributeError if non-existent etc.
-     * @throws PyBaseException(TypeError) if the name is not a
+     * @throws PyBaseException (TypeError) if the name is not a
      *     {@code str}
      * @throws Throwable on other errors
      */
@@ -571,7 +571,7 @@ public class Abstract {
      * @param inst object to test
      * @param cls class or {@code tuple} of classes to test against
      * @return {@code isinstance(inst, cls)}
-     * @throws PyBaseException(TypeError) if {@code cls} is not a class
+     * @throws PyBaseException (TypeError) if {@code cls} is not a class
      *     or tuple of classes
      * @throws Throwable propagated from {@code __instancecheck__} or
      *     other causes
@@ -633,7 +633,7 @@ public class Abstract {
      *     not a tuple of such).
      * @return ẁhether {@code derived} is a sub-class of {@code cls} by
      *     these criteria.
-     * @throws PyBaseException(TypeError) if either input has no
+     * @throws PyBaseException (TypeError) if either input has no
      *     {@code __bases__} tuple.
      * @throws Throwable propagated from {@code __subclasscheck__} or
      *     other causes
@@ -760,7 +760,7 @@ public class Abstract {
      *
      * @param o the claimed iterable object
      * @return an iterator on {@code o}
-     * @throws PyBaseException(TypeError) if the object cannot be
+     * @throws PyBaseException (TypeError) if the object cannot be
      *     iterated
      * @throws Throwable from errors in {@code o.__iter__}
      */

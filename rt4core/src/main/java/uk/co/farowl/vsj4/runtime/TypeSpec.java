@@ -294,7 +294,7 @@ public class TypeSpec extends NamedSpec {
             adopted = classes.subList(adoptedIndex, acceptedIndex);
             accepted = classes.subList(acceptedIndex, classes.size());
 
-            // FIXME process binopOthers to extended array
+            // TODO process binopOthers to extended array
         }
 
         return this;

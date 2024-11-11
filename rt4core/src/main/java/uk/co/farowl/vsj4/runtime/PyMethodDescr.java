@@ -199,7 +199,7 @@ public abstract class PyMethodDescr extends MethodDescriptor {
      * @param args arguments of the method call
      * @param names of arguments given by keyword or {@code null}
      * @return result of the method call
-     * @throws PyBaseException(TypeError) when the arguments
+     * @throws PyBaseException (TypeError) when the arguments
      *     ({@code args} {@code names}) are not correct for the method
      *     signature
      * @throws ArgumentError as a shorthand for {@link PyBaseException
@@ -221,7 +221,7 @@ public abstract class PyMethodDescr extends MethodDescriptor {
      * @param self target object of the method call
      * @param args arguments of the method call
      * @return result of the method call
-     * @throws PyBaseException(TypeError) when the arguments
+     * @throws PyBaseException (TypeError) when the arguments
      *     ({@code args} are not correct for the method signature
      * @throws ArgumentError as a shorthand for {@link PyBaseException
      *     TypeError}, which the caller must convert with
@@ -315,7 +315,7 @@ public abstract class PyMethodDescr extends MethodDescriptor {
      * @param self the {@code self} argument in some call
      * @return corresponding handle (or one that throws
      *     {@link EmptyException})
-     * @throws PyBaseException(TypeError) if {@code self} is of
+     * @throws PyBaseException (TypeError) if {@code self} is of
      *     unacceptable type
      * @throws Throwable on other errors while chasing the MRO
      */
@@ -329,6 +329,12 @@ public abstract class PyMethodDescr extends MethodDescriptor {
          */
         // ??? At least, I think so.
         checkSelfType(self);
+        return method;
+    }
+
+    @Override
+    public MethodHandle getHandle(int selfClassIndex) {
+        assert selfClassIndex == 0;
         return method;
     }
 
@@ -373,7 +379,7 @@ public abstract class PyMethodDescr extends MethodDescriptor {
      * @param args all arguments beginning with {@code self}
      * @param names of keyword arguments
      * @return result of calling the method represented
-     * @throws PyBaseException(TypeError) if {@code args[0]} is of the
+     * @throws PyBaseException (TypeError) if {@code args[0]} is of the
      *     wrong type or the pattern of arguments is unacceptable
      *     (number, keyword use).
      * @throws Throwable from the implementation of the method
@@ -439,7 +445,7 @@ public abstract class PyMethodDescr extends MethodDescriptor {
      * @param obj target (self) of the method, or {@code null}
      * @param type ignored
      * @return method bound to {@code obj} or this descriptor.
-     * @throws PyBaseException(TypeError) if {@code obj!=null} is not
+     * @throws PyBaseException (TypeError) if {@code obj!=null} is not
      *     compatible
      * @throws Throwable on other errors while chasing the MRO
      */
@@ -529,7 +535,7 @@ public abstract class PyMethodDescr extends MethodDescriptor {
      * against the MRO of {@code PyType.of(self)}.
      *
      * @param self to be checked
-     * @throws PyBaseException(TypeError) if it is of unacceptable type
+     * @throws PyBaseException (TypeError) if it is of unacceptable type
      * @throws Throwable on other errors while chasing the MRO
      */
     protected final void checkSelfType(Object self)
@@ -1040,7 +1046,10 @@ public abstract class PyMethodDescr extends MethodDescriptor {
     /**
      * A name space for sub-classes of {@link PyMethodDescr} to use for
      * an instance method when the owning Python type has multiple
-     * accepted implementations.
+     * accepted implementations. The classes in {@code Multiple} inherit
+     * their call argument processing from the identically named classes
+     * in {@link PyMethodDescr}, but we have to keep repeating the
+     * definition of {@link #getHandle(int)}.
      */
     private static class Multiple {
 
@@ -1084,6 +1093,11 @@ public abstract class PyMethodDescr extends MethodDescriptor {
                 } catch (ArrayIndexOutOfBoundsException iobe) {
                     throw selfTypeError(self);
                 }
+            }
+
+            @Override
+            public MethodHandle getHandle(int selfClassIndex) {
+                return methods[selfClassIndex];
             }
         }
 
@@ -1171,6 +1185,11 @@ public abstract class PyMethodDescr extends MethodDescriptor {
                     throw selfTypeError(self);
                 }
             }
+
+            @Override
+            public MethodHandle getHandle(int selfClassIndex) {
+                return methods[selfClassIndex];
+            }
         }
 
         /**
@@ -1213,6 +1232,11 @@ public abstract class PyMethodDescr extends MethodDescriptor {
                 } catch (ArrayIndexOutOfBoundsException iobe) {
                     throw selfTypeError(self);
                 }
+            }
+
+            @Override
+            public MethodHandle getHandle(int selfClassIndex) {
+                return methods[selfClassIndex];
             }
         }
 
@@ -1257,6 +1281,11 @@ public abstract class PyMethodDescr extends MethodDescriptor {
                     throw selfTypeError(self);
                 }
             }
+
+            @Override
+            public MethodHandle getHandle(int selfClassIndex) {
+                return methods[selfClassIndex];
+            }
         }
 
         /**
@@ -1299,6 +1328,11 @@ public abstract class PyMethodDescr extends MethodDescriptor {
                 } catch (ArrayIndexOutOfBoundsException iobe) {
                     throw selfTypeError(self);
                 }
+            }
+
+            @Override
+            public MethodHandle getHandle(int selfClassIndex) {
+                return methods[selfClassIndex];
             }
         }
     }

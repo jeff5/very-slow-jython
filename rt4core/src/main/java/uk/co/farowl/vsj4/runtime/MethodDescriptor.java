@@ -2,6 +2,8 @@
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
 
+import java.lang.invoke.MethodHandle;
+
 import uk.co.farowl.vsj4.runtime.ArgumentError.Mode;
 
 /**
@@ -11,7 +13,8 @@ import uk.co.farowl.vsj4.runtime.ArgumentError.Mode;
  * methods in support of both sub-classes and other callable objects
  * (e.g. {@link PyJavaFunction}).
  */
-abstract class MethodDescriptor extends Descriptor implements FastCall {
+public abstract class MethodDescriptor extends Descriptor
+        implements FastCall {
 
     /**
      * Constructor specifying the Python type, as returned by
@@ -25,6 +28,27 @@ abstract class MethodDescriptor extends Descriptor implements FastCall {
     MethodDescriptor(PyType descrtype, PyType objclass, String name) {
         super(descrtype, objclass, name);
     }
+
+    /**
+     * Return a {@code MethodHandle} by which the Java implementation of
+     * the method, corresponding to the given index in
+     * {@link PyType#selfClasses()}, may be invoked. The index must be
+     * in range for that list. (Zero will always be in range.)
+     * <p>
+     * This method is intended for use in the construction of call sites
+     * in code compiled from Python, and for some uses internal to the
+     * runtime. The signature of the returned handle (its
+     * {@link MethodHandle#type()}) will be determined by the
+     * declaration (in Java) of the method that it wraps, and by the
+     * optimisations available in the particular implementation.
+     *
+     * @param selfClassIndex specifying the Java class of {@code self}
+     * @return corresponding handle (to call or generate error)
+     * @throws IndexOutOfBoundsException if the index is in the range
+     *     acceptable to {@link Descriptor#objclass}.
+     */
+    public abstract MethodHandle getHandle(int selfClassIndex)
+            throws IndexOutOfBoundsException;
 
     @Override
     @SuppressWarnings("fallthrough")
@@ -55,7 +79,7 @@ abstract class MethodDescriptor extends Descriptor implements FastCall {
      * @throws ArgumentError if positional arguments are given or
      *     {@code names} is not {@code null} or empty
      */
-    final static void checkNoArgs(Object[] args, String[] names)
+    static void checkNoArgs(Object[] args, String[] names)
             throws ArgumentError {
         if (args.length != 0)
             throw new ArgumentError(Mode.NOARGS);
@@ -71,7 +95,7 @@ abstract class MethodDescriptor extends Descriptor implements FastCall {
      * @param args positional argument array to be checked
      * @throws ArgumentError if positional arguments are given
      */
-    final static void checkNoArgs(Object[] args) throws ArgumentError {
+    static void checkNoArgs(Object[] args) throws ArgumentError {
         if (args.length != 0) { throw new ArgumentError(Mode.NOARGS); }
     }
 
@@ -86,8 +110,8 @@ abstract class MethodDescriptor extends Descriptor implements FastCall {
      * @throws ArgumentError if the wrong number of positional arguments
      *     are given or {@code kwargs} is not {@code null} or empty
      */
-    final static void checkArgs(Object[] args, int expArgs,
-            String[] names) throws ArgumentError {
+    static void checkArgs(Object[] args, int expArgs, String[] names)
+            throws ArgumentError {
         if (args.length != expArgs)
             throw new ArgumentError(expArgs);
         else if (names != null && names.length != 0)
@@ -106,7 +130,7 @@ abstract class MethodDescriptor extends Descriptor implements FastCall {
      * @throws ArgumentError if the wrong number of positional arguments
      *     are given or {@code kwargs} is not {@code null} or empty
      */
-    final static void checkArgs(Object[] args, int minArgs, int maxArgs,
+    static void checkArgs(Object[] args, int minArgs, int maxArgs,
             String[] names) throws ArgumentError {
         int n = args.length;
         if (n < minArgs || n > maxArgs)
@@ -126,7 +150,7 @@ abstract class MethodDescriptor extends Descriptor implements FastCall {
      * @throws ArgumentError if the wrong number of positional arguments
      *     are given
      */
-    final static void checkArgs(Object[] args, int minArgs, int maxArgs)
+    static void checkArgs(Object[] args, int minArgs, int maxArgs)
             throws ArgumentError {
         int n = args.length;
         if (n < minArgs || n > maxArgs) {
@@ -141,7 +165,7 @@ abstract class MethodDescriptor extends Descriptor implements FastCall {
      * @param names to be taken into account
      * @throws ArgumentError if {@code self} is missing
      */
-    final static void checkHasSelf(Object[] args, String[] names)
+    static void checkHasSelf(Object[] args, String[] names)
             throws ArgumentError {
         int nkwds = names == null ? 0 : names.length;
         if (nkwds >= args.length) {

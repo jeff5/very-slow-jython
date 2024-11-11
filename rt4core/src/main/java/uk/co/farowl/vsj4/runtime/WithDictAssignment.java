@@ -58,7 +58,7 @@ public interface WithDictAssignment extends WithDict {
                             + "not a '%s'",
                     PyType.of(replacementDict).getName());
         }
-        // FIXME make this a TypeError
+        // XXX make this a TypeError
         throw new InterpreterError(msg);
     }
 

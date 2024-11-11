@@ -140,16 +140,16 @@ abstract class Descriptor implements WithClass {
      * assuming the particular {@link #objclass} type.
      *
      * @param obj target object (non-null argument to {@code __get__})
-     * @throws PyBaseException(TypeError) if descriptor doesn't apply to
+     * @throws PyBaseException (TypeError) if descriptor doesn't apply to
      *     {@code obj}
      */
     // Compare CPython descr_check in descrobject.c
-    /*
-     * We differ from CPython in that: 1. We either throw or return
-     * void: there is no FALSE->error or descriptor. 2. The test
-     * obj==null (implying found on a type) is the caller's job. 3. In a
-     * data descriptor, we fold the auditing into this check.
-     */
+    // We differ from CPython in that:
+    // 1. We either throw or return void: there is no FALSE->error or
+    // descriptor.
+    // 2. The test obj==null (implying found on a type) is the caller's
+    // job.
+    // 3. In a data descriptor, we fold the auditing into this check.
     protected void check(Object obj) throws PyBaseException {
         PyType objType = PyType.of(obj);
         if (!objType.isSubTypeOf(objclass)) {

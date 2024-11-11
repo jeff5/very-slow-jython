@@ -10,8 +10,9 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.invoke.MethodType;
 
-import uk.co.farowl.vsj4.runtime.WithClass;
+import uk.co.farowl.vsj4.runtime.MethodDescriptor;
 import uk.co.farowl.vsj4.runtime.PyType;
+import uk.co.farowl.vsj4.runtime.WithClass;
 import uk.co.farowl.vsj4.support.InterpreterError;
 
 /**
@@ -72,13 +73,17 @@ public abstract class Representation {
     public abstract PyType pythonType(Object x);
 
     /**
-     * Identify by index which Java implementation of the associated
-     * type this {@code Representation} object is for. (Some types have
-     * multiple acceptable implementations.)
+     * Get the specific {@code Representation} of the object <i>given
+     * that</i> this is the representation object for its class.
      *
-     * @return index in the type (0 if canonical)
+     * @implSpec Override this in the {@link Shared} representation to
+     *     return the type. The default implementation returns
+     *     {@code this}.
+     *
+     * @param x subject of the enquiry
+     * @return {@code type(x)}
      */
-    int getIndex() { return 0; }
+    public Representation unshared(Object x) { return this; }
 
     /**
      * A base Java class representing instances of the related Python
@@ -90,6 +95,58 @@ public abstract class Representation {
      * @return base class of the implementation
      */
     public Class<?> javaClass() { return javaClass; }
+
+    /**
+     * Return the index of this {@code Representation} in the associated
+     * type. Adoptive types support multiple Java representation classes
+     * for their instances, and each Representation holds the index for
+     * the class(es) associated to it in the registry. For others
+     * representations, the index is zero.
+     * <p>
+     * Each descriptor in the dictionary of that type is able to provide
+     * an implementation of the method that applies to a {@code self}
+     * with Java class equal to (or a subclass of) {@link #javaClass} of
+     * the representation.
+     *
+     * @implSpec Override this in the {@link Adopted} representation.
+     *     The default implementation returns zero.
+     *
+     * @return index in the type (0 if canonical)
+     */
+    @SuppressWarnings("static-method")
+    public int getIndex() { return 0; }
+
+    /**
+     * Get a handle that implements the given special method for the
+     * given {@code self}, and which is assignment compatible (in Java)
+     * with {@link #javaClass}. The returned handle has the signature
+     * required by the particular special method, and is not bound to
+     * {@code self}.
+     */
+    // Compare CPython SLOT* macros in typeobject.c
+    public MethodHandle handle(SpecialMethod sm, Object self) {
+        MethodHandle mh;
+        if (sm.slotHandle != null) {
+            // XXX What if javaClass isn't expected self class?
+            // We wouldn't have cached it, but when was that?
+            mh = (MethodHandle)sm.slotHandle.get(this);
+        } else {
+            // XXX Could in-line getting the type if we specialise.
+            PyType type = pythonType(self);
+            // XXX Abstract rest as find method we use during caching?
+            // FIXME If lookup traverses the MRO set index to zero.
+            Object attr = type.lookup(sm.methodName);
+            if (attr instanceof MethodDescriptor method) {
+                // XXX What if javaClass isn't expected self class?
+                mh = method.getHandle(getIndex());
+            } else {
+                // Return a handle on a call
+                mh = null; // method.getWrapped(javaClass);
+            }
+        }
+        assert mh.type().equals(sm.signature.type);
+        return mh;
+    }
 
     /**
      * Fast check that the target is exactly a Python {@code int}. We
@@ -155,6 +212,9 @@ public abstract class Representation {
 
         @Override
         public AdoptiveType pythonType(Object x) { return type; }
+
+        @Override
+        public int getIndex() { return index; }
 
         @Override
         public String toString() {
@@ -224,21 +284,47 @@ public abstract class Representation {
             if (x instanceof WithClass wcx)
                 return wcx.getType();
             else {
-                /*
-                 * The TypeFactory has a bug if it created this
-                 * Representation. Or the type system has a bug if it
-                 * allowed anything else to do so.
-                 */
-                String msg = String.format(
-                        "class %.100s registered as Shared",
-                        x.getClass().getTypeName());
-                throw new InterpreterError(msg);
+                throw notSharedError(x);
             }
+        }
+
+        @Override
+        public Representation unshared(Object x) {
+            if (x instanceof WithClass wcx)
+                return wcx.getType();
+            else {
+                throw notSharedError(x);
+            }
+        }
+
+        /**
+         * Return an exception reporting that the given object was
+         * registered as if implementing a {@link ReplaceableType}, but
+         * is cannot be inspected for its type. The TypeFactory has a
+         * bug if it created this Representation. Or the type system has
+         * a bug if it allowed anything else to do so.
+         *
+         * @param x objectionable object
+         * @return to throw
+         */
+        private InterpreterError notSharedError(Object x) {
+            String msg = String.format(
+                    "unsharable class %.100s registered as %s",
+                    x.getClass().getTypeName(), this.toString());
+            return new InterpreterError(msg);
         }
     }
 
+    // XXX Do these still need to be public?
     /** Cache of {@link SpecialMethod#__str__} */
-    MethodHandle op_str;
+    public MethodHandle op_str;
     /** Cache of {@link SpecialMethod#__call__} */
-    MethodHandle op_call;
+    public MethodHandle op_call;
+
+    /** Cache of {@link SpecialMethod#__neg__} */
+    public MethodHandle op_neg;
+    /** Cache of {@link SpecialMethod#__invert__} */
+    public MethodHandle op_invert;
+    /** Cache of {@link SpecialMethod#__abs__} */
+    public MethodHandle op_abs;
 }

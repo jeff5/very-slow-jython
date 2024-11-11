@@ -57,7 +57,7 @@ public interface WithClassAssignment extends WithClass {
                     "__class__ must be set to a class, not a '%s' object",
                     PyType.of(replacementType).getName());
         }
-        // FIXME make this a TypeError
+        // XXX make this a TypeError
         throw new InterpreterError(msg);
     }
 }

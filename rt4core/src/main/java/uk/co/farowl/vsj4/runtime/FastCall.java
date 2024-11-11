@@ -232,10 +232,11 @@ interface FastCall {
     }
 
     /**
-     * Translate an {@link ArgumentError} that resulted from a call to
-     * this {@code FastCall} object, and the arguments that were
-     * supplied in the call, to a Python {@link PyBaseException
-     * TypeError}.
+     * Translate an {@link ArgumentError} thrown inside a call to to a
+     * Python {@link PyBaseException TypeError} with proper context.
+     * Typically, this adds a Python method name, owning type or module,
+     * and the number of arguments given, to the basic information
+     * carried in the {@code ArgumentError}.
      * <p>
      * Any of the optimised {@code call(...)}, or
      * {@code vectorcall(...)} methods in this interface may throw
@@ -253,8 +254,10 @@ interface FastCall {
             String[] names);
 
     /**
-     * As {@link #typeError(ArgumentError, Object[], String[])} when
-     * there were no arguments by keyword.
+     * Translate an {@link ArgumentError} thrown inside a call to to a
+     * Python {@link PyBaseException TypeError} with proper context. As
+     * {@link #typeError(ArgumentError, Object[], String[])} when there
+     * were no arguments by keyword.
      *
      * @param ae previously thrown by this object
      * @param args all arguments given, positional then keyword
@@ -265,7 +268,9 @@ interface FastCall {
     }
 
     /**
-     * As {@link #typeError(ArgumentError, Object[], String[])} for
+     * Translate an {@link ArgumentError} thrown inside a call to to a
+     * Python {@link PyBaseException TypeError} with proper context. As
+     * {@link #typeError(ArgumentError, Object[], String[])} for
      * {@link #vectorcall(Object[], int, int, String[])} arguments.
      *
      * @param ae previously thrown by this object
@@ -282,7 +287,8 @@ interface FastCall {
     }
 
     /**
-     * As
+     * Translate an {@link ArgumentError} thrown inside a call to to a
+     * Python {@link PyBaseException TypeError} with proper context. As
      * {@link #typeError(ArgumentError, Object[], int, int, String[])}
      * when there were no arguments by keyword.
      *

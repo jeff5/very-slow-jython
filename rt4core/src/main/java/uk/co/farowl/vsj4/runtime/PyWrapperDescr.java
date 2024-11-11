@@ -4,11 +4,11 @@ package uk.co.farowl.vsj4.runtime;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
+import java.util.Arrays;
 
+import uk.co.farowl.vsj4.runtime.kernel.Representation;
 import uk.co.farowl.vsj4.runtime.kernel.SpecialMethod;
-import uk.co.farowl.vsj4.runtime.kernel.SpecialMethod.Signature;
 import uk.co.farowl.vsj4.support.internal.Util;
-
 
 /**
  * A {@link Descriptor} for a particular definition <b>in Java</b> of
@@ -48,8 +48,7 @@ import uk.co.farowl.vsj4.support.internal.Util;
 public abstract class PyWrapperDescr extends MethodDescriptor {
 
     static final PyType TYPE = PyType.fromSpec( //
-            new TypeSpec("wrapper_descriptor",
-                    MethodHandles.lookup()));
+            new TypeSpec("wrapper_descriptor", MethodHandles.lookup()));
 
     /**
      * The {@link SpecialMethod} ({@code enum}) describing the generic
@@ -136,19 +135,6 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
     }
 
     /**
-     * Return the handle contained in this descriptor applicable to the
-     * Java class supplied (typically that of a {@code self} argument
-     * during a call). The {@link Descriptor#objclass} is consulted to
-     * make this determination. If the class is not an accepted
-     * implementation of {@code objclass}, an empty slot handle (with
-     * the correct signature) is returned.
-     *
-     * @param selfClass Java class of the {@code self} argument
-     * @return corresponding handle (or {@code slot.getEmpty()})
-     */
-    abstract MethodHandle getWrapped(Class<?> selfClass);
-
-    /**
      * Call the wrapped method with positional arguments (the first
      * being the target object) and optionally keywords arguments. The
      * arguments, in type and number, must match the signature of the
@@ -157,56 +143,39 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
      * @param args positional arguments beginning with {@code self}
      * @param names of keywords in the method call
      * @return result of calling the wrapped method
-     * @throws PyBaseException(TypeError) if {@code args[0]} is the wrong type
+     * @throws PyBaseException (TypeError) if {@code args[0]} is the
+     *     wrong type
      * @throws Throwable from the implementation of the special method
      */
     // Compare CPython wrapperdescr_call in descrobject.c
     public Object __call__(Object[] args, String[] names)
             throws PyBaseException, Throwable {
-
-        int argc = args.length;
-        if (argc > 0) {
-            // Split the leading element self from args
-            Object self = args[0];
-            Object[] newargs;
-            if (argc == 1) {
-                newargs = Util.EMPTY_ARRAY;
-            } else {
-                newargs = new Object[argc - 1];
-                System.arraycopy(args, 1, newargs, 0, newargs.length);
-            }
-
-            // Make sure that the first argument is acceptable as 'self'
-            PyType selfType = PyType.of(self);
-            if (!Abstract.recursiveIsSubclass(selfType, objclass)) {
-                throw PyErr.format(PyExc.TypeError,DESCRIPTOR_REQUIRES, name,
-                        objclass.getName(), selfType.getName());
-            }
-
-            return callWrapped(self, newargs, names);
-
-        } else {
-            // Not even one argument
-            throw PyErr.format(PyExc.TypeError,DESCRIPTOR_NEEDS_ARGUMENT, name,
-                    objclass.getName());
+        try {
+            return call(args, names);
+        } catch (ArgumentError ae) {
+            /*
+             * FastCall.call() methods may encode a TypeError as an
+             * ArgumentError with limited context.
+             */
+            assert args.length > 0;
+            Object[] rest = Arrays.copyOfRange(args, 1, args.length);
+            // Add local context to make a TypeError.
+            throw typeError(ae, rest, names);
         }
     }
 
- // XXX Why not just call the handle we already have?
-    /*
-     * This calls the type slot, but that's derived from information
-     * already to hand.
-     */
     @Override
     public Object call(Object[] args, String[] names)
-            throws PyBaseException, Throwable {
+            throws ArgumentError, Throwable {
 
         int n = args.length, m = n - 1;
 
         if (m < 0) {
             // Not even one argument
-            throw PyErr.format(PyExc.TypeError,DESCRIPTOR_NEEDS_ARGUMENT, name,
+            throw PyErr.format(PyExc.TypeError,
+                    DESCRIPTOR_NEEDS_ARGUMENT, name,
                     objclass.getName());
+
         } else {
             // Split the leading element self from rest of args
             Object self = args[0], rest[];
@@ -217,50 +186,209 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
                 System.arraycopy(args, 1, rest, 0, m);
             }
 
-            try {
-                // Call this as a method bound to self.
-                Signature sig = slot.signature;
-                MethodHandle wrapped = getWrapped(self.getClass());
-                return sig.callWrapped(wrapped, self, rest, names);
-            } catch (ArgumentError ae) {
-                /*
-                 * Implementations may throw ArgumentError as a
-                 * simplified encoding of a TypeError.
-                 */
-                throw typeError(ae, rest);
-            }
+            return callWrapped(self, rest, names);
         }
     }
 
-    // XXX Why not just call the handle we already have?
-    /*
-     * This calls the type slot, but that's derived from information
-     * already to hand.
-     */
-
     /**
-     * Invoke the method described by this {@code PyWrapperDescr} the
-     * given target {@code self}, and the arguments supplied.
+     * Invoke the method described by this {@code PyWrapperDescr}, for
+     * the given target {@code self}, having arranged the arguments
+     * according to the signature of the wrapped special method.
      *
      * @param self target object of the method call
      * @param args of the method call
      * @param names of keywords in the method call
      * @return result of the method call
-     * @throws PyBaseException(TypeError) if the arguments do not fit the special method
+     * @throws PyBaseException (TypeError) if the arguments do not fit
+     *     the special method
      * @throws Throwable from the implementation of the special method
      */
     // Compare CPython wrapperdescr_raw_call in descrobject.c
+    // Also, CPython wrap_* functions in typeobject.c
     Object callWrapped(Object self, Object[] args, String[] names)
-            throws Throwable {
+            throws PyBaseException, Throwable {
+        // Call through the correct wrapped handle for self
+        MethodHandle mh = getHandle(self);
+        String name;
         try {
-            // Call through the correct wrapped handle
-            MethodHandle wrapped = getWrapped(self.getClass());
-            SpecialMethod.Signature sig = slot.signature;
-            return sig.callWrapped(wrapped, self, args, names);
+            switch (slot.signature) {
+                case UNARY:
+                    checkNoArgs(args, names);
+                    return mh.invokeExact(self);
+                case BINARY:
+                    checkArgs(args, 1, names);
+                    return mh.invokeExact(self, args[0]);
+                case TERNARY:
+                    checkArgs(args, 2, names);
+                    return mh.invokeExact(self, args[0], args[1]);
+                case CALL:
+                    return mh.invokeExact(self, args, names);
+                case PREDICATE:
+                    checkNoArgs(args, names);
+                    return (boolean)mh.invokeExact(self);
+                case BINARY_PREDICATE:
+                    checkArgs(args, 1, names);
+                    return (boolean)mh.invokeExact(self, args[0]);
+                case LEN:
+                    checkNoArgs(args, names);
+                    return (int)mh.invokeExact(self);
+                case SETITEM:
+                    checkArgs(args, 2, names);
+                    mh.invokeExact(self, args[0], args[1]);
+                    return Py.None;
+                case DELITEM:
+                    checkArgs(args, 1, names);
+                    mh.invokeExact(self, args[0]);
+                    return Py.None;
+                case GETATTR:
+                    checkArgs(args, 1, names);
+                    name = PyUnicode.asString(args[0],
+                            Abstract::attributeNameTypeError);
+                    return mh.invokeExact(self, name);
+                case SETATTR:
+                    checkArgs(args, 2, names);
+                    name = PyUnicode.asString(args[0],
+                            Abstract::attributeNameTypeError);
+                    mh.invokeExact(self, name, args[1]);
+                    return Py.None;
+                case DELATTR:
+                    checkArgs(args, 1, names);
+                    name = PyUnicode.asString(args[0],
+                            Abstract::attributeNameTypeError);
+                    mh.invokeExact(self, name);
+                    return Py.None;
+                case DESCRGET:
+                    checkArgs(args, 1, 2, names);
+                    Object obj = args[0];
+                    if (obj == Py.None) { obj = null; }
+                    PyType type = null;
+                    if (args.length == 2) {
+                        if (args[1] instanceof PyType t) { type = t; }
+                        // Following CPython in ignoring other types.
+                    }
+                    if (type == null && obj == null) {
+                        throw PyErr.format(PyExc.TypeError, GET_NONE);
+                    }
+                    return mh.invokeExact(self, obj, type);
+                case INIT:
+                    mh.invokeExact(self, args, names);
+                    return Py.None;
+                default:
+                    assert false;  // switch should be exhaustive
+                    return Py.None;
+            }
         } catch (ArgumentError ae) {
             throw typeError(ae, args, names);
         }
     }
+
+    @Override
+    public Object call(Object self) throws ArgumentError, Throwable {
+        MethodHandle mh = getHandle(self);
+        return switch (slot.signature) {
+            case UNARY -> mh.invokeExact(self);
+            case PREDICATE -> (boolean)mh.invokeExact(self);
+            case LEN -> (int)mh.invokeExact(self);
+            default -> super.call(self);
+        };
+    }
+
+    @Override
+    public Object call(Object self, Object a1)
+            throws ArgumentError, Throwable {
+        MethodHandle mh = getHandle(self);
+        String name;
+        switch (slot.signature) {
+            case BINARY:
+                return mh.invokeExact(self, a1);
+            case BINARY_PREDICATE:
+                return (boolean)mh.invokeExact(self, a1);
+            case DELITEM:
+                mh.invokeExact(self, a1);
+                return Py.None;
+            case GETATTR:
+                name = PyUnicode.asString(a1,
+                        Abstract::attributeNameTypeError);
+                return mh.invokeExact(self, name);
+            case DELATTR:
+                name = PyUnicode.asString(a1,
+                        Abstract::attributeNameTypeError);
+                mh.invokeExact(self, name);
+                return Py.None;
+            case DESCRGET:
+                if (a1 == Py.None || a1 == null) {
+                    throw PyErr.format(PyExc.TypeError, GET_NONE);
+                }
+                return mh.invokeExact(self, a1, (PyType)null);
+            default:
+                return super.call(self, a1);
+        }
+    }
+
+    @Override
+    public Object call(Object self, Object a1, Object a2)
+            throws ArgumentError, Throwable {
+        MethodHandle mh = getHandle(self);
+        String name;
+        switch (slot.signature) {
+            case TERNARY:
+                return mh.invokeExact(self, a1, a2);
+            case SETITEM:
+                mh.invokeExact(self, a1, a2);
+                return Py.None;
+            case SETATTR:
+                name = PyUnicode.asString(a1,
+                        Abstract::attributeNameTypeError);
+                mh.invokeExact(self, name, a2);
+                return Py.None;
+            case DESCRGET:
+                if (a1 == Py.None) { a1 = null; }
+                if (a2 instanceof PyType type) {
+                    return mh.invokeExact(self, a1, type);
+                } else if (a1 == null) {
+                    // Following CPython in treating non-type as null.
+                    throw PyErr.format(PyExc.TypeError, GET_NONE);
+                }
+                return mh.invokeExact(self, a1, null);
+            default:
+                return super.call(self, a1, a2);
+        }
+    }
+
+    /**
+     * Return the correct handle for the {@code self} argument, taking
+     * into account the possibility that the type of {@code self} is a
+     * proper sub-type of {@code __objclass__} or not a sub-type at all.
+     *
+     * @param self by which to select the handle
+     * @return the handle to call with {@code self} as first argument
+     * @throws PyBaseException (TypeError) if the type of {@code self}
+     *     does not match the wrapped handle.
+     * @throws Throwable propagated from subclass check
+     */
+    abstract MethodHandle getHandle(Object self)
+            throws PyBaseException, Throwable;
+
+    /**
+     * Check that the given type is acceptable for the {@code self}
+     * argument, that is, it is a subclass of
+     * {@link Descriptor#objclass}.
+     *
+     * @param selfType Python type of {@code self}
+     * @throws PyBaseException (TypeError) if {@code self} is not a
+     *     subclass of {@code __objclass__}.
+     * @throws Throwable propagated from subclass check
+     */
+    void checkPythonType(PyType selfType)
+            throws PyBaseException, Throwable {
+        if (!Abstract.recursiveIsSubclass(selfType, objclass)) {
+            throw PyErr.format(PyExc.TypeError, DESCRIPTOR_REQUIRES,
+                    name, objclass.getName(), selfType.getName());
+        }
+    }
+
+    private static final String GET_NONE =
+            "__get__(None, None) is invalid";
 
     /**
      * A {@link PyWrapperDescr} for use when the owning Python type has
@@ -285,18 +413,26 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
          * @param wrapped a handle to an implementation of that slot
          */
         // Compare CPython PyDescr_NewClassMethod in descrobject.c
-        Single(PyType objclass, SpecialMethod slot, MethodHandle wrapped) {
+        Single(PyType objclass, SpecialMethod slot,
+                MethodHandle wrapped) {
             super(objclass, slot);
             this.wrapped = wrapped;
         }
 
         @Override
-        MethodHandle getWrapped(Class<?> selfClass) {
-            // Make sure that the first argument is acceptable as 'self'
-            if (objclass.javaClass().isAssignableFrom(selfClass))
-                return wrapped;
-            else
-                return slot.getEmpty();
+        public MethodHandle getHandle(int selfClassIndex) {
+            assert selfClassIndex == 0;
+            return wrapped;
+        }
+
+        @Override
+        MethodHandle getHandle(Object self)
+                throws PyBaseException, Throwable {
+            Representation rep = PyType.registry.get(self.getClass());
+            // rep.index can only validly be zero
+            // Check acceptability at the Python level
+            checkPythonType(rep.pythonType(self));
+            return wrapped;
         }
     }
 
@@ -323,26 +459,35 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
          * @param wrapped handles to the implementation of that slot
          */
         // Compare CPython PyDescr_NewClassMethod in descrobject.c
-        Multiple(PyType objclass, SpecialMethod slot, MethodHandle[] wrapped) {
+        Multiple(PyType objclass, SpecialMethod slot,
+                MethodHandle[] wrapped) {
             super(objclass, slot);
+            assert wrapped.length == objclass.selfClasses().size();
             this.wrapped = wrapped;
         }
 
-        /**
-         * {@inheritDoc}
-         * <p>
-         * The method will check that the type of self matches
-         * {@link Descriptor#objclass}, according to its
-         * {@link PyType#indexAccepted(Class)}.
-         */
         @Override
-        MethodHandle getWrapped(Class<?> selfClass) {
-            // Work out how to call this descriptor on that object
-            int index = objclass.indexAccepted(selfClass);
-            try {
+        public MethodHandle getHandle(int selfClassIndex) {
+            return wrapped[selfClassIndex];
+        }
+
+        @Override
+        MethodHandle getHandle(Object self)
+                throws PyBaseException, Throwable {
+            Representation rep = PyType.registry.get(self.getClass());
+            PyType selfType = rep.pythonType(self);
+            if (selfType == objclass) {
+                // selfType defined the method so it must be ok
+                int index = rep.getIndex();
                 return wrapped[index];
-            } catch (ArrayIndexOutOfBoundsException iobe) {
-                return slot.getEmpty();
+            } else {
+                // Check acceptability at the Python level
+                checkPythonType(selfType);
+                // A super-type of selfType defined the method,
+                // so self class must subclass its primary class.
+                assert objclass.javaClass()
+                        .isAssignableFrom(self.getClass());
+                return wrapped[0];
             }
         }
     }

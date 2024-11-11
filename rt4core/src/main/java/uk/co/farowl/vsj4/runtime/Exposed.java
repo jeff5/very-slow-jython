@@ -286,11 +286,12 @@ public interface Exposed {
      * <p>
      * The annotated field may have any Java reference type. In that
      * case, an attempt to assign a Python object of the wrong Java type
-     * will raise a {@link TypeError}. This makes it possible to declare
-     * an attribute of a specific Python type. For example one enforce
-     * {@code tuple} values by declaring the field as a {@link PyTuple}.
-     * The field would also accept Python sub-classes of the attribute
-     * type, since they must be sub-classes in Java too.
+     * will raise a {@link PyBaseException TypeError}. This makes it
+     * possible to declare an attribute of a specific Python type. For
+     * example one enforces {@code tuple} values by declaring the field
+     * as a {@link PyTuple}. The field would also accept Python
+     * sub-classes of the attribute type, since they must be sub-classes
+     * in Java too.
      * <p>
      * This approach creates a limitation where the corresponding Python
      * type has multiple Java implementations not related by Java
@@ -298,9 +299,10 @@ public interface Exposed {
      * {@code String}). The set operation of the {@link Member}
      * attribute will reject instances that have the intended Python
      * type but non-matching Java type (with a confusing
-     * {@link TypeError} to boot). A writable attribute of that type
-     * should be implemented as {@code Object} or using explicit
-     * {@link Getter}, {@link Setter} and {@link Deleter} methods.
+     * {@link PyBaseException TypeError} to boot). A writable attribute
+     * of that type should be implemented as {@code Object} or using
+     * explicit {@link Getter}, {@link Setter} and {@link Deleter}
+     * methods.
      *
      */
     @Documented
@@ -374,7 +376,7 @@ public interface Exposed {
      * internally to the type. If {@code T}is something more specific
      * than {@code Object}, a cast occurs to this Java type during the
      * descriptor call, which if it fails will raise a Python
-     * {@link TypeError}.
+     * {@link PyBaseException TypeError}.
      */
     @Documented
     @Retention(RUNTIME)

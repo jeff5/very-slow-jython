@@ -6,11 +6,10 @@ import java.lang.invoke.MethodHandles;
 import java.util.Map;
 
 /**
- * The Python {@code BaseException} exception and many common Python
- * exceptions (for example {@code TypeError}) are represented by
- * instances of this class, not of its subclasses. A Java subclass of
- * {@code PyBaseException} exists only where a Python subclass adds
- * fields to its parent.
+ * The Python {@code BaseException} and many common Python exceptions
+ * (for example {@code TypeError}) are represented by instances of this
+ * Java class. A Java subclass of {@code PyBaseException} is defined
+ * only where a Python exception subclass adds fields to its parent.
  * <p>
  * The Python type of the exception is represented as a field (see
  * {@link #getType()}). The Python type is re-writable through

@@ -189,16 +189,17 @@ class PyMethodWrapper implements WithClass, FastCall {
     // }
 
     // Compare CPython wrapper_call in descrobject.c
-    public Object __call__(Object[] args, String[] names)
+    Object __call__(Object[] args, String[] names)
             throws Throwable {
-        // ??? Could specialise to numbers of arguments/nokwds?
-        return descr.callWrapped(self, args, names);
+        return call(args, names);
     }
 
     @Override
     public Object call(Object[] args, String[] names) throws Throwable {
         return descr.callWrapped(self, args, names);
     }
+
+    // XXX Implement FastCall methods delegating to PyWrapperDesc
 
     @Override
     public PyBaseException typeError(ArgumentError ae, Object[] args,

@@ -176,6 +176,19 @@ public abstract sealed class PyType extends AbstractPyType
     public String toString() { return "<class '" + getName() + "'>"; }
 
     /**
+     * Determine (or create if necessary) the {@link Representation} for
+     * the given object.
+     *
+     * @param o for which a {@code Representation} is required
+     * @return the {@code Representation}
+     */
+    // ??? Check we still use this in the long run.
+    static Representation representationOf(Object o) {
+        Representation rep = registry.get(o.getClass());
+        return rep.unshared(o);
+    }
+
+    /**
      * Determine (or create if necessary) the Python type for the given
      * object.
      *
@@ -185,21 +198,6 @@ public abstract sealed class PyType extends AbstractPyType
     public static PyType of(Object o) {
         Representation rep = registry.get(o.getClass());
         return rep.pythonType(o);
-    }
-
-    /**
-     * Determine the Python type for the given Java class. We use this
-     * in the publication of certain built-in types.
-     *
-     * @param klass for which a type is required
-     * @return the type
-     */
-    static PyType forClass(Class<?> klass) {
-        Representation rep = registry.get(klass);
-        if (rep instanceof PyType t) { return t; }
-        throw new InterpreterError(
-                "Class<%s> does not represent a fixed Python type.",
-                klass.getTypeName());
     }
 
     /**
