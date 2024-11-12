@@ -10,9 +10,9 @@ import java.util.function.Function;
 // FIXME implement me
 public class PyUnicode extends TypedPyObject {
     /** The type {@code str}. */
-    public static final PyType TYPE = PyType.fromSpec( //
-            new TypeSpec("str", MethodHandles.lookup()) //
-                    .adopt(String.class));
+    // Bootstrap type so ask the type system to resolve it.
+    public static final PyType TYPE = PyType.of("");
+
     /**
      * The implementation holds a Java {@code int} array of code points.
      */

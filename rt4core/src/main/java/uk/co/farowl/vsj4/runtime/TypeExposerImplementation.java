@@ -14,14 +14,10 @@ import java.util.Map;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import uk.co.farowl.vsj4.runtime.Exposed.PythonMethod;
 import uk.co.farowl.vsj4.runtime.Exposed.PythonNewMethod;
 import uk.co.farowl.vsj4.runtime.kernel.SpecialMethod;
 import uk.co.farowl.vsj4.runtime.kernel.TypeExposer;
-import uk.co.farowl.vsj4.runtime.kernel.TypeFactory;
 import uk.co.farowl.vsj4.support.InterpreterError;
 import uk.co.farowl.vsj4.support.MethodKind;
 import uk.co.farowl.vsj4.support.ScopeKind;
@@ -79,7 +75,8 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
     }
 
     @Override
-    public void populate(Map<? super String, Object> dict, Lookup lookup) {
+    public void populate(Map<? super String, Object> dict,
+            Lookup lookup) {
         logger.atDebug().addArgument(type.getName())
                 .log("Populating type '{}'");
         if (type == null)
@@ -105,7 +102,8 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
     @Override
     void scanJavaMethods(Class<?> defsClass) throws InterpreterError {
 
-        logger.atTrace().addArgument(defsClass).log("Finding methods in {}");
+        logger.atTrace().addArgument(defsClass)
+                .log("Finding methods in {}");
 
         // Iterate over methods looking for those to expose
         for (Class<?> c : superClasses(defsClass)) {
@@ -894,16 +892,13 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
                 MethodType slotType) throws WrongMethodTypeException {
             MethodType mt = mh.type();
             int n = mt.parameterCount();
-            if (n != slotType.parameterCount())
-                throw new WrongMethodTypeException();
-            boolean ok = slotType.returnType()
-                    .isAssignableFrom(mt.returnType());
-            if (!ok) { throw new WrongMethodTypeException(); }
-            for (int i = 0; i < n; i++) {
+            boolean ok = (n == slotType.parameterCount()) && slotType
+                    .returnType().isAssignableFrom(mt.returnType());
+            for (int i = 0; ok && i < n; i++) {
                 ok = slotType.parameterType(i)
                         .isAssignableFrom(mt.parameterType(i));
-                if (!ok) { throw new WrongMethodTypeException(); }
             }
+            if (!ok) { throw new WrongMethodTypeException(); }
         }
     }
 

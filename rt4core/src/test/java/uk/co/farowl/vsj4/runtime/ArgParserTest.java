@@ -160,7 +160,6 @@ class ArgParserTest {
             assertArrayEquals(new Object[] {1, 2, 3}, frame);
         }
 
-        @Disabled("Fails because SpecialMethod is not implemented")
         @Test
         void raises_TypeError_on_kwargs() {
             PyTuple args = Py.tuple(1);

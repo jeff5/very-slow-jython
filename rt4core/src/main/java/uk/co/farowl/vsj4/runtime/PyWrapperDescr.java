@@ -13,8 +13,9 @@ import uk.co.farowl.vsj4.support.internal.Util;
 /**
  * A {@link Descriptor} for a particular definition <b>in Java</b> of
  * one of the special methods of the Python data model (such as
- * {@code __sub__}). The type also appears as
- * {@code <class 'wrapper_descriptor'>}.
+ * {@code __sub__}). The type appears as
+ * {@code <class 'wrapper_descriptor'>} but instances may appear as
+ * {@code <slot wrapper '...' of '...' objects>}.
  * <p>
  * The owner of the descriptor is the Python type providing the
  * definition. Type construction places a {@code PyWrapperDescr} in the
@@ -24,11 +25,12 @@ import uk.co.farowl.vsj4.support.internal.Util;
  * <p>
  * The {@code PyWrapperDescr} provides a {@code MethodHandle} for the
  * defining method. In every Python type where a {@code PyWrapperDescr}
- * appears as the attribute value corresponding to a special method, the
- * handle will fill the corresponding type slot. This may happen because
- * the type is the defining type, by inheritance, or by insertion of the
- * {@code PyWrapperDescr} as an attribute of the type. (In the last
- * case, the signature of the wrapped and destination slots must match.)
+ * appears as the attribute value corresponding to a special method,
+ * type construction will give it the special significance that name has
+ * in the Python data model, provided the signature of the wrapped
+ * method allows. This may be because the type is the defining type, by
+ * inheritance, or by insertion of the {@code PyWrapperDescr} as an
+ * attribute of the type.
  */
 // Compare CPython: PyWrapperDescrObject in descrobject.h
 // and methods wrapperdescr_* in descrobject.c.
@@ -42,8 +44,8 @@ import uk.co.farowl.vsj4.support.internal.Util;
  * because the Java implementation of the owning type defines a method
  * with the corresponding "dunder name". Then we (may) fill a slot in
  * the Representation because the type has an attribute with this name.
- * This second step is the same process covers special methods defined
- * in Python.
+ * This second step is the same process that covers special methods
+ * defined in Python.
  */
 public abstract class PyWrapperDescr extends MethodDescriptor {
 
@@ -186,99 +188,100 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
                 System.arraycopy(args, 1, rest, 0, m);
             }
 
-            return callWrapped(self, rest, names);
+            return callWithSelf(self, rest, names);
         }
     }
 
     /**
-     * Invoke the method described by this {@code PyWrapperDescr}, for
-     * the given target {@code self}, having arranged the arguments
-     * according to the signature of the wrapped special method.
+     * Invoke the method described by this {@code PyWrapperDescr}, where
+     * the {@code self} argument (target of the invocation) is available
+     * separately from the arrays of other arguments. The method
+     * arranges {@code self} and the other arguments according to the
+     * signature of the wrapped special method. An incorrect number of
+     * arguments for the slot will throw an {@link ArgumentError}, which
+     * the caller should decode to a {@code TypeError} by a call to
+     * {@link #typeError(ArgumentError, Object[], String[])} on this
+     * object.
      *
      * @param self target object of the method call
      * @param args of the method call
      * @param names of keywords in the method call
      * @return result of the method call
-     * @throws PyBaseException (TypeError) if the arguments do not fit
-     *     the special method
+     * @throws ArgumentError if the number of arguments is incorrect
      * @throws Throwable from the implementation of the special method
      */
     // Compare CPython wrapperdescr_raw_call in descrobject.c
     // Also, CPython wrap_* functions in typeobject.c
-    Object callWrapped(Object self, Object[] args, String[] names)
-            throws PyBaseException, Throwable {
+    Object callWithSelf(Object self, Object[] args, String[] names)
+            throws ArgumentError, Throwable {
         // Call through the correct wrapped handle for self
         MethodHandle mh = getHandle(self);
         String name;
-        try {
-            switch (slot.signature) {
-                case UNARY:
-                    checkNoArgs(args, names);
-                    return mh.invokeExact(self);
-                case BINARY:
-                    checkArgs(args, 1, names);
-                    return mh.invokeExact(self, args[0]);
-                case TERNARY:
-                    checkArgs(args, 2, names);
-                    return mh.invokeExact(self, args[0], args[1]);
-                case CALL:
-                    return mh.invokeExact(self, args, names);
-                case PREDICATE:
-                    checkNoArgs(args, names);
-                    return (boolean)mh.invokeExact(self);
-                case BINARY_PREDICATE:
-                    checkArgs(args, 1, names);
-                    return (boolean)mh.invokeExact(self, args[0]);
-                case LEN:
-                    checkNoArgs(args, names);
-                    return (int)mh.invokeExact(self);
-                case SETITEM:
-                    checkArgs(args, 2, names);
-                    mh.invokeExact(self, args[0], args[1]);
-                    return Py.None;
-                case DELITEM:
-                    checkArgs(args, 1, names);
-                    mh.invokeExact(self, args[0]);
-                    return Py.None;
-                case GETATTR:
-                    checkArgs(args, 1, names);
-                    name = PyUnicode.asString(args[0],
-                            Abstract::attributeNameTypeError);
-                    return mh.invokeExact(self, name);
-                case SETATTR:
-                    checkArgs(args, 2, names);
-                    name = PyUnicode.asString(args[0],
-                            Abstract::attributeNameTypeError);
-                    mh.invokeExact(self, name, args[1]);
-                    return Py.None;
-                case DELATTR:
-                    checkArgs(args, 1, names);
-                    name = PyUnicode.asString(args[0],
-                            Abstract::attributeNameTypeError);
-                    mh.invokeExact(self, name);
-                    return Py.None;
-                case DESCRGET:
-                    checkArgs(args, 1, 2, names);
-                    Object obj = args[0];
-                    if (obj == Py.None) { obj = null; }
-                    PyType type = null;
-                    if (args.length == 2) {
-                        if (args[1] instanceof PyType t) { type = t; }
-                        // Following CPython in ignoring other types.
-                    }
-                    if (type == null && obj == null) {
-                        throw PyErr.format(PyExc.TypeError, GET_NONE);
-                    }
-                    return mh.invokeExact(self, obj, type);
-                case INIT:
-                    mh.invokeExact(self, args, names);
-                    return Py.None;
-                default:
-                    assert false;  // switch should be exhaustive
-                    return Py.None;
-            }
-        } catch (ArgumentError ae) {
-            throw typeError(ae, args, names);
+        switch (slot.signature) {
+            case UNARY:
+                checkNoArgs(args, names);
+                return mh.invokeExact(self);
+            case BINARY:
+                checkArgs(args, 1, names);
+                return mh.invokeExact(self, args[0]);
+            case TERNARY:
+                checkArgs(args, 2, names);
+                return mh.invokeExact(self, args[0], args[1]);
+            case CALL:
+                return mh.invokeExact(self, args, names);
+            case PREDICATE:
+                checkNoArgs(args, names);
+                return (boolean)mh.invokeExact(self);
+            case BINARY_PREDICATE:
+                checkArgs(args, 1, names);
+                return (boolean)mh.invokeExact(self, args[0]);
+            case LEN:
+                checkNoArgs(args, names);
+                return (int)mh.invokeExact(self);
+            case SETITEM:
+                checkArgs(args, 2, names);
+                mh.invokeExact(self, args[0], args[1]);
+                return Py.None;
+            case DELITEM:
+                checkArgs(args, 1, names);
+                mh.invokeExact(self, args[0]);
+                return Py.None;
+            case GETATTR:
+                checkArgs(args, 1, names);
+                name = PyUnicode.asString(args[0],
+                        Abstract::attributeNameTypeError);
+                return mh.invokeExact(self, name);
+            case SETATTR:
+                checkArgs(args, 2, names);
+                name = PyUnicode.asString(args[0],
+                        Abstract::attributeNameTypeError);
+                mh.invokeExact(self, name, args[1]);
+                return Py.None;
+            case DELATTR:
+                checkArgs(args, 1, names);
+                name = PyUnicode.asString(args[0],
+                        Abstract::attributeNameTypeError);
+                mh.invokeExact(self, name);
+                return Py.None;
+            case DESCRGET:
+                checkArgs(args, 1, 2, names);
+                Object obj = args[0];
+                if (obj == Py.None) { obj = null; }
+                PyType type = null;
+                if (args.length == 2) {
+                    if (args[1] instanceof PyType t) { type = t; }
+                    // Following CPython in ignoring other types.
+                }
+                if (type == null && obj == null) {
+                    throw PyErr.format(PyExc.TypeError, GET_NONE);
+                }
+                return mh.invokeExact(self, obj, type);
+            case INIT:
+                mh.invokeExact(self, args, names);
+                return Py.None;
+            default:
+                assert false;  // switch should be exhaustive
+                return Py.None;
         }
     }
 
@@ -405,17 +408,17 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
 
         /**
          * Construct a slot wrapper descriptor, identifying by a method
-         * handle the implementation method for the {@code slot} in
-         * {@code objclass}.
+         * handle the implementation method for the special method in
+         * {@link Descriptor#objclass}.
          *
          * @param objclass the class declaring the special method
-         * @param slot for the generic special method
+         * @param sm the generic special method
          * @param wrapped a handle to an implementation of that slot
          */
         // Compare CPython PyDescr_NewClassMethod in descrobject.c
-        Single(PyType objclass, SpecialMethod slot,
+        Single(PyType objclass, SpecialMethod sm,
                 MethodHandle wrapped) {
-            super(objclass, slot);
+            super(objclass, sm);
             this.wrapped = wrapped;
         }
 
@@ -451,17 +454,17 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
 
         /**
          * Construct a slot wrapper descriptor, identifying by an array
-         * of method handles the implementation methods for the
-         * {@code slot} in {@code objclass}.
+         * of method handles the implementation methods for the special
+         * method in {@link Descriptor#objclass}.
          *
          * @param objclass the class declaring the special method
-         * @param slot for the generic special method
+         * @param sm the generic special method
          * @param wrapped handles to the implementation of that slot
          */
         // Compare CPython PyDescr_NewClassMethod in descrobject.c
-        Multiple(PyType objclass, SpecialMethod slot,
+        Multiple(PyType objclass, SpecialMethod sm,
                 MethodHandle[] wrapped) {
-            super(objclass, slot);
+            super(objclass, sm);
             assert wrapped.length == objclass.selfClasses().size();
             this.wrapped = wrapped;
         }

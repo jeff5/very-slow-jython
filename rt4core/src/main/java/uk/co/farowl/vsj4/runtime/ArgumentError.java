@@ -23,7 +23,7 @@ public class ArgumentError extends Exception {
     public enum Mode {
         /** Method takes no arguments */
         NOARGS,
-        /** Method takes [numArgs] arguments */
+        /** Method takes [numArgs] argument(s) */
         NUMARGS,
         /** Method takes from [minArgs] to [maxArgs] arguments */
         MINMAXARGS,
@@ -94,7 +94,8 @@ public class ArgumentError extends Exception {
             case NOARGS:
                 return "takes no arguments";
             case NUMARGS:
-                return String.format("takes %d arguments", minArgs);
+                String s = minArgs == 1 ? "" : "s";
+                return String.format("takes %d argument%s", minArgs, s);
             case MINMAXARGS:
                 return String.format("takes from %d to %d arguments",
                         minArgs, maxArgs);

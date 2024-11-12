@@ -19,6 +19,7 @@ import org.slf4j.LoggerFactory;
 import uk.co.farowl.vsj4.runtime.Feature;
 import uk.co.farowl.vsj4.runtime.PyFloat;
 import uk.co.farowl.vsj4.runtime.PyType;
+import uk.co.farowl.vsj4.runtime.PyUnicode;
 import uk.co.farowl.vsj4.runtime.TypeSpec;
 import uk.co.farowl.vsj4.runtime.WithClass;
 import uk.co.farowl.vsj4.runtime.internal.PyFloatMethods;
@@ -426,9 +427,9 @@ public class TypeFactory {
          * cannot always guarantee to fill its dictionary. In that case,
          * it would ideally not escape yet, but how?
          */
-        if (reentrancyCount++ < 0) { lastContext = spec; }
         logger.atDebug().setMessage(CREATING_PARTIAL_TYPE)
                 .addArgument(indent).addArgument(spec.getName()).log();
+        if (reentrancyCount++ < 0) { lastContext = spec; }
         // Create a type and add it to the work in progress.
         PyType type = workshop.addTaskFromSpec(spec);
         /*
@@ -491,11 +492,13 @@ public class TypeFactory {
          * TYPE by enquiry in the registry.
          */
         final TypeSpec[] bootstrapSpecs = { //
+                new TypeSpec("str", runtimeLookup, false)
+                        .primary(PyUnicode.class).adopt(String.class),
                 new TypeSpec("float", runtimeLookup, false)
                         .primary(PyFloat.class).adopt(Double.class)
                         .methodImpls(PyFloat.class,
                                 PyFloatMethods.class)
-                // int, str, ... ?
+                // XXX int, ... ?
         };
 
         // Immediately create those type objects Java ready.

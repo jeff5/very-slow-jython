@@ -221,6 +221,7 @@ public abstract sealed class PyType extends AbstractPyType
         try {
             return factory.fromSpec(spec);
         } catch (Clash clash) {
+            logger.atError().log(clash.toString());
             throw new InterpreterError(clash);
         }
     }

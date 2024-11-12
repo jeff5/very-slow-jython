@@ -191,15 +191,38 @@ class PyMethodWrapper implements WithClass, FastCall {
     // Compare CPython wrapper_call in descrobject.c
     Object __call__(Object[] args, String[] names)
             throws Throwable {
-        return call(args, names);
+        try {
+            return call(args, names);
+        } catch (ArgumentError ae) {
+            /*
+             * FastCall.call() methods may encode a TypeError as an
+             * ArgumentError with limited context.
+             */
+            throw typeError(ae, args, names);
+        }
     }
 
     @Override
     public Object call(Object[] args, String[] names) throws Throwable {
-        return descr.callWrapped(self, args, names);
+        return descr.callWithSelf(self, args, names);
     }
 
-    // XXX Implement FastCall methods delegating to PyWrapperDesc
+    @Override
+    public Object call() throws ArgumentError, Throwable {
+        return descr.call(self);
+    }
+
+    @Override
+    public Object call(Object a1) throws ArgumentError, Throwable {
+        return descr.call(self, a1);
+    }
+
+    @Override
+    public Object call(Object a1, Object a2)
+            throws ArgumentError, Throwable {
+        return descr.call(self, a1, a2);
+    }
+
 
     @Override
     public PyBaseException typeError(ArgumentError ae, Object[] args,

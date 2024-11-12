@@ -2,10 +2,7 @@
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.*;
 
 import java.lang.invoke.MethodHandles;
 import java.math.BigInteger;
@@ -67,15 +64,33 @@ class TypeExposerSlotWrapperTest {
         abstract void descriptor_supports__call__() throws Throwable;
 
         /**
+         * Call the descriptor using the {@code __call__} special method
+         * directly with various incorrect arguments. The method should
+         * raise {@code TypeError} each time.
+         *
+         * @throws Throwable unexpectedly
+         */
+        abstract void descriptor_checks__call__() throws Throwable;
+
+        /**
          * Call the bound method using the {@code __call__} special
          * method directly with arguments correct for the slot's
          * specification. The method should obtain the correct result
-         * (and not throw). We do not test exposure of the descriptor's
-         * {@code __call__}.
+         * (and not throw). We do not test exposure of the bound
+         * method's {@code __call__}.
          *
          * @throws Throwable unexpectedly
          */
         abstract void method_supports__call__() throws Throwable;
+
+        /**
+         * Call the bound method using the {@code __call__} special
+         * method directly with various incorrect arguments. The method
+         * should raise {@code TypeError} each time.
+         *
+         * @throws Throwable unexpectedly
+         */
+        abstract void method_checks__call__() throws Throwable;
 
         /**
          * Call the descriptor using {@link FastCall} API with arguments
@@ -87,6 +102,14 @@ class TypeExposerSlotWrapperTest {
         abstract void descriptor_supports_java_call() throws Throwable;
 
         /**
+         * Call the descriptor using {@link FastCall} API with various
+         * incorrect arguments. The method should throw each time.
+         *
+         * @throws Throwable unexpectedly
+         */
+        abstract void descriptor_checks_java_call() throws Throwable;
+
+        /**
          * Call the bound method using {@link FastCall} API with
          * arguments correct for the slot's specification. The method
          * should obtain the correct result (and not throw).
@@ -94,6 +117,12 @@ class TypeExposerSlotWrapperTest {
          * @throws Throwable unexpectedly
          */
         abstract void method_supports_java_call() throws Throwable;
+
+        /**
+         * Call the bound method using {@link FastCall} API with various
+         * incorrect arguments. The method should throw each time.
+         */
+        abstract void method_checks_java_call();
 
         /**
          * Check that the fields of the descriptor match expectations.
@@ -211,16 +240,32 @@ class TypeExposerSlotWrapperTest {
             String[] kwnames = {};
             Object r = descr.__call__(args, kwnames);
             check(r);
+        }
+
+        @Override
+        @Test
+        void descriptor_checks__call__() throws Throwable {
+
+            Object[] args = {obj};
+            String[] kwnames = {};
 
             // We call type(obj).__str__(obj, 111)
+            // Spurious positional argument.
             Object[] args2 = {obj, 111};
             assertRaises(PyExc.TypeError,
                     () -> descr.__call__(args2, kwnames));
 
             // We call type(obj).__str__(obj, other=111)
+            // Unexpected keyword.
             String[] kwnames2 = {"other"};
             assertRaises(PyExc.TypeError,
                     () -> descr.__call__(args2, kwnames2));
+
+            // We call type(obj).__str__("oops")
+            // Wrong self type.
+            args[0] = "oops";
+            assertRaises(PyExc.TypeError,
+                    () -> descr.__call__(args, kwnames));
         }
 
         @Override
@@ -231,13 +276,22 @@ class TypeExposerSlotWrapperTest {
             String[] kwnames = {};
             Object r = func.__call__(args, kwnames);
             check(r);
+        }
+
+        @Override
+        @Test
+        void method_checks__call__() throws Throwable {
+
+            String[] kwnames = {};
 
             // We call obj.__str__(111)
+            // Spurious positional argument.
             Object[] args2 = {111};
             assertRaises(PyExc.TypeError,
                     () -> func.__call__(args2, kwnames));
 
             // We call obj.__str__(other=111)
+            // Unexpected keyword.
             String[] kwnames2 = {"other"};
             assertRaises(PyExc.TypeError,
                     () -> func.__call__(args2, kwnames2));
@@ -249,15 +303,28 @@ class TypeExposerSlotWrapperTest {
             // We call type(obj).__str__(obj)
             Object r = descr.call(obj);
             check(r);
+        }
 
+        @Override
+        @Test
+        void descriptor_checks_java_call() throws Throwable {
             // We call type(obj).__str__(obj, 111)
-            assertRaises(PyExc.TypeError, () -> descr.call(obj, 111));
+            // Spurious positional argument.
+            ArgumentError ae = assertThrows(ArgumentError.class,
+                    () -> descr.call(obj, 111));
+            assertEquals(ArgumentError.Mode.NOARGS, ae.mode);
 
             // We call type(obj).__str__(obj, other=111)
+            // Unexpected keyword.
             Object[] args2 = {obj, 111};
             String[] kwnames2 = {"other"};
-            assertRaises(PyExc.TypeError,
+            ae = assertThrows(ArgumentError.class,
                     () -> descr.call(args2, kwnames2));
+            assertEquals(ArgumentError.Mode.NOARGS, ae.mode);
+
+            // We call type(obj).__str__("oops")
+            // Wrong self type.
+            assertRaises(PyExc.TypeError, () -> descr.call("oops"));
         }
 
         @Override
@@ -266,15 +333,24 @@ class TypeExposerSlotWrapperTest {
             // We call obj.__str__()
             Object r = func.call();
             check(r);
+        }
 
+        @Override
+        @Test
+        void method_checks_java_call() {
             // We call obj.__str__(111)
-            assertRaises(PyExc.TypeError, () -> func.call(111));
+            // Spurious positional argument.
+            ArgumentError ae = assertThrows(ArgumentError.class,
+                    () -> func.call(111));
+            assertEquals(ArgumentError.Mode.NOARGS, ae.mode);
 
             // We call obj.__str__(other=111)
+            // Unexpected keyword.
             String[] kwnames2 = {"other"};
             Object[] args2 = {obj, 111};
-            assertRaises(PyExc.TypeError,
+            ae = assertThrows(ArgumentError.class,
                     () -> func.call(args2, kwnames2));
+            assertEquals(ArgumentError.Mode.NOARGS, ae.mode);
         }
     }
 
@@ -326,16 +402,32 @@ class TypeExposerSlotWrapperTest {
             String[] kwnames = {};
             Object r = descr.__call__(args, kwnames);
             check(r);
+        }
+
+        @Override
+        @Test
+        void descriptor_checks__call__() throws Throwable {
+
+            Object[] args = {obj, 111};
+            String[] kwnames = {};
 
             // We call type(obj).__add__(obj)
+            // Missing argument.
             Object[] args2 = {obj};
             assertRaises(PyExc.TypeError,
                     () -> descr.__call__(args2, kwnames));
 
             // We call type(obj).__add__(obj, other=111)
+            // Unexpected keyword.
             String[] kwnames2 = {"other"};
             assertRaises(PyExc.TypeError,
                     () -> descr.__call__(args, kwnames2));
+
+            // We call type(obj).__add__("oops", 111)
+            // Wrong self type.
+            args[0] = "oops";
+            assertRaises(PyExc.TypeError,
+                    () -> descr.__call__(args, kwnames));
         }
 
         @Override
@@ -346,13 +438,23 @@ class TypeExposerSlotWrapperTest {
             String[] kwnames = {};
             Object r = func.__call__(args, kwnames);
             check(r);
+        }
+
+        @Override
+        @Test
+        void method_checks__call__() throws Throwable {
+
+            Object[] args = {111};
+            String[] kwnames = {};
 
             // We call obj.__add__()
+            // Missing argument.
             Object[] args2 = {};
             assertRaises(PyExc.TypeError,
                     () -> func.__call__(args2, kwnames));
 
             // We call obj.__add__(other=111)
+            // Unexpected keyword.
             String[] kwnames2 = {"other"};
             assertRaises(PyExc.TypeError,
                     () -> func.__call__(args, kwnames2));
@@ -364,15 +466,29 @@ class TypeExposerSlotWrapperTest {
             // We call type(obj).__add__(obj, 111)
             Object r = descr.call(obj, 111);
             check(r);
+        }
 
+        @Override
+        @Test
+        void descriptor_checks_java_call() throws Throwable {
             // We call type(obj).__add__(obj)
-            assertRaises(PyExc.TypeError, () -> descr.call(obj));
+            // Missing argument.
+            ArgumentError ae = assertThrows(ArgumentError.class,
+                    () -> descr.call(obj));
+            assertEquals(ArgumentError.Mode.NUMARGS, ae.mode);
 
             // We call type(obj).__add__(obj, other=111)
+            // Unexpected keyword.
             Object[] args2 = {obj, 111};
             String[] kwnames2 = {"other"};
-            assertRaises(PyExc.TypeError,
+            ae = assertThrows(ArgumentError.class,
                     () -> descr.call(args2, kwnames2));
+            assertEquals(ArgumentError.Mode.NOKWARGS, ae.mode);
+
+            // We call type(obj).__add__("oops", 111)
+            // Wrong self type.
+            assertRaises(PyExc.TypeError,
+                    () -> descr.call("oops", 111));
         }
 
         @Override
@@ -381,15 +497,24 @@ class TypeExposerSlotWrapperTest {
             // We call obj.__add__(111)
             Object r = func.call(111);
             check(r);
+        }
 
+        @Override
+        @Test
+        void method_checks_java_call() {
             // We call obj.__add__()
-            assertRaises(PyExc.TypeError, () -> func.call());
+            // Missing argument.
+            ArgumentError ae = assertThrows(ArgumentError.class,
+                    () -> func.call());
+            assertEquals(ArgumentError.Mode.NUMARGS, ae.mode);
 
             // We call obj.__add__(other=111)
+            // Unexpected keyword.
             Object[] args2 = {111};
             String[] kwnames2 = {"other"};
-            assertRaises(PyExc.TypeError,
-                    () -> func.__call__(args2, kwnames2));
+            ae = assertThrows(ArgumentError.class,
+                    () -> func.call(args2, kwnames2));
+            assertEquals(ArgumentError.Mode.NOKWARGS, ae.mode);
         }
     }
 
@@ -416,17 +541,19 @@ class TypeExposerSlotWrapperTest {
      *
      * @param exc expected type (one of the {@link PyExc}.* constants)
      * @param func to call
+     * @return the exception thrown
      * @throws Throwable propagating on non-Python errors
      */
-    static void assertRaises(PyType exc, Executable func)
+    static PyBaseException assertRaises(PyType exc, Executable func)
             throws Throwable {
         try {
             func.execute();
         } catch (PyBaseException pye) {
             PyType type = pye.getType();
             assertSame(exc, type);
-            return;
+            return pye;
         }
         fail("No exeption raised");
+        return null;  // Not reached in practice
     }
 }
