@@ -50,8 +50,12 @@ public class ArgumentError extends Exception {
         }
     }
 
-    final ArgumentError.Mode mode;
-    final short minArgs, maxArgs;
+    /** The type of error. */
+    public final ArgumentError.Mode mode;
+    /** Minimum number of arguments. */
+    public final short minArgs;
+    /** Maximum number of arguments. */
+    public final short maxArgs;
 
     private ArgumentError(Mode mode, int minArgs, int maxArgs) {
         this.mode = mode;

@@ -2,8 +2,6 @@
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
 
-import java.lang.invoke.MethodHandle;
-
 /**
  * Miscellaneous static helpers commonly needed to implement Python
  * objects in Java.
@@ -78,7 +76,7 @@ public class PyUtil {
      * stack context, since it is used only as a sort of "alternative
      * return value".
      */
-    public static class NoConversion extends Exception {
+    static class NoConversion extends Exception {
         private static final long serialVersionUID = 1L;
 
         private NoConversion() { super(null, null, false, false); }
@@ -89,7 +87,7 @@ public class PyUtil {
      * methods to signal "cannot convert". No stack context is preserved
      * in the exception.
      */
-    public static final NoConversion NO_CONVERSION = new NoConversion();
+    static final NoConversion NO_CONVERSION = new NoConversion();
 
     // Helpers for methods and attributes -----------------------------
 

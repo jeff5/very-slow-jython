@@ -45,10 +45,9 @@ public abstract sealed class PyType extends AbstractPyType
 
     /**
      * The type factory to which the run-time system goes for all type
-     * objects. This is used in tests and to give the "ready" message a
-     * time.
+     * objects.
      */
-    static final TypeFactory factory;
+    protected static final TypeFactory factory;
 
     /** The type object of {@code type} objects. */
     // Needed in its proper place before creating bootstrap types
@@ -58,7 +57,7 @@ public abstract sealed class PyType extends AbstractPyType
      * The type registry to which this run-time system goes for all
      * class look-ups.
      */
-    static final TypeRegistry registry;
+    protected static final TypeRegistry registry;
 
     /**
      * High-resolution time (the result of {@link System#nanoTime()}) at
@@ -70,7 +69,7 @@ public abstract sealed class PyType extends AbstractPyType
     /**
      * High-resolution time (the result of {@link System#nanoTime()}) at
      * which the type system completed static initialisation. This is
-     * used in tests.
+     * used in tests and to give the "ready" message a time.
      */
     static final long readyNanoTime;
 
@@ -79,7 +78,7 @@ public abstract sealed class PyType extends AbstractPyType
      * the type factory to grant it package-level access to the run-time
      * system.
      */
-    static Lookup RUNTIME_LOOKUP =
+    protected static Lookup RUNTIME_LOOKUP =
             MethodHandles.lookup().dropLookupMode(Lookup.PRIVATE);
 
     /*
@@ -264,7 +263,7 @@ public abstract sealed class PyType extends AbstractPyType
      * @return {@code true} if {@code this} is a sub-type of {@code b}
      */
     // Compare CPython PyType_IsSubtype in typeobject.c
-    boolean isSubTypeOf(PyType b) {
+    public <T extends AbstractPyType> boolean isSubTypeOf(T b) {
         if (mro != null) {
             /*
              * Deal with multiple inheritance without recursion by
@@ -289,7 +288,7 @@ public abstract sealed class PyType extends AbstractPyType
      * @return {@code true} if {@code this} is a sub-type of {@code b}
      */
     // Compare CPython type_is_subtype_base_chain in typeobject.c
-    private boolean type_is_subtype_base_chain(PyType b) {
+    private boolean type_is_subtype_base_chain(AbstractPyType b) {
         PyType t = this;
         while (t != b) {
             t = t.base;
@@ -307,6 +306,7 @@ public abstract sealed class PyType extends AbstractPyType
      */
 
     // plumbing ------------------------------------------------------
+
     // Compare CPython _PyType_GetDocFromInternalDoc
     // XXX Consider implementing in ArgParser instead
     static Object getDocFromInternalDoc(String name, String doc) {

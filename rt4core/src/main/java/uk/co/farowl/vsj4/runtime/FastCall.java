@@ -13,12 +13,13 @@ import uk.co.farowl.vsj4.support.internal.Util;
  * {@code call(...)} with exactly that number. Callable objects that
  * implement this interface may override signatures of {@code call(...)}
  * that they implement most efficiently.
- * <p>
+ */
+/*
  * This is an efficiency mechanism similar to the "fast call" paths in
  * CPython. It may provide a basis for efficient call sites for function
  * and method calling when argument lists are simple.
  */
-interface FastCall {
+public interface FastCall {
 
     /**
      * Invoke the target object with standard arguments

@@ -84,7 +84,8 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
             throw new InterpreterError(
                     "Cannot generate descriptors for type 'null'");
         for (Spec spec : specs.values()) {
-            logger.atTrace().addArgument(spec.name).log("-  Add {}");
+            logger.atTrace().addArgument(type.getName())
+                    .addArgument(spec.name).log("-  Add {}.{}");
             spec.checkFormation();
             Object attr = spec.asAttribute(type, lookup);
             dict.put(spec.name, attr);
@@ -124,7 +125,7 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
                 // PythonStaticMethod.class);
                 // if (psm != null) { addStaticMethodSpec(m, psm); }
 
-                // Check for ___new__ method
+                // Check for __new__ method
                 PythonNewMethod pnm =
                         m.getDeclaredAnnotation(PythonNewMethod.class);
                 if (pnm != null) { addNewMethodSpec(m, pnm, type); }
@@ -142,8 +143,7 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
                 // Deleter del = m.getAnnotation(Deleter.class);
                 // if (del != null) { addDeleter(m, del); }
 
-                // If it has a special method name record that
-                // definition.
+                // If it has a special method name record a definition.
                 String name = m.getName();
                 SpecialMethod slot = SpecialMethod.forMethodName(name);
                 if (slot != null) { addWrapperSpec(m, slot); }

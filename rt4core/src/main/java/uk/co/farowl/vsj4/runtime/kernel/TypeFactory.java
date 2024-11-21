@@ -4,6 +4,7 @@ package uk.co.farowl.vsj4.runtime.kernel;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
+import java.math.BigInteger;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -18,6 +19,7 @@ import org.slf4j.LoggerFactory;
 
 import uk.co.farowl.vsj4.runtime.Feature;
 import uk.co.farowl.vsj4.runtime.PyFloat;
+import uk.co.farowl.vsj4.runtime.PyLong;
 import uk.co.farowl.vsj4.runtime.PyType;
 import uk.co.farowl.vsj4.runtime.PyUnicode;
 import uk.co.farowl.vsj4.runtime.TypeSpec;
@@ -492,14 +494,16 @@ public class TypeFactory {
          * TYPE by enquiry in the registry.
          */
         final TypeSpec[] bootstrapSpecs = { //
-                new TypeSpec("str", runtimeLookup, false)
-                        .primary(PyUnicode.class).adopt(String.class),
-                new TypeSpec("float", runtimeLookup, false)
-                        .primary(PyFloat.class).adopt(Double.class)
-                        .methodImpls(PyFloat.class,
-                                PyFloatMethods.class)
-                // XXX int, ... ?
-        };
+                new BootstrapSpec("int", PyLong.class)
+                        // .methodImpls(PyLongMethods.class)
+                        // .binops(PyLongBinops.class)
+                        .adopt(BigInteger.class, Integer.class)
+                        .accept(Boolean.class),
+                new BootstrapSpec("str", PyUnicode.class)
+                        .adopt(String.class),
+                new BootstrapSpec("float", PyFloat.class)
+                        .adopt(Double.class)
+                        .methodImpls(PyFloatMethods.class)};
 
         // Immediately create those type objects Java ready.
         for (TypeSpec spec : bootstrapSpecs) {
@@ -961,6 +965,23 @@ public class TypeFactory {
             // I think the primordial types are only simple
             assert type instanceof SimpleType;
             this.primary(type.javaClass()).bases(type.bases);
+        }
+    }
+    /**
+     * A specification of a bootstrap a type object. We do this as a shorthand for
+     * {@link TypeFactory#createBootstrapTypes()}, as we find the same
+     * parameters repeatedly.
+     */
+    private class BootstrapSpec extends TypeSpec {
+        /**
+         * Create a specification using name and primary class.
+         *
+         * @param name of type
+         * @param primary used to represent and define methods
+         */
+        BootstrapSpec(String name, Class<?> primary) {
+            super(name, runtimeLookup, false);
+            this.primary(primary).methodImpls(primary);
         }
     }
 }

@@ -2,6 +2,7 @@
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime.kernel;
 
+import java.lang.invoke.MethodHandles;
 import java.util.List;
 
 import uk.co.farowl.vsj4.runtime.PyType;
@@ -64,4 +65,27 @@ public non-sealed class SimpleType extends PyType {
         assert javaClass.isAssignableFrom(x.getClass());
         return this;
     }
+
+    /**
+     * A lookup with package scope within the public {@code runtime}
+     * package. This lookup object is provided to the kernel to grant it
+     * package-level access to the run-time system. For example, it
+     * makes it possible to form method handles on Python type
+     * implementations defined in {@code runtime}.
+     */
+    static MethodHandles.Lookup getRuntimeLookup() {
+        return RUNTIME_LOOKUP;
+    }
+
+    /**
+     * The type factory to which the run-time system goes for all type
+     * objects.
+     */
+    static TypeFactory getFactory() { return factory; }
+
+    /**
+     * The type registry to which this run-time system goes for all
+     * class look-ups.
+     */
+    static TypeRegistry getRegistry() { return registry; }
 }

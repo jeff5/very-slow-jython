@@ -86,9 +86,8 @@ public class Clinic {
             logger.info("I'd like to have an argument, please.");
 
         } catch (NoSuchMethodException | IllegalAccessException e) {
-            logger.warn("Failed to initialise Argument Clinic.");
-            // FIXME Handle lookup fails in the current immature state
-            //throw new InterpreterError(e, "during handle lookup");
+            // Handle lookup fails somewhere
+            throw new InterpreterError(e, "Failed to initialise Argument Clinic.");
         }
     }
 

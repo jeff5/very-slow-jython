@@ -540,14 +540,14 @@ class TypeExposerSlotWrapperTest {
      * Python exceptions propagate to the caller.
      *
      * @param exc expected type (one of the {@link PyExc}.* constants)
-     * @param func to call
+     * @param action to invoke
      * @return the exception thrown
      * @throws Throwable propagating on non-Python errors
      */
-    static PyBaseException assertRaises(PyType exc, Executable func)
+    static PyBaseException assertRaises(PyType exc, Executable action)
             throws Throwable {
         try {
-            func.execute();
+            action.execute();
         } catch (PyBaseException pye) {
             PyType type = pye.getType();
             assertSame(exc, type);

@@ -467,13 +467,7 @@ public class TypeSpec extends NamedSpec {
      */
     public TypeSpec accept(Class<?>... classes) {
         checkNotFrozen();
-        if (accepted == EMPTY) {
-            accepted = new LinkedList<>();
-
-            // XXX Not clear this works with Representation.index
-            // Design thinking needed to do without accepted classes.
-            throw new MissingFeature("Accepted classes for %s", name);
-        }
+        if (accepted == EMPTY) { accepted = new LinkedList<>(); }
         for (Class<?> c : classes) {
             if (orderedAdd(accepted, c) < 0) {
                 throw specError(

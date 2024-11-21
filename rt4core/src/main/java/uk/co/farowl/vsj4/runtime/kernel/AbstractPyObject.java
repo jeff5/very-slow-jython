@@ -6,6 +6,7 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.security.Signature;
 
+import uk.co.farowl.vsj4.runtime.Exposed;
 import uk.co.farowl.vsj4.runtime.PyObject;
 import uk.co.farowl.vsj4.runtime.PyType;
 import uk.co.farowl.vsj4.runtime.PyUtil;
@@ -51,13 +52,13 @@ public abstract class AbstractPyObject {
 
     /**
      * Create a new Python {@code object}. {@code __new__} is a special
-     * method, but not a slot (there is no {@code Slot.op_new} in this
-     * implementation.
+     * method in the data model, but not a {@link SpecialMethod} (there
+     * is no {@code SpecialMethod.op_new}) in this implementation.
      *
      * @param type actual Python sub-class being created
-     * @return newly-created implementation object
+     * @return newly-created object
      */
-    // @PythonNewMethod
+    @Exposed.PythonNewMethod
     static Object __new__(PyType type) {
         /*
          * We normally arrive here from PyType.__call__, where this/self
@@ -71,7 +72,7 @@ public abstract class AbstractPyObject {
             return new Object();
         } else {
             // TODO Support subclass constructor
-            throw new MissingFeature("type.createInstance()");
+            throw new MissingFeature("subclasses in __new__");
         }
     }
 

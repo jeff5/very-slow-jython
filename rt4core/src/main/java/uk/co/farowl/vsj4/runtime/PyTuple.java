@@ -47,6 +47,19 @@ public class PyTuple extends AbstractList<Object> implements WithClass {
 
     public PyTuple(Object... v) { this(v, 0, v.length); }
 
+    /**
+     * Construct a {@code PyTuple} from the elements of an array, or if
+     * the collection is empty, return {@link #EMPTY}.
+     *
+     * @param <E> component type
+     * @param a value of new tuple
+     * @return a tuple with the given contents or {@link #EMPTY}
+     */
+    static <E> PyTuple from(E[] a) {
+        int n = a.length;
+        return a.length == 0 ? EMPTY : new PyTuple(a, 0, n);
+    }
+
     @Override
     public PyType getType() { return TYPE; }
 
