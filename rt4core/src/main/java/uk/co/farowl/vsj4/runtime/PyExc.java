@@ -64,6 +64,7 @@ public class PyExc {
     /** {@code TypeError} extends {@link Exception}. */
     public static PyType TypeError = extendsException(Exception,
             "TypeError", "Inappropriate argument type.");
+
     /**
      * {@code NameError} extends {@code Exception} and is implemented by
      * {@link PyNameError}.
@@ -82,6 +83,26 @@ public class PyExc {
     /** {@code IndexError} extends {@link LookupError}. */
     public static PyType IndexError = extendsException(LookupError,
             "IndexError", "Sequence index out of range.");
+    /** {@code ValueError} extends {@link Exception}. */
+    public static PyType ValueError =
+            extendsException(Exception, "ValueError",
+                    "Inappropriate argument value (of correct type).");
+
+    /** {@code ArithmeticError} extends {@link Exception}. */
+    public static PyType ArithmeticError = extendsException(Exception,
+            "ArithmeticError", "Base class for arithmetic errors.");
+    /** {@code FloatingPointError} extends {@link ArithmeticError}. */
+    public static PyType FloatingPointError =
+            extendsException(ArithmeticError, "FloatingPointError",
+                    "Floating point operation failed.");
+    /** {@code OverflowError} extends {@link ArithmeticError}. */
+    public static PyType OverflowError =
+            extendsException(ArithmeticError, "OverflowError",
+                    "Result too large to be represented.");
+    /** {@code ZeroDivisionError} extends {@link ArithmeticError}. */
+    public static PyType ZeroDivisionError = extendsException(
+            ArithmeticError, "ZeroDivisionError",
+            "Second argument to a division or modulo operation was zero.");
 
     /*
      * Warnings are Exception objects, but do not get thrown (I think),

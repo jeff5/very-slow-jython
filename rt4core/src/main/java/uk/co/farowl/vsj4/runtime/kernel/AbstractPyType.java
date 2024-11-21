@@ -9,12 +9,17 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import uk.co.farowl.vsj4.runtime.ArgumentError;
+import uk.co.farowl.vsj4.runtime.Callables;
+import uk.co.farowl.vsj4.runtime.FastCall;
 import uk.co.farowl.vsj4.runtime.PyBaseException;
 import uk.co.farowl.vsj4.runtime.PyErr;
 import uk.co.farowl.vsj4.runtime.PyExc;
+import uk.co.farowl.vsj4.runtime.PyJavaFunction;
 import uk.co.farowl.vsj4.runtime.PyType;
 import uk.co.farowl.vsj4.runtime.TypeSpec;
 import uk.co.farowl.vsj4.runtime.WithClass;
+import uk.co.farowl.vsj4.runtime.internal._PyUtil;
 
 /**
  * {@code AbstractPyType} is the Java base of Python {@code type}
@@ -25,7 +30,7 @@ import uk.co.farowl.vsj4.runtime.WithClass;
  * itself.
  */
 public abstract sealed class AbstractPyType extends Representation
-        implements WithClass permits PyType {
+        implements WithClass, FastCall permits PyType {
 
     /** Name of the type (fully-qualified). */
     final String name;
@@ -242,7 +247,7 @@ public abstract sealed class AbstractPyType extends Representation
         exposer.populate(_dict, spec.getLookup());
     }
 
- // Special methods -----------------------------------------------
+    // Special methods -----------------------------------------------
 
     protected Object __repr__() throws Throwable {
         return String.format("<class '%s'>", getName());
@@ -253,8 +258,8 @@ public abstract sealed class AbstractPyType extends Representation
      * to construct a Python object of the type this object describes.
      * For example the call {@code int()} is a request to create a
      * Python {@code int}, although we often think of it as a built-in
-     * function. The exception is when the type represented is
-     * {@code type} itself and there is one argument. The call
+     * function. The exception is when {@code this} is {@code type}
+     * itself. There must be one or three arguments. The call
      * {@code type(obj)} enquires the Python type of the object, which
      * is even more like a built-in function. The call
      * {@code type(name, bases, dict)} constructs a new type (instance
@@ -268,14 +273,27 @@ public abstract sealed class AbstractPyType extends Representation
      * @throws Throwable from implementation slot functions
      */
     protected Object __call__(Object[] args, String[] names)
-            throws /* TypeError, */ Throwable {
-        // Delegate to FastCall.call
-        return call(args, names);
+            throws PyBaseException, Throwable {
+        try {
+            return call(args, names);
+        } catch (ArgumentError ae) {
+            throw typeError(ae, args, names);
+        }
     }
 
-    // @Override
+    // FastCall implementation ---------------------------------------
+
+    /*
+     * These methods may be called instead of __call_ to take advantage
+     * of potentially efficient handling of arguments in a type's
+     * __new__ method. There is a short-cut in Callables.call that
+     * detects the FastCall interface. In a CallSite, the MethodHandle
+     * could be formed with this in mind.
+     */
+
+    @Override
     public Object call(Object[] args, String[] names)
-            throws /* ArgumentError, */ Throwable {
+            throws ArgumentError, Throwable {
         /*
          * Special case: type(x) should return the Python type of x, but
          * only if this is exactly the type 'type'.
@@ -300,11 +318,106 @@ public abstract sealed class AbstractPyType extends Representation
 
         // Call __new__ of the type described by this type object
         // XXX Call __new__ and __init__ via Callables or SpecialMethod
-        // Object obj = Callables.call(newMethod, this, args, names);
-        Object obj = null;
+        // XXX Almost certainly cache this so we know the type.
+        Object newMethod = lookup("__new__");
+        Object obj = _PyUtil.call(newMethod, this, args, names);
 
         // Call obj.__init__ if it is defined and type(obj) == this
         // maybeInit(obj, args, names);
         return obj;
     }
+
+// @Override
+// public Object call(Object a0) throws Throwable {
+// if (this == PyType.TYPE) {
+// // Call is exactly type(x) so this is a type enquiry
+// return PyType.of(a0);
+// }
+// Object obj = newMethod.call(this, a0);
+// maybeInit(obj, a0);
+// return obj;
+// }
+//
+// @Override
+// public Object call(Object a0, Object a1) throws Throwable {
+// // Note that this cannot be a type enquiry
+// Object obj = newMethod.call(this, a0, a1);
+// maybeInit(obj, a0, a1);
+// return obj;
+// }
+
+    @Override
+    public PyBaseException typeError(ArgumentError ae, Object[] args,
+            String[] names) {
+        // Almost certainly not called, but let __new__ explain
+        // FIXME: reinstate newMethod.typeError
+        // return newMethod.typeError(ae, args, names);
+        return PyErr.format(PyExc.TypeError, "some type error");
+    }
+
+    /**
+     * Validate the argument presented first in a call to
+     * {@code __new__} against {@code this} as the defining type. When
+     * {@code type.__call__} is not simply a type enquiry, it is a
+     * request to construct an instance of the type that is the
+     * {@code self} argument (or {@code this}).
+     * <p>
+     * The receiving type should then search for a definition of
+     * {@code __new__} along the MRO, and pass itself as the first
+     * argument, called {@code cls} in the Python documentation for
+     * {@code __new__}. This definition is necessarily provided by a
+     * superclass. Certainly {@link PyType#__call__(Object[], String[])
+     * PyType.__call__} will do this, and the {@code __new__} of all
+     * classes, whether defined in Python or Java, should include a
+     * comparable action.
+     * <p>
+     * This method asks the defining class (as {@code this}) to validate
+     * that {@code cls} is a Python sub-type of the defining class. We
+     * apply this validation to {@code __new__} calls in every Python
+     * type defined in Java. It is implemented as a wrapper on the
+     * handle in the {@link PyJavaFunction} that exposes {@code __new__}
+     * for that type. Invoking that handle, will call a Java method
+     * that, in simple cases, is defined by:<pre>
+     * T __new__(PyType cls, ...) {
+     *     if (cls == T.TYPE)
+     *         return new T(...);
+     *     else
+     *         return new S(cls, ...);
+     * }
+     * </pre> where {@code S} is a Java subclass of the canonical base
+     * of {@code cls}. The instance of S created will subsequently claim
+     * a Python type {@code cls} in its {@code __class__} attribute. The
+     * validation enforces the constraint that instances of {@code S}
+     * may only be instances of a Python sub-type of the type T
+     * represents.
+     * <p>
+     * The {@code __new__} of a class defined in Python is a harmless
+     * {@code staticmethod}. It doesn't matter how defective it is
+     * until, during {@code super().__new__}, we reach a built-in type
+     * and then this validation will be applied.
+     *
+     * @param arg0 first argument to the {@code __new__} call
+     * @return arg0 if the checks succeed
+     * @throws PyBaseException (TypeError) if the checks fail
+     */
+    // Compare CPython tp_new_wrapper in typeobject.c
+    public PyType validatedNewArgument(Object arg0)
+            throws PyBaseException {
+        if (arg0 instanceof PyType cls) {
+            if (cls.isSubTypeOf(this)) {
+                return cls;
+            } else {
+                String name = getName(), clsName = cls.getName();
+                throw PyErr.format(PyExc.TypeError,
+                        "%s.__new__(%s): %s is not a subtype of %s", //
+                        name, clsName, clsName, name);
+            }
+        } else {
+            // arg0 wasn't even a type
+            throw PyErr.format(PyExc.TypeError,
+                    "%s.__new__(X): X must be a type object not %s",
+                    this.getName(), PyType.of(arg0).getName());
+        }
+    }
+
 }

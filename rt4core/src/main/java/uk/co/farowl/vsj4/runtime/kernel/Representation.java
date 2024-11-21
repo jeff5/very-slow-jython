@@ -11,6 +11,8 @@ import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.invoke.MethodType;
 
 import uk.co.farowl.vsj4.runtime.MethodDescriptor;
+import uk.co.farowl.vsj4.runtime.PyFloat;
+import uk.co.farowl.vsj4.runtime.PyLong;
 import uk.co.farowl.vsj4.runtime.PyType;
 import uk.co.farowl.vsj4.runtime.WithClass;
 import uk.co.farowl.vsj4.support.InterpreterError;
@@ -58,14 +60,19 @@ public abstract class Representation {
 
     /**
      * Get the Python type of the object <i>given that</i> this is the
-     * representation object for it.
+     * representation object for it. The argument {@code x} is only
+     * needed when this is not a {@link Shared} representation:
+     * {@code null} may be passed in those cases. A shared
+     * representation is not associated with a unique type, so in that
+     * case {@code x} is consulted for the type, while a {@code null}
+     * returns a {@code null} result.
      *
      * @implSpec If this object is also a type object, it will answer
-     *     that it itself is that type. (Do not do this in
+     *     that it itself is that type. (Do not implement this in
      *     {@code PyType} so that the method does not become API.) An
      *     {@link Adopted} representation knows its {@link AdoptiveType}
      *     directly, while a {@link Shared} representation must consult
-     *     the object.
+     *     the object {@code x}.
      *
      * @param x subject of the enquiry
      * @return {@code type(x)}
@@ -126,10 +133,10 @@ public abstract class Representation {
     // Compare CPython SLOT* macros in typeobject.c
     public MethodHandle handle(SpecialMethod sm, Object self) {
         MethodHandle mh;
-        if (sm.slotHandle != null) {
+        if (sm.cache != null) {
             // XXX What if javaClass isn't expected self class?
             // We wouldn't have cached it, but when was that?
-            mh = (MethodHandle)sm.slotHandle.get(this);
+            mh = (MethodHandle)sm.cache.get(this);
         } else {
             // XXX Could in-line getting the type if we specialise.
             PyType type = pythonType(self);
@@ -153,32 +160,38 @@ public abstract class Representation {
      * can do this without reference to the object itself, since it is
      * deducible from the Java class.
      *
+     * @implNote The result may be incorrect during type system
+     *     bootstrap.
+     *
      * @return target is exactly a Python {@code int}
      */
-    // boolean isIntExact() { return this == PyLong.TYPE; }
+    public boolean isIntExact() { return this == PyLong.TYPE; }
 
     /**
      * Fast check that the target is exactly a Python {@code float}. We
      * can do this without reference to the object itself, since it is
      * deducible from the Java class.
      *
+     * @implNote The result may be incorrect during type system
+     *     bootstrap.
+     *
      * @return target is exactly a Python {@code float}
      */
-    // boolean isFloatExact() { return this == PyFloat.TYPE; }
+    public boolean isFloatExact() { return this == PyFloat.TYPE; }
 
     /**
      * Fast check that the target is a data descriptor.
      *
      * @return target is a data descriptor
      */
-    boolean isDataDescr() { return false; }
+    public boolean isDataDescr() { return false; }
 
     /**
      * Fast check that the target is a method descriptor.
      *
      * @return target is a method descriptor
      */
-    boolean isMethodDescr() { return false; }
+    public boolean isMethodDescr() { return false; }
 
     // ---------------------------------------------------------------
 
@@ -283,7 +296,9 @@ public abstract class Representation {
         public PyType pythonType(Object x) {
             if (x instanceof WithClass wcx)
                 return wcx.getType();
-            else {
+            else if (x == null) {
+                return null;
+            } else {
                 throw notSharedError(x);
             }
         }
@@ -300,9 +315,9 @@ public abstract class Representation {
         /**
          * Return an exception reporting that the given object was
          * registered as if implementing a {@link ReplaceableType}, but
-         * is cannot be inspected for its type. The TypeFactory has a
-         * bug if it created this Representation. Or the type system has
-         * a bug if it allowed anything else to do so.
+         * it cannot be inspected for its type. The {@link TypeFactory}
+         * has a bug if it created this {@code Representation}. Or the
+         * type system has a bug if it allowed anything else to do so.
          *
          * @param x objectionable object
          * @return to throw
@@ -316,6 +331,8 @@ public abstract class Representation {
     }
 
     // XXX Do these still need to be public?
+    /** Cache of {@link SpecialMethod#__repr__} */
+    public MethodHandle op_repr;
     /** Cache of {@link SpecialMethod#__str__} */
     public MethodHandle op_str;
     /** Cache of {@link SpecialMethod#__call__} */
@@ -323,8 +340,18 @@ public abstract class Representation {
 
     /** Cache of {@link SpecialMethod#__neg__} */
     public MethodHandle op_neg;
-    /** Cache of {@link SpecialMethod#__invert__} */
-    public MethodHandle op_invert;
     /** Cache of {@link SpecialMethod#__abs__} */
     public MethodHandle op_abs;
+    /** Cache of {@link SpecialMethod#__invert__} */
+    public MethodHandle op_invert;
+
+    /** Cache of {@link SpecialMethod#__int__} */
+    public MethodHandle op_int;
+    /** Cache of {@link SpecialMethod#__index__} */
+    public MethodHandle op_index;
+
+    static abstract sealed class Accessor permits SpecialMethod.Util {
+
+    }
+
 }

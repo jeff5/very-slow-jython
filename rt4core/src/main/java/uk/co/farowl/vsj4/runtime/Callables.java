@@ -10,7 +10,7 @@ import uk.co.farowl.vsj4.support.internal.Util;
 
 /** Support for the {@code __call__} protocol of Python objects. */
 // Compare CPython ~/Objects/call.c
-class Callables extends Abstract {
+public class Callables extends Abstract {
 
     private Callables() {} // only static methods here
 
@@ -35,16 +35,15 @@ class Callables extends Abstract {
      */
     // Compare CPython PyObject_Call in call.c
     // Note that CPython allows only exactly tuple and dict.
-    static Object call(Object callable, Object[] args, String[] names)
-            throws PyBaseException, Throwable {
+    public static Object call(Object callable, Object[] args,
+            String[] names) throws PyBaseException, Throwable {
 
         // Speed up the common idiom:
         // if (names == null || names.length == 0) ...
         if (names != null && names.length == 0) { names = null; }
 
-        if (callable instanceof FastCall) {
+        if (callable instanceof FastCall fast) {
             // Take the direct route since __call__ is immutable
-            FastCall fast = (FastCall)callable;
             try {
                 return fast.call(args, names);
             } catch (ArgumentError ae) {
@@ -61,31 +60,6 @@ class Callables extends Abstract {
         } catch (EmptyException e) {
             throw typeError(OBJECT_NOT_CALLABLE, callable);
         }
-    }
-
-    /**
-     * Call an object with the standard {@code __call__} protocol, but
-     * where the first argument is "loose", and must be prepended to the
-     * usual array of arguments. This is potentially useful in calling
-     * an instance method.
-     *
-     * @param callable target
-     * @param arg0 the first argument
-     * @param args arguments from 1 (position then keyword)
-     * @param names of the keyword arguments or {@code null}
-     * @return the return from the call to the object
-     * @throws PyBaseException(TypeError) if target is not callable
-     * @throws Throwable for errors raised in the function
-     */
-    // Compare CPython _PyObject_Call_Prepend in call.c
-    // Note that CPython allows only exactly tuple and dict.
-    static Object call(Object callable, Object arg0, Object[] args,
-            String[] names) throws PyBaseException, Throwable {
-        // Note names are end-relative, so remain valid after the shift.
-        Object[] allargs = new Object[args.length + 1];
-        allargs[0] = arg0;
-        System.arraycopy(args, 0, allargs, 1, args.length);
-        return Callables.call(callable, allargs, names);
     }
 
     /**
@@ -233,8 +207,10 @@ class Callables extends Abstract {
      * Call an object with the vector call protocol with some arguments
      * given by keyword. This supports CPython byte code generated
      * according to the conventions in PEP-590. Unlike its use in
-     * CPython, this is <b>not likely to be faster</b> than the standard
+     * CPython, this is <b>not likely to be fundamentally faster</b> than the standard
      * {@link #call(Object, Object[], String[]) call} method.
+     * It can be an efficient way to drop arguments (e.g {@code self})
+     * from the call.
      *
      * @see FastCall#vectorcall(Object[], int, int, String[])
      *
@@ -249,12 +225,11 @@ class Callables extends Abstract {
      */
     // Compare CPython _PyObject_Vectorcall in abstract.h
     // In CPython nargs counts only positional arguments
-    static Object vectorcall(Object callable, Object[] stack, int start,
+    public static Object vectorcall(Object callable, Object[] stack, int start,
             int nargs, PyTuple kwnames) throws Throwable {
         String[] names = Callables.namesArray(kwnames);
-        if (callable instanceof FastCall) {
+        if (callable instanceof FastCall fast) {
             // Fast path recognising optimised callable
-            FastCall fast = (FastCall)callable;
             try {
                 return fast.vectorcall(stack, start, nargs, names);
             } catch (ArgumentError ae) {
@@ -271,26 +246,26 @@ class Callables extends Abstract {
      * Call an object with the vector call protocol with no arguments
      * given by keyword. This supports CPython byte code generated
      * according to the conventions in PEP-590. Unlike its use in
-     * CPython, this is <b>not likely to be faster</b> than the standard
+     * CPython, this is <b>not likely to be fundamentally faster</b> than the standard
      * {@link #call(Object, Object[], String[]) call} method.
+     * It can be an efficient way to drop arguments (e.g {@code self})
+     * from the call.
      *
      * @see FastCall#vectorcall(Object[], int, int)
      *
      * @param callable target
-     * @param stack positional and keyword arguments (the stack)
+     * @param stack arguments (the stack)
      * @param start position of arguments in the array
-     * @param nargs number of positional <b>and keyword</b> arguments
+     * @param nargs number of (positional) arguments
      * @return the return from the call to the object
      * @throws PyBaseException(TypeError) if target is not callable
      * @throws Throwable for errors raised in the function
      */
     // Compare CPython _PyObject_Vectorcall in abstract.h
-    // In CPython nargs counts only positional arguments
-    static Object vectorcall(Object callable, Object[] stack, int start,
+    public static Object vectorcall(Object callable, Object[] stack, int start,
             int nargs) throws PyBaseException, Throwable {
-        if (callable instanceof FastCall) {
+        if (callable instanceof FastCall fast) {
             // Fast path recognising optimised callable
-            FastCall fast = (FastCall)callable;
             try {
                 return fast.vectorcall(stack, start, nargs);
             } catch (ArgumentError ae) {
@@ -360,9 +335,8 @@ class Callables extends Abstract {
     // Compare CPython _PyObject_CallNoArg in abstract.h
     // and _PyObject_Vectorcall in abstract.h
     static Object call(Object callable) throws Throwable {
-        if (callable instanceof FastCall) {
+        if (callable instanceof FastCall fast) {
             // Take the short-cut.
-            FastCall fast = (FastCall)callable;
             try {
                 return fast.call();
             } catch (ArgumentError ae) {

@@ -8,15 +8,15 @@ import uk.co.farowl.vsj4.runtime.PyType;
 import uk.co.farowl.vsj4.support.MissingFeature;
 
 /**
- * Additional method definitions for the Python {@code float} type.
+ * Additional method definitions for the Python {@code int} type.
  */
-public class PyFloatMethods {
+public class PyLongMethods {
 
     /**
      * Create a new instance of Python {@code float}, or of a subclass.
      *
      * @param type actual Python sub-class being created
-     * @return newly-created object
+     * @return newly-created implementation object
      */
     @Exposed.PythonNewMethod
     public static Object __new__(PyType type) {
@@ -35,4 +35,5 @@ public class PyFloatMethods {
             throw new MissingFeature("subclasses in __new__");
         }
     }
+
 }

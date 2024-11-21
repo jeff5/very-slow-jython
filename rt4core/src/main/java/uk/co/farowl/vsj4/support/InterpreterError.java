@@ -2,6 +2,9 @@
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.support;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  * Internal error thrown when the Python implementation cannot be relied
  * on to work. A Python {@code exception} (that might be caught in
@@ -12,6 +15,13 @@ package uk.co.farowl.vsj4.support;
 public class InterpreterError extends RuntimeException {
     private static final long serialVersionUID = 1L;
 
+    /** Logger for interpreter errors. It may seem odd to log
+     * the raising of a low-level exception, but a proportion of these are
+     * thrown during the initialisation of the run-time system.
+     * Somehow they are swallowed without trace:
+     * this gives us a second chance to notice. */
+    static final Logger logger = LoggerFactory.getLogger(InterpreterError.class);
+
     /**
      * Constructor specifying a message.
      *
@@ -20,6 +30,7 @@ public class InterpreterError extends RuntimeException {
      */
     public InterpreterError(String msg, Object... args) {
         super(String.format(msg, args));
+        logger.atError().log(getMessage());
     }
 
     /**
@@ -32,6 +43,8 @@ public class InterpreterError extends RuntimeException {
     public InterpreterError(Throwable cause, String msg,
             Object... args) {
         super(String.format(msg, args), cause);
+        logger.atError().log(getMessage());
+        logger.atError().log(cause.getMessage());
     }
 
     /**

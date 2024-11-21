@@ -3,6 +3,7 @@
 package uk.co.farowl.vsj4.runtime;
 
 import java.lang.invoke.MethodHandle;
+import java.util.function.Function;
 
 import uk.co.farowl.vsj4.runtime.kernel.Representation;
 import uk.co.farowl.vsj4.runtime.kernel.SpecialMethod;
@@ -227,93 +228,96 @@ public class PyNumber extends Abstract {
                 .isDefinedFor(PyType.representationOf(obj));
     }
 
-// /**
-// * Return a Python {@code int} (or subclass) from the object
-// * {@code o}. Raise {@code TypeError} if the result is not a Python
-// * {@code int} subclass, or if the object {@code o} cannot be
-// * interpreted as an index (it does not fill
-// * {@link SpecialMethod#op_index}). This method makes no guarantee
-// * about the <i>range</i> of the result.
-// *
-// * @param o operand
-// * @return {@code o} coerced to a Python {@code int}
-// * @throws PyBaseException (TypeError) if {@code o} cannot be
-// * interpreted as an {@code int}
-// * @throws Throwable otherwise from invoked implementations
-// */
-// // Compare with CPython abstract.c :: PyNumber_Index
-// static Object index(Object o) throws PyBaseException, Throwable {
-//
-// Representation rep = PyType.representationOf(o);
-// Object res;
-//
-// if (rep.isIntExact())
-// return o;
-// else {
-// try {
-// res = rep.op_index.invokeExact(o);
-// // Enforce expectations on the return type
-// Representation resOps = PyType.representationOf(res);
-// if (resOps.isIntExact())
-// return res;
-// else if (resOps.pythonType(res).isSubTypeOf(PyLong.TYPE))
-// return returnDeprecation("__index__", "int", res);
-// else
-// throw returnTypeError("__index__", "int", res);
-// } catch (EmptyException e) {
-// throw typeError(CANNOT_INTERPRET_AS_INT, o);
-// }
-// }
-// }
+    /**
+     * Return a Python {@code int} (or subclass) from the object
+     * {@code o}. Raise {@code TypeError} if the result is not a Python
+     * {@code int} subclass, or if the object {@code o} cannot be
+     * interpreted as an index (it does not fill
+     * {@link SpecialMethod#op_index}). This method makes no guarantee
+     * about the <i>range</i> of the result.
+     *
+     * @param o operand
+     * @return {@code o} coerced to a Python {@code int}
+     * @throws PyBaseException (TypeError) if {@code o} cannot be
+     *     interpreted as an {@code int}
+     * @throws Throwable otherwise from invoked implementations
+     */
+    // Compare with CPython abstract.c :: PyNumber_Index
+    static Object index(Object o) throws PyBaseException, Throwable {
 
-// /**
-// * Returns {@code o} converted to a Java {@code int} if {@code o}
-// * can be interpreted as an integer. If the call fails, an exception
-// * is raised, which may be a {@link PyBaseException TypeError} or
-// * anything thrown by {@code o}'s implementation of
-// * {@code __index__}. In the special case of {@link OverflowError},
-// * a replacement may be made where the message is formulated by this
-// * method and the type of exception by the caller. (Arcane, but it's
-// * what CPython does.) A recommended idiom for this is<pre>
-// * int k = PyNumber.asSize(key, IndexError::new);
-// * </pre>
-// *
-// * @param o the object to convert to an {@code int}
-// * @param exc {@code null} or function of {@code String} returning
-// * the exception to use for overflow.
-// * @return {@code int} value of {@code o}
-// * @throws PyBaseException (TypeError) if {@code o} cannot be
-// * converted to a Python {@code int}
-// * @throws Throwable on other errors
-// */
-// // Compare with CPython abstract.c :: PyNumber_AsSsize_t
-// static int asSize(Object o, Function<String, PyBaseException> exc)
-// throws PyBaseException, Throwable {
-//
-// // Convert to Python int or sub-class. (May raise TypeError.)
-// Object value = PyNumber.index(o);
-//
-// try {
-// // We're done if PyLong.asSize() returns without error.
-// return PyLong.asSize(value);
-// } catch (OverflowError e) {
-// // Caller may replace overflow with own type of exception
-// if (exc == null) {
-// // No handler: default clipping is sufficient.
-// assert PyType.of(value).isSubTypeOf(PyLong.TYPE);
-// if (PyLong.signum(value) < 0)
-// return Integer.MIN_VALUE;
-// else
-// return Integer.MAX_VALUE;
-// } else {
-// // Throw an exception of the caller's preferred type.
-// String msg = String.format(CANNOT_FIT,
-// PyType.of(o).getName());
-// throw exc.apply(msg);
-// }
-// }
-// }
-//
+        Representation rep = PyType.representationOf(o);
+        Object res;
+
+        if (rep.isIntExact())
+            return o;
+        else {
+            try {
+                res = rep.op_index.invokeExact(o);
+                // Enforce expectations on the return type
+                Representation resOps = PyType.representationOf(res);
+                if (resOps.isIntExact())
+                    return res;
+                else if (resOps.pythonType(res)
+                        .isSubTypeOf(PyLong.TYPE))
+                    return returnDeprecation("__index__", "int", res);
+                else
+                    throw returnTypeError("__index__", "int", res);
+            } catch (EmptyException e) {
+                throw typeError(CANNOT_INTERPRET_AS_INT, o);
+            }
+        }
+    }
+
+    /**
+     * Returns {@code o} converted to a Java {@code int} if {@code o}
+     * can be interpreted as an integer. If the call fails, an exception
+     * is raised, which may be a {@link PyBaseException TypeError} or
+     * anything thrown by {@code o}'s implementation of
+     * {@code __index__}. In the special case of {@link OverflowError},
+     * a replacement may be made where the message is formulated by this
+     * method and the type of exception by the caller. (Arcane, but it's
+     * what CPython does.) A recommended idiom for this is<pre>
+     * int k = PyNumber.asSize(key, IndexError::new);
+     * </pre>
+     *
+     * @param o the object to convert to an {@code int}
+     * @param exc {@code null} or function of {@code String} returning
+     *     the exception to use for overflow.
+     * @return {@code int} value of {@code o}
+     * @throws PyBaseException (TypeError) if {@code o} cannot be
+     *     converted to a Python {@code int}
+     * @throws Throwable on other errors
+     */
+    // Compare with CPython abstract.c :: PyNumber_AsSsize_t
+    static int asSize(Object o, Function<String, PyBaseException> exc)
+            throws PyBaseException, Throwable {
+
+        // Convert to Python int or sub-class. (May raise TypeError.)
+        Object value = PyNumber.index(o);
+
+        try {
+            // We're done if PyLong.asSize() returns without error.
+            return PyLong.asSize(value);
+        } catch (PyBaseException e) {
+            // We only meant to catch OverflowError
+            e.only(PyExc.OverflowError);
+            // Caller may replace overflow with own type of exception
+            if (exc == null) {
+                // No handler: default clipping is sufficient.
+                assert PyType.of(value).isSubTypeOf(PyLong.TYPE);
+                if (PyLong.signum(value) < 0)
+                    return Integer.MIN_VALUE;
+                else
+                    return Integer.MAX_VALUE;
+            } else {
+                // Throw an exception of the caller's preferred type.
+                String msg = String.format(CANNOT_FIT,
+                        PyType.of(o).getName());
+                throw exc.apply(msg);
+            }
+        }
+    }
+
 // /**
 // * Extract a slice index from a Python {@code int} or an object
 // * defining {@code __index__}, and return it as a Java {@code int}.
@@ -346,54 +350,54 @@ public class PyNumber extends Abstract {
 // }
 // }
 // }
-//
-// /**
-// * Returns the {@code o} converted to an integer object. This is the
-// * equivalent of the Python expression {@code int(o)}. It will refer
-// * to the {@code __int__}, {@code __index_} and {@code __trunc__}
-// * special methods of {@code o}, in that order, and then (if
-// * {@code o} is string or bytes-like) attempt a conversion from text
-// * assuming decimal base.
-// *
-// * @param o operand
-// * @return {@code int(o)}
-// * @throws PyBaseException (TypeError) if {@code o} cannot be
-// * converted to a Python {@code int}
-// * @throws Throwable on other errors
-// */
-// // Compare with CPython abstract.h :: PyNumber_Long
-// static Object asLong(Object o) throws PyBaseException, Throwable {
-// Object result;
-// PyType oType = PyType.of(o);
-//
-// if (oType == PyLong.TYPE) {
-// // Fast path for the case that we already have an int.
-// return o;
-// }
-//
-// else if (SpecialMethod.op_int.isDefinedFor(oType)) {
-// // XXX Need test of intiness and indexiness?
-// // Normalise away subclasses of int
-// result = PyLong.fromIntOf(o);
-// return PyLong.from(result);
-// }
-//
-// else if (SpecialMethod.op_index.isDefinedFor(oType)) {
-// // Normalise away subclasses of int
-// result = PyLong.fromIndexOrIntOf(o);
-// return PyLong.from(result);
-// }
-//
-// // XXX Not implemented: else try the __trunc__ method
-//
-// if (PyUnicode.TYPE.check(o))
-// return PyLong.fromUnicode(o, 10);
-//
-// // else if ... support for bytes-like objects
-// else
-// throw argumentTypeError("int", 0,
-// "a string, a bytes-like object or a number", o);
-// }
+
+    /**
+     * Returns the {@code o} converted to an integer object. This is the
+     * equivalent of the Python expression {@code int(o)}. It will refer
+     * to the {@code __int__}, {@code __index_} and {@code __trunc__}
+     * special methods of {@code o}, in that order, and then (if
+     * {@code o} is string or bytes-like) attempt a conversion from text
+     * assuming decimal base.
+     *
+     * @param o operand
+     * @return {@code int(o)}
+     * @throws PyBaseException (TypeError) if {@code o} cannot be
+     *     converted to a Python {@code int}
+     * @throws Throwable on other errors
+     */
+    // Compare with CPython abstract.h :: PyNumber_Long
+    static Object asLong(Object o) throws PyBaseException, Throwable {
+        Object result;
+        PyType oType = PyType.of(o);
+
+        if (oType == PyLong.TYPE) {
+            // Fast path for the case that we already have an int.
+            return o;
+        }
+
+        else if (SpecialMethod.op_int.isDefinedFor(oType)) {
+            // XXX Need test of intiness and indexiness?
+            // Normalise away subclasses of int
+            result = PyLong.fromIntOf(o);
+            return PyLong.from(result);
+        }
+
+        else if (SpecialMethod.op_index.isDefinedFor(oType)) {
+            // Normalise away subclasses of int
+            result = PyLong.fromIndexOrIntOf(o);
+            return PyLong.from(result);
+        }
+
+        // XXX Not implemented: else try the __trunc__ method
+
+        if (PyUnicode.TYPE.check(o))
+            return PyLong.fromUnicode(o, 10);
+
+        // else if ... support for bytes-like objects
+        else
+            throw argumentTypeError("int", 0,
+                    "a string, a bytes-like object or a number", o);
+    }
 
     private static final String CANNOT_INTERPRET_AS_INT =
             "'%.200s' object cannot be interpreted as an integer";
