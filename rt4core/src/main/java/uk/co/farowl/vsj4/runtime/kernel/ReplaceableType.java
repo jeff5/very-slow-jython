@@ -43,6 +43,9 @@ public final class ReplaceableType extends PyType {
     }
 
     @Override
+    public boolean isMutable() { return false; }
+
+    @Override
     public List<Class<?>> selfClasses() { return List.of(javaClass); }
 
     @Override

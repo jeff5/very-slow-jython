@@ -170,6 +170,7 @@ class TypeExposerSlotWrapperTest {
 
         static PyType TYPE = PyType.fromSpec( //
                 new TypeSpec("Example", MethodHandles.lookup()) //
+                        .add(Feature.IMMUTABLE) //
                         .adopt(ExampleObject2.class));
 
         private int value;

@@ -2,16 +2,20 @@
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime.kernel;
 
+import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 
 import uk.co.farowl.vsj4.runtime.ArgumentError;
-import uk.co.farowl.vsj4.runtime.Callables;
 import uk.co.farowl.vsj4.runtime.FastCall;
+import uk.co.farowl.vsj4.runtime.Feature;
+import uk.co.farowl.vsj4.runtime.MethodDescriptor;
 import uk.co.farowl.vsj4.runtime.PyBaseException;
 import uk.co.farowl.vsj4.runtime.PyErr;
 import uk.co.farowl.vsj4.runtime.PyExc;
@@ -32,8 +36,24 @@ import uk.co.farowl.vsj4.runtime.internal._PyUtil;
 public abstract sealed class AbstractPyType extends Representation
         implements WithClass, FastCall permits PyType {
 
+    /**
+     * Lookup object with package visibility. This is used by
+     * {@link TypeFactory} to create and expose the type.
+     */
+    static Lookup LOOKUP =
+            MethodHandles.lookup().dropLookupMode(Lookup.PRIVATE);
+
     /** Name of the type (fully-qualified). */
     final String name;
+
+    /**
+     * Feature flags collecting various boolean traits of this type,
+     * such as immutability or being a subclass of {@code int}. Some of
+     * these come fairly directly from the TypeSpec (where used) and
+     * others are observed during construction of the type.
+     */
+    // Compare CPython tp_flags in object.h
+    EnumSet<TypeFlag> features = EnumSet.noneOf(TypeFlag.class);
 
     /**
      * The {@code __bases__} of this type, which are the types named in
@@ -169,6 +189,18 @@ public abstract sealed class AbstractPyType extends Representation
     public abstract List<Class<?>> selfClasses();
 
     /**
+     * Return true if and only if this is a mutable type. The attributes
+     * of a mutable type may be changed, although it will manage that
+     * change according to rules of its own. An immutable type object
+     * does not allow attribute assignment: the value of an attribute
+     * once observed remains valid for the lifetime of the run time
+     * system.
+     *
+     * @return {@code true} iff this is an immutable type
+     */
+    public abstract boolean isMutable();
+
+    /**
      * Find the index in this type corresponding to the class of an
      * object passed as {@code self} to a method of the type.
      *
@@ -230,9 +262,99 @@ public abstract sealed class AbstractPyType extends Representation
         return null;
     }
 
-    /** Lookup object with package visibility. */
-    static Lookup LOOKUP =
-            MethodHandles.lookup().dropLookupMode(Lookup.PRIVATE);
+    /**
+     * How durable is the result of the lookup. This supports the
+     * possibility of a client behaviour adapting to a result that is
+     * valid until a change is notified. See the callback option in
+     * {@link AbstractPyType#lookup(String, Consumer)}.
+     */
+    public enum LookupStatus {
+        /** The result is valid for just this enquiry. */
+        ONCE,
+        /** The result is valid until notified. */
+        CURRENT,
+        /** The result is final: valid forever. */
+        FINAL;
+    }
+
+    /**
+     * Extended information returned from a lookup on a type object when
+     * we need it.
+     *
+     * @param obj the object found
+     * @param where type in which it was found
+     * @param status the extent to which this result is stable
+     */
+    public static record LookupResult(Object obj, PyType where,
+            LookupStatus status) {}
+
+    /**
+     * Lookup for the definition of the name along the MRO, returning an
+     * extended result that includes where it was found and whether it
+     * might change. The caller provides a callback method that will be
+     * called every time the definition of this name changes.
+     *
+     * @param name to look up, must be exactly a {@code str}
+     * @param callback to deliver updates (or {@code null})
+     * @return extended result or {@code null} if not found
+     */
+    // FIXME Support the lookup callback properly
+    // Deal with *some* uses not needing a callback when found on this
+    public LookupResult lookup(String name,
+            Consumer<LookupResult> callback) {
+        /*
+         * CPython wraps this in a cache keyed by (type, name) and
+         * sensitive to the "version" of this type. (Version changes
+         * when any change occurs, even in a super-class, that would
+         * alter the result of a look-up.) We do not reproduce that at
+         * present.
+         */
+
+        // CPython checks here to see in this type is "ready".
+        // Could we be "not ready" in some loop of types? Think not.
+
+        LookupStatus status = LookupStatus.FINAL;
+
+        /* Search along the MRO. */
+        for (PyType base : mro) {
+            Object obj;
+            /*
+             * The result is not FINAL if *any* type on the way is
+             * mutable since that type could later introduce a
+             * definition in front of the one we now find.
+             */
+            if (status == LookupStatus.FINAL && base.isMutable()) {
+                status = callback == null ? LookupStatus.ONCE
+                        : LookupStatus.CURRENT;
+            }
+            if ((obj = base.dict.get(name)) != null) {
+                // We found a definition in type object base.
+                return new LookupResult(obj, base, status);
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Add features flags from the specification. This should be called
+     * at the start of initialising the type so that it can influence
+     * configuration with exposed methods.
+     *
+     * @param spec specification of this type
+     */
+    void addFeatures(TypeSpec spec) {
+        for (Feature f : spec.getFeatures()) { features.add(f.flag); }
+    }
+
+    /**
+     * Add features flags derived from observations of the type itself
+     * (and the specification if necessary).
+     *
+     * @param spec specification of this type
+     */
+    void deriveFeatures(TypeSpec spec) {
+        // XXX descriptor nature from __get__ and __set__
+    }
 
     /**
      * Load the dictionary of this type with attributes discovered by an
@@ -245,6 +367,126 @@ public abstract sealed class AbstractPyType extends Representation
      */
     void populateDict(TypeExposer exposer, TypeSpec spec) {
         exposer.populate(_dict, spec.getLookup());
+        // Fill the cache for each special method (not just defined).
+        for (SpecialMethod sm : SpecialMethod.values()) {
+            updateSpecialMethodCache(sm);
+        }
+    }
+
+    /**
+     * Called from {@link #__setattr__(String, Object)} and
+     * {@link #__delattr__(String)} after an attribute has been set or
+     * deleted. This gives the type the opportunity to recompute caches
+     * and perform any other actions needed.
+     *
+     * @param name of the attribute modified
+     */
+    private void updateAfterSetAttr(String name) {
+
+        // FIXME Notify sub-classes and other watchers.
+        // Think about synchronisation of threads to make this visible.
+
+        SpecialMethod sm;
+        if ((sm = SpecialMethod.forMethodName(name)) != null) {
+            // Update affects a special method cache.
+            updateSpecialMethodCache(sm);
+
+        } else if ("__new__".equals(name)) {
+            // Update affects __new__.
+            // updateNewCache();
+        }
+    }
+
+    /**
+     * Update the cache for each representation of this type, by looking
+     * up the definition along the MRO.
+     *
+     * @param sm the special method
+     */
+    private void updateSpecialMethodCache(SpecialMethod sm) {
+
+        LookupResult result;
+
+        if (sm.cache == null) {
+            // There is no cache for this special method. Ignore.
+            return;
+
+        } else if ((result = lookup(sm.methodName, null)) == null) {
+            /*
+             * The special method is not defined for this type. Install
+             * a handle that throws EmptyException. (Unlike in CPython,
+             * null won't do.)
+             */
+            for (Representation rep : representations()) {
+                sm.setEmpty(rep);
+            }
+        } else if (result.status == LookupStatus.ONCE) {
+            /*
+             * We can't cache the result. Use a generic slot wrapper so
+             * we look it up on the type object every time.
+             */
+            for (Representation rep : representations()) {
+                sm.setGeneric(rep);
+            }
+        } else if (result.obj instanceof MethodDescriptor descr) {
+            /*
+             * A method descriptor can give us a direct handle to the
+             * implementation for a given self class.
+             */
+            updateSpecialMethodCache(sm, result.where, descr);
+        } else {
+            /*
+             * It is a method defined in Python or some other object or
+             * descriptor. Use a generic slot wrapper to look it up (and
+             * bind it) each time.
+             */
+            for (Representation rep : representations()) {
+                sm.setGeneric(rep);
+            }
+        }
+    }
+
+    /**
+     * Update the cache for each representation of this type, from a
+     * method descriptor.
+     *
+     * @param sm the special method
+     * @param where the descriptor was found along the MRO
+     * @param descr the descriptor defining the special method
+     */
+    private void updateSpecialMethodCache(SpecialMethod sm,
+            PyType where, MethodDescriptor descr) {
+        if (where == this) {
+            /*
+             * We found the definition locally. Method descriptors
+             * created for this type explicitly support all its
+             * representations.
+             */
+            for (Representation rep : representations()) {
+                int index = rep.getIndex();
+                sm.setCache(rep, descr.getHandle(index));
+            }
+        } else {
+            /*
+             * The method descriptor is in a super class. Every
+             * representation class of this type must be
+             * assignment-compatible with a self-class where we found
+             * the descriptor.
+             */
+            List<Class<?>> classes = where.selfClasses();
+            int n = classes.size(), index;
+            for (Representation rep : representations()) {
+                for (index = 0; index < n; index++) {
+                    if (classes.get(index)
+                            .isAssignableFrom(javaClass)) {
+                        break;
+                    }
+                }
+                // descr supports this Java class at the given index
+                assert index < n;
+                sm.setCache(rep, descr.getHandle(index));
+            }
+        }
     }
 
     // Special methods -----------------------------------------------

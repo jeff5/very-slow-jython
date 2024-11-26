@@ -212,6 +212,10 @@ public class PyNumber extends Abstract {
         }
     }
 
+    // FIXME Use EmptyException uniformly
+    /* This "empty" does not work for shared representations, which
+     * fill their slot with a redirection to the (mutable) type.
+     */
     private static final MethodHandle BINARY_EMPTY =
             SpecialMethod.Signature.BINARY.empty;
 

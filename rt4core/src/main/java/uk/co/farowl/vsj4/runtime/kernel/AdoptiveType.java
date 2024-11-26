@@ -79,6 +79,9 @@ public final class AdoptiveType extends PyType {
     public List<Class<?>> selfClasses() { return selfClasses; }
 
     @Override
+    public boolean isMutable() { return false; }
+
+    @Override
     public PyType pythonType(Object x) {
         // I don't *think* we should be asked this question unless:
         assert javaClass.isAssignableFrom(x.getClass());

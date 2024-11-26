@@ -609,7 +609,7 @@ public class Abstract {
                 // cls has an __instancecheck__ to consult.
                 // try (RecursionState state = ThreadState
                 // .enterRecursiveCall("in __instancecheck__")) {
-                return isTrue(Callables.callFunction(checker, inst));
+                return isTrue(Callables.call(checker, inst));
                 // }
             } else {
                 /*
@@ -699,7 +699,7 @@ public class Abstract {
             if (checker != null) {
                 // try (RecursionState state = ThreadState
                 // .enterRecursiveCall(" in __subclasscheck__")) {
-                return isTrue(Callables.callFunction(checker, derived));
+                return isTrue(Callables.call(checker, derived));
                 // }
 
             } else {

@@ -148,7 +148,7 @@ class PyTypeTest extends UnitTestSupport {
         @MethodSource("enquiryExamples")
         void enquiry(PyType type, Object obj, String ostr, String tname)
                 throws Throwable {
-            Object t = Callables.callFunction(PyType.TYPE, obj);
+            Object t = Callables.call(PyType.TYPE, obj);
             assertEquals(type, t);
             assertEquals(type, PyType.of(obj));
         }
@@ -274,7 +274,7 @@ class PyTypeTest extends UnitTestSupport {
                 PyDict namespace, Consumer<PyType> test,
                 String strMetatype, String strBases,
                 String strNamespace) throws Throwable {
-            PyType t = (PyType)Callables.callFunction(metatype, name,
+            PyType t = (PyType)Callables.call(metatype, name,
                     bases, namespace);
             // Customised test specified by caller
             test.accept(t);
@@ -298,9 +298,9 @@ class PyTypeTest extends UnitTestSupport {
                 PyDict namespace, Consumer<PyType> test,
                 String strMetatype) throws Throwable {
             assertThrows(PyBaseException.class, () -> Callables
-                    .callFunction(metatype, name, 1, namespace));
+                    .call(metatype, name, 1, namespace));
             assertThrows(PyBaseException.class, () -> Callables
-                    .callFunction(metatype, name, bases, Py.None));
+                    .call(metatype, name, bases, Py.None));
         }
     }
 

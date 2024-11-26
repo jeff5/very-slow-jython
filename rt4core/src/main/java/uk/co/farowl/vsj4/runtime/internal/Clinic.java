@@ -20,16 +20,21 @@ import uk.co.farowl.vsj4.runtime.PyUnicode;
 import uk.co.farowl.vsj4.support.InterpreterError;
 
 /**
- * A collection of methods and {@code MethodHandle}s for converting
- * arguments when calling a Java method from Python. The class enables
- * the implementation of built-in (or extension) Python types to be
- * written in a natural way using Java standard and primitive types.
+ * {@code Clinic} is a collection of methods and {@code MethodHandle}s
+ * for converting arguments and return values when calling a Java method
+ * from Python. The class enables built-in (or extension) Python types
+ * to be written in a natural way, using Java standard and primitive
+ * types. The type and module exposers then dress the handles
+ * representing those methods, using handles here as filters, so that
+ * they conform to the expectations of the Python runtime, either to
+ * find signatures that use only Java {@code Object}, or to find the
+ * particular signature of an intended Python special method.
  * <p>
- * The class name refers to the CPython Argument Clinic (by Larry
- * Hastings) which generates argument processing code for exposed
- * methods defined in C and by a textual header.
+ * The class name refers to the CPython Argument Clinic, a DSL
+ * implementation (by Larry Hastings) that generates argument processing
+ * for built-in functions in the implementation of CPython.
  */
-// Compare CPython *.c.h wrappers
+// Compare CPython Argument Clinic and *.c.h wrappers it generates
 public class Clinic {
     /** Logger for argument wrapping actions. Mostly DEBUG level. */
     final static Logger logger = LoggerFactory.getLogger(Clinic.class);
@@ -41,20 +46,19 @@ public class Clinic {
     private static final Class<?> T = PyType.class;
 
     // Handles for converters from Python to Java types for args
-    // FIXME Cannot be final as <clinit> fails (see below)
-    private static /*final*/ MethodHandle intArgMH;
-    private static /*final*/ MethodHandle doubleArgMH;
-    private static /*final*/ MethodHandle stringArgMH;
+    private static final MethodHandle intArgMH;
+    private static final MethodHandle doubleArgMH;
+    private static final MethodHandle stringArgMH;
 
     // Handle used specifically to validate __new__ calls
-    private static /*final*/ MethodHandle newValidationMH;
+    private static final MethodHandle newValidationMH;
 
     // Handles for converters from Java types to Python for returns
-    private static /*final*/ MethodHandle voidValueMH;
+    private static final MethodHandle voidValueMH;
 
-    private static /*final*/ MethodHandle intValueMH;
-    private static /*final*/ MethodHandle doubleValueMH;
-    private static /*final*/ MethodHandle booleanValueMH;
+    private static final MethodHandle intValueMH;
+    private static final MethodHandle doubleValueMH;
+    private static final MethodHandle booleanValueMH;
 
     /**
      * Helpers used to construct {@code MethodHandle}s for type
@@ -87,7 +91,8 @@ public class Clinic {
 
         } catch (NoSuchMethodException | IllegalAccessException e) {
             // Handle lookup fails somewhere
-            throw new InterpreterError(e, "Failed to initialise Argument Clinic.");
+            throw new InterpreterError(e,
+                    "Failed to initialise Argument Clinic.");
         }
     }
 

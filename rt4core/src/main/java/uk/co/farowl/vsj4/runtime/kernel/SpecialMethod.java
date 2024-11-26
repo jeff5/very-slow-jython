@@ -13,16 +13,15 @@ import java.lang.invoke.VarHandle;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.function.Function;
 
+import uk.co.farowl.vsj4.runtime.Abstract;
 import uk.co.farowl.vsj4.runtime.Callables;
 import uk.co.farowl.vsj4.runtime.ClassShorthand;
-import uk.co.farowl.vsj4.runtime.PyAttributeError;
 import uk.co.farowl.vsj4.runtime.PyBaseException;
 import uk.co.farowl.vsj4.runtime.PyErr;
 import uk.co.farowl.vsj4.runtime.PyExc;
+import uk.co.farowl.vsj4.runtime.PyLong;
 import uk.co.farowl.vsj4.runtime.PyType;
-import uk.co.farowl.vsj4.runtime.kernel.Representation.Adopted;
 import uk.co.farowl.vsj4.runtime.kernel.Representation.Shared;
 import uk.co.farowl.vsj4.support.InterpreterError;
 import uk.co.farowl.vsj4.support.MissingFeature;
@@ -442,7 +441,7 @@ public enum SpecialMethod {
 
     /**
      * Defines {@code __index__} with signature {@link Signature#UNARY},
-     * conversion to an index value.
+     * implementing lossless conversion to a Python {@code int}.
      */
     op_index(Signature.UNARY,
             "Return self converted to an integer, if self is suitable "
@@ -500,7 +499,7 @@ public enum SpecialMethod {
     op_contains(Signature.BINARY_PREDICATE,
             "($self, key, /) Return key in self.");
 
-    /** Method signature to match when filling this slot. */
+    /** Method signature to match when defining the special method. */
     public final Signature signature;
     /** Name of implementation method to bind e.g. {@code "__add__"}. */
     public final String methodName;
@@ -520,13 +519,15 @@ public enum SpecialMethod {
     final VarHandle cache;
 
     /**
-     * The method handle that should be returned by
-     * {@link #handle(Representation)} when the implementation method
-     * must be found by looking up a name on the type of {@code self},
-     * and the call made as if from Python. Special methods exposed from
-     * Java are able to provide their own direct handle. The handle has
-     * the signature {@link #signature} and may add behaviour tailored
-     * to the specific method. This is a constant for the
+     * The method handle that should be invoked when the implementation
+     * method is not fixed for the representation, because it may be
+     * changed at any time, or the single representation applies to
+     * multiple types. We cannot then provide a stable direct handle,
+     * and must look it up by name on the type of {@code self}.
+     * <p>
+     * The handle has the signature {@link #signature} and may add
+     * behaviour, such as validating the return type, tailored to the
+     * specific special method. This is a constant for the
      * {@code SpecialMethod}, whether cached or not.
      * <p>
      * This handle is needed when the the implementation of the special
@@ -534,8 +535,7 @@ public enum SpecialMethod {
      * with any object found in the dictionary of a type.) It may
      * therefore be used to call the special methods of a {@link Shared
      * shared representation} where the clique of replaceable types may
-     * disagree about the implementation method. It embeds a lookup on
-     * the Python type of {@code self}.
+     * disagree about the implementation method.
      *
      * @implNote These weasel words allow the possibility of an
      *     optimisation. All members of the clique share a common
@@ -549,7 +549,7 @@ public enum SpecialMethod {
      */
     // XXX Implement the optimisation (and merge the note).
     // Compare CPython wrapperbase.function in descrobject.h
-    final MethodHandle slot;
+    final MethodHandle generic;
 
     /** Description to use in help messages */
     public final String doc;
@@ -564,7 +564,7 @@ public enum SpecialMethod {
      * @param doc basis of documentation string, allows {@code null},
      *     just a symbol like "+", up to full docstring.
      * @param methodName implementation method (e.g. "__add__")
-     * @param alt alternate slot (e.g. "op_radd")
+     * @param alt alternate special method (e.g. "op_radd")
      */
     SpecialMethod(Signature signature, String doc, String methodName,
             SpecialMethod alt) {
@@ -577,7 +577,7 @@ public enum SpecialMethod {
         this.doc = docstring(doc);
         this.cache = Util.cacheVH(this);
         // FIXME Slot functions not correctly generated.
-        this.slot = null; // Util.slotMH(this);
+        this.generic = Util.slotMH(this);
     }
 
     SpecialMethod(Signature signature) {
@@ -616,10 +616,11 @@ public enum SpecialMethod {
      * </ul>
      *
      * @param rep target representation object
-     * @return current contents of this slot in {@code rep}
+     * @return current contents of this cache in {@code rep}
      */
     public MethodHandle handle(Representation rep) {
         // FIXME: Consider thread safety of slots
+        // FIXME Assumes method has cache (and no redirection).
         if (cache != null) {
             // The handle is cached on the Representation
             return (MethodHandle)cache.get(rep);
@@ -631,55 +632,6 @@ public enum SpecialMethod {
     }
 
     /**
-     * Get (or create) a handle corresponding to this special method and
-     * the given representation. This handle could be placed into the
-     * corresponding cache field on on the {@code Representation} if the
-     * {@code SpecialMethod} is a caching type. (This method does not
-     * pay attention to whether the SpecialMethod *is* a caching type.
-     * In particular it does not get its answer from that cache.)
-     * <p>
-     * The method uses these trategies according to the circumstances:
-     * <ul>
-     * <li>When the representation is also a {@link PyType}, we look up
-     * {@link #methodName} its dictionary to get the handle (at index
-     * zero).</li>
-     * <li>When the representation is an adopted one, we look up
-     * {@link #methodName} the dictionary of the associated type to get
-     * the handle at the relevant {@link Representation#getIndex()
-     * index}.</li>
-     * <li>When the representation is sharable amongst types, there is
-     * no unique type in which to look up a descriptor. Instead we
-     * provide a handle that, when invoked, will consult {@code self}
-     * for its type, look up {@link #methodName} in its dictionary, and
-     * call whatever it finds. This handle is a constant for the
-     * {@code SpecialMethod}.</li>
-     * </ul>
-     *
-     * @param rep for which the handle is intended
-     * @return the handle for invoking
-     */
-    private MethodHandle getUncashedHandle(Representation rep) {
-        // FIXME Temporarily doing everything the slow way
-        if (rep instanceof SimpleType type) {
-            return slot;
-
-        } else if (rep instanceof Adopted adopted) {
-            PyType type = adopted.type;
-            return slot;
-
-        } else if (rep instanceof Shared shared) {
-            return slot;
-        } else {
-            /*
-             * In the circumstances where this is called, this ought to
-             * exhaust the possibilities.
-             */
-            throw new InterpreterError(
-                    "unexpected representation type %s", rep);
-        }
-    }
-
-    /**
      * Test whether this slot is non-empty in the given representation
      * object.
      *
@@ -687,6 +639,7 @@ public enum SpecialMethod {
      * @return true iff defined (non-empty)
      */
     public boolean isDefinedFor(Representation rep) {
+        // FIXME Assumes method has cache (and no redirection).
         return cache.get(rep) != signature.empty;
     }
 
@@ -701,32 +654,8 @@ public enum SpecialMethod {
      */
     public MethodHandle getAltSlot(Representation rep)
             throws NullPointerException {
+        // FIXME Assumes method has cache (and no redirection).
         return (MethodHandle)alt.cache.get(rep);
-    }
-
-    /**
-     * Set a {@code MethodHandle} for the implementation of this
-     * {@code SpecialMethod} in the corresponding cache field of the
-     * given {@link Representation} object. During type construction, we
-     * must always call this method, although not every member of this
-     * {@code enum} caches its handle.
-     *
-     * @param rep target representation object
-     * @param mh handle to set (or {@code null} if not implemented)
-     * @return current contents of this slot in {@code rep}
-     */
-    public void set(Representation rep, MethodHandle mh) {
-        // XXX Should the API let the caller avoid calling this?
-        // FIXME Object instead, so we can reflect any callable.
-        if (cache != null) {
-            if (mh == null) {
-                if (mh.type().equals(getType())) {
-                    cache.set(rep, mh);
-                } else {
-                    throw slotTypeError(this, mh);
-                }
-            }
-        }
     }
 
     /**
@@ -764,6 +693,166 @@ public enum SpecialMethod {
     public MethodHandle getEmpty() { return signature.empty; }
 
     /**
+     * Each of the methods called {@code slot(self, ...)} looks up this
+     * special method by name in the type of its {@code self} argument,
+     * and calls it with the given arguments. A handle on the variant
+     * matching {@link #signature}, and bound to this special method, is
+     * placed in the {@link #generic} member during construction.
+     * <p>
+     * We in-line a specialised variant of attribute access in which we
+     * avoid, if we can, binding a method object to {@code self}.
+     * Instead, we call the unbound method with the {@code self}
+     * argument placed first.
+     * <p>
+     * <b>Comparison with CPython:</b> Our {@code slot()} methods are
+     * equivalent to the {@code  slot_*()} functions found in CPython
+     * {@code Objects/typeobject.c} that fill the type slots when a
+     * pointer to a built-in implementation of the method is not
+     * available. We use them the same way. (See private methods in
+     * {@link AbstractPyType}.) Ours are simpler than CPython's because
+     * we signal an empty slot by a lightweight {@link EmptyException},
+     * rather than by {@code null}. We therefore do not need to
+     * reproduce the logic in the Abstract API, where the presence of a
+     * slot function fools it into thinking the special method is
+     * defined.
+     *
+     * @param self first operand.
+     * @param args other operands.
+     * @param kwds naming the last {@code args} or {@code null}.
+     * @return result of the call
+     * @throws PyBaseException from the call
+     * @throws Throwable from the call
+     */
+    // Compare CPython slot_* in typeobject.c
+    Object slot(Object self, Object[] args, String[] kwds)
+            throws Throwable {
+        PyType type = PyType.of(self);
+        Object meth = type.lookup(methodName);
+        if (meth == null) { throw Util.EMPTY; }
+        return callAsMethod(type, meth, self, args, kwds);
+    }
+
+    Object slot(Object self) throws Throwable {
+        PyType type = PyType.of(self);
+        Object meth = type.lookup(methodName);
+        if (meth == null) { throw Util.EMPTY; }
+        return callAsMethod(type, meth, self);
+    }
+
+    Object slot(Object self, Object w) throws Throwable {
+        PyType type = PyType.of(self);
+        Object meth = type.lookup(methodName);
+        if (meth == null) { throw Util.EMPTY; }
+        return callAsMethod(type, meth, self, w);
+    }
+
+    Object slot(Object self, Object w, Object m) throws Throwable {
+        PyType type = PyType.of(self);
+        Object meth = type.lookup(methodName);
+        if (meth == null) { throw Util.EMPTY; }
+        return callAsMethod(type, meth, self, w, m);
+    }
+
+    Object slot(Object self, Object obj, PyType t) throws Throwable {
+        PyType type = PyType.of(self);
+        Object meth = type.lookup(methodName);
+        if (meth == null) { throw Util.EMPTY; }
+        return callAsMethod(type, meth, self, obj, t);
+    }
+
+    // TODO Specialise callAsMethod up to self, a1, a2, a3 when working
+    private static Object callAsMethod(PyType type, Object meth,
+            Object self, Object... args) throws Throwable {
+        return callAsMethod(type, meth, self, args, null);
+    }
+
+    /**
+     * Call the object we found by lookup on the type of {@code self},
+     * as part of invoking a one of the definitions of
+     * {@link #slot(Object, Object[], String[]) slot(...)}. These are
+     * the slot functions that fill the cache for a special method when
+     * we cannot find a more direct answer (see
+     * {@link SpecialMethod#generic}.
+     *
+     * @param type of {@code self}.
+     * @param obj looked up on {@code type} may be a descriptor.
+     * @param self first operand.
+     * @param args other operands.
+     * @param kwds naming the last {@code args} or {@code null}.
+     * @return result of the call
+     * @throws PyBaseException from the call
+     * @throws Throwable from the call
+     */
+    // Compare CPython vectorcall_unbound in typeobject.c
+    /*
+     * Also lookup_method and lookup_maybe_method. Actually, none of
+     * these is an equivalent. We do roughly the same work as CPython in
+     * our slot* functions, just in a different arrangement, avoiding
+     * the &unbound argument, which is awkward in Java..
+     */
+    private static Object callAsMethod(PyType type, Object obj,
+            Object self, Object[] args, String[] kwds)
+            throws PyBaseException, Throwable {
+        // What kind of object did we find? (Could be anything.)
+        Representation rep =
+                SimpleType.getRegistry().get(obj.getClass());
+        PyType objType = rep.pythonType(obj);
+
+        if (objType.isMethodDescr()) {
+            /*
+             * meth is a method descriptor. Avoid construction of a
+             * bound method, supplying self as the first argument in a
+             * new argument array. Keywords remain valid as they align
+             * to the end.
+             */
+            return callPrepend(obj, self, args, kwds);
+
+        } else {
+            /*
+             * The retrieved dictionary is not a *method* descriptor,
+             * but it might still be a descriptor that we have to bind
+             * to self.
+             */
+            try {
+                // Replace meth with result of descriptor binding.
+                MethodHandle get = SpecialMethod.op_get.handle(rep);
+                obj = get.invokeExact(obj, self, type);
+            } catch (EmptyException e) {
+                // Not a descriptor at all.
+            }
+            /*
+             * meth is now the thing have to call. We do not pass self
+             * here, as meth has either bound self, or decided to ignore
+             * it (e.g. @staticmethod). It ought to be an instance of a
+             * class defining __call__. Or it may be something we can't
+             * actually call, in which case we'll find out next.
+             */
+            return Callables.call(obj, args, kwds);
+        }
+    }
+
+    /**
+     * Call a Python object when the first argument {@code self} is
+     * provided "loose".
+     *
+     * @param meth a Python callable
+     * @param self the first argument
+     * @param args the other arguments
+     * @param kwds keywords to go with the call
+     * @return result of call to {@code meth}
+     * @throws PyBaseException (TypeError) if not callable
+     * @throws Throwable from anything else that goes wrong
+     */
+    private static Object callPrepend(Object meth, Object self,
+            Object[] args, String[] kwds)
+            throws PyBaseException, Throwable {
+        Object[] a = new Object[args.length + 1];
+        a[0] = self;
+        System.arraycopy(args, 0, a, 1, args.length);
+        return Callables.call(meth, args, kwds);
+    }
+
+    /**
      * Get a handle to throw a {@link PyBaseException TypeError} with a
      * message conventional for the slot. This handle has the same
      * signature as the slot, and some data specific to the slot. This
@@ -782,16 +871,50 @@ public enum SpecialMethod {
     }
 
     /**
-     * Set the {@code MethodHandle} of this slot's operation in the
-     * given operations object.
+     * Set the cache for this {@code SpecialMethod} in the
+     * {@link Representation} to the given {@code MethodHandle}.
+     * <p>
+     * If this special method does not have a cache in
+     * {@link Representation} objects, this is a no-op, and effectively
+     * the handle is the generic one.
      *
-     * @param rep target type object
+     * @param rep target {@code Representation}
      * @param mh handle value to assign
      */
-    void setHandle(Representation rep, MethodHandle mh) {
-        if (mh == null || !mh.type().equals(getType()))
-            throw slotTypeError(this, mh);
-        cache.set(rep, mh);
+    void setCache(Representation rep, MethodHandle mh) {
+        if (cache != null) {
+            if (mh == null || !mh.type().equals(getType())) {
+                throw slotTypeError(this, mh);
+            }
+            cache.set(rep, mh);
+        }
+    }
+
+    /**
+     * Set the cache for this {@code SpecialMethod} in the
+     * {@link Representation} to the generic handle. The generic handle
+     * will look up the implementation of the special method on the type
+     * each time it is needed.
+     * <p>
+     * This is the appropriate choice where the implementation of the
+     * special method may change without the opportunity to update the
+     * cache in the representation.
+     *
+     *
+     * @param rep target {@code Representation}
+     * @param mh handle value to assign
+     */
+    void setGeneric(Representation rep) { setCache(rep, generic); }
+
+    /**
+     * Set the cache for this {@code SpecialMethod} in the
+     * {@link Representation} to empty. The empty cache has the expected
+     * {@code MethodType} but throws {@link EmptyException}.
+     *
+     * @param rep target {@code Representation}
+     */
+    void setEmpty(Representation rep) {
+        setCache(rep, signature.empty);
     }
 
     @Override
@@ -1021,153 +1144,6 @@ public enum SpecialMethod {
         }
     }
 
-    Object unarySlot(Object self) throws PyBaseException, Throwable {
-        /*
-         * We in-line a specialised variant of attribute access in which
-         * we avoid, if we can, binding a method object to self, and
-         * call it instead with the self argument at args[0].
-         */
-        // Compare CPython lookup_method and lookup_maybe_method
-        PyType type = PyType.of(self);
-        Object r = type.lookup(methodName);
-
-        if (r == null) {
-            // XXX Provide way to raise AttributeError with just args
-            throw PyErr.format(PyExc.AttributeError,
-                    "'%s' object has no attribute %s", type.getName(),
-                    methodName);
-        }
-
-        return callAsMethod(type, r, NO_ARGS);
-    }
-
-    /**
-     * Call this special method with positional arguments provided in an
-     * array, with {@code self} at {@code args[0]}. Each
-     * {@code SpecialMethod} contains a handle on this method bound to
-     * itself. It uses this as the default slot contents when the
-     * implementation can only be found by looking up a name on the
-     * type.
-     *
-     * @return result of call
-     * @throws Throwable
-     * @throws PyAttributeError
-     */
-    // Compare CPython vectorcall_method in typeobject.c
-    Object callByLookup(Object[] args)
-            throws PyBaseException, Throwable {
-        /*
-         * We in-line a specialised variant of attribute access in which
-         * we avoid, if we can, binding a method object to self, and
-         * call it instead with the self argument at args[0].
-         */
-        // Compare CPython lookup_method and lookup_maybe_method
-        Object self = args[0];
-        PyType type = PyType.of(self);
-        Object r = type.lookup(methodName);
-
-        if (r == null) {
-            // XXX Provide way to raise AttributeError with just args
-            throw PyErr.format(PyExc.AttributeError,
-                    "'%s' object has no attribute %s", type.getName(),
-                    methodName);
-        }
-
-        Representation rep = Util.registry.get(r.getClass());
-
-        if (rep.isMethodDescr()) {
-            /*
-             * The retrieved r is a method descriptor. This means we can
-             * avoid construction of a bound method, supplying self as
-             * the first argument in the array (where it is already).
-             */
-            // Compare CPython vectorcall_unbound when unbound=true
-            return Callables.call(r, args, null);
-
-        } else {
-            /*
-             * The retrieved r is not a *method* descriptor, but it
-             * might still be a descriptor.
-             */
-            MethodHandle get = SpecialMethod.op_get.handle(rep);
-            try {
-                // Replace r with the result of descriptor binding.
-                r = get.invokeExact(r, self, type);
-            } catch (EmptyException e) {
-                // No, it's not a descriptor. r is the value already.
-            }
-            /*
-             * r is now a method (well, an object, anyway) that has
-             * either bound self or decided to ignore it. It may be a
-             * static method or an instance of a class defining __call__
-             * but not __get__. Or it may be something we can't call at
-             * all, in which case we'll find that out now.
-             */
-            // Compare CPython vectorcall_unbound when unbound=false
-            return Callables.vectorcall(r, args, 1, args.length - 1);
-        }
-    }
-
-    Object callByLookup2(Object[] args)
-            throws PyBaseException, Throwable {
-        /*
-         * We in-line a specialised variant of attribute access in which
-         * we avoid, if we can, binding a method object to self, and
-         * call it instead with the self argument at args[0].
-         */
-        // Compare CPython lookup_method and lookup_maybe_method
-        Object self = args[0];
-        PyType type = PyType.of(self);
-        Object r = type.lookup(methodName);
-
-        if (r == null) {
-            // XXX Provide way to raise AttributeError with just args
-            throw PyErr.format(PyExc.AttributeError,
-                    "'%s' object has no attribute %s", type.getName(),
-                    methodName);
-        }
-
-        return callAsMethod(type, r, args);
-    }
-
-    private static Object callAsMethod(PyType type, Object entry,
-            Object[] args) throws Throwable {
-        Representation rep = Util.registry.get(entry.getClass());
-
-        if (rep.isMethodDescr()) {
-            /*
-             * The retrieved r is a method descriptor. This means we can
-             * avoid construction of a bound method, supplying self as
-             * the first argument in the array (where it is already).
-             */
-            // Compare CPython vectorcall_unbound when unbound=true
-            return Callables.call(entry, args, null);
-
-        } else {
-            /*
-             * The retrieved r is not a *method* descriptor, but it
-             * might still be a descriptor.
-             */
-            MethodHandle get = SpecialMethod.op_get.handle(rep);
-            try {
-                // Replace r with the result of descriptor binding.
-                entry = get.invokeExact(entry, args[0], type);
-            } catch (EmptyException e) {
-                // No, it's not a descriptor. r is the value already.
-            }
-            /*
-             * r is now a method (well, an object, anyway) that has
-             * either bound self or decided to ignore it. It may be a
-             * static method or an instance of a class defining __call__
-             * but not __get__. Or it may be something we can't call at
-             * all, in which case we'll find that out now.
-             */
-            // Compare CPython vectorcall_unbound when unbound=false
-            return Callables.vectorcall(entry, args, 1,
-                    args.length - 1);
-        }
-    }
-
     /**
      * Helpers for {@link SpecialMethod} and {@link Signature} that can
      * be used in the constructors of {@code SpecialMethod} values,
@@ -1183,12 +1159,7 @@ public enum SpecialMethod {
          * constructors need them.
          */
 
-        /**
-         * The type registry for this instance of the run time system,
-         * which was statically created by PyType.
-         */
-        static final TypeRegistry registry = SimpleType.getRegistry();
-
+        /** Rights to look up methods locally. */
         private static final Lookup LOOKUP = MethodHandles.lookup();
 
         /**
@@ -1196,6 +1167,34 @@ public enum SpecialMethod {
          * {@code SpecialMethod.EmptyException}
          */
         static final EmptyException EMPTY = new EmptyException();
+
+        /**
+         * Method handle on {@link PyLong#asInt(Object)}, which converts
+         * an {@code Object} that is expected to be a Python {@code int}
+         * to a Java primitive {@code int}. This may raise
+         * {@code TypeError} or {@code OverflowError}.
+         */
+        static final MethodHandle asJavaInt;
+
+        /**
+         * Method handle on {@link Abstract#isTrue(Object)}, which
+         * converts an {@code Object} to a Java primitive
+         * {@code boolean}. This may raise {@code TypeError}.
+         */
+        static final MethodHandle asJavaBoolean;
+
+        static {
+            try {
+                asJavaInt = LOOKUP.findStatic(PyLong.class, "asInt",
+                        MethodType.methodType(I, O));
+                asJavaBoolean = LOOKUP.findStatic(Abstract.class,
+                        "isTrue", MethodType.methodType(B, O));
+            } catch (NoSuchMethodException | IllegalAccessException e) {
+                // Handle lookup fails somewhere
+                throw new InterpreterError(e,
+                        "Failed to initialise SpecialMethod.Util.");
+            }
+        }
 
         /**
          * Helper for {@link SpecialMethod} constructors at the point
@@ -1208,10 +1207,10 @@ public enum SpecialMethod {
          * @return a handle for the cache field or {@code null}
          */
         static VarHandle cacheVH(SpecialMethod sm) {
-            Class<?> opsClass = Representation.class;
+            Class<?> repClass = Representation.class;
             try {
                 // The field has the same name as the enum member
-                return LOOKUP.findVarHandle(opsClass, sm.name(),
+                return LOOKUP.findVarHandle(repClass, sm.name(),
                         MethodHandle.class);
             } catch (NoSuchFieldException | IllegalAccessException e) {
                 return null;
@@ -1228,17 +1227,45 @@ public enum SpecialMethod {
          */
         static MethodHandle slotMH(SpecialMethod sm) {
 
-            // The type of the method that makes the call
-            MethodType callMT = MethodType.methodType(O, OA);
-            MethodType slotMT = sm.signature.type;
-            int n = slotMT.parameterCount();
+            /*
+             * There are several SpecialMethod.slot() methods. The one
+             * we want has the same arguments (after "this") as the
+             * special method itself, but returns Object (because the
+             * implementing method does.)
+             */
+            MethodType mt = sm.signature.type;
+            MethodType slotMT = mt.changeReturnType(O);
+            // Primitive types may be cast to Object by Java's defaults
+            if (mt.parameterCount() > 1) {
+                if (mt.parameterType(1).equals(S)) {
+                    // Cast a name to Object (GETATTR etc.)
+                    slotMT = slotMT.changeParameterType(1, O);
+                }
+            }
 
             try {
-                MethodHandle call = LOOKUP.findVirtual(
-                        SpecialMethod.class, "callByLookup", callMT);
-                MethodHandle f = call.bindTo(sm).asCollector(OA, n);
-                return f.asType(slotMT);
-
+                /*
+                 * Find the right SpecialMethod.slot() to match the
+                 * (input) arguments. We do not need any Python-specific
+                 * conversions (unlike CPython). The match in
+                 * findVirtual does not include the 'this' argument.
+                 * Allow sm to have overridden slot.
+                 */
+                MethodHandle call = LOOKUP.findVirtual(sm.getClass(),
+                        "slot", slotMT);
+                MethodHandle f = call.bindTo(sm);
+                /*
+                 * Explicitly convert the return value by Python rules
+                 * if it is boolean or int.
+                 */
+                Class<?> returnType = mt.returnType();
+                if (returnType.equals(B)) {
+                    f = MethodHandles.filterReturnValue(f,
+                            asJavaBoolean);
+                } else if (returnType.equals(I)) {
+                    f = MethodHandles.filterReturnValue(f, asJavaInt);
+                }
+                return f.asType(mt);
             } catch (NoSuchMethodException | IllegalAccessException e) {
                 throw new InterpreterError(e,
                         "creating wrapper to call %s", sm.methodName);
@@ -1424,17 +1451,17 @@ public enum SpecialMethod {
     static final Object[] NO_ARGS = new Object[0];
 
     /**
-     * Helper for {@link SpecialMethod#setHandle(PyType, MethodHandle)},
+     * Helper for {@link SpecialMethod#setCache(PyType, MethodHandle)},
      * when a bad handle is presented.
      *
-     * @param slot that the client attempted to set
+     * @param sm that the client attempted to set
      * @param mh offered value found unsuitable
      * @return exception with message filled in
      */
-    private static InterpreterError slotTypeError(SpecialMethod slot,
+    private static InterpreterError slotTypeError(SpecialMethod sm,
             MethodHandle mh) {
         String fmt = "%s not of required type %s for slot %s";
-        return new InterpreterError(fmt, mh, slot.getType(), slot);
+        return new InterpreterError(fmt, mh, sm.getType(), sm);
     }
 
     /**
@@ -1462,6 +1489,18 @@ public enum SpecialMethod {
     public PyBaseException operandError(Object v, Object w) {
         return PyErr.format(PyExc.TypeError, UNSUPPORTED_TYPES, opName,
                 PyType.of(v).getName(), PyType.of(w).getName());
+    }
+
+    /**
+     * Create anAttributeError to throw.
+     *
+     * @param type that does not have this special method.
+     * @return to throw
+     */
+    PyBaseException attributeError(PyType type) {
+        return PyErr.format(PyExc.AttributeError,
+                "'%s' object has no attribute %s", type.getName(),
+                methodName);
     }
 
     private static final String UNSUPPORTED_TYPES =

@@ -129,8 +129,13 @@ public abstract class Representation {
      * with {@link #javaClass}. The returned handle has the signature
      * required by the particular special method, and is not bound to
      * {@code self}.
+     *
+     * @deprecated This is questionable now: see
+     *     {@link SpecialMethod#generic} and the slot functions.
      */
     // Compare CPython SLOT* macros in typeobject.c
+    // FIXME Isn't this superseded by SpecialMethod.slot*() etc..
+    @Deprecated
     public MethodHandle handle(SpecialMethod sm, Object self) {
         MethodHandle mh;
         if (sm.cache != null) {
@@ -141,7 +146,6 @@ public abstract class Representation {
             // XXX Could in-line getting the type if we specialise.
             PyType type = pythonType(self);
             // XXX Abstract rest as find method we use during caching?
-            // FIXME If lookup traverses the MRO set index to zero.
             Object attr = type.lookup(sm.methodName);
             if (attr instanceof MethodDescriptor method) {
                 // XXX What if javaClass isn't expected self class?
@@ -157,8 +161,8 @@ public abstract class Representation {
 
     /**
      * Fast check that the target is exactly a Python {@code int}. We
-     * can do this without reference to the object itself, since it is
-     * deducible from the Java class.
+     * can do this without reference to the object itself, or even the
+     * type, since it is deducible from the Java class.
      *
      * @implNote The result may be incorrect during type system
      *     bootstrap.
@@ -169,8 +173,8 @@ public abstract class Representation {
 
     /**
      * Fast check that the target is exactly a Python {@code float}. We
-     * can do this without reference to the object itself, since it is
-     * deducible from the Java class.
+     * can do this without reference to the object itself, or even the
+     * type, since it is deducible from the Java class.
      *
      * @implNote The result may be incorrect during type system
      *     bootstrap.
@@ -183,14 +187,20 @@ public abstract class Representation {
      * Fast check that the target is a data descriptor.
      *
      * @return target is a data descriptor
+     * @deprecated Only valid when asking a type
      */
+    // FIXME Only valid when asking a type
+    @Deprecated
     public boolean isDataDescr() { return false; }
 
     /**
      * Fast check that the target is a method descriptor.
      *
      * @return target is a method descriptor
+     * @deprecated Only valid when asking a type
      */
+    // FIXME Only valid when asking a type
+    @Deprecated
     public boolean isMethodDescr() { return false; }
 
     // ---------------------------------------------------------------
@@ -330,25 +340,40 @@ public abstract class Representation {
         }
     }
 
-    // XXX Do these still need to be public?
-    /** Cache of {@link SpecialMethod#__repr__} */
-    public MethodHandle op_repr;
-    /** Cache of {@link SpecialMethod#__str__} */
-    public MethodHandle op_str;
-    /** Cache of {@link SpecialMethod#__call__} */
-    public MethodHandle op_call;
+    // TODO Consider encapsulating in getters.
 
-    /** Cache of {@link SpecialMethod#__neg__} */
+    /** Cache of {@link SpecialMethod#op_repr __repr__} */
+    public MethodHandle op_repr;
+    /** Cache of {@link SpecialMethod#op_hash __hash__} */
+    public MethodHandle op_hash;
+    /** Cache of {@link SpecialMethod#op_call __call__} */
+    public MethodHandle op_call;
+    /** Cache of {@link SpecialMethod#op_str __str__} */
+    public MethodHandle op_str;
+
+    /** Cache of {@link SpecialMethod#op_add __add__} */
+    public MethodHandle op_add;
+    /** Cache of {@link SpecialMethod#op_radd __radd__} */
+    public MethodHandle op_radd;
+
+    /** Cache of {@link SpecialMethod#op_neg __neg__} */
     public MethodHandle op_neg;
-    /** Cache of {@link SpecialMethod#__abs__} */
+    /** Cache of {@link SpecialMethod#op_abs __abs__} */
     public MethodHandle op_abs;
-    /** Cache of {@link SpecialMethod#__invert__} */
+    /** Cache of {@link SpecialMethod#op_invert __invert__} */
     public MethodHandle op_invert;
 
-    /** Cache of {@link SpecialMethod#__int__} */
+    /** Cache of {@link SpecialMethod#op_int __int__} */
     public MethodHandle op_int;
-    /** Cache of {@link SpecialMethod#__index__} */
+    /** Cache of {@link SpecialMethod#op_index __index__} */
     public MethodHandle op_index;
+
+    /** Cache of {@link SpecialMethod#op_len __len__} */
+    public MethodHandle op_len;
+    /** Cache of {@link SpecialMethod#op_getitem __getitem__} */
+    public MethodHandle op_getitem;
+    /** Cache of {@link SpecialMethod#op_setitem __setitem__} */
+    public MethodHandle op_setitem;
 
     static abstract sealed class Accessor permits SpecialMethod.Util {
 

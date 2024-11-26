@@ -207,10 +207,10 @@ public class Callables extends Abstract {
      * Call an object with the vector call protocol with some arguments
      * given by keyword. This supports CPython byte code generated
      * according to the conventions in PEP-590. Unlike its use in
-     * CPython, this is <b>not likely to be fundamentally faster</b> than the standard
-     * {@link #call(Object, Object[], String[]) call} method.
-     * It can be an efficient way to drop arguments (e.g {@code self})
-     * from the call.
+     * CPython, this is <b>not likely to be fundamentally faster</b>
+     * than the standard {@link #call(Object, Object[], String[]) call}
+     * method. It can be an efficient way to drop arguments (e.g
+     * {@code self}) from the call.
      *
      * @see FastCall#vectorcall(Object[], int, int, String[])
      *
@@ -225,8 +225,8 @@ public class Callables extends Abstract {
      */
     // Compare CPython _PyObject_Vectorcall in abstract.h
     // In CPython nargs counts only positional arguments
-    public static Object vectorcall(Object callable, Object[] stack, int start,
-            int nargs, PyTuple kwnames) throws Throwable {
+    public static Object vectorcall(Object callable, Object[] stack,
+            int start, int nargs, PyTuple kwnames) throws Throwable {
         String[] names = Callables.namesArray(kwnames);
         if (callable instanceof FastCall fast) {
             // Fast path recognising optimised callable
@@ -243,13 +243,40 @@ public class Callables extends Abstract {
     }
 
     /**
+     * Call an object with the vector call protocol with some arguments
+     * given by keyword.
+     *
+     * @see FastCall#vectorcall(Object[], int, int, String[])
+     *
+     * @param callable target
+     * @param stack positional and keyword arguments
+     * @param start position of arguments in the array
+     * @param nargs number of positional <b>and keyword</b> arguments
+     * @param kwnames names of keyword arguments or {@code null}
+     * @return the return from the call to the object
+     * @throws PyBaseException(TypeError) if target is not callable
+     * @throws Throwable for errors raised in the function
+     */
+    // Compare CPython _PyObject_Vectorcall in abstract.h
+    // In CPython nargs counts only positional arguments
+    public static Object vectorcall(Object callable, Object[] stack,
+            int start, int nargs, String[] names) throws Throwable {
+        if (names == null || names.length == 0) {
+            return vectorcall(callable, stack, start, nargs);
+        } else {
+            return vectorcall(callable, stack, start, nargs,
+                    PyTuple.from(names));
+        }
+    }
+
+    /**
      * Call an object with the vector call protocol with no arguments
      * given by keyword. This supports CPython byte code generated
      * according to the conventions in PEP-590. Unlike its use in
-     * CPython, this is <b>not likely to be fundamentally faster</b> than the standard
-     * {@link #call(Object, Object[], String[]) call} method.
-     * It can be an efficient way to drop arguments (e.g {@code self})
-     * from the call.
+     * CPython, this is <b>not likely to be fundamentally faster</b>
+     * than the standard {@link #call(Object, Object[], String[]) call}
+     * method. It can be an efficient way to drop arguments (e.g
+     * {@code self}) from the call.
      *
      * @see FastCall#vectorcall(Object[], int, int)
      *
@@ -262,8 +289,8 @@ public class Callables extends Abstract {
      * @throws Throwable for errors raised in the function
      */
     // Compare CPython _PyObject_Vectorcall in abstract.h
-    public static Object vectorcall(Object callable, Object[] stack, int start,
-            int nargs) throws PyBaseException, Throwable {
+    public static Object vectorcall(Object callable, Object[] stack,
+            int start, int nargs) throws PyBaseException, Throwable {
         if (callable instanceof FastCall fast) {
             // Fast path recognising optimised callable
             try {
@@ -306,6 +333,137 @@ public class Callables extends Abstract {
     }
 
     /**
+     * Call an object with no arguments.
+     *
+     * @param callable target
+     * @return the return from the call to the object
+     * @throws PyBaseException(TypeError) if target is not callable
+     * @throws Throwable for errors raised in the function
+     */
+    // Compare CPython _PyObject_CallNoArg in abstract.h
+    // and _PyObject_Vectorcall in abstract.h
+    static Object call(Object callable) throws Throwable {
+        if (callable instanceof FastCall fast) {
+            // Fast path recognising optimised callable
+            try {
+                return fast.call();
+            } catch (ArgumentError ae) {
+                // Demand a proper TypeError.
+                throw fast.typeError(ae, NO_ARGS);
+            }
+        }
+        // Fast call is not supported by the type. Make standard call.
+        return call(callable, NO_ARGS, NO_KEYWORDS);
+    }
+
+    /**
+     * Call an object with one positional argument.
+     *
+     * @param callable target
+     * @param a0 single argument (may be {@code self})
+     * @return the return from the call to the object
+     * @throws PyBaseException(TypeError) if target is not callable
+     * @throws Throwable for errors raised in the function
+     */
+    // Compare CPython PyObject_CallFunctionObjArgs in call.c
+    public static Object call(Object callable, Object a0)
+            throws Throwable {
+        if (callable instanceof FastCall fast) {
+            // Fast path recognising optimised callable
+            try {
+                return fast.call(a0);
+            } catch (ArgumentError ae) {
+                // Demand a proper TypeError.
+                throw fast.typeError(ae, new Object[] {a0});
+            }
+        }
+        // Fast call is not supported by the type. Make standard call.
+        return call(callable, new Object[] {a0}, NO_KEYWORDS);
+    }
+
+    /**
+     * Call an object with two positional arguments.
+     *
+     * @param callable target
+     * @param a0 zeroth argument (may be {@code self})
+     * @param a1 next argument
+     * @return the return from the call to the object
+     * @throws PyBaseException(TypeError) if target is not callable
+     * @throws Throwable for errors raised in the function
+     */
+    // Compare CPython PyObject_CallFunctionObjArgs in call.c
+    public static Object call(Object callable, Object a0, Object a1)
+            throws Throwable {
+        if (callable instanceof FastCall fast) {
+            // Fast path recognising optimised callable
+            try {
+                return fast.call(a0, a1);
+            } catch (ArgumentError ae) {
+                // Demand a proper TypeError.
+                throw fast.typeError(ae, new Object[] {a0, a1});
+            }
+        }
+        // Fast call is not supported by the type. Make standard call.
+        return call(callable, new Object[] {a0, a1}, NO_KEYWORDS);
+    }
+
+    /**
+     * Call an object with three positional arguments.
+     *
+     * @param callable target
+     * @param a0 zeroth argument (may be {@code self})
+     * @param a1 next argument
+     * @param a2 next argument
+     * @return the return from the call to the object
+     * @throws PyBaseException(TypeError) if target is not callable
+     * @throws Throwable for errors raised in the function
+     */
+    // Compare CPython PyObject_CallFunctionObjArgs in call.c
+    public static Object call(Object callable, Object a0, Object a1,
+            Object a2) throws Throwable {
+        if (callable instanceof FastCall fast) {
+            // Fast path recognising optimised callable
+            try {
+                return fast.call(a0, a1, a2);
+            } catch (ArgumentError ae) {
+                // Demand a proper TypeError.
+                throw fast.typeError(ae, new Object[] {a0, a1, a2});
+            }
+        }
+        // Fast call is not supported by the type. Make standard call.
+        return call(callable, new Object[] {a0, a1, a2}, NO_KEYWORDS);
+    }
+
+    /**
+     * Call an object with four positional arguments.
+     *
+     * @param callable target
+     * @param a0 zeroth argument (may be {@code self})
+     * @param a1 next argument
+     * @param a2 next argument
+     * @param a3 next argument
+     * @return the return from the call to the object
+     * @throws PyBaseException(TypeError) if target is not callable
+     * @throws Throwable for errors raised in the function
+     */
+    // Compare CPython PyObject_CallFunctionObjArgs in call.c
+    public static Object call(Object callable, Object a0, Object a1,
+            Object a2, Object a3) throws Throwable {
+        if (callable instanceof FastCall fast) {
+            // Fast path recognising optimised callable
+            try {
+                return fast.call(a0, a1, a2, a3);
+            } catch (ArgumentError ae) {
+                // Demand a proper TypeError.
+                throw fast.typeError(ae, new Object[] {a0, a1, a2, a3});
+            }
+        }
+        // Fast call is not supported by the type. Make standard call.
+        return call(callable, new Object[] {a0, a1, a2, a3},
+                NO_KEYWORDS);
+    }
+
+    /**
      * Call an object with positional arguments supplied from Java as
      * {@code Object}s. This is equivalent to
      * {@code call(callable, args, NO_KEYWORDS)}. The name differs from
@@ -319,33 +477,9 @@ public class Callables extends Abstract {
      * @throws Throwable for errors raised in the function
      */
     // Compare CPython PyObject_CallFunctionObjArgs in call.c
-    static Object callFunction(Object callable, Object... args)
+    public static Object call(Object callable, Object... args)
             throws Throwable {
         return call(callable, args, NO_KEYWORDS);
-    }
-
-    /**
-     * Call an object with no arguments.
-     *
-     * @param callable target
-     * @return the return from the call to the object
-     * @throws PyBaseException(TypeError) if target is not callable
-     * @throws Throwable for errors raised in the function
-     */
-    // Compare CPython _PyObject_CallNoArg in abstract.h
-    // and _PyObject_Vectorcall in abstract.h
-    static Object call(Object callable) throws Throwable {
-        if (callable instanceof FastCall fast) {
-            // Take the short-cut.
-            try {
-                return fast.call();
-            } catch (ArgumentError ae) {
-                // Demand a proper TypeError.
-                throw fast.typeError(ae, NO_ARGS);
-            }
-        }
-        // Fast call is not supported by the type. Make standard call.
-        return call(callable, NO_ARGS, NO_KEYWORDS);
     }
 
     /**
@@ -363,7 +497,7 @@ public class Callables extends Abstract {
     static Object callMethod(Object obj, String name, Object... args)
             throws PyAttributeError, Throwable {
         Object callable = getAttr(obj, name);
-        return callFunction(callable, args);
+        return call(callable, args);
     }
 
     /**
@@ -399,7 +533,7 @@ public class Callables extends Abstract {
      * @param kwname actual object offered as a keyword
      * @return exception to throw
      */
-    public static PyBaseException keywordTypeError(Object kwname) {
+    static PyBaseException keywordTypeError(Object kwname) {
         String fmt = "keywords must be strings, not '%.200s'";
         return PyErr.format(PyExc.TypeError, fmt,
                 PyType.of(kwname).getName());

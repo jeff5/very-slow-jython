@@ -48,11 +48,13 @@ public enum Feature {
      * Instances of the type object are treated as sequences for pattern
      * matching.
      */
+    // Compare CPython Py_TPFLAGS_SEQUENCE
     SEQUENCE(TypeFlag.SEQUENCE),
     /**
      * Instances of the type object are treated as mappings for pattern
      * matching
      */
+    // Compare CPython Py_TPFLAGS_MAPPING
     MAPPING(TypeFlag.MAPPING),
 
     /**
@@ -61,10 +63,11 @@ public enum Feature {
      * against the subject itself (rather than a mapped attribute on
      * it).
      */
+    // Compare CPython _Py_TPFLAGS_MATCH_SELF
     MATCH_SELF(TypeFlag.MATCH_SELF);
 
     /** Navigate from feature to corresponding type flag. */
-    final TypeFlag flag;
+    public final TypeFlag flag;
 
     private Feature(TypeFlag flag) { this.flag = flag; }
 }

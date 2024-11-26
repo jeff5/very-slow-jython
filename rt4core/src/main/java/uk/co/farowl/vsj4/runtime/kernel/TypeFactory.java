@@ -720,6 +720,7 @@ public class TypeFactory {
                  * self-classes but no representation is created.
                  */
                 assert primary != null;
+                assert spec.getFeatures().contains(Feature.IMMUTABLE);
 
                 // Construct the type, creating representations.
                 AdoptiveType at = new AdoptiveType(name, primary, bases,
@@ -794,17 +795,31 @@ public class TypeFactory {
         private void exposeType(Task task) {
             // Run the exposure process on the type.
             TypeSpec spec = task.spec;
+            AbstractPyType type = task.type;
+
+            // Set feature flags
+            type.addFeatures(spec);
+
             TypeExposer exposer = exposerFactory.apply(task.type);
 
-            // Gather attributes from the specified impl classes.
+            /*
+             * Gather attributes from the specified method
+             * implementation classes. Definitions (descriptors)
+             * accumulate in the exposer.
+             */
             for (Class<?> c : spec.getMethodImpls()) {
                 // Scan class c for method/attribute definitions.
                 exposer.expose(c);
             }
 
-            // Populate the dictionary of the type with descriptors.
-            AbstractPyType type = task.type;
+            /*
+             * Populate the dictionary of the type with the accumulated
+             * descriptors.
+             */
             type.populateDict(exposer, spec);
+
+            // Derive remaining feature flags
+            type.deriveFeatures(spec);
         }
 
         /**
@@ -967,10 +982,11 @@ public class TypeFactory {
             this.primary(type.javaClass()).bases(type.bases);
         }
     }
+
     /**
-     * A specification of a bootstrap a type object. We do this as a shorthand for
-     * {@link TypeFactory#createBootstrapTypes()}, as we find the same
-     * parameters repeatedly.
+     * A specification of a bootstrap a type object. We do this as a
+     * shorthand for {@link TypeFactory#createBootstrapTypes()}, as we
+     * find the same parameters repeatedly.
      */
     private class BootstrapSpec extends TypeSpec {
         /**
@@ -981,7 +997,8 @@ public class TypeFactory {
          */
         BootstrapSpec(String name, Class<?> primary) {
             super(name, runtimeLookup, false);
-            this.primary(primary).methodImpls(primary);
+            this.primary(primary).methodImpls(primary)
+                    .add(Feature.IMMUTABLE);
         }
     }
 }

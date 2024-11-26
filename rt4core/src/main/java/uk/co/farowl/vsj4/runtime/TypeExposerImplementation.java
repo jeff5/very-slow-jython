@@ -145,8 +145,8 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
 
                 // If it has a special method name record a definition.
                 String name = m.getName();
-                SpecialMethod slot = SpecialMethod.forMethodName(name);
-                if (slot != null) { addWrapperSpec(m, slot); }
+                SpecialMethod sm = SpecialMethod.forMethodName(name);
+                if (sm != null) { addWrapperSpec(m, sm); }
             }
         }
     }
@@ -210,14 +210,15 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
 // }
 
     /**
-     * Process a method that matches a slot name to a descriptor
-     * specification and add it to the table of specifications by name.
+     * Process a method that matches a special method name to a
+     * descriptor specification and add it to the table of
+     * specifications by name.
      *
      * @param meth method annotated
-     * @param slot annotation encountered
+     * @param sm annotation encountered
      * @throws InterpreterError on duplicates or unsupported types
      */
-    private void addWrapperSpec(Method meth, SpecialMethod slot)
+    private void addWrapperSpec(Method meth, SpecialMethod sm)
             throws InterpreterError {
 
         // For clarity, name lambda expression for cast
@@ -226,8 +227,8 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
                 spec -> spec instanceof WrapperSpec ? (WrapperSpec)spec
                         : null;
         // Now use the generic create/update
-        addSpec(meth, slot.methodName, cast,
-                (String ignored) -> new WrapperSpec(slot), ms -> {},
+        addSpec(meth, sm.methodName, cast,
+                (String ignored) -> new WrapperSpec(sm), ms -> {},
                 WrapperSpec::add);
     }
 
@@ -736,11 +737,11 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
     static class WrapperSpec extends BaseMethodSpec {
 
         /** The special method being defined. */
-        final SpecialMethod slot;
+        final SpecialMethod sm;
 
-        WrapperSpec(SpecialMethod slot) {
-            super(slot.methodName, ScopeKind.TYPE);
-            this.slot = slot;
+        WrapperSpec(SpecialMethod sm) {
+            super(sm.methodName, ScopeKind.TYPE);
+            this.sm = sm;
         }
 
         @Override
@@ -771,11 +772,11 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
         /**
          * {@inheritDoc}
          * <p>
-         * In this case, we name the slot function, as there is no
+         * In this case, we name the special method, as there is no
          * annotation.
          */
         @Override
-        protected String annoClassName() { return slot.toString(); }
+        protected String annoClassName() { return sm.toString(); }
 
         /**
          * Create a {@code PyWrapperDescr} from this specification. Note
@@ -793,7 +794,7 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
                 throws InterpreterError {
 
             // Acceptable methods can be coerced to this signature
-            MethodType slotType = slot.getType();
+            MethodType slotType = sm.getType();
             final int L = slotType.parameterCount();
             assert L >= 1;
 
@@ -854,7 +855,7 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
                 if (wrapped[i] == null) {
                     throw new InterpreterError(
                             "'%s.%s' not defined for %s",
-                            objclass.getName(), slot.methodName, sc);
+                            objclass.getName(), sm.methodName, sc);
                 }
             }
 
@@ -863,7 +864,7 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
                  * There is only one definition so use the simpler form
                  * of slot-wrapper. This is the frequent case.
                  */
-                return new PyWrapperDescr.Single(objclass, slot,
+                return new PyWrapperDescr.Single(objclass, sm,
                         wrapped[0]);
             else
                 /*
@@ -872,7 +873,7 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
                  * multiple accepted implementations and methods on them
                  * that are not static or "Object self".
                  */
-                return new PyWrapperDescr.Multiple(objclass, slot,
+                return new PyWrapperDescr.Multiple(objclass, sm,
                         wrapped);
         }
 
