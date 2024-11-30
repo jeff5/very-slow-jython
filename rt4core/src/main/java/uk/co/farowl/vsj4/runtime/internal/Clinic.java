@@ -111,8 +111,8 @@ public class Clinic {
      * {@code BigInteger}), the handle to a standard conversion
      * accepting an {@code Object} argument will be supplied. These
      * conversions will throw a Python exception (often
-     * {@link TypeError}), when invoked on objects they cannot convert,
-     * according to the usual behaviour of Python.
+     * {@link PyBaseException TypeError}), when invoked on objects they
+     * cannot convert, according to the usual behaviour of Python.
      * <p>
      * Where the existing method expects some other reference type, a
      * {@code null} conversion will be supplied. If the reference type
@@ -176,7 +176,7 @@ public class Clinic {
      * This adapter will often be a constructor for the implementation
      * type or equivalent convenience method. If the return type of is
      * {@code void.class}, the adapter takes no arguments and produces
-     * {@link Py#None}. .
+     * {@link Py#None}.
      * <p>
      * If the return type is already {@code Object} or a sub-class, this
      * method returns {@code null} (which is not suitable as an argument

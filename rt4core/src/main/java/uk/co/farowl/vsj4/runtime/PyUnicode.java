@@ -18,9 +18,17 @@ public class PyUnicode extends TypedPyObject {
      */
     private final int[] value;
 
-    protected PyUnicode(PyType type, int[] v) {
+    /**
+     * Construct an instance of {@code PyUnicode}, a {@code str} or a
+     * sub-class, from a given array of code points. The constructor
+     * takes a copy.
+     *
+     * @param type actual type the instance should have
+     * @param codePoints the array of code points
+     */
+    protected PyUnicode(PyType type, int[] codePoints) {
         super(type);
-        this.value = Arrays.copyOf(v, v.length);
+        this.value = Arrays.copyOf(codePoints, codePoints.length);
     }
 
     /**
@@ -31,7 +39,7 @@ public class PyUnicode extends TypedPyObject {
      *
      * @param v claimed {@code str}
      * @return {@code String} value
-     * @throws PyBaseException(TypeError) if {@code v} is not a Python
+     * @throws PyBaseException (TypeError) if {@code v} is not a Python
      *     {@code str}
      */
     public static String asString(Object v) throws PyBaseException {

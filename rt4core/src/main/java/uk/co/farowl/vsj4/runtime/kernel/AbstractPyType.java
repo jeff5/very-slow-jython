@@ -491,7 +491,8 @@ public abstract sealed class AbstractPyType extends Representation
 
     // Special methods -----------------------------------------------
 
-    protected Object __repr__() throws Throwable {
+    /** @return {@code repr()} of this Python object. */
+    protected Object __repr__() {
         return String.format("<class '%s'>", getName());
     }
 
@@ -511,7 +512,7 @@ public abstract sealed class AbstractPyType extends Representation
      * @param names of keyword arguments (empty or {@code null} in a
      *     type enquiry).
      * @return new object (or a type if an enquiry).
-     * @throws PyBaseException(TypeError) when cannot create instances
+     * @throws PyBaseException (TypeError) when cannot create instances
      * @throws Throwable from implementation slot functions
      */
     protected Object __call__(Object[] args, String[] names)

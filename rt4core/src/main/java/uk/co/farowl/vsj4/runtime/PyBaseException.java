@@ -43,6 +43,7 @@ public class PyBaseException extends RuntimeException
     /** Python type of the exception. */
     private PyType type;
 
+    /** The dictionary of associated values on the instance. */
     // XXX dictionary required
     Map<Object, Object> dict;
 
@@ -55,10 +56,31 @@ public class PyBaseException extends RuntimeException
      */
     private PyTuple args;
 
+    /**
+     * A list of the notes added to this exception. Exposed as
+     * {@code __notes__}.
+     */
     private Object notes;
+    /**
+     * A writable field that holds the traceback object associated with
+     * this exception. Exposed as {@code __traceback__}.
+     */
     private Object traceback;
+    /**
+     * When raising a new exception while another exception is already
+     * being handled, the new exception’s {@code __context__} attribute
+     * is automatically set to the handled exception.
+     */
     private Object context;
+    /**
+     * The exception following {@code raise ... from}. Exposed as
+     * {@code __cause__}.
+     */
     private Object cause;
+    /**
+     * Set to suppress reporting {@code __context__}. Exposed as
+     * {@code __suppress_context__}.
+     */
     private boolean suppressContext;
 
     // XXX current format and args could be applied to message.
@@ -85,7 +107,13 @@ public class PyBaseException extends RuntimeException
         this.args = msg.length() > 0 ? new PyTuple(msg) : PyTuple.EMPTY;
     }
 
-    /** Constructor specifying Python argument array. */
+    /**
+     * Constructor specifying Python argument array and keywords.
+     *
+     * @param type Python type of the exception
+     * @param args arguments to fossilise in the exception instance
+     * @param kwds keyword names to go with the trailing arguments
+     */
     public PyBaseException(PyType type, Object[] args, String[] kwds) {
         super();
         // Ensure Python type is valid for Java class.
@@ -138,6 +166,7 @@ public class PyBaseException extends RuntimeException
 
     // Compare CPython PyBaseException_* in exceptions.c
 
+    /** @return {@code repr()} of this Python object. */
     protected Object __repr__() {
         // Somewhat simplified
         return getType().getName() + "('" + getMessage() + "')";

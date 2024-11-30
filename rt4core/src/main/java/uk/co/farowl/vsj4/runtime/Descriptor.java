@@ -22,17 +22,7 @@ import uk.co.farowl.vsj4.support.internal.EmptyException;
  */
 abstract class Descriptor implements WithClass {
 
-    protected static final String DESCRIPTOR_DOESNT_APPLY =
-            "descriptor '%s' for '%.100s' objects doesn't apply to a '%.100s' object";
-    protected static final String DESCRIPTOR_NEEDS_ARGUMENT =
-            "descriptor '%s' of '%.100s' object needs an argument";
-    protected static final String DESCRIPTOR_REQUIRES =
-            "descriptor '%s' requires a '%.100s' object but received a '%.100s'";
-    private static final String QUALNAME_IS_NOT_A_STRING =
-            "<descriptor>.__objclass__.__qualname__ is not a string";
-    /**
-     * Single re-used instance of {@link SpecialMethod.EmptyException}
-     */
+    /**Single re-used instance of {@link EmptyException}     */
     protected static final EmptyException EMPTY = new EmptyException();
 
     /**
@@ -132,6 +122,8 @@ abstract class Descriptor implements WithClass {
                 name, objclass.getName());
     }
 
+    // TODO Rationalise these three checks on self type
+
     /**
      * {@code descr.__get__(obj, type)} has been called on this
      * descriptor. We must check that the descriptor applies to the type
@@ -140,8 +132,8 @@ abstract class Descriptor implements WithClass {
      * assuming the particular {@link #objclass} type.
      *
      * @param obj target object (non-null argument to {@code __get__})
-     * @throws PyBaseException (TypeError) if descriptor doesn't apply to
-     *     {@code obj}
+     * @throws PyBaseException (TypeError) if descriptor doesn't apply
+     *     to {@code obj}
      */
     // Compare CPython descr_check in descrobject.c
     // We differ from CPython in that:
@@ -152,11 +144,28 @@ abstract class Descriptor implements WithClass {
     // 3. In a data descriptor, we fold the auditing into this check.
     protected void check(Object obj) throws PyBaseException {
         PyType objType = PyType.of(obj);
-        if (!objType.isSubTypeOf(objclass)) {
-            throw PyErr.format(PyExc.TypeError, DESCRIPTOR_DOESNT_APPLY,
-                    this.name, objclass.getName(), objType.getName());
+        if (objType != objclass && objType.isSubTypeOf(objclass)) {
+            throw selfTypeError(objType);
         }
     }
+
+    /**
+     * Create a {@link PyBaseException TypeError} with a message along
+     * the lines "descriptor 'D' of 'T' objects doesn't apply to 'S'
+     * objects" involving the name of this descriptor, {@link #objclass}
+     * and a type which is usually the type of a {@code self} to which
+     * the descriptor was erroneously applied.
+     *
+     * @param selfType the type of object actually received
+     * @return exception to throw
+     */
+    protected PyBaseException selfTypeError(PyType selfType) {
+        return PyErr.format(PyExc.TypeError, DESCRIPTOR_DOESNT_APPLY,
+                name, objclass.getName(), selfType.getName());
+    }
+
+    private static final String DESCRIPTOR_DOESNT_APPLY =
+            "descriptor '%s' of '%.100s' objects doesn't apply to '%.100s' objects";
 
     // Compare CPython calculate_qualname in descrobject.c
     private String calculate_qualname()
@@ -169,6 +178,9 @@ abstract class Descriptor implements WithClass {
         }
         return String.format("%s.%s", type_qualname, name);
     }
+
+    private static final String QUALNAME_IS_NOT_A_STRING =
+            "<descriptor>.__objclass__.__qualname__ is not a string";
 
     // Compare CPython descr_get_qualname in descrobject.c
     static Object descr_get_qualname(Descriptor descr,
@@ -185,6 +197,7 @@ abstract class Descriptor implements WithClass {
     // return Py_BuildValue("N(OO)", _PyEval_GetBuiltinId(ID.getattr),
     // descr.objclass, PyDescr_NAME(descr));
     // }
+
 
     @Override
     public String toString() { return PyUtil.defaultToString(this); }

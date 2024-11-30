@@ -31,7 +31,7 @@ public class PyLong implements WithClass {
     /**
      * Constructor for subclass use.
      *
-     * @param v of the {@code int}
+     * @param value of the {@code int}
      */
     protected PyLong(BigInteger value) { this.value = value; }
 
@@ -249,7 +249,7 @@ public class PyLong implements WithClass {
      *
      * @param integral to convert to {@code int}
      * @return integer value of argument
-     * @throws PyBaseException(TypeError) if {@code integral} seems not
+     * @throws PyBaseException (TypeError) if {@code integral} seems not
      *     to be
      * @throws Throwable from the supporting implementation
      */

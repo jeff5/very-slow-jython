@@ -25,11 +25,11 @@ public interface TypeExposer {
     void expose(Class<?> definingClass);
 
     /**
-     * For each name having a definition in {@link #specs}, construct
-     * the attribute and add it to the map passed in. The map is
-     * normally the dictionary of the type. Attributes may rely on a
-     * {@code MethodHandle} or {@code VarHandle}, so a lookup object
-     * must be provided that can create them.
+     * For each name having a definition in this {@code TypeExposer}
+     * instance, construct the attribute and add it to the map passed
+     * in. The map is normally the dictionary of the type. Attributes
+     * may rely on a {@code MethodHandle} or {@code VarHandle}, so a
+     * lookup object must be provided that can create them.
      *
      * @param dict to which the attributes should be delivered
      * @param lookup authorisation to access members

@@ -6,6 +6,7 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.util.Arrays;
 
+import uk.co.farowl.vsj4.runtime.ArgumentError.Mode;
 import uk.co.farowl.vsj4.runtime.kernel.Representation;
 import uk.co.farowl.vsj4.runtime.kernel.SpecialMethod;
 import uk.co.farowl.vsj4.support.internal.Util;
@@ -83,12 +84,22 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
     // {0}
     // };
 
+    /**
+     * Return the documentation string from  the descriptor
+     *  in an external format.
+     * @return the documentation string
+     */
     @Exposed.Getter
     // Compare CPython wrapperdescr_get_doc in descrobject.c
     protected Object __doc__() {
         return PyType.getDocFromInternalDoc(slot.methodName, slot.doc);
     }
 
+    /**
+     * Return the method signature string from the descriptor
+     *  in an external format.
+     * @return the method signature
+     */
     @Exposed.Getter
     // Compare CPython wrapperdescr_get_text_signature in descrobject.c
     protected Object __text_signature__() {
@@ -174,9 +185,7 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
 
         if (m < 0) {
             // Not even one argument
-            throw PyErr.format(PyExc.TypeError,
-                    DESCRIPTOR_NEEDS_ARGUMENT, name,
-                    objclass.getName());
+            throw new ArgumentError(Mode.SELF);
 
         } else {
             // Split the leading element self from rest of args
@@ -372,6 +381,9 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
     abstract MethodHandle getHandle(Object self)
             throws PyBaseException, Throwable;
 
+    private static final String GET_NONE =
+            "__get__(None, None) is invalid";
+
     /**
      * Check that the given type is acceptable for the {@code self}
      * argument, that is, it is a subclass of
@@ -382,7 +394,7 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
      *     subclass of {@code __objclass__}.
      * @throws Throwable propagated from subclass check
      */
-    void checkPythonType(PyType selfType)
+    protected void checkPythonType(PyType selfType)
             throws PyBaseException, Throwable {
         if (!Abstract.recursiveIsSubclass(selfType, objclass)) {
             throw PyErr.format(PyExc.TypeError, DESCRIPTOR_REQUIRES,
@@ -390,8 +402,27 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
         }
     }
 
-    private static final String GET_NONE =
-            "__get__(None, None) is invalid";
+    /**
+     * Create a {@link PyBaseException TypeError} with a message along
+     * the lines
+     *  "descriptor 'D' requires a 'T' object but received a 'S'"
+     *  involving
+     * the name of this descriptor, {@link #objclass} and a type
+     * which is usually the type of a {@code self} to which the
+     * descriptor was erroneously applied.
+     *
+     * @param selfType the type of object actually received
+     * @return exception to throw
+     */
+    @Override
+    protected PyBaseException selfTypeError(PyType selfType) {
+        /* For some reason, a wrapper descriptor has a slightly different message from other descriptors. */
+        return PyErr.format(PyExc.TypeError, DESCRIPTOR_REQUIRES, name,
+                objclass.getName(), selfType.getName());
+    }
+
+    private static final String DESCRIPTOR_REQUIRES =
+            "descriptor '%s' requires a '%.100s' object but received a '%.100s'";
 
     /**
      * A {@link PyWrapperDescr} for use when the owning Python type has

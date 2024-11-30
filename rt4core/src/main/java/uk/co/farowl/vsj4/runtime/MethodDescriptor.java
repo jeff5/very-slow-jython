@@ -61,7 +61,8 @@ public abstract class MethodDescriptor extends Descriptor
                         "%s() %s (%d given)", name, ae, n);
             case SELF:
                 return PyErr.format(PyExc.TypeError,
-                        DESCRIPTOR_NEEDS_ARGUMENT, name, objclass);
+                        DESCRIPTOR_NEEDS_ARGUMENT, name,
+                        objclass.getName());
             case NOKWARGS:
                 assert names != null && names.length > 0;
             default:
@@ -173,4 +174,7 @@ public abstract class MethodDescriptor extends Descriptor
             throw new ArgumentError(Mode.SELF);
         }
     }
+
+    private static final String DESCRIPTOR_NEEDS_ARGUMENT =
+            "descriptor '%s' of '%.100s' object needs an argument";
 }

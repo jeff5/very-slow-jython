@@ -132,6 +132,9 @@ public abstract class Representation {
      *
      * @deprecated This is questionable now: see
      *     {@link SpecialMethod#generic} and the slot functions.
+     * @param sm a special method
+     * @param self first argument of the special method
+     * @return a handle on the special method
      */
     // Compare CPython SLOT* macros in typeobject.c
     // FIXME Isn't this superseded by SpecialMethod.slot*() etc..

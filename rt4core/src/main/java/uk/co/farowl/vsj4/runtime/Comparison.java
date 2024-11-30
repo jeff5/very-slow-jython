@@ -10,8 +10,8 @@ import uk.co.farowl.vsj4.support.internal.EmptyException;
 
 /**
  * Selects a particular "rich comparison" operation from the repertoire
- * supported by {@link Opcode311#COMPARE_OP}, the argument to which is
- * the {@code code} attribute of the name in this {@code enum}.
+ * supported by opcode {@code COMPARE_OP}, the argument to which is the
+ * {@code code} attribute of the name in this {@code enum}.
  *
  * @apiNote The order matches CPython's enumeration of operations used
  *     in the argument to {@code COMPARE_OP}, so that we can rely on it

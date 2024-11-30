@@ -186,6 +186,7 @@ public interface Exposed {
     @Retention(RUNTIME)
     @Target({METHOD, FIELD, TYPE})
     @interface DocString {
+        /** @return the argument given the annotation. */
         String value();
     }
 
@@ -200,6 +201,7 @@ public interface Exposed {
     @Retention(RUNTIME)
     @Target(PARAMETER)
     @interface Name {
+        /** @return the argument given the annotation. */
         String value();
     }
 
@@ -237,6 +239,7 @@ public interface Exposed {
     @Retention(RUNTIME)
     @Target(PARAMETER)
     @interface Default {
+        /** @return the argument given the annotation. */
         String value();
     }
 
@@ -326,8 +329,8 @@ public interface Exposed {
          * <ul>
          * <li>for a member annotated with {@code optional=true},
          * attempts to {@code get} or {@code delete} the member will
-         * produce an {@link AttributeError}, until it is set again.
-         * </li>
+         * produce an {@link PyAttributeError AttributeError}, until it
+         * is set again.</li>
          * <li>where {@code optional=false} (default), a {@code get}
          * will return {@code None} and {@code delete} will have no
          * effect.</li>

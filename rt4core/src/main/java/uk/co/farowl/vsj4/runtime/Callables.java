@@ -30,7 +30,7 @@ public class Callables extends Abstract {
      * @param args all the arguments (position then keyword)
      * @param names of the keyword arguments or {@code null}
      * @return the return from the call to the object
-     * @throws PyBaseException(TypeError) if target is not callable
+     * @throws PyBaseException (TypeError) if target is not callable
      * @throws Throwable for errors raised in the function
      */
     // Compare CPython PyObject_Call in call.c
@@ -71,7 +71,7 @@ public class Callables extends Abstract {
      * @param argTuple positional arguments
      * @param kwDict keyword arguments
      * @return the return from the call to the object
-     * @throws PyBaseException(TypeError) if target is not callable
+     * @throws PyBaseException (TypeError) if target is not callable
      * @throws Throwable for errors raised in the function
      */
     // Compare CPython PyObject_Call in call.c
@@ -109,7 +109,7 @@ public class Callables extends Abstract {
      * @param callable target
      * @param argTuple positional arguments
      * @return the return from the call to the object
-     * @throws PyBaseException(TypeError) if target is not callable
+     * @throws PyBaseException (TypeError) if target is not callable
      * @throws Throwable for errors raised in the function
      */
     // Compare CPython PyObject_Call in call.c
@@ -128,7 +128,7 @@ public class Callables extends Abstract {
      * @param args positional arguments
      * @param kwargs keyword arguments
      * @return the return from the call to the object
-     * @throws PyBaseException(TypeError) if target is not callable
+     * @throws PyBaseException (TypeError) if target is not callable
      * @throws Throwable for errors raised in the function
      */
     // Compare CPython PyObject_Call in call.c
@@ -220,7 +220,7 @@ public class Callables extends Abstract {
      * @param nargs number of positional <b>and keyword</b> arguments
      * @param kwnames names of keyword arguments or {@code null}
      * @return the return from the call to the object
-     * @throws PyBaseException(TypeError) if target is not callable
+     * @throws PyBaseException (TypeError) if target is not callable
      * @throws Throwable for errors raised in the function
      */
     // Compare CPython _PyObject_Vectorcall in abstract.h
@@ -252,9 +252,9 @@ public class Callables extends Abstract {
      * @param stack positional and keyword arguments
      * @param start position of arguments in the array
      * @param nargs number of positional <b>and keyword</b> arguments
-     * @param kwnames names of keyword arguments or {@code null}
+     * @param names of keyword arguments or {@code null}
      * @return the return from the call to the object
-     * @throws PyBaseException(TypeError) if target is not callable
+     * @throws PyBaseException (TypeError) if target is not callable
      * @throws Throwable for errors raised in the function
      */
     // Compare CPython _PyObject_Vectorcall in abstract.h
@@ -285,7 +285,7 @@ public class Callables extends Abstract {
      * @param start position of arguments in the array
      * @param nargs number of (positional) arguments
      * @return the return from the call to the object
-     * @throws PyBaseException(TypeError) if target is not callable
+     * @throws PyBaseException (TypeError) if target is not callable
      * @throws Throwable for errors raised in the function
      */
     // Compare CPython _PyObject_Vectorcall in abstract.h
@@ -337,7 +337,7 @@ public class Callables extends Abstract {
      *
      * @param callable target
      * @return the return from the call to the object
-     * @throws PyBaseException(TypeError) if target is not callable
+     * @throws PyBaseException (TypeError) if target is not callable
      * @throws Throwable for errors raised in the function
      */
     // Compare CPython _PyObject_CallNoArg in abstract.h
@@ -362,7 +362,7 @@ public class Callables extends Abstract {
      * @param callable target
      * @param a0 single argument (may be {@code self})
      * @return the return from the call to the object
-     * @throws PyBaseException(TypeError) if target is not callable
+     * @throws PyBaseException (TypeError) if target is not callable
      * @throws Throwable for errors raised in the function
      */
     // Compare CPython PyObject_CallFunctionObjArgs in call.c
@@ -388,7 +388,7 @@ public class Callables extends Abstract {
      * @param a0 zeroth argument (may be {@code self})
      * @param a1 next argument
      * @return the return from the call to the object
-     * @throws PyBaseException(TypeError) if target is not callable
+     * @throws PyBaseException (TypeError) if target is not callable
      * @throws Throwable for errors raised in the function
      */
     // Compare CPython PyObject_CallFunctionObjArgs in call.c
@@ -415,7 +415,7 @@ public class Callables extends Abstract {
      * @param a1 next argument
      * @param a2 next argument
      * @return the return from the call to the object
-     * @throws PyBaseException(TypeError) if target is not callable
+     * @throws PyBaseException (TypeError) if target is not callable
      * @throws Throwable for errors raised in the function
      */
     // Compare CPython PyObject_CallFunctionObjArgs in call.c
@@ -443,7 +443,7 @@ public class Callables extends Abstract {
      * @param a2 next argument
      * @param a3 next argument
      * @return the return from the call to the object
-     * @throws PyBaseException(TypeError) if target is not callable
+     * @throws PyBaseException (TypeError) if target is not callable
      * @throws Throwable for errors raised in the function
      */
     // Compare CPython PyObject_CallFunctionObjArgs in call.c
@@ -473,7 +473,7 @@ public class Callables extends Abstract {
      * @param callable target
      * @param args positional arguments
      * @return the return from the call to the object
-     * @throws PyBaseException(TypeError) if target is not callable
+     * @throws PyBaseException (TypeError) if target is not callable
      * @throws Throwable for errors raised in the function
      */
     // Compare CPython PyObject_CallFunctionObjArgs in call.c
@@ -508,7 +508,7 @@ public class Callables extends Abstract {
      *
      * @param kwnames (keyword) names to convert
      * @return the names as an array
-     * @throws PyBaseException(TypeError) if any keyword is not a string
+     * @throws PyBaseException (TypeError) if any keyword not a string
      */
     static String[] namesArray(PyTuple kwnames) throws PyBaseException {
         int n;

@@ -195,7 +195,7 @@ public class TypeSpec extends NamedSpec {
      * class creating the {@code Lookup} object will not be treated as
      * the primary representation or examined as a method implementation
      * class. The mutators {@link #primary} and optionally
-     * {@link #methodImpl(Class)} must be used to specify those
+     * {@link #methodImpls(Class...)} must be used to specify those
      * explicitly.
      *
      * @param name of the type being specified (may be dotted name)

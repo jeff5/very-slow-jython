@@ -901,11 +901,11 @@ public class Abstract {
             "%.200s returned non-%.200s (type %.200s)";
     private static final String ARGUMENT_MUST_BE =
             "%s()%s%s argument must be %s, not '%.200s'";
-    protected static final String NOT_MAPPING =
+    private static final String NOT_MAPPING =
             "%.200s is not a mapping";
-    protected static final String NOT_ITERABLE =
+    private static final String NOT_ITERABLE =
             "%.200s object is not iterable";
-    static final String DESCR_NOT_DEFINING =
+    private static final String DESCR_NOT_DEFINING =
             "Type marked as %.20s descriptor does not define %.50s";
 
     /**

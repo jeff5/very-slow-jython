@@ -23,7 +23,12 @@ public class PyAttributeError extends PyBaseException {
     /** The object that didn't have {@code name} as an attribute. */
     private Object obj;
 
-    /** Constructor resembling {@code __new__}. */
+    /** Constructor resembling {@code __new__}, specifying Python argument array and keywords.
+    *
+    * @param type Python type of the exception
+    * @param args arguments to fossilise in the exception instance
+    * @param kwds keyword names to go with the trailing arguments
+    */
     public PyAttributeError(PyType type, Object[] args, String[] kwds) {
         super(type, args, kwds);
         // Stop-gap argument processing to show principle

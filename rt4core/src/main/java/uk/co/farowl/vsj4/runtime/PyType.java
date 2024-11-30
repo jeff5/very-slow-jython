@@ -257,8 +257,11 @@ public abstract sealed class PyType extends AbstractPyType
 
     /**
      * Determine if this type is a Python sub-type of {@code b} (if
-     * {@code b} is on the MRO of this type).
+     * {@code b} is on the MRO of this type). For technical reasons we
+     * parameterise with the subclass. (We need it to work with a
+     * private superclass or {@code PyType}.)
      *
+     * @param <T> actual type of {@code b} normally a {@code PyType}.
      * @param b to test
      * @return {@code true} if {@code this} is a sub-type of {@code b}
      */

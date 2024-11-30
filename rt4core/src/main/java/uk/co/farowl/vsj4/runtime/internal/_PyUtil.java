@@ -24,7 +24,7 @@ public class _PyUtil {
      * @param args arguments from 1 (position then keyword)
      * @param names of the keyword arguments or {@code null}
      * @return the return from the call to the object
-     * @throws PyBaseException(TypeError) if target is not callable
+     * @throws PyBaseException (TypeError) if target is not callable
      * @throws Throwable for errors raised in the function
      */
     // Compare CPython _PyObject_Call_Prepend in call.c

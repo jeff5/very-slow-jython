@@ -17,7 +17,7 @@ import uk.co.farowl.vsj4.support.internal.EmptyException;
  * subclasses of {@code float}. Actual float values are represented by
  * {@code double} or {@code java.lang.Double} when boxed as an object.
  */
-public class PyFloat {
+public class PyFloat implements WithClass {
     /** The type object {@code float}. */
     // Bootstrap type so ask the type system to resolve it.
     public static final PyType TYPE = PyType.of(0.0);
@@ -32,7 +32,7 @@ public class PyFloat {
      */
     protected PyFloat(double value) { this.value = value; }
 
-    // @Override
+    @Override
     public PyType getType() { return TYPE; }
 
     // Representations of the value -----------------------------------

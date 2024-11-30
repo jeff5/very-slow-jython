@@ -45,6 +45,11 @@ public class PyTuple extends AbstractList<Object> implements WithClass {
         this(a.value, start, count);
     }
 
+    /**
+     * Construct from an array of values or argument list.
+     *
+     * @param v the array of values
+     */
     public PyTuple(Object... v) { this(v, 0, v.length); }
 
     /**
@@ -70,12 +75,13 @@ public class PyTuple extends AbstractList<Object> implements WithClass {
 
     /**
      * Copy from the tuple value to a destination array provided by the
-     * caller.
+     * caller. Arguments are consciously modelled on those of
+     * {@code System.arraycopy}.
      *
-     * @param srcPos
-     * @param dst
-     * @param dstPos
-     * @param length
+     * @param srcPos starting position in the source array.
+     * @param dst the destination array.
+     * @param dstPos starting position in the destination data.
+     * @param length the number of array elements to be copied.
      */
     public void copyTo(int srcPos, Object[] dst, int dstPos,
             int length) {

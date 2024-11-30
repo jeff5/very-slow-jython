@@ -28,6 +28,7 @@ import uk.co.farowl.vsj4.support.internal.Util;
  */
 public abstract class PyMethodDescr extends MethodDescriptor {
 
+    /** The type object of a {@code method_descriptor}. */
     public static final PyType TYPE = PyType.fromSpec( //
             new TypeSpec("method_descriptor", MethodHandles.lookup())
                     .add(Feature.IMMUTABLE));
@@ -249,13 +250,12 @@ public abstract class PyMethodDescr extends MethodDescriptor {
 
     @Override
     public Object call(Object[] args, String[] names)
-            throws PyBaseException, Throwable {
+            throws ArgumentError, PyBaseException, Throwable {
         int m = args.length - 1;
         if (m < 0) {
             // Not even one argument
-            throw PyErr.format(PyExc.TypeError,
-                    DESCRIPTOR_NEEDS_ARGUMENT, name,
-                    objclass.getName());
+            throw new ArgumentError(Mode.SELF);
+
         } else {
             // Split the leading element self from rest of args
             Object self = args[0], rest[];
@@ -267,11 +267,7 @@ public abstract class PyMethodDescr extends MethodDescriptor {
             }
 
             // Call this as a method bound to self.
-            try {
-                return callMethod(self, rest, names);
-            } catch (ArgumentError ae) {
-                throw typeError(ae, rest, names);
-            }
+            return callMethod(self, rest, names);
         }
     }
 
@@ -419,18 +415,21 @@ public abstract class PyMethodDescr extends MethodDescriptor {
     Object simple__call__(Object[] args, String[] names)
             throws PyBaseException, Throwable {
         int m = args.length - 1, nk = names == null ? 0 : names.length;
-        if (m < nk) {
-            // Not even one argument (self) given by position
-            throw PyErr.format(PyExc.TypeError,
-                    DESCRIPTOR_NEEDS_ARGUMENT, name,
-                    objclass.getName());
-        } else {
-            // Call this with self and rest of args separately.
-            Object self = args[0];
-            MethodHandle mh = getHandle(self);
-            // Parse args without the leading element self
-            Object[] frame = argParser.parse(args, 1, m, names);
-            return mh.invokeExact(self, frame);
+        try {
+            if (m < nk) {
+                // Not even one argument (self) given by position
+                throw new ArgumentError(Mode.SELF);
+
+            } else {
+                // Call this with self and rest of args separately.
+                Object self = args[0];
+                MethodHandle mh = getHandle(self);
+                // Parse args without the leading element self
+                Object[] frame = argParser.parse(args, 1, m, names);
+                return mh.invokeExact(self, frame);
+            }
+        } catch (ArgumentError ae) {
+            throw typeError(ae, args, names);
         }
     }
 
@@ -546,14 +545,8 @@ public abstract class PyMethodDescr extends MethodDescriptor {
                 || Abstract.recursiveIsSubclass(selfType, objclass)) {
             return;
         } else {
-            throw selfTypeError(self);
+            throw selfTypeError(selfType);
         }
-    }
-
-    protected PyBaseException selfTypeError(Object self) {
-        PyType selfType = PyType.of(self);
-        return PyErr.format(PyExc.TypeError, DESCRIPTOR_REQUIRES, name,
-                objclass.getName(), selfType.getName());
     }
 
     /**
@@ -718,9 +711,7 @@ public abstract class PyMethodDescr extends MethodDescriptor {
             int m = args.length - 1;
             if (m < 0) {
                 // Not even one argument
-                throw PyErr.format(PyExc.TypeError,
-                        DESCRIPTOR_NEEDS_ARGUMENT, name,
-                        objclass.getName());
+                throw new ArgumentError(Mode.SELF);
             } else {
                 // Split the leading element self from rest of args
                 Object self = args[0], rest[];
@@ -732,11 +723,7 @@ public abstract class PyMethodDescr extends MethodDescriptor {
                 }
 
                 // Call this as a method bound to self.
-                try {
-                    return callMethod(self, rest);
-                } catch (ArgumentError ae) {
-                    throw typeError(ae, rest);
-                }
+                return callMethod(self, rest);
             }
         }
     }
@@ -1091,7 +1078,7 @@ public abstract class PyMethodDescr extends MethodDescriptor {
                 try {
                     return methods[index];
                 } catch (ArrayIndexOutOfBoundsException iobe) {
-                    throw selfTypeError(self);
+                    throw selfTypeError(PyType.of(self));
                 }
             }
 
@@ -1139,7 +1126,7 @@ public abstract class PyMethodDescr extends MethodDescriptor {
                 try {
                     return methods[index];
                 } catch (ArrayIndexOutOfBoundsException iobe) {
-                    throw selfTypeError(self);
+                    throw selfTypeError(PyType.of(self));
                 }
             }
         }
@@ -1182,7 +1169,7 @@ public abstract class PyMethodDescr extends MethodDescriptor {
                 try {
                     return methods[index];
                 } catch (ArrayIndexOutOfBoundsException iobe) {
-                    throw selfTypeError(self);
+                    throw selfTypeError(PyType.of(self));
                 }
             }
 
@@ -1230,7 +1217,7 @@ public abstract class PyMethodDescr extends MethodDescriptor {
                 try {
                     return methods[index];
                 } catch (ArrayIndexOutOfBoundsException iobe) {
-                    throw selfTypeError(self);
+                    throw selfTypeError(PyType.of(self));
                 }
             }
 
@@ -1278,7 +1265,7 @@ public abstract class PyMethodDescr extends MethodDescriptor {
                 try {
                     return methods[index];
                 } catch (ArrayIndexOutOfBoundsException iobe) {
-                    throw selfTypeError(self);
+                    throw selfTypeError(PyType.of(self));
                 }
             }
 
@@ -1326,7 +1313,7 @@ public abstract class PyMethodDescr extends MethodDescriptor {
                 try {
                     return methods[index];
                 } catch (ArrayIndexOutOfBoundsException iobe) {
-                    throw selfTypeError(self);
+                    throw selfTypeError(PyType.of(self));
                 }
             }
 

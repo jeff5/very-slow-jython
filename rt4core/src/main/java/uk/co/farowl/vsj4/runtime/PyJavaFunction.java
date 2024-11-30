@@ -286,6 +286,7 @@ public abstract class PyJavaFunction implements WithClass, FastCall {
 
     // slot functions -------------------------------------------------
 
+    /** @return {@code repr()} of this Python object. */
     protected Object __repr__() {
         if (self == null /* || self instanceof PyModule */)
             return String.format("<built-in function %s>", __name__());

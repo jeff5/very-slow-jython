@@ -24,7 +24,7 @@ public enum MethodKind {
     /**
      * The method must be defined by a Java static method. An initial
      * self or module argument is not expected. The first parameter must
-     * be a {@link PyType}. In a call from Python that uses dot
+     * be a Python {@code type}. In a call from Python that uses dot
      * notation, which is attribute lookup, the target object (or its
      * type) is used to find the method.
      */
