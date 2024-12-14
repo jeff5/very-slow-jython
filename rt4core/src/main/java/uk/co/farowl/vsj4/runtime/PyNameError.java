@@ -23,27 +23,23 @@ public class PyNameError extends PyBaseException {
     private String name;
 
     /**
-     * Constructor resembling {@code __new__}, specifying Python
-     * argument array and keywords.
+     * Constructor  specifying Python type.
      *
      * @param type Python type of the exception
-     * @param args arguments to fossilise in the exception instance
-     * @param kwds keyword names to go with the trailing arguments
+     * @param args positional arguments
      */
-    public PyNameError(PyType type, Object[] args, String[] kwds) {
-        super(type, args, kwds);
-        // Stop-gap argument processing to show principle
-        // XXX Should the be in __init__ (and use the exposer)
-        int n = args.length, i = n - kwds.length;
-        assert i >= 0;
-        for (String kwd : kwds) {
-            switch (kwd) {
-                case "name":
-                    this.name = (String)args[i];
-                    break;
-                default: // ignore
-            }
-            i += 1;
-        }
+    public PyNameError(PyType type, PyTuple args) {
+        super(type, args);
+    }
+
+
+    private static final ArgParser INIT_PARSER = ArgParser
+            .fromSignature("__init__", "*args, name");
+
+    @Override
+    void __init__(Object[] args, String[] kwds) {
+        Object[] frame = INIT_PARSER.parse(args, kwds);
+        this.args = new PyTuple(frame,0,1);
+        this.name = PyUnicode.asString(frame[1]);
     }
 }

@@ -14,17 +14,21 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import uk.co.farowl.vsj4.runtime.Abstract;
 import uk.co.farowl.vsj4.runtime.Callables;
 import uk.co.farowl.vsj4.runtime.ClassShorthand;
+import uk.co.farowl.vsj4.runtime.FastCall;
 import uk.co.farowl.vsj4.runtime.PyBaseException;
 import uk.co.farowl.vsj4.runtime.PyErr;
 import uk.co.farowl.vsj4.runtime.PyExc;
 import uk.co.farowl.vsj4.runtime.PyLong;
 import uk.co.farowl.vsj4.runtime.PyType;
+import uk.co.farowl.vsj4.runtime.internal._PyUtil;
 import uk.co.farowl.vsj4.runtime.kernel.Representation.Shared;
 import uk.co.farowl.vsj4.support.InterpreterError;
-import uk.co.farowl.vsj4.support.MissingFeature;
 import uk.co.farowl.vsj4.support.internal.EmptyException;
 
 /**
@@ -62,8 +66,6 @@ import uk.co.farowl.vsj4.support.internal.EmptyException;
 // Compare CPython wrapperbase in descrobject.h
 // aka slotdef in typeobject.c
 public enum SpecialMethod {
-
-    // __hash__(Signature.UNARY, r->r.op_hash, (r,h)->{r.op_hash=h;} ),
 
     /*
      * The order of the members is not significant, but we approximate
@@ -620,14 +622,11 @@ public enum SpecialMethod {
      */
     public MethodHandle handle(Representation rep) {
         // FIXME: Consider thread safety of slots
-        // FIXME Assumes method has cache (and no redirection).
         if (cache != null) {
             // The handle is cached on the Representation
             return (MethodHandle)cache.get(rep);
         } else {
-            // Here we should get from type a handle to call.
-            // We can prepare this statically once per member.
-            throw new MissingFeature("Handle to invoke special method");
+            return generic;
         }
     }
 
@@ -726,10 +725,51 @@ public enum SpecialMethod {
     // Compare CPython slot_* in typeobject.c
     Object slot(Object self, Object[] args, String[] kwds)
             throws Throwable {
+
         PyType type = PyType.of(self);
         Object meth = type.lookup(methodName);
         if (meth == null) { throw Util.EMPTY; }
-        return callAsMethod(type, meth, self, args, kwds);
+        // TODO inline equivalent code to other slot() functions
+        // return callAsMethod(type, meth, self, args, kwds);
+
+        // What kind of object did we find? (Could be anything.)
+        Representation methRep = SimpleType.getRepresentation(meth);
+        assert methRep != null;
+
+        if (methRep.pythonType(meth).isMethodDescr()) {
+            /*
+             * meth is a method descriptor. Avoid construction of a
+             * bound method, supplying self as the first argument in a
+             * new argument array. Keywords remain valid as they align
+             * to the end.
+             */
+            if (meth instanceof FastCall fast) {
+                return fast.call(self, args, kwds);
+            } else {
+                return _PyUtil.callPrepend(meth, self, args, kwds);
+            }
+        } else {
+            /*
+             * The retrieved dictionary is not a *method* descriptor,
+             * but it might still be a descriptor that we have to bind
+             * to self.
+             */
+            try {
+                // Replace meth with result of descriptor binding.
+                MethodHandle get = SpecialMethod.op_get.handle(methRep);
+                meth = get.invokeExact(meth, self, type);
+            } catch (EmptyException e) {
+                // Not a descriptor at all.
+            }
+            /*
+             * meth is now the thing to call. We do not pass self here,
+             * as meth has either bound self, or decided to ignore it
+             * (e.g. @staticmethod). It ought to be an instance of a
+             * class defining __call__. Or it may be something we can't
+             * actually call, in which case we'll find out next.
+             */
+            return Callables.call(meth, args, kwds);
+        }
     }
 
     Object slot(Object self) throws Throwable {
@@ -760,7 +800,7 @@ public enum SpecialMethod {
         return callAsMethod(type, meth, self, obj, t);
     }
 
-    // TODO Specialise callAsMethod up to self, a1, a2, a3 when working
+    // TODO Do not need callAsMethod after inlining.
     private static Object callAsMethod(PyType type, Object meth,
             Object self, Object... args) throws Throwable {
         return callAsMethod(type, meth, self, args, null);
@@ -775,7 +815,7 @@ public enum SpecialMethod {
      * {@link SpecialMethod#generic}.
      *
      * @param type of {@code self}.
-     * @param obj looked up on {@code type} may be a descriptor.
+     * @param meth looked up on {@code type} may be a descriptor.
      * @param self first operand.
      * @param args other operands.
      * @param kwds naming the last {@code args} or {@code null}.
@@ -790,22 +830,21 @@ public enum SpecialMethod {
      * our slot* functions, just in a different arrangement, avoiding
      * the &unbound argument, which is awkward in Java..
      */
-    private static Object callAsMethod(PyType type, Object obj,
+    private static Object callAsMethod(PyType type, Object meth,
             Object self, Object[] args, String[] kwds)
             throws PyBaseException, Throwable {
         // What kind of object did we find? (Could be anything.)
-        Representation rep =
-                SimpleType.getRegistry().get(obj.getClass());
-        PyType objType = rep.pythonType(obj);
+        Representation rep = SimpleType.getRepresentation(meth);
+        PyType methType = rep.pythonType(meth);
 
-        if (objType.isMethodDescr()) {
+        if (methType.isMethodDescr()) {
             /*
              * meth is a method descriptor. Avoid construction of a
              * bound method, supplying self as the first argument in a
              * new argument array. Keywords remain valid as they align
              * to the end.
              */
-            return callPrepend(obj, self, args, kwds);
+            return _PyUtil.callPrepend(meth, self, args, kwds);
 
         } else {
             /*
@@ -816,40 +855,19 @@ public enum SpecialMethod {
             try {
                 // Replace meth with result of descriptor binding.
                 MethodHandle get = SpecialMethod.op_get.handle(rep);
-                obj = get.invokeExact(obj, self, type);
+                meth = get.invokeExact(meth, self, type);
             } catch (EmptyException e) {
                 // Not a descriptor at all.
             }
             /*
-             * meth is now the thing have to call. We do not pass self
-             * here, as meth has either bound self, or decided to ignore
-             * it (e.g. @staticmethod). It ought to be an instance of a
+             * meth is now the thing to call. We do not pass self here,
+             * as meth has either bound self, or decided to ignore it
+             * (e.g. @staticmethod). It ought to be an instance of a
              * class defining __call__. Or it may be something we can't
              * actually call, in which case we'll find out next.
              */
-            return Callables.call(obj, args, kwds);
+            return Callables.call(meth, args, kwds);
         }
-    }
-
-    /**
-     * Call a Python object when the first argument {@code self} is
-     * provided "loose".
-     *
-     * @param meth a Python callable
-     * @param self the first argument
-     * @param args the other arguments
-     * @param kwds keywords to go with the call
-     * @return result of call to {@code meth}
-     * @throws PyBaseException (TypeError) if not callable
-     * @throws Throwable from anything else that goes wrong
-     */
-    private static Object callPrepend(Object meth, Object self,
-            Object[] args, String[] kwds)
-            throws PyBaseException, Throwable {
-        Object[] a = new Object[args.length + 1];
-        a[0] = self;
-        System.arraycopy(args, 0, a, 1, args.length);
-        return Callables.call(meth, args, kwds);
     }
 
     /**
@@ -1159,6 +1177,16 @@ public enum SpecialMethod {
          * constructors need them.
          */
 
+        /**
+         * Logger for {@code SpecialMethod} operations. Although we
+         * believe what SLF4J say about their logging being lightweight
+         * at levels not enabled, some of our operations are so critical
+         * to performance that we keep logging for initialisation
+         * methods (unless debugging).
+         */
+        final static Logger logger =
+                LoggerFactory.getLogger(SpecialMethod.class);
+
         /** Rights to look up methods locally. */
         private static final Lookup LOOKUP = MethodHandles.lookup();
 
@@ -1442,7 +1470,20 @@ public enum SpecialMethod {
             SpecialMethod[] methods = SpecialMethod.values();
             HashMap<String, SpecialMethod> t =
                     new HashMap<>(2 * methods.length);
-            for (SpecialMethod s : methods) { t.put(s.methodName, s); }
+            for (SpecialMethod s : methods) {
+                // Add to table
+                t.put(s.methodName, s);
+                // This is a good time to confirm initialisation
+                Util.logger.atDebug()
+                        .setMessage("{} with signature {}{}")
+                        .addArgument(s.methodName)
+                        .addArgument(s.generic.type())
+                        .addArgument(
+                                s.cache == null ? "" : " is cached")
+                        .log();
+                Util.logger.atTrace()
+                        .log(() -> s.doc.replace("\n", "\\n"));
+            }
             table = Collections.unmodifiableMap(t);
         }
     }

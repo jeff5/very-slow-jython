@@ -688,7 +688,7 @@ public abstract class PyJavaFunction implements WithClass, FastCall {
                     return handle.invokeExact(a[0], a[1], d[k]);
                 } else if (n == 1) {
                     return handle.invokeExact(a[0], d[k++], d[k]);
-                } else {
+                } else if (n == 0) {
                     return handle.invokeExact(d[k++], d[k++], d[k]);
                 }
             }

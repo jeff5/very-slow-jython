@@ -80,6 +80,30 @@ public abstract class Representation {
     public abstract PyType pythonType(Object x);
 
     /**
+     * Fast check that the target is exactly a Python {@code int}. We
+     * can do this without reference to the object itself, just from the
+     * representation..
+     *
+     * @implNote The result may be incorrect during type system
+     *     bootstrap.
+     *
+     * @return target is exactly a Python {@code int}
+     */
+    public boolean isIntExact() { return this == PyLong.TYPE; }
+
+    /**
+     * Fast check that the target is exactly a Python {@code float}. We
+     * can do this without reference to the object itself, just from the
+     * representation..
+     *
+     * @implNote The result may be incorrect during type system
+     *     bootstrap.
+     *
+     * @return target is exactly a Python {@code float}
+     */
+    public boolean isFloatExact() { return this == PyFloat.TYPE; }
+
+    /**
      * Get the specific {@code Representation} of the object <i>given
      * that</i> this is the representation object for its class.
      *
@@ -162,50 +186,6 @@ public abstract class Representation {
         return mh;
     }
 
-    /**
-     * Fast check that the target is exactly a Python {@code int}. We
-     * can do this without reference to the object itself, or even the
-     * type, since it is deducible from the Java class.
-     *
-     * @implNote The result may be incorrect during type system
-     *     bootstrap.
-     *
-     * @return target is exactly a Python {@code int}
-     */
-    public boolean isIntExact() { return this == PyLong.TYPE; }
-
-    /**
-     * Fast check that the target is exactly a Python {@code float}. We
-     * can do this without reference to the object itself, or even the
-     * type, since it is deducible from the Java class.
-     *
-     * @implNote The result may be incorrect during type system
-     *     bootstrap.
-     *
-     * @return target is exactly a Python {@code float}
-     */
-    public boolean isFloatExact() { return this == PyFloat.TYPE; }
-
-    /**
-     * Fast check that the target is a data descriptor.
-     *
-     * @return target is a data descriptor
-     * @deprecated Only valid when asking a type
-     */
-    // FIXME Only valid when asking a type
-    @Deprecated
-    public boolean isDataDescr() { return false; }
-
-    /**
-     * Fast check that the target is a method descriptor.
-     *
-     * @return target is a method descriptor
-     * @deprecated Only valid when asking a type
-     */
-    // FIXME Only valid when asking a type
-    @Deprecated
-    public boolean isMethodDescr() { return false; }
-
     // ---------------------------------------------------------------
 
     /**
@@ -241,6 +221,12 @@ public abstract class Representation {
 
         @Override
         public int getIndex() { return index; }
+
+        @Override
+        public boolean isIntExact() { return type == PyLong.TYPE; }
+
+        @Override
+        public boolean isFloatExact() { return type == PyFloat.TYPE; }
 
         @Override
         public String toString() {
@@ -315,6 +301,12 @@ public abstract class Representation {
                 throw notSharedError(x);
             }
         }
+
+        @Override
+        public boolean isIntExact() { return false; }
+
+        @Override
+        public boolean isFloatExact() { return false; }
 
         @Override
         public Representation unshared(Object x) {

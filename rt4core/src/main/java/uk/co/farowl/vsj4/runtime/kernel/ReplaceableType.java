@@ -36,14 +36,10 @@ public final class ReplaceableType extends PyType {
         this.representation = representation;
     }
 
-
     @Override
     public List<Representation> representations() {
         return List.of(representation);
     }
-
-    @Override
-    public boolean isMutable() { return false; }
 
     @Override
     public List<Class<?>> selfClasses() { return List.of(javaClass); }
@@ -54,4 +50,13 @@ public final class ReplaceableType extends PyType {
         assert javaClass.isAssignableFrom(x.getClass());
         return this;
     }
+
+    @Override
+    public boolean isMutable() { return false; }
+
+    @Override
+    public boolean isIntExact() { return false; }
+
+    @Override
+    public boolean isFloatExact() { return false; }
 }

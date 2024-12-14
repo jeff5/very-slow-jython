@@ -51,7 +51,8 @@ import uk.co.farowl.vsj4.support.internal.Util;
 public abstract class PyWrapperDescr extends MethodDescriptor {
 
     static final PyType TYPE = PyType.fromSpec( //
-            new TypeSpec("wrapper_descriptor", MethodHandles.lookup()));
+            new TypeSpec("wrapper_descriptor", MethodHandles.lookup())
+                    .add(Feature.IMMUTABLE, Feature.METHOD_DESCR));
 
     /**
      * The {@link SpecialMethod} ({@code enum}) describing the generic
@@ -85,8 +86,9 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
     // };
 
     /**
-     * Return the documentation string from  the descriptor
-     *  in an external format.
+     * Return the documentation string from the descriptor in an
+     * external format.
+     *
      * @return the documentation string
      */
     @Exposed.Getter
@@ -96,8 +98,9 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
     }
 
     /**
-     * Return the method signature string from the descriptor
-     *  in an external format.
+     * Return the method signature string from the descriptor in an
+     * external format.
+     *
      * @return the method signature
      */
     @Exposed.Getter
@@ -197,20 +200,16 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
                 System.arraycopy(args, 1, rest, 0, m);
             }
 
-            return callWithSelf(self, rest, names);
+            return call(self, rest, names);
         }
     }
 
     /**
-     * Invoke the method described by this {@code PyWrapperDescr}, where
-     * the {@code self} argument (target of the invocation) is available
-     * separately from the arrays of other arguments. The method
-     * arranges {@code self} and the other arguments according to the
-     * signature of the wrapped special method. An incorrect number of
-     * arguments for the slot will throw an {@link ArgumentError}, which
-     * the caller should decode to a {@code TypeError} by a call to
-     * {@link #typeError(ArgumentError, Object[], String[])} on this
-     * object.
+     * {@inheritDoc}
+     * <p>
+     * The method arranges {@code self} and the other arguments
+     * according to the signature of the wrapped special method,
+     * avoiding an array copy.
      *
      * @param self target object of the method call
      * @param args of the method call
@@ -221,7 +220,8 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
      */
     // Compare CPython wrapperdescr_raw_call in descrobject.c
     // Also, CPython wrap_* functions in typeobject.c
-    Object callWithSelf(Object self, Object[] args, String[] names)
+    @Override
+    public Object call(Object self, Object[] args, String[] names)
             throws ArgumentError, Throwable {
         // Call through the correct wrapped handle for self
         MethodHandle mh = getHandle(self);
@@ -404,11 +404,9 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
 
     /**
      * Create a {@link PyBaseException TypeError} with a message along
-     * the lines
-     *  "descriptor 'D' requires a 'T' object but received a 'S'"
-     *  involving
-     * the name of this descriptor, {@link #objclass} and a type
-     * which is usually the type of a {@code self} to which the
+     * the lines "descriptor 'D' requires a 'T' object but received a
+     * 'S'" involving the name of this descriptor, {@link #objclass} and
+     * a type which is usually the type of a {@code self} to which the
      * descriptor was erroneously applied.
      *
      * @param selfType the type of object actually received
@@ -416,7 +414,10 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
      */
     @Override
     protected PyBaseException selfTypeError(PyType selfType) {
-        /* For some reason, a wrapper descriptor has a slightly different message from other descriptors. */
+        /*
+         * For some reason, a wrapper descriptor has a slightly
+         * different message from other descriptors.
+         */
         return PyErr.format(PyExc.TypeError, DESCRIPTOR_REQUIRES, name,
                 objclass.getName(), selfType.getName());
     }

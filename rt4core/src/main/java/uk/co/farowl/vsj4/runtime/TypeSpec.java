@@ -13,7 +13,6 @@ import java.util.List;
 
 import uk.co.farowl.vsj4.runtime.kernel.SimpleType;
 import uk.co.farowl.vsj4.support.InterpreterError;
-import uk.co.farowl.vsj4.support.MissingFeature;
 
 /**
  * A specification for a Python type that acts as a complex argument to
@@ -342,14 +341,16 @@ public class TypeSpec extends NamedSpec {
     public String getDoc() { return doc; }
 
     /**
-     * The class that will represent the instances of the type being
+     * A class that will represent the instances of the type being
      * defined. Methods defined by the type must be able to receive
      * instances of the specified class as their {@code self} argument.
+     * In an adoptive type (one with more than one representation), the
+     * primary class is the Java class of representation zero.
      * <p>
      * The default value is the defining class (obtained from the lookup
      * object in {@link #TypeSpec(String, Lookup)}), so this method need
      * not be called in simple cases. It is useful where a class
-     * different from these defaults is the presentation.
+     * different from these defaults is the representation.
      *
      * @param klass is the primary representation class of instances
      * @return {@code this}
@@ -362,17 +363,19 @@ public class TypeSpec extends NamedSpec {
 
     /**
      * The class that will be the base (in Java) of classes that
-     * represent the instances subclasses (in Python) of the type being
-     * defined. Methods defined by the type must be able to receive
-     * instances of the specified class as their {@code self} argument.
+     * represent the instances of subclasses (in Python) of the type
+     * being defined. Methods defined by the type must be able to
+     * receive instances of the specified class as their {@code self}
+     * argument.
      * <p>
      * The default value is the same class that is used to represent
-     * instances of the Python type, which in turn defaults to the
-     * defining class, so this method need not be called in simple
-     * cases. It is useful where a class different from these defaults
-     * is the base for subclasses. For example, the canonical base of
-     * {@code type} (primary class {@link PyType} is {@link SimpleType},
-     * to ensure metatypes have that implementation.
+     * instances of the Python type (see {@link #primary(Class)}, which
+     * in turn defaults to the defining class, so this method need not
+     * be called in simple cases. It is useful where a class different
+     * from these defaults is the base for subclasses. For example, the
+     * canonical base of {@code type} (primary class {@link PyType} is
+     * {@link SimpleType}, to ensure that metatypes have that
+     * implementation.
      *
      * @param klass is a base for instances of every subclass
      * @return {@code this}

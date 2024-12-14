@@ -17,13 +17,18 @@ import uk.co.farowl.vsj4.runtime.FastCall;
 import uk.co.farowl.vsj4.runtime.Feature;
 import uk.co.farowl.vsj4.runtime.MethodDescriptor;
 import uk.co.farowl.vsj4.runtime.PyBaseException;
+import uk.co.farowl.vsj4.runtime.PyDict;
 import uk.co.farowl.vsj4.runtime.PyErr;
 import uk.co.farowl.vsj4.runtime.PyExc;
 import uk.co.farowl.vsj4.runtime.PyJavaFunction;
+import uk.co.farowl.vsj4.runtime.PyLong;
+import uk.co.farowl.vsj4.runtime.PyTuple;
 import uk.co.farowl.vsj4.runtime.PyType;
+import uk.co.farowl.vsj4.runtime.PyUnicode;
 import uk.co.farowl.vsj4.runtime.TypeSpec;
 import uk.co.farowl.vsj4.runtime.WithClass;
 import uk.co.farowl.vsj4.runtime.internal._PyUtil;
+import uk.co.farowl.vsj4.support.internal.EmptyException;
 
 /**
  * {@code AbstractPyType} is the Java base of Python {@code type}
@@ -53,7 +58,7 @@ public abstract sealed class AbstractPyType extends Representation
      * others are observed during construction of the type.
      */
     // Compare CPython tp_flags in object.h
-    EnumSet<TypeFlag> features = EnumSet.noneOf(TypeFlag.class);
+    final EnumSet<TypeFlag> features = EnumSet.noneOf(TypeFlag.class);
 
     /**
      * The {@code __bases__} of this type, which are the types named in
@@ -79,6 +84,19 @@ public abstract sealed class AbstractPyType extends Representation
      * {@code __bases__}.
      */
     protected PyType[] mro;
+
+// /**
+// * Cache of the special method {@code __repr__} as a method handle.
+// * Note that while caches for special methods that are instance
+// * methods are in the class {@link Representation}, only a type can
+// * have a {@code __new__}. It must be updated whenever the
+// * definition of {@code __new__} changes for this type object. The
+// * signature of this handle is {@code (T,OA,SA)O} where the first
+// * argument is the class of object to create, not this class
+// * necessarily.
+// */
+// // Compare CPython type slot tp_new
+// private MethodHandle op_new;
 
     /**
      * The writable dictionary of the type is private because the type
@@ -196,9 +214,41 @@ public abstract sealed class AbstractPyType extends Representation
      * once observed remains valid for the lifetime of the run time
      * system.
      *
-     * @return {@code true} iff this is an immutable type
+     * @return {@code true} iff this is a mutable type
      */
     public abstract boolean isMutable();
+
+    /**
+     * Fast check that the target is a data descriptor.
+     *
+     * @return target is a data descriptor
+     */
+    public boolean isDataDescr() { return false; }
+
+    /**
+     * Fast check that instances of the type are a method descriptors,
+     * meaning that they take a {@code self} argument that may be
+     * supplied "loose" when calling them as a method. Types defined in
+     * Java may declare this in their specification.
+     * <p>
+     * This method is equivalent to reading the flag
+     * {@code Py_TPFLAGS_METHOD_DESCRIPTOR} described in <a
+     * href=https://peps.python.org/pep-0590/#descriptor-behavior>
+     * PEP-590</a>. If {@code isMethodDescr()} returns {@code true} for
+     * {@code type(func)}, then:
+     * <ul>
+     * <li>{@code func.__get__(obj, cls)(*args, **kwds)} (with
+     * {@code {@code obj}} not None) must be equivalent to
+     * {@code func(obj, *args, **kwds)}.</li>
+     * <li>{@code func.__get__(None, cls)(*args, **kwds)} must be
+     * equivalent to {@code func(*args, **kwds)}.</li>
+     * </ul>
+     *
+     * @return target is a method descriptor
+     */
+    public boolean isMethodDescr() {
+        return features.contains(TypeFlag.IS_METHOD_DESCR);
+    }
 
     /**
      * Find the index in this type corresponding to the class of an
@@ -348,12 +398,48 @@ public abstract sealed class AbstractPyType extends Representation
 
     /**
      * Add features flags derived from observations of the type itself
-     * (and the specification if necessary).
+     * (and the specification if necessary). This should be called at
+     * the end of initialising the type so that it is influenced by the
+     * set of exposed methods.
      *
      * @param spec specification of this type
      */
     void deriveFeatures(TypeSpec spec) {
-        // XXX descriptor nature from __get__ and __set__
+        /*
+         * Because (for example) discovering TUPLE_SUBCLASS has to
+         * happen while we build the tuple type, we cannot rely on
+         * this==PyTuple.TYPE, as the TYPE won't be assigned yet.
+         */
+
+        // Only one of these will succeed. (Result is by side effect).
+        @SuppressWarnings("unused")
+        boolean dummy = inherit(PyLong.class, TypeFlag.INT_SUBCLASS)
+                || inherit(PyTuple.class, TypeFlag.TUPLE_SUBCLASS)
+                || inherit(PyUnicode.class, TypeFlag.STR_SUBCLASS)
+                || inherit(PyDict.class, TypeFlag.DICT_SUBCLASS)
+                || inherit(PyBaseException.class,
+                        TypeFlag.EXCEPTION_SUBCLASS);
+    }
+
+    /**
+     * Set the given flag if the implementation class of this type
+     * matches that given or the flag it is set in the base. This way,
+     * there is a first type qualifying type, then every type that
+     * inherits from it inherits the flag.
+     *
+     * @param k identifying the first qualifying type
+     * @param f flag marking a sub-type
+     * @return {@code true} iff the flag was set in this call
+     */
+    private final boolean inherit(Class<?> k, TypeFlag f) {
+        AbstractPyType base = this.base;
+        if (base != null) {
+            if (javaClass == k || base.features.contains(f)) {
+                features.add(f);
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -527,7 +613,7 @@ public abstract sealed class AbstractPyType extends Representation
     // FastCall implementation ---------------------------------------
 
     /*
-     * These methods may be called instead of __call_ to take advantage
+     * These methods may be called instead of __call__ to take advantage
      * of potentially efficient handling of arguments in a type's
      * __new__ method. There is a short-cut in Callables.call that
      * detects the FastCall interface. In a CallSite, the MethodHandle
@@ -560,14 +646,44 @@ public abstract sealed class AbstractPyType extends Representation
         }
 
         // Call __new__ of the type described by this type object
-        // XXX Call __new__ and __init__ via Callables or SpecialMethod
         // XXX Almost certainly cache this so we know the type.
-        Object newMethod = lookup("__new__");
-        Object obj = _PyUtil.call(newMethod, this, args, names);
+        Object new_ = lookup("__new__");
+        Object obj = _PyUtil.callPrepend(new_, this, args, names);
 
         // Call obj.__init__ if it is defined and type(obj) == this
-        // maybeInit(obj, args, names);
+        maybeInit(obj, args, names);
         return obj;
+    }
+
+    /**
+     * Call {@code obj.__init__(args, names)} after {@code __new__} if
+     * it is defined and if obj is an instance of this type (or of a
+     * sub-type). It is not an error for {@code __new__} not to return
+     * an instance of this type.
+     *
+     * @param obj returned from {@code __new__}
+     * @param args passed to __new__
+     * @param names passed to __new__
+     * @throws Throwable Python errors from {@code __init__}
+     */
+    private void maybeInit(Object obj, Object[] args, String[] names)
+            throws Throwable {
+        assert obj != null;
+        Representation rep = SimpleType.getRepresentation(obj);
+        PyType objType = rep.pythonType(obj);
+        /*
+         * If obj is an instance of this type (or of a sub-type) call
+         * any __init__ defined for it.
+         */
+        if (objType.isSubTypeOf(this)) {
+            MethodHandle init = SpecialMethod.op_init.handle(rep);
+            try {
+                // Call obj.__init__ (args, names)
+                init.invoke(obj, args, names);
+            } catch (EmptyException ee) {
+                // Not an error for __init__ not to be defined
+            }
+        }
     }
 
 // @Override

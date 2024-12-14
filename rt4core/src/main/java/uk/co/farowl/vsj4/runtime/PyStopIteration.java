@@ -4,10 +4,10 @@ package uk.co.farowl.vsj4.runtime;
 
 import java.lang.invoke.MethodHandles;
 
-/**
- * The Python {@code NameError} exception, and the same class also
- * represents {@code UnboundLocalError}.
- */
+import uk.co.farowl.vsj4.runtime.Exposed.KeywordOnly;
+import uk.co.farowl.vsj4.runtime.Exposed.PositionalCollector;
+
+/**  The Python {@code StopIteration} exception. */
 public class PyStopIteration extends PyBaseException {
 
     /** The type object of Python {@code NameError} exceptions. */
@@ -23,27 +23,27 @@ public class PyStopIteration extends PyBaseException {
     private Object value;
 
     /**
-     * Constructor resembling {@code __new__}, specifying Python
-     * argument array and keywords.
+     * Constructor specifying Python type.
      *
      * @param type Python type of the exception
-     * @param args arguments to fossilise in the exception instance
-     * @param kwds keyword names to go with the trailing arguments
+     * @param args positional arguments
      */
-    public PyStopIteration(PyType type, Object[] args, String[] kwds) {
-        super(type, args, kwds);
-        // Stop-gap argument processing to show principle
-        // XXX Should the be in __init__ (and use the exposer)
-        int n = args.length, i = n - kwds.length;
-        assert i >= 0;
-        for (String kwd : kwds) {
-            switch (kwd) {
-                case "value":
-                    this.value = args[i];
-                    break;
-                default: // ignore
-            }
-            i += 1;
-        }
+    public PyStopIteration(PyType type, PyTuple args) {
+        super(type, args);
     }
+
+    // special methods ------------------------------------------------
+
+    // Compare CPython StopIteration_* in exceptions.c
+
+    /**
+     * @param value exit value of the iteration
+     * @param args positional arguments
+     */
+    void __init__(@KeywordOnly Object value,
+            @PositionalCollector PyTuple args) {
+        this.args = args;
+        this.value = value;
+    }
+
 }

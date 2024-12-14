@@ -162,6 +162,39 @@ public interface FastCall {
     }
 
     /**
+     * Invoke the target object with standard arguments, but where the
+     * first argument is provided "loose". This is a frequent need when
+     * that argument is the {@code self} object in a method call. The
+     * call effectively prepends {@code self} to {@code args}, although
+     * the aim is usually to minimise data movement. It does no
+     * attribute binding.
+     * <p>
+     * {@code self} and another {@code np = args.length - names.length}
+     * arguments are given by position, and the keyword arguments are
+     * {{@code names[i]:args[np+i]}}. An incorrect number of arguments
+     * for the slot will throw an {@link ArgumentError}, which the
+     * caller should decode to a {@code TypeError} by a call to
+     * {@link #typeError(ArgumentError, Object[], String[])} on this
+     * object.
+     *
+     * @param self first argument given
+     * @param args other arguments given, positional then keyword
+     * @param names of keyword arguments or {@code null}
+     * @return result of the invocation
+     * @throws ArgumentError if the wrong number of arguments is given,
+     *     or keywords where not expected.
+     * @throws Throwable from the implementation
+     */
+    default Object call(Object self, Object[] args, String[] names)
+            throws ArgumentError, Throwable {
+        int n = args.length;
+        Object[] a = new Object[1 + n];
+        a[0] = self;
+        System.arraycopy(args, 0, a, 1, n);
+        return call(a, names);
+    }
+
+    /**
      * Call this object with the vector call protocol. This supports
      * CPython byte code generated according to the conventions in
      * PEP-590.

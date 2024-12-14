@@ -31,7 +31,7 @@ public abstract class PyMethodDescr extends MethodDescriptor {
     /** The type object of a {@code method_descriptor}. */
     public static final PyType TYPE = PyType.fromSpec( //
             new TypeSpec("method_descriptor", MethodHandles.lookup())
-                    .add(Feature.IMMUTABLE));
+                    .add(Feature.IMMUTABLE, Feature.METHOD_DESCR));
 
     /*
      * We depart from CPython in reifying information from the Java
@@ -934,8 +934,9 @@ public abstract class PyMethodDescr extends MethodDescriptor {
                     return mh.invokeExact(self, a[0], a[1], d[k]);
                 } else if (n == 1) {
                     return mh.invokeExact(self, a[0], d[k++], d[k]);
-                } else if (n == 0)
+                } else if (n == 0) {
                     return mh.invokeExact(self, d[k++], d[k]);
+                }
             }
             // n < min || n > max
             throw new ArgumentError(min, max);

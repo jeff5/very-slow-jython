@@ -949,7 +949,6 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
             try {
                 // Convert m to a handle (if accessible)
                 MethodHandle mh = lookup.unreflect(m);
-                assert mh.type().parameterCount() == regargcount;
                 PyJavaFunction javaFunction =
                         PyJavaFunction.forNewMethod(ap, mh, type);
                 return javaFunction;

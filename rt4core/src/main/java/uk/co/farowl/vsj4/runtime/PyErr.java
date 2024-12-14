@@ -2,8 +2,6 @@
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
 
-import uk.co.farowl.vsj4.support.internal.Util;
-
 /**
  * Convenience methods for creating and manipulating Python exceptions.
  */
@@ -36,10 +34,11 @@ public class PyErr {
             String formatStr, Object... vals) {
         String msg = vals.length == 0 ? formatStr
                 : String.format(formatStr, vals);
-        Object[] args = {msg};
         // XXX Should construct via the type so as to set members.
-        // excType.call(args)
-        return new PyBaseException(excType, new Object[] {msg},
-                Util.EMPTY_STRING_ARRAY);
+        try {
+            return (PyBaseException)Callables.call(excType, msg);
+        } catch (Throwable e) {
+            throw Abstract.asUnchecked(e);
+        }
     }
 }

@@ -22,7 +22,8 @@ import java.lang.invoke.MethodHandles;
 class PyMethodWrapper implements WithClass, FastCall {
 
     static final PyType TYPE = PyType.fromSpec(
-            new TypeSpec("method-wrapper", MethodHandles.lookup()));
+            new TypeSpec("method-wrapper", MethodHandles.lookup())
+                    .add(Feature.IMMUTABLE));
 
     // No subclasses so always this type
     @Override
@@ -204,7 +205,7 @@ class PyMethodWrapper implements WithClass, FastCall {
 
     @Override
     public Object call(Object[] args, String[] names) throws Throwable {
-        return descr.callWithSelf(self, args, names);
+        return descr.call(self, args, names);
     }
 
     @Override

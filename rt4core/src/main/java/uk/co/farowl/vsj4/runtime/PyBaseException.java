@@ -5,6 +5,10 @@ package uk.co.farowl.vsj4.runtime;
 import java.lang.invoke.MethodHandles;
 import java.util.Map;
 
+import uk.co.farowl.vsj4.runtime.Exposed.KeywordCollector;
+import uk.co.farowl.vsj4.runtime.Exposed.PositionalCollector;
+import uk.co.farowl.vsj4.support.MissingFeature;
+
 /**
  * The Python {@code BaseException} and many common Python exceptions
  * (for example {@code TypeError}) are represented by instances of this
@@ -54,7 +58,7 @@ public class PyBaseException extends RuntimeException
      * arguments from {@code __new__} or {@code __init__}. Not
      * {@code null}.
      */
-    private PyTuple args;
+    protected PyTuple args;
 
     /**
      * A list of the notes added to this exception. Exposed as
@@ -86,43 +90,21 @@ public class PyBaseException extends RuntimeException
     // XXX current format and args could be applied to message.
 
     /**
-     * Constructor for sub-class use specifying {@link #type}. The
-     * message {@code msg} is a Java format string in which the
-     * constructor arguments {@code vals} are used to fill the place
-     * holders. The formatted message is the exception message from the
-     * Java point of view.
-     * <p>
-     * From a Python perspective, the tuple ({@code exception.args}) has
-     * one element, the formatted message, or zero elements if the
-     * message is zero length.
-     *
-     * @param type actual Python type of this object
-     * @param msg a Java format string for the message
-     * @param vals to insert in the format string
-     */
-    protected PyBaseException(PyType type, String msg, Object... vals) {
-        super(String.format(msg, vals));
-        this.type = type;
-        msg = this.getMessage();
-        this.args = msg.length() > 0 ? new PyTuple(msg) : PyTuple.EMPTY;
-    }
-
-    /**
-     * Constructor specifying Python argument array and keywords.
+     * Constructor specifying Python type and the
+     * argument tuple as the associated value. We do this for maximum
+     * similarity with CPython, where {@code __new__} does no more than
+     * allocate an object and all attribute values are decoded by
+     * {@code __init__}.
      *
      * @param type Python type of the exception
-     * @param args arguments to fossilise in the exception instance
-     * @param kwds keyword names to go with the trailing arguments
+     * @param args positional arguments
      */
-    public PyBaseException(PyType type, Object[] args, String[] kwds) {
+    public PyBaseException(PyType type, PyTuple args) {
         super();
         // Ensure Python type is valid for Java class.
         this.type = TYPE; // For the check
         this.type = checkClassAssignment(type);
-        // Fossilise the positional args
-        int n = args == null ? 0 : args.length;
-        if (kwds != null) { n -= kwds.length; }
-        this.args = n == 0 ? PyTuple.EMPTY : new PyTuple(args, 0, n);
+        this.args = args;
     }
 
     @Override
@@ -164,7 +146,54 @@ public class PyBaseException extends RuntimeException
 
     // special methods ------------------------------------------------
 
-    // Compare CPython PyBaseException_* in exceptions.c
+    // Compare CPython BaseException_* in exceptions.c
+
+    /**
+     * Create a new instance of the specified a Python exception class
+     * {@code type}, which must be {@code BaseException} or a subclass
+     * of it. The returned object is an instance of the Java
+     * representation class of {@code type}.
+     *
+     * @param type actual Python sub-class being created
+     * @param args positional arguments
+     * @param kwargs keywords (ignored)
+     * @return newly-created object
+     */
+    @Exposed.PythonNewMethod
+    static Object __new__(PyType type,
+            @PositionalCollector PyTuple args,
+            @KeywordCollector PyDict kwargs) {
+        // FIXME prevent arbitrary type here (but do so in wrapper)
+        assert type.isSubTypeOf(TYPE);
+        PyBaseException self;
+        PyTuple t = new PyTuple(args);
+        if (type.javaClass() == PyBaseException.class) {
+            // Required type shares the primary representation
+            self = new PyBaseException(type, t);
+        } else {
+            // TODO Create instance of implementation of type.
+            /*
+             * We need an instance of a Python subclass E of
+             * BaseException that needs a Java subclass representation.
+             * This will happen if E was defined in Python and has
+             * __slots__, or in Java and provides no __new__. This would
+             * be ok if we could invoke the correct constructor.
+             */
+            throw new MissingFeature("Subclass without __new__");
+        }
+        assert PyType.of(self) == type;
+        return self;
+    }
+
+    /**
+     * Initialise this instance.
+     *
+     * @param args values to set as the attribute {@code args}
+     * @param kwds keywords (should be at most {@code ["name"]})
+     */
+    void __init__(Object[] args, String[] kwds) {
+        this.args = PyTuple.from(args);
+    }
 
     /** @return {@code repr()} of this Python object. */
     protected Object __repr__() {

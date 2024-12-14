@@ -13,6 +13,29 @@ import java.lang.invoke.MethodHandles;
  * representation in Java.
  * <p>
  * When it becomes necessary to create (or raise) an exception
+ * code will refer to one of the type objects here.
+ * <p>
+ * In CPython, the object implementation of many Python exception types
+ * is shared with multiple others. This allows multiple inheritance and
+ * class assignment amongst user-defined exceptions, with diverse
+ * built-in bases, in ways that may be surprising. The following is
+ * valid in Python: <pre>
+ * class TE(TypeError): __slots__=()
+ * class FPE(FloatingPointError): __slots__=()
+ * TE().__class__ = FPE
+ * class E(ZeroDivisionError, TypeError): __slots__=()
+ * E().__class__ = FPE
+ * </pre>In order to meet user expectations set by CPython, the Java
+ * representation of many Python exception types is shared. For example
+ * {@code TypeError}, {@code FloatingPointError} and
+ * {@code ZeroDivisionError} must share a representation (that of
+ * {@code BaseException}, in fact). Since they are not different classes,
+ * we cannot use a Java {@code catch} clause to select them.
+ * <p>
+ * CPython prohibits class-assignment involving built-in types directly.
+ * For example {@code FloatingPointError().__class__ = E} and its
+ * converse are not allowed. There seems to be no structural reason to
+ * prohibit it, but we should do so for compatibility.
  */
 // Compare CPython exceptions.c
 /*

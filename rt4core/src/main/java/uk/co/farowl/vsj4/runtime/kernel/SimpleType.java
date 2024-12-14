@@ -59,16 +59,22 @@ public non-sealed class SimpleType extends PyType {
     @Override
     public List<Class<?>> selfClasses() { return List.of(javaClass); }
 
-    // XXX Decide the immutability of SimpleType
-    @Override
-    public boolean isMutable() { return false; }
-
     @Override
     public PyType pythonType(Object x) {
         // I don't *think* we should be asked this question unless:
         assert javaClass.isAssignableFrom(x.getClass());
         return this;
     }
+
+    // XXX Decide the immutability of SimpleType
+    @Override
+    public boolean isMutable() { return false; }
+
+    @Override
+    public boolean isIntExact() { return false; }
+
+    @Override
+    public boolean isFloatExact() { return false; }
 
     /**
      * A lookup with package scope within the public {@code runtime}
@@ -84,12 +90,26 @@ public non-sealed class SimpleType extends PyType {
     /**
      * The type factory to which the run-time system goes for all type
      * objects.
+     *
+     * @return the (static) type factory
      */
     static TypeFactory getFactory() { return factory; }
 
     /**
      * The type registry to which this run-time system goes for all
      * class look-ups.
+     *
+     * @return the (static) type registry
      */
     static TypeRegistry getRegistry() { return registry; }
+
+    /**
+     * Look up the representation of an object via its Java class.
+     *
+     * @param o for which the {@code Representation} is required.
+     * @return the {@code Representation} of {@code o}.
+     */
+    static Representation getRepresentation(Object o) {
+        return registry.get(o.getClass());
+    }
 }

@@ -23,29 +23,25 @@ public class PyAttributeError extends PyBaseException {
     /** The object that didn't have {@code name} as an attribute. */
     private Object obj;
 
-    /** Constructor resembling {@code __new__}, specifying Python argument array and keywords.
-    *
-    * @param type Python type of the exception
-    * @param args arguments to fossilise in the exception instance
-    * @param kwds keyword names to go with the trailing arguments
-    */
-    public PyAttributeError(PyType type, Object[] args, String[] kwds) {
-        super(type, args, kwds);
-        // Stop-gap argument processing to show principle
-        // XXX Should the be in __init__ (and use the exposer)
-        int n = args.length, i = n - kwds.length;
-        assert i >= 0;
-        for (String kwd : kwds) {
-            switch (kwd) {
-                case "name":
-                    this.name = (String)args[i];
-                    break;
-                case "obj":
-                    this.obj = args[i];
-                    break;
-                default: // ignore
-            }
-            i += 1;
-        }
+    /**
+     * Constructor resembling {@code __new__}, specifying Python
+     * positional arguments (only).
+     *
+     * @param type Python type of the exception
+     * @param args arguments to fossilise in the exception instance
+     */
+    public PyAttributeError(PyType type, PyTuple args) {
+        super(type, args);
+    }
+
+    private static final ArgParser INIT_PARSER =
+            ArgParser.fromSignature("__init__", "*args, name, obj");
+
+    @Override
+    void __init__(Object[] args, String[] kwds) {
+        Object[] frame = INIT_PARSER.parse(args, kwds);
+        this.args = new PyTuple(frame, 0, 1);
+        this.name = PyUnicode.asString(frame[1]);
+        this.obj = frame[2];
     }
 }

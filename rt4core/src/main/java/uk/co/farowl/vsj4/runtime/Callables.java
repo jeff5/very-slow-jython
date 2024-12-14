@@ -5,7 +5,7 @@ package uk.co.farowl.vsj4.runtime;
 import java.util.Arrays;
 import java.util.Map;
 
-import uk.co.farowl.vsj4.support.internal.EmptyException;
+import uk.co.farowl.vsj4.runtime.internal._PyUtil;
 import uk.co.farowl.vsj4.support.internal.Util;
 
 /** Support for the {@code __call__} protocol of Python objects. */
@@ -43,22 +43,16 @@ public class Callables extends Abstract {
         if (names != null && names.length == 0) { names = null; }
 
         if (callable instanceof FastCall fast) {
-            // Take the direct route since __call__ is immutable
+            // Fast path recognising optimised callable
             try {
                 return fast.call(args, names);
             } catch (ArgumentError ae) {
                 // Demand a proper TypeError.
                 throw fast.typeError(ae, args, names);
             }
-        }
-
-        try {
-            // Call via the special method
-            // XXX Stop gap code until support for special functions
-            // Object o = PyType.of(callable).lookup("__call__");
-            throw new EmptyException();
-        } catch (EmptyException e) {
-            throw typeError(OBJECT_NOT_CALLABLE, callable);
+        } else {
+            // Go via callable.__call__
+            return _PyUtil.standardCall(callable, args, names);
         }
     }
 
@@ -166,8 +160,6 @@ public class Callables extends Abstract {
         return call(callable, ar, kw);
     }
 
-    static final String OBJECT_NOT_CALLABLE =
-            "'%.200s' object is not callable";
     static final String OBJECT_NOT_VECTORCALLABLE =
             "'%.200s' object does not support vectorcall";
     static final String ATTR_NOT_CALLABLE =

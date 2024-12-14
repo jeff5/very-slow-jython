@@ -4,6 +4,8 @@ package uk.co.farowl.vsj4.runtime.kernel;
 
 import java.util.List;
 
+import uk.co.farowl.vsj4.runtime.PyFloat;
+import uk.co.farowl.vsj4.runtime.PyLong;
 import uk.co.farowl.vsj4.runtime.PyType;
 
 /**
@@ -79,12 +81,19 @@ public final class AdoptiveType extends PyType {
     public List<Class<?>> selfClasses() { return selfClasses; }
 
     @Override
-    public boolean isMutable() { return false; }
-
-    @Override
     public PyType pythonType(Object x) {
         // I don't *think* we should be asked this question unless:
         assert javaClass.isAssignableFrom(x.getClass());
         return this;
     }
+
+    @Override
+    public boolean isMutable() { return false; }
+
+    @Override
+    public boolean isIntExact() { return this == PyLong.TYPE; }
+
+    @Override
+    public boolean isFloatExact() { return this == PyFloat.TYPE; }
+
 }
