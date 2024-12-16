@@ -104,7 +104,7 @@ public enum SpecialMethod {
 
     /**
      * Defines {@code __getattribute__} with signature
-     * {@link Signature#GETATTR}, attribute get.
+     * {@link Signature#GETATTR}, which implements attribute get.
      */
     op_getattribute(Signature.GETATTR,
             "($self, name, /) Return getattr(self, name)."),
@@ -116,13 +116,13 @@ public enum SpecialMethod {
             "($self, name, /) Return getattr(self, name)."),
     /**
      * Defines {@code __setattr__} with signature
-     * {@link Signature#SETATTR}, attribute set.
+     * {@link Signature#SETATTR}, which implements attribute set.
      */
     op_setattr(Signature.SETATTR,
             "($self, name, value, /) Implement setattr(self, name, value)."),
     /**
      * Defines {@code __delattr__} with signature
-     * {@link Signature#DELATTR}, attribute deletion.
+     * {@link Signature#DELATTR}, which implements attribute deletion.
      */
     op_delattr(Signature.DELATTR,
             "($self, name, /) Implement delattr(self, name)."),
@@ -171,27 +171,26 @@ public enum SpecialMethod {
 
     /**
      * Defines {@code __get__} with signature
-     * {@link Signature#DESCRGET}, descriptor {@code __get__}.
+     * {@link Signature#DESCRGET}, which implements descriptor {@code __get__}.
      */
     op_get(Signature.DESCRGET,
             "($self, instance, owner=None, /) Return an attribute of instance, which is of type owner."),
     /**
      * Defines {@code __set__} with signature {@link Signature#SETITEM},
-     * descriptor {@code __set__}.
+     * which implements descriptor {@code __set__}.
      */
     op_set(Signature.SETITEM,
             "($self, instance, value, /) Set an attribute of instance to value."),
     /**
      * Defines {@code __delete__} with signature
-     * {@link Signature#DELITEM}, descriptor {@code __delete__}.
+     * {@link Signature#DELITEM}, which implements descriptor {@code __delete__}.
      */
     op_delete(Signature.DELITEM,
             "($self, instance, /) Delete an attribute of instance."),
 
     /**
      * Defines {@code __init__} with signature {@link Signature#INIT},
-     * object initialisation after {@code __new__}, which is not in this
-     * {@code enum} as it is not an instance method.
+     * which initialises an object after {@code __new__}.
      */
     op_init(Signature.INIT,
             "($self, /, *args, **kwargs) Initialize self."
@@ -484,13 +483,13 @@ public enum SpecialMethod {
     op_getitem(Signature.BINARY, "($self, key, /) Return self[key]."),
     /**
      * Defines {@code __setitem__} with signature
-     * {@link Signature#SETITEM}, set at index.
+     * {@link Signature#SETITEM}, set object at index.
      */
     op_setitem(Signature.SETITEM,
             "($self, key, value, /) Set self[key] to value."),
     /**
      * Defines {@code __delitem__} with signature
-     * {@link Signature#DELITEM}, delete from index.
+     * {@link Signature#DELITEM}, delete object from index.
      */
     op_delitem(Signature.DELITEM, "($self, key, /) Delete self[key]."),
     /**
@@ -758,8 +757,7 @@ public enum SpecialMethod {
              */
             try {
                 // Replace meth with result of descriptor binding.
-                MethodHandle get = SpecialMethod.op_get.handle(methRep);
-                meth = get.invokeExact(meth, self, type);
+                meth = methRep.op_get().invokeExact(meth, self, type);
             } catch (EmptyException e) {
                 // Not a descriptor at all.
             }
@@ -856,8 +854,7 @@ public enum SpecialMethod {
              */
             try {
                 // Replace meth with result of descriptor binding.
-                MethodHandle get = SpecialMethod.op_get.handle(rep);
-                meth = get.invokeExact(meth, self, type);
+                meth = rep.op_get().invokeExact(meth, self, type);
             } catch (EmptyException e) {
                 // Not a descriptor at all.
             }

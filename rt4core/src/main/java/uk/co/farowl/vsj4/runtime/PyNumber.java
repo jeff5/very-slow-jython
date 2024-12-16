@@ -27,7 +27,7 @@ public class PyNumber extends Abstract {
      */
     public static Object negative(Object v) throws Throwable {
         try {
-            return PyType.representationOf(v).op_neg.invokeExact(v);
+            return PyType.getRepresentation(v).op_neg().invokeExact(v);
         } catch (EmptyException e) {
             throw SpecialMethod.op_neg.operandError(v);
         }
@@ -42,7 +42,8 @@ public class PyNumber extends Abstract {
      */
     public static Object invert(Object v) throws Throwable {
         try {
-            return PyType.representationOf(v).op_invert.invokeExact(v);
+            return PyType.getRepresentation(v).op_invert()
+                    .invokeExact(v);
         } catch (EmptyException e) {
             throw SpecialMethod.op_invert.operandError(v);
         }
@@ -57,7 +58,7 @@ public class PyNumber extends Abstract {
      */
     public static Object absolute(Object v) throws Throwable {
         try {
-            return PyType.representationOf(v).op_abs.invokeExact(v);
+            return PyType.getRepresentation(v).op_abs().invokeExact(v);
         } catch (EmptyException e) {
             throw SpecialMethod.op_abs.operandError(v);
         }
@@ -172,10 +173,10 @@ public class PyNumber extends Abstract {
     private static Object binary_op1(Object v, Object w,
             SpecialMethod binop) throws EmptyException, Throwable {
 
-        Representation vOps = PyType.representationOf(v);
+        Representation vOps = PyType.getRepresentation(v);
         PyType vType = vOps.pythonType(v);
 
-        Representation wOps = PyType.representationOf(w);
+        Representation wOps = PyType.getRepresentation(w);
         PyType wType = wOps.pythonType(w);
 
         MethodHandle slotv, slotw;
@@ -213,8 +214,9 @@ public class PyNumber extends Abstract {
     }
 
     // FIXME Use EmptyException uniformly
-    /* This "empty" does not work for shared representations, which
-     * fill their slot with a redirection to the (mutable) type.
+    /*
+     * This "empty" does not work for shared representations, which fill
+     * their slot with a redirection to the (mutable) type.
      */
     private static final MethodHandle BINARY_EMPTY =
             SpecialMethod.Signature.BINARY.empty;
@@ -229,7 +231,7 @@ public class PyNumber extends Abstract {
     // Compare CPython PyIndex_Check in abstract.c
     protected static boolean indexCheck(Object obj) {
         return SpecialMethod.op_index
-                .isDefinedFor(PyType.representationOf(obj));
+                .isDefinedFor(PyType.getRepresentation(obj));
     }
 
     /**
@@ -249,16 +251,16 @@ public class PyNumber extends Abstract {
     // Compare with CPython abstract.c :: PyNumber_Index
     static Object index(Object o) throws PyBaseException, Throwable {
 
-        Representation rep = PyType.representationOf(o);
+        Representation rep = PyType.getRepresentation(o);
         Object res;
 
         if (rep.isIntExact())
             return o;
         else {
             try {
-                res = rep.op_index.invokeExact(o);
+                res = rep.op_index().invokeExact(o);
                 // Enforce expectations on the return type
-                Representation resOps = PyType.representationOf(res);
+                Representation resOps = PyType.getRepresentation(res);
                 if (resOps.isIntExact())
                     return res;
                 else if (resOps.pythonType(res)

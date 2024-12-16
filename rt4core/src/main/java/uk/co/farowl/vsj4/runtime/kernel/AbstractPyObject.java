@@ -66,7 +66,7 @@ public abstract class AbstractPyObject {
     static Object __str__(Object self) throws Throwable {
         Representation rep = SimpleType.getRepresentation(self);
         try {
-            return rep.op_repr.invokeExact(self);
+            return rep.op_repr().invokeExact(self);
         } catch (EmptyException ee) {
             return __repr__(self);
         }

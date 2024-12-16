@@ -48,10 +48,10 @@ public class Abstract {
         if (o == null) {
             return "<null>";
         } else {
-            Representation rep = PyType.representationOf(o);
-            MethodHandle mh = rep.handle(SpecialMethod.op_repr, o);
+            Representation rep = PyType.getRepresentation(o);
+            MethodHandle repr = rep.op_repr();
             try {
-                Object res = mh.invoke(o);
+                Object res = repr.invoke(o);
                 if (PyUnicode.TYPE.check(res)) {
                     return res;
                 } else {
@@ -81,8 +81,8 @@ public class Abstract {
             return o;
         } else {
             try {
-                Representation rep = PyType.registry.get(o.getClass());
-                Object res = rep.op_str.invokeExact(o);
+                Representation rep = PyType.getRepresentation(o);
+                Object res = rep.op_str().invokeExact(o);
                 if (PyUnicode.TYPE.check(res)) {
                     return res;
                 } else {
@@ -113,8 +113,8 @@ public class Abstract {
                 throw new EmptyException();
             }
             // XXX Replace when this slot is defined:
-            // Representation rep=PyType.registry.get(o.getClass());
-            // MethodHandle mh=SpecialMethod.op_tojava.handle(rep);
+            // Representation rep=PyType.getRepresentation(o);
+            // MethodHandle mh=rep.op_tojava();
             // return (T)mh.invokeExact(o, c);
         } catch (NullPointerException npe) {
             // Probably an error, but easily converted.
@@ -136,8 +136,8 @@ public class Abstract {
      */
     public static int hash(Object v) throws PyBaseException, Throwable {
         try {
-            Representation rep = PyType.registry.get(v.getClass());
-            MethodHandle mh = SpecialMethod.op_hash.handle(rep);
+            Representation rep = PyType.getRepresentation(v);
+            MethodHandle mh = rep.op_hash();
             return (int)mh.invokeExact(v);
         } catch (EmptyException e) {
             throw typeError("unhashable type: %s", v);
@@ -161,17 +161,17 @@ public class Abstract {
         else if (v == Py.False || v == Py.None)
             return false;
         else {
-            // Ask the object through the op_bool or op_len slots
-            Representation rep = PyType.registry.get(v.getClass());
-            if (SpecialMethod.op_bool.isDefinedFor(rep))
-                return (boolean)SpecialMethod.op_bool.handle(rep)
-                        .invokeExact(v);
-            else if (SpecialMethod.op_len.isDefinedFor(rep))
-                return 0 != (int)SpecialMethod.op_len.handle(rep)
-                        .invokeExact(v);
-            else
-                // No op_bool and no length: claim everything is True.
-                return true;
+            Representation rep = PyType.getRepresentation(v);
+            try {
+                // Ask the object through __bool__.
+                return (boolean)rep.op_bool().invokeExact(v);
+            } catch (EmptyException ee) {}
+            try {
+                // Ask the object through __len__.
+                return 0 != (int)rep.op_len().invokeExact(v);
+            } catch (EmptyException ee) {}
+            // No __bool__ or __len__: claim everything is True.
+            return true;
         }
     }
 
@@ -265,16 +265,14 @@ public class Abstract {
     public static Object getAttr(Object o, String name)
             throws PyAttributeError, Throwable {
         // Decisions are based on type of o (that of name is known)
-        Representation rep = PyType.registry.get(o.getClass());
+        Representation rep = PyType.getRepresentation(o);
         try {
             // Invoke __getattribute__.
-            MethodHandle mh = SpecialMethod.op_getattribute.handle(rep);
-            return mh.invokeExact(o, name);
+            return rep.op_getattribute().invokeExact(o, name);
         } catch (EmptyException | PyAttributeError e) {
             try {
                 // Not found or not defined: fall back on __getattr__.
-                return SpecialMethod.op_getattr.handle(rep)
-                        .invokeExact(o, name);
+                return rep.op_getattr().invokeExact(o, name);
             } catch (EmptyException ignored) {
                 // __getattr__ not defined, original exception stands.
                 if (e instanceof PyAttributeError) { throw e; }
@@ -317,18 +315,16 @@ public class Abstract {
     public static Object lookupAttr(Object o, String name)
             throws Throwable {
         // Decisions are based on type of o (that of name is known)
-        Representation rep = PyType.registry.get(o.getClass());
+        Representation rep = PyType.getRepresentation(o);
         try {
             // Invoke __getattribute__
-            return SpecialMethod.op_getattribute.handle(rep)
-                    .invokeExact(o, name);
+            return rep.op_getattribute().invokeExact(o, name);
         } catch (EmptyException | PyAttributeError e) {
             try {
                 // Not found or not defined: fall back on __getattr__.
-                return SpecialMethod.op_getattr.handle(rep)
-                        .invokeExact(o, name);
+                return rep.op_getattr().invokeExact(o, name);
             } catch (EmptyException | PyAttributeError ignored) {
-                // __getattr__ not defined, original exception stands.
+                // __getattr__ not defined, report not found.
                 return null;
             }
         }
@@ -370,9 +366,8 @@ public class Abstract {
             throws PyAttributeError, Throwable {
         // Decisions are based on type of o (that of name is known)
         try {
-            Representation rep = PyType.registry.get(o.getClass());
-            MethodHandle mh = SpecialMethod.op_setattr.handle(rep);
-            mh.invokeExact(o, name, value);
+            Representation rep = PyType.getRepresentation(o);
+            rep.op_setattr().invokeExact(o, name, value);
         } catch (EmptyException e) {
             throw attributeAccessError(o, name,
                     SpecialMethod.op_setattr);
@@ -414,9 +409,8 @@ public class Abstract {
             throws PyAttributeError, Throwable {
         // Decisions are based on type of o (that of name is known)
         try {
-            Representation rep = PyType.registry.get(o.getClass());
-            MethodHandle mh = SpecialMethod.op_delattr.handle(rep);
-            mh.invokeExact(o, name);
+            Representation rep = PyType.getRepresentation(o);
+            rep.op_delattr().invokeExact(o, name);
         } catch (EmptyException e) {
             throw attributeAccessError(o, name,
                     SpecialMethod.op_delattr);
@@ -739,9 +733,8 @@ public class Abstract {
             // res might be a descriptor
             try {
                 // invoke the descriptor's __get__
-                Representation rep =
-                        PyType.registry.get(res.getClass());
-                MethodHandle f = SpecialMethod.op_get.handle(rep);
+                Representation rep = PyType.getRepresentation(res);
+                MethodHandle f = rep.op_get();
                 res = f.invokeExact(res, self, selfType);
             } catch (EmptyException e) {}
         }
@@ -784,13 +777,13 @@ public class Abstract {
     // Compare CPython PyObject_GetIter in abstract.c
     // static <E extends PyBaseException> Object getIterator(Object o,
     // Supplier<E> exc) throws PyBaseException, Throwable {
-    // Representation rep = PyType.registry.get(o.getClass());
+    // Representation rep = PyType.getRepresentation(o);
     // if (SpecialMethod.op_iter.isDefinedFor(rep)) {
     // // o defines __iter__, call it.
-    // Object r = SpecialMethod.op_iter.handle(rep).invokeExact(o);
+    // Object r = rep.op_iter().invokeExact(o);
     // // Did that return an iterator? Check r defines __next__.
     // if (SpecialMethod.op_next.isDefinedFor(
-    // PyType.registry.get(r.getClass()))) {
+    // PyType.getRepresentation(r))) {
     // return r;
     // } else if (exc == null) {
     // throw returnTypeError("iter", "iterator", r);
@@ -817,7 +810,7 @@ public class Abstract {
      */
     static boolean iterableCheck(Object o) {
         return SpecialMethod.op_iter
-                .isDefinedFor(PyType.registry.get(o.getClass()));
+                .isDefinedFor(PyType.getRepresentation(o));
     }
 
     /**
@@ -830,7 +823,7 @@ public class Abstract {
     // Compare CPython PyIter_Check in abstract.c
     static boolean iteratorCheck(Object o) {
         return SpecialMethod.op_next
-                .isDefinedFor(PyType.registry.get(o.getClass()));
+                .isDefinedFor(PyType.getRepresentation(o));
     }
 
     /**
@@ -844,9 +837,9 @@ public class Abstract {
      */
     // Compare CPython PyIter_Next in abstract.c
     static Object next(Object iter) throws Throwable {
-        Representation rep = PyType.registry.get(iter.getClass());
+        Representation rep = PyType.getRepresentation(iter);
         try {
-            return SpecialMethod.op_next.handle(rep).invokeExact(iter);
+            return rep.op_next().invokeExact(iter);
         } catch (PyStopIteration e) {
             return null;
         } catch (EmptyException e) {
@@ -882,7 +875,7 @@ public class Abstract {
                 break;
         }
         // Can we even read this object's attributes?
-        Representation rep = PyType.registry.get(o.getClass());
+        Representation rep = PyType.getRepresentation(o);
         String typeName = rep.pythonType(o).getName();
         boolean readable =
                 SpecialMethod.op_getattribute.isDefinedFor(rep)
@@ -901,8 +894,7 @@ public class Abstract {
             "%.200s returned non-%.200s (type %.200s)";
     private static final String ARGUMENT_MUST_BE =
             "%s()%s%s argument must be %s, not '%.200s'";
-    private static final String NOT_MAPPING =
-            "%.200s is not a mapping";
+    private static final String NOT_MAPPING = "%.200s is not a mapping";
     private static final String NOT_ITERABLE =
             "%.200s object is not iterable";
     private static final String DESCR_NOT_DEFINING =

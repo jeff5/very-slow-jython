@@ -15,6 +15,7 @@ import uk.co.farowl.vsj4.runtime.PyFloat;
 import uk.co.farowl.vsj4.runtime.PyLong;
 import uk.co.farowl.vsj4.runtime.PyType;
 import uk.co.farowl.vsj4.runtime.WithClass;
+import uk.co.farowl.vsj4.runtime.kernel.SpecialMethod.Signature;
 import uk.co.farowl.vsj4.support.InterpreterError;
 
 /**
@@ -335,45 +336,900 @@ public abstract class Representation {
         }
     }
 
-    // TODO Consider encapsulating in getters.
+    // Getters for special methods -----------------------------------
+    /*
+     * There is one of these methods for each member of the
+     * SpecialMethod enum. Each returns a method handle, of the
+     * appropriate signature for the special method, that designates an
+     * implementation applicable to an object that has this
+     * Representation, according to its class and the type registry. We
+     * treat these return values roughly as CPython does the "slots" of
+     * its type object.
+     *
+     * Some of these come from values cached on the Representation
+     * itself, while others return a generic handle that performs a
+     * lookup in the dictionary of the type when invoked. We can choose
+     * between the strategies to trade speed and size of Representation
+     * objects. To switch a "generic" special method into a caching one,
+     * define a cache variable and change the method to return it. The
+     * corresponding SpecialMethod will discover the cache automatically
+     * and the type system will use it.
+     *
+     * Those accessors that return only a generic handle do not depend
+     * on the Representation (this) and could be declared static. (The
+     * IDE may inform you of this.) Client code should then change to
+     * call the accessor as a static method in Representation, without
+     * calling PyType.getRepresentation(). That would be an improvement,
+     * but is premature until the choice of what to cache settles down.
+     */
 
-    /** Cache of {@link SpecialMethod#op_repr __repr__} */
-    public MethodHandle op_repr;
-    /** Cache of {@link SpecialMethod#op_hash __hash__} */
-    public MethodHandle op_hash;
-    /** Cache of {@link SpecialMethod#op_call __call__} */
-    public MethodHandle op_call;
-    /** Cache of {@link SpecialMethod#op_str __str__} */
-    public MethodHandle op_str;
+    /**
+     * Return a matching implementation of {@code __repr__} with
+     * signature {@link Signature#UNARY}, supporting built-in
+     * {@code repr()}.
+     *
+     * @return handle on {@code __repr__} with signature
+     *     {@link Signature#UNARY}.
+     */
+    public MethodHandle op_repr() {
+        return SpecialMethod.op_repr.generic;
+    }
 
-    /** Cache of {@link SpecialMethod#op_add __add__} */
-    public MethodHandle op_add;
-    /** Cache of {@link SpecialMethod#op_radd __radd__} */
-    public MethodHandle op_radd;
+    /**
+     * Return a matching implementation of {@code __hash__} with
+     * signature {@link Signature#LEN}, supporting object hashing and
+     * the built-in {@code hash()}.
+     *
+     * @return handle on {@code __hash__} with signature
+     *     {@link Signature#LEN}.
+     */
+    public MethodHandle op_hash() {
+        return SpecialMethod.op_hash.generic;
+    }
 
-    /** Cache of {@link SpecialMethod#op_neg __neg__} */
-    public MethodHandle op_neg;
-    /** Cache of {@link SpecialMethod#op_abs __abs__} */
-    public MethodHandle op_abs;
-    /** Cache of {@link SpecialMethod#op_invert __invert__} */
-    public MethodHandle op_invert;
+    /**
+     * Return a matching implementation of {@code __call__} with
+     * signature {@link Signature#CALL}, which supports calling an
+     * object.
+     *
+     * @return handle on {@code __call__} with signature
+     *     {@link Signature#CALL}.
+     */
+    public MethodHandle op_call() {
+        return SpecialMethod.op_call.generic;
+    }
 
-    /** Cache of {@link SpecialMethod#op_int __int__} */
-    public MethodHandle op_int;
-    /** Cache of {@link SpecialMethod#op_index __index__} */
-    public MethodHandle op_index;
+    /**
+     * Return a matching implementation of {@code __str__} with
+     * signature {@link Signature#UNARY}, supporting built-in
+     * {@code str()}.
+     *
+     * @return handle on {@code __str__} with signature
+     *     {@link Signature#UNARY}.
+     */
+    public MethodHandle op_str() {
+        return SpecialMethod.op_str.generic;
+    }
 
-    /** Cache of {@link SpecialMethod#op_len __len__} */
-    public MethodHandle op_len;
-    /** Cache of {@link SpecialMethod#op_getitem __getitem__} */
-    public MethodHandle op_getitem;
-    /** Cache of {@link SpecialMethod#op_setitem __setitem__} */
-    public MethodHandle op_setitem;
+    /**
+     * Return a matching implementation of {@code __getattribute__} with
+     * signature {@link Signature#GETATTR}, which implements attribute
+     * get.
+     *
+     * @return handle on {@code __getattribute__} with signature
+     *     {@link Signature#GETATTR}.
+     */
+    public MethodHandle op_getattribute() {
+        return SpecialMethod.op_getattribute.generic;
+    }
 
+    /**
+     * Return a matching implementation of {@code __getattr__} with
+     * signature {@link Signature#GETATTR}, the fall-back attribute get.
+     *
+     * @return handle on {@code __getattr__} with signature
+     *     {@link Signature#GETATTR}.
+     */
+    public MethodHandle op_getattr() {
+        return SpecialMethod.op_getattr.generic;
+    }
+
+    /**
+     * Return a matching implementation of {@code __setattr__} with
+     * signature {@link Signature#SETATTR}, which implements attribute
+     * set.
+     *
+     * @return handle on {@code __setattr__} with signature
+     *     {@link Signature#SETATTR}.
+     */
+    public MethodHandle op_setattr() {
+        return SpecialMethod.op_setattr.generic;
+    }
+
+    /**
+     * Return a matching implementation of {@code __delattr__} with
+     * signature {@link Signature#DELATTR}, which implements attribute
+     * deletion.
+     *
+     * @return handle on {@code __delattr__} with signature
+     *     {@link Signature#DELATTR}.
+     */
+    public MethodHandle op_delattr() {
+        return SpecialMethod.op_delattr.generic;
+    }
+
+    /**
+     * Return a matching implementation of {@code __lt__} with signature
+     * {@link Signature#BINARY}, the {@code <} operation.
+     *
+     * @return handle on {@code __lt__} with signature
+     *     {@link Signature#BINARY}.
+     */
+    public MethodHandle op_lt() {
+        return SpecialMethod.op_lt.generic;
+    }
+
+    /**
+     * Return a matching implementation of {@code __le__} with signature
+     * {@link Signature#BINARY}, the {@code <=} operation.
+     *
+     * @return handle on {@code __le__} with signature
+     *     {@link Signature#BINARY}.
+     */
+    public MethodHandle op_le() {
+        return SpecialMethod.op_le.generic;
+    }
+
+    /**
+     * Return a matching implementation of {@code __eq__} with signature
+     * {@link Signature#BINARY}, the {@code ==} operation.
+     *
+     * @return handle on {@code __eq__} with signature
+     *     {@link Signature#BINARY}.
+     */
+    public MethodHandle op_eq() {
+        return SpecialMethod.op_eq.generic;
+    }
+
+    /**
+     * Return a matching implementation of {@code __ne__} with signature
+     * {@link Signature#BINARY}, the {@code !=} operation.
+     *
+     * @return handle on {@code __ne__} with signature
+     *     {@link Signature#BINARY}.
+     */
+    public MethodHandle op_ne() {
+        return SpecialMethod.op_ne.generic;
+    }
+
+    /**
+     * Return a matching implementation of {@code __gt__} with signature
+     * {@link Signature#BINARY}, the {@code >} operation.
+     *
+     * @return handle on {@code __gt__} with signature
+     *     {@link Signature#BINARY}.
+     */
+    public MethodHandle op_gt() {
+        return SpecialMethod.op_gt.generic;
+    }
+
+    /**
+     * Return a matching implementation of {@code __ge__} with signature
+     * {@link Signature#BINARY}, the {@code >=} operation.
+     *
+     * @return handle on {@code __ge__} with signature
+     *     {@link Signature#BINARY}.
+     */
+    public MethodHandle op_ge() {
+        return SpecialMethod.op_ge.generic;
+    }
+
+    /**
+     * Return a matching implementation of {@code __iter__} with
+     * signature {@link Signature#UNARY}, get an iterator, supporting
+     * built-in {@code iter()}.
+     *
+     * @return handle on {@code __iter__} with signature
+     *     {@link Signature#UNARY}, get an iterator.
+     */
+    public MethodHandle op_iter() {
+        return SpecialMethod.op_iter.generic;
+    }
+
+    /**
+     * Return a matching implementation of {@code __next__} with
+     * signature {@link Signature#UNARY}, advance an iterator,
+     * supporting built-in {@code next()}.
+     *
+     * @return handle on {@code __next__} with signature
+     *     {@link Signature#UNARY}, advance an iterator.
+     */
+    public MethodHandle op_next() {
+        return SpecialMethod.op_next.generic;
+    }
+
+    /**
+     * Return a matching implementation of {@code __get__} with
+     * signature {@link Signature#DESCRGET}, which implements descriptor
+     * {@code __get__}.
+     *
+     * @return handle on {@code __get__} with signature
+     *     {@link Signature#DESCRGET}.
+     */
+    public MethodHandle op_get() {
+        return SpecialMethod.op_get.generic;
+    }
+
+    /**
+     * Return a matching implementation of {@code __set__} with
+     * signature {@link Signature#SETITEM}, which implements descriptor
+     * {@code __set__}.
+     *
+     * @return handle on {@code __set__} with signature
+     *     {@link Signature#SETITEM}.
+     */
+    public MethodHandle op_set() {
+        return SpecialMethod.op_set.generic;
+    }
+
+    /**
+     * Return a matching implementation of {@code __delete__} with
+     * signature {@link Signature#DELITEM}, which implements descriptor
+     * {@code __delete__}.
+     *
+     * @return handle on {@code __delete__} with signature
+     *     {@link Signature#DELITEM}.
+     */
+    public MethodHandle op_delete() {
+        return SpecialMethod.op_delete.generic;
+    }
+
+    /**
+     * Return a matching implementation of {@code __init__} with
+     * signature {@link Signature#INIT}, which initialises an object
+     * after {@code __new__}.
+     *
+     * @return handle on {@code __init__} with signature
+     *     {@link Signature#INIT}.
+     */
+    public MethodHandle op_init() {
+        return SpecialMethod.op_init.generic;
+    }
+
+    // __new__ is not enumerated here (not instance method)
+    // __del__ is not in our implementation
+
+    /**
+     * Return a matching implementation of {@code __await__} with
+     * signature {@link Signature#UNARY}.
+     *
+     * @return handle on {@code __await__} with signature
+     *     {@link Signature#UNARY}.
+     */
+    public MethodHandle op_await() {
+        return SpecialMethod.op_await.generic;
+    }
+
+    /**
+     * Return a matching implementation of {@code __aiter__} with
+     * signature {@link Signature#UNARY}.
+     *
+     * @return handle on {@code __aiter__} with signature
+     *     {@link Signature#UNARY}.
+     */
+    public MethodHandle op_aiter() {
+        return SpecialMethod.op_aiter.generic;
+    }
+
+    /**
+     * Return a matching implementation of {@code __anext__} with
+     * signature {@link Signature#UNARY}.
+     *
+     * @return handle on {@code __anext__} with signature
+     *     {@link Signature#UNARY}.
+     */
+    public MethodHandle op_anext() {
+        return SpecialMethod.op_anext.generic;
+    }
+
+    /**
+     * Return a matching implementation of {@code __radd__} with
+     * signature {@link Signature#BINARY}, the reflected {@code +}
+     * operation.
+     *
+     * @return handle on {@code __radd__} with signature
+     *     {@link Signature#BINARY}.
+     */
+    public MethodHandle op_radd() {
+        return SpecialMethod.op_radd.generic;
+    }
+
+    /**
+     * Return a matching implementation of {@code __add__} with
+     * signature {@link Signature#BINARY}, the {@code +} operation.
+     *
+     * @return handle on {@code __add__} with signature
+     *     {@link Signature#BINARY}.
+     */
+    public MethodHandle op_add() {
+        return SpecialMethod.op_add.generic;
+    }
+
+    /**
+     * Return a matching implementation of {@code __rsub__} with
+     * signature {@link Signature#BINARY}, the reflected {@code -}
+     * operation.
+     *
+     * @return handle on {@code __rsub__} with signature
+     *     {@link Signature#BINARY}.
+     */
+    public MethodHandle op_rsub() {
+        return SpecialMethod.op_rsub.generic;
+    }
+
+    /**
+     * Return a matching implementation of {@code __sub__} with
+     * signature {@link Signature#BINARY}, the {@code -} operation.
+     *
+     * @return handle on {@code __sub__} with signature
+     *     {@link Signature#BINARY}.
+     */
+    public MethodHandle op_sub() {
+        return SpecialMethod.op_sub.generic;
+    }
+
+    /**
+     * Return a matching implementation of {@code __rmul__} with
+     * signature {@link Signature#BINARY}, the reflected {@code *}
+     * operation.
+     *
+     * @return handle on {@code __rmul__} with signature
+     *     {@link Signature#BINARY}.
+     */
+    public MethodHandle op_rmul() {
+        return SpecialMethod.op_rmul.generic;
+    }
+
+    /**
+     * Return a matching implementation of {@code __mul__} with
+     * signature {@link Signature#BINARY}, the {@code *} operation.
+     *
+     * @return handle on {@code __mul__} with signature
+     *     {@link Signature#BINARY}.
+     */
+    public MethodHandle op_mul() {
+        return SpecialMethod.op_mul.generic;
+    }
+
+    /**
+     * Return a matching implementation of {@code __rmod__} with
+     * signature {@link Signature#BINARY}, the reflected {@code %}
+     * operation.
+     *
+     * @return handle on {@code __rmod__} with signature
+     *     {@link Signature#BINARY}.
+     */
+    public MethodHandle op_rmod() {
+        return SpecialMethod.op_rmod.generic;
+    }
+
+    /**
+     * Return a matching implementation of {@code __mod__} with
+     * signature {@link Signature#BINARY}, the {@code %} operation.
+     *
+     * @return handle on {@code __mod__} with signature
+     *     {@link Signature#BINARY}.
+     */
+    public MethodHandle op_mod() {
+        return SpecialMethod.op_mod.generic;
+    }
+
+    /**
+     * Return a matching implementation of {@code __rdivmod__} with
+     * signature {@link Signature#BINARY}, the reflected {@code divmod}
+     * operation.
+     *
+     * @return handle on {@code __rdivmod__} with signature
+     *     {@link Signature#BINARY}.
+     */
+    public MethodHandle op_rdivmod() {
+        return SpecialMethod.op_rdivmod.generic;
+    }
+
+    /**
+     * Return a matching implementation of {@code __divmod__} with
+     * signature {@link Signature#BINARY}, the {@code divmod} operation.
+     *
+     * @return handle on {@code __divmod__} with signature
+     *     {@link Signature#BINARY}.
+     */
+    public MethodHandle op_divmod() {
+        return SpecialMethod.op_divmod.generic;
+    }
+
+    /**
+     * Return a matching implementation of {@code __rpow__} with
+     * signature {@link Signature#BINARY}, the reflected {@code pow}
+     * operation. (The signature is not not {@link Signature#TERNARY}
+     * like {@link #op_pow} since only an infix operation can be
+     * reflected).
+     *
+     * @return handle on {@code __rpow__} with signature
+     *     {@link Signature#BINARY}.
+     */
+    public MethodHandle op_rpow() {
+        return SpecialMethod.op_rpow.generic;
+    }
+
+    /**
+     * Return a matching implementation of {@code __pow__} with
+     * signature {@link Signature#TERNARY}, the {@code **} operation and
+     * built-in {@code pow()}.
+     *
+     * @return handle on {@code __pow__} with signature
+     *     {@link Signature#TERNARY}.
+     */
+    public MethodHandle op_pow() {
+        return SpecialMethod.op_pow.generic;
+    }
+
+    /**
+     * Return a matching implementation of {@code __neg__} with
+     * signature {@link Signature#UNARY}, the unary {@code -} operation.
+     *
+     * @return handle on {@code __neg__} with signature
+     *     {@link Signature#UNARY}.
+     */
+    public MethodHandle op_neg() {
+        return SpecialMethod.op_neg.generic;
+    }
+
+    /**
+     * Return a matching implementation of {@code __pos__} with
+     * signature {@link Signature#UNARY}, the unary {@code +} operation.
+     *
+     * @return handle on {@code __pos__} with signature
+     *     {@link Signature#UNARY}.
+     */
+    public MethodHandle op_pos() {
+        return SpecialMethod.op_pos.generic;
+    }
+
+    /**
+     * Return a matching implementation of {@code __abs__} with
+     * signature {@link Signature#UNARY}, supporting built-in
+     * {@code abs()}.
+     *
+     * @return handle on {@code __abs__} with signature
+     *     {@link Signature#UNARY}.
+     */
+    public MethodHandle op_abs() {
+        return SpecialMethod.op_abs.generic;
+    }
+
+    /**
+     * Return a matching implementation of {@code __bool__} with
+     * signature {@link Signature#PREDICATE}, conversion to a truth
+     * value.
+     *
+     * @return handle on {@code __bool__} with signature
+     *     {@link Signature#PREDICATE}.
+     */
+    public MethodHandle op_bool() {
+        return SpecialMethod.op_bool.generic;
+    }
+
+    /**
+     * Return a matching implementation of {@code __invert__} with
+     * signature {@link Signature#UNARY}, the unary {@code ~} operation.
+     *
+     * @return handle on {@code __invert__} with signature
+     *     {@link Signature#UNARY}.
+     */
+    public MethodHandle op_invert() {
+        return SpecialMethod.op_invert.generic;
+    }
+
+    /**
+     * Return a matching implementation of {@code __rlshift__} with
+     * signature {@link Signature#BINARY}, the reflected {@code <<}
+     * operation.
+     *
+     * @return handle on {@code __rlshift__} with signature
+     *     {@link Signature#BINARY}.
+     */
+    public MethodHandle op_rlshift() {
+        return SpecialMethod.op_rlshift.generic;
+    }
+
+    /**
+     * Return a matching implementation of {@code __lshift__} with
+     * signature {@link Signature#BINARY}, the {@code <<} operation.
+     *
+     * @return handle on {@code __lshift__} with signature
+     *     {@link Signature#BINARY}.
+     */
+    public MethodHandle op_lshift() {
+        return SpecialMethod.op_lshift.generic;
+    }
+
+    /**
+     * Return a matching implementation of {@code __rrshift__} with
+     * signature {@link Signature#BINARY}, the reflected {@code >>}
+     * operation.
+     *
+     * @return handle on {@code __rrshift__} with signature
+     *     {@link Signature#BINARY}.
+     */
+    public MethodHandle op_rrshift() {
+        return SpecialMethod.op_rrshift.generic;
+    }
+
+    /**
+     * Return a matching implementation of {@code __rshift__} with
+     * signature {@link Signature#BINARY}, the {@code >>} operation.
+     *
+     * @return handle on {@code __rshift__} with signature
+     *     {@link Signature#BINARY}.
+     */
+    public MethodHandle op_rshift() {
+        return SpecialMethod.op_rshift.generic;
+    }
+
+    /**
+     * Return a matching implementation of {@code __rand__} with
+     * signature {@link Signature#BINARY}, the reflected {@code &}
+     * operation.
+     *
+     * @return handle on {@code __rand__} with signature
+     *     {@link Signature#BINARY}.
+     */
+    public MethodHandle op_rand() {
+        return SpecialMethod.op_rand.generic;
+    }
+
+    /**
+     * Return a matching implementation of {@code __and__} with
+     * signature {@link Signature#BINARY}, the {@code &} operation.
+     *
+     * @return handle on {@code __and__} with signature
+     *     {@link Signature#BINARY}.
+     */
+    public MethodHandle op_and() {
+        return SpecialMethod.op_and.generic;
+    }
+
+    /**
+     * Return a matching implementation of {@code __rxor__} with
+     * signature {@link Signature#BINARY}, the reflected {@code ^}
+     * operation.
+     *
+     * @return handle on {@code __rxor__} with signature
+     *     {@link Signature#BINARY}.
+     */
+    public MethodHandle op_rxor() {
+        return SpecialMethod.op_rxor.generic;
+    }
+
+    /**
+     * Return a matching implementation of {@code __xor__} with
+     * signature {@link Signature#BINARY}, the {@code ^} operation.
+     *
+     * @return handle on {@code __xor__} with signature
+     *     {@link Signature#BINARY}.
+     */
+    public MethodHandle op_xor() {
+        return SpecialMethod.op_xor.generic;
+    }
+
+    /**
+     * Return a matching implementation of {@code __ror__} with
+     * signature {@link Signature#BINARY}, the reflected {@code |}
+     * operation.
+     *
+     * @return handle on {@code __ror__} with signature
+     *     {@link Signature#BINARY}.
+     */
+    public MethodHandle op_ror() {
+        return SpecialMethod.op_ror.generic;
+    }
+
+    /**
+     * Return a matching implementation of {@code __or__} with signature
+     * {@link Signature#BINARY}, the {@code |} operation.
+     *
+     * @return handle on {@code __or__} with signature
+     *     {@link Signature#BINARY}.
+     */
+    public MethodHandle op_or() {
+        return SpecialMethod.op_or.generic;
+    }
+
+    /**
+     * Return a matching implementation of {@code __int__} with
+     * signature {@link Signature#UNARY}, conversion to an integer
+     * value.
+     *
+     * @return handle on {@code __int__} with signature
+     *     {@link Signature#UNARY}.
+     */
+    public MethodHandle op_int() {
+        return SpecialMethod.op_int.generic;
+    }
+
+    /**
+     * Return a matching implementation of {@code __float__} with
+     * signature {@link Signature#UNARY}, conversion to a {@code float}
+     * value.
+     *
+     * @return handle on {@code __float__} with signature
+     *     {@link Signature#UNARY}.
+     */
+    public MethodHandle op_float() {
+        return SpecialMethod.op_float.generic;
+    }
+
+    // in-place: unexplored territory
+
+    /**
+     * Return a matching implementation of {@code __iadd__} with
+     * signature {@link Signature#BINARY}, the {@code +=} operation.
+     *
+     * @return handle on {@code __iadd__} with signature
+     *     {@link Signature#BINARY}.
+     */
+    public MethodHandle op_iadd() {
+        return SpecialMethod.op_iadd.generic;
+    }
+
+    /**
+     * Return a matching implementation of {@code __isub__} with
+     * signature {@link Signature#BINARY}, the {@code -=} operation.
+     *
+     * @return handle on {@code __isub__} with signature
+     *     {@link Signature#BINARY}.
+     */
+    public MethodHandle op_isub() {
+        return SpecialMethod.op_isub.generic;
+    }
+
+    /**
+     * Return a matching implementation of {@code __imul__} with
+     * signature {@link Signature#BINARY}, the {@code *=} operation.
+     *
+     * @return handle on {@code __imul__} with signature
+     *     {@link Signature#BINARY}.
+     */
+    public MethodHandle op_imul() {
+        return SpecialMethod.op_imul.generic;
+    }
+
+    /**
+     * Return a matching implementation of {@code __imod__} with
+     * signature {@link Signature#BINARY}, the {@code %=} operation.
+     *
+     * @return handle on {@code __imod__} with signature
+     *     {@link Signature#BINARY}.
+     */
+    public MethodHandle op_imod() {
+        return SpecialMethod.op_imod.generic;
+    }
+
+    /**
+     * Return a matching implementation of {@code __iand__} with
+     * signature {@link Signature#BINARY}, the {@code &=} operation.
+     *
+     * @return handle on {@code __iand__} with signature
+     *     {@link Signature#BINARY}.
+     */
+    public MethodHandle op_iand() {
+        return SpecialMethod.op_iand.generic;
+    }
+
+    /**
+     * Return a matching implementation of {@code __ixor__} with
+     * signature {@link Signature#BINARY}, the {@code ^=} operation.
+     *
+     * @return handle on {@code __ixor__} with signature
+     *     {@link Signature#BINARY}.
+     */
+    public MethodHandle op_ixor() {
+        return SpecialMethod.op_ixor.generic;
+    }
+
+    /**
+     * Return a matching implementation of {@code __ior__} with
+     * signature {@link Signature#BINARY}, the {@code |=} operation.
+     *
+     * @return handle on {@code __ior__} with signature
+     *     {@link Signature#BINARY}.
+     */
+    public MethodHandle op_ior() {
+        return SpecialMethod.op_ior.generic;
+    }
+
+    /**
+     * Return a matching implementation of {@code __rfloordiv__} with
+     * signature {@link Signature#BINARY}, the reflected {@code //}
+     * operation.
+     *
+     * @return handle on {@code __rfloordiv__} with signature
+     *     {@link Signature#BINARY}.
+     */
+    public MethodHandle op_rfloordiv() {
+        return SpecialMethod.op_rfloordiv.generic;
+    }
+
+    /**
+     * Return a matching implementation of {@code __floordiv__} with
+     * signature {@link Signature#BINARY}, the {@code //} operation.
+     *
+     * @return handle on {@code __floordiv__} with signature
+     *     {@link Signature#BINARY}.
+     */
+    public MethodHandle op_floordiv() {
+        return SpecialMethod.op_floordiv.generic;
+    }
+
+    /**
+     * Return a matching implementation of {@code __rtruediv__} with
+     * signature {@link Signature#BINARY}, the reflected {@code /}
+     * operation.
+     *
+     * @return handle on {@code __rtruediv__} with signature
+     *     {@link Signature#BINARY}.
+     */
+    public MethodHandle op_rtruediv() {
+        return SpecialMethod.op_rtruediv.generic;
+    }
+
+    /**
+     * Return a matching implementation of {@code __truediv__} with
+     * signature {@link Signature#BINARY}, the {@code /} operation.
+     *
+     * @return handle on {@code __truediv__} with signature
+     *     {@link Signature#BINARY}.
+     */
+    public MethodHandle op_truediv() {
+        return SpecialMethod.op_truediv.generic;
+    }
+
+    /**
+     * Return a matching implementation of {@code __ifloordiv__} with
+     * signature {@link Signature#BINARY}, the {@code //=} operation.
+     *
+     * @return handle on {@code __ifloordiv__} with signature
+     *     {@link Signature#BINARY}.
+     */
+    public MethodHandle op_ifloordiv() {
+        return SpecialMethod.op_ifloordiv.generic;
+    }
+
+    /**
+     * Return a matching implementation of {@code __itruediv__} with
+     * signature {@link Signature#BINARY}, the {@code /=} operation.
+     *
+     * @return handle on {@code __itruediv__} with signature
+     *     {@link Signature#BINARY}.
+     */
+    public MethodHandle op_itruediv() {
+        return SpecialMethod.op_itruediv.generic;
+    }
+
+    /**
+     * Return a matching implementation of {@code __index__} with
+     * signature {@link Signature#UNARY}, implementing lossless
+     * conversion to a Python {@code int}.
+     *
+     * @return handle on {@code __index__} with signature
+     *     {@link Signature#UNARY}.
+     */
+    public MethodHandle op_index() {
+        return SpecialMethod.op_index.generic;
+    }
+
+    /**
+     * Return a matching implementation of {@code __rmatmul__} with
+     * signature {@link Signature#BINARY}, the reflected {@code @}
+     * operation.
+     *
+     * @return handle on {@code __rmatmul__} with signature
+     *     {@link Signature#BINARY}.
+     */
+    public MethodHandle op_rmatmul() {
+        return SpecialMethod.op_rmatmul.generic;
+    }
+
+    /**
+     * Return a matching implementation of {@code __matmul__} with
+     * signature {@link Signature#BINARY}, the {@code @} (matrix
+     * multiply) operation.
+     *
+     * @return handle on {@code __matmul__} with signature
+     *     {@link Signature#BINARY}.
+     */
+    public MethodHandle op_matmul() {
+        return SpecialMethod.op_matmul.generic;
+    }
+
+    /**
+     * Return a matching implementation of {@code __imatmul__} with
+     * signature {@link Signature#BINARY}, the {@code @=} (matrix
+     * multiply in place) operation.
+     *
+     * @return handle on {@code __imatmul__} with signature
+     *     {@link Signature#BINARY}.
+     */
+    public MethodHandle op_imatmul() {
+        return SpecialMethod.op_imatmul.generic;
+    }
+
+    /*
+     * Note that CPython repeats for "mappings" the following "sequence"
+     * slots, and slots for __add_ and __mul__, __iadd_ and __imul__,
+     * but that we do not need to.
+     */
+    /**
+     * Return a matching implementation of {@code __len__} with
+     * signature {@link Signature#LEN}, supporting built-in
+     * {@code len()}.
+     *
+     * @return handle on {@code __len__} with signature
+     *     {@link Signature#LEN}.
+     */
+    public MethodHandle op_len() {
+        return SpecialMethod.op_len.generic;
+    }
+
+    /**
+     * Return a matching implementation of {@code __getitem__} with
+     * signature {@link Signature#BINARY}, get object at index.
+     *
+     * @return handle on {@code __getitem__} with signature
+     *     {@link Signature#BINARY}.
+     */
+    public MethodHandle op_getitem() {
+        return SpecialMethod.op_getitem.generic;
+    }
+
+    /**
+     * Return a matching implementation of {@code __setitem__} with
+     * signature {@link Signature#SETITEM}, set object at index.
+     *
+     * @return handle on {@code __setitem__} with signature
+     *     {@link Signature#SETITEM}.
+     */
+    public MethodHandle op_setitem() {
+        return SpecialMethod.op_setitem.generic;
+    }
+
+    /**
+     * Return a matching implementation of {@code __delitem__} with
+     * signature {@link Signature#DELITEM}, delete object from index.
+     *
+     * @return handle on {@code __delitem__} with signature
+     *     {@link Signature#DELITEM}.
+     */
+    public MethodHandle op_delitem() {
+        return SpecialMethod.op_delitem.generic;
+    }
+
+    /**
+     * Return a matching implementation of {@code __contains__} with
+     * signature {@link Signature#BINARY_PREDICATE}, implementing
+     * keyword {@code in}.
+     *
+     * @return handle on {@code __contains__} with signature
+     *     {@link Signature#BINARY_PREDICATE}.
+     */
+    public MethodHandle op_contains() {
+        return SpecialMethod.op_contains.generic;
+    }
 
     /**
      * The purpose of this class is to give {@link SpecialMethod}
-     * privileged access to Representation.
+     * privileged access to Representation. This makes it possible for
+     * it to write to the caches.
      */
     static abstract sealed class Accessor permits SpecialMethod.SMUtil {
 

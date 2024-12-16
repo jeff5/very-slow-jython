@@ -104,10 +104,14 @@ public non-sealed class SimpleType extends PyType {
     static TypeRegistry getRegistry() { return registry; }
 
     /**
-     * Look up the representation of an object via its Java class.
+     * Determine (or create if necessary) the {@link Representation} for
+     * the given object.
+     * <p>
+     * This duplicates the same-name method in {@link PyType} for
+     * reasons of visibility.
      *
-     * @param o for which the {@code Representation} is required.
-     * @return the {@code Representation} of {@code o}.
+     * @param o for which a {@code Representation} is required
+     * @return the {@code Representation}
      */
     static Representation getRepresentation(Object o) {
         return registry.get(o.getClass());

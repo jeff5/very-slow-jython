@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 
@@ -15,6 +16,7 @@ import uk.co.farowl.vsj4.runtime.TypeSpec;
 import uk.co.farowl.vsj4.runtime.WithClass;
 import uk.co.farowl.vsj4.support.InterpreterError;
 import uk.co.farowl.vsj4.support.internal.EmptyException;
+import uk.co.farowl.vsj4.support.internal.Util;
 
 /**
  * A test of the apparatus used to form {@code MethodHandle}s from
@@ -85,12 +87,15 @@ public class MethodHandleFormationTest {
      */
     @SuppressWarnings("static-method")
     @Test
+    @Disabled("Slots not currently cached")
     void basicObjectSlots() {
         // Type defining none of the reserved names
         final PyType basic = BasicallyEmpty.TYPE;
+        Object o = new BasicallyEmpty();
 
-        assertEquals(SpecialMethod.Signature.CALL.empty, basic.op_call,
-                " not empty");
+        assertThrows(EmptyException.class,
+                () -> basic.op_call().invokeExact(o, Util.EMPTY_ARRAY,
+                        Util.EMPTY_STRING_ARRAY));
 
         // Make method handles of the shape corresponding to caches
         final MethodHandle length = MethodHandles
@@ -124,8 +129,8 @@ public class MethodHandleFormationTest {
         });
 
         // And the slots should be unaffected
-        assertEquals(length, basic.op_hash, "slot modified");
-        assertEquals(unary, basic.op_str, "slot modified");
+        assertEquals(length, basic.op_hash(), "slot modified");
+        assertEquals(unary, basic.op_str(), "slot modified");
     }
 
     /**
@@ -134,14 +139,16 @@ public class MethodHandleFormationTest {
      */
     @SuppressWarnings("static-method")
     @Test
+    @Disabled("Slots not currently cached")
     void numericSlots() {
         // Type defining none of the reserved names
         final PyType number = BasicallyEmpty.TYPE;
+        Object o = new BasicallyEmpty();
 
-        assertEquals(SpecialMethod.Signature.UNARY.empty, number.op_neg,
-                " not empty");
-        assertEquals(SpecialMethod.Signature.BINARY.empty,
-                number.op_add, " not empty");
+        assertThrows(EmptyException.class,
+                () -> number.op_neg().invokeExact(o));
+        assertThrows(EmptyException.class,
+                () -> number.op_add().invokeExact(o, o));
 
         // Make method handles of the shape corresponding to caches
         final MethodHandle length = MethodHandles
@@ -185,8 +192,8 @@ public class MethodHandleFormationTest {
         });
 
         // And the slots should have the value set earlier
-        assertEquals(unary, number.op_neg, "slot modified");
-        assertEquals(binary, number.op_add, "slot modified");
+        assertEquals(unary, number.op_neg(), "slot modified");
+        assertEquals(binary, number.op_add(), "slot modified");
     }
 
     /**
@@ -195,6 +202,7 @@ public class MethodHandleFormationTest {
      */
     @SuppressWarnings("static-method")
     @Test
+    @Disabled("Slots not currently cached")
     void sequenceSlots() {
         // Type defining none of the reserved names
         final PyType sequence = BasicallyEmpty.TYPE;
@@ -227,7 +235,7 @@ public class MethodHandleFormationTest {
         });
 
         // And the slot should be unaffected
-        assertEquals(length, sequence.op_len, "slot modified");
+        assertEquals(length, sequence.op_len(), "slot modified");
     }
 
     /**
@@ -236,14 +244,15 @@ public class MethodHandleFormationTest {
      */
     @SuppressWarnings("static-method")
     @Test
+    @Disabled("Slots not currently cached")
     void mappingSlots() {
         // Type defining none of the reserved names
         final PyType mapping = BasicallyEmpty.TYPE;
 
         assertEquals(SpecialMethod.Signature.BINARY.empty,
-                mapping.op_getitem, "not empty");
+                mapping.op_getitem(), "not empty");
         assertEquals(SpecialMethod.Signature.SETITEM.empty,
-                mapping.op_setitem, "not empty");
+                mapping.op_setitem(), "not empty");
 
         // Make method handles of the shape corresponding to caches
         MethodHandle getitem = MethodHandles
@@ -275,7 +284,7 @@ public class MethodHandleFormationTest {
         });
 
         // And the slots should be unaffected
-        assertEquals(getitem, mapping.op_getitem, "slot modified");
-        assertEquals(setitem, mapping.op_setitem, "slot modified");
+        assertEquals(getitem, mapping.op_getitem(), "slot modified");
+        assertEquals(setitem, mapping.op_setitem(), "slot modified");
     }
 }

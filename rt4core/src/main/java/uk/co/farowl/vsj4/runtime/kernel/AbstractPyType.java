@@ -2,7 +2,6 @@
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime.kernel;
 
-import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.util.Collections;
@@ -676,10 +675,9 @@ public abstract sealed class AbstractPyType extends Representation
          * any __init__ defined for it.
          */
         if (objType.isSubTypeOf(this)) {
-            MethodHandle init = SpecialMethod.op_init.handle(rep);
             try {
                 // Call obj.__init__ (args, names)
-                init.invoke(obj, args, names);
+                rep.op_init().invoke(obj, args, names);
             } catch (EmptyException ee) {
                 // Not an error for __init__ not to be defined
             }

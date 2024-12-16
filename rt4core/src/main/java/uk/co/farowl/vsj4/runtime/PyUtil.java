@@ -66,8 +66,8 @@ public class PyUtil {
         if (PyType.systemReady()) {
             Representation rep = null;
             try {
-                rep = PyType.representationOf(o);
-                MethodHandle str = rep.op_str;
+                rep = PyType.getRepresentation(o);
+                MethodHandle str = rep.op_str();
                 Object r = str.invokeExact(o);
                 return r.toString();
             } catch (Throwable e) {}

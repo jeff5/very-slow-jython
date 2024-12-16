@@ -176,15 +176,14 @@ public abstract sealed class PyType extends AbstractPyType
 
     /**
      * Determine (or create if necessary) the {@link Representation} for
-     * the given object.
+     * the given object. The representation is found (in the type
+     * registry) from the Java class of the argument.
      *
      * @param o for which a {@code Representation} is required
      * @return the {@code Representation}
      */
-    // ??? Check we still use this in the long run.
-    static Representation representationOf(Object o) {
-        Representation rep = registry.get(o.getClass());
-        return rep.unshared(o);
+    static Representation getRepresentation(Object o) {
+        return registry.get(o.getClass());
     }
 
     /**

@@ -85,11 +85,10 @@ public class PyFloat implements WithClass {
             return doubleValue(o);
 
         } else {
-            Representation rep = PyType.representationOf(o);
+            Representation rep = PyType.getRepresentation(o);
             try {
                 // Try __float__ (if defined)
-                MethodHandle mh = SpecialMethod.op_float.handle(rep);
-                Object res = mh.invokeExact(o);
+                Object res = rep.op_float().invokeExact(o);
                 PyType resType = PyType.of(res);
                 if (resType == PyFloat.TYPE) // Exact type
                     return doubleValue(res);

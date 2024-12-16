@@ -256,7 +256,7 @@ public class PyLong implements WithClass {
     // Compare CPython longobject.c::_PyLong_FromNbInt
     static Object fromIntOf(Object integral)
             throws PyBaseException, Throwable {
-        Representation rep = PyType.representationOf(integral);
+        Representation rep = PyType.getRepresentation(integral);
 
         if (rep.isIntExact()) {
             // Fast path for the case that we already have an int.
@@ -268,7 +268,7 @@ public class PyLong implements WithClass {
                  * Convert using the op_int slot, which should return
                  * something of exact type int.
                  */
-                Object r = rep.op_int.invokeExact(integral);
+                Object r = rep.op_int().invokeExact(integral);
                 if (PyLong.TYPE.checkExact(r)) {
                     return r;
                 } else if (PyLong.TYPE.check(r)) {
@@ -307,7 +307,7 @@ public class PyLong implements WithClass {
     // Compare CPython longobject.c :: _PyLong_FromNbIndexOrNbInt
     static Object fromIndexOrIntOf(Object integral)
             throws PyBaseException, Throwable {
-        Representation ops = PyType.representationOf(integral);;
+        Representation ops = PyType.getRepresentation(integral);;
 
         if (ops.isIntExact())
             // Fast path for the case that we already have an int.
@@ -315,8 +315,8 @@ public class PyLong implements WithClass {
 
         try {
             // Normally, the op_index slot will do the job
-            Object r = ops.op_index.invokeExact(integral);
-            if (PyType.representationOf(r).isIntExact())
+            Object r = ops.op_index().invokeExact(integral);
+            if (PyType.getRepresentation(r).isIntExact())
                 return r;
             else if (PyLong.TYPE.check(r)) {
                 // 'result' not of exact type int but is a subclass
@@ -380,7 +380,7 @@ public class PyLong implements WithClass {
      */
     // Compare CPython longobject.c :: long_long
     static Object from(Object value) throws PyBaseException {
-        Representation ops = PyType.representationOf(value);
+        Representation ops = PyType.getRepresentation(value);
         if (ops.isIntExact())
             return value;
         else if (value instanceof PyLong)
