@@ -577,9 +577,9 @@ public enum SpecialMethod {
         this.opName = (doc != null && doc.length() <= 3) ? doc : name();
         // Make up the docstring from whatever shorthand we got.
         this.doc = docstring(doc);
-        this.cache = Util.cacheVH(this);
+        this.cache = SMUtil.cacheVH(this);
         // FIXME Slot functions not correctly generated.
-        this.generic = Util.slotMH(this);
+        this.generic = SMUtil.slotMH(this);
     }
 
     SpecialMethod(Signature signature) {
@@ -636,7 +636,9 @@ public enum SpecialMethod {
      *
      * @param rep to examine for this slot
      * @return true iff defined (non-empty)
+     * @deprecated Assumes method has cache (and no redirection).
      */
+    @Deprecated
     public boolean isDefinedFor(Representation rep) {
         // FIXME Assumes method has cache (and no redirection).
         return cache.get(rep) != signature.empty;
@@ -728,7 +730,7 @@ public enum SpecialMethod {
 
         PyType type = PyType.of(self);
         Object meth = type.lookup(methodName);
-        if (meth == null) { throw Util.EMPTY; }
+        if (meth == null) { throw SMUtil.EMPTY; }
         // TODO inline equivalent code to other slot() functions
         // return callAsMethod(type, meth, self, args, kwds);
 
@@ -775,28 +777,28 @@ public enum SpecialMethod {
     Object slot(Object self) throws Throwable {
         PyType type = PyType.of(self);
         Object meth = type.lookup(methodName);
-        if (meth == null) { throw Util.EMPTY; }
+        if (meth == null) { throw SMUtil.EMPTY; }
         return callAsMethod(type, meth, self);
     }
 
     Object slot(Object self, Object w) throws Throwable {
         PyType type = PyType.of(self);
         Object meth = type.lookup(methodName);
-        if (meth == null) { throw Util.EMPTY; }
+        if (meth == null) { throw SMUtil.EMPTY; }
         return callAsMethod(type, meth, self, w);
     }
 
     Object slot(Object self, Object w, Object m) throws Throwable {
         PyType type = PyType.of(self);
         Object meth = type.lookup(methodName);
-        if (meth == null) { throw Util.EMPTY; }
+        if (meth == null) { throw SMUtil.EMPTY; }
         return callAsMethod(type, meth, self, w, m);
     }
 
     Object slot(Object self, Object obj, PyType t) throws Throwable {
         PyType type = PyType.of(self);
         Object meth = type.lookup(methodName);
-        if (meth == null) { throw Util.EMPTY; }
+        if (meth == null) { throw SMUtil.EMPTY; }
         return callAsMethod(type, meth, self, obj, t);
     }
 
@@ -883,7 +885,7 @@ public enum SpecialMethod {
         // Not in the constructor so as not to provoke PyType
         if (operandError == null) {
             // Possibly racing, but that's harmless
-            operandError = Util.operandErrorMH(this);
+            operandError = SMUtil.operandErrorMH(this);
         }
         return operandError;
     }
@@ -1143,12 +1145,12 @@ public enum SpecialMethod {
         Signature(Class<?> returnType, Class<?>... ptypes) {
             // The signature is recorded exactly as given
             this.type = MethodType.methodType(returnType, ptypes);
-            // em = λ : throw Util.EMPTY
+            // em = λ : throw SMUtil.EMPTY
             // (with correct nominal return type for slot)
             MethodHandle em = MethodHandles
                     .throwException(returnType, EmptyException.class)
-                    .bindTo(Util.EMPTY);
-            // empty = λ u v ... : throw Util.EMPTY
+                    .bindTo(SMUtil.EMPTY);
+            // empty = λ u v ... : throw SMUtil.EMPTY
             // (with correct parameter types for slot)
             this.empty = MethodHandles.dropArguments(em, 0,
                     this.type.parameterArray());
@@ -1167,7 +1169,7 @@ public enum SpecialMethod {
      * be used in the constructors of {@code SpecialMethod} values,
      * before that class is properly initialised.
      */
-    static final class Util extends Representation.Accessor {
+    static final class SMUtil extends Representation.Accessor {
         /*
          * This is a class separate from SpecialMethod to solve problems
          * with the order of static initialisation. The enum constants
@@ -1220,7 +1222,7 @@ public enum SpecialMethod {
             } catch (NoSuchMethodException | IllegalAccessException e) {
                 // Handle lookup fails somewhere
                 throw new InterpreterError(e,
-                        "Failed to initialise SpecialMethod.Util.");
+                        "Failed to initialise SpecialMethod.SMUtil.");
             }
         }
 
@@ -1341,7 +1343,7 @@ public enum SpecialMethod {
                         break;
                     default:
                         // error = λ(slot): default(slot, v, w, ...)
-                        error = LOOKUP.findStatic(Util.class,
+                        error = LOOKUP.findStatic(SMUtil.class,
                                 "defaultOperandError", errorMT);
                         // error = λ(slot, v, w, ...): default(slot)
                         error = MethodHandles.dropArguments(error, 0,
@@ -1474,14 +1476,14 @@ public enum SpecialMethod {
                 // Add to table
                 t.put(s.methodName, s);
                 // This is a good time to confirm initialisation
-                Util.logger.atDebug()
+                SMUtil.logger.atDebug()
                         .setMessage("{} with signature {}{}")
                         .addArgument(s.methodName)
                         .addArgument(s.generic.type())
                         .addArgument(
                                 s.cache == null ? "" : " is cached")
                         .log();
-                Util.logger.atTrace()
+                SMUtil.logger.atTrace()
                         .log(() -> s.doc.replace("\n", "\\n"));
             }
             table = Collections.unmodifiableMap(t);

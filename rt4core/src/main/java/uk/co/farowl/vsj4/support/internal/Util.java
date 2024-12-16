@@ -12,5 +12,6 @@ public class Util {
     /** An empty array of String. */
     public static final String[] EMPTY_STRING_ARRAY = new String[0];
     /** Single re-used instance of {@code EmptyException}. */
-    public static final EmptyException MH_EMPTY = new EmptyException();
+    public static final EmptyException EMPTY_EXCEPTION =
+            new EmptyException();
 }

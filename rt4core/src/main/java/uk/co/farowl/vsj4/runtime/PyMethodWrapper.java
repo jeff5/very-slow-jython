@@ -4,6 +4,8 @@ package uk.co.farowl.vsj4.runtime;
 
 import java.lang.invoke.MethodHandles;
 
+import uk.co.farowl.vsj4.runtime.internal._PyUtil;
+
 /**
  * The Python type {@code types.MethodWrapperType} (seen also as
  * {@code <class 'method-wrapper'>}) represents a special method bound
@@ -154,7 +156,7 @@ class PyMethodWrapper implements WithClass, FastCall {
     // Compare CPython wrapper_repr in descrobject.c
     protected Object __repr__() {
         return String.format("<method-wrapper '%s' of %s>",
-                descr.slot.methodName, PyUtil.toAt(self));
+                descr.slot.methodName, _PyUtil.toAt(self));
     }
 
     // Compare CPython wrapper_richcompare in descrobject.c

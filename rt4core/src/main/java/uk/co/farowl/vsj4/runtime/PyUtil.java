@@ -2,6 +2,12 @@
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
 
+import java.lang.invoke.MethodHandle;
+
+import uk.co.farowl.vsj4.runtime.internal._PyUtil;
+import uk.co.farowl.vsj4.runtime.kernel.Representation;
+import uk.co.farowl.vsj4.support.internal.EmptyException;
+
 /**
  * Miscellaneous static helpers commonly needed to implement Python
  * objects in Java.
@@ -11,62 +17,82 @@ public class PyUtil {
     private PyUtil() {} // no instances
 
     /**
-     * A string along the lines "T object at 0xhhh", where T is the type
-     * of {@code o}. This is for creating default {@code __repr__}
-     * implementations seen around the code base and containing this
-     * form. By implementing it here, we encapsulate the problem of
-     * qualified type name and what "address" or "identity" should mean.
-     *
-     * @param o the object (not its type)
-     * @return string denoting {@code o}
-     */
-    public static String toAt(Object o) {
-        // For the time being type name means:
-        String typeName = PyType.of(o).getName();
-        return String.format("%s object at %#x", typeName, Py.id(o));
-    }
-
-    /**
-     * Convenient default toString implementation that tries __str__, if
-     * defined, but always falls back to something. Use as:<pre>
+     * Convenient default {@code toString} implementation that normally
+     * calls {@code __str__}, to provide a familiar-looking output. The
+     * values we see in Java debugging are often the {@code toString()}
+     * of an object, so we produce a {@code String}, even from broken or
+     * partly-ready types. Use as:<pre>
      * public String toString() {
      *     return PyUtil.defaultToString(this);
-     * }
-     * </pre>
+     * }</pre>
+     * <p>
+     * When using this method to define {@code toString()}, do not also
+     * define {@code __str__} or {@code __repr__} in terms of
+     * {@code toString()}, as this will create a loop.
+     * <p>
+     * The following sequence of delegations operates in Python:
+     * <ol>
+     * <li>{@code str(x)} returns {@code x} if {@code X=type(x)} is
+     * exactly {@code str}.</li>
+     * <li>{@code str(x)} calls {@code X.__str__}, if it is not empty,
+     * or defaults to {@code repr(x)}.</li>
+     * <li>{@code X.__str__} may be the inherited
+     * {@code object.__str__}.</li>
+     * <li>{@code object.__str__(x)} calls {@code X.__repr__(x)}, if it
+     * is not empty, or defaults to {@code object.__repr__(x)}.</li>
+     * <li>{@code repr(x)} calls {@code X.__repr__(x)}, if it is not
+     * empty, or defaults to a formula {@code "<X object at A>"} formed
+     * from the type and the hex identity of {@code x}.</li>
+     * <li>{@code X.__repr__} may be the inherited
+     * {@code object.__repr__}.</li>
+     * <li>{@code object.__repr__(x)} returns a string like
+     * {@code "<M.X object at A>"} formed from the module (if any and
+     * not {@code builtins}), the type and the hex identity of
+     * {@code x}.</li>
+     * </ol>
+     * When we write that a special method is "empty" here, we mean that
+     * it throws {@link EmptyException} when called. In CPython, the
+     * type slot would be {@code NULL}, but we don't use that
+     * convention.
      *
      * @param o object to represent
      * @return a string representation
      */
-    static String defaultToString(Object o) {
-        if (o == null)
-            return "null";
-        else {
-            PyType type = null;
+    public static String defaultToString(Object o) {
+
+        if (o == null) { return "<null>"; }
+
+        String name = null;
+        if (PyType.systemReady()) {
+            Representation rep = null;
             try {
-                type = PyType.of(o);
-                Object d = type.lookup("__str__");
-                if (d instanceof MethodDescriptor str) {
-                    Object res = str.call(o);
-                    return res.toString();
-                }
+                rep = PyType.representationOf(o);
+                MethodHandle str = rep.op_str;
+                Object r = str.invokeExact(o);
+                return r.toString();
             } catch (Throwable e) {}
 
-            // Even o.__str__ not working.
-            String name = "";
+            // o.__str__ not working. Emulate object.__repr__.
             try {
-                // Got a Python type at all?
-                name = type.getName();
-            } catch (Throwable e) {
-                // Maybe during start-up. Fall back to Java.
-                Class<?> c = o.getClass();
-                if (c.isAnonymousClass())
-                    name = c.getName();
-                else
-                    name = c.getSimpleName();
-            }
-            return "<" + name + " object>";
+                // Has o a Python type at all?
+                name = rep.pythonType(o).getName();
+            } catch (Throwable e) {}
         }
+
+        if (name == null) {
+            // Maybe type system broken or not ready. Use Java name.
+            Class<?> c = o.getClass();
+            if (c.isAnonymousClass()) {
+                name = c.getName();
+            } else {
+                name = c.getSimpleName();
+            }
+        }
+
+        // Produce something like object.__repr__(o)
+        return String.format("<%s object at %#x>", name, Py.id(o));
     }
+
 
     // Some singleton exceptions --------------------------------------
 

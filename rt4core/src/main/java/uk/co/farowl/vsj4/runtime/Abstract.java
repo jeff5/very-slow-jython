@@ -5,6 +5,7 @@ package uk.co.farowl.vsj4.runtime;
 import java.lang.invoke.MethodHandle;
 import java.util.function.Supplier;
 
+import uk.co.farowl.vsj4.runtime.internal._PyUtil;
 import uk.co.farowl.vsj4.runtime.kernel.Representation;
 import uk.co.farowl.vsj4.runtime.kernel.SpecialMethod;
 import uk.co.farowl.vsj4.support.InterpreterError;
@@ -57,8 +58,7 @@ public class Abstract {
                     throw returnTypeError("__repr__", "string", res);
                 }
             } catch (EmptyException e) {
-                return String.format("<%s object>",
-                        PyType.of(o).getName());
+                return "<" + _PyUtil.toAt(o) + ">";
             }
         }
     }
@@ -77,18 +77,18 @@ public class Abstract {
     public static Object str(Object o) throws Throwable {
         if (o == null) {
             return "<null>";
+        } else if (PyUnicode.TYPE.checkExact(o)) {
+            return o;
         } else {
-            Representation rep = PyType.registry.get(o.getClass());
-            if (PyUnicode.TYPE.checkExact(o)) {
-                return o;
-            } else if (SpecialMethod.op_str.isDefinedFor(rep)) {
-                Object res = SpecialMethod.op_str.handle(rep).invoke(o);
+            try {
+                Representation rep = PyType.registry.get(o.getClass());
+                Object res = rep.op_str.invokeExact(o);
                 if (PyUnicode.TYPE.check(res)) {
                     return res;
                 } else {
                     throw returnTypeError("__str__", "string", res);
                 }
-            } else {
+            } catch (EmptyException e) {
                 return repr(o);
             }
         }

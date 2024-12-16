@@ -226,6 +226,19 @@ public abstract sealed class PyType extends AbstractPyType
     }
 
     /**
+     * Weak test that the type system has completed its bootstrap. This
+     * does not guarantee that type objects, outside the bootstrap set,
+     * are safe to use. A thread that has triggered type system creation
+     * can use this as a check that it has finished (and certain
+     * operations are valid). Any other thread calling this method will
+     * either cause the type system bootstrap or wait for it to
+     * complete.
+     *
+     * @return type {@code true} iff system is ready for use.
+     */
+    static boolean systemReady() { return readyNanoTime != 0L; }
+
+    /**
      * {@code true} iff the type of {@code o} is a Python sub-type of
      * {@code this} (including exactly {@code this} type). This is
      * likely to be used in the form:<pre>

@@ -5,7 +5,9 @@ package uk.co.farowl.vsj4.runtime.internal;
 import uk.co.farowl.vsj4.runtime.Abstract;
 import uk.co.farowl.vsj4.runtime.ArgumentError;
 import uk.co.farowl.vsj4.runtime.FastCall;
+import uk.co.farowl.vsj4.runtime.Py;
 import uk.co.farowl.vsj4.runtime.PyBaseException;
+import uk.co.farowl.vsj4.runtime.PyType;
 import uk.co.farowl.vsj4.runtime.PyUtil;
 import uk.co.farowl.vsj4.support.internal.EmptyException;
 
@@ -15,6 +17,22 @@ import uk.co.farowl.vsj4.support.internal.EmptyException;
  * package.) It's the unpresentable cousin of {@link PyUtil}.
  */
 public class _PyUtil {
+
+    /**
+     * A string along the lines "T object at 0xhhh", where T is the type
+     * of {@code o}. This is for creating default {@code __repr__}
+     * implementations seen around the code base and containing this
+     * form. By implementing it here, we encapsulate the problem of
+     * qualified type name and what "address" or "identity" should mean.
+     *
+     * @param o the object (not its type)
+     * @return string denoting {@code o}
+     */
+    public static String toAt(Object o) {
+        // For the time being type name means:
+        String typeName = PyType.of(o).getName();
+        return String.format("%s object at %#x", typeName, Py.id(o));
+    }
 
     /**
      * Call a Python object when the first argument {@code arg0} is

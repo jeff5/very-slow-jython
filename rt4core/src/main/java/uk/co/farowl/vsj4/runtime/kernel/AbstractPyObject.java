@@ -4,13 +4,14 @@ package uk.co.farowl.vsj4.runtime.kernel;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
-import java.security.Signature;
 
 import uk.co.farowl.vsj4.runtime.Exposed;
 import uk.co.farowl.vsj4.runtime.PyObject;
 import uk.co.farowl.vsj4.runtime.PyType;
 import uk.co.farowl.vsj4.runtime.PyUtil;
+import uk.co.farowl.vsj4.runtime.internal._PyUtil;
 import uk.co.farowl.vsj4.support.MissingFeature;
+import uk.co.farowl.vsj4.support.internal.EmptyException;
 
 /**
  * The Python {@code object} is represented by {@code java.lang.Object}
@@ -38,16 +39,37 @@ public abstract class AbstractPyObject {
      */
 
     /**
-     * {@link SpecialMethod#op_repr} has signature
-     * {@link Signature#UNARY} and sometimes reproduces the source-code
-     * representation of the object.
+     * Called by the {@code repr()} built-in function to compute the
+     * "official" string representation of an object.
      *
      * @param self target of the operation
      * @return string form
      */
     // Compare CPython object_repr in typeobject.c
     static Object __repr__(Object self) {
-        return "<" + PyUtil.toAt(self) + ">";
+        return "<" + _PyUtil.toAt(self) + ">";
+    }
+
+    /**
+     * Called by {@code str()} and the built-in functions
+     * {@code format()} and {@code print()} to compute the "informal" or
+     * nicely printable string representation of an object.
+     * {@code object.__str__}, i.e. the behaviour is the subclass does
+     * not define {@code __str__}, calls the {@code __repr__} of the
+     * object.
+     *
+     * @param self target of the operation
+     * @return string form
+     * @throws Throwable
+     */
+    // Compare CPython object_str in typeobject.c
+    static Object __str__(Object self) throws Throwable {
+        Representation rep = SimpleType.getRepresentation(self);
+        try {
+            return rep.op_repr.invokeExact(self);
+        } catch (EmptyException ee) {
+            return __repr__(self);
+        }
     }
 
     /**

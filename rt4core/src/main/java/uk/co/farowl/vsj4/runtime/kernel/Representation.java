@@ -370,8 +370,12 @@ public abstract class Representation {
     /** Cache of {@link SpecialMethod#op_setitem __setitem__} */
     public MethodHandle op_setitem;
 
-    static abstract sealed class Accessor permits SpecialMethod.Util {
+
+    /**
+     * The purpose of this class is to give {@link SpecialMethod}
+     * privileged access to Representation.
+     */
+    static abstract sealed class Accessor permits SpecialMethod.SMUtil {
 
     }
-
 }

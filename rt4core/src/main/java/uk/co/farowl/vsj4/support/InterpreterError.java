@@ -30,7 +30,7 @@ public class InterpreterError extends RuntimeException {
      */
     public InterpreterError(String msg, Object... args) {
         super(String.format(msg, args));
-        logger.atError().log(getMessage());
+        logger.atInfo().log(getMessage());
     }
 
     /**
@@ -43,8 +43,8 @@ public class InterpreterError extends RuntimeException {
     public InterpreterError(Throwable cause, String msg,
             Object... args) {
         super(String.format(msg, args), cause);
-        logger.atError().log(getMessage());
-        logger.atError().log(cause.getMessage());
+        logger.atInfo().log(getMessage());
+        logger.atInfo().log(cause.getMessage());
     }
 
     /**

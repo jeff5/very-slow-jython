@@ -26,7 +26,7 @@ public class Py {
      * @param o the object
      * @return the Python {@code id(o)}
      */
-    static int id(Object o) {
+    public static int id(Object o) {
         // For the time being identity means:
         return System.identityHashCode(o);
     }

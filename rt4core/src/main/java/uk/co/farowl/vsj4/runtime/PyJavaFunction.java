@@ -8,6 +8,7 @@ import java.util.List;
 
 import uk.co.farowl.vsj4.runtime.ArgumentError.Mode;
 import uk.co.farowl.vsj4.runtime.internal.Clinic;
+import uk.co.farowl.vsj4.runtime.internal._PyUtil;
 import uk.co.farowl.vsj4.support.InterpreterError;
 import uk.co.farowl.vsj4.support.MethodKind;
 import uk.co.farowl.vsj4.support.ScopeKind;
@@ -292,7 +293,7 @@ public abstract class PyJavaFunction implements WithClass, FastCall {
             return String.format("<built-in function %s>", __name__());
         else
             return String.format("<built-in method %s of %s>",
-                    __name__(), PyUtil.toAt(self));
+                    __name__(), _PyUtil.toAt(self));
     }
 
     /**
