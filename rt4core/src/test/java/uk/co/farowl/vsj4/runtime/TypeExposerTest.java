@@ -259,9 +259,13 @@ class TypeExposerTest {
      */
     @BeforeAll
     static void createExposer() {
-        // type=null in order not to wake the type system
+        // Create an instance of Exposer to hold specs.
         TypeExposerImplementation exposer =
-                Exposer.exposeType(null, Fake.class, null);
+                // type=null in order not to wake the type system
+                new TypeExposerImplementation(null);
+
+        // Scan the primary class for definitions
+        exposer.exposeRecursive(Fake.class);
 
         // Populate the dictionaries used in the tests.
         for (Exposer.Spec s : exposer.specs.values()) {

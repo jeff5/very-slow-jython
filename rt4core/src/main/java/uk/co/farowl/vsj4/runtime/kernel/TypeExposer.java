@@ -18,11 +18,23 @@ import java.util.Map;
  */
 public interface TypeExposer {
     /**
-     * Build the result from the defining class.
+     * Gather methods (including getters and setters of fields) from the
+     * specified class. Definitions (a precursor of Python descriptors)
+     * accumulate in the exposer.
      *
-     * @param definingClass to scan for definitions
+     * @param methodClass to scan for definitions
      */
-    void expose(Class<?> definingClass);
+    void exposeMethods(Class<?> methodClass);
+
+    /**
+     * Gather methods and fields (including getters and setters of
+     * fields, and fields annotated as members) from the specified class
+     * and its ancestor classes. Definitions (a precursor of Python
+     * descriptors) accumulate in the exposer.
+     *
+     * @param implClass to scan for definitions
+     */
+    void exposeRecursive(Class<?> implClass);
 
     /**
      * For each name having a definition in this {@code TypeExposer}

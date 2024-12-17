@@ -168,7 +168,8 @@ public class TypeFactory {
          * PyType.fromSpec would not have been safe at this stage.
          */
         TypeSpec specOfObject = new PrimordialTypeSpec(objectType,
-                AbstractPyObject.LOOKUP);
+                AbstractPyObject.LOOKUP)
+                        .methodImpls(AbstractPyObject.class);
         TypeSpec specOfType =
                 new PrimordialTypeSpec(typeType, AbstractPyType.LOOKUP);
 
@@ -803,18 +804,25 @@ public class TypeFactory {
             TypeExposer exposer = exposerFactory.apply(task.type);
 
             /*
-             * Gather attributes from the specified method
-             * implementation classes. Definitions (descriptors)
-             * accumulate in the exposer.
+             * Gather attributes (methods, members and get-sets) from
+             * the primary representation class. Definitions (a
+             * precursor of Python descriptors) accumulate in the
+             * exposer.
+             */
+            exposer.exposeRecursive(spec.getPrimary());
+
+            /*
+             * Gather methods and get-sets from the specified
+             * supplementary method implementation classes.
              */
             for (Class<?> c : spec.getMethodImpls()) {
                 // Scan class c for method/attribute definitions.
-                exposer.expose(c);
+                exposer.exposeMethods(c);
             }
 
             /*
              * Populate the dictionary of the type with the accumulated
-             * descriptors.
+             * descriptors created from the definitions in the exposer.
              */
             type.populateDict(exposer, spec);
 
@@ -997,8 +1005,7 @@ public class TypeFactory {
          */
         BootstrapSpec(String name, Class<?> primary) {
             super(name, runtimeLookup, false);
-            this.primary(primary).methodImpls(primary)
-                    .add(Feature.IMMUTABLE);
+            this.primary(primary).add(Feature.IMMUTABLE);
         }
     }
 }

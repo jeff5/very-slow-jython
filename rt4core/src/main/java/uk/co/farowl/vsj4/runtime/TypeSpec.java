@@ -192,7 +192,8 @@ public class TypeSpec extends NamedSpec {
      * Create (begin) a specification for a Python {@code type}. This is
      * identical to {@link #TypeSpec(String, Lookup)}, except that the
      * class creating the {@code Lookup} object will not be treated as
-     * the primary representation or examined as a method implementation
+     * the primary representation or examined as a supplementary
+     * method implementation
      * class. The mutators {@link #primary} and optionally
      * {@link #methodImpls(Class...)} must be used to specify those
      * explicitly.
@@ -207,7 +208,6 @@ public class TypeSpec extends NamedSpec {
         super(name);
         this.lookup = lookup;
         this.defaultToLookup = defaultToLookup;
-        if (defaultToLookup) { methodImpls.add(lookup.lookupClass()); }
     }
 
     /**

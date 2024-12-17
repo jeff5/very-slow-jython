@@ -97,63 +97,14 @@ abstract class Exposer {
 // }
 
     /**
-     * On behalf of the given type defined in Java, build a description
-     * of the attributes discovered by introspection of the class (or
-     * classes) provided.
-     * <p>
-     * Special methods are identified by their reserved name, while
-     * other attributes are identified by annotations. (See
-     * {@link Exposed}.)
-     * <p>
-     * In those attributes that reference their defining Python type
-     * (descriptors), the {@code type} object will be referenced (as
-     * {@link Descriptor#objclass}). It is not otherwise accessed, since
-     * it is (necessarily) incomplete at this time.
-     *
-     * @param type to which these attributes apply
-     * @param definingClass to introspect for members
-     * @param methodClass additional class to introspect for members (or
-     *     {@code null})
-     * @return a type exposer able to deliver the attributes
-     * @throws InterpreterError on errors of definition
-     */
-    static TypeExposerImplementation exposeType(PyType type,
-            Class<?> definingClass, Class<?> methodClass)
-            throws InterpreterError {
-
-        // Create an instance of Exposer to hold specs, type.
-        TypeExposerImplementation exposer =
-                new TypeExposerImplementation(type);
-
-        // Scan the defining class for definitions
-        exposer.expose(definingClass);
-
-        // Scan the supplementary class for definitions
-        if (methodClass != null) { exposer.expose(methodClass); }
-
-        // For each definition we found, add the attribute
-        return exposer;
-    }
-
-    /**
      * Add to {@link #specs}, definitions found in the given class and
-     * annotated for exposure. (Note that the that the override
-     * {@link TypeExposerImplementation#scanJavaMethods(Class)} also
-     * adds a method if it has a the name of a special method.)
+     * annotated for exposure.
      *
      * @param defsClass to introspect for definitions
      * @throws InterpreterError on duplicates or unsupported types
      */
-    void scanJavaMethods(Class<?> defsClass) throws InterpreterError {
-        // Iterate over methods looking for the relevant annotations
-        for (Class<?> c : superClasses(defsClass)) {
-            for (Method m : c.getDeclaredMethods()) {
-                PythonMethod a =
-                        m.getDeclaredAnnotation(PythonMethod.class);
-                if (a != null) { addMethodSpec(m, a); }
-            }
-        }
-    }
+    abstract void scanJavaMethods(Class<?> defsClass)
+            throws InterpreterError;
 
     /**
      * Walk down to a given class through all super-classes that might

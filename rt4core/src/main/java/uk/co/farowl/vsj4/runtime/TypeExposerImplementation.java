@@ -67,11 +67,19 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
     ScopeKind kind() { return ScopeKind.TYPE; }
 
     @Override
-    public void expose(Class<?> definingClass) {
+    public void exposeMethods(Class<?> methodClass) {
         // Scan the defining class for exposed and special methods
-        scanJavaMethods(definingClass);
-        // ... and for fields.
-        // scanJavaFields(definingClass);
+        scanJavaMethods(methodClass);
+    }
+
+    @Override
+    public void exposeRecursive(Class<?> implClass) {
+        // Scan the defining class for exposed and special methods
+        for (Class<?> c : superClasses(implClass)) {
+            scanJavaMethods(c);
+            // ... and for fields.
+            // scanJavaFields(c);
+        }
     }
 
     @Override
@@ -97,59 +105,57 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
      * given class and either annotated for exposure or having the name
      * of a special method.
      *
-     * @param defsClass to introspect for methods
+     * @param c to introspect for methods
      * @throws InterpreterError on duplicates or unsupported types
      */
     @Override
-    void scanJavaMethods(Class<?> defsClass) throws InterpreterError {
+    void scanJavaMethods(Class<?> c) throws InterpreterError {
 
-        logger.atTrace().addArgument(defsClass)
-                .log("Finding methods in {}");
+        logger.atTrace().addArgument(c).log("Finding methods in {}");
 
         // Iterate over methods looking for those to expose
-        for (Class<?> c : superClasses(defsClass)) {
-            for (Method m : c.getDeclaredMethods()) {
-                /*
-                 * Note: method annotations (and special names) are not
-                 * treated as alternatives, to catch exposure of methods
-                 * by multiple routes.
-                 */
+        for (Method m : c.getDeclaredMethods()) {
+            /*
+             * Note: method annotations (and special names) are not
+             * treated as alternatives, to catch exposure of methods by
+             * multiple routes.
+             */
 
-                // Check for instance method
-                PythonMethod pm =
-                        m.getDeclaredAnnotation(PythonMethod.class);
-                if (pm != null) { addMethodSpec(m, pm); }
+            // Check for instance method
+            PythonMethod pm =
+                    m.getDeclaredAnnotation(PythonMethod.class);
+            if (pm != null) { addMethodSpec(m, pm); }
 
-                // XXX Check for static method
-                // PythonStaticMethod psm = m.getDeclaredAnnotation(
-                // PythonStaticMethod.class);
-                // if (psm != null) { addStaticMethodSpec(m, psm); }
+            // XXX Check for static method
+            // PythonStaticMethod psm = m.getDeclaredAnnotation(
+            // PythonStaticMethod.class);
+            // if (psm != null) { addStaticMethodSpec(m, psm); }
 
-                // Check for __new__ method
-                PythonNewMethod pnm =
-                        m.getDeclaredAnnotation(PythonNewMethod.class);
-                if (pnm != null) { addNewMethodSpec(m, pnm, type); }
+            // Check for __new__ method
+            PythonNewMethod pnm =
+                    m.getDeclaredAnnotation(PythonNewMethod.class);
+            if (pnm != null) { addNewMethodSpec(m, pnm, type); }
 
-                // XXX Check for class method
-                // PythonClassMethod pcm =
-                // m.getDeclaredAnnotation(PythonClassMethod.class);
-                // if (pcm != null) { addClassMethodSpec(m, pcm); }
+            // XXX Check for class method
+            // PythonClassMethod pcm =
+            // m.getDeclaredAnnotation(PythonClassMethod.class);
+            // if (pcm != null) { addClassMethodSpec(m, pcm); }
 
-                // XXX Check for getter, setter, deleter methods
-                // Getter get = m.getAnnotation(Getter.class);
-                // if (get != null) { addGetter(m, get); }
-                // Setter set = m.getAnnotation(Setter.class);
-                // if (set != null) { addSetter(m, set); }
-                // Deleter del = m.getAnnotation(Deleter.class);
-                // if (del != null) { addDeleter(m, del); }
+            // XXX Check for getter, setter, deleter methods
+            // Getter get = m.getAnnotation(Getter.class);
+            // if (get != null) { addGetter(m, get); }
+            // Setter set = m.getAnnotation(Setter.class);
+            // if (set != null) { addSetter(m, set); }
+            // Deleter del = m.getAnnotation(Deleter.class);
+            // if (del != null) { addDeleter(m, del); }
 
-                // If it has a special method name record a definition.
-                String name = m.getName();
-                SpecialMethod sm = SpecialMethod.forMethodName(name);
-                if (sm != null) { addWrapperSpec(m, sm); }
-            }
+            // If it has a special method name record a definition.
+            String name = m.getName();
+            SpecialMethod sm = SpecialMethod.forMethodName(name);
+            if (sm != null) { addWrapperSpec(m, sm); }
         }
     }
+
 
 /// **
 // * Process a method annotated as an exposed attribute get method,

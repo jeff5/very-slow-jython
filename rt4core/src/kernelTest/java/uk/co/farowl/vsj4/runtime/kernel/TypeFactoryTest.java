@@ -49,20 +49,21 @@ class TypeFactoryTest {
     static Lookup LOOKUP =
             MethodHandles.lookup().dropLookupMode(Lookup.PRIVATE);
 
-    /** Satisfy the reference in the {@code TypeFactory} constructor. */
+    /**
+     * Satisfy the reference in the {@code TypeFactory} constructor,
+     * with an implementation of {@link TypeExposer} that does nothing.
+     */
     Function<PyType, TypeExposer> nullFactory =
-            //new Function<TypeExposer, PyType>() {
             (PyType t) -> new TypeExposer() {
-                final PyType type = t;
                 @Override
-                public void expose(Class<?> definingClass) {
-                    // Do nothing
-                 }
+                public void exposeMethods(Class<?> definingClass) {}
+
+                @Override
+                public void exposeRecursive(Class<?> definingClass) {}
+
                 @Override
                 public void populate(Map<? super String, Object> dict,
-                        Lookup lookup) {
-                    // Do nothing
-                }
+                        Lookup lookup) {}
             };
 
     /**
