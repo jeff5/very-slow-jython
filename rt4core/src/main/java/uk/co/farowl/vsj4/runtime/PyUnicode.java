@@ -2,9 +2,10 @@
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
 
-import java.lang.invoke.MethodHandles;
 import java.util.Arrays;
 import java.util.function.Function;
+
+import uk.co.farowl.vsj4.runtime.PyUtil.NoConversion;
 
 /** Placeholder until implemented. */
 // FIXME implement me
@@ -30,6 +31,20 @@ public class PyUnicode extends TypedPyObject {
         super(type);
         this.value = Arrays.copyOf(codePoints, codePoints.length);
     }
+
+    // Special methods -----------------------------------------------
+
+    @SuppressWarnings("unused")
+    static Object __repr__(Object self) {
+        try {
+            // Ok, it should be more complicated but I'm in a hurry.
+            return "'" + convertToString(self) + "'";
+        } catch (NoConversion nc) {
+            throw Abstract.impossibleArgumentError("str", self);
+        }
+    }
+
+    // Java API ------------------------------------------------------
 
     /**
      * Present a Python {@code str} as a Java {@code String} value or
@@ -70,4 +85,29 @@ public class PyUnicode extends TypedPyObject {
         // return ((PyUnicode)v).asString();
         throw exc.apply(v);
     }
+
+    // Plumbing ------------------------------------------------------
+
+    /**
+     * Convert a Python {@code str} to a Java {@code str} (or throw
+     * {@link NoConversion}). This is suitable for use where a method
+     * argument should be (exactly) a {@code str}, or an alternate path
+     * taken.
+     * <p>
+     * If the method throws the special exception {@link NoConversion},
+     * the caller must deal with it by throwing an appropriate Python
+     * exception or taking an alternative course of action.
+     *
+     * @param v to convert
+     * @return converted to {@code String}
+     * @throws NoConversion v is not a {@code str}
+     */
+    static String convertToString(Object v) throws NoConversion {
+        if (v instanceof String)
+            return (String)v;
+        // else if (v instanceof PyUnicode)
+        // return ((PyUnicode)v).asString();
+        throw PyUtil.NO_CONVERSION;
+    }
+
 }

@@ -19,8 +19,10 @@ public class PyAttributeError extends PyBaseException {
     private static final long serialVersionUID = 1L;
 
     /** The problematic attribute name. */
+    // TODO Expose as get-set. Remove Java getter.
     private String name;
     /** The object that didn't have {@code name} as an attribute. */
+    // TODO Expose as get-set. Remove Java getter.
     private Object obj;
 
     /**
@@ -35,13 +37,27 @@ public class PyAttributeError extends PyBaseException {
     }
 
     private static final ArgParser INIT_PARSER =
-            ArgParser.fromSignature("__init__", "*args, name, obj");
+            ArgParser.fromSignature("__init__", "*args", "name", "obj")
+                    .kwdefaults(Py.None, Py.None);
 
     @Override
     void __init__(Object[] args, String[] kwds) {
         Object[] frame = INIT_PARSER.parse(args, kwds);
-        this.args = new PyTuple(frame, 0, 1);
-        this.name = PyUnicode.asString(frame[1]);
-        this.obj = frame[2];
+        // frame = [name, obj, *args]
+        if (frame[2] instanceof PyTuple argsTuple) { // always is
+            this.args = argsTuple;
+        }
+        // keywords: can't default directly to null in the parser
+        Object name = frame[0], obj = frame[1];
+        this.name = name == Py.None ? null : PyUnicode.asString(name);
+        this.obj = obj == Py.None ? null : obj;
     }
+
+    /** @return {@code name} attribute. */
+    @Deprecated
+    public Object name() { return name == null ? Py.None : name; }
+
+    /** @return {@code obj} attribute. */
+    @Deprecated
+    public Object obj() { return obj == null ? Py.None : obj; }
 }

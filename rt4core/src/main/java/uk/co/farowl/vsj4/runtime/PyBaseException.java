@@ -3,7 +3,9 @@
 package uk.co.farowl.vsj4.runtime;
 
 import java.lang.invoke.MethodHandles;
+import java.lang.reflect.Constructor;
 import java.util.Map;
+import java.util.StringJoiner;
 
 import uk.co.farowl.vsj4.runtime.Exposed.KeywordCollector;
 import uk.co.farowl.vsj4.runtime.Exposed.PositionalCollector;
@@ -90,11 +92,10 @@ public class PyBaseException extends RuntimeException
     // XXX current format and args could be applied to message.
 
     /**
-     * Constructor specifying Python type and the
-     * argument tuple as the associated value. We do this for maximum
-     * similarity with CPython, where {@code __new__} does no more than
-     * allocate an object and all attribute values are decoded by
-     * {@code __init__}.
+     * Constructor specifying Python type and the argument tuple as the
+     * associated value. We do this for maximum similarity with CPython,
+     * where {@code __new__} does no more than allocate an object and
+     * all attribute values are decoded by {@code __init__}.
      *
      * @param type Python type of the exception
      * @param args positional arguments
@@ -154,24 +155,22 @@ public class PyBaseException extends RuntimeException
      * of it. The returned object is an instance of the Java
      * representation class of {@code type}.
      *
-     * @param type actual Python sub-class being created
+     * @param cls actual Python sub-class being created
      * @param args positional arguments
      * @param kwargs keywords (ignored)
      * @return newly-created object
      */
     @Exposed.PythonNewMethod
-    static Object __new__(PyType type,
-            @PositionalCollector PyTuple args,
+    static Object __new__(PyType cls, @PositionalCollector PyTuple args,
             @KeywordCollector PyDict kwargs) {
         // FIXME prevent arbitrary type here (but do so in wrapper)
-        assert type.isSubTypeOf(TYPE);
-        PyBaseException self;
-        PyTuple t = new PyTuple(args);
-        if (type.javaClass() == PyBaseException.class) {
+        assert cls.isSubTypeOf(TYPE);
+        Class<?> excClass = cls.javaClass();
+        Object self;
+        if (excClass == PyBaseException.class) {
             // Required type shares the primary representation
-            self = new PyBaseException(type, t);
-        } else {
-            // TODO Create instance of implementation of type.
+            self = new PyBaseException(cls, args);
+        } else if (PyBaseException.class.isAssignableFrom(excClass)) {
             /*
              * We need an instance of a Python subclass E of
              * BaseException that needs a Java subclass representation.
@@ -179,9 +178,31 @@ public class PyBaseException extends RuntimeException
              * __slots__, or in Java and provides no __new__. This would
              * be ok if we could invoke the correct constructor.
              */
+            try {
+                // Constructor must be public for this :/
+                // TODO Consider other ways to identify constructor
+                Constructor<?> cons = cls.javaClass()
+                        .getConstructor(CONSTRUCTOR_ARGS);
+                self = cons.newInstance(cls, args);
+            } catch (ReflectiveOperationException | SecurityException
+                    | IllegalArgumentException e) {
+                /*
+                 * We did not find a constructor like PyBaseException,
+                 * and so we do not know how to create an instance. If
+                 * there had been a custom cls.__new__ for the type we
+                 * would have landed there, not here, and it would
+                 * Java-construct the instance.
+                 */
+                PyBaseException err = PyErr.format(PyExc.TypeError,
+                        "Cannot construct a '%s' in %s.__new__ ",
+                        cls.getName(), TYPE.getName());
+                err.initCause(e);
+                throw err;
+            }
+        } else {
             throw new MissingFeature("Subclass without __new__");
         }
-        assert PyType.of(self) == type;
+        assert PyType.of(self) == cls;
         return self;
     }
 
@@ -189,17 +210,45 @@ public class PyBaseException extends RuntimeException
      * Initialise this instance.
      *
      * @param args values to set as the attribute {@code args}
-     * @param kwds keywords (should be at most {@code ["name"]})
+     * @param kwds keywords (should be empty)
      */
     void __init__(Object[] args, String[] kwds) {
         this.args = PyTuple.from(args);
     }
 
-    /** @return {@code repr()} of this Python object. */
-    protected Object __repr__() {
-        // Somewhat simplified
-        return getType().getName() + "('" + getMessage() + "')";
+    /**
+     * @return {@code str()} of this Python object.
+     * @throws Throwable from getting the {@code str()} of {@code args}
+     */
+    protected Object __str__() throws Throwable {
+        return switch (args.size()) {
+            case 0 -> "";
+            case 1 -> Abstract.str(args.get(0));
+            default -> Abstract.str(args);
+        };
+    }
+
+    /**
+     * @return {@code repr()} of this Python object.
+     * @throws Throwable from getting the {@code repr()} of {@code args}
+     */
+    protected Object __repr__() throws Throwable {
+        String prefix = type.getName() + "(";
+        StringJoiner sj = new StringJoiner(",", prefix, ")");
+        for (Object o : args) {
+            sj.add(PyUnicode.asString(Abstract.repr(o)));
+        }
+        return sj.toString();
     }
 
     // plumbing -------------------------------------------------------
+
+    /**
+     * Signature of {@link #PyBaseException} constructor. We have to
+     * assume this signature may be used to construct an instance of the
+     * Java representation class of a subclass if it has no
+     * {@code __new__}.
+     */
+    protected static final Class<?>[] CONSTRUCTOR_ARGS =
+            {PyType.class, PyTuple.class /* , PyDict.class */};
 }

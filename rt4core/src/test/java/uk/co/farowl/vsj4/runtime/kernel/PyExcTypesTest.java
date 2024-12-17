@@ -2,21 +2,26 @@
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime.kernel;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
-import java.lang.reflect.Constructor;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import uk.co.farowl.vsj4.runtime.Abstract;
 import uk.co.farowl.vsj4.runtime.Callables;
+import uk.co.farowl.vsj4.runtime.Py;
+import uk.co.farowl.vsj4.runtime.PyAttributeError;
 import uk.co.farowl.vsj4.runtime.PyBaseException;
 import uk.co.farowl.vsj4.runtime.PyExc;
 import uk.co.farowl.vsj4.runtime.PyNameError;
+import uk.co.farowl.vsj4.runtime.PyStopIteration;
 import uk.co.farowl.vsj4.runtime.PyType;
 import uk.co.farowl.vsj4.support.internal.Util;
 
@@ -28,11 +33,11 @@ import uk.co.farowl.vsj4.support.internal.Util;
  * addition of attributes in subclasses is sparse and representations
  * can be shared. We are not much interested here to test the behaviour
  * of the exceptions themselves.
- * <p>The Java classes representing structurally different
- *  exceptions create their own Python type objects.
- * The exception types that share these representations
- * are created in the class {@link PyExc}.
- * These are the objects under test.
+ * <p>
+ * The Java classes representing structurally different exceptions
+ * create their own Python type objects. The exception types that share
+ * these representations are created in the class {@link PyExc}. These
+ * are the objects under test.
  */
 @DisplayName("Selected Python exception types ...")
 class PyExcTypesTest {
@@ -46,37 +51,44 @@ class PyExcTypesTest {
         return Stream.of(//
                 rep(PyExc.BaseException), //
                 rep(PyExc.Exception), //
-                rep(PyExc.TypeError) // , //
-                // FIXME: Missing feature: Subclass without __new__
-                //rep(PyNameError.class, PyExc.NameError,
-                //        new Object[] {"x"}, new String[] {"name"}) //
+                rep(PyExc.TypeError), //
+                rep(PyStopIteration.class, PyExc.StopIteration,
+                        "StopIteration()", NO_ARGS, NO_KWDS), //
+                rep(PyStopIteration.class, PyExc.StopIteration,
+                        "StopIteration(42)", new Object[] {42},
+                        NO_KWDS), //
+                rep(PyNameError.class, PyExc.NameError, "NameError()",
+                        new Object[] {"x"}, new String[] {"name"}), //
+                rep(PyNameError.class, PyExc.UnboundLocalError,
+                        "UnboundLocalError()", new Object[] {"u"},
+                        new String[] {"name"}), //
+                rep(PyAttributeError.class, PyExc.AttributeError,
+                        "AttributeError()", new Object[] {"x", 42},
+                        new String[] {"name", "obj"}) //
         );
     }
 
     private static Arguments rep(PyType type) {
-        return rep(PyBaseException.class, type, NO_ARGS, NO_KWDS);
-    }
-
-    private static Arguments rep(Class<? extends PyBaseException> cls,
-            PyType type, Object... args) {
-        return rep(cls, type, args, NO_KWDS);
+        Object[] args = {"Message"};
+        String text = String.format("%s('Message')", type.getName());
+        return rep(PyBaseException.class, type, text, args, NO_KWDS);
     }
 
     /**
      * Create a test case for {@link #representationClasses()}.
+     *
      * @param cls Java class of the representation
      * @param type Python type of the exception
+     * @param reprText text expected from {@code repr()}
      * @param args positional arguments to give to a constructor
      * @param kwds keyword arguments to give to a constructor
      * @return arguments for the test
      */
     private static Arguments rep(Class<? extends PyBaseException> cls,
-            PyType type, Object[] args, String[] kwds) {
-        Object[] a = new Object[args.length + 1];
-        System.arraycopy(args, 0, a, 1, args.length);
-        a[0] = "Test message";
+            PyType type, String reprText, Object[] args,
+            String[] kwds) {
         String repName = cls.getSimpleName();
-        return arguments(type, repName, cls, a, kwds);
+        return arguments(type, repName, reprText, cls, args, kwds);
     }
 
     @SuppressWarnings("static-method")
@@ -84,11 +96,50 @@ class PyExcTypesTest {
     @MethodSource("representationClasses")
     @ParameterizedTest(name = "{0} -> {1}")
     <T extends PyBaseException> void sharedRepresentation(PyType type,
-            String repName, Class<T> cls, Object[] args, String[] kwds)
-            throws Throwable {
+            String repName, String reprText, Class<T> cls,
+            Object[] args, String[] kwds) throws Throwable {
         // Try to construct an instance
         Object exc = Callables.call(type, args, kwds);
         assertInstanceOf(cls, exc);
+    }
+
+    @SuppressWarnings("static-method")
+    @DisplayName("have the expected repr() ...")
+    @MethodSource("representationClasses")
+    @ParameterizedTest(name = "{2}")
+    <T extends PyBaseException> void reprExpected(PyType type,
+            String repName, String reprText, Class<T> cls,
+            Object[] args, String[] kwds) throws Throwable {
+        // Try to construct an instance
+        Object exc = Callables.call(type, args, kwds);
+        assertEquals(reprText, Abstract.repr(exc));
+    }
+
+    @SuppressWarnings("static-method")
+    @DisplayName("NameError accepts keyword 'name'")
+    @Test
+    void kwNameError() throws Throwable {
+        PyNameError exc = (PyNameError)Callables.call(PyExc.NameError);
+        assertEquals(exc.name(), Py.None);
+        exc = (PyNameError)Callables.call(PyExc.NameError,
+                new Object[] {"a"}, new String[] {"name"});
+        assertEquals(exc.name(), "a");
+    }
+
+    @SuppressWarnings("static-method")
+    @DisplayName("AttributeError accepts keywords 'name', 'obj'")
+    @Test
+    void kwAttributeError() throws Throwable {
+        PyAttributeError exc =
+                (PyAttributeError)Callables.call(PyExc.AttributeError);
+        assertEquals(exc.name(), Py.None);
+        exc = (PyAttributeError)Callables.call(PyExc.AttributeError,
+                new Object[] {"a"}, new String[] {"name"});
+        assertEquals(exc.name(), "a");
+        exc = (PyAttributeError)Callables.call(PyExc.AttributeError,
+                new Object[] {42, "b"}, new String[] {"obj", "name"});
+        assertEquals(exc.name(), "b");
+        assertEquals(exc.obj(), 42);
     }
 
     private static Object[] NO_ARGS = Util.EMPTY_ARRAY;

@@ -366,7 +366,7 @@ class ArgParser {
          * where e.g. inspect.signature(exec) is (source, globals=None,
          * locals=None, /).
          */
-        if (posCount == 0) { posCount = N; }
+        if (varargs == null && varkw == null) { posCount = N; }
 
         // Number of regular arguments (not *, **)
         int regArgCount = N;
@@ -624,10 +624,11 @@ class ArgParser {
      * Provide the keyword-only defaults as values. If K values are
      * provided, they correspond to {@code arg[N-K] ... arg[N-1]}, where
      * {@code N} is the number of regular parameters
-     * ({@link #regargcount}). If the argument is empty, it is converted
-     * to {@code null} internally. The number of keyword-only parameters
-     * and positional-only parameters must not together exceed the
-     * number of regular parameters named in the constructor.
+     * ({@link #regargcount}). If any value is {@code null}, and for
+     * keyword parameters before {@code arg[N-K]}, there is no default.
+     * The number of keyword-only parameters and positional-only
+     * parameters must not together exceed the number of regular
+     * parameters named in the constructor.
      *
      * @param values keyword values aligned to the parameter names
      * @return {@code this}

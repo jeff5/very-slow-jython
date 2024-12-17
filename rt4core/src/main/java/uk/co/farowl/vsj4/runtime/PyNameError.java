@@ -20,26 +20,34 @@ public class PyNameError extends PyBaseException {
     private static final long serialVersionUID = 1L;
 
     /** The problematic name. */
+    // TODO Expose as get-set. Remove Java getter.
     private String name;
 
     /**
-     * Constructor  specifying Python type.
+     * Constructor specifying Python type.
      *
      * @param type Python type of the exception
      * @param args positional arguments
-     */
-    public PyNameError(PyType type, PyTuple args) {
-        super(type, args);
-    }
+     *///
+    public PyNameError(PyType type, PyTuple args) { super(type, args); }
 
-
-    private static final ArgParser INIT_PARSER = ArgParser
-            .fromSignature("__init__", "*args, name");
+    private static final ArgParser INIT_PARSER =
+            ArgParser.fromSignature("__init__", "*args", "name")
+                    .kwdefaults(Py.None);
 
     @Override
     void __init__(Object[] args, String[] kwds) {
         Object[] frame = INIT_PARSER.parse(args, kwds);
-        this.args = new PyTuple(frame,0,1);
-        this.name = PyUnicode.asString(frame[1]);
+        // frame = [name, *args]
+        if (frame[1] instanceof PyTuple argsTuple) { // always is
+            this.args = argsTuple;
+        }
+        // name keyword: can't default directly to null in the parser
+        Object name = frame[0];
+        this.name = name == Py.None ? null : PyUnicode.asString(name);
     }
+
+    /** @return {@code name} attribute. */
+    @Deprecated
+    public Object name() { return name == null ? Py.None : name; }
 }

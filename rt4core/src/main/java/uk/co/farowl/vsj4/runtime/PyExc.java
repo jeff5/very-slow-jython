@@ -89,10 +89,21 @@ public class PyExc {
             "TypeError", "Inappropriate argument type.");
 
     /**
+     * {@code StopIteration} extends {@code Exception} and is implemented by
+     * {@link PyStopIteration}.
+     */
+    public static PyType StopIteration = PyStopIteration.TYPE;
+
+    /**
      * {@code NameError} extends {@code Exception} and is implemented by
      * {@link PyNameError}.
      */
     public static PyType NameError = PyNameError.TYPE;
+
+    /** {@code LookupError} extends {@link Exception}. */
+    public static PyType UnboundLocalError =
+            extendsException(NameError, "UnboundLocalError",
+                    "Local name referenced but not bound to a value.");
 
     /**
      * {@code AttributeError} extends {@code Exception} and is

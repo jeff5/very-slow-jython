@@ -77,6 +77,16 @@ public class PyLong implements WithClass {
         // return new PyLong.Derived(cls, PyLong.asBigInteger(v));
     }
 
+    // Special methods ------------------------------------------------
+
+    @SuppressWarnings("unused")
+    static Object __repr__(Object self) {
+        assert TYPE.check(self);
+        return asBigInteger(self).toString();
+    }
+
+    // __str__: let object.__str__ handle it (calls __repr__)
+
     /**
      * Create an int from the arguments (not a sub-type).
      *

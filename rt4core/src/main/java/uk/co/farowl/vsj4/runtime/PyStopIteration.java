@@ -36,14 +36,19 @@ public class PyStopIteration extends PyBaseException {
 
     // Compare CPython StopIteration_* in exceptions.c
 
-    /**
-     * @param value exit value of the iteration
-     * @param args positional arguments
-     */
-    void __init__(@KeywordOnly Object value,
-            @PositionalCollector PyTuple args) {
-        this.args = args;
-        this.value = value;
+    private static final ArgParser INIT_PARSER =
+            ArgParser.fromSignature("__init__", "*args")
+            .kwdefaults((Object)null);
+
+    @Override
+    void __init__(Object[] args, String[] kwds) {
+        Object[] frame = INIT_PARSER.parse(args, kwds);
+        // frame = [*args]
+        if (frame[0] instanceof PyTuple argsTuple) { // always is
+            this.args = argsTuple;
+        }
+        PyTuple a = this.args;
+        this.value = (a.size() == 0) ? Py.None : a.get(0);
     }
 
 }

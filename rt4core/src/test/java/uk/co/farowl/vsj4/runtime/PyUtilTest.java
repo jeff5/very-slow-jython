@@ -61,9 +61,13 @@ public class PyUtilTest {
             assertEquals("TypeError: test", e.toString());
         }
 
-        /** Test PyException repr for a simple case. */
+        /**
+         * Test PyException repr for a simple case.
+         *
+         * @throws Throwable
+         */
         @Test
-        void testException_repr() {
+        void testException_repr() throws Throwable {
             PyBaseException e = PyErr.format(PyExc.TypeError, "test");
             assertEquals("TypeError('test')", e.__repr__());
         }
