@@ -14,6 +14,7 @@ import java.util.StringJoiner;
 import uk.co.farowl.vsj4.runtime.PyErr;
 import uk.co.farowl.vsj4.runtime.PyExc;
 import uk.co.farowl.vsj4.runtime.PyType;
+import uk.co.farowl.vsj4.support.internal.Util;
 
 /**
  * Class to calculate one MRO and retain the result. We make this a
@@ -85,9 +86,7 @@ public class MROCalculator {
             } else {
                 // The one base has an MRO of its own: prepend type.
                 PyType[] baseMRO = base.getMRO();
-                PyType[] mro = new PyType[baseMRO.length + 1];
-                System.arraycopy(baseMRO, 0, mro, 1, baseMRO.length);
-                mro[0] = type;
+                PyType[] mro = Util.prepend(type, baseMRO);
                 return mro;
             }
         } else {

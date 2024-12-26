@@ -187,11 +187,7 @@ public interface FastCall {
      */
     default Object call(Object self, Object[] args, String[] names)
             throws ArgumentError, Throwable {
-        int n = args.length;
-        Object[] a = new Object[1 + n];
-        a[0] = self;
-        System.arraycopy(args, 0, a, 1, n);
-        return call(a, names);
+        return call(Util.prepend(self, args), names);
     }
 
     /**

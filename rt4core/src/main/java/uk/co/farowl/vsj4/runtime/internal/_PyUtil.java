@@ -10,6 +10,7 @@ import uk.co.farowl.vsj4.runtime.PyBaseException;
 import uk.co.farowl.vsj4.runtime.PyType;
 import uk.co.farowl.vsj4.runtime.PyUtil;
 import uk.co.farowl.vsj4.support.internal.EmptyException;
+import uk.co.farowl.vsj4.support.internal.Util;
 
 /**
  * Utility methods that should be visible throughout the run time
@@ -63,16 +64,14 @@ public class _PyUtil {
             try {
                 return fast.call(arg0, args, names);
             } catch (ArgumentError ae) {
-                // Demand a proper TypeError.
-                throw fast.typeError(ae, args, names);
+                // TypeError needs full argument list to make sense.
+                Object[] a = Util.prepend(arg0, args);
+                throw fast.typeError(ae, a, names);
             }
         } else {
             // Go via callable.__call__
-            int n = args.length;
-            Object[] allargs = new Object[1 + n];
-            allargs[0] = arg0;
-            System.arraycopy(args, 0, allargs, 1, n);
-            return _PyUtil.standardCall(callable, allargs, names);
+            Object[] a = Util.prepend(arg0, args);
+            return _PyUtil.standardCall(callable, a, names);
         }
     }
 
