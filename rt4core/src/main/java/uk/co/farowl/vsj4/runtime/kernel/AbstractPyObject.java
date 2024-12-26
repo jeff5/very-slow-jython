@@ -2,15 +2,17 @@
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime.kernel;
 
+import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
 
 import uk.co.farowl.vsj4.runtime.Exposed;
+import uk.co.farowl.vsj4.runtime.PyBaseException;
+import uk.co.farowl.vsj4.runtime.PyErr;
+import uk.co.farowl.vsj4.runtime.PyExc;
 import uk.co.farowl.vsj4.runtime.PyObject;
 import uk.co.farowl.vsj4.runtime.PyType;
-import uk.co.farowl.vsj4.runtime.PyUtil;
 import uk.co.farowl.vsj4.runtime.internal._PyUtil;
-import uk.co.farowl.vsj4.support.MissingFeature;
 import uk.co.farowl.vsj4.support.internal.EmptyException;
 
 /**
@@ -77,25 +79,52 @@ public abstract class AbstractPyObject {
      * method in the data model, but not a {@link SpecialMethod} (there
      * is no {@code SpecialMethod.op_new}) in this implementation.
      *
-     * @param type actual Python sub-class being created
+     * @param cls actual Python sub-class being created
      * @return newly-created object
      */
     @Exposed.PythonNewMethod
-    static Object __new__(PyType type) {
+    static Object __new__(PyType cls) {
         /*
          * We normally arrive here from PyType.__call__, where this/self
          * is the the type we're asked to construct, and gets passed
-         * here as the 'type' argument. __call__ will have received the
-         * arguments matching the canonical signature, that is, self,
-         * args, kwnames. The descriptor could match argument to this
-         * __new__,
+         * here as the 'cls' argument.
          */
-        if (type == PyObject.TYPE) {
+        if (cls == PyObject.TYPE) {
             return new Object();
         } else {
-            // TODO Support subclass constructor
-            throw new MissingFeature("subclasses in __new__");
+            /*
+             * We need an instance of a Python subclass C, which means
+             * creating an instance of C's Java representation.
+             */
+            try {
+                // Look up a constructor with the right parameters
+                MethodHandle cons = cls.constructor(PyType.class)
+                        .constructorHandle();
+                // cons should be reliably (T)O
+                return cons.invokeExact(cls);
+            } catch (PyBaseException e) {
+                // Usually signals no matching constructor
+                throw e;
+            } catch (Throwable e) {
+                // Failed while finding/invoking constructor
+                PyBaseException err = PyErr.format(PyExc.TypeError,
+                        CANNOT_CONSTRUCT_INSTANCE, cls.getName(),
+                        PyObject.TYPE.getName());
+                err.initCause(e);
+                throw err;
+            }
         }
     }
 
+    // plumbing -------------------------------------------------------
+
+    /**
+     * Signature of {@link #PyBaseException} constructor. We have to
+     * assume this signature may be used to construct an instance of the
+     * Java representation class of a subclass if it has no
+     * {@code __new__}.
+     */
+    private static final Class<?>[] CONSTRUCTOR_ARGS = {PyType.class};
+    private static final String CANNOT_CONSTRUCT_INSTANCE =
+            "Cannot construct instance of '%s' in %s.__new__ ";
 }

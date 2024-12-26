@@ -103,13 +103,11 @@ public class PyBaseException extends RuntimeException
     public PyBaseException(PyType type, PyTuple args) {
         super();
         // Ensure Python type is valid for Java class.
-        this.type = TYPE; // For the check
         this.type = checkClassAssignment(type);
         this.args = args;
     }
 
-    @Override
-    public PyType getType() { return type; }
+    // WithDict interface --------------------------------------------
 
     @Override
     public Map<Object, Object> getDict() {
@@ -117,10 +115,17 @@ public class PyBaseException extends RuntimeException
         return dict;
     }
 
+    // WithClassAssignment interface ---------------------------------
+
+    @Override
+    public PyType getType() { return type; }
+
     @Override
     public void setType(Object replacementType) {
         type = checkClassAssignment(replacementType);
     }
+
+    // Exception API -------------------------------------------------
 
     /**
      * If the Python type of this exception is not the {@code wanted}
@@ -145,7 +150,7 @@ public class PyBaseException extends RuntimeException
         return String.format("%s: %s", type.getName(), getMessage());
     }
 
-    // special methods ------------------------------------------------
+    // special methods -----------------------------------------------
 
     // Compare CPython BaseException_* in exceptions.c
 

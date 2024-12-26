@@ -46,7 +46,8 @@ public interface WithClassAssignment extends WithClass {
                 // t = replacementType is an acceptable type
                 return t;
             }
-            // Current type may be null (e.g. in constructor).
+            // Failing to assign as representations differ
+            // Note current type may be null (e.g. in constructor).
             PyType type = this.getType();
             msg = String.format(
                     "__class__ assignment: '%s' representation differs from %s",
@@ -57,7 +58,6 @@ public interface WithClassAssignment extends WithClass {
                     "__class__ must be set to a class, not a '%s' object",
                     PyType.of(replacementType).getName());
         }
-        // XXX make this a TypeError
-        throw new InterpreterError(msg);
+        throw PyErr.format(PyExc.TypeError, msg);
     }
 }

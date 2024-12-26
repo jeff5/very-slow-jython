@@ -18,16 +18,35 @@ import uk.co.farowl.vsj4.runtime.PyType;
  */
 public non-sealed class SimpleType extends PyType {
 
+    /** To return as {@link #canonicalClass()}. */
+    private final Class<?> canonicalClass;
+
+    /**
+     * Construct a type object defining the name, a single Java type
+     * that all instances are assignable to, and the canonical class
+     * that is the Java base class of subclass representations.
+     *
+     * @param name of the new type
+     * @param javaClass to which instances are assignable
+     * @param canonical class on which subclasses are based
+     * @param bases of the type
+     */
+    public SimpleType(String name, Class<?> javaClass,
+            Class<?> canonical, PyType[] bases) {
+        super(name, javaClass, bases);
+        this.canonicalClass = canonical;
+    }
+
     /**
      * Construct a type object defining the name and single Java type
      * that all instances are assignable to.
      *
      * @param name of the new type
-     * @param javaType of instances
+     * @param javaClass to which instances are assignable
      * @param bases of the type
      */
-    public SimpleType(String name, Class<?> javaType, PyType[] bases) {
-        super(name, javaType, bases);
+    public SimpleType(String name, Class<?> javaClass, PyType[] bases) {
+        this(name, javaClass, javaClass, bases);
     }
 
     /**
@@ -36,8 +55,8 @@ public non-sealed class SimpleType extends PyType {
      * initialisation of the type system.
      */
     SimpleType() {
-        // The canonical class is Object and there are no bases.
-        this("object", Object.class, new PyType[0]);
+        // The representation is Object and there are no bases.
+        this("object", Object.class, Object.class, new PyType[0]);
     }
 
     /**
@@ -48,7 +67,8 @@ public non-sealed class SimpleType extends PyType {
      * @param object the type object for {@code object} (as base).
      */
     SimpleType(PyType object) {
-        this("type", PyType.class, new PyType[] {object});
+        this("type", PyType.class, SimpleType.class,
+                new PyType[] {object});
     }
 
     @Override
@@ -58,6 +78,9 @@ public non-sealed class SimpleType extends PyType {
 
     @Override
     public List<Class<?>> selfClasses() { return List.of(javaClass); }
+
+    @Override
+    public Class<?> canonicalClass() { return canonicalClass; }
 
     @Override
     public PyType pythonType(Object x) {

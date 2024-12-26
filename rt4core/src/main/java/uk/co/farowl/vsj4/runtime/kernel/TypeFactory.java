@@ -4,6 +4,7 @@ package uk.co.farowl.vsj4.runtime.kernel;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
+import java.lang.reflect.Constructor;
 import java.math.BigInteger;
 import java.util.HashMap;
 import java.util.LinkedList;
@@ -171,7 +172,8 @@ public class TypeFactory {
                 AbstractPyObject.LOOKUP)
                         .methodImpls(AbstractPyObject.class);
         TypeSpec specOfType =
-                new PrimordialTypeSpec(typeType, AbstractPyType.LOOKUP);
+                new PrimordialTypeSpec(typeType, AbstractPyType.LOOKUP)
+                        .canonicalBase(SimpleType.class);
 
         this.lastContext = specOfObject;
 
@@ -657,6 +659,7 @@ public class TypeFactory {
 
             // It has these (potentially > 1) representations:
             Class<?> primary = spec.getPrimary();
+            Class<?> canonical = spec.getCanonicalBase();
             List<Class<?>> adopted = spec.getAdopted();
             List<Class<?>> accepted = spec.getAccepted();
 
@@ -685,10 +688,11 @@ public class TypeFactory {
                 Representation existing = registry.find(primary);
                 if (existing == null) {
                     // It doesn't exist, so we create and add it.
-                    sr = new Shared(primary);
+                    sr = new Shared(primary, canonical);
                     publishLocally(primary, sr);
                 } else if (existing instanceof Shared s) {
                     // It does exist and is a Shared type: just use it.
+                    assert s.canonicalClass() == canonical;
                     sr = s;
                 } else {
                     // A representation exists but is the wrong type.
@@ -708,7 +712,8 @@ public class TypeFactory {
                  * class.
                  */
                 assert primary != null;
-                SimpleType st = new SimpleType(name, primary, bases);
+                SimpleType st =
+                        new SimpleType(name, primary, canonical, bases);
                 publishLocally(primary, st);
                 addTask(newType = st, spec);
 
@@ -721,6 +726,7 @@ public class TypeFactory {
                  * self-classes but no representation is created.
                  */
                 assert primary != null;
+                assert canonical == primary;
                 assert spec.getFeatures().contains(Feature.IMMUTABLE);
 
                 // Construct the type, creating representations.
@@ -798,6 +804,9 @@ public class TypeFactory {
             TypeSpec spec = task.spec;
             AbstractPyType type = task.type;
 
+            // Set MRO
+            type.setMRO();
+
             // Set feature flags
             type.addFeatures(spec);
 
@@ -825,6 +834,9 @@ public class TypeFactory {
              * descriptors created from the definitions in the exposer.
              */
             type.populateDict(exposer, spec);
+
+            // Discover the Java constructors
+            type.fillConstructorLookup(spec);
 
             // Derive remaining feature flags
             type.deriveFeatures(spec);

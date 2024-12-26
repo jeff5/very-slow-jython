@@ -148,26 +148,16 @@ public abstract sealed class PyType extends AbstractPyType
      * Constructor used by (permitted) subclasses of {@code PyType}.
      *
      * @param name of the type (fully qualified)
-     * @param javaType implementing Python instances of the type
+     * @param javaClass implementing Python instances of the type
      * @param bases of the new type
      */
-    protected PyType(String name, Class<?> javaType, PyType[] bases) {
-        super(name, javaType, bases);
-        // XXX Ought to call "mro" after dictionary filled.
-        this.mro = mro();
+    protected PyType(String name, Class<?> javaClass, PyType[] bases) {
+        super(name, javaClass, bases);
     }
 
-    /**
-     * Calculate a new MRO for this type by the default algorithm. This
-     * method is exposed as the method {@code mro} of type
-     * {@code objects} and may be overridden in a Python subclass of
-     * {@code type} (a "metatype") to customise the MRO in the types it
-     * creates.
-     *
-     * @return a new MRO for the type
-     */
     // @Exposed.Method
-    final PyType[] mro() {
+    @Override
+    protected PyType[] mro() {
         return MROCalculator.getMRO(this, this.bases);
     }
 

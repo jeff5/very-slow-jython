@@ -5,8 +5,6 @@ package uk.co.farowl.vsj4.runtime.kernel;
 import java.util.List;
 
 import uk.co.farowl.vsj4.runtime.PyType;
-import uk.co.farowl.vsj4.runtime.WithClass;
-import uk.co.farowl.vsj4.runtime.WithClassAssignment;
 
 /**
  * A Python type object used where multiple Python types share a single
@@ -43,6 +41,11 @@ public final class ReplaceableType extends PyType {
 
     @Override
     public List<Class<?>> selfClasses() { return List.of(javaClass); }
+
+    @Override
+    public Class<?> canonicalClass() {
+        return representation.canonicalClass();
+    }
 
     @Override
     public PyType pythonType(Object x) {

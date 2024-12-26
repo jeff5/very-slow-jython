@@ -243,6 +243,9 @@ public abstract class Representation {
      */
     static class Shared extends Representation {
 
+        /** To return as {@link #canonicalClass()}. */
+        private final Class<?> canonicalClass;
+
         /**
          * {@code MethodHandle} of type {@code (Object)PyType}, to get
          * the actual Python type of an {@link Object} object.
@@ -279,12 +282,17 @@ public abstract class Representation {
         }
 
         /**
-         * Create a {@code Representation} object that is the
-         * implementation of potentially many types defined in Python.
+         * Create a {@code Representation} object that is the class used
+         * to represent instances of (potentially) many types defined in
+         * Python.
          *
-         * @param javaType extension point Java class
+         * @param javaClass Java representation class
+         * @param canonical class on which subclasses are based
          */
-        Shared(Class<?> javaType) { super(javaType); }
+        Shared(Class<?> javaClass, Class<?> canonical) {
+            super(javaClass);
+            this.canonicalClass = canonical;
+        }
 
         @Override
         public String toString() {
@@ -317,6 +325,24 @@ public abstract class Representation {
                 throw notSharedError(x);
             }
         }
+
+        /**
+         * The {@link PyType#canonicalClass()} of types that share this
+         * representation (the "clique"). Subclasses in Python of those
+         * types will (in general) not share this representation,
+         *
+         *
+         * as it depends on whether {@code __dict__} is defined and on
+         * the content of {@code __slots__}. However, they will all have
+         * the same the canonical class, of which their Java
+         * representation class {@link #javaClass()} is a proper
+         * subclass in Java. This design allows us to re-use an existing
+         * representation, if that is possible, when defining a
+         * subclass.
+         *
+         * @return the canonical Java representation class of types
+         */
+        public Class<?> canonicalClass() { return canonicalClass; }
 
         /**
          * Return an exception reporting that the given object was

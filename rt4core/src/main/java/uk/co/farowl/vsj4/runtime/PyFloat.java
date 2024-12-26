@@ -2,7 +2,6 @@
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
 
-import java.lang.invoke.MethodHandle;
 import java.math.BigInteger;
 
 import uk.co.farowl.vsj4.runtime.PyUtil.NoConversion;
@@ -112,6 +111,8 @@ public class PyFloat implements WithClass {
                 throw Abstract.requiredTypeError("a real number", o);
         }
     }
+
+    // special methods -----------------------------------------------
 
     // plumbing -------------------------------------------------------
 

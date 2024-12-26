@@ -6,10 +6,9 @@ import uk.co.farowl.vsj4.support.InterpreterError;
 
 /**
  * An instance of a class implementing {@code WithDictAssignment}
- * possesses a dictionary, generally exposed as a {@code __dict__}
- * attribute, that is definitely a Python {@code dict}. A {@code type}
- * object, for example, implements {@link #getDict()} to return only an
- * unmodifiable view of its dictionary.
+ * possesses a writable (i.e. replaceable) dictionary attribute,
+ * generally exposed as a {@code __dict__} attribute, that is definitely
+ * a Python {@code dict}.
  */
 public interface WithDictAssignment extends WithDict {
 

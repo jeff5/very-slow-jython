@@ -2,10 +2,15 @@
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime.kernel;
 
+import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
+import java.lang.invoke.MethodType;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Modifier;
 import java.util.Collections;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -27,6 +32,7 @@ import uk.co.farowl.vsj4.runtime.PyUnicode;
 import uk.co.farowl.vsj4.runtime.TypeSpec;
 import uk.co.farowl.vsj4.runtime.WithClass;
 import uk.co.farowl.vsj4.runtime.internal._PyUtil;
+import uk.co.farowl.vsj4.support.InterpreterError;
 import uk.co.farowl.vsj4.support.internal.EmptyException;
 
 /**
@@ -85,7 +91,7 @@ public abstract sealed class AbstractPyType extends Representation
     protected PyType[] mro;
 
 // /**
-// * Cache of the special method {@code __repr__} as a method handle.
+// * Cache of the special method {@code __new__} as a method handle.
 // * Note that while caches for special methods that are instance
 // * methods are in the class {@link Representation}, only a type can
 // * have a {@code __new__}. It must be updated whenever the
@@ -96,6 +102,30 @@ public abstract sealed class AbstractPyType extends Representation
 // */
 // // Compare CPython type slot tp_new
 // private MethodHandle op_new;
+
+    /**
+     * Collect the information necessary to synthesise
+     *  and call a constructor
+     * for a Java subclass.
+     * <p>
+     * A custom {@code __new__} method in a the defining Java class of a
+     * type  generally has direct access to
+     * all the constructors it needs, but when asked for an instance
+     * represented by a different class in Java, it must be able to call
+     * the constructor of that class.
+     * The representation of the required type
+     *  (the {@code cls} argument to {@code __new__}) will be a
+     * subclass in Java of the canonical representation
+     * of the type from which {@code __new__} was called.
+     *  This will be an issue, of course,
+     * only when the required type provides no {@code __new__} of its own or the
+     * one it does provide calls the {@code __new__} of its base.
+     */
+    private Map<MethodType, ConstructorAndHandle> constructorLookup;
+
+    public static record ConstructorAndHandle(
+            Constructor<?> constructor,
+            MethodHandle constructorHandle) {}
 
     /**
      * The writable dictionary of the type is private because the type
@@ -175,6 +205,26 @@ public abstract sealed class AbstractPyType extends Representation
     protected PyType[] getMRO() { return mro.clone(); }
 
     /**
+     * Calculate and install the MRO from the bases. Used from
+     * type factory
+     */
+    final void setMRO() {
+        // FIXME lookup and call mro() in subclasses
+        this.mro = mro(); }
+
+    /**
+     * Calculate a new MRO for this type by the default algorithm. This
+     * method is exposed as the method {@code mro} of type
+     * {@code objects} and may be overridden in a Python subclass of
+     * {@code type} (a "metatype") to customise the MRO in the types it
+     * creates.
+     *
+     * @return a new MRO for the type
+     */
+    // @Exposed.Method
+    protected abstract PyType[] mro();
+
+    /**
      * An immutable list of the {@link Representation}s of this type.
      * These are the representations of the primary or adopted classes
      * in the specification of this type, in order.
@@ -204,6 +254,22 @@ public abstract sealed class AbstractPyType extends Representation
      * @return the bases of classes allowed as {@code self}
      */
     public abstract List<Class<?>> selfClasses();
+
+    /**
+     * A particular subclass (in Java) of the primary representation
+     * class that is to be used as the base of representations of
+     * subclasses in Python. That is, the canonical class is a subclass
+     * of {@link #selfClasses()}{@code [0]}.
+     * <p>
+     * In many cases, the canonical class is exactly the primary (and
+     * only) representation class, but it is not safe to assume so
+     * always. For {@code type} itself, the canonical class is called
+     * {@code SimpleType}, and for subclasses defined in Python it may
+     * be the canonical representation of one of an ancestor class.
+     *
+     * @return the canonical Java representation class of {@code self}
+     */
+    public abstract Class<?> canonicalClass();
 
     /**
      * Return true if and only if this is a mutable type. The attributes
@@ -272,7 +338,7 @@ public abstract sealed class AbstractPyType extends Representation
     // @Getter("__dict__")
     @SuppressWarnings({"unchecked", "rawtypes"})
     public final Map<Object, Object> getDict() {
-        // XXX Ought to be a mappingproxy
+        // TODO Ought to be a mappingproxy
         // For now just erase type: safe (I think) since unmodifiable.
         return (Map)dict;
     }
@@ -385,6 +451,91 @@ public abstract sealed class AbstractPyType extends Representation
     }
 
     /**
+     * Return the table holding constructors and their method handles
+     * for instances of this type. This enables client code to iterate
+     * over available constructors without any copying. The table and
+     * its contents are immutable.
+     * <p>
+     * Note that in the key, the Java class of the return type is
+     * {@code Object}.
+     *
+     * @return the lookup for constructors and handles
+     */
+    public Map<MethodType, ConstructorAndHandle> constructorLookup() {
+        return constructorLookup;
+    }
+
+    /**
+     * Return a constructor of instances of this type, and its method
+     * handle, that accepts arguments matching the given types. The Java
+     * class of the return type of the handle is {@code Object}, since
+     * we cannot rely on the caller to know the specific class.
+     *
+     * @param param the intended argument types
+     * @return a constructor and a handle on it
+     */
+    // Compare CPython type slot tp_alloc (but only loosely).
+    public ConstructorAndHandle constructor(Class<?>... param) {
+        // Neutralise the actual return type
+        MethodType mt = MethodType.methodType(Object.class, param);
+        ConstructorAndHandle ch = constructorLookup.get(mt);
+        if (ch == null) {
+            /*
+             * This method is really here for __new__ implementations,
+             * and has to be public because they could be in any
+             * package. So, stuff can go wrong. But how to explain to
+             * the hapless caller when something is really a Java API
+             * error?
+             */
+            // TODO Need a Java API Error not InterpreterError
+            throw PyErr.format(PyExc.TypeError,
+                    "Incorrect arguments to constructor of '%s'",
+                    getName());
+        }
+        return ch;
+    }
+
+    /**
+     * Discover the Java constructors of representations of this type
+     * and create method handles on them. This is what allows
+     * {@code __new__} in a Python superclass of this type to create an
+     * instance, even though it has no knowledge of the type at compile
+     * time.
+     *
+     * @param spec specification of this type
+     */
+    void fillConstructorLookup(TypeSpec spec) {
+        // Collect constructors in this table
+        Map<MethodType, ConstructorAndHandle> table = new HashMap<>();
+        // We allow public construction only of the canonical base.
+        // (This is right for use by __new__ ... and generally?)
+        Class<?> baseClass = spec.getCanonicalBase();
+        Lookup lookup = spec.getLookup();
+        final int accept = Modifier.PUBLIC | Modifier.PROTECTED;
+        for (Constructor<?> cons : baseClass
+                .getDeclaredConstructors()) {
+            int modifiers = cons.getModifiers();
+            try {
+                if ((modifiers & accept) != 0) {
+                    MethodHandle mh = lookup.unreflectConstructor(cons);
+                    // Neutralise the actual return type to Object
+                    MethodType mt = mh.type();
+                    mt = mt.changeReturnType(Object.class);
+                    mh = mh.asType(mt);
+                    table.put(mt, new ConstructorAndHandle(cons, mh));
+                }
+            } catch (IllegalAccessException e) {
+                throw new InterpreterError(e,
+                        "Failed to get handle for constructor %s",
+                        cons);
+            }
+        }
+        // Freeze the table as the constructor lookup
+        constructorLookup = Collections.unmodifiableMap(table);
+    }
+
+
+    /**
      * Add features flags from the specification. This should be called
      * at the start of initialising the type so that it can influence
      * configuration with exposed methods.
@@ -405,32 +556,31 @@ public abstract sealed class AbstractPyType extends Representation
      */
     void deriveFeatures(TypeSpec spec) {
         /*
-         * Because (for example) discovering TUPLE_SUBCLASS has to
-         * happen while we build the tuple type, we cannot rely on
-         * this==PyTuple.TYPE, as the TYPE won't be assigned yet.
+         * Set at most one of the fast sub-type test flags. We cannot
+         * rely on this==PyWhatever.TYPE, as the TYPE won't be assigned
+         * yet.
          */
-
-        // Only one of these will succeed. (Result is by side effect).
         @SuppressWarnings("unused")
-        boolean dummy = inherit(PyLong.class, TypeFlag.INT_SUBCLASS)
-                || inherit(PyTuple.class, TypeFlag.TUPLE_SUBCLASS)
-                || inherit(PyUnicode.class, TypeFlag.STR_SUBCLASS)
-                || inherit(PyDict.class, TypeFlag.DICT_SUBCLASS)
-                || inherit(PyBaseException.class,
+        boolean dummy = setFeature(PyLong.class, TypeFlag.INT_SUBCLASS)
+                || setFeature(PyTuple.class, TypeFlag.TUPLE_SUBCLASS)
+                || setFeature(PyUnicode.class, TypeFlag.STR_SUBCLASS)
+                || setFeature(PyDict.class, TypeFlag.DICT_SUBCLASS)
+                || setFeature(PyBaseException.class,
                         TypeFlag.EXCEPTION_SUBCLASS);
     }
 
     /**
-     * Set the given flag if the implementation class of this type
-     * matches that given or the flag it is set in the base. This way,
-     * there is a first type qualifying type, then every type that
-     * inherits from it inherits the flag.
+     * Maybe set the given feature flag. The flag is set if and only if
+     * the implementation class of this type matches that given, or the
+     * same flag is set in the base. This way, there is a first
+     * qualifying type {@code k}, then every type that descends from it
+     * inherits the flag.
      *
      * @param k identifying the first qualifying type
      * @param f flag marking a sub-type
      * @return {@code true} iff the flag was set in this call
      */
-    private final boolean inherit(Class<?> k, TypeFlag f) {
+    private final boolean setFeature(Class<?> k, TypeFlag f) {
         AbstractPyType base = this.base;
         if (base != null) {
             if (javaClass == k || base.features.contains(f)) {
