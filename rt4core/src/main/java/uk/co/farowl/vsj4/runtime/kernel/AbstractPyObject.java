@@ -99,7 +99,7 @@ public abstract class AbstractPyObject {
             try {
                 // Look up a constructor with the right parameters
                 MethodHandle cons = cls.constructor(PyType.class)
-                        .constructorHandle();
+                        .handle();
                 // cons should be reliably (T)O
                 return cons.invokeExact(cls);
             } catch (PyBaseException e) {

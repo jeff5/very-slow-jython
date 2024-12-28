@@ -125,7 +125,7 @@ public abstract sealed class AbstractPyType extends Representation
 
     public static record ConstructorAndHandle(
             Constructor<?> constructor,
-            MethodHandle constructorHandle) {}
+            MethodHandle handle) {}
 
     /**
      * The writable dictionary of the type is private because the type

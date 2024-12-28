@@ -2,6 +2,7 @@
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
 
+import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.reflect.Constructor;
 import java.util.Map;
@@ -37,7 +38,7 @@ import uk.co.farowl.vsj4.support.MissingFeature;
  */
 // Compare CPython PyBaseExceptionObject in pyerrors.c
 public class PyBaseException extends RuntimeException
-        implements WithClassAssignment, WithDict {
+        implements WithClassAssignment, WithDict, ClassShorthand {
     private static final long serialVersionUID = 1L;
 
     /** The type object of Python {@code BaseException} exceptions. */
@@ -168,47 +169,18 @@ public class PyBaseException extends RuntimeException
     @Exposed.PythonNewMethod
     static Object __new__(PyType cls, @PositionalCollector PyTuple args,
             @KeywordCollector PyDict kwargs) {
-        // FIXME prevent arbitrary type here (but do so in wrapper)
         assert cls.isSubTypeOf(TYPE);
-        Class<?> excClass = cls.javaClass();
-        Object self;
-        if (excClass == PyBaseException.class) {
-            // Required type shares the primary representation
-            self = new PyBaseException(cls, args);
-        } else if (PyBaseException.class.isAssignableFrom(excClass)) {
-            /*
-             * We need an instance of a Python subclass E of
-             * BaseException that needs a Java subclass representation.
-             * This will happen if E was defined in Python and has
-             * __slots__, or in Java and provides no __new__. This would
-             * be ok if we could invoke the correct constructor.
-             */
-            try {
-                // Constructor must be public for this :/
-                // TODO Consider other ways to identify constructor
-                Constructor<?> cons = cls.javaClass()
-                        .getConstructor(CONSTRUCTOR_ARGS);
-                self = cons.newInstance(cls, args);
-            } catch (ReflectiveOperationException | SecurityException
-                    | IllegalArgumentException e) {
-                /*
-                 * We did not find a constructor like PyBaseException,
-                 * and so we do not know how to create an instance. If
-                 * there had been a custom cls.__new__ for the type we
-                 * would have landed there, not here, and it would
-                 * Java-construct the instance.
-                 */
-                PyBaseException err = PyErr.format(PyExc.TypeError,
-                        "Cannot construct a '%s' in %s.__new__ ",
-                        cls.getName(), TYPE.getName());
-                err.initCause(e);
-                throw err;
-            }
-        } else {
-            throw new MissingFeature("Subclass without __new__");
+        try {
+            // Look up a constructor with the right parameters
+            MethodHandle cons = cls.constructor(T, TUPLE).handle();
+            return cons.invokeExact(cls, args);
+        } catch (PyBaseException e) {
+            // Usually signals no matching constructor
+            throw e;
+        } catch (Throwable e) {
+            // Failed while finding/invoking constructor
+            throw constructionError(cls, e);
         }
-        assert PyType.of(self) == cls;
-        return self;
     }
 
     /**
@@ -249,11 +221,24 @@ public class PyBaseException extends RuntimeException
     // plumbing -------------------------------------------------------
 
     /**
-     * Signature of {@link #PyBaseException} constructor. We have to
-     * assume this signature may be used to construct an instance of the
-     * Java representation class of a subclass if it has no
-     * {@code __new__}.
+     * Return a {@code TypeError} with a message along the lines "Cannot
+     * construct a 'C' in T.__new__" where C is the requested type and T
+     * is the type defining the {@code __new__} method that has been
+     * asked to create an instance of C. This is intended for use at the
+     * point where the Java constructor corresponding to the required
+     * type C is called reflectively. The cause of the error will be the
+     * Java exception actually thrown.
+     *
+     * @param cls the class to create
+     * @param e the Java exception
+     * @return the exception to throw
      */
-    protected static final Class<?>[] CONSTRUCTOR_ARGS =
-            {PyType.class, PyTuple.class /* , PyDict.class */};
+    protected static PyBaseException constructionError(PyType cls,
+            Throwable e) {
+        PyBaseException err = PyErr.format(PyExc.TypeError,
+                "Cannot construct a '%s' in %s.__new__", cls.getName(),
+                TYPE.getName());
+        err.initCause(e);
+        return err;
+    }
 }

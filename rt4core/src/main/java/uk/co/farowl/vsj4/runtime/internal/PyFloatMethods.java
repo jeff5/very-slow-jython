@@ -40,7 +40,7 @@ public class PyFloatMethods {
                 // Look up a constructor with the right parameters
                 MethodHandle cons =
                         cls.constructor(PyType.class, double.class)
-                                .constructorHandle();
+                                .handle();
                 return cons.invokeExact(cls, x);
             } catch (PyBaseException e) {
                 // Usually signals no matching constructor
