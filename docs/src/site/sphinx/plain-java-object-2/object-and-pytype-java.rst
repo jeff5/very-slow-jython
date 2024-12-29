@@ -16,7 +16,7 @@ We now attempt that extra step.
 The Challenge of Subclasses
 ===========================
 
-We ended the last section with a table of
+We ended a previous section with a table of
 sample Python types and their representations.
 In Jython we also need type objects to represent "found" Java types,
 that is, where the Java class is not one for which
@@ -47,7 +47,7 @@ For example, the MRO of ``java.util.ArrayList`` in Jython 2.7.4 is:
     <type 'java.io.Serializable'>, <type 'java.lang.Object'>,
     <type 'object'>)
 
-It surely cannot differ much from this in Jython 3.
+The MRO might differ somewhat in Jython 3.
 
 It seems obvious that each Java class we encounter
 should have a type object we could import by that name.

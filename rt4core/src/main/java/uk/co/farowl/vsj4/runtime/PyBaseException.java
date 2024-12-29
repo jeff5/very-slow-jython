@@ -102,7 +102,6 @@ public class PyBaseException extends RuntimeException
      * @param args positional arguments
      */
     public PyBaseException(PyType type, PyTuple args) {
-        super();
         // Ensure Python type is valid for Java class.
         this.type = checkClassAssignment(type);
         this.args = args;
