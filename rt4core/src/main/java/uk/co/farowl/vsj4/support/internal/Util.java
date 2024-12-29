@@ -21,6 +21,7 @@ public class Util {
      * Return a new array in which a given element is placed first,
      * followed by the elements of an existing array.
      *
+     * @param <T> Element type of the arrays
      * @param a0 first element of new array
      * @param a1plus rest of elements in new array
      * @return new copy array with first element inserted

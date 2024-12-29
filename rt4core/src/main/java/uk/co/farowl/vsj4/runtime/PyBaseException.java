@@ -186,10 +186,16 @@ public class PyBaseException extends RuntimeException
      * Initialise this instance.
      *
      * @param args values to set as the attribute {@code args}
-     * @param kwds keywords (should be empty)
+     * @param kwds keywords
      */
     void __init__(Object[] args, String[] kwds) {
-        this.args = PyTuple.from(args);
+        if (kwds == null || kwds.length == 0) {
+            this.args = PyTuple.from(args);
+        } else {
+            throw PyErr.format(PyExc.TypeError,
+                    "%s() takes no keyword arguments",
+                    getType().getName());
+        }
     }
 
     /**

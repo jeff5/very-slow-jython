@@ -20,7 +20,8 @@ public class PyFloatMethods {
      * Create a new instance of Python {@code float}, or of a subclass.
      *
      * @param cls actual Python sub-class being created
-     * @return newly-created object
+     * @param x the value
+     * @return object with that type an value
      */
     @Exposed.PythonNewMethod
     public static Object __new__(PyType cls, double x) {

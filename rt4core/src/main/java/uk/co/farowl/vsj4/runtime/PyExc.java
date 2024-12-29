@@ -12,8 +12,8 @@ import java.lang.invoke.MethodHandles;
  * user-defined exceptions derived from them) may share a given
  * representation in Java.
  * <p>
- * When it becomes necessary to create (or raise) an exception
- * code will refer to one of the type objects here.
+ * When it becomes necessary to create (or raise) an exception code will
+ * refer to one of the type objects here.
  * <p>
  * In CPython, the object implementation of many Python exception types
  * is shared with multiple others. This allows multiple inheritance and
@@ -29,8 +29,8 @@ import java.lang.invoke.MethodHandles;
  * representation of many Python exception types is shared. For example
  * {@code TypeError}, {@code FloatingPointError} and
  * {@code ZeroDivisionError} must share a representation (that of
- * {@code BaseException}, in fact). Since they are not different classes,
- * we cannot use a Java {@code catch} clause to select them.
+ * {@code BaseException}, in fact). Since they are not different
+ * classes, we cannot use a Java {@code catch} clause to select them.
  * <p>
  * CPython prohibits class-assignment involving built-in types directly.
  * For example {@code FloatingPointError().__class__ = E} and its
@@ -89,8 +89,8 @@ public class PyExc {
             "TypeError", "Inappropriate argument type.");
 
     /**
-     * {@code StopIteration} extends {@code Exception} and is implemented by
-     * {@link PyStopIteration}.
+     * {@code StopIteration} extends {@code Exception} and is
+     * implemented by {@link PyStopIteration}.
      */
     public static PyType StopIteration = PyStopIteration.TYPE;
 
@@ -100,7 +100,7 @@ public class PyExc {
      */
     public static PyType NameError = PyNameError.TYPE;
 
-    /** {@code LookupError} extends {@link Exception}. */
+    /** {@code UnboundLocalError} extends {@link NameError}. */
     public static PyType UnboundLocalError =
             extendsException(NameError, "UnboundLocalError",
                     "Local name referenced but not bound to a value.");

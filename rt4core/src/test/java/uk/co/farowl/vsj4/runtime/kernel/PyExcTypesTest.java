@@ -4,6 +4,7 @@ package uk.co.farowl.vsj4.runtime.kernel;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 import java.util.stream.Stream;
@@ -113,6 +114,36 @@ class PyExcTypesTest {
         // Try to construct an instance
         Object exc = Callables.call(type, args, kwds);
         assertEquals(reprText, Abstract.repr(exc));
+    }
+
+    @SuppressWarnings("static-method")
+    @DisplayName("BaseException rejects keywords")
+    @Test
+    void kwBaseException() throws Throwable {
+        PyBaseException exc =
+                (PyBaseException)Callables.call(PyExc.BaseException);
+        assertSame(exc.getType(), PyExc.BaseException);
+        try {
+            Callables.call(PyExc.BaseException, new Object[] {"a"},
+                    new String[] {"name"});
+        } catch (PyBaseException e) {
+            assertSame(e.getType(), PyExc.TypeError);
+        }
+    }
+
+    @SuppressWarnings("static-method")
+    @DisplayName("ArithmeticError rejects keywords")
+    @Test
+    void kwException() throws Throwable {
+        PyBaseException exc =
+                (PyBaseException)Callables.call(PyExc.ArithmeticError);
+        assertSame(exc.getType(), PyExc.ArithmeticError);
+        try {
+            Callables.call(PyExc.ArithmeticError, new Object[] {"a"},
+                    new String[] {"name"});
+        } catch (PyBaseException e) {
+            assertSame(e.getType(), PyExc.TypeError);
+        }
     }
 
     @SuppressWarnings("static-method")

@@ -104,28 +104,26 @@ public abstract sealed class AbstractPyType extends Representation
 // private MethodHandle op_new;
 
     /**
-     * Collect the information necessary to synthesise
-     *  and call a constructor
-     * for a Java subclass.
-     * <p>
-     * A custom {@code __new__} method in a the defining Java class of a
-     * type  generally has direct access to
-     * all the constructors it needs, but when asked for an instance
-     * represented by a different class in Java, it must be able to call
-     * the constructor of that class.
-     * The representation of the required type
-     *  (the {@code cls} argument to {@code __new__}) will be a
-     * subclass in Java of the canonical representation
-     * of the type from which {@code __new__} was called.
-     *  This will be an issue, of course,
-     * only when the required type provides no {@code __new__} of its own or the
-     * one it does provide calls the {@code __new__} of its base.
+     * Collect the information necessary to synthesise and call a
+     * constructor for a Java subclass.
      */
     private Map<MethodType, ConstructorAndHandle> constructorLookup;
 
+    /**
+     * The return from {@link #constructor()} holding a reflective
+     * constructor definition and a handle by which it may be called.
+     * <p>
+     * A custom {@code __new__} method in a defining Java class of a
+     * type generally has direct access to all the constructors it needs
+     * for its own type. When asked for an instance of a different type,
+     * it must be able to call the constructor of the Java
+     * representation class. The representation of the required type
+     * (the {@code cls} argument to {@code __new__}) will be a subclass
+     * in Java of the canonical representation of the type from which
+     * {@code __new__} was called.
+     */
     public static record ConstructorAndHandle(
-            Constructor<?> constructor,
-            MethodHandle handle) {}
+            Constructor<?> constructor, MethodHandle handle) {}
 
     /**
      * The writable dictionary of the type is private because the type
@@ -205,12 +203,13 @@ public abstract sealed class AbstractPyType extends Representation
     protected PyType[] getMRO() { return mro.clone(); }
 
     /**
-     * Calculate and install the MRO from the bases. Used from
-     * type factory
+     * Calculate and install the MRO from the bases. Used from type
+     * factory
      */
     final void setMRO() {
         // FIXME lookup and call mro() in subclasses
-        this.mro = mro(); }
+        this.mro = mro();
+    }
 
     /**
      * Calculate a new MRO for this type by the default algorithm. This
@@ -533,7 +532,6 @@ public abstract sealed class AbstractPyType extends Representation
         // Freeze the table as the constructor lookup
         constructorLookup = Collections.unmodifiableMap(table);
     }
-
 
     /**
      * Add features flags from the specification. This should be called
