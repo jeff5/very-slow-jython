@@ -566,3 +566,265 @@ which fills in ``type`` and ``args``.
 
 Now all we need do is return half a dozen times,
 until the original program is reached, returning the new ``NameError``.
+
+
+The ``__init__`` of Exceptions
+------------------------------
+We have remarked that very few exception types have their own ``__new__``.
+Apart from ``BaseException``,
+just ``BaseExceptionGroup``, ``OSError`` and ``MemoryError``,
+find a reason to do so.
+Everything else lets ``BaseException.__new__`` do the work,
+which in fact is not very much work:
+store the positional arguments as a tuple and ignore the keywords.
+
+This is because their object initialisation is in ``__init__``.
+In fact most Python exception classes do not define ``__init__`` either.
+Only the exception classes that define a fresh clique,
+the ones that first extend the C ``struct`` "layout" with new fields,
+need define ``__init__``.
+
+For the Java implementation,
+this means that where we define a new Java representation class,
+we should implement ``__init__``.
+Other exception classes may be defined to inherit from a base,
+in exactly the way they should in Python,
+and to share the representation class of an ancestor.
+
+In CPython ``exceptions.c``, we have the following definition:
+
+..  code-block:: C
+    :emphasize-lines: 4, 8
+
+    static int
+    BaseException_init(PyBaseExceptionObject *self, PyObject *args, PyObject *kwds)
+    {
+        if (!_PyArg_NoKeywords(Py_TYPE(self)->tp_name, kwds))
+            return -1;
+
+        Py_INCREF(args);
+        Py_XSETREF(self->args, args);
+
+        return 0;
+    }
+
+In ``BaseException_init``,
+CPython simply refreshes the tuple of positional arguments.
+Recall that ``__init__`` may be called repeatedly on the same object
+to re-initialise it.
+The tuple has a variable interpretation depending on length,
+but ``args[0]`` is usually the error message.
+The call of ``_PyArg_NoKeywords``
+only serves to enforce that there are no keywords
+(and raise an error if there are).
+
+The Java version is similar to CPython's:
+
+..  code-block:: java
+
+    public class PyBaseException extends RuntimeException
+            implements WithClassAssignment, WithDict, ClassShorthand {
+        // ...
+        void __init__(Object[] args, String[] kwds) {
+            if (kwds == null || kwds.length == 0) {
+                this.args = PyTuple.from(args);
+            } else {
+                throw PyErr.format(PyExc.TypeError,
+                        "%s() takes no keyword arguments",
+                        getType().getName());
+            }
+        }
+    }
+
+In CPython ``exceptions.c``, we also have the definition:
+
+..  code-block:: C
+    :emphasize-lines: 7-8, 16-17, 24
+
+    static int
+    NameError_init(PyNameErrorObject *self, PyObject *args, PyObject *kwds)
+    {
+        static char *kwlist[] = {"name", NULL};
+        PyObject *name = NULL;
+
+        if (BaseException_init((PyBaseExceptionObject *)self,
+                args, NULL) == -1) {
+            return -1;
+        }
+
+        PyObject *empty_tuple = PyTuple_New(0);
+        if (!empty_tuple) {
+            return -1;
+        }
+        if (!PyArg_ParseTupleAndKeywords(empty_tuple, kwds, "|$O:NameError",
+                kwlist, &name)) {
+            Py_DECREF(empty_tuple);
+            return -1;
+        }
+        Py_DECREF(empty_tuple);
+
+        Py_XINCREF(name);
+        Py_XSETREF(self->name, name);
+
+        return 0;
+    }
+
+In ``NameError_init``,
+CPython needs to preserve the error message in ``args``,
+and supports an optional keyword argument ``name``,
+which participates in the "did you mean" protocol.
+
+..  code-block:: python
+
+    >>> raise NameError("No buttons", name="lip")
+    Traceback (most recent call last):
+      File "<pyshell#92>", line 1, in <module>
+        raise NameError("No buttons", name="lip")
+    NameError: No buttons. Did you mean: 'zip'?
+
+CPython ``NameError_init`` begins with a call to ``BaseException_init``,
+which refreshes the ``args``, as we have seen,
+but it must be given ``NULL`` as the keyword arguments.
+Then it reprocesses the arguments with ``PyArg_ParseTupleAndKeywords``,
+where this time it must supply empty positional arguments,
+and finally it can store ``self->name``.
+
+The Java version can be simpler.
+
+..  code-block:: java
+
+    public class PyNameError extends PyBaseException {
+        // ...
+        private static final ArgParser INIT_PARSER =
+                ArgParser.fromSignature("__init__", "*args", "name")
+                        .kwdefaults(Py.None);
+
+        @Override
+        void __init__(Object[] args, String[] kwds) {
+            Object[] frame = INIT_PARSER.parse(args, kwds);
+            // frame = [name, *args]
+            if (frame[1] instanceof PyTuple argsTuple) {
+                this.args = argsTuple;
+            }
+            // name keyword: can't default directly to null in the parser
+            Object name = frame[0];
+            this.name = name == Py.None ? null : PyUnicode.asString(name);
+        }
+
+We are using a statically created ``ArgParser``,
+which places its output in an array
+analogous the local variables of a function.
+This means we have to cast results as we extract them.
+(We do not see a reason to call ``PyBaseException.__init__``.)
+
+
+Type Objects for Exceptions
+---------------------------
+
+The final piece in the exceptions implementation is
+to show how we create type objects and publish them.
+Exceptions that define a clique of types with a shared representation,
+use the ``PyType.fromSpec`` idiom,
+in much the same way as any other Python type defined in Java.
+
+..  code-block:: java
+
+    public class PyBaseException extends RuntimeException
+            implements WithClassAssignment, WithDict, ClassShorthand {
+
+        /** The type object of Python {@code BaseException} exceptions. */
+        public static final PyType TYPE = PyType.fromSpec(
+                new TypeSpec("BaseException", MethodHandles.lookup())
+                        .add(Feature.REPLACEABLE, Feature.IMMUTABLE)
+                        .doc("Common base class for all exceptions"));
+
+..  code-block:: java
+
+    public class PyNameError extends PyBaseException {
+
+        /** The type object of Python {@code NameError} exceptions. */
+        public static final PyType TYPE = PyType
+                .fromSpec(new TypeSpec("NameError", MethodHandles.lookup())
+                        .base(PyExc.Exception)
+                        .add(Feature.REPLACEABLE, Feature.IMMUTABLE)
+                        .doc("Name not found globally."));
+
+The novel feature is the use of ``Feature.REPLACEABLE``,
+which causes the ``PyType`` and the ``Representation``
+to take particular forms (replaceable type and sharable representation).
+In spite of this, and the interface ``WithClassAssignment``,
+it will not *actually* be possible to assign the type,
+because ``Feature.IMMUTABLE`` prevents it,
+until we make subclasses that allow it.
+Implementing exceptions,
+and subclasses in general subsequently
+have driven the addition and debugging of these novel features.
+
+For those exceptions that will join an existing clique,
+all we need is a type object referencing the shared representation,
+and with the appropriate base.
+
+CPython publishes these type objects with the prefix ``PyExc_``,
+so we define a class ``PyExc`` with all the exception type objects
+published as ``static`` objects.
+
+..  code-block:: java
+
+    public class PyExc {
+        // ...
+        /**
+         * Create a type object for a built-in exception that extends a
+         * single base, with the addition of no fields or methods, and
+         * therefore has the same Java representation as its base.
+         *
+         * @param excbase the base (parent) exception
+         * @param excname the name of the new exception
+         * @param excdoc a documentation string for the new exception type
+         * @return the type object for the new exception type
+         */
+        // Compare CPython SimpleExtendsException in exceptions.c
+        private static PyType extendsException(PyType excbase,
+                String excname, String excdoc) {
+            TypeSpec spec = new TypeSpec(excname, LOOKUP).base(excbase)
+                    // Share the same Java representation class as base
+                    .primary(excbase.javaClass())
+                    // This will be a replaceable type.
+                    .add(Feature.REPLACEABLE, Feature.IMMUTABLE)
+                    .doc(excdoc);
+            return PyType.fromSpec(spec);
+        }
+
+        /**
+         * {@code BaseException} is the base type in Python of all
+         * exceptions and is implemented by {@link PyBaseException}.
+         */
+        public static PyType BaseException = PyBaseException.TYPE;
+
+        /** Exception extends {@link PyBaseException}. */
+        public static PyType Exception =
+                extendsException(BaseException, "Exception",
+                        "Common base class for all non-exit exceptions.");
+
+        /** {@code TypeError} extends {@link Exception}. */
+        public static PyType TypeError = extendsException(Exception,
+                "TypeError", "Inappropriate argument type.");
+
+        /**
+         * {@code StopIteration} extends {@code Exception} and is
+         * implemented by {@link PyStopIteration}.
+         */
+        public static PyType StopIteration = PyStopIteration.TYPE;
+
+        /**
+         * {@code NameError} extends {@code Exception} and is implemented by
+         * {@link PyNameError}.
+         */
+        public static PyType NameError = PyNameError.TYPE;
+
+        /** {@code UnboundLocalError} extends {@link NameError}. */
+        public static PyType UnboundLocalError =
+                extendsException(NameError, "UnboundLocalError",
+                        "Local name referenced but not bound to a value.");
+
+        // ... lots more in the same pattern
+    }
