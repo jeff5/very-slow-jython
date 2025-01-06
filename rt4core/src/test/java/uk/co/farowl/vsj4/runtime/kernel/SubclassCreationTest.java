@@ -676,6 +676,8 @@ class SubclassCreationTest {
         }
     }
 
+    // TODO: Test complex web of subclasses (of list?) as in narrative
+
     /**
      * Check expected value of integer as a set of class or member
      * modifier bits.

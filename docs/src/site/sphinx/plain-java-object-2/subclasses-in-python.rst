@@ -197,7 +197,7 @@ is that these class assignments have to work:
     EOF().__class__ = BE
     BE().__class__ = EOF
 
-Since we cannot change the Java class of an object at runtime,
+Since we cannot change the Java class of an object at run time,
 the representation of ``BE``, ``TE`` and ``EOF`` instances
 must be the same Java class.
 This extends to quite a few Python classes
@@ -828,3 +828,481 @@ published as ``static`` objects.
 
         // ... lots more in the same pattern
     }
+
+
+Subclasses Defined as in Python
+===============================
+We do not have an interpreter yet in VSJ4,
+with which to define a class in Python.
+However, we know that,
+on encountering a class definition,
+the interpreter will call ``__build_class__`` from the ``builtins`` module.
+
+We don't have ``__build_class__`` either,
+but we can construct test code that
+goes through the same actions
+(as we gradually understand them).
+This will drive the run time support
+we need finally to implement ``__build_class__``.
+
+
+Specifying the Representation of a Subclass
+-------------------------------------------
+Specifying a subclass is somewhat different from specifying a built-in type,
+as we did using ``TypeSpec``.
+We have no opportunity to craft a class by hand in Java,
+then describe it to the run-time system.
+Instead, we have to describe the particular needs and constraints
+in a ``SubclassSpec`` object,
+and somehow, the implementation has to write a class itself.
+
+In general, a class defined in Python has
+an arbitrary number of (Python) bases,
+although there are limitations on what can be combined.
+We shall need to express that a Python class extends a (found) Java class,
+or implements a Java interface.
+We expect to do that by supplying them as bases.
+Each Python base also maps to a Java class,
+to its canonical representation class, to be precise,
+which brings Java interfaces too.
+
+It must be possible to find a *single* Java base class,
+equivalent to satisfying the "layout constraint" CPython reports.
+The new class must implement *all* the interfaces.
+Overall, the Java representation of the Python subclass must:
+
+#. subclass every canonical representation of the bases;
+#. implement every interface implemented by the bases (or named as a base);
+#. store the attributes named in ``__slots__``;
+#. add a ``__dict__`` if none is inherited and ``__slots__`` is not defined.
+
+Note that we can end up with both ``__slots__`` and
+an instance dictionary ``__dict__``
+if the subclass defines ``__slots__`` and a superclass doesn't.
+
+Representations are shared when they have the same specification,
+even if they have different methods, since after:
+
+..  code-block:: python
+
+    class LS(list):
+        __slots__ = ('a',)
+        def __init__(self, *p): super().__init__(*p); self.a = 42
+        def __repr__(self): return f"{super().__repr__()} {self.a=}"
+    class LS1(list): __slots__ = ('a',)
+
+``LS`` and ``LS1`` belong to the same clique
+(i.e. they are mutually ``__class__``-assignable).
+
+
+The ``__new__`` of built-in types
+---------------------------------
+When we studied ``BaseException.__new__`` and the exception subclasses,
+we noticed how important it was that each subclass representation
+should have a discoverable constructor accepting a ``PyType`` argument,
+with a signature matching the expectations of that particular ``__new__``.
+We had ``PyBaseException`` implement ``WithClassAssignment``,
+and accept and store a type in its constructor.
+The subclass constructors had exactly the same signature as the base,
+permitting the idiom:
+
+..  code-block:: python
+
+                MethodHandle cons = cls.constructor(T, TUPLE).handle();
+                return cons.invokeExact(cls, args);
+
+irrespective of the actual subtype ``cls``.
+
+When we define built-in types in Java,
+we do not necessarily want to make room for a type field
+in instances of the base class.
+Whether we do or not depends on whether
+the canonical representation is useful in its own right, or
+is only useful as a base.
+
+For example, ``str`` has representations
+``java.lang.String`` and ``PyUnicode``,
+both of which are useful in their own right.
+``PyUnicode.__new__`` chooses which representation to use.
+(``PyUnicode`` may be chosen when we must represent character codes beyond
+the basic multilingual plane.)
+We would probably not burden every ``PyUnicode`` with a type field:
+we can happily let ``getType()`` return ``PyUnicode.TYPE``
+and override it in the subclass.
+
+Conversely, ``float`` has representations
+``java.lang.Float``, ``java.lang.Double`` and ``PyFloat``.
+A ``Double`` holds complete information about the value:
+there is no reason for ``PyFloat.__new__`` to return instances of
+anything but the adopted types ``Float`` and ``Double``,
+unless it has been asked for an instance of a subclass of ``float``.
+``PyFloat`` might as well hold a type field and
+implement ``getType()`` directly.
+
+We therefore add to our specification of subclasses that the subclass must:
+
+5. define a constructor with a signature known to
+   the inherited ``__new__`` and specifying a type.
+
+By convention,
+the actual type (a ``PyType``) is specified as the first parameter.
+When the base defining ``__new__`` has a constructor beginning with a type,
+the subclass constructor has the same parameters.
+When it does not,
+the subclass constructor begins with a type and
+the rest of the signature has the same parameters as the base.
+This makes it possible to write a ``__new__``
+(by hand, in the base class)
+and to know by what signature it is possible to construct
+an instance of a subclass not yet defined.
+
+The base might have more than one (visible) constructor.
+When synthesising a subclass representation,
+we have no automatic way of knowing which one(s) ``__new__`` relies on,
+so we implement equivalents of
+all of the ``public`` and ``protected`` constructors.
+It is only necessary to make them call their super-constructor,
+and if ``super()`` does not take the actual type argument,
+store that type in a field.
+
+
+
+Generating Java Bytecode for a Subclass
+---------------------------------------
+We use ASM,
+in a subclass factory that is
+guided by the ``SubclassSpec`` object.
+We will not exhibit the mechanism in detail.
+(The details are quite messy
+and probably still wrong at the time of writing.)
+
+We reserve a package name in the run-time system
+for the classes that we create in response to
+Python class definitions.
+The class (byte code) definitions are not written to disk,
+although we can do so by setting a flag in the code.
+Classes are created from a definition using
+``MethodHandles.Lookup.defineHiddenClass``,
+from ``java.util.invoke``.
+Unusually, at first glance,
+it returns another ``Lookup`` object for access to the class.
+However, this is exactly what we need to create and register a type,
+by essentially the same mechanism as a built-in type.
+The class itself can be interrogated from the lookup object,
+and if we had just a regular class definition,
+it would then have to find a lookup object with matching rights.
+
+Here is ``javap`` output for a simple subclass of ``float``,
+created during a test,
+by the equivalent of ``class F1(float): pass``.
+
+..  code-block:: console
+
+    class uk.co.farowl.vsj4.runtime.subclass.DYNAMIC$PyFloat$1
+        extends uk.co.farowl.vsj4.runtime.PyFloat
+        implements uk.co.farowl.vsj4.runtime.WithDictAssignment,
+            uk.co.farowl.vsj4.runtime.WithClassAssignment {
+      private uk.co.farowl.vsj4.runtime.PyType $type;
+      private uk.co.farowl.vsj4.runtime.PyDict $dict;
+      public uk.co.farowl.vsj4.runtime.subclass.DYNAMIC$PyFloat$1(
+          uk.co.farowl.vsj4.runtime.PyType, double)
+              throws uk.co.farowl.vsj4.runtime.PyBaseException;
+      public uk.co.farowl.vsj4.runtime.PyType getType();
+      public void setType(java.lang.Object);
+      public uk.co.farowl.vsj4.runtime.PyDict getDict();
+      public void setDict(java.lang.Object);
+    }
+
+Here is another subclass created
+by the equivalent of ``class F2(float): __slots__ = ('a','b','c')``.
+
+..  code-block:: console
+
+    class uk.co.farowl.vsj4.runtime.subclass.DYNAMIC$PyFloat$2
+        extends uk.co.farowl.vsj4.runtime.PyFloat
+        implements uk.co.farowl.vsj4.runtime.WithClassAssignment {
+      private uk.co.farowl.vsj4.runtime.PyType $type;
+      java.lang.Object a;
+      java.lang.Object b;
+      java.lang.Object c;
+      public uk.co.farowl.vsj4.runtime.subclass.DYNAMIC$PyFloat$2(
+          uk.co.farowl.vsj4.runtime.PyType, double)
+              throws uk.co.farowl.vsj4.runtime.PyBaseException;
+      public uk.co.farowl.vsj4.runtime.PyType getType();
+      public void setType(java.lang.Object);
+    }
+
+Note that members named in ``__slots__`` become fields,
+and that in contrast to the previous example,
+there is no support for ``__dict__``.
+We shall expose these fields as members
+when we have ported that mechanism from VSJ3.
+
+These classes are "hidden" in the JVM.
+It is only possible to exhibit them like this
+because we arranged to save the bytes during the test.
+
+
+Some examples reworked
+----------------------
+It will help to rework the examples
+in :ref:`Representation-builtin-list-dict`
+and :ref:`Representation-builtin-list-slots`
+using the synthetic classes.
+
+The first of these (where there is no ``__slots__``)
+is unchanged except that the representation class will be
+some synthetic class ``JY$PyList$1``
+(or however we eventually decide to name them),
+instead of the pre-defined ``PyList.Derived``.
+
+In the second case, using ``__slots__`` (and maybe a dictionary),
+we had quite a complicated set of definitions:
+
+..  code-block:: python
+
+    class LS(list):
+        __slots__ = ('a',)
+        def __init__(self, *p): super().__init__(*p); self.a = 42
+        def __repr__(self): return f"{super().__repr__()} {self.a=}"
+    class LS1(list): __slots__ = ('a',)
+    class LS2(list): __slots__ = ('b',)
+    class LS3(LS):
+        __slots__ = ('b',)
+        def __init__(self, *p): super().__init__(*p); self.b = 46
+        def __repr__(self): return f"{super().__repr__()} {self.b=}"
+    class LS4(list): __slots__ = ()
+    class LS5(LS):
+        __slots__ = ()
+        def __init__(self, *p): super().__init__(*p); self.a = 47;
+    class LS6(LS):
+        def __repr__(self): return f"{super().__repr__()} {self.__dict__}"
+    class LS7(LS6, LS3, list):
+        __slots__ = ('c',)
+        def __init__(self, *p): super().__init__(*p); self.c = 49
+        def __repr__(self): return f"{super().__repr__()} {self.c=}"
+
+    xs = LS()
+    xs1 = LS1(); xs1.a = 43
+    xs2 = LS2(); xs2.b = 44
+    xs3 = LS3()
+    xs4 = LS4()
+    xs5 = LS5()
+    xs6 = LS6(); xs6.b = 48
+    xs7 = LS7(); xs7.n = 9
+
+We observed in CPython that these form the cliques:
+``[('list',), ('LS', 'LS1', 'LS5'), ('LS2',), ('LS3',), ('LS4',), ('LS6',), ('LS7',)]``.
+We should have one representation per clique.
+For the purpose of exposition,
+we're going to name the representation classes after their clique leader.
+(It won't be so in practice.)
+
+..  uml::
+    :caption: Direct ``__slots__`` subclasses of ``list``
+
+    object "list : SimpleType" as listType {
+        javaClass = PyList
+    }
+    'object "PyList : Class" as PyList.class
+    'PyList.class --> listType : registry
+    'listType --> listType : type
+
+    object "xs : Rep_LS" as xs {
+        a = 42
+    }
+    object "xs1 : Rep_LS" as xs1 {
+        a = 43
+    }
+    object " : SharedRepresentation" as LS.rep {
+        javaClass = Rep_LS
+    }
+
+    object "xs2 : Rep_LS2" as xs2 {
+        b = 44
+    }
+    object " : SharedRepresentation" as LS2.rep {
+        javaClass = Rep_LS2
+    }
+
+    object "xs4 : Rep_LS4" as xs4 {
+    }
+    object " : SharedRepresentation" as LS4.rep {
+        javaClass = Rep_LS4
+    }
+
+    object "LS : ReplaceableType" as LSType
+    object "LS1 : ReplaceableType" as LS1Type
+    object "LS2 : ReplaceableType" as LS2Type
+    object "LS4 : ReplaceableType" as LS4Type
+
+    LSType --> listType : base
+    LS1Type --> listType : base
+    LS2Type --> listType : base
+    LS4Type --> listType : base
+
+    xs --> LSType : type
+    xs1 --> LS1Type : type
+    xs2 --> LS2Type : type
+    xs4 --> LS4Type : type
+
+    LSType -down-> LS.rep : rep
+    LS1Type -down-> LS.rep : rep
+    LS2Type -down-> LS2.rep : rep
+    LS4Type -down-> LS4.rep : rep
+
+Note that ``LS`` and ``LS1`` have the same representation
+because they have the same description,
+and so does ``LS5`` because it subclasses ``LS`` adding no slots.
+``LS1`` and ``LS2`` differ only in the name they give the slot they add,
+but that is enough to require a new representation.
+``LS4`` adds nothing to ``list``, as ``__slots__`` is defined empty,
+but it has a distinct representation (since it has assignable ``__class__``).
+
+All these direct descendants have
+a representation that directly extends ``PyList`` in Java.
+
+..  uml::
+    :caption: Indirect ``__slots__`` subclasses of ``list``
+
+    object "list : SimpleType" as listType {
+        javaClass = PyList
+    }
+    'object "PyList : Class" as PyList.class
+    'PyList.class --> listType : registry
+    'listType --> listType : type
+
+    object "xs : Rep_LS" as xs {
+        a = 42
+    }
+    object " : SharedRepresentation" as LS.rep {
+        javaClass = Rep_LS
+    }
+
+    object "xs3 : Rep_LS3" as xs3 {
+        a = 42
+        b = 46
+    }
+    object " : SharedRepresentation" as LS3.rep {
+        javaClass = Rep_LS3
+    }
+
+    object "xs5 : Rep_LS" as xs5 {
+        a = 47
+    }
+
+    object "xs6 : Rep_LS6" as xs6 {
+        a = 42
+        __dict__ = {"b":48}
+    }
+    object " : SharedRepresentation" as LS6.rep {
+        javaClass = Rep_LS6
+    }
+
+    object "xs7 : Rep_LS7" as xs7 {
+        a = 42
+        c = 49
+        __dict__ = {"b":48}
+    }
+    object " : SharedRepresentation" as LS7.rep {
+        javaClass = Rep_LS7
+    }
+
+    object "LS : ReplaceableType" as LSType
+    object "LS3 : ReplaceableType" as LS3Type
+    object "LS5 : ReplaceableType" as LS5Type
+    object "LS6 : ReplaceableType" as LS6Type
+    object "LS7 : ReplaceableType" as LS7Type
+
+    LSType --> listType : base
+    LS3Type --> LSType : base
+    LS5Type --> LSType : base
+    LS6Type --> LSType : base
+    LS7Type --> LS3Type : base
+
+    xs --> LSType : type
+    xs3 --> LS3Type : type
+    xs5 --> LS5Type : type
+    xs6 --> LS6Type : type
+    xs7 --> LS7Type : type
+
+    LSType -down-> LS.rep : rep
+    LS3Type -down-> LS3.rep : rep
+    LS5Type -down-> LS.rep : rep
+    LS6Type -down-> LS6.rep : rep
+    LS7Type -down-> LS7.rep : rep
+
+This ``base`` pointer is chosen in CPython by a method that
+considers the storage added by ``__slots__`` primarily,
+and then other attributes such as possession of an instance dictionary.
+At the time of writing,
+we only partly understand the logic and implications for Jython.
+(See ``solid_base`` in ``typeobject.c`` and its uses.)
+
+It may be surprising that for ``LS7``,
+``LS3`` is the base but is not first in the MRO:
+
+..  code-block:: python
+
+    >>> LS7.__base__
+    <class '__main__.LS3'>
+    >>> LS7.__mro__
+    (<class '__main__.LS7'>, <class '__main__.LS6'>, <class '__main__.LS3'>,
+     <class '__main__.LS'>, <class 'list'>, <class 'object'>)
+
+This is because ``LS7`` extends the storage of ``LS3`` with member ``c``.
+The ``__dict__`` attribute that ``LS6`` adds
+does not occupy fixed storage in the same way in CPython.
+
+Another tricky case in the example is ``LS5``.
+It adds no storage to ``LS``,
+and no instance dictionary,
+and so falls into the same clique as ``LS``.
+(Note that a subclass of ``list`` adding zero slots
+would *not* be in the same clique as ``list``
+because of the exclusion of built-ins and mutability.)
+
+..  uml::
+    :caption: Classes Representing Synthetic Subclasses of ``list``
+
+    class Rep_LS extends PyList {
+        ' LS, LS1, LS5 = list + slots(a)
+        type : PyType
+        a : Object
+    }
+    class Rep_LS2 extends PyList {
+        ' LS2 = list + slots(b)
+        type : PyType
+        b : Object
+    }
+    class Rep_LS3 extends Rep_LS {
+        ' LS3 = LS + slots(b)
+        b : Object
+    }
+    class Rep_LS4 extends PyList {
+        ' LS4 = list + slots()
+        type : PyType
+    }
+    class Rep_LS6 extends Rep_LS {
+        ' LS6 = LS + dict
+        __dict__ : PyDict
+    }
+    class Rep_LS7 extends Rep_LS3 {
+        ' LS7 = LS3 + slots(c)
+        c : Object
+        __dict__ : PyDict
+    }
+
+It appears that we have to do equivalent reasoning about
+the type attributes (features),
+the slots added between a type and its ``__base__``,
+and after that the presence of an instance dictionary,
+then create or choose a Java representation class
+corresponding to that layout.
+Every subclass with an equivalent specification
+will arrive at the same layout.
+For this reason, when we generate a representation dynamically,
+we will cache it for re-use.
+
+
+
