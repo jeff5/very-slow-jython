@@ -48,11 +48,13 @@ public enum Feature {
      * Instances of the type object are treated as sequences for pattern
      * matching.
      */
+    // Compare CPython Py_TPFLAGS_SEQUENCE
     SEQUENCE(TypeFlag.SEQUENCE),
     /**
      * Instances of the type object are treated as mappings for pattern
      * matching
      */
+    // Compare CPython Py_TPFLAGS_MAPPING
     MAPPING(TypeFlag.MAPPING),
 
     /**
@@ -61,10 +63,32 @@ public enum Feature {
      * against the subject itself (rather than a mapped attribute on
      * it).
      */
-    MATCH_SELF(TypeFlag.MATCH_SELF);
+    // Compare CPython _Py_TPFLAGS_MATCH_SELF
+    MATCH_SELF(TypeFlag.MATCH_SELF),
+
+    /**
+     * An instance of this type is a method descriptor, that is, it
+     * supports an optimised call pattern where a {@code self} argument
+     * may be supplied "loose" when calling the method, with the same
+     * meaning as if it were first bound and the bound object called.
+     * <p>
+     * This is equivalent to setting the flag
+     * {@code Py_TPFLAGS_METHOD_DESCRIPTOR} described in <a
+     * href=https://peps.python.org/pep-0590/#descriptor-behavior>
+     * PEP-590</a>. If {@code isMethodDescr()} returns {@code true} for
+     * {@code type(func)}, then:
+     * <ul>
+     * <li>{@code func.__get__(obj, cls)(*args, **kwds)} (with
+     * {@code {@code obj}} not None) must be equivalent to
+     * {@code func(obj, *args, **kwds)}.</li>
+     * <li>{@code func.__get__(None, cls)(*args, **kwds)} must be
+     * equivalent to {@code func(*args, **kwds)}.</li>
+     * </ul>
+     */
+    METHOD_DESCR(TypeFlag.IS_METHOD_DESCR);
 
     /** Navigate from feature to corresponding type flag. */
-    final TypeFlag flag;
+    public final TypeFlag flag;
 
     private Feature(TypeFlag flag) { this.flag = flag; }
 }

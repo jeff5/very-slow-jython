@@ -11,7 +11,7 @@ import org.junit.jupiter.api.DisplayName;
  * superclass: this class supplies only the initialising event in
  * {@link #setUpClass()}.
  */
-@DisplayName("After getting PyBaseObject.TYPE ...")
+@DisplayName("After getting PyObject.TYPE ...")
 class TypeInitTestObject extends TypeInitTest {
 
     /** Initialised in {@link #setUpClass()}. */

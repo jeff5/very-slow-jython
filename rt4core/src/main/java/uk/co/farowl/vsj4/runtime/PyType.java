@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory;
 
 import uk.co.farowl.vsj4.runtime.kernel.AbstractPyType;
 import uk.co.farowl.vsj4.runtime.kernel.AdoptiveType;
+import uk.co.farowl.vsj4.runtime.kernel.MROCalculator;
 import uk.co.farowl.vsj4.runtime.kernel.ReplaceableType;
 import uk.co.farowl.vsj4.runtime.kernel.Representation;
 import uk.co.farowl.vsj4.runtime.kernel.SimpleType;
@@ -44,10 +45,9 @@ public abstract sealed class PyType extends AbstractPyType
 
     /**
      * The type factory to which the run-time system goes for all type
-     * objects. This is used in tests and to give the "ready" message a
-     * time.
+     * objects.
      */
-    static final TypeFactory factory;
+    protected static final TypeFactory factory;
 
     /** The type object of {@code type} objects. */
     // Needed in its proper place before creating bootstrap types
@@ -57,7 +57,7 @@ public abstract sealed class PyType extends AbstractPyType
      * The type registry to which this run-time system goes for all
      * class look-ups.
      */
-    static final TypeRegistry registry;
+    protected static final TypeRegistry registry;
 
     /**
      * High-resolution time (the result of {@link System#nanoTime()}) at
@@ -69,7 +69,7 @@ public abstract sealed class PyType extends AbstractPyType
     /**
      * High-resolution time (the result of {@link System#nanoTime()}) at
      * which the type system completed static initialisation. This is
-     * used in tests.
+     * used in tests and to give the "ready" message a time.
      */
     static final long readyNanoTime;
 
@@ -78,7 +78,7 @@ public abstract sealed class PyType extends AbstractPyType
      * the type factory to grant it package-level access to the run-time
      * system.
      */
-    static Lookup RUNTIME_LOOKUP =
+    protected static Lookup RUNTIME_LOOKUP =
             MethodHandles.lookup().dropLookupMode(Lookup.PRIVATE);
 
     /*
@@ -100,7 +100,8 @@ public abstract sealed class PyType extends AbstractPyType
          * should use some alternative method.
          */
         @SuppressWarnings("deprecation")
-        TypeFactory f = new TypeFactory(RUNTIME_LOOKUP);
+        TypeFactory f = new TypeFactory(RUNTIME_LOOKUP,
+                TypeExposerImplementation::new);
         @SuppressWarnings("deprecation")
         PyType t = f.typeForType();
 
@@ -147,16 +148,33 @@ public abstract sealed class PyType extends AbstractPyType
      * Constructor used by (permitted) subclasses of {@code PyType}.
      *
      * @param name of the type (fully qualified)
-     * @param javaType implementing Python instances of the type
+     * @param javaClass implementing Python instances of the type
      * @param bases of the new type
      */
-    protected PyType(String name, Class<?> javaType, PyType[] bases) {
-        super(name, javaType, bases);
-        // this.mro = MROCalculator.getMRO(this, this.bases);
+    protected PyType(String name, Class<?> javaClass, PyType[] bases) {
+        super(name, javaClass, bases);
+    }
+
+    // @Exposed.Method
+    @Override
+    protected PyType[] mro() {
+        return MROCalculator.getMRO(this, this.bases);
     }
 
     @Override
     public String toString() { return "<class '" + getName() + "'>"; }
+
+    /**
+     * Determine (or create if necessary) the {@link Representation} for
+     * the given object. The representation is found (in the type
+     * registry) from the Java class of the argument.
+     *
+     * @param o for which a {@code Representation} is required
+     * @return the {@code Representation}
+     */
+    static Representation getRepresentation(Object o) {
+        return registry.get(o.getClass());
+    }
 
     /**
      * Determine (or create if necessary) the Python type for the given
@@ -168,21 +186,6 @@ public abstract sealed class PyType extends AbstractPyType
     public static PyType of(Object o) {
         Representation rep = registry.get(o.getClass());
         return rep.pythonType(o);
-    }
-
-    /**
-     * Determine the Python type for the given Java class. We use this
-     * in the publication of certain built-in types.
-     *
-     * @param klass for which a type is required
-     * @return the type
-     */
-    static PyType forClass(Class<?> klass) {
-        Representation rep = registry.get(klass);
-        if (rep instanceof PyType t) { return t; }
-        throw new InterpreterError(
-                "Class<%s> does not represent a fixed Python type.",
-                klass.getTypeName());
     }
 
     /**
@@ -206,7 +209,122 @@ public abstract sealed class PyType extends AbstractPyType
         try {
             return factory.fromSpec(spec);
         } catch (Clash clash) {
+            logger.atError().log(clash.toString());
             throw new InterpreterError(clash);
         }
     }
+
+    /**
+     * Weak test that the type system has completed its bootstrap. This
+     * does not guarantee that type objects, outside the bootstrap set,
+     * are safe to use. A thread that has triggered type system creation
+     * can use this as a check that it has finished (and certain
+     * operations are valid). Any other thread calling this method will
+     * either cause the type system bootstrap or wait for it to
+     * complete.
+     *
+     * @return type {@code true} iff system is ready for use.
+     */
+    static boolean systemReady() { return readyNanoTime != 0L; }
+
+    /**
+     * {@code true} iff the type of {@code o} is a Python sub-type of
+     * {@code this} (including exactly {@code this} type). This is
+     * likely to be used in the form:<pre>
+     * if(!PyUnicode.TYPE.check(oName)) throw ...
+     * </pre>
+     *
+     * @param o object to test
+     * @return {@code true} iff {@code o} is of a sub-type of this type
+     */
+    boolean check(Object o) {
+        PyType t = PyType.of(o);
+        return t == this || t.isSubTypeOf(this);
+    }
+
+    /**
+     * {@code true} iff the Python type of {@code o} is exactly
+     * {@code this}, not a Python sub-type of {@code this}, nor just any
+     * Java sub-class of {@code PyType}. This is likely to be used in
+     * the form:<pre>
+     * if(!PyUnicode.TYPE.checkExact(oName)) throw ...
+     * </pre>
+     *
+     * @param o object to test
+     * @return {@code true} iff {@code o} is exactly of this type
+     */
+    public boolean checkExact(Object o) {
+        return PyType.of(o) == this;
+    }
+
+    /**
+     * Determine if this type is a Python sub-type of {@code b} (if
+     * {@code b} is on the MRO of this type). For technical reasons we
+     * parameterise with the subclass. (We need it to work with a
+     * private superclass or {@code PyType}.)
+     *
+     * @param <T> actual type of {@code b} normally a {@code PyType}.
+     * @param b to test
+     * @return {@code true} if {@code this} is a sub-type of {@code b}
+     */
+    // Compare CPython PyType_IsSubtype in typeobject.c
+    public <T extends AbstractPyType> boolean isSubTypeOf(T b) {
+        if (mro != null) {
+            /*
+             * Deal with multiple inheritance without recursion by
+             * walking the MRO tuple
+             */
+            for (PyType base : mro) {
+                if (base == b)
+                    return true;
+            }
+            return false;
+        } else
+            // a is not completely initialised yet; follow base
+            return type_is_subtype_base_chain(b);
+    }
+
+    /**
+     * Determine if this type is a Python sub-type of {@code b} by
+     * chaining through the {@link #base} property. (This is a fall-back
+     * when {@link #mro} is not valid.)
+     *
+     * @param b to test
+     * @return {@code true} if {@code this} is a sub-type of {@code b}
+     */
+    // Compare CPython type_is_subtype_base_chain in typeobject.c
+    private boolean type_is_subtype_base_chain(AbstractPyType b) {
+        PyType t = this;
+        while (t != b) {
+            t = t.base;
+            if (t == null) { return b == PyObject.TYPE; }
+        }
+        return true;
+    }
+
+    // Special methods -----------------------------------------------
+
+    /*
+     * For technical reasons to do with bootstrapping the type system,
+     * the methods and attributes of 'type' that are exposed to Python
+     * have to be defined in the superclass.
+     */
+
+    // plumbing ------------------------------------------------------
+
+    // Compare CPython _PyType_GetDocFromInternalDoc
+    // XXX Consider implementing in ArgParser instead
+    static Object getDocFromInternalDoc(String name, String doc) {
+        // TODO Auto-generated method stub
+        return Py.None;
+    }
+
+    // Compare CPython: PyType_GetTextSignatureFromInternalDoc
+    // XXX Consider implementing in ArgParser instead
+    static Object getTextSignatureFromInternalDoc(String name,
+            String doc) {
+        // TODO Auto-generated method stub
+        return Py.None;
+    }
+
 }

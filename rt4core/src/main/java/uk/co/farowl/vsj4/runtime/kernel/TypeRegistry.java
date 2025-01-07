@@ -7,7 +7,6 @@ import java.util.WeakHashMap;
 
 import uk.co.farowl.vsj4.runtime.PyType;
 import uk.co.farowl.vsj4.runtime.TypeSpec;
-import uk.co.farowl.vsj4.runtime.kernel.TypeFactory.Clash;
 import uk.co.farowl.vsj4.support.InterpreterError;
 
 /**
@@ -108,8 +107,8 @@ public abstract class TypeRegistry extends ClassValue<Representation> {
     }
 
     /**
-     * Find this class in the published registry map, or in
-     * work-in-progress in the factory, and return the
+     * Find (do not create) this class in the published registry map, or
+     * in work-in-progress in the factory, and return the
      * {@code Representation} for it or {@code null} if it was not
      * found.
      * <p>
@@ -127,8 +126,8 @@ public abstract class TypeRegistry extends ClassValue<Representation> {
     /**
      * Find this class in the published registry map, or in
      * work-in-progress in the factory, or create a type and return the
-     * {@code Representation}. This method is provided by the registry
-     * implementation the {@link TypeFactory} provides.
+     * {@code Representation}. The {@link TypeFactory} creates a
+     * registry that implements this method.
      * <p>
      * The registry calls this when it did not find {@code c} published.
      * At that point, we <b>may</b> have to create a representation for

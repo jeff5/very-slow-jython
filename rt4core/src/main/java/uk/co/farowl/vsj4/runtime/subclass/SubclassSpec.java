@@ -1,5 +1,6 @@
-package uk.co.farowl.vsj4.runtime.kernel;
+package uk.co.farowl.vsj4.runtime.subclass;
 
+import java.lang.reflect.Constructor;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedList;
@@ -7,9 +8,14 @@ import java.util.List;
 import java.util.StringJoiner;
 
 import uk.co.farowl.vsj4.runtime.NamedSpec;
+import uk.co.farowl.vsj4.runtime.PyType;
+import uk.co.farowl.vsj4.runtime.WithClass;
+import uk.co.farowl.vsj4.runtime.WithClassAssignment;
+import uk.co.farowl.vsj4.runtime.WithDict;
+import uk.co.farowl.vsj4.runtime.kernel.AbstractPyType.ConstructorAndHandle;
 
 /**
- * A {@code RepresentationSpec} is a specification for a Java class to
+ * A {@code SubclassSpec} is a specification for a Java class to
  * represent the instances of a type defined in Python. The
  * specification generally arises from the processing of a Python class
  * definition, or a three-argument call to
@@ -20,20 +26,27 @@ import uk.co.farowl.vsj4.runtime.NamedSpec;
  * The Java representation class specified is likely to be the
  * representation class of more than one Python type. At the time it is
  * specified, a matching representation may already exist. So our first
- * purpose for the {@code RepresentationSpec} is to seek a match in the
+ * purpose for the {@code SubclassSpec} is to seek a match in the
  * {@code TypeFactory}, and only after that fails, to read it to create
  * the {@code Class} and {@code Representation}.
  */
-class RepresentationSpec extends NamedSpec implements Cloneable {
+public class SubclassSpec extends NamedSpec implements Cloneable {
 
     /** Base class the representation {@code extends}. */
     private final Class<?> base;
     /** Interfaces the representation {@code implements}. */
     private List<Class<?>> interfaces = EMPTY;
-    /** Names of slots to be added as members or {@link #NONAMES}. */
-    private List<String> slots = NONAMES;
-    /** Whether to create a __dict__ member. */
+    /** Constructors on which to base those created here. */
+    private List<Constructor<?>> constructors = new LinkedList<>();
+    /** Whether to create a {@code __dict__} member. */
     private boolean hasDict;
+
+    /**
+     * Names of slots to be added as members or {@link #NONAMES}. Note
+     * even an empty {@code __slots__} ensures {@code slots != NONAMES},
+     * so we use this value as a marker.
+     */
+    private List<String> slots=NONAMES;
 
     /**
      * Create (or begin) a specification. Note that the name given here
@@ -44,13 +57,29 @@ class RepresentationSpec extends NamedSpec implements Cloneable {
      * @param name provisional name of the representation class.
      * @param base the representation {@code extends}.
      */
-    RepresentationSpec(String name, Class<?> base) {
+    public SubclassSpec(String name, Class<?> base) {
         super(name);
         this.base = base;
+        // If base implements WithDict, subclass has instance dict
+        if (WithDict.class.isAssignableFrom(base)) { hasDict = true; }
+        // The base class may hold a type attribute
+    }
+
+    /**
+     * Create (or begin) a specification. Note that the name given here
+     * is provisional, reflecting the Python class (and useful for error
+     * messages). The name of the Java class created according to the
+     * specification will be different.
+     *
+     * @param name provisional name of the representation class.
+     * @param base to determine the base representation class.
+     */
+    public SubclassSpec(String name, PyType base) {
+        this(name, base.canonicalClass());
     }
 
     @Override
-    protected RepresentationSpec freeze() {
+    protected SubclassSpec freeze() {
         /*
          * If we are not frozen yet, it means we have yet to finalise
          * the interfaces and slots.
@@ -81,13 +110,14 @@ class RepresentationSpec extends NamedSpec implements Cloneable {
     Class<?> getBase() { return base; }
 
     /**
-     * Set the name of the class being created.
+     * Set the name of the class being created. The name is not pat of
+     * the has (or test of equality) so it is not covered by
+     * {@link #freeze()}.
      *
      * @param name
      * @return {@code this}
      */
-    RepresentationSpec setName(String name) {
-        checkNotFrozen();
+    SubclassSpec setName(String name) {
         this.name = name;
         return this;
     }
@@ -98,7 +128,7 @@ class RepresentationSpec extends NamedSpec implements Cloneable {
      * @param iface new interface
      * @return {@code this}
      */
-    RepresentationSpec addInterface(Class<?> iface) {
+    SubclassSpec addInterface(Class<?> iface) {
         checkNotFrozen();
         if (!iface.isInterface()) {
             String msg = String.format("%s is not an interface",
@@ -119,7 +149,7 @@ class RepresentationSpec extends NamedSpec implements Cloneable {
      * @param ifaces new interfaces
      * @return {@code this}
      */
-    RepresentationSpec addInterfaces(Collection<Class<?>> ifaces) {
+    public SubclassSpec addInterfaces(Collection<Class<?>> ifaces) {
         for (Class<?> iface : ifaces) { addInterface(iface); }
         return this;
     }
@@ -130,7 +160,7 @@ class RepresentationSpec extends NamedSpec implements Cloneable {
      * @param ifaces new interfaces
      * @return {@code this}
      */
-    RepresentationSpec addInterfaces(Class<?>... ifaces) {
+    SubclassSpec addInterfaces(Class<?>... ifaces) {
         return addInterfaces(List.of(ifaces));
     }
 
@@ -142,6 +172,47 @@ class RepresentationSpec extends NamedSpec implements Cloneable {
     List<Class<?>> getInterfaces() { return interfaces; }
 
     /**
+     * Add multiple constructors on which to base those in the new
+     * representation. This is a subset chosen by the super-type from
+     * its canonical representation. The new representation will always
+     * have a {@link PyType} first argument of its constructors.
+     *
+     * @param cons new constructors
+     * @return {@code this}
+     */
+    public SubclassSpec addConstructors(List<Constructor<?>> cons) {
+        checkNotFrozen();
+        for (Constructor<?> c : cons) { constructors.add(c); }
+        return this;
+    }
+
+    /**
+     * Add all the published constructors of a particular Python type,
+     * on which to base those in the new representation. The new
+     * representation will always have a {@link PyType} first argument
+     * of its constructors.
+     *
+     * @param baseType from which to get constructors
+     * @return {@code this}
+     */
+    public SubclassSpec addConstructors(PyType baseType) {
+        checkNotFrozen();
+        for (ConstructorAndHandle ch : baseType.constructorLookup()
+                .values()) {
+            constructors.add(ch.constructor());
+        }
+        return this;
+    }
+
+    /**
+     * Get the defined constructors.
+     *
+     * @param constructorSigs new constructors
+     * @return {@code this}
+     */
+    List<Constructor<?>> getConstructors() { return constructors; }
+
+    /**
      * Add one named slot (guarding against repetition). If a
      * specification is created and no slots added before it is used,
      * that is implicitly a request to add a dictionary.
@@ -149,7 +220,7 @@ class RepresentationSpec extends NamedSpec implements Cloneable {
      * @param slotName new slot
      * @return {@code this}
      */
-    RepresentationSpec addSlot(String slotName) {
+    SubclassSpec addSlot(String slotName) {
         checkNotFrozen();
         if (slots == NONAMES) {
             slots = new LinkedList<>();
@@ -167,7 +238,7 @@ class RepresentationSpec extends NamedSpec implements Cloneable {
      * @param slots new slot names
      * @return {@code this}
      */
-    RepresentationSpec addSlots(Collection<String> slots) {
+    public SubclassSpec addSlots(Collection<String> slots) {
         // An empty collection still counts as defining __slots__
         if (slots == NONAMES) { slots = new LinkedList<>(); }
         for (String slot : slots) { addSlot(slot); }
@@ -180,7 +251,7 @@ class RepresentationSpec extends NamedSpec implements Cloneable {
      * @param slots new slot names
      * @return {@code this}
      */
-    RepresentationSpec addSlots(String... slots) {
+    SubclassSpec addSlots(String... slots) {
         return addSlots(List.of(slots));
     }
 
@@ -192,7 +263,7 @@ class RepresentationSpec extends NamedSpec implements Cloneable {
     List<String> getSlots() { return slots; }
 
     /** Specify that there shall be a dictionary. */
-    RepresentationSpec addDict() {
+    SubclassSpec addDict() {
         checkNotFrozen();
         hasDict = true;
         return this;
@@ -205,7 +276,7 @@ class RepresentationSpec extends NamedSpec implements Cloneable {
      * @param cond whether to add a request for a dictionary
      * @return {@code this}
      */
-    RepresentationSpec addDictIf(boolean cond) {
+    SubclassSpec addDictIf(boolean cond) {
         if (cond && !hasDict) { addDict(); }
         return this;
     }
@@ -221,7 +292,7 @@ class RepresentationSpec extends NamedSpec implements Cloneable {
     public String toString() {
         StringBuilder b = new StringBuilder();
         b.append(name);
-        b.append(" extends ").append(base.getSimpleName());
+        b.append(" extends ").append(base.getName());
         if (interfaces != EMPTY) {
             StringJoiner sj =
                     new StringJoiner(", ", " implements ", " ");
@@ -240,7 +311,7 @@ class RepresentationSpec extends NamedSpec implements Cloneable {
     @Override
     public boolean equals(Object obj) {
         freeze();
-        if (obj instanceof RepresentationSpec r) {
+        if (obj instanceof SubclassSpec r) {
             r.freeze();
             if (getBase() != r.getBase()) { return false; }
             if (hasDict() != r.hasDict()) { return false; }
@@ -265,8 +336,8 @@ class RepresentationSpec extends NamedSpec implements Cloneable {
     }
 
     @Override
-    public RepresentationSpec clone() {
-        RepresentationSpec spec = new RepresentationSpec(name, base);
+    public SubclassSpec clone() {
+        SubclassSpec spec = new SubclassSpec(name, base);
         if (interfaces != EMPTY) { spec.addInterfaces(interfaces); }
         if (slots != NONAMES) { spec.addSlots(slots); }
         spec.hasDict = hasDict;

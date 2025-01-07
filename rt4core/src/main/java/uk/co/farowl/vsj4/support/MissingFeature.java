@@ -15,6 +15,6 @@ public class MissingFeature extends InterpreterError {
      * @param args to insert in the format string
      */
     public MissingFeature(String msg, Object... args) {
-        super(String.format(msg, args));
+        super(String.format("Missing feature: " + msg, args));
     }
 }

@@ -30,7 +30,7 @@ public class PyDict extends LinkedHashMap<Object, Object>
      * @param <V> value type of incoming map
      * @param map Java map from which to copy
      */
-    protected <K, V> PyDict(PyType type, Map<K, V> map) {
+    protected <K, V> PyDict(Map<K, V> map) {
         // Cannot bulk add since keys may need Pythonising
         for (Map.Entry<K, V> e : map.entrySet()) {
             put(e.getKey(), e.getValue());

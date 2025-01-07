@@ -1,15 +1,16 @@
+// Copyright (c)2024 Jython Developers.
+// Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
 
 /**
- * An instance of a class  implementing {@code WithClass}
- * reports an explicit Python
- * type, generally exposed as a {@code __class__} attribute. Java
- * classes that are the crafted representations of Python types
- * implement this interface.
+ * An instance of a class implementing {@code WithClass} reports an
+ * explicit Python type, generally exposed as a {@code __class__}
+ * attribute. Java classes that are the crafted representations of
+ * Python types implement this interface.
  * <p>
  * The type may be the same for all instances of the same Java class or
- * be assignable within certain constraints
- * (see {@link WithClassAssignment}).
+ * be assignable within certain constraints (see
+ * {@link WithClassAssignment}).
  */
 public interface WithClass {
     /**

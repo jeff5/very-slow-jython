@@ -25,5 +25,6 @@ We elaborate on these aims in the :doc:`introduction`.
     introduction
     basic-patterns
     object-and-pytype
+    subclasses-in-python
     object-and-pytype-java
     type-system-init

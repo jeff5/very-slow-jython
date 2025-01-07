@@ -1,4 +1,8 @@
+// Copyright (c)2024 Jython Developers.
+// Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime.kernel;
+
+import java.util.List;
 
 import uk.co.farowl.vsj4.runtime.PyType;
 
@@ -26,10 +30,36 @@ public final class ReplaceableType extends PyType {
      */
     ReplaceableType(String name, Representation.Shared representation,
             PyType[] bases) {
-        super(name, representation.javaType, bases);
+        super(name, representation.javaClass, bases);
         this.representation = representation;
     }
 
     @Override
-    public PyType pythonType(Object x) { return this; }
+    public List<Representation> representations() {
+        return List.of(representation);
+    }
+
+    @Override
+    public List<Class<?>> selfClasses() { return List.of(javaClass); }
+
+    @Override
+    public Class<?> canonicalClass() {
+        return representation.canonicalClass();
+    }
+
+    @Override
+    public PyType pythonType(Object x) {
+        // I don't *think* we should be asked this question unless:
+        assert javaClass.isAssignableFrom(x.getClass());
+        return this;
+    }
+
+    @Override
+    public boolean isMutable() { return false; }
+
+    @Override
+    public boolean isIntExact() { return false; }
+
+    @Override
+    public boolean isFloatExact() { return false; }
 }

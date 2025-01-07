@@ -4,11 +4,6 @@
 ``Object`` and ``PyType`` Basic Patterns
 ****************************************
 
-
-..  note:: Check for  ``PyBaseObject``
-
-
-
 In this section we set out the plain Java object approach
 to representing Python objects.
 We did this already in ``rt3``,
@@ -54,8 +49,8 @@ or possibly a cascade of inter-dependent ``PyType``\s.
 We must guard against the possibility that
 some other thread may already be doing overlapping work.
 
-Types of Type
--------------
+Classes of Type
+---------------
 
 Type objects fall into three categories,
 which have distinct Java implementations:
@@ -99,10 +94,13 @@ Primary Representation
 The *primary* representation class is a (least derived) Java class,
 instances of which are acceptable as
 the ``self`` argument to methods of the type.
+(Notice we use the term *representation* in two ways:
+for the Java representation class, and
+for the ``Representation`` object.)
 
 In the case of a **simple type**,
 all representation classes for the type have a common root class,
-which is the primary representation.
+which is the primary representation class.
 For example, all three classes of type object extend ``PyType``,
 the primary representation of ``type``.
 
@@ -118,12 +116,13 @@ Canonical Base Class
 Secondly, we need the idea of a *canonical base* class.
 This is the Java class on which the implementation of
 a subclass defined in Python will be based.
-Specific Java classes may have to be defined
+Specific Java classes are needed
 as representations of the Python subclasses,
 but all will be subclasses in Java of the canonical base.
 
 Instances of subclasses of the canonical base
 must be acceptable as a ``self`` argument to methods.
+The reason for this is in the definition of instance methods.
 When a Python subclass,
 seeking a method along the MRO finds it in a type object,
 it will call the implementation matching the primary representation.
@@ -149,8 +148,22 @@ as they are mostly ``final``.
 As so often, ``object`` is an exception,
 where the canonical class is ``java.lang.Object``.
 
+A Java subclass of the canonical base of a type is either
+treated as representing the same type
+(by being mapped to the same ``Representation``), or
+the representation of a Python subclass of the type.
+The choice is made when we register the Java class to either
+the existing ``Representation`` or
+create a new representation for the Python subclass.
+When the type in question is a replaceable type,
+since equivalent types share the same canonical base,
+the Java subclass maps either
+to the ``SharedRepresentation`` of the type(s),or
+to new ``SharedRepresentation`` defining an equivalence.
+
 ..  note::
-    Not sure about the detail of this.
+    The detail of this is gradually being confirmed
+    in the implementation of Python exceptions and sublasses.
     The concept is right,
     but does the canonical base have properties that make it
     always a "designer" class?
@@ -249,7 +262,7 @@ is itself the ``PyType``.
 
     abstract class Representation {
         pythonType(o)
-        javaType()
+        javaClass()
     }
 
     abstract class PyType {
@@ -317,7 +330,7 @@ cites the same ``Representation``.
 
     abstract class Representation {
         pythonType(o)
-        javaType()
+        javaClass()
     }
 
     abstract class PyType {
@@ -325,15 +338,16 @@ cites the same ``Representation``.
         lookup(attr)
     }
 
-    interface WithType {
+    interface WithClassAssignment {
         getType()
+        setType(t)
     }
 
-    T .up.|> WithType
+    T .up.|> WithClassAssignment
     T --> ReplaceableType
 
     SharedRepresentation -up-|> Representation
-    SharedRepresentation "1" -- "*" ReplaceableType
+    SharedRepresentation "1" <-- "*" ReplaceableType
 
     ' Representation <|-- PyType
     PyType --|> Representation
@@ -344,7 +358,7 @@ cites the same ``Representation``.
 Instances of a class defined in Python
 (by a ``class`` statement),
 that have no built-in types in their MRO but ``object``,
-will have the Java class ``PyBaseObject`` for ``T``.
+will have the Java class ``PyObject`` for ``T``.
 In general, ``T`` will be a Java *extension point* subclass of
 the representation of the most-derived common ancestor.
 (The case of mutiple Java bases needs investigation.)
@@ -354,7 +368,8 @@ and what ``__class__`` assignments are allowed.
 We observe that in CPython,
 acceptable values for ``__class__``
 define an equivalence relation amongst Python classes.
-Let :math:`R(A,B)` be the statement ``A.__class__ = B.__class__`` is allowed.
+Let :math:`R(A,B)` be the statement that
+``A.__class__ = B.__class__`` is allowed.
 Then :math:`R(A,A)`,
 :math:`R(A,B) ⇒ R(B,A)`,
 and :math:`R(A,B) ∧ R(B,C) ⇒ R(A,C)`.
@@ -419,7 +434,7 @@ leading to Python type ``type``.
 
     abstract class Representation {
         pythonType(o)
-        javaType()
+        javaClass()
     }
 
     abstract class PyType {

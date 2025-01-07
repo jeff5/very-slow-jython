@@ -7,6 +7,14 @@ plugins {
     id 'jvm-test-suite'
 }
 
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+
 // Our locally-rolled class-generator (generates support for dy3bm)
 import uk.co.farowl.vsj3.generate.evo1.DynamicAPIevo1Task
 

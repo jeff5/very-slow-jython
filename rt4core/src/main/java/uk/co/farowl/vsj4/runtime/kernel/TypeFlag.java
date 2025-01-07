@@ -1,3 +1,5 @@
+// Copyright (c)2024 Jython Developers.
+// Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime.kernel;
 
 /**
@@ -70,6 +72,15 @@ public enum TypeFlag {
     // Compare CPython (undocumented) _Py_TPFLAGS_MATCH_SELF
     MATCH_SELF,
 
+    /**
+     * An instance of this type is a method descriptor, that is, it
+     * supports an optimised call pattern where a {@code self} argument
+     * may be supplied "loose" when calling the method, with the same
+     * meaning as if it were first bound and the bound object called.
+     */
+    // Compare CPython Py_TPFLAGS_METHOD_DESCRIPTOR
+    IS_METHOD_DESCR,
+
     // Not API -------------------------------------------------------
 
     /**
@@ -84,12 +95,6 @@ public enum TypeFlag {
      */
     // No equivalent in CPython
     IS_DATA_DESCR,
-    /**
-     * An instance of this type is a method descriptor (participates in
-     * an optimised call pattern).
-     */
-    // Compare CPython Py_TPFLAGS_METHOD_DESCRIPTOR
-    IS_METHOD_DESCR,
 
     /**
      * The type is ready for use (for publication). Equivalently, it
