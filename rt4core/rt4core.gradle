@@ -121,6 +121,7 @@ def testPythonExampleOutputDir = "$pythonExampleOutput/test"
 
 
 sourceSets {
+
     main {
         java {
             srcDir genJavaDir
@@ -150,14 +151,14 @@ class PythonExec extends Exec {
 
 // Generate Python object definitions
 
-//task generateJava(type: PythonExec,
-//        description: 'Generate object definitions from templates' ) {
-//    args getProject().file('tools/python/java_object_gen.py')
-//    args '--verbose'
-//    args genInputDir
-//    args genJavaDir
-//}
-//classes.dependsOn(generateJava)
+task generateJava(type: PythonExec,
+        description: 'Generate object definitions from templates' ) {
+    args getProject().file('tools/python/java_object_gen.py')
+    args '--verbose'
+    args genInputDir
+    args genJavaDir
+}
+classes.dependsOn(generateJava)
 
 
 // Report the version of Python available
@@ -165,7 +166,7 @@ class PythonExec extends Exec {
 task pythonVersion(type: PythonExec) {
     args '-V'
 }
-//generateJava.dependsOn(pythonVersion)
+generateJava.dependsOn(pythonVersion)
 
 
 // Copy and compile Python source examples to the build tree
