@@ -1,16 +1,17 @@
-// Copyright (c)2024 Jython Developers.
+// Copyright (c)2025 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
 
+import static uk.co.farowl.vsj4.runtime.ClassShorthand.T;
+import static uk.co.farowl.vsj4.runtime.ClassShorthand.TUPLE;
+
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
-import java.lang.reflect.Constructor;
 import java.util.Map;
 import java.util.StringJoiner;
 
 import uk.co.farowl.vsj4.runtime.Exposed.KeywordCollector;
 import uk.co.farowl.vsj4.runtime.Exposed.PositionalCollector;
-import uk.co.farowl.vsj4.support.MissingFeature;
 
 /**
  * The Python {@code BaseException} and many common Python exceptions
@@ -38,7 +39,7 @@ import uk.co.farowl.vsj4.support.MissingFeature;
  */
 // Compare CPython PyBaseExceptionObject in pyerrors.c
 public class PyBaseException extends RuntimeException
-        implements WithClassAssignment, WithDict, ClassShorthand {
+        implements WithClassAssignment, WithDict {
     private static final long serialVersionUID = 1L;
 
     /** The type object of Python {@code BaseException} exceptions. */
@@ -173,12 +174,8 @@ public class PyBaseException extends RuntimeException
             // Look up a constructor with the right parameters
             MethodHandle cons = cls.constructor(T, TUPLE).handle();
             return cons.invokeExact(cls, args);
-        } catch (PyBaseException e) {
-            // Usually signals no matching constructor
-            throw e;
         } catch (Throwable e) {
-            // Failed while finding/invoking constructor
-            throw constructionError(cls, e);
+            throw PyUtil.cannotConstructInstance(cls, TYPE, e);
         }
     }
 
@@ -225,25 +222,4 @@ public class PyBaseException extends RuntimeException
 
     // plumbing -------------------------------------------------------
 
-    /**
-     * Return a {@code TypeError} with a message along the lines "Cannot
-     * construct a 'C' in T.__new__" where C is the requested type and T
-     * is the type defining the {@code __new__} method that has been
-     * asked to create an instance of C. This is intended for use at the
-     * point where the Java constructor corresponding to the required
-     * type C is called reflectively. The cause of the error will be the
-     * Java exception actually thrown.
-     *
-     * @param cls the class to create
-     * @param e the Java exception
-     * @return the exception to throw
-     */
-    protected static PyBaseException constructionError(PyType cls,
-            Throwable e) {
-        PyBaseException err = PyErr.format(PyExc.TypeError,
-                "Cannot construct a '%s' in %s.__new__", cls.getName(),
-                TYPE.getName());
-        err.initCause(e);
-        return err;
-    }
 }

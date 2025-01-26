@@ -1,4 +1,4 @@
-// Copyright (c)2024 Jython Developers.
+// Copyright (c)2025 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime.kernel;
 
@@ -26,15 +26,14 @@ public interface TypeExposer {
      */
     void exposeMethods(Class<?> methodClass);
 
-    /**
-     * Gather methods and fields (including getters and setters of
-     * fields, and fields annotated as members) from the specified class
-     * and its ancestor classes. Definitions (a precursor of Python
-     * descriptors) accumulate in the exposer.
-     *
-     * @param implClass to scan for definitions
-     */
-    void exposeRecursive(Class<?> implClass);
+    ///**
+    // * Gather members (fields exposed as Python attributes) from the
+    // * specified class. Definitions (a precursor of Python
+    // * descriptors) accumulate in the exposer.
+    // *
+    // * @param memberClass to scan for definitions
+    // */
+    //void exposeMembers(Class<?> memberClass);
 
     /**
      * For each name having a definition in this {@code TypeExposer}

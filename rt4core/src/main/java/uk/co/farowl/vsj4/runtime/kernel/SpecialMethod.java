@@ -272,7 +272,7 @@ public enum SpecialMethod {
      * {@link Signature#TERNARY} like {@link #op_pow} since only an
      * infix operation can be reflected).
      */
-    op_rpow(Signature.TERNARY, // unexplored territory
+    op_rpow(Signature.BINARY, // unexplored territory
             "($self, value, mod=None, /) Return pow(value, self, mod)."),
     /**
      * Defines {@code __pow__} with signature {@link Signature#TERNARY},

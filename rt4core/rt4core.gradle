@@ -158,7 +158,7 @@ task generateJava(type: PythonExec,
     args genInputDir
     args genJavaDir
 }
-classes.dependsOn(generateJava)
+compileJava.dependsOn(generateJava)
 
 
 // Report the version of Python available

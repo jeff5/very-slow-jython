@@ -1,10 +1,12 @@
-// Copyright (c)2024 Jython Developers.
+// Copyright (c)2025 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
 
 import static java.math.BigInteger.ONE;
 import static java.math.BigInteger.ZERO;
+import static uk.co.farowl.vsj4.runtime.ClassShorthand.T;
 
+import java.lang.invoke.MethodHandle;
 import java.math.BigInteger;
 
 import uk.co.farowl.vsj4.runtime.Exposed.Default;
@@ -14,15 +16,33 @@ import uk.co.farowl.vsj4.runtime.Exposed.PythonNewMethod;
 import uk.co.farowl.vsj4.runtime.PyUtil.NoConversion;
 import uk.co.farowl.vsj4.runtime.kernel.Representation;
 import uk.co.farowl.vsj4.runtime.kernel.SpecialMethod;
-import uk.co.farowl.vsj4.support.MissingFeature;
 import uk.co.farowl.vsj4.support.internal.EmptyException;
 
-/** Placeholder until implemented. */
-// FIXME implement me
-public class PyLong implements WithClass {
+/**
+ * A Python {@code int} object may be represented by a
+ * {@code java.lang.Integer} or a {@code java.math.BigInteger}. An
+ * instance of a Python sub-class of {@code int}, must be represented by
+ * an instance of (a Java sub-class of) this class.
+ */
+// TODO: adopt some more types of int
+// TODO: implement PyDict.Key
+public class PyLong implements /* PyDict.Key, */ WithClass {
     /** The type {@code int}. */
     // Bootstrap type so ask the type system to resolve it.
     public static final PyType TYPE = PyType.of(42);
+
+    /** The minimum Java {@code int} as a {@code BigInteger}. */
+    static final BigInteger MIN_INT =
+            BigInteger.valueOf(Integer.MIN_VALUE);
+    /** The maximum Java {@code int} as a {@code BigInteger}. */
+    static final BigInteger MAX_INT =
+            BigInteger.valueOf(Integer.MAX_VALUE);
+    /** The minimum Java {@code long} as a {@code BigInteger}. */
+    static final BigInteger MIN_LONG =
+            BigInteger.valueOf(Long.MIN_VALUE);
+    /** The maximum Java {@code long} as a {@code BigInteger}. */
+    static final BigInteger MAX_LONG =
+            BigInteger.valueOf(Long.MAX_VALUE);
 
     /** The value of this Python {@code int} (sub-class instances). */
     // Has to be package visible for method implementations to see.
@@ -37,6 +57,22 @@ public class PyLong implements WithClass {
 
     @Override
     public PyType getType() { return TYPE; }
+
+    // Instance methods on PyLong -------------------------------------
+
+    @Override
+    public String toString() { return PyUtil.defaultToString(this); }
+
+    // @Override
+    // public boolean equals(Object obj) {
+    // return PyDict.pythonEquals(this, obj);
+    // }
+    //
+    // @Override
+    // public int hashCode() throws PyException {
+    // // XXX or return value.hashCode() if not a sub-class?
+    // return PyDict.pythonHash(this);
+    // }
 
     // Constructor from Python ----------------------------------------
 
@@ -73,8 +109,19 @@ public class PyLong implements WithClass {
             return v;
         else
             // TODO Support subclass constructor
-            throw new MissingFeature("subclasses in __new__");
         // return new PyLong.Derived(cls, PyLong.asBigInteger(v));
+        /*
+         * We need an instance of a Python subclass C, which means
+         * creating an instance of C's Java representation.
+         */
+        try {
+            // Look up a constructor with the right parameters
+            MethodHandle cons =
+                    cls.constructor(T, BigInteger.class).handle();
+            return cons.invokeExact(cls, asBigInteger(v));
+        } catch (Throwable e) {
+            throw PyUtil.cannotConstructInstance(cls, TYPE, e);
+        }
     }
 
     // Special methods ------------------------------------------------
@@ -128,6 +175,129 @@ public class PyLong implements WithClass {
 
     private static final String NON_STR_EXPLICIT_BASE =
             "int() can't convert non-string with explicit base";
+
+
+    // int methods ----------------------------------------------------
+
+    // TODO: implement __format__ and (revised) stringlib
+    // @PythonMethod
+    // static final Object __format__(Object self, Object formatSpec) {
+    //
+    // String stringFormatSpec = PyUnicode.asString(formatSpec,
+    // o -> Abstract.argumentTypeError("__format__",
+    // "specification", "str", o));
+    //
+    // try {
+    // // Parse the specification
+    // Spec spec = InternalFormat.fromText(stringFormatSpec);
+    //
+    // // Get a formatter for the specification
+    // AbstractFormatter f;
+    // if ("efgEFG%".indexOf(spec.type) >= 0) {
+    // // These are floating-point formats
+    // f = new PyFloat.Formatter(spec);
+    // } else {
+    // f = new PyLong.Formatter(spec);
+    // }
+    //
+    // /*
+    // * Format, pad and return a result according to as the
+    // * specification argument.
+    // */
+    // return f.format(self).pad().getResult();
+    //
+    // } catch (FormatOverflow fe) {
+    // throw new OverflowError(fe.getMessage());
+    // } catch (FormatError fe) {
+    // throw new ValueError(fe.getMessage());
+    // } catch (NoConversion e) {
+    // throw Abstract.impossibleArgumentError(TYPE.name, self);
+    // }
+    // }
+
+    // formatter ------------------------------------------------------
+
+    // TODO: implement __format__ and (revised) stringlib
+    /// **
+    // * An {@link IntegerFormatter}, constructed from a {@link Spec},
+    // * with validations customised for {@code int.__format__}.
+    // */
+    // private static class Formatter extends IntegerFormatter {
+    //
+    // /**
+    // * Prepare an {@link IntegerFormatter} in support of
+    // * {@link PyLong#__format__(Object, Object) int.__format__}.
+    // *
+    // * @param spec a parsed PEP-3101 format specification.
+    // * @return a formatter ready to use.
+    // * @throws FormatOverflow if a value is out of range (including
+    // * the precision)
+    // * @throws FormatError if an unsupported format character is
+    // * encountered
+    // */
+    // Formatter(Spec spec) throws FormatError {
+    // super(validated(spec));
+    // }
+    //
+    /// **
+    // * Validations and defaults specific to {@code int.__format__}.
+    // * (Note that {@code int.__mod__} has slightly different rules.)
+    // *
+    // * @param spec to validate
+    // * @return validated spec with defaults filled
+    // * @throws FormatError on failure to validate
+    // */
+    // private static Spec validated(Spec spec) throws FormatError {
+    // String type = TYPE.name;
+    // switch (spec.type) {
+    //
+    // case 'c':
+    //// Character data: specific prohibitions.
+    // if (Spec.specified(spec.sign)) {
+    // throw signNotAllowed("integer", spec.type);
+    // } else if (spec.alternate) {
+    // throw alternateFormNotAllowed("integer",
+    // spec.type);
+    // }
+    //// $FALL-THROUGH$
+    //
+    // case 'x':
+    // case 'X':
+    // case 'o':
+    // case 'b':
+    // case 'n':
+    // if (spec.grouping) {
+    // throw notAllowed("Grouping", ',', "integer",
+    // spec.type);
+    // }
+    //// $FALL-THROUGH$
+    //
+    // case Spec.NONE:
+    // case 'd':
+    //// Check for disallowed parts of the specification
+    // if (Spec.specified(spec.precision)) {
+    // throw precisionNotAllowed("integer");
+    // }
+    // break;
+    //
+    // default:
+    // // The type code was not recognised
+    // throw unknownFormat(spec.type, type);
+    // }
+    //
+    /// *
+    // * spec may be incomplete. The defaults are those commonly
+    // * used for numeric formats.
+    // */
+    // return spec.withDefaults(Spec.NUMERIC);
+    // }
+    //
+    // @Override
+    // public IntegerFormatter format(Object o)
+    // throws NoConversion, FormatError {
+    // return format(convertToBigInteger(o));
+    // }
+    // }
 
     // Representations of the value -----------------------------------
 

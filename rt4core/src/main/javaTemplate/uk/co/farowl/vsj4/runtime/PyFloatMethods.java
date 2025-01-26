@@ -13,20 +13,20 @@ import static uk.co.farowl.vsj4.runtime.PyFloat.divmod;
 /**
  * This class contains static methods implementing operations on the
  * Python {@code float} object, supplementary to those defined in
- * {@link PyFloat}.
- * <p>
- * These methods may cause creation of descriptors in the dictionary of
- * the type. Those with reserved names in the data model will also fill
- * slots in the {@code Operations} object for the type.
- * <p>
- * Implementations of binary operations defined here will have
- * {@code Object} as their second argument, and should return
- * {@link Py#NotImplemented} when the type in that position is not
- * supported.
+ * {@link PyFloat}, and used internally by the run-time system. The
+ * class is {@code public} only for technical reasons.
  */
-class PyFloatMethods {
-
-    PyFloatMethods() {}  // no instances
+public class PyFloatMethods {
+    /*
+     * These methods may cause creation of descriptors in the dictionary
+     * of the type. Those with reserved names in the data model will
+     * also contribute to the definition of special methods in the type.
+     * 
+     * Implementations of binary operations defined here will have
+     * Object as their second argument, and should return
+     * NotImplemented} when the type in that position is not supported.
+     */
+    private PyFloatMethods() {}  // no instances
 
     // $SPECIAL_METHODS$ ---------------------------------------------
 

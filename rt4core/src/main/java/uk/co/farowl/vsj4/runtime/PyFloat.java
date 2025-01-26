@@ -1,12 +1,17 @@
-// Copyright (c)2024 Jython Developers.
+// Copyright (c)2025 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
 
+import static uk.co.farowl.vsj4.runtime.ClassShorthand.T;
+import static uk.co.farowl.vsj4.runtime.PyFloatMethods.toDouble;
+
+import java.lang.invoke.MethodHandle;
 import java.math.BigInteger;
 
 import uk.co.farowl.vsj4.runtime.PyUtil.NoConversion;
 import uk.co.farowl.vsj4.runtime.kernel.Representation;
 import uk.co.farowl.vsj4.runtime.kernel.SpecialMethod;
+import uk.co.farowl.vsj4.support.InterpreterError;
 import uk.co.farowl.vsj4.support.internal.EmptyException;
 
 /**
@@ -112,7 +117,239 @@ public class PyFloat implements WithClass {
         }
     }
 
+    // Constructor from Python ----------------------------------------
+
+    /**
+     * Create a new instance of Python {@code float}, or of a subclass.
+     *
+     * @param cls actual Python sub-class being created
+     * @param x the value
+     * @return object with that type and value
+     */
+    @Exposed.PythonNewMethod
+    public static Object __new__(PyType cls, double x) {
+        /*
+         * We normally arrive here from PyType.__call__, where this/self
+         * is the the type we're asked to construct, and gets passed
+         * here as the 'cls' argument.
+         */
+        if (cls == TYPE) {
+            // A basic float can be represented by a java.lang.Double
+            return Double.valueOf(x);
+
+        } else {
+            /*
+             * We need an instance of a Python subclass C, which means
+             * creating an instance of C's Java representation.
+             */
+            try {
+                // Look up a constructor with the right parameters
+                MethodHandle cons =
+                        cls.constructor(T, double.class).handle();
+                return cons.invokeExact(cls, x);
+            } catch (Throwable e) {
+                throw PyUtil.cannotConstructInstance(cls, TYPE, e);
+            }
+        }
+    }
+
     // special methods -----------------------------------------------
+
+    // TODO: implement __format__ and (revised) stringlib
+    // @SuppressWarnings("unused")
+    // private static String __repr__(Object self) {
+    // assert TYPE.check(self);
+    // return formatDouble(doubleValue(self), SPEC_REPR);
+    // }
+    //
+    /// ** Format specification used by repr(). */
+    // private static final Spec SPEC_REPR = InternalFormat.fromText("
+    // >r");
+
+    // __str__: let object.__str__ handle it (calls __repr__)
+
+    static Object __pow__(Object left, Object right, Object modulus) {
+        try {
+            if (modulus == null || modulus == Py.None) {
+                return pow(toDouble(left), toDouble(right));
+            } else {
+                // Note that we also call __pow__ from PyLong.__pow__
+                throw PyErr.format(PyExc.TypeError, POW_3RD_ARGUMENT);
+            }
+        } catch (NoConversion e) {
+            return Py.NotImplemented;
+        }
+    }
+
+    static Object __rpow__(Object right, Object left) {
+        try {
+            return pow(toDouble(left), toDouble(right));
+        } catch (NoConversion e) {
+            return Py.NotImplemented;
+        }
+    }
+
+    private static final String POW_3RD_ARGUMENT =
+            "pow() 3rd argument not allowed "
+                    + "unless all arguments are integers";
+
+    // float methods ------------------------------------------------
+
+    // TODO: implement __format__ and (revised) stringlib
+    // @PythonMethod
+    // static final Object __format__(Object self, Object formatSpec) {
+    //
+    // String stringFormatSpec = PyUnicode.asString(formatSpec,
+    // o -> Abstract.argumentTypeError("__format__",
+    // "specification", "str", o));
+    //
+    // try {
+    // // Parse the specification
+    // Spec spec = InternalFormat.fromText(stringFormatSpec);
+    //
+    // // Get a formatter for the specification
+    // Formatter f = new Formatter(spec);
+    //
+    // /*
+    // * Format, pad and return a result according to as the
+    // * specification argument.
+    // */
+    // return f.format(self).pad().getResult();
+    //
+    // } catch (FormatOverflow fe) {
+    // throw PyErr.format(PyExc.OverflowError, fe.getMessage());
+    // } catch (FormatError fe) {
+    // throw PyErr.format(PyExc.ValueError, fe.getMessage());
+    // } catch (NoConversion e) {
+    // throw Abstract.impossibleArgumentError(TYPE.name, self);
+    // }
+    // }
+    //
+    /// **
+    // * Format this float according to the specification passed in.
+    // * Supports {@code __format__}, {@code __str__} and
+    // * {@code __repr__}.
+    // *
+    // * @param value to format
+    // * @param spec parsed format specification string
+    // * @return formatted value
+    // */
+    // private static String formatDouble(double value, Spec spec) {
+    // try {
+    // FloatFormatter f = new Formatter(spec, true);
+    // return f.format(value).getResult();
+    // } catch (FormatOverflow fe) {
+    // throw PyErr.format(PyExc.OverflowError, fe.getMessage());
+    // } catch (FormatError fe) {
+    // throw PyErr.format(PyExc.ValueError, fe.getMessage());
+    // }
+    // }
+
+    // formatter ------------------------------------------------------
+
+    // TODO: implement __format__ and (revised) stringlib
+    /// **
+    // * A {@link Formatter}, constructed from a {@link Spec}, with
+    // * specific validations for {@code int.__format__}.
+    // */
+    // static class Formatter extends FloatFormatter {
+    //
+    // /**
+    // * If {@code true}, give {@code printf}-style meanings to
+    // * {@link Spec#type}.
+    // */
+    // final boolean printf;
+    //
+    // /**
+    // * Prepare a {@link Formatter} in support of
+    // * {@code str.__mod__}, that is, traditional
+    // * {@code printf}-style formatting.
+    // *
+    // * @param spec a parsed format specification.
+    // * @param printf f {@code true}, interpret {@code spec}
+    // * {@code printf}-style, otherwise as
+    // * {@link Formatter#Formatter(Spec) Formatter(Spec)}
+    // * @throws FormatOverflow if a value is out of range (including
+    // * the precision)
+    // * @throws FormatError if an unsupported format character is
+    // * encountered
+    // */
+    // Formatter(Spec spec, boolean printf) throws FormatError {
+    // super(validated(spec, printf));
+    // this.printf = printf;
+    // }
+    //
+    // /**
+    // * Prepare a {@link Formatter} in support of
+    // * {@link PyFloat#__format__(Object, Object) float.__format__}.
+    // *
+    // * @param spec a parsed PEP-3101 format specification.
+    // * @throws FormatOverflow if a value is out of range (including
+    // * the precision)
+    // * @throws FormatError if an unsupported format character is
+    // * encountered
+    // */
+    // Formatter(Spec spec) throws FormatError {
+    // this(spec, false);
+    // }
+    //
+    // /**
+    // * Validations and defaults specific to {@code float}.
+    // *
+    // * @param spec to validate
+    // * @return validated spec with defaults filled
+    // * @throws FormatError on failure to validate
+    // */
+    // private static Spec validated(Spec spec, boolean printf)
+    // throws FormatError {
+    // String type = TYPE.name;
+    //
+    // switch (spec.type) {
+    //
+    // case 'n':
+    // if (spec.grouping) {
+    // throw notAllowed("Grouping", type, spec.type);
+    // }
+    // //$FALL-THROUGH$
+    //
+    // case Spec.NONE:
+    // case 'e':
+    // case 'f':
+    // case 'g':
+    // case 'E':
+    // case 'F':
+    // case 'G':
+    // case '%':
+    // // Check for disallowed parts of the specification
+    // if (spec.alternate) {
+    // throw alternateFormNotAllowed(type);
+    // }
+    // break;
+    //
+    // case 'r':
+    // case 's':
+    // // Only allow for printf-style formatting
+    // if (printf) { break; }
+    // //$FALL-THROUGH$
+    //
+    // default:
+    // // The type code was not recognised
+    // throw unknownFormat(spec.type, type);
+    // }
+    //
+    // /*
+    // * spec may be incomplete. The defaults are those commonly
+    // * used for numeric formats.
+    // */
+    // return spec.withDefaults(Spec.NUMERIC);
+    // }
+    //
+    // @Override
+    // public FloatFormatter format(Object o)
+    // throws NoConversion, FormatError {
+    // return format(convertToDouble(o));
+    // }
+    // }
 
     // plumbing -------------------------------------------------------
 
@@ -234,4 +471,190 @@ public class PyFloat implements WithClass {
 
     private static final String CANNOT_CONVERT =
             "cannot convert float %s to %s";
+
+    /**
+     * Exponentiation with Python semantics.
+     *
+     * @param v base value
+     * @param w exponent
+     * @return {@code v ** w}
+     */
+    static double pow(double v, double w) {
+        /*
+         * This code was translated from the CPython implementation at
+         * v2.7.8 by progressively removing cases that could be
+         * delegated to Java. Jython differs from CPython in that where
+         * C pow() overflows, Java pow() returns inf (observed on
+         * Windows). This is not subject to regression tests, so we take
+         * it as an allowable platform dependency. All other differences
+         * in Java Math.pow() are trapped below and Python behaviour is
+         * enforced.
+         */
+        if (w == 0) {
+            // v**0 is 1, even 0**0
+            return 1.0;
+
+        } else if (Double.isNaN(v)) {
+            // nan**w = nan, unless w == 0
+            return Double.NaN;
+
+        } else if (Double.isNaN(w)) {
+            // v**nan = nan, unless v == 1; 1**nan = 1
+            return v == 1.0 ? v : Double.NaN;
+
+        } else if (Double.isInfinite(w)) {
+            /*
+             * In Java Math pow(1,inf) = pow(-1,inf) = pow(1,-inf) =
+             * pow(-1,-inf) = nan, but in Python they are all 1.
+             */
+            if (v == 1.0 || v == -1.0) { return 1.0; }
+
+        } else if (v == 0.0) {
+            // 0**w is an error if w is negative.
+            if (w < 0.0) {
+                throw PyErr.format(PyExc.ZeroDivisionError,
+                        "0.0 cannot be raised to a negative power");
+            }
+
+        } else if (!Double.isInfinite(v) && v < 0.0) {
+            if (w != Math.floor(w)) {
+                throw PyErr.format(PyExc.ValueError,
+                        "negative number cannot be raised to a fractional power");
+            }
+        }
+
+        // In all other cases we can entrust the calculation to Java.
+        return Math.pow(v, w);
+    }
+
+    /** Used as error message text for division by zero. */
+    static final String DIV_ZERO = "float division by zero";
+    /** Used as error message text for modulo zero. */
+    static final String MOD_ZERO = "float modulo zero";
+
+    /**
+     * Convenience function to throw a {@link ZeroDivisionError} if the
+     * argument is zero. (Java float arithmetic does not throw whatever
+     * the arguments.)
+     *
+     * @param v value to check is not zero
+     * @param msg for exception if {@code v==0.0}
+     * @return {@code v}
+     */
+    static double nonzero(double v, String msg) {
+        if (v == 0.0) {
+            throw PyErr.format(PyExc.ZeroDivisionError, msg);
+        }
+        return v;
+    }
+
+    /**
+     * Convenience function to throw a {@link ZeroDivisionError} if the
+     * argument is zero. (Java float arithmetic does not throw whatever
+     * the arguments.)
+     *
+     * @param v value to check is not zero
+     * @return {@code v}
+     */
+    static double nonzero(double v) {
+        if (v == 0.0) {
+            throw PyErr.format(PyExc.ZeroDivisionError, DIV_ZERO);
+        }
+        return v;
+    }
+
+    /**
+     * Test that two {@code double}s have the same sign.
+     *
+     * @param u a double
+     * @param v another double
+     * @return if signs equal (works for signed zeros, etc.)
+     */
+    private static boolean sameSign(double u, double v) {
+        long uBits = Double.doubleToRawLongBits(u);
+        long vBits = Double.doubleToRawLongBits(v);
+        return ((uBits ^ vBits) & SIGN) == 0L;
+    }
+
+    /**
+     * Inner method for {@code __floordiv__} and {@code __rfloordiv__}.
+     *
+     * @param x operand
+     * @param y operand
+     * @return {@code x//y}
+     */
+    static final double floordiv(double x, double y) {
+        // Java and Python agree a lot of the time (after floor()).
+        // Also, Java / never throws: it just returns nan or inf.
+        // So we ask Java first, then adjust the answer.
+        double z = x / y;
+        if (Double.isFinite(z)) {
+            // Finite result: only need floor ...
+            if (Double.isInfinite(y) && x != 0.0 && !sameSign(x, y))
+                // ... except in this messy corner case :(
+                return -1.;
+            return Math.floor(z);
+        } else {
+            // Non-finite result: Java & Python differ
+            if (y == 0.) {
+                throw PyErr.format(PyExc.ZeroDivisionError, DIV_ZERO);
+            } else {
+                return Double.NaN;
+            }
+        }
+    }
+
+    /**
+     * Inner method for {@code __mod__} and {@code __rmod__}.
+     *
+     * @param x operand
+     * @param y operand
+     * @return {@code x%y}
+     */
+    static final double mod(double x, double y) {
+        // Java and Python agree a lot of the time.
+        // Also, Java % never throws: it just returns nan.
+        // So we ask Java first, then adjust the answer.
+        double z = x % y;
+        if (Double.isNaN(z)) {
+            if (y == 0.) {
+                throw PyErr.format(PyExc.ZeroDivisionError, MOD_ZERO);
+            }
+            // Otherwise nan is fine
+        } else if (!sameSign(z, y)) {
+            // z is finite (and x), but only correct if signs match
+            if (z == 0.) {
+                z = Math.copySign(z, y);
+            } else {
+                z = z + y;
+            }
+        }
+        return z;
+    }
+
+    /**
+     * Inner method for {@code __divmod__} and {@code __rdivmod__}.
+     *
+     * @param x operand
+     * @param y operand
+     * @return {@code tuple} of {@code (x//y, x%y)}
+     */
+    static final PyTuple divmod(double x, double y) {
+        // Possibly not the most efficient
+        return new PyTuple(floordiv(x, y), mod(x, y));
+    }
+
+    /**
+     * We received an argument that should be impossible in a correct
+     * interpreter. We use this when conversion of an
+     * {@code Object self} argument may theoretically fail, but we know
+     * that we should only reach that point by paths that guarantee
+     * {@code self`} to be some kind on {@code float}.
+     *
+     * @param o actual argument
+     * @return exception to throw
+     */
+    private static InterpreterError impossible(Object o) {
+        return Abstract.impossibleArgumentError("float", o);
+    }
 }

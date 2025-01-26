@@ -1,8 +1,9 @@
-// Copyright (c)2024 Jython Developers.
+// Copyright (c)2025 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
 
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.function.Function;
 
 import uk.co.farowl.vsj4.runtime.PyUtil.NoConversion;
@@ -108,6 +109,38 @@ public class PyUnicode extends TypedPyObject {
         // else if (v instanceof PyUnicode)
         // return ((PyUnicode)v).asString();
         throw PyUtil.NO_CONVERSION;
+    }
+
+    // PLACEHOLDERS to satisfy linkage -------------------------------
+    /** Placeholder. */
+    public class CodepointDelegate implements Iterable<Integer> {
+        // TODO Auto-generatedstub
+        @Override
+        public Iterator<Integer> iterator() {
+            // TODO Auto-generated method stub
+            return null;
+        }
+
+        public Object length() {
+            // TODO Auto-generated method stub
+            return null;
+        }
+
+        public int compareTo(CodepointDelegate adapt) {
+            // TODO Auto-generated method stub
+            return 0;
+        }
+    }
+
+    /** Placeholder. */
+    static CodepointDelegate adapt(Object v) throws NoConversion {
+        throw PyUtil.NO_CONVERSION;
+    }
+
+    /** Placeholder. */
+    public CodepointDelegate adapt() {
+        // TODO Auto-generated method stub
+        return null;
     }
 
 }

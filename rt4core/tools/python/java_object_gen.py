@@ -1,5 +1,8 @@
 # tools/python/java_object_gen.py Emit Java
 #
+# Copyright (c)2025 Jython Developers.
+# Licensed to PSF under a contributor agreement.
+#
 # This is a tool used from the rt4core.gradle build file to generate
 # object implementation methods, such as __neg__ and __rsub__, in Java.
 # It processes Java files looking for a few simple markers, which it

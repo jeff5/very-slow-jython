@@ -1,10 +1,14 @@
-// Copyright (c)2024 Jython Developers.
+// Copyright (c)2025 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.support;
 
 /**
  * Some shorthands used to construct method signatures,
- * {@code MethodType}s, etc..
+ * {@code MethodType}s, etc.. Clients can access the constants by
+ * implementing the interface (slightly frowned upon in public code), or
+ * paste this into their imports section: <pre>
+import static uk.co.farowl.vsj4.support.JavaClassShorthand.*;
+ *</pre>
  */
 public interface JavaClassShorthand {
     /** Shorthand for {@code Object.class}. */

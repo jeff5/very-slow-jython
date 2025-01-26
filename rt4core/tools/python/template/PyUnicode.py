@@ -1,6 +1,6 @@
 # PyUnicode.py: A generator for Java files that define the Python str
 
-# Copyright (c)2021 Jython Developers.
+# Copyright (c)2025 Jython Developers.
 # Licensed to PSF under a contributor agreement.
 
 # This generator writes PyUnicodeMethods.java and PyUnicodeBinops.java .

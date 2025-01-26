@@ -1,4 +1,4 @@
-// Copyright (c)2024 Jython Developers.
+// Copyright (c)2025 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
 
@@ -72,15 +72,11 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
         scanJavaMethods(methodClass);
     }
 
-    @Override
-    public void exposeRecursive(Class<?> implClass) {
-        // Scan the defining class for exposed and special methods
-        for (Class<?> c : superClasses(implClass)) {
-            scanJavaMethods(c);
-            // ... and for fields.
-            // scanJavaFields(c);
-        }
-    }
+    //@Override
+    //public void exposeMembers(Class<?> memberClass) {
+    //    // Scan the defining class for exposed fields
+    //    scanJavaFields(memberClass);
+    //}
 
     @Override
     public void populate(Map<? super String, Object> dict,

@@ -1,4 +1,4 @@
-// Copyright (c)2024 Jython Developers.
+// Copyright (c)2025 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
 
@@ -6,7 +6,11 @@ import uk.co.farowl.vsj4.support.JavaClassShorthand;
 
 /**
  * Some shorthands used to construct method signatures of runtime
- * methods, {@code MethodType}s, etc..
+ * methods, {@code MethodType}s, etc.. Clients can access the constants
+ * by implementing the interface (slightly frowned upon in public code),
+ * or paste this into their imports section: <pre>
+import static uk.co.farowl.vsj4.runtime.ClassShorthand.*;
+ *</pre>
  */
 public interface ClassShorthand extends JavaClassShorthand {
     /** Shorthand for {@code PyType.class}. */

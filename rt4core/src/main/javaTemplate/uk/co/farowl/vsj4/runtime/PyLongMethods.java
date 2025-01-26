@@ -13,19 +13,19 @@ import uk.co.farowl.vsj4.runtime.PyUtil.NoConversion;
 /**
  * This class contains static methods implementing operations on the
  * Python {@code int} object, supplementary to those defined in
- * {@link PyLong}.
- * <p>
- * These methods may cause creation of descriptors in the dictionary of
- * the type. Those with reserved names in the data model will also fill
- * slots in the {@code Operations} object for the type.
- * <p>
- * Implementations of binary operations defined here will have
- * {@code Object} as their second argument, and should return
- * {@link Py#NotImplemented} when the type in that position is not
- * supported.
+ * {@link PyLong}, and used internally by the run-time system.
+ * The class is {@code public} only for technical reasons.
  */
-class PyLongMethods {
-
+public class PyLongMethods {
+    /*
+     * These methods may cause creation of descriptors in the dictionary
+     * of the type. Those with reserved names in the data model will
+     * also contribute to the definition of special methods in the type.
+     * 
+     * Implementations of binary operations defined here will have
+     * Object as their second argument, and should return
+     * NotImplemented} when the type in that position is not supported.
+     */
     private PyLongMethods() {}  // no instances
 
     // $SPECIAL_METHODS$ ---------------------------------------------
@@ -170,13 +170,13 @@ class PyLongMethods {
     private static BigInteger toBig(Object v) throws NoConversion {
         // Check against supported types, most likely first
         if (v instanceof Integer)
-            return BigInteger.valueOf(((Integer) v).longValue());
+            return BigInteger.valueOf(((Integer)v).longValue());
         else if (v instanceof BigInteger)
-            return (BigInteger) v;
+            return (BigInteger)v;
         else if (v instanceof PyLong)
-            return ((PyLong) v).value;
+            return ((PyLong)v).value;
         else if (v instanceof Boolean)
-            return (Boolean) v ? ONE : ZERO;
+            return (Boolean)v ? ONE : ZERO;
 
         throw PyUtil.NO_CONVERSION;
     }
@@ -194,8 +194,8 @@ class PyLongMethods {
          * Implementation note: r.intValueExact() is for exactly this
          * purpose, but building the ArithmeticException is a huge cost.
          * (2900ns is added to a 100ns __add__.) The compiler (as tested
-         * in JDK 11.0.9) doesn't recognise that it can be optimised
-         * to a jump. This version of toInt() adds around 5ns.
+         * in JDK 11.0.9) doesn't recognise that it can be optimised to
+         * a jump. This version of toInt() adds around 5ns.
          */
         if (r.bitLength() < 32)
             return r.intValue();
