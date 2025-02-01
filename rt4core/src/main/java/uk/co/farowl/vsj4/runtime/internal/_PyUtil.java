@@ -2,6 +2,9 @@
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime.internal;
 
+import java.util.Map;
+import java.util.StringJoiner;
+
 import uk.co.farowl.vsj4.runtime.Abstract;
 import uk.co.farowl.vsj4.runtime.ArgumentError;
 import uk.co.farowl.vsj4.runtime.FastCall;
@@ -20,6 +23,26 @@ import uk.co.farowl.vsj4.support.internal.Util;
  * package.) It's the unpresentable cousin of {@link PyUtil}.
  */
 public class _PyUtil {
+
+    /**
+     * An implementation of {@code dict.__repr__} that may be applied to
+     * any Java {@code Map} between {@code Object}s, in which keys and
+     * values are represented as with {@code repr()}.
+     *
+     * @param map to be reproduced
+     * @return a string like <code>{'a': 2, 'b': 3}</code>
+     * @throws Throwable from the {@code repr()} implementation
+     */
+    public static String mapRepr(Map<? extends Object, ?> map)
+            throws Throwable {
+        StringJoiner sj = new StringJoiner(", ", "{", "}");
+        for (Map.Entry<? extends Object, ?> e : map.entrySet()) {
+            String key = Abstract.repr(e.getKey()).toString();
+            String value = Abstract.repr(e.getValue()).toString();
+            sj.add(key + ": " + value);
+        }
+        return sj.toString();
+    }
 
     /**
      * A string along the lines "T object at 0xhhh", where T is the type
