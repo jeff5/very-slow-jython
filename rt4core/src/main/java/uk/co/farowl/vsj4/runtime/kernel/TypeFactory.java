@@ -27,6 +27,7 @@ import uk.co.farowl.vsj4.runtime.PyLong;
 import uk.co.farowl.vsj4.runtime.PyLongMethods;
 import uk.co.farowl.vsj4.runtime.PyType;
 import uk.co.farowl.vsj4.runtime.PyUnicode;
+import uk.co.farowl.vsj4.runtime.PyUnicodeMethods;
 import uk.co.farowl.vsj4.runtime.TypeSpec;
 import uk.co.farowl.vsj4.runtime.WithClass;
 import uk.co.farowl.vsj4.runtime.kernel.Representation.Shared;
@@ -506,6 +507,7 @@ public class TypeFactory {
                         .adopt(BigInteger.class, Integer.class)
                         .accept(Boolean.class),
                 new BootstrapSpec("str", PyUnicode.class)
+                        .methodImpls(PyUnicodeMethods.class)
                         .adopt(String.class),
                 new BootstrapSpec("float", PyFloat.class)
                         .methodImpls(PyFloatMethods.class)
@@ -1081,7 +1083,13 @@ public class TypeFactory {
      */
     private class BootstrapSpec extends TypeSpec {
         /**
-         * Create a specification using name and primary class.
+         * Create a specification using name and primary class. The
+         * lookup object used to expose methods will be a generic one
+         * supplied by the run-time package, that does not have access
+         * to {@code private} members of the {@code primary} class. For
+         * this reason, the special and other exposed methods of a
+         * bootstrap type must be visible at package scope in the
+         * run-time package.
          *
          * @param name of type
          * @param primary used to represent and define methods

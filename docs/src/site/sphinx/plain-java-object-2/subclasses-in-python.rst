@@ -237,7 +237,8 @@ distinct from the ``BaseException`` clique:
         UBE().__class__ = TE
     TypeError: __class__ assignment: 'TE' object layout differs from 'UBE'
 
-The differing "layout", in these error messages, for us means Java class.
+The "layout" mentioned in these error messages
+means a different Java class in our implementation.
 So the Java representation of ``UBE`` is the same as ``NE``,
 but different from ``TE``, ``BE`` and their clique.
 
@@ -256,19 +257,20 @@ However, note that the reason given here is not "layout".
 No "layout" difference is evident in the C ``struct``:
 Python just restricts ``__class__`` assignment across the board,
 for objects with statically allocated types.
-Having a different representation class would enforce this.
+Having a different representation class would enforce this,
+or we could do it by a procedural check as in CPython.
+
 
 The Bad News and the Good
 -------------------------
 When implementing in Java,
 it would have been convenient to catch
 distinct Python exceptions in separate ``try-catch`` clauses.
-The VSJ3 design aimed for that,
-but as ``try-catch`` only inspects the Java class,
-we can now definively resign this convenience.
-We're back to catching a broad category of exception,
-testing its Python type,
-and throwing it back if we don't want it (as in Jython 2).
+The VSJ3 design achieved that,
+but as ``try-catch`` depends on the Java class,
+it prevented the class-assignment of exceptions
+that is expected from CPython and
+that *may* be a language feature.
 
 We conclude instead that the entire standard Python exceptions hiererchy
 must be represented in Java by a rather small hierarchy of classes.
@@ -276,14 +278,22 @@ We can infer this collection of Java classes
 by reading CPython ``exceptions.c``
 and noting where new fields are added.
 
+We therefore definitively relinquish the convenience of
+selecting exception types in Java with ``try-catch``.
+We may select only the broad category of exception that way,
+then test the Python type of each,
+and throw it back if we don't intend to handle it here.
+This is quite close to the Jython 2 pattern
+(and now we know why it is like that).
+
 As we have seen,
 developing our ideas for subclasses and the "replaceable type"
 will involve learning to create classes dynamically.
-Fortunately, the exceptions provide a rich inheritance hierarchy,
-which could almost have been written in Python,
-but is hand-coded (in C originally, of course).
-That provides a useful test of our ideas,
-before we confront class synthesis.
+The exceptions are an example of a rich inheritance hierarchy,
+similar to those we have to create dynamically in Python,
+but hand-coded (in C originally).
+This provides a useful test of our ideas applied statically,
+before we have to confront dynamic class synthesis.
 
 
 Exceptions and their Representations
@@ -293,7 +303,8 @@ if the content of the exception type is different from its parent.
 In the C implementation,
 the extra fields represent an extension of the C ``struct``,
 and some entries in the attribute table.
-For us, a Java class corresponds to each different "layout".
+For us, a Java class corresponds to each different structure.
+Here are a few of ours.
 
 ..  uml::
     :caption:  Java Representation Classes for Python Exceptions
@@ -327,7 +338,7 @@ For us, a Java class corresponds to each different "layout".
 The base class brings a lot of attributes we can ignore for now,
 except note that ``type`` is writable, in principle, and
 that a tuple ``args`` essentially fossilises the positional arguments
-given the constructor call and passed on to ``__new__`` and ``__init__``.
+given to ``__new__`` and ``__init__``.
 
 
 
@@ -442,20 +453,22 @@ Those that do,
 implement ``WithClassAssignment`` and
 accept a ``PyType`` as the first argument to their constructor.
 In general,
-the the representation class of ``cls`` is synthetic,
+the representation class of ``cls`` is synthetic,
 but we needn't venture that far yet.
 
 
 Creating a ``NameError`` Exception
 ----------------------------------
+We can explain how this solution works by walking through a simple call,
+and this identifies the elements we need to realise the call.
+
+Sequence Diagram for Constructor Call
+'''''''''''''''''''''''''''''''''''''
 Imagine that a program in Python executes the line ``NameError('test')``,
 or rather the equivalent compiled code.
 The arguments ``NameError`` and ``test`` are on the stack and we hit
 some kind of ``CALL`` opcode or call site.
-What elements do we need to realise the call?
-
-Sequence Diagram for Constructor Call
-'''''''''''''''''''''''''''''''''''''
+This operation is supported by one of the ``Callables.call`` methods.
 
 ..  uml::
     :caption:  Creating a ``NameError`` Exception
@@ -715,7 +728,8 @@ We are using a statically created ``ArgParser``,
 which places its output in an array
 analogous the local variables of a function.
 This means we have to cast results as we extract them.
-(We do not see a reason to call ``PyBaseException.__init__``.)
+(We do not see a reason to call ``PyBaseException.__init__``,
+simply to assign ``this.args``.)
 
 
 Type Objects for Exceptions
@@ -757,8 +771,8 @@ it will not *actually* be possible to assign the type,
 because ``Feature.IMMUTABLE`` prevents it,
 until we make subclasses that allow it.
 Implementing exceptions,
-and subclasses in general subsequently
-have driven the addition and debugging of these novel features.
+and experiments with subclasses in general,
+have driven the addition and debugging of these features.
 
 For those exceptions that will join an existing clique,
 all we need is a type object referencing the shared representation,
@@ -852,19 +866,27 @@ Specifying a subclass is somewhat different from specifying a built-in type,
 as we did using ``TypeSpec``.
 We have no opportunity to craft a class by hand in Java,
 then describe it to the run-time system.
-Instead, we have to describe the particular needs and constraints
-in a ``SubclassSpec`` object,
-and somehow, the implementation has to write a class itself.
+Instead,
+during the process of creating a new Python class,
+we have to describe its requirements on the representation,
+then the implementation must create or find a Java class definition to match.
+We complete the Python type, citing the Java representation found.
+
+We include "find" as a possibility alongside "create",
+as this is the mechanism by which clique members
+will end up sharing a representation,
+even though they do not mention each other in the class definition in Python.
 
 In general, a class defined in Python has
 an arbitrary number of (Python) bases,
 although there are limitations on what can be combined.
-We shall need to express that a Python class extends a (found) Java class,
-or implements a Java interface.
+We shall sometimes need to express that a Python class
+extends a (found) Java class,
+or implements a (found) Java interface.
 We expect to do that by supplying them as bases.
-Each Python base also maps to a Java class,
-to its canonical representation class, to be precise,
+Each Python base also maps to a (canonical) Java class,
 which brings Java interfaces too.
+We express all this in a ``SubclassSpec`` object.
 
 It must be possible to find a *single* Java base class,
 equivalent to satisfying the "layout constraint" CPython reports.
@@ -912,6 +934,10 @@ permitting the idiom:
                 return cons.invokeExact(cls, args);
 
 irrespective of the actual subtype ``cls``.
+The ``__new__`` method is called from ``cls.__call__``,
+so the ``cls`` argument is always available (as Java ``this``).
+However, it may not be needed to construct an instance of the base class
+where ``__new__`` is found.
 
 When we define built-in types in Java,
 we do not necessarily want to make room for a type field
@@ -939,7 +965,7 @@ unless it has been asked for an instance of a subclass of ``float``.
 ``PyFloat`` might as well hold a type field and
 implement ``getType()`` directly.
 
-We therefore add to our specification of subclasses that the subclass must:
+We therefore add to our specification that a synthetic subclass must:
 
 5. define a constructor with a signature known to
    the inherited ``__new__`` and specifying a type.
@@ -961,10 +987,9 @@ When synthesising a subclass representation,
 we have no automatic way of knowing which one(s) ``__new__`` relies on,
 so we implement equivalents of
 all of the ``public`` and ``protected`` constructors.
-It is only necessary to make them call their super-constructor,
-and if ``super()`` does not take the actual type argument,
-store that type in a field.
-
+These can be quite simple:
+call the super-constructor,
+and if necessary store the actual type argument in a field.
 
 
 Generating Java Bytecode for a Subclass

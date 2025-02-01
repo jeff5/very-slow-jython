@@ -641,7 +641,7 @@ public class PyFloat implements WithClass {
      */
     static final PyTuple divmod(double x, double y) {
         // Possibly not the most efficient
-        return new PyTuple(floordiv(x, y), mod(x, y));
+        return PyTuple.of(floordiv(x, y), mod(x, y));
     }
 
     /**
