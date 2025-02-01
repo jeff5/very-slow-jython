@@ -712,6 +712,22 @@ class ArgParser {
      */
     abstract class FrameWrapper {
 
+        @Override
+        public String toString() {
+            StringJoiner sj = new StringJoiner(", ", "Frame[", "]");
+            int n = argnames.length;
+            for (int i = 0; i < n; i++) {
+                String value;
+                try {
+                    value = Abstract.repr(getLocal(i)).toString();
+                } catch (Throwable e) {
+                    value = "null";
+                }
+                sj.add(value);
+            }
+            return sj.toString();
+        }
+
         /**
          * Get the local variable named by {@code argnames[i]}
          *

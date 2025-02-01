@@ -1,3 +1,5 @@
+// Copyright (c)2025 Jython Developers.
+// Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime.kernel;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -59,7 +61,7 @@ public class MethodHandleFormationTest {
         });
 
         // Call to handle that fills "empty" SETITEM slot.
-        Object u = new PyTuple(v, w);
+        Object u = PyTuple.of(v, w);
         assertThrows(EmptyException.class, new Executable() { //
 
             @Override

@@ -1,4 +1,4 @@
-// Copyright (c)2024 Jython Developers.
+// Copyright (c)2025 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
 
@@ -20,6 +20,14 @@ import uk.co.farowl.vsj4.support.InterpreterError;
  * base will initialise the type system before running.
  */
 public class UnitTestSupport {
+
+    /*
+     * In a previous iteration we initialised the type system in a
+     * controlled way ahead of every test, by a use of PyType at this
+     * point. We have worked to obviate this in the current iteration,
+     * because we do not want to impose the same burden on on user
+     * applications.
+     */
 
     /**
      * Convert test value to Java {@code int} (avoiding
@@ -149,9 +157,9 @@ public class UnitTestSupport {
      * @param value to wrap
      * @return from this value.
      */
-// public static PyUnicode newPyUnicode(String value) {
-// return new PyUnicode(PyUnicode.TYPE, value);
-// }
+    public static PyUnicode newPyUnicode(String value) {
+        return new PyUnicode(value);
+    }
 
     /**
      * Force creation of an actual {@link PyUnicode} from an array of
@@ -160,9 +168,9 @@ public class UnitTestSupport {
      * @param value the code points
      * @return from this value.
      */
-// public static PyUnicode newPyUnicode(int[] value) {
-// return new PyUnicode(PyUnicode.TYPE, value);
-// }
+    public static PyUnicode newPyUnicode(int[] value) {
+        return new PyUnicode(value);
+    }
 
     /**
      * The object {@code o} is equal to the expected value according to
@@ -212,11 +220,11 @@ public class UnitTestSupport {
      */
     static boolean pythonEquals(Object x, Object o) {
         try {
-            // if (x instanceof PyList && o instanceof PyList) {
-            // // XXX Special case as we do not have PyList.__eq__
-            // return pythonEquals(x, o);
-            // } else
-            return Abstract.richCompareBool(x, o, Comparison.EQ);
+            if (x instanceof PyList && o instanceof PyList) {
+                // XXX Special case as we do not have PyList.__eq__
+                return pythonEquals(x, o);
+            } else
+                return Abstract.richCompareBool(x, o, Comparison.EQ);
         } catch (RuntimeException | Error e) {
             // Let unchecked exception fly
             throw e;
@@ -235,17 +243,17 @@ public class UnitTestSupport {
      * @param x value expected
      * @param o to test
      */
-    // private static boolean pythonEquals(PyList x, PyList o) {
-    // int n = x.size();
-    // if (o.size() != n) {
-    // return false;
-    // } else {
-    // for (int i = 0; i < n; i++) {
-    // if (!pythonEquals(x.get(i), o.get(i))) { return false; }
-    // }
-    // return true;
-    // }
-    // }
+    private static boolean pythonEquals(PyList x, PyList o) {
+        int n = x.size();
+        if (o.size() != n) {
+            return false;
+        } else {
+            for (int i = 0; i < n; i++) {
+                if (!pythonEquals(x.get(i), o.get(i))) { return false; }
+            }
+            return true;
+        }
+    }
 
     /**
      * The Python type of {@code o} is exactly the one expected.

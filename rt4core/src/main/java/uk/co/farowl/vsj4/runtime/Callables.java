@@ -257,7 +257,7 @@ public class Callables extends Abstract {
             return vectorcall(callable, stack, start, nargs);
         } else {
             return vectorcall(callable, stack, start, nargs,
-                    PyTuple.from(names));
+                    new PyTuple(names));
         }
     }
 

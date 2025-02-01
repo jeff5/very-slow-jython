@@ -758,10 +758,10 @@ public class Abstract {
      * @throws Throwable from errors in {@code o.__iter__}
      */
     // Compare CPython PyObject_GetIter in abstract.c
-    // static Object getIterator(Object o) throws PyBaseException,
-    // Throwable {
-    // return getIterator(o, null);
-    // }
+    static Object getIterator(Object o)
+            throws PyBaseException, Throwable {
+        return getIterator(o, null);
+    }
 
     /**
      * Equivalent to {@link #getIterator(Object)}, with the opportunity
@@ -775,31 +775,31 @@ public class Abstract {
      * @throws Throwable from errors in {@code o.__iter__}
      */
     // Compare CPython PyObject_GetIter in abstract.c
-    // static <E extends PyBaseException> Object getIterator(Object o,
-    // Supplier<E> exc) throws PyBaseException, Throwable {
-    // Representation rep = PyType.getRepresentation(o);
-    // if (SpecialMethod.op_iter.isDefinedFor(rep)) {
-    // // o defines __iter__, call it.
-    // Object r = rep.op_iter().invokeExact(o);
-    // // Did that return an iterator? Check r defines __next__.
-    // if (SpecialMethod.op_next.isDefinedFor(
-    // PyType.getRepresentation(r))) {
-    // return r;
-    // } else if (exc == null) {
-    // throw returnTypeError("iter", "iterator", r);
-    // }
-    // } else if (SpecialMethod.op_getitem.isDefinedFor(rep)) {
-    // // o defines __getitem__: make a (Python) iterator.
-    // return new PyIterator(o);
-    // }
-    //
-    // // Out of possibilities: throw caller-defined exception
-    // if (exc != null) {
-    // throw exc.get();
-    // } else {
-    // throw typeError(NOT_ITERABLE, o);
-    // }
-    // }
+    static <E extends PyBaseException> Object getIterator(Object o,
+            Supplier<E> exc) throws PyBaseException, Throwable {
+        Representation rep = PyType.getRepresentation(o);
+        if (SpecialMethod.op_iter.isDefinedFor(rep)) {
+            // o defines __iter__, call it.
+            Object r = rep.op_iter().invokeExact(o);
+            // Did that return an iterator? Check r defines __next__.
+            if (SpecialMethod.op_next
+                    .isDefinedFor(PyType.getRepresentation(r))) {
+                return r;
+            } else if (exc == null) {
+                throw returnTypeError("iter", "iterator", r);
+            }
+        } else if (SpecialMethod.op_getitem.isDefinedFor(rep)) {
+            // o defines __getitem__: make a (Python) iterator.
+            return new PyIterator(o);
+        }
+
+        // Out of possibilities: throw caller-defined exception
+        if (exc != null) {
+            throw exc.get();
+        } else {
+            throw typeError(NOT_ITERABLE, o);
+        }
+    }
 
     /**
      * Return {@code true} if the object {@code o} supports the iterator

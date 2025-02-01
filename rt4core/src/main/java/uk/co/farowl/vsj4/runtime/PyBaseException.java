@@ -137,8 +137,25 @@ public class PyBaseException extends RuntimeException
      * @param wanted type for which the method returns normally
      */
     public void only(PyType wanted) {
-        // XXX Should be isinstance test, accepting sub-types
+        // TODO Should be isinstance test, accepting sub-types
         if (type != wanted) { throw this; }
+    }
+
+    /**
+     * If the Python type of this exception is not one of the
+     * {@code wanted} types, immediately re-throw it, with its original
+     * stack trace. This may be used at the top of a catch clause to
+     * narrow the caught exception almost as if it were a Java type.
+     *
+     * @param wanted type for which the method returns normally
+     */
+    public void only(PyType... wanted) {
+        // TODO Should be isinstance test, accepting sub-types
+        for (PyType w : wanted) {
+            // TODO Should be isinstance test, accepting sub-types
+            if (type == w) { return; }
+        }
+        throw this;
     }
 
     @Override
@@ -187,7 +204,7 @@ public class PyBaseException extends RuntimeException
      */
     void __init__(Object[] args, String[] kwds) {
         if (kwds == null || kwds.length == 0) {
-            this.args = PyTuple.from(args);
+            this.args = PyTuple.of(args);
         } else {
             throw PyErr.format(PyExc.TypeError,
                     "%s() takes no keyword arguments",

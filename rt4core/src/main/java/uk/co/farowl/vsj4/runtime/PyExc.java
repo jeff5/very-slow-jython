@@ -117,6 +117,13 @@ public class PyExc {
     /** {@code IndexError} extends {@link LookupError}. */
     public static PyType IndexError = extendsException(LookupError,
             "IndexError", "Sequence index out of range.");
+
+    /**
+     * {@code KeyError} extends {@code LookupError} and is
+     * implemented by {@link PyKeyError}.
+     */
+    public static PyType KeyError = PyKeyError.TYPE;
+
     /** {@code ValueError} extends {@link Exception}. */
     public static PyType ValueError =
             extendsException(Exception, "ValueError",
