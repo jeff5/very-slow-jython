@@ -1,4 +1,4 @@
-// Copyright (c)2024 Jython Developers.
+// Copyright (c)2025 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
 
@@ -192,11 +192,10 @@ public class TypeSpec extends NamedSpec {
      * Create (begin) a specification for a Python {@code type}. This is
      * identical to {@link #TypeSpec(String, Lookup)}, except that the
      * class creating the {@code Lookup} object will not be treated as
-     * the primary representation or examined as a supplementary
-     * method implementation
-     * class. The mutators {@link #primary} and optionally
-     * {@link #methodImpls(Class...)} must be used to specify those
-     * explicitly.
+     * the primary representation or examined as a supplementary method
+     * implementation class. The mutators {@link #primary} and
+     * optionally {@link #methodImpls(Class...)} must be used to specify
+     * those explicitly.
      *
      * @param name of the type being specified (may be dotted name)
      * @param lookup authorisation to access {@code implClass}
@@ -558,12 +557,6 @@ public class TypeSpec extends NamedSpec {
      *
      * @param f to add to the current features
      * @return {@code this}
-     */
-    /*
-     * XXX Better encapsulation to have methods for things we want to
-     * set/unset. Most PyType.flags members should not be manipulated
-     * through the TypeSpec and are derived in construction, or as a
-     * side effect of setting something else.
      */
     public TypeSpec add(Feature f) {
         checkNotFrozen();

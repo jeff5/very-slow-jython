@@ -493,12 +493,13 @@ public class TypeFactory {
         assert PyType.TYPE == typeType;
 
         /*
-         * Create specifications for the bootstrap types. It is not
-         * fully thread safe to invoke PyType.fromSpec in the static
-         * initialisation of the type. We a local array because we only
-         * need them transiently. A type listed here should not contain
-         * the idiom static TYPE = PyType.fromSpec(...), but obtain its
-         * TYPE by enquiry in the registry.
+         * Create specifications for the bootstrap types. When it is not
+         * fully thread-safe to invoke PyType.fromSpec in the static
+         * initialisation of the type, we create the type here. We use a
+         * local array because we only need these specifications
+         * transiently. A type listed here should not contain the idiom
+         * static TYPE = PyType.fromSpec(...), but obtain its TYPE by
+         * enquiry in the registry.
          */
         final TypeSpec[] bootstrapSpecs = { //
                 new BootstrapSpec("int", PyLong.class)

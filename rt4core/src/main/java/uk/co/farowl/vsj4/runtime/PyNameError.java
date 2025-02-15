@@ -17,7 +17,7 @@ public class PyNameError extends PyBaseException {
                     .add(Feature.REPLACEABLE, Feature.IMMUTABLE)
                     .doc("Name not found globally."));
 
-    /** {@code UnboundLocalError} extends {@link NameError}. */
+    /** {@code UnboundLocalError} extends {@code NameError}. */
     protected static PyType UnboundLocalError =
             extendsException(TYPE, "UnboundLocalError",
                     "Local name referenced but not bound to a value.");

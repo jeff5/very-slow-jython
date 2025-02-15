@@ -1,3 +1,5 @@
+// Copyright (c)2025 Jython Developers.
+// Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -1492,7 +1494,7 @@ class PyUnicodeTest extends UnitTestSupport {
      * Test that join works on a range of {@code str} implementations,
      * values and iterables.
      */
-    @Disabled("Relies on deprecated SpecialMethod.isDefinedFor")
+    //@Disabled("Relies on deprecated SpecialMethod.isDefinedFor")
     @Nested
     @DisplayName("join")
     class JoinTest extends AbstractJoinTest {
@@ -1574,6 +1576,7 @@ class PyUnicodeTest extends UnitTestSupport {
             assertEquals(expected, r);
         }
 
+        @Disabled("MySequence not recognised as iterable")
         @Test
         @DisplayName("', '.join(MySequence('hello'))")
         void U_join_sequence() throws Throwable {

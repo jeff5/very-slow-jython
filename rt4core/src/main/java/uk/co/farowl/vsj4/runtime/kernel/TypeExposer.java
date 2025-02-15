@@ -26,14 +26,14 @@ public interface TypeExposer {
      */
     void exposeMethods(Class<?> methodClass);
 
-    ///**
+    /// **
     // * Gather members (fields exposed as Python attributes) from the
     // * specified class. Definitions (a precursor of Python
     // * descriptors) accumulate in the exposer.
     // *
     // * @param memberClass to scan for definitions
     // */
-    //void exposeMembers(Class<?> memberClass);
+    // void exposeMembers(Class<?> memberClass);
 
     /**
      * For each name having a definition in this {@code TypeExposer}
@@ -44,6 +44,29 @@ public interface TypeExposer {
      *
      * @param dict to which the attributes should be delivered
      * @param lookup authorisation to access members
+     * @deprecated Use the iterator instead.
      */
+    @Deprecated
     void populate(Map<? super String, Object> dict, Lookup lookup);
+
+    /**
+     * A name-value pair that hold one entry intended for the dictionary
+     * of the type.
+     */
+    public static record Entry(String name, Object value) {}
+
+    /**
+     * Get the definitions created in this {@code TypeExposer} as name
+     * and value pairs. The client for this action is the type object
+     * itself, and the values are attributes to be entered in its
+     * dictionary. These are constructed as the iterator runs.
+     * <p>
+     * Attributes may rely on a {@code MethodHandle} or
+     * {@code VarHandle}, so a lookup object must be provided that can
+     * create them.
+     *
+     * @param lookup authorisation to access members
+     * @return sequence of definitions found in the type
+     */
+    public Iterable<Entry> entries(Lookup lookup);
 }

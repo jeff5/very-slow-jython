@@ -1,4 +1,4 @@
-// Copyright (c)2024 Jython Developers.
+// Copyright (c)2025 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
 
@@ -235,12 +235,14 @@ public class PyNumber extends Abstract {
     }
 
     /**
-     * Return a Python {@code int} (or subclass) from the object
-     * {@code o}. Raise {@code TypeError} if the result is not a Python
-     * {@code int} subclass, or if the object {@code o} cannot be
-     * interpreted as an index (it does not fill
-     * {@link SpecialMethod#op_index}). This method makes no guarantee
-     * about the <i>range</i> of the result.
+     * Interpret the argument {@code o} as an integer, returning a
+     * Python {@code int} (or subclass), by means of a call to
+     * the lossless conversion method
+     * {@code __index__}. Raise {@code TypeError} if the result is not a
+     * Python {@code int} subclass, or if the object {@code o} cannot be
+     * interpreted as an index (it does not define {@code __index__}.
+     * This method makes no guarantee about the <i>range</i> of the
+     * result.
      *
      * @param o operand
      * @return {@code o} coerced to a Python {@code int}
@@ -248,7 +250,7 @@ public class PyNumber extends Abstract {
      *     interpreted as an {@code int}
      * @throws Throwable otherwise from invoked implementations
      */
-    // Compare with CPython abstract.c :: PyNumber_Index
+    // Compare with CPython abstract.c :: _PyNumber_Index
     static Object index(Object o) throws PyBaseException, Throwable {
 
         Representation rep = PyType.getRepresentation(o);

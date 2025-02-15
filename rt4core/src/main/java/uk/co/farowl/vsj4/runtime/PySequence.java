@@ -15,8 +15,8 @@ import java.util.stream.StreamSupport;
 
 import uk.co.farowl.vsj4.runtime.PySlice.Indices;
 import uk.co.farowl.vsj4.runtime.PyUtil.NoConversion;
+import uk.co.farowl.vsj4.runtime.kernel.KernelTypeFlag;
 import uk.co.farowl.vsj4.runtime.kernel.Representation;
-import uk.co.farowl.vsj4.runtime.kernel.SpecialMethod;
 import uk.co.farowl.vsj4.support.internal.EmptyException;
 
 /**
@@ -261,15 +261,17 @@ public class PySequence extends Abstract {
             fastNewList(Object o, Supplier<E> exc) throws E, Throwable {
         List<Object> list = new ArrayList<>();
         Representation rep = PyType.getRepresentation(o);
+        PyType type = rep.pythonType(o);
 
-        if (SpecialMethod.op_iter.isDefinedFor(rep)) {
+        if (type.hasFeature(KernelTypeFlag.HAS_ITER)) {
             // Go via the iterator on o
             Object iter = rep.op_iter().invokeExact(o);
             // Check iter is an iterator (defines __next__).
-            Representation iterOps = PyType.getRepresentation(iter);
-            if (SpecialMethod.op_next.isDefinedFor(iterOps)) {
+            Representation iterRep = PyType.getRepresentation(iter);
+            PyType iterType = iterRep.pythonType(iter);
+            if (iterType.hasFeature(KernelTypeFlag.HAS_NEXT)) {
                 // Create a handle on __next__
-                MethodHandle next = iterOps.op_next().bindTo(iter);
+                MethodHandle next = iterRep.op_next().bindTo(iter);
                 // Iterate o into a list
                 try {
                     for (;;) { list.add(next.invokeExact()); }
@@ -279,7 +281,7 @@ public class PySequence extends Abstract {
                 return list;
             } // else fall out at throw exc
 
-        } else if (SpecialMethod.op_getitem.isDefinedFor(rep)) {
+        } else if ((type.hasFeature(KernelTypeFlag.HAS_GETITEM))) {
             // o defines __getitem__
             MethodHandle getitem = rep.op_getitem().bindTo(o);
             try {

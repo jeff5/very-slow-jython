@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
@@ -61,6 +62,11 @@ class TypeFactoryTest {
                 @Override
                 public void populate(Map<? super String, Object> dict,
                         Lookup lookup) {}
+
+                @Override
+                public Iterable<Entry> entries(Lookup lookup) {
+                    return List.of();
+                }
             };
 
     /**
