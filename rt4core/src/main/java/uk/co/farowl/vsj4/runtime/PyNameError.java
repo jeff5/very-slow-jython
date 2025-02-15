@@ -1,4 +1,4 @@
-// Copyright (c)2024 Jython Developers.
+// Copyright (c)2025 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
 
@@ -13,13 +13,19 @@ public class PyNameError extends PyBaseException {
     /** The type object of Python {@code NameError} exceptions. */
     public static final PyType TYPE = PyType
             .fromSpec(new TypeSpec("NameError", MethodHandles.lookup())
-                    .base(PyExc.Exception)
+                    .base(Exception)
                     .add(Feature.REPLACEABLE, Feature.IMMUTABLE)
                     .doc("Name not found globally."));
 
+    /** {@code UnboundLocalError} extends {@link NameError}. */
+    protected static PyType UnboundLocalError =
+            extendsException(TYPE, "UnboundLocalError",
+                    "Local name referenced but not bound to a value.");
+
+
     private static final long serialVersionUID = 1L;
 
-    /** The problematic name. */
+    /** The problematic name (or {@code null}). */
     // TODO Expose as get-set. Remove Java getter.
     private String name;
 
@@ -28,7 +34,7 @@ public class PyNameError extends PyBaseException {
      *
      * @param type Python type of the exception
      * @param args positional arguments
-     *///
+     */
     public PyNameError(PyType type, PyTuple args) { super(type, args); }
 
     private static final ArgParser INIT_PARSER =

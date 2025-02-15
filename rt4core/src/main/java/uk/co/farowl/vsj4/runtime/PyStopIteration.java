@@ -13,7 +13,7 @@ public class PyStopIteration extends PyBaseException {
     /** The type object of Python {@code NameError} exceptions. */
     public static final PyType TYPE = PyType.fromSpec(
             new TypeSpec("StopIteration", MethodHandles.lookup())
-                    .base(PyExc.Exception)
+                    .base(Exception)
                     .add(Feature.REPLACEABLE, Feature.IMMUTABLE)
                     .doc("Signal the end from iterator.__next__()."));
 

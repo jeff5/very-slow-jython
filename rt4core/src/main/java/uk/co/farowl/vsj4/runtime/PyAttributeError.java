@@ -1,4 +1,4 @@
-// Copyright (c)2024 Jython Developers.
+// Copyright (c)2025 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
 
@@ -12,7 +12,7 @@ public class PyAttributeError extends PyBaseException {
     /** The type object of Python {@code AttributeError} exceptions. */
     public static final PyType TYPE = PyType.fromSpec(
             new TypeSpec("AttributeError", MethodHandles.lookup())
-                    .base(PyExc.Exception)
+                    .base(Exception)
                     .add(Feature.REPLACEABLE, Feature.IMMUTABLE)
                     .doc("Attribute not found."));
 

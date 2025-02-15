@@ -1,4 +1,4 @@
-// Copyright (c)2024 Jython Developers.
+// Copyright (c)2025 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
 
@@ -25,7 +25,7 @@ class TypeInitTestReentrant extends TypeInitTest {
 
     /** Start by using a complex Python type defined in Java. */
     @BeforeAll
-    static void setUpClass() { object = new MyOther(); };
+    static void setUpClass() { object = new MyOther(); }
 
     /** A simple type defined in Java. */
     static class MyClass {

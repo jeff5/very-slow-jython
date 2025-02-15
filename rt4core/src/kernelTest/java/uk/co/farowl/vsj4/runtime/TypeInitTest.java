@@ -1,4 +1,4 @@
-// Copyright (c)2024 Jython Developers.
+// Copyright (c)2025 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
 
@@ -41,6 +41,7 @@ import uk.co.farowl.vsj4.runtime.kernel.TypeRegistry;
  * JVM. (See the {@code kernelTest} target in the build.)
  */
 @DisplayName("Without any preparation")
+@SuppressWarnings("static-method")
 class TypeInitTest {
 
     /**
@@ -49,7 +50,7 @@ class TypeInitTest {
      * subclass with {@code @BeforeAll}.
      */
     @BeforeAll
-    static void setUpClass() {};
+    static void setUpClass() {}
 
     /** After setUp() a type exists for {@code object}. */
     @Test
@@ -97,7 +98,6 @@ class TypeInitTest {
     }
 
     /** After setUp() all type implementations have the same type. */
-    @SuppressWarnings("static-method")
     @Test
     @DisplayName("Subclasses of PyType share a type object")
     void type_subclasses_share_type() {
@@ -119,7 +119,6 @@ class TypeInitTest {
      * {@code Double} as a found Java type before the Python type
      * {@code float} can adopt it.
      */
-    @SuppressWarnings("static-method")
     @Test
     @DisplayName("we can look up a type for Double.class")
     void lookup_type_double() {

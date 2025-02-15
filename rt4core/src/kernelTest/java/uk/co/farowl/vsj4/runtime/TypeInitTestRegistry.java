@@ -1,4 +1,4 @@
-// Copyright (c)2024 Jython Developers.
+// Copyright (c)2025 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
 
@@ -21,5 +21,5 @@ class TypeInitTestRegistry extends TypeInitTest {
 
     /** Start by touching the type registry singleton itself. */
     @BeforeAll
-    static void setUpClass() { registry = PyType.registry; };
+    static void setUpClass() { registry = PyType.registry; }
 }

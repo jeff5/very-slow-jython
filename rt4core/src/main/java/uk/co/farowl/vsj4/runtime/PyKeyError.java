@@ -11,7 +11,7 @@ public class PyKeyError extends PyBaseException {
     /** The type object of Python {@code KeyError} exceptions. */
     public static final PyType TYPE = PyType
             .fromSpec(new TypeSpec("KeyError", MethodHandles.lookup())
-                    .base(PyExc.LookupError)
+                    .base(LookupError)
                     .add(Feature.REPLACEABLE, Feature.IMMUTABLE)
                     .doc("Mapping key not found."));
 
