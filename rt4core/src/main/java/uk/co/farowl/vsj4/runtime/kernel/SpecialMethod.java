@@ -1,4 +1,4 @@
-// Copyright (c)2024 Jython Developers.
+// Copyright (c)2025 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime.kernel;
 
@@ -171,7 +171,8 @@ public enum SpecialMethod {
 
     /**
      * Defines {@code __get__} with signature
-     * {@link Signature#DESCRGET}, which implements descriptor {@code __get__}.
+     * {@link Signature#DESCRGET}, which implements descriptor
+     * {@code __get__}.
      */
     op_get(Signature.DESCRGET,
             "($self, instance, owner=None, /) Return an attribute of instance, which is of type owner."),
@@ -183,7 +184,8 @@ public enum SpecialMethod {
             "($self, instance, value, /) Set an attribute of instance to value."),
     /**
      * Defines {@code __delete__} with signature
-     * {@link Signature#DELITEM}, which implements descriptor {@code __delete__}.
+     * {@link Signature#DELITEM}, which implements descriptor
+     * {@code __delete__}.
      */
     op_delete(Signature.DELITEM,
             "($self, instance, /) Delete an attribute of instance."),
@@ -500,6 +502,14 @@ public enum SpecialMethod {
     op_contains(Signature.BINARY_PREDICATE,
             "($self, key, /) Return key in self.");
 
+    // TODO Add special methods like __trunc__ that have no slot?
+    /*
+     * CPython defines more special methods than this but chooses not to
+     * cache them on the type object. We have included in the enum only
+     * the ones CPython caches. However, we have scope to decide
+     * individually which to cache.
+     */
+
     /** Method signature to match when defining the special method. */
     public final Signature signature;
     /** Name of implementation method to bind e.g. {@code "__add__"}. */
@@ -630,20 +640,6 @@ public enum SpecialMethod {
     }
 
     /**
-     * Test whether this slot is non-empty in the given representation
-     * object.
-     *
-     * @param rep to examine for this slot
-     * @return true iff defined (non-empty)
-     * @deprecated Assumes method has cache (and no redirection).
-     */
-    @Deprecated
-    public boolean isDefinedFor(Representation rep) {
-        // FIXME Assumes method has cache (and no redirection).
-        return cache.get(rep) != signature.empty;
-    }
-
-    /**
      * Get the {@code MethodHandle} of this slot's "alternate" operation
      * from the given representation object. For a binary operation this
      * is the reflected operation.
@@ -676,7 +672,7 @@ public enum SpecialMethod {
      *
      * @return conventional special method name.
      */
-    String getMethodName() { return methodName; }
+    public String getMethodName() { return methodName; }
 
     /**
      * Return the invocation type of slots of this name.

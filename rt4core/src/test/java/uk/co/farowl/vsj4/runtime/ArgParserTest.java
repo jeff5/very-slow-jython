@@ -1,4 +1,4 @@
-// Copyright (c)2024 Jython Developers.
+// Copyright (c)2025 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
 
@@ -8,7 +8,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
 
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;

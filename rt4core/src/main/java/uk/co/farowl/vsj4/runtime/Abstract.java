@@ -878,15 +878,14 @@ public class Abstract {
         }
         // Can we even read the attribute?
         Representation rep = PyType.getRepresentation(o);
-        String typeName = rep.pythonType(o).getName();
-        boolean readable =
-                SpecialMethod.op_getattribute.isDefinedFor(rep)
-                        || SpecialMethod.op_getattr.isDefinedFor(rep);
+        PyType type = rep.pythonType(o);
+        boolean readable = type.lookup("__getattribute__") != null
+                || type.lookup("__getattr__") != null;
         kind = readable ? "only read-only" : "no";
         // Now we know what to say
         return PyErr.format(PyExc.TypeError,
                 "'%.100s' object has %s attributes (%s '%.50s')",
-                typeName, kind, mode, name);
+                type.getName(), kind, mode, name);
     }
 
     // Convenience functions constructing errors --------------------

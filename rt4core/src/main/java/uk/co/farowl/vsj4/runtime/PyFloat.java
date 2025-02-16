@@ -2,6 +2,8 @@
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
 
+import static uk.co.farowl.vsj4.runtime.Abstract.returnDeprecation;
+import static uk.co.farowl.vsj4.runtime.Abstract.returnTypeError;
 import static uk.co.farowl.vsj4.runtime.ClassShorthand.T;
 import static uk.co.farowl.vsj4.runtime.PyFloatMethods.toDouble;
 
@@ -9,8 +11,8 @@ import java.lang.invoke.MethodHandle;
 import java.math.BigInteger;
 
 import uk.co.farowl.vsj4.runtime.PyUtil.NoConversion;
+import uk.co.farowl.vsj4.runtime.kernel.KernelTypeFlag;
 import uk.co.farowl.vsj4.runtime.kernel.Representation;
-import uk.co.farowl.vsj4.runtime.kernel.SpecialMethod;
 import uk.co.farowl.vsj4.support.InterpreterError;
 import uk.co.farowl.vsj4.support.internal.EmptyException;
 
@@ -48,7 +50,8 @@ public class PyFloat implements WithClass {
 
     /**
      * Present the value as a Java {@code double} when the argument is
-     * expected to be a Python {@code float} or a sub-class of it.
+     * expected to be a Python exactly {@code float} or a sub-class of
+     * it that represents its value in the same field.
      *
      * @param v claimed {@code float}
      * @return {@code double} value
@@ -56,7 +59,7 @@ public class PyFloat implements WithClass {
      *     {@code float}
      */
     // Compare CPython floatobject.h: PyFloat_AS_DOUBLE
-    public static double doubleValue(Object v) throws PyBaseException {
+    static double doubleValue(Object v) throws PyBaseException {
         if (v instanceof Double)
             return ((Double)v).doubleValue();
         else if (v instanceof PyFloat)
@@ -84,37 +87,31 @@ public class PyFloat implements WithClass {
          * value extracted from (potentially) a sub-type of PyFloat, and
          * does not try to convert from strings.
          */
+        Representation rep = PyType.getRepresentation(o);
 
-        if (TYPE.check(o)) {
-            return doubleValue(o);
+        if (rep.isFloatExact()) { return doubleValue(o); }
 
-        } else {
-            Representation rep = PyType.getRepresentation(o);
-            try {
-                // Try __float__ (if defined)
-                Object res = rep.op_float().invokeExact(o);
-                PyType resType = PyType.of(res);
-                if (resType == PyFloat.TYPE) // Exact type
-                    return doubleValue(res);
-                else if (resType.isSubTypeOf(PyFloat.TYPE)) {
-                    // Warn about this and make a clean Python float
-                    PyFloat.asDouble(Abstract.returnDeprecation(
-                            "__float__", "float", res));
-                } else
-                    /*
-                     * SpecialMethod defined but did not return a Python
-                     * float at all.
-                     */
-                    throw Abstract.returnTypeError("__float__", "float",
-                            res);
-            } catch (EmptyException e) {}
+        // Try __float__ (if defined)
+        try {
+            Object res = rep.op_float().invokeExact(o);
+            Representation resRep = PyType.getRepresentation(res);
+            if (!resRep.isFloatExact()) {
+                PyType resType = resRep.pythonType(res);
+                if (resType.isSubTypeOf(PyFloat.TYPE))
+                    // Warn about this and return value field
+                    returnDeprecation("__float__", "float", res);
+                else
+                    // Not a float at all.
+                    throw returnTypeError("__float__", "float", res);
+            }
+            return doubleValue(rep);
+        } catch (EmptyException e) {}
 
-            // Fall out here if __float__ was not defined
-            if (SpecialMethod.op_index.isDefinedFor(rep))
-                return PyLong.asDouble(PyNumber.index(o));
-            else
-                throw Abstract.requiredTypeError("a real number", o);
-        }
+        // o.__float__ was not defined try o.__index__
+        if (rep.pythonType(o).hasFeature(KernelTypeFlag.HAS_INDEX))
+            return PyLong.asDouble(PyNumber.index(o));
+        else
+            throw Abstract.requiredTypeError("a real number", o);
     }
 
     // Constructor from Python ----------------------------------------

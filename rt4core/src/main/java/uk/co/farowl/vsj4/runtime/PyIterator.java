@@ -5,6 +5,7 @@ package uk.co.farowl.vsj4.runtime;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 
+import uk.co.farowl.vsj4.runtime.kernel.KernelTypeFlag;
 import uk.co.farowl.vsj4.runtime.kernel.Representation;
 import uk.co.farowl.vsj4.runtime.kernel.SpecialMethod;
 
@@ -43,7 +44,8 @@ public class PyIterator extends AbstractPyIterator {
         super(TYPE);
         this.index = 0;
         Representation rep = PyType.getRepresentation(seq);
-        if (SpecialMethod.op_getitem.isDefinedFor(rep)) {
+        PyType type = rep.pythonType(seq);
+        if (type.hasFeature(KernelTypeFlag.HAS_GETITEM)) {
             this.getitem = rep.op_getitem().bindTo(seq);
         } else {
             throw new IllegalArgumentException(

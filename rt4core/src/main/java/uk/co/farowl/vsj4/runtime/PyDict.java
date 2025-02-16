@@ -328,7 +328,7 @@ public class PyDict extends AbstractMap<Object, Object>
      * This is best done by by calling abstract API
      * {@link Abstract#hash(Object)}, etc..
      */
-    interface Key {
+    public interface Key {
 
         /**
          * If this object is a holder for the actual key, return the

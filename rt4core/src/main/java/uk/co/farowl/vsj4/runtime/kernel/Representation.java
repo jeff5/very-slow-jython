@@ -84,7 +84,7 @@ public abstract class Representation {
     /**
      * Fast check that the target is exactly a Python {@code int}. We
      * can do this without reference to the object itself, just from the
-     * representation..
+     * representation.
      *
      * @implNote The result may be incorrect during type system
      *     bootstrap.
@@ -96,7 +96,7 @@ public abstract class Representation {
     /**
      * Fast check that the target is exactly a Python {@code float}. We
      * can do this without reference to the object itself, just from the
-     * representation..
+     * representation.
      *
      * @implNote The result may be incorrect during type system
      *     bootstrap.

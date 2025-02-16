@@ -262,10 +262,10 @@ public class PyNumber extends Abstract {
             try {
                 res = rep.op_index().invokeExact(o);
                 // Enforce expectations on the return type
-                Representation resOps = PyType.getRepresentation(res);
-                if (resOps.isIntExact())
+                Representation resRep = PyType.getRepresentation(res);
+                if (resRep.isIntExact())
                     return res;
-                else if (resOps.pythonType(res)
+                else if (resRep.pythonType(res)
                         .isSubTypeOf(PyLong.TYPE))
                     return returnDeprecation("__index__", "int", res);
                 else
@@ -375,33 +375,38 @@ public class PyNumber extends Abstract {
      */
     // Compare with CPython abstract.h :: PyNumber_Long
     static Object asLong(Object o) throws PyBaseException, Throwable {
-        Object result;
-        PyType oType = PyType.of(o);
 
-        if (oType == PyLong.TYPE) {
-            // Fast path for the case that we already have an int.
-            return o;
-        }
+        Representation rep = PyType.getRepresentation(o);
 
-        else if (SpecialMethod.op_int.isDefinedFor(oType)) {
-            // XXX Need test of intiness?
-            // Normalise away subclasses of int
-            result = PyLong.fromIntOf(o);
-            return PyLong.from(result);
-        }
+        if (rep.isIntExact()) { return o; }
 
-        else if (oType.hasFeature(KernelTypeFlag.HAS_INDEX)) {
-            // Normalise away subclasses of int
-            result = PyLong.fromIndexOrIntOf(o);
-            return PyLong.from(result);
+        PyType oType = rep.pythonType(o);
+
+        try { // calling __int__
+            Object result = rep.op_int().invokeExact(o);
+            Representation resultRep = PyType.getRepresentation(result);
+            if (!resultRep.isIntExact()) {
+                PyType resultType = resultRep.pythonType(result);
+                if (resultType.hasFeature(TypeFlag.INT_SUBCLASS)) {
+                    // Result not of exact type int but is a subclass
+                    result = PyLong.from(returnDeprecation("__int__",
+                            "int", result));
+                } else
+                    throw returnTypeError("__int__", "int", result);
+            }
+            return result;
+        } catch (EmptyException e) {}
+
+        if (oType.hasFeature(KernelTypeFlag.HAS_INDEX)) {
+            return index(o);
         }
 
         // XXX Not implemented: else try the __trunc__ method
 
-        if (PyUnicode.TYPE.check(o))
+        if (oType.hasFeature(TypeFlag.STR_SUBCLASS))
             return PyLong.fromUnicode(o, 10);
 
-        // else if ... support for bytes-like objects
+        // if ( ... ) ... support for bytes-like objects
         else
             throw argumentTypeError("int", 0,
                     "a string, a bytes-like object or a number", o);

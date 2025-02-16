@@ -15,8 +15,6 @@ import uk.co.farowl.vsj4.runtime.Exposed.PositionalOnly;
 import uk.co.farowl.vsj4.runtime.Exposed.PythonNewMethod;
 import uk.co.farowl.vsj4.runtime.PyUtil.NoConversion;
 import uk.co.farowl.vsj4.runtime.kernel.Representation;
-import uk.co.farowl.vsj4.runtime.kernel.SpecialMethod;
-import uk.co.farowl.vsj4.support.internal.EmptyException;
 
 /**
  * A Python {@code int} object may be represented by a
@@ -109,19 +107,19 @@ public class PyLong implements /* PyDict.Key, */ WithClass {
             return v;
         else
             // TODO Support subclass constructor
-        // return new PyLong.Derived(cls, PyLong.asBigInteger(v));
-        /*
-         * We need an instance of a Python subclass C, which means
-         * creating an instance of C's Java representation.
-         */
-        try {
-            // Look up a constructor with the right parameters
-            MethodHandle cons =
-                    cls.constructor(T, BigInteger.class).handle();
-            return cons.invokeExact(cls, asBigInteger(v));
-        } catch (Throwable e) {
-            throw PyUtil.cannotConstructInstance(cls, TYPE, e);
-        }
+            // return new PyLong.Derived(cls, PyLong.asBigInteger(v));
+            /*
+             * We need an instance of a Python subclass C, which means
+             * creating an instance of C's Java representation.
+             */
+            try {
+                // Look up a constructor with the right parameters
+                MethodHandle cons =
+                        cls.constructor(T, BigInteger.class).handle();
+                return cons.invokeExact(cls, asBigInteger(v));
+            } catch (Throwable e) {
+                throw PyUtil.cannotConstructInstance(cls, TYPE, e);
+            }
     }
 
     // Special methods ------------------------------------------------
@@ -175,7 +173,6 @@ public class PyLong implements /* PyDict.Key, */ WithClass {
 
     private static final String NON_STR_EXPLICIT_BASE =
             "int() can't convert non-string with explicit base";
-
 
     // int methods ----------------------------------------------------
 
@@ -414,112 +411,10 @@ public class PyLong implements /* PyDict.Key, */ WithClass {
      * Integer or BigInteger. The often correspond to CPython public or
      * internal API.
      */
-    /**
-     * Convert the given object to a Python {@code int} using the
-     * {@code op_int} slot, if available. Raise {@code TypeError} if
-     * either the {@code op_int} slot is not available or the result of
-     * the call to {@code op_int} returns something not of type
-     * {@code int}.
-     * <p>
-     * The return is not always exactly an {@code int}.
-     * {@code integral.__int__}, which this method wraps, may return any
-     * type: Python sub-classes of {@code int} are tolerated, but with a
-     * deprecation warning. Returns not even a sub-class type
-     * {@code int} raise {@link PyBaseException TypeError}.
-     *
-     * @param integral to convert to {@code int}
-     * @return integer value of argument
-     * @throws PyBaseException (TypeError) if {@code integral} seems not
-     *     to be
-     * @throws Throwable from the supporting implementation
-     */
-    // Compare CPython longobject.c::_PyLong_FromNbInt
-    static Object fromIntOf(Object integral)
-            throws PyBaseException, Throwable {
-        Representation rep = PyType.getRepresentation(integral);
 
-        if (rep.isIntExact()) {
-            // Fast path for the case that we already have an int.
-            return integral;
+    // Deleted: static Object fromIntOf(Object integral)
 
-        } else {
-            try {
-                /*
-                 * Convert using the op_int slot, which should return
-                 * something of exact type int.
-                 */
-                Object r = rep.op_int().invokeExact(integral);
-                if (PyLong.TYPE.checkExact(r)) {
-                    return r;
-                } else if (PyLong.TYPE.check(r)) {
-                    // Result not of exact type int but is a subclass
-                    Abstract.returnDeprecation("__int__", "int", r);
-                    return r;
-                } else
-                    throw Abstract.returnTypeError("__int__", "int", r);
-            } catch (EmptyException e) {
-                // __int__ is not defined for t
-                throw Abstract.requiredTypeError("an integer",
-                        integral);
-            }
-        }
-    }
-
-    /**
-     * Convert the given object to a {@code int} using the
-     * {@code __index__} or {@code __int__} special methods, if
-     * available (the latter is deprecated).
-     * <p>
-     * The return is not always exactly an {@code int}.
-     * {@code integral.__index__} or {@code integral.__int__}, which
-     * this method wraps, may return any type: Python sub-classes of
-     * {@code int} are tolerated, but with a deprecation warning.
-     * Returns not even a sub-class type {@code int} raise
-     * {@link PyBaseException TypeError}. This method should be replaced
-     * with {@link PyNumber#index(Object)} after the deprecation period.
-     *
-     * @param integral to convert to {@code int}
-     * @return integer value of argument
-     * @throws PyBaseException(TypeError) if {@code integral} seems not
-     *     to be
-     * @throws Throwable from the supporting implementation
-     */
-    // Compare CPython longobject.c :: _PyLong_FromNbIndexOrNbInt
-    static Object fromIndexOrIntOf(Object integral)
-            throws PyBaseException, Throwable {
-        Representation ops = PyType.getRepresentation(integral);;
-
-        if (ops.isIntExact())
-            // Fast path for the case that we already have an int.
-            return integral;
-
-        try {
-            // Normally, the op_index slot will do the job
-            Object r = ops.op_index().invokeExact(integral);
-            if (PyType.getRepresentation(r).isIntExact())
-                return r;
-            else if (PyLong.TYPE.check(r)) {
-                // 'result' not of exact type int but is a subclass
-                Abstract.returnDeprecation("__index__", "int", r);
-                return r;
-            } else
-                throw Abstract.returnTypeError("__index__", "int", r);
-        } catch (EmptyException e) {}
-
-        // We're here because op_index was empty. Try op_int.
-        if (SpecialMethod.op_int.isDefinedFor(ops)) {
-            Object r = fromIntOf(integral);
-            // ... but grumble about it.
-            Warnings.format(PyExc.DeprecationWarning, 1,
-                    "an integer is required (got type %.200s).  "
-                            + "Implicit conversion to integers "
-                            + "using __int__ is deprecated, and may be "
-                            + "removed in a future version of Python.",
-                    ops.pythonType(integral).getName());
-            return r;
-        } else
-            throw Abstract.requiredTypeError("an integer", integral);
-    }
+    // Deleted: static Object fromIndexOrIntOf(Object integral)
 
     /**
      * Convert a sequence of Unicode digits in the string u to a Python
