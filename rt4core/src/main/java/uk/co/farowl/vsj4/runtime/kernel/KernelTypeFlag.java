@@ -95,6 +95,13 @@ public enum KernelTypeFlag {
     // No equivalent in CPython
     HAS_NEXT,
     /**
+     * The type defines {@code __index__}. This is the basis of a quick
+     * test. It is necessary because we do not have type slots in the
+     * same way as CPython.
+     */
+    // No equivalent in CPython
+    HAS_INDEX,
+    /**
      * The type defines {@code __get__}, which makes it a descriptor.
      * This is the basis of a quick test. It is necessary because we do
      * not have type slots in the same way as CPython.

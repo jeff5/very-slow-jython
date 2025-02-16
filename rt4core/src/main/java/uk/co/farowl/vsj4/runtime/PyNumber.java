@@ -5,6 +5,7 @@ package uk.co.farowl.vsj4.runtime;
 import java.lang.invoke.MethodHandle;
 import java.util.function.Function;
 
+import uk.co.farowl.vsj4.runtime.kernel.KernelTypeFlag;
 import uk.co.farowl.vsj4.runtime.kernel.Representation;
 import uk.co.farowl.vsj4.runtime.kernel.SpecialMethod;
 import uk.co.farowl.vsj4.support.internal.EmptyException;
@@ -222,27 +223,26 @@ public class PyNumber extends Abstract {
             SpecialMethod.Signature.BINARY.empty;
 
     /**
-     * True iff the object has a slot for conversion to the index type.
+     * True iff the type of the object defines the special method
+     * {@code __index__} for conversion to the index type.
      *
      * @param obj to test
      * @return whether {@code obj} has non-empty
      *     {@link SpecialMethod#op_index}
      */
     // Compare CPython PyIndex_Check in abstract.c
-    protected static boolean indexCheck(Object obj) {
-        return SpecialMethod.op_index
-                .isDefinedFor(PyType.getRepresentation(obj));
+    public static boolean indexCheck(Object obj) {
+        return PyType.of(obj).hasFeature(KernelTypeFlag.HAS_INDEX);
     }
 
     /**
      * Interpret the argument {@code o} as an integer, returning a
-     * Python {@code int} (or subclass), by means of a call to
-     * the lossless conversion method
-     * {@code __index__}. Raise {@code TypeError} if the result is not a
-     * Python {@code int} subclass, or if the object {@code o} cannot be
-     * interpreted as an index (it does not define {@code __index__}.
-     * This method makes no guarantee about the <i>range</i> of the
-     * result.
+     * Python {@code int} (or subclass), by means of a call to the
+     * lossless conversion method {@code __index__}. Raise
+     * {@code TypeError} if the result is not a Python {@code int}
+     * subclass, or if the object {@code o} cannot be interpreted as an
+     * index (it does not define {@code __index__}. This method makes no
+     * guarantee about the <i>range</i> of the result.
      *
      * @param o operand
      * @return {@code o} coerced to a Python {@code int}
@@ -384,13 +384,13 @@ public class PyNumber extends Abstract {
         }
 
         else if (SpecialMethod.op_int.isDefinedFor(oType)) {
-            // XXX Need test of intiness and indexiness?
+            // XXX Need test of intiness?
             // Normalise away subclasses of int
             result = PyLong.fromIntOf(o);
             return PyLong.from(result);
         }
 
-        else if (SpecialMethod.op_index.isDefinedFor(oType)) {
+        else if (oType.hasFeature(KernelTypeFlag.HAS_INDEX)) {
             // Normalise away subclasses of int
             result = PyLong.fromIndexOrIntOf(o);
             return PyLong.from(result);

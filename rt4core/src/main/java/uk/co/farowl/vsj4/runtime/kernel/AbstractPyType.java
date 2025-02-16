@@ -754,11 +754,13 @@ public abstract sealed class AbstractPyType extends Representation
             updateSpecialMethodCache(sm, result);
             // Some special methods need:
             KernelTypeFlag feature = switch (sm) {
+                case op_getitem -> KernelTypeFlag.HAS_GETITEM;
+                case op_iter -> KernelTypeFlag.HAS_ITER;
+                case op_next -> KernelTypeFlag.HAS_NEXT;
+                case op_index -> KernelTypeFlag.HAS_INDEX;
                 case op_get -> KernelTypeFlag.HAS_GET;
                 case op_set -> KernelTypeFlag.HAS_SET;
                 case op_delete -> KernelTypeFlag.HAS_DELETE;
-                case op_iter -> KernelTypeFlag.HAS_ITER;
-                case op_next -> KernelTypeFlag.HAS_NEXT;
                 default -> null;
             };
             // If sm corresponds to a feature flag

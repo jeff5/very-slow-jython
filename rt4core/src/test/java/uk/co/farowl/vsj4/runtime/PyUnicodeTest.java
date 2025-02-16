@@ -1494,7 +1494,6 @@ class PyUnicodeTest extends UnitTestSupport {
      * Test that join works on a range of {@code str} implementations,
      * values and iterables.
      */
-    //@Disabled("Relies on deprecated SpecialMethod.isDefinedFor")
     @Nested
     @DisplayName("join")
     class JoinTest extends AbstractJoinTest {
@@ -1576,7 +1575,6 @@ class PyUnicodeTest extends UnitTestSupport {
             assertEquals(expected, r);
         }
 
-        @Disabled("MySequence not recognised as iterable")
         @Test
         @DisplayName("', '.join(MySequence('hello'))")
         void U_join_sequence() throws Throwable {
@@ -1610,7 +1608,6 @@ class PyUnicodeTest extends UnitTestSupport {
      * Test that {@code lstrip} works on a range of {@code str}
      * implementations, values and iterables.
      */
-    @Disabled("Relies on deprecated SpecialMethod.isDefinedFor")
     @Nested
     @DisplayName("lstrip")
     class LStripTest extends AbstractStripTest {
@@ -1683,7 +1680,6 @@ class PyUnicodeTest extends UnitTestSupport {
      * Test that {@code rstrip} works on a range of {@code str}
      * implementations, values and iterables.
      */
-    @Disabled("Relies on deprecated SpecialMethod.isDefinedFor")
     @Nested
     @DisplayName("rstrip")
     class RStripTest extends AbstractStripTest {
@@ -1756,7 +1752,6 @@ class PyUnicodeTest extends UnitTestSupport {
      * Test that {@code strip} works on a range of {@code str}
      * implementations, values and iterables.
      */
-    @Disabled("Relies on deprecated SpecialMethod.isDefinedFor")
     @Nested
     @DisplayName("strip")
     class StripTest extends AbstractStripTest {

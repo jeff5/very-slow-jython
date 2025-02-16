@@ -515,7 +515,7 @@ public class PySequence extends Abstract {
          * @param value to set at {@code i}
          * @throws Throwable from accessing the client data
          */
-        public void setItem(int i, Object value) throws Throwable {};
+        public void setItem(int i, Object value) throws Throwable {}
 
         /**
          * Inner implementation of {@code __setitem__}, called by
@@ -533,7 +533,7 @@ public class PySequence extends Abstract {
          * @throws Throwable from accessing the client data
          */
         public void setSlice(PySlice.Indices slice, Object value)
-                throws Throwable {};
+                throws Throwable {}
 
         /**
          * Inner implementation of {@code __delitem__}, called by
