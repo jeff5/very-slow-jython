@@ -1,4 +1,4 @@
-// Copyright (c)2024 Jython Developers.
+// Copyright (c)2025 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime.kernel;
 
@@ -80,10 +80,11 @@ public abstract class Representation {
      */
     public abstract PyType pythonType(Object x);
 
+
     /**
      * Fast check that the target is exactly a Python {@code int}. We
      * can do this without reference to the object itself, just from the
-     * representation..
+     * representation.
      *
      * @implNote The result may be incorrect during type system
      *     bootstrap.
@@ -95,7 +96,7 @@ public abstract class Representation {
     /**
      * Fast check that the target is exactly a Python {@code float}. We
      * can do this without reference to the object itself, just from the
-     * representation..
+     * representation.
      *
      * @implNote The result may be incorrect during type system
      *     bootstrap.
@@ -302,14 +303,15 @@ public abstract class Representation {
 
         @Override
         public PyType pythonType(Object x) {
-            if (x instanceof WithClass wcx)
+            if (x instanceof WithClass wcx) {
                 return wcx.getType();
-            else if (x == null) {
+            } else if (x == null) {
                 return null;
             } else {
                 throw notSharedError(x);
             }
         }
+
 
         @Override
         public boolean isIntExact() { return false; }

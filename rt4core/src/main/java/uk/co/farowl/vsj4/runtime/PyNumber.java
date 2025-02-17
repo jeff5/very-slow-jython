@@ -1,10 +1,11 @@
-// Copyright (c)2024 Jython Developers.
+// Copyright (c)2025 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
 
 import java.lang.invoke.MethodHandle;
 import java.util.function.Function;
 
+import uk.co.farowl.vsj4.runtime.kernel.KernelTypeFlag;
 import uk.co.farowl.vsj4.runtime.kernel.Representation;
 import uk.co.farowl.vsj4.runtime.kernel.SpecialMethod;
 import uk.co.farowl.vsj4.support.internal.EmptyException;
@@ -222,25 +223,26 @@ public class PyNumber extends Abstract {
             SpecialMethod.Signature.BINARY.empty;
 
     /**
-     * True iff the object has a slot for conversion to the index type.
+     * True iff the type of the object defines the special method
+     * {@code __index__} for conversion to the index type.
      *
      * @param obj to test
      * @return whether {@code obj} has non-empty
      *     {@link SpecialMethod#op_index}
      */
     // Compare CPython PyIndex_Check in abstract.c
-    protected static boolean indexCheck(Object obj) {
-        return SpecialMethod.op_index
-                .isDefinedFor(PyType.getRepresentation(obj));
+    public static boolean indexCheck(Object obj) {
+        return PyType.of(obj).hasFeature(KernelTypeFlag.HAS_INDEX);
     }
 
     /**
-     * Return a Python {@code int} (or subclass) from the object
-     * {@code o}. Raise {@code TypeError} if the result is not a Python
-     * {@code int} subclass, or if the object {@code o} cannot be
-     * interpreted as an index (it does not fill
-     * {@link SpecialMethod#op_index}). This method makes no guarantee
-     * about the <i>range</i> of the result.
+     * Interpret the argument {@code o} as an integer, returning a
+     * Python {@code int} (or subclass), by means of a call to the
+     * lossless conversion method {@code __index__}. Raise
+     * {@code TypeError} if the result is not a Python {@code int}
+     * subclass, or if the object {@code o} cannot be interpreted as an
+     * index (it does not define {@code __index__}. This method makes no
+     * guarantee about the <i>range</i> of the result.
      *
      * @param o operand
      * @return {@code o} coerced to a Python {@code int}
@@ -248,7 +250,7 @@ public class PyNumber extends Abstract {
      *     interpreted as an {@code int}
      * @throws Throwable otherwise from invoked implementations
      */
-    // Compare with CPython abstract.c :: PyNumber_Index
+    // Compare with CPython abstract.c :: _PyNumber_Index
     static Object index(Object o) throws PyBaseException, Throwable {
 
         Representation rep = PyType.getRepresentation(o);
@@ -260,10 +262,10 @@ public class PyNumber extends Abstract {
             try {
                 res = rep.op_index().invokeExact(o);
                 // Enforce expectations on the return type
-                Representation resOps = PyType.getRepresentation(res);
-                if (resOps.isIntExact())
+                Representation resRep = PyType.getRepresentation(res);
+                if (resRep.isIntExact())
                     return res;
-                else if (resOps.pythonType(res)
+                else if (resRep.pythonType(res)
                         .isSubTypeOf(PyLong.TYPE))
                     return returnDeprecation("__index__", "int", res);
                 else
@@ -324,38 +326,38 @@ public class PyNumber extends Abstract {
         }
     }
 
-// /**
-// * Extract a slice index from a Python {@code int} or an object
-// * defining {@code __index__}, and return it as a Java {@code int}.
-// * So that the call need not be guarded by {@code v!=Py.None}, which
-// * is a common occurrence in the contexts where it is used, we
-// * special-case {@code None} to return a supplied default value. We
-// * silently reduce values larger than {@link Integer#MAX_VALUE} to
-// * {@code Integer.MAX_VALUE}, and silently boost values less than
-// * {@link Integer#MIN_VALUE} to {@code Integer.MIN_VALUE}.
-// *
-// * @param v to convert
-// * @param defaultValue to return when {@code v==Py.None}
-// * @return normalised value as a Java {@code int}
-// * @throws PyBaseException (TypeError) if {@code v!=None} has no
-// * {@code __index__}
-// * @throws Throwable from the implementation of {@code __index__}
-// */
-// // Compare CPython _PyEval_SliceIndex in eval.c and where called
-// static int sliceIndex(Object v, int defaultValue)
-// throws PyBaseException, Throwable {
-// if (v == Py.None) {
-// return defaultValue;
-// } else {
-// if (PyNumber.indexCheck(v)) {
-// return asSize(v, null);
-// } else {
-// throw PyErr.format(PyExc.TypeError,
-// "slice indices must be integers or "
-// + "None or have an __index__ method");
-// }
-// }
-// }
+    /**
+     * Extract a slice index from a Python {@code int} or an object
+     * defining {@code __index__}, and return it as a Java {@code int}.
+     * So that the call need not be guarded by {@code v!=Py.None}, which
+     * is a common occurrence in the contexts where it is used, we
+     * special-case {@code None} to return a supplied default value. We
+     * silently reduce values larger than {@link Integer#MAX_VALUE} to
+     * {@code Integer.MAX_VALUE}, and silently boost values less than
+     * {@link Integer#MIN_VALUE} to {@code Integer.MIN_VALUE}.
+     *
+     * @param v to convert
+     * @param defaultValue to return when {@code v==Py.None}
+     * @return normalised value as a Java {@code int}
+     * @throws PyBaseException (TypeError) if {@code v!=None} has no
+     *     {@code __index__}
+     * @throws Throwable from the implementation of {@code __index__}
+     */
+    // Compare CPython _PyEval_SliceIndex in eval.c and where called
+    static int sliceIndex(Object v, int defaultValue)
+            throws PyBaseException, Throwable {
+        if (v == Py.None) {
+            return defaultValue;
+        } else {
+            if (PyNumber.indexCheck(v)) {
+                return asSize(v, null);
+            } else {
+                throw PyErr.format(PyExc.TypeError,
+                        "slice indices must be integers or "
+                                + "None or have an __index__ method");
+            }
+        }
+    }
 
     /**
      * Returns the {@code o} converted to an integer object. This is the
@@ -373,33 +375,38 @@ public class PyNumber extends Abstract {
      */
     // Compare with CPython abstract.h :: PyNumber_Long
     static Object asLong(Object o) throws PyBaseException, Throwable {
-        Object result;
-        PyType oType = PyType.of(o);
 
-        if (oType == PyLong.TYPE) {
-            // Fast path for the case that we already have an int.
-            return o;
-        }
+        Representation rep = PyType.getRepresentation(o);
 
-        else if (SpecialMethod.op_int.isDefinedFor(oType)) {
-            // XXX Need test of intiness and indexiness?
-            // Normalise away subclasses of int
-            result = PyLong.fromIntOf(o);
-            return PyLong.from(result);
-        }
+        if (rep.isIntExact()) { return o; }
 
-        else if (SpecialMethod.op_index.isDefinedFor(oType)) {
-            // Normalise away subclasses of int
-            result = PyLong.fromIndexOrIntOf(o);
-            return PyLong.from(result);
+        PyType oType = rep.pythonType(o);
+
+        try { // calling __int__
+            Object result = rep.op_int().invokeExact(o);
+            Representation resultRep = PyType.getRepresentation(result);
+            if (!resultRep.isIntExact()) {
+                PyType resultType = resultRep.pythonType(result);
+                if (resultType.hasFeature(TypeFlag.INT_SUBCLASS)) {
+                    // Result not of exact type int but is a subclass
+                    result = PyLong.from(returnDeprecation("__int__",
+                            "int", result));
+                } else
+                    throw returnTypeError("__int__", "int", result);
+            }
+            return result;
+        } catch (EmptyException e) {}
+
+        if (oType.hasFeature(KernelTypeFlag.HAS_INDEX)) {
+            return index(o);
         }
 
         // XXX Not implemented: else try the __trunc__ method
 
-        if (PyUnicode.TYPE.check(o))
+        if (oType.hasFeature(TypeFlag.STR_SUBCLASS))
             return PyLong.fromUnicode(o, 10);
 
-        // else if ... support for bytes-like objects
+        // if ( ... ) ... support for bytes-like objects
         else
             throw argumentTypeError("int", 0,
                     "a string, a bytes-like object or a number", o);

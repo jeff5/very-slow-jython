@@ -1,10 +1,9 @@
-// Copyright (c)2024 Jython Developers.
+// Copyright (c)2025 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
 
 import java.lang.invoke.MethodHandle;
 
-import uk.co.farowl.vsj4.runtime.internal._PyUtil;
 import uk.co.farowl.vsj4.runtime.kernel.Representation;
 import uk.co.farowl.vsj4.support.internal.EmptyException;
 
@@ -93,6 +92,45 @@ public class PyUtil {
         return String.format("<%s object at %#x>", name, Py.id(o));
     }
 
+    /**
+     * Return an arbitrary throwable wrapped (if necessary) as a Python
+     * exception, in the context of an implementation of
+     * {@code __new__}. The special method
+     * {@code base.__new__(cls, ...)} has been called, that is, the type
+     * {@code base} is requested to create an instance of type
+     * {@code cls}, and this has failed for the reason given as a
+     * {@code Throwable}.
+     * <p>
+     * This is a convenience method when implementing an exposed
+     * {@code __new__} in a built-in (or extension) type. If the reason
+     * is not already a Python exception, we return a
+     * {@link PyBaseException TypeError} with a message along the lines
+     * {@code "Cannot construct instance of 'CLS' in %BASE.__new__ "},
+     * and a the cause embedded with
+     * {@link Throwable#initCause(Throwable)}.
+     *
+     * @param cls of which an instance is required
+     * @param base that provides the {@code __new__} method.
+     * @param cause resulting from the attempt to construct the object
+     * @return a Python exception reporting the failure.
+     */
+    public static PyBaseException cannotConstructInstance(PyType cls,
+            PyType base, Throwable cause) {
+        if (cause instanceof PyBaseException e) {
+            // Usually signals no matching constructor
+            return e;
+        } else {
+            // Failed while finding/invoking constructor
+            PyBaseException err = PyErr.format(PyExc.TypeError,
+                    CANNOT_CONSTRUCT_INSTANCE, cls.getName(),
+                    base.getName());
+            err.initCause(cause);
+            return err;
+        }
+    }
+
+    private static final String CANNOT_CONSTRUCT_INSTANCE =
+            "Cannot construct instance of '%s' in %s.__new__ ";
 
     // Some singleton exceptions --------------------------------------
 

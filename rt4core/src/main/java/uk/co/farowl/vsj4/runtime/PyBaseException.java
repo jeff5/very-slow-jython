@@ -1,16 +1,17 @@
-// Copyright (c)2024 Jython Developers.
+// Copyright (c)2025 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
 
+import static uk.co.farowl.vsj4.runtime.ClassShorthand.T;
+import static uk.co.farowl.vsj4.runtime.ClassShorthand.TUPLE;
+
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
-import java.lang.reflect.Constructor;
 import java.util.Map;
 import java.util.StringJoiner;
 
 import uk.co.farowl.vsj4.runtime.Exposed.KeywordCollector;
 import uk.co.farowl.vsj4.runtime.Exposed.PositionalCollector;
-import uk.co.farowl.vsj4.support.MissingFeature;
 
 /**
  * The Python {@code BaseException} and many common Python exceptions
@@ -23,10 +24,33 @@ import uk.co.farowl.vsj4.support.MissingFeature;
  * {@link #setType(Object)} with types represented by the same Java
  * class (which obviously cannot change).
  * <p>
- * A Java {@code try-catch} construct intended to catch Python
- * exceptions should catch {@code PyBaseException}. If it is intended to
- * catch only specific kinds of Python exception it must examine the
- * type and re-throw the unwanted exceptions.
+ * CPython prohibits class-assignment involving built-in types directly.
+ * For example {@code FloatingPointError().__class__ = E} and its
+ * converse are not allowed. There seems to be no structural reason to
+ * prohibit it, but we do so for compatibility.
+ * <p>
+ * The implementation follows CPython closely, where the implementation
+ * of many exception types is shared with multiple others. This allows
+ * multiple inheritance and class assignment amongst user-defined
+ * exceptions, with diverse built-in bases, in ways that may be
+ * surprising. The following is valid in Python: <pre>
+ * class TE(TypeError): __slots__=()
+ * class FPE(FloatingPointError): __slots__=()
+ * TE().__class__ = FPE
+ * class E(ZeroDivisionError, TypeError): __slots__=()
+ * E().__class__ = FPE
+ * </pre>In order to meet expectations set by CPython, the Java
+ * representation in Java is correspondingly shared. For example
+ * {@code TypeError}, {@code FloatingPointError} and
+ * {@code ZeroDivisionError} must share a representation. In fact they
+ * are defined in this class, to share the representation of
+ * {@code BaseException}.
+ * <p>
+ * Since different Python exceptions are represented by the same
+ * classes, we cannot use a Java {@code catch} clause to select them. We
+ * must catch the representation class of the intended Python exception,
+ * and re-throw it if it does not match. Method {@link #only(PyType)} is
+ * provided to make this simpler.
  *
  * @implNote It would have been convenient, when catching exceptions in
  *     Java, if the different classes of Python exception could have
@@ -38,12 +62,15 @@ import uk.co.farowl.vsj4.support.MissingFeature;
  */
 // Compare CPython PyBaseExceptionObject in pyerrors.c
 public class PyBaseException extends RuntimeException
-        implements WithClassAssignment, WithDict, ClassShorthand {
-    private static final long serialVersionUID = 1L;
+        implements WithClassAssignment, WithDict {
+
+    /** Allow the type system package access. */
+    private static final MethodHandles.Lookup LOOKUP = MethodHandles
+            .lookup().dropLookupMode(MethodHandles.Lookup.PRIVATE);
 
     /** The type object of Python {@code BaseException} exceptions. */
-    public static final PyType TYPE = PyType.fromSpec(
-            new TypeSpec("BaseException", MethodHandles.lookup())
+    public static final PyType TYPE =
+            PyType.fromSpec(new TypeSpec("BaseException", LOOKUP)
                     .add(Feature.REPLACEABLE, Feature.IMMUTABLE)
                     .doc("Common base class for all exceptions"));
 
@@ -53,8 +80,6 @@ public class PyBaseException extends RuntimeException
     /** The dictionary of associated values on the instance. */
     // XXX dictionary required
     Map<Object, Object> dict;
-
-    // XXX align constructor more directly to CPython.
 
     /**
      * The arguments given to the constructor, which is also the
@@ -136,8 +161,25 @@ public class PyBaseException extends RuntimeException
      * @param wanted type for which the method returns normally
      */
     public void only(PyType wanted) {
-        // XXX Should be isinstance test, accepting sub-types
+        // TODO Should be isinstance test, accepting sub-types
         if (type != wanted) { throw this; }
+    }
+
+    /**
+     * If the Python type of this exception is not one of the
+     * {@code wanted} types, immediately re-throw it, with its original
+     * stack trace. This may be used at the top of a catch clause to
+     * narrow the caught exception almost as if it were a Java type.
+     *
+     * @param wanted type for which the method returns normally
+     */
+    public void only(PyType... wanted) {
+        // TODO Should be isinstance test, accepting sub-types
+        for (PyType w : wanted) {
+            // TODO Should be isinstance test, accepting sub-types
+            if (type == w) { return; }
+        }
+        throw this;
     }
 
     @Override
@@ -173,12 +215,8 @@ public class PyBaseException extends RuntimeException
             // Look up a constructor with the right parameters
             MethodHandle cons = cls.constructor(T, TUPLE).handle();
             return cons.invokeExact(cls, args);
-        } catch (PyBaseException e) {
-            // Usually signals no matching constructor
-            throw e;
         } catch (Throwable e) {
-            // Failed while finding/invoking constructor
-            throw constructionError(cls, e);
+            throw PyUtil.cannotConstructInstance(cls, TYPE, e);
         }
     }
 
@@ -190,7 +228,7 @@ public class PyBaseException extends RuntimeException
      */
     void __init__(Object[] args, String[] kwds) {
         if (kwds == null || kwds.length == 0) {
-            this.args = PyTuple.from(args);
+            this.args = PyTuple.of(args);
         } else {
             throw PyErr.format(PyExc.TypeError,
                     "%s() takes no keyword arguments",
@@ -223,27 +261,85 @@ public class PyBaseException extends RuntimeException
         return sj.toString();
     }
 
-    // plumbing -------------------------------------------------------
+    // Python exceptions sharing this representation -----------------
 
     /**
-     * Return a {@code TypeError} with a message along the lines "Cannot
-     * construct a 'C' in T.__new__" where C is the requested type and T
-     * is the type defining the {@code __new__} method that has been
-     * asked to create an instance of C. This is intended for use at the
-     * point where the Java constructor corresponding to the required
-     * type C is called reflectively. The cause of the error will be the
-     * Java exception actually thrown.
+     * Permit a sub-class to create a type object for a built-in
+     * exception that extends a single base, with the addition of no
+     * fields or methods, and therefore has the same Java representation
+     * as its base.
      *
-     * @param cls the class to create
-     * @param e the Java exception
-     * @return the exception to throw
+     * @param excbase the base (parent) exception
+     * @param excname the name of the new exception
+     * @param excdoc a documentation string for the new exception type
+     * @return the type object for the new exception type
      */
-    protected static PyBaseException constructionError(PyType cls,
-            Throwable e) {
-        PyBaseException err = PyErr.format(PyExc.TypeError,
-                "Cannot construct a '%s' in %s.__new__", cls.getName(),
-                TYPE.getName());
-        err.initCause(e);
-        return err;
+    // Compare CPython SimpleExtendsException in exceptions.c
+    // ... or (same to us) MiddlingExtendsException
+    protected static PyType extendsException(PyType excbase,
+            String excname, String excdoc) {
+        TypeSpec spec = new TypeSpec(excname, LOOKUP).base(excbase)
+                // Share the same Java representation class as base
+                .primary(excbase.javaClass())
+                // This will be a replaceable type.
+                .add(Feature.REPLACEABLE, Feature.IMMUTABLE)
+                .doc(excdoc);
+        return PyType.fromSpec(spec);
     }
+
+    /** {@code Exception} extends {@link PyBaseException}. */
+    protected static PyType Exception =
+            extendsException(TYPE, "Exception",
+                    "Common base class for all non-exit exceptions.");
+    /** {@code TypeError} extends {@code Exception}. */
+    protected static PyType TypeError = extendsException(Exception,
+            "TypeError", "Inappropriate argument type.");
+    /** {@code LookupError} extends {@code Exception}. */
+
+    protected static PyType LookupError = extendsException(Exception,
+            "LookupError", "Base class for lookup errors.");
+    /** {@code IndexError} extends {@code LookupError}. */
+    protected static PyType IndexError = extendsException(LookupError,
+            "IndexError", "Sequence index out of range.");
+    /** {@code ValueError} extends {@link Exception}. */
+    protected static PyType ValueError =
+            extendsException(Exception, "ValueError",
+                    "Inappropriate argument value (of correct type).");
+
+    /** {@code ArithmeticError} extends {@link Exception}. */
+    protected static PyType ArithmeticError =
+            extendsException(Exception, "ArithmeticError",
+                    "Base class for arithmetic errors.");
+    /** {@code FloatingPointError} extends {@link ArithmeticError}. */
+    protected static PyType FloatingPointError =
+            extendsException(ArithmeticError, "FloatingPointError",
+                    "Floating point operation failed.");
+    /** {@code OverflowError} extends {@link ArithmeticError}. */
+    protected static PyType OverflowError =
+            extendsException(ArithmeticError, "OverflowError",
+                    "Result too large to be represented.");
+    /** {@code ZeroDivisionError} extends {@link ArithmeticError}. */
+    protected static PyType ZeroDivisionError = extendsException(
+            ArithmeticError, "ZeroDivisionError",
+            "Second argument to a division or modulo operation was zero.");
+
+    /*
+     * Warnings are Exception objects, but do not get thrown (I think),
+     * being used as "categories" in the warnings module.
+     */
+    /** {@code Warning} extends {@link Exception}. */
+    protected static PyType Warning = extendsException(Exception,
+            "Warning", "Base class for warning categories.");
+    /** {@code DeprecationWarning} extends {@link Warning}. */
+    protected static PyType DeprecationWarning = extendsException(
+            Warning, "DeprecationWarning",
+            "Base class for warnings about deprecated features.");
+    /** {@code RuntimeWarning} extends {@link Warning}. */
+    protected static PyType RuntimeWarning = extendsException(Warning,
+            "RuntimeWarning",
+            "Base class for warnings about dubious runtime behavior.");
+
+    // plumbing ------------------------------------------------------
+
+    private static final long serialVersionUID = 1L;
 }

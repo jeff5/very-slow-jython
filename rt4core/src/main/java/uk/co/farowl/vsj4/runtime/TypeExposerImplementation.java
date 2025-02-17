@@ -1,4 +1,4 @@
-// Copyright (c)2024 Jython Developers.
+// Copyright (c)2025 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
 
@@ -8,6 +8,7 @@ import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.invoke.MethodType;
 import java.lang.invoke.WrongMethodTypeException;
 import java.lang.reflect.Method;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -72,15 +73,11 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
         scanJavaMethods(methodClass);
     }
 
-    @Override
-    public void exposeRecursive(Class<?> implClass) {
-        // Scan the defining class for exposed and special methods
-        for (Class<?> c : superClasses(implClass)) {
-            scanJavaMethods(c);
-            // ... and for fields.
-            // scanJavaFields(c);
-        }
-    }
+    //@Override
+    //public void exposeMembers(Class<?> memberClass) {
+    //    // Scan the defining class for exposed fields
+    //    scanJavaFields(memberClass);
+    //}
 
     @Override
     public void populate(Map<? super String, Object> dict,
@@ -98,6 +95,47 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
             Object attr = spec.asAttribute(type, lookup);
             dict.put(spec.name, attr);
         }
+    }
+
+
+    @Override
+    public Iterable<Entry> entries(Lookup lookup) {
+        if (type == null)
+            // type may only properly be null during certain tests
+            throw new InterpreterError(
+                    "Cannot generate entries for type 'null'");
+        logger.atDebug().addArgument(type.getName())
+                .log("Populating type '{}'");
+
+        // The returned object will stream name-attr pairs
+        return new Iterable<Entry>() {
+
+            @Override
+            public Iterator<Entry> iterator() {
+                return new Iterator<Entry>() {
+                    // Entries derive from the specs table
+                    Iterator<Spec> specIter = specs.values().iterator();
+
+                    @Override
+                    public boolean hasNext() {
+                        // ... if there are specs left to process
+                        return specIter.hasNext();
+                    }
+
+                    @Override
+                    public Entry next() {
+                        Spec spec = specIter.next();
+                        logger.atTrace().addArgument(type.getName())
+                                .addArgument(spec.name)
+                                .log("-  Add {}.{}");
+                        spec.checkFormation();
+                        // Create attribute according to spec type
+                        Object attr = spec.asAttribute(type, lookup);
+                        return new Entry(spec.name, attr);
+                    }
+                };
+            }
+        };
     }
 
     /**

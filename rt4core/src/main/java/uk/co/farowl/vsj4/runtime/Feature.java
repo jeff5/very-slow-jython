@@ -1,6 +1,6 @@
+// Copyright (c)2025 Jython Developers.
+// Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
-
-import uk.co.farowl.vsj4.runtime.kernel.TypeFlag;
 
 /**
  * Enumeration of the features of a type that may be specified in a
@@ -46,25 +46,20 @@ public enum Feature {
 
     /**
      * Instances of the type object are treated as sequences for pattern
-     * matching.
+     * matching. This does not affect whether Python treats instances as
+     * a sequence functionally, which depends instead on whether a type
+     * defines the required special methods.
      */
     // Compare CPython Py_TPFLAGS_SEQUENCE
     SEQUENCE(TypeFlag.SEQUENCE),
     /**
      * Instances of the type object are treated as mappings for pattern
-     * matching
+     * matching. This does not affect whether Python treats instances as
+     * a mapping functionally, which depends instead on whether a type
+     * defines the required special methods.
      */
     // Compare CPython Py_TPFLAGS_MAPPING
     MAPPING(TypeFlag.MAPPING),
-
-    /**
-     * This flag is used to give certain built-ins a pattern-matching
-     * behaviour that allows a single positional sub-pattern to match
-     * against the subject itself (rather than a mapped attribute on
-     * it).
-     */
-    // Compare CPython _Py_TPFLAGS_MATCH_SELF
-    MATCH_SELF(TypeFlag.MATCH_SELF),
 
     /**
      * An instance of this type is a method descriptor, that is, it
@@ -85,7 +80,7 @@ public enum Feature {
      * equivalent to {@code func(*args, **kwds)}.</li>
      * </ul>
      */
-    METHOD_DESCR(TypeFlag.IS_METHOD_DESCR);
+    METHOD_DESCR(TypeFlag.METHOD_DESCR);
 
     /** Navigate from feature to corresponding type flag. */
     public final TypeFlag flag;

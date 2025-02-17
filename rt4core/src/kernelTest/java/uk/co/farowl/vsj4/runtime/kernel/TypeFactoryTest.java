@@ -1,4 +1,4 @@
-// Copyright (c)2024 Jython Developers.
+// Copyright (c)2025 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime.kernel;
 
@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
+import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 
@@ -59,11 +60,13 @@ class TypeFactoryTest {
                 public void exposeMethods(Class<?> definingClass) {}
 
                 @Override
-                public void exposeRecursive(Class<?> definingClass) {}
-
-                @Override
                 public void populate(Map<? super String, Object> dict,
                         Lookup lookup) {}
+
+                @Override
+                public Iterable<Entry> entries(Lookup lookup) {
+                    return List.of();
+                }
             };
 
     /**

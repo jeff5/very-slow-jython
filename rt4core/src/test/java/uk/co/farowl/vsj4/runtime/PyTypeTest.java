@@ -221,7 +221,7 @@ class PyTypeTest extends UnitTestSupport {
             String strNamespace = namespace.toString();
             StringJoiner b = new StringJoiner(", ", "(", ")");
             for (PyType t : bases) { b.add(t.getName()); }
-            return arguments(metatype, name, PyTuple.from(bases),
+            return arguments(metatype, name, new PyTuple(bases),
                     namespace, test, strMetatype, b.toString(),
                     strNamespace);
         }

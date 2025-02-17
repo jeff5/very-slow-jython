@@ -1,4 +1,4 @@
-// Copyright (c)2024 Jython Developers.
+// Copyright (c)2025 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime.kernel;
 
@@ -579,7 +579,7 @@ class SubclassCreationTest {
              * thorough here as we must be in __build_class__, just
              * aiming to catch mistakes building a test.
              */
-            /// XXX This should be in PyType or __build_class__
+            // XXX This should be in PyType or __build_class__
             PyType baseType = findBaseClass(interfaces, bases, title);
 
             // Create a specification from baseType Java information
@@ -673,6 +673,16 @@ class SubclassCreationTest {
             PyType[] m = t.getMRO();
             assertSame(type, m[0]);
             assertSame(PyFloat.TYPE, m[1]);
+        }
+
+        @DisplayName("defines __neg__ by inheritance")
+        @ParameterizedTest(name = "when defined by {1}")
+        @MethodSource("dynamicExamples")
+        void inheritsNeg(Class<?> refClass, String title, PyType type,
+                Object[] args, String[] kwds) throws Throwable {
+            // Lookup __neg__ on the type
+            Object neg = type.lookup("__neg__");
+            assertSame(PyFloat.TYPE.lookup("__neg__"), neg);
         }
     }
 

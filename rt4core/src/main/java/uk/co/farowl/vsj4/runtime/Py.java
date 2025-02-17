@@ -15,7 +15,7 @@ public class Py {
         assert registry != null;
     }
 
-    private Py() {};    // Instances are not allowed.
+    private Py() {}    // Instances are not allowed.
 
     /**
      * Return the unique numerical identity of a given Python object.
@@ -46,7 +46,7 @@ public class Py {
      * @return a {@link PyTuple} of the argument.
      */
     public static PyTuple tuple(Object... a) {
-        return a.length == 0 ? PyTuple.EMPTY : new PyTuple(a);
+        return PyTuple.of(a);
     }
 
     /**

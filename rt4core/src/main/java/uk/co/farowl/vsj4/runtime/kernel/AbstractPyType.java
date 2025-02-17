@@ -1,4 +1,4 @@
-// Copyright (c)2024 Jython Developers.
+// Copyright (c)2025 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime.kernel;
 
@@ -24,11 +24,14 @@ import uk.co.farowl.vsj4.runtime.PyBaseException;
 import uk.co.farowl.vsj4.runtime.PyDict;
 import uk.co.farowl.vsj4.runtime.PyErr;
 import uk.co.farowl.vsj4.runtime.PyExc;
+import uk.co.farowl.vsj4.runtime.PyFloat;
 import uk.co.farowl.vsj4.runtime.PyJavaFunction;
+import uk.co.farowl.vsj4.runtime.PyList;
 import uk.co.farowl.vsj4.runtime.PyLong;
 import uk.co.farowl.vsj4.runtime.PyTuple;
 import uk.co.farowl.vsj4.runtime.PyType;
 import uk.co.farowl.vsj4.runtime.PyUnicode;
+import uk.co.farowl.vsj4.runtime.TypeFlag;
 import uk.co.farowl.vsj4.runtime.TypeSpec;
 import uk.co.farowl.vsj4.runtime.WithClass;
 import uk.co.farowl.vsj4.runtime.internal._PyUtil;
@@ -59,11 +62,22 @@ public abstract sealed class AbstractPyType extends Representation
     /**
      * Feature flags collecting various boolean traits of this type,
      * such as immutability or being a subclass of {@code int}. Some of
-     * these come fairly directly from the TypeSpec (where used) and
-     * others are observed during construction of the type.
+     * these come fairly directly from the {@link TypeSpec} (where used
+     * to define the type) and others are observed during construction
+     * of the type.
      */
     // Compare CPython tp_flags in object.h
     final EnumSet<TypeFlag> features = EnumSet.noneOf(TypeFlag.class);
+
+    /**
+     * Kernel feature flags collecting various traits of this type that
+     * are private to the implementation, such as defining a certain
+     * special method. Some of these are mostly observed during
+     * construction of the type.
+     */
+    // Compare CPython tp_flags in object.h
+    final EnumSet<KernelTypeFlag> kernelFeatures =
+            EnumSet.noneOf(KernelTypeFlag.class);
 
     /**
      * The {@code __bases__} of this type, which are the types named in
@@ -271,6 +285,27 @@ public abstract sealed class AbstractPyType extends Representation
     public abstract Class<?> canonicalClass();
 
     /**
+     * Test for possession of a specified feature.
+     *
+     * @param feature to check for
+     * @return whether present
+     */
+    public boolean hasFeature(TypeFlag feature) {
+        return features.contains(feature);
+    }
+
+    /**
+     * Test for possession of a specified kernel feature. Kernel
+     * features are not public API.
+     *
+     * @param feature to check for
+     * @return whether present
+     */
+    public boolean hasFeature(KernelTypeFlag feature) {
+        return kernelFeatures.contains(feature);
+    }
+
+    /**
      * Return true if and only if this is a mutable type. The attributes
      * of a mutable type may be changed, although it will manage that
      * change according to rules of its own. An immutable type object
@@ -283,11 +318,55 @@ public abstract sealed class AbstractPyType extends Representation
     public abstract boolean isMutable();
 
     /**
-     * Fast check that the target is a data descriptor.
+     * Fast check that the target is a sequence, defined as not a
+     * subclass of {@code dict} and defining {@code __getitem__}.
+     *
+     * @return target is a sequence
+     */
+    // Compare CPython PySequence_Check (on instance) in abstract.c
+    public boolean isSequence() {
+        return hasFeature(KernelTypeFlag.HAS_GETITEM)
+                && !hasFeature(TypeFlag.DICT_SUBCLASS);
+    }
+
+    /**
+     * Fast check that the target is iterable with {@code __iter__}.
+     *
+     * @return target is a iterable with {@code __iter__}
+     */
+    public boolean isIterable() {
+        return hasFeature(KernelTypeFlag.HAS_ITER);
+    }
+
+    /**
+     * Fast check that the target is an iterator (defines
+     * {@code __next__}).
+     *
+     * @return target is a an iterator
+     */
+    public boolean isIterator() {
+        return hasFeature(KernelTypeFlag.HAS_NEXT);
+    }
+
+    /**
+     * Fast check that the target is a descriptor (defines
+     * {@code __get__}).
+     *
+     * @return target is a descriptor
+     */
+    public boolean isDescr() {
+        return hasFeature(KernelTypeFlag.HAS_GET);
+    }
+
+    /**
+     * Fast check that the target is a data descriptor (defines
+     * {@code __set__}).
      *
      * @return target is a data descriptor
      */
-    public boolean isDataDescr() { return false; }
+    public boolean isDataDescr() {
+        return hasFeature(KernelTypeFlag.HAS_SET);
+    }
 
     /**
      * Fast check that instances of the type are a method descriptors,
@@ -311,7 +390,7 @@ public abstract sealed class AbstractPyType extends Representation
      * @return target is a method descriptor
      */
     public boolean isMethodDescr() {
-        return features.contains(TypeFlag.IS_METHOD_DESCR);
+        return features.contains(TypeFlag.METHOD_DESCR);
     }
 
     /**
@@ -408,7 +487,7 @@ public abstract sealed class AbstractPyType extends Representation
      * might change. The caller provides a callback method that will be
      * called every time the definition of this name changes.
      *
-     * @param name to look up, must be exactly a {@code str}
+     * @param name to look up
      * @param callback to deliver updates (or {@code null})
      * @return extended result or {@code null} if not found
      */
@@ -552,6 +631,7 @@ public abstract sealed class AbstractPyType extends Representation
      *
      * @param spec specification of this type
      */
+    // Compare CPython inherit_special in typeobject.c
     void deriveFeatures(TypeSpec spec) {
         /*
          * Set at most one of the fast sub-type test flags. We cannot
@@ -565,6 +645,20 @@ public abstract sealed class AbstractPyType extends Representation
                 || setFeature(PyDict.class, TypeFlag.DICT_SUBCLASS)
                 || setFeature(PyBaseException.class,
                         TypeFlag.EXCEPTION_SUBCLASS);
+
+        /*
+         * Certain built-ins have this feature, which relates to pattern
+         * matching. It would be nice to accomplish this in the
+         * TypeSpec, but it is not public API.
+         */
+        dummy = setFeature(PyLong.class, KernelTypeFlag.MATCH_SELF)
+                || setFeature(PyFloat.class, KernelTypeFlag.MATCH_SELF)
+                // || setFeature(PyBytes.class,
+                // KernelTypeFlag.MATCH_SELF)
+                || setFeature(PyUnicode.class,
+                        KernelTypeFlag.MATCH_SELF)
+                || setFeature(PyList.class, KernelTypeFlag.MATCH_SELF)
+                || setFeature(PyDict.class, KernelTypeFlag.MATCH_SELF);
     }
 
     /**
@@ -590,6 +684,31 @@ public abstract sealed class AbstractPyType extends Representation
     }
 
     /**
+     * Maybe set the given kernel feature flag. The flag is set if and
+     * only if the implementation class of this type matches that given,
+     *
+     *
+     *
+     * or the same flag is set in the base. This way, there is a first
+     * qualifying type {@code k}, then every type that descends from it
+     * inherits the flag.
+     *
+     * @param k identifying the first qualifying type
+     * @param f flag marking a sub-type
+     * @return {@code true} iff the flag was set in this call
+     */
+    private final boolean setFeature(Class<?> k, KernelTypeFlag f) {
+        AbstractPyType base = this.base;
+        if (base != null) {
+            if (javaClass == k || base.kernelFeatures.contains(f)) {
+                kernelFeatures.add(f);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
      * Load the dictionary of this type with attributes discovered by an
      * exposer. This is a package-visible hook with direct access to the
      * dictionary, for {@link TypeFactory} to use during type
@@ -599,10 +718,18 @@ public abstract sealed class AbstractPyType extends Representation
      * @param supplying the lookup object
      */
     void populateDict(TypeExposer exposer, TypeSpec spec) {
-        exposer.populate(_dict, spec.getLookup());
+
+        // Add contents of the exposer to the dictionary
+        Lookup lookup = spec.getLookup();
+        for (TypeExposer.Entry e : exposer.entries(lookup)) {
+            _dict.put(e.name(), e.value());
+            updateAfterSetAttr(e.name());
+        }
+
         // Fill the cache for each special method (not just defined).
         for (SpecialMethod sm : SpecialMethod.values()) {
-            updateSpecialMethodCache(sm);
+            LookupResult result = lookup(name, null);
+            updateSpecialMethodCache(sm, result);
         }
     }
 
@@ -619,10 +746,31 @@ public abstract sealed class AbstractPyType extends Representation
         // FIXME Notify sub-classes and other watchers.
         // Think about synchronisation of threads to make this visible.
 
-        SpecialMethod sm;
-        if ((sm = SpecialMethod.forMethodName(name)) != null) {
+        LookupResult result = lookup(name, null);
+        SpecialMethod sm = SpecialMethod.forMethodName(name);
+
+        if (sm != null) {
             // Update affects a special method cache.
-            updateSpecialMethodCache(sm);
+            updateSpecialMethodCache(sm, result);
+            // Some special methods need:
+            KernelTypeFlag feature = switch (sm) {
+                case op_getitem -> KernelTypeFlag.HAS_GETITEM;
+                case op_iter -> KernelTypeFlag.HAS_ITER;
+                case op_next -> KernelTypeFlag.HAS_NEXT;
+                case op_index -> KernelTypeFlag.HAS_INDEX;
+                case op_get -> KernelTypeFlag.HAS_GET;
+                case op_set -> KernelTypeFlag.HAS_SET;
+                case op_delete -> KernelTypeFlag.HAS_DELETE;
+                default -> null;
+            };
+            // If sm corresponds to a feature flag
+            if (feature != null) {
+                if (result != null) {
+                    kernelFeatures.add(feature);
+                } else {
+                    kernelFeatures.remove(feature);
+                }
+            }
 
         } else if ("__new__".equals(name)) {
             // Update affects __new__.
@@ -631,20 +779,21 @@ public abstract sealed class AbstractPyType extends Representation
     }
 
     /**
-     * Update the cache for each representation of this type, by looking
-     * up the definition along the MRO.
+     * Update the cache for each representation of this type, and
+     * certain feature values, by looking up the definition along the
+     * MRO.
      *
      * @param sm the special method
+     * @param result of looking up the name, may be ({@code null}
      */
-    private void updateSpecialMethodCache(SpecialMethod sm) {
-
-        LookupResult result;
+    private void updateSpecialMethodCache(SpecialMethod sm,
+            LookupResult result) {
 
         if (sm.cache == null) {
             // There is no cache for this special method. Ignore.
             return;
 
-        } else if ((result = lookup(sm.methodName, null)) == null) {
+        } else if (result == null) {
             /*
              * The special method is not defined for this type. Install
              * a handle that throws EmptyException. (Unlike in CPython,

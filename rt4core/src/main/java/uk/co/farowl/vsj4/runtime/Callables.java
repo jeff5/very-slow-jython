@@ -1,4 +1,4 @@
-// Copyright (c)2024 Jython Developers.
+// Copyright (c)2025 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
 
@@ -147,9 +147,9 @@ public class Callables extends Abstract {
 
         // Represent args as a PyTuple (if not already)
         PyTuple ar;
-        if (args instanceof PyTuple)
+        if (args instanceof PyTuple) {
             ar = (PyTuple)args;
-        else {
+        } else {
             // TODO: Treat args as an iterable of objects
             // Throw TypeError if not convertible
             ar = PyTuple.EMPTY;
@@ -257,7 +257,7 @@ public class Callables extends Abstract {
             return vectorcall(callable, stack, start, nargs);
         } else {
             return vectorcall(callable, stack, start, nargs,
-                    PyTuple.from(names));
+                    new PyTuple(names));
         }
     }
 

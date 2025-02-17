@@ -1,17 +1,19 @@
-// Copyright (c)2024 Jython Developers.
+// Copyright (c)2025 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime.kernel;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
-import java.lang.reflect.Constructor;
 import java.math.BigInteger;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Queue;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -20,12 +22,14 @@ import org.slf4j.LoggerFactory;
 
 import uk.co.farowl.vsj4.runtime.Feature;
 import uk.co.farowl.vsj4.runtime.PyFloat;
+import uk.co.farowl.vsj4.runtime.PyFloatMethods;
 import uk.co.farowl.vsj4.runtime.PyLong;
+import uk.co.farowl.vsj4.runtime.PyLongMethods;
 import uk.co.farowl.vsj4.runtime.PyType;
 import uk.co.farowl.vsj4.runtime.PyUnicode;
+import uk.co.farowl.vsj4.runtime.PyUnicodeMethods;
 import uk.co.farowl.vsj4.runtime.TypeSpec;
 import uk.co.farowl.vsj4.runtime.WithClass;
-import uk.co.farowl.vsj4.runtime.internal.PyFloatMethods;
 import uk.co.farowl.vsj4.runtime.kernel.Representation.Shared;
 import uk.co.farowl.vsj4.support.InterpreterError;
 
@@ -489,24 +493,29 @@ public class TypeFactory {
         assert PyType.TYPE == typeType;
 
         /*
-         * Create specifications for the bootstrap types. It is not
-         * fully thread safe to invoke PyType.fromSpec in the static
-         * initialisation of the type. We a local array because we only
-         * need them transiently. A type listed here should not contain
-         * the idiom static TYPE = PyType.fromSpec(...), but obtain its
-         * TYPE by enquiry in the registry.
+         * Create specifications for the bootstrap types. When it is not
+         * fully thread-safe to invoke PyType.fromSpec in the static
+         * initialisation of the type, we create the type here. We use a
+         * local array because we only need these specifications
+         * transiently. A type listed here should not contain the idiom
+         * static TYPE = PyType.fromSpec(...), but obtain its TYPE by
+         * enquiry in the registry.
          */
         final TypeSpec[] bootstrapSpecs = { //
                 new BootstrapSpec("int", PyLong.class)
-                        // .methodImpls(PyLongMethods.class)
+                        .methodImpls(PyLongMethods.class)
                         // .binops(PyLongBinops.class)
                         .adopt(BigInteger.class, Integer.class)
                         .accept(Boolean.class),
                 new BootstrapSpec("str", PyUnicode.class)
+                        .methodImpls(PyUnicodeMethods.class)
                         .adopt(String.class),
                 new BootstrapSpec("float", PyFloat.class)
+                        .methodImpls(PyFloatMethods.class)
+                        // .binops(PyFloatBinops.class)
                         .adopt(Double.class)
-                        .methodImpls(PyFloatMethods.class)};
+                //
+        };
 
         // Immediately create those type objects Java ready.
         for (TypeSpec spec : bootstrapSpecs) {
@@ -553,7 +562,7 @@ public class TypeFactory {
          * calls for fromSpec() as new types are revealed in the static
          * initialisation of Java classes.
          */
-        workshop.exposeAllWaitingTypes();
+        workshop.readyAllWaitingTypes();
         // Let's hope that emptied the shop ...
         int workshopCount = workshop.tasks.size();
         if (workshopCount != 0) {
@@ -789,57 +798,9 @@ public class TypeFactory {
          * populate its dictionary with attributes from the type
          * exposer, and finalise other state from the specification.
          */
-        void exposeAllWaitingTypes() {
+        void readyAllWaitingTypes() {
             // Do not use an iterator because exposure may add tasks.
-            while (!tasks.isEmpty()) { exposeType(tasks.remove()); }
-        }
-
-        /**
-         * Make the single type identified in the task Python ready.
-         * Populate its dictionary with attributes from the type
-         * exposer, and finalise other state from the specification.
-         */
-        private void exposeType(Task task) {
-            // Run the exposure process on the type.
-            TypeSpec spec = task.spec;
-            AbstractPyType type = task.type;
-
-            // Set MRO
-            type.setMRO();
-
-            // Set feature flags
-            type.addFeatures(spec);
-
-            TypeExposer exposer = exposerFactory.apply(task.type);
-
-            /*
-             * Gather attributes (methods, members and get-sets) from
-             * the primary representation class. Definitions (a
-             * precursor of Python descriptors) accumulate in the
-             * exposer.
-             */
-            exposer.exposeRecursive(spec.getPrimary());
-
-            /*
-             * Gather methods and get-sets from the specified
-             * supplementary method implementation classes.
-             */
-            for (Class<?> c : spec.getMethodImpls()) {
-                // Scan class c for method/attribute definitions.
-                exposer.exposeMethods(c);
-            }
-
-            /*
-             * Populate the dictionary of the type with the accumulated
-             * descriptors created from the definitions in the exposer.
-             */
-            type.populateDict(exposer, spec);
-
-            // Discover the Java constructors
-            type.fillConstructorLookup(spec);
-
-            // Derive remaining feature flags
-            type.deriveFeatures(spec);
+            while (!tasks.isEmpty()) { tasks.remove().readyType(); }
         }
 
         /**
@@ -855,47 +816,160 @@ public class TypeFactory {
             registry.registerAll(unpublished);
             unpublished.clear();
         }
-    }
 
-    /**
-     * A {@code TypeFactory.Task} is a partially-built type and its
-     * specification. It is created to hold work in progress in the
-     * {@code Workshop}, between creation of a "Java ready" type object
-     * and completion of it as "Python ready". This happens particularly
-     * while the "bootstrap" types are created: {@code object},
-     * {@code type}, and those with adopted representations.
-     * <p>
-     * In principle (we think) any type could have somewhere in its
-     * interface or static initialisation a Java class for which the
-     * type object must at least exist, before the dependent type can be
-     * completed. The primary source of stored work is the types
-     * necessary to expose any type, during initialisation of the type
-     * system itself. This all results in reentrant requests to the
-     * factory.
-     * <p>
-     * Reentrant here means that as part of satisfying one request, a
-     * new request is made synchronously from the same thread. An
-     * asynchronous request from another thread would wait outside the
-     * factory until the workshop is empty because of the locking
-     * strategy.
-     */
-    private static class Task {
-        /** The type being built. */
-        final PyType type;
+        /**
+         * A {@code Workshop.Task} holds a partially-built type and its
+         * specification. It is created to hold work in progress in the
+         * {@code Workshop}, between creation of a "Java ready" type
+         * object and completion of it as "Python ready". The need to
+         * hold work in progress arises particularly while the
+         * "bootstrap" types are created. {@code object}, {@code type},
+         * and those with adopted representations like {@code str},
+         * cannot be made Python ready without the descriptor types
+         * being at least Java ready. And then none of them may be
+         * published until all are Python ready.
+         * <p>
+         * Reentrant here means that as part of satisfying one request,
+         * a new request is made synchronously from the same thread. An
+         * asynchronous request from another thread would wait outside
+         * the factory until the workshop is empty because of the
+         * locking strategy.
+         * <p>
+         * In principle (we think) any class could involve that type of
+         * partial circularity, and so all type creation follows the
+         * same flow. This all results in reentrant requests to the
+         * factory.
+         */
+        private class Task {
+            /** The type being built. */
+            final PyType type;
 
-        // XXX Do I need the spec if I look it up that way?
-        /** Specification for the type being built. */
-        final TypeSpec spec;
+            /** Specification for the type being built. */
+            final TypeSpec spec;
 
-        Task(PyType type, TypeSpec spec) {
-            super();
-            this.type = type;
-            this.spec = spec.freeze();
-        }
+            Task(PyType type, TypeSpec spec) {
+                super();
+                this.type = type;
+                this.spec = spec.freeze();
+            }
 
-        @Override
-        public String toString() {
-            return String.format("Task[%s]", spec.getName());
+            @Override
+            public String toString() {
+                return String.format("Task[%s]", spec.getName());
+            }
+
+            /**
+             * Make the single type identified in the task Python ready.
+             * Populate its dictionary with attributes from the type
+             * exposer, and finalise other state from the specification.
+             */
+            void readyType() {
+
+                AbstractPyType type = this.type;  // Enables access :/
+
+                // Set MRO
+                type.setMRO();
+
+                // Set feature flags
+                type.addFeatures(spec);
+
+                // Construct an exposer for the type.
+                TypeExposer exposer = gatherJavaAttributes();
+
+                /*
+                 * Populate the dictionary of the type with the
+                 * accumulated descriptors created from the definitions
+                 * in the exposer.
+                 */
+                type.populateDict(exposer, spec);
+
+                // Discover the Java constructors
+                type.fillConstructorLookup(spec);
+
+                // Derive remaining feature flags
+                type.deriveFeatures(spec);
+            }
+
+            /**
+             * Gather attributes (methods, members and get-sets) from
+             * the primary representation class, selected ancestor
+             * classes, and supplementary method implementation classes.
+             * Definitions (a precursor of Python descriptors)
+             * accumulate in the exposer returned.
+             *
+             * @return a type exposer with found definitions
+             */
+            private TypeExposer gatherJavaAttributes() {
+
+                // Construct an exposer for the type.
+                TypeExposer exposer = exposerFactory.apply(type);
+
+                /*
+                 * We look for methods, members and get-sets in the
+                 * primary representation and Java superclasses, but NOT
+                 * where a Python superclass will supply it.
+                 */
+                for (Class<?> c : definitionClasses()) {
+                    // Gather methods and get-sets
+                    exposer.exposeMethods(c);
+                    // TODO ... and members (fields).
+                    // exposer.exposeMembers(c);
+                }
+
+                /*
+                 * Gather methods and get-sets from the specified
+                 * supplementary method implementation classes.
+                 */
+                for (Class<?> c : spec.getMethodImpls()) {
+                    // Scan class c for method/attribute definitions.
+                    exposer.exposeMethods(c);
+                }
+
+                return exposer;
+            }
+
+            /**
+             * Walk down to a given class through all super-classes that
+             * might contain methods, members and get-sets to expose,
+             * but are not a representation of a Python base. This
+             * strategy provides the freedom to define attributes in
+             * Java superclasses of an object implementation. The result
+             * is presented with the most senior ancestor first, so that
+             * overridden definitions will be superseded in the scan.
+             *
+             * @return superclasses supplying definitions
+             */
+            private Collection<Class<?>> definitionClasses() {
+                /*
+                 * Any definitions in these classes will be in the
+                 * dictionary of a base, so this type will inherit them
+                 * along the MRO.
+                 */
+                Set<Class<?>> exclusions = new HashSet<>();
+                exclusions.add(Object.class);
+
+                for (PyType t : spec.getBases()) {
+                    exclusions.add(t.canonicalClass());
+                }
+
+                /*
+                 * A list of Java classes potentially defining methods,
+                 * members and get-sets.
+                 */
+                LinkedList<Class<?>> defs = new LinkedList<>();
+
+                // The primary is always added (unless Object)
+                Class<?> c = spec.getPrimary();
+                assert c != null;
+                // Work upwards from until we meet an excluded class
+                while (!exclusions.contains(c)) {
+                    // At front of list so later definitions will win
+                    defs.addFirst(c);
+                    c = c.getSuperclass();
+                }
+
+                return defs;
+            }
         }
     }
 
@@ -1010,7 +1084,13 @@ public class TypeFactory {
      */
     private class BootstrapSpec extends TypeSpec {
         /**
-         * Create a specification using name and primary class.
+         * Create a specification using name and primary class. The
+         * lookup object used to expose methods will be a generic one
+         * supplied by the run-time package, that does not have access
+         * to {@code private} members of the {@code primary} class. For
+         * this reason, the special and other exposed methods of a
+         * bootstrap type must be visible at package scope in the
+         * run-time package.
          *
          * @param name of type
          * @param primary used to represent and define methods

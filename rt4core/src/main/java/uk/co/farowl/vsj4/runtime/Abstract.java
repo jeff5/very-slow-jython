@@ -1,4 +1,4 @@
-// Copyright (c)2024 Jython Developers.
+// Copyright (c)2025 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
 
@@ -135,10 +135,9 @@ public class Abstract {
      * @throws Throwable on errors within {@code __hash__}
      */
     public static int hash(Object v) throws PyBaseException, Throwable {
+        Representation rep = PyType.getRepresentation(v);
         try {
-            Representation rep = PyType.getRepresentation(v);
-            MethodHandle mh = rep.op_hash();
-            return (int)mh.invokeExact(v);
+            return (int)rep.op_hash().invokeExact(v);
         } catch (EmptyException e) {
             throw typeError("unhashable type: %s", v);
         }
@@ -365,8 +364,8 @@ public class Abstract {
     public static void setAttr(Object o, String name, Object value)
             throws PyAttributeError, Throwable {
         // Decisions are based on type of o (that of name is known)
+        Representation rep = PyType.getRepresentation(o);
         try {
-            Representation rep = PyType.getRepresentation(o);
             rep.op_setattr().invokeExact(o, name, value);
         } catch (EmptyException e) {
             throw attributeAccessError(o, name,
@@ -408,8 +407,8 @@ public class Abstract {
     public static void delAttr(Object o, String name)
             throws PyAttributeError, Throwable {
         // Decisions are based on type of o (that of name is known)
+        Representation rep = PyType.getRepresentation(o);
         try {
-            Representation rep = PyType.getRepresentation(o);
             rep.op_delattr().invokeExact(o, name);
         } catch (EmptyException e) {
             throw attributeAccessError(o, name,
@@ -731,9 +730,9 @@ public class Abstract {
             return null;
         } else {
             // res might be a descriptor
+            Representation rep = PyType.getRepresentation(res);
             try {
                 // invoke the descriptor's __get__
-                Representation rep = PyType.getRepresentation(res);
                 MethodHandle f = rep.op_get();
                 res = f.invokeExact(res, self, selfType);
             } catch (EmptyException e) {}
@@ -758,10 +757,10 @@ public class Abstract {
      * @throws Throwable from errors in {@code o.__iter__}
      */
     // Compare CPython PyObject_GetIter in abstract.c
-    // static Object getIterator(Object o) throws PyBaseException,
-    // Throwable {
-    // return getIterator(o, null);
-    // }
+    static Object getIterator(Object o)
+            throws PyBaseException, Throwable {
+        return getIterator(o, null);
+    }
 
     /**
      * Equivalent to {@link #getIterator(Object)}, with the opportunity
@@ -775,31 +774,37 @@ public class Abstract {
      * @throws Throwable from errors in {@code o.__iter__}
      */
     // Compare CPython PyObject_GetIter in abstract.c
-    // static <E extends PyBaseException> Object getIterator(Object o,
-    // Supplier<E> exc) throws PyBaseException, Throwable {
-    // Representation rep = PyType.getRepresentation(o);
-    // if (SpecialMethod.op_iter.isDefinedFor(rep)) {
-    // // o defines __iter__, call it.
-    // Object r = rep.op_iter().invokeExact(o);
-    // // Did that return an iterator? Check r defines __next__.
-    // if (SpecialMethod.op_next.isDefinedFor(
-    // PyType.getRepresentation(r))) {
-    // return r;
-    // } else if (exc == null) {
-    // throw returnTypeError("iter", "iterator", r);
-    // }
-    // } else if (SpecialMethod.op_getitem.isDefinedFor(rep)) {
-    // // o defines __getitem__: make a (Python) iterator.
-    // return new PyIterator(o);
-    // }
-    //
-    // // Out of possibilities: throw caller-defined exception
-    // if (exc != null) {
-    // throw exc.get();
-    // } else {
-    // throw typeError(NOT_ITERABLE, o);
-    // }
-    // }
+    static <E extends PyBaseException> Object getIterator(Object o,
+            Supplier<E> exc) throws PyBaseException, Throwable {
+
+        Representation orep = PyType.getRepresentation(o);
+        PyType otype = orep.pythonType(o);
+
+        try {
+            // Call o.__iter__, which may be empty.
+            Object i = orep.op_iter().invokeExact(o);
+            // Did that return an iterator? Check i defines __next__.
+            Representation irep = PyType.getRepresentation(i);
+            if (irep.pythonType(i).isIterator()) {
+                return i;
+            } else if (exc == null) {
+                throw returnTypeError("iter", "iterator", i);
+            }
+        } catch (EmptyException e) {
+            // otype does not define __iter__: try __getitem__
+            if (otype.isSequence()) {
+                // o defines __getitem__: make a (Python) iterator.
+                return new PyIterator(o);
+            }
+        }
+
+        // Out of possibilities: throw caller-defined exception
+        if (exc != null) {
+            throw exc.get();
+        } else {
+            throw typeError(NOT_ITERABLE, o);
+        }
+    }
 
     /**
      * Return {@code true} if the object {@code o} supports the iterator
@@ -809,8 +814,7 @@ public class Abstract {
      * @return true if {@code o} supports the iterator protocol
      */
     static boolean iterableCheck(Object o) {
-        return SpecialMethod.op_iter
-                .isDefinedFor(PyType.getRepresentation(o));
+        return PyType.of(o).isIterable();
     }
 
     /**
@@ -822,8 +826,7 @@ public class Abstract {
      */
     // Compare CPython PyIter_Check in abstract.c
     static boolean iteratorCheck(Object o) {
-        return SpecialMethod.op_next
-                .isDefinedFor(PyType.getRepresentation(o));
+        return PyType.of(o).isIterator();
     }
 
     /**
@@ -855,15 +858,14 @@ public class Abstract {
      *
      * @param o object accessed
      * @param name of attribute
-     * @param slot operation
+     * @param sm operation
      * @return an error to throw
      */
     private static PyBaseException attributeAccessError(Object o,
-            String name, SpecialMethod slot) {
-        String mode, kind,
-                fmt = "'%.100s' object has %s attributes (%s.%.50s)";
+            String name, SpecialMethod sm) {
+        String mode, kind;
         // What were we trying to do?
-        switch (slot) {
+        switch (sm) {
             case op_delattr:
                 mode = "delete ";
                 break;
@@ -874,16 +876,16 @@ public class Abstract {
                 mode = "";
                 break;
         }
-        // Can we even read this object's attributes?
+        // Can we even read the attribute?
         Representation rep = PyType.getRepresentation(o);
-        String typeName = rep.pythonType(o).getName();
-        boolean readable =
-                SpecialMethod.op_getattribute.isDefinedFor(rep)
-                        || SpecialMethod.op_getattr.isDefinedFor(rep);
+        PyType type = rep.pythonType(o);
+        boolean readable = type.lookup("__getattribute__") != null
+                || type.lookup("__getattr__") != null;
         kind = readable ? "only read-only" : "no";
         // Now we know what to say
-        return PyErr.format(PyExc.TypeError, fmt, typeName, kind, mode,
-                name);
+        return PyErr.format(PyExc.TypeError,
+                "'%.100s' object has %s attributes (%s '%.50s')",
+                type.getName(), kind, mode, name);
     }
 
     // Convenience functions constructing errors --------------------

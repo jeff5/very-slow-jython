@@ -1,17 +1,17 @@
-// Copyright (c)2024 Jython Developers.
+// Copyright (c)2025 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime.kernel;
+
+import static uk.co.farowl.vsj4.runtime.ClassShorthand.T;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
 
 import uk.co.farowl.vsj4.runtime.Exposed;
-import uk.co.farowl.vsj4.runtime.PyBaseException;
-import uk.co.farowl.vsj4.runtime.PyErr;
-import uk.co.farowl.vsj4.runtime.PyExc;
 import uk.co.farowl.vsj4.runtime.PyObject;
 import uk.co.farowl.vsj4.runtime.PyType;
+import uk.co.farowl.vsj4.runtime.PyUtil;
 import uk.co.farowl.vsj4.runtime.internal._PyUtil;
 import uk.co.farowl.vsj4.support.internal.EmptyException;
 
@@ -98,20 +98,12 @@ public abstract class AbstractPyObject {
              */
             try {
                 // Look up a constructor with the right parameters
-                MethodHandle cons = cls.constructor(PyType.class)
-                        .handle();
+                MethodHandle cons = cls.constructor(T).handle();
                 // cons should be reliably (T)O
                 return cons.invokeExact(cls);
-            } catch (PyBaseException e) {
-                // Usually signals no matching constructor
-                throw e;
             } catch (Throwable e) {
-                // Failed while finding/invoking constructor
-                PyBaseException err = PyErr.format(PyExc.TypeError,
-                        CANNOT_CONSTRUCT_INSTANCE, cls.getName(),
-                        PyObject.TYPE.getName());
-                err.initCause(e);
-                throw err;
+                throw PyUtil.cannotConstructInstance(cls, PyObject.TYPE,
+                        e);
             }
         }
     }
@@ -124,7 +116,4 @@ public abstract class AbstractPyObject {
      * Java representation class of a subclass if it has no
      * {@code __new__}.
      */
-    private static final Class<?>[] CONSTRUCTOR_ARGS = {PyType.class};
-    private static final String CANNOT_CONSTRUCT_INSTANCE =
-            "Cannot construct instance of '%s' in %s.__new__ ";
 }
