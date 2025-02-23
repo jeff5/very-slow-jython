@@ -402,7 +402,7 @@ public abstract class PyMethodDescr extends MethodDescriptor {
                 }
             }
         } catch (ArgumentError ae) {
-            throw typeError(ae, args);
+            throw typeError(ae, args, names);
         }
     }
 

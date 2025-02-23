@@ -284,6 +284,12 @@ public abstract sealed class AbstractPyType extends Representation
      */
     public abstract Class<?> canonicalClass();
 
+    @Override
+    public boolean isDataDescr(Object x) {
+        return kernelFeatures.contains(KernelTypeFlag.HAS_SET)
+                || kernelFeatures.contains(KernelTypeFlag.HAS_DELETE);
+    }
+
     /**
      * Test for possession of a specified feature.
      *
@@ -291,6 +297,11 @@ public abstract sealed class AbstractPyType extends Representation
      * @return whether present
      */
     public boolean hasFeature(TypeFlag feature) {
+        return features.contains(feature);
+    }
+
+    @Override
+    public boolean hasFeature(Object x, TypeFlag feature) {
         return features.contains(feature);
     }
 
@@ -302,6 +313,11 @@ public abstract sealed class AbstractPyType extends Representation
      * @return whether present
      */
     public boolean hasFeature(KernelTypeFlag feature) {
+        return kernelFeatures.contains(feature);
+    }
+
+    @Override
+    public boolean hasFeature(Object x, KernelTypeFlag feature) {
         return kernelFeatures.contains(feature);
     }
 
@@ -325,8 +341,8 @@ public abstract sealed class AbstractPyType extends Representation
      */
     // Compare CPython PySequence_Check (on instance) in abstract.c
     public boolean isSequence() {
-        return hasFeature(KernelTypeFlag.HAS_GETITEM)
-                && !hasFeature(TypeFlag.DICT_SUBCLASS);
+        return kernelFeatures.contains(KernelTypeFlag.HAS_GETITEM)
+                && !features.contains(TypeFlag.DICT_SUBCLASS);
     }
 
     /**
@@ -335,7 +351,7 @@ public abstract sealed class AbstractPyType extends Representation
      * @return target is a iterable with {@code __iter__}
      */
     public boolean isIterable() {
-        return hasFeature(KernelTypeFlag.HAS_ITER);
+        return kernelFeatures.contains(KernelTypeFlag.HAS_ITER);
     }
 
     /**
@@ -345,7 +361,7 @@ public abstract sealed class AbstractPyType extends Representation
      * @return target is a an iterator
      */
     public boolean isIterator() {
-        return hasFeature(KernelTypeFlag.HAS_NEXT);
+        return kernelFeatures.contains(KernelTypeFlag.HAS_NEXT);
     }
 
     /**
@@ -355,17 +371,18 @@ public abstract sealed class AbstractPyType extends Representation
      * @return target is a descriptor
      */
     public boolean isDescr() {
-        return hasFeature(KernelTypeFlag.HAS_GET);
+        return kernelFeatures.contains(KernelTypeFlag.HAS_GET);
     }
 
     /**
      * Fast check that the target is a data descriptor (defines
-     * {@code __set__}).
+     * {@code __set__} or {@code __delete__}).
      *
      * @return target is a data descriptor
      */
     public boolean isDataDescr() {
-        return hasFeature(KernelTypeFlag.HAS_SET);
+        return kernelFeatures.contains(KernelTypeFlag.HAS_SET)
+                || kernelFeatures.contains(KernelTypeFlag.HAS_DELETE);
     }
 
     /**
@@ -529,6 +546,39 @@ public abstract sealed class AbstractPyType extends Representation
     }
 
     /**
+     * Put a value in the dictionary of the type directly (for runtime
+     * use only). This gives privileged access to the dictionary of the
+     * type. It will trigger internal updates to the state of the type
+     * object that follow from attribute values.
+     *
+     * @param name in the dictionary of the type
+     * @param value to put there
+     * @return the previous value (or null)
+     */
+    public // throughout the run time not Jython API.
+    Object dictPut(String name, Object value) {
+        Object previous = _dict.put(name, value);
+        updateAfterSetAttr(name);
+        return previous;
+    }
+
+    /**
+     * Remove an entry from the dictionary of the type directly (for
+     * runtime use only). This gives privileged access to the dictionary
+     * of the type. It will trigger internal updates to the state of the
+     * type object that follow from attribute values.
+     *
+     * @param name in the dictionary of the type
+     * @return the previous value (or null)
+     */
+    public // throughout the run time not Jython API.
+    Object dictRemove(String name) {
+        Object previous = _dict.remove(name);
+        updateAfterSetAttr(name);
+        return previous;
+    }
+
+    /**
      * Return the table holding constructors and their method handles
      * for instances of this type. This enables client code to iterate
      * over available constructors without any copying. The table and
@@ -686,9 +736,6 @@ public abstract sealed class AbstractPyType extends Representation
     /**
      * Maybe set the given kernel feature flag. The flag is set if and
      * only if the implementation class of this type matches that given,
-     *
-     *
-     *
      * or the same flag is set in the base. This way, there is a first
      * qualifying type {@code k}, then every type that descends from it
      * inherits the flag.
@@ -734,18 +781,26 @@ public abstract sealed class AbstractPyType extends Representation
     }
 
     /**
-     * Called from {@link #__setattr__(String, Object)} and
-     * {@link #__delattr__(String)} after an attribute has been set or
-     * deleted. This gives the type the opportunity to recompute caches
-     * and perform any other actions needed.
+     * Called from {@code type.__setattr__} and
+     * {@code type.__delattr__(String)} after an attribute has been set
+     * or deleted. This gives the type the opportunity to recompute
+     * caches and perform any other actions needed.
      *
      * @param name of the attribute modified
      */
-    private void updateAfterSetAttr(String name) {
+    public // throughout the run time not Jython API.
+    void updateAfterSetAttr(String name) {
 
         // FIXME Notify sub-classes and other watchers.
-        // Think about synchronisation of threads to make this visible.
+        // Think about synchronisation: must take a lock on lookup.
 
+        /*
+         * We look up the current definition of name for this type,
+         * which has recently changed. Note that even when renmoving the
+         * name from the dictionary of this type, the effect may be to
+         * uncover new definition somewhere along the MRO, and so it
+         * becomes a change.
+         */
         LookupResult result = lookup(name, null);
         SpecialMethod sm = SpecialMethod.forMethodName(name);
 
@@ -766,8 +821,10 @@ public abstract sealed class AbstractPyType extends Representation
             // If sm corresponds to a feature flag
             if (feature != null) {
                 if (result != null) {
+                    // We are defining or changing sm
                     kernelFeatures.add(feature);
                 } else {
+                    // We are deleting sm
                     kernelFeatures.remove(feature);
                 }
             }
@@ -874,7 +931,7 @@ public abstract sealed class AbstractPyType extends Representation
     // Special methods -----------------------------------------------
 
     /** @return {@code repr()} of this Python object. */
-    protected Object __repr__() {
+    public Object __repr__() {
         return String.format("<class '%s'>", getName());
     }
 
@@ -897,7 +954,7 @@ public abstract sealed class AbstractPyType extends Representation
      * @throws PyBaseException (TypeError) when cannot create instances
      * @throws Throwable from implementation slot functions
      */
-    protected Object __call__(Object[] args, String[] names)
+    public Object __call__(Object[] args, String[] names)
             throws PyBaseException, Throwable {
         try {
             return call(args, names);

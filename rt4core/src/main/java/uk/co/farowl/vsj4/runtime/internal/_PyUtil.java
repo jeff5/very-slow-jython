@@ -9,6 +9,7 @@ import uk.co.farowl.vsj4.runtime.Abstract;
 import uk.co.farowl.vsj4.runtime.ArgumentError;
 import uk.co.farowl.vsj4.runtime.FastCall;
 import uk.co.farowl.vsj4.runtime.Py;
+import uk.co.farowl.vsj4.runtime.PyAttributeError;
 import uk.co.farowl.vsj4.runtime.PyBaseException;
 import uk.co.farowl.vsj4.runtime.PyErr;
 import uk.co.farowl.vsj4.runtime.PyExc;
@@ -128,4 +129,140 @@ public class _PyUtil {
 
     private static final String OBJECT_NOT_CALLABLE =
             "'%.200s' object is not callable";
+
+    /**
+     * Create a {@link PyAttributeError} with a message along the lines
+     * "'T' object has no attribute N", where T is the type of the
+     * object accessed.
+     *
+     * @param v object accessed
+     * @param name of attribute
+     * @return exception to throw
+     */
+    public static PyAttributeError noAttributeError(Object v,
+            Object name) {
+        return noAttributeOnType(PyType.of(v), name);
+    }
+
+    /**
+     * Create a {@link PyAttributeError} with a message along the lines
+     * "'T' object has no attribute N", where T is the type given.
+     *
+     * @param type of object accessed
+     * @param name of attribute
+     * @return exception to throw
+     */
+    public static PyAttributeError noAttributeOnType(PyType type,
+            Object name) {
+        String fmt = "'%.50s' object has no attribute '%.50s'";
+        return (PyAttributeError)PyErr.format(PyExc.AttributeError, fmt,
+                type.getName(), name);
+    }
+
+    /**
+     * Create a {@link PyBaseException TypeError} with a message along
+     * the lines "'N' must be T, not 'X' as received" involving the name
+     * N of the attribute, any descriptive phrase T and the type X of
+     * {@code value}, e.g. "'<u>__dict__</u>' must be <u>a
+     * dictionary</u>, not '<u>list</u>' as received".
+     *
+     * @param name of the attribute
+     * @param kind expected kind of thing
+     * @param value provided to set this attribute in some object
+     * @return exception to throw
+     */
+    public static PyBaseException attrMustBe(String name, String kind,
+            Object value) {
+        return PyErr.format(PyExc.TypeError, ATTR_TYPE, name, kind,
+                PyType.of(value).getName());
+    }
+
+    private static final String ATTR_TYPE =
+            "'%.50s' must be %.50s, not '%.50s' as received";
+
+    /**
+     * Create a {@link PyBaseException TypeError} with a message along
+     * the lines "'N' must be a string, not 'X' as received".
+     *
+     * @param name of the attribute
+     * @param value provided to set this attribute in some object
+     * @return exception to throw
+     */
+    public static PyBaseException attrMustBeString(String name,
+            Object value) {
+        return attrMustBe(name, "a string", value);
+    }
+
+    /**
+     * Create a {@link PyAttributeError} with a message along the lines
+     * "'T' object attribute N is read-only", where T is the type of the
+     * object accessed.
+     *
+     * @param v object accessed
+     * @param name of attribute
+     * @return exception to throw
+     */
+    public static PyAttributeError readonlyAttributeError(Object v,
+            Object name) {
+        return readonlyAttributeOnType(PyType.of(v), name);
+    }
+
+    /**
+     * Create a {@link PyAttributeError} with a message along the lines
+     * "'T' object attribute N is read-only", where T is the type given.
+     *
+     * @param type of object accessed
+     * @param name of attribute
+     * @return exception to throw
+     */
+    public static PyAttributeError readonlyAttributeOnType(PyType type,
+            Object name) {
+        String fmt = "'%.50s' object attribute '%s' is read-only";
+        // XXX It would be cool if the type could be parameterised
+        return (PyAttributeError)PyErr.format(PyExc.AttributeError, fmt,
+                type.getName(), name);
+    }
+
+    /**
+     * Create a {@link PyAttributeError} with a message along the lines
+     * "'T' object attribute N cannot be deleted", where T is the type
+     * of the object accessed.
+     *
+     * @param v object accessed
+     * @param name of attribute
+     * @return exception to throw
+     */
+    public static PyAttributeError mandatoryAttributeError(Object v,
+            Object name) {
+        return mandatoryAttributeOnType(PyType.of(v), name);
+    }
+
+    /**
+     * Create a {@link PyAttributeError} with a message along the lines
+     * "'T' object attribute N cannot be deleted", where T is the type
+     * given.
+     *
+     * @param type of object accessed
+     * @param name of attribute
+     * @return exception to throw
+     */
+    public static PyAttributeError mandatoryAttributeOnType(PyType type,
+            Object name) {
+        String fmt = "'%.50s' object attribute '%s' cannot be deleted";
+        // XXX It would be cool if the type could be parameterised
+        return (PyAttributeError)PyErr.format(PyExc.AttributeError, fmt,
+                type.getName(), name);
+    }
+    /**
+     * Create a {@link PyBaseException TypeError} with a message along
+     * the lines "can't set attributes of X" giving str of {@code name}.
+     *
+     * @param obj actual object on which setting failed
+     * @return exception to throw
+     */
+    public static PyBaseException cantSetAttributeError(Object obj) {
+        return PyErr.format(PyExc.TypeError,
+                "can't set attributes of %.200s", obj);
+    }
+
 }

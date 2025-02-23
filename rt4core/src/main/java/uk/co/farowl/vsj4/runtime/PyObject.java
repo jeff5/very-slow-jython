@@ -49,10 +49,10 @@ public class PyObject extends AbstractPyObject {
     /** One cannot make instances of this class. */
     private PyObject() {}
 
-
     // Special methods ------------------------------------------------
 
-    /* For technical reasons to do with bootstrapping the type system,
+    /*
+     * For technical reasons to do with bootstrapping the type system,
      * the methods and attributes of 'object' that are exposed to Python
      * have to be defined in the superclass.
      */

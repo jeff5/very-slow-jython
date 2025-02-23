@@ -268,8 +268,7 @@ public class PySequence extends Abstract {
             Object iter = rep.op_iter().invokeExact(o);
             // Check iter is an iterator (defines __next__).
             Representation iterRep = PyType.getRepresentation(iter);
-            PyType iterType = iterRep.pythonType(iter);
-            if (iterType.hasFeature(KernelTypeFlag.HAS_NEXT)) {
+            if (iterRep.hasFeature(iter, KernelTypeFlag.HAS_NEXT)) {
                 // Create a handle on __next__
                 MethodHandle next = iterRep.op_next().bindTo(iter);
                 // Iterate o into a list

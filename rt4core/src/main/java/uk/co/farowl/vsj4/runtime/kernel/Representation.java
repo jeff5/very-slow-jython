@@ -14,6 +14,7 @@ import uk.co.farowl.vsj4.runtime.MethodDescriptor;
 import uk.co.farowl.vsj4.runtime.PyFloat;
 import uk.co.farowl.vsj4.runtime.PyLong;
 import uk.co.farowl.vsj4.runtime.PyType;
+import uk.co.farowl.vsj4.runtime.TypeFlag;
 import uk.co.farowl.vsj4.runtime.WithClass;
 import uk.co.farowl.vsj4.runtime.kernel.SpecialMethod.Signature;
 import uk.co.farowl.vsj4.support.InterpreterError;
@@ -80,6 +81,47 @@ public abstract class Representation {
      */
     public abstract PyType pythonType(Object x);
 
+    /**
+     * Fast check that an object with this representation
+     *  is a data descriptor (defines
+     * {@code __set__} or {@code __delete__}).
+     *
+     * @param x subject of the enquiry
+     * @return {@code x} is a data descriptor
+     */
+    public boolean isDataDescr(Object x) {
+        PyType type = pythonType(x);
+        return type.hasFeature(KernelTypeFlag.HAS_SET)
+                || type.hasFeature(KernelTypeFlag.HAS_DELETE);
+    }
+
+    /**
+     * Fast check that an object with this representation
+     *  has a specified feature.
+     *  The idea is to avoid a call to {@link #pythonType(Object)},
+     *  when possible by overriding this in subclass.
+     *
+     * @param x subject of the enquiry
+     * @param feature to check for
+     * @return {@code x} is a data descriptor
+     */
+    public boolean hasFeature(Object x, TypeFlag feature) {
+        return pythonType(x).hasFeature(feature);
+    }
+
+    /**
+     * Fast check that an object with this representation
+     *  has a specified feature.
+     *  The idea is to avoid a call to {@link #pythonType(Object)},
+     *  when possible by overriding this in subclass.
+     *
+     * @param x subject of the enquiry
+     * @param feature to check for
+     * @return {@code x} is a data descriptor
+     */
+    public boolean hasFeature(Object x, KernelTypeFlag feature) {
+        return pythonType(x).hasFeature(feature);
+    }
 
     /**
      * Fast check that the target is exactly a Python {@code int}. We
@@ -219,6 +261,16 @@ public abstract class Representation {
         }
 
         @Override
+        public boolean hasFeature(Object x, TypeFlag feature) {
+            return type.hasFeature(feature);
+        }
+
+        @Override
+        public boolean hasFeature(Object x, KernelTypeFlag feature) {
+            return type.hasFeature(feature);
+        }
+
+        @Override
         public AdoptiveType pythonType(Object x) { return type; }
 
         @Override
@@ -311,7 +363,6 @@ public abstract class Representation {
                 throw notSharedError(x);
             }
         }
-
 
         @Override
         public boolean isIntExact() { return false; }

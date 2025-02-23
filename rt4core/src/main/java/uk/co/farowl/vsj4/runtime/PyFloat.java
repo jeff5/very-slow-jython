@@ -108,7 +108,7 @@ public class PyFloat implements WithClass {
         } catch (EmptyException e) {}
 
         // o.__float__ was not defined try o.__index__
-        if (rep.pythonType(o).hasFeature(KernelTypeFlag.HAS_INDEX))
+        if (rep.hasFeature(o, KernelTypeFlag.HAS_INDEX))
             return PyLong.asDouble(PyNumber.index(o));
         else
             throw Abstract.requiredTypeError("a real number", o);

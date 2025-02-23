@@ -176,7 +176,8 @@ public class TypeFactory {
                 AbstractPyObject.LOOKUP)
                         .methodImpls(AbstractPyObject.class);
         TypeSpec specOfType =
-                new PrimordialTypeSpec(typeType, AbstractPyType.LOOKUP)
+                new PrimordialTypeSpec(typeType, runtimeLookup
+                        /*AbstractPyType.LOOKUP*/)
                         .canonicalBase(SimpleType.class);
 
         this.lastContext = specOfObject;

@@ -44,8 +44,7 @@ public class PyIterator extends AbstractPyIterator {
         super(TYPE);
         this.index = 0;
         Representation rep = PyType.getRepresentation(seq);
-        PyType type = rep.pythonType(seq);
-        if (type.hasFeature(KernelTypeFlag.HAS_GETITEM)) {
+        if (rep.hasFeature(seq, KernelTypeFlag.HAS_GETITEM)) {
             this.getitem = rep.op_getitem().bindTo(seq);
         } else {
             throw new IllegalArgumentException(
