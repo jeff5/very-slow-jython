@@ -11,12 +11,12 @@ import java.lang.reflect.Method;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 
 import uk.co.farowl.vsj4.runtime.Exposed.PythonMethod;
 import uk.co.farowl.vsj4.runtime.Exposed.PythonNewMethod;
+import uk.co.farowl.vsj4.runtime.Exposed.PythonStaticMethod;
 import uk.co.farowl.vsj4.runtime.kernel.SpecialMethod;
 import uk.co.farowl.vsj4.runtime.kernel.TypeExposer;
 import uk.co.farowl.vsj4.support.InterpreterError;
@@ -78,25 +78,6 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
     //    // Scan the defining class for exposed fields
     //    scanJavaFields(memberClass);
     //}
-
-    @Override
-    public void populate(Map<? super String, Object> dict,
-            Lookup lookup) {
-        logger.atDebug().addArgument(type.getName())
-                .log("Populating type '{}'");
-        if (type == null)
-            // type may only properly be null during certain tests
-            throw new InterpreterError(
-                    "Cannot generate descriptors for type 'null'");
-        for (Spec spec : specs.values()) {
-            logger.atTrace().addArgument(type.getName())
-                    .addArgument(spec.name).log("-  Add {}.{}");
-            spec.checkFormation();
-            Object attr = spec.asAttribute(type, lookup);
-            dict.put(spec.name, attr);
-        }
-    }
-
 
     @Override
     public Iterable<Entry> entries(Lookup lookup) {
@@ -164,10 +145,10 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
                     m.getDeclaredAnnotation(PythonMethod.class);
             if (pm != null) { addMethodSpec(m, pm); }
 
-            // XXX Check for static method
-            // PythonStaticMethod psm = m.getDeclaredAnnotation(
-            // PythonStaticMethod.class);
-            // if (psm != null) { addStaticMethodSpec(m, psm); }
+            // Check for static method
+            PythonStaticMethod psm =
+                    m.getDeclaredAnnotation(PythonStaticMethod.class);
+            if (psm != null) { addStaticMethodSpec(m, psm); }
 
             // Check for __new__ method
             PythonNewMethod pnm =
@@ -193,7 +174,6 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
             if (sm != null) { addWrapperSpec(m, sm); }
         }
     }
-
 
 /// **
 // * Process a method annotated as an exposed attribute get method,
@@ -1007,7 +987,7 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
         }
     }
 
-    // XXX Not ready for this yet
+    // TODO Not ready for binary operation call-sites this yet
 /// **
 // * Create a table of {@code MethodHandle}s from binary operations
 // * defined in the given class, on behalf of the type given. This

@@ -1,4 +1,4 @@
-// Copyright (c)2024 Jython Developers.
+// Copyright (c)2025 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
 
@@ -36,6 +36,7 @@ import uk.co.farowl.vsj4.runtime.Exposed.Name;
 import uk.co.farowl.vsj4.runtime.Exposed.PositionalCollector;
 import uk.co.farowl.vsj4.runtime.Exposed.PositionalOnly;
 import uk.co.farowl.vsj4.runtime.Exposed.PythonMethod;
+import uk.co.farowl.vsj4.runtime.Exposed.PythonStaticMethod;
 // import uk.co.farowl.vsj4.runtime.ModuleDef.MethodDef;
 import uk.co.farowl.vsj4.support.InterpreterError;
 import uk.co.farowl.vsj4.support.MethodKind;
@@ -152,33 +153,33 @@ abstract class Exposer {
                 ms -> methodSpecs.add(ms), addMethod);
     }
 
-// /**
-// * Process an annotation that identifies a static method of a Python
-// * type or module defined in Java, into a specification for a
-// * method, and add it to the table of specifications by name.
-// *
-// * @param anno annotation encountered
-// * @param meth method annotated
-// * @throws InterpreterError on duplicates or unsupported types
-// */
-// void addStaticMethodSpec(Method meth, PythonStaticMethod anno)
-// throws InterpreterError {
-// // For clarity, name lambda expressions for the actions
-// BiConsumer<StaticMethodSpec, Method> addMethod =
-// // Add method m to spec ms
-// (StaticMethodSpec ms, Method m) -> {
-// ms.add(m, true, anno.positionalOnly(),
-// MethodKind.STATIC);
-// };
-// Function<Spec, StaticMethodSpec> cast =
-// // Test and cast a found Spec to StaticMethodSpec
-// spec -> spec instanceof StaticMethodSpec
-// ? (StaticMethodSpec)spec : null;
-// // Now use the generic create/update
-// addSpec(meth, anno.value(), cast,
-// (String name) -> new StaticMethodSpec(name, kind()),
-// ms -> methodSpecs.add(ms), addMethod);
-// }
+    /**
+     * Process an annotation that identifies a static method of a Python
+     * type or module defined in Java, into a specification for a
+     * method, and add it to the table of specifications by name.
+     *
+     * @param anno annotation encountered
+     * @param meth method annotated
+     * @throws InterpreterError on duplicates or unsupported types
+     */
+    void addStaticMethodSpec(Method meth, PythonStaticMethod anno)
+            throws InterpreterError {
+        // For clarity, name lambda expressions for the actions
+        BiConsumer<StaticMethodSpec, Method> addMethod =
+                // Add method m to spec ms
+                (StaticMethodSpec ms, Method m) -> {
+                    ms.add(m, true, anno.positionalOnly(),
+                            MethodKind.STATIC);
+                };
+        Function<Spec, StaticMethodSpec> cast =
+                // Test and cast a found Spec to StaticMethodSpec
+                spec -> spec instanceof StaticMethodSpec
+                        ? (StaticMethodSpec)spec : null;
+        // Now use the generic create/update
+        addSpec(meth, anno.value(), cast,
+                (String name) -> new StaticMethodSpec(name, kind()),
+                ms -> methodSpecs.add(ms), addMethod);
+    }
 
     /**
      * Create an exception with a message along the lines "'NAME',
@@ -1245,62 +1246,62 @@ abstract class Exposer {
         }
     }
 
-// /**
-// * Specification in which we assemble information about a Python
-// * static method in advance of creating a method definition
-// * {@link MethodDef} or method descriptor {@link PyMethodDescr}.
-// */
-// static class StaticMethodSpec extends CallableSpec {
-//
-// StaticMethodSpec(String name, ScopeKind scopeKind) {
-// super(name, scopeKind);
-// }
-//
-// /**
-// * {@inheritDoc}
-// * <p>
-// * In a type, the attribute representing a static Python method
-// * is a {@code PyStaticMethod} wrapping a
-// * {@code PyJavaFunction}. This method creates it from the
-// * specification.
-// * <p>
-// * Note that a specification describes the method as declared,
-// * and that there must be exactly one, even if there are
-// * multiple implementations of the type.
-// *
-// * @param objclass Python type that owns the descriptor
-// * @param lookup authorisation to access members
-// * @return descriptor for access to the method
-// * @throws InterpreterError if the method type is not supported
-// */
-// @Override
-// PyStaticMethod asAttribute(PyType objclass, Lookup lookup) {
-// assert methodKind == MethodKind.STATIC;
-// ArgParser ap = getParser();
-//
-// // There should be exactly one candidate implementation.
-// if (methods.size() != 1) {
-// throw new InterpreterError(
-// "static method %s has %d definitions in ", name,
-// methods.size(), getJavaName());
-// }
-//
-// Method m = methods.get(0);
-// try {
-// // Convert m to a handle (if accessible)
-// MethodHandle mh = lookup.unreflect(m);
-// assert mh.type().parameterCount() == regargcount;
-// PyJavaFunction javaFunction =
-// PyJavaFunction.forStaticMethod(ap, mh);
-// return new PyStaticMethod(objclass, javaFunction);
-// } catch (IllegalAccessException e) {
-// throw cannotGetHandle(m, e);
-// }
-// }
-//
-// @Override
-// Class<? extends Annotation> annoClass() {
-// return PythonStaticMethod.class;
-// }
-// }
+    /**
+     * Specification in which we assemble information about a Python
+     * static method in advance of creating a method definition
+     * {@link MethodDef} or method descriptor {@link PyMethodDescr}.
+     */
+    static class StaticMethodSpec extends CallableSpec {
+
+        StaticMethodSpec(String name, ScopeKind scopeKind) {
+            super(name, scopeKind);
+        }
+
+        /**
+         * {@inheritDoc}
+         * <p>
+         * In a type, the attribute representing a static Python method
+         * is a {@code PyStaticMethod} wrapping a
+         * {@code PyJavaFunction}. This method creates it from the
+         * specification.
+         * <p>
+         * Note that a specification describes the method as declared,
+         * and that there must be exactly one, even if there are
+         * multiple implementations of the type.
+         *
+         * @param objclass Python type that owns the descriptor
+         * @param lookup authorisation to access members
+         * @return descriptor for access to the method
+         * @throws InterpreterError if the method type is not supported
+         */
+        @Override
+        PyStaticMethod asAttribute(PyType objclass, Lookup lookup) {
+            assert methodKind == MethodKind.STATIC;
+            ArgParser ap = getParser();
+
+            // There should be exactly one candidate implementation.
+            if (methods.size() != 1) {
+                throw new InterpreterError(
+                        "static method %s has %d definitions in ", name,
+                        methods.size(), getJavaName());
+            }
+
+            Method m = methods.get(0);
+            try {
+                // Convert m to a handle (if accessible)
+                MethodHandle mh = lookup.unreflect(m);
+                assert mh.type().parameterCount() == regargcount;
+                PyJavaFunction javaFunction =
+                        PyJavaFunction.forStaticMethod(ap, mh);
+                return new PyStaticMethod(objclass, javaFunction);
+            } catch (IllegalAccessException e) {
+                throw cannotGetHandle(m, e);
+            }
+        }
+
+        @Override
+        Class<? extends Annotation> annoClass() {
+            return PythonStaticMethod.class;
+        }
+    }
 }
