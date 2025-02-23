@@ -895,12 +895,10 @@ public enum SpecialMethod {
      * @param mh handle value to assign
      */
     void setCache(Representation rep, MethodHandle mh) {
-        if (cache != null) {
-            if (mh == null || !mh.type().equals(getType())) {
-                throw slotTypeError(this, mh);
-            }
-            cache.set(rep, mh);
+        if (mh == null || !mh.type().equals(getType())) {
+            throw slotTypeError(this, mh);
         }
+        if (cache != null) { cache.set(rep, mh); }
     }
 
     /**

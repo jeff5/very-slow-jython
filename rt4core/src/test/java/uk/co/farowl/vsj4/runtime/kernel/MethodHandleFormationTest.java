@@ -8,7 +8,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 
@@ -89,7 +88,6 @@ public class MethodHandleFormationTest {
      */
     @SuppressWarnings("static-method")
     @Test
-    @Disabled("Slots not currently cached")
     void basicObjectSlots() {
         // Type defining none of the reserved names
         final PyType basic = BasicallyEmpty.TYPE;
@@ -100,7 +98,7 @@ public class MethodHandleFormationTest {
                         Util.EMPTY_STRING_ARRAY));
 
         // Make method handles of the shape corresponding to caches
-        final MethodHandle length = MethodHandles
+        MethodHandle length = MethodHandles
                 .empty(SpecialMethod.Signature.LEN.empty.type());
         final MethodHandle unary = MethodHandles
                 .empty(SpecialMethod.Signature.UNARY.empty.type());
@@ -109,9 +107,12 @@ public class MethodHandleFormationTest {
         final MethodHandle ternary = MethodHandles
                 .empty(SpecialMethod.Signature.TERNARY.empty.type());
 
-        // These are allowed
+        // These are allowed (but have no effect if not caching)
         SpecialMethod.op_hash.setCache(basic, length);
         SpecialMethod.op_str.setCache(basic, unary);
+
+        MethodHandle hash = basic.op_hash();
+        MethodHandle str = basic.op_str();
 
         // These should be prevented
         assertThrows(InterpreterError.class, () -> { //
@@ -130,9 +131,9 @@ public class MethodHandleFormationTest {
             SpecialMethod.op_hash.setCache(basic, (MethodHandle)null);
         });
 
-        // And the slots should be unaffected
-        assertEquals(length, basic.op_hash(), "slot modified");
-        assertEquals(unary, basic.op_str(), "slot modified");
+        // And the slots should have the value read earlier
+        assertEquals(hash, basic.op_hash(), "slot modified");
+        assertEquals(str, basic.op_str(), "slot modified");
     }
 
     /**
@@ -141,7 +142,6 @@ public class MethodHandleFormationTest {
      */
     @SuppressWarnings("static-method")
     @Test
-    @Disabled("Slots not currently cached")
     void numericSlots() {
         // Type defining none of the reserved names
         final PyType number = BasicallyEmpty.TYPE;
@@ -165,6 +165,9 @@ public class MethodHandleFormationTest {
         // These are allowed
         SpecialMethod.op_neg.setCache(number, unary);
         SpecialMethod.op_add.setCache(number, binary);
+
+        MethodHandle neg = number.op_neg();
+        MethodHandle add = number.op_add();
 
         // These should be prevented
         assertThrows(InterpreterError.class, () -> { //
@@ -193,9 +196,9 @@ public class MethodHandleFormationTest {
             SpecialMethod.op_add.setCache(number, (MethodHandle)null);
         });
 
-        // And the slots should have the value set earlier
-        assertEquals(unary, number.op_neg(), "slot modified");
-        assertEquals(binary, number.op_add(), "slot modified");
+        // And the slots should have the value read earlier
+        assertEquals(neg, number.op_neg(), "slot modified");
+        assertEquals(add, number.op_add(), "slot modified");
     }
 
     /**
@@ -204,7 +207,6 @@ public class MethodHandleFormationTest {
      */
     @SuppressWarnings("static-method")
     @Test
-    @Disabled("Slots not currently cached")
     void sequenceSlots() {
         // Type defining none of the reserved names
         final PyType sequence = BasicallyEmpty.TYPE;
@@ -222,6 +224,8 @@ public class MethodHandleFormationTest {
         // This is allowed
         SpecialMethod.op_len.setCache(sequence, length);
 
+        MethodHandle len = sequence.op_len();
+
         // These should be prevented
         assertThrows(InterpreterError.class, () -> { //
             SpecialMethod.op_len.setCache(sequence, unary);
@@ -236,8 +240,8 @@ public class MethodHandleFormationTest {
             SpecialMethod.op_len.setCache(sequence, (MethodHandle)null);
         });
 
-        // And the slot should be unaffected
-        assertEquals(length, sequence.op_len(), "slot modified");
+        // And the slot should have the value read earlier
+        assertEquals(len, sequence.op_len(), "slot modified");
     }
 
     /**
@@ -246,29 +250,26 @@ public class MethodHandleFormationTest {
      */
     @SuppressWarnings("static-method")
     @Test
-    @Disabled("Slots not currently cached")
     void mappingSlots() {
         // Type defining none of the reserved names
         final PyType mapping = BasicallyEmpty.TYPE;
 
-        assertEquals(SpecialMethod.Signature.BINARY.empty,
-                mapping.op_getitem(), "not empty");
-        assertEquals(SpecialMethod.Signature.SETITEM.empty,
-                mapping.op_setitem(), "not empty");
-
         // Make method handles of the shape corresponding to caches
-        MethodHandle getitem = MethodHandles
+        final MethodHandle getitem = MethodHandles
                 .empty(SpecialMethod.Signature.BINARY.empty.type());
-        MethodHandle setitem = MethodHandles
+        final MethodHandle setitem = MethodHandles
                 .empty(SpecialMethod.Signature.SETITEM.empty.type());
-        MethodHandle bad1 = MethodHandles
+        final MethodHandle bad1 = MethodHandles
                 .empty(SpecialMethod.Signature.SETATTR.empty.type());
-        MethodHandle bad2 = MethodHandles
+        final MethodHandle bad2 = MethodHandles
                 .empty(SpecialMethod.Signature.GETATTR.empty.type());
 
         // These are allowed
         SpecialMethod.op_getitem.setCache(mapping, getitem);
         SpecialMethod.op_setitem.setCache(mapping, setitem);
+
+        MethodHandle getitem0 = mapping.op_getitem();
+        MethodHandle setitem0 = mapping.op_setitem();
 
         // These should be prevented
         assertThrows(InterpreterError.class, () -> { //
@@ -285,8 +286,8 @@ public class MethodHandleFormationTest {
                     (MethodHandle)null);
         });
 
-        // And the slots should be unaffected
-        assertEquals(getitem, mapping.op_getitem(), "slot modified");
-        assertEquals(setitem, mapping.op_setitem(), "slot modified");
+        // And the slots should have the value read earlier
+        assertEquals(getitem0, mapping.op_getitem(), "slot modified");
+        assertEquals(setitem0, mapping.op_setitem(), "slot modified");
     }
 }

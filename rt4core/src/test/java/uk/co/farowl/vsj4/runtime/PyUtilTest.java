@@ -1,4 +1,4 @@
-// Copyright (c)2024 Jython Developers.
+// Copyright (c)2025 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
 
@@ -8,7 +8,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.lang.invoke.MethodHandles;
 
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -34,7 +33,6 @@ public class PyUtilTest {
     class TestDefaultToString {
         /** Test PyTuple.toString is its repr. */
         @Test
-        @Disabled("PyTuple.toString not yet Pythonic")
         void testTuple_toString() {
             assertEquals("()", Py.tuple().toString());
             Object[] x = {1, 2};
@@ -44,7 +42,6 @@ public class PyUtilTest {
 
         /** Test PyDict.toString is its repr. */
         @Test
-        @Disabled("PyDict.toString not yet Pythonic")
         void testDict_toString() {
             PyDict d = Py.dict();
             assertEquals("{}", d.toString());
