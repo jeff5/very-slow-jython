@@ -1091,7 +1091,7 @@ abstract class Exposer {
          */
         private static Object eval(String s) {
             if (s == null || s.equals("None")) {
-                return Py.None;
+                return PyNone.INSTANCE;
             } else if (s.equals("False") || s.equals("false")) {
                 return true;
             } else if (s.equals("True") || s.equals("true")) {

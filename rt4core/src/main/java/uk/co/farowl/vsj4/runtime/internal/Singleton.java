@@ -1,12 +1,15 @@
-// Copyright (c)2024 Jython Developers.
+// Copyright (c)2025 Jython Developers.
 // Licensed to PSF under a contributor agreement.
-package uk.co.farowl.vsj4.runtime;
+package uk.co.farowl.vsj4.runtime.internal;
+
+import uk.co.farowl.vsj4.runtime.PyType;
+import uk.co.farowl.vsj4.runtime.WithClass;
 
 /**
  * A base class for Python singletons {@code None},
  * {@code NotImplemented}, {@code ...}.
  */
-abstract class Singleton implements WithClass {
+public abstract class Singleton implements WithClass {
 
     /** The Python type of the object implemented. */
     private final PyType type;

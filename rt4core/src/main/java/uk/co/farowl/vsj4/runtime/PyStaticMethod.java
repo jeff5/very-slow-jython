@@ -7,7 +7,6 @@ import java.util.Map;
 
 import uk.co.farowl.vsj4.runtime.Exposed.Getter;
 
-
 /**
  * The Python {@code staticmethod} class, which although most often
  * encountered as a decorator on a method in a class definition, is also
@@ -69,7 +68,8 @@ public class PyStaticMethod implements WithDict {
     /** Set the underlying callable. */
     private void setCallable(Object callable) {
         this.callable = callable;
-        functools_wraps(callable);
+        // FIXME type(callable) not Python ready at this point
+        // functools_wraps(callable);
     }
 
     // Plumbing ------------------------------------------------------

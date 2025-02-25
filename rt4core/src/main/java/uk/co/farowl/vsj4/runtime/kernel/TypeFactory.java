@@ -176,8 +176,7 @@ public class TypeFactory {
                 AbstractPyObject.LOOKUP)
                         .methodImpls(AbstractPyObject.class);
         TypeSpec specOfType =
-                new PrimordialTypeSpec(typeType, runtimeLookup
-                        /*AbstractPyType.LOOKUP*/)
+                new PrimordialTypeSpec(typeType, runtimeLookup)
                         .canonicalBase(SimpleType.class);
 
         this.lastContext = specOfObject;
@@ -291,25 +290,48 @@ public class TypeFactory {
 
         @Override
         Representation findOrCreate(Class<?> c) {
+
+            // FIXME reentrancyCount constraints routinely not met
+
+            // We are "just outside" the factory: take the lock
             synchronized (TypeFactory.this) {
-                // We are "just outside" the factory
-                assert reentrancyCount == -1;
-                assert workshop.isEmpty();
                 Representation rep;
-                try {
+                /*
+                 * We check the published map first. The current thread
+                 * either (1) already owned the factory lock, and simply
+                 * needs to look up a representation, or (2) has just
+                 * waited for the lock, and the published map may have
+                 * changed.
+                 */
+                if ((rep = lookup(c)) == null) {
                     /*
-                     * The thread has just locked the factory. The
-                     * published map may have changed while it was
-                     * waiting, so for c again as *published*.
+                     * c is not published. We shall try to find a
+                     * representation in the process of being built, but
+                     * it will only be ok to return it if we are a
+                     * re-entrant call.
                      */
-                    if ((rep = lookup(c)) == null) {
+                    try {
+                        if (reentrancyCount != -1) {
+                            logger.atWarn().setMessage(
+                                    "Re-entering at level {} for {}")
+                                    .addArgument(reentrancyCount)
+                                    .addArgument(c).log();
+                        }
+                        assert reentrancyCount == -1;
+                        assert workshop.isEmpty();
                         rep = _findOrCreate(c);
+                        if (reentrancyCount != -1) {
+                            logger.atWarn().setMessage(
+                                    "Returning at level {} with {}")
+                                    .addArgument(reentrancyCount)
+                                    .addArgument(rep).log();
+                        }
+                        assert reentrancyCount == -1;
+                    } catch (Clash clash) {
+                        throw new InterpreterError(clash);
                     }
-                    assert reentrancyCount == -1;
-                    return rep;
-                } catch (Clash clash) {
-                    throw new InterpreterError(clash);
                 }
+                return rep;
             }
         }
 

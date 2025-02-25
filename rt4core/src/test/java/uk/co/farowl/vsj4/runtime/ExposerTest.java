@@ -105,7 +105,7 @@ class ExposerTest extends UnitTestSupport {
         assertSame(Object.class, neg1.type().parameterType(0));
     }
 
-    private static class PyObjectWithMethods implements WithClass {
+    private static class ObjectWithMethods implements WithClass {
 
         /** Lookup object to support creation of descriptors. */
         private static final Lookup LOOKUP = MethodHandles.lookup();
@@ -113,7 +113,7 @@ class ExposerTest extends UnitTestSupport {
                 new TypeSpec("PyObjectWithMethods", LOOKUP));
         String value;
 
-        public PyObjectWithMethods(String value) { this.value = value; }
+        public ObjectWithMethods(String value) { this.value = value; }
 
         // Methods using Java primitives -----------------------------
 
@@ -173,7 +173,7 @@ class ExposerTest extends UnitTestSupport {
     /**
      * Test that we get working descriptors of type
      * {@link PyMethodDescr}s from the {@link Exposer} for methods
-     * annotated in the test class {@link PyObjectWithMethods}.
+     * annotated in the test class {@link ObjectWithMethods}.
      *
      * @throws Throwable unexpectedly
      * @throws AttributeError unexpectedly
@@ -183,12 +183,12 @@ class ExposerTest extends UnitTestSupport {
     void methodConstruct() throws PyAttributeError, Throwable {
 
         // We defined this Java method: should retrieve a descriptor
-        PyMethodDescr length = (PyMethodDescr)PyObjectWithMethods.TYPE
+        PyMethodDescr length = (PyMethodDescr)ObjectWithMethods.TYPE
                 .lookup("length");
 
         assertNotNull(length);
         assertEquals("length", length.name);
-        assertEquals(PyObjectWithMethods.TYPE, length.objclass);
+        assertEquals(ObjectWithMethods.TYPE, length.objclass);
         assertEquals(
                 "<method 'length' of 'PyObjectWithMethods' objects>",
                 length.toString());
@@ -196,7 +196,7 @@ class ExposerTest extends UnitTestSupport {
 
     /**
      * Test that we can call {@link PyMethodDescr}s directly for methods
-     * annotated in the test class {@link PyObjectWithMethods}.
+     * annotated in the test class {@link ObjectWithMethods}.
      *
      * @throws Throwable unexpectedly
      */
@@ -204,9 +204,9 @@ class ExposerTest extends UnitTestSupport {
     @SuppressWarnings("static-method")
     void methodDescrCall() throws PyAttributeError, Throwable {
 
-        PyType A = PyObjectWithMethods.TYPE;
+        PyType A = ObjectWithMethods.TYPE;
         String hello = "Hello World!";
-        Object a = new PyObjectWithMethods(hello);
+        Object a = new ObjectWithMethods(hello);
         Object result;
 
         // length = A.length
@@ -231,7 +231,7 @@ class ExposerTest extends UnitTestSupport {
      * Test that attribute access on {@link PyMethodDescr}s from the
      * {@link Exposer} create bound method objects of type
      * {@link PyJavaFunction}, for methods annotated in the test class
-     * {@link PyObjectWithMethods}.
+     * {@link ObjectWithMethods}.
      *
      * @throws Throwable unexpectedly
      */
@@ -241,10 +241,10 @@ class ExposerTest extends UnitTestSupport {
 
         // Create an object of the right type
         String hello = "Hello World!";
-        PyObjectWithMethods a = new PyObjectWithMethods(hello);
+        ObjectWithMethods a = new ObjectWithMethods(hello);
 
         // We defined this Java method: should retrieve a descriptor
-        PyMethodDescr length = (PyMethodDescr)PyObjectWithMethods.TYPE
+        PyMethodDescr length = (PyMethodDescr)ObjectWithMethods.TYPE
                 .lookup("length");
         // Get the bound method (bound to a)
         PyJavaFunction bm = (PyJavaFunction)length.__get__(a, null);
@@ -260,7 +260,7 @@ class ExposerTest extends UnitTestSupport {
     /**
      * Test that we can call {@link PyJavaFunction}s created by
      * attribute access on methods annotated in the test class
-     * {@link PyObjectWithMethods}.
+     * {@link ObjectWithMethods}.
      *
      * @throws Throwable unexpectedly
      */
@@ -269,7 +269,7 @@ class ExposerTest extends UnitTestSupport {
     void boundMethodCall() throws PyAttributeError, Throwable {
 
         String hello = "Hello World!";
-        Object a = new PyObjectWithMethods(hello);
+        Object a = new ObjectWithMethods(hello);
         Object result;
 
         // bm = a.length
