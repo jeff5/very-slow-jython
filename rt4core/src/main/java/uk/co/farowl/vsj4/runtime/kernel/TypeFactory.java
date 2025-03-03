@@ -21,6 +21,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import uk.co.farowl.vsj4.runtime.Feature;
+import uk.co.farowl.vsj4.runtime.PyBool;
 import uk.co.farowl.vsj4.runtime.PyFloat;
 import uk.co.farowl.vsj4.runtime.PyFloatMethods;
 import uk.co.farowl.vsj4.runtime.PyLong;
@@ -72,9 +73,14 @@ import uk.co.farowl.vsj4.support.InterpreterError;
  * registry will block until its related type is Python ready.
  *
  */
-// XXX It is not wholly satisfactory to publish types not Python ready.
-// The answer might be to wait for ready in fromSpec (etc.) while
-// a concurrent thread (or pool?) makes it so.
+// FIXME Robust protection of types until Python-ready.
+/*
+ * It is not wholly satisfactory to publish types not Python ready while
+ * there is no defence against access. The answer might be to lock their
+ * Python side, maybe lookup us enough, while a concurrent thread (or
+ * pool?) makes them ready. The bootstrap state is as separate
+ * difficulty, possibly resolved by a wait until Java-ready.
+ */
 public class TypeFactory {
 
     /** Logger for the type factory. */
@@ -518,25 +524,36 @@ public class TypeFactory {
         /*
          * Create specifications for the bootstrap types. When it is not
          * fully thread-safe to invoke PyType.fromSpec in the static
-         * initialisation of the type, we create the type here. We use a
-         * local array because we only need these specifications
+         * initialisation of the type, we create the type here. We use
+         * local variables because we only need these specifications
          * transiently. A type listed here should not contain the idiom
          * static TYPE = PyType.fromSpec(...), but obtain its TYPE by
          * enquiry in the registry.
          */
-        final TypeSpec[] bootstrapSpecs = { //
-                new BootstrapSpec("int", PyLong.class)
+
+        /*
+         * We create 'int' first as 'bool' must refer to it as a base.
+         */
+        final PyType PyLong_TYPE =
+                fromSpec(new BootstrapSpec("int", PyLong.class)
                         .methodImpls(PyLongMethods.class)
                         // .binops(PyLongBinops.class)
                         .adopt(BigInteger.class, Integer.class)
-                        .accept(Boolean.class),
+                        .accept(Boolean.class));
+
+        // The rest we can do in a batch.
+        final TypeSpec[] bootstrapSpecs = { //
+
                 new BootstrapSpec("str", PyUnicode.class)
                         .methodImpls(PyUnicodeMethods.class)
                         .adopt(String.class),
                 new BootstrapSpec("float", PyFloat.class)
                         .methodImpls(PyFloatMethods.class)
                         // .binops(PyFloatBinops.class)
-                        .adopt(Double.class)
+                        .adopt(Double.class),
+                new BootstrapSpec("bool", Boolean.class)
+                        // PyBool is *not* a representation
+                        .methodImpls(PyBool.class).base(PyLong_TYPE),
                 //
         };
 
@@ -546,7 +563,7 @@ public class TypeFactory {
              * Each loop makes a reentrant call, adding the type and
              * representations to work in progress.
              */
-            PyType.fromSpec(spec);
+            fromSpec(spec);
         }
 
         assert reentrancyCount == 0;

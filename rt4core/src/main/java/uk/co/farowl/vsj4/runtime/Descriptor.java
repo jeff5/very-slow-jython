@@ -1,4 +1,4 @@
-// Copyright (c)2024 Jython Developers.
+// Copyright (c)2025 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
 
@@ -144,9 +144,9 @@ abstract class Descriptor implements WithClass {
     // 3. In a data descriptor, we fold the auditing into this check.
     protected void check(Object obj) throws PyBaseException {
         PyType objType = PyType.of(obj);
-        if (objType != objclass && objType.isSubTypeOf(objclass)) {
-            throw selfTypeError(objType);
-        }
+        if (objType == objclass) { return; }
+        if (objType.isSubTypeOf(objclass)) { return; }
+        throw selfTypeError(objType);
     }
 
     /**

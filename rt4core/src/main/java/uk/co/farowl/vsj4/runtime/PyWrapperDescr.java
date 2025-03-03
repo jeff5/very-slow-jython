@@ -1,4 +1,4 @@
-// Copyright (c)2024 Jython Developers.
+// Copyright (c)2025 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
 
@@ -518,11 +518,9 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
             } else {
                 // Check acceptability at the Python level
                 checkPythonType(selfType);
-                // A super-type of selfType defined the method,
-                // so self class must subclass its primary class.
-                assert objclass.javaClass()
-                        .isAssignableFrom(self.getClass());
-                return wrapped[0];
+                // self is an instance of a Python sub-class
+                int index = objclass.getSubclassIndex(self.getClass());
+                return wrapped[index];
             }
         }
     }

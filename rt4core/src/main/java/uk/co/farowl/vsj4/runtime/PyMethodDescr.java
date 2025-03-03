@@ -1,4 +1,4 @@
-// Copyright (c)2024 Jython Developers.
+// Copyright (c)2025 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
 
@@ -318,12 +318,11 @@ public abstract class PyMethodDescr extends MethodDescriptor {
     MethodHandle getHandle(Object self)
             throws PyBaseException, Throwable {
         /*
-         * Note that when we override this, in descriptors supporting
-         * types with multiple self classes, we do not need to check
-         * along the Python MRO since the outcome is guaranteed by the
-         * Java class match.
+         * All "single class" descriptors simply return the handle. When
+         * we override this in the multi-class descriptors, we must find
+         * the index of a compatible class in objclass.selfClasses(), in
+         * order to locate the handle in methods[].
          */
-        // ??? At least, I think so.
         checkSelfType(self);
         return method;
     }
@@ -1075,7 +1074,7 @@ public abstract class PyMethodDescr extends MethodDescriptor {
             @Override
             MethodHandle getHandle(Object self) {
                 // Work out how to call this descriptor on that object
-                int index = objclass.indexAccepted(self.getClass());
+                int index = objclass.getSubclassIndex(self.getClass());
                 try {
                     return methods[index];
                 } catch (ArrayIndexOutOfBoundsException iobe) {
@@ -1123,7 +1122,7 @@ public abstract class PyMethodDescr extends MethodDescriptor {
             @Override
             MethodHandle getHandle(Object self) {
                 // Work out how to call this descriptor on that object
-                int index = objclass.indexAccepted(self.getClass());
+                int index = objclass.getSubclassIndex(self.getClass());
                 try {
                     return methods[index];
                 } catch (ArrayIndexOutOfBoundsException iobe) {
@@ -1166,7 +1165,7 @@ public abstract class PyMethodDescr extends MethodDescriptor {
             @Override
             MethodHandle getHandle(Object self) {
                 // Work out how to call this descriptor on that object
-                int index = objclass.indexAccepted(self.getClass());
+                int index = objclass.getSubclassIndex(self.getClass());
                 try {
                     return methods[index];
                 } catch (ArrayIndexOutOfBoundsException iobe) {
@@ -1214,7 +1213,7 @@ public abstract class PyMethodDescr extends MethodDescriptor {
             @Override
             MethodHandle getHandle(Object self) {
                 // Work out how to call this descriptor on that object
-                int index = objclass.indexAccepted(self.getClass());
+                int index = objclass.getSubclassIndex(self.getClass());
                 try {
                     return methods[index];
                 } catch (ArrayIndexOutOfBoundsException iobe) {
@@ -1262,7 +1261,7 @@ public abstract class PyMethodDescr extends MethodDescriptor {
             @Override
             MethodHandle getHandle(Object self) {
                 // Work out how to call this descriptor on that object
-                int index = objclass.indexAccepted(self.getClass());
+                int index = objclass.getSubclassIndex(self.getClass());
                 try {
                     return methods[index];
                 } catch (ArrayIndexOutOfBoundsException iobe) {
@@ -1310,7 +1309,7 @@ public abstract class PyMethodDescr extends MethodDescriptor {
             @Override
             MethodHandle getHandle(Object self) {
                 // Work out how to call this descriptor on that object
-                int index = objclass.indexAccepted(self.getClass());
+                int index = objclass.getSubclassIndex(self.getClass());
                 try {
                     return methods[index];
                 } catch (ArrayIndexOutOfBoundsException iobe) {

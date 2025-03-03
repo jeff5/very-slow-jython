@@ -1,4 +1,4 @@
-// Copyright (c)2024 Jython Developers.
+// Copyright (c)2025 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
 
@@ -17,11 +17,8 @@ import uk.co.farowl.vsj4.runtime.Exposed.PythonNewMethod;
  */
 public final class PyBool {
 
-    /** The type of Python object this class implements. */
-    public static final PyType TYPE = PyType.fromSpec( //
-            new TypeSpec("bool", MethodHandles.lookup())
-                    .primary(Boolean.class) //
-                    .base(PyLong.TYPE));
+    /** The Python type {@code bool}. */
+    public static final PyType TYPE = PyType.of(Boolean.TRUE);
 
     private PyBool() {}  // enforces the doubleton :)
 

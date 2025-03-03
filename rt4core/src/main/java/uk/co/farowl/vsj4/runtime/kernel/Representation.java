@@ -82,9 +82,8 @@ public abstract class Representation {
     public abstract PyType pythonType(Object x);
 
     /**
-     * Fast check that an object with this representation
-     *  is a data descriptor (defines
-     * {@code __set__} or {@code __delete__}).
+     * Fast check that an object with this representation is a data
+     * descriptor (defines {@code __set__} or {@code __delete__}).
      *
      * @param x subject of the enquiry
      * @return {@code x} is a data descriptor
@@ -96,10 +95,10 @@ public abstract class Representation {
     }
 
     /**
-     * Fast check that an object with this representation
-     *  has a specified feature.
-     *  The idea is to avoid a call to {@link #pythonType(Object)},
-     *  when possible by overriding this in subclass.
+     * Fast check that an object with this representation has a
+     * specified feature. The idea is to avoid a call to
+     * {@link #pythonType(Object)}, when possible by overriding this in
+     * subclass.
      *
      * @param x subject of the enquiry
      * @param feature to check for
@@ -110,10 +109,10 @@ public abstract class Representation {
     }
 
     /**
-     * Fast check that an object with this representation
-     *  has a specified feature.
-     *  The idea is to avoid a call to {@link #pythonType(Object)},
-     *  when possible by overriding this in subclass.
+     * Fast check that an object with this representation has a
+     * specified feature. The idea is to avoid a call to
+     * {@link #pythonType(Object)}, when possible by overriding this in
+     * subclass.
      *
      * @param x subject of the enquiry
      * @param feature to check for
@@ -175,13 +174,19 @@ public abstract class Representation {
      * Return the index of this {@code Representation} in the associated
      * type. Adoptive types support multiple Java representation classes
      * for their instances, and each Representation holds the index for
-     * the class(es) associated to it in the registry. For others
+     * the class(es) associated to it in the registry. For other
      * representations, the index is zero.
      * <p>
      * Each descriptor in the dictionary of that type is able to provide
      * an implementation of the method that applies to a {@code self}
      * with Java class equal to (or a subclass of) {@link #javaClass} of
      * the representation.
+     * <p>
+     * When a type accepts, as self-classes, the representations of some
+     * other type (as when {@code int} accepts {@code Boolean}), there
+     * is no {@link Representation} of it in the accepting type. The
+     * correct index must be determined by finding a compatible class in
+     * {@link AdoptiveType#selfClasses()}.
      *
      * @implSpec Override this in the {@link Adopted} representation.
      *     The default implementation returns zero.

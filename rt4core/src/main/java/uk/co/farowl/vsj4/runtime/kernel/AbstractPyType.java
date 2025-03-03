@@ -411,21 +411,6 @@ public abstract sealed class AbstractPyType extends Representation
     }
 
     /**
-     * Find the index in this type corresponding to the class of an
-     * object passed as {@code self} to a method of the type.
-     *
-     * @deprecated This entry point exists to support legacy VSJ3 code
-     *     ported to VSJ4. There is a better way than this using the
-     *     index available from a {@code Representation}.
-     * @param selfClass to seek
-     * @return index in {@link #selfClasses()} or -1
-     */
-    @Deprecated
-    public int indexAccepted(Class<?> selfClass) {
-        return selfClasses().indexOf(selfClass);
-    }
-
-    /**
      * The dictionary of the {@code type} in a read-only view.
      *
      * @return dictionary of the {@code type} in a read-only view.

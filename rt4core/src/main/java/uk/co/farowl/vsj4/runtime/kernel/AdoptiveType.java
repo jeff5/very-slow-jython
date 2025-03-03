@@ -1,4 +1,4 @@
-// Copyright (c)2024 Jython Developers.
+// Copyright (c)2025 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime.kernel;
 
@@ -82,6 +82,21 @@ public final class AdoptiveType extends PyType {
 
     @Override
     public Class<?> canonicalClass() { return selfClasses.get(0); }
+
+    @Override
+    public int getSubclassIndex(Class<?> selfClass) {
+        // Try the primary representation first
+        if (!selfClasses.get(0).isAssignableFrom(selfClass)) {
+            // Try accepted self-classes (skip representations)
+            int n = selfClasses.size();
+            for (int i = reps.size(); i < n; i++) {
+                if (selfClasses.get(i).isAssignableFrom(selfClass)) {
+                    return i;
+                }
+            }
+        }
+        return 0;
+    }
 
     @Override
     public PyType pythonType(Object x) {
