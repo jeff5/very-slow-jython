@@ -2,6 +2,8 @@
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
 
+import java.util.EnumSet;
+
 /**
  * Enumeration of the overt features of a type, as used on the type
  * object itself. They may be tested with
@@ -112,4 +114,11 @@ public enum TypeFlag {
     /** The type is a subclass of . */
     // Compare CPython Py_TPFLAGS_TYPE_SUBCLASS
     TYPE_SUBCLASS;
+
+    /**
+     * {@code TypeFlag}s inherited from the base type when constructing
+     * a new type.
+     */
+    public static final EnumSet<TypeFlag> HERITABLE =
+            EnumSet.of(BASETYPE, REPLACEABLE, SEQUENCE, MAPPING);
 }

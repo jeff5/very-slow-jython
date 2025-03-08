@@ -10,7 +10,6 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.invoke.MethodType;
 
-import uk.co.farowl.vsj4.runtime.MethodDescriptor;
 import uk.co.farowl.vsj4.runtime.PyFloat;
 import uk.co.farowl.vsj4.runtime.PyLong;
 import uk.co.farowl.vsj4.runtime.PyType;
@@ -195,45 +194,6 @@ public abstract class Representation {
      */
     @SuppressWarnings("static-method")
     public int getIndex() { return 0; }
-
-    /**
-     * Get a handle that implements the given special method for the
-     * given {@code self}, and which is assignment compatible (in Java)
-     * with {@link #javaClass}. The returned handle has the signature
-     * required by the particular special method, and is not bound to
-     * {@code self}.
-     *
-     * @deprecated This is questionable now: see
-     *     {@link SpecialMethod#generic} and the slot functions.
-     * @param sm a special method
-     * @param self first argument of the special method
-     * @return a handle on the special method
-     */
-    // Compare CPython SLOT* macros in typeobject.c
-    // FIXME Isn't this superseded by SpecialMethod.slot*() etc..
-    @Deprecated
-    public MethodHandle handle(SpecialMethod sm, Object self) {
-        MethodHandle mh;
-        if (sm.cache != null) {
-            // XXX What if javaClass isn't expected self class?
-            // We wouldn't have cached it, but when was that?
-            mh = (MethodHandle)sm.cache.get(this);
-        } else {
-            // XXX Could in-line getting the type if we specialise.
-            PyType type = pythonType(self);
-            // XXX Abstract rest as find method we use during caching?
-            Object attr = type.lookup(sm.methodName);
-            if (attr instanceof MethodDescriptor method) {
-                // XXX What if javaClass isn't expected self class?
-                mh = method.getHandle(getIndex());
-            } else {
-                // Return a handle on a call
-                mh = null; // method.getWrapped(javaClass);
-            }
-        }
-        assert mh.type().equals(sm.signature.type);
-        return mh;
-    }
 
     // ---------------------------------------------------------------
 

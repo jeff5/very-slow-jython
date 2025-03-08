@@ -448,6 +448,10 @@ class SlotWrapperTestBase {
                 this.o = o;
             }
 
+            @Override
+            public String toString() {
+                return "Args(" + s + ", " + o + ")";
+            }
         }
 
         /**

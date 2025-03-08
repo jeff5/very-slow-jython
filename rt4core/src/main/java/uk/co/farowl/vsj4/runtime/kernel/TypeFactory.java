@@ -911,6 +911,7 @@ public class TypeFactory {
                 type.setMRO();
 
                 // Set feature flags
+                type.inheritFeatures();
                 type.addFeatures(spec);
 
                 // Construct an exposer for the type.

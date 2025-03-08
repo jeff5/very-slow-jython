@@ -95,11 +95,10 @@ enum MethodSignature {
         /**
          * A handle with signature {@code ()O} that throws a single
          * re-used instance of {@code Slot.EmptyException}. We use this
-         * in sub-class constructors when given a {@code null} raw
-         * method handle, to ensure it is always safe to invoke
-         * {@link PyMethodDescr#method}. If the signature is to be
-         * believed, {@code EMPTY} returns {@code Object}, although it
-         * never actually returns at all.
+         * various places in the run-time when given a {@code null} raw
+         * method handle, to ensure it is always safe to invoke. If the
+         * signature is to be believed, {@code THROW_EMPTY} returns
+         * {@code Object}, although it never actually returns at all.
          */
         static final MethodHandle THROW_EMPTY = MethodHandles
                 .throwException(O, EmptyException.class).bindTo(EMPTY);

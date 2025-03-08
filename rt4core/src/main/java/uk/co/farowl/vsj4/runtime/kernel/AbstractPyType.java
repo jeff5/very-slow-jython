@@ -104,19 +104,6 @@ public abstract sealed class AbstractPyType extends Representation
      */
     protected PyType[] mro;
 
-// /**
-// * Cache of the special method {@code __new__} as a method handle.
-// * Note that while caches for special methods that are instance
-// * methods are in the class {@link Representation}, only a type can
-// * have a {@code __new__}. It must be updated whenever the
-// * definition of {@code __new__} changes for this type object. The
-// * signature of this handle is {@code (T,OA,SA)O} where the first
-// * argument is the class of object to create, not this class
-// * necessarily.
-// */
-// // Compare CPython type slot tp_new
-// private MethodHandle op_new;
-
     /**
      * Collect the information necessary to synthesise and call a
      * constructor for a Java subclass.
@@ -648,8 +635,29 @@ public abstract sealed class AbstractPyType extends Representation
     }
 
     /**
-     * Add features flags from the specification. This should be called
-     * at the start of initialising the type so that it can influence
+     * Inherit feature flags (including kernel feature flags) from the
+     * base. This should be called early enough in initialising the type
+     * that it can be modified by configuration with exposed methods.
+     */
+    void inheritFeatures() {
+        AbstractPyType base = this.base;
+        if (base != null) {
+            // Inherit the customary features
+            EnumSet<TypeFlag> inheritedTF =
+                    EnumSet.copyOf(base.features);
+            inheritedTF.retainAll(TypeFlag.HERITABLE);
+            features.addAll(inheritedTF);
+            // Inherit the customary kernel features
+            EnumSet<KernelTypeFlag> inheritedKTF =
+                    EnumSet.copyOf(base.kernelFeatures);
+            inheritedKTF.retainAll(KernelTypeFlag.HERITABLE);
+            kernelFeatures.addAll(inheritedKTF);
+        }
+    }
+
+    /**
+     * Add feature flags from the specification. This should be called
+     * early enough in initialising the type that it can influence
      * configuration with exposed methods.
      *
      * @param spec specification of this type
@@ -659,7 +667,7 @@ public abstract sealed class AbstractPyType extends Representation
     }
 
     /**
-     * Add features flags derived from observations of the type itself
+     * Add feature flags derived from observations of the type itself
      * (and the specification if necessary). This should be called at
      * the end of initialising the type so that it is influenced by the
      * set of exposed methods.
@@ -669,12 +677,14 @@ public abstract sealed class AbstractPyType extends Representation
     // Compare CPython inherit_special in typeobject.c
     void deriveFeatures(TypeSpec spec) {
         /*
-         * Set at most one of the fast sub-type test flags. We cannot
-         * rely on this==PyWhatever.TYPE, as the TYPE won't be assigned
-         * yet.
+         * Set at most one of the fast sub-type test flags. (Use short
+         * circuit evaluation to stop at the first flag set.) We cannot
+         * rely on this==PyWhatever.TYPE when constructing a type for
+         * 'whatever', as the TYPE won't be assigned yet.
          */
+        //
         @SuppressWarnings("unused")
-        boolean dummy = setFeature(PyLong.class, TypeFlag.INT_SUBCLASS)
+        boolean unused = setFeature(PyLong.class, TypeFlag.INT_SUBCLASS)
                 || setFeature(PyTuple.class, TypeFlag.TUPLE_SUBCLASS)
                 || setFeature(PyUnicode.class, TypeFlag.STR_SUBCLASS)
                 || setFeature(PyDict.class, TypeFlag.DICT_SUBCLASS)
@@ -686,7 +696,7 @@ public abstract sealed class AbstractPyType extends Representation
          * matching. It would be nice to accomplish this in the
          * TypeSpec, but it is not public API.
          */
-        dummy = setFeature(PyLong.class, KernelTypeFlag.MATCH_SELF)
+        unused = setFeature(PyLong.class, KernelTypeFlag.MATCH_SELF)
                 || setFeature(PyFloat.class, KernelTypeFlag.MATCH_SELF)
                 // || setFeature(PyBytes.class,
                 // KernelTypeFlag.MATCH_SELF)
@@ -790,7 +800,7 @@ public abstract sealed class AbstractPyType extends Representation
         SpecialMethod sm = SpecialMethod.forMethodName(name);
 
         if (sm != null) {
-            // Update affects a special method cache.
+            // Update affects a special method.
             updateSpecialMethodCache(sm, result);
             // Some special methods need:
             KernelTypeFlag feature = switch (sm) {
@@ -900,13 +910,13 @@ public abstract sealed class AbstractPyType extends Representation
             List<Class<?>> classes = where.selfClasses();
             int n = classes.size(), index;
             for (Representation rep : representations()) {
+                Class<?> c = rep.javaClass;
                 for (index = 0; index < n; index++) {
-                    if (classes.get(index)
-                            .isAssignableFrom(javaClass)) {
+                    if (classes.get(index).isAssignableFrom(c)) {
                         break;
                     }
                 }
-                // descr supports this Java class at the given index
+                // descr supports c = rep.javaClass at the given index
                 assert index < n;
                 sm.setCache(rep, descr.getHandle(index));
             }

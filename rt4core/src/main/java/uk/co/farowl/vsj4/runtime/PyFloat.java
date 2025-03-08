@@ -93,18 +93,18 @@ public class PyFloat implements WithClass {
 
         // Try __float__ (if defined)
         try {
-            Object res = rep.op_float().invokeExact(o);
-            Representation resRep = PyType.getRepresentation(res);
+            Object flt = rep.op_float().invokeExact(o);
+            Representation resRep = PyType.getRepresentation(flt);
             if (!resRep.isFloatExact()) {
-                PyType resType = resRep.pythonType(res);
+                PyType resType = resRep.pythonType(flt);
                 if (resType.isSubTypeOf(PyFloat.TYPE))
                     // Warn about this and return value field
-                    returnDeprecation("__float__", "float", res);
+                    returnDeprecation("__float__", "float", flt);
                 else
                     // Not a float at all.
-                    throw returnTypeError("__float__", "float", res);
+                    throw returnTypeError("__float__", "float", flt);
             }
-            return doubleValue(rep);
+            return doubleValue(flt);
         } catch (EmptyException e) {}
 
         // o.__float__ was not defined try o.__index__
