@@ -111,8 +111,6 @@ public class TypeFactory {
     final PyType[] EMPTY_TYPE_ARRAY;
     /** An array containing just type object {@code object} */
     private final PyType[] OBJECT_ONLY;
-    /** An array containing just type object {@code type} */
-    private final PyType[] TYPE_ONLY;
 
     /**
      * We count the number of reentrant calls here, and defer publishing
@@ -207,7 +205,6 @@ public class TypeFactory {
         assert OBJECT_ONLY.length == 1;
         this.EMPTY_TYPE_ARRAY = typeType.base.bases;
         assert EMPTY_TYPE_ARRAY.length == 0;
-        this.TYPE_ONLY = new PyType[] {typeType};
     }
 
     /**
@@ -953,8 +950,8 @@ public class TypeFactory {
                 for (Class<?> c : definitionClasses()) {
                     // Gather methods and get-sets
                     exposer.exposeMethods(c);
-                    // TODO ... and members (fields).
-                    // exposer.exposeMembers(c);
+                    // ... and members (fields).
+                    exposer.exposeMembers(c);
                 }
 
                 /*

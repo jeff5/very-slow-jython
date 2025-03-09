@@ -385,24 +385,6 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
             "__get__(None, None) is invalid";
 
     /**
-     * Check that the given type is acceptable for the {@code self}
-     * argument, that is, it is a subclass of
-     * {@link Descriptor#objclass}.
-     *
-     * @param selfType Python type of {@code self}
-     * @throws PyBaseException (TypeError) if {@code self} is not a
-     *     subclass of {@code __objclass__}.
-     * @throws Throwable propagated from subclass check
-     */
-    protected void checkPythonType(PyType selfType)
-            throws PyBaseException, Throwable {
-        if (!Abstract.recursiveIsSubclass(selfType, objclass)) {
-            throw PyErr.format(PyExc.TypeError, DESCRIPTOR_REQUIRES,
-                    name, objclass.getName(), selfType.getName());
-        }
-    }
-
-    /**
      * Create a {@link PyBaseException TypeError} with a message along
      * the lines "descriptor 'D' requires a 'T' object but received a
      * 'S'" involving the name of this descriptor, {@link #objclass} and
@@ -463,9 +445,8 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
         @Override
         MethodHandle getHandle(Object self)
                 throws PyBaseException, Throwable {
-            Representation rep = PyType.registry.get(self.getClass());
             // Check acceptability at the Python level
-            checkPythonType(rep.pythonType(self));
+            check(self);
             return wrapped;
         }
     }

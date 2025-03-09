@@ -22,7 +22,7 @@ import uk.co.farowl.vsj4.support.internal.EmptyException;
  */
 abstract class Descriptor implements WithClass {
 
-    /**Single re-used instance of {@link EmptyException}     */
+    /** Single re-used instance of {@link EmptyException} */
     protected static final EmptyException EMPTY = new EmptyException();
 
     /**
@@ -125,11 +125,17 @@ abstract class Descriptor implements WithClass {
     // TODO Rationalise these three checks on self type
 
     /**
-     * {@code descr.__get__(obj, type)} has been called on this
-     * descriptor. We must check that the descriptor applies to the type
-     * of object supplied as the {@code obj} argument. From Python,
-     * anything could be presented, but when we operate on it, we'll be
-     * assuming the particular {@link #objclass} type.
+     * A check made when the descriptor is applied to an argument
+     * {@code obj}. This descriptor is being applied to a target object
+     * {@code obj}, maybe as a result of a call
+     * {@code descr.__get__(obj, type)}. From Python, anything could be
+     * presented, but when we operate on it, we'll be assuming (a Java
+     * class accepted by) the particular {@link #objclass} that defined
+     * the descriptor, or a subclass of it.
+     * <p>
+     * When the type of {@code obj} is not a subclass of
+     * {@code objclass} this method raises a {@link PyBaseException
+     * TypeError} by calling {@link #selfTypeError(PyType)}.
      *
      * @param obj target object (non-null argument to {@code __get__})
      * @throws PyBaseException (TypeError) if descriptor doesn't apply
@@ -143,8 +149,23 @@ abstract class Descriptor implements WithClass {
     // job.
     // 3. In a data descriptor, we fold the auditing into this check.
     protected void check(Object obj) throws PyBaseException {
-        PyType objType = PyType.of(obj);
+        checkPythonType(PyType.of(obj));
+    }
+
+    /**
+     * A check made when the descriptor is applied to an argument
+     * {@code obj}. This is equivalent to {@link #check(Object)}, but
+     * when we have the {@code type(obj)} already.
+     *
+     * @param objType target object type
+     * @throws PyBaseException (TypeError) if descriptor doesn't apply
+     *     to {@code objType}
+     * @throws Throwable propagated from subclass check
+     */
+    protected void checkPythonType(PyType objType)
+            throws PyBaseException {
         if (objType == objclass) { return; }
+        // XXX Should this call Abstract.recursiveIsSubclass instead?
         if (objType.isSubTypeOf(objclass)) { return; }
         throw selfTypeError(objType);
     }
@@ -197,7 +218,6 @@ abstract class Descriptor implements WithClass {
     // return Py_BuildValue("N(OO)", _PyEval_GetBuiltinId(ID.getattr),
     // descr.objclass, PyDescr_NAME(descr));
     // }
-
 
     @Override
     public String toString() { return PyUtil.defaultToString(this); }

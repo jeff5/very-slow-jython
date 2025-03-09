@@ -905,19 +905,13 @@ public abstract sealed class AbstractPyType extends Representation
              * The method descriptor is in a super class. Every
              * representation class of this type must be
              * assignment-compatible with a self-class where we found
-             * the descriptor.
+             * the descriptor (index 0 or an accepted class).
              */
             List<Class<?>> classes = where.selfClasses();
-            int n = classes.size(), index;
             for (Representation rep : representations()) {
                 Class<?> c = rep.javaClass;
-                for (index = 0; index < n; index++) {
-                    if (classes.get(index).isAssignableFrom(c)) {
-                        break;
-                    }
-                }
-                // descr supports c = rep.javaClass at the given index
-                assert index < n;
+                int index = where.getSubclassIndex(c);
+                assert index < classes.size();
                 sm.setCache(rep, descr.getHandle(index));
             }
         }

@@ -25,14 +25,14 @@ public interface TypeExposer {
      */
     void exposeMethods(Class<?> methodClass);
 
-    /// **
-    // * Gather members (fields exposed as Python attributes) from the
-    // * specified class. Definitions (a precursor of Python
-    // * descriptors) accumulate in the exposer.
-    // *
-    // * @param memberClass to scan for definitions
-    // */
-    // void exposeMembers(Class<?> memberClass);
+    /**
+     * Gather members (fields exposed as Python attributes) from the
+     * specified class. Definitions (a precursor of Python descriptors)
+     * accumulate in the exposer.
+     *
+     * @param memberClass to scan for definitions
+     */
+    void exposeMembers(Class<?> memberClass);
 
     /**
      * A name-value pair that hold one entry intended for the dictionary

@@ -7,16 +7,25 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.invoke.MethodType;
 import java.lang.invoke.WrongMethodTypeException;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
+import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 
+import uk.co.farowl.vsj4.runtime.Exposed.DocString;
+import uk.co.farowl.vsj4.runtime.Exposed.Member;
 import uk.co.farowl.vsj4.runtime.Exposed.PythonMethod;
 import uk.co.farowl.vsj4.runtime.Exposed.PythonNewMethod;
 import uk.co.farowl.vsj4.runtime.Exposed.PythonStaticMethod;
+import uk.co.farowl.vsj4.runtime.PyMemberDescr.Flag;
 import uk.co.farowl.vsj4.runtime.kernel.SpecialMethod;
 import uk.co.farowl.vsj4.runtime.kernel.TypeExposer;
 import uk.co.farowl.vsj4.support.InterpreterError;
@@ -38,7 +47,7 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
      * eventually become descriptors in a built-in object type. Every
      * entry here is also a value in {@link Exposer#specs}.
      */
-    // final Set<MemberSpec> memberSpecs;
+    final Set<MemberSpec> memberSpecs;
 
     /**
      * The table of intermediate descriptions for get-sets. They will
@@ -60,7 +69,7 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
      */
     TypeExposerImplementation(PyType type) {
         this.type = type;
-        // this.memberSpecs = new TreeSet<>();
+        this.memberSpecs = new TreeSet<>();
         // this.getSetSpecs = new TreeSet<>();
     }
 
@@ -73,11 +82,11 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
         scanJavaMethods(methodClass);
     }
 
-    //@Override
-    //public void exposeMembers(Class<?> memberClass) {
-    //    // Scan the defining class for exposed fields
-    //    scanJavaFields(memberClass);
-    //}
+    @Override
+    public void exposeMembers(Class<?> memberClass) {
+        // Scan the defining class for exposed fields
+        scanJavaFields(memberClass);
+    }
 
     @Override
     public Iterable<Entry> entries(Lookup lookup) {
@@ -284,212 +293,213 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
                 ms -> methodSpecs.add(ms), addMethod);
     }
 
-/// **
-// * Add to {@link #specs}, definitions of fields found in the given
-// * class and annotated for exposure.
-// *
-// * @param defsClass to introspect for field definitions
-// * @throws InterpreterError on duplicates or unsupported types
-// */
-// void scanJavaFields(Class<?> defsClass) throws InterpreterError {
-// // Iterate over fields looking for the relevant annotations
-// for (Class<?> c : superClasses(defsClass)) {
-// for (Field f : c.getDeclaredFields()) {
-// Member m = f.getDeclaredAnnotation(Member.class);
-// if (m != null) { addMemberSpec(f, m); }
-// }
-// }
-// }
+    /**
+     * Add to {@link #specs}, definitions of fields found in the given
+     * class and annotated for exposure.
+     *
+     * @param c to introspect for field definitions
+     * @throws InterpreterError on duplicates or unsupported types
+     */
+    void scanJavaFields(Class<?> c) throws InterpreterError {
 
-/// **
-// * Process an annotated field, that describes an exposed attribute,
-// * into a specification, and add it to the table of specifications
-// * by name.
-// *
-// * @param f field annotated
-// * @param anno annotation encountered
-// * @throws InterpreterError on duplicates or unsupported types
-// */
-// void addMemberSpec(Field f, Member anno) throws InterpreterError {
-//
-// // The name is as annotated or the "natural" one
-// String name = anno.value();
-// if (name == null || name.length() == 0)
-// name = f.getName();
-//
-// /*
-// * XXX we follow the same pattern as with other spec types, in
-// * accumulating multiple definitions in a list. Repeat
-// * definition is almost certainly an error, and at this time,
-// * MemberSpec.add treats it as such. This makes Member
-// * annotations incompatible with the idea of multiple accepted
-// * implementations of a type.
-// */
-// // Find any existing definition
-// Spec spec = specs.get(name);
-// MemberSpec memberSpec;
-// if (spec == null) {
-// // A new entry is needed
-// memberSpec = new MemberSpec(name);
-// specs.put(memberSpec.name, memberSpec);
-// memberSpecs.add(memberSpec);
-// } else if (spec instanceof MemberSpec) {
-// // Existing entry will be updated
-// memberSpec = (MemberSpec)spec;
-// } else {
-// // Existing entry is not compatible
-// memberSpec = new MemberSpec(name);
-// throw duplicateError(name, f, memberSpec, spec);
-// }
-// // Add the field, processing the additional properties
-// memberSpec.add(f, anno.optional(), anno.readonly());
-// }
+        logger.atTrace().addArgument(c).log("Finding members in {}");
+
+        // Iterate over fields looking for the relevant annotations
+        for (Field f : c.getDeclaredFields()) {
+            Member m = f.getDeclaredAnnotation(Member.class);
+            if (m != null) { addMemberSpec(f, m); }
+        }
+    }
+
+    /**
+     * Process an annotated field, that describes an exposed attribute,
+     * into a specification, and add it to the table of specifications
+     * by name.
+     *
+     * @param f field annotated
+     * @param anno annotation encountered
+     * @throws InterpreterError on duplicates or unsupported types
+     */
+    void addMemberSpec(Field f, Member anno) throws InterpreterError {
+
+        // The name is as annotated or the "natural" one
+        String name = anno.value();
+        if (name == null || name.length() == 0)
+            name = f.getName();
+
+        /*
+         * XXX we follow the same pattern as with other spec types, in
+         * accumulating multiple definitions in a list. Repeat
+         * definition is almost certainly an error, and at this time,
+         * MemberSpec.add treats it as such. This makes Member
+         * annotations incompatible with the idea of multiple accepted
+         * implementations of a type.
+         */
+        // Find any existing definition
+        Spec spec = specs.get(name);
+        MemberSpec memberSpec;
+        if (spec == null) {
+            // A new entry is needed
+            memberSpec = new MemberSpec(name);
+            specs.put(memberSpec.name, memberSpec);
+            memberSpecs.add(memberSpec);
+        } else if (spec instanceof MemberSpec) {
+            // Existing entry will be updated
+            memberSpec = (MemberSpec)spec;
+        } else {
+            // Existing entry is not compatible
+            memberSpec = new MemberSpec(name);
+            throw duplicateError(name, f, memberSpec, spec);
+        }
+        // Add the field, processing the additional properties
+        memberSpec.add(f, anno.optional(), anno.readonly());
+    }
 
     @Override
     public String toString() {
         return "TypeExposer [type=" + type + "]";
     }
 
-/// **
-// * A specialisation of {@link Exposer.Spec} to describe a named,
-// * built-in data-like object, during the exposure process.
-// */
-// static class MemberSpec extends Exposer.Spec {
-//
-// /** Collects the fields declared (should be just one). */
-// final List<Field> fields;
-//
-// /**
-// * The member disappears when the field is {@code null}. This is
-// * always {@code false} for primitive types.
-// */
-// boolean optional;
-// /** The member may be read but not written or deleted. */
-// boolean readonly;
-//
-// MemberSpec(String name) {
-// super(name, ScopeKind.TYPE);
-// this.fields = new ArrayList<>(1);
-// }
-//
-// /**
-// * Add a field implementing this member to the collection.
-// *
-// * @param field to add to {@link #fields}
-// * @param optional member is optional
-// * @param readonly member is read only
-// */
-// void add(Field field, boolean optional, boolean readonly) {
-//
-// // Final overrides readonly=false
-// int modifiers = field.getModifiers();
-// readonly |= (modifiers & Modifier.FINAL) != 0;
-//
-// // Disallow static (in Java)
-// boolean javaStatic = (modifiers & Modifier.STATIC) != 0;
-// if (javaStatic) {
-// throw new InterpreterError(CANNOT_BE_JAVA_STATIC,
-// getJavaName());
-// }
-//
-// // Disallow optional if primitive (in Java)
-// if (optional) {
-// if (field.getType().isPrimitive()) {
-// throw new InterpreterError(CANNOT_BE_OPTIONAL,
-// "Primitive", getJavaName());
-// } else if (readonly) {
-// throw new InterpreterError(CANNOT_BE_OPTIONAL,
-// "Read-only", getJavaName());
-// }
-// }
-//
-// // Add the only definition (do we actually need a list?)
-// fields.add(field);
-// if (fields.size() != 1) {
-// throw duplicateError(name, field, this, this);
-// }
-//
-// // Finally insert the allowed combination
-// this.optional = optional;
-// this.readonly = readonly;
-//
-// // There may be a @DocString annotation
-// DocString docAnno = field.getAnnotation(DocString.class);
-// if (docAnno != null) { doc = docAnno.value(); }
-// }
-//
-// private static final String CANNOT_BE_JAVA_STATIC =
-// "The definition of '%s' cannot be Java static "
-// + "because it is a Python member";
-// private static final String CANNOT_BE_OPTIONAL =
-// "%s field '%s' cannot be optional";
-//
-// @Override
-// Class<? extends Annotation> annoClass() { return Member.class; }
-//
-// /**
-// * {@inheritDoc}
-// * <p>
-// * In a type, the attribute must be represented by a descriptor
-// * for the Python member attribute from this specification.
-// * <p>
-// * Note that specification may have collected multiple Java
-// * definitions of the same name. This method checks there is
-// * exactly one.
-// *
-// * @return descriptor for access to the methods
-// * @throws InterpreterError if the method type is not supported
-// */
-// @Override
-// PyMemberDescr asAttribute(PyType objclass, Lookup lookup) {
-// EnumSet<Flag> flags = EnumSet.noneOf(Flag.class);
-// if (readonly) { flags.add(Flag.READONLY); }
-// if (optional) { flags.add(Flag.OPTIONAL); }
-// return PyMemberDescr.forField(objclass, name, fields.get(0),
-// lookup, flags, doc);
-// }
-//
-// @Override
-// public void checkFormation() throws InterpreterError {}
-//
-// /** @return a name designating the field */
-// @Override
-// String getJavaName() {
-// StringBuilder b = new StringBuilder(64);
-// if (!fields.isEmpty()) {
-// // It shouldn't matter, but take the last added
-// Field field = fields.get(fields.size() - 1);
-// b.append(field.getDeclaringClass().getSimpleName());
-// b.append('.');
-// b.append(field.getName());
-// } else {
-// // Take the name from the Spec instead
-// b.append(name);
-// }
-// return b.toString();
-// }
-//
-// /** @return the Java declaration for the field */
-// String getJavaDeclaration() {
-// StringBuilder b = new StringBuilder(64);
-// if (!fields.isEmpty()) {
-// // It shouldn't matter, but take the last added
-// Field field = fields.get(fields.size() - 1);
-// b.append(field.getType().getSimpleName());
-// b.append(' ');
-// b.append(field.getName());
-// }
-// return b.toString();
-// }
-//
-// @Override
-// public String toString() {
-// return String.format("%s(%s [%s])",
-// getClass().getSimpleName(), name,
-// getJavaDeclaration());
-// }
-// }
-//
+    /**
+     * A specialisation of {@link Exposer.Spec} to describe a named,
+     * built-in data-like object, during the exposure process.
+     */
+    static class MemberSpec extends Exposer.Spec {
+
+        /** Collects the fields declared (should be just one). */
+        final List<Field> fields;
+
+        /**
+         * The member disappears when the field is {@code null}. This is
+         * always {@code false} for primitive types.
+         */
+        boolean optional;
+        /** The member may be read but not written or deleted. */
+        boolean readonly;
+
+        MemberSpec(String name) {
+            super(name, ScopeKind.TYPE);
+            this.fields = new ArrayList<>(1);
+        }
+
+        /**
+         * Add a field implementing this member to the collection.
+         *
+         * @param field to add to {@link #fields}
+         * @param optional member is optional
+         * @param readonly member is read only
+         */
+        void add(Field field, boolean optional, boolean readonly) {
+
+            // Final overrides readonly=false
+            int modifiers = field.getModifiers();
+            readonly |= (modifiers & Modifier.FINAL) != 0;
+
+            // Disallow static (in Java)
+            boolean javaStatic = (modifiers & Modifier.STATIC) != 0;
+            if (javaStatic) {
+                throw new InterpreterError(CANNOT_BE_JAVA_STATIC,
+                        getJavaName());
+            }
+
+            // Disallow optional if primitive (in Java)
+            if (optional) {
+                if (field.getType().isPrimitive()) {
+                    throw new InterpreterError(CANNOT_BE_OPTIONAL,
+                            "Primitive", getJavaName());
+                } else if (readonly) {
+                    throw new InterpreterError(CANNOT_BE_OPTIONAL,
+                            "Read-only", getJavaName());
+                }
+            }
+
+            // Add the only definition (do we actually need a list?)
+            fields.add(field);
+            if (fields.size() != 1) {
+                throw duplicateError(name, field, this, this);
+            }
+
+            // Finally insert the allowed combination
+            this.optional = optional;
+            this.readonly = readonly;
+
+            // There may be a @DocString annotation
+            DocString docAnno = field.getAnnotation(DocString.class);
+            if (docAnno != null) { doc = docAnno.value(); }
+        }
+
+        private static final String CANNOT_BE_JAVA_STATIC =
+                "The definition of '%s' cannot be Java static "
+                        + "because it is a Python member";
+        private static final String CANNOT_BE_OPTIONAL =
+                "%s field '%s' cannot be optional";
+
+        @Override
+        Class<? extends Annotation> annoClass() { return Member.class; }
+
+        /**
+         * {@inheritDoc}
+         * <p>
+         * In a type, the attribute must be represented by a descriptor
+         * for the Python member attribute from this specification.
+         * <p>
+         * Note that specification may have collected multiple Java
+         * definitions of the same name. This method checks there is
+         * exactly one.
+         *
+         * @return descriptor for access to the methods
+         * @throws InterpreterError if the method type is not supported
+         */
+        @Override
+        PyMemberDescr asAttribute(PyType objclass, Lookup lookup) {
+            EnumSet<Flag> flags = EnumSet.noneOf(Flag.class);
+            if (readonly) { flags.add(Flag.READONLY); }
+            if (optional) { flags.add(Flag.OPTIONAL); }
+            return PyMemberDescr.forField(objclass, name, fields.get(0),
+                    lookup, flags, doc);
+        }
+
+        @Override
+        public void checkFormation() throws InterpreterError {}
+
+        /** @return a name designating the field */
+        @Override
+        String getJavaName() {
+            StringBuilder b = new StringBuilder(64);
+            if (!fields.isEmpty()) {
+                // It shouldn't matter, but take the last added
+                Field field = fields.get(fields.size() - 1);
+                b.append(field.getDeclaringClass().getSimpleName());
+                b.append('.');
+                b.append(field.getName());
+            } else {
+                // Take the name from the Spec instead
+                b.append(name);
+            }
+            return b.toString();
+        }
+
+        /** @return the Java declaration for the field */
+        String getJavaDeclaration() {
+            StringBuilder b = new StringBuilder(64);
+            if (!fields.isEmpty()) {
+                // It shouldn't matter, but take the last added
+                Field field = fields.get(fields.size() - 1);
+                b.append(field.getType().getSimpleName());
+                b.append(' ');
+                b.append(field.getName());
+            }
+            return b.toString();
+        }
+
+        @Override
+        public String toString() {
+            return String.format("%s(%s [%s])",
+                    getClass().getSimpleName(), name,
+                    getJavaDeclaration());
+        }
+    }
+
 /// **
 // * A specialisation of {@link Exposer.Spec} to describe a named,
 // * built-in data-like object, during the exposure process.

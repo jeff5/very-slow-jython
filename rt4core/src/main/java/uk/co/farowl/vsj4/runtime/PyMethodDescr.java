@@ -244,16 +244,11 @@ public abstract class PyMethodDescr extends MethodDescriptor {
 
     /**
      * Return the handle contained in this descriptor, applicable to the
-     * Java class of a {@code self} argument during a call. In the base
-     * implementation, this is by checking #objclass against the MRO of
-     * {@code PyType.of(self)}. Sub-classes where {@code objclass} has
-     * multiple accepted implementations override this method, because
-     * they supersede {@link #method} with an array.
-     * <p>
-     * The {@link Descriptor#objclass} is consulted to make this
-     * determination. If the class of {@code self} is not an accepted
-     * implementation of {@code objclass}, an empty slot handle (with
-     * the correct signature) is returned.
+     * Java class of a {@code self} argument during a call. The
+     * implementation must check the Python type of {@code self} is a
+     * subclass of the against the type that defined the descriptor.
+     * Where the defining type allows multiple (Java) self-classes, the
+     * implementation must find the correct one an array.
      *
      * @param self the {@code self} argument in some call
      * @return corresponding handle (or one that throws
@@ -461,43 +456,6 @@ public abstract class PyMethodDescr extends MethodDescriptor {
     }
 
     /**
-     * Check that the type of the given object is acceptable for the
-     * {@code self} argument, that is, it is a subclass of
-     * {@link Descriptor#objclass}.
-     *
-     * @param self to be checked
-     * @throws PyBaseException (TypeError) if it is of unacceptable type
-     * @throws Throwable on other errors while chasing the MRO
-     */
-    // Compare CPython: descr_check in descrobject.c
-    protected final void checkSelf(Object self)
-            throws PyBaseException, Throwable {
-        // Make sure that the argument is acceptable as 'self'
-        checkPythonType(PyType.of(self));
-    }
-
-    /**
-     * Check that the given type is acceptable for the {@code self}
-     * argument, that is, it is a subclass of
-     * {@link Descriptor#objclass}.
-     *
-     * @param selfType Python type of {@code self}
-     * @throws PyBaseException (TypeError) if {@code self} is not a
-     *     subclass of {@code __objclass__}.
-     * @throws Throwable propagated from subclass check
-     */
-    // Compare CPython: descr_check in descrobject.c
-    protected void checkPythonType(PyType selfType)
-            throws PyBaseException, Throwable {
-        if (selfType == objclass
-                || Abstract.recursiveIsSubclass(selfType, objclass)) {
-            return;
-        } else {
-            throw selfTypeError(selfType);
-        }
-    }
-
-    /**
      * A {@link PyMethodDescr} for use when the owning Python type has
      * just one accepted implementation.
      */
@@ -573,7 +531,7 @@ public abstract class PyMethodDescr extends MethodDescriptor {
         MethodHandle getHandle(Object self)
                 throws PyBaseException, Throwable {
             // All single class descriptors simply return the handle.
-            checkSelf(self);
+            check(self);
             return method;
         }
 
@@ -623,7 +581,7 @@ public abstract class PyMethodDescr extends MethodDescriptor {
                 }
                 // Call this with self separated.
                 Object self = s[p];
-                checkSelf(self);
+                check(self);
                 // Parse args without the leading element self
                 Object[] frame = argParser.parse(s, p + 1, m, names);
                 return method.invokeExact(self, frame);
@@ -645,7 +603,7 @@ public abstract class PyMethodDescr extends MethodDescriptor {
                  * into a tuple or dict (where allowed), and fill
                  * missing ones from defaults.
                  */
-                checkSelf(self);
+                check(self);
                 assert method
                         .type() == MethodSignature.GENERAL.instanceType;
                 Object[] frame = argParser.parse(args, names);
@@ -728,7 +686,7 @@ public abstract class PyMethodDescr extends MethodDescriptor {
                     return callMethod(self, args);
                 } else {
                     // The self-type error takes precedence if both.
-                    checkSelf(self);
+                    check(self);
                     throw new ArgumentError(Mode.NOKWARGS);
                 }
             }
@@ -789,7 +747,7 @@ public abstract class PyMethodDescr extends MethodDescriptor {
                 // The method handle type is (O)O
                 assert method
                         .type() == MethodSignature.NOARGS.instanceType;
-                checkSelf(self);
+                check(self);
                 return method.invokeExact(self);
             }
 
@@ -798,7 +756,7 @@ public abstract class PyMethodDescr extends MethodDescriptor {
                 // The method handle type is (O)O.
                 assert method
                         .type() == MethodSignature.NOARGS.instanceType;
-                checkSelf(self);
+                check(self);
                 return method.invokeExact(self);
             }
         }
@@ -831,14 +789,13 @@ public abstract class PyMethodDescr extends MethodDescriptor {
                     throws PyBaseException, Throwable {
                 // The method handle type is (O,O)O.
                 assert method.type() == MethodSignature.O1.instanceType;
-                checkSelf(self);
+                check(self);
                 int n = a.length;
                 if (n == 1) {
                     // Number of arguments matches number of parameters
                     return method.invokeExact(self, a[0]);
                 } else if (n == min) {
-                    // Since min<=max, max==1 and n!=1, we have
-                    // n==min==0
+                    // min<=max, max==1 and n!=1 therefore n==min==0
                     return method.invokeExact(self, d[0]);
                 }
                 // n < min || n > max
@@ -847,7 +804,7 @@ public abstract class PyMethodDescr extends MethodDescriptor {
 
             @Override
             public Object call(Object self) throws Throwable {
-                checkSelf(self);
+                check(self);
                 if (min > 0) { throw new ArgumentError(min, 1); }
                 return method.invokeExact(self, d[0]);
             }
@@ -855,7 +812,7 @@ public abstract class PyMethodDescr extends MethodDescriptor {
             @Override
             public Object call(Object self, Object a1)
                     throws Throwable {
-                checkSelf(self);
+                check(self);
                 return method.invokeExact(self, a1);
             }
         }
@@ -889,7 +846,7 @@ public abstract class PyMethodDescr extends MethodDescriptor {
                     throws ArgumentError, PyBaseException, Throwable {
                 // The method handle type is (O,O,O)O.
                 assert method.type() == MethodSignature.O2.instanceType;
-                checkSelf(self);
+                check(self);
                 int n = a.length, k;
                 if (n == 2) {
                     // Number of arguments matches number of parameters
@@ -962,7 +919,7 @@ public abstract class PyMethodDescr extends MethodDescriptor {
                     throws ArgumentError, PyBaseException, Throwable {
                 // The method handle type is (O,O,O,O)O.
                 assert method.type() == MethodSignature.O3.instanceType;
-                checkSelf(self);
+                check(self);
                 int n = a.length, k;
                 if (n == 3) {
                     // Number of arguments matches number of parameters
@@ -1058,7 +1015,7 @@ public abstract class PyMethodDescr extends MethodDescriptor {
                 // The method handle type is (O,O[])O.
                 assert method
                         .type() == MethodSignature.POSITIONAL.instanceType;
-                checkSelf(self);
+                check(self);
                 int n = a.length, k;
                 if (n == max) {
                     // Number of arguments matches number of parameters
@@ -1150,18 +1107,17 @@ public abstract class PyMethodDescr extends MethodDescriptor {
              * compatible class in objclass.selfClasses(), in order to
              * locate the handle in methods[].
              */
-            Representation rep = PyType.registry.get(self.getClass());
+            Class<?> selfClass = self.getClass();
+            Representation rep = PyType.registry.get(selfClass);
             PyType selfType = rep.pythonType(self);
             if (selfType == objclass) {
                 // selfType defined the method so it must be ok
-                int index = rep.getIndex();
-                return methods[index];
+                return methods[rep.getIndex()];
             } else {
                 // Check validity at the Python level
                 checkPythonType(selfType);
                 // self is an instance of a Python sub-class
-                int index = objclass.getSubclassIndex(self.getClass());
-                return methods[index];
+                return methods[objclass.getSubclassIndex(selfClass)];
             }
         }
 
@@ -1318,7 +1274,7 @@ public abstract class PyMethodDescr extends MethodDescriptor {
                     return callMethod(self, args);
                 } else {
                     // The self-type error takes precedence if both.
-                    checkSelf(self);
+                    check(self);
                     throw new ArgumentError(Mode.NOKWARGS);
                 }
             }
@@ -1419,8 +1375,7 @@ public abstract class PyMethodDescr extends MethodDescriptor {
                     // Number of arguments matches number of parameters
                     return mh.invokeExact(self, a[0]);
                 } else if (n == min) {
-                    // Since min<=max, max==1 and n!=1, we have
-                    // n==min==0
+                    // min<=max, max==1 and n!=1 therefore n==min==0
                     return mh.invokeExact(self, d[0]);
                 }
                 // n < min || n > max

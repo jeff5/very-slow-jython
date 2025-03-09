@@ -59,6 +59,9 @@ class TypeFactoryTest {
                 public void exposeMethods(Class<?> definingClass) {}
 
                 @Override
+                public void exposeMembers(Class<?> memberClass) {}
+
+                @Override
                 public Iterable<Entry> entries(Lookup lookup) {
                     return List.of();
                 }
