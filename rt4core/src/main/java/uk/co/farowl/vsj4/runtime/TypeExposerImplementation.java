@@ -615,10 +615,41 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
         @Override
         public void checkFormation() throws InterpreterError {}
 
+        /**
+         * Create a {@code PyGetSetDescr} from this specification. Note
+         * that a specification collects all the methods as declared
+         * with this name (in separate getter, setter and deleter
+         * lists). Here there should be at most one of each.
+         *
+         * @param objclass Python type that owns the descriptor
+         * @param lookup authorisation to access fields
+         * @return descriptor for access to the field
+         * @throws InterpreterError if the method type is not supported
+         */
         private Object createDescrSingle(PyType objclass,
                 Lookup lookup) {
-            // TODO Stop-gap: specialise to Single
-            return createDescrMultiple(objclass, lookup);
+            /* Lazily, we use the mechanism unreflect() that works for
+             * types with multiple self-classes, knowing there can be
+             * only one
+             * implementation. */
+            // Handles on implementation methods
+            MethodHandle g, s = null, d = null;
+            g = unreflect(objclass, lookup, PyGetSetDescr.GETTER,
+                    getters)[0];
+            if (!readonly()) {
+                // We can set this attribute
+                s = unreflect(objclass, lookup, PyGetSetDescr.SETTER,
+                        setters)[0];
+                if (optional()) {
+                    // We can delete this attribute
+                    d = unreflect(objclass, lookup,
+                            PyGetSetDescr.DELETER, deleters)[0];
+                }
+            }
+
+            // Create a descriptor from the get, set and delete handles
+            return new PyGetSetDescr.Single(objclass, name, g, s, d,
+                    doc, klass);
         }
 
         /**
@@ -661,15 +692,24 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
                     doc, klass);
         }
 
+        /**
+         * Build a method handle array for use in a descriptor defined by
+         * the given Python type and having an entry for each self-class of the type.
+         * @param objclass defining the descriptor
+         * @param lookup rights to form handles on the methods
+         * @param mt of the handles to return
+         * @param methods to consider as candidates
+         * @return the array of handles
+         * @throws InterpreterError
+         */
         private MethodHandle[] unreflect(PyType objclass, Lookup lookup,
                 MethodType mt, List<Method> methods)
                 throws InterpreterError {
-
             /*
              * In the first stage, translate each method to a handle.
              * There could be any number of candidates in the defining
              * classes. There may be a method for each accepted
-             * implementation of the type , or a method may match more
+             * implementation of the type, or a method may match more
              * than one (e.g. Number matching Long and Integer). We
              * build a list with the more type-specific handles (in the
              * first argument) before the less type-specific.

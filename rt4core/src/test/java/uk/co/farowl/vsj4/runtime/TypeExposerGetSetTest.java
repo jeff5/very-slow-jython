@@ -32,17 +32,18 @@ import uk.co.farowl.vsj4.runtime.internal._PyUtil;
  * characteristics that correspond to the definitions.
  * <p>
  * This gets a bit complicated, but if it works, should cover anything
- * we want to do in real life. The test object is a Python type
- * {@code ObjectWithGetSets} defined by the inner Java class
- * {@link ObjectWithGetSets}. This definition adopts a second Java class
- * {@link AdoptedWithGetSets}, so that instances of either Java type are
- * accepted as Python objects of type {@code ObjectWithGetSets}.
+ * we want to do in real life. The first test object is a Python type
+ * {@code OGS} defined by the inner Java class {@link OWithGetSets}. The
+ * second test object is a Python type {@code PGS} defined by the inner
+ * Java class {@link PWithGetSets}, and adopting a second Java class
+ * {@link QWithGetSets}. Instances of either Java type are accepted as
+ * Python objects of type {@code PGS}.
  * <p>
- * For simplicity, in the test both implementations get most of their
- * definition by inheritance from a common base class
+ * For simplicity, in the test, all three implementations get most of
+ * their definition by inheritance from a common base class
  * {@link BaseGetSets}. Note that implementations of get-set methods
- * operating on the state of an {@code AdoptedWithGetSets}, have to
- * reside in the defining class {@code ObjectWithGetSets} or the base.
+ * operating on the state of a {@code QWithGetSets}, have to reside in
+ * the defining class {@code PGS} or the common base.
  * <p>
  * There is a nested test suite for each pattern of characteristics. For
  * test purposes, we mostly mimic the behaviour of identified types of
@@ -98,17 +99,15 @@ class TypeExposerGetSetTest extends UnitTestSupport {
 
     /**
      * Java base class of a Python type definition. We use this class to
-     * prepare two classes that jointly define the get-set attributes of
-     * a type {@code ObjectWithGetSets}.
+     * prepare three classes: a Python object type {@code OGS}, and a
+     * pair of classes that jointly define the get-set attributes of a
+     * type {@code PGS}.
      * <p>
      * As well as giving us less to type, using a base allows us to show
      * that some of the get-set attribute definitions explored in the
      * tests can be Java-inherited.
      */
     private static abstract class BaseGetSets {
-
-        /** The actual Python type */
-        protected PyType type;
 
         /** Primitive double attribute (not optional). */
         double x;
@@ -290,8 +289,7 @@ class TypeExposerGetSetTest extends UnitTestSupport {
          */
         abstract void setTup(PyTuple tup);
 
-        BaseGetSets(PyType type, double value) {
-            this.type = type;
+        BaseGetSets(double value) {
             x2 = x = value;
             doubleArray = new double[] {1, x, x * x, x * x * x};
             nameArray = TWITS.clone();
@@ -326,17 +324,64 @@ class TypeExposerGetSetTest extends UnitTestSupport {
         }
     }
 
+    // FIXME: Also test when there is only one self-class.
+
     /**
      * A Python type definition that exhibits a range of get-set
      * attribute definitions explored in the tests.
      */
-    private static class ObjectWithGetSets extends BaseGetSets {
+    private static class OWithGetSets extends BaseGetSets {
 
-        static PyType TYPE =
-                PyType.fromSpec(new TypeSpec("ObjectWithGetSets",
-                        MethodHandles.lookup()) //
-                                .add(Feature.IMMUTABLE)
-                                .adopt(AdoptedWithGetSets.class));
+        static PyType TYPE = PyType
+                .fromSpec(new TypeSpec("OGS", MethodHandles.lookup()));
+
+        /** Primitive integer attribute (not optional). */
+        int i;
+
+        @Getter
+        Integer i() { return i; }
+
+        @Setter
+        void i(Object v) { i = PyLong.asInt(v); }
+
+        /** Read-only access. */
+        int i2;
+
+        @Getter
+        Object i2() { return i2; }
+
+        /**
+         * Strongly-typed {@code PyTuple} attribute with default value
+         * {@code None}.
+         */
+        PyTuple tup;
+
+        OWithGetSets(double value) {
+            super(value);
+            i2 = i = BigInteger.valueOf(Math.round(value))
+                    .intValueExact();
+            obj = i;
+            t2 = t = s = String.format("%d", i);
+            tup = PyTuple.of(i, x, t);
+        }
+
+        @Override
+        PyTuple getTup() { return tup; }
+
+        @Override
+        void setTup(PyTuple tup) { this.tup = tup; }
+    }
+
+    /**
+     * A Python type definition that adopts another class and exhibits a
+     * range of get-set attribute definitions explored in the tests.
+     */
+    private static class PWithGetSets extends BaseGetSets {
+
+        static PyType TYPE = PyType
+                .fromSpec(new TypeSpec("PGS", MethodHandles.lookup()) //
+                        .add(Feature.IMMUTABLE)
+                        .adopt(QWithGetSets.class));
 
         /** Primitive integer attribute (not optional). */
         int i;
@@ -345,13 +390,13 @@ class TypeExposerGetSetTest extends UnitTestSupport {
         Integer i() { return i; }
 
         @Getter
-        static BigInteger i(AdoptedWithGetSets self) { return self.i; }
+        static BigInteger i(QWithGetSets self) { return self.i; }
 
         @Setter
         void i(Object v) { i = PyLong.asInt(v); }
 
         @Setter
-        static void i(AdoptedWithGetSets self, Object v) {
+        static void i(QWithGetSets self, Object v) {
             self.i = PyLong.asBigInteger(v);
         }
 
@@ -362,9 +407,7 @@ class TypeExposerGetSetTest extends UnitTestSupport {
         Object i2() { return i2; }
 
         @Getter
-        static BigInteger i2(AdoptedWithGetSets self) {
-            return self.i2;
-        }
+        static BigInteger i2(QWithGetSets self) { return self.i2; }
 
         /**
          * Strongly-typed {@code PyTuple} attribute with default value
@@ -372,16 +415,14 @@ class TypeExposerGetSetTest extends UnitTestSupport {
          */
         PyTuple tup;
 
-        ObjectWithGetSets(PyType type, double value) {
-            super(type, value);
+        PWithGetSets(double value) {
+            super(value);
             i2 = i = BigInteger.valueOf(Math.round(value))
                     .intValueExact();
             obj = i;
             t2 = t = s = String.format("%d", i);
             tup = PyTuple.of(i, x, t);
         }
-
-        ObjectWithGetSets(double value) { this(TYPE, value); }
 
         @Override
         PyTuple getTup() { return tup; }
@@ -392,15 +433,15 @@ class TypeExposerGetSetTest extends UnitTestSupport {
 
     /**
      * A class that represents an <i>adopted</i> implementation of the
-     * Python class {@code ObjectWithGetSets} defined above. Attribute
-     * access methods implemented in the common base class
-     * {@link BaseGetSets} also apply to this class. This class and the
-     * canonical class {@link ObjectWithGetSets} implement certain
-     * attributes each in their own way. The attribute access methods
-     * for this class are implemented as {@code static} methods in the
-     * canonical {@code ObjectWithGetSets}.
+     * Python class {@code PGS} defined above. Attribute access methods
+     * implemented in the common base class {@link BaseGetSets} also
+     * apply to this class. This class and the canonical class
+     * {@link PWithGetSets} implement certain attributes each in their
+     * own way. The attribute access methods for this class are
+     * implemented as {@code static} methods in the canonical
+     * {@code PWithGetSets}.
      */
-    private static class AdoptedWithGetSets extends BaseGetSets {
+    private static class QWithGetSets extends BaseGetSets {
 
         /** Primitive integer attribute (not optional). */
         BigInteger i;
@@ -414,8 +455,8 @@ class TypeExposerGetSetTest extends UnitTestSupport {
          */
         Object[] aTuple;
 
-        AdoptedWithGetSets(double value) {
-            super(ObjectWithGetSets.TYPE, value);
+        QWithGetSets(double value) {
+            super(value);
             i2 = i = BigInteger.valueOf(Math.round(value));
             obj = i;
             t2 = t = s = String.format("%d", i);
@@ -502,7 +543,7 @@ class TypeExposerGetSetTest extends UnitTestSupport {
      * class here is just a way to describe the tests once that reappear
      * in each nested case.
      */
-    abstract static class Base {
+    private abstract static class Base {
 
         // Working variables for the tests
         /** Name of the attribute. */
@@ -511,27 +552,37 @@ class TypeExposerGetSetTest extends UnitTestSupport {
         String doc;
         /** The value set by delete. */
         Object deleted;
-        /** Unbound descriptor by type access to examine or call. */
-        PyGetSetDescr gsd;
-        /** The object on which to attempt access. */
-        ObjectWithGetSets o;
+        /** Unbound OGS descriptor by type access to examine or call. */
+        PyGetSetDescr gs1;
+        /** The object of simple type on which to attempt access. */
+        OWithGetSets o;
+        /** Unbound PGS descriptor by type access to examine or call. */
+        PyGetSetDescr gs2;
+        /**
+         * The object of a type with multiple self-classes on which to
+         * attempt access.
+         */
+        PWithGetSets p;
         /**
          * An object of the adopted implementation on which to attempt
-         * the same kind of access (in case we are getting instances
-         * mixed up).
+         * the same kind of access.
          */
-        AdoptedWithGetSets p;
+        QWithGetSets q;
 
         void setup(String name, String doc, Object deleted,
-                double oValue, double pValue) throws Throwable {
+                double oValue, double pValue, double qValue)
+                throws Throwable {
             this.name = name;
             this.doc = doc;
             this.deleted = deleted;
             try {
-                this.gsd = (PyGetSetDescr)ObjectWithGetSets.TYPE
-                        .lookup(name);
-                this.o = new ObjectWithGetSets(oValue);
-                this.p = new AdoptedWithGetSets(pValue);
+                this.gs1 =
+                        (PyGetSetDescr)OWithGetSets.TYPE.lookup(name);
+                this.o = new OWithGetSets(oValue);
+                this.gs2 =
+                        (PyGetSetDescr)PWithGetSets.TYPE.lookup(name);
+                this.p = new PWithGetSets(pValue);
+                this.q = new QWithGetSets(qValue);
             } catch (ExceptionInInitializerError eie) {
                 // Errors detected by the Exposer get wrapped so:
                 Throwable t = eie.getCause();
@@ -540,13 +591,13 @@ class TypeExposerGetSetTest extends UnitTestSupport {
         }
 
         void setup(String name, String doc, double oValue,
-                double pValue) throws Throwable {
-            setup(name, doc, null, oValue, pValue);
+                double pValue, double qValue) throws Throwable {
+            setup(name, doc, null, oValue, pValue, qValue);
         }
 
-        void setup(String name, double oValue, double pValue)
-                throws Throwable {
-            setup(name, null, null, oValue, pValue);
+        void setup(String name, double oValue, double pValue,
+                double qValue) throws Throwable {
+            setup(name, null, null, oValue, pValue, qValue);
         }
 
         /**
@@ -557,13 +608,12 @@ class TypeExposerGetSetTest extends UnitTestSupport {
          */
         @Test
         void descr_has_expected_fields() throws Throwable {
-            assertEquals(name, gsd.name);
-            assertEquals(doc, gsd.doc);
-            String s = String.format(
-                    "<attribute '%s' of 'ObjectWithGetSets' objects>",
-                    name);
-            assertEquals(s, gsd.toString());
-            assertEquals(s, Abstract.repr(gsd));
+            assertEquals(name, gs2.name);
+            assertEquals(doc, gs2.doc);
+            String s = String
+                    .format("<attribute '%s' of 'PGS' objects>", name);
+            assertEquals(s, gs2.toString());
+            assertEquals(s, Abstract.repr(gs2));
         }
 
         /**
@@ -572,11 +622,10 @@ class TypeExposerGetSetTest extends UnitTestSupport {
          * @throws Throwable unexpectedly
          */
         void checkToString() throws Throwable {
-            String s = String.format(
-                    "<attribute '%s' of 'ObjectWithGetSets' objects>",
-                    name);
-            assertEquals(s, gsd.toString());
-            assertEquals(s, Abstract.repr(gsd));
+            String s = String
+                    .format("<attribute '%s' of 'PGS' objects>", name);
+            assertEquals(s, gs2.toString());
+            assertEquals(s, Abstract.repr(gs2));
         }
 
         /**
@@ -637,10 +686,12 @@ class TypeExposerGetSetTest extends UnitTestSupport {
          */
         @Test
         void rejects_descr_delete() {
-            assertRaises(PyExc.TypeError, () -> gsd.__delete__(o));
-            assertRaises(PyExc.TypeError, () -> gsd.__set__(o, null));
-            assertRaises(PyExc.TypeError, () -> gsd.__delete__(p));
-            assertRaises(PyExc.TypeError, () -> gsd.__set__(p, null));
+            assertRaises(PyExc.TypeError, () -> gs1.__delete__(o));
+            assertRaises(PyExc.TypeError, () -> gs1.__set__(o, null));
+            assertRaises(PyExc.TypeError, () -> gs2.__delete__(p));
+            assertRaises(PyExc.TypeError, () -> gs2.__set__(p, null));
+            assertRaises(PyExc.TypeError, () -> gs2.__delete__(q));
+            assertRaises(PyExc.TypeError, () -> gs2.__set__(q, null));
         }
 
         /**
@@ -659,6 +710,10 @@ class TypeExposerGetSetTest extends UnitTestSupport {
                     () -> Abstract.delAttr(p, name));
             assertRaises(PyExc.TypeError,
                     () -> Abstract.setAttr(p, name, null));
+            assertRaises(PyExc.TypeError,
+                    () -> Abstract.delAttr(q, name));
+            assertRaises(PyExc.TypeError,
+                    () -> Abstract.setAttr(q, name, null));
         }
     }
 
@@ -676,17 +731,21 @@ class TypeExposerGetSetTest extends UnitTestSupport {
          */
         @Test
         void descr_delete_removes() throws Throwable {
-            gsd.__delete__(o);
-            gsd.__delete__(p);
+            gs1.__delete__(o);
+            gs2.__delete__(p);
+            gs2.__delete__(q);
             // After deletion, ...
             // ... __get__ raises AttributeError
             assertRaises(PyExc.AttributeError,
-                    () -> gsd.__get__(o, null));
+                    () -> gs1.__get__(o, null));
             assertRaises(PyExc.AttributeError,
-                    () -> gsd.__get__(p, null));
+                    () -> gs2.__get__(p, null));
+            assertRaises(PyExc.AttributeError,
+                    () -> gs2.__get__(q, null));
             // ... __delete__ raises AttributeError
-            assertRaises(PyExc.AttributeError, () -> gsd.__delete__(o));
-            assertRaises(PyExc.AttributeError, () -> gsd.__delete__(p));
+            assertRaises(PyExc.AttributeError, () -> gs1.__delete__(o));
+            assertRaises(PyExc.AttributeError, () -> gs2.__delete__(p));
+            assertRaises(PyExc.AttributeError, () -> gs2.__delete__(q));
         }
 
         /**
@@ -700,6 +759,7 @@ class TypeExposerGetSetTest extends UnitTestSupport {
         void abstract_delAttr_removes() throws Throwable {
             Abstract.delAttr(o, name);
             Abstract.delAttr(p, name);
+            Abstract.delAttr(q, name);
             // After deletion, ...
             // ... getAttr and delAttr raise AttributeError
             assertRaises(PyExc.AttributeError,
@@ -707,9 +767,13 @@ class TypeExposerGetSetTest extends UnitTestSupport {
             assertRaises(PyExc.AttributeError,
                     () -> Abstract.getAttr(p, name));
             assertRaises(PyExc.AttributeError,
+                    () -> Abstract.getAttr(q, name));
+            assertRaises(PyExc.AttributeError,
                     () -> Abstract.delAttr(o, name));
             assertRaises(PyExc.AttributeError,
                     () -> Abstract.delAttr(p, name));
+            assertRaises(PyExc.AttributeError,
+                    () -> Abstract.delAttr(q, name));
         }
     }
 
@@ -729,16 +793,23 @@ class TypeExposerGetSetTest extends UnitTestSupport {
          */
         @Test
         void descr_delete_sets_deleted() throws Throwable {
-            gsd.__delete__(o);
-            assertEquals(deleted, gsd.__get__(o, null));
+            gs1.__delete__(o);
+            assertEquals(deleted, gs1.__get__(o, null));
             // __delete__ is idempotent
-            gsd.__delete__(o);
-            assertEquals(deleted, gsd.__get__(o, null));
+            gs1.__delete__(o);
+            assertEquals(deleted, gs1.__get__(o, null));
+
+            // And again for the adopting implementation
+            gs2.__delete__(p);
+            assertEquals(deleted, gs2.__get__(p, null));
+            gs2.__delete__(p);
+            assertEquals(deleted, gs2.__get__(p, null));
+
             // And again for the adopted implementation
-            gsd.__delete__(p);
-            assertEquals(deleted, gsd.__get__(p, null));
-            gsd.__delete__(p);
-            assertEquals(deleted, gsd.__get__(p, null));
+            gs2.__delete__(q);
+            assertEquals(deleted, gs2.__get__(q, null));
+            gs2.__delete__(q);
+            assertEquals(deleted, gs2.__get__(q, null));
         }
 
         /**
@@ -757,11 +828,18 @@ class TypeExposerGetSetTest extends UnitTestSupport {
             // delAttr is idempotent
             Abstract.delAttr(o, name);
             assertEquals(deleted, Abstract.getAttr(o, name));
+
+            // And again for the adopting implementation
+            Abstract.delAttr(p, name);
+            assertEquals(deleted, Abstract.getAttr(p, name));
+            Abstract.delAttr(p, name);
+            assertEquals(deleted, Abstract.getAttr(p, name));
+
             // And again for the adopted implementation
-            Abstract.delAttr(p, name);
-            assertEquals(deleted, Abstract.getAttr(p, name));
-            Abstract.delAttr(p, name);
-            assertEquals(deleted, Abstract.getAttr(p, name));
+            Abstract.delAttr(q, name);
+            assertEquals(deleted, Abstract.getAttr(q, name));
+            Abstract.delAttr(q, name);
+            assertEquals(deleted, Abstract.getAttr(q, name));
         }
     }
 
@@ -771,39 +849,45 @@ class TypeExposerGetSetTest extends UnitTestSupport {
 
         @BeforeEach
         void setup() throws PyAttributeError, Throwable {
-            setup("i", 42, -1);
+            setup("i", 42, 1969, -1);
         }
 
         @Override
         @Test
         void descr_get_works() throws Throwable {
-            assertEquals(42, gsd.__get__(o, null));
-            assertPythonEquals(-1, gsd.__get__(p, null));
+            assertEquals(42, gs1.__get__(o, null));
+            assertEquals(1969, gs2.__get__(p, null));
+            assertPythonEquals(-1, gs2.__get__(q, null));
         }
 
         @Override
         @Test
         void abstract_getAttr_works() throws Throwable {
             assertEquals(42, Abstract.getAttr(o, name));
-            assertPythonEquals(-1, Abstract.getAttr(p, name));
+            assertEquals(1969, Abstract.getAttr(p, name));
+            assertPythonEquals(-1, Abstract.getAttr(q, name));
         }
 
         @Override
         @Test
         void descr_set_works() throws Throwable {
-            gsd.__set__(o, 43);
-            gsd.__set__(p, BigInteger.valueOf(44));
+            gs1.__set__(o, 43);
+            gs2.__set__(p, 44);
+            gs2.__set__(q, BigInteger.valueOf(45));
             assertEquals(43, o.i);
-            assertPythonEquals(44, p.i);
+            assertEquals(44, p.i);
+            assertPythonEquals(45, q.i);
         }
 
         @Override
         @Test
         void abstract_setAttr_works() throws Throwable {
             Abstract.setAttr(o, name, 43);
-            Abstract.setAttr(p, name, BigInteger.valueOf(44));
+            Abstract.setAttr(p, name, 44);
+            Abstract.setAttr(q, name, BigInteger.valueOf(45));
             assertEquals(43, o.i);
-            assertPythonEquals(44, p.i);
+            assertEquals(44, p.i);
+            assertPythonEquals(45, q.i);
         }
 
         @Override
@@ -811,13 +895,17 @@ class TypeExposerGetSetTest extends UnitTestSupport {
         void set_detects_TypeError() {
             // Things that are not a Python int
             assertRaises(PyExc.TypeError,
-                    () -> gsd.__set__(o, "Gumby"));
+                    () -> gs1.__set__(o, "Gumby"));
             assertRaises(PyExc.TypeError,
-                    () -> Abstract.setAttr(p, name, 1.0));
+                    () -> gs2.__set__(p, "Gumby"));
             assertRaises(PyExc.TypeError,
-                    () -> gsd.__set__(o, Py.None));
+                    () -> Abstract.setAttr(q, name, 1.0));
             assertRaises(PyExc.TypeError,
-                    () -> gsd.__set__(p, Py.None));
+                    () -> gs1.__set__(o, Py.None));
+            assertRaises(PyExc.TypeError,
+                    () -> gs2.__set__(p, Py.None));
+            assertRaises(PyExc.TypeError,
+                    () -> gs2.__set__(q, Py.None));
         }
     }
 
@@ -827,40 +915,46 @@ class TypeExposerGetSetTest extends UnitTestSupport {
 
         @BeforeEach
         void setup() throws PyAttributeError, Throwable {
-            setup("x", "My test x", 42, -1);
+            setup("x", "My test x", 42, 1969, -1);
         }
 
         @Override
         @Test
         void descr_get_works() throws Throwable {
-            assertEquals(42.0, gsd.__get__(o, null));
-            assertEquals(-1.0, gsd.__get__(p, null));
+            assertEquals(42.0, gs1.__get__(o, null));
+            assertEquals(1969.0, gs2.__get__(p, null));
+            assertEquals(-1.0, gs2.__get__(q, null));
         }
 
         @Override
         @Test
         void abstract_getAttr_works() throws Throwable {
             assertEquals(42.0, Abstract.getAttr(o, name));
-            assertEquals(-1.0, Abstract.getAttr(p, name));
+            assertEquals(1969.0, Abstract.getAttr(p, name));
+            assertEquals(-1.0, Abstract.getAttr(q, name));
         }
 
         @Override
         @Test
         void descr_set_works() throws Throwable {
-            gsd.__set__(o, 1.125);
-            gsd.__set__(p, BigInteger.valueOf(111_222_333_444L));
+            gs1.__set__(o, 1.125);
+            gs2.__set__(p, -1.125);
+            gs2.__set__(q, BigInteger.valueOf(111_222_333_444L));
             assertEquals(1.125, o.x);
-            assertEquals(111222333444.0, p.x);
+            assertEquals(-1.125, p.x);
+            assertEquals(111222333444.0, q.x);
         }
 
         @Override
         @Test
         void abstract_setAttr_works() throws Throwable {
             Abstract.setAttr(o, name, 1.125);
-            Abstract.setAttr(p, name,
+            Abstract.setAttr(p, name, -1.125);
+            Abstract.setAttr(q, name,
                     BigInteger.valueOf(111_222_333_444L));
             assertEquals(1.125, o.x);
-            assertEquals(111222333444.0, p.x);
+            assertEquals(-1.125, p.x);
+            assertEquals(111222333444.0, q.x);
         }
 
         @Override
@@ -868,13 +962,17 @@ class TypeExposerGetSetTest extends UnitTestSupport {
         void set_detects_TypeError() {
             // Things that are not a Python float
             assertRaises(PyExc.TypeError,
-                    () -> gsd.__set__(o, "Gumby"));
+                    () -> gs1.__set__(o, "Gumby"));
             assertRaises(PyExc.TypeError,
-                    () -> Abstract.setAttr(p, name, "42"));
+                    () -> gs2.__set__(p, "Gumby"));
             assertRaises(PyExc.TypeError,
-                    () -> gsd.__set__(o, Py.None));
+                    () -> Abstract.setAttr(q, name, "42"));
             assertRaises(PyExc.TypeError,
-                    () -> gsd.__set__(p, Py.None));
+                    () -> gs1.__set__(o, Py.None));
+            assertRaises(PyExc.TypeError,
+                    () -> gs2.__set__(p, Py.None));
+            assertRaises(PyExc.TypeError,
+                    () -> gs2.__set__(q, Py.None));
         }
 
         /**
@@ -886,17 +984,22 @@ class TypeExposerGetSetTest extends UnitTestSupport {
          */
         @Test
         void descr_delete_sets_NaN() throws Throwable {
-            gsd.__delete__(o);
-            assertEquals(Double.NaN, gsd.__get__(o, null));
-            // __delete__ is idempotent
-            gsd.__delete__(o);
-            assertEquals(Double.NaN, gsd.__get__(o, null));
+            gs1.__delete__(o);
+            assertEquals(Double.NaN, gs1.__get__(o, null));
+            gs1.__delete__(o);
+            assertEquals(Double.NaN, gs1.__get__(o, null));
+
+            // And again for the adopting implementation
+            gs2.__delete__(p);
+            assertEquals(Double.NaN, gs2.__get__(p, null));
+            gs2.__delete__(p);
+            assertEquals(Double.NaN, gs2.__get__(p, null));
 
             // And again for the adopted implementation
-            gsd.__delete__(p);
-            assertEquals(Double.NaN, gsd.__get__(p, null));
-            gsd.__delete__(p);
-            assertEquals(Double.NaN, gsd.__get__(p, null));
+            gs2.__delete__(q);
+            assertEquals(Double.NaN, gs2.__get__(q, null));
+            gs2.__delete__(q);
+            assertEquals(Double.NaN, gs2.__get__(q, null));
         }
 
         /**
@@ -913,11 +1016,18 @@ class TypeExposerGetSetTest extends UnitTestSupport {
             // delAttr is idempotent
             Abstract.delAttr(o, name);
             assertEquals(Double.NaN, Abstract.getAttr(o, name));
+
             // And again for the adopted implementation
             Abstract.delAttr(p, name);
             assertEquals(Double.NaN, Abstract.getAttr(p, name));
             Abstract.delAttr(p, name);
             assertEquals(Double.NaN, Abstract.getAttr(p, name));
+
+            // And again for the adopted implementation
+            Abstract.delAttr(q, name);
+            assertEquals(Double.NaN, Abstract.getAttr(q, name));
+            Abstract.delAttr(q, name);
+            assertEquals(Double.NaN, Abstract.getAttr(q, name));
         }
     }
 
@@ -927,67 +1037,94 @@ class TypeExposerGetSetTest extends UnitTestSupport {
 
         @BeforeEach
         void setup() throws PyAttributeError, Throwable {
-            setup("text", null, "<deleted>", 42, -1);
+            setup("text", null, "<deleted>", 42, 1969, -1);
         }
 
         @Override
         @Test
         void descr_get_works() throws Throwable {
-            assertEquals("42", gsd.__get__(o, null));
-            assertEquals("-1", gsd.__get__(p, null));
+            assertEquals("42", gs1.__get__(o, null));
+            assertEquals("1969", gs2.__get__(p, null));
+            assertEquals("-1", gs2.__get__(q, null));
         }
 
         @Override
         @Test
         void abstract_getAttr_works() throws Throwable {
             assertEquals("42", Abstract.getAttr(o, name));
-            assertEquals("-1", Abstract.getAttr(p, name));
+            assertEquals("1969", Abstract.getAttr(p, name));
+            assertEquals("-1", Abstract.getAttr(q, name));
         }
 
         @Override
         @Test
         void descr_set_works() throws Throwable {
-            gsd.__set__(o, "D.P.");
-            gsd.__set__(p, newPyUnicode("Gumby"));
-            assertEquals("D.P.", o.t);
-            assertEquals("Gumby", p.t);
+            gs1.__set__(o, "Enid");
+            gs2.__set__(p, "D.P.");
+            gs2.__set__(q, newPyUnicode("Gumby"));
+            assertEquals("Enid", o.t);
+            assertEquals("D.P.", p.t);
+            assertEquals("Gumby", q.t);
+
             // __set__ works after delete
-            gsd.__delete__(o);
+            gs1.__delete__(o);
             assertEquals(deleted, o.t);
-            gsd.__set__(o, "Palin");
+            gs1.__set__(o, "Palin");
             assertEquals("Palin", o.t);
+
+            gs2.__delete__(p);
+            assertEquals(deleted, p.t);
+            gs2.__set__(p, "Idle");
+            assertEquals("Idle", p.t);
+
+            gs2.__delete__(q);
+            assertEquals(deleted, q.t);
+            gs2.__set__(q, "Cleese");
+            assertEquals("Cleese", q.t);
         }
 
         @Override
         @Test
         void abstract_setAttr_works() throws Throwable {
-            Abstract.setAttr(o, name, "D.P.");
-            Abstract.setAttr(p, name, "Gumby");
-            assertEquals("D.P.", o.t);
-            assertEquals("Gumby", p.t);
+            Abstract.setAttr(o, name, "Enid");
+            Abstract.setAttr(p, name, "D.P.");
+            Abstract.setAttr(q, name, "Gumby");
+            assertEquals("Enid", o.t);
+            assertEquals("D.P.", p.t);
+            assertEquals("Gumby", q.t);
+
             // setAttr works after delete
             Abstract.delAttr(o, name);
             assertEquals(deleted, o.t);
             Abstract.setAttr(o, name, "Palin");
             assertEquals("Palin", o.t);
-            // And again for the adopted implementation
+
             Abstract.delAttr(p, name);
             assertEquals(deleted, p.t);
-            Abstract.setAttr(p, name, "Palin");
-            assertEquals("Palin", p.t);
+            Abstract.setAttr(p, name, "Idle");
+            assertEquals("Idle", p.t);
+
+            // And again for the adopted implementation
+            Abstract.delAttr(q, name);
+            assertEquals(deleted, q.t);
+            Abstract.setAttr(q, name, "Cleese");
+            assertEquals("Cleese", q.t);
         }
 
         @Override
         @Test
         void set_detects_TypeError() {
             // Things that are not a Python str
-            assertRaises(PyExc.TypeError, () -> gsd.__set__(o, 1));
+            assertRaises(PyExc.TypeError, () -> gs1.__set__(o, 1));
+            assertRaises(PyExc.TypeError, () -> gs2.__set__(p, 1));
             assertRaises(PyExc.TypeError,
-                    () -> Abstract.setAttr(p, name, 10.0));
+                    () -> Abstract.setAttr(q, name, 10.0));
             assertRaises(PyExc.TypeError,
-                    () -> gsd.__set__(o, new Object()));
+                    () -> gs1.__set__(o, new Object()));
             assertRaises(PyExc.TypeError,
-                    () -> gsd.__set__(p, new Object()));
+                    () -> gs2.__set__(p, new Object()));
+            assertRaises(PyExc.TypeError,
+                    () -> gs2.__set__(q, new Object()));
         }
     }
 
@@ -997,70 +1134,93 @@ class TypeExposerGetSetTest extends UnitTestSupport {
 
         @BeforeEach
         void setup() throws PyAttributeError, Throwable {
-            setup("s", 42, -1);
+            setup("s", 42, 1969, -1);
         }
 
         @Override
         @Test
         void descr_get_works() throws Throwable {
-            assertEquals("42", gsd.__get__(o, null));
-            assertEquals("-1", gsd.__get__(p, null));
+            assertEquals("42", gs1.__get__(o, null));
+            assertEquals("1969", gs2.__get__(p, null));
+            assertEquals("-1", gs2.__get__(q, null));
         }
 
         @Override
         @Test
         void abstract_getAttr_works() throws Throwable {
             assertEquals("42", Abstract.getAttr(o, name));
-            assertEquals("-1", Abstract.getAttr(p, name));
+            assertEquals("1969", Abstract.getAttr(p, name));
+            assertEquals("-1", Abstract.getAttr(q, name));
         }
 
         @Override
         @Test
         void descr_set_works() throws Throwable {
-            gsd.__set__(o, "D.P.");
-            gsd.__set__(p, "Gumby");
-            assertEquals("D.P.", o.s);
-            assertEquals("Gumby", p.s);
+            gs1.__set__(o, "Enid");
+            gs2.__set__(p, "D.P.");
+            gs2.__set__(q, "Gumby");
+            assertEquals("Enid", o.s);
+            assertEquals("D.P.", p.s);
+            assertEquals("Gumby", q.s);
+
             // __set__ works after delete
-            gsd.__delete__(o);
+            gs1.__delete__(o);
             assertNull(o.s);
-            gsd.__set__(o, "Palin");
+            gs1.__set__(o, "Palin");
             assertEquals("Palin", o.s);
-            // And again for the adopted implementation
-            gsd.__delete__(p);
+
+            // __set__ works after delete
+            gs2.__delete__(p);
             assertNull(p.s);
-            gsd.__set__(p, "Palin");
-            assertEquals("Palin", p.s);
+            gs2.__set__(p, "Idle");
+            assertEquals("Idle", p.s);
+
+            // And again for the adopted implementation
+            gs2.__delete__(q);
+            assertNull(q.s);
+            gs2.__set__(q, "Cleese");
+            assertEquals("Cleese", q.s);
         }
 
         @Override
         @Test
         void abstract_setAttr_works() throws Throwable {
-            Abstract.setAttr(o, name, "D.P.");
-            Abstract.setAttr(p, name, newPyUnicode("Gumby"));
-            assertEquals("D.P.", o.s);
-            assertEquals("Gumby", p.s);
+            Abstract.setAttr(o, name, "Enid");
+            Abstract.setAttr(p, name, "D.P.");
+            Abstract.setAttr(q, name, newPyUnicode("Gumby"));
+            assertEquals("Enid", o.s);
+            assertEquals("D.P.", p.s);
+            assertEquals("Gumby", q.s);
+
             // setAttr works after delete
             Abstract.delAttr(o, name);
             assertNull(o.s);
             Abstract.setAttr(o, name, "Palin");
             assertEquals("Palin", o.s);
+
             // And again for the adopted implementation
             Abstract.delAttr(p, name);
             assertNull(p.s);
-            Abstract.setAttr(p, name, "Palin");
-            assertEquals("Palin", p.s);
+            Abstract.setAttr(p, name, "Idle");
+            assertEquals("Idle", p.s);
+
+            // And again for the adopted implementation
+            Abstract.delAttr(q, name);
+            assertNull(q.s);
+            Abstract.setAttr(q, name, "Cleese");
+            assertEquals("Cleese", q.s);
         }
 
         @Override
         @Test
         void set_detects_TypeError() {
             // Things that are not a Python str
-            assertRaises(PyExc.TypeError, () -> gsd.__set__(o, 1));
+            assertRaises(PyExc.TypeError, () -> gs1.__set__(o, 1));
+            assertRaises(PyExc.TypeError, () -> gs2.__set__(p, 2));
             assertRaises(PyExc.TypeError,
-                    () -> Abstract.setAttr(p, name, 10.0));
+                    () -> Abstract.setAttr(q, name, 10.0));
             assertRaises(PyExc.TypeError,
-                    () -> gsd.__set__(o, new Object()));
+                    () -> gs2.__set__(p, new Object()));
         }
     }
 
@@ -1070,60 +1230,90 @@ class TypeExposerGetSetTest extends UnitTestSupport {
 
         @BeforeEach
         void setup() throws PyAttributeError, Throwable {
-            setup("obj", null, Py.None, 42, -1);
+            setup("obj", null, Py.None, 42, 1969, -1);
         }
 
         @Override
         @Test
         void descr_get_works() throws Throwable {
-            assertEquals(42, gsd.__get__(o, null));
-            assertPythonEquals(-1, gsd.__get__(p, null));
+            assertEquals(42, gs1.__get__(o, null));
+            assertEquals(1969, gs2.__get__(p, null));
+            assertPythonEquals(-1, gs2.__get__(q, null));
         }
 
         @Override
         @Test
         void abstract_getAttr_works() throws Throwable {
             assertEquals(42, Abstract.getAttr(o, name));
-            assertPythonEquals(-1, Abstract.getAttr(p, name));
+            assertEquals(1969, Abstract.getAttr(p, name));
+            assertPythonEquals(-1, Abstract.getAttr(q, name));
         }
 
         @Override
         @Test
         void descr_set_works() throws Throwable {
-            final Object dp = "D.P.", gumby = newPyUnicode("Gumby");
-            gsd.__set__(o, dp);
-            gsd.__set__(p, gumby);
+            final Object one = BigInteger.ONE, dp = "D.P.",
+                    gumby = newPyUnicode("Gumby");
+            gs1.__set__(o, one);
+            gs2.__set__(p, dp);
+            gs2.__set__(q, gumby);
             // Should get the same object
-            assertSame(dp, o.obj);
-            assertSame(gumby, p.obj);
+            assertSame(one, o.obj);
+            assertSame(dp, p.obj);
+            assertSame(gumby, q.obj);
+
             // __set__ works after delete
-            gsd.__delete__(o);
-            assertNull(o.obj);
             final Object nonPython = new HashMap<String, Integer>();
-            gsd.__set__(o, nonPython);
+            gs1.__delete__(o);
+            assertNull(o.obj);
+            gs1.__set__(o, nonPython);
             assertSame(nonPython, o.obj);
-            // And again for the adopted implementation
-            gsd.__delete__(p);
+
+            // And again for the adopting implementation
+            gs2.__delete__(p);
             assertNull(p.obj);
-            gsd.__set__(p, nonPython);
+            gs2.__set__(p, nonPython);
             assertSame(nonPython, p.obj);
+
+            // And again for the adopted implementation
+            gs2.__delete__(q);
+            assertNull(q.obj);
+            gs2.__set__(q, nonPython);
+            assertSame(nonPython, q.obj);
         }
 
         @Override
         @Test
         void abstract_setAttr_works() throws Throwable {
-            final Object dp = "D.P.", gumby = newPyUnicode("Gumby");
-            Abstract.setAttr(o, name, dp);
-            Abstract.setAttr(p, name, gumby);
+            final Object one = BigInteger.ONE, dp = "D.P.",
+                    gumby = newPyUnicode("Gumby");
+            Abstract.setAttr(o, name, one);
+            Abstract.setAttr(p, name, dp);
+            Abstract.setAttr(q, name, gumby);
+
             // Should get the same object
-            assertSame(dp, o.obj);
-            assertSame(gumby, p.obj);
+            assertSame(one, o.obj);
+            assertSame(dp, p.obj);
+            assertSame(gumby, q.obj);
+
             // setAttr works after delete
+            final Object palin = "Palin";
             Abstract.delAttr(o, name);
             assertNull(o.obj);
-            final Object palin = "Palin";
             Abstract.setAttr(o, name, palin);
             assertSame(palin, o.obj);
+
+            // And again for the adopting implementation
+            Abstract.delAttr(p, name);
+            assertNull(p.obj);
+            Abstract.setAttr(p, name, palin);
+            assertSame(palin, p.obj);
+
+            // And again for the adopted implementation
+            Abstract.delAttr(q, name);
+            assertNull(q.obj);
+            Abstract.setAttr(q, name, palin);
+            assertSame(palin, q.obj);
         }
 
         @Override
@@ -1132,11 +1322,13 @@ class TypeExposerGetSetTest extends UnitTestSupport {
             // Everything is a Python object (no TypeError)
             final float[] everything = {1, 2, 3};
             assertDoesNotThrow(() -> {
-                gsd.__set__(o, everything);
-                Abstract.setAttr(p, name, System.err);
+                gs1.__set__(o, everything);
+                gs2.__set__(p, everything);
+                Abstract.setAttr(q, name, System.err);
             });
             assertSame(everything, o.obj);
-            assertSame(System.err, p.obj);
+            assertSame(everything, p.obj);
+            assertSame(System.err, q.obj);
         }
     }
 
@@ -1144,20 +1336,22 @@ class TypeExposerGetSetTest extends UnitTestSupport {
     @DisplayName("implemented as a PyTuple")
     class TestTuple extends BaseSettableDefault {
 
-        PyTuple oRef, pRef;
+        PyTuple oRef, pRef, qRef;
 
         @BeforeEach
         void setup() throws PyAttributeError, Throwable {
-            setup("tup", null, Py.None, 42, -1);
+            setup("tup", null, Py.None, 42, 1969, -1);
             oRef = PyTuple.of(42, 42.0, "42");
-            pRef = PyTuple.of(-1, -1.0, "-1");
+            pRef = PyTuple.of(1969, 1969.0, "1969");
+            qRef = PyTuple.of(-1, -1.0, "-1");
         }
 
         @Override
         @Test
         void descr_get_works() throws Throwable {
-            assertEquals(oRef, gsd.__get__(o, null));
-            assertEquals(pRef, gsd.__get__(p, null));
+            assertEquals(oRef, gs1.__get__(o, null));
+            assertEquals(pRef, gs2.__get__(p, null));
+            assertEquals(qRef, gs2.__get__(q, null));
         }
 
         @Override
@@ -1165,26 +1359,35 @@ class TypeExposerGetSetTest extends UnitTestSupport {
         void abstract_getAttr_works() throws Throwable {
             assertEquals(oRef, Abstract.getAttr(o, name));
             assertEquals(pRef, Abstract.getAttr(p, name));
+            assertEquals(qRef, Abstract.getAttr(q, name));
         }
 
         @Override
         @Test
         void descr_set_works() throws Throwable {
             final Object tup2 = PyTuple.of(2, 3, 4);
-            gsd.__set__(o, tup2);
-            assertEquals(tup2, o.tup);
+            gs2.__set__(p, tup2);
+            assertEquals(tup2, p.tup);
+
             // __set__ works after delete
             final Object[] tup3array = new Object[] {3, 4, 5};
             final Object tup3 = PyTuple.of(tup3array);
-            gsd.__delete__(o);
+            gs1.__delete__(o);
             assertNull(o.tup);
-            gsd.__set__(o, tup3);
+            gs1.__set__(o, tup3);
             assertEquals(tup3, o.tup);
+
+            // And again for the adopting implementation
+            gs2.__delete__(p);
+            assertNull(p.tup);
+            gs2.__set__(p, tup3);
+            assertEquals(tup3, p.tup);
+
             // And again for the adopted implementation
-            gsd.__delete__(p);
-            assertNull(p.aTuple);
-            gsd.__set__(p, tup3);
-            assertArrayEquals(tup3array, p.aTuple);
+            gs2.__delete__(q);
+            assertNull(q.aTuple);
+            gs2.__set__(q, tup3);
+            assertArrayEquals(tup3array, q.aTuple);
         }
 
         @Override
@@ -1192,9 +1395,10 @@ class TypeExposerGetSetTest extends UnitTestSupport {
         void abstract_setAttr_works() throws Throwable {
             final Object gumby =
                     PyTuple.from(List.of("D", "P", "Gumby"));
-            Abstract.setAttr(o, name, gumby);
+            Abstract.setAttr(p, name, gumby);
             // Should get the same object
-            assertSame(gumby, o.tup);
+            assertSame(gumby, p.tup);
+
             // setAttr works after delete
             final Object[] tup3array = new Object[] {3, 4, 5};
             final Object tup3 = PyTuple.of(tup3array);
@@ -1202,24 +1406,34 @@ class TypeExposerGetSetTest extends UnitTestSupport {
             assertNull(o.tup);
             Abstract.setAttr(o, name, tup3);
             assertSame(tup3, o.tup);
-            // And again for the adopted implementation
+
+            // And again for the adopting implementation
             Abstract.delAttr(p, name);
-            assertNull(p.aTuple);
+            assertNull(p.tup);
             Abstract.setAttr(p, name, tup3);
-            assertArrayEquals(tup3array, p.aTuple);
+            assertSame(tup3, p.tup);
+
+            // And again for the adopted implementation
+            Abstract.delAttr(q, name);
+            assertNull(q.aTuple);
+            Abstract.setAttr(q, name, tup3);
+            assertArrayEquals(tup3array, q.aTuple);
         }
 
         @Override
         @Test
         void set_detects_TypeError() {
             // Things that are not a Python tuple
-            assertRaises(PyExc.TypeError, () -> gsd.__set__(o, 1));
+            assertRaises(PyExc.TypeError, () -> gs1.__set__(o, 1));
+            assertRaises(PyExc.TypeError, () -> gs2.__set__(p, 1));
             assertRaises(PyExc.TypeError,
-                    () -> Abstract.setAttr(p, name, ""));
+                    () -> Abstract.setAttr(q, name, ""));
             assertRaises(PyExc.TypeError,
-                    () -> gsd.__set__(o, new Object()));
+                    () -> gs1.__set__(o, new Object()));
             assertRaises(PyExc.TypeError,
-                    () -> gsd.__set__(p, new Object()));
+                    () -> gs2.__set__(p, new Object()));
+            assertRaises(PyExc.TypeError,
+                    () -> gs2.__set__(q, new Object()));
         }
     }
 
@@ -1227,14 +1441,15 @@ class TypeExposerGetSetTest extends UnitTestSupport {
     @DisplayName("providing a double array (as a tuple)")
     class TestDoubleArray extends BaseSettable {
 
-        PyTuple oval, pval, ival, rval;
+        PyTuple oval, pval, qval, ival, rval;
         double[] ref;
 
         @BeforeEach
         void setup() throws PyAttributeError, Throwable {
-            setup("doubles", 42, -1);
+            setup("doubles", 42, 1969, -1);
             oval = PyTuple.of(1., 42., 1764., 74088.);
-            pval = PyTuple.of(1., -1., 1., -1.);
+            pval = PyTuple.of(1., 1969., 3876961., 7633736209.);
+            qval = PyTuple.of(1., -1., 1., -1.);
             ival = PyTuple.of(3, 14, 15, 926);
             ref = new double[] {3.0, 14.0, 15.0, 926.0};
             rval = tupleFrom(ref);
@@ -1243,52 +1458,73 @@ class TypeExposerGetSetTest extends UnitTestSupport {
         @Override
         @Test
         void descr_get_works() throws Throwable {
-            assertEquals(oval, gsd.__get__(o, null));
-            p.setDoubleArray(ref);
-            assertEquals(rval, gsd.__get__(p, null));
+            assertEquals(oval, gs1.__get__(o, null));
+            assertEquals(pval, gs2.__get__(p, null));
+            q.setDoubleArray(ref);
+            assertEquals(rval, gs2.__get__(q, null));
         }
 
         @Override
         @Test
         void abstract_getAttr_works() throws Throwable {
             assertEquals(oval, Abstract.getAttr(o, name));
-            p.setDoubleArray(ref);
-            assertEquals(rval, Abstract.getAttr(p, name));
+            assertEquals(pval, Abstract.getAttr(p, name));
+            q.setDoubleArray(ref);
+            assertEquals(rval, Abstract.getAttr(q, name));
         }
 
         @Override
         @Test
         void descr_set_works() throws Throwable {
-            gsd.__set__(o, ival);
-            gsd.__set__(p, pval);
+            gs1.__set__(o, ival);
+            gs2.__set__(p, ival);
+            gs2.__set__(q, qval);
             assertArrayEquals(ref, o.doubleArray);
+            assertArrayEquals(ref, p.doubleArray);
+
             // __set__ works after delete
-            gsd.__delete__(o);
+            gs1.__delete__(o);
             assertEquals(0, o.doubleArray.length);
-            gsd.__set__(o, ival);
+            gs1.__set__(o, ival);
             assertArrayEquals(ref, o.doubleArray);
+
+            // __set__ works after delete
+            gs2.__delete__(p);
+            assertEquals(0, p.doubleArray.length);
+            gs2.__set__(p, ival);
+            assertArrayEquals(ref, p.doubleArray);
         }
 
         @Override
         void abstract_setAttr_works() throws Throwable {
             Abstract.setAttr(o, name, ival);
             assertArrayEquals(ref, o.doubleArray);
+            Abstract.setAttr(p, name, ival);
+            assertArrayEquals(ref, p.doubleArray);
+
             // __set__ works after delete
             Abstract.delAttr(o, name);
             assertEquals(0, o.doubleArray.length);
             Abstract.setAttr(o, name, ival);
             assertArrayEquals(ref, o.doubleArray);
+
+            // __set__ works after delete
+            Abstract.delAttr(p, name);
+            assertEquals(0, p.doubleArray.length);
+            Abstract.setAttr(p, name, ival);
+            assertArrayEquals(ref, p.doubleArray);
         }
 
         @Override
         @Test
         void set_detects_TypeError() {
             // Things that are not a Python tuple
-            assertRaises(PyExc.TypeError, () -> gsd.__set__(o, 2.0));
+            assertRaises(PyExc.TypeError, () -> gs1.__set__(o, 2.0));
+            assertRaises(PyExc.TypeError, () -> gs2.__set__(p, 2.0));
             assertRaises(PyExc.TypeError,
-                    () -> Abstract.setAttr(p, name, Py.None));
+                    () -> Abstract.setAttr(q, name, Py.None));
             assertRaises(PyExc.TypeError,
-                    () -> gsd.__set__(o, new double[] {1, 2, 3}));
+                    () -> gs2.__set__(p, new double[] {1, 2, 3}));
         }
     }
 
@@ -1300,59 +1536,76 @@ class TypeExposerGetSetTest extends UnitTestSupport {
 
         @BeforeEach
         void setup() throws PyAttributeError, Throwable {
-            setup("names", 42, -1);
-            twits = PyTuple.of(TWITS);
-            gumbys = PyTuple.of(GUMBYS);
+            setup("names", 42, 1969, -1);
+            twits = new PyTuple(TWITS);
+            gumbys = new PyTuple(GUMBYS);
         }
 
         @Override
         @Test
         void descr_get_works() throws Throwable {
-            assertEquals(twits, gsd.__get__(o, null));
-            p.setNameArray(GUMBYS);
-            assertEquals(gumbys, gsd.__get__(p, null));
+            assertEquals(twits, gs1.__get__(o, null));
+            assertEquals(twits, gs2.__get__(p, null));
+            q.setNameArray(GUMBYS);
+            assertEquals(gumbys, gs2.__get__(q, null));
         }
 
         @Override
         @Test
         void abstract_getAttr_works() throws Throwable {
             assertEquals(twits, Abstract.getAttr(o, name));
-            p.setNameArray(GUMBYS);
-            assertEquals(gumbys, Abstract.getAttr(p, name));
+            assertEquals(twits, Abstract.getAttr(p, name));
+            q.setNameArray(GUMBYS);
+            assertEquals(gumbys, Abstract.getAttr(q, name));
         }
 
         @Override
         @Test
         void descr_set_works() throws Throwable {
-            gsd.__set__(o, gumbys);
+            gs1.__set__(o, gumbys);
             assertArrayEquals(GUMBYS, o.nameArray);
+            gs2.__set__(p, gumbys);
+            assertArrayEquals(GUMBYS, p.nameArray);
             // __set__ works after delete
-            gsd.__delete__(o);
+            gs1.__delete__(o);
             assertEquals(0, o.nameArray.length);
-            gsd.__set__(o, twits);
+            gs1.__set__(o, twits);
             assertArrayEquals(TWITS, o.nameArray);
+            // __set__ works after delete
+            gs2.__delete__(p);
+            assertEquals(0, p.nameArray.length);
+            gs2.__set__(p, twits);
+            assertArrayEquals(TWITS, p.nameArray);
         }
 
         @Override
         void abstract_setAttr_works() throws Throwable {
             Abstract.setAttr(o, name, gumbys);
             assertArrayEquals(GUMBYS, o.nameArray);
+            Abstract.setAttr(p, name, gumbys);
+            assertArrayEquals(GUMBYS, p.nameArray);
             // __set__ works after delete
             Abstract.delAttr(o, name);
             assertEquals(0, o.nameArray.length);
             Abstract.setAttr(o, name, twits);
             assertArrayEquals(TWITS, o.nameArray);
+            // __set__ works after delete
+            Abstract.delAttr(p, name);
+            assertEquals(0, p.nameArray.length);
+            Abstract.setAttr(p, name, twits);
+            assertArrayEquals(TWITS, p.nameArray);
         }
 
         @Override
         @Test
         void set_detects_TypeError() {
             // Things that are not a Python tuple
-            assertRaises(PyExc.TypeError, () -> gsd.__set__(o, ""));
+            assertRaises(PyExc.TypeError, () -> gs1.__set__(o, 0));
+            assertRaises(PyExc.TypeError, () -> gs2.__set__(p, ""));
             assertRaises(PyExc.TypeError,
-                    () -> Abstract.setAttr(p, name, Py.None));
+                    () -> Abstract.setAttr(q, name, Py.None));
             assertRaises(PyExc.TypeError,
-                    () -> gsd.__set__(o, new String[] {}));
+                    () -> gs2.__set__(p, new String[] {}));
         }
     }
 
@@ -1369,13 +1622,17 @@ class TypeExposerGetSetTest extends UnitTestSupport {
         @Test
         void rejects_descr_set() {
             assertRaises(PyExc.AttributeError,
-                    () -> gsd.__set__(o, 1234));
+                    () -> gs1.__set__(o, 1234));
             assertRaises(PyExc.AttributeError,
-                    () -> gsd.__set__(p, 1.0));
+                    () -> gs2.__set__(p, 1234));
             assertRaises(PyExc.AttributeError,
-                    () -> gsd.__set__(o, "Gumby"));
+                    () -> gs2.__set__(q, 1.0));
             assertRaises(PyExc.AttributeError,
-                    () -> gsd.__set__(p, Py.None));
+                    () -> gs1.__set__(o, "Gumby"));
+            assertRaises(PyExc.AttributeError,
+                    () -> gs2.__set__(p, "Gumby"));
+            assertRaises(PyExc.AttributeError,
+                    () -> gs2.__set__(q, Py.None));
         }
 
         /**
@@ -1387,13 +1644,17 @@ class TypeExposerGetSetTest extends UnitTestSupport {
         @Test
         void rejects_abstract_setAttr() {
             assertRaises(PyExc.AttributeError,
-                    () -> Abstract.setAttr(o, name, 1234));
+                    () -> Abstract.setAttr(o, name, 0));
             assertRaises(PyExc.AttributeError,
-                    () -> Abstract.setAttr(p, name, 1.0));
+                    () -> Abstract.setAttr(p, name, 1234));
             assertRaises(PyExc.AttributeError,
-                    () -> Abstract.setAttr(o, name, "Gumby"));
+                    () -> Abstract.setAttr(q, name, 1.0));
             assertRaises(PyExc.AttributeError,
-                    () -> Abstract.setAttr(p, name, Py.None));
+                    () -> Abstract.setAttr(o, name, ""));
+            assertRaises(PyExc.AttributeError,
+                    () -> Abstract.setAttr(p, name, "Gumby"));
+            assertRaises(PyExc.AttributeError,
+                    () -> Abstract.setAttr(q, name, Py.None));
         }
 
         /**
@@ -1404,9 +1665,10 @@ class TypeExposerGetSetTest extends UnitTestSupport {
          */
         @Test
         void rejects_descr_delete() {
-            assertRaises(PyExc.AttributeError, () -> gsd.__delete__(o));
+            assertRaises(PyExc.AttributeError, () -> gs1.__delete__(o));
+            assertRaises(PyExc.AttributeError, () -> gs2.__delete__(p));
             assertRaises(PyExc.AttributeError,
-                    () -> gsd.__set__(o, null));
+                    () -> gs2.__set__(p, null));
         }
 
         /**
@@ -1419,6 +1681,8 @@ class TypeExposerGetSetTest extends UnitTestSupport {
         void rejects_abstract_delAttr() {
             assertRaises(PyExc.AttributeError,
                     () -> Abstract.delAttr(o, name));
+            assertRaises(PyExc.AttributeError,
+                    () -> Abstract.delAttr(p, name));
         }
     }
 
@@ -1428,21 +1692,23 @@ class TypeExposerGetSetTest extends UnitTestSupport {
 
         @BeforeEach
         void setup() throws PyAttributeError, Throwable {
-            setup("i2", 42, -1);
+            setup("i2", 42, 1969, -1);
         }
 
         @Override
         @Test
         void descr_get_works() throws Throwable {
-            assertEquals(42, gsd.__get__(o, null));
-            assertPythonEquals(-1, gsd.__get__(p, null));
+            assertEquals(42, gs1.__get__(o, null));
+            assertEquals(1969, gs2.__get__(p, null));
+            assertPythonEquals(-1, gs2.__get__(q, null));
         }
 
         @Override
         @Test
         void abstract_getAttr_works() throws Throwable {
             assertEquals(42, Abstract.getAttr(o, name));
-            assertPythonEquals(-1, Abstract.getAttr(p, name));
+            assertEquals(1969, Abstract.getAttr(p, name));
+            assertPythonEquals(-1, Abstract.getAttr(q, name));
         }
     }
 
@@ -1452,21 +1718,23 @@ class TypeExposerGetSetTest extends UnitTestSupport {
 
         @BeforeEach
         void setup() throws PyAttributeError, Throwable {
-            setup("x2", "Another x", 42, -1);
+            setup("x2", "Another x", 42, 1969, -1);
         }
 
         @Override
         @Test
         void descr_get_works() throws Throwable {
-            assertEquals(42.0, gsd.__get__(o, null));
-            assertEquals(-1.0, gsd.__get__(p, null));
+            assertEquals(42.0, gs1.__get__(o, null));
+            assertEquals(1969.0, gs2.__get__(p, null));
+            assertEquals(-1.0, gs2.__get__(q, null));
         }
 
         @Override
         @Test
         void abstract_getAttr_works() throws Throwable {
             assertEquals(42.0, Abstract.getAttr(o, name));
-            assertEquals(-1.0, Abstract.getAttr(p, name));
+            assertEquals(1969.0, Abstract.getAttr(p, name));
+            assertEquals(-1.0, Abstract.getAttr(q, name));
         }
     }
 
@@ -1476,21 +1744,23 @@ class TypeExposerGetSetTest extends UnitTestSupport {
 
         @BeforeEach
         void setup() throws PyAttributeError, Throwable {
-            setup("text2", 42, -1);
+            setup("text2", 42, 1969, -1);
         }
 
         @Override
         @Test
         void descr_get_works() throws Throwable {
-            assertEquals("42", gsd.__get__(o, null));
-            assertEquals("-1", gsd.__get__(p, null));
+            assertEquals("42", gs1.__get__(o, null));
+            assertEquals("1969", gs2.__get__(p, null));
+            assertEquals("-1", gs2.__get__(q, null));
         }
 
         @Override
         @Test
         void abstract_getAttr_works() throws Throwable {
             assertEquals("42", Abstract.getAttr(o, name));
-            assertEquals("-1", Abstract.getAttr(p, name));
+            assertEquals("1969", Abstract.getAttr(p, name));
+            assertEquals("-1", Abstract.getAttr(q, name));
         }
     }
 }
