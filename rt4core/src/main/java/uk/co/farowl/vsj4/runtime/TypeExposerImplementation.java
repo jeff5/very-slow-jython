@@ -20,11 +20,14 @@ import java.util.TreeSet;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 
+import uk.co.farowl.vsj4.runtime.Exposed.Deleter;
 import uk.co.farowl.vsj4.runtime.Exposed.DocString;
+import uk.co.farowl.vsj4.runtime.Exposed.Getter;
 import uk.co.farowl.vsj4.runtime.Exposed.Member;
 import uk.co.farowl.vsj4.runtime.Exposed.PythonMethod;
 import uk.co.farowl.vsj4.runtime.Exposed.PythonNewMethod;
 import uk.co.farowl.vsj4.runtime.Exposed.PythonStaticMethod;
+import uk.co.farowl.vsj4.runtime.Exposed.Setter;
 import uk.co.farowl.vsj4.runtime.PyMemberDescr.Flag;
 import uk.co.farowl.vsj4.runtime.kernel.SpecialMethod;
 import uk.co.farowl.vsj4.runtime.kernel.TypeExposer;
@@ -54,7 +57,7 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
      * eventually become descriptors in a built-in object type. Every
      * entry here is also a value in {@link Exposer#specs}.
      */
-    // final Set<GetSetSpec> getSetSpecs;
+    final Set<GetSetSpec> getSetSpecs;
 
     /**
      * Construct the {@code TypeExposer} instance for a particular
@@ -70,7 +73,7 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
     TypeExposerImplementation(PyType type) {
         this.type = type;
         this.memberSpecs = new TreeSet<>();
-        // this.getSetSpecs = new TreeSet<>();
+        this.getSetSpecs = new TreeSet<>();
     }
 
     @Override
@@ -170,12 +173,12 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
             // if (pcm != null) { addClassMethodSpec(m, pcm); }
 
             // XXX Check for getter, setter, deleter methods
-            // Getter get = m.getAnnotation(Getter.class);
-            // if (get != null) { addGetter(m, get); }
-            // Setter set = m.getAnnotation(Setter.class);
-            // if (set != null) { addSetter(m, set); }
-            // Deleter del = m.getAnnotation(Deleter.class);
-            // if (del != null) { addDeleter(m, del); }
+            Getter get = m.getAnnotation(Getter.class);
+            if (get != null) { addGetter(m, get); }
+            Setter set = m.getAnnotation(Setter.class);
+            if (set != null) { addSetter(m, set); }
+            Deleter del = m.getAnnotation(Deleter.class);
+            if (del != null) { addDeleter(m, del); }
 
             // If it has a special method name record a definition.
             String name = m.getName();
@@ -184,63 +187,63 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
         }
     }
 
-/// **
-// * Process a method annotated as an exposed attribute get method,
-// * into a specification, and find a {@link GetSetSpec} to the table
-// * of specifications by name (or add one) to hold it.
-// *
-// * @param m method annotated
-// * @param anno annotation encountered
-// * @throws InterpreterError on duplicates or unsupported types
-// */
-// private void addGetter(Method m, Getter anno) {
-// addSpec(m, anno.value(), TypeExposer::castGetSet,
-// GetSetSpec::new, ms -> getSetSpecs.add(ms),
-// GetSetSpec::addGetter);
-// }
-//
-/// **
-// * Process a method annotated as an exposed attribute set method,
-// * into a specification, and find a {@link GetSetSpec} to the table
-// * of specifications by name (or add one) to hold it.
-// *
-// *
-// * @param m method annotated
-// * @param anno annotation encountered
-// * @throws InterpreterError on duplicates or unsupported types
-// */
-// private void addSetter(Method m, Setter anno) {
-// addSpec(m, anno.value(), TypeExposer::castGetSet,
-// GetSetSpec::new, ms -> getSetSpecs.add(ms),
-// GetSetSpec::addSetter);
-// }
-//
-/// **
-// * Process a method annotated as an exposed attribute get method,
-// * into a specification, and find a {@link GetSetSpec} to the table
-// * of specifications by name (or add one) to hold it.
-// *
-// *
-// * @param m method annotated
-// * @param anno annotation encountered
-// * @throws InterpreterError on duplicates or unsupported types
-// */
-// private void addDeleter(Method m, Deleter anno) {
-// addSpec(m, anno.value(), TypeExposer::castGetSet,
-// GetSetSpec::new, ms -> getSetSpecs.add(ms),
-// GetSetSpec::addDeleter);
-// }
-//
-/// **
-// * Cast an arbitrary {@link Spec} to a {@link GetSetSpec} or return
-// * {@code null}.
-// *
-// * @param spec to cast
-// * @return {@code spec} or {@code null}
-// */
-// private static GetSetSpec castGetSet(Spec spec) {
-// return spec instanceof GetSetSpec ? (GetSetSpec)spec : null;
-// }
+    /**
+     * Process a method annotated as an exposed attribute get method,
+     * into a specification, and find a {@link GetSetSpec} to the table
+     * of specifications by name (or add one) to hold it.
+     *
+     * @param m method annotated
+     * @param anno annotation encountered
+     * @throws InterpreterError on duplicates or unsupported types
+     */
+    private void addGetter(Method m, Getter anno) {
+        addSpec(m, anno.value(), gss -> castGetSet(gss),
+                GetSetSpec::new, ms -> getSetSpecs.add(ms),
+                GetSetSpec::addGetter);
+    }
+
+    /**
+     * Process a method annotated as an exposed attribute set method,
+     * into a specification, and find a {@link GetSetSpec} to the table
+     * of specifications by name (or add one) to hold it.
+     *
+     *
+     * @param m method annotated
+     * @param anno annotation encountered
+     * @throws InterpreterError on duplicates or unsupported types
+     */
+    private void addSetter(Method m, Setter anno) {
+        addSpec(m, anno.value(), gss -> castGetSet(gss),
+                GetSetSpec::new, ms -> getSetSpecs.add(ms),
+                GetSetSpec::addSetter);
+    }
+
+    /**
+     * Process a method annotated as an exposed attribute get method,
+     * into a specification, and find a {@link GetSetSpec} to the table
+     * of specifications by name (or add one) to hold it.
+     *
+     *
+     * @param m method annotated
+     * @param anno annotation encountered
+     * @throws InterpreterError on duplicates or unsupported types
+     */
+    private void addDeleter(Method m, Deleter anno) {
+        addSpec(m, anno.value(), gss -> castGetSet(gss),
+                GetSetSpec::new, ms -> getSetSpecs.add(ms),
+                GetSetSpec::addDeleter);
+    }
+
+    /**
+     * Cast an arbitrary {@link Spec} to a {@link GetSetSpec} or return
+     * {@code null}.
+     *
+     * @param spec to cast
+     * @return {@code spec} or {@code null}
+     */
+    private static GetSetSpec castGetSet(Spec spec) {
+        return spec instanceof GetSetSpec ? (GetSetSpec)spec : null;
+    }
 
     /**
      * Process a method that matches a special method name to a
@@ -500,268 +503,267 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
         }
     }
 
-/// **
-// * A specialisation of {@link Exposer.Spec} to describe a named,
-// * built-in data-like object, during the exposure process.
-// */
-// static class GetSetSpec extends BaseMethodSpec {
-//
-// /** Collects the getters declared (often just one). */
-// final List<Method> getters;
-// /** Collects the setters declared (often just one). */
-// final List<Method> setters;
-// /** Collects the deleters declared (often just one). */
-// final List<Method> deleters;
-// /** Java class of attribute from setter parameter. */
-// Class<?> klass = Object.class;
-//
-// GetSetSpec(String name) {
-// super(name, ScopeKind.TYPE);
-// this.getters = methods;
-// this.setters = new ArrayList<>(1);
-// this.deleters = new ArrayList<>(1);
-// }
-//
-// /**
-// * The attribute may not be set or deleted.
-// *
-// * @return true if set and delete are absent
-// */
-// boolean readonly() {
-// return setters.isEmpty() && deleters.isEmpty();
-// }
-//
-// /**
-// * The attribute may be deleted.
-// *
-// * @return true if delete is present
-// */
-// boolean optional() { return !deleters.isEmpty(); }
-//
-// /**
-// * Add a getter to the collection.
-// *
-// * @param method to add to {@link #getters}
-// */
-// void addGetter(Method method) {
-// // Add to list of methods
-// getters.add(method);
-// // There may be a @DocString annotation
-// maybeAddDoc(method);
-// }
-//
-// /**
-// * Add a setter to the collection.
-// *
-// * @param method to add to {@link #setters}
-// */
-// void addSetter(Method method) {
-// // Add to list of methods
-// setters.add(method);
-// // There may be a @DocString annotation
-// maybeAddDoc(method);
-// // Process parameters of the Setter
-// determineAttrType(method);
-// }
-//
-// /**
-// * Add a deleter to the collection.
-// *
-// * @param method to add to {@link #deleters}
-// */
-// void addDeleter(Method method) {
-// // Add to list of methods
-// deleters.add(method);
-// // There may be a @DocString annotation
-// maybeAddDoc(method);
-// }
-//
-// /**
-// * Deduce the attribute type from the (raw) set method
-// * signature. We do this in order to give a sensible
-// * {@link PyBaseException TypeError} when a cast fails for the
-// * {@link PyGetSetDescr#__set__} operation.
-// *
-// * @param method annotated with a {@code Setter}
-// */
-// private void determineAttrType(Method method) {
-// // Save class of value accepted (if signature is sensible)
-// int modifiers = method.getModifiers();
-// int v = (modifiers & Modifier.STATIC) != 0 ? 1 : 0;
-// Class<?>[] paramClasses = method.getParameterTypes();
-// if (paramClasses.length == v + 1) {
-// Class<?> valueClass = paramClasses[v];
-// if (valueClass == klass) {
-// // No change
-// } else if (klass.isAssignableFrom(valueClass)) {
-// // The parameter is more specific than klass
-// klass = valueClass;
-// }
-// }
-// }
-//
-// @Override
-// Object asAttribute(PyType objclass, Lookup lookup)
-// throws InterpreterError {
-// if (objclass.acceptedCount == 1)
-// return createDescrSingle(objclass, lookup);
-// else
-// return createDescrMultiple(objclass, lookup);
-// }
-//
-// @Override
-// public void checkFormation() throws InterpreterError {}
-//
-// private Object createDescrSingle(PyType objclass,
-// Lookup lookup) {
-// // TODO Stop-gap: do general case first
-// return createDescrMultiple(objclass, lookup);
-// }
-//
-// /**
-// * Create a {@code PyGetSetDescr} from this specification. Note
-// * that a specification collects all the methods as declared
-// * with this name (in separate getter, setter and deleter
-// * lists). Normally there is at most one of each.
-// * <p>
-// * Normally also, a Python type has just one Java
-// * implementation. If a type has N accepted implementations,
-// * there should be definitions of the getter, setter, and
-// * deleter methods, if defined at all, applicable to each
-// * accepted implementation. This method matches defined methods
-// * to the supported implementations.
-// *
-// * @param objclass Python type that owns the descriptor
-// * @param lookup authorisation to access fields
-// * @return descriptor for access to the field
-// * @throws InterpreterError if the method type is not supported
-// */
-// private PyGetSetDescr createDescrMultiple(PyType objclass,
-// Lookup lookup) throws InterpreterError {
-//
-// // Handles on implementation methods
-// MethodHandle[] g, s = null, d = null;
-// g = unreflect(objclass, lookup, PyGetSetDescr.GETTER,
-// getters);
-// if (!readonly()) {
-// // We can set this attribute
-// s = unreflect(objclass, lookup, PyGetSetDescr.SETTER,
-// setters);
-// if (optional()) {
-// // We can delete this attribute
-// d = unreflect(objclass, lookup,
-// PyGetSetDescr.DELETER, deleters);
-// }
-// }
-//
-// return new PyGetSetDescr.Multiple(objclass, name, g, s, d,
-// doc, klass);
-// }
-//
-// private MethodHandle[] unreflect(PyType objclass, Lookup lookup,
-// MethodType mt, List<Method> methods)
-// throws InterpreterError {
-//
-// /*
-// * In the first stage, translate each method to a handle.
-// * There could be any number of candidates in the defining
-// * classes. There may be a method for each accepted
-// * implementation of the type , or a method may match more
-// * than one (e.g. Number matching Long and Integer). We
-// * build a list with the more type-specific handles (in the
-// * first argument) before the less type-specific.
-// */
-// LinkedList<MethodHandle> candidates = new LinkedList<>();
-// for (Method m : methods) {
-// // Convert m to a handle (if L args and accessible)
-// try {
-// MethodHandle mh = lookup.unreflect(m);
-// addOrdered(candidates, mh);
-// } catch (IllegalAccessException e) {
-// throw cannotGetHandle(m, e);
-// }
-// }
-//
-// /*
-// *
-// * We will try to create a handle for each implementation of
-// * an instance method.
-// */
-// final int N = objclass.acceptedCount;
-// MethodHandle[] method = new MethodHandle[N];
-//
-// // Fill the method array with matching method handles
-// for (int i = 0; i < N; i++) {
-// Class<?> acceptedClass = objclass.classes[i];
-// /*
-// * Fill method[i] with the method handle where the first
-// * parameter is the most specific match for class
-// * accepted[i].
-// */
-// // Try the candidate method until one matches
-// for (MethodHandle mh : candidates) {
-// MethodType mt1 = mh.type();
-// if (mt1.parameterType(0)
-// .isAssignableFrom(acceptedClass)) {
-// /*
-// * Each sub-type of MethodDef handles
-// * callMethod(self, args, kwargs) in its own
-// * way, and must prepare the arguments of the
-// * generic method handle to match.
-// */
-// try {
-// // XXX not yet supporting Java args
-// method[i] = mh.asType(mt);
-// } catch (WrongMethodTypeException wmte) {
-// // Wrong number of args or cannot cast.
-// throw methodSignatureError(objclass, mh);
-// }
-// break;
-// }
-// }
-//
-// // We should have a value in each of method[]
-// if (method[i] == null) {
-// PyGetSetDescr.Type dt =
-// PyGetSetDescr.Type.fromMethodType(mt);
-// throw new InterpreterError(ATTR_NOT_IMPL, dt, name,
-// objclass.name, objclass.classes[i]);
-// }
-// }
-//
-// /*
-// * There are multiple definitions so use the array form of
-// * built-in method. This is the case for types that have
-// * multiple accepted implementations and methods on them
-// * that are not static or "Object self".
-// */
-// return method;
-// }
-//
-// private static String ATTR_NOT_IMPL =
-// "%s of attribute '%s' of '%s' objects"
-// + " is not defined for implementation %s";
-//
-// @Override
-// Class<? extends Annotation> annoClass() {
-// // Try annotations in order of popularity
-// if (getters.size() > 0)
-// ; // -> Getter
-// else if (setters.size() > 0)
-// return Setter.class;
-// else if (deleters.size() > 0)
-// return Deleter.class;
-// // Or by default, claim to have a Getter
-// return Getter.class;
-// }
-//
-// @Override
-// public String toString() {
-// return String.format("%s(%s[%d,%d,%d])",
-// getClass().getSimpleName(), name, getters.size(),
-// setters.size(), deleters.size());
-// }
-// }
+    /**
+     * A specialisation of {@link Exposer.Spec} to describe a named,
+     * built-in data-like object, during the exposure process.
+     */
+    static class GetSetSpec extends BaseMethodSpec {
+
+        /** Collects the getters declared (often just one). */
+        final List<Method> getters;
+        /** Collects the setters declared (often just one). */
+        final List<Method> setters;
+        /** Collects the deleters declared (often just one). */
+        final List<Method> deleters;
+        /** Java class of attribute from setter parameter. */
+        Class<?> klass = Object.class;
+
+        GetSetSpec(String name) {
+            super(name, ScopeKind.TYPE);
+            this.getters = methods;
+            this.setters = new ArrayList<>(1);
+            this.deleters = new ArrayList<>(1);
+        }
+
+        /**
+         * The attribute may not be set or deleted.
+         *
+         * @return true if set and delete are absent
+         */
+        boolean readonly() {
+            return setters.isEmpty() && deleters.isEmpty();
+        }
+
+        /**
+         * The attribute may be deleted.
+         *
+         * @return true if delete is present
+         */
+        boolean optional() { return !deleters.isEmpty(); }
+
+        /**
+         * Add a getter to the collection.
+         *
+         * @param method to add to {@link #getters}
+         */
+        void addGetter(Method method) {
+            // Add to list of methods
+            getters.add(method);
+            // There may be a @DocString annotation
+            maybeAddDoc(method);
+        }
+
+        /**
+         * Add a setter to the collection.
+         *
+         * @param method to add to {@link #setters}
+         */
+        void addSetter(Method method) {
+            // Add to list of methods
+            setters.add(method);
+            // There may be a @DocString annotation
+            maybeAddDoc(method);
+            // Process parameters of the Setter
+            determineAttrType(method);
+        }
+
+        /**
+         * Add a deleter to the collection.
+         *
+         * @param method to add to {@link #deleters}
+         */
+        void addDeleter(Method method) {
+            // Add to list of methods
+            deleters.add(method);
+            // There may be a @DocString annotation
+            maybeAddDoc(method);
+        }
+
+        /**
+         * Deduce the attribute type from the (raw) set method
+         * signature. We do this in order to give a sensible
+         * {@link PyBaseException TypeError} when a cast fails for the
+         * {@link PyGetSetDescr#__set__} operation.
+         *
+         * @param method annotated with a {@code Setter}
+         */
+        private void determineAttrType(Method method) {
+            // Save class of value accepted (if signature is sensible)
+            int modifiers = method.getModifiers();
+            int v = (modifiers & Modifier.STATIC) != 0 ? 1 : 0;
+            Class<?>[] paramClasses = method.getParameterTypes();
+            if (paramClasses.length == v + 1) {
+                Class<?> valueClass = paramClasses[v];
+                if (valueClass == klass) {
+                    // No change
+                } else if (klass.isAssignableFrom(valueClass)) {
+                    // The parameter is more specific than klass
+                    klass = valueClass;
+                }
+            }
+        }
+
+        @Override
+        Object asAttribute(PyType objclass, Lookup lookup)
+                throws InterpreterError {
+            if (objclass.selfClasses().size() == 1)
+                return createDescrSingle(objclass, lookup);
+            else
+                return createDescrMultiple(objclass, lookup);
+        }
+
+        @Override
+        public void checkFormation() throws InterpreterError {}
+
+        private Object createDescrSingle(PyType objclass,
+                Lookup lookup) {
+            // TODO Stop-gap: specialise to Single
+            return createDescrMultiple(objclass, lookup);
+        }
+
+        /**
+         * Create a {@code PyGetSetDescr} from this specification. Note
+         * that a specification collects all the methods as declared
+         * with this name (in separate getter, setter and deleter
+         * lists). Normally there is at most one of each.
+         * <p>
+         * Normally also, a Python type has just one Java
+         * implementation. If a type has N accepted implementations,
+         * there should be definitions of the getter, setter, and
+         * deleter methods, if defined at all, applicable to each
+         * accepted implementation. This method matches defined methods
+         * to the supported implementations.
+         *
+         * @param objclass Python type that owns the descriptor
+         * @param lookup authorisation to access fields
+         * @return descriptor for access to the field
+         * @throws InterpreterError if the method type is not supported
+         */
+        private PyGetSetDescr createDescrMultiple(PyType objclass,
+                Lookup lookup) throws InterpreterError {
+
+            // Handles on implementation methods
+            MethodHandle[] g, s = null, d = null;
+            g = unreflect(objclass, lookup, PyGetSetDescr.GETTER,
+                    getters);
+            if (!readonly()) {
+                // We can set this attribute
+                s = unreflect(objclass, lookup, PyGetSetDescr.SETTER,
+                        setters);
+                if (optional()) {
+                    // We can delete this attribute
+                    d = unreflect(objclass, lookup,
+                            PyGetSetDescr.DELETER, deleters);
+                }
+            }
+
+            return new PyGetSetDescr.Multiple(objclass, name, g, s, d,
+                    doc, klass);
+        }
+
+        private MethodHandle[] unreflect(PyType objclass, Lookup lookup,
+                MethodType mt, List<Method> methods)
+                throws InterpreterError {
+
+            /*
+             * In the first stage, translate each method to a handle.
+             * There could be any number of candidates in the defining
+             * classes. There may be a method for each accepted
+             * implementation of the type , or a method may match more
+             * than one (e.g. Number matching Long and Integer). We
+             * build a list with the more type-specific handles (in the
+             * first argument) before the less type-specific.
+             */
+            LinkedList<MethodHandle> candidates = new LinkedList<>();
+            for (Method m : methods) {
+                // Convert m to a handle (if L args and accessible)
+                try {
+                    MethodHandle mh = lookup.unreflect(m);
+                    addOrdered(candidates, mh);
+                } catch (IllegalAccessException e) {
+                    throw cannotGetHandle(m, e);
+                }
+            }
+
+            /*
+             * We will try to create a handle for each self-class of the
+             * type defining the instance method.
+             */
+            List<Class<?>> classes = objclass.selfClasses();
+            final int N = classes.size();
+            MethodHandle[] method = new MethodHandle[N];
+
+            // Fill the method array with matching method handles
+            for (int i = 0; i < N; i++) {
+                Class<?> klass = classes.get(i);
+                /*
+                 * Fill method[i] with the method handle where the first
+                 * parameter is the most specific match for class
+                 * accepted[i].
+                 */
+                // Try the candidate method until one matches
+                for (MethodHandle mh : candidates) {
+                    MethodType mt1 = mh.type();
+                    if (mt1.parameterType(0).isAssignableFrom(klass)) {
+                        /*
+                         * Each sub-type of MethodDef handles
+                         * callMethod(self, args, kwargs) in its own
+                         * way, and must prepare the arguments of the
+                         * generic method handle to match.
+                         */
+                        try {
+                            // XXX not yet supporting Java args
+                            method[i] = mh.asType(mt);
+                        } catch (WrongMethodTypeException wmte) {
+                            // Wrong number of args or cannot cast.
+                            throw methodSignatureError(objclass, mh);
+                        }
+                        break;
+                    }
+                }
+
+                // We should have a value in each of method[]
+                if (method[i] == null) {
+                    PyGetSetDescr.Type dt =
+                            PyGetSetDescr.Type.fromMethodType(mt);
+                    throw new InterpreterError(ATTR_NOT_IMPL, dt, name,
+                            objclass.getName(), klass);
+                }
+            }
+
+            /*
+             * There are multiple definitions so use the array form of
+             * built-in method. This is the case for types that have
+             * multiple accepted implementations and methods on them
+             * that are not static or "Object self".
+             */
+            return method;
+        }
+
+        private static String ATTR_NOT_IMPL =
+                "%s of attribute '%s' of '%s' objects"
+                        + " is not defined for implementation %s";
+
+        @Override
+        Class<? extends Annotation> annoClass() {
+            // Try annotations in order of popularity
+            if (getters.size() > 0)
+                ; // -> Getter
+            else if (setters.size() > 0)
+                return Setter.class;
+            else if (deleters.size() > 0)
+                return Deleter.class;
+            // Or by default, claim to have a Getter
+            return Getter.class;
+        }
+
+        @Override
+        public String toString() {
+            return String.format("%s(%s[%d,%d,%d])",
+                    getClass().getSimpleName(), name, getters.size(),
+                    setters.size(), deleters.size());
+        }
+    }
 
     /**
      * Specification in which we assemble information about a Python

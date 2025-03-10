@@ -276,7 +276,7 @@ abstract class PyGetSetDescr extends DataDescriptor {
         else {
             try {
                 check(obj);
-                MethodHandle mh = getWrappedGet(obj.getClass());
+                MethodHandle mh = getWrappedGet(obj);
                 return mh.invokeExact(obj);
             } catch (EmptyException e) {
                 throw cannotReadAttr();
@@ -294,7 +294,7 @@ abstract class PyGetSetDescr extends DataDescriptor {
         } else {
             try {
                 checkSet(obj);
-                MethodHandle mh = getWrappedSet(obj.getClass());
+                MethodHandle mh = getWrappedSet(obj);
                 try {
                     mh.invokeExact(obj, value);
                 } catch (ClassCastException e) {
@@ -317,7 +317,7 @@ abstract class PyGetSetDescr extends DataDescriptor {
     void __delete__(Object obj) throws PyBaseException, Throwable {
         try {
             checkDelete(obj);
-            MethodHandle mh = getWrappedDelete(obj.getClass());
+            MethodHandle mh = getWrappedDelete(obj);
             mh.invokeExact(obj);
         } catch (EmptyException e) {
             throw readonly() ? cannotWriteAttr() : cannotDeleteAttr();
@@ -517,14 +517,19 @@ abstract class PyGetSetDescr extends DataDescriptor {
             Class<?> objClass = obj.getClass();
             Representation rep = PyType.registry.get(objClass);
             PyType objType = rep.pythonType(obj);
-            if (objType == objclass) {
-                // selfType defined the method so it must be ok
-                return get[rep.getIndex()];
-            } else {
-                // Check validity at the Python level
-                checkPythonType(objType);
-                // obj is an instance of a Python sub-class
-                return get[objclass.getSubclassIndex(objClass)];
+            try {
+                if (objType == objclass) {
+                    // objType defined the method so it must be ok
+                    return get[rep.getIndex()];
+                } else {
+                    // Check validity at the Python level
+                    checkPythonType(objType);
+                    // obj is an instance of a Python sub-class
+                    return get[objclass.getSubclassIndex(objClass)];
+                }
+            } catch (ArrayIndexOutOfBoundsException iobe) {
+                // This will behave as an empty slot
+                return EMPTY_GETTER;
             }
         }
 
@@ -534,14 +539,19 @@ abstract class PyGetSetDescr extends DataDescriptor {
             Class<?> objClass = obj.getClass();
             Representation rep = PyType.registry.get(objClass);
             PyType objType = rep.pythonType(obj);
-            if (objType == objclass) {
-                // selfType defined the method so it must be ok
-                return set[rep.getIndex()];
-            } else {
-                // Check validity at the Python level
-                checkPythonType(objType);
-                // obj is an instance of a Python sub-class
-                return set[objclass.getSubclassIndex(objClass)];
+            try {
+                if (objType == objclass) {
+                    // objType defined the method so it must be ok
+                    return set[rep.getIndex()];
+                } else {
+                    // Check validity at the Python level
+                    checkPythonType(objType);
+                    // obj is an instance of a Python sub-class
+                    return set[objclass.getSubclassIndex(objClass)];
+                }
+            } catch (ArrayIndexOutOfBoundsException iobe) {
+                // This will behave as an empty slot
+                return EMPTY_SETTER;
             }
         }
 
@@ -551,14 +561,19 @@ abstract class PyGetSetDescr extends DataDescriptor {
             Class<?> objClass = obj.getClass();
             Representation rep = PyType.registry.get(objClass);
             PyType objType = rep.pythonType(obj);
-            if (objType == objclass) {
-                // selfType defined the method so it must be ok
-                return delete[rep.getIndex()];
-            } else {
-                // Check validity at the Python level
-                checkPythonType(objType);
-                // obj is an instance of a Python sub-class
-                return delete[objclass.getSubclassIndex(objClass)];
+            try {
+                if (objType == objclass) {
+                    // objType defined the method so it must be ok
+                    return delete[rep.getIndex()];
+                } else {
+                    // Check validity at the Python level
+                    checkPythonType(objType);
+                    // obj is an instance of a Python sub-class
+                    return delete[objclass.getSubclassIndex(objClass)];
+                }
+            } catch (ArrayIndexOutOfBoundsException iobe) {
+                // This will behave as an empty slot
+                return EMPTY_DELETER;
             }
         }
 
@@ -568,6 +583,13 @@ abstract class PyGetSetDescr extends DataDescriptor {
         @Override
         boolean optional() { return delete.length != 0; }
     }
+
+    /**
+     * Single instance of {@link EmptyException} that we throw when the
+     * set or delete cannot be performed (read only attributes), or
+     * conceivably if get cannot.
+     */
+    private static final EmptyException EMPTY = new EmptyException();
 
     /**
      * This method fills {@link #get} when the implementation leaves it

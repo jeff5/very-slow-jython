@@ -2,8 +2,6 @@
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
 
-import uk.co.farowl.vsj4.support.internal.EmptyException;
-
 /**
  * The base class of many built-in descriptors. Descriptors are a
  * fundamental component of the Python type system, populating the
@@ -21,9 +19,6 @@ import uk.co.farowl.vsj4.support.internal.EmptyException;
  *     be able to execute the constructor.
  */
 abstract class Descriptor implements WithClass {
-
-    /** Single re-used instance of {@link EmptyException} */
-    protected static final EmptyException EMPTY = new EmptyException();
 
     /**
      * Python {@code type} of this descriptor object (e.g. for a method
@@ -142,14 +137,10 @@ abstract class Descriptor implements WithClass {
      *     to {@code obj}
      */
     // Compare CPython descr_check in descrobject.c
-    // We differ from CPython in that:
-    // 1. We either throw or return void: there is no FALSE->error or
-    // descriptor.
-    // 2. The test obj==null (implying found on a type) is the caller's
-    // job.
-    // 3. In a data descriptor, we fold the auditing into this check.
     protected void check(Object obj) throws PyBaseException {
-        checkPythonType(PyType.of(obj));
+        PyType objType = PyType.of(obj);
+        if (objType == objclass) { return; } // Short-cut
+        checkPythonType(objType);
     }
 
     /**
@@ -160,11 +151,9 @@ abstract class Descriptor implements WithClass {
      * @param objType target object type
      * @throws PyBaseException (TypeError) if descriptor doesn't apply
      *     to {@code objType}
-     * @throws Throwable propagated from subclass check
      */
     protected void checkPythonType(PyType objType)
             throws PyBaseException {
-        if (objType == objclass) { return; }
         // XXX Should this call Abstract.recursiveIsSubclass instead?
         if (objType.isSubTypeOf(objclass)) { return; }
         throw selfTypeError(objType);

@@ -334,7 +334,8 @@ class TypeExposerGetSetTest extends UnitTestSupport {
 
         static PyType TYPE =
                 PyType.fromSpec(new TypeSpec("ObjectWithGetSets",
-                        MethodHandles.lookup())
+                        MethodHandles.lookup()) //
+                                .add(Feature.IMMUTABLE)
                                 .adopt(AdoptedWithGetSets.class));
 
         /** Primitive integer attribute (not optional). */
