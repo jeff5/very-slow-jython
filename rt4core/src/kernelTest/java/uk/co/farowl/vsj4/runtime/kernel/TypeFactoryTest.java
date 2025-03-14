@@ -10,7 +10,6 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.util.List;
-import java.util.Map;
 import java.util.function.Function;
 
 import org.junit.jupiter.api.BeforeAll;
@@ -60,8 +59,7 @@ class TypeFactoryTest {
                 public void exposeMethods(Class<?> definingClass) {}
 
                 @Override
-                public void populate(Map<? super String, Object> dict,
-                        Lookup lookup) {}
+                public void exposeMembers(Class<?> memberClass) {}
 
                 @Override
                 public Iterable<Entry> entries(Lookup lookup) {

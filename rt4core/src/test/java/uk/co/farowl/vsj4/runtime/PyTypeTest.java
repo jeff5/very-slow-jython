@@ -252,6 +252,7 @@ class PyTypeTest extends UnitTestSupport {
 
     @Nested
     @DisplayName("type.__new__")
+    // FIXME __new__ test: fix or remove if wrong
     @Disabled("Slot function still not ready for this")
     class NewTypeTest extends AbstractNewTypeTest {
         /**

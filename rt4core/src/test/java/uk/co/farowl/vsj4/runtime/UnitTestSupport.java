@@ -2,7 +2,10 @@
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.math.BigInteger;
 import java.net.URI;
@@ -296,6 +299,38 @@ public class UnitTestSupport {
             Executable action, String expectedMessage) {
         E e = assertThrows(expected, action);
         assertEquals(expectedMessage, e.getMessage());
+        return e;
+    }
+
+    /**
+     * Invoke an action expected to raise a Python exception and check
+     * the message. The return value may be the subject of further
+     * assertions.
+     *
+     * @param expected Python type of exception
+     * @param action to invoke
+     * @param expectedMessage expected message text
+     * @return the exception thrown
+     */
+    static PyBaseException assertRaises(PyType expected,
+            Executable action, String expectedMessage) {
+        PyBaseException e = assertRaises(expected, action);
+        assertEquals(expectedMessage, e.getMessage());
+        return e;
+    }
+
+    /**
+     * Invoke an action expected to raise a Python exception. The return
+     * value may be the subject of further assertions.
+     *
+     * @param expected Python type of exception
+     * @param action to invoke
+     * @return the exception thrown
+     */
+    static PyBaseException assertRaises(PyType expected,
+            Executable action) {
+        PyBaseException e = assertThrows(PyBaseException.class, action);
+        assertEquals(expected, e.getType());
         return e;
     }
 

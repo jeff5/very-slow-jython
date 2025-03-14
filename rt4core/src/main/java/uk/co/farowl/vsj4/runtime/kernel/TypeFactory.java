@@ -21,6 +21,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import uk.co.farowl.vsj4.runtime.Feature;
+import uk.co.farowl.vsj4.runtime.PyBool;
 import uk.co.farowl.vsj4.runtime.PyFloat;
 import uk.co.farowl.vsj4.runtime.PyFloatMethods;
 import uk.co.farowl.vsj4.runtime.PyLong;
@@ -72,9 +73,14 @@ import uk.co.farowl.vsj4.support.InterpreterError;
  * registry will block until its related type is Python ready.
  *
  */
-// XXX It is not wholly satisfactory to publish types not Python ready.
-// The answer might be to wait for ready in fromSpec (etc.) while
-// a concurrent thread (or pool?) makes it so.
+// FIXME Robust protection of types until Python-ready.
+/*
+ * It is not wholly satisfactory to publish types not Python ready while
+ * there is no defence against access. The answer might be to lock their
+ * Python side, maybe lookup us enough, while a concurrent thread (or
+ * pool?) makes them ready. The bootstrap state is as separate
+ * difficulty, possibly resolved by a wait until Java-ready.
+ */
 public class TypeFactory {
 
     /** Logger for the type factory. */
@@ -105,8 +111,6 @@ public class TypeFactory {
     final PyType[] EMPTY_TYPE_ARRAY;
     /** An array containing just type object {@code object} */
     private final PyType[] OBJECT_ONLY;
-    /** An array containing just type object {@code type} */
-    private final PyType[] TYPE_ONLY;
 
     /**
      * We count the number of reentrant calls here, and defer publishing
@@ -176,7 +180,7 @@ public class TypeFactory {
                 AbstractPyObject.LOOKUP)
                         .methodImpls(AbstractPyObject.class);
         TypeSpec specOfType =
-                new PrimordialTypeSpec(typeType, AbstractPyType.LOOKUP)
+                new PrimordialTypeSpec(typeType, runtimeLookup)
                         .canonicalBase(SimpleType.class);
 
         this.lastContext = specOfObject;
@@ -201,7 +205,6 @@ public class TypeFactory {
         assert OBJECT_ONLY.length == 1;
         this.EMPTY_TYPE_ARRAY = typeType.base.bases;
         assert EMPTY_TYPE_ARRAY.length == 0;
-        this.TYPE_ONLY = new PyType[] {typeType};
     }
 
     /**
@@ -290,25 +293,48 @@ public class TypeFactory {
 
         @Override
         Representation findOrCreate(Class<?> c) {
+
+            // FIXME reentrancyCount constraints routinely not met
+
+            // We are "just outside" the factory: take the lock
             synchronized (TypeFactory.this) {
-                // We are "just outside" the factory
-                assert reentrancyCount == -1;
-                assert workshop.isEmpty();
                 Representation rep;
-                try {
+                /*
+                 * We check the published map first. The current thread
+                 * either (1) already owned the factory lock, and simply
+                 * needs to look up a representation, or (2) has just
+                 * waited for the lock, and the published map may have
+                 * changed.
+                 */
+                if ((rep = lookup(c)) == null) {
                     /*
-                     * The thread has just locked the factory. The
-                     * published map may have changed while it was
-                     * waiting, so for c again as *published*.
+                     * c is not published. We shall try to find a
+                     * representation in the process of being built, but
+                     * it will only be ok to return it if we are a
+                     * re-entrant call.
                      */
-                    if ((rep = lookup(c)) == null) {
+                    try {
+                        if (reentrancyCount != -1) {
+                            logger.atWarn().setMessage(
+                                    "Re-entering at level {} for {}")
+                                    .addArgument(reentrancyCount)
+                                    .addArgument(c).log();
+                        }
+                        assert reentrancyCount == -1;
+                        assert workshop.isEmpty();
                         rep = _findOrCreate(c);
+                        if (reentrancyCount != -1) {
+                            logger.atWarn().setMessage(
+                                    "Returning at level {} with {}")
+                                    .addArgument(reentrancyCount)
+                                    .addArgument(rep).log();
+                        }
+                        assert reentrancyCount == -1;
+                    } catch (Clash clash) {
+                        throw new InterpreterError(clash);
                     }
-                    assert reentrancyCount == -1;
-                    return rep;
-                } catch (Clash clash) {
-                    throw new InterpreterError(clash);
                 }
+                return rep;
             }
         }
 
@@ -495,25 +521,36 @@ public class TypeFactory {
         /*
          * Create specifications for the bootstrap types. When it is not
          * fully thread-safe to invoke PyType.fromSpec in the static
-         * initialisation of the type, we create the type here. We use a
-         * local array because we only need these specifications
+         * initialisation of the type, we create the type here. We use
+         * local variables because we only need these specifications
          * transiently. A type listed here should not contain the idiom
          * static TYPE = PyType.fromSpec(...), but obtain its TYPE by
          * enquiry in the registry.
          */
-        final TypeSpec[] bootstrapSpecs = { //
-                new BootstrapSpec("int", PyLong.class)
+
+        /*
+         * We create 'int' first as 'bool' must refer to it as a base.
+         */
+        final PyType PyLong_TYPE =
+                fromSpec(new BootstrapSpec("int", PyLong.class)
                         .methodImpls(PyLongMethods.class)
                         // .binops(PyLongBinops.class)
                         .adopt(BigInteger.class, Integer.class)
-                        .accept(Boolean.class),
+                        .accept(Boolean.class));
+
+        // The rest we can do in a batch.
+        final TypeSpec[] bootstrapSpecs = { //
+
                 new BootstrapSpec("str", PyUnicode.class)
                         .methodImpls(PyUnicodeMethods.class)
                         .adopt(String.class),
                 new BootstrapSpec("float", PyFloat.class)
                         .methodImpls(PyFloatMethods.class)
                         // .binops(PyFloatBinops.class)
-                        .adopt(Double.class)
+                        .adopt(Double.class),
+                new BootstrapSpec("bool", Boolean.class)
+                        // PyBool is *not* a representation
+                        .methodImpls(PyBool.class).base(PyLong_TYPE),
                 //
         };
 
@@ -523,7 +560,7 @@ public class TypeFactory {
              * Each loop makes a reentrant call, adding the type and
              * representations to work in progress.
              */
-            PyType.fromSpec(spec);
+            fromSpec(spec);
         }
 
         assert reentrancyCount == 0;
@@ -871,6 +908,7 @@ public class TypeFactory {
                 type.setMRO();
 
                 // Set feature flags
+                type.inheritFeatures();
                 type.addFeatures(spec);
 
                 // Construct an exposer for the type.
@@ -912,8 +950,8 @@ public class TypeFactory {
                 for (Class<?> c : definitionClasses()) {
                     // Gather methods and get-sets
                     exposer.exposeMethods(c);
-                    // TODO ... and members (fields).
-                    // exposer.exposeMembers(c);
+                    // ... and members (fields).
+                    exposer.exposeMembers(c);
                 }
 
                 /*

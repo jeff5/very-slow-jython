@@ -292,6 +292,14 @@ public class TypeSpec extends NamedSpec {
             adopted = classes.subList(adoptedIndex, acceptedIndex);
             accepted = classes.subList(acceptedIndex, classes.size());
 
+            // Consistency checks
+            if (!features.contains(Feature.IMMUTABLE)) {
+                // Mutable class
+                if (adopted.size() > 0 || accepted.size() > 0) {
+                    throw specError(MULTIPLES_IMMUTABLE);
+                }
+            }
+
             // TODO process binopOthers to extended array
         }
 
@@ -299,11 +307,13 @@ public class TypeSpec extends NamedSpec {
     }
 
     private static final String PRIMARY_NOT_GIVEN =
-            "no primary representation was specified";
+            "No primary representation was specified";
     private static final String CANONICAL_INCONSISTENT =
             "Canonical base %s inconsistent with primary %s";
     private static final String SUBCLASS_PRIMARY =
             "%s %s is subclass of primary %s";
+    private static final String MULTIPLES_IMMUTABLE =
+            "A type with more than one representation must be immutable";
 
     /**
      * Name of the class being specified. It may begin with the dotted

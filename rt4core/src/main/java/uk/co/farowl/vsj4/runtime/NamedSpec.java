@@ -1,3 +1,5 @@
+// Copyright (c)2025 Jython Developers.
+// Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
 
 import java.util.List;
@@ -71,7 +73,7 @@ public abstract class NamedSpec {
      * @return to throw
      */
     protected InterpreterError repeatError(String thing) {
-        return specError("repeat " + thing + "specified");
+        return specError("repeat " + thing + " specified");
     }
 
     /**

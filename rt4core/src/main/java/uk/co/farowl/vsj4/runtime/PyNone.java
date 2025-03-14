@@ -1,8 +1,10 @@
-// Copyright (c)2024 Jython Developers.
+// Copyright (c)2025 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
 
 import java.lang.invoke.MethodHandles;
+
+import uk.co.farowl.vsj4.runtime.internal.Singleton;
 
 /** The Python {@code None} object. */
 public final class PyNone extends Singleton {
@@ -12,7 +14,7 @@ public final class PyNone extends Singleton {
             new TypeSpec("NoneType", MethodHandles.lookup()));
 
     /** The only instance, published as {@link Py#None}. */
-    static final PyNone INSTANCE = new PyNone();
+    public static final PyNone INSTANCE = new PyNone();
 
     private PyNone() { super(TYPE, "None"); }
 

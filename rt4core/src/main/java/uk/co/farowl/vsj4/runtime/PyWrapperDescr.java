@@ -1,4 +1,4 @@
-// Copyright (c)2024 Jython Developers.
+// Copyright (c)2025 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
 
@@ -34,7 +34,7 @@ import uk.co.farowl.vsj4.support.internal.Util;
  * attribute of the type.
  */
 // Compare CPython: PyWrapperDescrObject in descrobject.h
-// and methods wrapperdescr_* in descrobject.c.
+// and functions wrapperdescr_* in descrobject.c.
 /*
  * Difference from CPython: In CPython, a PyWrapperDescr is created
  * because the slot at the corresponding offset in the PyTypeObject of
@@ -68,7 +68,7 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
      * @param objclass the class declaring the special method
      * @param slot for the generic special method
      */
-    // Compare CPython PyDescr_NewClassMethod in descrobject.c
+    // Compare CPython PyDescr_NewWrapper in descrobject.c
     PyWrapperDescr(PyType objclass, SpecialMethod slot) {
         super(TYPE, objclass, slot.methodName);
         this.slot = slot;
@@ -385,24 +385,6 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
             "__get__(None, None) is invalid";
 
     /**
-     * Check that the given type is acceptable for the {@code self}
-     * argument, that is, it is a subclass of
-     * {@link Descriptor#objclass}.
-     *
-     * @param selfType Python type of {@code self}
-     * @throws PyBaseException (TypeError) if {@code self} is not a
-     *     subclass of {@code __objclass__}.
-     * @throws Throwable propagated from subclass check
-     */
-    protected void checkPythonType(PyType selfType)
-            throws PyBaseException, Throwable {
-        if (!Abstract.recursiveIsSubclass(selfType, objclass)) {
-            throw PyErr.format(PyExc.TypeError, DESCRIPTOR_REQUIRES,
-                    name, objclass.getName(), selfType.getName());
-        }
-    }
-
-    /**
      * Create a {@link PyBaseException TypeError} with a message along
      * the lines "descriptor 'D' requires a 'T' object but received a
      * 'S'" involving the name of this descriptor, {@link #objclass} and
@@ -447,7 +429,7 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
          * @param sm the generic special method
          * @param wrapped a handle to an implementation of that slot
          */
-        // Compare CPython PyDescr_NewClassMethod in descrobject.c
+        // Compare CPython PyDescr_NewWrapper in descrobject.c
         Single(PyType objclass, SpecialMethod sm,
                 MethodHandle wrapped) {
             super(objclass, sm);
@@ -463,10 +445,8 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
         @Override
         MethodHandle getHandle(Object self)
                 throws PyBaseException, Throwable {
-            Representation rep = PyType.registry.get(self.getClass());
-            // rep.index can only validly be zero
             // Check acceptability at the Python level
-            checkPythonType(rep.pythonType(self));
+            check(self);
             return wrapped;
         }
     }
@@ -493,7 +473,7 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
          * @param sm the generic special method
          * @param wrapped handles to the implementation of that slot
          */
-        // Compare CPython PyDescr_NewClassMethod in descrobject.c
+        // Compare CPython PyDescr_NewWrapper in descrobject.c
         Multiple(PyType objclass, SpecialMethod sm,
                 MethodHandle[] wrapped) {
             super(objclass, sm);
@@ -516,13 +496,11 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
                 int index = rep.getIndex();
                 return wrapped[index];
             } else {
-                // Check acceptability at the Python level
+                // Check validity at the Python level
                 checkPythonType(selfType);
-                // A super-type of selfType defined the method,
-                // so self class must subclass its primary class.
-                assert objclass.javaClass()
-                        .isAssignableFrom(self.getClass());
-                return wrapped[0];
+                // self is an instance of a Python sub-class
+                int index = objclass.getSubclassIndex(self.getClass());
+                return wrapped[index];
             }
         }
     }

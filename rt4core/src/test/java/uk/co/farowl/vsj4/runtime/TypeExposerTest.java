@@ -3,9 +3,7 @@
 package uk.co.farowl.vsj4.runtime;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
@@ -302,7 +300,7 @@ class TypeExposerTest {
     @DisplayName("has the expected number of methods.")
     @SuppressWarnings("static-method")
     void numberOfMethods() {
-        assertEquals(7, methods.size(), "number of methods");
+        assertEquals(13, methods.size(), "number of methods");
     }
 
     /**
@@ -311,22 +309,21 @@ class TypeExposerTest {
      *
      * @param sig signature
      */
-    // FIXME: Enable the Java function signatures when ready.
     @ParameterizedTest(name = "{0}")
     @DisplayName("has a method with signature ...")
     @ValueSource(strings = { //
             "__new__(type, /)", //
-            //"f0()", //
+            "f0()", //
             "m0($self, /)", //
-            //"f3(a, b, c, /)", //
+            "f3(a, b, c, /)", //
             "m3($self, a, b, c, /)", //
-            //"f3pk(a, b, c)", //
+            "f3pk(a, b, c)", //
             "m3pk($self, /, a, b, c)", //
-            //"f3p2(a, b, /, c)", //
+            "f3p2(a, b, /, c)", //
             "m3p2($self, a, b, /, c)", //
-            //"f2v(a, b, /, *c)", //
+            "f2v(a, b, /, *c)", //
             "m2v($self, a, b, /, *c)", //
-            //"f2pvk(a, b, /, *c, **d)", //
+            "f2pvk(a, b, /, *c, **d)", //
             "m2pvk($self, a, b, /, *c, **d)", //
     })
     @SuppressWarnings("static-method")
@@ -356,6 +353,8 @@ class TypeExposerTest {
     }
 
     // ----------------------------------------------------------------
+
+    // FIXME: Enable exposure of members when ready.
 //    @Test
 //    @DisplayName("has the expected number of members.")
 //    @SuppressWarnings("static-method")
@@ -433,6 +432,8 @@ class TypeExposerTest {
 //    }
 
     // ----------------------------------------------------------------
+
+    // FIXME: Enable exposure of members when ready.
 //    @Test
 //    @DisplayName("has the expected number of get-set attributes.")
 //    @SuppressWarnings("static-method")

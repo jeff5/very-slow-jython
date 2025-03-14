@@ -2,6 +2,8 @@
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime.kernel;
 
+import java.util.EnumSet;
+
 import uk.co.farowl.vsj4.runtime.TypeFlag;
 
 /**
@@ -125,4 +127,12 @@ public enum KernelTypeFlag {
      */
     // No equivalent in CPython
     HAS_DELETE;
+
+    /**
+     * {@code KernelTypeFlag}s inherited from the base type when
+     * constructing a new type.
+     */
+    public static final EnumSet<KernelTypeFlag> HERITABLE =
+            EnumSet.of(MATCH_SELF, HAS_GETITEM, HAS_ITER, HAS_NEXT,
+                    HAS_INDEX, HAS_GET, HAS_SET, HAS_DELETE);
 }

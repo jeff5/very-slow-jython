@@ -1,10 +1,11 @@
-// Copyright (c)2024 Jython Developers.
+// Copyright (c)2025 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.StringJoiner;
@@ -634,7 +635,7 @@ class ArgParser {
      * @return {@code this}
      */
     ArgParser kwdefaults(Object... values) {
-        PyDict d = new PyDict();
+        Map<Object, Object> d = new HashMap<>();
         int K = values.length;
         for (int i = 0, p = regargcount - K; i < K; i++, p++) {
             Object v = values[i];

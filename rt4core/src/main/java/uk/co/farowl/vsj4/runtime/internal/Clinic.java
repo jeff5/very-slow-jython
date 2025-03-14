@@ -1,4 +1,4 @@
-// Copyright (c)2024 Jython Developers.
+// Copyright (c)2025 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime.internal;
 
@@ -15,6 +15,7 @@ import uk.co.farowl.vsj4.runtime.Py;
 import uk.co.farowl.vsj4.runtime.PyBaseException;
 import uk.co.farowl.vsj4.runtime.PyFloat;
 import uk.co.farowl.vsj4.runtime.PyLong;
+import uk.co.farowl.vsj4.runtime.PyNone;
 import uk.co.farowl.vsj4.runtime.PyType;
 import uk.co.farowl.vsj4.runtime.PyUnicode;
 import uk.co.farowl.vsj4.support.InterpreterError;
@@ -77,7 +78,8 @@ public class Clinic {
                     LOOKUP.findVirtual(T, "validatedNewArgument",
                             MethodType.methodType(T, O));
 
-            voidValueMH = MethodHandles.constant(O, Py.None);
+            // Cannot safely refer to Py.None this early
+            voidValueMH = MethodHandles.constant(O, PyNone.INSTANCE);
 
             intValueMH = LOOKUP.findStatic(Integer.class, "valueOf",
                     MethodType.methodType(Integer.class, int.class));

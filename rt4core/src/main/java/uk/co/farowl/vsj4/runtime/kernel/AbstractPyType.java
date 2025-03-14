@@ -104,19 +104,6 @@ public abstract sealed class AbstractPyType extends Representation
      */
     protected PyType[] mro;
 
-// /**
-// * Cache of the special method {@code __new__} as a method handle.
-// * Note that while caches for special methods that are instance
-// * methods are in the class {@link Representation}, only a type can
-// * have a {@code __new__}. It must be updated whenever the
-// * definition of {@code __new__} changes for this type object. The
-// * signature of this handle is {@code (T,OA,SA)O} where the first
-// * argument is the class of object to create, not this class
-// * necessarily.
-// */
-// // Compare CPython type slot tp_new
-// private MethodHandle op_new;
-
     /**
      * Collect the information necessary to synthesise and call a
      * constructor for a Java subclass.
@@ -284,6 +271,12 @@ public abstract sealed class AbstractPyType extends Representation
      */
     public abstract Class<?> canonicalClass();
 
+    @Override
+    public boolean isDataDescr(Object x) {
+        return kernelFeatures.contains(KernelTypeFlag.HAS_SET)
+                || kernelFeatures.contains(KernelTypeFlag.HAS_DELETE);
+    }
+
     /**
      * Test for possession of a specified feature.
      *
@@ -291,6 +284,11 @@ public abstract sealed class AbstractPyType extends Representation
      * @return whether present
      */
     public boolean hasFeature(TypeFlag feature) {
+        return features.contains(feature);
+    }
+
+    @Override
+    public boolean hasFeature(Object x, TypeFlag feature) {
         return features.contains(feature);
     }
 
@@ -302,6 +300,11 @@ public abstract sealed class AbstractPyType extends Representation
      * @return whether present
      */
     public boolean hasFeature(KernelTypeFlag feature) {
+        return kernelFeatures.contains(feature);
+    }
+
+    @Override
+    public boolean hasFeature(Object x, KernelTypeFlag feature) {
         return kernelFeatures.contains(feature);
     }
 
@@ -325,8 +328,8 @@ public abstract sealed class AbstractPyType extends Representation
      */
     // Compare CPython PySequence_Check (on instance) in abstract.c
     public boolean isSequence() {
-        return hasFeature(KernelTypeFlag.HAS_GETITEM)
-                && !hasFeature(TypeFlag.DICT_SUBCLASS);
+        return kernelFeatures.contains(KernelTypeFlag.HAS_GETITEM)
+                && !features.contains(TypeFlag.DICT_SUBCLASS);
     }
 
     /**
@@ -335,7 +338,7 @@ public abstract sealed class AbstractPyType extends Representation
      * @return target is a iterable with {@code __iter__}
      */
     public boolean isIterable() {
-        return hasFeature(KernelTypeFlag.HAS_ITER);
+        return kernelFeatures.contains(KernelTypeFlag.HAS_ITER);
     }
 
     /**
@@ -345,7 +348,7 @@ public abstract sealed class AbstractPyType extends Representation
      * @return target is a an iterator
      */
     public boolean isIterator() {
-        return hasFeature(KernelTypeFlag.HAS_NEXT);
+        return kernelFeatures.contains(KernelTypeFlag.HAS_NEXT);
     }
 
     /**
@@ -355,17 +358,18 @@ public abstract sealed class AbstractPyType extends Representation
      * @return target is a descriptor
      */
     public boolean isDescr() {
-        return hasFeature(KernelTypeFlag.HAS_GET);
+        return kernelFeatures.contains(KernelTypeFlag.HAS_GET);
     }
 
     /**
      * Fast check that the target is a data descriptor (defines
-     * {@code __set__}).
+     * {@code __set__} or {@code __delete__}).
      *
      * @return target is a data descriptor
      */
     public boolean isDataDescr() {
-        return hasFeature(KernelTypeFlag.HAS_SET);
+        return kernelFeatures.contains(KernelTypeFlag.HAS_SET)
+                || kernelFeatures.contains(KernelTypeFlag.HAS_DELETE);
     }
 
     /**
@@ -391,21 +395,6 @@ public abstract sealed class AbstractPyType extends Representation
      */
     public boolean isMethodDescr() {
         return features.contains(TypeFlag.METHOD_DESCR);
-    }
-
-    /**
-     * Find the index in this type corresponding to the class of an
-     * object passed as {@code self} to a method of the type.
-     *
-     * @deprecated This entry point exists to support legacy VSJ3 code
-     *     ported to VSJ4. There is a better way than this using the
-     *     index available from a {@code Representation}.
-     * @param selfClass to seek
-     * @return index in {@link #selfClasses()} or -1
-     */
-    @Deprecated
-    public int indexAccepted(Class<?> selfClass) {
-        return selfClasses().indexOf(selfClass);
     }
 
     /**
@@ -529,6 +518,39 @@ public abstract sealed class AbstractPyType extends Representation
     }
 
     /**
+     * Put a value in the dictionary of the type directly (for runtime
+     * use only). This gives privileged access to the dictionary of the
+     * type. It will trigger internal updates to the state of the type
+     * object that follow from attribute values.
+     *
+     * @param name in the dictionary of the type
+     * @param value to put there
+     * @return the previous value (or null)
+     */
+    public // throughout the run time not Jython API.
+    Object dictPut(String name, Object value) {
+        Object previous = _dict.put(name, value);
+        updateAfterSetAttr(name);
+        return previous;
+    }
+
+    /**
+     * Remove an entry from the dictionary of the type directly (for
+     * runtime use only). This gives privileged access to the dictionary
+     * of the type. It will trigger internal updates to the state of the
+     * type object that follow from attribute values.
+     *
+     * @param name in the dictionary of the type
+     * @return the previous value (or null)
+     */
+    public // throughout the run time not Jython API.
+    Object dictRemove(String name) {
+        Object previous = _dict.remove(name);
+        updateAfterSetAttr(name);
+        return previous;
+    }
+
+    /**
      * Return the table holding constructors and their method handles
      * for instances of this type. This enables client code to iterate
      * over available constructors without any copying. The table and
@@ -613,8 +635,29 @@ public abstract sealed class AbstractPyType extends Representation
     }
 
     /**
-     * Add features flags from the specification. This should be called
-     * at the start of initialising the type so that it can influence
+     * Inherit feature flags (including kernel feature flags) from the
+     * base. This should be called early enough in initialising the type
+     * that it can be modified by configuration with exposed methods.
+     */
+    void inheritFeatures() {
+        AbstractPyType base = this.base;
+        if (base != null) {
+            // Inherit the customary features
+            EnumSet<TypeFlag> inheritedTF =
+                    EnumSet.copyOf(base.features);
+            inheritedTF.retainAll(TypeFlag.HERITABLE);
+            features.addAll(inheritedTF);
+            // Inherit the customary kernel features
+            EnumSet<KernelTypeFlag> inheritedKTF =
+                    EnumSet.copyOf(base.kernelFeatures);
+            inheritedKTF.retainAll(KernelTypeFlag.HERITABLE);
+            kernelFeatures.addAll(inheritedKTF);
+        }
+    }
+
+    /**
+     * Add feature flags from the specification. This should be called
+     * early enough in initialising the type that it can influence
      * configuration with exposed methods.
      *
      * @param spec specification of this type
@@ -624,7 +667,7 @@ public abstract sealed class AbstractPyType extends Representation
     }
 
     /**
-     * Add features flags derived from observations of the type itself
+     * Add feature flags derived from observations of the type itself
      * (and the specification if necessary). This should be called at
      * the end of initialising the type so that it is influenced by the
      * set of exposed methods.
@@ -634,12 +677,14 @@ public abstract sealed class AbstractPyType extends Representation
     // Compare CPython inherit_special in typeobject.c
     void deriveFeatures(TypeSpec spec) {
         /*
-         * Set at most one of the fast sub-type test flags. We cannot
-         * rely on this==PyWhatever.TYPE, as the TYPE won't be assigned
-         * yet.
+         * Set at most one of the fast sub-type test flags. (Use short
+         * circuit evaluation to stop at the first flag set.) We cannot
+         * rely on this==PyWhatever.TYPE when constructing a type for
+         * 'whatever', as the TYPE won't be assigned yet.
          */
+        //
         @SuppressWarnings("unused")
-        boolean dummy = setFeature(PyLong.class, TypeFlag.INT_SUBCLASS)
+        boolean unused = setFeature(PyLong.class, TypeFlag.INT_SUBCLASS)
                 || setFeature(PyTuple.class, TypeFlag.TUPLE_SUBCLASS)
                 || setFeature(PyUnicode.class, TypeFlag.STR_SUBCLASS)
                 || setFeature(PyDict.class, TypeFlag.DICT_SUBCLASS)
@@ -651,7 +696,7 @@ public abstract sealed class AbstractPyType extends Representation
          * matching. It would be nice to accomplish this in the
          * TypeSpec, but it is not public API.
          */
-        dummy = setFeature(PyLong.class, KernelTypeFlag.MATCH_SELF)
+        unused = setFeature(PyLong.class, KernelTypeFlag.MATCH_SELF)
                 || setFeature(PyFloat.class, KernelTypeFlag.MATCH_SELF)
                 // || setFeature(PyBytes.class,
                 // KernelTypeFlag.MATCH_SELF)
@@ -686,9 +731,6 @@ public abstract sealed class AbstractPyType extends Representation
     /**
      * Maybe set the given kernel feature flag. The flag is set if and
      * only if the implementation class of this type matches that given,
-     *
-     *
-     *
      * or the same flag is set in the base. This way, there is a first
      * qualifying type {@code k}, then every type that descends from it
      * inherits the flag.
@@ -734,23 +776,31 @@ public abstract sealed class AbstractPyType extends Representation
     }
 
     /**
-     * Called from {@link #__setattr__(String, Object)} and
-     * {@link #__delattr__(String)} after an attribute has been set or
-     * deleted. This gives the type the opportunity to recompute caches
-     * and perform any other actions needed.
+     * Called from {@code type.__setattr__} and
+     * {@code type.__delattr__(String)} after an attribute has been set
+     * or deleted. This gives the type the opportunity to recompute
+     * caches and perform any other actions needed.
      *
      * @param name of the attribute modified
      */
-    private void updateAfterSetAttr(String name) {
+    public // throughout the run time not Jython API.
+    void updateAfterSetAttr(String name) {
 
         // FIXME Notify sub-classes and other watchers.
-        // Think about synchronisation of threads to make this visible.
+        // Think about synchronisation: must take a lock on lookup.
 
+        /*
+         * We look up the current definition of name for this type,
+         * which has recently changed. Note that even when renmoving the
+         * name from the dictionary of this type, the effect may be to
+         * uncover new definition somewhere along the MRO, and so it
+         * becomes a change.
+         */
         LookupResult result = lookup(name, null);
         SpecialMethod sm = SpecialMethod.forMethodName(name);
 
         if (sm != null) {
-            // Update affects a special method cache.
+            // Update affects a special method.
             updateSpecialMethodCache(sm, result);
             // Some special methods need:
             KernelTypeFlag feature = switch (sm) {
@@ -766,8 +816,10 @@ public abstract sealed class AbstractPyType extends Representation
             // If sm corresponds to a feature flag
             if (feature != null) {
                 if (result != null) {
+                    // We are defining or changing sm
                     kernelFeatures.add(feature);
                 } else {
+                    // We are deleting sm
                     kernelFeatures.remove(feature);
                 }
             }
@@ -853,19 +905,13 @@ public abstract sealed class AbstractPyType extends Representation
              * The method descriptor is in a super class. Every
              * representation class of this type must be
              * assignment-compatible with a self-class where we found
-             * the descriptor.
+             * the descriptor (index 0 or an accepted class).
              */
             List<Class<?>> classes = where.selfClasses();
-            int n = classes.size(), index;
             for (Representation rep : representations()) {
-                for (index = 0; index < n; index++) {
-                    if (classes.get(index)
-                            .isAssignableFrom(javaClass)) {
-                        break;
-                    }
-                }
-                // descr supports this Java class at the given index
-                assert index < n;
+                Class<?> c = rep.javaClass;
+                int index = where.getSubclassIndex(c);
+                assert index < classes.size();
                 sm.setCache(rep, descr.getHandle(index));
             }
         }
@@ -874,7 +920,7 @@ public abstract sealed class AbstractPyType extends Representation
     // Special methods -----------------------------------------------
 
     /** @return {@code repr()} of this Python object. */
-    protected Object __repr__() {
+    public Object __repr__() {
         return String.format("<class '%s'>", getName());
     }
 
@@ -897,7 +943,7 @@ public abstract sealed class AbstractPyType extends Representation
      * @throws PyBaseException (TypeError) when cannot create instances
      * @throws Throwable from implementation slot functions
      */
-    protected Object __call__(Object[] args, String[] names)
+    public Object __call__(Object[] args, String[] names)
             throws PyBaseException, Throwable {
         try {
             return call(args, names);

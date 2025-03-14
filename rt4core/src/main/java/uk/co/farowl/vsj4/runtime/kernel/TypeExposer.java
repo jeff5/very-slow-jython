@@ -3,7 +3,6 @@
 package uk.co.farowl.vsj4.runtime.kernel;
 
 import java.lang.invoke.MethodHandles.Lookup;
-import java.util.Map;
 
 /**
  * Interface expected of the type exposer, and used by the
@@ -26,28 +25,14 @@ public interface TypeExposer {
      */
     void exposeMethods(Class<?> methodClass);
 
-    /// **
-    // * Gather members (fields exposed as Python attributes) from the
-    // * specified class. Definitions (a precursor of Python
-    // * descriptors) accumulate in the exposer.
-    // *
-    // * @param memberClass to scan for definitions
-    // */
-    // void exposeMembers(Class<?> memberClass);
-
     /**
-     * For each name having a definition in this {@code TypeExposer}
-     * instance, construct the attribute and add it to the map passed
-     * in. The map is normally the dictionary of the type. Attributes
-     * may rely on a {@code MethodHandle} or {@code VarHandle}, so a
-     * lookup object must be provided that can create them.
+     * Gather members (fields exposed as Python attributes) from the
+     * specified class. Definitions (a precursor of Python descriptors)
+     * accumulate in the exposer.
      *
-     * @param dict to which the attributes should be delivered
-     * @param lookup authorisation to access members
-     * @deprecated Use the iterator instead.
+     * @param memberClass to scan for definitions
      */
-    @Deprecated
-    void populate(Map<? super String, Object> dict, Lookup lookup);
+    void exposeMembers(Class<?> memberClass);
 
     /**
      * A name-value pair that hold one entry intended for the dictionary

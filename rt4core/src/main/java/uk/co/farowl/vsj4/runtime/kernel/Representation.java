@@ -10,10 +10,10 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.invoke.MethodType;
 
-import uk.co.farowl.vsj4.runtime.MethodDescriptor;
 import uk.co.farowl.vsj4.runtime.PyFloat;
 import uk.co.farowl.vsj4.runtime.PyLong;
 import uk.co.farowl.vsj4.runtime.PyType;
+import uk.co.farowl.vsj4.runtime.TypeFlag;
 import uk.co.farowl.vsj4.runtime.WithClass;
 import uk.co.farowl.vsj4.runtime.kernel.SpecialMethod.Signature;
 import uk.co.farowl.vsj4.support.InterpreterError;
@@ -80,6 +80,46 @@ public abstract class Representation {
      */
     public abstract PyType pythonType(Object x);
 
+    /**
+     * Fast check that an object with this representation is a data
+     * descriptor (defines {@code __set__} or {@code __delete__}).
+     *
+     * @param x subject of the enquiry
+     * @return {@code x} is a data descriptor
+     */
+    public boolean isDataDescr(Object x) {
+        PyType type = pythonType(x);
+        return type.hasFeature(KernelTypeFlag.HAS_SET)
+                || type.hasFeature(KernelTypeFlag.HAS_DELETE);
+    }
+
+    /**
+     * Fast check that an object with this representation has a
+     * specified feature. The idea is to avoid a call to
+     * {@link #pythonType(Object)}, when possible by overriding this in
+     * subclass.
+     *
+     * @param x subject of the enquiry
+     * @param feature to check for
+     * @return {@code x} is a data descriptor
+     */
+    public boolean hasFeature(Object x, TypeFlag feature) {
+        return pythonType(x).hasFeature(feature);
+    }
+
+    /**
+     * Fast check that an object with this representation has a
+     * specified feature. The idea is to avoid a call to
+     * {@link #pythonType(Object)}, when possible by overriding this in
+     * subclass.
+     *
+     * @param x subject of the enquiry
+     * @param feature to check for
+     * @return {@code x} is a data descriptor
+     */
+    public boolean hasFeature(Object x, KernelTypeFlag feature) {
+        return pythonType(x).hasFeature(feature);
+    }
 
     /**
      * Fast check that the target is exactly a Python {@code int}. We
@@ -133,13 +173,19 @@ public abstract class Representation {
      * Return the index of this {@code Representation} in the associated
      * type. Adoptive types support multiple Java representation classes
      * for their instances, and each Representation holds the index for
-     * the class(es) associated to it in the registry. For others
+     * the class(es) associated to it in the registry. For other
      * representations, the index is zero.
      * <p>
      * Each descriptor in the dictionary of that type is able to provide
      * an implementation of the method that applies to a {@code self}
      * with Java class equal to (or a subclass of) {@link #javaClass} of
      * the representation.
+     * <p>
+     * When a type accepts, as self-classes, the representations of some
+     * other type (as when {@code int} accepts {@code Boolean}), there
+     * is no {@link Representation} of it in the accepting type. The
+     * correct index must be determined by finding a compatible class in
+     * {@link AdoptiveType#selfClasses()}.
      *
      * @implSpec Override this in the {@link Adopted} representation.
      *     The default implementation returns zero.
@@ -148,45 +194,6 @@ public abstract class Representation {
      */
     @SuppressWarnings("static-method")
     public int getIndex() { return 0; }
-
-    /**
-     * Get a handle that implements the given special method for the
-     * given {@code self}, and which is assignment compatible (in Java)
-     * with {@link #javaClass}. The returned handle has the signature
-     * required by the particular special method, and is not bound to
-     * {@code self}.
-     *
-     * @deprecated This is questionable now: see
-     *     {@link SpecialMethod#generic} and the slot functions.
-     * @param sm a special method
-     * @param self first argument of the special method
-     * @return a handle on the special method
-     */
-    // Compare CPython SLOT* macros in typeobject.c
-    // FIXME Isn't this superseded by SpecialMethod.slot*() etc..
-    @Deprecated
-    public MethodHandle handle(SpecialMethod sm, Object self) {
-        MethodHandle mh;
-        if (sm.cache != null) {
-            // XXX What if javaClass isn't expected self class?
-            // We wouldn't have cached it, but when was that?
-            mh = (MethodHandle)sm.cache.get(this);
-        } else {
-            // XXX Could in-line getting the type if we specialise.
-            PyType type = pythonType(self);
-            // XXX Abstract rest as find method we use during caching?
-            Object attr = type.lookup(sm.methodName);
-            if (attr instanceof MethodDescriptor method) {
-                // XXX What if javaClass isn't expected self class?
-                mh = method.getHandle(getIndex());
-            } else {
-                // Return a handle on a call
-                mh = null; // method.getWrapped(javaClass);
-            }
-        }
-        assert mh.type().equals(sm.signature.type);
-        return mh;
-    }
 
     // ---------------------------------------------------------------
 
@@ -216,6 +223,16 @@ public abstract class Representation {
             super(javaClass);
             this.type = type;
             this.index = index;
+        }
+
+        @Override
+        public boolean hasFeature(Object x, TypeFlag feature) {
+            return type.hasFeature(feature);
+        }
+
+        @Override
+        public boolean hasFeature(Object x, KernelTypeFlag feature) {
+            return type.hasFeature(feature);
         }
 
         @Override
@@ -311,7 +328,6 @@ public abstract class Representation {
                 throw notSharedError(x);
             }
         }
-
 
         @Override
         public boolean isIntExact() { return false; }
