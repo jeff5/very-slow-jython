@@ -28,7 +28,7 @@ import uk.co.farowl.vsj4.support.internal.EmptyException;
  */
 // Compare CPython struct PyGetSetDef in descrobject.h,
 // and PyGetSetDescrObject also in descrobject.h
-abstract class PyGetSetDescr extends DataDescriptor {
+public abstract class PyGetSetDescr extends DataDescriptor {
 
     static final Lookup LOOKUP = MethodHandles.lookup();
     static final PyType TYPE =

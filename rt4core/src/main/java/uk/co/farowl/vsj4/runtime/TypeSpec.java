@@ -11,6 +11,7 @@ import java.util.EnumSet;
 import java.util.LinkedList;
 import java.util.List;
 
+import uk.co.farowl.vsj4.runtime.internal.NamedSpec;
 import uk.co.farowl.vsj4.runtime.kernel.SimpleType;
 import uk.co.farowl.vsj4.support.InterpreterError;
 
