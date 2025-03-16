@@ -195,8 +195,17 @@ task moduleJavadoc(type:Javadoc,
     title = "rt4core Client API"
     destinationDir = file("${buildDir}/docs/api")
 
-    // addStringOption adds a "-" for us so "--module" is spelled:/
-    //options.addStringOption("-module", "uk.co.farowl.rt4core")
+    def ccp = sourceSets.main.compileClasspath
+    //println "ccp.files = ${ccp.files}"
+    classpath.from(ccp)
+
+    //modularity.inferModulePath = false
+    //options.modulePath(new ArrayList(ccp.files))
+    //println "options.modulePath = ${options.modulePath}"
+
+    // addStringOption adds a "-" for us so "--module" is spelled:
+    // options.addStringOption("-module", ... )
+    // options.addStringOption("-module", "uk.co.farowl.rt4core")
     options.addStringOption("-show-packages", "exported")
     options.addStringOption("-show-module-contents", "api")
 }
@@ -206,6 +215,7 @@ javadoc {
     title = "rt4core Public API"
     options.addStringOption("-show-packages", "exported")
     options.addStringOption("-show-module-contents", "api")
+    options.showFromProtected()
 }
 
 
@@ -217,13 +227,18 @@ task internalJavadoc(type:Javadoc,
     title = "rt4core Project Internal"
     destinationDir = file("${buildDir}/docs/internalJavadoc")
 
+    // Work around poor handling of modules in Gradle
+    // Possibly https://github.com/gradle/gradle/issues/25954
     def ccp = sourceSets.main.compileClasspath
-    //println "ccp.files = ${ccp.files}"
-    classpath.from(ccp)
+    modularity.inferModulePath = false
+    options.modulePath(new ArrayList(ccp.files))
+    println "options.modulePath = ${options.modulePath}"
+    //options.addStringOption("-module", "uk.co.farowl.rt4core")
 
     options.showFromPackage()
     //options.showFromPrivate()
 }
+internalJavadoc.dependsOn(generateJava)
 
 
 // Task to generate javadoc for test code
@@ -286,6 +301,7 @@ tasks.withType(Javadoc) {
         // A bit of reassurance: this was hard to get right
         println "inferModulePath = ${modularity.inferModulePath.getOrNull()}"
         println "module path = ${options.modulePath}"
+        //println "source path = ${source.files}"
         FileCollection roots = layout.files(CompilationSourceDirs.inferSourceRoots(source))
         println "roots.files = ${roots.files}"
     }
