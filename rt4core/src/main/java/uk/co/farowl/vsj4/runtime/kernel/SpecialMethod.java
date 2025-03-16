@@ -730,7 +730,7 @@ public enum SpecialMethod {
         // return callAsMethod(type, meth, self, args, kwds);
 
         // What kind of object did we find? (Could be anything.)
-        Representation methRep = SimpleType.getRepresentation(meth);
+        Representation methRep = AnyType.getRepresentation(meth);
         assert methRep != null;
 
         if (methRep.pythonType(meth).isMethodDescr()) {
@@ -830,7 +830,7 @@ public enum SpecialMethod {
             Object self, Object[] args, String[] kwds)
             throws PyBaseException, Throwable {
         // What kind of object did we find? (Could be anything.)
-        Representation rep = SimpleType.getRepresentation(meth);
+        Representation rep = AnyType.getRepresentation(meth);
         PyType methType = rep.pythonType(meth);
 
         if (methType.isMethodDescr()) {

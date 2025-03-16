@@ -19,7 +19,7 @@ import uk.co.farowl.vsj4.runtime.PyType;
  * {@code AdoptiveType} holds a {@link Representation} object for each
  * adopted representation.
  */
-public final class AdoptiveType extends PyType {
+public final class AdoptiveType extends AnyType {
 
     /**
      * A {@link Representation} object for each class represented,

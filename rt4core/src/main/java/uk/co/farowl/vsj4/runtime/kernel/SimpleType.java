@@ -16,7 +16,7 @@ import uk.co.farowl.vsj4.runtime.PyType;
  * must have a {@code self} parameter that accepts the representation
  * class (or a superclass).
  */
-public non-sealed class SimpleType extends PyType {
+public non-sealed class SimpleType extends AnyType {
 
     /** To return as {@link #canonicalClass()}. */
     private final Class<?> canonicalClass;

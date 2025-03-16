@@ -15,7 +15,7 @@ import uk.co.farowl.vsj4.runtime.PyType;
  * such a type will have the common Java type (or a superclass) as their
  * {@code self} parameter.
  */
-public final class ReplaceableType extends PyType {
+public final class ReplaceableType extends AnyType {
 
     /** The representation shared by this type and others. */
     final Representation.Shared representation;

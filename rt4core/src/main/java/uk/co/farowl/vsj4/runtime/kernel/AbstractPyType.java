@@ -1011,7 +1011,7 @@ public abstract sealed class AbstractPyType extends Representation
     private void maybeInit(Object obj, Object[] args, String[] names)
             throws Throwable {
         assert obj != null;
-        Representation rep = SimpleType.getRepresentation(obj);
+        Representation rep = AnyType.getRepresentation(obj);
         PyType objType = rep.pythonType(obj);
         /*
          * If obj is an instance of this type (or of a sub-type) call

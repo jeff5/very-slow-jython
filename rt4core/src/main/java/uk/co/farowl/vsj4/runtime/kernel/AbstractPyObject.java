@@ -79,7 +79,7 @@ public abstract class AbstractPyObject {
      */
     // Compare CPython object_str in typeobject.c
     static Object __str__(Object self) throws Throwable {
-        Representation rep = SimpleType.getRepresentation(self);
+        Representation rep = AnyType.getRepresentation(self);
         try {
             return rep.op_repr().invokeExact(self);
         } catch (EmptyException ee) {
@@ -161,7 +161,7 @@ public abstract class AbstractPyObject {
         if (typeAttr != null) {
             // Found in the type, it might be a descriptor
             Representation typeAttrRep =
-                    SimpleType.getRepresentation(typeAttr);
+                    AnyType.getRepresentation(typeAttr);
             descrGet = typeAttrRep.op_get();
             if (typeAttrRep.pythonType(typeAttr).isDataDescr()) {
                 // typeAttr is a data descriptor so call its __get__.
@@ -256,7 +256,7 @@ public abstract class AbstractPyObject {
         if (typeAttr != null) {
             // Found in the type, it might be a descriptor.
             Representation typeAttrRep =
-                    SimpleType.getRepresentation(typeAttr);
+                    AnyType.getRepresentation(typeAttr);
             // Try descriptor __set__
             try {
                 typeAttrRep.op_set().invokeExact(typeAttr, obj, value);
@@ -333,7 +333,7 @@ public abstract class AbstractPyObject {
         if (typeAttr != null) {
             // Found in the type, it might be a descriptor.
             Representation typeAttrRep =
-                    SimpleType.getRepresentation(typeAttr);
+                    AnyType.getRepresentation(typeAttr);
             // Try descriptor __delete__
             try {
                 typeAttrRep.op_delete().invokeExact(typeAttr, obj);
