@@ -26,12 +26,13 @@ import uk.co.farowl.vsj4.runtime.PyFloat;
 import uk.co.farowl.vsj4.runtime.PyFloatMethods;
 import uk.co.farowl.vsj4.runtime.PyLong;
 import uk.co.farowl.vsj4.runtime.PyLongMethods;
+import uk.co.farowl.vsj4.runtime.PyObject;
 import uk.co.farowl.vsj4.runtime.PyType;
 import uk.co.farowl.vsj4.runtime.PyUnicode;
 import uk.co.farowl.vsj4.runtime.PyUnicodeMethods;
+import uk.co.farowl.vsj4.runtime.Representation;
 import uk.co.farowl.vsj4.runtime.TypeSpec;
 import uk.co.farowl.vsj4.runtime.WithClass;
-import uk.co.farowl.vsj4.runtime.kernel.Representation.Shared;
 import uk.co.farowl.vsj4.support.InterpreterError;
 
 /**
@@ -176,9 +177,9 @@ public class TypeFactory {
          * construction, which we create from their type objects.
          * PyType.fromSpec would not have been safe at this stage.
          */
-        TypeSpec specOfObject = new PrimordialTypeSpec(objectType,
-                AbstractPyObject.LOOKUP)
-                        .methodImpls(AbstractPyObject.class);
+        TypeSpec specOfObject =
+                new PrimordialTypeSpec(objectType, runtimeLookup)
+                        .methodImpls(PyObject.class);
         TypeSpec specOfType =
                 new PrimordialTypeSpec(typeType, runtimeLookup)
                         .canonicalBase(SimpleType.class);
@@ -730,13 +731,13 @@ public class TypeFactory {
                  * primary class, but it is allowable that it already
                  * have a representation.
                  */
-                Shared sr;
+                SharedRepresentation sr;
                 Representation existing = registry.find(primary);
                 if (existing == null) {
                     // It doesn't exist, so we create and add it.
-                    sr = new Shared(primary, canonical);
+                    sr = new SharedRepresentation(primary, canonical);
                     publishLocally(primary, sr);
-                } else if (existing instanceof Shared s) {
+                } else if (existing instanceof SharedRepresentation s) {
                     // It does exist and is a Shared type: just use it.
                     assert s.canonicalClass() == canonical;
                     sr = s;

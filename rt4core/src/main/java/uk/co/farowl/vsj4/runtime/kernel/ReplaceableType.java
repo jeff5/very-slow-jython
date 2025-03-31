@@ -1,10 +1,11 @@
-// Copyright (c)2024 Jython Developers.
+// Copyright (c)2025 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime.kernel;
 
 import java.util.List;
 
 import uk.co.farowl.vsj4.runtime.PyType;
+import uk.co.farowl.vsj4.runtime.Representation;
 
 /**
  * A Python type object used where multiple Python types share a single
@@ -18,7 +19,7 @@ import uk.co.farowl.vsj4.runtime.PyType;
 public final class ReplaceableType extends AnyType {
 
     /** The representation shared by this type and others. */
-    final Representation.Shared representation;
+    final SharedRepresentation representation;
 
     /**
      * Construct one of several types that share a single representation
@@ -28,9 +29,9 @@ public final class ReplaceableType extends AnyType {
      * @param representation shared
      * @param bases of the new type
      */
-    ReplaceableType(String name, Representation.Shared representation,
+    ReplaceableType(String name, SharedRepresentation representation,
             PyType[] bases) {
-        super(name, representation.javaClass, bases);
+        super(name, representation.javaClass(), bases);
         this.representation = representation;
     }
 

@@ -1,10 +1,7 @@
 package uk.co.farowl.vsj4c.app;
 
-import java.lang.invoke.MethodHandle;
-
 import uk.co.farowl.vsj4.runtime.Abstract;
 import uk.co.farowl.vsj4.runtime.Callables;
-import uk.co.farowl.vsj4.runtime.PyLong;
 import uk.co.farowl.vsj4.runtime.PyNumber;
 import uk.co.farowl.vsj4c.ext.Extension;
 
@@ -67,23 +64,10 @@ public class ClientApp {
             Object r = Callables.call(f);
             System.out.println(r); // <MyType object at ...>
 
-            // Special methods have their own methods on types.
-            // TODO: should clients see SM and other handles?
-            MethodHandle mh;
-            mh = MyType.TYPE.op_str();
-            System.out.println(mh.invoke(mt));
-
             // Special methods support corresponding Abstract API.
             System.out.println(Abstract.str(mt));
             System.out.println(Abstract.repr(mt));
             System.out.println(PyNumber.negative(42));
-
-
-            // Special methods have their own methods on types.
-            // TODO: should clients see SM and other handles?
-            mh = PyLong.TYPE.op_neg();
-            // FIXME: finds wrong MH once we cache __neg__.
-            System.out.println(mh.invoke(42));
 
         } catch (Throwable e) {
             e.printStackTrace();

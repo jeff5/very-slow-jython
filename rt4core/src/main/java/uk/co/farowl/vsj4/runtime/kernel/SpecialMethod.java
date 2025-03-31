@@ -26,8 +26,8 @@ import uk.co.farowl.vsj4.runtime.PyErr;
 import uk.co.farowl.vsj4.runtime.PyExc;
 import uk.co.farowl.vsj4.runtime.PyLong;
 import uk.co.farowl.vsj4.runtime.PyType;
+import uk.co.farowl.vsj4.runtime.Representation;
 import uk.co.farowl.vsj4.runtime.internal._PyUtil;
-import uk.co.farowl.vsj4.runtime.kernel.Representation.Shared;
 import uk.co.farowl.vsj4.support.InterpreterError;
 import uk.co.farowl.vsj4.support.internal.EmptyException;
 
@@ -544,9 +544,10 @@ public enum SpecialMethod {
      * This handle is needed when the the implementation of the special
      * method is in Python. (It will work, or raise the right error,
      * with any object found in the dictionary of a type.) It may
-     * therefore be used to call the special methods of a {@link Shared
-     * shared representation} where the clique of replaceable types may
-     * disagree about the implementation method.
+     * therefore be used to call the special methods of a
+     * {@link SharedRepresentation shared representation} where the
+     * clique of replaceable types may disagree about the implementation
+     * method.
      *
      * @implNote These weasel words allow the possibility of an
      *     optimisation. All members of the clique share a common
@@ -560,7 +561,7 @@ public enum SpecialMethod {
      */
     // XXX Implement the optimisation (and merge the note).
     // Compare CPython wrapperbase.function in descrobject.h
-    final MethodHandle generic;
+    public final MethodHandle generic;
 
     /** Description to use in help messages */
     public final String doc;
@@ -753,7 +754,11 @@ public enum SpecialMethod {
              */
             try {
                 // Replace meth with result of descriptor binding.
-                meth = methRep.op_get().invokeExact(meth, self, type);
+                // FIXME: undecided how exactly to call __get__ here
+                // meth = methRep.op_get().invokeExact(meth, self,
+                // type);
+                meth = op_get.handle(methRep).invokeExact(meth, self,
+                        type);
             } catch (EmptyException e) {
                 // Not a descriptor at all.
             }
@@ -850,7 +855,9 @@ public enum SpecialMethod {
              */
             try {
                 // Replace meth with result of descriptor binding.
-                meth = rep.op_get().invokeExact(meth, self, type);
+                // FIXME: undecided how exactly to call __get__ here
+                // meth = rep.op_get().invokeExact(meth, self, type);
+                meth = op_get.handle(rep).invokeExact(meth, self, type);
             } catch (EmptyException e) {
                 // Not a descriptor at all.
             }
@@ -1160,7 +1167,8 @@ public enum SpecialMethod {
      * be used in the constructors of {@code SpecialMethod} values,
      * before that class is properly initialised.
      */
-    static final class SMUtil extends Representation.Accessor {
+    // FIXME: find a less public way
+    public static final class SMUtil extends Representation.Accessor {
         /*
          * This is a class separate from SpecialMethod to solve problems
          * with the order of static initialisation. The enum constants

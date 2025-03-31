@@ -31,6 +31,7 @@ import uk.co.farowl.vsj4.runtime.PyLong;
 import uk.co.farowl.vsj4.runtime.PyTuple;
 import uk.co.farowl.vsj4.runtime.PyType;
 import uk.co.farowl.vsj4.runtime.PyUnicode;
+import uk.co.farowl.vsj4.runtime.Representation;
 import uk.co.farowl.vsj4.runtime.TypeFlag;
 import uk.co.farowl.vsj4.runtime.TypeSpec;
 import uk.co.farowl.vsj4.runtime.WithClass;
@@ -231,7 +232,7 @@ public abstract sealed class AbstractPyType extends Representation
      * <p>
      * For a {@link SimpleType}, this is a list with exactly one
      * element: the type itself. In other cases, the single element is a
-     * {@link Shared representation shared} with those types that may
+     * {@link SharedRepresentation} shared with those types that may
      * replace this type on an object. Only an {@link AdoptiveType} is
      * able to support multiple representations.
      *
@@ -909,7 +910,7 @@ public abstract sealed class AbstractPyType extends Representation
              */
             List<Class<?>> classes = where.selfClasses();
             for (Representation rep : representations()) {
-                Class<?> c = rep.javaClass;
+                Class<?> c = rep.javaClass();
                 int index = where.getSubclassIndex(c);
                 assert index < classes.size();
                 sm.setCache(rep, descr.getHandle(index));
@@ -1020,7 +1021,8 @@ public abstract sealed class AbstractPyType extends Representation
         if (objType.isSubTypeOf(this)) {
             try {
                 // Call obj.__init__ (args, names)
-                rep.op_init().invoke(obj, args, names);
+                MethodHandle init = SpecialMethod.op_init.handle(rep);
+                init.invoke(obj, args, names);
             } catch (EmptyException ee) {
                 // Not an error for __init__ not to be defined
             }
