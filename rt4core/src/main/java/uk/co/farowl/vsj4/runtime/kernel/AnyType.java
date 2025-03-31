@@ -25,7 +25,8 @@ public abstract sealed class AnyType extends PyType
     /**
      * Determine (or create if necessary) the {@link Representation} for
      * the given object. The representation is found (in the type
-     * registry) from the Java class of the argument.<p>
+     * registry) from the Java class of the argument.
+     * <p>
      * Duplicates {@code PyType.getRepresentation} for the kernel.
      *
      * @param o for which a {@code Representation} is required
@@ -33,5 +34,9 @@ public abstract sealed class AnyType extends PyType
      */
     static Representation getRepresentation(Object o) {
         return registry.get(o.getClass());
+    }
+
+    protected static boolean systemReady() {
+        return PyType.systemReady();
     }
 }

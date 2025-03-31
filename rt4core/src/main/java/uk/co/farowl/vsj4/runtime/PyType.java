@@ -249,7 +249,7 @@ public abstract sealed class PyType extends AbstractPyType
      *
      * @return type {@code true} iff system is ready for use.
      */
-    static boolean systemReady() { return readyNanoTime != 0L; }
+    protected static boolean systemReady() { return readyNanoTime != 0L; }
 
     /**
      * {@code true} iff the type of {@code o} is a Python sub-type of
@@ -261,7 +261,7 @@ public abstract sealed class PyType extends AbstractPyType
      * @param o object to test
      * @return {@code true} iff {@code o} is of a sub-type of this type
      */
-    boolean check(Object o) {
+    public boolean check(Object o) {
         PyType t = PyType.of(o);
         return t == this || t.isSubTypeOf(this);
     }

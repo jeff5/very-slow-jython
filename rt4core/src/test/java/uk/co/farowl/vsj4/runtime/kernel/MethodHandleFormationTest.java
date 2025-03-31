@@ -111,8 +111,9 @@ public class MethodHandleFormationTest {
         SpecialMethod.op_hash.setCache(basic, length);
         SpecialMethod.op_str.setCache(basic, unary);
 
-        MethodHandle hash = basic.op_hash();
-        MethodHandle str = basic.op_str();
+        // Preserve current settings for test at end
+        MethodHandle hash0 = basic.op_hash();
+        MethodHandle str0 = basic.op_str();
 
         // These should be prevented
         assertThrows(InterpreterError.class, () -> { //
@@ -132,8 +133,8 @@ public class MethodHandleFormationTest {
         });
 
         // And the slots should have the value read earlier
-        assertEquals(hash, basic.op_hash(), "slot modified");
-        assertEquals(str, basic.op_str(), "slot modified");
+        assertEquals(hash0, basic.op_hash(), "slot modified");
+        assertEquals(str0, basic.op_str(), "slot modified");
     }
 
     /**
@@ -166,8 +167,9 @@ public class MethodHandleFormationTest {
         SpecialMethod.op_neg.setCache(number, unary);
         SpecialMethod.op_add.setCache(number, binary);
 
-        MethodHandle neg = number.op_neg();
-        MethodHandle add = number.op_add();
+        // Preserve current settings for test at end
+        MethodHandle neg0 = number.op_neg();
+        MethodHandle add0 = number.op_add();
 
         // These should be prevented
         assertThrows(InterpreterError.class, () -> { //
@@ -197,8 +199,8 @@ public class MethodHandleFormationTest {
         });
 
         // And the slots should have the value read earlier
-        assertEquals(neg, number.op_neg(), "slot modified");
-        assertEquals(add, number.op_add(), "slot modified");
+        assertEquals(neg0, number.op_neg(), "slot modified");
+        assertEquals(add0, number.op_add(), "slot modified");
     }
 
     /**
@@ -224,7 +226,8 @@ public class MethodHandleFormationTest {
         // This is allowed
         SpecialMethod.op_len.setCache(sequence, length);
 
-        MethodHandle len = sequence.op_len();
+        // Preserve current setting for test at end
+        MethodHandle len0 = sequence.op_len();
 
         // These should be prevented
         assertThrows(InterpreterError.class, () -> { //
@@ -241,7 +244,7 @@ public class MethodHandleFormationTest {
         });
 
         // And the slot should have the value read earlier
-        assertEquals(len, sequence.op_len(), "slot modified");
+        assertEquals(len0, sequence.op_len(), "slot modified");
     }
 
     /**
@@ -268,6 +271,7 @@ public class MethodHandleFormationTest {
         SpecialMethod.op_getitem.setCache(mapping, getitem);
         SpecialMethod.op_setitem.setCache(mapping, setitem);
 
+        // Preserve current settings for test at end
         MethodHandle getitem0 = mapping.op_getitem();
         MethodHandle setitem0 = mapping.op_setitem();
 
