@@ -16,7 +16,7 @@ import uk.co.farowl.vsj4.support.InterpreterError;
  * {@code @Member} annotations) to get and optionally set or delete the
  * value, with default type conversions.
  */
-abstract class PyMemberDescr extends DataDescriptor {
+public abstract class PyMemberDescr extends DataDescriptor {
 
     /** The type of Python object this class implements. */
     static final PyType TYPE = PyType.fromSpec( //

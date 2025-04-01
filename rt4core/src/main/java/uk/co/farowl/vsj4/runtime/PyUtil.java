@@ -4,7 +4,6 @@ package uk.co.farowl.vsj4.runtime;
 
 import java.lang.invoke.MethodHandle;
 
-import uk.co.farowl.vsj4.runtime.kernel.Representation;
 import uk.co.farowl.vsj4.support.internal.EmptyException;
 
 /**
@@ -29,7 +28,8 @@ public class PyUtil {
      * define {@code __str__} or {@code __repr__} in terms of
      * {@code toString()}, as this will create a loop.
      * <p>
-     * The following sequence of delegations operates in Python:
+     * The following sequence of delegations operates in Python, when
+     * the built in function {@code str()} is called:
      * <ol>
      * <li>{@code str(x)} returns {@code x} if {@code X=type(x)} is
      * exactly {@code str}.</li>
@@ -39,9 +39,14 @@ public class PyUtil {
      * {@code object.__str__}.</li>
      * <li>{@code object.__str__(x)} calls {@code X.__repr__(x)}, if it
      * is not empty, or defaults to {@code object.__repr__(x)}.</li>
-     * <li>{@code repr(x)} calls {@code X.__repr__(x)}, if it is not
-     * empty, or defaults to a formula {@code "<X object at A>"} formed
-     * from the type and the hex identity of {@code x}.</li>
+     * </ol>
+     * The following sequence of delegations operates in Python, when
+     * the built in function {@code repr()} is called:
+     * <ol>
+     * <li>{@code repr(x)} calls {@code X.__repr__(x)}, where
+     * {@code X=type(x)}, if it is not empty, or defaults to a formula
+     * {@code "<X object at A>"} formed from the type and the hex
+     * identity of {@code x}.</li>
      * <li>{@code X.__repr__} may be the inherited
      * {@code object.__repr__}.</li>
      * <li>{@code object.__repr__(x)} returns a string like

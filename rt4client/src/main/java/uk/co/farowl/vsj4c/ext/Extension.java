@@ -1,12 +1,14 @@
 package uk.co.farowl.vsj4c.ext;
 
+import uk.co.farowl.vsj4.runtime.Exposed;
+
 public class Extension
 // extends JavaModule
 {
 
-//    @Exposed.PythonMethod
+    @Exposed.PythonMethod
     public int foo(int x) {
-        return ((x - 12)*x + 47)*x - 18;
+        return ((x - 12) * x + 47) * x - 18;
     }
 
     public Extension() {

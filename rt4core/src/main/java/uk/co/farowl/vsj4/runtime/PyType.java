@@ -15,11 +15,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import uk.co.farowl.vsj4.runtime.kernel.AbstractPyType;
-import uk.co.farowl.vsj4.runtime.kernel.AdoptiveType;
 import uk.co.farowl.vsj4.runtime.kernel.MROCalculator;
-import uk.co.farowl.vsj4.runtime.kernel.ReplaceableType;
-import uk.co.farowl.vsj4.runtime.kernel.Representation;
-import uk.co.farowl.vsj4.runtime.kernel.SimpleType;
+import uk.co.farowl.vsj4.runtime.kernel.AnyType;
 import uk.co.farowl.vsj4.runtime.kernel.SpecialMethod;
 import uk.co.farowl.vsj4.runtime.kernel.TypeFactory;
 import uk.co.farowl.vsj4.runtime.kernel.TypeFactory.Clash;
@@ -41,7 +38,7 @@ import uk.co.farowl.vsj4.support.internal.EmptyException;
  * comes into being upon first use of the {@code PyType} class.
  */
 public abstract sealed class PyType extends AbstractPyType
-        permits SimpleType, ReplaceableType, AdoptiveType {
+        permits AnyType {
 
     /** Logger for (the public face of) the type system. */
     static final Logger logger = LoggerFactory.getLogger(PyType.class);
@@ -251,7 +248,7 @@ public abstract sealed class PyType extends AbstractPyType
      *
      * @return type {@code true} iff system is ready for use.
      */
-    static boolean systemReady() { return readyNanoTime != 0L; }
+    protected static boolean systemReady() { return readyNanoTime != 0L; }
 
     /**
      * {@code true} iff the type of {@code o} is a Python sub-type of
@@ -263,7 +260,7 @@ public abstract sealed class PyType extends AbstractPyType
      * @param o object to test
      * @return {@code true} iff {@code o} is of a sub-type of this type
      */
-    boolean check(Object o) {
+    public boolean check(Object o) {
         PyType t = PyType.of(o);
         return t == this || t.isSubTypeOf(this);
     }

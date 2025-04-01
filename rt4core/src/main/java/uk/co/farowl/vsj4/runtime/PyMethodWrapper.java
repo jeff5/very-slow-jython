@@ -21,7 +21,7 @@ import uk.co.farowl.vsj4.runtime.internal._PyUtil;
  */
 // Compare CPython wrapperobject in descrobject.c
 // and _PyMethodWrapper_Type in descrobject.c
-class PyMethodWrapper implements WithClass, FastCall {
+public class PyMethodWrapper implements WithClass, FastCall {
 
     static final PyType TYPE = PyType.fromSpec(
             new TypeSpec("method-wrapper", MethodHandles.lookup())

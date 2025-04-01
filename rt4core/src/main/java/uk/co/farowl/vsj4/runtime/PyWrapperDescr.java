@@ -7,7 +7,6 @@ import java.lang.invoke.MethodHandles;
 import java.util.Arrays;
 
 import uk.co.farowl.vsj4.runtime.ArgumentError.Mode;
-import uk.co.farowl.vsj4.runtime.kernel.Representation;
 import uk.co.farowl.vsj4.runtime.kernel.SpecialMethod;
 import uk.co.farowl.vsj4.support.internal.Util;
 

@@ -1,4 +1,4 @@
-// Copyright (c)2024 Jython Developers.
+// Copyright (c)2025 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime.kernel;
 
@@ -6,6 +6,7 @@ import java.lang.invoke.MethodHandles;
 import java.util.List;
 
 import uk.co.farowl.vsj4.runtime.PyType;
+import uk.co.farowl.vsj4.runtime.Representation;
 
 /**
  * A Python type object used where instances (in Python) of the type
@@ -16,7 +17,7 @@ import uk.co.farowl.vsj4.runtime.PyType;
  * must have a {@code self} parameter that accepts the representation
  * class (or a superclass).
  */
-public non-sealed class SimpleType extends PyType {
+public non-sealed class SimpleType extends AnyType {
 
     /** To return as {@link #canonicalClass()}. */
     private final Class<?> canonicalClass;
