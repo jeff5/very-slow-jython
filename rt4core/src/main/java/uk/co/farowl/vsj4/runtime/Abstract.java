@@ -6,7 +6,6 @@ import java.lang.invoke.MethodHandle;
 import java.util.function.Supplier;
 
 import uk.co.farowl.vsj4.runtime.internal._PyUtil;
-import uk.co.farowl.vsj4.runtime.kernel.Representation;
 import uk.co.farowl.vsj4.runtime.kernel.SpecialMethod;
 import uk.co.farowl.vsj4.support.InterpreterError;
 import uk.co.farowl.vsj4.support.internal.EmptyException;

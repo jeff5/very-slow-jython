@@ -4,7 +4,6 @@ package uk.co.farowl.vsj4.runtime;
 
 import java.lang.invoke.MethodHandle;
 
-import uk.co.farowl.vsj4.runtime.kernel.Representation;
 import uk.co.farowl.vsj4.support.internal.EmptyException;
 
 /**

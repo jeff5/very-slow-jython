@@ -13,7 +13,6 @@ import java.lang.invoke.MethodType;
 import uk.co.farowl.vsj4.runtime.Exposed.Deleter;
 import uk.co.farowl.vsj4.runtime.Exposed.Getter;
 import uk.co.farowl.vsj4.runtime.Exposed.Setter;
-import uk.co.farowl.vsj4.runtime.kernel.Representation;
 import uk.co.farowl.vsj4.support.InterpreterError;
 import uk.co.farowl.vsj4.support.internal.EmptyException;
 

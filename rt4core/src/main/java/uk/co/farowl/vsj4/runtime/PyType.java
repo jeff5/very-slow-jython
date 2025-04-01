@@ -17,7 +17,6 @@ import org.slf4j.LoggerFactory;
 import uk.co.farowl.vsj4.runtime.kernel.AbstractPyType;
 import uk.co.farowl.vsj4.runtime.kernel.MROCalculator;
 import uk.co.farowl.vsj4.runtime.kernel.AnyType;
-import uk.co.farowl.vsj4.runtime.kernel.Representation;
 import uk.co.farowl.vsj4.runtime.kernel.SpecialMethod;
 import uk.co.farowl.vsj4.runtime.kernel.TypeFactory;
 import uk.co.farowl.vsj4.runtime.kernel.TypeFactory.Clash;
