@@ -758,7 +758,7 @@ public abstract sealed class AbstractPyType extends Representation
      * construction.
      *
      * @param exposer from which to populate the dictionary
-     * @param supplying the lookup object
+     * @param spec supplying the type's lookup object
      */
     void populateDict(TypeExposer exposer, TypeSpec spec) {
 

@@ -3,6 +3,8 @@
 package uk.co.farowl.vsj4.runtime;
 
 import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodHandles.Lookup;
 
 import uk.co.farowl.vsj4.runtime.kernel.AdoptiveType;
 import uk.co.farowl.vsj4.runtime.kernel.KernelTypeFlag;
@@ -11,20 +13,44 @@ import uk.co.farowl.vsj4.runtime.kernel.SpecialMethod.Signature;
 
 /**
  * A {@code Representation} provides Python behaviour to a Java object
- * by linking its Java class to essential type information. In many
- * cases, the Java class alone determines the behaviour (the Python
- * type). In cases where instances of the the Java class can represent
- * objects with multiple Python types,
- * {@link Representation#pythonType(Object)} refers to the Python object
- * itself for the actual type.
+ * by linking its Java class to essential type information. Every Java
+ * class has a {@code Representation} that may be found from the type
+ * system, even if it must be created to satisfy the enquiry. Java
+ * classes may share a representation if they are all subclasses of the
+ * same base in Java.
+ * <p>
+ * In many cases, the Java class alone determines the {@link PyType
+ * Python type} and behaviour. In cases where instances of the Java
+ * class can represent objects with different (or mutable) Python type,
+ * the object itself identifies the actual type by implementing
+ * {@link WithClass}.
  * <p>
  * The run-time system will form a mapping from each Java class to an
  * instance of (a specific sub-class of) {@code Representation}. Apart
  * from a small collection of bootstrap classes (all of them built-in
- * types), this mapping will be developed as the classes are encountered
- * through the use of instances of them in Python code.
+ * types), this mapping will be developed as instances of the classes
+ * are encountered in Python code.
  */
 public abstract class Representation {
+
+    /*
+     * Give SpecialMethod access to private members (so it may write the
+     * method handle caches), and to the runtime package in general. It
+     * looks clunky, but seems the only way to supply the necessary
+     * access and keep the module API clean.
+     */
+    static {
+        SpecialMethod.SMUtil.provideAccess(
+                // Anonymously implement the requirement
+                new SpecialMethod.Required() {
+                    // private lookup to access caches
+                    private static final Lookup LOOKUP =
+                            MethodHandles.lookup();
+
+                    @Override
+                    public Lookup getLookup() { return LOOKUP; }
+                });
+    }
 
     /**
      * The common type (class or interface) of Java classes representing
@@ -136,19 +162,6 @@ public abstract class Representation {
      * @return target is exactly a Python {@code float}
      */
     public boolean isFloatExact() { return this == PyFloat.TYPE; }
-
-    /**
-     * Get the specific {@code Representation} of the object <i>given
-     * that</i> this is the representation object for its class.
-     *
-     * @implSpec Override this in the {@code SharedRepresentation}
-     *     representation to return the type. The default implementation
-     *     returns {@code this}.
-     *
-     * @param x subject of the enquiry
-     * @return {@code type(x)}
-     */
-    public Representation unshared(Object x) { return this; }
 
     /**
      * A base Java class representing instances of the related Python
@@ -1041,16 +1054,5 @@ public abstract class Representation {
     @SuppressWarnings("static-method")
     MethodHandle op_contains() {
         return SpecialMethod.op_contains.generic;
-    }
-
-    /**
-     * The purpose of this class is to give {@link SpecialMethod}
-     * privileged access to Representation. This makes it possible for
-     * it to write to the caches.
-     */
-    // FIXME: find a less public way
-    public static abstract sealed class Accessor
-            permits SpecialMethod.SMUtil {
-
     }
 }

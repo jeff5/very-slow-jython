@@ -1163,12 +1163,33 @@ public enum SpecialMethod {
     }
 
     /**
+     * An object of this type must be passed to
+     * {@link SMUtil#provideAccess(Required)}, before the class
+     * {@link SpecialMethod} is initialised.
+     * <p>
+     * The kernel makes extensive use of the public API of the runtime
+     * package that is also exported to clients of the {@code core}
+     * module. In a few places, it requires privileged (i.e. package)
+     * access to additional operations that should not be available to
+     * clients. Here, that includes access to the special method caches
+     * in every {@link Representation}.
+     */
+    public interface Required {
+        /**
+         * Retrieve a {@link Lookup} to give it access to the special
+         * method caches in every {@link Representation}.
+         *
+         * @return access to the special method caches
+         */
+        Lookup getLookup();
+    }
+
+    /**
      * Helpers for {@link SpecialMethod} and {@link Signature} that can
      * be used in the constructors of {@code SpecialMethod} values,
      * before that class is properly initialised.
      */
-    // FIXME: find a less public way
-    public static final class SMUtil extends Representation.Accessor {
+    public static final class SMUtil {
         /*
          * This is a class separate from SpecialMethod to solve problems
          * with the order of static initialisation. The enum constants
@@ -1188,8 +1209,11 @@ public enum SpecialMethod {
         final static Logger logger =
                 LoggerFactory.getLogger(SpecialMethod.class);
 
-        /** Rights to look up methods locally. */
+        /** Rights to look up members locally. */
         private static final Lookup LOOKUP = MethodHandles.lookup();
+
+        /** Mechanism to access runtime package. */
+        private static Required runtimeAccess;
 
         /**
          * Single re-used instance of
@@ -1226,6 +1250,19 @@ public enum SpecialMethod {
         }
 
         /**
+         * Provide the access required by the {@code SpecialMethod}
+         * class to the {@code runtime} package. This must only be
+         * called in the static initialisation of
+         * {@code Representation}.
+         *
+         * @param access object providing access
+         */
+        public static void provideAccess(Required access) {
+            logger.atDebug().log("runtime access provided");
+            runtimeAccess = access;
+        }
+
+        /**
          * Helper for {@link SpecialMethod} constructors at the point
          * they need a handle for their named cache field within a
          * {@code Representation} class. If the field is not found, then
@@ -1239,8 +1276,8 @@ public enum SpecialMethod {
             Class<?> repClass = Representation.class;
             try {
                 // The field has the same name as the enum member
-                return LOOKUP.findVarHandle(repClass, sm.name(),
-                        MethodHandle.class);
+                return runtimeAccess.getLookup().findVarHandle(repClass,
+                        sm.name(), MethodHandle.class);
             } catch (NoSuchFieldException | IllegalAccessException e) {
                 return null;
             }
@@ -1307,9 +1344,9 @@ public enum SpecialMethod {
          * invoked, with an appropriate message for the operation.
          * <p>
          * To be concrete, if the special method is a binary operation,
-         * the returned handle may throw something like
-         * {@code TypeError:
-         * unsupported operand type(s) for -: 'str' and 'str'}.
+         * the returned handle may throw something like:<pre>
+         * TypeError: unsupported operand type(s) for -: 'str' and 'int'
+         * </pre>
          *
          * @param sm to mention in the error message
          * @return a handle that throws the exception

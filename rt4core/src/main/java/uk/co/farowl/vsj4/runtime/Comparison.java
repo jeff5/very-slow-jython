@@ -78,7 +78,7 @@ public enum Comparison {
         Object apply(Object v, Object seq) throws Throwable {
             Representation rep = PyType.registry.get(seq.getClass());
             try {
-                MethodHandle contains = slot.handle(rep);
+                MethodHandle contains = rep.op_contains();
                 return (boolean)contains.invokeExact(seq, v);
             } catch (EmptyException e) {
                 throw PyErr.format(PyExc.TypeError, NOT_CONTAINER,

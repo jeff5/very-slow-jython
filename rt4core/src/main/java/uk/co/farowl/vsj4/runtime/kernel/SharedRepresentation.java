@@ -95,15 +95,6 @@ class SharedRepresentation extends Representation {
     @Override
     public boolean isFloatExact() { return false; }
 
-    @Override
-    public Representation unshared(Object x) {
-        if (x instanceof WithClass wcx)
-            return wcx.getType();
-        else {
-            throw notSharedError(x);
-        }
-    }
-
     /**
      * The {@link PyType#canonicalClass()} of types that share this
      * representation (the "clique"). Subclasses in Python of those
