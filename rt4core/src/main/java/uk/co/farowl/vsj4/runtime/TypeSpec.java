@@ -12,6 +12,7 @@ import java.util.LinkedList;
 import java.util.List;
 
 import uk.co.farowl.vsj4.runtime.internal.NamedSpec;
+import uk.co.farowl.vsj4.runtime.kernel.BaseType;
 import uk.co.farowl.vsj4.runtime.kernel.SimpleType;
 import uk.co.farowl.vsj4.support.InterpreterError;
 
@@ -512,8 +513,12 @@ public class TypeSpec extends NamedSpec {
             throw specError("base type is null (not yet created?)");
         } else if (bases.indexOf(base) >= 0) {
             throw repeatError("base", base.getName());
+        } else if (base instanceof BaseType bt) {
+            bases.add(bt);
+        } else {
+            // PyType is sealed to permit only BaseType, so impossible:
+            throw specError("base is not BaseType", base.getName());
         }
-        bases.add(base);
         return this;
     }
 

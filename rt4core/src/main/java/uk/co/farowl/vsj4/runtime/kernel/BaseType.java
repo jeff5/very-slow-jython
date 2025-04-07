@@ -7,6 +7,7 @@ import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Modifier;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -59,7 +60,7 @@ public abstract sealed class BaseType extends PyType
      * @param bases of the new type
      */
     protected BaseType(String name, Class<?> javaClass,
-            PyType[] bases) {
+            BaseType[] bases) {
         this(name, javaClass, bases, new LinkedHashMap<>());
     }
 
@@ -71,7 +72,7 @@ public abstract sealed class BaseType extends PyType
      * @param bases of the new type
      * @param _dict dictionary we keep locally and in the base
      */
-    private BaseType(String name, Class<?> javaClass, PyType[] bases,
+    private BaseType(String name, Class<?> javaClass, BaseType[] bases,
             LinkedHashMap<String, Object> _dict) {
         super(name, javaClass, bases, _dict);
         this._dict = _dict;
@@ -84,19 +85,20 @@ public abstract sealed class BaseType extends PyType
      *
      * @return the sequence of bases
      */
-    PyType[] bases() { return bases; }
+    BaseType[] bases() { return bases; }
 
     @Override
-    public PyType[] getMRO() { return mro.clone(); }
+    public PyType[] getMRO() {
+        return Arrays.copyOf(mro, mro.length, PyType[].class);
+    }
 
     /**
      * Calculate and install the MRO from the bases. Used from type
      * factory
      */
-    @Override
     protected final void setMRO() {
-        // FIXME lookup and call mro() in subclasses
-        this.mro = mro();
+        // FIXME for lookup and call mro() in subclasses
+        mro = new PyTuple(mro()).toArray(new BaseType[0]);
     }
 
     /**
@@ -166,9 +168,7 @@ public abstract sealed class BaseType extends PyType
         LookupStatus status = LookupStatus.FINAL;
 
         /* Search along the MRO. */
-        for (PyType _base : mro) {
-            // TODO: avoid this cast somehow (type of mro[]?)
-            BaseType base = (BaseType)_base;
+        for (BaseType base : mro) {
             Object obj;
             /*
              * The result is not FINAL if *any* type on the way is
@@ -203,9 +203,7 @@ public abstract sealed class BaseType extends PyType
         // CPython checks here to see in this type is "ready".
         // Could we be "not ready" in some loop of types? Think not.
 
-        for (PyType _base : mro) {
-            // TODO: avoid this cast somehow (type of mro[]?)
-            BaseType base = (BaseType)_base;
+        for (BaseType base : mro) {
             Object res;
             if ((res = base.dict.get(name)) != null)
                 return res;
@@ -472,6 +470,17 @@ public abstract sealed class BaseType extends PyType
             }
         }
         return false;
+    }
+
+    /**
+     * Test for possession of a specified kernel feature.
+     *
+     * @param feature to check for
+     * @return whether present
+     */
+    // Duplicates PyType.hasFeature to avoid making it too public.
+    final boolean hasFeature(KernelTypeFlag feature) {
+        return kernelFeatures.contains(feature);
     }
 
     /**

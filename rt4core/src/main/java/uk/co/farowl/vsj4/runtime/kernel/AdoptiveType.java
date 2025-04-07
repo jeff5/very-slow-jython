@@ -48,7 +48,7 @@ public final class AdoptiveType extends BaseType {
      * @param accepted self-classes.
      */
 
-    AdoptiveType(String name, Class<?> primary, PyType[] bases,
+    AdoptiveType(String name, Class<?> primary, BaseType[] bases,
             List<Class<?>> adopted, List<Class<?>> accepted) {
         super(name, primary, bases);
 

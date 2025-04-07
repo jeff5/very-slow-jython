@@ -189,7 +189,7 @@ public abstract sealed class PyType extends Representation
      * implementation contains all the members necessary to implement
      * the current type.
      */
-    protected PyType base;
+    protected BaseType base;
 
     /**
      * The {@code __bases__} of this type, which are the types named in
@@ -197,7 +197,7 @@ public abstract sealed class PyType extends Representation
      * {@code object} if none are named, or an empty array in the
      * special case of {@code object} itself.
      */
-    protected PyType[] bases;
+    protected BaseType[] bases;
 
     /**
      * The {@code __mro__} of this type, that is, the method resolution
@@ -205,7 +205,7 @@ public abstract sealed class PyType extends Representation
      * method (which may be overridden), by analysis of the
      * {@code __bases__}.
      */
-    protected PyType[] mro;
+    protected BaseType[] mro;
 
     /**
      * The writable dictionary of the type is private because the type
@@ -231,7 +231,7 @@ public abstract sealed class PyType extends Representation
      * @param bases of the new type
      * @param _dict private dictionary backing {@code __dict__}
      */
-    protected PyType(String name, Class<?> javaClass, PyType[] bases,
+    protected PyType(String name, Class<?> javaClass, BaseType[] bases,
             LinkedHashMap<String, Object> _dict) {
         super(javaClass);
         /*
@@ -283,12 +283,6 @@ public abstract sealed class PyType extends Representation
      * @return a copy of the MRO of this type
      */
     public abstract PyType[] getMRO();
-
-    /**
-     * Calculate and install the MRO from the bases. Used from type
-     * factory
-     */
-    protected abstract void setMRO();
 
     /**
      * Calculate a new MRO for this type by the default algorithm. This
@@ -503,7 +497,7 @@ public abstract sealed class PyType extends Representation
      * @param feature to check for
      * @return whether present
      */
-    public boolean hasFeature(TypeFlag feature) {
+    public final boolean hasFeature(TypeFlag feature) {
         return features.contains(feature);
     }
 
@@ -514,8 +508,7 @@ public abstract sealed class PyType extends Representation
      * @param feature to check for
      * @return whether present
      */
-    // FIXME: too public
-    public boolean hasFeature(KernelTypeFlag feature) {
+    final boolean hasFeature(KernelTypeFlag feature) {
         return kernelFeatures.contains(feature);
     }
 

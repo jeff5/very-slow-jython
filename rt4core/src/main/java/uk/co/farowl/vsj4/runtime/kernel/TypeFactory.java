@@ -109,7 +109,7 @@ public class TypeFactory {
     final SimpleType objectType;
 
     /** An array containing just type object {@code object} */
-    private final PyType[] OBJECT_ONLY;
+    private final BaseType[] OBJECT_ONLY;
 
     /**
      * We count the number of reentrant calls here, and defer publishing
@@ -707,12 +707,14 @@ public class TypeFactory {
             List<Class<?>> accepted = spec.getAccepted();
 
             // Get the list of Python bases, or implicitly object.
-            PyType[] bases;
             List<PyType> baseList = spec.getBases();
+            // The constructors take BaseType[].
+            BaseType[] bases;
             if (baseList.isEmpty()) {
                 bases = OBJECT_ONLY;
             } else {
-                bases = baseList.toArray(new PyType[baseList.size()]);
+                // No type problem because PyType is sealed.
+                bases = baseList.toArray(new BaseType[baseList.size()]);
             }
 
             // Result of the construction

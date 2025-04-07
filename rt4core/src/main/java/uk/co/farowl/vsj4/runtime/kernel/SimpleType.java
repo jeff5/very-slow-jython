@@ -33,7 +33,7 @@ public non-sealed class SimpleType extends BaseType {
      * @param bases of the type
      */
     public SimpleType(String name, Class<?> javaClass,
-            Class<?> canonical, PyType[] bases) {
+            Class<?> canonical, BaseType[] bases) {
         super(name, javaClass, bases);
         this.canonicalClass = canonical;
     }
@@ -46,7 +46,7 @@ public non-sealed class SimpleType extends BaseType {
      * @param javaClass to which instances are assignable
      * @param bases of the type
      */
-    public SimpleType(String name, Class<?> javaClass, PyType[] bases) {
+    public SimpleType(String name, Class<?> javaClass, BaseType[] bases) {
         this(name, javaClass, javaClass, bases);
     }
 
@@ -57,7 +57,7 @@ public non-sealed class SimpleType extends BaseType {
      */
     SimpleType() {
         // The representation is Object and there are no bases.
-        this("object", Object.class, Object.class, new PyType[0]);
+        this("object", Object.class, Object.class, new BaseType[0]);
     }
 
     /**
@@ -67,9 +67,9 @@ public non-sealed class SimpleType extends BaseType {
      *
      * @param object the type object for {@code object} (as base).
      */
-    SimpleType(PyType object) {
+    SimpleType(BaseType object) {
         this("type", PyType.class, SimpleType.class,
-                new PyType[] {object});
+                new BaseType[] {object});
     }
 
     @Override
