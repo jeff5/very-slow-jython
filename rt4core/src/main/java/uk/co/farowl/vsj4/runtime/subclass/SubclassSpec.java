@@ -8,9 +8,9 @@ import java.util.List;
 import java.util.StringJoiner;
 
 import uk.co.farowl.vsj4.runtime.PyType;
+import uk.co.farowl.vsj4.runtime.PyType.ConstructorAndHandle;
 import uk.co.farowl.vsj4.runtime.WithDict;
 import uk.co.farowl.vsj4.runtime.internal.NamedSpec;
-import uk.co.farowl.vsj4.runtime.kernel.AbstractPyType.ConstructorAndHandle;
 
 /**
  * A {@code SubclassSpec} is a specification for a Java class to

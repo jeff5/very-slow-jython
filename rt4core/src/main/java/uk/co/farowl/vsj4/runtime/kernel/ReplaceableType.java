@@ -16,7 +16,7 @@ import uk.co.farowl.vsj4.runtime.Representation;
  * such a type will have the common Java type (or a superclass) as their
  * {@code self} parameter.
  */
-public final class ReplaceableType extends AnyType {
+public final class ReplaceableType extends BaseType {
 
     /** The representation shared by this type and others. */
     final SharedRepresentation representation;

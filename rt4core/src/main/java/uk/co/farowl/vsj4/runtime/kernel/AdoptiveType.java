@@ -20,7 +20,7 @@ import uk.co.farowl.vsj4.runtime.Representation;
  * {@code AdoptiveType} holds a {@link Representation} object for each
  * adopted representation.
  */
-public final class AdoptiveType extends AnyType {
+public final class AdoptiveType extends BaseType {
 
     /**
      * A {@link Representation} object for each class represented,
@@ -114,5 +114,4 @@ public final class AdoptiveType extends AnyType {
 
     @Override
     public boolean isFloatExact() { return this == PyFloat.TYPE; }
-
 }

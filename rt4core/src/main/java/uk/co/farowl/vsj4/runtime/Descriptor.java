@@ -25,6 +25,7 @@ abstract class Descriptor implements WithClass {
      * defined in Java, it will be the type {@code method_descriptor}).
      */
     // In CPython, called ob_type (in ~/include/object.h)
+    // TODO: eliminate if subclasses are non-BASETYPE
     protected final PyType descrtype;
 
     /**

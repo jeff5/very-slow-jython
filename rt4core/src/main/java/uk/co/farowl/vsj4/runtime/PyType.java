@@ -10,13 +10,21 @@ import static uk.co.farowl.vsj4.runtime.internal._PyUtil.readonlyAttributeError;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
+import java.lang.invoke.MethodType;
+import java.lang.reflect.Constructor;
+import java.util.Collections;
+import java.util.EnumSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import uk.co.farowl.vsj4.runtime.kernel.AbstractPyType;
+import uk.co.farowl.vsj4.runtime.kernel.AdoptiveType;
+import uk.co.farowl.vsj4.runtime.kernel.BaseType;
+import uk.co.farowl.vsj4.runtime.kernel.KernelTypeFlag;
 import uk.co.farowl.vsj4.runtime.kernel.MROCalculator;
-import uk.co.farowl.vsj4.runtime.kernel.AnyType;
 import uk.co.farowl.vsj4.runtime.kernel.SpecialMethod;
 import uk.co.farowl.vsj4.runtime.kernel.TypeFactory;
 import uk.co.farowl.vsj4.runtime.kernel.TypeFactory.Clash;
@@ -37,8 +45,8 @@ import uk.co.farowl.vsj4.support.internal.EmptyException;
  * holds the single static instance of the Python type factory, which
  * comes into being upon first use of the {@code PyType} class.
  */
-public abstract sealed class PyType extends AbstractPyType
-        permits AnyType {
+public abstract sealed class PyType extends Representation
+        implements WithClass, FastCall permits BaseType {
 
     /** Logger for (the public face of) the type system. */
     static final Logger logger = LoggerFactory.getLogger(PyType.class);
@@ -149,25 +157,225 @@ public abstract sealed class PyType extends AbstractPyType
                 .log();
     }
 
+    /** Name of the type (fully-qualified). */
+    final String name;
+
+    /**
+     * Feature flags collecting various boolean traits of this type,
+     * such as immutability or being a subclass of {@code int}. Some of
+     * these come fairly directly from the {@link TypeSpec} (where used
+     * to define the type) and others are observed during construction
+     * of the type.
+     */
+    // Compare CPython tp_flags in object.h
+    protected final EnumSet<TypeFlag> features =
+            EnumSet.noneOf(TypeFlag.class);
+
+    /**
+     * Kernel feature flags collecting various traits of this type that
+     * are private to the implementation, such as defining a certain
+     * special method.
+     */
+    // Compare CPython tp_flags in object.h
+    protected final EnumSet<KernelTypeFlag> kernelFeatures =
+            EnumSet.noneOf(KernelTypeFlag.class);
+
+    /**
+     * The {@code __base__} of this type. The {@code __base__} is a type
+     * from the {@code __bases__}, but its choice is determined by
+     * implementation details.
+     * <p>
+     * It is the type earliest on the MRO after the current type, whose
+     * implementation contains all the members necessary to implement
+     * the current type.
+     */
+    protected PyType base;
+
+    /**
+     * The {@code __bases__} of this type, which are the types named in
+     * heading of the Python {@code class} definition, or just
+     * {@code object} if none are named, or an empty array in the
+     * special case of {@code object} itself.
+     */
+    protected PyType[] bases;
+
+    /**
+     * The {@code __mro__} of this type, that is, the method resolution
+     * order, as defined for Python and constructed by the {@code mro()}
+     * method (which may be overridden), by analysis of the
+     * {@code __bases__}.
+     */
+    protected PyType[] mro;
+
+    /**
+     * The writable dictionary of the type is private because the type
+     * controls writing strictly. Even in the core it is only accessible
+     * through a read-only view {@link #dict}.
+     */
+    private final LinkedHashMap<String, Object> _dict;
+
+    /**
+     * The dictionary of the type is always an ordered {@code Map}. It
+     * is made accessible here through a wrapper that renders it a
+     * read-only {@code dict}-like object. Internally names are stored
+     * as {@code String} for speed and accessed via
+     * {@link #lookup(String)}.
+     */
+    protected final Map<String, Object> dict;
+
     /**
      * Constructor used by (permitted) subclasses of {@code PyType}.
      *
      * @param name of the type (fully qualified)
      * @param javaClass implementing Python instances of the type
      * @param bases of the new type
+     * @param _dict private dictionary backing {@code __dict__}
      */
-    protected PyType(String name, Class<?> javaClass, PyType[] bases) {
-        super(name, javaClass, bases);
+    protected PyType(String name, Class<?> javaClass, PyType[] bases,
+            LinkedHashMap<String, Object> _dict) {
+        super(javaClass);
+        /*
+         * These assertions mainly check our assumptions about the needs
+         * of sub-types. They are retained only in testing.
+         */
+        assert name != null;
+        assert javaClass != null || this instanceof AdoptiveType;
+        assert bases != null;
+
+        this.name = name;
+        this.bases = bases;
+        this.base = bases.length > 0 ? bases[0] : null;
+
+        // Keep a private copy to support __setattr__ etc..
+        this._dict = _dict;
+        // FIXME: define mappingproxy type for this use
+        this.dict = Collections.unmodifiableMap(_dict);
     }
 
+    /**
+     * Return the name of the type.
+     *
+     * @return the name of the type
+     */
+    public String getName() { return name; }
+
+    /**
+     * A copy of the sequence of bases specified for the type,
+     * essentially {@code __bases__}.
+     *
+     * @return the sequence of bases
+     */
+    public PyType[] getBases() { return bases.clone(); }
+
+    /**
+     * Return the (best) base type of this type, essentially
+     * {@code __base__}. In the case of single inheritance, the choice
+     * is obvious. In multiple inheritance, Python makes a somewhat
+     * subtle choice. requires a particular care.
+     *
+     * @return the "best base" type of this type
+     */
+    public PyType getBase() { return base; }
+
+    /**
+     * Return a copy of the MRO of this type.
+     *
+     * @return a copy of the MRO of this type
+     */
+    public abstract PyType[] getMRO();
+
+    /**
+     * Calculate and install the MRO from the bases. Used from type
+     * factory
+     */
+    protected abstract void setMRO();
+
+    /**
+     * Calculate a new MRO for this type by the default algorithm. This
+     * method is exposed as the method {@code mro} of type
+     * {@code objects} and may be overridden in a Python subclass of
+     * {@code type} (a "metatype") to customise the MRO in the types it
+     * creates.
+     *
+     * @return a new MRO for the type
+     */
     // @Exposed.Method
-    @Override
     protected PyType[] mro() {
+        // TODO: detect and call custom __mro__ method
         return MROCalculator.getMRO(this, this.bases);
     }
 
     @Override
     public String toString() { return "<class '" + getName() + "'>"; }
+
+    @Override
+    public PyType getType() { return PyType.TYPE; }
+
+    /**
+     * An immutable list of the {@link Representation}s of this type.
+     * These are the representations of the primary or adopted classes
+     * in the specification of this type, in order.
+     *
+     * @return the representations of {@code self}
+     */
+    public abstract List<Representation> representations();
+
+    /**
+     * An immutable list of every Java class that was named as primary,
+     * adopted or accepted in the specification of this type, in order.
+     * These are the base Java classes of objects that can legitimately
+     * be presented as {@code self} to methods of the type.
+     * <p>
+     * These are also the classes of the {@link #representations()}, in
+     * order, except that the non-representation classes also accepted
+     * as {@code self} (if any) are appended. A method descriptor in an
+     * adoptive type uses this list to ensure it has an implementation
+     * for each self class.
+     *
+     * @return the bases of classes allowed as {@code self}
+     */
+    public abstract List<Class<?>> selfClasses();
+
+    /**
+     * A particular subclass (in Java) of the primary representation
+     * class that is to be used as the base of representations of
+     * subclasses in Python. That is, the canonical class is a subclass
+     * of {@link #selfClasses()}{@code [0]}.
+     * <p>
+     * In many cases, the canonical class is exactly the primary (and
+     * only) representation class, but it is not safe to assume so
+     * always. For {@code type} itself, the canonical class is called
+     * {@code SimpleType}, and for subclasses defined in Python it may
+     * be the canonical representation of one of an ancestor class.
+     *
+     * @return the canonical Java representation class of {@code self}
+     */
+    public abstract Class<?> canonicalClass();
+
+    /**
+     * Look for a name, returning the entry directly from the first
+     * dictionary along the MRO containing key {@code name}. This may be
+     * a descriptor, but no {@code __get__} takes place on it: the
+     * descriptor itself will be returned. This method does not throw an
+     * exception if the name is not found, but returns {@code null} like
+     * a {@code Map.get}
+     *
+     * @param name to look up, must be exactly a {@code str}
+     * @return dictionary entry or {@code null} if not found
+     */
+    // Compare CPython _PyType_Lookup in typeobject.c
+    // and find_name_in_mro in typeobject.c
+    public abstract Object lookup(String name);
+
+    /**
+     * Called from {@code type.__setattr__} and
+     * {@code type.__delattr__(String)} after an attribute has been set
+     * or deleted. This gives the type the opportunity to recompute
+     * caches and perform any other actions needed.
+     *
+     * @param name of the attribute modified
+     */
+    protected abstract void updateAfterSetAttr(String name);
 
     /**
      * Determine (or create if necessary) the {@link Representation} for
@@ -235,6 +443,7 @@ public abstract sealed class PyType extends AbstractPyType
      * @param selfClass to seek
      * @return index in {@link #selfClasses()}
      */
+    // FIXME: to be less public or in BaseType
     public int getSubclassIndex(Class<?> selfClass) { return 0; }
 
     /**
@@ -248,7 +457,17 @@ public abstract sealed class PyType extends AbstractPyType
      *
      * @return type {@code true} iff system is ready for use.
      */
-    protected static boolean systemReady() { return readyNanoTime != 0L; }
+    protected static boolean systemReady() {
+        return readyNanoTime != 0L;
+    }
+
+    // C-API Equivalents ---------------------------------------------
+    /*
+     * Java API that is roughly equivalent to the C-API as might be used
+     * in the creation of extension types, Python modules in Java, or
+     * applications that embed Python requiring more than an
+     * encapsulated interpreter.
+     */
 
     /**
      * {@code true} iff the type of {@code o} is a Python sub-type of
@@ -267,9 +486,7 @@ public abstract sealed class PyType extends AbstractPyType
 
     /**
      * {@code true} iff the Python type of {@code o} is exactly
-     * {@code this}, not a Python sub-type of {@code this}, nor just any
-     * Java sub-class of {@code PyType}. This is likely to be used in
-     * the form:<pre>
+     * {@code this} type. This is likely to be used in the form:<pre>
      * if(!PyUnicode.TYPE.checkExact(oName)) throw ...
      * </pre>
      *
@@ -281,17 +498,173 @@ public abstract sealed class PyType extends AbstractPyType
     }
 
     /**
+     * Test for possession of a specified feature.
+     *
+     * @param feature to check for
+     * @return whether present
+     */
+    public boolean hasFeature(TypeFlag feature) {
+        return features.contains(feature);
+    }
+
+    /**
+     * Test for possession of a specified kernel feature. Kernel
+     * features are not public API.
+     *
+     * @param feature to check for
+     * @return whether present
+     */
+    // FIXME: too public
+    public boolean hasFeature(KernelTypeFlag feature) {
+        return kernelFeatures.contains(feature);
+    }
+
+    @Override
+    protected boolean hasFeature(Object x, KernelTypeFlag feature) {
+        return kernelFeatures.contains(feature);
+    }
+
+    /**
+     * Return true if and only if this is a mutable type. The attributes
+     * of a mutable type may be changed, although it will manage that
+     * change according to rules of its own. An immutable type object
+     * does not allow attribute assignment: the value of an attribute
+     * once observed remains valid for the lifetime of the run time
+     * system.
+     *
+     * @return {@code true} iff this is a mutable type
+     */
+    public abstract boolean isMutable();
+
+    /**
+     * Fast check that an object of this type is a sequence, defined as
+     * not a subclass of {@code dict} and defining {@code __getitem__}.
+     *
+     * @return target is a sequence
+     */
+    // Compare CPython PySequence_Check (on instance) in abstract.c
+    public boolean isSequence() {
+        return kernelFeatures.contains(KernelTypeFlag.HAS_GETITEM)
+                && !features.contains(TypeFlag.DICT_SUBCLASS);
+    }
+
+    /**
+     * Fast check that an object of this type is iterable (defines
+     * {@code __iter__}).
+     *
+     * @return target is a iterable with {@code __iter__}
+     */
+    public boolean isIterable() {
+        return kernelFeatures.contains(KernelTypeFlag.HAS_ITER);
+    }
+
+    /**
+     * Fast check that an object of this type is an iterator (defines
+     * {@code __next__}).
+     *
+     * @return target is a an iterator
+     */
+    public boolean isIterator() {
+        return kernelFeatures.contains(KernelTypeFlag.HAS_NEXT);
+    }
+
+    /**
+     * Fast check that an object of this type is a descriptor (defines
+     * {@code __get__}).
+     *
+     * @return target is a descriptor
+     */
+    public boolean isDescr() {
+        return kernelFeatures.contains(KernelTypeFlag.HAS_GET);
+    }
+
+    /**
+     * Fast check that an object of this type is a data descriptor
+     * (defines {@code __set__} or {@code __delete__}).
+     *
+     * @return target is a data descriptor
+     */
+    public boolean isDataDescr() {
+        return kernelFeatures.contains(KernelTypeFlag.HAS_SET)
+                || kernelFeatures.contains(KernelTypeFlag.HAS_DELETE);
+    }
+
+    /**
+     * Fast check that instances of the type are a method descriptors,
+     * meaning that they take a {@code self} argument that may be
+     * supplied "loose" when calling them as a method. Types defined in
+     * Java may declare this in their specification.
+     * <p>
+     * This method is equivalent to reading the flag
+     * {@code Py_TPFLAGS_METHOD_DESCRIPTOR} described in <a
+     * href=https://peps.python.org/pep-0590/#descriptor-behavior>
+     * PEP-590</a>. If {@code isMethodDescr()} returns {@code true} for
+     * {@code type(func)}, then:
+     * <ul>
+     * <li>{@code func.__get__(obj, cls)(*args, **kwds)} (with
+     * {@code {@code obj}} not None) must be equivalent to
+     * {@code func(obj, *args, **kwds)}.</li>
+     * <li>{@code func.__get__(None, cls)(*args, **kwds)} must be
+     * equivalent to {@code func(*args, **kwds)}.</li>
+     * </ul>
+     *
+     * @return target is a method descriptor
+     */
+    public boolean isMethodDescr() {
+        return features.contains(TypeFlag.METHOD_DESCR);
+    }
+
+    // unsigned long PyType_GetFlags(PyTypeObject *type)
+
+    // int PyType_Ready(PyTypeObject *type)
+    // Finalize a type object. This should be called on all type objects
+    // to finish their initialization. This function is responsible for
+    // adding inherited slots from a type’s base class. Return 0 on
+    // success, or return -1 and sets an exception on error.
+
+    // PyObject *PyType_GetName(PyTypeObject *type)
+    // Return the type’s name. Equivalent to getting the type’s __name__
+    // attribute.
+    // New in version 3.11.
+
+    // PyObject *PyType_GetQualName(PyTypeObject *type)
+    // Return the type’s qualified name. Equivalent to getting the
+    // type’s __qualname__ attribute.
+    // New in version 3.11.
+
+    // PyObject *PyType_GetModule(PyTypeObject *type)
+    // Return the module object associated with the given type when the
+    // type was created using PyType_FromModuleAndSpec().
+
+    // void *PyType_GetModuleState(PyTypeObject *type)
+    // Return the state of the module object associated with the given
+    // type.
+
+    // PyObject *PyType_GetModuleByDef(PyTypeObject *type, struct
+    // PyModuleDef *def)
+    //
+    // Find the first superclass whose module was created from the given
+    // PyModuleDef def, and return that module.
+
+    /**
      * Determine if this type is a Python sub-type of {@code b} (if
      * {@code b} is on the MRO of this type). For technical reasons we
      * parameterise with the subclass. (We need it to work with a
      * private superclass or {@code PyType}.)
      *
-     * @param <T> actual type of {@code b} normally a {@code PyType}.
      * @param b to test
      * @return {@code true} if {@code this} is a sub-type of {@code b}
      */
     // Compare CPython PyType_IsSubtype in typeobject.c
-    public <T extends AbstractPyType> boolean isSubTypeOf(T b) {
+    // CPython documentation:
+    // int PyType_IsSubtype(PyTypeObject *a, PyTypeObject *b)
+    // Return true if a is a subtype of b.
+    //
+    // This function only checks for actual subtypes, which means that
+    // __subclasscheck__() is not called on b. Call
+    // PyObject_IsSubclass() to do the same check that issubclass()
+    // would do.
+    public boolean isSubTypeOf(PyType b) {
         if (mro != null) {
             /*
              * Deal with multiple inheritance without recursion by
@@ -307,31 +680,90 @@ public abstract sealed class PyType extends AbstractPyType
             return type_is_subtype_base_chain(b);
     }
 
+    // Support for __new__ -------------------------------------------
+
     /**
-     * Determine if this type is a Python sub-type of {@code b} by
-     * chaining through the {@link #base} property. (This is a fall-back
-     * when {@link #mro} is not valid.)
-     *
-     * @param b to test
-     * @return {@code true} if {@code this} is a sub-type of {@code b}
+     * The return from {@link #constructor()} holding a reflective
+     * constructor definition and a handle by which it may be called.
+     * <p>
+     * A custom {@code __new__} method in a defining Java class of a
+     * type generally has direct access to all the constructors it needs
+     * for its own type. When asked for an instance of a different type,
+     * it must be able to call the constructor of the Java
+     * representation class. The representation of the required type
+     * (the {@code cls} argument to {@code __new__}) will be a subclass
+     * in Java of the canonical representation of the type from which
+     * {@code __new__} was called.
      */
-    // Compare CPython type_is_subtype_base_chain in typeobject.c
-    private boolean type_is_subtype_base_chain(AbstractPyType b) {
-        PyType t = this;
-        while (t != b) {
-            t = t.base;
-            if (t == null) { return b == PyObject.TYPE; }
-        }
-        return true;
-    }
+    public static record ConstructorAndHandle(
+            Constructor<?> constructor, MethodHandle handle) {}
+
+    /**
+     * Return the table holding constructors and their method handles
+     * for instances of this type. This enables client code to iterate
+     * over available constructors without any copying. The table and
+     * its contents are immutable.
+     * <p>
+     * Note that in the key, the Java class of the return type is
+     * {@code Object}.
+     *
+     * @return the lookup for constructors and handles
+     */
+    public abstract Map<MethodType, ConstructorAndHandle>
+            constructorLookup();
+
+    /**
+     * Return a constructor of instances of this type, and its method
+     * handle, that accepts arguments matching the given types. The Java
+     * class of the return type of the handle is {@code Object}, since
+     * we cannot rely on the caller to know the specific class.
+     *
+     * @param param the intended argument types
+     * @return a constructor and a handle on it
+     */
+    // Compare CPython type slot tp_alloc (but only loosely).
+    public abstract ConstructorAndHandle constructor(Class<?>... param);
 
     // Special methods -----------------------------------------------
 
     /*
      * For technical reasons to do with bootstrapping the type system,
      * the methods and attributes of 'type' that are exposed to Python
-     * have to be defined with package visibility.
+     * have to be defined with at least package visibility.
      */
+
+    /** @return {@code repr()} of this Python object. */
+    Object __repr__() {
+        return String.format("<class '%s'>", getName());
+    }
+
+    /**
+     * Handle calls to a type object, which will normally be a request
+     * to construct a Python object of the type this object describes.
+     * For example the call {@code int()} is a request to create a
+     * Python {@code int}, although we often think of it as a built-in
+     * function. The exception is when {@code this} is {@code type}
+     * itself. There must be one or three arguments. The call
+     * {@code type(obj)} enquires the Python type of the object, which
+     * is even more like a built-in function. The call
+     * {@code type(name, bases, dict)} constructs a new type (instance
+     * of {@code type}).
+     *
+     * @param args argument list (length 1 in a type enquiry).
+     * @param names of keyword arguments (empty or {@code null} in a
+     *     type enquiry).
+     * @return new object (or a type if an enquiry).
+     * @throws PyBaseException (TypeError) when cannot create instances
+     * @throws Throwable from implementation slot functions
+     */
+    Object __call__(Object[] args, String[] names)
+            throws PyBaseException, Throwable {
+        try {
+            return call(args, names);
+        } catch (ArgumentError ae) {
+            throw typeError(ae, args, names);
+        }
+    }
 
     /**
      * {@link SpecialMethod#op_getattribute} provides attribute read
@@ -493,7 +925,8 @@ public abstract sealed class PyType extends AbstractPyType
          * There was no data descriptor, so we will place the value in
          * the dictionary of the type directly.
          */
-        dictPut(name, value);
+        _dict.put(name, value);
+        updateAfterSetAttr(name);
     }
 
     /**
@@ -537,11 +970,12 @@ public abstract sealed class PyType extends AbstractPyType
          * There was no data descriptor, so we will remove the name from
          * the dictionary of the type directly.
          */
-        Object previous = dictRemove(name);
+        Object previous = _dict.remove(name);
         if (previous == null) {
             // A null return implies it didn't exist
             throw noAttributeError(this, name);
         }
+        updateAfterSetAttr(name);
         return;
     }
 
@@ -562,4 +996,21 @@ public abstract sealed class PyType extends AbstractPyType
         return Py.None;
     }
 
+    /**
+     * Determine if this type is a Python sub-type of {@code b} by
+     * chaining through the {@link #base} property. (This is a fall-back
+     * when {@link #mro} is not valid.)
+     *
+     * @param b to test
+     * @return {@code true} if {@code this} is a sub-type of {@code b}
+     */
+    // Compare CPython type_is_subtype_base_chain in typeobject.c
+    private boolean type_is_subtype_base_chain(PyType b) {
+        PyType t = this;
+        while (t != b) {
+            t = t.base;
+            if (t == null) { return b == PyObject.TYPE; }
+        }
+        return true;
+    }
 }

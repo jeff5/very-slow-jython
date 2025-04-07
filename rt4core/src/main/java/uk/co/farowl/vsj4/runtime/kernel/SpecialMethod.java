@@ -612,20 +612,10 @@ public enum SpecialMethod {
     /**
      * Get the {@code MethodHandle} on the implementation of this
      * {@code SpecialMethod} for objects with the given
-     * {@link Representation}. {@link #methodName} names an entry
-     * (descriptor) in the dictionary of a type from which the handle
-     * may be retrieved.
-     * <ul>
-     * <li>When the representation is also a {@link PyType}, the
-     * representation contains the dictionary.</li>
-     * <li>In the case of an adopted representation, we know the
-     * adoptive type directly and the {@link Representation#getIndex()
-     * index}.</li>
-     * <li>In the case of a shared representation, there is no unique
-     * type in which to look up a descriptor, so instead the handle will
-     * contain a wrapper to get the type from {@code self} when invoked,
-     * and then look up the name.</li>
-     * </ul>
+     * {@link Representation}. This will either be directly from the
+     * cache on the representation, or a {@link #generic} handle that
+     * calls {@link #methodName} by look-up on the Python type when
+     * invoked.
      *
      * @param rep target representation object
      * @return current contents of this cache in {@code rep}
@@ -705,13 +695,13 @@ public enum SpecialMethod {
      * equivalent to the {@code  slot_*()} functions found in CPython
      * {@code Objects/typeobject.c} that fill the type slots when a
      * pointer to a built-in implementation of the method is not
-     * available. We use them the same way. (See private methods in
-     * {@link AbstractPyType}.) Ours are simpler than CPython's because
-     * we signal an empty slot by a lightweight {@link EmptyException},
-     * rather than by {@code null}. We therefore do not need to
-     * reproduce the logic in the Abstract API, where the presence of a
-     * slot function fools it into thinking the special method is
-     * defined.
+     * available. We use them in a similar way when a special method is
+     * overridden in Python. (See private methods in {@link BaseType}.)
+     * Ours are simpler than CPython's because we signal an empty slot
+     * by a lightweight {@link EmptyException}, rather than by
+     * {@code null}. We therefore do not need to reproduce the logic in
+     * the Abstract API, where the presence of a slot function fools it
+     * into thinking the special method is defined.
      *
      * @param self first operand.
      * @param args other operands.
@@ -731,7 +721,7 @@ public enum SpecialMethod {
         // return callAsMethod(type, meth, self, args, kwds);
 
         // What kind of object did we find? (Could be anything.)
-        Representation methRep = AnyType.getRepresentation(meth);
+        Representation methRep = BaseType.getRepresentation(meth);
         assert methRep != null;
 
         if (methRep.pythonType(meth).isMethodDescr()) {
@@ -835,7 +825,7 @@ public enum SpecialMethod {
             Object self, Object[] args, String[] kwds)
             throws PyBaseException, Throwable {
         // What kind of object did we find? (Could be anything.)
-        Representation rep = AnyType.getRepresentation(meth);
+        Representation rep = BaseType.getRepresentation(meth);
         PyType methType = rep.pythonType(meth);
 
         if (methType.isMethodDescr()) {

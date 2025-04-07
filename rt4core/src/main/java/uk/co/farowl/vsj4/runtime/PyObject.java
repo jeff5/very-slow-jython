@@ -179,7 +179,7 @@ public class PyObject {
             Representation typeAttrRep =
                     PyType.getRepresentation(typeAttr);
             descrGet = typeAttrRep.op_get();
-            if (typeAttrRep.pythonType(typeAttr).isDataDescr()) {
+            if (typeAttrRep.isDataDescr(typeAttr)) {
                 // typeAttr is a data descriptor so call its __get__.
                 try {
                     return descrGet.invokeExact(typeAttr, obj, objType);

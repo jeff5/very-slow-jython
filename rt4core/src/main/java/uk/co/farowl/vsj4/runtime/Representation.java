@@ -99,50 +99,49 @@ public abstract class Representation {
     public abstract PyType pythonType(Object x);
 
     /**
-     * Fast check that an object with this representation is a data
-     * descriptor (defines {@code __set__} or {@code __delete__}).
+     * Fast check that a particular object, for which this is the
+     * representation, is a data descriptor (defines {@code __set__} or
+     * {@code __delete__}).
      *
      * @param x subject of the enquiry
      * @return {@code x} is a data descriptor
      */
-    public boolean isDataDescr(Object x) {
+    boolean isDataDescr(Object x) {
         PyType type = pythonType(x);
         return type.hasFeature(KernelTypeFlag.HAS_SET)
                 || type.hasFeature(KernelTypeFlag.HAS_DELETE);
     }
 
     /**
-     * Fast check that an object with this representation has a
-     * specified feature. The idea is to avoid a call to
-     * {@link #pythonType(Object)}, when possible by overriding this in
-     * subclasses.
+     * Fast check that a particular object, for which this is the
+     * representation, has the specified feature.
      *
      * @param x subject of the enquiry
      * @param feature to check for
      * @return {@code x} is a data descriptor
      */
+    // Avoid a call to pythonType(x), when possible, by overriding.
     public boolean hasFeature(Object x, TypeFlag feature) {
         return pythonType(x).hasFeature(feature);
     }
 
     /**
-     * Fast check that an object with this representation has a
-     * specified feature. The idea is to avoid a call to
-     * {@link #pythonType(Object)}, when possible by overriding this in
-     * subclasses.
+     * Fast check that a particular object, for which this is the
+     * representation, has a specified kernel feature.
      *
      * @param x subject of the enquiry
      * @param feature to check for
      * @return {@code x} is a data descriptor
      */
-    public boolean hasFeature(Object x, KernelTypeFlag feature) {
+    // Avoid a call to pythonType(x), when possible, by overriding.
+    protected boolean hasFeature(Object x, KernelTypeFlag feature) {
         return pythonType(x).hasFeature(feature);
     }
 
     /**
-     * Fast check that the target is exactly a Python {@code int}. We
-     * can do this without reference to the object itself, just from the
-     * representation.
+     * Fast check that an object of this type is exactly a Python
+     * {@code int}. We can do this without reference to the object
+     * itself, just from the representation.
      *
      * @implNote The result may be incorrect during type system
      *     bootstrap.
@@ -152,9 +151,9 @@ public abstract class Representation {
     public boolean isIntExact() { return this == PyLong.TYPE; }
 
     /**
-     * Fast check that the target is exactly a Python {@code float}. We
-     * can do this without reference to the object itself, just from the
-     * representation.
+     * Fast check that an object of this type is exactly a Python
+     * {@code float}. We can do this without reference to the object
+     * itself, just from the representation.
      *
      * @implNote The result may be incorrect during type system
      *     bootstrap.
@@ -192,8 +191,8 @@ public abstract class Representation {
      * correct index must be determined by finding a compatible class in
      * {@link AdoptiveType#selfClasses()}.
      *
-     * @implSpec Override this in the {@code Representation}
-     *     representation. The default implementation returns zero.
+     * @implSpec Override this in the {@code Representation}s attached
+     *     to adoptive types. The default implementation returns zero.
      *
      * @return index in the type (0 if canonical)
      */
@@ -594,7 +593,7 @@ public abstract class Representation {
      * Return a matching implementation of {@code __rpow__} with
      * signature {@link Signature#BINARY}, the reflected {@code pow}
      * operation. (The signature is not not {@link Signature#TERNARY}
-     * like {@link #op_pow} since only an infix operation can be
+     * like {@code #op_pow} since only an infix operation can be
      * reflected).
      *
      * @return handle on {@code __rpow__} with signature

@@ -17,7 +17,7 @@ import uk.co.farowl.vsj4.runtime.Representation;
  * must have a {@code self} parameter that accepts the representation
  * class (or a superclass).
  */
-public non-sealed class SimpleType extends AnyType {
+public non-sealed class SimpleType extends BaseType {
 
     /** To return as {@link #canonicalClass()}. */
     private final Class<?> canonicalClass;
@@ -84,13 +84,9 @@ public non-sealed class SimpleType extends AnyType {
     public Class<?> canonicalClass() { return canonicalClass; }
 
     @Override
-    public PyType pythonType(Object x) {
-        // I don't *think* we should be asked this question unless:
-        assert javaClass.isAssignableFrom(x.getClass());
-        return this;
-    }
+    public PyType pythonType(Object x) { return this; }
 
-    // XXX Decide the immutability of SimpleType
+    // TODO: Decide the immutability of SimpleType
     @Override
     public boolean isMutable() { return false; }
 

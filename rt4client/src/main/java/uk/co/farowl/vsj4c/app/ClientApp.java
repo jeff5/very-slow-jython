@@ -1,8 +1,12 @@
 package uk.co.farowl.vsj4c.app;
 
+import java.util.List;
+
 import uk.co.farowl.vsj4.runtime.Abstract;
 import uk.co.farowl.vsj4.runtime.Callables;
 import uk.co.farowl.vsj4.runtime.PyNumber;
+import uk.co.farowl.vsj4.runtime.PyType;
+import uk.co.farowl.vsj4.runtime.Representation;
 import uk.co.farowl.vsj4c.ext.Extension;
 
 public class ClientApp {
@@ -68,6 +72,17 @@ public class ClientApp {
             System.out.println(Abstract.str(mt));
             System.out.println(Abstract.repr(mt));
             System.out.println(PyNumber.negative(42));
+
+            // Let's try some API abuse
+            Object x = 42;
+            PyType t = MyType.TYPE.pythonType(x);
+            //System.out.println(t.base);
+
+            List<Representation> reps =  t.representations();
+            Representation rep = reps.get(0);
+            rep.pythonType(x);
+
+            for (PyType b : t.getMRO()) { System.out.println(b); }
 
         } catch (Throwable e) {
             e.printStackTrace();

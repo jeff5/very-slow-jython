@@ -108,8 +108,6 @@ public class TypeFactory {
     /** The (initially partial) type object for 'object'. */
     final SimpleType objectType;
 
-    /** An empty array of type objects */
-    final PyType[] EMPTY_TYPE_ARRAY;
     /** An array containing just type object {@code object} */
     private final PyType[] OBJECT_ONLY;
 
@@ -202,10 +200,8 @@ public class TypeFactory {
         workshop.addTask(typeType, specOfType);
 
         // This cute re-use also proves 'type' and 'object' exist.
-        this.OBJECT_ONLY = typeType.bases;
+        this.OBJECT_ONLY = typeType.bases();
         assert OBJECT_ONLY.length == 1;
-        this.EMPTY_TYPE_ARRAY = typeType.base.bases;
-        assert EMPTY_TYPE_ARRAY.length == 0;
     }
 
     /**
@@ -700,7 +696,7 @@ public class TypeFactory {
          * @return the new partial type
          * @throws Clash when a representing class is already bound
          */
-        PyType addTaskFromSpec(TypeSpec spec) throws Clash {
+        BaseType addTaskFromSpec(TypeSpec spec) throws Clash {
             // No further change once we start
             String name = spec.freeze().getName();
 
@@ -720,7 +716,7 @@ public class TypeFactory {
             }
 
             // Result of the construction
-            PyType newType;
+            BaseType newType;
 
             if (spec.getFeatures().contains(Feature.REPLACEABLE)) {
                 assert primary != null;
@@ -806,7 +802,7 @@ public class TypeFactory {
          * @param type the new type
          * @param spec specifying the new type
          */
-        void addTask(PyType type, TypeSpec spec) {
+        void addTask(BaseType type, TypeSpec spec) {
             tasks.add(new Task(type, spec));
         }
 
@@ -880,12 +876,12 @@ public class TypeFactory {
          */
         private class Task {
             /** The type being built. */
-            final PyType type;
+            final BaseType type;
 
             /** Specification for the type being built. */
             final TypeSpec spec;
 
-            Task(PyType type, TypeSpec spec) {
+            Task(BaseType type, TypeSpec spec) {
                 super();
                 this.type = type;
                 this.spec = spec.freeze();
@@ -903,7 +899,7 @@ public class TypeFactory {
              */
             void readyType() {
 
-                AbstractPyType type = this.type;  // Enables access :/
+                //AbstractPyType type = this.type;  // Enables access :/
 
                 // Set MRO
                 type.setMRO();
@@ -1112,7 +1108,7 @@ public class TypeFactory {
             super(type.getName(), lookup);
             // I think the primordial types are only simple
             assert type instanceof SimpleType;
-            this.primary(type.javaClass()).bases(type.bases);
+            this.primary(type.javaClass()).bases(type.getBases());
         }
     }
 
