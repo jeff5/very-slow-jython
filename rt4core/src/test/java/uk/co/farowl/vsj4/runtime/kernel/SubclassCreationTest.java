@@ -888,7 +888,8 @@ class SubclassCreationTest {
         private PyType $type;
 
         HCD_T(PyType metaType, String name) {
-            super(name, HCD_T.class, new PyType[] {PyType.TYPE});
+            super(name, HCD_T.class,
+                    new BaseType[] {(BaseType)PyType.TYPE});
             this.$type = checkClassAssignment(metaType);
         }
 

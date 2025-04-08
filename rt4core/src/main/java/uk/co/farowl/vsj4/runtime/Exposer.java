@@ -364,10 +364,10 @@ abstract class Exposer {
             Class<? extends Annotation> ac = annoClass();
             if (ac == Annotation.class) {
                 // Special methods recognised by name, so no annotation
-                return "special method";
+                return "Special";
             } else if (ac == Getter.class) {
                 // Since could also be @Setter or @Deleter
-                return "get-set attribute";
+                return "Attribute";
             } else {
                 return ac.getSimpleName();
             }

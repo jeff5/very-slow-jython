@@ -16,12 +16,12 @@ import uk.co.farowl.vsj4.support.InterpreterError;
  * {@code @Member} annotations) to get and optionally set or delete the
  * value, with default type conversions.
  */
-abstract class PyMemberDescr extends DataDescriptor {
+public abstract class PyMemberDescr extends DataDescriptor {
 
     /** The type of Python object this class implements. */
     static final PyType TYPE = PyType.fromSpec( //
             new TypeSpec("member_descriptor", MethodHandles.lookup())
-                    .remove(Feature.BASETYPE));
+            .add(Feature.IMMUTABLE, Feature.METHOD_DESCR)                    .remove(Feature.BASETYPE));
 
     /** Acceptable values in the {@link #flags}. */
     enum Flag {
@@ -58,12 +58,15 @@ abstract class PyMemberDescr extends DataDescriptor {
      */
     PyMemberDescr(PyType objclass, String name, VarHandle handle,
             EnumSet<Flag> flags, String doc) {
-        super(TYPE, objclass, name);
+        super(objclass, name);
         this.flags = flags;
         this.field = handle;
         // Allow null to represent empty doc
         this.doc = doc != null && doc.length() > 0 ? doc : null;
     }
+
+    @Override
+    public PyType getType() { return TYPE; }
 
     private static VarHandle varHandle(Field f, Lookup lookup) {
         try {
@@ -259,7 +262,7 @@ abstract class PyMemberDescr extends DataDescriptor {
      */
     @Override
     // Compare CPython member_get in descrobject.c
-    Object __get__(Object obj, PyType type) {
+    public Object __get__(Object obj, PyType type) {
         if (obj == null)
             /*
              * obj==null indicates the descriptor was found on the

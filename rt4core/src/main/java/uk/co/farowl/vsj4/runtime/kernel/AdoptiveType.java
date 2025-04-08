@@ -7,6 +7,7 @@ import java.util.List;
 import uk.co.farowl.vsj4.runtime.PyFloat;
 import uk.co.farowl.vsj4.runtime.PyLong;
 import uk.co.farowl.vsj4.runtime.PyType;
+import uk.co.farowl.vsj4.runtime.Representation;
 
 /**
  * A Python {@code type} object that accepts instances of specific
@@ -19,7 +20,7 @@ import uk.co.farowl.vsj4.runtime.PyType;
  * {@code AdoptiveType} holds a {@link Representation} object for each
  * adopted representation.
  */
-public final class AdoptiveType extends PyType {
+public final class AdoptiveType extends BaseType {
 
     /**
      * A {@link Representation} object for each class represented,
@@ -47,7 +48,7 @@ public final class AdoptiveType extends PyType {
      * @param accepted self-classes.
      */
 
-    AdoptiveType(String name, Class<?> primary, PyType[] bases,
+    AdoptiveType(String name, Class<?> primary, BaseType[] bases,
             List<Class<?>> adopted, List<Class<?>> accepted) {
         super(name, primary, bases);
 
@@ -62,7 +63,7 @@ public final class AdoptiveType extends PyType {
         // Next come the adopted classes and representations.
         int index = 1;
         for (Class<?> c : adopted) {
-            reps[index] = new Representation.Adopted(index, c, this);
+            reps[index] = new AdoptedRepresentation(index, c, this);
             classes[index++] = c;
         }
 
@@ -113,5 +114,4 @@ public final class AdoptiveType extends PyType {
 
     @Override
     public boolean isFloatExact() { return this == PyFloat.TYPE; }
-
 }

@@ -608,7 +608,7 @@ class TypeExposerGetSetTest extends UnitTestSupport {
          */
         @Test
         void descr_has_expected_fields() throws Throwable {
-            assertEquals(name, gs2.name);
+            assertEquals(name, gs2.__name__());
             assertEquals(doc, gs2.doc);
             String s = String
                     .format("<attribute '%s' of 'PGS' objects>", name);

@@ -15,7 +15,6 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 
 import uk.co.farowl.vsj4.runtime.internal._PyUtil;
-import uk.co.farowl.vsj4.runtime.kernel.Representation;
 import uk.co.farowl.vsj4.runtime.kernel.SpecialMethod;
 import uk.co.farowl.vsj4.runtime.kernel.SpecialMethod.Signature;
 
@@ -50,8 +49,8 @@ class SlotWrapperTestBase {
      * the signature and defining class.
      */
     void has_expected_fields() {
-        assertEquals(name, descr.name);
-        assertTrue(type.isSubTypeOf(descr.objclass),
+        assertEquals(name, descr.__name__());
+        assertTrue(type.isSubTypeOf(descr.__objclass__()),
                 "target is sub-type of defining class");
         // more ...
     }

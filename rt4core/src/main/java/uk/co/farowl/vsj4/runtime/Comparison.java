@@ -1,10 +1,9 @@
-// Copyright (c)2024 Jython Developers.
+// Copyright (c)2025 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
 
 import java.lang.invoke.MethodHandle;
 
-import uk.co.farowl.vsj4.runtime.kernel.Representation;
 import uk.co.farowl.vsj4.runtime.kernel.SpecialMethod;
 import uk.co.farowl.vsj4.support.internal.EmptyException;
 
@@ -79,7 +78,7 @@ public enum Comparison {
         Object apply(Object v, Object seq) throws Throwable {
             Representation rep = PyType.registry.get(seq.getClass());
             try {
-                MethodHandle contains = slot.handle(rep);
+                MethodHandle contains = rep.op_contains();
                 return (boolean)contains.invokeExact(seq, v);
             } catch (EmptyException e) {
                 throw PyErr.format(PyExc.TypeError, NOT_CONTAINER,

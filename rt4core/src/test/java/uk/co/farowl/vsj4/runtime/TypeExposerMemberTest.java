@@ -152,7 +152,7 @@ class TypeExposerMemberTest extends UnitTestSupport {
          */
         @Test
         void descr_has_expected_fields() throws Throwable {
-            assertEquals(name, md.name);
+            assertEquals(name, md.__name__());
             assertEquals(doc, md.doc);
             String s = String.format(
                     "<member '%s' of 'ObjectWithMembers' objects>",

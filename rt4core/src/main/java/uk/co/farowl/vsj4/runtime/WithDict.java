@@ -1,11 +1,11 @@
-// Copyright (c)2024 Jython Developers.
+// Copyright (c)2025 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
 
 import java.util.Map;
 
 /**
- * An instance of a class implementing {@code WithClass} possesses a
+ * An instance of a class implementing {@code WithDict} possesses a
  * dictionary, generally exposed as a {@code __dict__} attribute. The
  * dictionary is not necessarily a Python {@code dict} or directly
  * writable. (A {@code type} object, for example, implements

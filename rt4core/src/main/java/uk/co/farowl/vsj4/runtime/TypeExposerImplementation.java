@@ -120,7 +120,8 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
                         Spec spec = specIter.next();
                         logger.atTrace().addArgument(type.getName())
                                 .addArgument(spec.name)
-                                .log("-  Add {}.{}");
+                                .addArgument(spec.annoClassName())
+                                .log("-  Add {}.{} ({})");
                         spec.checkFormation();
                         // Create attribute according to spec type
                         Object attr = spec.asAttribute(type, lookup);
@@ -852,7 +853,7 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
          * annotation.
          */
         @Override
-        protected String annoClassName() { return sm.toString(); }
+        protected String annoClassName() { return sm.name(); }
 
         /**
          * Create a {@code PyWrapperDescr} from this specification. Note

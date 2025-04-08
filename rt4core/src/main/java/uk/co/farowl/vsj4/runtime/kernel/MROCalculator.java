@@ -80,7 +80,7 @@ public class MROCalculator {
         if (bases.length == 1) {
             // Fast path when there is a single base.
             PyType base = bases[0];
-            if (base.base == null) {
+            if (base.getBase() == null) {
                 // The one base is object
                 return new PyType[] {type, base};
             } else {

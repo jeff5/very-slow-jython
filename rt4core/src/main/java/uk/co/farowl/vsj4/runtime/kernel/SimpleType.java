@@ -1,4 +1,4 @@
-// Copyright (c)2024 Jython Developers.
+// Copyright (c)2025 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime.kernel;
 
@@ -6,6 +6,7 @@ import java.lang.invoke.MethodHandles;
 import java.util.List;
 
 import uk.co.farowl.vsj4.runtime.PyType;
+import uk.co.farowl.vsj4.runtime.Representation;
 
 /**
  * A Python type object used where instances (in Python) of the type
@@ -16,7 +17,7 @@ import uk.co.farowl.vsj4.runtime.PyType;
  * must have a {@code self} parameter that accepts the representation
  * class (or a superclass).
  */
-public non-sealed class SimpleType extends PyType {
+public non-sealed class SimpleType extends BaseType {
 
     /** To return as {@link #canonicalClass()}. */
     private final Class<?> canonicalClass;
@@ -32,7 +33,7 @@ public non-sealed class SimpleType extends PyType {
      * @param bases of the type
      */
     public SimpleType(String name, Class<?> javaClass,
-            Class<?> canonical, PyType[] bases) {
+            Class<?> canonical, BaseType[] bases) {
         super(name, javaClass, bases);
         this.canonicalClass = canonical;
     }
@@ -45,7 +46,7 @@ public non-sealed class SimpleType extends PyType {
      * @param javaClass to which instances are assignable
      * @param bases of the type
      */
-    public SimpleType(String name, Class<?> javaClass, PyType[] bases) {
+    public SimpleType(String name, Class<?> javaClass, BaseType[] bases) {
         this(name, javaClass, javaClass, bases);
     }
 
@@ -56,7 +57,7 @@ public non-sealed class SimpleType extends PyType {
      */
     SimpleType() {
         // The representation is Object and there are no bases.
-        this("object", Object.class, Object.class, new PyType[0]);
+        this("object", Object.class, Object.class, new BaseType[0]);
     }
 
     /**
@@ -66,9 +67,9 @@ public non-sealed class SimpleType extends PyType {
      *
      * @param object the type object for {@code object} (as base).
      */
-    SimpleType(PyType object) {
+    SimpleType(BaseType object) {
         this("type", PyType.class, SimpleType.class,
-                new PyType[] {object});
+                new BaseType[] {object});
     }
 
     @Override
@@ -83,13 +84,9 @@ public non-sealed class SimpleType extends PyType {
     public Class<?> canonicalClass() { return canonicalClass; }
 
     @Override
-    public PyType pythonType(Object x) {
-        // I don't *think* we should be asked this question unless:
-        assert javaClass.isAssignableFrom(x.getClass());
-        return this;
-    }
+    public PyType pythonType(Object x) { return this; }
 
-    // XXX Decide the immutability of SimpleType
+    // TODO: Decide the immutability of SimpleType
     @Override
     public boolean isMutable() { return false; }
 

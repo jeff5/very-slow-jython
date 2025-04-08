@@ -26,12 +26,13 @@ import uk.co.farowl.vsj4.runtime.PyFloat;
 import uk.co.farowl.vsj4.runtime.PyFloatMethods;
 import uk.co.farowl.vsj4.runtime.PyLong;
 import uk.co.farowl.vsj4.runtime.PyLongMethods;
+import uk.co.farowl.vsj4.runtime.PyObject;
 import uk.co.farowl.vsj4.runtime.PyType;
 import uk.co.farowl.vsj4.runtime.PyUnicode;
 import uk.co.farowl.vsj4.runtime.PyUnicodeMethods;
+import uk.co.farowl.vsj4.runtime.Representation;
 import uk.co.farowl.vsj4.runtime.TypeSpec;
 import uk.co.farowl.vsj4.runtime.WithClass;
-import uk.co.farowl.vsj4.runtime.kernel.Representation.Shared;
 import uk.co.farowl.vsj4.support.InterpreterError;
 
 /**
@@ -107,10 +108,8 @@ public class TypeFactory {
     /** The (initially partial) type object for 'object'. */
     final SimpleType objectType;
 
-    /** An empty array of type objects */
-    final PyType[] EMPTY_TYPE_ARRAY;
     /** An array containing just type object {@code object} */
-    private final PyType[] OBJECT_ONLY;
+    private final BaseType[] OBJECT_ONLY;
 
     /**
      * We count the number of reentrant calls here, and defer publishing
@@ -176,9 +175,9 @@ public class TypeFactory {
          * construction, which we create from their type objects.
          * PyType.fromSpec would not have been safe at this stage.
          */
-        TypeSpec specOfObject = new PrimordialTypeSpec(objectType,
-                AbstractPyObject.LOOKUP)
-                        .methodImpls(AbstractPyObject.class);
+        TypeSpec specOfObject =
+                new PrimordialTypeSpec(objectType, runtimeLookup)
+                        .methodImpls(PyObject.class);
         TypeSpec specOfType =
                 new PrimordialTypeSpec(typeType, runtimeLookup)
                         .canonicalBase(SimpleType.class);
@@ -201,10 +200,8 @@ public class TypeFactory {
         workshop.addTask(typeType, specOfType);
 
         // This cute re-use also proves 'type' and 'object' exist.
-        this.OBJECT_ONLY = typeType.bases;
+        this.OBJECT_ONLY = typeType.bases();
         assert OBJECT_ONLY.length == 1;
-        this.EMPTY_TYPE_ARRAY = typeType.base.bases;
-        assert EMPTY_TYPE_ARRAY.length == 0;
     }
 
     /**
@@ -699,7 +696,7 @@ public class TypeFactory {
          * @return the new partial type
          * @throws Clash when a representing class is already bound
          */
-        PyType addTaskFromSpec(TypeSpec spec) throws Clash {
+        BaseType addTaskFromSpec(TypeSpec spec) throws Clash {
             // No further change once we start
             String name = spec.freeze().getName();
 
@@ -710,16 +707,18 @@ public class TypeFactory {
             List<Class<?>> accepted = spec.getAccepted();
 
             // Get the list of Python bases, or implicitly object.
-            PyType[] bases;
             List<PyType> baseList = spec.getBases();
+            // The constructors take BaseType[].
+            BaseType[] bases;
             if (baseList.isEmpty()) {
                 bases = OBJECT_ONLY;
             } else {
-                bases = baseList.toArray(new PyType[baseList.size()]);
+                // No type problem because PyType is sealed.
+                bases = baseList.toArray(new BaseType[baseList.size()]);
             }
 
             // Result of the construction
-            PyType newType;
+            BaseType newType;
 
             if (spec.getFeatures().contains(Feature.REPLACEABLE)) {
                 assert primary != null;
@@ -730,13 +729,13 @@ public class TypeFactory {
                  * primary class, but it is allowable that it already
                  * have a representation.
                  */
-                Shared sr;
+                SharedRepresentation sr;
                 Representation existing = registry.find(primary);
                 if (existing == null) {
                     // It doesn't exist, so we create and add it.
-                    sr = new Shared(primary, canonical);
+                    sr = new SharedRepresentation(primary, canonical);
                     publishLocally(primary, sr);
-                } else if (existing instanceof Shared s) {
+                } else if (existing instanceof SharedRepresentation s) {
                     // It does exist and is a Shared type: just use it.
                     assert s.canonicalClass() == canonical;
                     sr = s;
@@ -805,7 +804,7 @@ public class TypeFactory {
          * @param type the new type
          * @param spec specifying the new type
          */
-        void addTask(PyType type, TypeSpec spec) {
+        void addTask(BaseType type, TypeSpec spec) {
             tasks.add(new Task(type, spec));
         }
 
@@ -879,12 +878,12 @@ public class TypeFactory {
          */
         private class Task {
             /** The type being built. */
-            final PyType type;
+            final BaseType type;
 
             /** Specification for the type being built. */
             final TypeSpec spec;
 
-            Task(PyType type, TypeSpec spec) {
+            Task(BaseType type, TypeSpec spec) {
                 super();
                 this.type = type;
                 this.spec = spec.freeze();
@@ -902,7 +901,7 @@ public class TypeFactory {
              */
             void readyType() {
 
-                AbstractPyType type = this.type;  // Enables access :/
+                //AbstractPyType type = this.type;  // Enables access :/
 
                 // Set MRO
                 type.setMRO();
@@ -1111,7 +1110,7 @@ public class TypeFactory {
             super(type.getName(), lookup);
             // I think the primordial types are only simple
             assert type instanceof SimpleType;
-            this.primary(type.javaClass()).bases(type.bases);
+            this.primary(type.javaClass()).bases(type.getBases());
         }
     }
 

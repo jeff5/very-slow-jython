@@ -67,8 +67,8 @@ class TypeExposerStaticMethodTest extends UnitTestSupport {
          */
         @Test
         void wraps_expected_function() {
-            PyStaticMethod s = (PyStaticMethod)PyType.of(obj).getDict()
-                    .get(ap.name);
+            PyStaticMethod s =
+                    (PyStaticMethod)PyType.of(obj).lookup(ap.name);
             PyJavaFunction f = (PyJavaFunction)s.__get__(null, null);
             assertEquals(ap.name, f.__name__());
             assertNull(f.self);  // unbound

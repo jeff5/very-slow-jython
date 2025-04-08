@@ -1,8 +1,6 @@
-// Copyright (c)2024 Jython Developers.
+// Copyright (c)2025 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
-
-import uk.co.farowl.vsj4.support.InterpreterError;
 
 /**
  * An instance of a class implementing this interface allows assignment
