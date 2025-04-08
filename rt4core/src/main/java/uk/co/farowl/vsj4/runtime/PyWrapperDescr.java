@@ -51,7 +51,8 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
 
     static final PyType TYPE = PyType.fromSpec( //
             new TypeSpec("wrapper_descriptor", MethodHandles.lookup())
-                    .add(Feature.IMMUTABLE, Feature.METHOD_DESCR));
+                    .add(Feature.IMMUTABLE, Feature.METHOD_DESCR)
+                    .remove(Feature.BASETYPE));
 
     /**
      * The {@link SpecialMethod} ({@code enum}) describing the generic
@@ -69,9 +70,12 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
      */
     // Compare CPython PyDescr_NewWrapper in descrobject.c
     PyWrapperDescr(PyType objclass, SpecialMethod slot) {
-        super(TYPE, objclass, slot.methodName);
+        super(objclass, slot.methodName);
         this.slot = slot;
     }
+
+    @Override
+    public PyType getType() { return TYPE; }
 
     // Exposed attributes ---------------------------------------------
 
@@ -92,7 +96,7 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
      */
     @Exposed.Getter
     // Compare CPython wrapperdescr_get_doc in descrobject.c
-    protected Object __doc__() {
+    private Object __doc__() {
         return PyType.getDocFromInternalDoc(slot.methodName, slot.doc);
     }
 
@@ -104,7 +108,7 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
      */
     @Exposed.Getter
     // Compare CPython wrapperdescr_get_text_signature in descrobject.c
-    protected Object __text_signature__() {
+    private Object __text_signature__() {
         return PyType.getTextSignatureFromInternalDoc(slot.methodName,
                 slot.doc);
     }
@@ -134,7 +138,7 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
 
     // Compare CPython wrapperdescr_get in descrobject.c
     @Override
-    protected Object __get__(Object obj, PyType type) {
+    Object __get__(Object obj, PyType type) {
         if (obj == null)
             /*
              * obj==null indicates the descriptor was found on the
@@ -163,7 +167,7 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
      * @throws Throwable from the implementation of the special method
      */
     // Compare CPython wrapperdescr_call in descrobject.c
-    public Object __call__(Object[] args, String[] names)
+    Object __call__(Object[] args, String[] names)
             throws PyBaseException, Throwable {
         try {
             return call(args, names);

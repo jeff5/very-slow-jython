@@ -9,67 +9,52 @@ package uk.co.farowl.vsj4.runtime;
  *
  * @implNote It must be possible to create an instance of any concrete
  *     descriptor (a sub-class of this one) in circumstances where the
- *     only types in existence are {@link PyType#TYPE} and
- *     {@link PyType#OBJECT_TYPE}, and where these have not yet been
- *     given their descriptor attributes or operation slots
- *     ({@code op_*} slots}.
+ *     only types in existence are {@link PyType} and {@link PyObject},
+ *     and where these have not yet been given their descriptor
+ *     attributes or operation slots ({@code op_*} slots}.
  *     <p>
  *     In order to create a descriptor, the JVM need only complete the
  *     static initialisation of the Java class for that descriptor and
  *     be able to execute the constructor.
  */
-abstract class Descriptor implements WithClass {
+public abstract class Descriptor implements WithClass {
 
     /**
-     * Python {@code type} of this descriptor object (e.g. for a method
-     * defined in Java, it will be the type {@code method_descriptor}).
-     */
-    // In CPython, called ob_type (in ~/include/object.h)
-    // TODO: eliminate if subclasses are non-BASETYPE
-    protected final PyType descrtype;
-
-    /**
-     * Python {@code type} that defines the attribute being described
-     * (e.g. for a method, the Python type of the object that will be
-     * "self" in a call). This is exposed to Python as
-     * {@code __objclass__}.
+     * Python {@code type} that defines the unbound member, attribute or
+     * method being described. For a method, it is the Python type of
+     * the object that will be "self" in a call. This is exposed to
+     * Python as {@code __objclass__}.
      */
     // In CPython, called d_type
     protected final PyType objclass;
 
     /**
-     * Name of the object described, e.g. "__add__" or "to_bytes". This
-     * is exposed to Python as {@code __name__}.
+     * Name of the object described, for example "__add__" or
+     * "to_bytes". This is exposed to Python as {@code __name__}.
      */
     // In CPython, called d_name
     // @Exposed.Member(value = "__name__", readonly = true)
     protected final String name;
 
     /**
-     * Qualified name of the object described, e.g. "float.__add__" or
-     * "int.to_bytes". This is exposed to Python as
+     * Qualified name of the object described, for example
+     * "float.__add__" or "int.to_bytes". This is exposed to Python as
      * {@code __qualname__}.
      */
-    // In CPython, called d_qualname. Where used? Better computed?
+    // In CPython, called d_qualname.
+    // TODO: Where is this used? Is it better computed?
     protected String qualname = null;
 
     /**
-     * Constructor specifying the Python type, as returned by
-     * {@link #getType()}. As this is a base for the implementation of
-     * all sorts of Python types, it needs to be told which one it is.
+     * Create the common part of {@code Descriptor} sub-classes.
      *
-     * @param descrtype actual Python type being created
      * @param objclass that defines the attribute being described
      * @param name of the object described as {@code __name__}
      */
-    Descriptor(PyType descrtype, PyType objclass, String name) {
-        this.descrtype = descrtype;
+    Descriptor(PyType objclass, String name) {
         this.objclass = objclass;
         this.name = name;
     }
-
-    @Override
-    public PyType getType() { return descrtype; }
 
     /**
      * The {@code __get__} special method of the Python descriptor
@@ -90,6 +75,7 @@ abstract class Descriptor implements WithClass {
     // Compare CPython *_get methods in descrobject.c
     abstract Object __get__(Object obj, PyType type) throws Throwable;
 
+    // TODO Incompletely ported from CPython:
     // CPython method table (to convert to annotations):
     // private MethodDef descr_methods[] = {
     // {"__reduce__", (PyCFunction)descr_reduce, METH_NOARGS, null},
@@ -113,12 +99,10 @@ abstract class Descriptor implements WithClass {
      * @param kind description of type (first word in the repr)
      * @return repr as a {@code str}
      */
-    protected String descrRepr(String kind) {
+    String descrRepr(String kind) {
         return String.format("<%s '%.50s' of '%.100s' objects>", kind,
                 name, objclass.getName());
     }
-
-    // TODO Rationalise these three checks on self type
 
     /**
      * A check made when the descriptor is applied to an argument
@@ -138,10 +122,9 @@ abstract class Descriptor implements WithClass {
      *     to {@code obj}
      */
     // Compare CPython descr_check in descrobject.c
-    protected void check(Object obj) throws PyBaseException {
+    void check(Object obj) throws PyBaseException {
         PyType objType = PyType.of(obj);
-        if (objType == objclass) { return; } // Short-cut
-        checkPythonType(objType);
+        if (objType != objclass) { checkPythonType(objType); }
     }
 
     /**
@@ -153,8 +136,7 @@ abstract class Descriptor implements WithClass {
      * @throws PyBaseException (TypeError) if descriptor doesn't apply
      *     to {@code objType}
      */
-    protected void checkPythonType(PyType objType)
-            throws PyBaseException {
+    void checkPythonType(PyType objType) throws PyBaseException {
         // XXX Should this call Abstract.recursiveIsSubclass instead?
         if (objType.isSubTypeOf(objclass)) { return; }
         throw selfTypeError(objType);
@@ -202,7 +184,7 @@ abstract class Descriptor implements WithClass {
         return descr.qualname;
     }
 
-    // Incompletely ported from CPython:
+    // TODO Incompletely ported from CPython:
     // static Object descr_reduce(PyDescr descr, Object ignored)
     // {
     // return Py_BuildValue("N(OO)", _PyEval_GetBuiltinId(ID.getattr),

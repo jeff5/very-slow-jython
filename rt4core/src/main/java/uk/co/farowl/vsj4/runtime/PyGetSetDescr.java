@@ -18,7 +18,7 @@ import uk.co.farowl.vsj4.support.internal.EmptyException;
 
 /**
  * Descriptor for an attribute that has been defined by a series of
- * {@link Getter}, {@link Setter} and {@link Deleter} that annotate
+ * {@link Getter}, {@link Setter} and {@link Deleter} annotations on
  * access methods defined in the object implementation to get, set or
  * delete the value. {@code PyGetSetDescr} differs from
  * {@link PyMemberDescr} in giving the author of an implementation class
@@ -32,7 +32,7 @@ public abstract class PyGetSetDescr extends DataDescriptor {
     static final Lookup LOOKUP = MethodHandles.lookup();
     static final PyType TYPE =
             PyType.fromSpec(new TypeSpec("getset_descriptor", LOOKUP)
-                    .remove(Feature.BASETYPE));
+                    .add(Feature.IMMUTABLE, Feature.METHOD_DESCR)                    .remove(Feature.BASETYPE));
 
     /** The method handle type (O)O. */
     // CPython: PyObject *(*getter)(PyObject *, void *)
@@ -96,10 +96,13 @@ public abstract class PyGetSetDescr extends DataDescriptor {
     // Compare CPython PyDescr_NewGetSet
     PyGetSetDescr(PyType objclass, String name, String doc,
             Class<?> klass) {
-        super(TYPE, objclass, name);
+        super( objclass, name);
         this.doc = doc;
         this.klass = klass;
     }
+
+    @Override
+    public PyType getType() { return TYPE; }
 
     /**
      * Return a {@code MethodHandle} by which the Java implementation of

@@ -33,7 +33,8 @@ public abstract class PyMethodDescr extends MethodDescriptor {
     /** The type object of a {@code method_descriptor}. */
     public static final PyType TYPE = PyType.fromSpec( //
             new TypeSpec("method_descriptor", MethodHandles.lookup())
-                    .add(Feature.IMMUTABLE, Feature.METHOD_DESCR));
+                    .add(Feature.IMMUTABLE, Feature.METHOD_DESCR)
+                    .remove(Feature.BASETYPE));
 
     /*
      * We depart from CPython in reifying information from the Java
@@ -76,10 +77,13 @@ public abstract class PyMethodDescr extends MethodDescriptor {
     // Compare CPython PyDescr_NewMethod in descrobject.c
     protected PyMethodDescr(PyType objclass, ArgParser argParser,
             MethodSignature signature) {
-        super(TYPE, objclass, argParser.name);
+        super(objclass, argParser.name);
         this.argParser = argParser;
         this.signature = signature;
     }
+
+    @Override
+    public PyType getType() { return TYPE; }
 
     /**
      * Construct a Python {@code method} descriptor from an

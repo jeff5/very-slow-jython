@@ -1,4 +1,4 @@
-// Copyright (c)2024 Jython Developers.
+// Copyright (c)2025 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
 
@@ -17,16 +17,13 @@ public abstract class MethodDescriptor extends Descriptor
         implements FastCall {
 
     /**
-     * Constructor specifying the Python type, as returned by
-     * {@link #getType()}. As this is a base for the implementation of
-     * all sorts of Python types, it needs to be told which one it is.
+     * Create the common part of {@code MethodDescriptor} sub-classes.
      *
      * @param objclass that defines the attribute being described
      * @param name of the object described as {@code __name__}
-     * @param descrtype actual Python type being created
      */
-    MethodDescriptor(PyType descrtype, PyType objclass, String name) {
-        super(descrtype, objclass, name);
+    MethodDescriptor(PyType objclass, String name) {
+        super(objclass, name);
     }
 
     /**

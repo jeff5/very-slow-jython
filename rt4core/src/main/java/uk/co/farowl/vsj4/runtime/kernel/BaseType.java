@@ -237,10 +237,6 @@ public abstract sealed class BaseType extends PyType
         return registry.get(o.getClass());
     }
 
-    protected static boolean systemReady() {
-        return PyType.systemReady();
-    }
-
     // FastCall implementation ---------------------------------------
 
     /*

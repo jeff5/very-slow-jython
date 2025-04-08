@@ -21,7 +21,7 @@ public abstract class PyMemberDescr extends DataDescriptor {
     /** The type of Python object this class implements. */
     static final PyType TYPE = PyType.fromSpec( //
             new TypeSpec("member_descriptor", MethodHandles.lookup())
-                    .remove(Feature.BASETYPE));
+            .add(Feature.IMMUTABLE, Feature.METHOD_DESCR)                    .remove(Feature.BASETYPE));
 
     /** Acceptable values in the {@link #flags}. */
     enum Flag {
@@ -58,12 +58,15 @@ public abstract class PyMemberDescr extends DataDescriptor {
      */
     PyMemberDescr(PyType objclass, String name, VarHandle handle,
             EnumSet<Flag> flags, String doc) {
-        super(TYPE, objclass, name);
+        super(objclass, name);
         this.flags = flags;
         this.field = handle;
         // Allow null to represent empty doc
         this.doc = doc != null && doc.length() > 0 ? doc : null;
     }
+
+    @Override
+    public PyType getType() { return TYPE; }
 
     private static VarHandle varHandle(Field f, Lookup lookup) {
         try {

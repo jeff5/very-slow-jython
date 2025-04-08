@@ -451,7 +451,7 @@ public abstract sealed class PyType extends Representation
      *
      * @return type {@code true} iff system is ready for use.
      */
-    protected static boolean systemReady() {
+    static boolean systemReady() {
         return readyNanoTime != 0L;
     }
 
