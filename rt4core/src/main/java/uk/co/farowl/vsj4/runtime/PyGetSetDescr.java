@@ -267,7 +267,7 @@ public abstract class PyGetSetDescr extends DataDescriptor {
      */
     // Compare CPython getset_get in descrobject.c
     @Override
-    Object __get__(Object obj, PyType type) throws Throwable {
+    public Object __get__(Object obj, PyType type) throws Throwable {
         if (obj == null)
             /*
              * obj==null indicates the descriptor was found on the

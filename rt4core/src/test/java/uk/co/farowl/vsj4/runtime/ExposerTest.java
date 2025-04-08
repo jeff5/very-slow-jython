@@ -90,8 +90,8 @@ class ExposerTest extends UnitTestSupport {
                 (PyWrapperDescr.Multiple)type.lookup("__neg__");
         assertNotNull(neg);
 
-        assertEquals("__neg__", neg.name);
-        assertEquals(ObjectWithSpMeth.TYPE, neg.objclass);
+        assertEquals("__neg__", neg.__name__());
+        assertEquals(ObjectWithSpMeth.TYPE, neg.__objclass__());
         assertEquals(
                 "<slot wrapper '__neg__' of 'ObjectWithSpecialMethods' objects>",
                 neg.toString());
@@ -187,8 +187,8 @@ class ExposerTest extends UnitTestSupport {
                 .lookup("length");
 
         assertNotNull(length);
-        assertEquals("length", length.name);
-        assertEquals(ObjectWithMethods.TYPE, length.objclass);
+        assertEquals("length", length.__name__());
+        assertEquals(ObjectWithMethods.TYPE, length.__objclass__());
         assertEquals(
                 "<method 'length' of 'PyObjectWithMethods' objects>",
                 length.toString());
@@ -212,8 +212,8 @@ class ExposerTest extends UnitTestSupport {
         // length = A.length
         PyMethodDescr length =
                 (PyMethodDescr)Abstract.getAttr(A, "length");
-        assertEquals("length", length.name);
-        assertEquals(A, length.objclass);
+        assertEquals("length", length.__name__());
+        assertEquals(A, length.__objclass__());
         // n = length(a) # = 12
         Object[] args = {a};
         result = Callables.call(length, args, null);

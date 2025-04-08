@@ -262,7 +262,7 @@ public abstract class PyMemberDescr extends DataDescriptor {
      */
     @Override
     // Compare CPython member_get in descrobject.c
-    Object __get__(Object obj, PyType type) {
+    public Object __get__(Object obj, PyType type) {
         if (obj == null)
             /*
              * obj==null indicates the descriptor was found on the

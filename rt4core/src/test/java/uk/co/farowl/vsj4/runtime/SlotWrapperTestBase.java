@@ -49,8 +49,8 @@ class SlotWrapperTestBase {
      * the signature and defining class.
      */
     void has_expected_fields() {
-        assertEquals(name, descr.name);
-        assertTrue(type.isSubTypeOf(descr.objclass),
+        assertEquals(name, descr.__name__());
+        assertTrue(type.isSubTypeOf(descr.__objclass__()),
                 "target is sub-type of defining class");
         // more ...
     }

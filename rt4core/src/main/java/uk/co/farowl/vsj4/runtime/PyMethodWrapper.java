@@ -119,23 +119,46 @@ public class PyMethodWrapper implements WithClass, FastCall {
     // 0, /* tp_descr_set */
     // };
 
-    // Exposed attributes ---------------------------------------------
-    /** @return the class where this object was defined */
+    // Exposed attributes --------------------------------------------
+
+    /*
+     * While superficially identical to members that other classes
+     * inherit from Descriptor, note that __objclass__ and __name__ are
+     * here read-only *attributes* (getter methods) rather than
+     * *members* so that we can get them from the descriptor of the
+     * wrapped special method. This the same in CPython.
+     */
+
+    /**
+     * Return the class where this method was defined. This is exposed
+     * to Python as {@code __objclass__}. It is the type of the object
+     * that is expected as the first (that is, {@code self}) argument,
+     * and that is bound (as {@code obj}) when {@code __get__} is
+     * called.
+     *
+     * @return the class where this object was defined
+     */
     @Exposed.Getter
     // Compare CPython wrapper_objclass in descrobject.c
-    private Object __objclass__() { return descr.objclass; }
+    public Object __objclass__() { return descr.__objclass__(); }
 
-    /** @return plain name of the method. */
+    /**
+     * Return the name of the member, attribute or method described. For
+     * example it is {@code "__add__"} or {@code "__str__"}. This is
+     * exposed to Python as {@code __name__}.
+     *
+     * @return plain name of the (special) method.
+     */
     @Exposed.Getter
     // Compare CPython wrapper_name in descrobject.c
-    private Object __name__() { return descr.slot.methodName; }
+    public Object __name__() { return descr.sm.methodName; }
 
     /** @return documentation string formatted for external reader. */
     @Exposed.Getter
     // Compare CPython wrapper_doc in descrobject.c
     private Object __doc__() {
-        return PyType.getDocFromInternalDoc(descr.slot.methodName,
-                descr.slot.doc);
+        return PyType.getDocFromInternalDoc(descr.sm.methodName,
+                descr.sm.doc);
     }
 
     /** @return signature string based on internal documentation. */
@@ -143,7 +166,7 @@ public class PyMethodWrapper implements WithClass, FastCall {
     // Compare CPython wrapper_text_signature in descrobject.c
     private Object __text_signature__() {
         return PyType.getTextSignatureFromInternalDoc(
-                descr.slot.methodName, descr.slot.doc);
+                descr.sm.methodName, descr.sm.doc);
     }
 
     /**
@@ -155,8 +178,8 @@ public class PyMethodWrapper implements WithClass, FastCall {
      */
     @Exposed.Getter
     // Compare CPython wrapper_qualname in descrobject.c
-    private Object __qualname__() throws PyAttributeError, Throwable {
-        return Descriptor.descr_get_qualname(descr, null);
+    public Object __qualname__() throws PyAttributeError, Throwable {
+        return descr.__qualname__();
     }
 
     // Special methods ------------------------------------------------
@@ -164,7 +187,7 @@ public class PyMethodWrapper implements WithClass, FastCall {
     // Compare CPython wrapper_repr in descrobject.c
     private Object __repr__() {
         return String.format("<method-wrapper '%s' of %s>",
-                descr.slot.methodName, _PyUtil.toAt(self));
+                descr.sm.methodName, _PyUtil.toAt(self));
     }
 
     // Compare CPython wrapper_richcompare in descrobject.c

@@ -75,7 +75,7 @@ public abstract class PyMethodDescr extends MethodDescriptor {
      * @param signature to which to coerce the handle
      */
     // Compare CPython PyDescr_NewMethod in descrobject.c
-    protected PyMethodDescr(PyType objclass, ArgParser argParser,
+    private PyMethodDescr(PyType objclass, ArgParser argParser,
             MethodSignature signature) {
         super(objclass, argParser.name);
         this.argParser = argParser;
@@ -161,14 +161,14 @@ public abstract class PyMethodDescr extends MethodDescriptor {
      * @throws Throwable from the implementation of the method
      */
     // Compare CPython method_vectorcall_* in descrobject.c
-    protected abstract Object callMethod(Object self, Object[] args,
+    abstract Object callMethod(Object self, Object[] args,
             String[] names)
             throws ArgumentError, PyBaseException, Throwable;
 
     /**
-     * Invoke the wrapped method handle for the given target
-     * {@code self}, and arguments ({@code Object[]} given only by
-     * position. Otherwise, this is the same as
+     * Call this method descriptor for the given target {@code self},
+     * and arguments ({@code Object[]} given only by position.
+     * Otherwise, this is the same as
      * {@link #callMethod(Object, Object[], String[])}.
      *
      * @param self target object of the method call
@@ -182,7 +182,7 @@ public abstract class PyMethodDescr extends MethodDescriptor {
      * @throws Throwable from the implementation of the method
      */
     // Compare CPython method_vectorcall_* in descrobject.c
-    protected abstract Object callMethod(Object self, Object[] args)
+    abstract Object callMethod(Object self, Object[] args)
             throws ArgumentError, PyBaseException, Throwable;
 
     /*
@@ -223,27 +223,27 @@ public abstract class PyMethodDescr extends MethodDescriptor {
         }
     }
 
-// @Override
-// public Object call(Object self) throws Throwable {
-// return callMethod(self, Util.EMPTY_ARRAY);
-// }
-//
-// @Override
-// public Object call(Object self, Object a1) throws Throwable {
-// return callMethod(self, new Object[] {a1});
-// }
-//
-// @Override
-// public Object call(Object self, Object a1, Object a2)
-// throws Throwable {
-// return callMethod(self, new Object[] {a1, a2});
-// }
-//
-// @Override
-// public Object call(Object self, Object a1, Object a2, Object a3)
-// throws Throwable {
-// return callMethod(self, new Object[] {a1, a2, a3});
-// }
+    @Override
+    public Object call(Object self) throws Throwable {
+        return callMethod(self, Util.EMPTY_ARRAY);
+    }
+
+    @Override
+    public Object call(Object self, Object a1) throws Throwable {
+        return callMethod(self, new Object[] {a1});
+    }
+
+    @Override
+    public Object call(Object self, Object a1, Object a2)
+            throws Throwable {
+        return callMethod(self, new Object[] {a1, a2});
+    }
+
+    @Override
+    public Object call(Object self, Object a1, Object a2, Object a3)
+            throws Throwable {
+        return callMethod(self, new Object[] {a1, a2, a3});
+    }
 
     /**
      * Return the handle contained in this descriptor, applicable to the
@@ -363,14 +363,14 @@ public abstract class PyMethodDescr extends MethodDescriptor {
     }
 
     /**
-     * Return the described method, bound to {@code obj} as its "self"
-     * argument, or if {@code obj==null}, return this descriptor. In the
-     * non-null case, {@code __get__} returns a {@link PyJavaFunction}.
-     * Calling the returned object invokes the same Java method as this
-     * descriptor, with {@code obj} as first argument, and other
-     * arguments to the call appended.
+     * Return the described method, bound to {@code obj} as its
+     * {@code self} argument, or if {@code obj==null}, return this
+     * descriptor. In the non-{@code null} case, {@code __get__} returns
+     * a {@link PyJavaFunction}. Calling the returned object invokes the
+     * same Java method as this descriptor, with {@code obj} as first
+     * argument, and other arguments to the call appended.
      *
-     * @param obj target (self) of the method, or {@code null}
+     * @param obj target ({@code self}) of the method, or {@code null}
      * @param type ignored
      * @return method bound to {@code obj} or this descriptor.
      * @throws PyBaseException (TypeError) if {@code obj!=null} is not
@@ -379,7 +379,7 @@ public abstract class PyMethodDescr extends MethodDescriptor {
      */
     @Override
     // Compare CPython method_get in descrobject.c
-    Object __get__(Object obj, PyType type)
+    public Object __get__(Object obj, PyType type)
             throws PyBaseException, Throwable {
         if (obj == null)
             // Return the descriptor itself.
@@ -418,7 +418,7 @@ public abstract class PyMethodDescr extends MethodDescriptor {
      * @param candidates handles on which to base return
      * @return method handles aligned to {@code objclass.clases}
      */
-    protected MethodHandle[] prepareCandidates(MethodSignature sig,
+    MethodHandle[] prepareCandidates(MethodSignature sig,
             List<MethodHandle> candidates) {
 
         List<Class<?>> selfClasses = objclass.selfClasses();
