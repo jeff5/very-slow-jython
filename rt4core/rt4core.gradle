@@ -139,7 +139,7 @@ sourceSets {
 }
 
 
-// A task that runs Python with the tools library on the path
+// A class of task that runs Python with the tools library on the path
 
 class PythonExec extends Exec {
 
@@ -149,24 +149,25 @@ class PythonExec extends Exec {
     }
 }
 
-// Generate Python object definitions
-
-task generateJava(type: PythonExec,
-        description: 'Generate object definitions from templates' ) {
-    args getProject().file('tools/python/java_object_gen.py')
-    args '--verbose'
-    args genInputDir
-    args genJavaDir
-}
-compileJava.dependsOn(generateJava)
-
 
 // Report the version of Python available
 
 task pythonVersion(type: PythonExec) {
     args '-V'
 }
-generateJava.dependsOn(pythonVersion)
+
+
+// Generate Python object definitions
+
+task generateJava(type: PythonExec,
+        description: 'Generate object definitions from templates',
+        dependsOn: pythonVersion) {
+    args getProject().file('tools/python/java_object_gen.py')
+    args '--verbose'
+    args genInputDir
+    args genJavaDir
+}
+compileJava.dependsOn(generateJava)
 
 
 // Copy and compile Python source examples to the build tree
@@ -188,57 +189,125 @@ generateJava.dependsOn(pythonVersion)
 //processTestResources.dependsOn(compileTestPythonExamples)
 
 
-// Task to generate javadoc for the module API (that client apps use)
-task moduleJavadoc(type:Javadoc,
-        description: 'Generate Javadoc for module API') {
-    source = sourceSets.main.allJava
-    title = "rt4core Client API"
-    destinationDir = file("${buildDir}/docs/api")
-
-    def ccp = sourceSets.main.compileClasspath
-    //println "ccp.files = ${ccp.files}"
-    classpath.from(ccp)
-
-    //modularity.inferModulePath = false
-    //options.modulePath(new ArrayList(ccp.files))
-    //println "options.modulePath = ${options.modulePath}"
-
-    // addStringOption adds a "-" for us so "--module" is spelled:
-    // options.addStringOption("-module", ... )
-    // options.addStringOption("-module", "uk.co.farowl.rt4core")
-    options.addStringOption("-show-packages", "exported")
-    options.addStringOption("-show-module-contents", "api")
-}
-
-
+// Default javadoc (but it does not properly constrain visibility)
 javadoc {
-    title = "rt4core Public API"
+    title = "rt4core Default Javadoc (not modular)"
     options.addStringOption("-show-packages", "exported")
     options.addStringOption("-show-module-contents", "api")
     options.showFromProtected()
 }
 
 
+// Task to generate javadoc for the module API (that client apps use).
+// Using an Exec task because we failed to make a Javadoc task work.
+task moduleJavadoc(type:Exec,
+        description: 'Generate Javadoc for Client API (Exec task)',
+        dependsOn: generateJava) {
+
+    inputs.files(sourceSets.main.allJava)
+    executable = "javadoc"
+
+    def title = 'rt4core Client API'
+    args('-doctitle', title)
+    args('-windowtitle', title)
+
+    // These particular docs are characterised by:
+    args('--show-module-contents', 'api')
+    args('--show-packages', 'exported')
+    args('-d', "${buildDir}/docs/api")
+
+    // The module and source paths are specified here
+    args("@src/main/javadoc/modular.options")
+
+    //println "Exec javadoc $args"
+}
+
+
+// Task to generate javadoc for the module API (that client apps use)
+// Something like this should work but it fails in the javadoc command.
+task brokenModuleJavadoc(type:Javadoc,
+        description: 'Generate Javadoc for module API (broken)',
+        dependsOn: generateJava) {
+    source = sourceSets.main.allJava
+    title = "rt4core Client API (broken)"
+    destinationDir = file("${buildDir}/docs/broken-api")
+
+    def ccp = sourceSets.main.compileClasspath
+    //println "ccp.files = ${ccp.files}"
+    //classpath.from(ccp)
+
+    //modularity.inferModulePath = false
+    options.modulePath(new ArrayList(ccp.files))
+    println "options.modulePath = ${options.modulePath}"
+
+    // addStringOption adds a "-" for us so "--module" is spelled:
+    // options.addStringOption("-module", ... )
+    options.addStringOption("-module", "uk.co.farowl.rt4core")
+    options.addStringOption("-show-packages", "exported")
+    options.addStringOption("-show-module-contents", "api")
+
+    FileCollection roots = layout.files(
+            CompilationSourceDirs.inferSourceRoots(source))
+    println "rootsPath = ${roots.asPath}"
+
+    options.addStringOption("-source-path", roots.asPath)
+}
+
+
+// Task to generate javadoc for project maintainers
+// Using an Exec task because we failed to make a Javadoc task work.
+task internalJavadoc(type:Exec,
+        description: 'Generate project internal Javadoc',
+        dependsOn: generateJava) {
+
+    inputs.files(sourceSets.main.allJava)
+    executable = "javadoc"
+
+    def title = 'rt4core Project Internal Javadoc'
+    args('-doctitle', title)
+    args('-windowtitle', title)
+
+    // These particular docs are characterised by:
+    args('--show-module-contents', 'all')
+    args('--show-packages', 'all')
+    args('--show-members', 'package')
+    args('--show-types', 'package')
+    args('-d', "${buildDir}/docs/internalJavadoc")
+
+    // The module and source paths are specified here
+    args("@src/main/javadoc/modular.options")
+
+    //println "Exec javadoc $args"
+}
+
+
 // Task to generate javadoc for project maintainers (down to private)
-task internalJavadoc(type:Javadoc,
-        description: 'Generate project internal Javadoc') {
+// Something like this should work but it fails in the javadoc command.
+task brokenInternalJavadoc(type:Javadoc,
+        description: 'Generate project internal Javadoc (broken)',
+        dependsOn: generateJava) {
 
     source(sourceSets.main.allJava)
-    title = "rt4core Project Internal"
-    destinationDir = file("${buildDir}/docs/internalJavadoc")
+    title = "rt4core Project Internal Javadoc (broken)"
+    destinationDir = file("${buildDir}/docs/brokenInternalJavadoc")
 
     // Work around poor handling of modules in Gradle
     // Possibly https://github.com/gradle/gradle/issues/25954
     def ccp = sourceSets.main.compileClasspath
-    modularity.inferModulePath = false
+    // modularity.inferModulePath = false
     options.modulePath(new ArrayList(ccp.files))
-    //println "options.modulePath = ${options.modulePath}"
-    //options.addStringOption("-module", "uk.co.farowl.rt4core")
+    println "options.modulePath = ${options.modulePath}"
+    options.addStringOption("-module", "uk.co.farowl.rt4core")
 
     options.showFromPackage()
     //options.showFromPrivate()
+
+    FileCollection roots = layout.files(
+            CompilationSourceDirs.inferSourceRoots(source))
+    println "rootsPath = ${roots.asPath}"
+
+    options.addStringOption("-source-path", roots.asPath)
 }
-internalJavadoc.dependsOn(generateJava)
 
 
 // Task to generate javadoc for test code
@@ -269,7 +338,7 @@ task testJavadoc(type:Javadoc,
 
     options.showFromPackage()
 
-    // rt4 internal javadoc already at ${buildDir}/docs/javadoc
+    // rt4 internal javadoc already at ${buildDir}/docs
     // We want to click through to the objects under test
     options.links.add("../internalJavadoc")
 }
