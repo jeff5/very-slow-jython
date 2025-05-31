@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 
 import uk.co.farowl.vsj4.runtime.kernel.AdoptiveType;
 import uk.co.farowl.vsj4.runtime.kernel.ReplaceableType;
+import uk.co.farowl.vsj4.runtime.kernel.Representation;
 import uk.co.farowl.vsj4.runtime.kernel.SimpleType;
 import uk.co.farowl.vsj4.runtime.kernel.TypeRegistry;
 

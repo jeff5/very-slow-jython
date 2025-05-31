@@ -25,6 +25,8 @@ import uk.co.farowl.vsj4.runtime.kernel.AdoptiveType;
 import uk.co.farowl.vsj4.runtime.kernel.BaseType;
 import uk.co.farowl.vsj4.runtime.kernel.KernelTypeFlag;
 import uk.co.farowl.vsj4.runtime.kernel.MROCalculator;
+import uk.co.farowl.vsj4.runtime.kernel.Representation;
+import uk.co.farowl.vsj4.runtime.kernel.KernelType;
 import uk.co.farowl.vsj4.runtime.kernel.SpecialMethod;
 import uk.co.farowl.vsj4.runtime.kernel.TypeFactory;
 import uk.co.farowl.vsj4.runtime.kernel.TypeFactory.Clash;
@@ -45,7 +47,7 @@ import uk.co.farowl.vsj4.support.internal.EmptyException;
  * holds the single static instance of the Python type factory, which
  * comes into being upon first use of the {@code PyType} class.
  */
-public abstract sealed class PyType extends Representation
+public abstract sealed class PyType extends KernelType
         implements WithClass, FastCall permits BaseType {
 
     /** Logger for (the public face of) the type system. */
@@ -172,15 +174,6 @@ public abstract sealed class PyType extends Representation
             EnumSet.noneOf(TypeFlag.class);
 
     /**
-     * Kernel feature flags collecting various traits of this type that
-     * are private to the implementation, such as defining a certain
-     * special method.
-     */
-    // Compare CPython tp_flags in object.h
-    protected final EnumSet<KernelTypeFlag> kernelFeatures =
-            EnumSet.noneOf(KernelTypeFlag.class);
-
-    /**
      * The {@code __base__} of this type. The {@code __base__} is a type
      * from the {@code __bases__}, but its choice is determined by
      * implementation details.
@@ -189,7 +182,7 @@ public abstract sealed class PyType extends Representation
      * implementation contains all the members necessary to implement
      * the current type.
      */
-    protected BaseType base;
+    protected PyType base;
 
     /**
      * The {@code __bases__} of this type, which are the types named in
@@ -197,15 +190,7 @@ public abstract sealed class PyType extends Representation
      * {@code object} if none are named, or an empty array in the
      * special case of {@code object} itself.
      */
-    protected BaseType[] bases;
-
-    /**
-     * The {@code __mro__} of this type, that is, the method resolution
-     * order, as defined for Python and constructed by the {@code mro()}
-     * method (which may be overridden), by analysis of the
-     * {@code __bases__}.
-     */
-    protected BaseType[] mro;
+    protected PyType[] bases;
 
     /**
      * The writable dictionary of the type is private because the type
@@ -231,7 +216,7 @@ public abstract sealed class PyType extends Representation
      * @param bases of the new type
      * @param _dict private dictionary backing {@code __dict__}
      */
-    protected PyType(String name, Class<?> javaClass, BaseType[] bases,
+    protected PyType(String name, Class<?> javaClass, PyType[] bases,
             LinkedHashMap<String, Object> _dict) {
         super(javaClass);
         /*
@@ -304,15 +289,6 @@ public abstract sealed class PyType extends Representation
 
     @Override
     public PyType getType() { return PyType.TYPE; }
-
-    /**
-     * An immutable list of the {@link Representation}s of this type.
-     * These are the representations of the primary or adopted classes
-     * in the specification of this type, in order.
-     *
-     * @return the representations of {@code self}
-     */
-    public abstract List<Representation> representations();
 
     /**
      * An immutable list of every Java class that was named as primary,
@@ -500,22 +476,6 @@ public abstract sealed class PyType extends Representation
     }
 
     /**
-     * Test for possession of a specified kernel feature. Kernel
-     * features are not public API.
-     *
-     * @param feature to check for
-     * @return whether present
-     */
-    final boolean hasFeature(KernelTypeFlag feature) {
-        return kernelFeatures.contains(feature);
-    }
-
-    @Override
-    protected boolean hasFeature(Object x, KernelTypeFlag feature) {
-        return kernelFeatures.contains(feature);
-    }
-
-    /**
      * Return true if and only if this is a mutable type. The attributes
      * of a mutable type may be changed, although it will manage that
      * change according to rules of its own. An immutable type object
@@ -647,29 +607,7 @@ public abstract sealed class PyType extends Representation
      * @return {@code true} if {@code this} is a sub-type of {@code b}
      */
     // Compare CPython PyType_IsSubtype in typeobject.c
-    // CPython documentation:
-    // int PyType_IsSubtype(PyTypeObject *a, PyTypeObject *b)
-    // Return true if a is a subtype of b.
-    //
-    // This function only checks for actual subtypes, which means that
-    // __subclasscheck__() is not called on b. Call
-    // PyObject_IsSubclass() to do the same check that issubclass()
-    // would do.
-    public boolean isSubTypeOf(PyType b) {
-        if (mro != null) {
-            /*
-             * Deal with multiple inheritance without recursion by
-             * walking the MRO tuple
-             */
-            for (PyType base : mro) {
-                if (base == b)
-                    return true;
-            }
-            return false;
-        } else
-            // a is not completely initialised yet; follow base
-            return type_is_subtype_base_chain(b);
-    }
+    public abstract boolean isSubTypeOf(PyType b);
 
     // Support for __new__ -------------------------------------------
 
@@ -988,23 +926,5 @@ public abstract sealed class PyType extends Representation
             String doc) {
         // TODO Auto-generated method stub
         return Py.None;
-    }
-
-    /**
-     * Determine if this type is a Python sub-type of {@code b} by
-     * chaining through the {@link #base} property. (This is a fall-back
-     * when {@link #mro} is not valid.)
-     *
-     * @param b to test
-     * @return {@code true} if {@code this} is a sub-type of {@code b}
-     */
-    // Compare CPython type_is_subtype_base_chain in typeobject.c
-    private boolean type_is_subtype_base_chain(PyType b) {
-        PyType t = this;
-        while (t != b) {
-            t = t.base;
-            if (t == null) { return b == PyObject.TYPE; }
-        }
-        return true;
     }
 }

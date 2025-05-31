@@ -6,7 +6,6 @@ import java.lang.invoke.MethodHandles;
 import java.util.List;
 
 import uk.co.farowl.vsj4.runtime.PyType;
-import uk.co.farowl.vsj4.runtime.Representation;
 
 /**
  * A Python type object used where instances (in Python) of the type
@@ -33,7 +32,7 @@ public non-sealed class SimpleType extends BaseType {
      * @param bases of the type
      */
     public SimpleType(String name, Class<?> javaClass,
-            Class<?> canonical, BaseType[] bases) {
+            Class<?> canonical, PyType[] bases) {
         super(name, javaClass, bases);
         this.canonicalClass = canonical;
     }

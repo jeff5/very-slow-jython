@@ -30,7 +30,6 @@ import uk.co.farowl.vsj4.runtime.PyObject;
 import uk.co.farowl.vsj4.runtime.PyType;
 import uk.co.farowl.vsj4.runtime.PyUnicode;
 import uk.co.farowl.vsj4.runtime.PyUnicodeMethods;
-import uk.co.farowl.vsj4.runtime.Representation;
 import uk.co.farowl.vsj4.runtime.TypeSpec;
 import uk.co.farowl.vsj4.runtime.WithClass;
 import uk.co.farowl.vsj4.support.InterpreterError;
@@ -109,7 +108,7 @@ public class TypeFactory {
     final SimpleType objectType;
 
     /** An array containing just type object {@code object} */
-    private final BaseType[] OBJECT_ONLY;
+    private final PyType[] OBJECT_ONLY;
 
     /**
      * We count the number of reentrant calls here, and defer publishing
@@ -709,12 +708,11 @@ public class TypeFactory {
             // Get the list of Python bases, or implicitly object.
             List<PyType> baseList = spec.getBases();
             // The constructors take BaseType[].
-            BaseType[] bases;
+            PyType[] bases;
             if (baseList.isEmpty()) {
                 bases = OBJECT_ONLY;
             } else {
-                // No type problem because PyType is sealed.
-                bases = baseList.toArray(new BaseType[baseList.size()]);
+                bases = baseList.toArray(new PyType[baseList.size()]);
             }
 
             // Result of the construction

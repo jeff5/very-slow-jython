@@ -18,6 +18,7 @@ import java.util.function.Consumer;
 import uk.co.farowl.vsj4.runtime.ArgumentError;
 import uk.co.farowl.vsj4.runtime.Feature;
 import uk.co.farowl.vsj4.runtime.MethodDescriptor;
+import uk.co.farowl.vsj4.runtime.Py;
 import uk.co.farowl.vsj4.runtime.PyBaseException;
 import uk.co.farowl.vsj4.runtime.PyDict;
 import uk.co.farowl.vsj4.runtime.PyErr;
@@ -25,10 +26,10 @@ import uk.co.farowl.vsj4.runtime.PyExc;
 import uk.co.farowl.vsj4.runtime.PyFloat;
 import uk.co.farowl.vsj4.runtime.PyList;
 import uk.co.farowl.vsj4.runtime.PyLong;
+import uk.co.farowl.vsj4.runtime.PyObject;
 import uk.co.farowl.vsj4.runtime.PyTuple;
 import uk.co.farowl.vsj4.runtime.PyType;
 import uk.co.farowl.vsj4.runtime.PyUnicode;
-import uk.co.farowl.vsj4.runtime.Representation;
 import uk.co.farowl.vsj4.runtime.TypeFlag;
 import uk.co.farowl.vsj4.runtime.TypeSpec;
 import uk.co.farowl.vsj4.runtime.internal._PyUtil;
@@ -46,6 +47,14 @@ public abstract sealed class BaseType extends PyType
         permits SimpleType, ReplaceableType, AdoptiveType {
 
     /**
+     * The {@code __mro__} of this type, that is, the method resolution
+     * order, as defined for Python and constructed by the {@code mro()}
+     * method (which may be overridden), by analysis of the
+     * {@code __bases__}.
+     */
+    protected BaseType[] mro;
+
+    /**
      * The writable dictionary of the type is private because the type
      * controls writing strictly. Even in the core it is only accessible
      * through a read-only view {@link #dict}.
@@ -60,7 +69,7 @@ public abstract sealed class BaseType extends PyType
      * @param bases of the new type
      */
     protected BaseType(String name, Class<?> javaClass,
-            BaseType[] bases) {
+            PyType[] bases) {
         this(name, javaClass, bases, new LinkedHashMap<>());
     }
 
@@ -72,7 +81,7 @@ public abstract sealed class BaseType extends PyType
      * @param bases of the new type
      * @param _dict dictionary we keep locally and in the base
      */
-    private BaseType(String name, Class<?> javaClass, BaseType[] bases,
+    private BaseType(String name, Class<?> javaClass, PyType[] bases,
             LinkedHashMap<String, Object> _dict) {
         super(name, javaClass, bases, _dict);
         this._dict = _dict;
@@ -85,7 +94,7 @@ public abstract sealed class BaseType extends PyType
      *
      * @return the sequence of bases
      */
-    BaseType[] bases() { return bases; }
+    PyType[] bases() { return bases; }
 
     @Override
     public PyType[] getMRO() {
@@ -101,6 +110,31 @@ public abstract sealed class BaseType extends PyType
         mro = new PyTuple(mro()).toArray(new BaseType[0]);
     }
 
+    // Compare CPython PyType_IsSubtype in typeobject.c
+    // CPython documentation:
+    // int PyType_IsSubtype(PyTypeObject *a, PyTypeObject *b)
+    // Return true if a is a subtype of b.
+    //
+    // This function only checks for actual subtypes, which means that
+    // __subclasscheck__() is not called on b. Call
+    // PyObject_IsSubclass() to do the same check that issubclass()
+    // would do.
+    @Override
+    public boolean isSubTypeOf(PyType b) {
+        if (mro != null) {
+            /*
+             * Deal with multiple inheritance without recursion by
+             * walking the MRO tuple
+             */
+            for (PyType base : mro) {
+                if (base == b)
+                    return true;
+            }
+            return false;
+        } else
+            // a is not completely initialised yet; follow base
+            return type_is_subtype_base_chain(b);
+    }
     /**
      * The dictionary of the {@code type} in a read-only view.
      *
@@ -469,17 +503,6 @@ public abstract sealed class BaseType extends PyType
     }
 
     /**
-     * Test for possession of a specified kernel feature.
-     *
-     * @param feature to check for
-     * @return whether present
-     */
-    // Duplicates PyType.hasFeature to avoid making it too public.
-    final boolean hasFeature(KernelTypeFlag feature) {
-        return kernelFeatures.contains(feature);
-    }
-
-    /**
      * Load the dictionary of this type with attributes discovered by an
      * exposer. This is a package-visible hook with direct access to the
      * dictionary, for {@link TypeFactory} to use during type
@@ -728,5 +751,25 @@ public abstract sealed class BaseType extends PyType
         }
         // Freeze the table as the constructor lookup
         constructorLookup = Collections.unmodifiableMap(table);
+    }
+
+    // plumbing ------------------------------------------------------
+
+    /**
+     * Determine if this type is a Python sub-type of {@code b} by
+     * chaining through the {@link #base} property. (This is a fall-back
+     * when {@link #mro} is not valid.)
+     *
+     * @param b to test
+     * @return {@code true} if {@code this} is a sub-type of {@code b}
+     */
+    // Compare CPython type_is_subtype_base_chain in typeobject.c
+    private boolean type_is_subtype_base_chain(PyType b) {
+        PyType t = this;
+        while (t != b) {
+            t = t.getBase();
+            if (t == null) { return b == PyObject.TYPE; }
+        }
+        return true;
     }
 }

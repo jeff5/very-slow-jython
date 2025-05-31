@@ -9,6 +9,7 @@ import java.lang.invoke.WrongMethodTypeException;
 import java.util.List;
 
 import uk.co.farowl.vsj4.runtime.ArgumentError.Mode;
+import uk.co.farowl.vsj4.runtime.kernel.Representation;
 import uk.co.farowl.vsj4.support.InterpreterError;
 import uk.co.farowl.vsj4.support.MethodKind;
 import uk.co.farowl.vsj4.support.internal.EmptyException;

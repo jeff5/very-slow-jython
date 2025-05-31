@@ -6,7 +6,6 @@ import java.util.Map;
 import java.util.WeakHashMap;
 
 import uk.co.farowl.vsj4.runtime.PyType;
-import uk.co.farowl.vsj4.runtime.Representation;
 import uk.co.farowl.vsj4.runtime.TypeSpec;
 import uk.co.farowl.vsj4.support.InterpreterError;
 

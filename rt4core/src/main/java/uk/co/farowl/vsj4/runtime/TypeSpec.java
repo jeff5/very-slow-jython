@@ -536,6 +536,19 @@ public class TypeSpec extends NamedSpec {
     }
 
     /**
+     * Specify some bases for the type. Successive bases given are
+     * cumulative and ordered.
+     *
+     * @param bases to append to the bases
+     * @return {@code this}
+     */
+    public TypeSpec bases(List<PyType> bases) {
+        // checkNotFrozen(); // Covered in base()
+        for (PyType b : bases) { base(b); }
+        return this;
+    }
+
+    /**
      * Specify some variable slots for the type, as if with
      * {@code __slots__} in a class definition. Successive slots given
      * are cumulative and ordered.

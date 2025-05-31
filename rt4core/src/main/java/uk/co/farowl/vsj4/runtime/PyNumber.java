@@ -6,6 +6,7 @@ import java.lang.invoke.MethodHandle;
 import java.util.function.Function;
 
 import uk.co.farowl.vsj4.runtime.kernel.KernelTypeFlag;
+import uk.co.farowl.vsj4.runtime.kernel.Representation;
 import uk.co.farowl.vsj4.runtime.kernel.SpecialMethod;
 import uk.co.farowl.vsj4.support.internal.EmptyException;
 

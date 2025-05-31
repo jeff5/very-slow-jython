@@ -1,14 +1,16 @@
 // Copyright (c)2025 Jython Developers.
 // Licensed to PSF under a contributor agreement.
-package uk.co.farowl.vsj4.runtime;
+package uk.co.farowl.vsj4.runtime.kernel;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
 
-import uk.co.farowl.vsj4.runtime.kernel.AdoptiveType;
-import uk.co.farowl.vsj4.runtime.kernel.KernelTypeFlag;
-import uk.co.farowl.vsj4.runtime.kernel.SpecialMethod;
+import uk.co.farowl.vsj4.runtime.PyFloat;
+import uk.co.farowl.vsj4.runtime.PyLong;
+import uk.co.farowl.vsj4.runtime.PyType;
+import uk.co.farowl.vsj4.runtime.TypeFlag;
+import uk.co.farowl.vsj4.runtime.WithClass;
 import uk.co.farowl.vsj4.runtime.kernel.SpecialMethod.Signature;
 
 /**
@@ -106,7 +108,7 @@ public abstract class Representation {
      * @param x subject of the enquiry
      * @return {@code x} is a data descriptor
      */
-    boolean isDataDescr(Object x) {
+    public boolean isDataDescr(Object x) {
         PyType type = pythonType(x);
         return type.hasFeature(KernelTypeFlag.HAS_SET)
                 || type.hasFeature(KernelTypeFlag.HAS_DELETE);
@@ -134,7 +136,7 @@ public abstract class Representation {
      * @return {@code x} is a data descriptor
      */
     // Avoid a call to pythonType(x), when possible, by overriding.
-    protected boolean hasFeature(Object x, KernelTypeFlag feature) {
+    public boolean hasFeature(Object x, KernelTypeFlag feature) {
         return pythonType(x).hasFeature(feature);
     }
 
@@ -237,7 +239,9 @@ public abstract class Representation {
      *     {@link Signature#UNARY}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_repr() { return SpecialMethod.op_repr.generic; }
+    public MethodHandle op_repr() {
+        return SpecialMethod.op_repr.generic;
+    }
 
     /**
      * Return a matching implementation of {@code __hash__} with
@@ -248,7 +252,9 @@ public abstract class Representation {
      *     {@link Signature#LEN}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_hash() { return SpecialMethod.op_hash.generic; }
+    public MethodHandle op_hash() {
+        return SpecialMethod.op_hash.generic;
+    }
 
     /**
      * Return a matching implementation of {@code __call__} with
@@ -259,7 +265,9 @@ public abstract class Representation {
      *     {@link Signature#CALL}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_call() { return SpecialMethod.op_call.generic; }
+    public MethodHandle op_call() {
+        return SpecialMethod.op_call.generic;
+    }
 
     /**
      * Return a matching implementation of {@code __str__} with
@@ -270,7 +278,9 @@ public abstract class Representation {
      *     {@link Signature#UNARY}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_str() { return SpecialMethod.op_str.generic; }
+    public MethodHandle op_str() {
+        return SpecialMethod.op_str.generic;
+    }
 
     /**
      * Return a matching implementation of {@code __getattribute__} with
@@ -281,7 +291,7 @@ public abstract class Representation {
      *     {@link Signature#GETATTR}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_getattribute() {
+    public MethodHandle op_getattribute() {
         return SpecialMethod.op_getattribute.generic;
     }
 
@@ -293,7 +303,7 @@ public abstract class Representation {
      *     {@link Signature#GETATTR}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_getattr() {
+    public MethodHandle op_getattr() {
         return SpecialMethod.op_getattr.generic;
     }
 
@@ -306,7 +316,7 @@ public abstract class Representation {
      *     {@link Signature#SETATTR}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_setattr() {
+    public MethodHandle op_setattr() {
         return SpecialMethod.op_setattr.generic;
     }
 
@@ -319,7 +329,7 @@ public abstract class Representation {
      *     {@link Signature#DELATTR}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_delattr() {
+    public MethodHandle op_delattr() {
         return SpecialMethod.op_delattr.generic;
     }
 
@@ -331,7 +341,7 @@ public abstract class Representation {
      *     {@link Signature#BINARY}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_lt() { return SpecialMethod.op_lt.generic; }
+    public MethodHandle op_lt() { return SpecialMethod.op_lt.generic; }
 
     /**
      * Return a matching implementation of {@code __le__} with signature
@@ -341,7 +351,7 @@ public abstract class Representation {
      *     {@link Signature#BINARY}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_le() { return SpecialMethod.op_le.generic; }
+    public MethodHandle op_le() { return SpecialMethod.op_le.generic; }
 
     /**
      * Return a matching implementation of {@code __eq__} with signature
@@ -351,7 +361,7 @@ public abstract class Representation {
      *     {@link Signature#BINARY}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_eq() { return SpecialMethod.op_eq.generic; }
+    public MethodHandle op_eq() { return SpecialMethod.op_eq.generic; }
 
     /**
      * Return a matching implementation of {@code __ne__} with signature
@@ -361,7 +371,7 @@ public abstract class Representation {
      *     {@link Signature#BINARY}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_ne() { return SpecialMethod.op_ne.generic; }
+    public MethodHandle op_ne() { return SpecialMethod.op_ne.generic; }
 
     /**
      * Return a matching implementation of {@code __gt__} with signature
@@ -371,7 +381,7 @@ public abstract class Representation {
      *     {@link Signature#BINARY}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_gt() { return SpecialMethod.op_gt.generic; }
+    public MethodHandle op_gt() { return SpecialMethod.op_gt.generic; }
 
     /**
      * Return a matching implementation of {@code __ge__} with signature
@@ -381,7 +391,7 @@ public abstract class Representation {
      *     {@link Signature#BINARY}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_ge() { return SpecialMethod.op_ge.generic; }
+    public MethodHandle op_ge() { return SpecialMethod.op_ge.generic; }
 
     /**
      * Return a matching implementation of {@code __iter__} with
@@ -392,7 +402,9 @@ public abstract class Representation {
      *     {@link Signature#UNARY}, get an iterator.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_iter() { return SpecialMethod.op_iter.generic; }
+    public MethodHandle op_iter() {
+        return SpecialMethod.op_iter.generic;
+    }
 
     /**
      * Return a matching implementation of {@code __next__} with
@@ -403,7 +415,9 @@ public abstract class Representation {
      *     {@link Signature#UNARY}, advance an iterator.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_next() { return SpecialMethod.op_next.generic; }
+    public MethodHandle op_next() {
+        return SpecialMethod.op_next.generic;
+    }
 
     /**
      * Return a matching implementation of {@code __get__} with
@@ -414,7 +428,9 @@ public abstract class Representation {
      *     {@link Signature#DESCRGET}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_get() { return SpecialMethod.op_get.generic; }
+    public MethodHandle op_get() {
+        return SpecialMethod.op_get.generic;
+    }
 
     /**
      * Return a matching implementation of {@code __set__} with
@@ -425,7 +441,9 @@ public abstract class Representation {
      *     {@link Signature#SETITEM}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_set() { return SpecialMethod.op_set.generic; }
+    public MethodHandle op_set() {
+        return SpecialMethod.op_set.generic;
+    }
 
     /**
      * Return a matching implementation of {@code __delete__} with
@@ -436,7 +454,9 @@ public abstract class Representation {
      *     {@link Signature#DELITEM}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_delete() { return SpecialMethod.op_delete.generic; }
+    public MethodHandle op_delete() {
+        return SpecialMethod.op_delete.generic;
+    }
 
     /**
      * Return a matching implementation of {@code __init__} with
@@ -447,7 +467,9 @@ public abstract class Representation {
      *     {@link Signature#INIT}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_init() { return SpecialMethod.op_init.generic; }
+    public MethodHandle op_init() {
+        return SpecialMethod.op_init.generic;
+    }
 
     // __new__ is not enumerated here (not instance method)
     // __del__ is not in our implementation
@@ -460,7 +482,9 @@ public abstract class Representation {
      *     {@link Signature#UNARY}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_await() { return SpecialMethod.op_await.generic; }
+    public MethodHandle op_await() {
+        return SpecialMethod.op_await.generic;
+    }
 
     /**
      * Return a matching implementation of {@code __aiter__} with
@@ -470,7 +494,9 @@ public abstract class Representation {
      *     {@link Signature#UNARY}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_aiter() { return SpecialMethod.op_aiter.generic; }
+    public MethodHandle op_aiter() {
+        return SpecialMethod.op_aiter.generic;
+    }
 
     /**
      * Return a matching implementation of {@code __anext__} with
@@ -480,7 +506,9 @@ public abstract class Representation {
      *     {@link Signature#UNARY}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_anext() { return SpecialMethod.op_anext.generic; }
+    public MethodHandle op_anext() {
+        return SpecialMethod.op_anext.generic;
+    }
 
     /**
      * Return a matching implementation of {@code __radd__} with
@@ -491,7 +519,9 @@ public abstract class Representation {
      *     {@link Signature#BINARY}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_radd() { return SpecialMethod.op_radd.generic; }
+    public MethodHandle op_radd() {
+        return SpecialMethod.op_radd.generic;
+    }
 
     /**
      * Return a matching implementation of {@code __add__} with
@@ -501,7 +531,9 @@ public abstract class Representation {
      *     {@link Signature#BINARY}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_add() { return SpecialMethod.op_add.generic; }
+    public MethodHandle op_add() {
+        return SpecialMethod.op_add.generic;
+    }
 
     /**
      * Return a matching implementation of {@code __rsub__} with
@@ -512,7 +544,9 @@ public abstract class Representation {
      *     {@link Signature#BINARY}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_rsub() { return SpecialMethod.op_rsub.generic; }
+    public MethodHandle op_rsub() {
+        return SpecialMethod.op_rsub.generic;
+    }
 
     /**
      * Return a matching implementation of {@code __sub__} with
@@ -522,7 +556,9 @@ public abstract class Representation {
      *     {@link Signature#BINARY}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_sub() { return SpecialMethod.op_sub.generic; }
+    public MethodHandle op_sub() {
+        return SpecialMethod.op_sub.generic;
+    }
 
     /**
      * Return a matching implementation of {@code __rmul__} with
@@ -533,7 +569,9 @@ public abstract class Representation {
      *     {@link Signature#BINARY}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_rmul() { return SpecialMethod.op_rmul.generic; }
+    public MethodHandle op_rmul() {
+        return SpecialMethod.op_rmul.generic;
+    }
 
     /**
      * Return a matching implementation of {@code __mul__} with
@@ -543,7 +581,9 @@ public abstract class Representation {
      *     {@link Signature#BINARY}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_mul() { return SpecialMethod.op_mul.generic; }
+    public MethodHandle op_mul() {
+        return SpecialMethod.op_mul.generic;
+    }
 
     /**
      * Return a matching implementation of {@code __rmod__} with
@@ -554,7 +594,9 @@ public abstract class Representation {
      *     {@link Signature#BINARY}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_rmod() { return SpecialMethod.op_rmod.generic; }
+    public MethodHandle op_rmod() {
+        return SpecialMethod.op_rmod.generic;
+    }
 
     /**
      * Return a matching implementation of {@code __mod__} with
@@ -564,7 +606,9 @@ public abstract class Representation {
      *     {@link Signature#BINARY}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_mod() { return SpecialMethod.op_mod.generic; }
+    public MethodHandle op_mod() {
+        return SpecialMethod.op_mod.generic;
+    }
 
     /**
      * Return a matching implementation of {@code __rdivmod__} with
@@ -575,7 +619,7 @@ public abstract class Representation {
      *     {@link Signature#BINARY}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_rdivmod() {
+    public MethodHandle op_rdivmod() {
         return SpecialMethod.op_rdivmod.generic;
     }
 
@@ -587,7 +631,9 @@ public abstract class Representation {
      *     {@link Signature#BINARY}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_divmod() { return SpecialMethod.op_divmod.generic; }
+    public MethodHandle op_divmod() {
+        return SpecialMethod.op_divmod.generic;
+    }
 
     /**
      * Return a matching implementation of {@code __rpow__} with
@@ -600,7 +646,9 @@ public abstract class Representation {
      *     {@link Signature#BINARY}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_rpow() { return SpecialMethod.op_rpow.generic; }
+    public MethodHandle op_rpow() {
+        return SpecialMethod.op_rpow.generic;
+    }
 
     /**
      * Return a matching implementation of {@code __pow__} with
@@ -611,7 +659,9 @@ public abstract class Representation {
      *     {@link Signature#TERNARY}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_pow() { return SpecialMethod.op_pow.generic; }
+    public MethodHandle op_pow() {
+        return SpecialMethod.op_pow.generic;
+    }
 
     /**
      * Return a matching implementation of {@code __neg__} with
@@ -621,7 +671,9 @@ public abstract class Representation {
      *     {@link Signature#UNARY}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_neg() { return SpecialMethod.op_neg.generic; }
+    public MethodHandle op_neg() {
+        return SpecialMethod.op_neg.generic;
+    }
 
     /**
      * Return a matching implementation of {@code __pos__} with
@@ -631,7 +683,9 @@ public abstract class Representation {
      *     {@link Signature#UNARY}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_pos() { return SpecialMethod.op_pos.generic; }
+    public MethodHandle op_pos() {
+        return SpecialMethod.op_pos.generic;
+    }
 
     /**
      * Return a matching implementation of {@code __abs__} with
@@ -642,7 +696,9 @@ public abstract class Representation {
      *     {@link Signature#UNARY}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_abs() { return SpecialMethod.op_abs.generic; }
+    public MethodHandle op_abs() {
+        return SpecialMethod.op_abs.generic;
+    }
 
     /**
      * Return a matching implementation of {@code __bool__} with
@@ -653,7 +709,9 @@ public abstract class Representation {
      *     {@link Signature#PREDICATE}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_bool() { return SpecialMethod.op_bool.generic; }
+    public MethodHandle op_bool() {
+        return SpecialMethod.op_bool.generic;
+    }
 
     /**
      * Return a matching implementation of {@code __invert__} with
@@ -663,7 +721,9 @@ public abstract class Representation {
      *     {@link Signature#UNARY}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_invert() { return SpecialMethod.op_invert.generic; }
+    public MethodHandle op_invert() {
+        return SpecialMethod.op_invert.generic;
+    }
 
     /**
      * Return a matching implementation of {@code __rlshift__} with
@@ -674,7 +734,7 @@ public abstract class Representation {
      *     {@link Signature#BINARY}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_rlshift() {
+    public MethodHandle op_rlshift() {
         return SpecialMethod.op_rlshift.generic;
     }
 
@@ -686,7 +746,9 @@ public abstract class Representation {
      *     {@link Signature#BINARY}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_lshift() { return SpecialMethod.op_lshift.generic; }
+    public MethodHandle op_lshift() {
+        return SpecialMethod.op_lshift.generic;
+    }
 
     /**
      * Return a matching implementation of {@code __rrshift__} with
@@ -697,7 +759,7 @@ public abstract class Representation {
      *     {@link Signature#BINARY}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_rrshift() {
+    public MethodHandle op_rrshift() {
         return SpecialMethod.op_rrshift.generic;
     }
 
@@ -709,7 +771,9 @@ public abstract class Representation {
      *     {@link Signature#BINARY}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_rshift() { return SpecialMethod.op_rshift.generic; }
+    public MethodHandle op_rshift() {
+        return SpecialMethod.op_rshift.generic;
+    }
 
     /**
      * Return a matching implementation of {@code __rand__} with
@@ -720,7 +784,9 @@ public abstract class Representation {
      *     {@link Signature#BINARY}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_rand() { return SpecialMethod.op_rand.generic; }
+    public MethodHandle op_rand() {
+        return SpecialMethod.op_rand.generic;
+    }
 
     /**
      * Return a matching implementation of {@code __and__} with
@@ -730,7 +796,9 @@ public abstract class Representation {
      *     {@link Signature#BINARY}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_and() { return SpecialMethod.op_and.generic; }
+    public MethodHandle op_and() {
+        return SpecialMethod.op_and.generic;
+    }
 
     /**
      * Return a matching implementation of {@code __rxor__} with
@@ -741,7 +809,9 @@ public abstract class Representation {
      *     {@link Signature#BINARY}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_rxor() { return SpecialMethod.op_rxor.generic; }
+    public MethodHandle op_rxor() {
+        return SpecialMethod.op_rxor.generic;
+    }
 
     /**
      * Return a matching implementation of {@code __xor__} with
@@ -751,7 +821,9 @@ public abstract class Representation {
      *     {@link Signature#BINARY}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_xor() { return SpecialMethod.op_xor.generic; }
+    public MethodHandle op_xor() {
+        return SpecialMethod.op_xor.generic;
+    }
 
     /**
      * Return a matching implementation of {@code __ror__} with
@@ -762,7 +834,9 @@ public abstract class Representation {
      *     {@link Signature#BINARY}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_ror() { return SpecialMethod.op_ror.generic; }
+    public MethodHandle op_ror() {
+        return SpecialMethod.op_ror.generic;
+    }
 
     /**
      * Return a matching implementation of {@code __or__} with signature
@@ -772,7 +846,7 @@ public abstract class Representation {
      *     {@link Signature#BINARY}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_or() { return SpecialMethod.op_or.generic; }
+    public MethodHandle op_or() { return SpecialMethod.op_or.generic; }
 
     /**
      * Return a matching implementation of {@code __int__} with
@@ -783,7 +857,9 @@ public abstract class Representation {
      *     {@link Signature#UNARY}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_int() { return SpecialMethod.op_int.generic; }
+    public MethodHandle op_int() {
+        return SpecialMethod.op_int.generic;
+    }
 
     /**
      * Return a matching implementation of {@code __float__} with
@@ -794,7 +870,9 @@ public abstract class Representation {
      *     {@link Signature#UNARY}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_float() { return SpecialMethod.op_float.generic; }
+    public MethodHandle op_float() {
+        return SpecialMethod.op_float.generic;
+    }
 
     // in-place: unexplored territory
 
@@ -806,7 +884,9 @@ public abstract class Representation {
      *     {@link Signature#BINARY}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_iadd() { return SpecialMethod.op_iadd.generic; }
+    public MethodHandle op_iadd() {
+        return SpecialMethod.op_iadd.generic;
+    }
 
     /**
      * Return a matching implementation of {@code __isub__} with
@@ -816,7 +896,9 @@ public abstract class Representation {
      *     {@link Signature#BINARY}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_isub() { return SpecialMethod.op_isub.generic; }
+    public MethodHandle op_isub() {
+        return SpecialMethod.op_isub.generic;
+    }
 
     /**
      * Return a matching implementation of {@code __imul__} with
@@ -826,7 +908,9 @@ public abstract class Representation {
      *     {@link Signature#BINARY}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_imul() { return SpecialMethod.op_imul.generic; }
+    public MethodHandle op_imul() {
+        return SpecialMethod.op_imul.generic;
+    }
 
     /**
      * Return a matching implementation of {@code __imod__} with
@@ -836,7 +920,9 @@ public abstract class Representation {
      *     {@link Signature#BINARY}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_imod() { return SpecialMethod.op_imod.generic; }
+    public MethodHandle op_imod() {
+        return SpecialMethod.op_imod.generic;
+    }
 
     /**
      * Return a matching implementation of {@code __iand__} with
@@ -846,7 +932,9 @@ public abstract class Representation {
      *     {@link Signature#BINARY}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_iand() { return SpecialMethod.op_iand.generic; }
+    public MethodHandle op_iand() {
+        return SpecialMethod.op_iand.generic;
+    }
 
     /**
      * Return a matching implementation of {@code __ixor__} with
@@ -856,7 +944,9 @@ public abstract class Representation {
      *     {@link Signature#BINARY}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_ixor() { return SpecialMethod.op_ixor.generic; }
+    public MethodHandle op_ixor() {
+        return SpecialMethod.op_ixor.generic;
+    }
 
     /**
      * Return a matching implementation of {@code __ior__} with
@@ -866,7 +956,9 @@ public abstract class Representation {
      *     {@link Signature#BINARY}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_ior() { return SpecialMethod.op_ior.generic; }
+    public MethodHandle op_ior() {
+        return SpecialMethod.op_ior.generic;
+    }
 
     /**
      * Return a matching implementation of {@code __rfloordiv__} with
@@ -877,7 +969,7 @@ public abstract class Representation {
      *     {@link Signature#BINARY}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_rfloordiv() {
+    public MethodHandle op_rfloordiv() {
         return SpecialMethod.op_rfloordiv.generic;
     }
 
@@ -889,7 +981,7 @@ public abstract class Representation {
      *     {@link Signature#BINARY}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_floordiv() {
+    public MethodHandle op_floordiv() {
         return SpecialMethod.op_floordiv.generic;
     }
 
@@ -902,7 +994,7 @@ public abstract class Representation {
      *     {@link Signature#BINARY}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_rtruediv() {
+    public MethodHandle op_rtruediv() {
         return SpecialMethod.op_rtruediv.generic;
     }
 
@@ -914,7 +1006,7 @@ public abstract class Representation {
      *     {@link Signature#BINARY}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_truediv() {
+    public MethodHandle op_truediv() {
         return SpecialMethod.op_truediv.generic;
     }
 
@@ -926,7 +1018,7 @@ public abstract class Representation {
      *     {@link Signature#BINARY}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_ifloordiv() {
+    public MethodHandle op_ifloordiv() {
         return SpecialMethod.op_ifloordiv.generic;
     }
 
@@ -938,7 +1030,7 @@ public abstract class Representation {
      *     {@link Signature#BINARY}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_itruediv() {
+    public MethodHandle op_itruediv() {
         return SpecialMethod.op_itruediv.generic;
     }
 
@@ -951,7 +1043,9 @@ public abstract class Representation {
      *     {@link Signature#UNARY}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_index() { return SpecialMethod.op_index.generic; }
+    public MethodHandle op_index() {
+        return SpecialMethod.op_index.generic;
+    }
 
     /**
      * Return a matching implementation of {@code __rmatmul__} with
@@ -962,7 +1056,7 @@ public abstract class Representation {
      *     {@link Signature#BINARY}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_rmatmul() {
+    public MethodHandle op_rmatmul() {
         return SpecialMethod.op_rmatmul.generic;
     }
 
@@ -975,7 +1069,9 @@ public abstract class Representation {
      *     {@link Signature#BINARY}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_matmul() { return SpecialMethod.op_matmul.generic; }
+    public MethodHandle op_matmul() {
+        return SpecialMethod.op_matmul.generic;
+    }
 
     /**
      * Return a matching implementation of {@code __imatmul__} with
@@ -986,7 +1082,7 @@ public abstract class Representation {
      *     {@link Signature#BINARY}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_imatmul() {
+    public MethodHandle op_imatmul() {
         return SpecialMethod.op_imatmul.generic;
     }
 
@@ -1004,7 +1100,9 @@ public abstract class Representation {
      *     {@link Signature#LEN}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_len() { return SpecialMethod.op_len.generic; }
+    public MethodHandle op_len() {
+        return SpecialMethod.op_len.generic;
+    }
 
     /**
      * Return a matching implementation of {@code __getitem__} with
@@ -1014,7 +1112,7 @@ public abstract class Representation {
      *     {@link Signature#BINARY}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_getitem() {
+    public MethodHandle op_getitem() {
         return SpecialMethod.op_getitem.generic;
     }
 
@@ -1026,7 +1124,7 @@ public abstract class Representation {
      *     {@link Signature#SETITEM}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_setitem() {
+    public MethodHandle op_setitem() {
         return SpecialMethod.op_setitem.generic;
     }
 
@@ -1038,7 +1136,7 @@ public abstract class Representation {
      *     {@link Signature#DELITEM}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_delitem() {
+    public MethodHandle op_delitem() {
         return SpecialMethod.op_delitem.generic;
     }
 
@@ -1051,7 +1149,7 @@ public abstract class Representation {
      *     {@link Signature#BINARY_PREDICATE}.
      */
     @SuppressWarnings("static-method")
-    MethodHandle op_contains() {
+    public MethodHandle op_contains() {
         return SpecialMethod.op_contains.generic;
     }
 }

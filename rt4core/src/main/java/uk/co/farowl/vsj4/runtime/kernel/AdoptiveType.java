@@ -7,7 +7,6 @@ import java.util.List;
 import uk.co.farowl.vsj4.runtime.PyFloat;
 import uk.co.farowl.vsj4.runtime.PyLong;
 import uk.co.farowl.vsj4.runtime.PyType;
-import uk.co.farowl.vsj4.runtime.Representation;
 
 /**
  * A Python {@code type} object that accepts instances of specific
@@ -47,7 +46,7 @@ public final class AdoptiveType extends BaseType {
      * @param adopted the adopted representation classes.
      * @param accepted self-classes.
      */
-    AdoptiveType(String name, Class<?> primary, BaseType[] bases,
+    AdoptiveType(String name, Class<?> primary, PyType[] bases,
             List<Class<?>> adopted, List<Class<?>> accepted) {
         super(name, primary, bases);
 

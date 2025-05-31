@@ -4,7 +4,6 @@ package uk.co.farowl.vsj4.runtime.kernel;
 
 import uk.co.farowl.vsj4.runtime.PyFloat;
 import uk.co.farowl.vsj4.runtime.PyLong;
-import uk.co.farowl.vsj4.runtime.Representation;
 import uk.co.farowl.vsj4.runtime.TypeFlag;
 
 /**
