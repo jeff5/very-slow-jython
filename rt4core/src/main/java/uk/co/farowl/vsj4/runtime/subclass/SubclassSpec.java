@@ -205,7 +205,6 @@ public class SubclassSpec extends NamedSpec implements Cloneable {
     /**
      * Get the defined constructors.
      *
-     * @param constructorSigs new constructors
      * @return {@code this}
      */
     List<Constructor<?>> getConstructors() { return constructors; }

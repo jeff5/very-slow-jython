@@ -147,7 +147,7 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
      * @param obj target ({@code self}) of the method, or {@code null}
      * @param type ignored
      * @return method bound to {@code obj} or this descriptor.
-     * @throws PyBaseException (TypeError) if {@code obj!=null} is not
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if {@code obj!=null} is not
      *     compatible
      */
     // Compare CPython wrapperdescr_get in descrobject.c
@@ -176,7 +176,7 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
      * @param args positional arguments beginning with {@code self}
      * @param names of keywords in the method call
      * @return result of calling the wrapped method
-     * @throws PyBaseException (TypeError) if {@code args[0]} is the
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if {@code args[0]} is the
      *     wrong type
      * @throws Throwable from the implementation of the special method
      */
@@ -391,7 +391,7 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
      *
      * @param self by which to select the handle
      * @return the handle to call with {@code self} as first argument
-     * @throws PyBaseException (TypeError) if the type of {@code self}
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if the type of {@code self}
      *     does not match the wrapped handle.
      * @throws Throwable propagated from subclass check
      */

@@ -54,8 +54,8 @@ public class PyFloat implements WithClass {
      *
      * @param v claimed {@code float}
      * @return {@code double} value
-     * @throws PyBaseException (TypeError) if {@code v} is not a Python
-     *     {@code float}
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     {@code v} is not a Python {@code float}
      */
     // Compare CPython floatobject.h: PyFloat_AS_DOUBLE
     static double doubleValue(Object v) throws PyBaseException {
@@ -74,8 +74,8 @@ public class PyFloat implements WithClass {
      *
      * @param o to convert
      * @return converted value
-     * @throws PyBaseException (TypeError) if o cannot be interpreted as
-     *     a {@code float}
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if o
+     *     cannot be interpreted as a {@code float}
      * @throws Throwable from {@code __float__)} or {@code __index__}
      */
     // Compare CPython floatobject.c: PyFloat_AsDouble
@@ -375,8 +375,8 @@ public class PyFloat implements WithClass {
      * @return converted to {@code double}
      * @throws NoConversion if v is not a {@code float}, {@code int} or
      *     {@code bool}
-     * @throws PyBaseException (OverflowError) if v is an {@code int}
-     *     out of range
+     * @throws PyBaseException ({@link PyExc#OverflowError
+     *     OverflowError}) if v is an {@code int} out of range
      */
     static double convertToDouble(Object v)
             throws NoConversion, PyBaseException {
@@ -407,9 +407,10 @@ public class PyFloat implements WithClass {
      *
      * @param value to convert
      * @return BigInteger equivalent.
-     * @throws PyBaseException (OverflowError) when this is a floating
-     *     infinity
-     * @throws PyBaseException (ValueError) when this is a floating NaN
+     * @throws PyBaseException ({@link PyExc#OverflowError
+     *     OverflowError}) when this is a floating infinity
+     * @throws PyBaseException ({@link PyExc#ValueError ValueError})
+     *     when this is a floating NaN
      */
     // Somewhat like CPython longobject.c :: PyLong_FromDouble
     static BigInteger bigIntegerFromDouble(double value)
@@ -529,9 +530,9 @@ public class PyFloat implements WithClass {
     static final String MOD_ZERO = "float modulo zero";
 
     /**
-     * Convenience function to throw a {@link ZeroDivisionError} if the
-     * argument is zero. (Java float arithmetic does not throw whatever
-     * the arguments.)
+     * Convenience function to raise a {@link PyExc#ZeroDivisionError
+     * ZeroDivisionError} if the argument is zero. (Java float
+     * arithmetic does not throw whatever the arguments.)
      *
      * @param v value to check is not zero
      * @param msg for exception if {@code v==0.0}
@@ -545,9 +546,9 @@ public class PyFloat implements WithClass {
     }
 
     /**
-     * Convenience function to throw a {@link ZeroDivisionError} if the
-     * argument is zero. (Java float arithmetic does not throw whatever
-     * the arguments.)
+     * Convenience function to raise a {@link PyExc#ZeroDivisionError
+     * ZeroDivisionError} if the argument is zero. (Java float
+     * arithmetic does not throw whatever the arguments.)
      *
      * @param v value to check is not zero
      * @return {@code v}
@@ -592,11 +593,8 @@ public class PyFloat implements WithClass {
             return Math.floor(z);
         } else {
             // Non-finite result: Java & Python differ
-            if (y == 0.) {
-                throw PyErr.format(PyExc.ZeroDivisionError, DIV_ZERO);
-            } else {
-                return Double.NaN;
-            }
+            nonzero(y);
+            return Double.NaN;
         }
     }
 
@@ -613,10 +611,7 @@ public class PyFloat implements WithClass {
         // So we ask Java first, then adjust the answer.
         double z = x % y;
         if (Double.isNaN(z)) {
-            if (y == 0.) {
-                throw PyErr.format(PyExc.ZeroDivisionError, MOD_ZERO);
-            }
-            // Otherwise nan is fine
+            nonzero(y, MOD_ZERO);   // Otherwise nan is fine
         } else if (!sameSign(z, y)) {
             // z is finite (and x), but only correct if signs match
             if (z == 0.) {

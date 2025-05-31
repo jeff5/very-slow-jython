@@ -77,7 +77,7 @@ public class PyLong implements /* PyDict.Key, */ WithClass {
      * @param cls actual sub-type of {@code int} to produce
      * @param x {@code int}-like or {@code str}-like value or
      *     {@code None}.
-     * @param obase number base ({@code x} must be {@code str}-like) or
+     * @param base number base ({@code x} must be {@code str}-like) or
      *     {@code None}
      * @return an {@code int} or sub-class with the right value
      * @throws Throwable on argument type or other errors
@@ -309,10 +309,10 @@ public class PyLong implements /* PyDict.Key, */ WithClass {
      *
      * @param v claimed {@code int}
      * @return {@code int} value
-     * @throws PyBaseException (TypeError) if {@code v} is not a Python
-     *     {@code int}
-     * @throws PyBaseException (OverflowError) if {@code v} is out of
-     *     Java range
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     {@code v} is not a Python {@code int}
+     * @throws PyBaseException ({@link PyExc#OverflowError
+     *     OverflowError}) if {@code v} is out of Java range
      */
     public static int asInt(Object v) throws PyBaseException {
         try {
@@ -328,10 +328,10 @@ public class PyLong implements /* PyDict.Key, */ WithClass {
      *
      * @param v claimed {@code int}
      * @return {@code int} value
-     * @throws PyBaseException (TypeError) if {@code v} is not a Python
-     *     {@code int}
-     * @throws PyBaseException (OverflowError) if {@code v} is out of
-     *     Java range
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     {@code v} is not a Python {@code int}
+     * @throws PyBaseException ({@link PyExc#OverflowError
+     *     OverflowError}) if {@code v} is out of Java range
      */
     public static int asSize(Object v) throws PyBaseException {
         return asInt(v);
@@ -343,10 +343,8 @@ public class PyLong implements /* PyDict.Key, */ WithClass {
      *
      * @param v claimed {@code int}
      * @return {@code BigInteger} value
-     * @throws PyBaseException (TypeError) if {@code v} is not a Python
-     *     {@code int}
-     * @throws PyBaseException (TypeError) if {@code v} is not a Python
-     *     {@code int}
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     {@code v} is not a Python {@code int}
      */
     public static BigInteger asBigInteger(Object v)
             throws PyBaseException {
@@ -364,9 +362,10 @@ public class PyLong implements /* PyDict.Key, */ WithClass {
      *
      * @param v to convert
      * @return nearest double
-     * @throws PyBaseException (TypeError) if {@code v} is not a Python
-     *     {@code int}
-     * @throws PyBaseException (OverflowError) if out of double range
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     {@code v} is not a Python {@code int}
+     * @throws PyBaseException ({@link PyExc#OverflowError
+     *     OverflowError}) if out of double range
      */
     // Compare CPython longobject.c: PyLong_AsDouble
     static double asDouble(Object v) throws PyBaseException {
@@ -378,14 +377,13 @@ public class PyLong implements /* PyDict.Key, */ WithClass {
     }
 
     /**
-     * {@code signum(v)} <i>= -1, 0, 1</i> as <i>v<0</i>, <i>v=0</i>,
-     * <i>v>0</i>.
+     * {@code signum(v)} <i>= -1, 0, 1</i> as <i>v&lt;0</i>, <i>v=0</i>,
+     * <i>v&gt;0</i>.
      *
      * @param v of which the sign/sense is required
      * @return {@code signum(v)}
-     * @throws PyBaseException (TypeError) if {@code v} is not a Python
-     *     {@code int}
-     * @throws PyBaseException (TypeError) if not an {@code int}
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     {@code v} is not a Python {@code int}
      */
     static int signum(Object v) throws PyBaseException {
         if (v instanceof BigInteger)
@@ -422,10 +420,10 @@ public class PyLong implements /* PyDict.Key, */ WithClass {
      * @param u string to convert
      * @param base in which to interpret it
      * @return converted value
-     * @throws PyBaseException(TypeError) if {@code u} is an invalid
-     *     literal
-     * @throws PyBaseException(TypeError) if {@code u} is not a Python
-     *     {@code str}
+     * @throws PyBaseException ({@link PyExc#ValueError ValueError}) if
+     *     {@code u} is an invalid literal
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     {@code u} is not a Python {@code str}
      */
     // Compare CPython longobject.c :: PyLong_FromUnicodeObject
     static BigInteger fromUnicode(Object u, int base)
@@ -443,14 +441,14 @@ public class PyLong implements /* PyDict.Key, */ WithClass {
 
     /**
      * Return a Python {@code int} from a Python {@code int} or
-     * subclass. If the value has exactly Python type {@code int} return
-     * it, otherwise construct a new instance of exactly {@code int}
-     * type.
+     * subclass. If the value has exactly the Python type {@code int}
+     * return it, otherwise construct a new instance of exactly
+     * {@code int} type.
      *
      * @param value to represent
      * @return the same value as exactly {@code int}
-     * @throws PyBaseException(TypeError) if not a Python {@code int} or
-     *     sub-class
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     not a Python {@code int} or sub-class
      */
     // Compare CPython longobject.c :: long_long
     static Object from(Object value) throws PyBaseException {
@@ -468,10 +466,10 @@ public class PyLong implements /* PyDict.Key, */ WithClass {
      *
      * @param value to convert
      * @return BigInteger equivalent.
-     * @throws PyBaseException(TypeError) when {@code value} is a
-     *     floating infinity
-     * @throws PyBaseException(TypeError) when {@code value} is a
-     *     floating NaN
+     * @throws PyBaseException ({@link PyExc#OverflowError
+     *     OverflowError}) when {@code value} is a floating infinity
+     * @throws PyBaseException ({@link PyExc#ValueError ValueError})
+     *     when {@code value} is a floating NaN
      */
     // Compare CPython longobject.c :: PyLong_FromDouble
     static BigInteger fromDouble(double value) {
@@ -507,8 +505,8 @@ public class PyLong implements /* PyDict.Key, */ WithClass {
      * @param v to convert
      * @return converted to {@code double}
      * @throws NoConversion v is not an {@code int}
-     * @throws PyBaseException (OverflowError) v is too large to be a
-     *     {@code float}
+     * @throws PyBaseException ({@link PyExc#OverflowError
+     *     OverflowError}) v is too large to be a {@code float}
      */
     // Compare CPython longobject.c: PyLong_AsDouble
     static double convertToDouble(Object v)
@@ -535,8 +533,8 @@ public class PyLong implements /* PyDict.Key, */ WithClass {
      *
      * @param v to convert
      * @return converted to {@code double}
-     * @throws PyBaseException (OverflowError) if too large to be a
-     *     {@code float}
+     * @throws PyBaseException ({@link PyExc#OverflowError
+     *     OverflowError}) if too large to be a {@code float}
      */
     static double convertToDouble(BigInteger v) throws PyBaseException {
         /*
@@ -564,8 +562,8 @@ public class PyLong implements /* PyDict.Key, */ WithClass {
      * @param v to convert
      * @return converted to {@code int}
      * @throws NoConversion v is not an {@code int}
-     * @throws PyBaseException (OverflowError) v is too large to be a
-     *     Java {@code int}
+     * @throws PyBaseException ({@link PyExc#OverflowError
+     *     OverflowError}) v is too large to be a Java {@code int}
      */
     // Compare CPython longobject.c: PyLong_AsSsize_t
     static int convertToInt(Object v)
@@ -589,8 +587,8 @@ public class PyLong implements /* PyDict.Key, */ WithClass {
      *
      * @param v to convert
      * @return converted to {@code int}
-     * @throws PyBaseException (OverflowError) if too large to be a Java
-     *     {@code int}
+     * @throws PyBaseException ({@link PyExc#OverflowError
+     *     OverflowError}) if too large to be a Java {@code int}
      */
     static int convertToInt(BigInteger v) throws PyBaseException {
         if (v.bitLength() < 32)

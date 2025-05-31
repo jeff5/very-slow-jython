@@ -60,10 +60,9 @@ abstract class Exposer {
 
     /**
      * The table of intermediate descriptions for methods (instance,
-     * static and class). They will become {@link MethodDef}s, and
-     * eventually either descriptors in a built-in object type or
-     * methods bound to instances of a module type. Every entry here is
-     * also a value in {@link #specs}.
+     * static and class). They will eventually become either descriptors
+     * in a built-in object type or methods bound to instances of a
+     * module type. Every entry here is also a value in {@link #specs}.
      */
     final Set<CallableSpec> methodSpecs;
 
@@ -1253,6 +1252,13 @@ abstract class Exposer {
      */
     static class StaticMethodSpec extends CallableSpec {
 
+        /**
+         * Construct instance in which we assemble information about a
+         * Python static method.
+         *
+         * @param name of method
+         * @param scopeKind where defined
+         */
         StaticMethodSpec(String name, ScopeKind scopeKind) {
             super(name, scopeKind);
         }

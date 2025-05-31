@@ -34,7 +34,7 @@ public class PyNumber extends Abstract {
     }
 
     /**
-     * {@code ~v}: unary negative with Python semantics.
+     * {@code ~v}: unary bitwise inversion with Python semantics.
      *
      * @param v operand
      * @return {@code ~v}
@@ -144,8 +144,8 @@ public class PyNumber extends Abstract {
      * @param w right operand
      * @param binop operation to apply
      * @return result of operation
-     * @throws PyBaseException (TypeError) if neither operand implements
-     *     the operation
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     neither operand implements the operation
      * @throws Throwable from the implementation of the operation
      */
     private static Object binary_op(Object v, Object w,
@@ -245,8 +245,8 @@ public class PyNumber extends Abstract {
      *
      * @param o operand
      * @return {@code o} coerced to a Python {@code int}
-     * @throws PyBaseException (TypeError) if {@code o} cannot be
-     *     interpreted as an {@code int}
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     {@code o} cannot be interpreted as an {@code int}
      * @throws Throwable otherwise from invoked implementations
      */
     // Compare with CPython abstract.c :: _PyNumber_Index
@@ -278,12 +278,13 @@ public class PyNumber extends Abstract {
     /**
      * Returns {@code o} converted to a Java {@code int} if {@code o}
      * can be interpreted as an integer. If the call fails, an exception
-     * is raised, which may be a {@link PyBaseException TypeError} or
+     * is raised, which may be a {@link PyExc#TypeError TypeError} or
      * anything thrown by {@code o}'s implementation of
-     * {@code __index__}. In the special case of {@link OverflowError},
-     * a replacement may be made where the message is formulated by this
-     * method and the type of exception by the caller. (Arcane, but it's
-     * what CPython does.) A recommended idiom for this is<pre>
+     * {@code __index__}. In the special case of
+     * {@link PyExc#OverflowError OverflowError}, a replacement may be
+     * made where the message is formulated by this method and the type
+     * of exception by the caller. (Arcane, but it's what CPython does.)
+     * A recommended idiom for this is<pre>
      * int k = PyNumber.asSize(key, IndexError::new);
      * </pre>
      *
@@ -291,11 +292,12 @@ public class PyNumber extends Abstract {
      * @param exc {@code null} or function of {@code String} returning
      *     the exception to use for overflow.
      * @return {@code int} value of {@code o}
-     * @throws PyBaseException (TypeError) if {@code o} cannot be
-     *     converted to a Python {@code int}
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     {@code o} cannot be converted to a Python {@code int}
      * @throws Throwable on other errors
      */
     // Compare with CPython abstract.c :: PyNumber_AsSsize_t
+    // TODO: Reconsider signature now exception classes are shared
     static int asSize(Object o, Function<String, PyBaseException> exc)
             throws PyBaseException, Throwable {
 
@@ -338,8 +340,8 @@ public class PyNumber extends Abstract {
      * @param v to convert
      * @param defaultValue to return when {@code v==Py.None}
      * @return normalised value as a Java {@code int}
-     * @throws PyBaseException (TypeError) if {@code v!=None} has no
-     *     {@code __index__}
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     {@code v!=None} has no {@code __index__}
      * @throws Throwable from the implementation of {@code __index__}
      */
     // Compare CPython _PyEval_SliceIndex in eval.c and where called
@@ -368,8 +370,8 @@ public class PyNumber extends Abstract {
      *
      * @param o operand
      * @return {@code int(o)}
-     * @throws PyBaseException (TypeError) if {@code o} cannot be
-     *     converted to a Python {@code int}
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     {@code o} cannot be converted to a Python {@code int}
      * @throws Throwable on other errors
      */
     // Compare with CPython abstract.h :: PyNumber_Long
@@ -422,8 +424,9 @@ public class PyNumber extends Abstract {
 // *
 // * @param o to convert
 // * @return converted value
-// * @throws PyBaseException (TypeError) if {@code __float__} is
-// * defined but does nor return a {@code float}
+// * @throws PyBaseException ({@link PyExc#TypeError TypeError})
+// * if {@code __float__} is
+// * defined but does not return a {@code float}
 // * @throws Throwable on other errors
 // */
 // // Compare CPython abstract.c: PyNumber_Float

@@ -301,9 +301,7 @@ public class PyUnicode implements WithClass, PyDict.Key {
     }
 
     @SuppressWarnings("unused")
-    boolean __contains__(Object o) {
-        return contains(delegate, o);
-    }
+    boolean __contains__(Object o) { return contains(delegate, o); }
 
     @SuppressWarnings("unused")
     static boolean __contains__(String self, Object o) {
@@ -339,8 +337,7 @@ public class PyUnicode implements WithClass, PyDict.Key {
     }
 
     @SuppressWarnings("unused")
-    static Object __radd__(String w, Object v)
-            throws Throwable {
+    static Object __radd__(String w, Object v) throws Throwable {
         return adapt(w).__radd__(v);
     }
 
@@ -348,19 +345,15 @@ public class PyUnicode implements WithClass, PyDict.Key {
         return delegate.__mul__(n);
     }
 
-    static Object __mul__(String self, Object n)
-            throws Throwable {
+    static Object __mul__(String self, Object n) throws Throwable {
         return adapt(self).__mul__(n);
     }
 
     @SuppressWarnings("unused")
-    Object __rmul__(Object n) throws Throwable {
-        return __mul__(n);
-    }
+    Object __rmul__(Object n) throws Throwable { return __mul__(n); }
 
     @SuppressWarnings("unused")
-    static Object __rmul__(String self, Object n)
-            throws Throwable {
+    static Object __rmul__(String self, Object n) throws Throwable {
         return __mul__(self, n);
     }
 
@@ -383,7 +376,8 @@ public class PyUnicode implements WithClass, PyDict.Key {
      * @param chars characters to strip from either end of this
      *     {@code str}, or {@code None}
      * @return a new {@code str}, stripped of the specified characters
-     * @throws PyBaseException (TypeError) on {@code chars} type errors
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) on
+     *     {@code chars} type errors
      */
     @PythonMethod(primary = false)
     Object strip(Object chars) throws PyBaseException {
@@ -403,7 +397,8 @@ public class PyUnicode implements WithClass, PyDict.Key {
      * @param s representing {@code self}
      * @param chars to remove, or {@code null} or {@code None}
      * @return the {@code str} stripped
-     * @throws PyBaseException (TypeError) on {@code chars} type errors
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) on
+     *     {@code chars} type errors
      */
     private static Object strip(CodepointDelegate s, Object chars)
             throws PyBaseException {
@@ -504,7 +499,8 @@ public class PyUnicode implements WithClass, PyDict.Key {
      *     {@code None}
      * @return a new {@code str}, left-stripped of the specified
      *     characters
-     * @throws PyBaseException (TypeError) on {@code chars} type errors
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) on
+     *     {@code chars} type errors
      */
     @PythonMethod(primary = false)
     Object lstrip(Object chars) throws PyBaseException {
@@ -524,7 +520,8 @@ public class PyUnicode implements WithClass, PyDict.Key {
      * @param s representing {@code self}
      * @param chars to remove, or {@code null} or {@code None}
      * @return the str stripped
-     * @throws PyBaseException (TypeError) on {@code chars} type errors
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) on
+     *     {@code chars} type errors
      */
     private static Object lstrip(CodepointDelegate s, Object chars)
             throws PyBaseException {
@@ -554,7 +551,8 @@ public class PyUnicode implements WithClass, PyDict.Key {
      *     {@code None}
      * @return a new {@code str}, right-stripped of the specified
      *     characters
-     * @throws PyBaseException (TypeError) on {@code chars} type errors
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) on
+     *     {@code chars} type errors
      */
     @PythonMethod(primary = false)
     Object rstrip(Object chars) throws PyBaseException {
@@ -574,7 +572,8 @@ public class PyUnicode implements WithClass, PyDict.Key {
      * @param s representing {@code self}
      * @param chars to remove, or {@code null} or {@code None}
      * @return the str stripped
-     * @throws PyBaseException (TypeError) on {@code chars} type errors
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) on
+     *     {@code chars} type errors
      */
     private static Object rstrip(CodepointDelegate s, Object chars)
             throws PyBaseException {
@@ -624,7 +623,8 @@ public class PyUnicode implements WithClass, PyDict.Key {
      * @param start start of slice.
      * @param end end of slice.
      * @return index of {@code sub} in this object or -1 if not found.
-     * @throws PyBaseException (TypeError) on {@code sub} type errors
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) on
+     *     {@code sub} type errors
      */
     @PythonMethod
     int find(Object sub, Object start, Object end) {
@@ -1488,7 +1488,8 @@ public class PyUnicode implements WithClass, PyDict.Key {
      * @param start start of slice.
      * @param end end of slice.
      * @return index of {@code sub} in this object or -1 if not found.
-     * @throws PyBaseException (ValueError) if {@code sub} is not found
+     * @throws PyBaseException ({@link PyExc#ValueError ValueError}) if
+     *     {@code sub} is not found
      */
     @PythonMethod
     int index(Object sub, Object start, Object end)
@@ -1510,7 +1511,8 @@ public class PyUnicode implements WithClass, PyDict.Key {
      * @param start start of slice.
      * @param end end of slice.
      * @return index of {@code sub} in this object or -1 if not found.
-     * @throws PyBaseException (ValueError) if {@code sub} is not found
+     * @throws PyBaseException ({@link PyExc#ValueError ValueError}) if
+     *     {@code sub} is not found
      */
     @PythonMethod
     int rindex(Object sub, Object start, Object end)
@@ -1534,7 +1536,8 @@ public class PyUnicode implements WithClass, PyDict.Key {
      * @param start start of slice.
      * @param end end of slice.
      * @return count of occurrences.
-     * @throws PyBaseException (TypeError) on {@code sub} type errors
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) on
+     *     {@code sub} type errors
      */
     @PythonMethod
     int count(Object sub, Object start, Object end)
@@ -2075,7 +2078,8 @@ public class PyUnicode implements WithClass, PyDict.Key {
      * @param s the {@code self} string (separator)
      * @param iterable of strings
      * @return capitalised string
-     * @throws PyBaseException (TypeError) if {@code iterable} isn't
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     {@code iterable} isn't
      * @throws Throwable from errors iterating {@code iterable}
      */
     private static Object join(CodepointDelegate s, Object iterable)
@@ -2176,7 +2180,8 @@ public class PyUnicode implements WithClass, PyDict.Key {
      * @param end end of slice.
      * @return {@code true} if this string slice starts with a specified
      *     prefix, otherwise {@code false}.
-     * @throws PyBaseException (TypeError) on {@code prefix} type errors
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) on
+     *     {@code prefix} type errors
      */
     @PythonMethod
     Object startswith(Object prefix, Object start, Object end)
@@ -2241,7 +2246,8 @@ public class PyUnicode implements WithClass, PyDict.Key {
      * @param end end of slice.
      * @return {@code true} if this string slice ends with a specified
      *     suffix, otherwise {@code false}.
-     * @throws PyBaseException (TypeError) on {@code suffix} type errors
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) on
+     *     {@code suffix} type errors
      */
     @PythonMethod
     Object endswith(Object suffix, Object start, Object end)
@@ -2577,8 +2583,8 @@ public class PyUnicode implements WithClass, PyDict.Key {
      *
      * @param v claimed {@code str}
      * @return {@code String} value
-     * @throws PyBaseException (TypeError) if {@code v} is not a Python
-     *     {@code str}
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     {@code v} is not a Python {@code str}
      */
     public static String asString(Object v) throws PyBaseException {
         return asString(v, o -> Abstract.requiredTypeError("a str", o));
@@ -3687,8 +3693,8 @@ public class PyUnicode implements WithClass, PyDict.Key {
      * @param method in which encountered
      * @param sub alleged string
      * @return adapted to a sequence
-     * @throws PyBaseException (TypeError) if {@code sub} cannot be
-     *     wrapped as a delegate
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     {@code sub} cannot be wrapped as a delegate
      */
     static CodepointDelegate adaptSub(String method, Object sub)
             throws PyBaseException {
@@ -3708,8 +3714,8 @@ public class PyUnicode implements WithClass, PyDict.Key {
      * @param method in which encountered
      * @param replacement alleged string
      * @return adapted to a sequence
-     * @throws PyBaseException (TypeError) if {@code sub} cannot be
-     *     wrapped as a delegate
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     {@code sub} cannot be wrapped as a delegate
      */
     static CodepointDelegate adaptRep(String method, Object replacement)
             throws PyBaseException {
@@ -3728,10 +3734,10 @@ public class PyUnicode implements WithClass, PyDict.Key {
      * @param method in which encountered
      * @param sep alleged separator
      * @return adapted to a sequence
-     * @throws PyBaseException (TypeError) if {@code sep} cannot be
-     *     wrapped as a delegate
-     * @throws PyBaseException (ValueError) if {@code sep} is the empty
-     *     string
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     {@code sep} cannot be wrapped as a delegate
+     * @throws PyBaseException ({@link PyExc#ValueError ValueError}) if
+     *     {@code sep} is the empty string
      */
     static CodepointDelegate adaptSeparator(String method, Object sep)
             throws PyBaseException {
@@ -3757,8 +3763,8 @@ public class PyUnicode implements WithClass, PyDict.Key {
      * @param method in which encountered
      * @param fill alleged fill character (or {@code null})
      * @return fill as a code point
-     * @throws PyBaseException (TypeError) if {@code fill} is not a
-     *     one-character string
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     {@code fill} is not a one-character string
      */
     private static int adaptFill(String method, Object fill) {
         if (fill == null) {
@@ -3790,8 +3796,8 @@ public class PyUnicode implements WithClass, PyDict.Key {
      * @param chars characters defining the set (or {@code None} or
      *     {@code null})
      * @return {@code null} or characters adapted to a set
-     * @throws PyBaseException (TypeError) if {@code sep} cannot be
-     *     wrapped as a delegate
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     {@code sep} cannot be wrapped as a delegate
      */
     private static Set<Integer> adaptStripSet(String method,
             Object chars) throws PyBaseException {
@@ -3889,7 +3895,7 @@ public class PyUnicode implements WithClass, PyDict.Key {
             CodepointDelegate s) {
         if (s instanceof StringAdapter && !((StringAdapter)s).isBMP())
             // Append by iterating s
-            buf.append(((StringAdapter)s).iterator(0));
+            buf.append(s.iterator(0));
         else
             // Append by indexing s
             buf.append(s);
@@ -3953,7 +3959,8 @@ public class PyUnicode implements WithClass, PyDict.Key {
      *
      * @param index to check
      * @return {@code index} if non-negative
-     * @throws PyBaseException (ValueError) if argument is negative
+     * @throws PyBaseException ({@link PyExc#ValueError ValueError}) if
+     *     argument is negative
      */
     private static final int checkIndexReturn(int index)
             throws PyBaseException {
@@ -3979,7 +3986,8 @@ public class PyUnicode implements WithClass, PyDict.Key {
     // * @return a formatter ready to use.
     // * @throws FormatOverflow if a value is out of range (including
     // * the precision)
-    // * @throws PyBaseException (FormatError) if an unsupported format
+    // * @throws PyBaseException ({@link PyExc#FormatError FormatError})
+    // if an unsupported format
     // character is
     // * encountered
     // */

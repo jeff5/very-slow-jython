@@ -37,8 +37,8 @@ public class Abstract {
      *
      * @param o object
      * @return the string representation of {@code o}
-     * @throws PyBaseException (TypeError) if {@code __repr__} returns a
-     *     non-string
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     {@code __repr__} returns a non-string
      * @throws Throwable from invoked implementation of {@code __repr__}
      */
     // Compare CPython PyObject_Repr in object.c
@@ -67,8 +67,8 @@ public class Abstract {
      *
      * @param o object
      * @return the string representation of {@code o}
-     * @throws PyBaseException (TypeError) if {@code __str__} or
-     *     {@code __repr__} returns a non-string
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     {@code __str__} or {@code __repr__} returns a non-string
      * @throws Throwable from invoked implementations of {@code __str__}
      *     or {@code __repr__}
      */
@@ -129,8 +129,8 @@ public class Abstract {
      *
      * @param v to hash
      * @return the hash
-     * @throws PyBaseException (TypeError) if {@code v} is an unhashable
-     *     type
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     {@code v} is an unhashable type
      * @throws Throwable on errors within {@code __hash__}
      */
     public static int hash(Object v) throws PyBaseException, Throwable {
@@ -286,8 +286,8 @@ public class Abstract {
      * @param name of attribute
      * @return {@code o.name}
      * @throws PyAttributeError if non-existent etc.
-     * @throws PyBaseException (TypeError) if the name is not a
-     *     {@code str}
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     the name is not a {@code str}
      * @throws Throwable on other errors
      */
     // Compare CPython PyObject_GetAttr in object.c
@@ -337,8 +337,8 @@ public class Abstract {
      * @param o the object in which to look for the attribute
      * @param name of the attribute sought
      * @return the attribute or {@code null}
-     * @throws PyBaseException (TypeError) if {@code name} is not a
-     *     Python {@code str}
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     {@code name} is not a Python {@code str}
      * @throws Throwable on other errors
      */
     // Compare CPython _PyObject_LookupAttr in object.c
@@ -380,8 +380,8 @@ public class Abstract {
      * @param name of attribute
      * @param value to set
      * @throws PyAttributeError if non-existent etc.
-     * @throws PyBaseException (TypeError) if the name is not a
-     *     {@code str}
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     the name is not a {@code str}
      * @throws Throwable on other errors
      */
     // Compare CPython PyObject_SetAttr in object.c
@@ -421,8 +421,8 @@ public class Abstract {
      * @param o object to operate on
      * @param name of attribute
      * @throws PyAttributeError if non-existent etc.
-     * @throws PyBaseException (TypeError) if the name is not a
-     *     {@code str}
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     the name is not a {@code str}
      * @throws Throwable on other errors
      */
     // Compare CPython PyObject_SetAttr in object.c
@@ -563,8 +563,8 @@ public class Abstract {
      * @param inst object to test
      * @param cls class or {@code tuple} of classes to test against
      * @return {@code isinstance(inst, cls)}
-     * @throws PyBaseException (TypeError) if {@code cls} is not a class
-     *     or tuple of classes
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     {@code cls} is not a class or tuple of classes
      * @throws Throwable propagated from {@code __instancecheck__} or
      *     other causes
      */
@@ -625,8 +625,8 @@ public class Abstract {
      *     not a tuple of such).
      * @return ẁhether {@code derived} is a sub-class of {@code cls} by
      *     these criteria.
-     * @throws PyBaseException (TypeError) if either input has no
-     *     {@code __bases__} tuple.
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     either input has no {@code __bases__} tuple.
      * @throws Throwable propagated from {@code __subclasscheck__} or
      *     other causes
      */
@@ -751,8 +751,8 @@ public class Abstract {
      *
      * @param o the claimed iterable object
      * @return an iterator on {@code o}
-     * @throws PyBaseException (TypeError) if the object cannot be
-     *     iterated
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     the object cannot be iterated
      * @throws Throwable from errors in {@code o.__iter__}
      */
     // Compare CPython PyObject_GetIter in abstract.c
@@ -1104,8 +1104,8 @@ public class Abstract {
     }
 
     /**
-     * Submit a {@link DeprecationWarning} call (which may result in an
-     * exception) with the same message as
+     * Submit a {@link PyExc#DeprecationWarning DeprecationWarning} call
+     * (which may result in an exception) with the same message as
      * {@link #returnTypeError(String, String, Object)}, the whole
      * followed by one about deprecation of the facility.
      *

@@ -451,9 +451,7 @@ public abstract sealed class PyType extends Representation
      *
      * @return type {@code true} iff system is ready for use.
      */
-    static boolean systemReady() {
-        return readyNanoTime != 0L;
-    }
+    static boolean systemReady() { return readyNanoTime != 0L; }
 
     // C-API Equivalents ---------------------------------------------
     /*
@@ -746,7 +744,8 @@ public abstract sealed class PyType extends Representation
      * @param names of keyword arguments (empty or {@code null} in a
      *     type enquiry).
      * @return new object (or a type if an enquiry).
-     * @throws PyBaseException (TypeError) when cannot create instances
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) when
+     *     cannot create instances
      * @throws Throwable from implementation slot functions
      */
     Object __call__(Object[] args, String[] names)
@@ -871,8 +870,9 @@ public abstract sealed class PyType extends Representation
     /**
      * {@link SpecialMethod#op_setattr} provides attribute write access
      * on this type object. The behaviour is very like the default
-     * {@code object.__setattr__} except that it has write access to the
-     * type dictionary that is denied through {@link #getDict()}.
+     * {@code object.__setattr__} except that it manages write access to
+     * the type dictionary that is denied through
+     * {@link WithDict#getDict()}.
      *
      * @param name of the attribute
      * @param value to give the attribute
@@ -925,8 +925,9 @@ public abstract sealed class PyType extends Representation
     /**
      * {@link SpecialMethod#op_delattr} provides attribute deletion on
      * this type object. The behaviour is very like the default
-     * {@code object.__delattr__} except that it has write access to the
-     * type dictionary that is denied through {@link #getDict()}.
+     * {@code object.__delattr__} except that it manages write access to
+     * the type dictionary that is denied through
+     * {@link WithDict#getDict()}.
      *
      * @param name of the attribute
      * @throws PyAttributeError if no such attribute or it is read-only

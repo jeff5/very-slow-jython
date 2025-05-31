@@ -17,8 +17,8 @@ class AdoptedRepresentation extends Representation {
     final AdoptiveType type;
 
     /**
-     * Index of this implementation in the type (see
-     * {@link AdoptiveType#getAdopted(int)}.
+     * Index of this representation class in the type (see
+     * {@link AdoptiveType#getSubclassIndex(Class)}.
      */
     final int index;
 
@@ -26,6 +26,7 @@ class AdoptedRepresentation extends Representation {
      * Create a {@code Representation} object associating a Python type
      * with the Java type.
      *
+     * @param index by which known to the type object
      * @param javaClass implementing it
      * @param type of which this is an accepted implementation
      */

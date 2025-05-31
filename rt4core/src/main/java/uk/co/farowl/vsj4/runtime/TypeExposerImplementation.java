@@ -64,9 +64,9 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
      * Python type. The {@code type} object is referenced (e.g. in
      * intermediate specification objects), but is not otherwise
      * accessed, since it is (necessarily) incomplete at this time. It
-     * will be interrogated as to its implementing classes, where we
-     * create descriptors, at the point {@link #expose(Class)} is
-     * called.
+     * will be interrogated as to its implementing classes when we
+     * create descriptors, at the point {@link #exposeMethods(Class)}
+     * and {@link #exposeMembers(Class)} are called.
      *
      * @param type being exposed
      */
@@ -629,10 +629,11 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
          */
         private Object createDescrSingle(PyType objclass,
                 Lookup lookup) {
-            /* Lazily, we use the mechanism unreflect() that works for
+            /*
+             * Lazily, we use the mechanism unreflect() that works for
              * types with multiple self-classes, knowing there can be
-             * only one
-             * implementation. */
+             * only one implementation.
+             */
             // Handles on implementation methods
             MethodHandle g, s = null, d = null;
             g = unreflect(objclass, lookup, PyGetSetDescr.GETTER,
@@ -694,8 +695,10 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
         }
 
         /**
-         * Build a method handle array for use in a descriptor defined by
-         * the given Python type and having an entry for each self-class of the type.
+         * Build a method handle array for use in a descriptor defined
+         * by the given Python type and having an entry for each
+         * self-class of the type.
+         *
          * @param objclass defining the descriptor
          * @param lookup rights to form handles on the methods
          * @param mt of the handles to return

@@ -32,7 +32,8 @@ public abstract class PyGetSetDescr extends DataDescriptor {
     static final Lookup LOOKUP = MethodHandles.lookup();
     static final PyType TYPE =
             PyType.fromSpec(new TypeSpec("getset_descriptor", LOOKUP)
-                    .add(Feature.IMMUTABLE, Feature.METHOD_DESCR)                    .remove(Feature.BASETYPE));
+                    .add(Feature.IMMUTABLE, Feature.METHOD_DESCR)
+                    .remove(Feature.BASETYPE));
 
     /** The method handle type (O)O. */
     // CPython: PyObject *(*getter)(PyObject *, void *)
@@ -96,7 +97,7 @@ public abstract class PyGetSetDescr extends DataDescriptor {
     // Compare CPython PyDescr_NewGetSet
     PyGetSetDescr(PyType objclass, String name, String doc,
             Class<?> klass) {
-        super( objclass, name);
+        super(objclass, name);
         this.doc = doc;
         this.klass = klass;
     }
@@ -147,9 +148,8 @@ public abstract class PyGetSetDescr extends DataDescriptor {
      * @param obj from which to get this attribute
      * @return corresponding handle (or one that throws
      *     {@link EmptyException})
-     * @throws PyBaseException (TypeError) if {@code obj} is of
-     *     unacceptable type
-     * @throws Throwable on other errors while chasing the MRO
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     {@code obj} is of unacceptable type
      */
     abstract MethodHandle getWrappedGet(Object obj);
 
@@ -166,9 +166,8 @@ public abstract class PyGetSetDescr extends DataDescriptor {
      * @param obj on which to set this attribute
      * @return corresponding handle (or one that throws
      *     {@link EmptyException})
-     * @throws PyBaseException (TypeError) if {@code obj} is of
-     *     unacceptable type
-     * @throws Throwable on other errors while chasing the MRO
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     {@code obj} is of unacceptable type
      */
     abstract MethodHandle getWrappedSet(Object obj);
 
@@ -185,9 +184,8 @@ public abstract class PyGetSetDescr extends DataDescriptor {
      * @param obj from which to delete this attribute
      * @return corresponding handle (or one that throws
      *     {@link EmptyException})
-     * @throws PyBaseException (TypeError) if {@code obj} is of
-     *     unacceptable type
-     * @throws Throwable on other errors while chasing the MRO
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     {@code obj} is of unacceptable type
      */
     abstract MethodHandle getWrappedDelete(Object obj);
 

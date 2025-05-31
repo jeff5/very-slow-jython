@@ -80,8 +80,8 @@ public class PySequence extends Abstract {
      * @param o object to operate on
      * @param key index
      * @return {@code o[key]}
-     * @throws PyBaseException (TypeError) when {@code o} does not allow
-     *     subscripting
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) when
+     *     {@code o} does not allow subscripting
      * @throws Throwable from invoked method implementations
      */
     // Compare CPython PyObject_GetItem in abstract.c
@@ -105,8 +105,8 @@ public class PySequence extends Abstract {
      * @param i1 index of first item in slice
      * @param i2 index of first item not in slice
      * @return {@code o[i1:i2]}
-     * @throws PyBaseException (TypeError) when {@code o} does not allow
-     *     subscripting
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) when
+     *     {@code o} does not allow subscripting
      * @throws Throwable from invoked method implementations
      */
     // Compare CPython PyObject_GetItem in abstract.c
@@ -129,8 +129,8 @@ public class PySequence extends Abstract {
      * @param o object to operate on
      * @param key index
      * @param value to put at index
-     * @throws PyBaseException (TypeError) when {@code o} does not allow
-     *     subscripting
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) when
+     *     {@code o} does not allow subscripting
      * @throws Throwable from invoked method implementations
      */
     // Compare CPython PyObject_SetItem in abstract.c
@@ -152,8 +152,8 @@ public class PySequence extends Abstract {
      *
      * @param o object to operate on
      * @param key index at which to delete element
-     * @throws PyBaseException (TypeError) when {@code o} does not allow
-     *     subscripting
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) when
+     *     {@code o} does not allow subscripting
      * @throws Throwable from invoked method implementations
      */
     // Compare CPython PyObject_DelItem in abstract.c
@@ -176,8 +176,8 @@ public class PySequence extends Abstract {
      *
      * @param o to represent
      * @return the contents as a tuple
-     * @throws PyBaseException (TypeError) if an iterator cannot be
-     *     formed on {@code o}
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if an
+     *     iterator cannot be formed on {@code o}
      * @throws Throwable from the implementation of {@code o}
      */
     // Compare CPython PySequence_Tuple in abstract.c
@@ -196,8 +196,8 @@ public class PySequence extends Abstract {
      *
      * @param o to represent
      * @return the contents as a list
-     * @throws PyBaseException (TypeError) if an iterator cannot be
-     *     formed on {@code o}
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if an
+     *     iterator cannot be formed on {@code o}
      * @throws Throwable from the implementation of {@code o}
      */
     // Compare CPython PySequence_List in abstract.c
@@ -635,9 +635,10 @@ public class PySequence extends Abstract {
          *
          * @param item (or slice) to get from in the client
          * @return the element or slice
-         * @throws PyBaseException (ValueError) if {@code slice.step==0}
-         * @throws PyBaseException (TypeError) from bad slice index
-         *     types
+         * @throws PyBaseException ({@link PyExc#ValueError ValueError})
+         *     if {@code slice.step==0}
+         * @throws PyBaseException ({@link PyExc#TypeError TypeError})
+         *     from bad slice index types
          * @throws Throwable from errors other than indexing
          */
         public Object __getitem__(Object item)
@@ -662,11 +663,11 @@ public class PySequence extends Abstract {
          *
          * @param item (or slice) to assign in the client
          * @param value to assign
-         * @throws PyBaseException (ValueError) if {@code slice.step==0}
-         *     or {@code slice.step!=1} (an "extended" slice) and
-         *     {@code value} is the wrong length.
-         * @throws PyBaseException (TypeError) from bad slice index
-         *     types
+         * @throws PyBaseException ({@link PyExc#ValueError ValueError})
+         *     if {@code slice.step==0} or {@code slice.step!=1} (an
+         *     "extended" slice) and {@code value} is the wrong length.
+         * @throws PyBaseException ({@link PyExc#TypeError TypeError})
+         *     from bad slice index types
          * @throws Throwable from errors other than indexing
          */
         public void __setitem__(Object item, Object value)
@@ -690,11 +691,11 @@ public class PySequence extends Abstract {
          * {@link #delSlice(Indices)}.
          *
          * @param item (or slice) to delete in the client
-         * @throws PyBaseException (ValueError) if {@code slice.step==0}
-         *     or value is the wrong length in an extended slice
-         *     ({@code slice.step!=1}
-         * @throws PyBaseException (TypeError) from bad slice index
-         *     types
+         * @throws PyBaseException ({@link PyExc#ValueError ValueError})
+         *     if {@code slice.step==0} or value is the wrong length in
+         *     an extended slice ({@code slice.step!=1}
+         * @throws PyBaseException ({@link PyExc#TypeError TypeError})
+         *     from bad slice index types
          * @throws Throwable from errors other than indexing
          */
         public void __delitem__(Object item)
@@ -723,8 +724,8 @@ public class PySequence extends Abstract {
          *
          * @param w right operand
          * @return {@code self+w} or {@code NotImplemented}
-         * @throws PyBaseException (OverflowError) when cannot allocate
-         *     space
+         * @throws PyBaseException ({@link PyExc#OverflowError
+         *     OverflowError}) when cannot allocate space
          * @throws Throwable from other causes in the implementation.
          */
         Object __add__(Object w) throws PyBaseException, Throwable {
@@ -757,8 +758,8 @@ public class PySequence extends Abstract {
          *
          * @param v left operand
          * @return {@code v+self} or {@code NotImplemented}
-         * @throws PyBaseException (OverflowError) when cannot allocate
-         *     space
+         * @throws PyBaseException ({@link PyExc#OverflowError
+         *     OverflowError}) when cannot allocate space
          * @throws Throwable from other causes in the implementation.
          */
         Object __radd__(Object v) throws PyBaseException, Throwable {
@@ -787,10 +788,11 @@ public class PySequence extends Abstract {
          *
          * @param n number of repetitions in result
          * @return {@code self*n} or {@code NotImplemented}
-         * @throws PyBaseException (OverflowError) when {@code n}
-         *     over-size or cannot allocate space
-         * @throws PyBaseException (TypeError) if {@code n} has no
-         *     {@code __index__}
+         * @throws PyBaseException ({@link PyExc#OverflowError
+         *     OverflowError}) when {@code n} over-size or cannot
+         *     allocate space
+         * @throws PyBaseException ({@link PyExc#TypeError TypeError})
+         *     if {@code n} has no {@code __index__}
          * @throws Throwable from implementation of {@code __index__},
          *     or other causes in the implementation.
          */
@@ -827,9 +829,10 @@ public class PySequence extends Abstract {
          * @param start index of first element in range
          * @param stop index of first element not in range
          * @return the index at which found
-         * @throws PyBaseException (ValueError) if {@code v} not found
-         * @throws PyBaseException (TypeError) from bad {@code start}
-         *     and {@code stop} types
+         * @throws PyBaseException ({@link PyExc#ValueError ValueError})
+         *     if {@code v} not found
+         * @throws PyBaseException ({@link PyExc#TypeError TypeError})
+         *     from bad {@code start} and {@code stop} types
          * @throws Throwable from errors other than indexing
          */
         public int index(Object v, Object start, Object stop)
@@ -859,8 +862,8 @@ public class PySequence extends Abstract {
          *
          * @param i to check is valid index
          * @return range-checked {@code i}
-         * @throws PyBaseException (IndexError) if {@code i} out of
-         *     range
+         * @throws PyBaseException ({@link PyExc#IndexError IndexError})
+         *     if {@code i} out of range
          */
         protected int adjustGet(int i) {
             final int L = length();
@@ -880,8 +883,8 @@ public class PySequence extends Abstract {
          *
          * @param i to check is valid index
          * @return range-checked {@code i}
-         * @throws PyBaseException (IndexError) if {@code i} out of
-         *     range
+         * @throws PyBaseException ({@link PyExc#IndexError IndexError})
+         *     if {@code i} out of range
          */
         protected int adjustSet(int i) throws PyBaseException {
             final int L = length();
@@ -943,8 +946,8 @@ public class PySequence extends Abstract {
          * @param index purported index (or {@code null})
          * @param defaultValue to use if {@code index==null}
          * @return converted index
-         * @throws PyBaseException (TypeError) from bad {@code index}
-         *     type
+         * @throws PyBaseException ({@link PyExc#TypeError TypeError})
+         *     from bad {@code index} type
          * @throws Throwable from other conversion errors
          */
         protected int boundedIndex(Object index, int defaultValue)
@@ -982,8 +985,8 @@ public class PySequence extends Abstract {
      * @param factory a constructor for {@code R}
      * @param accumulator to add one element to an {@code R}
      * @return the collection
-     * @throws PyBaseException (TypeError) if an iterator cannot be
-     *     formed on {@code o}
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if an
+     *     iterator cannot be formed on {@code o}
      * @throws Throwable from the implementation of {@code o}
      */
     private static <R> R collect(Object o, Supplier<R> factory,

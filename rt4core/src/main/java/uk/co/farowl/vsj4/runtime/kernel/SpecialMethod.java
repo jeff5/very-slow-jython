@@ -908,9 +908,7 @@ public enum SpecialMethod {
      * special method may change without the opportunity to update the
      * cache in the representation.
      *
-     *
      * @param rep target {@code Representation}
-     * @param mh handle value to assign
      */
     void setGeneric(Representation rep) { setCache(rep, generic); }
 

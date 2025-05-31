@@ -584,7 +584,7 @@ public class SubclassFactory {
          * access so that a package-level lookup may be used to generate
          * handles.
          *
-         * @param field describing the field to create
+         * @param name of the field to create
          */
         void addObjectAttr(String name) {
             // Add a field (with package access)
