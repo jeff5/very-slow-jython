@@ -83,7 +83,7 @@ public class PyFloat implements WithClass {
     public static double asDouble(Object o)
             throws PyBaseException, Throwable {
         /*
-         * Ever so similar to Number.toFloat, but returns the double
+         * Ever so similar to PyNumber.toFloat, but returns the double
          * value extracted from (potentially) a sub-type of PyFloat, and
          * does not try to convert from strings.
          */

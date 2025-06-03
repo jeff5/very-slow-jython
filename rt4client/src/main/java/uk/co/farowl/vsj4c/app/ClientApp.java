@@ -1,5 +1,8 @@
 package uk.co.farowl.vsj4c.app;
 
+import java.lang.invoke.MethodHandle;
+import java.util.List;
+
 import uk.co.farowl.vsj4.runtime.Abstract;
 import uk.co.farowl.vsj4.runtime.Callables;
 import uk.co.farowl.vsj4.runtime.PyNumber;
@@ -75,11 +78,19 @@ public class ClientApp {
             PyType t = MyType.TYPE.pythonType(x);
             //System.out.println(t.base);
 
-            // List<Representation> reps = t.representations();
-            // Representation rep = reps.get(0);
-            // rep.pythonType(x);
+            List<?> reps = t.representations();
+            System.out.println("t.representations() = " + reps);
+            //Representation rep = reps.get(0);
+            //rep.pythonType(x);
 
             for (PyType b : t.getMRO()) { System.out.println(b); }
+
+            t = PyType.of(42);
+            boolean isInt = t.isIntExact();
+            MethodHandle addMH = t.op_add();
+            //boolean ready = t.hasFeature(KernelTypeFlag.READY);
+            reps = t.representations();
+            System.out.println("type(42).representations() = " + reps);
 
         } catch (Throwable e) {
             e.printStackTrace();
