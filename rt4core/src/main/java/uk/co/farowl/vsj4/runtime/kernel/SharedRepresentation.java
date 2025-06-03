@@ -78,9 +78,9 @@ class SharedRepresentation extends Representation {
     }
 
     @Override
-    public PyType pythonType(Object x) {
+    public BaseType pythonType(Object x) {
         if (x instanceof WithClass wcx) {
-            return wcx.getType();
+            return BaseType.cast(wcx.getType());
         } else if (x == null) {
             return null;
         } else {

@@ -98,7 +98,7 @@ public final class AdoptiveType extends BaseType {
     }
 
     @Override
-    public PyType pythonType(Object x) {
+    public BaseType pythonType(Object x) {
         // I don't *think* we should be asked this question unless:
         assert javaClass.isAssignableFrom(x.getClass());
         return this;

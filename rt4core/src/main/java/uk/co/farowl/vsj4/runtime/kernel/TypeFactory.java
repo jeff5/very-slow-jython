@@ -452,7 +452,7 @@ public class TypeFactory {
      * @return the constructed {@code PyType}
      * @throws Clash when a representing class is already bound
      */
-    public synchronized PyType fromSpec(TypeSpec spec) throws Clash {
+    public synchronized BaseType fromSpec(TypeSpec spec) throws Clash {
         /*
          * We are able to make (the right kind of) type object but
          * cannot always guarantee to fill its dictionary. In that case,
@@ -462,7 +462,7 @@ public class TypeFactory {
                 .addArgument(indent).addArgument(spec.getName()).log();
         if (reentrancyCount++ < 0) { lastContext = spec; }
         // Create a type and add it to the work in progress.
-        PyType type = workshop.addTaskFromSpec(spec);
+        BaseType type = workshop.addTaskFromSpec(spec);
         /*
          * It is ok to return a type that is not Python ready from a
          * reentrant call. Work is in hand to complete it.

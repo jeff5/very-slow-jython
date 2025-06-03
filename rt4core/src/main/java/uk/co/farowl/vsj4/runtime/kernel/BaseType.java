@@ -135,6 +135,7 @@ public abstract sealed class BaseType extends PyType
             // a is not completely initialised yet; follow base
             return type_is_subtype_base_chain(b);
     }
+
     /**
      * The dictionary of the {@code type} in a read-only view.
      *
@@ -269,6 +270,27 @@ public abstract sealed class BaseType extends PyType
      */
     static Representation getRepresentation(Object o) {
         return registry.get(o.getClass());
+    }
+
+    /**
+     * Cast the argument to a Jython type object (or throw). It is
+     * possible for a client application to supply a {@link PyType} that
+     * did not originate in the Jython run-time system, whereas
+     * internally we take advantage of private API that requires a
+     * {@code BaseType}. Occasionally, we have to check that, usually on
+     * assignment to a local variable or a member.
+     *
+     * @param t presented to our API somewhere
+     * @return {@code t} if it is a {@code BaseType}
+     * @throws ClassCastException {@code t} is not a {@code BaseType}
+     */
+    public static BaseType cast(PyType t) throws InterpreterError {
+        if (t instanceof BaseType bt) {
+            return bt;
+        } else {
+            throw new ClassCastException(String.format(
+                    "non-Jython PyType encountered: %s", t.getClass()));
+        }
     }
 
     // FastCall implementation ---------------------------------------

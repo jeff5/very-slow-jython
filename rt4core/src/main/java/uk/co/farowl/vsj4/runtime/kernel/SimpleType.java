@@ -83,7 +83,7 @@ public non-sealed class SimpleType extends BaseType {
     public Class<?> canonicalClass() { return canonicalClass; }
 
     @Override
-    public PyType pythonType(Object x) { return this; }
+    public BaseType pythonType(Object x) { return this; }
 
     // TODO: Decide the immutability of SimpleType
     @Override

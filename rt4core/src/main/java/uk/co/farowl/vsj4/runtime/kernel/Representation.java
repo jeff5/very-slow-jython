@@ -6,6 +6,9 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import uk.co.farowl.vsj4.runtime.PyFloat;
 import uk.co.farowl.vsj4.runtime.PyLong;
 import uk.co.farowl.vsj4.runtime.PyType;
@@ -34,6 +37,10 @@ import uk.co.farowl.vsj4.runtime.kernel.SpecialMethod.Signature;
  * are encountered in Python code.
  */
 public abstract class Representation {
+
+    /** Logger for representation/type object activity in the kernel. */
+    protected static final Logger logger =
+            LoggerFactory.getLogger(Representation.class);
 
     /*
      * Give SpecialMethod access to private members (so it may write the
@@ -98,7 +105,7 @@ public abstract class Representation {
      * @param x subject of the enquiry
      * @return {@code type(x)}
      */
-    public abstract PyType pythonType(Object x);
+    public abstract BaseType pythonType(Object x);
 
     /**
      * Fast check that a particular object, for which this is the

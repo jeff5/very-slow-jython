@@ -159,55 +159,6 @@ public abstract sealed class PyType extends KernelType
                 .log();
     }
 
-    /** Name of the type (fully-qualified). */
-    final String name;
-
-    /**
-     * Feature flags collecting various boolean traits of this type,
-     * such as immutability or being a subclass of {@code int}. Some of
-     * these come fairly directly from the {@link TypeSpec} (where used
-     * to define the type) and others are observed during construction
-     * of the type.
-     */
-    // Compare CPython tp_flags in object.h
-    protected final EnumSet<TypeFlag> features =
-            EnumSet.noneOf(TypeFlag.class);
-
-    /**
-     * The {@code __base__} of this type. The {@code __base__} is a type
-     * from the {@code __bases__}, but its choice is determined by
-     * implementation details.
-     * <p>
-     * It is the type earliest on the MRO after the current type, whose
-     * implementation contains all the members necessary to implement
-     * the current type.
-     */
-    protected PyType base;
-
-    /**
-     * The {@code __bases__} of this type, which are the types named in
-     * heading of the Python {@code class} definition, or just
-     * {@code object} if none are named, or an empty array in the
-     * special case of {@code object} itself.
-     */
-    protected PyType[] bases;
-
-    /**
-     * The writable dictionary of the type is private because the type
-     * controls writing strictly. Even in the core it is only accessible
-     * through a read-only view {@link #dict}.
-     */
-    private final LinkedHashMap<String, Object> _dict;
-
-    /**
-     * The dictionary of the type is always an ordered {@code Map}. It
-     * is made accessible here through a wrapper that renders it a
-     * read-only {@code dict}-like object. Internally names are stored
-     * as {@code String} for speed and accessed via
-     * {@link #lookup(String)}.
-     */
-    protected final Map<String, Object> dict;
-
     /**
      * Constructor used by (permitted) subclasses of {@code PyType}.
      *
@@ -218,23 +169,7 @@ public abstract sealed class PyType extends KernelType
      */
     protected PyType(String name, Class<?> javaClass, PyType[] bases,
             LinkedHashMap<String, Object> _dict) {
-        super(javaClass);
-        /*
-         * These assertions mainly check our assumptions about the needs
-         * of sub-types. They are retained only in testing.
-         */
-        assert name != null;
-        assert javaClass != null || this instanceof AdoptiveType;
-        assert bases != null;
-
-        this.name = name;
-        this.bases = bases;
-        this.base = bases.length > 0 ? bases[0] : null;
-
-        // Keep a private copy to support __setattr__ etc..
-        this._dict = _dict;
-        // FIXME: define mappingproxy type for this use
-        this.dict = Collections.unmodifiableMap(_dict);
+        super(name, javaClass, bases, _dict);
     }
 
     /**
@@ -242,6 +177,7 @@ public abstract sealed class PyType extends KernelType
      *
      * @return the name of the type
      */
+    @Override
     public String getName() { return name; }
 
     /**
@@ -250,6 +186,7 @@ public abstract sealed class PyType extends KernelType
      *
      * @return the sequence of bases
      */
+    @Override
     public PyType[] getBases() { return bases.clone(); }
 
     /**
@@ -260,6 +197,7 @@ public abstract sealed class PyType extends KernelType
      *
      * @return the "best base" type of this type
      */
+    @Override
     public PyType getBase() { return base; }
 
     /**
@@ -267,6 +205,7 @@ public abstract sealed class PyType extends KernelType
      *
      * @return a copy of the MRO of this type
      */
+    @Override
     public abstract PyType[] getMRO();
 
     /**
@@ -284,8 +223,6 @@ public abstract sealed class PyType extends KernelType
         return MROCalculator.getMRO(this, this.bases);
     }
 
-    @Override
-    public String toString() { return "<class '" + getName() + "'>"; }
 
     @Override
     public PyType getType() { return PyType.TYPE; }
@@ -304,6 +241,7 @@ public abstract sealed class PyType extends KernelType
      *
      * @return the bases of classes allowed as {@code self}
      */
+    @Override
     public abstract List<Class<?>> selfClasses();
 
     /**
@@ -320,6 +258,7 @@ public abstract sealed class PyType extends KernelType
      *
      * @return the canonical Java representation class of {@code self}
      */
+    @Override
     public abstract Class<?> canonicalClass();
 
     /**
@@ -335,6 +274,7 @@ public abstract sealed class PyType extends KernelType
      */
     // Compare CPython _PyType_Lookup in typeobject.c
     // and find_name_in_mro in typeobject.c
+    @Override
     public abstract Object lookup(String name);
 
     /**
@@ -398,25 +338,6 @@ public abstract sealed class PyType extends KernelType
     }
 
     /**
-     * Find the index in the self-classes of this type, of a Java class
-     * that is assignment-compatible with that of the argument. This
-     * method is used by descriptors when they are called with a
-     * {@code self} argument that is not of the Python type that defined
-     * the descriptor, but is found to be a sub-type of it.
-     * <p>
-     * In these circumstances, only the primary representation (index 0)
-     * and accepted (not adopted) representation classes need be tested.
-     * It returns 0 in all cases where there are no such accepted
-     * representations, even if that choice is not assignment
-     * compatible.
-     *
-     * @param selfClass to seek
-     * @return index in {@link #selfClasses()}
-     */
-    // FIXME: to be less public or in BaseType
-    public int getSubclassIndex(Class<?> selfClass) { return 0; }
-
-    /**
      * Weak test that the type system has completed its bootstrap. This
      * does not guarantee that type objects, outside the bootstrap set,
      * are safe to use. A thread that has triggered type system creation
@@ -447,6 +368,7 @@ public abstract sealed class PyType extends KernelType
      * @param o object to test
      * @return {@code true} iff {@code o} is of a sub-type of this type
      */
+    @Override
     public boolean check(Object o) {
         PyType t = PyType.of(o);
         return t == this || t.isSubTypeOf(this);
@@ -461,6 +383,7 @@ public abstract sealed class PyType extends KernelType
      * @param o object to test
      * @return {@code true} iff {@code o} is exactly of this type
      */
+    @Override
     public boolean checkExact(Object o) {
         return PyType.of(o) == this;
     }
@@ -485,6 +408,7 @@ public abstract sealed class PyType extends KernelType
      *
      * @return {@code true} iff this is a mutable type
      */
+    @Override
     public abstract boolean isMutable();
 
     /**
@@ -494,6 +418,7 @@ public abstract sealed class PyType extends KernelType
      * @return target is a sequence
      */
     // Compare CPython PySequence_Check (on instance) in abstract.c
+    @Override
     public boolean isSequence() {
         return kernelFeatures.contains(KernelTypeFlag.HAS_GETITEM)
                 && !features.contains(TypeFlag.DICT_SUBCLASS);
@@ -505,6 +430,7 @@ public abstract sealed class PyType extends KernelType
      *
      * @return target is a iterable with {@code __iter__}
      */
+    @Override
     public boolean isIterable() {
         return kernelFeatures.contains(KernelTypeFlag.HAS_ITER);
     }
@@ -515,6 +441,7 @@ public abstract sealed class PyType extends KernelType
      *
      * @return target is a an iterator
      */
+    @Override
     public boolean isIterator() {
         return kernelFeatures.contains(KernelTypeFlag.HAS_NEXT);
     }
@@ -525,6 +452,7 @@ public abstract sealed class PyType extends KernelType
      *
      * @return target is a descriptor
      */
+    @Override
     public boolean isDescr() {
         return kernelFeatures.contains(KernelTypeFlag.HAS_GET);
     }
@@ -535,6 +463,7 @@ public abstract sealed class PyType extends KernelType
      *
      * @return target is a data descriptor
      */
+    @Override
     public boolean isDataDescr() {
         return kernelFeatures.contains(KernelTypeFlag.HAS_SET)
                 || kernelFeatures.contains(KernelTypeFlag.HAS_DELETE);
@@ -561,6 +490,7 @@ public abstract sealed class PyType extends KernelType
      *
      * @return target is a method descriptor
      */
+    @Override
     public boolean isMethodDescr() {
         return features.contains(TypeFlag.METHOD_DESCR);
     }
@@ -638,6 +568,7 @@ public abstract sealed class PyType extends KernelType
      *
      * @return the lookup for constructors and handles
      */
+    @Override
     public abstract Map<MethodType, ConstructorAndHandle>
             constructorLookup();
 
@@ -651,6 +582,7 @@ public abstract sealed class PyType extends KernelType
      * @return a constructor and a handle on it
      */
     // Compare CPython type slot tp_alloc (but only loosely).
+    @Override
     public abstract ConstructorAndHandle constructor(Class<?>... param);
 
     // Special methods -----------------------------------------------
@@ -927,4 +859,5 @@ public abstract sealed class PyType extends KernelType
         // TODO Auto-generated method stub
         return Py.None;
     }
+
 }
