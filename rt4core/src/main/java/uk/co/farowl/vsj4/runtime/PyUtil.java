@@ -68,7 +68,7 @@ public class PyUtil {
         if (o == null) { return "<null>"; }
 
         String name = null;
-        if (PyType.systemReady()) {
+        if (TypeSystem.systemReady()) {
             Representation rep = null;
             try {
                 rep = PyType.getRepresentation(o);

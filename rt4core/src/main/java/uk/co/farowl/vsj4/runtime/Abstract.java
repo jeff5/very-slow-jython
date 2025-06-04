@@ -579,7 +579,7 @@ public class Abstract {
             // Quick result available
             return true;
 
-        else if ((clsType = PyType.of(cls)) == PyType.TYPE) {
+        else if ((clsType = PyType.of(cls)) == PyType.TYPE()) {
             // cls is a (single) Python type, and not a metaclass.
             return recursiveIsInstance(inst, cls);
 
@@ -596,7 +596,7 @@ public class Abstract {
             return false;
 
         } else {
-            // The type of cls should be a sub-type of PyType.TYPE
+            // The type of cls should be a sub-type of PyType.TYPE()
             Object checker = lookupSpecial(cls, "__instancecheck__");
             if (checker != null) {
                 // cls has an __instancecheck__ to consult.
@@ -669,7 +669,7 @@ public class Abstract {
     static boolean isSubclass(Object derived, Object cls)
             throws Throwable {
         PyType clsType = PyType.of(cls);
-        if (clsType == PyType.TYPE) {
+        if (clsType == PyType.TYPE()) {
             // cls is exactly a Python type: avoid __subclasscheck__
             if (derived == cls)
                 return true;

@@ -27,15 +27,15 @@ import uk.co.farowl.vsj4.runtime.kernel.TypeRegistry;
  * <li>Initialising the class of a Python type defined in Java that
  * entails a call to
  * {@link PyType#fromSpec(uk.co.farowl.vsj4.runtime.TypeSpec)
- * PyType.fromSpec}. Initialisation precedes any call or reference to a
- * member (such as the static {@code TYPE}).</li>
+ * PyType.fromSpec()}. Initialisation precedes any call or reference to a
+ * member (such as a static {@code TYPE} member).</li>
  * <li>As a variant of 2, any reference to the type objects for
  * {@code type} or {@code object}, which have to be created without
  * using {@code PyType.fromSpec()}.</li>
  * </ol>
  * The design keeps the number of <i>materially</i> different ways to a
  * minimum, by funnelling all causes into essentially the same bootstrap
- * process, rooted in the static initialisation of {@link PyType}.
+ * process, rooted in the static initialisation of {@link TypeSystem}.
  * <p>
  * When testing, we arrange to run each subclass of this test in a new
  * JVM. (See the {@code kernelTest} target in the build.)
@@ -54,7 +54,7 @@ class TypeInitTest {
 
     /** After setUp() a type exists for {@code object}. */
     @Test
-    @DisplayName("PyBaseObject.TYPE exists")
+    @DisplayName("PyObject.TYPE exists")
     void object_exists() {
         PyType object = PyObject.TYPE;
         assertNotNull(object);
@@ -76,9 +76,9 @@ class TypeInitTest {
 
     /** After setUp() a type exists for {@code type}. */
     @Test
-    @DisplayName("PyType.TYPE exists")
+    @DisplayName("PyType.TYPE() returns the type object")
     void type_exists() {
-        PyType type = PyType.TYPE;
+        PyType type = PyType.TYPE();
         assertNotNull(type);
         assertInstanceOf(SimpleType.class, type);
         assertEquals("type", type.getName());
@@ -104,7 +104,7 @@ class TypeInitTest {
         // Lookup for the base type
         TypeRegistry registry = PyType.registry;
         Representation repType = registry.get(PyType.class);
-        assertSame(PyType.TYPE, repType);
+        assertSame(PyType.TYPE(), repType);
         // Lookup each Java subclass has the same type
         for (Class<? extends PyType> c : List.of(SimpleType.class,
                 AdoptiveType.class, ReplaceableType.class)) {
@@ -131,5 +131,4 @@ class TypeInitTest {
         assertEquals("float", type.getName());
         assertSame(PyFloat.TYPE, type);
     }
-
 }

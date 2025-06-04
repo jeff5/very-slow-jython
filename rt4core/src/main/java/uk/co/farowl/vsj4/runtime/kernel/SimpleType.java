@@ -105,34 +105,4 @@ public non-sealed class SimpleType extends BaseType {
     static MethodHandles.Lookup getRuntimeLookup() {
         return RUNTIME_LOOKUP;
     }
-
-    /**
-     * The type factory to which the run-time system goes for all type
-     * objects.
-     *
-     * @return the (static) type factory
-     */
-    static TypeFactory getFactory() { return factory; }
-
-    /**
-     * The type registry to which this run-time system goes for all
-     * class look-ups.
-     *
-     * @return the (static) type registry
-     */
-    static TypeRegistry getRegistry() { return registry; }
-
-    /**
-     * Determine (or create if necessary) the {@link Representation} for
-     * the given object.
-     * <p>
-     * This duplicates the same-name method in {@link PyType} for
-     * reasons of visibility.
-     *
-     * @param o for which a {@code Representation} is required
-     * @return the {@code Representation}
-     */
-    static Representation getRepresentation(Object o) {
-        return registry.get(o.getClass());
-    }
 }

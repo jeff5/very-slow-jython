@@ -486,18 +486,18 @@ public class TypeFactory {
      * applied.
      *
      * @return the type of {@code type}
-     * @deprecated Use {@link PyType#TYPE} instead. This method is
+     * @deprecated Use {@link PyType#TYPE()} instead. This method is
      *     public only so that {@code PyType} may use it to initialise
      *     that member.
      */
     @Deprecated
-    public synchronized PyType typeForType() { return typeType; }
+    public synchronized SimpleType typeForType() { return typeType; }
 
     /**
      * Create the {@link PyType}s needed before the type system itself
      * can work properly, and make them Python ready. These are the
      * adoptive types and those types required to create descriptors.
-     * {@link PyType#TYPE} should have been initialised before this
+     * {@link PyType#TYPE()} should have been initialised before this
      * method is called so that types being defined now may refer to it.
      * <p>
      * We include the adoptive types to ensure that each adopted Java
@@ -512,7 +512,7 @@ public class TypeFactory {
      */
     public synchronized void createBootstrapTypes() throws Clash {
         // Definition classes should be able to assume:
-        assert PyType.TYPE == typeType;
+        assert PyType.TYPE() == typeType;
 
         /*
          * Create specifications for the bootstrap types. When it is not

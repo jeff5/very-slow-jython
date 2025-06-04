@@ -310,7 +310,7 @@ public abstract sealed class BaseType extends PyType
          * Special case: type(x) should return the Python type of x, but
          * only if this is exactly the type 'type'.
          */
-        if (this == PyType.TYPE) {
+        if (this == PyType.TYPE()) {
             // Deal with two special cases
             assert (args != null);
             int nk = names == null ? 0 : names.length;
@@ -371,7 +371,7 @@ public abstract sealed class BaseType extends PyType
 
     // @Override
     // public Object call(Object a0) throws Throwable {
-    // if (this == PyType.TYPE) {
+    // if (this == PyType.TYPE()) {
     // // Call is exactly type(x) so this is a type enquiry
     // return PyType.of(a0);
     // }

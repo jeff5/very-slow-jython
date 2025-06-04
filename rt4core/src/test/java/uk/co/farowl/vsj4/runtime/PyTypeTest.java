@@ -48,7 +48,7 @@ class PyTypeTest extends UnitTestSupport {
                     enquiryExample(PyObject.TYPE, new Object()), //
                     enquiryExample(PyLong.TYPE, 1), //
                     enquiryExample(PyBool.TYPE, true), //
-                    enquiryExample(PyType.TYPE, PyLong.TYPE)  //
+                    enquiryExample(PyType.TYPE(), PyLong.TYPE)  //
             );
         }
 
@@ -148,7 +148,7 @@ class PyTypeTest extends UnitTestSupport {
         @MethodSource("enquiryExamples")
         void enquiry(PyType type, Object obj, String ostr, String tname)
                 throws Throwable {
-            Object t = Callables.call(PyType.TYPE, obj);
+            Object t = Callables.call(PyType.TYPE(), obj);
             assertEquals(type, t);
             assertEquals(type, PyType.of(obj));
         }
@@ -179,7 +179,7 @@ class PyTypeTest extends UnitTestSupport {
     abstract static class AbstractNewTypeTest extends UnitTestSupport {
 
         private static final PyType INT = PyLong.TYPE;
-        private static final PyType TYPE = PyType.TYPE;
+        private static final PyType TYPE = PyType.TYPE();
         private static PyType OBJECT = PyObject.TYPE;
 
         /**

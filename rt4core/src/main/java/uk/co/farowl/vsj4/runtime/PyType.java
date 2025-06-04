@@ -12,8 +12,6 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Constructor;
-import java.util.Collections;
-import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -21,14 +19,12 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import uk.co.farowl.vsj4.runtime.kernel.AdoptiveType;
 import uk.co.farowl.vsj4.runtime.kernel.BaseType;
+import uk.co.farowl.vsj4.runtime.kernel.KernelType;
 import uk.co.farowl.vsj4.runtime.kernel.KernelTypeFlag;
 import uk.co.farowl.vsj4.runtime.kernel.MROCalculator;
 import uk.co.farowl.vsj4.runtime.kernel.Representation;
-import uk.co.farowl.vsj4.runtime.kernel.KernelType;
 import uk.co.farowl.vsj4.runtime.kernel.SpecialMethod;
-import uk.co.farowl.vsj4.runtime.kernel.TypeFactory;
 import uk.co.farowl.vsj4.runtime.kernel.TypeFactory.Clash;
 import uk.co.farowl.vsj4.runtime.kernel.TypeRegistry;
 import uk.co.farowl.vsj4.support.InterpreterError;
@@ -53,40 +49,11 @@ public abstract sealed class PyType extends KernelType
     /** Logger for (the public face of) the type system. */
     static final Logger logger = LoggerFactory.getLogger(PyType.class);
 
-    /*
-     * The static initialisation of this class brings the type system
-     * into existence in the *only* way it should be allowed to happen.
-     */
-
-    /**
-     * The type factory to which the run-time system goes for all type
-     * objects.
-     */
-    protected static final TypeFactory factory;
-
-    /** The type object of {@code type} objects. */
-    // Needed in its proper place before creating bootstrap types
-    public static final PyType TYPE;
-
     /**
      * The type registry to which this run-time system goes for all
      * class look-ups.
      */
-    protected static final TypeRegistry registry;
-
-    /**
-     * High-resolution time (the result of {@link System#nanoTime()}) at
-     * which the type system began static initialisation. This is used
-     * in tests.
-     */
-    static final long bootstrapNanoTime;
-
-    /**
-     * High-resolution time (the result of {@link System#nanoTime()}) at
-     * which the type system completed static initialisation. This is
-     * used in tests and to give the "ready" message a time.
-     */
-    static final long readyNanoTime;
+    protected static final TypeRegistry registry = TypeSystem.registry;
 
     /**
      * A lookup with package scope. This lookup object is provided to
@@ -95,69 +62,6 @@ public abstract sealed class PyType extends KernelType
      */
     protected static Lookup RUNTIME_LOOKUP =
             MethodHandles.lookup().dropLookupMode(Lookup.PRIVATE);
-
-    /*
-     * The next block intends to make all the bootstrap types Java
-     * ready, then Python ready, before any type object becomes visible
-     * to another thread. For this it relies on the protection a JVM
-     * gives to a class during static initialisation, on which the
-     * well-known thread-safe lazy singleton pattern is based. PyType is
-     * the holder class for the entire type system.
-     */
-    static {
-        logger.info("Type system is waking up.");
-        bootstrapNanoTime = System.nanoTime();
-
-        /*
-         * Kick the whole type machine into life. We go via variables f
-         * and t so that we can suppress the deprecation messages, which
-         * are for the discouragement of others, not because PyType
-         * should use some alternative method.
-         */
-        @SuppressWarnings("deprecation")
-        TypeFactory f = new TypeFactory(RUNTIME_LOOKUP,
-                TypeExposerImplementation::new);
-        @SuppressWarnings("deprecation")
-        PyType t = f.typeForType();
-
-        try {
-            /*
-             * At this point, 'type' and 'object' exist in their
-             * "Java ready" forms, but they are not "Python ready". We
-             * let them leak out so that the bootstrap process itself
-             * may use them. No *other* thread can get to them until
-             * this thread leaves the static initialisation of PyType.
-             */
-            TYPE = t;
-            factory = f;
-            registry = f.getRegistry();
-
-            /*
-             * Get all the bootstrap types ready for Python. Bootstrap
-             * type implementations are not visible as public API
-             * because it would be possible for another thread to touch
-             * one during the bootstrap and that would block this
-             * thread.
-             */
-            f.createBootstrapTypes();
-
-        } catch (Clash clash) {
-            // Maybe a bootstrap type was used prematurely?
-            throw new InterpreterError(clash);
-        }
-
-        /*
-         * We like to know how long this took. Also used in
-         * BootstrapTest to verify there is just one bootstrap thread.
-         */
-        readyNanoTime = System.nanoTime();
-
-        logger.atInfo()
-                .setMessage("Type system is ready after {} seconds")
-                .addArgument(() -> String.format("%.3f",
-                        1e-9 * (readyNanoTime - bootstrapNanoTime)))
-                .log();
-    }
 
     /**
      * Constructor used by (permitted) subclasses of {@code PyType}.
@@ -223,9 +127,8 @@ public abstract sealed class PyType extends KernelType
         return MROCalculator.getMRO(this, this.bases);
     }
 
-
     @Override
-    public PyType getType() { return PyType.TYPE; }
+    public PyType getType() { return PyType.TYPE(); }
 
     /**
      * An immutable list of every Java class that was named as primary,
@@ -300,6 +203,26 @@ public abstract sealed class PyType extends KernelType
     }
 
     /**
+     * The Python {@code type} object. The type objects of many built-in
+     * types are available as a static final field {@code TYPE}. For
+     * technical reasons, we have to use a static method to get the
+     * value.
+     *
+     * @return The {@code type} object.
+     */
+    @SuppressWarnings("deprecation")
+    public static final PyType TYPE() {
+        /*
+         * The type object "type" is created deep in the type system
+         * with the type factory itself, as might be expected. We
+         * carefully avoid calling this method from that constructor,
+         * but once TypeSystem.factory has been assigned, then the
+         * returned type object is guaranteed to be at least Java ready.
+         */
+        return TypeSystem.factory.typeForType();
+    }
+
+    /**
      * Determine (or create if necessary) the Python type for the given
      * object.
      *
@@ -307,7 +230,7 @@ public abstract sealed class PyType extends KernelType
      * @return the type
      */
     public static PyType of(Object o) {
-        Representation rep = registry.get(o.getClass());
+        Representation rep = TypeSystem.registry.get(o.getClass());
         return rep.pythonType(o);
     }
 
@@ -330,27 +253,15 @@ public abstract sealed class PyType extends KernelType
      */
     public static PyType fromSpec(TypeSpec spec) {
         try {
-            return factory.fromSpec(spec);
+            return TypeSystem.factory.fromSpec(spec);
         } catch (Clash clash) {
             logger.atError().log(clash.toString());
             throw new InterpreterError(clash);
         }
     }
 
-    /**
-     * Weak test that the type system has completed its bootstrap. This
-     * does not guarantee that type objects, outside the bootstrap set,
-     * are safe to use. A thread that has triggered type system creation
-     * can use this as a check that it has finished (and certain
-     * operations are valid). Any other thread calling this method will
-     * either cause the type system bootstrap or wait for it to
-     * complete.
-     *
-     * @return type {@code true} iff system is ready for use.
-     */
-    static boolean systemReady() { return readyNanoTime != 0L; }
-
     // C-API Equivalents ---------------------------------------------
+
     /*
      * Java API that is roughly equivalent to the C-API as might be used
      * in the creation of extension types, Python modules in Java, or
@@ -384,9 +295,7 @@ public abstract sealed class PyType extends KernelType
      * @return {@code true} iff {@code o} is exactly of this type
      */
     @Override
-    public boolean checkExact(Object o) {
-        return PyType.of(o) == this;
-    }
+    public boolean checkExact(Object o) { return PyType.of(o) == this; }
 
     /**
      * Test for possession of a specified feature.

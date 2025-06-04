@@ -152,8 +152,8 @@ class BootstrapTest {
             }
         };
         String fmt = "           PyType.ready=%10d  (relative)\n";
-        System.out.printf(fmt,
-                PyType.readyNanoTime - PyType.bootstrapNanoTime);
+        System.out.printf(fmt, TypeSystem.readyNanoTime
+                - TypeSystem.bootstrapNanoTime);
         Collections.sort(threads, byFirst);
         for (InitThread t : threads) { System.out.println(t); }
     }
@@ -194,7 +194,7 @@ class BootstrapTest {
     @DisplayName("The bootstrap completes before any action.")
     void bootstrapBeforeAction() {
         final long ready =
-                PyType.readyNanoTime - PyType.bootstrapNanoTime;
+                TypeSystem.readyNanoTime - TypeSystem.bootstrapNanoTime;
         // All first actions should be after type system ready.
         long hasty = threads.stream()
                 .filter(t -> t.firstNanoTime < ready).count();
@@ -271,9 +271,9 @@ class BootstrapTest {
             otherActions();
             finishNanoTime = System.nanoTime();
             // *Only afterwards* make relative to bootstrap time.
-            startNanoTime -= PyType.bootstrapNanoTime;
-            firstNanoTime -= PyType.bootstrapNanoTime;
-            finishNanoTime -= PyType.bootstrapNanoTime;
+            startNanoTime -= TypeSystem.bootstrapNanoTime;
+            firstNanoTime -= TypeSystem.bootstrapNanoTime;
+            finishNanoTime -= TypeSystem.bootstrapNanoTime;
         }
 
         /** The required actions apart from the one already done. */

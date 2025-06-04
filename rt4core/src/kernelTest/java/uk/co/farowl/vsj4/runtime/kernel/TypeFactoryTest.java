@@ -77,7 +77,7 @@ class TypeFactoryTest {
     static void initPyType() {
         try {
             @SuppressWarnings("unused")
-            PyType dummy = PyType.TYPE;
+            PyType dummy = PyType.TYPE();
         } catch (ExceptionInInitializerError e) {
             if (e.getCause() instanceof InterpreterError ie) {
                 /*

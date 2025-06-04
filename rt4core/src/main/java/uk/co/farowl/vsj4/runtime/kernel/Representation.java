@@ -42,6 +42,26 @@ public abstract class Representation {
     protected static final Logger logger =
             LoggerFactory.getLogger(Representation.class);
 
+    private static TypeFactory factory;
+
+    /**
+     * Set the singleton type factory for the kernel.
+     *
+     * @param f the factory to use for type creation
+     */
+    public static void setFactory(TypeFactory f) {
+        // I shall say this only once.
+        assert factory == null && f != null;
+        factory = f;
+    }
+
+    /**
+     * Get the singleton type factory for the kernel.
+     *
+     * @return the factory to use for type creation
+     */
+    public static TypeFactory getFactory() { return factory; }
+
     /*
      * Give SpecialMethod access to private members (so it may write the
      * method handle caches), and to the runtime package in general. It
@@ -95,12 +115,10 @@ public abstract class Representation {
      * {@code null} returns a {@code null} result.
      *
      * @implSpec If this object is also a type object, it will answer
-     *     that it itself is that type. (Do not implement this in
-     *     {@code PyType} so that the method does not become API.) An
-     *     {@code AdoptedRepresentation} representation knows its
-     *     {@link AdoptiveType} directly, while a
-     *     {@code SharedRepresentation} representation must consult the
-     *     object {@code x}.
+     *     that it itself is that type. An {@code AdoptedRepresentation}
+     *     knows its {@link AdoptiveType} directly, while a
+     *     {@code SharedRepresentation} must consult the object
+     *     {@code x}.
      *
      * @param x subject of the enquiry
      * @return {@code type(x)}
