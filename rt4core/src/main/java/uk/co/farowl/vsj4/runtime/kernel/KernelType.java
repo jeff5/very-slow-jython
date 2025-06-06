@@ -1,8 +1,6 @@
 package uk.co.farowl.vsj4.runtime.kernel;
 
-import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodType;
-import java.lang.reflect.Constructor;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
@@ -10,10 +8,17 @@ import java.util.List;
 import java.util.Map;
 
 import uk.co.farowl.vsj4.runtime.PyType;
+import uk.co.farowl.vsj4.runtime.PyType.ConstructorAndHandle;
 import uk.co.farowl.vsj4.runtime.TypeFlag;
 import uk.co.farowl.vsj4.runtime.TypeSpec;
-import uk.co.farowl.vsj4.runtime.PyType.ConstructorAndHandle;
 
+/**
+ * A base class for Python type objects.
+ * <p>
+ * In the layered architecture of the Python type object, this class
+ * takes responsibility for the basic properties of a type towards use
+ * from Java. It contains the apparatus to make the type "Java-ready".
+ */
 public abstract sealed class KernelType extends Representation
         permits PyType {
 
@@ -309,12 +314,11 @@ public abstract sealed class KernelType extends Representation
     // Compare CPython PyType_IsSubtype in typeobject.c
     // TODO: Make this take a PyType when we sort out the hierarchy
     // Probably implement in BaseType
-    public  boolean isSubTypeOf(KernelType b) {return false;}
-
+    public boolean isSubTypeOf(KernelType b) { return false; }
 
     // Support for __new__ -------------------------------------------
 
-///**
+/// **
 // * The return from {@link #constructor()} holding a reflective
 // * constructor definition and a handle by which it may be called.
 // * <p>
@@ -327,8 +331,8 @@ public abstract sealed class KernelType extends Representation
 // * in Java of the canonical representation of the type from which
 // * {@code __new__} was called.
 // */
-//public static record ConstructorAndHandle(
-//        Constructor<?> constructor, MethodHandle handle) {}
+// public static record ConstructorAndHandle(
+// Constructor<?> constructor, MethodHandle handle) {}
 
     /**
      * Return the table holding constructors and their method handles
@@ -355,10 +359,6 @@ public abstract sealed class KernelType extends Representation
      */
     // Compare CPython type slot tp_alloc (but only loosely).
     public abstract ConstructorAndHandle constructor(Class<?>... param);
-
-
-
-
 
     /**
      * An immutable list of the {@link Representation}s of this type.
@@ -401,7 +401,6 @@ public abstract sealed class KernelType extends Representation
      */
     public abstract Class<?> canonicalClass();
 
-
     /**
      * Find the index in the self-classes of this type, of a Java class
      * that is assignment-compatible with that of the argument. This
@@ -420,8 +419,5 @@ public abstract sealed class KernelType extends Representation
      */
     // FIXME: to be less public or in BaseType
     public int getSubclassIndex(Class<?> selfClass) { return 0; }
-
-
-
 
 }

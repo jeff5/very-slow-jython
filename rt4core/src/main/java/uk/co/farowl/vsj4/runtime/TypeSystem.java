@@ -66,7 +66,7 @@ class TypeSystem {
      * The type registry to which this run-time system goes for all
      * class look-ups.
      */
-    static final TypeRegistry registry;
+    public static final TypeRegistry registry;
 
     /**
      * High-resolution time (the result of {@link System#nanoTime()}) at

@@ -507,7 +507,7 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
         @Override
         MethodHandle getHandle(Object self)
                 throws PyBaseException, Throwable {
-            Representation rep = PyType.registry.get(self.getClass());
+            Representation rep = TypeSystem.registry.get(self.getClass());
             PyType selfType = rep.pythonType(self);
             if (selfType == objclass) {
                 // selfType defined the method so it must be ok

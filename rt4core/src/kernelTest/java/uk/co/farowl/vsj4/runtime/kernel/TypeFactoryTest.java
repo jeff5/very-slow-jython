@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.function.Function;
 
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
@@ -38,6 +39,7 @@ import uk.co.farowl.vsj4.support.InterpreterError;
  * When testing, we arrange to run each test involving initialisation in
  * a new JVM. (See the {@code kernelTest} target in the build.)
  */
+@Disabled("We prevent multiple factories")
 @DisplayName("In a new TypeFactory")
 class TypeFactoryTest {
 

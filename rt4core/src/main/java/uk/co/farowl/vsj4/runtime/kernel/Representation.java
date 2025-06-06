@@ -42,17 +42,23 @@ public abstract class Representation {
     protected static final Logger logger =
             LoggerFactory.getLogger(Representation.class);
 
+    /** Effectively final reference to the {@code TypeFactory} in use. */
     private static TypeFactory factory;
+    /** Effectively final reference to the {@code TypeRegistry} in use. */
+    private static TypeRegistry registry;
 
     /**
-     * Set the singleton type factory for the kernel.
+     * Set the singleton type factory for the kernel. This is a one time
+     * action performed when the single operative instance of
+     * {@link TypeFactory} is created, by the thread that creates it.
      *
      * @param f the factory to use for type creation
      */
-    public static void setFactory(TypeFactory f) {
+    static void setFactory(TypeFactory f, TypeRegistry r) {
         // I shall say this only once.
         assert factory == null && f != null;
         factory = f;
+        registry = r;
     }
 
     /**
@@ -61,6 +67,33 @@ public abstract class Representation {
      * @return the factory to use for type creation
      */
     public static TypeFactory getFactory() { return factory; }
+
+    /**
+     * Get the {@code Representation} of a class {@code c}, and hence
+     * access to its Python type and behaviour of Java objects of that
+     * class. This call may result in the creation of a
+     * {@code Representation} for that class.
+     *
+     * @param c for which a representation of the class is needed
+     * @return the representation
+     */
+
+    public static Representation ofClass(Class<?> c) {
+        return registry.get(c);
+    }
+
+    /**
+     * Get the {@code Representation} of the class of an object
+     * {@code o}, and hence access to its Python type and behaviour.
+     * This call may result in the creation of a {@code Representation}
+     * for that class.
+     *
+     * @param o for which a representation of the class is needed
+     * @return the representation
+     */
+    public static Representation get(Object o) {
+        return registry.get(o.getClass());
+    }
 
     /*
      * Give SpecialMethod access to private members (so it may write the

@@ -18,7 +18,6 @@ import java.util.function.Consumer;
 import uk.co.farowl.vsj4.runtime.ArgumentError;
 import uk.co.farowl.vsj4.runtime.Feature;
 import uk.co.farowl.vsj4.runtime.MethodDescriptor;
-import uk.co.farowl.vsj4.runtime.Py;
 import uk.co.farowl.vsj4.runtime.PyBaseException;
 import uk.co.farowl.vsj4.runtime.PyDict;
 import uk.co.farowl.vsj4.runtime.PyErr;
@@ -40,8 +39,13 @@ import uk.co.farowl.vsj4.support.internal.EmptyException;
  * A base shared by the concrete implementation classes of the Python
  * {@code type} object. This class also allows us to publish methods
  * from the {@code kernel} package, without them becoming Jython API.
- * These will apply to all {@link PyType}s, since all actual type
- * objects are implemented as a subclasses of this one.
+ * These will apply to all {@link PyType}s, after a cast (see
+ * {@link BaseType#cast(PyType)}), since all actual type object classes
+ * are implemented as subclasses of this one.
+ * <p>
+ * In the layered architecture of the Python type object, this class
+ * takes responsibility for attributes and lookup along the MRO. It
+ * contains the apparatus to make the type "Python-ready".
  */
 public abstract sealed class BaseType extends PyType
         permits SimpleType, ReplaceableType, AdoptiveType {
@@ -259,20 +263,6 @@ public abstract sealed class BaseType extends PyType
     public abstract List<Representation> representations();
 
     /**
-     * Determine (or create if necessary) the {@link Representation} for
-     * the given object. The representation is found (in the type
-     * registry) from the Java class of the argument.
-     * <p>
-     * Duplicates {@code PyType.getRepresentation} for the kernel.
-     *
-     * @param o for which a {@code Representation} is required
-     * @return the {@code Representation}
-     */
-    static Representation getRepresentation(Object o) {
-        return registry.get(o.getClass());
-    }
-
-    /**
      * Cast the argument to a Jython type object (or throw). It is
      * possible for a client application to supply a {@link PyType} that
      * did not originate in the Jython run-time system, whereas
@@ -352,7 +342,7 @@ public abstract sealed class BaseType extends PyType
     private void maybeInit(Object obj, Object[] args, String[] names)
             throws Throwable {
         assert obj != null;
-        Representation rep = BaseType.getRepresentation(obj);
+        Representation rep = Representation.get(obj);
         PyType objType = rep.pythonType(obj);
         /*
          * If obj is an instance of this type (or of a sub-type) call

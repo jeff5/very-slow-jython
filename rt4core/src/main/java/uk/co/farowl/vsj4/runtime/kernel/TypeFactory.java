@@ -157,6 +157,12 @@ public class TypeFactory {
         this.workshop = new Workshop();
 
         /*
+         * Give the Representation class a reference to this type
+         * factory and registry.
+         */
+        Representation.setFactory(this, this.registry);
+
+        /*
          * Create type objects and specifications for type and object.
          * We need special constructors because nothing is more
          * bootstrappy than these types.
@@ -898,8 +904,6 @@ public class TypeFactory {
              * exposer, and finalise other state from the specification.
              */
             void readyType() {
-
-                //AbstractPyType type = this.type;  // Enables access :/
 
                 // Set MRO
                 type.setMRO();

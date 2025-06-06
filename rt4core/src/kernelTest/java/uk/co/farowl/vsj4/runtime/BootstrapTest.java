@@ -95,7 +95,7 @@ class BootstrapTest {
 
                 case 0 -> new InitThread() {
                     @Override
-                    void action() { reg = PyType.registry; }
+                    void action() { reg = TypeSystem.registry; }
                 };
 
                 case 1 -> new InitThread() {
@@ -208,7 +208,7 @@ class BootstrapTest {
     @Test
     @DisplayName("All threads see the same type registry")
     void sameTypeRegistry() {
-        TypeRegistry registry = PyType.registry;
+        TypeRegistry registry = TypeSystem.registry;
         for (InitThread init : threads) {
             assertSame(registry, init.reg);
         }
@@ -239,7 +239,7 @@ class BootstrapTest {
         long firstNanoTime;
         /** Time this thread completed {@code action()}. */
         long finishNanoTime;
-        /** The reference {@link PyType#registry} when inspected. */
+        /** The reference {@link TypeSystem#registry} when inspected. */
         TypeRegistry reg;
         /** The type {@code object} when inspected. */
         PyType objectType;
@@ -280,7 +280,7 @@ class BootstrapTest {
         void otherActions() {
             if (objectType == null) { objectType = PyObject.TYPE; }
             if (floatType == null) { floatType = PyFloat.TYPE; }
-            if (reg == null) { reg = PyType.registry; }
+            if (reg == null) { reg = TypeSystem.registry; }
         }
 
         @Override

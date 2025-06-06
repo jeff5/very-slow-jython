@@ -77,7 +77,7 @@ public enum Comparison {
 
         @Override
         Object apply(Object v, Object seq) throws Throwable {
-            Representation rep = PyType.registry.get(seq.getClass());
+            Representation rep = TypeSystem.registry.get(seq.getClass());
             try {
                 MethodHandle contains = rep.op_contains();
                 return (boolean)contains.invokeExact(seq, v);
@@ -99,7 +99,7 @@ public enum Comparison {
 
         @Override
         Object apply(Object v, Object seq) throws Throwable {
-            Representation rep = PyType.registry.get(seq.getClass());
+            Representation rep = TypeSystem.registry.get(seq.getClass());
             try {
                 MethodHandle contains = slot.handle(rep);
                 return !(boolean)contains.invokeExact(seq, v);
@@ -228,9 +228,9 @@ public enum Comparison {
      */
     // Compare CPython PyObject_RichCompare, do_richcompare in object.c
     Object apply(Object v, Object w) throws Throwable {
-        Representation vRep = PyType.registry.get(v.getClass());
+        Representation vRep = TypeSystem.registry.get(v.getClass());
         PyType vType = vRep.pythonType(v);
-        Representation wRep = PyType.registry.get(w.getClass());
+        Representation wRep = TypeSystem.registry.get(w.getClass());
         PyType wType = wRep.pythonType(w);
         SpecialMethod swappedSlot = null;
 

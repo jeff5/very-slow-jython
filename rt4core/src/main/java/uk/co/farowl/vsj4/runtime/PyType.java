@@ -26,7 +26,6 @@ import uk.co.farowl.vsj4.runtime.kernel.MROCalculator;
 import uk.co.farowl.vsj4.runtime.kernel.Representation;
 import uk.co.farowl.vsj4.runtime.kernel.SpecialMethod;
 import uk.co.farowl.vsj4.runtime.kernel.TypeFactory.Clash;
-import uk.co.farowl.vsj4.runtime.kernel.TypeRegistry;
 import uk.co.farowl.vsj4.support.InterpreterError;
 import uk.co.farowl.vsj4.support.internal.EmptyException;
 
@@ -48,12 +47,6 @@ public abstract sealed class PyType extends KernelType
 
     /** Logger for (the public face of) the type system. */
     static final Logger logger = LoggerFactory.getLogger(PyType.class);
-
-    /**
-     * The type registry to which this run-time system goes for all
-     * class look-ups.
-     */
-    protected static final TypeRegistry registry = TypeSystem.registry;
 
     /**
      * A lookup with package scope. This lookup object is provided to
@@ -199,7 +192,7 @@ public abstract sealed class PyType extends KernelType
      * @return the {@code Representation}
      */
     static Representation getRepresentation(Object o) {
-        return registry.get(o.getClass());
+        return TypeSystem.registry.get(o.getClass());
     }
 
     /**

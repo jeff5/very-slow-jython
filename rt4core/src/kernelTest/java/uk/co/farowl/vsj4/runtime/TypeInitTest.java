@@ -66,7 +66,7 @@ class TypeInitTest {
     @Test
     @DisplayName("we can look up a type for Object.class")
     void lookup_object_type() {
-        TypeRegistry registry = PyType.registry;
+        TypeRegistry registry = TypeSystem.registry;
         Representation rep = registry.get(Object.class);
         assertInstanceOf(SimpleType.class, rep);
         PyType type = rep.pythonType(new Object());
@@ -88,7 +88,7 @@ class TypeInitTest {
     @Test
     @DisplayName("we can look up a type for PyType.class")
     void lookup_type_type() {
-        TypeRegistry registry = PyType.registry;
+        TypeRegistry registry = TypeSystem.registry;
         Representation rep = registry.get(PyType.class);
         assertNotNull(rep);
         assertInstanceOf(SimpleType.class, rep);
@@ -102,7 +102,7 @@ class TypeInitTest {
     @DisplayName("Subclasses of PyType share a type object")
     void type_subclasses_share_type() {
         // Lookup for the base type
-        TypeRegistry registry = PyType.registry;
+        TypeRegistry registry = TypeSystem.registry;
         Representation repType = registry.get(PyType.class);
         assertSame(PyType.TYPE(), repType);
         // Lookup each Java subclass has the same type
@@ -122,7 +122,7 @@ class TypeInitTest {
     @Test
     @DisplayName("we can look up a type for Double.class")
     void lookup_type_double() {
-        TypeRegistry registry = PyType.registry;
+        TypeRegistry registry = TypeSystem.registry;
         Representation rep = registry.get(Double.class);
         assertNotNull(rep);
         PyType type = rep.pythonType(1.0);

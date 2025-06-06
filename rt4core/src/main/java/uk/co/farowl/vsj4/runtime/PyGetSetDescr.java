@@ -516,7 +516,7 @@ public abstract class PyGetSetDescr extends DataDescriptor {
         MethodHandle getWrappedGet(Object obj) {
             // Work out how to call this descriptor on that object
             Class<?> objClass = obj.getClass();
-            Representation rep = PyType.registry.get(objClass);
+            Representation rep = TypeSystem.registry.get(objClass);
             PyType objType = rep.pythonType(obj);
             try {
                 if (objType == objclass) {
@@ -538,7 +538,7 @@ public abstract class PyGetSetDescr extends DataDescriptor {
         MethodHandle getWrappedSet(Object obj) {
             // Work out how to call this descriptor on that object
             Class<?> objClass = obj.getClass();
-            Representation rep = PyType.registry.get(objClass);
+            Representation rep = TypeSystem.registry.get(objClass);
             PyType objType = rep.pythonType(obj);
             try {
                 if (objType == objclass) {
@@ -560,7 +560,7 @@ public abstract class PyGetSetDescr extends DataDescriptor {
         MethodHandle getWrappedDelete(Object obj) {
             // Work out how to call this descriptor on that object
             Class<?> objClass = obj.getClass();
-            Representation rep = PyType.registry.get(objClass);
+            Representation rep = TypeSystem.registry.get(objClass);
             PyType objType = rep.pythonType(obj);
             try {
                 if (objType == objclass) {

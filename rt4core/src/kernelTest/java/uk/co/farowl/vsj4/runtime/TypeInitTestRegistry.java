@@ -21,5 +21,5 @@ class TypeInitTestRegistry extends TypeInitTest {
 
     /** Start by touching the type registry singleton itself. */
     @BeforeAll
-    static void setUpClass() { registry = PyType.registry; }
+    static void setUpClass() { registry = TypeSystem.registry; }
 }

@@ -1108,7 +1108,7 @@ public abstract class PyMethodDescr extends MethodDescriptor {
              * locate the handle in methods[].
              */
             Class<?> selfClass = self.getClass();
-            Representation rep = PyType.registry.get(selfClass);
+            Representation rep = TypeSystem.registry.get(selfClass);
             PyType selfType = rep.pythonType(self);
             if (selfType == objclass) {
                 // selfType defined the method so it must be ok

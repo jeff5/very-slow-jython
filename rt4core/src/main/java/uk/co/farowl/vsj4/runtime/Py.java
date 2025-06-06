@@ -8,7 +8,7 @@ import uk.co.farowl.vsj4.runtime.kernel.TypeRegistry;
 public class Py {
 
     /** The (static singleton) registry created by PyType. */
-    private static final TypeRegistry registry = PyType.registry;
+    private static final TypeRegistry registry = TypeSystem.registry;
 
     static {
         // Failure indicates type system initialisation problem.
