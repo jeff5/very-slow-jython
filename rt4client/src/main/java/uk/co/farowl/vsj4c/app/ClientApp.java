@@ -6,6 +6,7 @@ import java.util.List;
 import uk.co.farowl.vsj4.runtime.Abstract;
 import uk.co.farowl.vsj4.runtime.Callables;
 import uk.co.farowl.vsj4.runtime.PyNumber;
+import uk.co.farowl.vsj4.runtime.PyObject;
 import uk.co.farowl.vsj4.runtime.PyType;
 import uk.co.farowl.vsj4c.ext.Extension;
 
@@ -77,6 +78,8 @@ public class ClientApp {
             Object x = 42;
             PyType t = MyType.TYPE.pythonType(x);
             //System.out.println(t.base);
+
+            t.isSubTypeOf(PyObject.TYPE);
 
             List<?> reps = t.representations();
             System.out.println("t.representations() = " + reps);

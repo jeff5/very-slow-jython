@@ -24,15 +24,12 @@ import uk.co.farowl.vsj4.support.internal.EmptyException;
  * Python behaviour from methods defined here or in the superclass.
  * <p>
  * Although all Python objects are sub-classes in Python of
- * {@code object}, their Java representation classes will not generally
- * be sub-classes in Java of this one. In particular, many built-in
- * types are not.
+ * {@code object}, their Java representation classes will not be
+ * sub-classes in Java of this one.
  * <p>
  * The Java implementation class of a type defined in Python <i>will</i>
  * be derived from the canonical implementation class of the "solid
- * base" it inherits in Python. This <i>may</i> be {@code object}, in
- * which case the implementation class will be a sub-class in Java of
- * this class.
+ * base" it inherits in Python. This may well be {@code Object}.
  *
  * @implNote All exposed methods, special methods and attribute get, set
  *     and delete methods defined here must be declared {@code static}

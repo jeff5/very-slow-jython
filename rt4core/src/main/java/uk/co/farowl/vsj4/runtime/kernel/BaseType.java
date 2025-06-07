@@ -2,6 +2,11 @@
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime.kernel;
 
+import static uk.co.farowl.vsj4.runtime.internal._PyUtil.cantSetAttributeError;
+import static uk.co.farowl.vsj4.runtime.internal._PyUtil.mandatoryAttributeError;
+import static uk.co.farowl.vsj4.runtime.internal._PyUtil.noAttributeError;
+import static uk.co.farowl.vsj4.runtime.internal._PyUtil.readonlyAttributeError;
+
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.invoke.MethodType;
@@ -16,8 +21,10 @@ import java.util.Map;
 import java.util.function.Consumer;
 
 import uk.co.farowl.vsj4.runtime.ArgumentError;
+import uk.co.farowl.vsj4.runtime.Exposed;
 import uk.co.farowl.vsj4.runtime.Feature;
 import uk.co.farowl.vsj4.runtime.MethodDescriptor;
+import uk.co.farowl.vsj4.runtime.PyAttributeError;
 import uk.co.farowl.vsj4.runtime.PyBaseException;
 import uk.co.farowl.vsj4.runtime.PyDict;
 import uk.co.farowl.vsj4.runtime.PyErr;
@@ -31,6 +38,7 @@ import uk.co.farowl.vsj4.runtime.PyType;
 import uk.co.farowl.vsj4.runtime.PyUnicode;
 import uk.co.farowl.vsj4.runtime.TypeFlag;
 import uk.co.farowl.vsj4.runtime.TypeSpec;
+import uk.co.farowl.vsj4.runtime.WithDict;
 import uk.co.farowl.vsj4.runtime.internal._PyUtil;
 import uk.co.farowl.vsj4.support.InterpreterError;
 import uk.co.farowl.vsj4.support.internal.EmptyException;
@@ -59,11 +67,20 @@ public abstract sealed class BaseType extends PyType
     protected BaseType[] mro;
 
     /**
-     * The writable dictionary of the type is private because the type
-     * controls writing strictly. Even in the core it is only accessible
+     * The dictionary of the type is always an ordered {@code Map}. The
+     * real, writable dictionary is private because the type controls
+     * writing strictly. Even in the kernel it is only accessible
      * through a read-only view {@link #dict}.
      */
     private final LinkedHashMap<String, Object> _dict;
+
+    /**
+     * The real, writable dictionary is made accessible here through a
+     * wrapper that renders it a read-only {@code dict}-like object.
+     * Internally names are stored as {@code String} for speed and
+     * accessed via {@link #lookup(String)}.
+     */
+    protected final Map<String, Object> dict;
 
     /**
      * Constructor used by (permitted) subclasses of {@code PyType}.
@@ -74,21 +91,10 @@ public abstract sealed class BaseType extends PyType
      */
     protected BaseType(String name, Class<?> javaClass,
             PyType[] bases) {
-        this(name, javaClass, bases, new LinkedHashMap<>());
-    }
-
-    /**
-     * Constructor used by (permitted) subclasses of {@code PyType}.
-     *
-     * @param name of the type (fully qualified)
-     * @param javaClass implementing Python instances of the type
-     * @param bases of the new type
-     * @param _dict dictionary we keep locally and in the base
-     */
-    private BaseType(String name, Class<?> javaClass, PyType[] bases,
-            LinkedHashMap<String, Object> _dict) {
-        super(name, javaClass, bases, _dict);
-        this._dict = _dict;
+        super(name, javaClass, bases);
+        this._dict = new LinkedHashMap<>();
+        // FIXME: define mappingproxy type for this use
+        this.dict = Collections.unmodifiableMap(_dict);
     }
 
     /**
@@ -139,6 +145,38 @@ public abstract sealed class BaseType extends PyType
             // a is not completely initialised yet; follow base
             return type_is_subtype_base_chain(b);
     }
+
+    // unsigned long PyType_GetFlags(PyTypeObject *type)
+
+    // int PyType_Ready(PyTypeObject *type)
+    // Finalize a type object. This should be called on all type objects
+    // to finish their initialization. This function is responsible for
+    // adding inherited slots from a type’s base class. Return 0 on
+    // success, or return -1 and sets an exception on error.
+
+    // PyObject *PyType_GetName(PyTypeObject *type)
+    // Return the type’s name. Equivalent to getting the type’s __name__
+    // attribute.
+    // New in version 3.11.
+
+    // PyObject *PyType_GetQualName(PyTypeObject *type)
+    // Return the type’s qualified name. Equivalent to getting the
+    // type’s __qualname__ attribute.
+    // New in version 3.11.
+
+    // PyObject *PyType_GetModule(PyTypeObject *type)
+    // Return the module object associated with the given type when the
+    // type was created using PyType_FromModuleAndSpec().
+
+    // void *PyType_GetModuleState(PyTypeObject *type)
+    // Return the state of the module object associated with the given
+    // type.
+
+    // PyObject *PyType_GetModuleByDef(PyTypeObject *type, struct
+    // PyModuleDef *def)
+    //
+    // Find the first superclass whose module was created from the given
+    // PyModuleDef def, and return that module.
 
     /**
      * The dictionary of the {@code type} in a read-only view.
@@ -283,6 +321,278 @@ public abstract sealed class BaseType extends PyType
         }
     }
 
+    // Special methods -----------------------------------------------
+
+    /*
+     * For technical reasons to do with bootstrapping the type system,
+     * the methods and attributes of 'type' that are exposed to Python
+     * have to be defined with at least package visibility.
+     */
+
+    /** @return {@code repr()} of this Python object. */
+    Object __repr__() {
+        return String.format("<class '%s'>", getName());
+    }
+
+    /**
+     * Handle calls to a type object, which will normally be a request
+     * to construct a Python object of the type this object describes.
+     * For example the call {@code int()} is a request to create a
+     * Python {@code int}, although we often think of it as a built-in
+     * function. The exception is when {@code this} is {@code type}
+     * itself. There must be one or three arguments. The call
+     * {@code type(obj)} enquires the Python type of the object, which
+     * is even more like a built-in function. The call
+     * {@code type(name, bases, dict)} constructs a new type (instance
+     * of {@code type}).
+     *
+     * @param args argument list (length 1 in a type enquiry).
+     * @param names of keyword arguments (empty or {@code null} in a
+     *     type enquiry).
+     * @return new object (or a type if an enquiry).
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) when
+     *     cannot create instances
+     * @throws Throwable from implementation slot functions
+     */
+    Object __call__(Object[] args, String[] names)
+            throws PyBaseException, Throwable {
+        try {
+            return call(args, names);
+        } catch (ArgumentError ae) {
+            throw typeError(ae, args, names);
+        }
+    }
+
+    /**
+     * {@link SpecialMethod#op_getattribute} provides attribute read
+     * access on this type object and its metatype. This is very like
+     * {@code object.__getattribute__}, but the instance is replaced by
+     * a type object, and that object's type is a meta-type (which is
+     * also a {@code type}).
+     * <p>
+     * The behavioural difference is that in looking for attributes on a
+     * type:
+     * <ul>
+     * <li>we use {@link #lookup(String)} to search along along the MRO,
+     * and</li>
+     * <li>if we find a descriptor, we use it.
+     * ({@code object.__getattribute__} does not check for descriptors
+     * on the instance.)</li>
+     * </ul>
+     * <p>
+     * The following order of precedence applies when looking for the
+     * value of an attribute:
+     * <ol>
+     * <li>a data descriptor from the dictionary of the meta-type</li>
+     * <li>a descriptor or value in the dictionary of {@code type}</li>
+     * <li>a non-data descriptor or value from dictionary of the meta
+     * type</li>
+     * </ol>
+     *
+     * @param name of the attribute
+     * @return attribute value
+     * @throws PyAttributeError if no such attribute
+     * @throws Throwable on other errors, typically from the descriptor
+     */
+    // Compare CPython type_getattro in typeobject.c
+    Object __getattribute__(String name)
+            throws PyAttributeError, Throwable {
+
+        PyType metatype = getType();
+        MethodHandle descrGet = null;
+
+        // Look up the name in the type of the type (null if not found).
+        Object metaAttr = metatype.lookup(name);
+        if (metaAttr != null) {
+            // Found in the metatype, it might be a descriptor
+            Representation metaAttrRep = Representation.get(metaAttr);
+            descrGet = metaAttrRep.op_get();
+            if (metaAttrRep.isDataDescr(metaAttr)) {
+                // metaAttr is a data descriptor so call its __get__.
+                try {
+                    // Note the cast of 'this', to match op_get
+                    return descrGet.invokeExact(metaAttr, (Object)this,
+                            metatype);
+                } catch (EmptyException e) {
+                    /*
+                     * Only __set__ or __delete__ was defined. We do not
+                     * catch PyAttributeError: it's definitive. Suppress
+                     * trying __get__ again.
+                     */
+                    descrGet = null;
+                }
+            }
+        }
+
+        /*
+         * At this stage: metaAttr is the value from the meta-type, or a
+         * non-data descriptor, or null if the attribute was not found.
+         * It's time to give the type's instance dictionary a chance.
+         */
+        Object attr = lookup(name);
+        if (attr != null) {
+            // Found in this type. Try it as a descriptor.
+            try {
+                /*
+                 * Note the args are (null, this): we respect
+                 * descriptors in this step, but have not forgotten we
+                 * are dereferencing a type.
+                 */
+                return Representation.get(attr).op_get()
+                        .invokeExact(attr, (Object)null, (PyType)this);
+            } catch (EmptyException e) {
+                // Do not catch AttributeError: it's definitive.
+                // Not a descriptor: the attribute itself.
+                return attr;
+            }
+        }
+
+        /*
+         * The name wasn't in the type dictionary. metaAttr is now the
+         * result of look-up on the meta-type: a value, a non-data
+         * descriptor, or null if the attribute was not found.
+         */
+        if (descrGet != null) {
+            // metaAttr may be a non-data descriptor: call __get__.
+            try {
+                return descrGet.invokeExact(metaAttr, (Object)this,
+                        metatype);
+            } catch (EmptyException e) {}
+        }
+
+        if (metaAttr != null) {
+            /*
+             * The attribute obtained from the meta-type, and that
+             * turned out not to be a descriptor, is the return value.
+             */
+            return metaAttr;
+        }
+
+        // All the look-ups and descriptors came to nothing :(
+        throw noAttributeError(this, name);
+    }
+
+    /**
+     * {@link SpecialMethod#op_setattr} provides attribute write access
+     * on this type object. The behaviour is very like the default
+     * {@code object.__setattr__} except that it manages write access to
+     * the type dictionary that is denied through
+     * {@link WithDict#getDict()}.
+     *
+     * @param name of the attribute
+     * @param value to give the attribute
+     * @throws PyAttributeError if no such attribute or it is read-only
+     * @throws Throwable on other errors, typically from the descriptor
+     */
+    // Compare CPython type_setattro in typeobject.c
+    void __setattr__(String name, Object value)
+            throws PyAttributeError, Throwable {
+
+        // Accommodate CPython idiom that set null means delete.
+        if (value == null) {
+            // Do this to help porting. Really this is an error.
+            __delattr__(name);
+            return;
+        }
+
+        // Trap immutable types
+        if (hasFeature(TypeFlag.IMMUTABLE))
+            throw cantSetAttributeError(this);
+
+        // Look up the name in the meta-type (null if not found).
+        Object metaAttr = getType().lookup(name);
+        if (metaAttr != null) {
+            // Found in the meta-type, it might be a descriptor.
+            Representation metaAttrRep = Representation.get(metaAttr);
+            if (metaAttrRep.isDataDescr(metaAttr)) {
+                // Try descriptor __set__
+                try {
+                    metaAttrRep.op_set().invokeExact(metaAttr,
+                            (Object)this, value);
+                    updateAfterSetAttr(name);
+                    return;
+                } catch (EmptyException e) {
+                    // Do not catch AttributeError: it's definitive.
+                    // Descriptor but no __set__: do not fall through.
+                    throw readonlyAttributeError(this, name);
+                }
+            }
+        }
+
+        /*
+         * There was no data descriptor, so we will place the value in
+         * the dictionary of the type directly.
+         */
+        _dict.put(name, value);
+        updateAfterSetAttr(name);
+    }
+
+    /**
+     * {@link SpecialMethod#op_delattr} provides attribute deletion on
+     * this type object. The behaviour is very like the default
+     * {@code object.__delattr__} except that it manages write access to
+     * the type dictionary that is denied through
+     * {@link WithDict#getDict()}.
+     *
+     * @param name of the attribute
+     * @throws PyAttributeError if no such attribute or it is read-only
+     * @throws Throwable on other errors, typically from the descriptor
+     */
+    // Compare CPython type_setattro in typeobject.c
+    void __delattr__(String name) throws PyAttributeError, Throwable {
+
+        // Trap immutable types
+        if (hasFeature(TypeFlag.IMMUTABLE))
+            throw cantSetAttributeError(this);
+
+        // Look up the name in the meta-type (null if not found).
+        Object metaAttr = getType().lookup(name);
+        if (metaAttr != null) {
+            // Found in the meta-type, it might be a descriptor.
+            Representation metaAttrRep = Representation.get(metaAttr);
+            if (metaAttrRep.isDataDescr(metaAttr)) {
+                // Try descriptor __delete__
+                try {
+                    metaAttrRep.op_delete().invokeExact(metaAttr,
+                            (Object)this);
+                    updateAfterSetAttr(name);
+                    return;
+                } catch (EmptyException e) {
+                    // Do not catch AttributeError: it's definitive.
+                    // Data descriptor but no __delete__.
+                    throw mandatoryAttributeError(this, name);
+                }
+            }
+        }
+
+        /*
+         * There was no data descriptor, so we will remove the name from
+         * the dictionary of the type directly.
+         */
+        Object previous = _dict.remove(name);
+        if (previous == null) {
+            // A null return implies it didn't exist
+            throw noAttributeError(this, name);
+        }
+        updateAfterSetAttr(name);
+        return;
+    }
+
+    /**
+     * Calculate a new MRO for this type by the default algorithm. This
+     * method is exposed as the method {@code mro} of type
+     * {@code objects} and may be overridden in a Python subclass of
+     * {@code type} (a "metatype") to customise the MRO in the types it
+     * creates.
+     *
+     * @return a new MRO for the type
+     */
+    @Exposed.PythonMethod
+    protected PyType[] mro() {
+        // TODO: detect and call custom __mro__ method
+        return MROCalculator.getMRO(this, this.bases);
+    }
+
     // FastCall implementation ---------------------------------------
 
     /*
@@ -386,14 +696,6 @@ public abstract sealed class BaseType extends PyType
         // return newMethod.typeError(ae, args, names);
         return PyErr.format(PyExc.TypeError, "some type error");
     }
-
-    // Special methods -----------------------------------------------
-
-    /*
-     * For technical reasons to do with bootstrapping the type system,
-     * the methods and attributes of 'type' that are exposed to Python
-     * have to be defined with at least package visibility.
-     */
 
     // Support for Type Initialisation -------------------------------
 
@@ -547,9 +849,7 @@ public abstract sealed class BaseType extends PyType
      *
      * @param name of the attribute modified
      */
-    @Override
-    public // throughout the run time not Jython API.
-    void updateAfterSetAttr(String name) {
+    private /* ? */ void updateAfterSetAttr(String name) {
 
         // FIXME Notify sub-classes and other watchers.
         // Think about synchronisation: must take a lock on lookup.

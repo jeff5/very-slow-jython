@@ -109,8 +109,11 @@ class TypeSystem {
          * should use some alternative method.
          */
         @SuppressWarnings("deprecation")
-        TypeFactory f = new TypeFactory(RUNTIME_LOOKUP,
+        TypeFactory f = new TypeFactory();
+
+        f.makeTypeType(RUNTIME_LOOKUP,
                 TypeExposerImplementation::new);
+
         @SuppressWarnings("deprecation")
         SimpleType t = f.typeForType();
 

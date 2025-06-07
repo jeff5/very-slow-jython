@@ -98,7 +98,7 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
             throw new InterpreterError(
                     "Cannot generate entries for type 'null'");
         logger.atDebug().addArgument(type.getName())
-                .log("Populating type '{}'");
+                .log("Populating '{}'");
 
         // The returned object will stream name-attr pairs
         return new Iterable<Entry>() {

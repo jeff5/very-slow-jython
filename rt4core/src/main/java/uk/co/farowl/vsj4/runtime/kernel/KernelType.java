@@ -65,22 +65,6 @@ public abstract sealed class KernelType extends Representation
     protected PyType[] bases;
 
     /**
-     * The writable dictionary of the type is private because the type
-     * controls writing strictly. Even in the core it is only accessible
-     * through a read-only view {@link #dict}.
-     */
-    protected final LinkedHashMap<String, Object> _dict;
-
-    /**
-     * The dictionary of the type is always an ordered {@code Map}. It
-     * is made accessible here through a wrapper that renders it a
-     * read-only {@code dict}-like object. Internally names are stored
-     * as {@code String} for speed and accessed via
-     * {@link #lookup(String)}.
-     */
-    protected final Map<String, Object> dict;
-
-    /**
      * Constructor used by (permitted) subclasses of {@code PyType}.
      *
      * @param name of the type (fully qualified)
@@ -89,7 +73,7 @@ public abstract sealed class KernelType extends Representation
      * @param _dict private dictionary backing {@code __dict__}
      */
     protected KernelType(String name, Class<?> javaClass,
-            PyType[] bases, LinkedHashMap<String, Object> _dict) {
+            PyType[] bases) {
         super(javaClass);
         /*
          * These assertions mainly check our assumptions about the needs
@@ -102,11 +86,6 @@ public abstract sealed class KernelType extends Representation
         this.name = name;
         this.bases = bases;
         this.base = bases.length > 0 ? bases[0] : null;
-
-        // Keep a private copy to support __setattr__ etc..
-        this._dict = _dict;
-        // FIXME: define mappingproxy type for this use
-        this.dict = Collections.unmodifiableMap(_dict);
     }
 
     /**

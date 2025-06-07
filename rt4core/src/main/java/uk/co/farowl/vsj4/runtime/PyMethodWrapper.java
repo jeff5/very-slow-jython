@@ -157,7 +157,7 @@ public class PyMethodWrapper implements WithClass, FastCall {
     @Exposed.Getter
     // Compare CPython wrapper_doc in descrobject.c
     private Object __doc__() {
-        return PyType.getDocFromInternalDoc(descr.sm.methodName,
+        return Descriptor.getDocFromInternalDoc(descr.sm.methodName,
                 descr.sm.doc);
     }
 
@@ -165,7 +165,7 @@ public class PyMethodWrapper implements WithClass, FastCall {
     @Exposed.Getter
     // Compare CPython wrapper_text_signature in descrobject.c
     private Object __text_signature__() {
-        return PyType.getTextSignatureFromInternalDoc(
+        return Descriptor.getTextSignatureFromInternalDoc(
                 descr.sm.methodName, descr.sm.doc);
     }
 

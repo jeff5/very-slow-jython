@@ -732,12 +732,16 @@ public class TypeSpec extends NamedSpec {
         // return metaclass != null ? metaclass : PyType.TYPE;
     }
 
-    // Something helpful in debugging (__repr__ is different)
+    // Something helpful in debugging
     @Override
     public String toString() {
-        String fmt = "'%s' %s %s (lookup:%s)";
+        String fmt = "'%s' %s %s (lookup:%s pri:%s can:%s meth:%s)";
+        String pri = primary == null ? "" : primary.getSimpleName();
+        String can = canonicalBase == null ? ""
+                : canonicalBase.getSimpleName();
         return String.format(fmt, name, bases, features,
-                lookup.lookupClass().getSimpleName());
+                lookup.lookupClass().getSimpleName(), pri, can,
+                methodImpls);
     }
 
     /**

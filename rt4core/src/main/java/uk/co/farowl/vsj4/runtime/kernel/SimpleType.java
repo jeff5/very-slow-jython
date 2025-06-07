@@ -67,7 +67,7 @@ public non-sealed class SimpleType extends BaseType {
      * @param object the type object for {@code object} (as base).
      */
     SimpleType(BaseType object) {
-        this("type", PyType.class, SimpleType.class,
+        this("type", BaseType.class, SimpleType.class,
                 new BaseType[] {object});
     }
 

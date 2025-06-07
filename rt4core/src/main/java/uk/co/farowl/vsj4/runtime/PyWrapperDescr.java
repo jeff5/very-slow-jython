@@ -98,7 +98,7 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
     @Exposed.Getter
     // Compare CPython wrapperdescr_get_doc in descrobject.c
     private Object __doc__() {
-        return PyType.getDocFromInternalDoc(sm.methodName, sm.doc);
+        return Descriptor.getDocFromInternalDoc(sm.methodName, sm.doc);
     }
 
     /**
@@ -110,7 +110,7 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
     @Exposed.Getter
     // Compare CPython wrapperdescr_get_text_signature in descrobject.c
     private Object __text_signature__() {
-        return PyType.getTextSignatureFromInternalDoc(sm.methodName,
+        return Descriptor.getTextSignatureFromInternalDoc(sm.methodName,
                 sm.doc);
     }
 

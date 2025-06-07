@@ -396,12 +396,12 @@ public abstract class PyMethodDescr extends MethodDescriptor {
 
     // Compare CPython method_get_doc in descrobject.c
     Object get_doc() {
-        return PyType.getDocFromInternalDoc(name, argParser.doc());
+        return Descriptor.getDocFromInternalDoc(name, argParser.doc());
     }
 
     // Compare CPython method_get_text_signature in descrobject.c
     Object get_text_signature() {
-        return PyType.getTextSignatureFromInternalDoc(name,
+        return Descriptor.getTextSignatureFromInternalDoc(name,
                 argParser.doc());
     }
 

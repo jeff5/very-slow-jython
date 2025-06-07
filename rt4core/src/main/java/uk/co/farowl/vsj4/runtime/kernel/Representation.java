@@ -102,6 +102,8 @@ public abstract class Representation {
      * access and keep the module API clean.
      */
     static {
+        logger.info("Initialising Representation class.");
+
         SpecialMethod.SMUtil.provideAccess(
                 // Anonymously implement the requirement
                 new SpecialMethod.Required() {
