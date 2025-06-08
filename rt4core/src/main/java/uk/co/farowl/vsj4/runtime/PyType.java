@@ -49,14 +49,6 @@ public abstract sealed class PyType extends KernelType
     static final Logger logger = LoggerFactory.getLogger(PyType.class);
 
     /**
-     * A lookup with package scope. This lookup object is provided to
-     * the type factory to grant it package-level access to the run-time
-     * system.
-     */
-    protected static Lookup RUNTIME_LOOKUP =
-            MethodHandles.lookup().dropLookupMode(Lookup.PRIVATE);
-
-    /**
      * Constructor used by (permitted) subclasses of {@code PyType}.
      *
      * @param name of the type (fully qualified)
@@ -177,7 +169,6 @@ public abstract sealed class PyType extends KernelType
      *
      * @return The {@code type} object.
      */
-    @SuppressWarnings("deprecation")
     public static final PyType TYPE() {
         /*
          * The type object "type" is created deep in the type system
@@ -186,7 +177,7 @@ public abstract sealed class PyType extends KernelType
          * but once TypeSystem.factory has been assigned, then the
          * returned type object is guaranteed to be at least Java ready.
          */
-        return TypeSystem.factory.typeForType();
+        return TypeSystem.TYPE;
     }
 
     /**

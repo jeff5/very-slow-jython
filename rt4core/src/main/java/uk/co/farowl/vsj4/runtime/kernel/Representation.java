@@ -42,44 +42,31 @@ public abstract class Representation {
     protected static final Logger logger =
             LoggerFactory.getLogger(Representation.class);
 
-    /** Effectively final reference to the {@code TypeFactory} in use. */
-    private static TypeFactory factory;
-    /** Effectively final reference to the {@code TypeRegistry} in use. */
-    private static TypeRegistry registry;
-
     /**
-     * Set the singleton type factory for the kernel. This is a one time
-     * action performed when the single operative instance of
-     * {@link TypeFactory} is created, by the thread that creates it.
-     *
-     * @param f the factory to use for type creation
+     * The type factory to which the entire run-time system goes for
+     * type objects. Do not use this object until
+     * {@code runtime.TypeSystem} has completed static initialisation.
      */
-    static void setFactory(TypeFactory f, TypeRegistry r) {
-        // I shall say this only once.
-        assert factory == null && f != null;
+    public static final TypeFactory factory;
+
+    /** The {@code TypeRegistry} in use. */
+    private static final TypeRegistry registry;
+
+    /*
+     * We create the singleton type factory for the kernel. This is a
+     * one time action during the creation of the type system.
+     */
+    static {
+        // This may be the first thing the run-time system does.
+        logger.debug("Representation system is waking up.");
+
+        @SuppressWarnings("deprecation")
+        TypeFactory f = new TypeFactory();
+
+        // Unsafe to create type objects yet as they extend this class
+
         factory = f;
-        registry = r;
-    }
-
-    /**
-     * Get the singleton type factory for the kernel.
-     *
-     * @return the factory to use for type creation
-     */
-    public static TypeFactory getFactory() { return factory; }
-
-    /**
-     * Get the {@code Representation} of a class {@code c}, and hence
-     * access to its Python type and behaviour of Java objects of that
-     * class. This call may result in the creation of a
-     * {@code Representation} for that class.
-     *
-     * @param c for which a representation of the class is needed
-     * @return the representation
-     */
-
-    public static Representation ofClass(Class<?> c) {
-        return registry.get(c);
+        registry = f.getRegistry();
     }
 
     /**
@@ -87,6 +74,9 @@ public abstract class Representation {
      * {@code o}, and hence access to its Python type and behaviour.
      * This call may result in the creation of a {@code Representation}
      * for that class.
+     * <p>
+     * Because this uses the type factory, beware of using it before the
+     * static initialisation of {@code runtime.TypeSystem} is complete.
      *
      * @param o for which a representation of the class is needed
      * @return the representation
@@ -102,8 +92,6 @@ public abstract class Representation {
      * access and keep the module API clean.
      */
     static {
-        logger.info("Initialising Representation class.");
-
         SpecialMethod.SMUtil.provideAccess(
                 // Anonymously implement the requirement
                 new SpecialMethod.Required() {

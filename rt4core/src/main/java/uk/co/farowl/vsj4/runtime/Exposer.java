@@ -1299,7 +1299,7 @@ abstract class Exposer {
                 assert mh.type().parameterCount() == regargcount;
                 PyJavaFunction javaFunction =
                         PyJavaFunction.forStaticMethod(ap, mh);
-                return new PyStaticMethod(objclass, javaFunction);
+                return new PyStaticMethod(javaFunction);
             } catch (IllegalAccessException e) {
                 throw cannotGetHandle(m, e);
             }

@@ -8,11 +8,21 @@ import java.util.Map;
 import uk.co.farowl.vsj4.runtime.Exposed.Getter;
 
 /**
- * The Python {@code staticmethod} class, which although most often
- * encountered as a decorator on a method in a class definition, is also
- * implicated in the exposure of static methods from built-in types.
- * {@code staticmethod} is technically a non-data descriptor as it has a
- * {@code __get__} method but not a {@code __set__}.
+ * The Python {@code staticmethod} class, that is most often encountered
+ * as a decorator on a method in a class definition, is also implicated
+ * in the exposure of static methods from built-in types.
+ * {@code staticmethod} is a callable that passes {@code __call__} on to
+ * the object that it wraps. It is technically a non-data descriptor as
+ * it has a {@code __get__} method but not a {@code __set__}.
+ * <p>
+ * {@code staticmethod} is valued principally for what it <i>doesn't</i>
+ * do, which is hard to spot. When encountered as an attribute by
+ * {@code object.__getattribute__}, its {@code __get__} is called in the
+ * normal way, but it <i>doesn't</i> bind the target object (contrast
+ * with {@link PyMethodDescr#__get__(Object, PyType)}). When the
+ * subsequent {@code staticmethod.__call__} comes, only the arguments to
+ * that call go through to the wrapped callable and no {@code self} is
+ * inserted before them.
  */
 public class PyStaticMethod implements WithDict {
 
@@ -26,14 +36,34 @@ public class PyStaticMethod implements WithDict {
      */
     private Object callable;
     /** Actual Python type of the object. */
+    // TODO enforce BaseType
     protected final PyType type;
     /** Instance dictionary also exposed as {@code __dict__} */
     protected PyDict dict = new PyDict();
 
-    PyStaticMethod(PyType descrtype, Object callable) {
+    /**
+     * Construct a {@code staticmethod} wrapping the given object as the
+     * callable. Any object is accepted: only later (during
+     * {@code staticmethod.__call__}) will it be discovered whether it
+     * is actually callable.
+     *
+     * @param descrtype actual Python type of this object
+     * @param callable to be wrapped
+     */
+    protected PyStaticMethod(PyType descrtype, Object callable) {
         this.type = descrtype;
         this.setCallable(callable);
     }
+
+    /**
+     * Construct a {@code staticmethod} wrapping the given object as the
+     * callable. Any object is accepted: only later (during
+     * {@code staticmethod.__call__}) will it be discovered whether it
+     * is actually callable.
+     *
+     * @param callable to be wrapped
+     */
+    public PyStaticMethod(Object callable) { this(TYPE, callable); }
 
     @Override
     public PyType getType() { return type; }

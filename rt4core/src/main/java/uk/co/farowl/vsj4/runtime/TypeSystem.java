@@ -16,9 +16,17 @@ import uk.co.farowl.vsj4.support.InterpreterError;
 
 /**
  * {@code TypeSystem} is the nexus of type object lookup and creation
- * methods in the run-time system, and holds the single static instance
- * of the Python type factory, which comes into being upon first use of
- * any type apparatus.
+ * methods in the run-time system, and publishes (to this package) a
+ * static reference to the single instance of the Python type factory.
+ * The type factory comes into being with the static initialisation of
+ * this class.
+ * <p>
+ * All use of the type system is funnelled through this class in order
+ * to ensure this initialisation is complete before types are used. The
+ * JVM guarantees that competing threads are made to wait while the
+ * first thread to use the type system completes the initialisation.
+ * Careful design of the run-time avoids re-entrant use by the
+ * initialising thread.
  */
 class TypeSystem {
     /*
@@ -58,15 +66,14 @@ class TypeSystem {
      */
     static final TypeFactory factory;
 
-    /** The type object of {@code type} objects. */
-    // Needed in its proper place before creating bootstrap types
-    public static final PyType TYPE;
-
     /**
      * The type registry to which this run-time system goes for all
      * class look-ups.
      */
-    public static final TypeRegistry registry;
+    static final TypeRegistry registry;
+
+    /** The type object of {@code type} objects. */
+    static final PyType TYPE;
 
     /**
      * High-resolution time (the result of {@link System#nanoTime()}) at
@@ -87,7 +94,7 @@ class TypeSystem {
      * the type factory to grant it package-level access to the run-time
      * system.
      */
-    static final Lookup RUNTIME_LOOKUP =
+    private static final Lookup RUNTIME_LOOKUP =
             MethodHandles.lookup().dropLookupMode(Lookup.PRIVATE);
 
     /*
@@ -99,27 +106,19 @@ class TypeSystem {
      * class is the holder class for the entire type system.
      */
     static {
+        // This should be the first thing the run-time system does.
         logger.info("Type system is waking up.");
         bootstrapNanoTime = System.nanoTime();
 
-        /*
-         * Kick the whole type machine into life. We go via variables f
-         * and t so that we can suppress the deprecation messages, which
-         * are for the discouragement of others, not because PyType
-         * should use some alternative method.
-         */
-        @SuppressWarnings("deprecation")
-        TypeFactory f = new TypeFactory();
-
-        f.makeTypeType(RUNTIME_LOOKUP,
-                TypeExposerImplementation::new);
+        // Bring the type machinery to life.
+        TypeFactory f = Representation.factory;
 
         @SuppressWarnings("deprecation")
         SimpleType t = f.typeForType();
 
         try {
             /*
-             * At this point, 'type' and 'object' exist in their
+             * At this point, type objects 'type' and 'object' exist
              * "Java ready" forms, but they are not "Python ready". We
              * let them leak out so that the bootstrap process itself
              * may use them. No *other* thread can get to them until
@@ -130,13 +129,12 @@ class TypeSystem {
             registry = f.getRegistry();
 
             /*
-             * Get all the bootstrap types Java ready. Bootstrap
-             * type implementations are not visible as public API
-             * because it would be possible for another thread to touch
-             * one during the bootstrap and that would block this
-             * thread.
+             * Get all the bootstrap types Python ready. At this point,
+             * the type factory needs access to the implementations of
+             * types in this package, and to create exposers for them.
              */
-            f.createBootstrapTypes();
+            f.createBootstrapTypes(RUNTIME_LOOKUP,
+                    TypeExposerImplementation::new);
 
         } catch (Clash clash) {
             // Maybe a bootstrap type was used prematurely?
@@ -144,8 +142,9 @@ class TypeSystem {
         }
 
         /*
-         * We like to know how long this took. Also used in
-         * BootstrapTest to verify there is just one bootstrap thread.
+         * We like to know how long this took. It is also used in
+         * BootstrapTest to verify that the initialisation thread
+         * finished before any other could access the type system.
          */
         readyNanoTime = System.nanoTime();
 
@@ -217,5 +216,4 @@ class TypeSystem {
             throw new InterpreterError(clash);
         }
     }
-
 }

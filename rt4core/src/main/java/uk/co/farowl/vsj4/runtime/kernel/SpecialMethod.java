@@ -1245,7 +1245,10 @@ public enum SpecialMethod {
          * @param access object providing access
          */
         public static void provideAccess(Required access) {
-            logger.atDebug().log("runtime access provided");
+            logger.atTrace().setMessage("Access provided to {}")
+                    .addArgument(() -> access.getLookup().lookupClass()
+                            .getName())
+                    .log();
             runtimeAccess = access;
         }
 

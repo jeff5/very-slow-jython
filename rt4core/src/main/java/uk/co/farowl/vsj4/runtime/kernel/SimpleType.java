@@ -94,15 +94,4 @@ public non-sealed class SimpleType extends BaseType {
 
     @Override
     public boolean isFloatExact() { return false; }
-
-    /**
-     * A lookup with package scope within the public {@code runtime}
-     * package. This lookup object is provided to the kernel to grant it
-     * package-level access to the run-time system. For example, it
-     * makes it possible to form method handles on Python type
-     * implementations defined in {@code runtime}.
-     */
-    static MethodHandles.Lookup getRuntimeLookup() {
-        return RUNTIME_LOOKUP;
-    }
 }
