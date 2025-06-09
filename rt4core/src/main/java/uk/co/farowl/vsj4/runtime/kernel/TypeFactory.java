@@ -134,9 +134,6 @@ public class TypeFactory {
      * purposes. The parameter {@code runtimeLookup} allows the caller
      * to give lookup rights to the kernel.
      *
-     * @param runtimeLookup giving access to the callers package
-     * @param exposerFactory a way to make type exposers
-     *
      * @deprecated Do not create a {@code TypeFactory} other than the
      *     one {@code PyType} holds statically.
      */
@@ -513,7 +510,7 @@ public class TypeFactory {
      * used from Python.
      * <p>
      * This method finishes what the constructor began. The design of
-     * {@link TypeSystem} ensures all the steps are called before a type
+     * {@code TypeSystem} ensures all the steps are called before a type
      * becomes visible outside the thread.
      *
      * @param runtimeLU access rights to the runtime package

@@ -54,7 +54,6 @@ public abstract sealed class PyType extends KernelType
      * @param name of the type (fully qualified)
      * @param javaClass implementing Python instances of the type
      * @param bases of the new type
-     * @param _dict private dictionary backing {@code __dict__}
      */
     protected PyType(String name, Class<?> javaClass, PyType[] bases) {
         super(name, javaClass, bases);

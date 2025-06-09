@@ -70,7 +70,6 @@ public abstract sealed class KernelType extends Representation
      * @param name of the type (fully qualified)
      * @param javaClass implementing Python instances of the type
      * @param bases of the new type
-     * @param _dict private dictionary backing {@code __dict__}
      */
     protected KernelType(String name, Class<?> javaClass,
             PyType[] bases) {
