@@ -2,6 +2,8 @@
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
 
+import uk.co.farowl.vsj4.runtime.kernel.BaseType;
+
 /**
  * The base class of many built-in descriptors. Descriptors are a
  * fundamental component of the Python type system, populating the
@@ -27,7 +29,7 @@ public abstract class Descriptor implements WithClass {
      */
     // In CPython, called d_type
     @Exposed.Member("__objclass__")
-    final PyType objclass;
+    final BaseType objclass;
 
     /**
      * Name of the object described, for example "__add__" or
@@ -52,7 +54,7 @@ public abstract class Descriptor implements WithClass {
      * @param objclass that defines the attribute being described
      * @param name of the object described as {@code __name__}
      */
-    protected Descriptor(PyType objclass, String name) {
+    protected Descriptor(BaseType objclass, String name) {
         assert objclass != null;
         this.objclass = objclass;
         assert name != null;

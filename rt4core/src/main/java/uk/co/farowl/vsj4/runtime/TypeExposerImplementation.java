@@ -29,6 +29,7 @@ import uk.co.farowl.vsj4.runtime.Exposed.PythonNewMethod;
 import uk.co.farowl.vsj4.runtime.Exposed.PythonStaticMethod;
 import uk.co.farowl.vsj4.runtime.Exposed.Setter;
 import uk.co.farowl.vsj4.runtime.PyMemberDescr.Flag;
+import uk.co.farowl.vsj4.runtime.kernel.BaseType;
 import uk.co.farowl.vsj4.runtime.kernel.SpecialMethod;
 import uk.co.farowl.vsj4.runtime.kernel.TypeExposer;
 import uk.co.farowl.vsj4.support.InterpreterError;
@@ -43,7 +44,7 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
      * descriptor), but is not otherwise accessed, since it is
      * (necessarily) incomplete at this time.
      */
-    final PyType type;
+    final BaseType type;
 
     /**
      * The table of intermediate descriptions for members. They will
@@ -70,7 +71,7 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
      *
      * @param type being exposed
      */
-    TypeExposerImplementation(PyType type) {
+    TypeExposerImplementation(BaseType type) {
         this.type = type;
         this.memberSpecs = new TreeSet<>();
         this.getSetSpecs = new TreeSet<>();
@@ -280,7 +281,7 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
      * @throws InterpreterError on duplicates or unsupported types
      */
     void addNewMethodSpec(Method meth, PythonNewMethod anno,
-            PyType type) throws InterpreterError {
+            BaseType type) throws InterpreterError {
         // For clarity, name lambda expressions for the actions
         BiConsumer<NewMethodSpec, Method> addMethod =
                 // Add method m to spec ms
@@ -455,7 +456,7 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
          * @throws InterpreterError if the method type is not supported
          */
         @Override
-        PyMemberDescr asAttribute(PyType objclass, Lookup lookup) {
+        PyMemberDescr asAttribute(BaseType objclass, Lookup lookup) {
             EnumSet<Flag> flags = EnumSet.noneOf(Flag.class);
             if (readonly) { flags.add(Flag.READONLY); }
             if (optional) { flags.add(Flag.OPTIONAL); }
@@ -605,7 +606,7 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
         }
 
         @Override
-        Object asAttribute(PyType objclass, Lookup lookup)
+        Object asAttribute(BaseType objclass, Lookup lookup)
                 throws InterpreterError {
             if (objclass.selfClasses().size() == 1)
                 return createDescrSingle(objclass, lookup);
@@ -627,7 +628,7 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
          * @return descriptor for access to the field
          * @throws InterpreterError if the method type is not supported
          */
-        private Object createDescrSingle(PyType objclass,
+        private Object createDescrSingle(BaseType objclass,
                 Lookup lookup) {
             /*
              * Lazily, we use the mechanism unreflect() that works for
@@ -672,7 +673,7 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
          * @return descriptor for access to the field
          * @throws InterpreterError if the method type is not supported
          */
-        private PyGetSetDescr createDescrMultiple(PyType objclass,
+        private PyGetSetDescr createDescrMultiple(BaseType objclass,
                 Lookup lookup) throws InterpreterError {
 
             // Handles on implementation methods
@@ -825,7 +826,7 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
         }
 
         @Override
-        Object asAttribute(PyType objclass, Lookup lookup)
+        Object asAttribute(BaseType objclass, Lookup lookup)
                 throws InterpreterError {
             /*
              * We will try to create a handle for each implementation of
@@ -870,7 +871,7 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
          * @throws InterpreterError if the method type is not supported
          */
         private PyWrapperDescr createDescrForInstanceMethod(
-                PyType objclass, Lookup lookup)
+                BaseType objclass, Lookup lookup)
                 throws InterpreterError {
 
             // Acceptable methods can be coerced to this signature
@@ -993,7 +994,7 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
         /** The defining Python type. */
         final private PyType type;
 
-        NewMethodSpec(String name, PyType type) {
+        NewMethodSpec(String name, BaseType type) {
             super(name, ScopeKind.TYPE);
             this.type = type;
         }
@@ -1015,7 +1016,7 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
          * @throws InterpreterError if the method type is not supported
          */
         @Override
-        PyJavaFunction asAttribute(PyType objclass, Lookup lookup) {
+        PyJavaFunction asAttribute(BaseType objclass, Lookup lookup) {
             assert methodKind == MethodKind.NEW;
             ArgParser ap = getParser();
 

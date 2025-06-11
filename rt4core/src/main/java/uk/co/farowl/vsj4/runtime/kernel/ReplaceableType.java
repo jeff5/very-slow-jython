@@ -4,8 +4,6 @@ package uk.co.farowl.vsj4.runtime.kernel;
 
 import java.util.List;
 
-import uk.co.farowl.vsj4.runtime.PyType;
-
 /**
  * A Python type object used where multiple Python types share a single
  * representation in Java, making them all acceptable for assignment to
@@ -29,7 +27,7 @@ public final class ReplaceableType extends BaseType {
      * @param bases of the new type
      */
     ReplaceableType(String name, SharedRepresentation representation,
-            PyType[] bases) {
+            BaseType[] bases) {
         super(name, representation.javaClass(), bases);
         this.representation = representation;
     }

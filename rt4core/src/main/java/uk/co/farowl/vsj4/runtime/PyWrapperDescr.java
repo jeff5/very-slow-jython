@@ -7,6 +7,7 @@ import java.lang.invoke.MethodHandles;
 import java.util.Arrays;
 
 import uk.co.farowl.vsj4.runtime.ArgumentError.Mode;
+import uk.co.farowl.vsj4.runtime.kernel.BaseType;
 import uk.co.farowl.vsj4.runtime.kernel.Representation;
 import uk.co.farowl.vsj4.runtime.kernel.SpecialMethod;
 import uk.co.farowl.vsj4.support.internal.Util;
@@ -70,7 +71,7 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
      * @param slot for the generic special method
      */
     // Compare CPython PyDescr_NewWrapper in descrobject.c
-    PyWrapperDescr(PyType objclass, SpecialMethod slot) {
+    PyWrapperDescr(BaseType objclass, SpecialMethod slot) {
         super(objclass, slot.methodName);
         this.sm = slot;
     }
@@ -148,8 +149,8 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
      * @param obj target ({@code self}) of the method, or {@code null}
      * @param type ignored
      * @return method bound to {@code obj} or this descriptor.
-     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if {@code obj!=null} is not
-     *     compatible
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     {@code obj!=null} is not compatible
      */
     // Compare CPython wrapperdescr_get in descrobject.c
     @Override
@@ -177,8 +178,8 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
      * @param args positional arguments beginning with {@code self}
      * @param names of keywords in the method call
      * @return result of calling the wrapped method
-     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if {@code args[0]} is the
-     *     wrong type
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     {@code args[0]} is the wrong type
      * @throws Throwable from the implementation of the special method
      */
     // Compare CPython wrapperdescr_call in descrobject.c
@@ -392,8 +393,8 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
      *
      * @param self by which to select the handle
      * @return the handle to call with {@code self} as first argument
-     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if the type of {@code self}
-     *     does not match the wrapped handle.
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     the type of {@code self} does not match the wrapped handle.
      * @throws Throwable propagated from subclass check
      */
     abstract MethodHandle getHandle(Object self)
@@ -448,7 +449,7 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
          * @param wrapped a handle to an implementation of that slot
          */
         // Compare CPython PyDescr_NewWrapper in descrobject.c
-        Single(PyType objclass, SpecialMethod sm,
+        Single(BaseType objclass, SpecialMethod sm,
                 MethodHandle wrapped) {
             super(objclass, sm);
             this.wrapped = wrapped;
@@ -492,7 +493,7 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
          * @param wrapped handles to the implementation of that slot
          */
         // Compare CPython PyDescr_NewWrapper in descrobject.c
-        Multiple(PyType objclass, SpecialMethod sm,
+        Multiple(BaseType objclass, SpecialMethod sm,
                 MethodHandle[] wrapped) {
             super(objclass, sm);
             assert wrapped.length == objclass.selfClasses().size();
@@ -507,7 +508,8 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
         @Override
         MethodHandle getHandle(Object self)
                 throws PyBaseException, Throwable {
-            Representation rep = TypeSystem.registry.get(self.getClass());
+            Representation rep =
+                    TypeSystem.registry.get(self.getClass());
             PyType selfType = rep.pythonType(self);
             if (selfType == objclass) {
                 // selfType defined the method so it must be ok

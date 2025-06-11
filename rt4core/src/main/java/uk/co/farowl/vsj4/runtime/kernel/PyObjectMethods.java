@@ -19,10 +19,10 @@ import uk.co.farowl.vsj4.runtime.kernel.SpecialMethod.Signature;
 import uk.co.farowl.vsj4.support.internal.EmptyException;
 
 /**
- * The Python {@code object} is represented by {@code java.lang.Object}
- * but it gets its Python behaviour from methods defined here. All
- * Python objects by default inherit these Python method
- * implementations.
+ * The Python {@code object} type is represented by
+ * {@code java.lang.Object} but it gets its Python behaviour from
+ * methods defined here. All Python objects by default inherit these
+ * Python method implementations.
  * <p>
  * The Java implementation class of a type defined in Python <i>will</i>
  * be derived from the canonical implementation class of the "solid
@@ -31,11 +31,11 @@ import uk.co.farowl.vsj4.support.internal.EmptyException;
  * @implNote All exposed methods, special methods and attribute get, set
  *     and delete methods defined here must be declared {@code static}
  *     in Java, with an explicit {@code Object self} argument. This is
- *     so that methods defined here on {@code object} operate correctly
- *     on receiving Python objects whatever their Java class. Methods
- *     and fields must be package visible so that the type factory is
- *     able to form {@code MethodHandle}s on them using its default
- *     lookup object.
+ *     so that Python methods defined here on {@code object} operate
+ *     correctly on receiving Python objects whatever their Java class.
+ *     Methods and fields must be package visible so that the type
+ *     factory is able to form {@code MethodHandle}s on them using its
+ *     default lookup object.
  */
 // Compare CPython PyBaseObject_Type in typeobject.c
 // See also any method named object_* in typeobject.c.h

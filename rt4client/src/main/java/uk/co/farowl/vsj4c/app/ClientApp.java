@@ -1,6 +1,5 @@
 package uk.co.farowl.vsj4c.app;
 
-import java.lang.invoke.MethodHandle;
 import java.util.List;
 
 import uk.co.farowl.vsj4.runtime.Abstract;
@@ -75,25 +74,23 @@ public class ClientApp {
             System.out.println(PyNumber.negative(42));
 
             // Let's try some API abuse
-            Object x = 42;
-            PyType t = MyType.TYPE.pythonType(x);
+            PyType t = MyType.TYPE;
             //System.out.println(t.base);
 
             t.isSubTypeOf(PyObject.TYPE);
 
-            List<?> reps = t.representations();
-            System.out.println("t.representations() = " + reps);
+            List<?> reps = t.selfClasses();
+            System.out.println("t.representations = " + reps);
             //Representation rep = reps.get(0);
             //rep.pythonType(x);
 
             for (PyType b : t.getMRO()) { System.out.println(b); }
 
             t = PyType.of(42);
-            boolean isInt = t.isIntExact();
-            MethodHandle addMH = t.op_add();
+            //MethodHandle addMH = t.op_add();
             //boolean ready = t.hasFeature(KernelTypeFlag.READY);
-            reps = t.representations();
-            System.out.println("type(42).representations() = " + reps);
+            reps = t.selfClasses();
+            System.out.println("type(42).representations = " + reps);
 
         } catch (Throwable e) {
             e.printStackTrace();

@@ -99,12 +99,12 @@ public class TypeFactory {
     /** The (initially partial) type object for 'object'. */
     private SimpleType objectType;
     /** An array containing just type object {@code object} */
-    private PyType[] OBJECT_ONLY;
+    private BaseType[] OBJECT_ONLY;
 
     /** Access rights to the runtime package. Effectively final. */
     private Lookup runtimeLookup;
     /** Factory method to make type exposers. Effectively final. */
-    private Function<PyType, TypeExposer> exposerFactory;
+    private Function<BaseType, TypeExposer> exposerFactory;
 
     /**
      * Types may have to be built in rounds that cross-refer, so we keep
@@ -200,7 +200,10 @@ public class TypeFactory {
         lastContext = specOfObject;
 
         try {
+            // Map primary classes to types: subclasses inherit.
             workshop.publishLocally(Object.class, objectType);
+            workshop.publishLocally(BaseType.class, typeType);
+            // Additionally map *interface* PyType to type type.
             workshop.publishLocally(PyType.class, typeType);
         } catch (Clash clash) {
             // If we can't get this far ...
@@ -215,7 +218,7 @@ public class TypeFactory {
         workshop.addTask(typeType, specOfType);
 
         // This cute re-use also proves 'type' and 'object' exist.
-        this.OBJECT_ONLY = typeType.bases();
+        this.OBJECT_ONLY = typeType.bases;
         assert OBJECT_ONLY.length == 1;
 
         return typeType;
@@ -519,7 +522,7 @@ public class TypeFactory {
      */
     public synchronized void createBootstrapTypes(
             MethodHandles.Lookup runtimeLU,
-            Function<PyType, TypeExposer> exposerNew) throws Clash {
+            Function<BaseType, TypeExposer> exposerNew) throws Clash {
 
         runtimeLookup = runtimeLU;
         exposerFactory = exposerNew;
@@ -718,11 +721,11 @@ public class TypeFactory {
             // Get the list of Python bases, or implicitly object.
             List<PyType> baseList = spec.getBases();
             // The constructors take BaseType[].
-            PyType[] bases;
+            BaseType[] bases;
             if (baseList.isEmpty()) {
                 bases = OBJECT_ONLY;
             } else {
-                bases = baseList.toArray(new PyType[baseList.size()]);
+                bases = baseList.toArray(new BaseType[baseList.size()]);
             }
 
             // Result of the construction
@@ -1005,8 +1008,8 @@ public class TypeFactory {
                 Class<?> c = spec.getPrimary();
                 assert c != null;
                 // Work upwards from until we meet an excluded class
-                while (!exclusions.contains(c)) {
-                    // At front of list so later definitions will win
+                while (c!=null &&!exclusions.contains(c)) {
+                    // At front of list so subclasses will win
                     defs.addFirst(c);
                     c = c.getSuperclass();
                 }
@@ -1112,7 +1115,7 @@ public class TypeFactory {
          * @param type to reverse
          * @param lookup to supply to the {@link TypeSpec}
          */
-        PrimordialTypeSpec(PyType type, Lookup lookup) {
+        PrimordialTypeSpec(BaseType type, Lookup lookup) {
             super(type.getName(), lookup);
             // I think the primordial types are only simple
             assert type instanceof SimpleType;

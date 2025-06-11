@@ -2,10 +2,7 @@
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime.kernel;
 
-import java.lang.invoke.MethodHandles;
 import java.util.List;
-
-import uk.co.farowl.vsj4.runtime.PyType;
 
 /**
  * A Python type object used where instances (in Python) of the type
@@ -32,7 +29,7 @@ public non-sealed class SimpleType extends BaseType {
      * @param bases of the type
      */
     public SimpleType(String name, Class<?> javaClass,
-            Class<?> canonical, PyType[] bases) {
+            Class<?> canonical, BaseType[] bases) {
         super(name, javaClass, bases);
         this.canonicalClass = canonical;
     }

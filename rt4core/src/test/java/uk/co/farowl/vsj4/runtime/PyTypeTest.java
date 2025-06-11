@@ -253,7 +253,7 @@ class PyTypeTest extends UnitTestSupport {
     @Nested
     @DisplayName("type.__new__")
     // FIXME __new__ test: fix or remove if wrong
-    @Disabled("Slot function still not ready for this")
+    @Disabled("Does not reflect current notion of __new__()")
     class NewTypeTest extends AbstractNewTypeTest {
         /**
          * Test type construction by the 3-argument call to type.

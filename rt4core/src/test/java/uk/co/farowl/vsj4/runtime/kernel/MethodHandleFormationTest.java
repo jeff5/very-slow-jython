@@ -90,7 +90,7 @@ public class MethodHandleFormationTest {
     @Test
     void basicObjectSlots() {
         // Type defining none of the reserved names
-        final PyType basic = BasicallyEmpty.TYPE;
+        final BaseType basic = BaseType.cast(BasicallyEmpty.TYPE);
         Object o = new BasicallyEmpty();
 
         assertThrows(EmptyException.class,
@@ -147,7 +147,7 @@ public class MethodHandleFormationTest {
     @Test
     void numericSlots() {
         // Type defining none of the reserved names
-        final PyType number = BasicallyEmpty.TYPE;
+        final BaseType number = BaseType.cast(BasicallyEmpty.TYPE);
         Object o = new BasicallyEmpty();
 
         assertThrows(EmptyException.class, () -> SpecialMethod.op_neg
@@ -215,7 +215,7 @@ public class MethodHandleFormationTest {
     @Test
     void sequenceSlots() {
         // Type defining none of the reserved names
-        final PyType sequence = BasicallyEmpty.TYPE;
+        final BaseType sequence = BaseType.cast(BasicallyEmpty.TYPE);
 
         // Make method handles of the shape corresponding to caches
         final MethodHandle length = MethodHandles
@@ -260,7 +260,7 @@ public class MethodHandleFormationTest {
     @Test
     void mappingSlots() {
         // Type defining none of the reserved names
-        final PyType mapping = BasicallyEmpty.TYPE;
+        final BaseType mapping = BaseType.cast(BasicallyEmpty.TYPE);
 
         // Make method handles of the shape corresponding to caches
         final MethodHandle getitem = MethodHandles

@@ -9,6 +9,7 @@ import java.lang.reflect.Field;
 import java.util.EnumSet;
 
 import uk.co.farowl.vsj4.runtime.internal._PyUtil;
+import uk.co.farowl.vsj4.runtime.kernel.BaseType;
 import uk.co.farowl.vsj4.support.InterpreterError;
 
 /**
@@ -21,7 +22,8 @@ public abstract class PyMemberDescr extends DataDescriptor {
     /** The type of Python object this class implements. */
     static final PyType TYPE = PyType.fromSpec( //
             new TypeSpec("member_descriptor", MethodHandles.lookup())
-            .add(Feature.IMMUTABLE, Feature.METHOD_DESCR)                    .remove(Feature.BASETYPE));
+                    .add(Feature.IMMUTABLE, Feature.METHOD_DESCR)
+                    .remove(Feature.BASETYPE));
 
     /** Acceptable values in the {@link #flags}. */
     enum Flag {
@@ -56,7 +58,7 @@ public abstract class PyMemberDescr extends DataDescriptor {
      * @param flags characteristics controlling access
      * @param doc documentation string
      */
-    PyMemberDescr(PyType objclass, String name, VarHandle handle,
+    PyMemberDescr(BaseType objclass, String name, VarHandle handle,
             EnumSet<Flag> flags, String doc) {
         super(objclass, name);
         this.flags = flags;
@@ -316,7 +318,7 @@ public abstract class PyMemberDescr extends DataDescriptor {
      * @return descriptor for access to the field
      * @throws InterpreterError if the field type is not supported
      */
-    static PyMemberDescr forField(PyType objclass, String name,
+    static PyMemberDescr forField(BaseType objclass, String name,
             Field field, Lookup lookup, EnumSet<Flag> flags, String doc)
             throws InterpreterError {
         Class<?> fieldType = field.getType();
@@ -344,7 +346,7 @@ public abstract class PyMemberDescr extends DataDescriptor {
 
     private static class _int extends PyMemberDescr {
 
-        _int(PyType objclass, String name, VarHandle handle,
+        _int(BaseType objclass, String name, VarHandle handle,
                 EnumSet<Flag> flags, String doc) {
             super(objclass, name, handle, flags, doc);
 
@@ -363,7 +365,7 @@ public abstract class PyMemberDescr extends DataDescriptor {
 
     private static class _double extends PyMemberDescr {
 
-        _double(PyType objclass, String name, VarHandle handle,
+        _double(BaseType objclass, String name, VarHandle handle,
                 EnumSet<Flag> flags, String doc) {
             super(objclass, name, handle, flags, doc);
         }
@@ -394,7 +396,7 @@ public abstract class PyMemberDescr extends DataDescriptor {
          */
         protected final boolean optional;
 
-        Reference(PyType objclass, String name, VarHandle handle,
+        Reference(BaseType objclass, String name, VarHandle handle,
                 EnumSet<Flag> flags, String doc, boolean optional) {
             super(objclass, name, handle, flags, doc);
             this.optional = optional;
@@ -421,7 +423,7 @@ public abstract class PyMemberDescr extends DataDescriptor {
      */
     private static class _String extends Reference {
 
-        _String(PyType objclass, String name, VarHandle handle,
+        _String(BaseType objclass, String name, VarHandle handle,
                 EnumSet<Flag> flags, String doc, boolean optional) {
             super(objclass, name, handle, flags, doc, optional);
         }
@@ -459,7 +461,7 @@ public abstract class PyMemberDescr extends DataDescriptor {
      */
     private static class _Object extends Reference {
 
-        _Object(PyType objclass, String name, VarHandle handle,
+        _Object(BaseType objclass, String name, VarHandle handle,
                 EnumSet<Flag> flags, String doc, boolean optional) {
             super(objclass, name, handle, flags, doc, optional);
         }

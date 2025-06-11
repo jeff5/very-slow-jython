@@ -9,6 +9,7 @@ import java.lang.invoke.WrongMethodTypeException;
 import java.util.List;
 
 import uk.co.farowl.vsj4.runtime.ArgumentError.Mode;
+import uk.co.farowl.vsj4.runtime.kernel.BaseType;
 import uk.co.farowl.vsj4.runtime.kernel.Representation;
 import uk.co.farowl.vsj4.support.InterpreterError;
 import uk.co.farowl.vsj4.support.MethodKind;
@@ -25,7 +26,8 @@ import uk.co.farowl.vsj4.support.internal.Util;
  * multiplicity of implementations and to respond to the signature of
  * the method, optimising its data flow to arguments. Instances are
  * therefore obtained by calling
- * {@link PyMethodDescr#fromParser(PyType, ArgParser, List) fromParser}.
+ * {@link PyMethodDescr#fromParser(BaseType, ArgParser, List)
+ * fromParser}.
  */
 // Compare CPython: PyMethodDescrObject in descrobject.h
 // and functions method_* in descrobject.c.
@@ -76,7 +78,7 @@ public abstract class PyMethodDescr extends MethodDescriptor {
      * @param signature to which to coerce the handle
      */
     // Compare CPython PyDescr_NewMethod in descrobject.c
-    private PyMethodDescr(PyType objclass, ArgParser argParser,
+    private PyMethodDescr(BaseType objclass, ArgParser argParser,
             MethodSignature signature) {
         super(objclass, argParser.name);
         this.argParser = argParser;
@@ -105,7 +107,7 @@ public abstract class PyMethodDescr extends MethodDescriptor {
      * @return a method descriptor supporting the signature
      */
     // Compare CPython PyDescr_NewMethod in descrobject.c
-    static PyMethodDescr fromParser(PyType objclass, ArgParser ap,
+    static PyMethodDescr fromParser(BaseType objclass, ArgParser ap,
             List<MethodHandle> candidates) {
         assert ap.methodKind == MethodKind.INSTANCE;
         try {
@@ -484,7 +486,7 @@ public abstract class PyMethodDescr extends MethodDescriptor {
          *     {@code null} signifying a matching empty handle.
          */
         // Compare CPython PyDescr_NewMethod in descrobject.c
-        Single(PyType objclass, ArgParser argParser,
+        Single(BaseType objclass, ArgParser argParser,
                 MethodSignature signature, MethodHandle method) {
             super(objclass, argParser, signature);
             this.method = signature.prepare(argParser, method);
@@ -501,7 +503,7 @@ public abstract class PyMethodDescr extends MethodDescriptor {
          * @param mh method handle for the implementation
          * @return a method descriptor supporting the signature
          */
-        static Single fromParser(PyType objclass, ArgParser ap,
+        static Single fromParser(BaseType objclass, ArgParser ap,
                 MethodHandle mh) {
             // Choose the subclass according to the method signature
             MethodSignature sig = MethodSignature.fromParser(ap);
@@ -557,7 +559,7 @@ public abstract class PyMethodDescr extends MethodDescriptor {
              *     {@code null} signifying a matching empty handle.
              */
             // Compare CPython PyDescr_NewMethod in descrobject.c
-            General(PyType objclass, ArgParser argParser,
+            General(BaseType objclass, ArgParser argParser,
                     MethodHandle method) {
                 super(objclass, argParser, MethodSignature.GENERAL,
                         method);
@@ -669,7 +671,7 @@ public abstract class PyMethodDescr extends MethodDescriptor {
              *     {@code null} signifying the empty handle.
              */
             // Compare CPython PyDescr_NewMethod in descrobject.c
-            AbstractPositional(PyType objclass, ArgParser argParser,
+            AbstractPositional(BaseType objclass, ArgParser argParser,
                     MethodSignature signature, MethodHandle method) {
                 super(objclass, argParser, signature, method);
                 assert !argParser.hasVarArgs();
@@ -733,7 +735,7 @@ public abstract class PyMethodDescr extends MethodDescriptor {
              *     {@code null} signifying a matching empty handle.
              */
             // Compare CPython PyDescr_NewMethod in descrobject.c
-            NoArgs(PyType objclass, ArgParser argParser,
+            NoArgs(BaseType objclass, ArgParser argParser,
                     MethodHandle method) {
                 super(objclass, argParser, MethodSignature.NOARGS,
                         method);
@@ -777,7 +779,7 @@ public abstract class PyMethodDescr extends MethodDescriptor {
              *     {@code null} signifying a matching empty handle.
              */
             // Compare CPython PyDescr_NewMethod in descrobject.c
-            O1(PyType objclass, ArgParser argParser,
+            O1(BaseType objclass, ArgParser argParser,
                     MethodHandle method) {
                 super(objclass, argParser, MethodSignature.O1, method);
                 assert max == 1;
@@ -834,7 +836,7 @@ public abstract class PyMethodDescr extends MethodDescriptor {
              *     {@code null} signifying a matching empty handle.
              */
             // Compare CPython PyDescr_NewMethod in descrobject.c
-            O2(PyType objclass, ArgParser argParser,
+            O2(BaseType objclass, ArgParser argParser,
                     MethodHandle method) {
                 super(objclass, argParser, MethodSignature.O2, method);
                 assert max == 2;
@@ -907,7 +909,7 @@ public abstract class PyMethodDescr extends MethodDescriptor {
              *     {@code null} signifying a matching empty handle.
              */
             // Compare CPython PyDescr_NewMethod in descrobject.c
-            O3(PyType objclass, ArgParser argParser,
+            O3(BaseType objclass, ArgParser argParser,
                     MethodHandle method) {
                 super(objclass, argParser, MethodSignature.O3, method);
                 assert max == 3;
@@ -1001,7 +1003,7 @@ public abstract class PyMethodDescr extends MethodDescriptor {
              *     {@code null} signifying the empty handle.
              */
             // Compare CPython PyDescr_NewMethod in descrobject.c
-            Positional(PyType objclass, ArgParser argParser,
+            Positional(BaseType objclass, ArgParser argParser,
                     MethodHandle method) {
                 super(objclass, argParser, MethodSignature.POSITIONAL,
                         method);
@@ -1056,7 +1058,7 @@ public abstract class PyMethodDescr extends MethodDescriptor {
          *     method
          */
         // Compare CPython PyDescr_NewMethod in descrobject.c
-        Multiple(PyType objclass, ArgParser argParser,
+        Multiple(BaseType objclass, ArgParser argParser,
                 MethodSignature signature,
                 List<MethodHandle> candidates) {
             super(objclass, argParser, signature);
@@ -1074,7 +1076,7 @@ public abstract class PyMethodDescr extends MethodDescriptor {
          * @param candidates method handles for the implementations
          * @return a method descriptor supporting the signature
          */
-        static Multiple fromParser(PyType objclass, ArgParser ap,
+        static Multiple fromParser(BaseType objclass, ArgParser ap,
                 List<MethodHandle> candidates) {
             // Choose the subclass according to the method signature
             MethodSignature sig = MethodSignature.fromParser(ap);
@@ -1128,8 +1130,8 @@ public abstract class PyMethodDescr extends MethodDescriptor {
         private static class General extends Multiple {
             /**
              * Construct a method descriptor, a variant of
-             * {@link PyMethodDescr}, that supports
-         * positional and keyword parameters in any allowable pattern.
+             * {@link PyMethodDescr}, that supports positional and
+             * keyword parameters in any allowable pattern.
              *
              * @param objclass the class declaring the method
              * @param argParser describing the signature of the method
@@ -1137,7 +1139,7 @@ public abstract class PyMethodDescr extends MethodDescriptor {
              *     method
              */
             // Compare CPython PyDescr_NewMethod in descrobject.c
-            General(PyType objclass, ArgParser argParser,
+            General(BaseType objclass, ArgParser argParser,
                     List<MethodHandle> candidates) {
                 super(objclass, argParser, MethodSignature.GENERAL,
                         candidates);
@@ -1219,11 +1221,10 @@ public abstract class PyMethodDescr extends MethodDescriptor {
         }
 
         /**
-         * A variant of {@link PyMethodDescr.Multiple} that
-accepts between defined minimum
-         * and maximum numbers of arguments after {@code self}, that must be
-         * given by position. Maximum and minimum may be equal to a
-         * single acceptable number.
+         * A variant of {@link PyMethodDescr.Multiple} that accepts
+         * between defined minimum and maximum numbers of arguments
+         * after {@code self}, that must be given by position. Maximum
+         * and minimum may be equal to a single acceptable number.
          * <p>
          * Arguments may not be given by keyword. There is no excess
          * argument (varargs) collector.
@@ -1257,7 +1258,7 @@ accepts between defined minimum
              *
              */
             // Compare CPython PyDescr_NewMethod in descrobject.c
-            AbstractPositional(PyType objclass, ArgParser argParser,
+            AbstractPositional(BaseType objclass, ArgParser argParser,
                     MethodSignature signature,
                     List<MethodHandle> candidates) {
                 super(objclass, argParser, signature, candidates);
@@ -1304,15 +1305,15 @@ accepts between defined minimum
         }
 
         /**
-         * A variant of {@link AbstractPositional} that supports
-         * no arguments after {@code self}
-         * and multiple accepted implementations of {@code objclass}.
+         * A variant of {@link AbstractPositional} that supports no
+         * arguments after {@code self} and multiple accepted
+         * implementations of {@code objclass}.
          */
         static class NoArgs extends AbstractPositional {
             /**
-             * Construct a method descriptor that supports
-         * no arguments after {@code self}
-         * and multiple accepted implementations of {@code objclass}.
+             * Construct a method descriptor that supports no arguments
+             * after {@code self} and multiple accepted implementations
+             * of {@code objclass}.
              *
              * @param objclass the class declaring the method
              * @param argParser describing the signature of the method
@@ -1320,7 +1321,7 @@ accepts between defined minimum
              *     method
              */
             // Compare CPython PyDescr_NewMethod in descrobject.c
-            NoArgs(PyType objclass, ArgParser argParser,
+            NoArgs(BaseType objclass, ArgParser argParser,
                     List<MethodHandle> candidates) {
                 super(objclass, argParser, MethodSignature.NOARGS,
                         candidates);
@@ -1345,15 +1346,15 @@ accepts between defined minimum
         }
 
         /**
-         * A variant of {@link AbstractPositional} that supports
-         * at most one argument after {@code self}
-         * and multiple accepted implementations of {@code objclass}.
+         * A variant of {@link AbstractPositional} that supports at most
+         * one argument after {@code self} and multiple accepted
+         * implementations of {@code objclass}.
          */
         static class O1 extends AbstractPositional {
             /**
-             * Construct a method descriptor, that supports
-         * at most one argument after {@code self}
-         * and multiple accepted implementations of {@code objclass}.
+             * Construct a method descriptor, that supports at most one
+             * argument after {@code self} and multiple accepted
+             * implementations of {@code objclass}.
              *
              * @param objclass the class declaring the method
              * @param argParser describing the signature of the method
@@ -1361,7 +1362,7 @@ accepts between defined minimum
              *     method
              */
             // Compare CPython PyDescr_NewMethod in descrobject.c
-            O1(PyType objclass, ArgParser argParser,
+            O1(BaseType objclass, ArgParser argParser,
                     List<MethodHandle> candidates) {
                 super(objclass, argParser, MethodSignature.O1,
                         candidates);
@@ -1401,15 +1402,15 @@ accepts between defined minimum
         }
 
         /**
-         * A variant of {@link AbstractPositional} that supports
-         * at most two arguments after {@code self}
-         * and multiple accepted implementations of {@code objclass}.
+         * A variant of {@link AbstractPositional} that supports at most
+         * two arguments after {@code self} and multiple accepted
+         * implementations of {@code objclass}.
          */
         static class O2 extends AbstractPositional {
             /**
-             * Construct a method descriptor that supports
-         * at most two arguments after {@code self}
-         * and multiple accepted implementations of {@code objclass}.
+             * Construct a method descriptor that supports at most two
+             * arguments after {@code self} and multiple accepted
+             * implementations of {@code objclass}.
              *
              * @param objclass the class declaring the method
              * @param argParser describing the signature of the method
@@ -1417,7 +1418,7 @@ accepts between defined minimum
              *     method
              */
             // Compare CPython PyDescr_NewMethod in descrobject.c
-            O2(PyType objclass, ArgParser argParser,
+            O2(BaseType objclass, ArgParser argParser,
                     List<MethodHandle> candidates) {
                 super(objclass, argParser, MethodSignature.O2,
                         candidates);
@@ -1473,15 +1474,15 @@ accepts between defined minimum
         }
 
         /**
-         * A variant of {@link PyMethodDescr} that supports
-         * at most three arguments after {@code self}
-         * and multiple accepted implementations of {@code objclass}.
+         * A variant of {@link PyMethodDescr} that supports at most
+         * three arguments after {@code self} and multiple accepted
+         * implementations of {@code objclass}.
          */
         static class O3 extends AbstractPositional {
             /**
-             * Construct a method descriptor that supports
-         * at most three arguments after {@code self}
-         * and multiple accepted implementations of {@code objclass}.
+             * Construct a method descriptor that supports at most three
+             * arguments after {@code self} and multiple accepted
+             * implementations of {@code objclass}.
              *
              * @param objclass the class declaring the method
              * @param argParser describing the signature of the method
@@ -1489,7 +1490,7 @@ accepts between defined minimum
              *     method
              */
             // Compare CPython PyDescr_NewMethod in descrobject.c
-            O3(PyType objclass, ArgParser argParser,
+            O3(BaseType objclass, ArgParser argParser,
                     List<MethodHandle> candidates) {
                 super(objclass, argParser, MethodSignature.O3,
                         candidates);
@@ -1560,17 +1561,16 @@ accepts between defined minimum
         }
 
         /**
-         * A variant of {@link PyMethodDescr} that supports
-         * a minimum and maximum number of positional
-         *  arguments after {@code self}
+         * A variant of {@link PyMethodDescr} that supports a minimum
+         * and maximum number of positional arguments after {@code self}
          * and multiple accepted implementations of {@code objclass}.
          */
         static class Positional extends AbstractPositional {
             /**
-             * Construct a method descriptor that supports
-         * a minimum and maximum number of positional
-         *  arguments after {@code self}
-         * and multiple accepted implementations of {@code objclass}.
+             * Construct a method descriptor that supports a minimum and
+             * maximum number of positional arguments after {@code self}
+             * and multiple accepted implementations of
+             * {@code objclass}.
              *
              * @param objclass the class declaring the method
              * @param argParser describing the signature of the method
@@ -1578,7 +1578,7 @@ accepts between defined minimum
              *     method
              */
             // Compare CPython PyDescr_NewMethod in descrobject.c
-            Positional(PyType objclass, ArgParser argParser,
+            Positional(BaseType objclass, ArgParser argParser,
                     List<MethodHandle> candidates) {
                 super(objclass, argParser, MethodSignature.POSITIONAL,
                         candidates);

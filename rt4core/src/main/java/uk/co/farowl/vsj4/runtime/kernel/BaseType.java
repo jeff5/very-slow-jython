@@ -45,17 +45,18 @@ import uk.co.farowl.vsj4.support.internal.EmptyException;
 
 /**
  * A base shared by the concrete implementation classes of the Python
- * {@code type} object. This class also allows us to publish methods
- * from the {@code kernel} package, without them becoming Jython API.
- * These will apply to all {@link PyType}s, after a cast (see
- * {@link BaseType#cast(PyType)}), since all actual type object classes
- * are implemented as subclasses of this one.
+ * {@code type} object. The class is used widely in the run time system
+ * where a {@link PyType} might have been expected, so that methods may
+ * be accessed that are not exposed as Jython API. Where a
+ * {@link PyType} is accepted from outside the run-time system it must
+ * be cast to {@code BaseType} (see {@link BaseType#cast(PyType)}). This
+ * will succeed for all genuine Jython type objects.
  * <p>
  * In the layered architecture of the Python type object, this class
  * takes responsibility for attributes and lookup along the MRO. It
  * contains the apparatus to make the type "Python-ready".
  */
-public abstract sealed class BaseType extends PyType
+public abstract sealed class BaseType extends KernelType
         permits SimpleType, ReplaceableType, AdoptiveType {
 
     /**
@@ -90,21 +91,12 @@ public abstract sealed class BaseType extends PyType
      * @param bases of the new type
      */
     protected BaseType(String name, Class<?> javaClass,
-            PyType[] bases) {
+            BaseType[] bases) {
         super(name, javaClass, bases);
         this._dict = new LinkedHashMap<>();
         // FIXME: define mappingproxy type for this use
         this.dict = Collections.unmodifiableMap(_dict);
     }
-
-    /**
-     * The array of bases specified for the type as a reference.
-     * Modifications to that array modify the field behind
-     * {@link PyType#getBases()}.
-     *
-     * @return the sequence of bases
-     */
-    PyType[] bases() { return bases; }
 
     @Override
     public PyType[] getMRO() {
@@ -214,7 +206,7 @@ public abstract sealed class BaseType extends PyType
      * @param where type in which it was found
      * @param status the extent to which this result is stable
      */
-    public static record LookupResult(Object obj, PyType where,
+    public static record LookupResult(Object obj, BaseType where,
             LookupStatus status) {}
 
     /**
@@ -299,6 +291,19 @@ public abstract sealed class BaseType extends PyType
      */
     @Override
     public abstract List<Representation> representations();
+
+    /**
+     * Determine (or create if necessary) the Python type for the given
+     * object. In the run-time system, we use this in place of
+     * {@link PyType#of(Object)}, so that we get the more specific type
+     * of result.
+     *
+     * @param o for which a type is required
+     * @return the type
+     */
+    public static BaseType of(Object o) {
+        return registry.get(o.getClass()).pythonType(o);
+    }
 
     /**
      * Cast the argument to a Jython type object (or throw). It is
@@ -954,7 +959,7 @@ public abstract sealed class BaseType extends PyType
      * @param descr the descriptor defining the special method
      */
     private void updateSpecialMethodCache(SpecialMethod sm,
-            PyType where, MethodDescriptor descr) {
+            BaseType where, MethodDescriptor descr) {
         if (where == this) {
             /*
              * We found the definition locally. Method descriptors

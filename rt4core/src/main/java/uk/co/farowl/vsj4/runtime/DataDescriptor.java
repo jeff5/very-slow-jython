@@ -3,6 +3,7 @@
 package uk.co.farowl.vsj4.runtime;
 
 import uk.co.farowl.vsj4.runtime.internal._PyUtil;
+import uk.co.farowl.vsj4.runtime.kernel.BaseType;
 
 /** Base class of built-in data descriptors. */
 public abstract class DataDescriptor extends Descriptor {
@@ -13,7 +14,7 @@ public abstract class DataDescriptor extends Descriptor {
      * @param objclass to which the descriptor applies
      * @param name of the attribute
      */
-    DataDescriptor(PyType objclass, String name) {
+    DataDescriptor(BaseType objclass, String name) {
         super(objclass, name);
     }
 

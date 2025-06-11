@@ -50,7 +50,7 @@ public abstract class Representation {
     public static final TypeFactory factory;
 
     /** The {@code TypeRegistry} in use. */
-    private static final TypeRegistry registry;
+    protected static final TypeRegistry registry;
 
     /*
      * We create the singleton type factory for the kernel. This is a
@@ -157,7 +157,7 @@ public abstract class Representation {
      * @return {@code x} is a data descriptor
      */
     public boolean isDataDescr(Object x) {
-        PyType type = pythonType(x);
+        BaseType type = pythonType(x);
         return type.hasFeature(KernelTypeFlag.HAS_SET)
                 || type.hasFeature(KernelTypeFlag.HAS_DELETE);
     }

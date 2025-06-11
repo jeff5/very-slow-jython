@@ -5,6 +5,7 @@ package uk.co.farowl.vsj4.runtime;
 import java.lang.invoke.MethodHandle;
 import java.util.function.Function;
 
+import uk.co.farowl.vsj4.runtime.kernel.BaseType;
 import uk.co.farowl.vsj4.runtime.kernel.KernelTypeFlag;
 import uk.co.farowl.vsj4.runtime.kernel.Representation;
 import uk.co.farowl.vsj4.runtime.kernel.SpecialMethod;
@@ -232,7 +233,8 @@ public class PyNumber extends Abstract {
      */
     // Compare CPython PyIndex_Check in abstract.c
     public static boolean indexCheck(Object obj) {
-        return PyType.of(obj).hasFeature(KernelTypeFlag.HAS_INDEX);
+
+        return BaseType.of(obj).hasFeature(KernelTypeFlag.HAS_INDEX);
     }
 
     /**
@@ -382,13 +384,13 @@ public class PyNumber extends Abstract {
 
         if (rep.isIntExact()) { return o; }
 
-        PyType oType = rep.pythonType(o);
+        BaseType oType = rep.pythonType(o);
 
         try { // calling __int__
             Object result = rep.op_int().invokeExact(o);
             Representation resultRep = PyType.getRepresentation(result);
             if (!resultRep.isIntExact()) {
-                PyType resultType = resultRep.pythonType(result);
+                BaseType resultType = resultRep.pythonType(result);
                 if (resultType.hasFeature(TypeFlag.INT_SUBCLASS)) {
                     // Result not of exact type int but is a subclass
                     result = PyLong.from(returnDeprecation("__int__",

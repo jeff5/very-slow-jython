@@ -37,6 +37,7 @@ import uk.co.farowl.vsj4.runtime.Exposed.PositionalCollector;
 import uk.co.farowl.vsj4.runtime.Exposed.PositionalOnly;
 import uk.co.farowl.vsj4.runtime.Exposed.PythonMethod;
 import uk.co.farowl.vsj4.runtime.Exposed.PythonStaticMethod;
+import uk.co.farowl.vsj4.runtime.kernel.BaseType;
 // import uk.co.farowl.vsj4.runtime.ModuleDef.MethodDef;
 import uk.co.farowl.vsj4.support.InterpreterError;
 import uk.co.farowl.vsj4.support.MethodKind;
@@ -306,7 +307,7 @@ abstract class Exposer {
          * @return attribute to add
          * @throws InterpreterError on specification errors
          */
-        abstract Object asAttribute(PyType objclass, Lookup lookup)
+        abstract Object asAttribute(BaseType objclass, Lookup lookup)
                 throws InterpreterError;
 
         /** @return the documentation string (or {@code null}) */
@@ -1211,7 +1212,7 @@ abstract class Exposer {
          * @throws InterpreterError if the method type is not supported
          */
         @Override
-        PyMethodDescr asAttribute(PyType objclass, Lookup lookup)
+        PyMethodDescr asAttribute(BaseType objclass, Lookup lookup)
                 throws InterpreterError {
 
             ArgParser ap = new ArgParser(name, scopeKind,
@@ -1281,7 +1282,7 @@ abstract class Exposer {
          * @throws InterpreterError if the method type is not supported
          */
         @Override
-        PyStaticMethod asAttribute(PyType objclass, Lookup lookup) {
+        PyStaticMethod asAttribute(BaseType objclass, Lookup lookup) {
             assert methodKind == MethodKind.STATIC;
             ArgParser ap = getParser();
 

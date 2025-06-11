@@ -114,7 +114,7 @@ class TypeSystem {
         TypeFactory f = Representation.factory;
 
         @SuppressWarnings("deprecation")
-        SimpleType t = f.typeForType();
+        SimpleType t = Representation.factory.typeForType();
 
         try {
             /*

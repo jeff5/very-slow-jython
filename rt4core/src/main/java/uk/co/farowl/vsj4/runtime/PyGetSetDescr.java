@@ -13,6 +13,7 @@ import java.lang.invoke.MethodType;
 import uk.co.farowl.vsj4.runtime.Exposed.Deleter;
 import uk.co.farowl.vsj4.runtime.Exposed.Getter;
 import uk.co.farowl.vsj4.runtime.Exposed.Setter;
+import uk.co.farowl.vsj4.runtime.kernel.BaseType;
 import uk.co.farowl.vsj4.runtime.kernel.Representation;
 import uk.co.farowl.vsj4.support.InterpreterError;
 import uk.co.farowl.vsj4.support.internal.EmptyException;
@@ -96,7 +97,7 @@ public abstract class PyGetSetDescr extends DataDescriptor {
      * @param klass Java class of attribute accepted by set method
      */
     // Compare CPython PyDescr_NewGetSet
-    PyGetSetDescr(PyType objclass, String name, String doc,
+    PyGetSetDescr(BaseType objclass, String name, String doc,
             Class<?> klass) {
         super(objclass, name);
         this.doc = doc;
@@ -375,7 +376,7 @@ public abstract class PyGetSetDescr extends DataDescriptor {
          * @param klass Java class of attribute accepted by set method
          */
         // Compare CPython PyDescr_NewGetSet
-        Single(PyType objclass, String name, MethodHandle get,
+        Single(BaseType objclass, String name, MethodHandle get,
                 MethodHandle set, MethodHandle delete, String doc,
                 Class<?> klass) {
             super(objclass, name, doc, klass);
@@ -473,7 +474,7 @@ public abstract class PyGetSetDescr extends DataDescriptor {
          * @param klass Java class of attribute accepted by set method
          */
         // Compare CPython PyDescr_NewGetSet
-        Multiple(PyType objclass, String name, MethodHandle[] get,
+        Multiple(BaseType objclass, String name, MethodHandle[] get,
                 MethodHandle[] set, MethodHandle delete[], String doc,
                 Class<?> klass) {
             super(objclass, name, doc, klass);

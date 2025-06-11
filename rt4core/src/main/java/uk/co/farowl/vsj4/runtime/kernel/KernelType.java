@@ -1,14 +1,11 @@
 package uk.co.farowl.vsj4.runtime.kernel;
 
 import java.lang.invoke.MethodType;
-import java.util.Collections;
 import java.util.EnumSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 import uk.co.farowl.vsj4.runtime.PyType;
-import uk.co.farowl.vsj4.runtime.PyType.ConstructorAndHandle;
 import uk.co.farowl.vsj4.runtime.TypeFlag;
 import uk.co.farowl.vsj4.runtime.TypeSpec;
 
@@ -19,8 +16,8 @@ import uk.co.farowl.vsj4.runtime.TypeSpec;
  * takes responsibility for the basic properties of a type towards use
  * from Java. It contains the apparatus to make the type "Java-ready".
  */
-public abstract sealed class KernelType extends Representation
-        permits PyType {
+ public abstract class KernelType extends Representation
+        implements PyType {
 
     /** Name of the type (fully-qualified). */
     protected final String name;
@@ -54,7 +51,7 @@ public abstract sealed class KernelType extends Representation
      * implementation contains all the members necessary to implement
      * the current type.
      */
-    protected PyType base;
+    protected BaseType base;
 
     /**
      * The {@code __bases__} of this type, which are the types named in
@@ -62,7 +59,7 @@ public abstract sealed class KernelType extends Representation
      * {@code object} if none are named, or an empty array in the
      * special case of {@code object} itself.
      */
-    protected PyType[] bases;
+    protected BaseType[] bases;
 
     /**
      * Constructor used by (permitted) subclasses of {@code PyType}.
@@ -72,7 +69,7 @@ public abstract sealed class KernelType extends Representation
      * @param bases of the new type
      */
     protected KernelType(String name, Class<?> javaClass,
-            PyType[] bases) {
+            BaseType[] bases) {
         super(javaClass);
         /*
          * These assertions mainly check our assumptions about the needs
@@ -92,6 +89,7 @@ public abstract sealed class KernelType extends Representation
      *
      * @return the name of the type
      */
+    @Override
     public String getName() { return name; }
 
     /**
@@ -100,6 +98,7 @@ public abstract sealed class KernelType extends Representation
      *
      * @return the sequence of bases
      */
+    @Override
     public PyType[] getBases() { return bases.clone(); }
 
     /**
@@ -110,13 +109,18 @@ public abstract sealed class KernelType extends Representation
      *
      * @return the "best base" type of this type
      */
+    @Override
     public PyType getBase() { return base; }
+
+    @Override
+    public PyType getType() { return PyType.TYPE(); }
 
     /**
      * Return a copy of the MRO of this type.
      *
      * @return a copy of the MRO of this type
      */
+    @Override
     public abstract PyType[] getMRO();
 
     @Override
@@ -135,6 +139,7 @@ public abstract sealed class KernelType extends Representation
      */
     // Compare CPython _PyType_Lookup in typeobject.c
     // and find_name_in_mro in typeobject.c
+    @Override
     public abstract Object lookup(String name);
 
     // C-API Equivalents ---------------------------------------------
@@ -155,6 +160,7 @@ public abstract sealed class KernelType extends Representation
      * @param o object to test
      * @return {@code true} iff {@code o} is of a sub-type of this type
      */
+    @Override
     public boolean check(Object o) {
         PyType t = PyType.of(o);
         return t == this || t.isSubTypeOf(this);
@@ -169,8 +175,14 @@ public abstract sealed class KernelType extends Representation
      * @param o object to test
      * @return {@code true} iff {@code o} is exactly of this type
      */
+    @Override
     public boolean checkExact(Object o) {
         return PyType.of(o) == this;
+    }
+
+    @Override
+    public final boolean hasFeature(TypeFlag feature) {
+        return features.contains(feature);
     }
 
     /**
@@ -180,7 +192,6 @@ public abstract sealed class KernelType extends Representation
      * @param feature to check for
      * @return whether present
      */
-    // protected ?
     public final boolean hasFeature(KernelTypeFlag feature) {
         return kernelFeatures.contains(feature);
     }
@@ -200,6 +211,7 @@ public abstract sealed class KernelType extends Representation
      *
      * @return {@code true} iff this is a mutable type
      */
+    @Override
     public abstract boolean isMutable();
 
     /**
@@ -209,6 +221,7 @@ public abstract sealed class KernelType extends Representation
      * @return target is a sequence
      */
     // Compare CPython PySequence_Check (on instance) in abstract.c
+    @Override
     public boolean isSequence() {
         return kernelFeatures.contains(KernelTypeFlag.HAS_GETITEM)
                 && !features.contains(TypeFlag.DICT_SUBCLASS);
@@ -220,6 +233,7 @@ public abstract sealed class KernelType extends Representation
      *
      * @return target is a iterable with {@code __iter__}
      */
+    @Override
     public boolean isIterable() {
         return kernelFeatures.contains(KernelTypeFlag.HAS_ITER);
     }
@@ -230,6 +244,7 @@ public abstract sealed class KernelType extends Representation
      *
      * @return target is a an iterator
      */
+    @Override
     public boolean isIterator() {
         return kernelFeatures.contains(KernelTypeFlag.HAS_NEXT);
     }
@@ -240,6 +255,7 @@ public abstract sealed class KernelType extends Representation
      *
      * @return target is a descriptor
      */
+    @Override
     public boolean isDescr() {
         return kernelFeatures.contains(KernelTypeFlag.HAS_GET);
     }
@@ -250,6 +266,7 @@ public abstract sealed class KernelType extends Representation
      *
      * @return target is a data descriptor
      */
+    @Override
     public boolean isDataDescr() {
         return kernelFeatures.contains(KernelTypeFlag.HAS_SET)
                 || kernelFeatures.contains(KernelTypeFlag.HAS_DELETE);
@@ -276,6 +293,7 @@ public abstract sealed class KernelType extends Representation
      *
      * @return target is a method descriptor
      */
+    @Override
     public boolean isMethodDescr() {
         return features.contains(TypeFlag.METHOD_DESCR);
     }
@@ -323,6 +341,7 @@ public abstract sealed class KernelType extends Representation
      *
      * @return the lookup for constructors and handles
      */
+    @Override
     public abstract Map<MethodType, ConstructorAndHandle>
             constructorLookup();
 
@@ -336,6 +355,7 @@ public abstract sealed class KernelType extends Representation
      * @return a constructor and a handle on it
      */
     // Compare CPython type slot tp_alloc (but only loosely).
+    @Override
     public abstract ConstructorAndHandle constructor(Class<?>... param);
 
     /**
@@ -361,6 +381,7 @@ public abstract sealed class KernelType extends Representation
      *
      * @return the bases of classes allowed as {@code self}
      */
+    @Override
     public abstract List<Class<?>> selfClasses();
 
     /**
@@ -377,6 +398,7 @@ public abstract sealed class KernelType extends Representation
      *
      * @return the canonical Java representation class of {@code self}
      */
+    @Override
     public abstract Class<?> canonicalClass();
 
     /**

@@ -5,6 +5,7 @@ package uk.co.farowl.vsj4.runtime;
 import java.lang.invoke.MethodHandle;
 
 import uk.co.farowl.vsj4.runtime.ArgumentError.Mode;
+import uk.co.farowl.vsj4.runtime.kernel.BaseType;
 
 /**
  * Abstract base class for the descriptor of a method defined in Java.
@@ -22,7 +23,7 @@ public abstract class MethodDescriptor extends Descriptor
      * @param objclass that defines the attribute being described
      * @param name of the object described as {@code __name__}
      */
-    MethodDescriptor(PyType objclass, String name) {
+    MethodDescriptor(BaseType objclass, String name) {
         super(objclass, name);
     }
 

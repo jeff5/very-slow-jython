@@ -15,6 +15,7 @@ import java.util.stream.StreamSupport;
 
 import uk.co.farowl.vsj4.runtime.PySlice.Indices;
 import uk.co.farowl.vsj4.runtime.PyUtil.NoConversion;
+import uk.co.farowl.vsj4.runtime.kernel.BaseType;
 import uk.co.farowl.vsj4.runtime.kernel.KernelTypeFlag;
 import uk.co.farowl.vsj4.runtime.kernel.Representation;
 import uk.co.farowl.vsj4.support.internal.EmptyException;
@@ -261,7 +262,7 @@ public class PySequence extends Abstract {
             fastNewList(Object o, Supplier<E> exc) throws E, Throwable {
         List<Object> list = new ArrayList<>();
         Representation rep = PyType.getRepresentation(o);
-        PyType type = rep.pythonType(o);
+        BaseType type = rep.pythonType(o);
 
         if (type.hasFeature(KernelTypeFlag.HAS_ITER)) {
             // Go via the iterator on o
