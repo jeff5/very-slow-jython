@@ -87,14 +87,14 @@ public class PyFloat implements WithClass {
          * value extracted from (potentially) a sub-type of PyFloat, and
          * does not try to convert from strings.
          */
-        Representation rep = PyType.getRepresentation(o);
+        Representation rep = Abstract.representation(o);
 
         if (rep.isFloatExact()) { return doubleValue(o); }
 
         // Try __float__ (if defined)
         try {
             Object flt = rep.op_float().invokeExact(o);
-            Representation resRep = PyType.getRepresentation(flt);
+            Representation resRep = Abstract.representation(flt);
             if (!resRep.isFloatExact()) {
                 PyType resType = resRep.pythonType(flt);
                 if (resType.isSubTypeOf(PyFloat.TYPE))

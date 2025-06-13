@@ -453,7 +453,7 @@ public class PyLong implements /* PyDict.Key, */ WithClass {
      */
     // Compare CPython longobject.c :: long_long
     static Object from(Object value) throws PyBaseException {
-        Representation ops = PyType.getRepresentation(value);
+        Representation ops = Abstract.representation(value);
         if (ops.isIntExact())
             return value;
         else if (value instanceof PyLong)

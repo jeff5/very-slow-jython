@@ -81,7 +81,7 @@ public abstract class Representation {
      * @param o for which a representation of the class is needed
      * @return the representation
      */
-    public static Representation get(Object o) {
+    static Representation get(Object o) {
         return registry.get(o.getClass());
     }
 

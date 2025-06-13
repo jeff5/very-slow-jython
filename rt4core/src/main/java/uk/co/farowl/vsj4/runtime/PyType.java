@@ -72,6 +72,7 @@ public interface PyType extends WithClass, FastCall {
      * @return a copy of the MRO of this type
      */
     PyType[] getMRO();
+
     // C-API Equivalents ---------------------------------------------
 
     /*
@@ -306,18 +307,6 @@ public interface PyType extends WithClass, FastCall {
     abstract ConstructorAndHandle constructor(Class<?>... param);
 
     // static methods -----------------------------------------------
-
-    /**
-     * Determine (or create if necessary) the {@link Representation} for
-     * the given object. The representation is found (in the type
-     * registry) from the Java class of the argument.
-     *
-     * @param o for which a {@code Representation} is required
-     * @return the {@code Representation}
-     */
-    static Representation getRepresentation(Object o) {
-        return TypeSystem.registry.get(o.getClass());
-    }
 
     /**
      * The Python {@code type} object. The type objects of many built-in

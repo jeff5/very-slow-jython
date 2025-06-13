@@ -1,4 +1,4 @@
-// Copyright (c)2024 Jython Developers.
+// Copyright (c)2025 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
 
@@ -7,11 +7,12 @@ import uk.co.farowl.vsj4.runtime.kernel.TypeRegistry;
 /** Operations on Python objects. */
 public class Py {
 
-    /** The (static singleton) registry created by PyType. */
-    private static final TypeRegistry registry = TypeSystem.registry;
+    /** The (static singleton) registry. */
+    private static final TypeRegistry registry;
 
     static {
         // Failure indicates type system initialisation problem.
+        registry = TypeSystem.registry;
         assert registry != null;
     }
 

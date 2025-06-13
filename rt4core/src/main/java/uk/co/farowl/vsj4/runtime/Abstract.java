@@ -8,6 +8,7 @@ import java.util.function.Supplier;
 import uk.co.farowl.vsj4.runtime.internal._PyUtil;
 import uk.co.farowl.vsj4.runtime.kernel.Representation;
 import uk.co.farowl.vsj4.runtime.kernel.SpecialMethod;
+import uk.co.farowl.vsj4.runtime.kernel.TypeRegistry;
 import uk.co.farowl.vsj4.support.InterpreterError;
 import uk.co.farowl.vsj4.support.internal.EmptyException;
 
@@ -23,6 +24,26 @@ import uk.co.farowl.vsj4.support.internal.EmptyException;
  */
 // Compare CPython Objects/abstract.c
 public class Abstract {
+
+    /**
+     * Single registry from which we get {@code Representations}. A side
+     * effect of this shorthand is to ensure that the {@link TypeSystem}
+     * is statically initialised before we use any API method.
+     */
+    private static final TypeRegistry registry = TypeSystem.registry;
+
+    /**
+     * Get the representation of the class of an object, from which
+     * handles on its special methods are immediately accessible. This
+     * is the equivalent
+     * of<pre>TypeSystem.registry.get(o.getClass())</pre>
+     *
+     * @param o object
+     * @return representation for operating on {@code o}
+     */
+    final static Representation representation(Object o) {
+        return registry.get(o.getClass());
+    }
 
     /**
      * There are only static methods here, so no instances should be
@@ -48,8 +69,7 @@ public class Abstract {
         if (o == null) {
             return "<null>";
         } else {
-            Representation rep = PyType.getRepresentation(o);
-            MethodHandle repr = rep.op_repr();
+            MethodHandle repr = representation(o).op_repr();
             try {
                 Object res = repr.invoke(o);
                 if (PyUnicode.TYPE.check(res)) {
@@ -81,8 +101,7 @@ public class Abstract {
             return o;
         } else {
             try {
-                Representation rep = PyType.getRepresentation(o);
-                Object res = rep.op_str().invokeExact(o);
+                Object res = representation(o).op_str().invokeExact(o);
                 if (PyUnicode.TYPE.check(res)) {
                     return res;
                 } else {
@@ -113,7 +132,7 @@ public class Abstract {
                 throw new EmptyException();
             }
             // XXX Replace when this slot is defined:
-            // Representation rep=PyType.getRepresentation(o);
+            // Representation rep=representation(o);
             // MethodHandle mh=rep.op_tojava();
             // return (T)mh.invokeExact(o, c);
         } catch (NullPointerException npe) {
@@ -135,7 +154,7 @@ public class Abstract {
      * @throws Throwable on errors within {@code __hash__}
      */
     public static int hash(Object v) throws PyBaseException, Throwable {
-        Representation rep = PyType.getRepresentation(v);
+        Representation rep = representation(v);
         try {
             return (int)rep.op_hash().invokeExact(v);
         } catch (EmptyException e) {
@@ -160,7 +179,7 @@ public class Abstract {
         else if (v == Py.False || v == Py.None)
             return false;
         else {
-            Representation rep = PyType.getRepresentation(v);
+            Representation rep = representation(v);
             try {
                 // Ask the object through __bool__.
                 return (boolean)rep.op_bool().invokeExact(v);
@@ -264,7 +283,7 @@ public class Abstract {
     public static Object getAttr(Object o, String name)
             throws PyAttributeError, Throwable {
         // Decisions are based on type of o (that of name is known)
-        Representation rep = PyType.getRepresentation(o);
+        Representation rep = representation(o);
         try {
             // Invoke __getattribute__.
             return rep.op_getattribute().invokeExact(o, name);
@@ -314,7 +333,7 @@ public class Abstract {
     public static Object lookupAttr(Object o, String name)
             throws Throwable {
         // Decisions are based on type of o (that of name is known)
-        Representation rep = PyType.getRepresentation(o);
+        Representation rep = representation(o);
         try {
             // Invoke __getattribute__
             return rep.op_getattribute().invokeExact(o, name);
@@ -364,7 +383,7 @@ public class Abstract {
     public static void setAttr(Object o, String name, Object value)
             throws PyAttributeError, Throwable {
         // Decisions are based on type of o (that of name is known)
-        Representation rep = PyType.getRepresentation(o);
+        Representation rep = representation(o);
         try {
             rep.op_setattr().invokeExact(o, name, value);
         } catch (EmptyException e) {
@@ -407,7 +426,7 @@ public class Abstract {
     public static void delAttr(Object o, String name)
             throws PyAttributeError, Throwable {
         // Decisions are based on type of o (that of name is known)
-        Representation rep = PyType.getRepresentation(o);
+        Representation rep = representation(o);
         try {
             rep.op_delattr().invokeExact(o, name);
         } catch (EmptyException e) {
@@ -730,7 +749,7 @@ public class Abstract {
             return null;
         } else {
             // res might be a descriptor
-            Representation rep = PyType.getRepresentation(res);
+            Representation rep = representation(res);
             try {
                 // invoke the descriptor's __get__
                 MethodHandle f = rep.op_get();
@@ -777,14 +796,12 @@ public class Abstract {
     static <E extends PyBaseException> Object getIterator(Object o,
             Supplier<E> exc) throws PyBaseException, Throwable {
 
-        Representation orep = PyType.getRepresentation(o);
-        PyType otype = orep.pythonType(o);
-
+        Representation orep = representation(o);
         try {
             // Call o.__iter__, which may be empty.
             Object i = orep.op_iter().invokeExact(o);
             // Did that return an iterator? Check i defines __next__.
-            Representation irep = PyType.getRepresentation(i);
+            Representation irep = representation(i);
             if (irep.pythonType(i).isIterator()) {
                 return i;
             } else if (exc == null) {
@@ -792,7 +809,7 @@ public class Abstract {
             }
         } catch (EmptyException e) {
             // otype does not define __iter__: try __getitem__
-            if (otype.isSequence()) {
+            if (orep.pythonType(o).isSequence()) {
                 // o defines __getitem__: make a (Python) iterator.
                 return new PyIterator(o);
             }
@@ -840,9 +857,8 @@ public class Abstract {
      */
     // Compare CPython PyIter_Next in abstract.c
     static Object next(Object iter) throws Throwable {
-        Representation rep = PyType.getRepresentation(iter);
         try {
-            return rep.op_next().invokeExact(iter);
+            return representation(iter).op_next().invokeExact(iter);
         } catch (PyStopIteration e) {
             return null;
         } catch (EmptyException e) {
@@ -877,8 +893,7 @@ public class Abstract {
                 break;
         }
         // Can we even read the attribute?
-        Representation rep = PyType.getRepresentation(o);
-        PyType type = rep.pythonType(o);
+        PyType type = PyType.of(o);
         boolean readable = type.lookup("__getattribute__") != null
                 || type.lookup("__getattr__") != null;
         kind = readable ? "only read-only" : "no";

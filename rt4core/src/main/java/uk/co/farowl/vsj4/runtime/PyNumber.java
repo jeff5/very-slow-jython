@@ -29,7 +29,7 @@ public class PyNumber extends Abstract {
      */
     public static Object negative(Object v) throws Throwable {
         try {
-            return PyType.getRepresentation(v).op_neg().invokeExact(v);
+            return representation(v).op_neg().invokeExact(v);
         } catch (EmptyException e) {
             throw SpecialMethod.op_neg.operandError(v);
         }
@@ -44,8 +44,7 @@ public class PyNumber extends Abstract {
      */
     public static Object invert(Object v) throws Throwable {
         try {
-            return PyType.getRepresentation(v).op_invert()
-                    .invokeExact(v);
+            return representation(v).op_invert().invokeExact(v);
         } catch (EmptyException e) {
             throw SpecialMethod.op_invert.operandError(v);
         }
@@ -60,7 +59,7 @@ public class PyNumber extends Abstract {
      */
     public static Object absolute(Object v) throws Throwable {
         try {
-            return PyType.getRepresentation(v).op_abs().invokeExact(v);
+            return representation(v).op_abs().invokeExact(v);
         } catch (EmptyException e) {
             throw SpecialMethod.op_abs.operandError(v);
         }
@@ -175,10 +174,10 @@ public class PyNumber extends Abstract {
     private static Object binary_op1(Object v, Object w,
             SpecialMethod binop) throws EmptyException, Throwable {
 
-        Representation vOps = PyType.getRepresentation(v);
+        Representation vOps = representation(v);
         PyType vType = vOps.pythonType(v);
 
-        Representation wOps = PyType.getRepresentation(w);
+        Representation wOps = representation(w);
         PyType wType = wOps.pythonType(w);
 
         MethodHandle slotv, slotw;
@@ -195,6 +194,7 @@ public class PyNumber extends Abstract {
 
         } else if (!wType.isSubTypeOf(vType)) {
             // Ask left (if not empty) then right.
+            // FIXME comparison with EMPTY is not valid approach
             slotv = binop.handle(vOps);
             if (slotv != BINARY_EMPTY) {
                 Object r = slotv.invokeExact(v, w);
@@ -206,6 +206,7 @@ public class PyNumber extends Abstract {
         } else {
             // Right is sub-class: ask first (if not empty).
             slotw = binop.getAltSlot(wOps);
+            // FIXME comparison with EMPTY is not valid approach
             if (slotw != BINARY_EMPTY) {
                 Object r = slotw.invokeExact(w, v);
                 if (r != Py.NotImplemented) { return r; }
@@ -255,7 +256,7 @@ public class PyNumber extends Abstract {
     // Compare with CPython abstract.c :: _PyNumber_Index
     static Object index(Object o) throws PyBaseException, Throwable {
 
-        Representation rep = PyType.getRepresentation(o);
+        Representation rep = representation(o);
         Object res;
 
         if (rep.isIntExact())
@@ -264,7 +265,7 @@ public class PyNumber extends Abstract {
             try {
                 res = rep.op_index().invokeExact(o);
                 // Enforce expectations on the return type
-                Representation resRep = PyType.getRepresentation(res);
+                Representation resRep = representation(res);
                 if (resRep.isIntExact())
                     return res;
                 else if (resRep.pythonType(res)
@@ -380,7 +381,7 @@ public class PyNumber extends Abstract {
     // Compare with CPython abstract.h :: PyNumber_Long
     static Object asLong(Object o) throws PyBaseException, Throwable {
 
-        Representation rep = PyType.getRepresentation(o);
+        Representation rep = representation(o);
 
         if (rep.isIntExact()) { return o; }
 
@@ -388,7 +389,7 @@ public class PyNumber extends Abstract {
 
         try { // calling __int__
             Object result = rep.op_int().invokeExact(o);
-            Representation resultRep = PyType.getRepresentation(result);
+            Representation resultRep = representation(result);
             if (!resultRep.isIntExact()) {
                 BaseType resultType = resultRep.pythonType(result);
                 if (resultType.hasFeature(TypeFlag.INT_SUBCLASS)) {

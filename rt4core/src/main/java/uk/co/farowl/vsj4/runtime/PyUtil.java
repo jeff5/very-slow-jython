@@ -71,7 +71,7 @@ public class PyUtil {
         if (TypeSystem.systemReady()) {
             Representation rep = null;
             try {
-                rep = PyType.getRepresentation(o);
+                rep = Abstract.representation(o);
                 MethodHandle str = rep.op_str();
                 Object r = str.invokeExact(o);
                 return r.toString();

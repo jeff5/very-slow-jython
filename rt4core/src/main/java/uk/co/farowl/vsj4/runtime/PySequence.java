@@ -40,7 +40,7 @@ public class PySequence extends Abstract {
     public static int size(Object o) throws Throwable {
         // Note that the slot is called op_len but this method, size.
         try {
-            return (int)PyType.getRepresentation(o).op_len()
+            return (int)representation(o).op_len()
                     .invokeExact(o);
         } catch (EmptyException e) {
             throw typeError(HAS_NO_LEN, o);
@@ -91,7 +91,7 @@ public class PySequence extends Abstract {
             throws Throwable {
         // Decisions are based on types of o and key
         try {
-            Representation rep = PyType.getRepresentation(o);
+            Representation rep = representation(o);
             return rep.op_getitem().invokeExact(o, key);
         } catch (EmptyException e) {
             throw typeError(NOT_SUBSCRIPTABLE, o);
@@ -117,7 +117,7 @@ public class PySequence extends Abstract {
         // Decisions are based on type of o and known type of key
         try {
             Object key = new PySlice(i1, i2);
-            Representation rep = PyType.getRepresentation(o);
+            Representation rep = representation(o);
             return rep.op_getitem().invokeExact(o, key);
         } catch (EmptyException e) {
             throw typeError(NOT_SLICEABLE, o);
@@ -139,7 +139,7 @@ public class PySequence extends Abstract {
     public static void setItem(Object o, Object key, Object value)
             throws Throwable {
         // Decisions are based on types of o and key
-        Representation rep = PyType.getRepresentation(o);
+        Representation rep = representation(o);
         try {
             rep.op_setitem().invokeExact(o, key, value);
             return;
@@ -161,7 +161,7 @@ public class PySequence extends Abstract {
     // Compare CPython PyObject_DelItem in abstract.c
     public static void delItem(Object o, Object key) throws Throwable {
         // Decisions are based on types of o and key
-        Representation rep = PyType.getRepresentation(o);
+        Representation rep = representation(o);
         try {
             rep.op_delitem().invokeExact(o, key);
             return;
@@ -261,14 +261,14 @@ public class PySequence extends Abstract {
     private static <E extends PyBaseException> List<Object>
             fastNewList(Object o, Supplier<E> exc) throws E, Throwable {
         List<Object> list = new ArrayList<>();
-        Representation rep = PyType.getRepresentation(o);
+        Representation rep = representation(o);
         BaseType type = rep.pythonType(o);
 
         if (type.hasFeature(KernelTypeFlag.HAS_ITER)) {
             // Go via the iterator on o
             Object iter = rep.op_iter().invokeExact(o);
             // Check iter is an iterator (defines __next__).
-            Representation iterRep = PyType.getRepresentation(iter);
+            Representation iterRep = representation(iter);
             if (iterRep.hasFeature(iter, KernelTypeFlag.HAS_NEXT)) {
                 // Create a handle on __next__
                 MethodHandle next = iterRep.op_next().bindTo(iter);
@@ -997,7 +997,7 @@ public class PySequence extends Abstract {
 
         // Create an iterator on o and a bound handle on __next__
         Object iter = getIterator(o);
-        Representation iterOps = PyType.getRepresentation(iter);
+        Representation iterOps = representation(iter);
         MethodHandle next = iterOps.op_next().bindTo(iter);
 
         // Iterate o into the collection
