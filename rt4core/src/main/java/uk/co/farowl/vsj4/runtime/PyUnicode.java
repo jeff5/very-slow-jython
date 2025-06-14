@@ -132,9 +132,7 @@ public class PyUnicode implements WithClass, PyDict.Key {
      *
      * @param codePoints the array of code points
      */
-    protected PyUnicode(int... codePoints) {
-        this(false, -1, codePoints);
-    }
+    PyUnicode(int... codePoints) { this(false, -1, codePoints); }
 
     /**
      * Construct an instance of {@code PyUnicode}, a {@code str} or a
@@ -143,7 +141,7 @@ public class PyUnicode implements WithClass, PyDict.Key {
      *
      * @param value from which to take the code points
      */
-    protected PyUnicode(IntArrayBuilder value) {
+    PyUnicode(IntArrayBuilder value) {
         this(true, value.max(), value.take());
     }
 
@@ -154,7 +152,7 @@ public class PyUnicode implements WithClass, PyDict.Key {
      *
      * @param value from which to take the code points
      */
-    protected PyUnicode(IntArrayReverseBuilder value) {
+    PyUnicode(IntArrayReverseBuilder value) {
         this(true, value.max(), value.take());
     }
 
@@ -166,7 +164,7 @@ public class PyUnicode implements WithClass, PyDict.Key {
      *
      * @param value to have
      */
-    protected PyUnicode(String value) {
+    PyUnicode(String value) {
         this((new IntArrayBuilder()).append(value.codePoints()));
     }
 

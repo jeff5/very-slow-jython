@@ -45,6 +45,7 @@ public abstract class MethodDescriptor extends Descriptor
      * @throws IndexOutOfBoundsException if the index is in the range
      *     acceptable to {@link Descriptor#objclass}.
      */
+    // public so that the kernel package may call it.
     public abstract MethodHandle getHandle(int selfClassIndex)
             throws IndexOutOfBoundsException;
 

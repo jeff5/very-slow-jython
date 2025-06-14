@@ -37,9 +37,9 @@ public class PyStaticMethod implements WithDict {
     private Object callable;
     /** Actual Python type of the object. */
     // TODO enforce BaseType
-    protected final PyType type;
+    final PyType type;
     /** Instance dictionary also exposed as {@code __dict__} */
-    protected PyDict dict = new PyDict();
+    PyDict dict = new PyDict();
 
     /**
      * Construct a {@code staticmethod} wrapping the given object as the
@@ -50,7 +50,7 @@ public class PyStaticMethod implements WithDict {
      * @param descrtype actual Python type of this object
      * @param callable to be wrapped
      */
-    protected PyStaticMethod(PyType descrtype, Object callable) {
+    PyStaticMethod(PyType descrtype, Object callable) {
         this.type = descrtype;
         this.setCallable(callable);
     }

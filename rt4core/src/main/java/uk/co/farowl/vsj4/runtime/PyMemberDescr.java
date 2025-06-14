@@ -38,11 +38,11 @@ public abstract class PyMemberDescr extends DataDescriptor {
      * sub-class attribute, to minimise work in
      * {@link #checkSet(Object)} and {@link #checkDelete(Object)}
      */
-    protected final EnumSet<Flag> flags;
+    final EnumSet<Flag> flags;
 
     /** Reference to the field (offset) to access. */
     // Compare CPython PyMemberDef: int type; int offset;
-    protected VarHandle field;
+    VarHandle field;
 
     /** Documentation string for the member (or {@code null}). */
     String doc;
@@ -90,7 +90,7 @@ public abstract class PyMemberDescr extends DataDescriptor {
      *     {@code sys.audit} call into this check.
      */
     @Override
-    protected void check(Object obj) throws PyBaseException {
+    void check(Object obj) throws PyBaseException {
         PyType objType = PyType.of(obj);
         if (!objType.isSubTypeOf(objclass)) {
             throw selfTypeError(objType);
@@ -118,7 +118,7 @@ public abstract class PyMemberDescr extends DataDescriptor {
      */
     // Compare CPython descr_setcheck in descrobject.c
     @Override
-    protected void checkSet(Object obj) throws PyBaseException {
+    void checkSet(Object obj) throws PyBaseException {
         PyType objType = PyType.of(obj);
         if (!objType.isSubTypeOf(objclass)) {
             throw selfTypeError(objType);
@@ -142,7 +142,7 @@ public abstract class PyMemberDescr extends DataDescriptor {
      */
     // Compare CPython descr_setcheck in descrobject.c
     @Override
-    protected void checkDelete(Object obj) throws PyBaseException {
+    void checkDelete(Object obj) throws PyBaseException {
         PyType objType = PyType.of(obj);
         if (!objType.isSubTypeOf(objclass)) {
             throw selfTypeError(objType);
@@ -167,7 +167,7 @@ public abstract class PyMemberDescr extends DataDescriptor {
      * @return field value
      */
     // Compare CPython PyMember_GetOne in structmember.c
-    protected abstract Object get(Object obj) throws PyAttributeError;
+    abstract Object get(Object obj) throws PyAttributeError;
 
     /**
      * A method to set {@code o.name = v}, with conversion to the
@@ -181,7 +181,7 @@ public abstract class PyMemberDescr extends DataDescriptor {
      * @throws Throwable potentially from conversion
      */
     // Compare CPython PyMember_SetOne in structmember.c
-    protected abstract void set(Object obj, Object v)
+    abstract void set(Object obj, Object v)
             throws PyAttributeError, PyBaseException, Throwable;
 
     /**
@@ -199,8 +199,7 @@ public abstract class PyMemberDescr extends DataDescriptor {
      * @throws PyAttributeError when already deleted/undefined
      */
     // Compare CPython PyMember_SetOne in structmember.c with NULL
-    protected void delete(Object obj)
-            throws PyBaseException, PyAttributeError {
+    void delete(Object obj) throws PyBaseException, PyAttributeError {
         throw cannotDeleteAttr();
     }
 
@@ -353,10 +352,10 @@ public abstract class PyMemberDescr extends DataDescriptor {
         }
 
         @Override
-        protected Object get(Object obj) { return (int)field.get(obj); }
+        Object get(Object obj) { return (int)field.get(obj); }
 
         @Override
-        protected void set(Object obj, Object value)
+        void set(Object obj, Object value)
                 throws PyBaseException, Throwable {
             int v = PyNumber.asSize(value, null);
             field.set(obj, v);
@@ -371,12 +370,10 @@ public abstract class PyMemberDescr extends DataDescriptor {
         }
 
         @Override
-        protected Object get(Object obj) {
-            return (double)field.get(obj);
-        }
+        Object get(Object obj) { return (double)field.get(obj); }
 
         @Override
-        protected void set(Object obj, Object value)
+        void set(Object obj, Object value)
                 throws PyBaseException, Throwable {
             double v = PyFloat.asDouble(value);
             field.set(obj, v);
@@ -394,7 +391,7 @@ public abstract class PyMemberDescr extends DataDescriptor {
          *
          * Delete sets the attribute implementation to {@code null}.
          */
-        protected final boolean optional;
+        final boolean optional;
 
         Reference(BaseType objclass, String name, VarHandle handle,
                 EnumSet<Flag> flags, String doc, boolean optional) {
@@ -410,7 +407,7 @@ public abstract class PyMemberDescr extends DataDescriptor {
          * AttributeError}.
          */
         @Override
-        protected void delete(Object obj) {
+        void delete(Object obj) {
             if (optional && field.get(obj) == null)
                 throw _PyUtil.noAttributeOnType(objclass, name);
             field.set(obj, null);
@@ -429,7 +426,7 @@ public abstract class PyMemberDescr extends DataDescriptor {
         }
 
         @Override
-        protected Object get(Object obj) {
+        Object get(Object obj) {
             String value = (String)field.get(obj);
             if (value == null) {
                 if (optional)
@@ -441,7 +438,7 @@ public abstract class PyMemberDescr extends DataDescriptor {
         }
 
         @Override
-        protected void set(Object obj, Object value)
+        void set(Object obj, Object value)
                 throws PyBaseException, Throwable {
             // Special-case None if *not* an optional attribute
             if (value == Py.None && !optional) {
@@ -467,7 +464,7 @@ public abstract class PyMemberDescr extends DataDescriptor {
         }
 
         @Override
-        protected Object get(Object obj) {
+        Object get(Object obj) {
             Object value = field.get(obj);
             if (value == null) {
                 if (optional)
@@ -479,7 +476,7 @@ public abstract class PyMemberDescr extends DataDescriptor {
         }
 
         @Override
-        protected void set(Object obj, Object value)
+        void set(Object obj, Object value)
                 throws PyBaseException, Throwable {
             // Special-case None if *not* an optional attribute
             if (value == Py.None && !optional) { delete(obj); return; }

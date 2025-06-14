@@ -19,7 +19,7 @@ import uk.co.farowl.vsj4.runtime.kernel.BaseType;
  *     static initialisation of the Java class for that descriptor and
  *     be able to execute the constructor.
  */
-public abstract class Descriptor implements WithClass {
+abstract class Descriptor implements WithClass {
 
     /**
      * Python {@code type} that defines the unbound member, attribute or
@@ -54,7 +54,7 @@ public abstract class Descriptor implements WithClass {
      * @param objclass that defines the attribute being described
      * @param name of the object described as {@code __name__}
      */
-    protected Descriptor(BaseType objclass, String name) {
+    Descriptor(BaseType objclass, String name) {
         assert objclass != null;
         this.objclass = objclass;
         assert name != null;

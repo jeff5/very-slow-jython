@@ -111,7 +111,7 @@ public enum TypeFlag {
     /** The type is a subclass of {@code BaseException}. */
     // Compare CPython Py_TPFLAGS_BASE_EXC_SUBCLASS
     EXCEPTION_SUBCLASS,
-    /** The type is a subclass of . */
+    /** The type is a subclass of {@code type}. */
     // Compare CPython Py_TPFLAGS_TYPE_SUBCLASS
     TYPE_SUBCLASS;
 

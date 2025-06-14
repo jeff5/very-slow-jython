@@ -40,8 +40,7 @@ public class PySequence extends Abstract {
     public static int size(Object o) throws Throwable {
         // Note that the slot is called op_len but this method, size.
         try {
-            return (int)representation(o).op_len()
-                    .invokeExact(o);
+            return (int)representation(o).op_len().invokeExact(o);
         } catch (EmptyException e) {
             throw typeError(HAS_NO_LEN, o);
         }
@@ -275,8 +274,8 @@ public class PySequence extends Abstract {
                 // Iterate o into a list
                 try {
                     for (;;) { list.add(next.invokeExact()); }
-                } catch (PyBaseException e) {
-                    e.only(PyExc.StopIteration);
+                } catch (PyStopIteration stop) {
+                    // Not a problem. (Every other exception is.)
                 }
                 return list;
             } // else fall out at throw exc
@@ -1004,8 +1003,8 @@ public class PySequence extends Abstract {
         R r = factory.get();
         try {
             for (;;) { accumulator.accept(r, next.invokeExact()); }
-        } catch (PyBaseException stop) {
-            stop.only(PyExc.StopIteration);
+        } catch (PyStopIteration stop) {
+            // Not a problem. (Every other exception is.)
         }
         return r;
     }

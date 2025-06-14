@@ -973,9 +973,9 @@ public abstract sealed class BaseType extends KernelType
         } else {
             /*
              * The method descriptor is in a super class. Every
-             * representation class of this type must be
-             * assignment-compatible with a self-class where we found
-             * the descriptor (index 0 or an accepted class).
+             * representation class of this type should be
+             * assignment-compatible with one of the self-classes of the
+             * Python type where we found the descriptor.
              */
             List<Class<?>> classes = where.selfClasses();
             for (Representation rep : representations()) {

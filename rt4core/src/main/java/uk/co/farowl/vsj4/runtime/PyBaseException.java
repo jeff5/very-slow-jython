@@ -14,8 +14,8 @@ import uk.co.farowl.vsj4.runtime.Exposed.KeywordCollector;
 import uk.co.farowl.vsj4.runtime.Exposed.PositionalCollector;
 
 /**
- * The Python {@code BaseException} and many common Python exceptions
- * (for example {@code TypeError}) are represented by instances of this
+ * The Python {@code BaseException}, and many common Python exceptions
+ * (for example {@code TypeError}), are represented by instances of this
  * Java class. A Java subclass of {@code PyBaseException} is defined
  * only where a Python exception subclass adds fields to its parent.
  * <p>
@@ -32,8 +32,8 @@ import uk.co.farowl.vsj4.runtime.Exposed.PositionalCollector;
  * The implementation follows CPython closely, where the implementation
  * of many exception types is shared with multiple others. This allows
  * multiple inheritance and class assignment amongst user-defined
- * exceptions, with diverse built-in bases, in ways that may be
- * surprising. The following is valid in Python: <pre>
+ * exceptions with diverse built-in bases, in ways that may be
+ * surprising. The following is discouraged but valid in Python: <pre>
  * class TE(TypeError): __slots__=()
  * class FPE(FloatingPointError): __slots__=()
  * TE().__class__ = FPE
@@ -46,11 +46,11 @@ import uk.co.farowl.vsj4.runtime.Exposed.PositionalCollector;
  * are defined in this class, to share the representation of
  * {@code BaseException}.
  * <p>
- * Since different Python exceptions are represented by the same
- * classes, we cannot use a Java {@code catch} clause to select them. We
- * must catch the representation class of the intended Python exception,
- * and re-throw it if it does not match. Method {@link #only(PyType)} is
- * provided to make this simpler.
+ * It follows that we cannot generally use the exception class in a Java
+ * {@code catch} clause to select amongst Python exceptions. We must
+ * catch the representation class of the intended Python exception, and
+ * re-throw it if it does not match the intended Python type. Method
+ * {@link #only(PyType)} is provided to make this simpler.
  *
  * @implNote It would have been convenient, when catching exceptions in
  *     Java, if the different classes of Python exception could have
@@ -86,7 +86,7 @@ public class PyBaseException extends RuntimeException
      * arguments from {@code __new__} or {@code __init__}. Not
      * {@code null}.
      */
-    protected PyTuple args;
+    PyTuple args;
 
     /**
      * A list of the notes added to this exception. Exposed as
@@ -156,7 +156,16 @@ public class PyBaseException extends RuntimeException
      * If the Python type of this exception is not the {@code wanted}
      * type, immediately re-throw it, with its original stack trace.
      * This may be used at the top of a catch clause to narrow the
-     * caught exception almost as if it were a Java type.
+     * caught exception almost as if it were a Java type. For
+     * example:<pre>
+     *     try {
+     *         return PyLong.asSize(value);
+     *     } catch (PyBaseException e) {
+     *         // Re-raise everything that is not OverflowError
+     *         e.only(PyExc.OverflowError);
+     *         // ... handle overflow here.
+     *     }
+     * </pre>
      *
      * @param wanted type for which the method returns normally
      */
@@ -240,7 +249,7 @@ public class PyBaseException extends RuntimeException
      * @return {@code str()} of this Python object.
      * @throws Throwable from getting the {@code str()} of {@code args}
      */
-    protected Object __str__() throws Throwable {
+    Object __str__() throws Throwable {
         return switch (args.size()) {
             case 0 -> "";
             case 1 -> Abstract.str(args.get(0));
@@ -252,7 +261,7 @@ public class PyBaseException extends RuntimeException
      * @return {@code repr()} of this Python object.
      * @throws Throwable from getting the {@code repr()} of {@code args}
      */
-    protected Object __repr__() throws Throwable {
+    Object __repr__() throws Throwable {
         String prefix = type.getName() + "(";
         StringJoiner sj = new StringJoiner(",", prefix, ")");
         for (Object o : args) {
@@ -276,7 +285,7 @@ public class PyBaseException extends RuntimeException
      */
     // Compare CPython SimpleExtendsException in exceptions.c
     // ... or (same to us) MiddlingExtendsException
-    protected static PyType extendsException(PyType excbase,
+    public static PyType extendsException(PyType excbase,
             String excname, String excdoc) {
         TypeSpec spec = new TypeSpec(excname, LOOKUP).base(excbase)
                 // Share the same Java representation class as base
@@ -288,39 +297,34 @@ public class PyBaseException extends RuntimeException
     }
 
     /** {@code Exception} extends {@link PyBaseException}. */
-    protected static PyType Exception =
-            extendsException(TYPE, "Exception",
-                    "Common base class for all non-exit exceptions.");
+    static PyType Exception = extendsException(TYPE, "Exception",
+            "Common base class for all non-exit exceptions.");
     /** {@code TypeError} extends {@code Exception}. */
-    protected static PyType TypeError = extendsException(Exception,
-            "TypeError", "Inappropriate argument type.");
+    static PyType TypeError = extendsException(Exception, "TypeError",
+            "Inappropriate argument type.");
     /** {@code LookupError} extends {@code Exception}. */
 
-    protected static PyType LookupError = extendsException(Exception,
+    static PyType LookupError = extendsException(Exception,
             "LookupError", "Base class for lookup errors.");
     /** {@code IndexError} extends {@code LookupError}. */
-    protected static PyType IndexError = extendsException(LookupError,
+    static PyType IndexError = extendsException(LookupError,
             "IndexError", "Sequence index out of range.");
     /** {@code ValueError} extends {@link Exception}. */
-    protected static PyType ValueError =
-            extendsException(Exception, "ValueError",
-                    "Inappropriate argument value (of correct type).");
+    static PyType ValueError = extendsException(Exception, "ValueError",
+            "Inappropriate argument value (of correct type).");
 
     /** {@code ArithmeticError} extends {@link Exception}. */
-    protected static PyType ArithmeticError =
-            extendsException(Exception, "ArithmeticError",
-                    "Base class for arithmetic errors.");
+    static PyType ArithmeticError = extendsException(Exception,
+            "ArithmeticError", "Base class for arithmetic errors.");
     /** {@code FloatingPointError} extends {@link ArithmeticError}. */
-    protected static PyType FloatingPointError =
-            extendsException(ArithmeticError, "FloatingPointError",
-                    "Floating point operation failed.");
+    static PyType FloatingPointError = extendsException(ArithmeticError,
+            "FloatingPointError", "Floating point operation failed.");
     /** {@code OverflowError} extends {@link ArithmeticError}. */
-    protected static PyType OverflowError =
-            extendsException(ArithmeticError, "OverflowError",
-                    "Result too large to be represented.");
+    static PyType OverflowError = extendsException(ArithmeticError,
+            "OverflowError", "Result too large to be represented.");
     /** {@code ZeroDivisionError} extends {@link ArithmeticError}. */
-    protected static PyType ZeroDivisionError = extendsException(
-            ArithmeticError, "ZeroDivisionError",
+    static PyType ZeroDivisionError = extendsException(ArithmeticError,
+            "ZeroDivisionError",
             "Second argument to a division or modulo operation was zero.");
 
     /*
@@ -328,14 +332,14 @@ public class PyBaseException extends RuntimeException
      * being used as "categories" in the warnings module.
      */
     /** {@code Warning} extends {@link Exception}. */
-    protected static PyType Warning = extendsException(Exception,
-            "Warning", "Base class for warning categories.");
+    static PyType Warning = extendsException(Exception, "Warning",
+            "Base class for warning categories.");
     /** {@code DeprecationWarning} extends {@link Warning}. */
-    protected static PyType DeprecationWarning = extendsException(
-            Warning, "DeprecationWarning",
+    static PyType DeprecationWarning = extendsException(Warning,
+            "DeprecationWarning",
             "Base class for warnings about deprecated features.");
     /** {@code RuntimeWarning} extends {@link Warning}. */
-    protected static PyType RuntimeWarning = extendsException(Warning,
+    static PyType RuntimeWarning = extendsException(Warning,
             "RuntimeWarning",
             "Base class for warnings about dubious runtime behavior.");
 
