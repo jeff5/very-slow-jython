@@ -9,6 +9,7 @@ import java.lang.reflect.Field;
 import java.util.EnumSet;
 
 import uk.co.farowl.vsj4.runtime.internal._PyUtil;
+import uk.co.farowl.vsj4.runtime.kernel.BaseType;
 import uk.co.farowl.vsj4.support.InterpreterError;
 
 /**
@@ -16,11 +17,12 @@ import uk.co.farowl.vsj4.support.InterpreterError;
  * {@code @Member} annotations) to get and optionally set or delete the
  * value, with default type conversions.
  */
-abstract class PyMemberDescr extends DataDescriptor {
+public abstract class PyMemberDescr extends DataDescriptor {
 
     /** The type of Python object this class implements. */
     static final PyType TYPE = PyType.fromSpec( //
             new TypeSpec("member_descriptor", MethodHandles.lookup())
+                    .add(Feature.IMMUTABLE, Feature.METHOD_DESCR)
                     .remove(Feature.BASETYPE));
 
     /** Acceptable values in the {@link #flags}. */
@@ -36,11 +38,11 @@ abstract class PyMemberDescr extends DataDescriptor {
      * sub-class attribute, to minimise work in
      * {@link #checkSet(Object)} and {@link #checkDelete(Object)}
      */
-    protected final EnumSet<Flag> flags;
+    final EnumSet<Flag> flags;
 
     /** Reference to the field (offset) to access. */
     // Compare CPython PyMemberDef: int type; int offset;
-    protected VarHandle field;
+    VarHandle field;
 
     /** Documentation string for the member (or {@code null}). */
     String doc;
@@ -56,14 +58,17 @@ abstract class PyMemberDescr extends DataDescriptor {
      * @param flags characteristics controlling access
      * @param doc documentation string
      */
-    PyMemberDescr(PyType objclass, String name, VarHandle handle,
+    PyMemberDescr(BaseType objclass, String name, VarHandle handle,
             EnumSet<Flag> flags, String doc) {
-        super(TYPE, objclass, name);
+        super(objclass, name);
         this.flags = flags;
         this.field = handle;
         // Allow null to represent empty doc
         this.doc = doc != null && doc.length() > 0 ? doc : null;
     }
+
+    @Override
+    public PyType getType() { return TYPE; }
 
     private static VarHandle varHandle(Field f, Lookup lookup) {
         try {
@@ -85,7 +90,7 @@ abstract class PyMemberDescr extends DataDescriptor {
      *     {@code sys.audit} call into this check.
      */
     @Override
-    protected void check(Object obj) throws PyBaseException {
+    void check(Object obj) throws PyBaseException {
         PyType objType = PyType.of(obj);
         if (!objType.isSubTypeOf(objclass)) {
             throw selfTypeError(objType);
@@ -113,7 +118,7 @@ abstract class PyMemberDescr extends DataDescriptor {
      */
     // Compare CPython descr_setcheck in descrobject.c
     @Override
-    protected void checkSet(Object obj) throws PyBaseException {
+    void checkSet(Object obj) throws PyBaseException {
         PyType objType = PyType.of(obj);
         if (!objType.isSubTypeOf(objclass)) {
             throw selfTypeError(objType);
@@ -137,7 +142,7 @@ abstract class PyMemberDescr extends DataDescriptor {
      */
     // Compare CPython descr_setcheck in descrobject.c
     @Override
-    protected void checkDelete(Object obj) throws PyBaseException {
+    void checkDelete(Object obj) throws PyBaseException {
         PyType objType = PyType.of(obj);
         if (!objType.isSubTypeOf(objclass)) {
             throw selfTypeError(objType);
@@ -162,7 +167,7 @@ abstract class PyMemberDescr extends DataDescriptor {
      * @return field value
      */
     // Compare CPython PyMember_GetOne in structmember.c
-    protected abstract Object get(Object obj) throws PyAttributeError;
+    abstract Object get(Object obj) throws PyAttributeError;
 
     /**
      * A method to set {@code o.name = v}, with conversion to the
@@ -176,7 +181,7 @@ abstract class PyMemberDescr extends DataDescriptor {
      * @throws Throwable potentially from conversion
      */
     // Compare CPython PyMember_SetOne in structmember.c
-    protected abstract void set(Object obj, Object v)
+    abstract void set(Object obj, Object v)
             throws PyAttributeError, PyBaseException, Throwable;
 
     /**
@@ -194,8 +199,7 @@ abstract class PyMemberDescr extends DataDescriptor {
      * @throws PyAttributeError when already deleted/undefined
      */
     // Compare CPython PyMember_SetOne in structmember.c with NULL
-    protected void delete(Object obj)
-            throws PyBaseException, PyAttributeError {
+    void delete(Object obj) throws PyBaseException, PyAttributeError {
         throw cannotDeleteAttr();
     }
 
@@ -259,7 +263,7 @@ abstract class PyMemberDescr extends DataDescriptor {
      */
     @Override
     // Compare CPython member_get in descrobject.c
-    Object __get__(Object obj, PyType type) {
+    public Object __get__(Object obj, PyType type) {
         if (obj == null)
             /*
              * obj==null indicates the descriptor was found on the
@@ -313,7 +317,7 @@ abstract class PyMemberDescr extends DataDescriptor {
      * @return descriptor for access to the field
      * @throws InterpreterError if the field type is not supported
      */
-    static PyMemberDescr forField(PyType objclass, String name,
+    static PyMemberDescr forField(BaseType objclass, String name,
             Field field, Lookup lookup, EnumSet<Flag> flags, String doc)
             throws InterpreterError {
         Class<?> fieldType = field.getType();
@@ -341,17 +345,17 @@ abstract class PyMemberDescr extends DataDescriptor {
 
     private static class _int extends PyMemberDescr {
 
-        _int(PyType objclass, String name, VarHandle handle,
+        _int(BaseType objclass, String name, VarHandle handle,
                 EnumSet<Flag> flags, String doc) {
             super(objclass, name, handle, flags, doc);
 
         }
 
         @Override
-        protected Object get(Object obj) { return (int)field.get(obj); }
+        Object get(Object obj) { return (int)field.get(obj); }
 
         @Override
-        protected void set(Object obj, Object value)
+        void set(Object obj, Object value)
                 throws PyBaseException, Throwable {
             int v = PyNumber.asSize(value, null);
             field.set(obj, v);
@@ -360,18 +364,16 @@ abstract class PyMemberDescr extends DataDescriptor {
 
     private static class _double extends PyMemberDescr {
 
-        _double(PyType objclass, String name, VarHandle handle,
+        _double(BaseType objclass, String name, VarHandle handle,
                 EnumSet<Flag> flags, String doc) {
             super(objclass, name, handle, flags, doc);
         }
 
         @Override
-        protected Object get(Object obj) {
-            return (double)field.get(obj);
-        }
+        Object get(Object obj) { return (double)field.get(obj); }
 
         @Override
-        protected void set(Object obj, Object value)
+        void set(Object obj, Object value)
                 throws PyBaseException, Throwable {
             double v = PyFloat.asDouble(value);
             field.set(obj, v);
@@ -389,9 +391,9 @@ abstract class PyMemberDescr extends DataDescriptor {
          *
          * Delete sets the attribute implementation to {@code null}.
          */
-        protected final boolean optional;
+        final boolean optional;
 
-        Reference(PyType objclass, String name, VarHandle handle,
+        Reference(BaseType objclass, String name, VarHandle handle,
                 EnumSet<Flag> flags, String doc, boolean optional) {
             super(objclass, name, handle, flags, doc);
             this.optional = optional;
@@ -405,7 +407,7 @@ abstract class PyMemberDescr extends DataDescriptor {
          * AttributeError}.
          */
         @Override
-        protected void delete(Object obj) {
+        void delete(Object obj) {
             if (optional && field.get(obj) == null)
                 throw _PyUtil.noAttributeOnType(objclass, name);
             field.set(obj, null);
@@ -418,13 +420,13 @@ abstract class PyMemberDescr extends DataDescriptor {
      */
     private static class _String extends Reference {
 
-        _String(PyType objclass, String name, VarHandle handle,
+        _String(BaseType objclass, String name, VarHandle handle,
                 EnumSet<Flag> flags, String doc, boolean optional) {
             super(objclass, name, handle, flags, doc, optional);
         }
 
         @Override
-        protected Object get(Object obj) {
+        Object get(Object obj) {
             String value = (String)field.get(obj);
             if (value == null) {
                 if (optional)
@@ -436,7 +438,7 @@ abstract class PyMemberDescr extends DataDescriptor {
         }
 
         @Override
-        protected void set(Object obj, Object value)
+        void set(Object obj, Object value)
                 throws PyBaseException, Throwable {
             // Special-case None if *not* an optional attribute
             if (value == Py.None && !optional) {
@@ -456,13 +458,13 @@ abstract class PyMemberDescr extends DataDescriptor {
      */
     private static class _Object extends Reference {
 
-        _Object(PyType objclass, String name, VarHandle handle,
+        _Object(BaseType objclass, String name, VarHandle handle,
                 EnumSet<Flag> flags, String doc, boolean optional) {
             super(objclass, name, handle, flags, doc, optional);
         }
 
         @Override
-        protected Object get(Object obj) {
+        Object get(Object obj) {
             Object value = field.get(obj);
             if (value == null) {
                 if (optional)
@@ -474,7 +476,7 @@ abstract class PyMemberDescr extends DataDescriptor {
         }
 
         @Override
-        protected void set(Object obj, Object value)
+        void set(Object obj, Object value)
                 throws PyBaseException, Throwable {
             // Special-case None if *not* an optional attribute
             if (value == Py.None && !optional) { delete(obj); return; }

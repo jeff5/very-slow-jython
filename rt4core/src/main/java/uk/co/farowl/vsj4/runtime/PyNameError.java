@@ -18,10 +18,9 @@ public class PyNameError extends PyBaseException {
                     .doc("Name not found globally."));
 
     /** {@code UnboundLocalError} extends {@code NameError}. */
-    protected static PyType UnboundLocalError =
+    static PyType UnboundLocalError =
             extendsException(TYPE, "UnboundLocalError",
                     "Local name referenced but not bound to a value.");
-
 
     private static final long serialVersionUID = 1L;
 
@@ -35,7 +34,9 @@ public class PyNameError extends PyBaseException {
      * @param type Python type of the exception
      * @param args positional arguments
      */
-    public PyNameError(PyType type, PyTuple args) { super(type, args); }
+    public PyNameError(PyType type, PyTuple args) {
+        super(type, args);
+    }
 
     private static final ArgParser INIT_PARSER =
             ArgParser.fromSignature("__init__", "*args", "name")

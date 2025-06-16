@@ -1,15 +1,13 @@
-// Copyright (c)2025 Jython Developers.
-// Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime.kernel;
 
 import static uk.co.farowl.vsj4.runtime.ClassShorthand.T;
-import static uk.co.farowl.vsj4.runtime.internal._PyUtil.*;
+import static uk.co.farowl.vsj4.runtime.internal._PyUtil.cantSetAttributeError;
+import static uk.co.farowl.vsj4.runtime.internal._PyUtil.mandatoryAttributeError;
+import static uk.co.farowl.vsj4.runtime.internal._PyUtil.noAttributeError;
+import static uk.co.farowl.vsj4.runtime.internal._PyUtil.readonlyAttributeError;
 
 import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodHandles;
-import java.lang.invoke.MethodHandles.Lookup;
 
-import uk.co.farowl.vsj4.runtime.Abstract;
 import uk.co.farowl.vsj4.runtime.Exposed;
 import uk.co.farowl.vsj4.runtime.PyAttributeError;
 import uk.co.farowl.vsj4.runtime.PyObject;
@@ -21,28 +19,29 @@ import uk.co.farowl.vsj4.runtime.kernel.SpecialMethod.Signature;
 import uk.co.farowl.vsj4.support.internal.EmptyException;
 
 /**
- * The Python {@code object} is represented by {@code java.lang.Object}
- * but its Python behaviour is implemented by {@link PyObject}, which
- * extends this class. This class provides members used internally in
- * the run-time system, but that we do not intend to expose as API from
- * {@link PyObject} itself.
+ * The Python {@code object} type is represented by
+ * {@code java.lang.Object} but it gets its Python behaviour from
+ * methods defined here. All Python objects by default inherit these
+ * Python method implementations.
  * <p>
- * It also provides the implementation of the methods on {@code object},
- * which are necessarily Java {@code static}.
+ * The Java implementation class of a type defined in Python <i>will</i>
+ * be derived from the canonical implementation class of the "solid
+ * base" it inherits in Python. This may well be {@code Object}.
  *
- * @implNote For technical reasons to do with bootstrapping the type
- *     system, the methods and attributes of 'object' that are exposed
- *     to Python have to be defined here, rather than in
- *     {@code PyObject}.
+ * @implNote All exposed methods, special methods and attribute get, set
+ *     and delete methods defined here must be declared {@code static}
+ *     in Java, with an explicit {@code Object self} argument. This is
+ *     so that Python methods defined here on {@code object} operate
+ *     correctly on receiving Python objects whatever their Java class.
+ *     Methods and fields must be package visible so that the type
+ *     factory is able to form {@code MethodHandle}s on them using its
+ *     default lookup object.
  */
 // Compare CPython PyBaseObject_Type in typeobject.c
-public abstract class AbstractPyObject {
+// See also any method named object_* in typeobject.c.h
+final class PyObjectMethods {
 
-    /** Lookup object with package visibility. */
-    static Lookup LOOKUP =
-            MethodHandles.lookup().dropLookupMode(Lookup.PRIVATE);
-
-    // Special methods -----------------------------------------------
+    // Special methods ------------------------------------------------
 
     /*
      * Methods must be static with a "self" argument of type Object so
@@ -79,7 +78,7 @@ public abstract class AbstractPyObject {
      */
     // Compare CPython object_str in typeobject.c
     static Object __str__(Object self) throws Throwable {
-        Representation rep = SimpleType.getRepresentation(self);
+        Representation rep = Representation.get(self);
         try {
             return rep.op_repr().invokeExact(self);
         } catch (EmptyException ee) {
@@ -160,10 +159,9 @@ public abstract class AbstractPyObject {
         Object typeAttr = objType.lookup(name);
         if (typeAttr != null) {
             // Found in the type, it might be a descriptor
-            Representation typeAttrRep =
-                    SimpleType.getRepresentation(typeAttr);
+            Representation typeAttrRep = Representation.get(typeAttr);
             descrGet = typeAttrRep.op_get();
-            if (typeAttrRep.pythonType(typeAttr).isDataDescr()) {
+            if (typeAttrRep.isDataDescr(typeAttr)) {
                 // typeAttr is a data descriptor so call its __get__.
                 try {
                     return descrGet.invokeExact(typeAttr, obj, objType);
@@ -255,8 +253,7 @@ public abstract class AbstractPyObject {
         Object typeAttr = PyType.of(obj).lookup(name);
         if (typeAttr != null) {
             // Found in the type, it might be a descriptor.
-            Representation typeAttrRep =
-                    SimpleType.getRepresentation(typeAttr);
+            Representation typeAttrRep = Representation.get(typeAttr);
             // Try descriptor __set__
             try {
                 typeAttrRep.op_set().invokeExact(typeAttr, obj, value);
@@ -267,7 +264,8 @@ public abstract class AbstractPyObject {
                  * __set__ was not defined, but typeAttr is still a data
                  * descriptor if (unusually) it has __delete__.
                  */
-                if (typeAttrRep.hasFeature(typeAttr, KernelTypeFlag.HAS_DELETE)) {
+                if (typeAttrRep.hasFeature(typeAttr,
+                        KernelTypeFlag.HAS_DELETE)) {
                     throw readonlyAttributeError(obj, name);
                 }
             }
@@ -307,8 +305,7 @@ public abstract class AbstractPyObject {
      * object. The default instance {@code __delattr__} slot implements
      * dictionary look-up on the type and the instance. It is the
      * starting point for activating the descriptor protocol. The
-     * following order of precedence applies when deleting
-     * an attribute:
+     * following order of precedence applies when deleting an attribute:
      * <ol>
      * <li>call a data descriptor from the dictionary of the type</li>
      * <li>remove an entry from the instance dictionary of
@@ -332,8 +329,7 @@ public abstract class AbstractPyObject {
         Object typeAttr = PyType.of(obj).lookup(name);
         if (typeAttr != null) {
             // Found in the type, it might be a descriptor.
-            Representation typeAttrRep =
-                    SimpleType.getRepresentation(typeAttr);
+            Representation typeAttrRep = Representation.get(typeAttr);
             // Try descriptor __delete__
             try {
                 typeAttrRep.op_delete().invokeExact(typeAttr, obj);
@@ -344,7 +340,8 @@ public abstract class AbstractPyObject {
                  * __delete__ was not defined, but typeAttr is still a
                  * data descriptor if it has __set__.
                  */
-                if (typeAttrRep.hasFeature(typeAttr, KernelTypeFlag.HAS_SET)) {
+                if (typeAttrRep.hasFeature(typeAttr,
+                        KernelTypeFlag.HAS_SET)) {
                     throw mandatoryAttributeError(obj, name);
                 }
             }
@@ -381,7 +378,4 @@ public abstract class AbstractPyObject {
             }
         }
     }
-
-    // plumbing ------------------------------------------------------
-
 }

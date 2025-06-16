@@ -27,7 +27,6 @@ import uk.co.farowl.vsj4.runtime.PyExc;
 import uk.co.farowl.vsj4.runtime.PyLong;
 import uk.co.farowl.vsj4.runtime.PyType;
 import uk.co.farowl.vsj4.runtime.internal._PyUtil;
-import uk.co.farowl.vsj4.runtime.kernel.Representation.Shared;
 import uk.co.farowl.vsj4.support.InterpreterError;
 import uk.co.farowl.vsj4.support.internal.EmptyException;
 
@@ -544,9 +543,10 @@ public enum SpecialMethod {
      * This handle is needed when the the implementation of the special
      * method is in Python. (It will work, or raise the right error,
      * with any object found in the dictionary of a type.) It may
-     * therefore be used to call the special methods of a {@link Shared
-     * shared representation} where the clique of replaceable types may
-     * disagree about the implementation method.
+     * therefore be used to call the special methods of a
+     * {@link SharedRepresentation shared representation} where the
+     * clique of replaceable types may disagree about the implementation
+     * method.
      *
      * @implNote These weasel words allow the possibility of an
      *     optimisation. All members of the clique share a common
@@ -560,7 +560,7 @@ public enum SpecialMethod {
      */
     // XXX Implement the optimisation (and merge the note).
     // Compare CPython wrapperbase.function in descrobject.h
-    final MethodHandle generic;
+    public final MethodHandle generic;
 
     /** Description to use in help messages */
     public final String doc;
@@ -611,20 +611,10 @@ public enum SpecialMethod {
     /**
      * Get the {@code MethodHandle} on the implementation of this
      * {@code SpecialMethod} for objects with the given
-     * {@link Representation}. {@link #methodName} names an entry
-     * (descriptor) in the dictionary of a type from which the handle
-     * may be retrieved.
-     * <ul>
-     * <li>When the representation is also a {@link PyType}, the
-     * representation contains the dictionary.</li>
-     * <li>In the case of an adopted representation, we know the
-     * adoptive type directly and the {@link Representation#getIndex()
-     * index}.</li>
-     * <li>In the case of a shared representation, there is no unique
-     * type in which to look up a descriptor, so instead the handle will
-     * contain a wrapper to get the type from {@code self} when invoked,
-     * and then look up the name.</li>
-     * </ul>
+     * {@link Representation}. This will either be directly from the
+     * cache on the representation, or a {@link #generic} handle that
+     * calls {@link #methodName} by look-up on the Python type when
+     * invoked.
      *
      * @param rep target representation object
      * @return current contents of this cache in {@code rep}
@@ -704,13 +694,13 @@ public enum SpecialMethod {
      * equivalent to the {@code  slot_*()} functions found in CPython
      * {@code Objects/typeobject.c} that fill the type slots when a
      * pointer to a built-in implementation of the method is not
-     * available. We use them the same way. (See private methods in
-     * {@link AbstractPyType}.) Ours are simpler than CPython's because
-     * we signal an empty slot by a lightweight {@link EmptyException},
-     * rather than by {@code null}. We therefore do not need to
-     * reproduce the logic in the Abstract API, where the presence of a
-     * slot function fools it into thinking the special method is
-     * defined.
+     * available. We use them in a similar way when a special method is
+     * overridden in Python. (See private methods in {@link BaseType}.)
+     * Ours are simpler than CPython's because we signal an empty slot
+     * by a lightweight {@link EmptyException}, rather than by
+     * {@code null}. We therefore do not need to reproduce the logic in
+     * the Abstract API, where the presence of a slot function fools it
+     * into thinking the special method is defined.
      *
      * @param self first operand.
      * @param args other operands.
@@ -730,7 +720,7 @@ public enum SpecialMethod {
         // return callAsMethod(type, meth, self, args, kwds);
 
         // What kind of object did we find? (Could be anything.)
-        Representation methRep = SimpleType.getRepresentation(meth);
+        Representation methRep = Representation.get(meth);
         assert methRep != null;
 
         if (methRep.pythonType(meth).isMethodDescr()) {
@@ -753,7 +743,11 @@ public enum SpecialMethod {
              */
             try {
                 // Replace meth with result of descriptor binding.
-                meth = methRep.op_get().invokeExact(meth, self, type);
+                // FIXME: undecided how exactly to call __get__ here
+                // meth = methRep.op_get().invokeExact(meth, self,
+                // type);
+                meth = op_get.handle(methRep).invokeExact(meth, self,
+                        type);
             } catch (EmptyException e) {
                 // Not a descriptor at all.
             }
@@ -830,7 +824,7 @@ public enum SpecialMethod {
             Object self, Object[] args, String[] kwds)
             throws PyBaseException, Throwable {
         // What kind of object did we find? (Could be anything.)
-        Representation rep = SimpleType.getRepresentation(meth);
+        Representation rep = Representation.get(meth);
         PyType methType = rep.pythonType(meth);
 
         if (methType.isMethodDescr()) {
@@ -850,7 +844,9 @@ public enum SpecialMethod {
              */
             try {
                 // Replace meth with result of descriptor binding.
-                meth = rep.op_get().invokeExact(meth, self, type);
+                // FIXME: undecided how exactly to call __get__ here
+                // meth = rep.op_get().invokeExact(meth, self, type);
+                meth = op_get.handle(rep).invokeExact(meth, self, type);
             } catch (EmptyException e) {
                 // Not a descriptor at all.
             }
@@ -911,9 +907,7 @@ public enum SpecialMethod {
      * special method may change without the opportunity to update the
      * cache in the representation.
      *
-     *
      * @param rep target {@code Representation}
-     * @param mh handle value to assign
      */
     void setGeneric(Representation rep) { setCache(rep, generic); }
 
@@ -1156,11 +1150,33 @@ public enum SpecialMethod {
     }
 
     /**
+     * An object of this type must be passed to
+     * {@link SMUtil#provideAccess(Required)}, before the class
+     * {@link SpecialMethod} is initialised.
+     * <p>
+     * The kernel makes extensive use of the public API of the runtime
+     * package that is also exported to clients of the {@code core}
+     * module. In a few places, it requires privileged (i.e. package)
+     * access to additional operations that should not be available to
+     * clients. Here, that includes access to the special method caches
+     * in every {@link Representation}.
+     */
+    public interface Required {
+        /**
+         * Retrieve a {@link Lookup} to give it access to the special
+         * method caches in every {@link Representation}.
+         *
+         * @return access to the special method caches
+         */
+        Lookup getLookup();
+    }
+
+    /**
      * Helpers for {@link SpecialMethod} and {@link Signature} that can
      * be used in the constructors of {@code SpecialMethod} values,
      * before that class is properly initialised.
      */
-    static final class SMUtil extends Representation.Accessor {
+    public static final class SMUtil {
         /*
          * This is a class separate from SpecialMethod to solve problems
          * with the order of static initialisation. The enum constants
@@ -1180,8 +1196,11 @@ public enum SpecialMethod {
         final static Logger logger =
                 LoggerFactory.getLogger(SpecialMethod.class);
 
-        /** Rights to look up methods locally. */
+        /** Rights to look up members locally. */
         private static final Lookup LOOKUP = MethodHandles.lookup();
+
+        /** Mechanism to access runtime package. */
+        private static Required runtimeAccess;
 
         /**
          * Single re-used instance of
@@ -1218,6 +1237,22 @@ public enum SpecialMethod {
         }
 
         /**
+         * Provide the access required by the {@code SpecialMethod}
+         * class to the {@code runtime} package. This must only be
+         * called in the static initialisation of
+         * {@code Representation}.
+         *
+         * @param access object providing access
+         */
+        public static void provideAccess(Required access) {
+            logger.atTrace().setMessage("Access provided to {}")
+                    .addArgument(() -> access.getLookup().lookupClass()
+                            .getName())
+                    .log();
+            runtimeAccess = access;
+        }
+
+        /**
          * Helper for {@link SpecialMethod} constructors at the point
          * they need a handle for their named cache field within a
          * {@code Representation} class. If the field is not found, then
@@ -1231,8 +1266,8 @@ public enum SpecialMethod {
             Class<?> repClass = Representation.class;
             try {
                 // The field has the same name as the enum member
-                return LOOKUP.findVarHandle(repClass, sm.name(),
-                        MethodHandle.class);
+                return runtimeAccess.getLookup().findVarHandle(repClass,
+                        sm.name(), MethodHandle.class);
             } catch (NoSuchFieldException | IllegalAccessException e) {
                 return null;
             }
@@ -1299,9 +1334,9 @@ public enum SpecialMethod {
          * invoked, with an appropriate message for the operation.
          * <p>
          * To be concrete, if the special method is a binary operation,
-         * the returned handle may throw something like
-         * {@code TypeError:
-         * unsupported operand type(s) for -: 'str' and 'str'}.
+         * the returned handle may throw something like:<pre>
+         * TypeError: unsupported operand type(s) for -: 'str' and 'int'
+         * </pre>
          *
          * @param sm to mention in the error message
          * @return a handle that throws the exception

@@ -208,7 +208,8 @@ public interface FastCall {
      * @return the return from the call to the object
      * @throws ArgumentError if the wrong number of arguments is given,
      *     or keywords where not expected.
-     * @throws PyBaseException (TypeError) if target is not callable
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     target is not callable
      * @throws Throwable for errors raised in the function
      */
     // Compare CPython _PyObject_Vectorcall in abstract.h
@@ -238,7 +239,8 @@ public interface FastCall {
      * @param n number of <b>positional</b> arguments
      * @return the return from the call to the object
      * @throws ArgumentError if the wrong number of arguments is given.
-     * @throws PyBaseException (TypeError) if target is not callable
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     target is not callable
      * @throws Throwable for errors raised in the function
      */
     // Compare CPython _PyObject_Vectorcall in abstract.h

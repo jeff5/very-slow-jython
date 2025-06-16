@@ -90,12 +90,12 @@ public class MethodHandleFormationTest {
     @Test
     void basicObjectSlots() {
         // Type defining none of the reserved names
-        final PyType basic = BasicallyEmpty.TYPE;
+        final BaseType basic = BaseType.cast(BasicallyEmpty.TYPE);
         Object o = new BasicallyEmpty();
 
         assertThrows(EmptyException.class,
-                () -> basic.op_call().invokeExact(o, Util.EMPTY_ARRAY,
-                        Util.EMPTY_STRING_ARRAY));
+                () -> SpecialMethod.op_call.handle(basic).invokeExact(o,
+                        Util.EMPTY_ARRAY, Util.EMPTY_STRING_ARRAY));
 
         // Make method handles of the shape corresponding to caches
         MethodHandle length = MethodHandles
@@ -111,8 +111,9 @@ public class MethodHandleFormationTest {
         SpecialMethod.op_hash.setCache(basic, length);
         SpecialMethod.op_str.setCache(basic, unary);
 
-        MethodHandle hash = basic.op_hash();
-        MethodHandle str = basic.op_str();
+        // Preserve current settings for test at end
+        MethodHandle hash0 = SpecialMethod.op_hash.handle(basic);
+        MethodHandle str0 = SpecialMethod.op_str.handle(basic);
 
         // These should be prevented
         assertThrows(InterpreterError.class, () -> { //
@@ -132,8 +133,10 @@ public class MethodHandleFormationTest {
         });
 
         // And the slots should have the value read earlier
-        assertEquals(hash, basic.op_hash(), "slot modified");
-        assertEquals(str, basic.op_str(), "slot modified");
+        assertEquals(hash0, SpecialMethod.op_hash.handle(basic),
+                "slot modified");
+        assertEquals(str0, SpecialMethod.op_str.handle(basic),
+                "slot modified");
     }
 
     /**
@@ -144,13 +147,13 @@ public class MethodHandleFormationTest {
     @Test
     void numericSlots() {
         // Type defining none of the reserved names
-        final PyType number = BasicallyEmpty.TYPE;
+        final BaseType number = BaseType.cast(BasicallyEmpty.TYPE);
         Object o = new BasicallyEmpty();
 
-        assertThrows(EmptyException.class,
-                () -> number.op_neg().invokeExact(o));
-        assertThrows(EmptyException.class,
-                () -> number.op_add().invokeExact(o, o));
+        assertThrows(EmptyException.class, () -> SpecialMethod.op_neg
+                .handle(number).invokeExact(o));
+        assertThrows(EmptyException.class, () -> SpecialMethod.op_add
+                .handle(number).invokeExact(o, o));
 
         // Make method handles of the shape corresponding to caches
         final MethodHandle length = MethodHandles
@@ -166,8 +169,9 @@ public class MethodHandleFormationTest {
         SpecialMethod.op_neg.setCache(number, unary);
         SpecialMethod.op_add.setCache(number, binary);
 
-        MethodHandle neg = number.op_neg();
-        MethodHandle add = number.op_add();
+        // Preserve current settings for test at end
+        MethodHandle neg0 = SpecialMethod.op_neg.handle(number);
+        MethodHandle add0 = SpecialMethod.op_add.handle(number);
 
         // These should be prevented
         assertThrows(InterpreterError.class, () -> { //
@@ -197,8 +201,10 @@ public class MethodHandleFormationTest {
         });
 
         // And the slots should have the value read earlier
-        assertEquals(neg, number.op_neg(), "slot modified");
-        assertEquals(add, number.op_add(), "slot modified");
+        assertEquals(neg0, SpecialMethod.op_neg.handle(number),
+                "slot modified");
+        assertEquals(add0, SpecialMethod.op_add.handle(number),
+                "slot modified");
     }
 
     /**
@@ -209,7 +215,7 @@ public class MethodHandleFormationTest {
     @Test
     void sequenceSlots() {
         // Type defining none of the reserved names
-        final PyType sequence = BasicallyEmpty.TYPE;
+        final BaseType sequence = BaseType.cast(BasicallyEmpty.TYPE);
 
         // Make method handles of the shape corresponding to caches
         final MethodHandle length = MethodHandles
@@ -224,7 +230,8 @@ public class MethodHandleFormationTest {
         // This is allowed
         SpecialMethod.op_len.setCache(sequence, length);
 
-        MethodHandle len = sequence.op_len();
+        // Preserve current setting for test at end
+        MethodHandle len0 = SpecialMethod.op_len.handle(sequence);
 
         // These should be prevented
         assertThrows(InterpreterError.class, () -> { //
@@ -241,7 +248,8 @@ public class MethodHandleFormationTest {
         });
 
         // And the slot should have the value read earlier
-        assertEquals(len, sequence.op_len(), "slot modified");
+        assertEquals(len0, SpecialMethod.op_len.handle(sequence),
+                "slot modified");
     }
 
     /**
@@ -252,7 +260,7 @@ public class MethodHandleFormationTest {
     @Test
     void mappingSlots() {
         // Type defining none of the reserved names
-        final PyType mapping = BasicallyEmpty.TYPE;
+        final BaseType mapping = BaseType.cast(BasicallyEmpty.TYPE);
 
         // Make method handles of the shape corresponding to caches
         final MethodHandle getitem = MethodHandles
@@ -268,8 +276,11 @@ public class MethodHandleFormationTest {
         SpecialMethod.op_getitem.setCache(mapping, getitem);
         SpecialMethod.op_setitem.setCache(mapping, setitem);
 
-        MethodHandle getitem0 = mapping.op_getitem();
-        MethodHandle setitem0 = mapping.op_setitem();
+        // Preserve current settings for test at end
+        MethodHandle getitem0 =
+                SpecialMethod.op_getitem.handle(mapping);
+        MethodHandle setitem0 =
+                SpecialMethod.op_setitem.handle(mapping);
 
         // These should be prevented
         assertThrows(InterpreterError.class, () -> { //
@@ -287,7 +298,9 @@ public class MethodHandleFormationTest {
         });
 
         // And the slots should have the value read earlier
-        assertEquals(getitem0, mapping.op_getitem(), "slot modified");
-        assertEquals(setitem0, mapping.op_setitem(), "slot modified");
+        assertEquals(getitem0, SpecialMethod.op_getitem.handle(mapping),
+                "slot modified");
+        assertEquals(setitem0, SpecialMethod.op_setitem.handle(mapping),
+                "slot modified");
     }
 }

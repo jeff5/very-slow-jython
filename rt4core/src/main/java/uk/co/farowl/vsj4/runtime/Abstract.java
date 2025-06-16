@@ -8,6 +8,7 @@ import java.util.function.Supplier;
 import uk.co.farowl.vsj4.runtime.internal._PyUtil;
 import uk.co.farowl.vsj4.runtime.kernel.Representation;
 import uk.co.farowl.vsj4.runtime.kernel.SpecialMethod;
+import uk.co.farowl.vsj4.runtime.kernel.TypeRegistry;
 import uk.co.farowl.vsj4.support.InterpreterError;
 import uk.co.farowl.vsj4.support.internal.EmptyException;
 
@@ -25,6 +26,26 @@ import uk.co.farowl.vsj4.support.internal.EmptyException;
 public class Abstract {
 
     /**
+     * Single registry from which we get {@code Representations}. A side
+     * effect of this shorthand is to ensure that the {@link TypeSystem}
+     * is statically initialised before we use any API method.
+     */
+    private static final TypeRegistry registry = TypeSystem.registry;
+
+    /**
+     * Get the representation of the class of an object, from which
+     * handles on its special methods are immediately accessible. This
+     * is the equivalent
+     * of<pre>TypeSystem.registry.get(o.getClass())</pre>
+     *
+     * @param o object
+     * @return representation for operating on {@code o}
+     */
+    final static Representation representation(Object o) {
+        return registry.get(o.getClass());
+    }
+
+    /**
      * There are only static methods here, so no instances should be
      * created. Formally make the constructor {@code protected} so we
      * can sub-class and refer easily to methods here. (Otherwise
@@ -38,8 +59,8 @@ public class Abstract {
      *
      * @param o object
      * @return the string representation of {@code o}
-     * @throws PyBaseException (TypeError) if {@code __repr__} returns a
-     *     non-string
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     {@code __repr__} returns a non-string
      * @throws Throwable from invoked implementation of {@code __repr__}
      */
     // Compare CPython PyObject_Repr in object.c
@@ -48,8 +69,7 @@ public class Abstract {
         if (o == null) {
             return "<null>";
         } else {
-            Representation rep = PyType.getRepresentation(o);
-            MethodHandle repr = rep.op_repr();
+            MethodHandle repr = representation(o).op_repr();
             try {
                 Object res = repr.invoke(o);
                 if (PyUnicode.TYPE.check(res)) {
@@ -68,8 +88,8 @@ public class Abstract {
      *
      * @param o object
      * @return the string representation of {@code o}
-     * @throws PyBaseException (TypeError) if {@code __str__} or
-     *     {@code __repr__} returns a non-string
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     {@code __str__} or {@code __repr__} returns a non-string
      * @throws Throwable from invoked implementations of {@code __str__}
      *     or {@code __repr__}
      */
@@ -81,8 +101,7 @@ public class Abstract {
             return o;
         } else {
             try {
-                Representation rep = PyType.getRepresentation(o);
-                Object res = rep.op_str().invokeExact(o);
+                Object res = representation(o).op_str().invokeExact(o);
                 if (PyUnicode.TYPE.check(res)) {
                     return res;
                 } else {
@@ -113,7 +132,7 @@ public class Abstract {
                 throw new EmptyException();
             }
             // XXX Replace when this slot is defined:
-            // Representation rep=PyType.getRepresentation(o);
+            // Representation rep=representation(o);
             // MethodHandle mh=rep.op_tojava();
             // return (T)mh.invokeExact(o, c);
         } catch (NullPointerException npe) {
@@ -130,12 +149,12 @@ public class Abstract {
      *
      * @param v to hash
      * @return the hash
-     * @throws PyBaseException (TypeError) if {@code v} is an unhashable
-     *     type
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     {@code v} is an unhashable type
      * @throws Throwable on errors within {@code __hash__}
      */
     public static int hash(Object v) throws PyBaseException, Throwable {
-        Representation rep = PyType.getRepresentation(v);
+        Representation rep = representation(v);
         try {
             return (int)rep.op_hash().invokeExact(v);
         } catch (EmptyException e) {
@@ -160,7 +179,7 @@ public class Abstract {
         else if (v == Py.False || v == Py.None)
             return false;
         else {
-            Representation rep = PyType.getRepresentation(v);
+            Representation rep = representation(v);
             try {
                 // Ask the object through __bool__.
                 return (boolean)rep.op_bool().invokeExact(v);
@@ -264,7 +283,7 @@ public class Abstract {
     public static Object getAttr(Object o, String name)
             throws PyAttributeError, Throwable {
         // Decisions are based on type of o (that of name is known)
-        Representation rep = PyType.getRepresentation(o);
+        Representation rep = representation(o);
         try {
             // Invoke __getattribute__.
             return rep.op_getattribute().invokeExact(o, name);
@@ -287,8 +306,8 @@ public class Abstract {
      * @param name of attribute
      * @return {@code o.name}
      * @throws PyAttributeError if non-existent etc.
-     * @throws PyBaseException (TypeError) if the name is not a
-     *     {@code str}
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     the name is not a {@code str}
      * @throws Throwable on other errors
      */
     // Compare CPython PyObject_GetAttr in object.c
@@ -314,7 +333,7 @@ public class Abstract {
     public static Object lookupAttr(Object o, String name)
             throws Throwable {
         // Decisions are based on type of o (that of name is known)
-        Representation rep = PyType.getRepresentation(o);
+        Representation rep = representation(o);
         try {
             // Invoke __getattribute__
             return rep.op_getattribute().invokeExact(o, name);
@@ -338,8 +357,8 @@ public class Abstract {
      * @param o the object in which to look for the attribute
      * @param name of the attribute sought
      * @return the attribute or {@code null}
-     * @throws PyBaseException (TypeError) if {@code name} is not a
-     *     Python {@code str}
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     {@code name} is not a Python {@code str}
      * @throws Throwable on other errors
      */
     // Compare CPython _PyObject_LookupAttr in object.c
@@ -364,7 +383,7 @@ public class Abstract {
     public static void setAttr(Object o, String name, Object value)
             throws PyAttributeError, Throwable {
         // Decisions are based on type of o (that of name is known)
-        Representation rep = PyType.getRepresentation(o);
+        Representation rep = representation(o);
         try {
             rep.op_setattr().invokeExact(o, name, value);
         } catch (EmptyException e) {
@@ -381,8 +400,8 @@ public class Abstract {
      * @param name of attribute
      * @param value to set
      * @throws PyAttributeError if non-existent etc.
-     * @throws PyBaseException (TypeError) if the name is not a
-     *     {@code str}
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     the name is not a {@code str}
      * @throws Throwable on other errors
      */
     // Compare CPython PyObject_SetAttr in object.c
@@ -407,7 +426,7 @@ public class Abstract {
     public static void delAttr(Object o, String name)
             throws PyAttributeError, Throwable {
         // Decisions are based on type of o (that of name is known)
-        Representation rep = PyType.getRepresentation(o);
+        Representation rep = representation(o);
         try {
             rep.op_delattr().invokeExact(o, name);
         } catch (EmptyException e) {
@@ -422,8 +441,8 @@ public class Abstract {
      * @param o object to operate on
      * @param name of attribute
      * @throws PyAttributeError if non-existent etc.
-     * @throws PyBaseException (TypeError) if the name is not a
-     *     {@code str}
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     the name is not a {@code str}
      * @throws Throwable on other errors
      */
     // Compare CPython PyObject_SetAttr in object.c
@@ -564,8 +583,8 @@ public class Abstract {
      * @param inst object to test
      * @param cls class or {@code tuple} of classes to test against
      * @return {@code isinstance(inst, cls)}
-     * @throws PyBaseException (TypeError) if {@code cls} is not a class
-     *     or tuple of classes
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     {@code cls} is not a class or tuple of classes
      * @throws Throwable propagated from {@code __instancecheck__} or
      *     other causes
      */
@@ -579,7 +598,7 @@ public class Abstract {
             // Quick result available
             return true;
 
-        else if ((clsType = PyType.of(cls)) == PyType.TYPE) {
+        else if ((clsType = PyType.of(cls)) == PyType.TYPE()) {
             // cls is a (single) Python type, and not a metaclass.
             return recursiveIsInstance(inst, cls);
 
@@ -596,7 +615,7 @@ public class Abstract {
             return false;
 
         } else {
-            // The type of cls should be a sub-type of PyType.TYPE
+            // The type of cls should be a sub-type of PyType.TYPE()
             Object checker = lookupSpecial(cls, "__instancecheck__");
             if (checker != null) {
                 // cls has an __instancecheck__ to consult.
@@ -626,8 +645,8 @@ public class Abstract {
      *     not a tuple of such).
      * @return ẁhether {@code derived} is a sub-class of {@code cls} by
      *     these criteria.
-     * @throws PyBaseException (TypeError) if either input has no
-     *     {@code __bases__} tuple.
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     either input has no {@code __bases__} tuple.
      * @throws Throwable propagated from {@code __subclasscheck__} or
      *     other causes
      */
@@ -669,7 +688,7 @@ public class Abstract {
     static boolean isSubclass(Object derived, Object cls)
             throws Throwable {
         PyType clsType = PyType.of(cls);
-        if (clsType == PyType.TYPE) {
+        if (clsType == PyType.TYPE()) {
             // cls is exactly a Python type: avoid __subclasscheck__
             if (derived == cls)
                 return true;
@@ -730,7 +749,7 @@ public class Abstract {
             return null;
         } else {
             // res might be a descriptor
-            Representation rep = PyType.getRepresentation(res);
+            Representation rep = representation(res);
             try {
                 // invoke the descriptor's __get__
                 MethodHandle f = rep.op_get();
@@ -752,8 +771,8 @@ public class Abstract {
      *
      * @param o the claimed iterable object
      * @return an iterator on {@code o}
-     * @throws PyBaseException (TypeError) if the object cannot be
-     *     iterated
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     the object cannot be iterated
      * @throws Throwable from errors in {@code o.__iter__}
      */
     // Compare CPython PyObject_GetIter in abstract.c
@@ -777,14 +796,12 @@ public class Abstract {
     static <E extends PyBaseException> Object getIterator(Object o,
             Supplier<E> exc) throws PyBaseException, Throwable {
 
-        Representation orep = PyType.getRepresentation(o);
-        PyType otype = orep.pythonType(o);
-
+        Representation orep = representation(o);
         try {
             // Call o.__iter__, which may be empty.
             Object i = orep.op_iter().invokeExact(o);
             // Did that return an iterator? Check i defines __next__.
-            Representation irep = PyType.getRepresentation(i);
+            Representation irep = representation(i);
             if (irep.pythonType(i).isIterator()) {
                 return i;
             } else if (exc == null) {
@@ -792,7 +809,7 @@ public class Abstract {
             }
         } catch (EmptyException e) {
             // otype does not define __iter__: try __getitem__
-            if (otype.isSequence()) {
+            if (orep.pythonType(o).isSequence()) {
                 // o defines __getitem__: make a (Python) iterator.
                 return new PyIterator(o);
             }
@@ -840,9 +857,8 @@ public class Abstract {
      */
     // Compare CPython PyIter_Next in abstract.c
     static Object next(Object iter) throws Throwable {
-        Representation rep = PyType.getRepresentation(iter);
         try {
-            return rep.op_next().invokeExact(iter);
+            return representation(iter).op_next().invokeExact(iter);
         } catch (PyStopIteration e) {
             return null;
         } catch (EmptyException e) {
@@ -877,8 +893,7 @@ public class Abstract {
                 break;
         }
         // Can we even read the attribute?
-        Representation rep = PyType.getRepresentation(o);
-        PyType type = rep.pythonType(o);
+        PyType type = PyType.of(o);
         boolean readable = type.lookup("__getattribute__") != null
                 || type.lookup("__getattr__") != null;
         kind = readable ? "only read-only" : "no";
@@ -1105,8 +1120,8 @@ public class Abstract {
     }
 
     /**
-     * Submit a {@link DeprecationWarning} call (which may result in an
-     * exception) with the same message as
+     * Submit a {@link PyExc#DeprecationWarning DeprecationWarning} call
+     * (which may result in an exception) with the same message as
      * {@link #returnTypeError(String, String, Object)}, the whole
      * followed by one about deprecation of the facility.
      *

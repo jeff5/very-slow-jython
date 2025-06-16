@@ -1,4 +1,4 @@
-// Copyright (c)2024 Jython Developers.
+// Copyright (c)2025 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
 
@@ -89,7 +89,7 @@ public abstract class PyJavaFunction implements WithClass, FastCall {
      *     method)
      * @param module name of the module supplying the definition
      */
-    protected PyJavaFunction(ArgParser argParser, MethodHandle handle,
+    PyJavaFunction(ArgParser argParser, MethodHandle handle,
             Object self, String module) {
         this.argParser = argParser;
         this.handle = handle;
@@ -258,8 +258,8 @@ public abstract class PyJavaFunction implements WithClass, FastCall {
      * @param self object to which bound (or {@code null} if a static
      *     method)
      * @return a Java method object supporting the signature
-     * @throws PyBaseException(TypeError) if {@code self} is not
-     *     compatible with {@code descr}
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     {@code self} is not compatible with {@code descr}
      * @throws Throwable on other errors while chasing the MRO
      */
     // Compare CPython PyCFunction_NewEx in methodobject.c
@@ -288,7 +288,7 @@ public abstract class PyJavaFunction implements WithClass, FastCall {
     // slot functions -------------------------------------------------
 
     /** @return {@code repr()} of this Python object. */
-    protected Object __repr__() {
+    Object __repr__() {
         if (self == null /* || self instanceof PyModule */)
             return String.format("<built-in function %s>", __name__());
         else
@@ -305,8 +305,8 @@ public abstract class PyJavaFunction implements WithClass, FastCall {
      * @param args all arguments as supplied in the call
      * @param names of keyword arguments
      * @return result of calling the method represented
-     * @throws PyBaseException(TypeError) if the pattern of arguments is
-     *     unacceptable
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     the pattern of arguments is unacceptable
      * @throws Throwable from the implementation of the special method
      */
     Object __call__(Object[] args, String[] names)

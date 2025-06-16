@@ -10,7 +10,7 @@ import uk.co.farowl.vsj4.runtime.Exposed.PositionalCollector;
 /** The Python {@code StopIteration} exception. */
 public class PyStopIteration extends PyBaseException {
 
-    /** The type object of Python {@code NameError} exceptions. */
+    /** The type object of Python {@code StopIteration} exceptions. */
     public static final PyType TYPE = PyType.fromSpec(
             new TypeSpec("StopIteration", MethodHandles.lookup())
                     .base(Exception)

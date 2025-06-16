@@ -959,8 +959,8 @@ class ArgParser {
          *
          * @param nargs number of positional arguments given in call
          * @param defs default values by position or {@code null}
-         * @throws PyBaseException(TypeError) if there are still missing
-         *     arguments.
+         * @throws PyBaseException ({@link PyExc#TypeError TypeError})
+         *     if there are still missing arguments.
          */
         void applyDefaults(int nargs, Object[] defs)
                 throws PyBaseException {
@@ -1002,8 +1002,8 @@ class ArgParser {
          * {@code kwonlyargcount == 0}.
          *
          * @param kwdefs default values by keyword or {@code null}
-         * @throws PyBaseException(TypeError) if there are too many or
-         *     missing arguments.
+         * @throws PyBaseException ({@link PyExc#TypeError TypeError})
+         *     if there are too many or missing arguments.
          */
         void applyKWDefaults(Map<Object, Object> kwdefs)
                 throws PyBaseException {
@@ -1023,15 +1023,15 @@ class ArgParser {
             if (missing > 0) { throw missingArguments(missing, -1); }
         }
 
-        static final String KEYWORD_NOT_STRING =
+        private static final String KEYWORD_NOT_STRING =
                 "%.200s(): keywords must be strings";
-        static final String KEYWORD_NOT_COMPARABLE =
+        private static final String KEYWORD_NOT_COMPARABLE =
                 "Keyword names %s not comparable.";
-        static final String MULTIPLE_VALUES =
+        private static final String MULTIPLE_VALUES =
                 "%.200s(): multiple values for parameter '%s'";
-        static final String POSITIONAL_ONLY =
+        private static final String POSITIONAL_ONLY =
                 "%.200s(): positional-only argument%s passed by keyword: %s";
-        static final String UNEXPECTED_KEYWORD =
+        private static final String UNEXPECTED_KEYWORD =
                 "%.200s(): unexpected keyword argument '%s'";
 
         /*
@@ -1247,7 +1247,7 @@ class ArgParser {
     class ArrayFrameWrapper extends FrameWrapper {
 
         private final Object[] vars;
-        final int start;
+        private final int start;
 
         /**
          * Wrap a slice of an existing array. The elements to fill are a

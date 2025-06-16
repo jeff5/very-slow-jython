@@ -48,7 +48,7 @@ class PyTypeTest extends UnitTestSupport {
                     enquiryExample(PyObject.TYPE, new Object()), //
                     enquiryExample(PyLong.TYPE, 1), //
                     enquiryExample(PyBool.TYPE, true), //
-                    enquiryExample(PyType.TYPE, PyLong.TYPE)  //
+                    enquiryExample(PyType.TYPE(), PyLong.TYPE)  //
             );
         }
 
@@ -148,7 +148,7 @@ class PyTypeTest extends UnitTestSupport {
         @MethodSource("enquiryExamples")
         void enquiry(PyType type, Object obj, String ostr, String tname)
                 throws Throwable {
-            Object t = Callables.call(PyType.TYPE, obj);
+            Object t = Callables.call(PyType.TYPE(), obj);
             assertEquals(type, t);
             assertEquals(type, PyType.of(obj));
         }
@@ -179,7 +179,7 @@ class PyTypeTest extends UnitTestSupport {
     abstract static class AbstractNewTypeTest extends UnitTestSupport {
 
         private static final PyType INT = PyLong.TYPE;
-        private static final PyType TYPE = PyType.TYPE;
+        private static final PyType TYPE = PyType.TYPE();
         private static PyType OBJECT = PyObject.TYPE;
 
         /**
@@ -253,7 +253,7 @@ class PyTypeTest extends UnitTestSupport {
     @Nested
     @DisplayName("type.__new__")
     // FIXME __new__ test: fix or remove if wrong
-    @Disabled("Slot function still not ready for this")
+    @Disabled("Does not reflect current notion of __new__()")
     class NewTypeTest extends AbstractNewTypeTest {
         /**
          * Test type construction by the 3-argument call to type.

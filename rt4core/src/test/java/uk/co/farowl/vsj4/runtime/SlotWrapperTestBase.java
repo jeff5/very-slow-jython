@@ -50,8 +50,8 @@ class SlotWrapperTestBase {
      * the signature and defining class.
      */
     void has_expected_fields() {
-        assertEquals(name, descr.name);
-        assertTrue(type.isSubTypeOf(descr.objclass),
+        assertEquals(name, descr.__name__());
+        assertTrue(type.isSubTypeOf(descr.__objclass__()),
                 "target is sub-type of defining class");
         // more ...
     }
@@ -404,7 +404,7 @@ class SlotWrapperTestBase {
          * @throws Throwable unexpectedly
          */
         Object makeHandleCall(Object x) throws Throwable {
-            Representation rep = PyType.getRepresentation(x);
+            Representation rep = Abstract.representation(x);
             MethodHandle mh = sm.handle(rep);
             return mh.invokeExact(x);
         }
@@ -425,7 +425,7 @@ class SlotWrapperTestBase {
 
         @Override
         Object makeHandleCall(Object x) throws Throwable {
-            Representation rep = PyType.getRepresentation(x);
+            Representation rep = Abstract.representation(x);
             MethodHandle mh = sm.handle(rep);
             return (int)mh.invokeExact(x);
         }
@@ -621,7 +621,7 @@ class SlotWrapperTestBase {
          * @throws Throwable unexpectedly
          */
         Object makeHandleCall(Object s, Object o) throws Throwable {
-            Representation rep = PyType.getRepresentation(s);
+            Representation rep = Abstract.representation(s);
             MethodHandle mh = sm.handle(rep);
             return mh.invokeExact(s, o);
         }

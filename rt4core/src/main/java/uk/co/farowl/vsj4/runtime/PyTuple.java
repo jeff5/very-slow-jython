@@ -498,10 +498,12 @@ public class PyTuple extends AbstractList<Object> implements WithClass {
             value = Util.EMPTY_ARRAY;
         }
 
-        /** @return the number of elements currently. */
-        public int length() {
-            return len;
-        }
+        /**
+         * The number of elements currently in the {@code Builder}.
+         *
+         * @return the number of elements currently.
+         */
+        public int length() { return len; }
 
         /** Ensure there is room for another {@code n} elements. */
         private void ensure(int n) {

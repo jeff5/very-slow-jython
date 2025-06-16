@@ -11,6 +11,8 @@ import java.util.EnumSet;
 import java.util.LinkedList;
 import java.util.List;
 
+import uk.co.farowl.vsj4.runtime.internal.NamedSpec;
+import uk.co.farowl.vsj4.runtime.kernel.BaseType;
 import uk.co.farowl.vsj4.runtime.kernel.SimpleType;
 import uk.co.farowl.vsj4.support.InterpreterError;
 
@@ -511,8 +513,12 @@ public class TypeSpec extends NamedSpec {
             throw specError("base type is null (not yet created?)");
         } else if (bases.indexOf(base) >= 0) {
             throw repeatError("base", base.getName());
+        } else if (base instanceof BaseType bt) {
+            bases.add(bt);
+        } else {
+            // PyType is sealed to permit only BaseType, so impossible:
+            throw specError("base is not BaseType", base.getName());
         }
-        bases.add(base);
         return this;
     }
 
@@ -524,6 +530,19 @@ public class TypeSpec extends NamedSpec {
      * @return {@code this}
      */
     public TypeSpec bases(PyType... bases) {
+        // checkNotFrozen(); // Covered in base()
+        for (PyType b : bases) { base(b); }
+        return this;
+    }
+
+    /**
+     * Specify some bases for the type. Successive bases given are
+     * cumulative and ordered.
+     *
+     * @param bases to append to the bases
+     * @return {@code this}
+     */
+    public TypeSpec bases(List<PyType> bases) {
         // checkNotFrozen(); // Covered in base()
         for (PyType b : bases) { base(b); }
         return this;
@@ -713,12 +732,16 @@ public class TypeSpec extends NamedSpec {
         // return metaclass != null ? metaclass : PyType.TYPE;
     }
 
-    // Something helpful in debugging (__repr__ is different)
+    // Something helpful in debugging
     @Override
     public String toString() {
-        String fmt = "'%s' %s %s (lookup:%s)";
+        String fmt = "'%s' %s %s (lookup:%s pri:%s can:%s meth:%s)";
+        String pri = primary == null ? "" : primary.getSimpleName();
+        String can = canonicalBase == null ? ""
+                : canonicalBase.getSimpleName();
         return String.format(fmt, name, bases, features,
-                lookup.lookupClass().getSimpleName());
+                lookup.lookupClass().getSimpleName(), pri, can,
+                methodImpls);
     }
 
     /**

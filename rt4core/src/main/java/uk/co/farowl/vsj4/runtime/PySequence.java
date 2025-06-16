@@ -15,6 +15,7 @@ import java.util.stream.StreamSupport;
 
 import uk.co.farowl.vsj4.runtime.PySlice.Indices;
 import uk.co.farowl.vsj4.runtime.PyUtil.NoConversion;
+import uk.co.farowl.vsj4.runtime.kernel.BaseType;
 import uk.co.farowl.vsj4.runtime.kernel.KernelTypeFlag;
 import uk.co.farowl.vsj4.runtime.kernel.Representation;
 import uk.co.farowl.vsj4.support.internal.EmptyException;
@@ -39,8 +40,7 @@ public class PySequence extends Abstract {
     public static int size(Object o) throws Throwable {
         // Note that the slot is called op_len but this method, size.
         try {
-            return (int)PyType.getRepresentation(o).op_len()
-                    .invokeExact(o);
+            return (int)representation(o).op_len().invokeExact(o);
         } catch (EmptyException e) {
             throw typeError(HAS_NO_LEN, o);
         }
@@ -81,8 +81,8 @@ public class PySequence extends Abstract {
      * @param o object to operate on
      * @param key index
      * @return {@code o[key]}
-     * @throws PyBaseException (TypeError) when {@code o} does not allow
-     *     subscripting
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) when
+     *     {@code o} does not allow subscripting
      * @throws Throwable from invoked method implementations
      */
     // Compare CPython PyObject_GetItem in abstract.c
@@ -90,7 +90,7 @@ public class PySequence extends Abstract {
             throws Throwable {
         // Decisions are based on types of o and key
         try {
-            Representation rep = PyType.getRepresentation(o);
+            Representation rep = representation(o);
             return rep.op_getitem().invokeExact(o, key);
         } catch (EmptyException e) {
             throw typeError(NOT_SUBSCRIPTABLE, o);
@@ -106,8 +106,8 @@ public class PySequence extends Abstract {
      * @param i1 index of first item in slice
      * @param i2 index of first item not in slice
      * @return {@code o[i1:i2]}
-     * @throws PyBaseException (TypeError) when {@code o} does not allow
-     *     subscripting
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) when
+     *     {@code o} does not allow subscripting
      * @throws Throwable from invoked method implementations
      */
     // Compare CPython PyObject_GetItem in abstract.c
@@ -116,7 +116,7 @@ public class PySequence extends Abstract {
         // Decisions are based on type of o and known type of key
         try {
             Object key = new PySlice(i1, i2);
-            Representation rep = PyType.getRepresentation(o);
+            Representation rep = representation(o);
             return rep.op_getitem().invokeExact(o, key);
         } catch (EmptyException e) {
             throw typeError(NOT_SLICEABLE, o);
@@ -130,15 +130,15 @@ public class PySequence extends Abstract {
      * @param o object to operate on
      * @param key index
      * @param value to put at index
-     * @throws PyBaseException (TypeError) when {@code o} does not allow
-     *     subscripting
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) when
+     *     {@code o} does not allow subscripting
      * @throws Throwable from invoked method implementations
      */
     // Compare CPython PyObject_SetItem in abstract.c
     public static void setItem(Object o, Object key, Object value)
             throws Throwable {
         // Decisions are based on types of o and key
-        Representation rep = PyType.getRepresentation(o);
+        Representation rep = representation(o);
         try {
             rep.op_setitem().invokeExact(o, key, value);
             return;
@@ -153,14 +153,14 @@ public class PySequence extends Abstract {
      *
      * @param o object to operate on
      * @param key index at which to delete element
-     * @throws PyBaseException (TypeError) when {@code o} does not allow
-     *     subscripting
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) when
+     *     {@code o} does not allow subscripting
      * @throws Throwable from invoked method implementations
      */
     // Compare CPython PyObject_DelItem in abstract.c
     public static void delItem(Object o, Object key) throws Throwable {
         // Decisions are based on types of o and key
-        Representation rep = PyType.getRepresentation(o);
+        Representation rep = representation(o);
         try {
             rep.op_delitem().invokeExact(o, key);
             return;
@@ -177,8 +177,8 @@ public class PySequence extends Abstract {
      *
      * @param o to represent
      * @return the contents as a tuple
-     * @throws PyBaseException (TypeError) if an iterator cannot be
-     *     formed on {@code o}
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if an
+     *     iterator cannot be formed on {@code o}
      * @throws Throwable from the implementation of {@code o}
      */
     // Compare CPython PySequence_Tuple in abstract.c
@@ -197,8 +197,8 @@ public class PySequence extends Abstract {
      *
      * @param o to represent
      * @return the contents as a list
-     * @throws PyBaseException (TypeError) if an iterator cannot be
-     *     formed on {@code o}
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if an
+     *     iterator cannot be formed on {@code o}
      * @throws Throwable from the implementation of {@code o}
      */
     // Compare CPython PySequence_List in abstract.c
@@ -260,22 +260,22 @@ public class PySequence extends Abstract {
     private static <E extends PyBaseException> List<Object>
             fastNewList(Object o, Supplier<E> exc) throws E, Throwable {
         List<Object> list = new ArrayList<>();
-        Representation rep = PyType.getRepresentation(o);
-        PyType type = rep.pythonType(o);
+        Representation rep = representation(o);
+        BaseType type = rep.pythonType(o);
 
         if (type.hasFeature(KernelTypeFlag.HAS_ITER)) {
             // Go via the iterator on o
             Object iter = rep.op_iter().invokeExact(o);
             // Check iter is an iterator (defines __next__).
-            Representation iterRep = PyType.getRepresentation(iter);
+            Representation iterRep = representation(iter);
             if (iterRep.hasFeature(iter, KernelTypeFlag.HAS_NEXT)) {
                 // Create a handle on __next__
                 MethodHandle next = iterRep.op_next().bindTo(iter);
                 // Iterate o into a list
                 try {
                     for (;;) { list.add(next.invokeExact()); }
-                } catch (PyBaseException e) {
-                    e.only(PyExc.StopIteration);
+                } catch (PyStopIteration stop) {
+                    // Not a problem. (Every other exception is.)
                 }
                 return list;
             } // else fall out at throw exc
@@ -636,9 +636,10 @@ public class PySequence extends Abstract {
          *
          * @param item (or slice) to get from in the client
          * @return the element or slice
-         * @throws PyBaseException (ValueError) if {@code slice.step==0}
-         * @throws PyBaseException (TypeError) from bad slice index
-         *     types
+         * @throws PyBaseException ({@link PyExc#ValueError ValueError})
+         *     if {@code slice.step==0}
+         * @throws PyBaseException ({@link PyExc#TypeError TypeError})
+         *     from bad slice index types
          * @throws Throwable from errors other than indexing
          */
         public Object __getitem__(Object item)
@@ -663,11 +664,11 @@ public class PySequence extends Abstract {
          *
          * @param item (or slice) to assign in the client
          * @param value to assign
-         * @throws PyBaseException (ValueError) if {@code slice.step==0}
-         *     or {@code slice.step!=1} (an "extended" slice) and
-         *     {@code value} is the wrong length.
-         * @throws PyBaseException (TypeError) from bad slice index
-         *     types
+         * @throws PyBaseException ({@link PyExc#ValueError ValueError})
+         *     if {@code slice.step==0} or {@code slice.step!=1} (an
+         *     "extended" slice) and {@code value} is the wrong length.
+         * @throws PyBaseException ({@link PyExc#TypeError TypeError})
+         *     from bad slice index types
          * @throws Throwable from errors other than indexing
          */
         public void __setitem__(Object item, Object value)
@@ -691,11 +692,11 @@ public class PySequence extends Abstract {
          * {@link #delSlice(Indices)}.
          *
          * @param item (or slice) to delete in the client
-         * @throws PyBaseException (ValueError) if {@code slice.step==0}
-         *     or value is the wrong length in an extended slice
-         *     ({@code slice.step!=1}
-         * @throws PyBaseException (TypeError) from bad slice index
-         *     types
+         * @throws PyBaseException ({@link PyExc#ValueError ValueError})
+         *     if {@code slice.step==0} or value is the wrong length in
+         *     an extended slice ({@code slice.step!=1}
+         * @throws PyBaseException ({@link PyExc#TypeError TypeError})
+         *     from bad slice index types
          * @throws Throwable from errors other than indexing
          */
         public void __delitem__(Object item)
@@ -724,8 +725,8 @@ public class PySequence extends Abstract {
          *
          * @param w right operand
          * @return {@code self+w} or {@code NotImplemented}
-         * @throws PyBaseException (OverflowError) when cannot allocate
-         *     space
+         * @throws PyBaseException ({@link PyExc#OverflowError
+         *     OverflowError}) when cannot allocate space
          * @throws Throwable from other causes in the implementation.
          */
         Object __add__(Object w) throws PyBaseException, Throwable {
@@ -758,8 +759,8 @@ public class PySequence extends Abstract {
          *
          * @param v left operand
          * @return {@code v+self} or {@code NotImplemented}
-         * @throws PyBaseException (OverflowError) when cannot allocate
-         *     space
+         * @throws PyBaseException ({@link PyExc#OverflowError
+         *     OverflowError}) when cannot allocate space
          * @throws Throwable from other causes in the implementation.
          */
         Object __radd__(Object v) throws PyBaseException, Throwable {
@@ -788,10 +789,11 @@ public class PySequence extends Abstract {
          *
          * @param n number of repetitions in result
          * @return {@code self*n} or {@code NotImplemented}
-         * @throws PyBaseException (OverflowError) when {@code n}
-         *     over-size or cannot allocate space
-         * @throws PyBaseException (TypeError) if {@code n} has no
-         *     {@code __index__}
+         * @throws PyBaseException ({@link PyExc#OverflowError
+         *     OverflowError}) when {@code n} over-size or cannot
+         *     allocate space
+         * @throws PyBaseException ({@link PyExc#TypeError TypeError})
+         *     if {@code n} has no {@code __index__}
          * @throws Throwable from implementation of {@code __index__},
          *     or other causes in the implementation.
          */
@@ -828,9 +830,10 @@ public class PySequence extends Abstract {
          * @param start index of first element in range
          * @param stop index of first element not in range
          * @return the index at which found
-         * @throws PyBaseException (ValueError) if {@code v} not found
-         * @throws PyBaseException (TypeError) from bad {@code start}
-         *     and {@code stop} types
+         * @throws PyBaseException ({@link PyExc#ValueError ValueError})
+         *     if {@code v} not found
+         * @throws PyBaseException ({@link PyExc#TypeError TypeError})
+         *     from bad {@code start} and {@code stop} types
          * @throws Throwable from errors other than indexing
          */
         public int index(Object v, Object start, Object stop)
@@ -860,8 +863,8 @@ public class PySequence extends Abstract {
          *
          * @param i to check is valid index
          * @return range-checked {@code i}
-         * @throws PyBaseException (IndexError) if {@code i} out of
-         *     range
+         * @throws PyBaseException ({@link PyExc#IndexError IndexError})
+         *     if {@code i} out of range
          */
         protected int adjustGet(int i) {
             final int L = length();
@@ -881,8 +884,8 @@ public class PySequence extends Abstract {
          *
          * @param i to check is valid index
          * @return range-checked {@code i}
-         * @throws PyBaseException (IndexError) if {@code i} out of
-         *     range
+         * @throws PyBaseException ({@link PyExc#IndexError IndexError})
+         *     if {@code i} out of range
          */
         protected int adjustSet(int i) throws PyBaseException {
             final int L = length();
@@ -944,8 +947,8 @@ public class PySequence extends Abstract {
          * @param index purported index (or {@code null})
          * @param defaultValue to use if {@code index==null}
          * @return converted index
-         * @throws PyBaseException (TypeError) from bad {@code index}
-         *     type
+         * @throws PyBaseException ({@link PyExc#TypeError TypeError})
+         *     from bad {@code index} type
          * @throws Throwable from other conversion errors
          */
         protected int boundedIndex(Object index, int defaultValue)
@@ -983,8 +986,8 @@ public class PySequence extends Abstract {
      * @param factory a constructor for {@code R}
      * @param accumulator to add one element to an {@code R}
      * @return the collection
-     * @throws PyBaseException (TypeError) if an iterator cannot be
-     *     formed on {@code o}
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if an
+     *     iterator cannot be formed on {@code o}
      * @throws Throwable from the implementation of {@code o}
      */
     private static <R> R collect(Object o, Supplier<R> factory,
@@ -993,15 +996,15 @@ public class PySequence extends Abstract {
 
         // Create an iterator on o and a bound handle on __next__
         Object iter = getIterator(o);
-        Representation iterOps = PyType.getRepresentation(iter);
+        Representation iterOps = representation(iter);
         MethodHandle next = iterOps.op_next().bindTo(iter);
 
         // Iterate o into the collection
         R r = factory.get();
         try {
             for (;;) { accumulator.accept(r, next.invokeExact()); }
-        } catch (PyBaseException stop) {
-            stop.only(PyExc.StopIteration);
+        } catch (PyStopIteration stop) {
+            // Not a problem. (Every other exception is.)
         }
         return r;
     }

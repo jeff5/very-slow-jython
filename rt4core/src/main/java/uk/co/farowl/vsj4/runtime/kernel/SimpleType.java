@@ -1,11 +1,8 @@
-// Copyright (c)2024 Jython Developers.
+// Copyright (c)2025 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime.kernel;
 
-import java.lang.invoke.MethodHandles;
 import java.util.List;
-
-import uk.co.farowl.vsj4.runtime.PyType;
 
 /**
  * A Python type object used where instances (in Python) of the type
@@ -16,7 +13,7 @@ import uk.co.farowl.vsj4.runtime.PyType;
  * must have a {@code self} parameter that accepts the representation
  * class (or a superclass).
  */
-public non-sealed class SimpleType extends PyType {
+public non-sealed class SimpleType extends BaseType {
 
     /** To return as {@link #canonicalClass()}. */
     private final Class<?> canonicalClass;
@@ -32,7 +29,7 @@ public non-sealed class SimpleType extends PyType {
      * @param bases of the type
      */
     public SimpleType(String name, Class<?> javaClass,
-            Class<?> canonical, PyType[] bases) {
+            Class<?> canonical, BaseType[] bases) {
         super(name, javaClass, bases);
         this.canonicalClass = canonical;
     }
@@ -45,7 +42,7 @@ public non-sealed class SimpleType extends PyType {
      * @param javaClass to which instances are assignable
      * @param bases of the type
      */
-    public SimpleType(String name, Class<?> javaClass, PyType[] bases) {
+    public SimpleType(String name, Class<?> javaClass, BaseType[] bases) {
         this(name, javaClass, javaClass, bases);
     }
 
@@ -56,7 +53,7 @@ public non-sealed class SimpleType extends PyType {
      */
     SimpleType() {
         // The representation is Object and there are no bases.
-        this("object", Object.class, Object.class, new PyType[0]);
+        this("object", Object.class, Object.class, new BaseType[0]);
     }
 
     /**
@@ -66,9 +63,9 @@ public non-sealed class SimpleType extends PyType {
      *
      * @param object the type object for {@code object} (as base).
      */
-    SimpleType(PyType object) {
-        this("type", PyType.class, SimpleType.class,
-                new PyType[] {object});
+    SimpleType(BaseType object) {
+        this("type", BaseType.class, SimpleType.class,
+                new BaseType[] {object});
     }
 
     @Override
@@ -83,13 +80,9 @@ public non-sealed class SimpleType extends PyType {
     public Class<?> canonicalClass() { return canonicalClass; }
 
     @Override
-    public PyType pythonType(Object x) {
-        // I don't *think* we should be asked this question unless:
-        assert javaClass.isAssignableFrom(x.getClass());
-        return this;
-    }
+    public BaseType pythonType(Object x) { return this; }
 
-    // XXX Decide the immutability of SimpleType
+    // TODO: Decide the immutability of SimpleType
     @Override
     public boolean isMutable() { return false; }
 
@@ -98,45 +91,4 @@ public non-sealed class SimpleType extends PyType {
 
     @Override
     public boolean isFloatExact() { return false; }
-
-    /**
-     * A lookup with package scope within the public {@code runtime}
-     * package. This lookup object is provided to the kernel to grant it
-     * package-level access to the run-time system. For example, it
-     * makes it possible to form method handles on Python type
-     * implementations defined in {@code runtime}.
-     */
-    static MethodHandles.Lookup getRuntimeLookup() {
-        return RUNTIME_LOOKUP;
-    }
-
-    /**
-     * The type factory to which the run-time system goes for all type
-     * objects.
-     *
-     * @return the (static) type factory
-     */
-    static TypeFactory getFactory() { return factory; }
-
-    /**
-     * The type registry to which this run-time system goes for all
-     * class look-ups.
-     *
-     * @return the (static) type registry
-     */
-    static TypeRegistry getRegistry() { return registry; }
-
-    /**
-     * Determine (or create if necessary) the {@link Representation} for
-     * the given object.
-     * <p>
-     * This duplicates the same-name method in {@link PyType} for
-     * reasons of visibility.
-     *
-     * @param o for which a {@code Representation} is required
-     * @return the {@code Representation}
-     */
-    static Representation getRepresentation(Object o) {
-        return registry.get(o.getClass());
-    }
 }

@@ -153,20 +153,14 @@ public class PyDict extends AbstractMap<Object, Object>
 
     /** Modes for use with {@link #merge(Object, MergeMode)}. */
     enum MergeMode {
-        /**
-         * Ignore the operation if the key is already in the map.
-         * (CPython mode 0: first occurrence wins).
-         */
+        /** Ignore the operation if the key is already in the map. */
+        // CPython mode 0: first occurrence wins.
         IF_ABSENT,
-        /**
-         * Overwrite any existing entry with the same key. (CPython mode
-         * 1: last occurrence wins).
-         */
+        /** Overwrite any existing entry with the same key. */
+        // CPython mode 1: last occurrence wins.
         PUT,
-        /**
-         * Raise a {@link KeyError} if the key is already in the map.
-         * (CPython mode 2.)
-         */
+        /** Raise {@code KeyError} if the key is already in the map. */
+        // CPython mode 2.
         UNIQUE
     }
 
@@ -202,9 +196,10 @@ public class PyDict extends AbstractMap<Object, Object>
      *
      * @param seq sequence of KV pairs to merge
      * @param mode merge policy
-     * @throws PyBaseException (TypeError)
-     * @throws PyKeyError
-     * @throws Throwable
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError})
+     * @throws PyKeyError on duplicate key (if {@code mode == }
+     *     {@link MergeMode#UNIQUE})
+     * @throws Throwable from iterator operations
      */
     // Compare CPython PyDict_MergeFromSeq2 in dictobject.c
     void mergeFromSeq(Object seq, MergeMode mode)

@@ -37,6 +37,7 @@ import uk.co.farowl.vsj4.runtime.Exposed.PositionalCollector;
 import uk.co.farowl.vsj4.runtime.Exposed.PositionalOnly;
 import uk.co.farowl.vsj4.runtime.Exposed.PythonMethod;
 import uk.co.farowl.vsj4.runtime.Exposed.PythonStaticMethod;
+import uk.co.farowl.vsj4.runtime.kernel.BaseType;
 // import uk.co.farowl.vsj4.runtime.ModuleDef.MethodDef;
 import uk.co.farowl.vsj4.support.InterpreterError;
 import uk.co.farowl.vsj4.support.MethodKind;
@@ -60,10 +61,9 @@ abstract class Exposer {
 
     /**
      * The table of intermediate descriptions for methods (instance,
-     * static and class). They will become {@link MethodDef}s, and
-     * eventually either descriptors in a built-in object type or
-     * methods bound to instances of a module type. Every entry here is
-     * also a value in {@link #specs}.
+     * static and class). They will eventually become either descriptors
+     * in a built-in object type or methods bound to instances of a
+     * module type. Every entry here is also a value in {@link #specs}.
      */
     final Set<CallableSpec> methodSpecs;
 
@@ -307,7 +307,7 @@ abstract class Exposer {
          * @return attribute to add
          * @throws InterpreterError on specification errors
          */
-        abstract Object asAttribute(PyType objclass, Lookup lookup)
+        abstract Object asAttribute(BaseType objclass, Lookup lookup)
                 throws InterpreterError;
 
         /** @return the documentation string (or {@code null}) */
@@ -364,10 +364,10 @@ abstract class Exposer {
             Class<? extends Annotation> ac = annoClass();
             if (ac == Annotation.class) {
                 // Special methods recognised by name, so no annotation
-                return "special method";
+                return "Special";
             } else if (ac == Getter.class) {
                 // Since could also be @Setter or @Deleter
-                return "get-set attribute";
+                return "Attribute";
             } else {
                 return ac.getSimpleName();
             }
@@ -1212,7 +1212,7 @@ abstract class Exposer {
          * @throws InterpreterError if the method type is not supported
          */
         @Override
-        PyMethodDescr asAttribute(PyType objclass, Lookup lookup)
+        PyMethodDescr asAttribute(BaseType objclass, Lookup lookup)
                 throws InterpreterError {
 
             ArgParser ap = new ArgParser(name, scopeKind,
@@ -1253,6 +1253,13 @@ abstract class Exposer {
      */
     static class StaticMethodSpec extends CallableSpec {
 
+        /**
+         * Construct instance in which we assemble information about a
+         * Python static method.
+         *
+         * @param name of method
+         * @param scopeKind where defined
+         */
         StaticMethodSpec(String name, ScopeKind scopeKind) {
             super(name, scopeKind);
         }
@@ -1275,7 +1282,7 @@ abstract class Exposer {
          * @throws InterpreterError if the method type is not supported
          */
         @Override
-        PyStaticMethod asAttribute(PyType objclass, Lookup lookup) {
+        PyStaticMethod asAttribute(BaseType objclass, Lookup lookup) {
             assert methodKind == MethodKind.STATIC;
             ArgParser ap = getParser();
 
@@ -1293,7 +1300,7 @@ abstract class Exposer {
                 assert mh.type().parameterCount() == regargcount;
                 PyJavaFunction javaFunction =
                         PyJavaFunction.forStaticMethod(ap, mh);
-                return new PyStaticMethod(objclass, javaFunction);
+                return new PyStaticMethod(javaFunction);
             } catch (IllegalAccessException e) {
                 throw cannotGetHandle(m, e);
             }

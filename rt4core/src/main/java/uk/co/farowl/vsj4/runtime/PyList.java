@@ -38,8 +38,6 @@ import uk.co.farowl.vsj4.support.InterpreterError;
  *     through a private delegate member where in the former design
  *     behaviour was inherited.
  */
-// @ExposedType(name = "list", base = PyObject.class, doc =
-// BuiltinDocs.list_doc)
 public class PyList implements List<Object>, WithClass {
 
     /** The Python type object for {@code list}. */

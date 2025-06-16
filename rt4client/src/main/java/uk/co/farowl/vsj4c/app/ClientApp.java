@@ -1,5 +1,14 @@
 package uk.co.farowl.vsj4c.app;
 
+import java.util.List;
+
+import uk.co.farowl.vsj4.runtime.Abstract;
+import uk.co.farowl.vsj4.runtime.Callables;
+import uk.co.farowl.vsj4.runtime.PyNumber;
+import uk.co.farowl.vsj4.runtime.PyObject;
+import uk.co.farowl.vsj4.runtime.PyType;
+import uk.co.farowl.vsj4c.ext.Extension;
+
 public class ClientApp {
 
     public static void main(String[] args) {
@@ -16,17 +25,17 @@ public class ClientApp {
 //
 //        y = interp.add(33, 9);
 //        System.out.printf("add(33, 9) = %d\n", y);
-//
+
+        /*
+         * The application has an extension module in Java. A module of
+         * any kind has to be created as an instance in an interpreter.
+         */
+        Extension ext = new Extension();
+        System.out.println(ext);
+
 //        /*
-//         * The application has an extension module in Java. A module of
-//         * any kind has to be created as an instance in an interpreter.
-//         */
-//        Extension ext = new Extension();
-//        System.out.println(ext);
-//
-//        /*
-//         * Functions defined in Java and marked as Exposed.PythonMethod
-//         * appear in the dictionary of the instance.
+//         * Functions defined in Java and marked as PythonMethod appear
+//         * in the dictionary of the instance.
 //         */
 //        Object foo = ext.getDict().get("foo");
 //        System.out.println(foo);
@@ -34,37 +43,61 @@ public class ClientApp {
 //            Object r = interp.call(foo, i);
 //            System.out.printf("%3d %5d\n", i, r);
 //        }
-//
-//        /*
-//         * A user-defined type can become a Python type. The toy doen't
-//         * support construction via Python at the moment.
-//         */
-//        Object mt = new MyType(3);
-//        System.out.println(mt);
-//        interp.callMethod(mt, "set_content", 21);
-//        System.out.println(mt);
+
+        /*
+         * A user-defined type can be a Python type. An instance may be
+         * constructed conventionally for Java.
+         */
+        Object mt = new MyType(3);
+        System.out.println(mt);
+
+        try {
+            // Any method may be found on the type ...
+            Object f = Abstract.getAttr(MyType.TYPE, "set_content");
+            // ... and called on an instance ...
+            Callables.call(f, mt, 12);
+            System.out.println(mt);
+
+            // ... or found, bound and called via the instance.
+            f = Abstract.getAttr(mt, "set_content");
+            Callables.call(f, 21);
+            System.out.println(mt);
+
+            // A method that is Python-inherited from object.
+            f = Abstract.getAttr(mt, "__repr__");
+            Object r = Callables.call(f);
+            System.out.println(r); // <MyType object at ...>
+
+            // Special methods support corresponding Abstract API.
+            System.out.println(Abstract.str(mt));
+            System.out.println(Abstract.repr(mt));
+            System.out.println(PyNumber.negative(42));
+
+            // Let's try some API abuse
+            PyType t = MyType.TYPE;
+            //System.out.println(t.base);
+
+            t.isSubTypeOf(PyObject.TYPE);
+
+            List<?> reps = t.selfClasses();
+            System.out.println("t.representations = " + reps);
+            //Representation rep = reps.get(0);
+            //rep.pythonType(x);
+
+            for (PyType b : t.getMRO()) { System.out.println(b); }
+
+            t = PyType.of(42);
+            //MethodHandle addMH = t.op_add();
+            //boolean ready = t.hasFeature(KernelTypeFlag.READY);
+            reps = t.selfClasses();
+            System.out.println("type(42).representations = " + reps);
+
+        } catch (Throwable e) {
+            e.printStackTrace();
+        }
     }
 
-    static class MyType {
-
-//        private int content;
-//
-//        MyType(int content) { this.content = content; }
-//
-//        @Exposed.PythonMethod
-//        Object __str__() { return "MyType(" + content + ")"; }
-//
-//        @Exposed.PythonMethod
-//        static void set_content(MyType self, int v) {
-//            self.content = 2 * v;
-//        }
-//
-//        @Override
-//        public String toString() {
-//            return PyUtil.defaultToString(this);
-//        }
-//
-//        static final PyType TYPE = PyType.register("MyType",
-//                MyType.class, MethodHandles.lookup());
+    static void visibility() {
+        // Place to test visibility to compiler
     }
 }

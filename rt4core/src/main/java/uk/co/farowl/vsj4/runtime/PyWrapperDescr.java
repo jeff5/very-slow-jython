@@ -7,6 +7,7 @@ import java.lang.invoke.MethodHandles;
 import java.util.Arrays;
 
 import uk.co.farowl.vsj4.runtime.ArgumentError.Mode;
+import uk.co.farowl.vsj4.runtime.kernel.BaseType;
 import uk.co.farowl.vsj4.runtime.kernel.Representation;
 import uk.co.farowl.vsj4.runtime.kernel.SpecialMethod;
 import uk.co.farowl.vsj4.support.internal.Util;
@@ -52,14 +53,15 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
 
     static final PyType TYPE = PyType.fromSpec( //
             new TypeSpec("wrapper_descriptor", MethodHandles.lookup())
-                    .add(Feature.IMMUTABLE, Feature.METHOD_DESCR));
+                    .add(Feature.IMMUTABLE, Feature.METHOD_DESCR)
+                    .remove(Feature.BASETYPE));
 
     /**
      * The {@link SpecialMethod} ({@code enum}) describing the generic
      * characteristics of the special method, of which
      * {@link Descriptor#objclass} provides a particular implementation.
      */
-    final SpecialMethod slot;
+    final SpecialMethod sm;
 
     /**
      * Construct a slot wrapper descriptor for the {@code slot} in
@@ -69,10 +71,13 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
      * @param slot for the generic special method
      */
     // Compare CPython PyDescr_NewWrapper in descrobject.c
-    PyWrapperDescr(PyType objclass, SpecialMethod slot) {
-        super(TYPE, objclass, slot.methodName);
-        this.slot = slot;
+    PyWrapperDescr(BaseType objclass, SpecialMethod slot) {
+        super(objclass, slot.methodName);
+        this.sm = slot;
     }
+
+    @Override
+    public PyType getType() { return TYPE; }
 
     // Exposed attributes ---------------------------------------------
 
@@ -93,8 +98,8 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
      */
     @Exposed.Getter
     // Compare CPython wrapperdescr_get_doc in descrobject.c
-    protected Object __doc__() {
-        return PyType.getDocFromInternalDoc(slot.methodName, slot.doc);
+    private Object __doc__() {
+        return Descriptor.getDocFromInternalDoc(sm.methodName, sm.doc);
     }
 
     /**
@@ -105,9 +110,9 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
      */
     @Exposed.Getter
     // Compare CPython wrapperdescr_get_text_signature in descrobject.c
-    protected Object __text_signature__() {
-        return PyType.getTextSignatureFromInternalDoc(slot.methodName,
-                slot.doc);
+    private Object __text_signature__() {
+        return Descriptor.getTextSignatureFromInternalDoc(sm.methodName,
+                sm.doc);
     }
 
     // Special methods ------------------------------------------------
@@ -133,9 +138,23 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
     @SuppressWarnings("unused")
     private Object __repr__() { return descrRepr("slot wrapper"); }
 
+    /**
+     * Return the wrapped special method, bound to {@code obj} as its
+     * {@code self} argument, or if {@code obj==null}, return this
+     * descriptor. In the non-{@code null} case, {@code __get__} returns
+     * a {@link PyMethodWrapper}. Calling the returned object invokes
+     * the same special method as this descriptor, with {@code obj} as
+     * first argument, and other arguments to the call appended.
+     *
+     * @param obj target ({@code self}) of the method, or {@code null}
+     * @param type ignored
+     * @return method bound to {@code obj} or this descriptor.
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     {@code obj!=null} is not compatible
+     */
     // Compare CPython wrapperdescr_get in descrobject.c
     @Override
-    protected Object __get__(Object obj, PyType type) {
+    public Object __get__(Object obj, PyType type) {
         if (obj == null)
             /*
              * obj==null indicates the descriptor was found on the
@@ -159,12 +178,12 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
      * @param args positional arguments beginning with {@code self}
      * @param names of keywords in the method call
      * @return result of calling the wrapped method
-     * @throws PyBaseException (TypeError) if {@code args[0]} is the
-     *     wrong type
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     {@code args[0]} is the wrong type
      * @throws Throwable from the implementation of the special method
      */
     // Compare CPython wrapperdescr_call in descrobject.c
-    public Object __call__(Object[] args, String[] names)
+    Object __call__(Object[] args, String[] names)
             throws PyBaseException, Throwable {
         try {
             return call(args, names);
@@ -226,7 +245,7 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
         // Call through the correct wrapped handle for self
         MethodHandle mh = getHandle(self);
         String name;
-        switch (slot.signature) {
+        switch (sm.signature) {
             case UNARY:
                 checkNoArgs(args, names);
                 return mh.invokeExact(self);
@@ -297,7 +316,7 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
     @Override
     public Object call(Object self) throws ArgumentError, Throwable {
         MethodHandle mh = getHandle(self);
-        return switch (slot.signature) {
+        return switch (sm.signature) {
             case UNARY -> mh.invokeExact(self);
             case PREDICATE -> (boolean)mh.invokeExact(self);
             case LEN -> (int)mh.invokeExact(self);
@@ -310,7 +329,7 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
             throws ArgumentError, Throwable {
         MethodHandle mh = getHandle(self);
         String name;
-        switch (slot.signature) {
+        switch (sm.signature) {
             case BINARY:
                 return mh.invokeExact(self, a1);
             case BINARY_PREDICATE:
@@ -342,7 +361,7 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
             throws ArgumentError, Throwable {
         MethodHandle mh = getHandle(self);
         String name;
-        switch (slot.signature) {
+        switch (sm.signature) {
             case TERNARY:
                 return mh.invokeExact(self, a1, a2);
             case SETITEM:
@@ -374,8 +393,8 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
      *
      * @param self by which to select the handle
      * @return the handle to call with {@code self} as first argument
-     * @throws PyBaseException (TypeError) if the type of {@code self}
-     *     does not match the wrapped handle.
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     the type of {@code self} does not match the wrapped handle.
      * @throws Throwable propagated from subclass check
      */
     abstract MethodHandle getHandle(Object self)
@@ -395,7 +414,7 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
      * @return exception to throw
      */
     @Override
-    protected PyBaseException selfTypeError(PyType selfType) {
+    PyBaseException selfTypeError(PyType selfType) {
         /*
          * For some reason, a wrapper descriptor has a slightly
          * different message from other descriptors.
@@ -416,7 +435,7 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
         /**
          * A handle for the particular implementation of a special
          * method being wrapped. The method type is that of
-         * {@link #slot}{@code .signature}.
+         * {@link #sm}{@code .signature}.
          */
         protected final MethodHandle wrapped;
 
@@ -430,7 +449,7 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
          * @param wrapped a handle to an implementation of that slot
          */
         // Compare CPython PyDescr_NewWrapper in descrobject.c
-        Single(PyType objclass, SpecialMethod sm,
+        Single(BaseType objclass, SpecialMethod sm,
                 MethodHandle wrapped) {
             super(objclass, sm);
             this.wrapped = wrapped;
@@ -460,7 +479,7 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
         /**
          * Handles for the particular implementations of a special
          * method being wrapped. The method type of each is that of
-         * {@link #slot}{@code .signature}.
+         * {@link #sm}{@code .signature}.
          */
         protected final MethodHandle[] wrapped;
 
@@ -474,7 +493,7 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
          * @param wrapped handles to the implementation of that slot
          */
         // Compare CPython PyDescr_NewWrapper in descrobject.c
-        Multiple(PyType objclass, SpecialMethod sm,
+        Multiple(BaseType objclass, SpecialMethod sm,
                 MethodHandle[] wrapped) {
             super(objclass, sm);
             assert wrapped.length == objclass.selfClasses().size();
@@ -489,7 +508,8 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
         @Override
         MethodHandle getHandle(Object self)
                 throws PyBaseException, Throwable {
-            Representation rep = PyType.registry.get(self.getClass());
+            Representation rep =
+                    TypeSystem.registry.get(self.getClass());
             PyType selfType = rep.pythonType(self);
             if (selfType == objclass) {
                 // selfType defined the method so it must be ok

@@ -13,13 +13,14 @@ import java.lang.invoke.MethodType;
 import uk.co.farowl.vsj4.runtime.Exposed.Deleter;
 import uk.co.farowl.vsj4.runtime.Exposed.Getter;
 import uk.co.farowl.vsj4.runtime.Exposed.Setter;
+import uk.co.farowl.vsj4.runtime.kernel.BaseType;
 import uk.co.farowl.vsj4.runtime.kernel.Representation;
 import uk.co.farowl.vsj4.support.InterpreterError;
 import uk.co.farowl.vsj4.support.internal.EmptyException;
 
 /**
  * Descriptor for an attribute that has been defined by a series of
- * {@link Getter}, {@link Setter} and {@link Deleter} that annotate
+ * {@link Getter}, {@link Setter} and {@link Deleter} annotations on
  * access methods defined in the object implementation to get, set or
  * delete the value. {@code PyGetSetDescr} differs from
  * {@link PyMemberDescr} in giving the author of an implementation class
@@ -28,11 +29,12 @@ import uk.co.farowl.vsj4.support.internal.EmptyException;
  */
 // Compare CPython struct PyGetSetDef in descrobject.h,
 // and PyGetSetDescrObject also in descrobject.h
-abstract class PyGetSetDescr extends DataDescriptor {
+public abstract class PyGetSetDescr extends DataDescriptor {
 
     static final Lookup LOOKUP = MethodHandles.lookup();
     static final PyType TYPE =
             PyType.fromSpec(new TypeSpec("getset_descriptor", LOOKUP)
+                    .add(Feature.IMMUTABLE, Feature.METHOD_DESCR)
                     .remove(Feature.BASETYPE));
 
     /** The method handle type (O)O. */
@@ -95,12 +97,15 @@ abstract class PyGetSetDescr extends DataDescriptor {
      * @param klass Java class of attribute accepted by set method
      */
     // Compare CPython PyDescr_NewGetSet
-    PyGetSetDescr(PyType objclass, String name, String doc,
+    PyGetSetDescr(BaseType objclass, String name, String doc,
             Class<?> klass) {
-        super(TYPE, objclass, name);
+        super(objclass, name);
         this.doc = doc;
         this.klass = klass;
     }
+
+    @Override
+    public PyType getType() { return TYPE; }
 
     /**
      * Return a {@code MethodHandle} by which the Java implementation of
@@ -145,9 +150,8 @@ abstract class PyGetSetDescr extends DataDescriptor {
      * @param obj from which to get this attribute
      * @return corresponding handle (or one that throws
      *     {@link EmptyException})
-     * @throws PyBaseException (TypeError) if {@code obj} is of
-     *     unacceptable type
-     * @throws Throwable on other errors while chasing the MRO
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     {@code obj} is of unacceptable type
      */
     abstract MethodHandle getWrappedGet(Object obj);
 
@@ -164,9 +168,8 @@ abstract class PyGetSetDescr extends DataDescriptor {
      * @param obj on which to set this attribute
      * @return corresponding handle (or one that throws
      *     {@link EmptyException})
-     * @throws PyBaseException (TypeError) if {@code obj} is of
-     *     unacceptable type
-     * @throws Throwable on other errors while chasing the MRO
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     {@code obj} is of unacceptable type
      */
     abstract MethodHandle getWrappedSet(Object obj);
 
@@ -183,9 +186,8 @@ abstract class PyGetSetDescr extends DataDescriptor {
      * @param obj from which to delete this attribute
      * @return corresponding handle (or one that throws
      *     {@link EmptyException})
-     * @throws PyBaseException (TypeError) if {@code obj} is of
-     *     unacceptable type
-     * @throws Throwable on other errors while chasing the MRO
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     {@code obj} is of unacceptable type
      */
     abstract MethodHandle getWrappedDelete(Object obj);
 
@@ -265,7 +267,7 @@ abstract class PyGetSetDescr extends DataDescriptor {
      */
     // Compare CPython getset_get in descrobject.c
     @Override
-    Object __get__(Object obj, PyType type) throws Throwable {
+    public Object __get__(Object obj, PyType type) throws Throwable {
         if (obj == null)
             /*
              * obj==null indicates the descriptor was found on the
@@ -374,7 +376,7 @@ abstract class PyGetSetDescr extends DataDescriptor {
          * @param klass Java class of attribute accepted by set method
          */
         // Compare CPython PyDescr_NewGetSet
-        Single(PyType objclass, String name, MethodHandle get,
+        Single(BaseType objclass, String name, MethodHandle get,
                 MethodHandle set, MethodHandle delete, String doc,
                 Class<?> klass) {
             super(objclass, name, doc, klass);
@@ -472,7 +474,7 @@ abstract class PyGetSetDescr extends DataDescriptor {
          * @param klass Java class of attribute accepted by set method
          */
         // Compare CPython PyDescr_NewGetSet
-        Multiple(PyType objclass, String name, MethodHandle[] get,
+        Multiple(BaseType objclass, String name, MethodHandle[] get,
                 MethodHandle[] set, MethodHandle delete[], String doc,
                 Class<?> klass) {
             super(objclass, name, doc, klass);
@@ -515,7 +517,7 @@ abstract class PyGetSetDescr extends DataDescriptor {
         MethodHandle getWrappedGet(Object obj) {
             // Work out how to call this descriptor on that object
             Class<?> objClass = obj.getClass();
-            Representation rep = PyType.registry.get(objClass);
+            Representation rep = TypeSystem.registry.get(objClass);
             PyType objType = rep.pythonType(obj);
             try {
                 if (objType == objclass) {
@@ -537,7 +539,7 @@ abstract class PyGetSetDescr extends DataDescriptor {
         MethodHandle getWrappedSet(Object obj) {
             // Work out how to call this descriptor on that object
             Class<?> objClass = obj.getClass();
-            Representation rep = PyType.registry.get(objClass);
+            Representation rep = TypeSystem.registry.get(objClass);
             PyType objType = rep.pythonType(obj);
             try {
                 if (objType == objclass) {
@@ -559,7 +561,7 @@ abstract class PyGetSetDescr extends DataDescriptor {
         MethodHandle getWrappedDelete(Object obj) {
             // Work out how to call this descriptor on that object
             Class<?> objClass = obj.getClass();
-            Representation rep = PyType.registry.get(objClass);
+            Representation rep = TypeSystem.registry.get(objClass);
             PyType objType = rep.pythonType(obj);
             try {
                 if (objType == objclass) {

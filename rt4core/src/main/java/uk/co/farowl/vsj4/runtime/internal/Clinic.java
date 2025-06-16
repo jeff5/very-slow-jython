@@ -13,7 +13,10 @@ import org.slf4j.LoggerFactory;
 import uk.co.farowl.vsj4.runtime.Abstract;
 import uk.co.farowl.vsj4.runtime.Py;
 import uk.co.farowl.vsj4.runtime.PyBaseException;
+import uk.co.farowl.vsj4.runtime.PyErr;
+import uk.co.farowl.vsj4.runtime.PyExc;
 import uk.co.farowl.vsj4.runtime.PyFloat;
+import uk.co.farowl.vsj4.runtime.PyJavaFunction;
 import uk.co.farowl.vsj4.runtime.PyLong;
 import uk.co.farowl.vsj4.runtime.PyNone;
 import uk.co.farowl.vsj4.runtime.PyType;
@@ -74,9 +77,9 @@ public class Clinic {
             stringArgMH = LOOKUP.findStatic(Clinic.class, "stringArg",
                     MethodType.methodType(String.class, O));
 
-            newValidationMH =
-                    LOOKUP.findVirtual(T, "validatedNewArgument",
-                            MethodType.methodType(T, O));
+            newValidationMH = LOOKUP.findStatic(Clinic.class,
+                    "validatedNewArgument",
+                    MethodType.methodType(T, T, O));
 
             // Cannot safely refer to Py.None this early
             voidValueMH = MethodHandles.constant(O, PyNone.INSTANCE);
@@ -159,8 +162,8 @@ public class Clinic {
      * A single argument filter designed specifically for application as
      * the argument filter on a {@code __new__} implementation. Where
      * the filter is applied, the argument is validated by a call to
-     * {@link PyType#validatedNewArgument(Object)} made on the provided
-     * {@code self}.
+     * {@link #validatedNewArgument(PyType, Object)} made on the
+     * provided {@code self}.
      *
      * @param self Python type against which to validate.
      * @return filter-adaptors to expect {@code Object}.
@@ -270,4 +273,70 @@ public class Clinic {
                 c.getSimpleName());
     }
 
+    /**
+     * Validate the argument presented first in a call to
+     * {@code __new__} against a given defining {@code type}. When
+     * {@code type.__call__} is not simply a type enquiry, it is a
+     * request to construct an instance of the type that is the
+     * {@code self} argument (or {@code this}).
+     * <p>
+     * The receiving type should then search for a definition of
+     * {@code __new__} along the MRO, and pass itself as the first
+     * argument, called {@code cls} in the Python documentation for
+     * {@code __new__}. This definition is necessarily provided by a
+     * superclass. Certainly {@link PyType#__call__(Object[], String[])
+     * PyType.__call__} will do this, and the {@code __new__} of all
+     * classes, whether defined in Python or Java, should include a
+     * comparable action.
+     * <p>
+     * This method asks the defining class {@code type} to validate that
+     * {@code cls} is a Python sub-type of the defining class. We apply
+     * this validation to {@code __new__} calls in every Python type
+     * defined in Java. It is implemented as a wrapper on the handle in
+     * the {@link PyJavaFunction} that exposes {@code __new__} for that
+     * type. Invoking that handle, will call a Java method that, in
+     * simple cases, is defined by:<pre>
+     * T __new__(PyType cls, ...) {
+     *     if (cls == T.TYPE)
+     *         return new T(...);
+     *     else
+     *         return new S(cls, ...);
+     * }
+     * </pre> where {@code S} is a Java subclass of the canonical base
+     * of {@code cls}. The instance of S created will subsequently claim
+     * a Python type {@code cls} in its {@code __class__} attribute. The
+     * validation enforces the constraint that instances of {@code S}
+     * may only be instances of a Python sub-type of the type T
+     * represents.
+     * <p>
+     * The {@code __new__} of a class defined in Python is a harmless
+     * {@code staticmethod}. It doesn't matter how defective it is
+     * until, during {@code super().__new__}, we reach a built-in type
+     * and then this validation will be applied.
+     *
+     * @param type
+     * @param arg0 first argument to the {@code __new__} call
+     * @return arg0 if the checks succeed
+     * @throws PyBaseException (TypeError) if the checks fail
+     */
+    // Compare CPython tp_new_wrapper in typeobject.c
+    @SuppressWarnings("unused") // Used reflectively
+    private static PyType validatedNewArgument(PyType type, Object arg0)
+            throws PyBaseException {
+        if (arg0 instanceof PyType cls) {
+            if (cls.isSubTypeOf(type)) {
+                return cls;
+            } else {
+                String name = type.getName(), clsName = cls.getName();
+                throw PyErr.format(PyExc.TypeError,
+                        "%s.__new__(%s): %s is not a subtype of %s", //
+                        name, clsName, clsName, name);
+            }
+        } else {
+            // arg0 wasn't even a type
+            throw PyErr.format(PyExc.TypeError,
+                    "%s.__new__(X): X must be a type object not %s",
+                    type.getName(), PyType.of(arg0).getName());
+        }
+    }
 }

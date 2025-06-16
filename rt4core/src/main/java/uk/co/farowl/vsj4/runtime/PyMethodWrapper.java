@@ -1,4 +1,4 @@
-// Copyright (c)2024 Jython Developers.
+// Copyright (c)2025 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
 
@@ -21,7 +21,7 @@ import uk.co.farowl.vsj4.runtime.internal._PyUtil;
  */
 // Compare CPython wrapperobject in descrobject.c
 // and _PyMethodWrapper_Type in descrobject.c
-class PyMethodWrapper implements WithClass, FastCall {
+public class PyMethodWrapper implements WithClass, FastCall {
 
     static final PyType TYPE = PyType.fromSpec(
             new TypeSpec("method-wrapper", MethodHandles.lookup())
@@ -119,48 +119,79 @@ class PyMethodWrapper implements WithClass, FastCall {
     // 0, /* tp_descr_set */
     // };
 
-    // Exposed attributes ---------------------------------------------
+    // Exposed attributes --------------------------------------------
 
+    /*
+     * While superficially identical to members that other classes
+     * inherit from Descriptor, note that __objclass__ and __name__ are
+     * here read-only *attributes* (getter methods) rather than
+     * *members* so that we can get them from the descriptor of the
+     * wrapped special method. This the same in CPython.
+     */
+
+    /**
+     * Return the class where this method was defined. This is exposed
+     * to Python as {@code __objclass__}. It is the type of the object
+     * that is expected as the first (that is, {@code self}) argument,
+     * and that is bound (as {@code obj}) when {@code __get__} is
+     * called.
+     *
+     * @return the class where this object was defined
+     */
     @Exposed.Getter
     // Compare CPython wrapper_objclass in descrobject.c
-    protected Object __objclass__() {
-        Object c = descr.objclass;
-        return c;
-    }
+    public Object __objclass__() { return descr.__objclass__(); }
 
+    /**
+     * Return the name of the member, attribute or method described. For
+     * example it is {@code "__add__"} or {@code "__str__"}. This is
+     * exposed to Python as {@code __name__}.
+     *
+     * @return plain name of the (special) method.
+     */
     @Exposed.Getter
     // Compare CPython wrapper_name in descrobject.c
-    protected Object __name__() { return descr.slot.methodName; }
+    public Object __name__() { return descr.sm.methodName; }
 
+    /** @return documentation string formatted for external reader. */
     @Exposed.Getter
     // Compare CPython wrapper_doc in descrobject.c
-    protected Object __doc__() {
-        return PyType.getDocFromInternalDoc(descr.slot.methodName,
-                descr.slot.doc);
+    private Object __doc__() {
+        return Descriptor.getDocFromInternalDoc(descr.sm.methodName,
+                descr.sm.doc);
     }
 
+    /** @return signature string based on internal documentation. */
     @Exposed.Getter
     // Compare CPython wrapper_text_signature in descrobject.c
-    protected Object __text_signature__() {
-        return PyType.getTextSignatureFromInternalDoc(
-                descr.slot.methodName, descr.slot.doc);
+    private Object __text_signature__() {
+        return Descriptor.getTextSignatureFromInternalDoc(
+                descr.sm.methodName, descr.sm.doc);
     }
 
+    /**
+     * Return the qualified name attribute.
+     *
+     * @return qualified name of the method.
+     * @throws PyAttributeError if the attribute does not exist
+     * @throws Throwable from other implementation errors
+     */
     @Exposed.Getter
     // Compare CPython wrapper_qualname in descrobject.c
-    protected Object __qualname__() throws PyAttributeError, Throwable {
-        return Descriptor.descr_get_qualname(descr, null);
+    public Object __qualname__() throws PyAttributeError, Throwable {
+        return descr.__qualname__();
     }
+
     // Special methods ------------------------------------------------
 
     // Compare CPython wrapper_repr in descrobject.c
-    protected Object __repr__() {
+    private Object __repr__() {
         return String.format("<method-wrapper '%s' of %s>",
-                descr.slot.methodName, _PyUtil.toAt(self));
+                descr.sm.methodName, _PyUtil.toAt(self));
     }
 
     // Compare CPython wrapper_richcompare in descrobject.c
-    protected Object __eq__(Object b) {
+    private Object __eq__(Object b) {
         // Both arguments should be exactly PyMethodWrapper
         if (b instanceof PyMethodWrapper) {
             PyMethodWrapper wb = (PyMethodWrapper)b;
@@ -170,7 +201,7 @@ class PyMethodWrapper implements WithClass, FastCall {
     }
 
     // Compare CPython wrapper_richcompare in descrobject.c
-    protected Object __ne__(Object b) {
+    private Object __ne__(Object b) {
         // Both arguments should be exactly PyMethodWrapper
         if (b instanceof PyMethodWrapper) {
             PyMethodWrapper wb = (PyMethodWrapper)b;
@@ -180,7 +211,7 @@ class PyMethodWrapper implements WithClass, FastCall {
     }
 
     // Compare CPython wrapper_hash in descrobject.c
-    protected int __hash__() {
+    private int __hash__() {
         int x = self.hashCode() ^ descr.hashCode();
         return x == -1 ? -2 : x;
     }
@@ -192,8 +223,7 @@ class PyMethodWrapper implements WithClass, FastCall {
     // }
 
     // Compare CPython wrapper_call in descrobject.c
-    Object __call__(Object[] args, String[] names)
-            throws Throwable {
+    Object __call__(Object[] args, String[] names) throws Throwable {
         try {
             return call(args, names);
         } catch (ArgumentError ae) {
@@ -225,7 +255,6 @@ class PyMethodWrapper implements WithClass, FastCall {
             throws ArgumentError, Throwable {
         return descr.call(self, a1, a2);
     }
-
 
     @Override
     public PyBaseException typeError(ArgumentError ae, Object[] args,

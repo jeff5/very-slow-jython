@@ -31,22 +31,21 @@ import uk.co.farowl.vsj4.runtime.PyUnicode;
 import uk.co.farowl.vsj4.runtime.PyUnicodeMethods;
 import uk.co.farowl.vsj4.runtime.TypeSpec;
 import uk.co.farowl.vsj4.runtime.WithClass;
-import uk.co.farowl.vsj4.runtime.kernel.Representation.Shared;
 import uk.co.farowl.vsj4.support.InterpreterError;
 
 /**
  * The {@code TypeFactory} is the home of Python type creation and
  * management. In normal operation, only one instance of
  * {@code TypeFactory} will be created. It will be held statically by
- * the {@link PyType} class. Exceptionally, we create and destroy
- * instances for limited test purposes.
+ * the {@link Representation} class. Exceptionally, we create and
+ * destroy instances for limited test purposes.
  * <p>
  * The {@code TypeFactory} is kept thread-safe, in a complex reentrant
  * process of type creation, by careful synchronisation that counts the
  * reentrant calls. When the factory creates type objects they go
  * through two stages: "Java ready" where they are internally consistent
- * from a Java perspective and "Python ready" when they have acquired
- * their full set of attributes.
+ * and usable from a Java perspective and "Python ready" when they have
+ * acquired their full set of attributes.
  * <p>
  * The design ensures that:
  * <ul>
@@ -59,13 +58,13 @@ import uk.co.farowl.vsj4.support.InterpreterError;
  * thread finally leaves the factory.</li>
  * </ul>
  * Type objects may become visible to Java while only Java ready
- * (perhaps through static data in the defining class), and thus can be
- * seen without their Python attributes. The thread that creates these
- * type objects will always make them Python ready eventually, so the
- * caution is needed in that thread only when accessing intermediate
- * values returned in that process. The client (i.e. outside the type
- * system) that instigated type creation will always receive a Python
- * ready type.
+ * (perhaps through static data in another class), and thus can be seen
+ * without their Python attributes. The thread that creates these type
+ * objects will always make them Python ready eventually, so the caution
+ * is needed in that thread only when accessing intermediate values
+ * returned in that process. The client (i.e. outside the type system)
+ * that instigated type creation will always receive a Python ready
+ * type.
  * <p>
  * Some other thread accessing a type as a static field may see it not
  * Python ready, while the thread that instigated type creation
@@ -77,9 +76,9 @@ import uk.co.farowl.vsj4.support.InterpreterError;
 /*
  * It is not wholly satisfactory to publish types not Python ready while
  * there is no defence against access. The answer might be to lock their
- * Python side, maybe lookup us enough, while a concurrent thread (or
- * pool?) makes them ready. The bootstrap state is as separate
- * difficulty, possibly resolved by a wait until Java-ready.
+ * Python side, maybe taking a lock in lookup is enough, while a
+ * concurrent thread (or pool?) makes them ready. The bootstrap state is
+ * a separate difficulty, possibly resolved by a wait until Java-ready.
  */
 public class TypeFactory {
 
@@ -87,30 +86,32 @@ public class TypeFactory {
     final Logger logger = LoggerFactory.getLogger(TypeFactory.class);
 
     /**
-     * The specification that began this round of type building, used as
-     * a context for error reporting.
-     */
-    private TypeSpec lastContext = null;
-    /** Access rights to the runtime package. */
-    private final Lookup runtimeLookup;
-    /** Factory method to make type exposers. */
-    private final Function<PyType, TypeExposer> exposerFactory;
-    /**
      * A TypeRegistry in which the association of a class with a
      * {@link Representation} will be published.
      */
     private final Registry registry;
+
     /** The workshop for the factory. */
     private final Workshop workshop;
-    /** The (initially partial) type object for 'type'. */
-    final SimpleType typeType;
-    /** The (initially partial) type object for 'object'. */
-    final SimpleType objectType;
 
-    /** An empty array of type objects */
-    final PyType[] EMPTY_TYPE_ARRAY;
+    /** The (initially partial) type object for 'type'. */
+    private SimpleType typeType;
+    /** The (initially partial) type object for 'object'. */
+    private SimpleType objectType;
     /** An array containing just type object {@code object} */
-    private final PyType[] OBJECT_ONLY;
+    private BaseType[] OBJECT_ONLY;
+
+    /** Access rights to the runtime package. Effectively final. */
+    private Lookup runtimeLookup;
+    /** Factory method to make type exposers. Effectively final. */
+    private Function<BaseType, TypeExposer> exposerFactory;
+
+    /**
+     * Types may have to be built in rounds that cross-refer, so we keep
+     * a reference to the specification that began the current round, as
+     * a context for error reporting.
+     */
+    private TypeSpec lastContext = null;
 
     /**
      * We count the number of reentrant calls here, and defer publishing
@@ -129,34 +130,43 @@ public class TypeFactory {
 
     /**
      * Construct a {@code TypeFactory}. Normally this constructor is
-     * used exactly once from {@link PyType}. Exceptionally, we create
-     * instances for test purposes. The parameter {@code runtimeLookup}
-     * allows the caller to give lookup rights to the kernel.
+     * used exactly once. Exceptionally, we create instances for test
+     * purposes. The parameter {@code runtimeLookup} allows the caller
+     * to give lookup rights to the kernel.
      *
      * @deprecated Do not create a {@code TypeFactory} other than the
      *     one {@code PyType} holds statically.
-     * @param runtimeLookup giving access to the callers package
-     * @param exposerFactory a way to make type exposers
      */
     @Deprecated  // ... to stop other use even in the runtime.
-    public TypeFactory(
-            // XXX is this lookup the right approach?
-            Lookup runtimeLookup, //
-            Function<PyType, TypeExposer> exposerFactory) {
-        // This is the first thing the run-time system does.
+    public TypeFactory() {
         logger.info("Type factory being created.");
 
-        this.runtimeLookup = runtimeLookup;
-        this.exposerFactory = exposerFactory;
+        this.registry = new Registry();
+        this.workshop = new Workshop();
+    }
+
+    /**
+     * Construct the {@code type} object {@code type}, and necessarily
+     * therefore, the one for for {@code object} which is its base. The
+     * type factory holds these internally, but does not publish them in
+     * the registry until
+     * {@link #createBootstrapTypes(Lookup, Function)} is called.
+     *
+     * @return the type object for {@code type}
+     *
+     * @deprecated Call exactly once in {@code TypeFactory}
+     */
+    @Deprecated  // ... to stop other use even in the runtime.
+    public SimpleType typeForType() {
+
+        // I will call this only once ...
+        assert objectType == null && typeType == null;
 
         /*
          * The static bootstrap of the type system counts as "entry":
          * the corresponding "exit" is in createBootstrapTypes().
          */
-        this.reentrancyCount = 0;
-
-        this.registry = new Registry();
-        this.workshop = new Workshop();
+        reentrancyCount = 0;
 
         /*
          * Create type objects and specifications for type and object.
@@ -165,28 +175,35 @@ public class TypeFactory {
          */
         logger.atDebug().setMessage(CREATING_PARTIAL_TYPE)
                 .addArgument(indent).addArgument("object").log();
-        this.objectType = new SimpleType();
+        objectType = new SimpleType();
 
         logger.atDebug().setMessage(CREATING_PARTIAL_TYPE)
                 .addArgument(indent).addArgument("type").log();
-        this.typeType = new SimpleType(objectType);
+        typeType = new SimpleType(objectType);
 
         /*
          * We also create a specification for each type, to guide later
          * construction, which we create from their type objects.
          * PyType.fromSpec would not have been safe at this stage.
          */
-        TypeSpec specOfObject = new PrimordialTypeSpec(objectType,
-                AbstractPyObject.LOOKUP)
-                        .methodImpls(AbstractPyObject.class);
-        TypeSpec specOfType =
-                new PrimordialTypeSpec(typeType, runtimeLookup)
-                        .canonicalBase(SimpleType.class);
+        final Lookup kernelLU =
+                MethodHandles.lookup().dropLookupMode(Lookup.PRIVATE);
+        TypeSpec specOfObject =
+                new PrimordialTypeSpec(objectType, kernelLU)
+                        .methodImpls(PyObjectMethods.class);
+        TypeSpec specOfType = new PrimordialTypeSpec(typeType, kernelLU)
+                .canonicalBase(SimpleType.class);
 
-        this.lastContext = specOfObject;
+        // TODO features, mro of object
+        // TODO features, mro of type
+
+        lastContext = specOfObject;
 
         try {
+            // Map primary classes to types: subclasses inherit.
             workshop.publishLocally(Object.class, objectType);
+            workshop.publishLocally(BaseType.class, typeType);
+            // Additionally map *interface* PyType to type type.
             workshop.publishLocally(PyType.class, typeType);
         } catch (Clash clash) {
             // If we can't get this far ...
@@ -203,8 +220,8 @@ public class TypeFactory {
         // This cute re-use also proves 'type' and 'object' exist.
         this.OBJECT_ONLY = typeType.bases;
         assert OBJECT_ONLY.length == 1;
-        this.EMPTY_TYPE_ARRAY = typeType.base.bases;
-        assert EMPTY_TYPE_ARRAY.length == 0;
+
+        return typeType;
     }
 
     /**
@@ -456,7 +473,7 @@ public class TypeFactory {
      * @return the constructed {@code PyType}
      * @throws Clash when a representing class is already bound
      */
-    public synchronized PyType fromSpec(TypeSpec spec) throws Clash {
+    public synchronized BaseType fromSpec(TypeSpec spec) throws Clash {
         /*
          * We are able to make (the right kind of) type object but
          * cannot always guarantee to fill its dictionary. In that case,
@@ -466,7 +483,7 @@ public class TypeFactory {
                 .addArgument(indent).addArgument(spec.getName()).log();
         if (reentrancyCount++ < 0) { lastContext = spec; }
         // Create a type and add it to the work in progress.
-        PyType type = workshop.addTaskFromSpec(spec);
+        BaseType type = workshop.addTaskFromSpec(spec);
         /*
          * It is ok to return a type that is not Python ready from a
          * reentrant call. Work is in hand to complete it.
@@ -485,38 +502,30 @@ public class TypeFactory {
     }
 
     /**
-     * A special factory method for the type object of {@code type},
-     * which has to be hand-constructed, so the usual pattern can't be
-     * applied.
-     *
-     * @return the type of {@code type}
-     * @deprecated Use {@link PyType#TYPE} instead. This method is
-     *     public only so that {@code PyType} may use it to initialise
-     *     that member.
-     */
-    @Deprecated
-    public synchronized PyType typeForType() { return typeType; }
-
-    /**
-     * Create the {@link PyType}s needed before the type system itself
-     * can work properly, and make them Python ready. These are the
-     * adoptive types and those types required to create descriptors.
-     * {@link PyType#TYPE} should have been initialised before this
-     * method is called so that types being defined now may refer to it.
+     * Create the type objects needed before the type system itself can
+     * work properly, and make them Python ready. These are the adoptive
+     * types and those types required to create descriptors. In the
+     * parameters, the caller grants the factory lookup rights to the
+     * {@code runtime} package.
      * <p>
      * We include the adoptive types to ensure that each adopted Java
      * class becomes bound to its {@link Representation} before it gets
      * used from Python.
      * <p>
      * This method finishes what the constructor began. The design of
-     * {@link PyType} ensures all the steps are called before a type
+     * {@code TypeSystem} ensures all the steps are called before a type
      * becomes visible outside the thread.
      *
+     * @param runtimeLU access rights to the runtime package
+     * @param exposerNew a way to make type exposers
      * @throws Clash when a representing class is already bound
      */
-    public synchronized void createBootstrapTypes() throws Clash {
-        // Definition classes should be able to assume:
-        assert PyType.TYPE == typeType;
+    public synchronized void createBootstrapTypes(
+            MethodHandles.Lookup runtimeLU,
+            Function<BaseType, TypeExposer> exposerNew) throws Clash {
+
+        runtimeLookup = runtimeLU;
+        exposerFactory = exposerNew;
 
         /*
          * Create specifications for the bootstrap types. When it is not
@@ -524,8 +533,8 @@ public class TypeFactory {
          * initialisation of the type, we create the type here. We use
          * local variables because we only need these specifications
          * transiently. A type listed here should not contain the idiom
-         * static TYPE = PyType.fromSpec(...), but obtain its TYPE by
-         * enquiry in the registry.
+         * static TYPE = PyType.fromSpec(...), but provide its TYPE by
+         * enquiry in the registry or otherwise.
          */
 
         /*
@@ -540,7 +549,7 @@ public class TypeFactory {
 
         // The rest we can do in a batch.
         final TypeSpec[] bootstrapSpecs = { //
-
+                // TODO Maybe explicitly bootstrap descriptor types
                 new BootstrapSpec("str", PyUnicode.class)
                         .methodImpls(PyUnicodeMethods.class)
                         .adopt(String.class),
@@ -699,7 +708,7 @@ public class TypeFactory {
          * @return the new partial type
          * @throws Clash when a representing class is already bound
          */
-        PyType addTaskFromSpec(TypeSpec spec) throws Clash {
+        BaseType addTaskFromSpec(TypeSpec spec) throws Clash {
             // No further change once we start
             String name = spec.freeze().getName();
 
@@ -710,16 +719,17 @@ public class TypeFactory {
             List<Class<?>> accepted = spec.getAccepted();
 
             // Get the list of Python bases, or implicitly object.
-            PyType[] bases;
             List<PyType> baseList = spec.getBases();
+            // The constructors take BaseType[].
+            BaseType[] bases;
             if (baseList.isEmpty()) {
                 bases = OBJECT_ONLY;
             } else {
-                bases = baseList.toArray(new PyType[baseList.size()]);
+                bases = baseList.toArray(new BaseType[baseList.size()]);
             }
 
             // Result of the construction
-            PyType newType;
+            BaseType newType;
 
             if (spec.getFeatures().contains(Feature.REPLACEABLE)) {
                 assert primary != null;
@@ -730,13 +740,13 @@ public class TypeFactory {
                  * primary class, but it is allowable that it already
                  * have a representation.
                  */
-                Shared sr;
+                SharedRepresentation sr;
                 Representation existing = registry.find(primary);
                 if (existing == null) {
                     // It doesn't exist, so we create and add it.
-                    sr = new Shared(primary, canonical);
+                    sr = new SharedRepresentation(primary, canonical);
                     publishLocally(primary, sr);
-                } else if (existing instanceof Shared s) {
+                } else if (existing instanceof SharedRepresentation s) {
                     // It does exist and is a Shared type: just use it.
                     assert s.canonicalClass() == canonical;
                     sr = s;
@@ -805,7 +815,7 @@ public class TypeFactory {
          * @param type the new type
          * @param spec specifying the new type
          */
-        void addTask(PyType type, TypeSpec spec) {
+        void addTask(BaseType type, TypeSpec spec) {
             tasks.add(new Task(type, spec));
         }
 
@@ -879,12 +889,12 @@ public class TypeFactory {
          */
         private class Task {
             /** The type being built. */
-            final PyType type;
+            final BaseType type;
 
             /** Specification for the type being built. */
             final TypeSpec spec;
 
-            Task(PyType type, TypeSpec spec) {
+            Task(BaseType type, TypeSpec spec) {
                 super();
                 this.type = type;
                 this.spec = spec.freeze();
@@ -901,8 +911,6 @@ public class TypeFactory {
              * exposer, and finalise other state from the specification.
              */
             void readyType() {
-
-                AbstractPyType type = this.type;  // Enables access :/
 
                 // Set MRO
                 type.setMRO();
@@ -1000,8 +1008,8 @@ public class TypeFactory {
                 Class<?> c = spec.getPrimary();
                 assert c != null;
                 // Work upwards from until we meet an excluded class
-                while (!exclusions.contains(c)) {
-                    // At front of list so later definitions will win
+                while (c!=null &&!exclusions.contains(c)) {
+                    // At front of list so subclasses will win
                     defs.addFirst(c);
                     c = c.getSuperclass();
                 }
@@ -1107,11 +1115,11 @@ public class TypeFactory {
          * @param type to reverse
          * @param lookup to supply to the {@link TypeSpec}
          */
-        PrimordialTypeSpec(PyType type, Lookup lookup) {
+        PrimordialTypeSpec(BaseType type, Lookup lookup) {
             super(type.getName(), lookup);
             // I think the primordial types are only simple
             assert type instanceof SimpleType;
-            this.primary(type.javaClass()).bases(type.bases);
+            this.primary(type.javaClass()).bases(type.getBases());
         }
     }
 

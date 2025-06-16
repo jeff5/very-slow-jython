@@ -5,6 +5,7 @@ package uk.co.farowl.vsj4.runtime;
 import java.lang.invoke.MethodHandle;
 import java.util.function.Function;
 
+import uk.co.farowl.vsj4.runtime.kernel.BaseType;
 import uk.co.farowl.vsj4.runtime.kernel.KernelTypeFlag;
 import uk.co.farowl.vsj4.runtime.kernel.Representation;
 import uk.co.farowl.vsj4.runtime.kernel.SpecialMethod;
@@ -28,14 +29,14 @@ public class PyNumber extends Abstract {
      */
     public static Object negative(Object v) throws Throwable {
         try {
-            return PyType.getRepresentation(v).op_neg().invokeExact(v);
+            return representation(v).op_neg().invokeExact(v);
         } catch (EmptyException e) {
             throw SpecialMethod.op_neg.operandError(v);
         }
     }
 
     /**
-     * {@code ~v}: unary negative with Python semantics.
+     * {@code ~v}: unary bitwise inversion with Python semantics.
      *
      * @param v operand
      * @return {@code ~v}
@@ -43,8 +44,7 @@ public class PyNumber extends Abstract {
      */
     public static Object invert(Object v) throws Throwable {
         try {
-            return PyType.getRepresentation(v).op_invert()
-                    .invokeExact(v);
+            return representation(v).op_invert().invokeExact(v);
         } catch (EmptyException e) {
             throw SpecialMethod.op_invert.operandError(v);
         }
@@ -59,7 +59,7 @@ public class PyNumber extends Abstract {
      */
     public static Object absolute(Object v) throws Throwable {
         try {
-            return PyType.getRepresentation(v).op_abs().invokeExact(v);
+            return representation(v).op_abs().invokeExact(v);
         } catch (EmptyException e) {
             throw SpecialMethod.op_abs.operandError(v);
         }
@@ -145,8 +145,8 @@ public class PyNumber extends Abstract {
      * @param w right operand
      * @param binop operation to apply
      * @return result of operation
-     * @throws PyBaseException (TypeError) if neither operand implements
-     *     the operation
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     neither operand implements the operation
      * @throws Throwable from the implementation of the operation
      */
     private static Object binary_op(Object v, Object w,
@@ -174,10 +174,10 @@ public class PyNumber extends Abstract {
     private static Object binary_op1(Object v, Object w,
             SpecialMethod binop) throws EmptyException, Throwable {
 
-        Representation vOps = PyType.getRepresentation(v);
+        Representation vOps = representation(v);
         PyType vType = vOps.pythonType(v);
 
-        Representation wOps = PyType.getRepresentation(w);
+        Representation wOps = representation(w);
         PyType wType = wOps.pythonType(w);
 
         MethodHandle slotv, slotw;
@@ -194,6 +194,7 @@ public class PyNumber extends Abstract {
 
         } else if (!wType.isSubTypeOf(vType)) {
             // Ask left (if not empty) then right.
+            // FIXME comparison with EMPTY is not valid approach
             slotv = binop.handle(vOps);
             if (slotv != BINARY_EMPTY) {
                 Object r = slotv.invokeExact(v, w);
@@ -205,6 +206,7 @@ public class PyNumber extends Abstract {
         } else {
             // Right is sub-class: ask first (if not empty).
             slotw = binop.getAltSlot(wOps);
+            // FIXME comparison with EMPTY is not valid approach
             if (slotw != BINARY_EMPTY) {
                 Object r = slotw.invokeExact(w, v);
                 if (r != Py.NotImplemented) { return r; }
@@ -232,7 +234,8 @@ public class PyNumber extends Abstract {
      */
     // Compare CPython PyIndex_Check in abstract.c
     public static boolean indexCheck(Object obj) {
-        return PyType.of(obj).hasFeature(KernelTypeFlag.HAS_INDEX);
+
+        return BaseType.of(obj).hasFeature(KernelTypeFlag.HAS_INDEX);
     }
 
     /**
@@ -246,14 +249,14 @@ public class PyNumber extends Abstract {
      *
      * @param o operand
      * @return {@code o} coerced to a Python {@code int}
-     * @throws PyBaseException (TypeError) if {@code o} cannot be
-     *     interpreted as an {@code int}
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     {@code o} cannot be interpreted as an {@code int}
      * @throws Throwable otherwise from invoked implementations
      */
     // Compare with CPython abstract.c :: _PyNumber_Index
     static Object index(Object o) throws PyBaseException, Throwable {
 
-        Representation rep = PyType.getRepresentation(o);
+        Representation rep = representation(o);
         Object res;
 
         if (rep.isIntExact())
@@ -262,7 +265,7 @@ public class PyNumber extends Abstract {
             try {
                 res = rep.op_index().invokeExact(o);
                 // Enforce expectations on the return type
-                Representation resRep = PyType.getRepresentation(res);
+                Representation resRep = representation(res);
                 if (resRep.isIntExact())
                     return res;
                 else if (resRep.pythonType(res)
@@ -279,12 +282,13 @@ public class PyNumber extends Abstract {
     /**
      * Returns {@code o} converted to a Java {@code int} if {@code o}
      * can be interpreted as an integer. If the call fails, an exception
-     * is raised, which may be a {@link PyBaseException TypeError} or
+     * is raised, which may be a {@link PyExc#TypeError TypeError} or
      * anything thrown by {@code o}'s implementation of
-     * {@code __index__}. In the special case of {@link OverflowError},
-     * a replacement may be made where the message is formulated by this
-     * method and the type of exception by the caller. (Arcane, but it's
-     * what CPython does.) A recommended idiom for this is<pre>
+     * {@code __index__}. In the special case of
+     * {@link PyExc#OverflowError OverflowError}, a replacement may be
+     * made where the message is formulated by this method and the type
+     * of exception by the caller. (Arcane, but it's what CPython does.)
+     * A recommended idiom for this is<pre>
      * int k = PyNumber.asSize(key, IndexError::new);
      * </pre>
      *
@@ -292,11 +296,12 @@ public class PyNumber extends Abstract {
      * @param exc {@code null} or function of {@code String} returning
      *     the exception to use for overflow.
      * @return {@code int} value of {@code o}
-     * @throws PyBaseException (TypeError) if {@code o} cannot be
-     *     converted to a Python {@code int}
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     {@code o} cannot be converted to a Python {@code int}
      * @throws Throwable on other errors
      */
     // Compare with CPython abstract.c :: PyNumber_AsSsize_t
+    // TODO: Reconsider signature now exception classes are shared
     static int asSize(Object o, Function<String, PyBaseException> exc)
             throws PyBaseException, Throwable {
 
@@ -339,8 +344,8 @@ public class PyNumber extends Abstract {
      * @param v to convert
      * @param defaultValue to return when {@code v==Py.None}
      * @return normalised value as a Java {@code int}
-     * @throws PyBaseException (TypeError) if {@code v!=None} has no
-     *     {@code __index__}
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     {@code v!=None} has no {@code __index__}
      * @throws Throwable from the implementation of {@code __index__}
      */
     // Compare CPython _PyEval_SliceIndex in eval.c and where called
@@ -369,24 +374,24 @@ public class PyNumber extends Abstract {
      *
      * @param o operand
      * @return {@code int(o)}
-     * @throws PyBaseException (TypeError) if {@code o} cannot be
-     *     converted to a Python {@code int}
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     {@code o} cannot be converted to a Python {@code int}
      * @throws Throwable on other errors
      */
     // Compare with CPython abstract.h :: PyNumber_Long
     static Object asLong(Object o) throws PyBaseException, Throwable {
 
-        Representation rep = PyType.getRepresentation(o);
+        Representation rep = representation(o);
 
         if (rep.isIntExact()) { return o; }
 
-        PyType oType = rep.pythonType(o);
+        BaseType oType = rep.pythonType(o);
 
         try { // calling __int__
             Object result = rep.op_int().invokeExact(o);
-            Representation resultRep = PyType.getRepresentation(result);
+            Representation resultRep = representation(result);
             if (!resultRep.isIntExact()) {
-                PyType resultType = resultRep.pythonType(result);
+                BaseType resultType = resultRep.pythonType(result);
                 if (resultType.hasFeature(TypeFlag.INT_SUBCLASS)) {
                     // Result not of exact type int but is a subclass
                     result = PyLong.from(returnDeprecation("__int__",
@@ -423,8 +428,9 @@ public class PyNumber extends Abstract {
 // *
 // * @param o to convert
 // * @return converted value
-// * @throws PyBaseException (TypeError) if {@code __float__} is
-// * defined but does nor return a {@code float}
+// * @throws PyBaseException ({@link PyExc#TypeError TypeError})
+// * if {@code __float__} is
+// * defined but does not return a {@code float}
 // * @throws Throwable on other errors
 // */
 // // Compare CPython abstract.c: PyNumber_Float

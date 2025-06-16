@@ -37,7 +37,8 @@ class Warnings {
      * @param stack_level relative location in the Python stack
      * @param format of the message
      * @param args to the message {@code format}
-     * @throws PyBaseException(Warning) if conditions are met
+     * @throws PyBaseException ({@link PyExc#RuntimeWarning
+     *     RuntimeWarning}) if conditions are met
      */
     // Compare CPython _warnings.c :: PyErr_WarnFormat
     // (also PyErr_WarnEx).

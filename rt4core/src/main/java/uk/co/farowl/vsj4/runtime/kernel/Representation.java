@@ -2,13 +2,12 @@
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime.kernel;
 
-import static uk.co.farowl.vsj4.runtime.ClassShorthand.T;
-import static uk.co.farowl.vsj4.support.JavaClassShorthand.O;
-
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
-import java.lang.invoke.MethodType;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import uk.co.farowl.vsj4.runtime.PyFloat;
 import uk.co.farowl.vsj4.runtime.PyLong;
@@ -16,24 +15,94 @@ import uk.co.farowl.vsj4.runtime.PyType;
 import uk.co.farowl.vsj4.runtime.TypeFlag;
 import uk.co.farowl.vsj4.runtime.WithClass;
 import uk.co.farowl.vsj4.runtime.kernel.SpecialMethod.Signature;
-import uk.co.farowl.vsj4.support.InterpreterError;
 
 /**
  * A {@code Representation} provides Python behaviour to a Java object
- * by linking its Java class to essential type information. In many
- * cases, the Java class alone determines the behaviour (the Python
- * type). In cases where instances of the the Java class can represent
- * objects with multiple Python types,
- * {@link Representation#pythonType(Object)} refers to the Python object
- * itself for the actual type.
+ * by linking its Java class to essential type information. Every Java
+ * class has a {@code Representation} that may be found from the type
+ * system, even if it must be created to satisfy the enquiry. Java
+ * classes may share a representation if they are all subclasses of the
+ * same base in Java.
+ * <p>
+ * In many cases, the Java class alone determines the {@link PyType
+ * Python type} and behaviour. In cases where instances of the Java
+ * class can represent objects with different (or mutable) Python type,
+ * the object itself identifies the actual type by implementing
+ * {@link WithClass}.
  * <p>
  * The run-time system will form a mapping from each Java class to an
  * instance of (a specific sub-class of) {@code Representation}. Apart
  * from a small collection of bootstrap classes (all of them built-in
- * types), this mapping will be developed as the classes are encountered
- * through the use of instances of them in Python code.
+ * types), this mapping will be developed as instances of the classes
+ * are encountered in Python code.
  */
 public abstract class Representation {
+
+    /** Logger for representation/type object activity in the kernel. */
+    protected static final Logger logger =
+            LoggerFactory.getLogger(Representation.class);
+
+    /**
+     * The type factory to which the entire run-time system goes for
+     * type objects. Do not use this object until
+     * {@code runtime.TypeSystem} has completed static initialisation.
+     */
+    public static final TypeFactory factory;
+
+    /** The {@code TypeRegistry} in use. */
+    protected static final TypeRegistry registry;
+
+    /*
+     * We create the singleton type factory for the kernel. This is a
+     * one time action during the creation of the type system.
+     */
+    static {
+        // This may be the first thing the run-time system does.
+        logger.debug("Representation system is waking up.");
+
+        @SuppressWarnings("deprecation")
+        TypeFactory f = new TypeFactory();
+
+        // Unsafe to create type objects yet as they extend this class
+
+        factory = f;
+        registry = f.getRegistry();
+    }
+
+    /**
+     * Get the {@code Representation} of the class of an object
+     * {@code o}, and hence access to its Python type and behaviour.
+     * This call may result in the creation of a {@code Representation}
+     * for that class.
+     * <p>
+     * Because this uses the type factory, beware of using it before the
+     * static initialisation of {@code runtime.TypeSystem} is complete.
+     *
+     * @param o for which a representation of the class is needed
+     * @return the representation
+     */
+    static Representation get(Object o) {
+        return registry.get(o.getClass());
+    }
+
+    /*
+     * Give SpecialMethod access to private members (so it may write the
+     * method handle caches), and to the runtime package in general. It
+     * looks clunky, but seems the only way to supply the necessary
+     * access and keep the module API clean.
+     */
+    static {
+        SpecialMethod.SMUtil.provideAccess(
+                // Anonymously implement the requirement
+                new SpecialMethod.Required() {
+                    // private lookup to access caches
+                    private static final Lookup LOOKUP =
+                            MethodHandles.lookup();
+
+                    @Override
+                    public Lookup getLookup() { return LOOKUP; }
+                });
+    }
 
     /**
      * The common type (class or interface) of Java classes representing
@@ -62,69 +131,67 @@ public abstract class Representation {
     /**
      * Get the Python type of the object <i>given that</i> this is the
      * representation object for it. The argument {@code x} is only
-     * needed when this is not a {@link Shared} representation:
-     * {@code null} may be passed in those cases. A shared
-     * representation is not associated with a unique type, so in that
-     * case {@code x} is consulted for the type, while a {@code null}
-     * returns a {@code null} result.
+     * needed when this is not a {@code SharedRepresentation}
+     * representation: {@code null} may be passed in those cases. A
+     * shared representation is not associated with a unique type, so in
+     * that case {@code x} is consulted for the type, while a
+     * {@code null} returns a {@code null} result.
      *
      * @implSpec If this object is also a type object, it will answer
-     *     that it itself is that type. (Do not implement this in
-     *     {@code PyType} so that the method does not become API.) An
-     *     {@link Adopted} representation knows its {@link AdoptiveType}
-     *     directly, while a {@link Shared} representation must consult
-     *     the object {@code x}.
+     *     that it itself is that type. An {@code AdoptedRepresentation}
+     *     knows its {@link AdoptiveType} directly, while a
+     *     {@code SharedRepresentation} must consult the object
+     *     {@code x}.
      *
      * @param x subject of the enquiry
      * @return {@code type(x)}
      */
-    public abstract PyType pythonType(Object x);
+    public abstract BaseType pythonType(Object x);
 
     /**
-     * Fast check that an object with this representation is a data
-     * descriptor (defines {@code __set__} or {@code __delete__}).
+     * Fast check that a particular object, for which this is the
+     * representation, is a data descriptor (defines {@code __set__} or
+     * {@code __delete__}).
      *
      * @param x subject of the enquiry
      * @return {@code x} is a data descriptor
      */
     public boolean isDataDescr(Object x) {
-        PyType type = pythonType(x);
+        BaseType type = pythonType(x);
         return type.hasFeature(KernelTypeFlag.HAS_SET)
                 || type.hasFeature(KernelTypeFlag.HAS_DELETE);
     }
 
     /**
-     * Fast check that an object with this representation has a
-     * specified feature. The idea is to avoid a call to
-     * {@link #pythonType(Object)}, when possible by overriding this in
-     * subclass.
+     * Fast check that a particular object, for which this is the
+     * representation, has the specified feature.
      *
      * @param x subject of the enquiry
      * @param feature to check for
      * @return {@code x} is a data descriptor
      */
+    // Avoid a call to pythonType(x), when possible, by overriding.
     public boolean hasFeature(Object x, TypeFlag feature) {
         return pythonType(x).hasFeature(feature);
     }
 
     /**
-     * Fast check that an object with this representation has a
-     * specified feature. The idea is to avoid a call to
-     * {@link #pythonType(Object)}, when possible by overriding this in
-     * subclass.
+     * Fast check that a particular object, for which this is the
+     * representation, has a specified kernel feature.
      *
      * @param x subject of the enquiry
      * @param feature to check for
      * @return {@code x} is a data descriptor
      */
+    // Avoid a call to pythonType(x), when possible, by overriding.
     public boolean hasFeature(Object x, KernelTypeFlag feature) {
         return pythonType(x).hasFeature(feature);
     }
 
     /**
-     * Fast check that the target is exactly a Python {@code int}. We
-     * can do this without reference to the object itself, just from the
-     * representation.
+     * Fast check that an object of this type is exactly a Python
+     * {@code int}. We can do this without reference to the object
+     * itself, just from the representation.
      *
      * @implNote The result may be incorrect during type system
      *     bootstrap.
@@ -134,9 +201,9 @@ public abstract class Representation {
     public boolean isIntExact() { return this == PyLong.TYPE; }
 
     /**
-     * Fast check that the target is exactly a Python {@code float}. We
-     * can do this without reference to the object itself, just from the
-     * representation.
+     * Fast check that an object of this type is exactly a Python
+     * {@code float}. We can do this without reference to the object
+     * itself, just from the representation.
      *
      * @implNote The result may be incorrect during type system
      *     bootstrap.
@@ -146,26 +213,13 @@ public abstract class Representation {
     public boolean isFloatExact() { return this == PyFloat.TYPE; }
 
     /**
-     * Get the specific {@code Representation} of the object <i>given
-     * that</i> this is the representation object for its class.
-     *
-     * @implSpec Override this in the {@link Shared} representation to
-     *     return the type. The default implementation returns
-     *     {@code this}.
-     *
-     * @param x subject of the enquiry
-     * @return {@code type(x)}
-     */
-    public Representation unshared(Object x) { return this; }
-
-    /**
      * A base Java class representing instances of the related Python
      * {@code type} associated with this {@code Representation}. If
      * there is more than one Java class <i>associated to this
      * representation</i>, they must all be subclasses in Java of the
      * class returned here.
      *
-     * @return base class of the implementation
+     * @return base class of the representation
      */
     public Class<?> javaClass() { return javaClass; }
 
@@ -187,8 +241,8 @@ public abstract class Representation {
      * correct index must be determined by finding a compatible class in
      * {@link AdoptiveType#selfClasses()}.
      *
-     * @implSpec Override this in the {@link Adopted} representation.
-     *     The default implementation returns zero.
+     * @implSpec Override this in the {@code Representation}s attached
+     *     to adoptive types. The default implementation returns zero.
      *
      * @return index in the type (0 if canonical)
      */
@@ -196,189 +250,6 @@ public abstract class Representation {
     public int getIndex() { return 0; }
 
     // ---------------------------------------------------------------
-
-    /**
-     * A {@code Representation} that relates an adopted representation
-     * to its {@link AdoptiveType}.
-     */
-    static class Adopted extends Representation {
-
-        /** The type of which this is an adopted representation. */
-        final AdoptiveType type;
-
-        /**
-         * Index of this implementation in the type (see
-         * {@link AdoptiveType#getAdopted(int)}.
-         */
-        final int index;
-
-        /**
-         * Create a {@code Representation} object associating a Python
-         * type with the Java type.
-         *
-         * @param javaClass implementing it
-         * @param type of which this is an accepted implementation
-         */
-        Adopted(int index, Class<?> javaClass, AdoptiveType type) {
-            super(javaClass);
-            this.type = type;
-            this.index = index;
-        }
-
-        @Override
-        public boolean hasFeature(Object x, TypeFlag feature) {
-            return type.hasFeature(feature);
-        }
-
-        @Override
-        public boolean hasFeature(Object x, KernelTypeFlag feature) {
-            return type.hasFeature(feature);
-        }
-
-        @Override
-        public AdoptiveType pythonType(Object x) { return type; }
-
-        @Override
-        public int getIndex() { return index; }
-
-        @Override
-        public boolean isIntExact() { return type == PyLong.TYPE; }
-
-        @Override
-        public boolean isFloatExact() { return type == PyFloat.TYPE; }
-
-        @Override
-        public String toString() {
-            String javaName = javaClass().getSimpleName();
-            return javaName + " as " + type.toString();
-        }
-    }
-
-    /**
-     * The {@link Representation} for a Python class defined in Python.
-     * Many Python classes may be represented by the same Java class,
-     * the actual Python type being indicated by the instance.
-     */
-    static class Shared extends Representation {
-
-        /** To return as {@link #canonicalClass()}. */
-        private final Class<?> canonicalClass;
-
-        /**
-         * {@code MethodHandle} of type {@code (Object)PyType}, to get
-         * the actual Python type of an {@link Object} object.
-         */
-        private static final MethodHandle getType;
-
-        /**
-         * The type {@code (PyType)MethodHandle} used to cast the method
-         * handle getter.
-         */
-        private static final MethodType MT_MH_FROM_TYPE;
-
-        /** Rights to form method handles. */
-        private static final Lookup LOOKUP = MethodHandles.lookup();
-
-        static {
-            try {
-                // Used as a cast in the formation of getMHfromType
-                // (PyType)MethodHandle
-                MT_MH_FROM_TYPE =
-                        MethodType.methodType(MethodHandle.class, T);
-                // Used as a cast in the formation of getType
-                // (PyType)MethodHandle
-                // getType = λ x : x.getType()
-                // .type() = (Object)PyType
-                getType = LOOKUP
-                        .findVirtual(WithClass.class, "getType",
-                                MethodType.methodType(T))
-                        .asType(MethodType.methodType(T, O));
-            } catch (NoSuchMethodException | IllegalAccessException e) {
-                throw new InterpreterError(e,
-                        "preparing handles in Representation.Shared");
-            }
-        }
-
-        /**
-         * Create a {@code Representation} object that is the class used
-         * to represent instances of (potentially) many types defined in
-         * Python.
-         *
-         * @param javaClass Java representation class
-         * @param canonical class on which subclasses are based
-         */
-        Shared(Class<?> javaClass, Class<?> canonical) {
-            super(javaClass);
-            this.canonicalClass = canonical;
-        }
-
-        @Override
-        public String toString() {
-            return String.format("Shared[%s]",
-                    javaClass().getSimpleName());
-        }
-
-        @Override
-        public PyType pythonType(Object x) {
-            if (x instanceof WithClass wcx) {
-                return wcx.getType();
-            } else if (x == null) {
-                return null;
-            } else {
-                throw notSharedError(x);
-            }
-        }
-
-        @Override
-        public boolean isIntExact() { return false; }
-
-        @Override
-        public boolean isFloatExact() { return false; }
-
-        @Override
-        public Representation unshared(Object x) {
-            if (x instanceof WithClass wcx)
-                return wcx.getType();
-            else {
-                throw notSharedError(x);
-            }
-        }
-
-        /**
-         * The {@link PyType#canonicalClass()} of types that share this
-         * representation (the "clique"). Subclasses in Python of those
-         * types will (in general) not share this representation,
-         *
-         *
-         * as it depends on whether {@code __dict__} is defined and on
-         * the content of {@code __slots__}. However, they will all have
-         * the same the canonical class, of which their Java
-         * representation class {@link #javaClass()} is a proper
-         * subclass in Java. This design allows us to re-use an existing
-         * representation, if that is possible, when defining a
-         * subclass.
-         *
-         * @return the canonical Java representation class of types
-         */
-        public Class<?> canonicalClass() { return canonicalClass; }
-
-        /**
-         * Return an exception reporting that the given object was
-         * registered as if implementing a {@link ReplaceableType}, but
-         * it cannot be inspected for its type. The {@link TypeFactory}
-         * has a bug if it created this {@code Representation}. Or the
-         * type system has a bug if it allowed anything else to do so.
-         *
-         * @param x objectionable object
-         * @return to throw
-         */
-        private InterpreterError notSharedError(Object x) {
-            String msg = String.format(
-                    "unsharable class %.100s registered as %s",
-                    x.getClass().getTypeName(), this.toString());
-            return new InterpreterError(msg);
-        }
-    }
 
     // Getters for special methods -----------------------------------
     /*
@@ -415,6 +286,7 @@ public abstract class Representation {
      * @return handle on {@code __repr__} with signature
      *     {@link Signature#UNARY}.
      */
+    @SuppressWarnings("static-method")
     public MethodHandle op_repr() {
         return SpecialMethod.op_repr.generic;
     }
@@ -427,6 +299,7 @@ public abstract class Representation {
      * @return handle on {@code __hash__} with signature
      *     {@link Signature#LEN}.
      */
+    @SuppressWarnings("static-method")
     public MethodHandle op_hash() {
         return SpecialMethod.op_hash.generic;
     }
@@ -439,6 +312,7 @@ public abstract class Representation {
      * @return handle on {@code __call__} with signature
      *     {@link Signature#CALL}.
      */
+    @SuppressWarnings("static-method")
     public MethodHandle op_call() {
         return SpecialMethod.op_call.generic;
     }
@@ -451,6 +325,7 @@ public abstract class Representation {
      * @return handle on {@code __str__} with signature
      *     {@link Signature#UNARY}.
      */
+    @SuppressWarnings("static-method")
     public MethodHandle op_str() {
         return SpecialMethod.op_str.generic;
     }
@@ -463,6 +338,7 @@ public abstract class Representation {
      * @return handle on {@code __getattribute__} with signature
      *     {@link Signature#GETATTR}.
      */
+    @SuppressWarnings("static-method")
     public MethodHandle op_getattribute() {
         return SpecialMethod.op_getattribute.generic;
     }
@@ -474,6 +350,7 @@ public abstract class Representation {
      * @return handle on {@code __getattr__} with signature
      *     {@link Signature#GETATTR}.
      */
+    @SuppressWarnings("static-method")
     public MethodHandle op_getattr() {
         return SpecialMethod.op_getattr.generic;
     }
@@ -486,6 +363,7 @@ public abstract class Representation {
      * @return handle on {@code __setattr__} with signature
      *     {@link Signature#SETATTR}.
      */
+    @SuppressWarnings("static-method")
     public MethodHandle op_setattr() {
         return SpecialMethod.op_setattr.generic;
     }
@@ -498,6 +376,7 @@ public abstract class Representation {
      * @return handle on {@code __delattr__} with signature
      *     {@link Signature#DELATTR}.
      */
+    @SuppressWarnings("static-method")
     public MethodHandle op_delattr() {
         return SpecialMethod.op_delattr.generic;
     }
@@ -509,9 +388,8 @@ public abstract class Representation {
      * @return handle on {@code __lt__} with signature
      *     {@link Signature#BINARY}.
      */
-    public MethodHandle op_lt() {
-        return SpecialMethod.op_lt.generic;
-    }
+    @SuppressWarnings("static-method")
+    public MethodHandle op_lt() { return SpecialMethod.op_lt.generic; }
 
     /**
      * Return a matching implementation of {@code __le__} with signature
@@ -520,9 +398,8 @@ public abstract class Representation {
      * @return handle on {@code __le__} with signature
      *     {@link Signature#BINARY}.
      */
-    public MethodHandle op_le() {
-        return SpecialMethod.op_le.generic;
-    }
+    @SuppressWarnings("static-method")
+    public MethodHandle op_le() { return SpecialMethod.op_le.generic; }
 
     /**
      * Return a matching implementation of {@code __eq__} with signature
@@ -531,9 +408,8 @@ public abstract class Representation {
      * @return handle on {@code __eq__} with signature
      *     {@link Signature#BINARY}.
      */
-    public MethodHandle op_eq() {
-        return SpecialMethod.op_eq.generic;
-    }
+    @SuppressWarnings("static-method")
+    public MethodHandle op_eq() { return SpecialMethod.op_eq.generic; }
 
     /**
      * Return a matching implementation of {@code __ne__} with signature
@@ -542,9 +418,8 @@ public abstract class Representation {
      * @return handle on {@code __ne__} with signature
      *     {@link Signature#BINARY}.
      */
-    public MethodHandle op_ne() {
-        return SpecialMethod.op_ne.generic;
-    }
+    @SuppressWarnings("static-method")
+    public MethodHandle op_ne() { return SpecialMethod.op_ne.generic; }
 
     /**
      * Return a matching implementation of {@code __gt__} with signature
@@ -553,9 +428,8 @@ public abstract class Representation {
      * @return handle on {@code __gt__} with signature
      *     {@link Signature#BINARY}.
      */
-    public MethodHandle op_gt() {
-        return SpecialMethod.op_gt.generic;
-    }
+    @SuppressWarnings("static-method")
+    public MethodHandle op_gt() { return SpecialMethod.op_gt.generic; }
 
     /**
      * Return a matching implementation of {@code __ge__} with signature
@@ -564,9 +438,8 @@ public abstract class Representation {
      * @return handle on {@code __ge__} with signature
      *     {@link Signature#BINARY}.
      */
-    public MethodHandle op_ge() {
-        return SpecialMethod.op_ge.generic;
-    }
+    @SuppressWarnings("static-method")
+    public MethodHandle op_ge() { return SpecialMethod.op_ge.generic; }
 
     /**
      * Return a matching implementation of {@code __iter__} with
@@ -576,6 +449,7 @@ public abstract class Representation {
      * @return handle on {@code __iter__} with signature
      *     {@link Signature#UNARY}, get an iterator.
      */
+    @SuppressWarnings("static-method")
     public MethodHandle op_iter() {
         return SpecialMethod.op_iter.generic;
     }
@@ -588,6 +462,7 @@ public abstract class Representation {
      * @return handle on {@code __next__} with signature
      *     {@link Signature#UNARY}, advance an iterator.
      */
+    @SuppressWarnings("static-method")
     public MethodHandle op_next() {
         return SpecialMethod.op_next.generic;
     }
@@ -600,6 +475,7 @@ public abstract class Representation {
      * @return handle on {@code __get__} with signature
      *     {@link Signature#DESCRGET}.
      */
+    @SuppressWarnings("static-method")
     public MethodHandle op_get() {
         return SpecialMethod.op_get.generic;
     }
@@ -612,6 +488,7 @@ public abstract class Representation {
      * @return handle on {@code __set__} with signature
      *     {@link Signature#SETITEM}.
      */
+    @SuppressWarnings("static-method")
     public MethodHandle op_set() {
         return SpecialMethod.op_set.generic;
     }
@@ -624,6 +501,7 @@ public abstract class Representation {
      * @return handle on {@code __delete__} with signature
      *     {@link Signature#DELITEM}.
      */
+    @SuppressWarnings("static-method")
     public MethodHandle op_delete() {
         return SpecialMethod.op_delete.generic;
     }
@@ -636,6 +514,7 @@ public abstract class Representation {
      * @return handle on {@code __init__} with signature
      *     {@link Signature#INIT}.
      */
+    @SuppressWarnings("static-method")
     public MethodHandle op_init() {
         return SpecialMethod.op_init.generic;
     }
@@ -650,6 +529,7 @@ public abstract class Representation {
      * @return handle on {@code __await__} with signature
      *     {@link Signature#UNARY}.
      */
+    @SuppressWarnings("static-method")
     public MethodHandle op_await() {
         return SpecialMethod.op_await.generic;
     }
@@ -661,6 +541,7 @@ public abstract class Representation {
      * @return handle on {@code __aiter__} with signature
      *     {@link Signature#UNARY}.
      */
+    @SuppressWarnings("static-method")
     public MethodHandle op_aiter() {
         return SpecialMethod.op_aiter.generic;
     }
@@ -672,6 +553,7 @@ public abstract class Representation {
      * @return handle on {@code __anext__} with signature
      *     {@link Signature#UNARY}.
      */
+    @SuppressWarnings("static-method")
     public MethodHandle op_anext() {
         return SpecialMethod.op_anext.generic;
     }
@@ -684,6 +566,7 @@ public abstract class Representation {
      * @return handle on {@code __radd__} with signature
      *     {@link Signature#BINARY}.
      */
+    @SuppressWarnings("static-method")
     public MethodHandle op_radd() {
         return SpecialMethod.op_radd.generic;
     }
@@ -695,6 +578,7 @@ public abstract class Representation {
      * @return handle on {@code __add__} with signature
      *     {@link Signature#BINARY}.
      */
+    @SuppressWarnings("static-method")
     public MethodHandle op_add() {
         return SpecialMethod.op_add.generic;
     }
@@ -707,6 +591,7 @@ public abstract class Representation {
      * @return handle on {@code __rsub__} with signature
      *     {@link Signature#BINARY}.
      */
+    @SuppressWarnings("static-method")
     public MethodHandle op_rsub() {
         return SpecialMethod.op_rsub.generic;
     }
@@ -718,6 +603,7 @@ public abstract class Representation {
      * @return handle on {@code __sub__} with signature
      *     {@link Signature#BINARY}.
      */
+    @SuppressWarnings("static-method")
     public MethodHandle op_sub() {
         return SpecialMethod.op_sub.generic;
     }
@@ -730,6 +616,7 @@ public abstract class Representation {
      * @return handle on {@code __rmul__} with signature
      *     {@link Signature#BINARY}.
      */
+    @SuppressWarnings("static-method")
     public MethodHandle op_rmul() {
         return SpecialMethod.op_rmul.generic;
     }
@@ -741,6 +628,7 @@ public abstract class Representation {
      * @return handle on {@code __mul__} with signature
      *     {@link Signature#BINARY}.
      */
+    @SuppressWarnings("static-method")
     public MethodHandle op_mul() {
         return SpecialMethod.op_mul.generic;
     }
@@ -753,6 +641,7 @@ public abstract class Representation {
      * @return handle on {@code __rmod__} with signature
      *     {@link Signature#BINARY}.
      */
+    @SuppressWarnings("static-method")
     public MethodHandle op_rmod() {
         return SpecialMethod.op_rmod.generic;
     }
@@ -764,6 +653,7 @@ public abstract class Representation {
      * @return handle on {@code __mod__} with signature
      *     {@link Signature#BINARY}.
      */
+    @SuppressWarnings("static-method")
     public MethodHandle op_mod() {
         return SpecialMethod.op_mod.generic;
     }
@@ -776,6 +666,7 @@ public abstract class Representation {
      * @return handle on {@code __rdivmod__} with signature
      *     {@link Signature#BINARY}.
      */
+    @SuppressWarnings("static-method")
     public MethodHandle op_rdivmod() {
         return SpecialMethod.op_rdivmod.generic;
     }
@@ -787,6 +678,7 @@ public abstract class Representation {
      * @return handle on {@code __divmod__} with signature
      *     {@link Signature#BINARY}.
      */
+    @SuppressWarnings("static-method")
     public MethodHandle op_divmod() {
         return SpecialMethod.op_divmod.generic;
     }
@@ -795,12 +687,13 @@ public abstract class Representation {
      * Return a matching implementation of {@code __rpow__} with
      * signature {@link Signature#BINARY}, the reflected {@code pow}
      * operation. (The signature is not not {@link Signature#TERNARY}
-     * like {@link #op_pow} since only an infix operation can be
+     * like {@code #op_pow} since only an infix operation can be
      * reflected).
      *
      * @return handle on {@code __rpow__} with signature
      *     {@link Signature#BINARY}.
      */
+    @SuppressWarnings("static-method")
     public MethodHandle op_rpow() {
         return SpecialMethod.op_rpow.generic;
     }
@@ -813,6 +706,7 @@ public abstract class Representation {
      * @return handle on {@code __pow__} with signature
      *     {@link Signature#TERNARY}.
      */
+    @SuppressWarnings("static-method")
     public MethodHandle op_pow() {
         return SpecialMethod.op_pow.generic;
     }
@@ -824,6 +718,7 @@ public abstract class Representation {
      * @return handle on {@code __neg__} with signature
      *     {@link Signature#UNARY}.
      */
+    @SuppressWarnings("static-method")
     public MethodHandle op_neg() {
         return SpecialMethod.op_neg.generic;
     }
@@ -835,6 +730,7 @@ public abstract class Representation {
      * @return handle on {@code __pos__} with signature
      *     {@link Signature#UNARY}.
      */
+    @SuppressWarnings("static-method")
     public MethodHandle op_pos() {
         return SpecialMethod.op_pos.generic;
     }
@@ -847,6 +743,7 @@ public abstract class Representation {
      * @return handle on {@code __abs__} with signature
      *     {@link Signature#UNARY}.
      */
+    @SuppressWarnings("static-method")
     public MethodHandle op_abs() {
         return SpecialMethod.op_abs.generic;
     }
@@ -859,6 +756,7 @@ public abstract class Representation {
      * @return handle on {@code __bool__} with signature
      *     {@link Signature#PREDICATE}.
      */
+    @SuppressWarnings("static-method")
     public MethodHandle op_bool() {
         return SpecialMethod.op_bool.generic;
     }
@@ -870,6 +768,7 @@ public abstract class Representation {
      * @return handle on {@code __invert__} with signature
      *     {@link Signature#UNARY}.
      */
+    @SuppressWarnings("static-method")
     public MethodHandle op_invert() {
         return SpecialMethod.op_invert.generic;
     }
@@ -882,6 +781,7 @@ public abstract class Representation {
      * @return handle on {@code __rlshift__} with signature
      *     {@link Signature#BINARY}.
      */
+    @SuppressWarnings("static-method")
     public MethodHandle op_rlshift() {
         return SpecialMethod.op_rlshift.generic;
     }
@@ -893,6 +793,7 @@ public abstract class Representation {
      * @return handle on {@code __lshift__} with signature
      *     {@link Signature#BINARY}.
      */
+    @SuppressWarnings("static-method")
     public MethodHandle op_lshift() {
         return SpecialMethod.op_lshift.generic;
     }
@@ -905,6 +806,7 @@ public abstract class Representation {
      * @return handle on {@code __rrshift__} with signature
      *     {@link Signature#BINARY}.
      */
+    @SuppressWarnings("static-method")
     public MethodHandle op_rrshift() {
         return SpecialMethod.op_rrshift.generic;
     }
@@ -916,6 +818,7 @@ public abstract class Representation {
      * @return handle on {@code __rshift__} with signature
      *     {@link Signature#BINARY}.
      */
+    @SuppressWarnings("static-method")
     public MethodHandle op_rshift() {
         return SpecialMethod.op_rshift.generic;
     }
@@ -928,6 +831,7 @@ public abstract class Representation {
      * @return handle on {@code __rand__} with signature
      *     {@link Signature#BINARY}.
      */
+    @SuppressWarnings("static-method")
     public MethodHandle op_rand() {
         return SpecialMethod.op_rand.generic;
     }
@@ -939,6 +843,7 @@ public abstract class Representation {
      * @return handle on {@code __and__} with signature
      *     {@link Signature#BINARY}.
      */
+    @SuppressWarnings("static-method")
     public MethodHandle op_and() {
         return SpecialMethod.op_and.generic;
     }
@@ -951,6 +856,7 @@ public abstract class Representation {
      * @return handle on {@code __rxor__} with signature
      *     {@link Signature#BINARY}.
      */
+    @SuppressWarnings("static-method")
     public MethodHandle op_rxor() {
         return SpecialMethod.op_rxor.generic;
     }
@@ -962,6 +868,7 @@ public abstract class Representation {
      * @return handle on {@code __xor__} with signature
      *     {@link Signature#BINARY}.
      */
+    @SuppressWarnings("static-method")
     public MethodHandle op_xor() {
         return SpecialMethod.op_xor.generic;
     }
@@ -974,6 +881,7 @@ public abstract class Representation {
      * @return handle on {@code __ror__} with signature
      *     {@link Signature#BINARY}.
      */
+    @SuppressWarnings("static-method")
     public MethodHandle op_ror() {
         return SpecialMethod.op_ror.generic;
     }
@@ -985,9 +893,8 @@ public abstract class Representation {
      * @return handle on {@code __or__} with signature
      *     {@link Signature#BINARY}.
      */
-    public MethodHandle op_or() {
-        return SpecialMethod.op_or.generic;
-    }
+    @SuppressWarnings("static-method")
+    public MethodHandle op_or() { return SpecialMethod.op_or.generic; }
 
     /**
      * Return a matching implementation of {@code __int__} with
@@ -997,6 +904,7 @@ public abstract class Representation {
      * @return handle on {@code __int__} with signature
      *     {@link Signature#UNARY}.
      */
+    @SuppressWarnings("static-method")
     public MethodHandle op_int() {
         return SpecialMethod.op_int.generic;
     }
@@ -1009,6 +917,7 @@ public abstract class Representation {
      * @return handle on {@code __float__} with signature
      *     {@link Signature#UNARY}.
      */
+    @SuppressWarnings("static-method")
     public MethodHandle op_float() {
         return SpecialMethod.op_float.generic;
     }
@@ -1022,6 +931,7 @@ public abstract class Representation {
      * @return handle on {@code __iadd__} with signature
      *     {@link Signature#BINARY}.
      */
+    @SuppressWarnings("static-method")
     public MethodHandle op_iadd() {
         return SpecialMethod.op_iadd.generic;
     }
@@ -1033,6 +943,7 @@ public abstract class Representation {
      * @return handle on {@code __isub__} with signature
      *     {@link Signature#BINARY}.
      */
+    @SuppressWarnings("static-method")
     public MethodHandle op_isub() {
         return SpecialMethod.op_isub.generic;
     }
@@ -1044,6 +955,7 @@ public abstract class Representation {
      * @return handle on {@code __imul__} with signature
      *     {@link Signature#BINARY}.
      */
+    @SuppressWarnings("static-method")
     public MethodHandle op_imul() {
         return SpecialMethod.op_imul.generic;
     }
@@ -1055,6 +967,7 @@ public abstract class Representation {
      * @return handle on {@code __imod__} with signature
      *     {@link Signature#BINARY}.
      */
+    @SuppressWarnings("static-method")
     public MethodHandle op_imod() {
         return SpecialMethod.op_imod.generic;
     }
@@ -1066,6 +979,7 @@ public abstract class Representation {
      * @return handle on {@code __iand__} with signature
      *     {@link Signature#BINARY}.
      */
+    @SuppressWarnings("static-method")
     public MethodHandle op_iand() {
         return SpecialMethod.op_iand.generic;
     }
@@ -1077,6 +991,7 @@ public abstract class Representation {
      * @return handle on {@code __ixor__} with signature
      *     {@link Signature#BINARY}.
      */
+    @SuppressWarnings("static-method")
     public MethodHandle op_ixor() {
         return SpecialMethod.op_ixor.generic;
     }
@@ -1088,6 +1003,7 @@ public abstract class Representation {
      * @return handle on {@code __ior__} with signature
      *     {@link Signature#BINARY}.
      */
+    @SuppressWarnings("static-method")
     public MethodHandle op_ior() {
         return SpecialMethod.op_ior.generic;
     }
@@ -1100,6 +1016,7 @@ public abstract class Representation {
      * @return handle on {@code __rfloordiv__} with signature
      *     {@link Signature#BINARY}.
      */
+    @SuppressWarnings("static-method")
     public MethodHandle op_rfloordiv() {
         return SpecialMethod.op_rfloordiv.generic;
     }
@@ -1111,6 +1028,7 @@ public abstract class Representation {
      * @return handle on {@code __floordiv__} with signature
      *     {@link Signature#BINARY}.
      */
+    @SuppressWarnings("static-method")
     public MethodHandle op_floordiv() {
         return SpecialMethod.op_floordiv.generic;
     }
@@ -1123,6 +1041,7 @@ public abstract class Representation {
      * @return handle on {@code __rtruediv__} with signature
      *     {@link Signature#BINARY}.
      */
+    @SuppressWarnings("static-method")
     public MethodHandle op_rtruediv() {
         return SpecialMethod.op_rtruediv.generic;
     }
@@ -1134,6 +1053,7 @@ public abstract class Representation {
      * @return handle on {@code __truediv__} with signature
      *     {@link Signature#BINARY}.
      */
+    @SuppressWarnings("static-method")
     public MethodHandle op_truediv() {
         return SpecialMethod.op_truediv.generic;
     }
@@ -1145,6 +1065,7 @@ public abstract class Representation {
      * @return handle on {@code __ifloordiv__} with signature
      *     {@link Signature#BINARY}.
      */
+    @SuppressWarnings("static-method")
     public MethodHandle op_ifloordiv() {
         return SpecialMethod.op_ifloordiv.generic;
     }
@@ -1156,6 +1077,7 @@ public abstract class Representation {
      * @return handle on {@code __itruediv__} with signature
      *     {@link Signature#BINARY}.
      */
+    @SuppressWarnings("static-method")
     public MethodHandle op_itruediv() {
         return SpecialMethod.op_itruediv.generic;
     }
@@ -1168,6 +1090,7 @@ public abstract class Representation {
      * @return handle on {@code __index__} with signature
      *     {@link Signature#UNARY}.
      */
+    @SuppressWarnings("static-method")
     public MethodHandle op_index() {
         return SpecialMethod.op_index.generic;
     }
@@ -1180,6 +1103,7 @@ public abstract class Representation {
      * @return handle on {@code __rmatmul__} with signature
      *     {@link Signature#BINARY}.
      */
+    @SuppressWarnings("static-method")
     public MethodHandle op_rmatmul() {
         return SpecialMethod.op_rmatmul.generic;
     }
@@ -1192,6 +1116,7 @@ public abstract class Representation {
      * @return handle on {@code __matmul__} with signature
      *     {@link Signature#BINARY}.
      */
+    @SuppressWarnings("static-method")
     public MethodHandle op_matmul() {
         return SpecialMethod.op_matmul.generic;
     }
@@ -1204,6 +1129,7 @@ public abstract class Representation {
      * @return handle on {@code __imatmul__} with signature
      *     {@link Signature#BINARY}.
      */
+    @SuppressWarnings("static-method")
     public MethodHandle op_imatmul() {
         return SpecialMethod.op_imatmul.generic;
     }
@@ -1221,6 +1147,7 @@ public abstract class Representation {
      * @return handle on {@code __len__} with signature
      *     {@link Signature#LEN}.
      */
+    @SuppressWarnings("static-method")
     public MethodHandle op_len() {
         return SpecialMethod.op_len.generic;
     }
@@ -1232,6 +1159,7 @@ public abstract class Representation {
      * @return handle on {@code __getitem__} with signature
      *     {@link Signature#BINARY}.
      */
+    @SuppressWarnings("static-method")
     public MethodHandle op_getitem() {
         return SpecialMethod.op_getitem.generic;
     }
@@ -1243,6 +1171,7 @@ public abstract class Representation {
      * @return handle on {@code __setitem__} with signature
      *     {@link Signature#SETITEM}.
      */
+    @SuppressWarnings("static-method")
     public MethodHandle op_setitem() {
         return SpecialMethod.op_setitem.generic;
     }
@@ -1254,6 +1183,7 @@ public abstract class Representation {
      * @return handle on {@code __delitem__} with signature
      *     {@link Signature#DELITEM}.
      */
+    @SuppressWarnings("static-method")
     public MethodHandle op_delitem() {
         return SpecialMethod.op_delitem.generic;
     }
@@ -1266,16 +1196,8 @@ public abstract class Representation {
      * @return handle on {@code __contains__} with signature
      *     {@link Signature#BINARY_PREDICATE}.
      */
+    @SuppressWarnings("static-method")
     public MethodHandle op_contains() {
         return SpecialMethod.op_contains.generic;
-    }
-
-    /**
-     * The purpose of this class is to give {@link SpecialMethod}
-     * privileged access to Representation. This makes it possible for
-     * it to write to the caches.
-     */
-    static abstract sealed class Accessor permits SpecialMethod.SMUtil {
-
     }
 }

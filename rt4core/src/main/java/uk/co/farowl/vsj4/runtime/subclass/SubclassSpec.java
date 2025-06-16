@@ -7,12 +7,10 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.StringJoiner;
 
-import uk.co.farowl.vsj4.runtime.NamedSpec;
 import uk.co.farowl.vsj4.runtime.PyType;
-import uk.co.farowl.vsj4.runtime.WithClass;
-import uk.co.farowl.vsj4.runtime.WithClassAssignment;
+import uk.co.farowl.vsj4.runtime.PyType.ConstructorAndHandle;
 import uk.co.farowl.vsj4.runtime.WithDict;
-import uk.co.farowl.vsj4.runtime.kernel.AbstractPyType.ConstructorAndHandle;
+import uk.co.farowl.vsj4.runtime.internal.NamedSpec;
 
 /**
  * A {@code SubclassSpec} is a specification for a Java class to
@@ -207,7 +205,6 @@ public class SubclassSpec extends NamedSpec implements Cloneable {
     /**
      * Get the defined constructors.
      *
-     * @param constructorSigs new constructors
      * @return {@code this}
      */
     List<Constructor<?>> getConstructors() { return constructors; }

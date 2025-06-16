@@ -1,10 +1,8 @@
-// Copyright (c)2024 Jython Developers.
+// Copyright (c)2025 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime.kernel;
 
 import java.util.List;
-
-import uk.co.farowl.vsj4.runtime.PyType;
 
 /**
  * A Python type object used where multiple Python types share a single
@@ -15,10 +13,10 @@ import uk.co.farowl.vsj4.runtime.PyType;
  * such a type will have the common Java type (or a superclass) as their
  * {@code self} parameter.
  */
-public final class ReplaceableType extends PyType {
+public final class ReplaceableType extends BaseType {
 
     /** The representation shared by this type and others. */
-    final Representation.Shared representation;
+    final SharedRepresentation representation;
 
     /**
      * Construct one of several types that share a single representation
@@ -28,9 +26,9 @@ public final class ReplaceableType extends PyType {
      * @param representation shared
      * @param bases of the new type
      */
-    ReplaceableType(String name, Representation.Shared representation,
-            PyType[] bases) {
-        super(name, representation.javaClass, bases);
+    ReplaceableType(String name, SharedRepresentation representation,
+            BaseType[] bases) {
+        super(name, representation.javaClass(), bases);
         this.representation = representation;
     }
 
@@ -48,7 +46,7 @@ public final class ReplaceableType extends PyType {
     }
 
     @Override
-    public PyType pythonType(Object x) {
+    public BaseType pythonType(Object x) {
         // I don't *think* we should be asked this question unless:
         assert javaClass.isAssignableFrom(x.getClass());
         return this;

@@ -160,9 +160,9 @@ public class Callables extends Abstract {
         return call(callable, ar, kw);
     }
 
-    static final String OBJECT_NOT_VECTORCALLABLE =
+    private static final String OBJECT_NOT_VECTORCALLABLE =
             "'%.200s' object does not support vectorcall";
-    static final String ATTR_NOT_CALLABLE =
+    private static final String ATTR_NOT_CALLABLE =
             "attribute of type '%.200s' is not callable";
 
     /**

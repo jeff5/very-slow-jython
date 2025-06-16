@@ -95,7 +95,7 @@ class BootstrapTest {
 
                 case 0 -> new InitThread() {
                     @Override
-                    void action() { reg = PyType.registry; }
+                    void action() { reg = TypeSystem.registry; }
                 };
 
                 case 1 -> new InitThread() {
@@ -152,8 +152,8 @@ class BootstrapTest {
             }
         };
         String fmt = "           PyType.ready=%10d  (relative)\n";
-        System.out.printf(fmt,
-                PyType.readyNanoTime - PyType.bootstrapNanoTime);
+        System.out.printf(fmt, TypeSystem.readyNanoTime
+                - TypeSystem.bootstrapNanoTime);
         Collections.sort(threads, byFirst);
         for (InitThread t : threads) { System.out.println(t); }
     }
@@ -194,7 +194,7 @@ class BootstrapTest {
     @DisplayName("The bootstrap completes before any action.")
     void bootstrapBeforeAction() {
         final long ready =
-                PyType.readyNanoTime - PyType.bootstrapNanoTime;
+                TypeSystem.readyNanoTime - TypeSystem.bootstrapNanoTime;
         // All first actions should be after type system ready.
         long hasty = threads.stream()
                 .filter(t -> t.firstNanoTime < ready).count();
@@ -208,7 +208,7 @@ class BootstrapTest {
     @Test
     @DisplayName("All threads see the same type registry")
     void sameTypeRegistry() {
-        TypeRegistry registry = PyType.registry;
+        TypeRegistry registry = TypeSystem.registry;
         for (InitThread init : threads) {
             assertSame(registry, init.reg);
         }
@@ -239,7 +239,7 @@ class BootstrapTest {
         long firstNanoTime;
         /** Time this thread completed {@code action()}. */
         long finishNanoTime;
-        /** The reference {@link PyType#registry} when inspected. */
+        /** The reference {@link TypeSystem#registry} when inspected. */
         TypeRegistry reg;
         /** The type {@code object} when inspected. */
         PyType objectType;
@@ -271,16 +271,16 @@ class BootstrapTest {
             otherActions();
             finishNanoTime = System.nanoTime();
             // *Only afterwards* make relative to bootstrap time.
-            startNanoTime -= PyType.bootstrapNanoTime;
-            firstNanoTime -= PyType.bootstrapNanoTime;
-            finishNanoTime -= PyType.bootstrapNanoTime;
+            startNanoTime -= TypeSystem.bootstrapNanoTime;
+            firstNanoTime -= TypeSystem.bootstrapNanoTime;
+            finishNanoTime -= TypeSystem.bootstrapNanoTime;
         }
 
         /** The required actions apart from the one already done. */
         void otherActions() {
             if (objectType == null) { objectType = PyObject.TYPE; }
             if (floatType == null) { floatType = PyFloat.TYPE; }
-            if (reg == null) { reg = PyType.registry; }
+            if (reg == null) { reg = TypeSystem.registry; }
         }
 
         @Override

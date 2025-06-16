@@ -1,4 +1,4 @@
-// Copyright (c)2024 Jython Developers.
+// Copyright (c)2025 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.support;
 
@@ -15,12 +15,15 @@ import org.slf4j.LoggerFactory;
 public class InterpreterError extends RuntimeException {
     private static final long serialVersionUID = 1L;
 
-    /** Logger for interpreter errors. It may seem odd to log
-     * the raising of a low-level exception, but a proportion of these are
-     * thrown during the initialisation of the run-time system.
-     * Somehow they are swallowed without trace:
-     * this gives us a second chance to notice. */
-    static final Logger logger = LoggerFactory.getLogger(InterpreterError.class);
+    /**
+     * Logger for interpreter errors. It may seem odd to log the raising
+     * of a low-level exception, but a proportion of these are thrown
+     * during the initialisation of the run-time system. Somehow they
+     * are swallowed without trace: this gives us a second chance to
+     * notice.
+     */
+    static final Logger logger =
+            LoggerFactory.getLogger(InterpreterError.class);
 
     /**
      * Constructor specifying a message.

@@ -3,19 +3,19 @@
 package uk.co.farowl.vsj4.runtime;
 
 import uk.co.farowl.vsj4.runtime.internal._PyUtil;
+import uk.co.farowl.vsj4.runtime.kernel.BaseType;
 
 /** Base class of built-in data descriptors. */
-abstract class DataDescriptor extends Descriptor {
+public abstract class DataDescriptor extends Descriptor {
 
     /**
      * Create the common part of {@code DataDescriptor} sub-classes.
      *
-     * @param descrtype actual Python type of descriptor
      * @param objclass to which the descriptor applies
      * @param name of the attribute
      */
-    DataDescriptor(PyType descrtype, PyType objclass, String name) {
-        super(descrtype, objclass, name);
+    DataDescriptor(BaseType objclass, String name) {
+        super(objclass, name);
     }
 
     /**
@@ -55,7 +55,7 @@ abstract class DataDescriptor extends Descriptor {
      *     to {@code obj}
      */
     // Compare CPython descr_setcheck in descrobject.c
-    protected void checkSet(Object obj) throws PyBaseException {
+    void checkSet(Object obj) throws PyBaseException {
         PyType objType = PyType.of(obj);
         if (!objType.isSubTypeOf(objclass)) {
             throw selfTypeError(objType);
@@ -72,7 +72,7 @@ abstract class DataDescriptor extends Descriptor {
      * @param obj target object (argument to {@code __delete__})
      */
     // Compare CPython descr_setcheck in descrobject.c
-    protected void checkDelete(Object obj) throws PyBaseException {
+    void checkDelete(Object obj) throws PyBaseException {
         PyType objType = PyType.of(obj);
         if (!objType.isSubTypeOf(objclass)) {
             throw selfTypeError(objType);
@@ -87,7 +87,7 @@ abstract class DataDescriptor extends Descriptor {
      *
      * @return exception to throw
      */
-    protected PyBaseException cannotReadAttr() {
+    PyBaseException cannotReadAttr() {
         String msg =
                 "attribute '%.50s' of '%.100s' objects is not readable";
         return PyErr.format(PyExc.AttributeError, msg, name,
@@ -102,7 +102,7 @@ abstract class DataDescriptor extends Descriptor {
      *
      * @return exception to throw
      */
-    protected PyBaseException cannotWriteAttr() {
+    PyBaseException cannotWriteAttr() {
         String msg =
                 "attribute '%.50s' of '%.100s' objects is not writable";
         return PyErr.format(PyExc.AttributeError, msg, name,
@@ -118,7 +118,7 @@ abstract class DataDescriptor extends Descriptor {
      *
      * @return exception to throw
      */
-    protected PyBaseException cannotDeleteAttr() {
+    PyBaseException cannotDeleteAttr() {
         String msg =
                 "cannot delete attribute %.50s from '%.100s' objects";
         return PyErr.format(PyExc.TypeError, msg, name,
@@ -136,7 +136,7 @@ abstract class DataDescriptor extends Descriptor {
      * @param value provided to set this attribute in some object
      * @return exception to throw
      */
-    protected PyBaseException attrMustBe(String kind, Object value) {
+    PyBaseException attrMustBe(String kind, Object value) {
         return _PyUtil.attrMustBe(name, kind, value);
     }
 
@@ -152,8 +152,7 @@ abstract class DataDescriptor extends Descriptor {
      * @param value provided to set this attribute in some object
      * @return exception to throw
      */
-    protected PyBaseException attrMustBe(Class<?> attrClass,
-            Object value) {
+    PyBaseException attrMustBe(Class<?> attrClass, Object value) {
         String kind;
         PyType pyType = PyType.of(attrClass);
         if (pyType.selfClasses().size() == 1) {
