@@ -194,35 +194,25 @@ public class PyNumber extends Abstract {
 
         } else if (!wType.isSubTypeOf(vType)) {
             // Ask left (if not empty) then right.
-            // FIXME comparison with EMPTY is not valid approach
             slotv = binop.handle(vOps);
-            if (slotv != BINARY_EMPTY) {
+            try {
                 Object r = slotv.invokeExact(v, w);
                 if (r != Py.NotImplemented) { return r; }
-            }
+            } catch (EmptyException e) {}
             slotw = binop.getAltSlot(wOps);
             return slotw.invokeExact(w, v);
 
         } else {
             // Right is sub-class: ask first (if not empty).
             slotw = binop.getAltSlot(wOps);
-            // FIXME comparison with EMPTY is not valid approach
-            if (slotw != BINARY_EMPTY) {
+            try {
                 Object r = slotw.invokeExact(w, v);
                 if (r != Py.NotImplemented) { return r; }
-            }
+            } catch (EmptyException e) {}
             slotv = binop.handle(vOps);
             return slotv.invokeExact(v, w);
         }
     }
-
-    // FIXME Use EmptyException uniformly
-    /*
-     * This "empty" does not work for shared representations, which fill
-     * their slot with a redirection to the (mutable) type.
-     */
-    private static final MethodHandle BINARY_EMPTY =
-            SpecialMethod.Signature.BINARY.empty;
 
     /**
      * True iff the type of the object defines the special method

@@ -84,13 +84,10 @@ class PyTypeTest extends UnitTestSupport {
                             o -> PyType.of(o) == PyObject.TYPE,
                             "is an object"), //
                     instanceExample(PyLong.TYPE, 1, 1), //
-                    // FIXME fails because int.__eq__ is not defined
-                    // instanceExample(PyLong.TYPE, 10, BigInteger.TEN),
-                    // //
+                    instanceExample(PyLong.TYPE, 10, BigInteger.TEN), //
                     instanceExample(PyLong.TYPE, 42, 42), //
-                    instanceExample(PyLong.TYPE, BIG, BIG) //
-            // FIXME fails because __bool__ is not defined
-            // instanceExample(PyBool.TYPE, true, 1) //
+                    instanceExample(PyLong.TYPE, BIG, BIG), //
+                    instanceExample(PyBool.TYPE, true, 1) //
             );
         }
 
@@ -252,8 +249,8 @@ class PyTypeTest extends UnitTestSupport {
 
     @Nested
     @DisplayName("type.__new__")
-    // FIXME __new__ test: fix or remove if wrong
-    @Disabled("Does not reflect current notion of __new__()")
+    // FIXME align to required behaviour of type.__new__
+    @Disabled("Need to implement type.__new__()")
     class NewTypeTest extends AbstractNewTypeTest {
         /**
          * Test type construction by the 3-argument call to type.
@@ -275,8 +272,8 @@ class PyTypeTest extends UnitTestSupport {
                 PyDict namespace, Consumer<PyType> test,
                 String strMetatype, String strBases,
                 String strNamespace) throws Throwable {
-            PyType t = (PyType)Callables.call(metatype, name,
-                    bases, namespace);
+            PyType t = (PyType)Callables.call(metatype, name, bases,
+                    namespace);
             // Customised test specified by caller
             test.accept(t);
         }
@@ -298,8 +295,8 @@ class PyTypeTest extends UnitTestSupport {
         void newTypeError(PyType metatype, String name, PyTuple bases,
                 PyDict namespace, Consumer<PyType> test,
                 String strMetatype) throws Throwable {
-            assertThrows(PyBaseException.class, () -> Callables
-                    .call(metatype, name, 1, namespace));
+            assertThrows(PyBaseException.class,
+                    () -> Callables.call(metatype, name, 1, namespace));
             assertThrows(PyBaseException.class, () -> Callables
                     .call(metatype, name, bases, Py.None));
         }

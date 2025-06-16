@@ -16,7 +16,7 @@ import uk.co.farowl.vsj4.runtime.TypeSpec;
  * takes responsibility for the basic properties of a type towards use
  * from Java. It contains the apparatus to make the type "Java-ready".
  */
- public abstract class KernelType extends Representation
+public abstract class KernelType extends Representation
         implements PyType {
 
     /** Name of the type (fully-qualified). */
@@ -176,9 +176,7 @@ import uk.co.farowl.vsj4.runtime.TypeSpec;
      * @return {@code true} iff {@code o} is exactly of this type
      */
     @Override
-    public boolean checkExact(Object o) {
-        return PyType.of(o) == this;
-    }
+    public boolean checkExact(Object o) { return PyType.of(o) == this; }
 
     @Override
     public final boolean hasFeature(TypeFlag feature) {
@@ -409,15 +407,12 @@ import uk.co.farowl.vsj4.runtime.TypeSpec;
      * the descriptor, but is found to be a sub-type of it.
      * <p>
      * In these circumstances, only the primary representation (index 0)
-     * and accepted (not adopted) representation classes need be tested.
-     * It returns 0 in all cases where there are no such accepted
-     * representations, even if that choice is not assignment
-     * compatible.
+     * and accepted (not adopted) classes need be tested. It returns 0
+     * in all cases where there are no such accepted representations,
+     * even if that choice is not assignment compatible.
      *
      * @param selfClass to seek
      * @return index in {@link #selfClasses()}
      */
-    // FIXME: to be less public or in BaseType
     public int getSubclassIndex(Class<?> selfClass) { return 0; }
-
 }
