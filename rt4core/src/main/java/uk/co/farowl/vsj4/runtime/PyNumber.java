@@ -412,52 +412,54 @@ public class PyNumber extends Abstract {
     private static final String CANNOT_FIT =
             "cannot fit '%.200s' into an index-sized integer";
 
-// /**
-// * Convert an object to a Python {@code float}, This is the
-// * equivalent of the Python expression {@code float(o)}.
-// *
-// * @param o to convert
-// * @return converted value
-// * @throws PyBaseException ({@link PyExc#TypeError TypeError})
-// * if {@code __float__} is
-// * defined but does not return a {@code float}
-// * @throws Throwable on other errors
-// */
-// // Compare CPython abstract.c: PyNumber_Float
-// public static Object toFloat(Object o)
-// throws PyBaseException, Throwable {
-// /*
-// * Ever so similar to PyFloat.asDouble, but returns always
-// * exactly a PyFloat, constructed if necessary from the value in
-// * a sub-type of PyFloat, or a from string.
-// */
-// Representation rep = PyType.representationOf(o);
-//
-// if (PyFloat.TYPE.checkExact(o)) {
-// return o;
-//
-// } else {
-// try {
-// // Try __float__ (if defined)
-// Object res = rep.op_float.invokeExact(o);
-// PyType resType = PyType.of(res);
-// if (resType == PyFloat.TYPE) // Exact type
-// return PyFloat.doubleValue(res);
-// else if (resType.isSubTypeOf(PyFloat.TYPE)) {
-// // Warn about this and make a clean Python float
-// PyFloat.asDouble(returnDeprecation("__float__",
-// "float", res));
-// } else
-// // SpecialMethod defined but not a Python float at
-// // all
-// throw returnTypeError("__float__", "float", res);
-// } catch (EmptyException e) {}
-//
-// // Fall out here if op_float was not defined
-// if (SpecialMethod.op_index.isDefinedFor(rep))
-// return PyLong.asDouble(PyNumber.index(o));
-// else
-// return PyFloat.fromString(o);
-// }
-// }
+    /**
+     * Convert an object to a Python {@code float}, This is the
+     * equivalent of the Python expression {@code float(o)}.
+     *
+     * @param o to convert
+     * @return converted value
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     {@code __float__} is defined but does not return a
+     *     {@code float}
+     * @throws Throwable on other errors
+     */
+    // Compare CPython abstract.c: PyNumber_Float
+    public static Object toFloat(Object o)
+            throws PyBaseException, Throwable {
+        /*
+         * Ever so similar to PyFloat.asDouble, but returns always
+         * exactly a PyFloat, constructed if necessary from the value in
+         * a sub-type of PyFloat, or from a string.
+         */
+        Representation rep = representation(o);
+
+        if (rep.isFloatExact()) {
+            return o;
+
+        } else {
+            try {
+                // Try __float__ (if defined)
+                Object r = rep.op_float().invokeExact(o);
+                // Either return r or raise TypeError.
+                rep = representation(r);
+                if (!rep.isFloatExact()) {
+                    return r;
+                } else if (rep.pythonType(r)
+                        .isSubTypeOf(PyFloat.TYPE)) {
+                    // Warn about this and make a clean Python float
+                    return PyFloat.asDouble(
+                            returnDeprecation("__float__", "float", r));
+                } else {
+                    // Return was not a Python float at all
+                    throw returnTypeError("__float__", "float", r);
+                }
+            } catch (EmptyException e) {}
+
+            // Fall out here if __float__ was not defined.
+            if (rep.pythonType(o).hasFeature(KernelTypeFlag.HAS_INDEX))
+                return PyLong.asDouble(PyNumber.index(o));
+            else
+                return PyFloat.fromString(o);
+        }
+    }
 }

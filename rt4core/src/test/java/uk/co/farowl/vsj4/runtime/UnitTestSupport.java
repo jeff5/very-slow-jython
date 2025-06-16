@@ -289,24 +289,6 @@ public class UnitTestSupport {
      * the message. The return value may be the subject of further
      * assertions.
      *
-     * @param <E> type of exception
-     * @param expected type of exception
-     * @param action to invoke
-     * @param expectedMessage expected message text
-     * @return the exception thrown
-     */
-    static <E extends PyBaseException> E assertRaises(Class<E> expected,
-            Executable action, String expectedMessage) {
-        E e = assertThrows(expected, action);
-        assertEquals(expectedMessage, e.getMessage());
-        return e;
-    }
-
-    /**
-     * Invoke an action expected to raise a Python exception and check
-     * the message. The return value may be the subject of further
-     * assertions.
-     *
      * @param expected Python type of exception
      * @param action to invoke
      * @param expectedMessage expected message text
