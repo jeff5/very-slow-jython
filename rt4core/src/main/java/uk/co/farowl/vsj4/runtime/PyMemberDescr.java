@@ -19,11 +19,19 @@ import uk.co.farowl.vsj4.support.InterpreterError;
  */
 public abstract class PyMemberDescr extends DataDescriptor {
 
-    /** The type of Python object this class implements. */
-    static final PyType TYPE = PyType.fromSpec( //
-            new TypeSpec("member_descriptor", MethodHandles.lookup())
-                    .add(Feature.IMMUTABLE, Feature.METHOD_DESCR)
-                    .remove(Feature.BASETYPE));
+    /** Only referenced during bootstrap by {@link TypeSystem}. */
+    static class Spec {
+        /** @return the type specification. */
+        static TypeSpec get() {
+            return new TypeSystem.BootstrapSpec("member_descriptor",
+                    MethodHandles.lookup(), PyMemberDescr.class)
+                            .remove(Feature.INSTANTIABLE);
+        }
+    }
+
+    /** The Python type of {@code member_descriptor} objects. */
+    public static final PyType TYPE =
+            TypeSystem.typeForClass(PyMemberDescr.class);
 
     /** Acceptable values in the {@link #flags}. */
     enum Flag {

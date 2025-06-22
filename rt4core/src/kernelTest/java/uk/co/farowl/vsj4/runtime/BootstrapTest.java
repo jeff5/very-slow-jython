@@ -1,4 +1,4 @@
-// Copyright (c)2024 Jython Developers.
+// Copyright (c)2025 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
 
@@ -32,8 +32,8 @@ import uk.co.farowl.vsj4.runtime.kernel.TypeRegistry;
  * thread. The design intent is that the first thread to ask anything of
  * the type system initialises it fully (as the <i>bootstrap
  * thread</i>), before its request is answered, while all other threads
- * with a request have to wait on {@link PyType}. We are are concerned
- * about these possible failure modes:
+ * with a request have to wait on {@link TypeSystem}. We are are
+ * concerned about these possible failure modes:
  * <ol>
  * <li>Deadlock: a thread waiting for the bootstrap thread holds a lock
  * on objects that the bootstrap thread needs.</li>
@@ -47,13 +47,13 @@ import uk.co.farowl.vsj4.runtime.kernel.TypeRegistry;
  * which thread actually performed the bootstrap.
  * <p>
  * We test this by starting a lot of threads, as close to simultaneously
- * as we can manage, that access {@code PyType} static members in a
+ * as we can manage, that access {@code TypeSystem} static members in a
  * variety of orders. Each thread records when it started and when it
- * got its first answer. {@code PyType} itself keeps track of when the
- * bootstrap started and finished. The bootstrap should complete before
- * any thread gets its first answer, and (for a satisfactory test)
- * multiple threads should be racing before the bootstrap begins. They
- * should all get the same answers.
+ * got its first answer. {@code TypeSystem} itself keeps track of when
+ * the bootstrap started and finished. The bootstrap should complete
+ * before any thread gets its first answer, and (for a satisfactory
+ * test) multiple threads should be racing before the bootstrap begins.
+ * They should all get the same answers.
  */
 @DisplayName("When multiple threads use the type system")
 @TestMethodOrder(MethodOrderer.MethodName.class)
@@ -91,7 +91,7 @@ class BootstrapTest {
     static void setUpClass() {
         // Create NTHREADS randomly choosing which action comes first.
         for (int i = 0; i < NTHREADS; i++) {
-            threads.add(switch (random.nextInt(3)) {
+            threads.add(switch (random.nextInt(4)) {
 
                 case 0 -> new InitThread() {
                     @Override
@@ -102,9 +102,17 @@ class BootstrapTest {
                     @Override
                     void action() { floatType = PyFloat.TYPE; }
                 };
-                default -> new InitThread() {
+
+                case 3 -> new InitThread() {
                     @Override
                     void action() { objectType = PyObject.TYPE; }
+                };
+
+                default -> new InitThread() {
+                    @Override
+                    void action() throws Throwable {
+                        result = PyNumber.multiply(6, 7);
+                    }
                 };
             });
         }
@@ -245,13 +253,15 @@ class BootstrapTest {
         PyType objectType;
         /** The type {@code float} when inspected. */
         PyType floatType;
+        /** The result of an operation. */
+        Object result;
 
         /**
          * Each implementation of {@code InitThread} retrieves the same
          * data, but chooses to do one action first by overriding this
          * method. {@link #otherActions()} then completes the work.
          */
-        abstract void action();
+        abstract void action() throws Throwable;
 
         @Override
         public void run() {
@@ -266,7 +276,12 @@ class BootstrapTest {
             }
             // Perform the action: *raw* nanos before and after.
             startNanoTime = System.nanoTime();
-            action();
+            try {
+                action();
+            } catch (Throwable e) {
+                logger.atWarn().setMessage("action() threw {}")
+                        .addArgument(e).log();
+            }
             firstNanoTime = System.nanoTime();
             otherActions();
             finishNanoTime = System.nanoTime();

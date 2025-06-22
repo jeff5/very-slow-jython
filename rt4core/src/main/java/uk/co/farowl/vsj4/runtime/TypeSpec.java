@@ -180,11 +180,11 @@ public class TypeSpec extends NamedSpec {
      * members.
      * <p>
      * A {@code TypeSpec} given private or package access to members
-     * should not be passed to untrusted code. {@code PyType} does not
+     * should not be passed to untrusted code. The type system does not
      * hold onto the {@code TypeSpec} after completing the type object.
      *
      * @param name of the type being specified (may be dotted name)
-     * @param lookup authorisation to access {@code implClass}
+     * @param lookup authorisation to access the implementation classes
      */
     public TypeSpec(String name, Lookup lookup) {
         this(name, lookup, true);
@@ -200,7 +200,7 @@ public class TypeSpec extends NamedSpec {
      * those explicitly.
      *
      * @param name of the type being specified (may be dotted name)
-     * @param lookup authorisation to access {@code implClass}
+     * @param lookup authorisation to access the implementation classes
      * @param defaultToLookup if false, do not look for methods in the
      *     lookup class itself
      */

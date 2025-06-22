@@ -31,11 +31,19 @@ import uk.co.farowl.vsj4.support.internal.EmptyException;
 // and PyGetSetDescrObject also in descrobject.h
 public abstract class PyGetSetDescr extends DataDescriptor {
 
-    static final Lookup LOOKUP = MethodHandles.lookup();
-    static final PyType TYPE =
-            PyType.fromSpec(new TypeSpec("getset_descriptor", LOOKUP)
-                    .add(Feature.IMMUTABLE, Feature.METHOD_DESCR)
-                    .remove(Feature.BASETYPE));
+    /** Only referenced during bootstrap by {@link TypeSystem}. */
+    static class Spec {
+        /** @return the type specification. */
+        static TypeSpec get() {
+            return new TypeSystem.BootstrapSpec("getset_descriptor",
+                    MethodHandles.lookup(), PyGetSetDescr.class)
+                            .remove(Feature.INSTANTIABLE);
+        }
+    }
+
+    /** The Python type of {@code getset_descriptor} objects. */
+    public static final PyType TYPE =
+            TypeSystem.typeForClass(PyGetSetDescr.class);
 
     /** The method handle type (O)O. */
     // CPython: PyObject *(*getter)(PyObject *, void *)
@@ -61,6 +69,7 @@ public abstract class PyGetSetDescr extends DataDescriptor {
          * fail (in theory).
          */
         try {
+            Lookup LOOKUP = MethodHandles.lookup();
             EMPTY_GETTER = LOOKUP.findStatic(PyGetSetDescr.class,
                     "emptyGetter", GETTER);
             EMPTY_SETTER = LOOKUP.findStatic(PyGetSetDescr.class,

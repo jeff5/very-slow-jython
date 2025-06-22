@@ -23,9 +23,19 @@ import uk.co.farowl.vsj4.runtime.internal._PyUtil;
 // and _PyMethodWrapper_Type in descrobject.c
 public class PyMethodWrapper implements WithClass, FastCall {
 
-    static final PyType TYPE = PyType.fromSpec(
-            new TypeSpec("method-wrapper", MethodHandles.lookup())
-                    .add(Feature.IMMUTABLE));
+    /** Only referenced during bootstrap by {@link TypeSystem}. */
+    static class Spec {
+        /** @return the type specification. */
+        static TypeSpec get() {
+            return new TypeSystem.BootstrapSpec("method-wrapper",
+                    MethodHandles.lookup(), PyMethodWrapper.class)
+                    .remove(Feature.INSTANTIABLE);
+        }
+    }
+
+    /** The Python type of {@code method-wrapper} objects. */
+    public static PyType TYPE =
+            TypeSystem.typeForClass(PyMethodWrapper.class);
 
     // No subclasses so always this type
     @Override

@@ -8,6 +8,7 @@ import static uk.co.farowl.vsj4.runtime.ClassShorthand.T;
 import static uk.co.farowl.vsj4.runtime.PyFloatMethods.toDouble;
 
 import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
 import java.math.BigInteger;
 
 import uk.co.farowl.vsj4.runtime.PyUtil.NoConversion;
@@ -24,9 +25,24 @@ import uk.co.farowl.vsj4.support.internal.EmptyException;
  * {@code double} or {@code java.lang.Double} when boxed as an object.
  */
 public class PyFloat implements WithClass {
-    /** The type object {@code float}. */
+
+    // TODO Make 'float' adopt Float.class
+    /** Only referenced during bootstrap by {@link TypeSystem}. */
+    static class Spec {
+        /** @return the type specification. */
+        static TypeSpec get() {
+            return new TypeSystem.BootstrapSpec("float",
+                    MethodHandles.lookup(), PyFloat.class)
+                            .add(Feature.BASETYPE)
+                            .methodImpls(PyFloatMethods.class)
+                            // .binops(PyFloatBinops.class)
+                            .adopt(Double.class);
+        }
+    }
+
+    /** The Python type of {@code float} objects. */
     // Bootstrap type so ask the type system to resolve it.
-    public static final PyType TYPE = PyType.of(0.0);
+    public static final PyType TYPE = TypeSystem.typeOf(0.0);
 
     /** Value of this Python {@code float} as a Java primitive. */
     final double value;

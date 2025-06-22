@@ -122,18 +122,71 @@ class TypeSystem {
              * "Java ready" forms, but they are not "Python ready". We
              * let them leak out so that the bootstrap process itself
              * may use them. No *other* thread can get to them until
-             * this thread leaves the static initialisation of PyType.
+             * this thread leaves the static initialisation of
+             * TypeSystem.
              */
             TYPE = t;
             factory = f;
             registry = f.getRegistry();
 
             /*
-             * Get all the bootstrap types Python ready. At this point,
-             * the type factory needs access to the implementations of
-             * types in this package, and to create exposers for them.
+             * Create partial types for all the bootstrap types. These
+             * are not Python ready. All the calls to f.fromSpec() count
+             * as "re-entrant", so the type objects they create are not
+             * published, and will not be visible to any other thread
+             * yet. The process of making them Python ready is deferred,
+             * and they sit in the workshop until we have defined the
+             * full set.
              */
-            f.createBootstrapTypes(RUNTIME_LOOKUP,
+
+            /*
+             * Many types can use the idiom 'static TYPE =
+             * PyType.fromSpec(...)' in the static initialisation of the
+             * defining class. This is not safe for types needed in the
+             * construction of type objects themselves. The reason is
+             * that a competing thread could seize control of the static
+             * initialisation of such a class, and would block with the
+             * necessary class half-initilised. Instead, each defining
+             * class has a nested class, not visible in the API, that
+             * provides the specification, even if some other thread has
+             * locked the defining class of that type.
+             */
+
+            /*
+             * The first types needing this consideration are the
+             * descriptors.
+             */
+            f.fromSpec(PyGetSetDescr.Spec.get());
+            f.fromSpec(PyJavaFunction.Spec.get());
+            f.fromSpec(PyMemberDescr.Spec.get());
+            f.fromSpec(PyMethodDescr.Spec.get());
+            f.fromSpec(PyMethodWrapper.Spec.get());
+            f.fromSpec(PyWrapperDescr.Spec.get());
+
+            /*
+             * The second group of types is those with adopted
+             * representation Java classes. A client that, for example,
+             * calls PyType.of(1) will otherwise accidentally create a
+             * "discovered" type for Integer.
+             */
+
+            f.fromSpec(PyUnicode.Spec.get());
+            f.fromSpec(PyFloat.Spec.get());
+
+            /*
+             * We create 'int' before 'bool' and keep the type object,
+             * so that we may hand it to the definition of 'bool'.
+             * This thread cannot reliably reference PyLong.TYPE.
+             */
+            final PyType INT = f.fromSpec(PyLong.Spec.get());
+            f.fromSpec(PyBool.Spec.get(INT));
+
+            /*
+             * At this point, the type factory needs access to the
+             * implementations of types in this package, and to create
+             * exposers for them.
+             */
+            f.publishBootstrapTypes(RUNTIME_LOOKUP,
                     TypeExposerImplementation::new);
 
         } catch (Clash clash) {
@@ -153,6 +206,32 @@ class TypeSystem {
                 .addArgument(() -> String.format("%.3f",
                         1e-9 * (readyNanoTime - bootstrapNanoTime)))
                 .log();
+    }
+
+    /**
+     * A specification of a bootstrap a type object. We do this as a
+     * shorthand for use in the specification of the bootstrap types
+     * (e.g. {@link PyFloat.Spec#get()}, as we find the same mutators
+     * have to be added.
+     */
+    static class BootstrapSpec extends TypeSpec {
+        /**
+         * Create a specification using name and primary class. The
+         * lookup object used to expose methods will be a generic one
+         * supplied by the run-time package, that does not have access
+         * to {@code private} members of the {@code primary} class. For
+         * this reason, the special and other exposed methods of a
+         * bootstrap type must be visible at package scope in the
+         * run-time package.
+         *
+         * @param name of type
+         * @param lookup to access the implementation classes
+         * @param primary used to represent and define methods
+         */
+        BootstrapSpec(String name, Lookup lookup, Class<?> primary) {
+            super(name, lookup, false);
+            this.primary(primary).add(Feature.IMMUTABLE);
+        }
     }
 
     /**
@@ -187,17 +266,36 @@ class TypeSystem {
      * @param o for which a type is required
      * @return the type
      */
-    static BaseType of(Object o) {
+    static BaseType typeOf(Object o) {
         return registry.get(o.getClass()).pythonType(o);
     }
 
     /**
-     * Create a Python type according to the specification. This is the
-     * normal way to create any Python type that is defined in Java: the
-     * Python built-ins or user-defined types. The minimal idiom
-     * is:<pre>
+     * Determine the Python type for the given class, or fail if it the
+     * class is a representation of more than one type.
+     *
+     * @param klass for which a type is required
+     * @return the corresponding unique type
+     * @throws InterpreterError when not unique
+     */
+    static BaseType typeForClass(Class<?> klass)
+            throws InterpreterError {
+        Representation rep = registry.get(klass);
+        if (rep instanceof BaseType bt) {
+            return bt;
+        } else {
+            throw new InterpreterError(
+                    "Python type of %s was expected to be unique",
+                    klass.getSimpleName());
+        }
+    }
+
+    /**
+     * Create a Python type according to the specification. This exists
+     * to back {@link PyType#fromSpec(TypeSpec)}. Within the run-time
+     * system package, we might call:<pre>
      * class MyType {
-     *     static PyType TYPE = PyType.fromSpec(
+     *     BaseType bt = TypeSystem.typeFromSpec(
      *         new TypeSpec("mypackage.mytype",
      *                      MethodHandles.lookup());
      * }
@@ -208,7 +306,7 @@ class TypeSystem {
      * @param spec specifying the new type
      * @return the new type
      */
-    static BaseType fromSpec(TypeSpec spec) {
+    static BaseType typeFromSpec(TypeSpec spec) {
         try {
             return factory.fromSpec(spec);
         } catch (Clash clash) {

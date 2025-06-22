@@ -11,6 +11,7 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import uk.co.farowl.vsj4.runtime.kernel.BaseType;
 import uk.co.farowl.vsj4.runtime.kernel.Representation;
 import uk.co.farowl.vsj4.runtime.kernel.TypeFactory.Clash;
 import uk.co.farowl.vsj4.support.InterpreterError;
@@ -309,12 +310,9 @@ public interface PyType extends WithClass, FastCall {
     // static methods -----------------------------------------------
 
     /**
-     * The Python {@code type} object. The type objects of many built-in
-     * types are available as a static final field {@code TYPE}. For
-     * technical reasons, we have to use a static method to get the
-     * value.
+     * Return the Python type of {@code type} objects.
      *
-     * @return The {@code type} object.
+     * @return {@code type}
      */
     public static PyType TYPE() {
         /*

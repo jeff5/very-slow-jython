@@ -47,18 +47,25 @@ import uk.co.farowl.vsj4.support.InterpreterError;
  */
 public class PyUnicode implements WithClass, PyDict.Key {
 
-    /** The type {@code str}. */
-    // Bootstrap type so ask the type system to resolve it.
-    public static final PyType TYPE = PyType.of("");
+    /** Only referenced during bootstrap by {@link TypeSystem}. */
+    static class Spec {
+        /** @return the type specification. */
+        static TypeSpec get() {
+            return new TypeSystem.BootstrapSpec("str",
+                    MethodHandles.lookup(), PyUnicode.class)
+                            .add(Feature.BASETYPE)
+                            .methodImpls(PyUnicodeMethods.class)
+                            .adopt(String.class);
+        }
+    }
 
-    /**
-     * The implementation holds a Java {@code int} array of code points.
-     */
+    /** The Python type of {@code str} objects. */
+    public static final PyType TYPE = TypeSystem.typeOf("");
+
+    /** Value as a Java {@code int} array of code points. */
     private final int[] value;
 
-    /**
-     * Enumeration used to express the code point {@link #range}.
-     */
+    /** Enumeration to express the code point {@link #range}. */
     enum Range {
         ASCII, LATIN, BMP, SMP;
     }

@@ -28,13 +28,22 @@ import uk.co.farowl.vsj4.support.ScopeKind;
  */
 public abstract class PyJavaFunction implements WithClass, FastCall {
 
-    /** The type of Python object this class implements. */
-    static final PyType TYPE = PyType.fromSpec( //
-            new TypeSpec("builtin_function_or_method",
-                    MethodHandles.lookup()));
+    /** Only referenced during bootstrap by {@link TypeSystem}. */
+    static class Spec {
+        /** @return the type specification. */
+        static TypeSpec get() {
+            return new TypeSystem.BootstrapSpec(
+                    "builtin_function_or_method",
+                    MethodHandles.lookup(), PyJavaFunction.class)
+                            .remove(Feature.INSTANTIABLE);
+        }
+    }
 
-    @Override
-    public PyType getType() { return TYPE; }
+    /**
+     * The Python type of {@code builtin_function_or_method} objects.
+     */
+    public static PyType TYPE =
+            TypeSystem.typeForClass(PyJavaFunction.class);
 
     /** Name of the containing module (or {@code null}). */
     final String module;
@@ -96,6 +105,9 @@ public abstract class PyJavaFunction implements WithClass, FastCall {
         this.self = self;
         this.module = module;
     }
+
+    @Override
+    public PyType getType() { return TYPE; }
 
     /**
      * Construct a {@code PyJavaFunction} from an {@link ArgParser} and
