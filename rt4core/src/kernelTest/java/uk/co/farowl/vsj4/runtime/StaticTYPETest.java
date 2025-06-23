@@ -2,11 +2,7 @@
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -21,47 +17,39 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
+import org.junit.jupiter.api.Timeout;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import uk.co.farowl.vsj4.runtime.kernel.AdoptiveType;
 import uk.co.farowl.vsj4.runtime.kernel.TypeRegistry;
 
 /**
- * Test that the type system is initialised in a single bootstrap
- * thread. The design intent is that the first thread to ask anything of
- * the type system initialises it fully (as the <i>bootstrap
- * thread</i>), before its request is answered, while all other threads
- * with a request have to wait on {@link TypeSystem}. We are are
- * concerned about these possible failure modes:
- * <ol>
- * <li>Deadlock: a thread waiting for the bootstrap thread holds a lock
- * on objects that the bootstrap thread needs.</li>
- * <li>Incomplete publication: type objects become visible outside the
- * bootstrap thread in an incomplete state.</li>
- * <li>Incomplete bootstrap: the bootstrap thread completes type system
- * creation (and its initiating request) while type objects are still
- * not complete.</li>
- * </ol>
- * The last two look much the same to the test, since it is not aware
- * which thread actually performed the bootstrap.
+ * This is a variant of {@link BootstrapTest} focusing particularly on
+ * competition for the static TYPE members of bootstrap types. We test
+ * that threads that access those members before the type system exists
+ * will never see them {@code null}.
+ *
+ * As before, the intent is that the first thread to ask anything of the
+ * type system initialises it fully (as the <i>bootstrap thread</i>),
+ * before its request is answered, while all other threads with a
+ * request have to wait on {@link TypeSystem}.
  * <p>
- * We test this by starting a lot of threads, as close to simultaneously
- * as we can manage, that access {@code TypeSystem} static members in a
- * variety of orders. Each thread records when it started and when it
- * got its first answer. {@code TypeSystem} itself keeps track of when
+ * We shall start a lot of threads, as close to simultaneously as we can
+ * manage, that each access the {@code TYPE} static member of a
+ * particular bootstrap type. Each thread records when it started and
+ * when it got its answer. {@code TypeSystem} itself keeps track of when
  * the bootstrap started and finished. The bootstrap should complete
- * before any thread gets its first answer, and (for a satisfactory
- * test) multiple threads should be racing before the bootstrap begins.
- * They should all get the same answers.
+ * before any thread gets its answer, and (for a satisfactory test)
+ * multiple threads should be racing before the bootstrap begins.
  */
-@DisplayName("When multiple threads use the type system")
+@DisplayName("When multiple threads reference TYPE")
 @TestMethodOrder(MethodOrderer.MethodName.class)
-class BootstrapTest {
+@Timeout(2)
+class StaticTYPETest {
 
     /** Logger for the test. */
     static final Logger logger =
-            LoggerFactory.getLogger(BootstrapTest.class);
+            LoggerFactory.getLogger(StaticTYPETest.class);
 
     /** Random (or deterministic) order. */
     static final long seed = System.currentTimeMillis();
@@ -72,7 +60,7 @@ class BootstrapTest {
             "uk.co.farowl.vsj4.runtime.BootstrapTest.times";
 
     /** Threads of each kind. */
-    static final int NTHREADS = 100; // suggest at least 15
+    static final int NTHREADS = 20; // >= #clauses in setUpClass
     /** Threads to run. */
     static final List<InitThread> threads = new ArrayList<>();
     /** A barrier they all wait behind. */
@@ -91,28 +79,67 @@ class BootstrapTest {
     static void setUpClass() {
         // Create NTHREADS randomly choosing which action comes first.
         for (int i = 0; i < NTHREADS; i++) {
-            threads.add(switch (random.nextInt(4)) {
+            int k = i % 12; // random.nextInt(12);
+            threads.add(switch (k) {
 
-                case 0 -> new InitThread() {
+                case 0 -> new InitThread(k, PyType.class) {
                     @Override
-                    void action() { reg = TypeSystem.registry; }
+                    void action() { type = PyType.TYPE(); }
                 };
 
-                case 1 -> new InitThread() {
+                case 1 -> new InitThread(k, PyLong.class) {
                     @Override
-                    void action() { floatType = PyFloat.TYPE; }
+                    void action() { type = PyLong.TYPE; }
                 };
 
-                case 2 -> new InitThread() {
+                case 2 -> new InitThread(k, PyBool.class) {
                     @Override
-                    void action() { objectType = PyObject.TYPE; }
+                    void action() { type = PyBool.TYPE; }
                 };
 
-                default -> new InitThread() {
+                case 3 -> new InitThread(k, PyFloat.class) {
                     @Override
-                    void action() throws Throwable {
-                        result = PyNumber.multiply(6, 7);
-                    }
+                    void action() { type = PyFloat.TYPE; }
+                };
+
+                case 4 -> new InitThread(k, PyUnicode.class) {
+                    @Override
+                    void action() { type = PyUnicode.TYPE; }
+                };
+
+                case 5 -> new InitThread(k, PyGetSetDescr.class) {
+                    @Override
+                    void action() { type = PyGetSetDescr.TYPE; }
+                };
+
+                case 6 -> new InitThread(k, PyJavaFunction.class) {
+                    @Override
+                    void action() { type = PyJavaFunction.TYPE; }
+                };
+
+                case 7 -> new InitThread(k, PyMemberDescr.class) {
+                    @Override
+                    void action() { type = PyMemberDescr.TYPE; }
+                };
+
+                case 8 -> new InitThread(k, PyMethodDescr.class) {
+                    @Override
+                    void action() { type = PyMethodDescr.TYPE; }
+                };
+
+                case 9 -> new InitThread(k, PyMethodWrapper.class) {
+                    @Override
+                    void action() { type = PyMethodWrapper.TYPE; }
+                };
+
+                case 10 -> new InitThread(k, PyWrapperDescr.class) {
+                    @Override
+                    void action() { type = PyWrapperDescr.TYPE; }
+                };
+
+                default -> new InitThread(k, PyObject.class) {
+                    @Override
+                    void action() { type = PyObject.TYPE; }
                 };
             });
         }
@@ -222,14 +249,14 @@ class BootstrapTest {
         }
     }
 
-    /** All the threads see a correct PyFloat.TYPE. */
+    /** All the threads see a correct TYPE. */
     @Test
-    @DisplayName("All threads see 'float'")
-    void sameFloat() {
-        PyType f = PyFloat.TYPE;
-        assertInstanceOf(AdoptiveType.class, f);
+    @DisplayName("All threads see their individual 'TYPE'")
+    void individualTYPE() {
         for (InitThread init : threads) {
-            assertSame(f, init.floatType);
+            PyType t = init.type;
+            assertNotNull(t);
+            assertSame(t.canonicalClass(), init.klass);
         }
     }
 
@@ -245,23 +272,32 @@ class BootstrapTest {
         long startNanoTime;
         /** Time this thread completed line one of {@code action()}. */
         long firstNanoTime;
-        /** Time this thread completed {@code otherActions()}. */
+        /** Time this thread completed {@code action()}. */
         long finishNanoTime;
         /** The reference {@link TypeSystem#registry} when inspected. */
         TypeRegistry reg;
-        /** The type {@code object} when inspected. */
-        PyType objectType;
-        /** The type {@code float} when inspected. */
-        PyType floatType;
-        /** The result of an operation. */
-        Object result;
+        /** The canonical class of the type this thread addresses. */
+        Class<?> klass;
+        /** The value seen in {@code klass} {@code :: TYPE}. */
+        PyType type;
+
+        /**
+         * Create a {@code Thread} to run. Providing a reference to a
+         * class here does <i>not</i> statically initialise it.
+         *
+         * @param choice of type for this thread
+         * @param klass canonical class of TYPE accessed
+         */
+        InitThread(int choice, Class<?> klass) {
+            this.klass = klass;
+        }
 
         /**
          * Each implementation of {@code InitThread} retrieves the same
          * data, but chooses to do one action first by overriding this
          * method. {@link #otherActions()} then completes the work.
          */
-        abstract void action() throws Throwable;
+        abstract void action();
 
         @Override
         public void run() {
@@ -293,9 +329,7 @@ class BootstrapTest {
 
         /** The required actions apart from the one already done. */
         void otherActions() {
-            if (objectType == null) { objectType = PyObject.TYPE; }
-            if (floatType == null) { floatType = PyFloat.TYPE; }
-            if (reg == null) { reg = TypeSystem.registry; }
+            reg = TypeSystem.registry;
         }
 
         @Override

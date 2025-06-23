@@ -71,8 +71,8 @@ public class PyUnicode implements WithClass, PyDict.Key {
     }
 
     /**
-     * We can quickly determine tha a whether short-cut encodings will
-     * be possible for a given {@code PyUnicode} from this field.
+     * We can quickly determine whether short-cut encodings will be
+     * possible for a given {@code PyUnicode} from this field.
      */
     final private Range range;
 
