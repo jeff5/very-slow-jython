@@ -162,7 +162,9 @@ class StaticTYPETest {
         }
 
         // Make sure they all stop (so the test does).
-        for (Thread t : threads) { ensureStopped(t); }
+        boolean allStopped = true;
+        for (Thread t : threads) { allStopped &= ensureStopped(t); }
+        assertTrue(allStopped, "A forced stop was needed");
 
         // Dump the thread times by start time.
         if (truthy(DUMP_PROPERTY)) { dumpThreads(); }
@@ -194,11 +196,13 @@ class StaticTYPETest {
     }
 
     @SuppressWarnings("deprecation")
-    private static void ensureStopped(Thread t) {
+    private static boolean ensureStopped(Thread t) {
         if (t.isAlive()) {
-            logger.warn("Forcing stop {}", t.getName());
-            t.stop();
+            logger.warn("Still running {}", t.getName());
+            // t.stop();
+            return false;
         }
+        return true;
     }
 
     /** All threads completed. */
