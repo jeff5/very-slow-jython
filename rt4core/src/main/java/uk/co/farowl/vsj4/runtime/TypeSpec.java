@@ -125,8 +125,8 @@ public class TypeSpec extends NamedSpec {
     /**
      * The Python type being specified may be represented by a Python
      * sub-class of {@code type}, i.e. something other than
-     * {@link PyType#TYPE}. This will be represented by a sub-class of
-     * {@link PyType}.
+     * {@link PyType#TYPE_type}. This will be represented by a sub-class
+     * of {@link PyType}.
      */
     private PyType metaclass;
 

@@ -29,17 +29,23 @@ public class PyMethodWrapper implements WithClass, FastCall {
         static TypeSpec get() {
             return new TypeSystem.BootstrapSpec("method-wrapper",
                     MethodHandles.lookup(), PyMethodWrapper.class)
-                    .remove(Feature.INSTANTIABLE);
+                            .remove(Feature.INSTANTIABLE);
         }
     }
 
-    /** The Python type of {@code method-wrapper} objects. */
-    public static PyType TYPE =
-            TypeSystem.typeForClass(PyMethodWrapper.class);
+    /**
+     * Return the Python type of {@code method-wrapper} objects,
+     * {@code types.MethodWrapperType}.
+     *
+     * @return {@code <class 'method-wrapper'>}
+     */
+    public static final PyType TYPE() {
+        return TypeSystem.TYPE_method_wrapper;
+    }
 
     // No subclasses so always this type
     @Override
-    public PyType getType() { return TYPE; }
+    public PyType getType() { return TYPE(); }
 
     /** Descriptor for the method being bound. */
     @Exposed.Member

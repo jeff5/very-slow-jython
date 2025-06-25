@@ -44,9 +44,15 @@ public abstract class PyMethodDescr extends MethodDescriptor {
         }
     }
 
-    /** The Python type of {@code method_descriptor} objects. */
-    public static PyType TYPE =
-            TypeSystem.typeForClass(PyMethodDescr.class);
+    /**
+     * Return the Python type of {@code method_descriptor} objects,
+     * {@code types.MethodDescriptorType}.
+     *
+     * @return {@code <class 'method_descriptor'>}
+     */
+    public static final PyType TYPE() {
+        return TypeSystem.TYPE_method_descriptor;
+    }
 
     /*
      * We depart from CPython in reifying information from the Java
@@ -95,7 +101,7 @@ public abstract class PyMethodDescr extends MethodDescriptor {
     }
 
     @Override
-    public PyType getType() { return TYPE; }
+    public PyType getType() { return TYPE(); }
 
     /**
      * Construct a Python {@code method} descriptor from an

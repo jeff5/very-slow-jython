@@ -62,9 +62,15 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
         }
     }
 
-    /** The Python type of {@code wrapper_descriptor} objects. */
-    public static PyType TYPE =
-            TypeSystem.typeForClass(PyWrapperDescr.class);
+    /**
+     * Return the Python type of {@code wrapper_descriptor} objects,
+     * {@code types.WrapperDescriptorType}.
+     *
+     * @return {@code <class 'wrapper_descriptor'>}
+     */
+    public static final PyType TYPE() {
+        return TypeSystem.TYPE_wrapper_descriptor;
+    }
 
     /**
      * The {@link SpecialMethod} ({@code enum}) describing the generic
@@ -87,7 +93,7 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
     }
 
     @Override
-    public PyType getType() { return TYPE; }
+    public PyType getType() { return TYPE(); }
 
     // Exposed attributes ---------------------------------------------
 

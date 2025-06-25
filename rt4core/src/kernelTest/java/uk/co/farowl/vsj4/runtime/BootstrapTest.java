@@ -159,7 +159,7 @@ class BootstrapTest {
                 return Long.compare(t1.firstNanoTime, t2.firstNanoTime);
             }
         };
-        String fmt = "           PyType.ready=%10d  (relative)\n";
+        String fmt = "Type system ready at   =%10d  (relative)\n";
         System.out.printf(fmt, TypeSystem.readyNanoTime
                 - TypeSystem.bootstrapNanoTime);
         Collections.sort(threads, byFirst);

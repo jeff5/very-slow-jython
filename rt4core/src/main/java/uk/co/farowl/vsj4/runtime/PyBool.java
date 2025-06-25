@@ -38,7 +38,7 @@ public final class PyBool {
     }
 
     /** The Python type {@code bool}. */
-    public static final PyType TYPE = TypeSystem.typeOf(Boolean.TRUE);
+    public static final PyType TYPE = TypeSystem.TYPE_bool;
 
     private PyBool() {}  // enforces the doubleton :)
 

@@ -40,10 +40,14 @@ public abstract class PyJavaFunction implements WithClass, FastCall {
     }
 
     /**
-     * The Python type of {@code builtin_function_or_method} objects.
+     * Return the Python type of {@code builtin_function_or_method}
+     * objects, {@code types.BuiltinMethodType}.
+     *
+     * @return {@code <class 'builtin_function_or_method'>}
      */
-    public static PyType TYPE =
-            TypeSystem.typeForClass(PyJavaFunction.class);
+    public static final PyType TYPE() {
+        return TypeSystem.TYPE_builtin_function_or_method;
+    }
 
     /** Name of the containing module (or {@code null}). */
     final String module;
@@ -107,7 +111,7 @@ public abstract class PyJavaFunction implements WithClass, FastCall {
     }
 
     @Override
-    public PyType getType() { return TYPE; }
+    public PyType getType() { return TYPE(); }
 
     /**
      * Construct a {@code PyJavaFunction} from an {@link ArgParser} and

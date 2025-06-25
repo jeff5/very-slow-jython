@@ -72,8 +72,34 @@ class TypeSystem {
      */
     static final TypeRegistry registry;
 
+    /*
+     * We use these in corresponding TYPE() methods avoid a static
+     * initialisation deadlock during bootstrap.
+     */
     /** The type object of {@code type} objects. */
-    static final PyType TYPE;
+    static final PyType TYPE_type;
+    /** The type object of {@code getset_descriptor}. */
+    static final PyType TYPE_getset_descriptor;
+    /** The type object of {@code builtin_function_or_method}. */
+    static final PyType TYPE_builtin_function_or_method;
+    /** The type object of {@code member_descriptor} objects. */
+    static final PyType TYPE_member_descriptor;
+    /** The type object of {@code method_descriptor} objects. */
+    static final PyType TYPE_method_descriptor;
+    /** The type object of {@code method-wrapper} objects. */
+    static final PyType TYPE_method_wrapper;
+    /** The type object of {@code wrapper_descriptor} objects. */
+    static final PyType TYPE_wrapper_descriptor;
+
+    // Do we use these?
+    /** The type object of {@code int} objects. */
+    static final PyType TYPE_int;
+    /** The type object of {@code bool} objects. */
+    static final PyType TYPE_bool;
+    /** The type object of {@code str} objects. */
+    static final PyType TYPE_str;
+    /** The type object of {@code float} objects. */
+    static final PyType TYPE_float;
 
     /**
      * High-resolution time (the result of {@link System#nanoTime()}) at
@@ -125,7 +151,7 @@ class TypeSystem {
              * this thread leaves the static initialisation of
              * TypeSystem.
              */
-            TYPE = t;
+            TYPE_type = t;
             factory = f;
             registry = f.getRegistry();
 
@@ -156,12 +182,18 @@ class TypeSystem {
              * The first types needing this consideration are the
              * descriptors.
              */
-            f.fromSpec(PyGetSetDescr.Spec.get());
-            f.fromSpec(PyJavaFunction.Spec.get());
-            f.fromSpec(PyMemberDescr.Spec.get());
-            f.fromSpec(PyMethodDescr.Spec.get());
-            f.fromSpec(PyMethodWrapper.Spec.get());
-            f.fromSpec(PyWrapperDescr.Spec.get());
+            TYPE_getset_descriptor =
+                    f.fromSpec(PyGetSetDescr.Spec.get());
+            TYPE_builtin_function_or_method =
+                    f.fromSpec(PyJavaFunction.Spec.get());
+            TYPE_member_descriptor =
+                    f.fromSpec(PyMemberDescr.Spec.get());
+            TYPE_method_descriptor =
+                    f.fromSpec(PyMethodDescr.Spec.get());
+            TYPE_method_wrapper =
+                    f.fromSpec(PyMethodWrapper.Spec.get());
+            TYPE_wrapper_descriptor =
+                    f.fromSpec(PyWrapperDescr.Spec.get());
 
             /*
              * The second group of types is those with adopted
@@ -170,16 +202,16 @@ class TypeSystem {
              * "discovered" type for Integer.
              */
 
-            f.fromSpec(PyUnicode.Spec.get());
-            f.fromSpec(PyFloat.Spec.get());
+            TYPE_str = f.fromSpec(PyUnicode.Spec.get());
+            TYPE_float = f.fromSpec(PyFloat.Spec.get());
 
             /*
              * We create 'int' before 'bool' and keep the type object,
-             * so that we may hand it to the definition of 'bool'.
-             * This thread cannot reliably reference PyLong.TYPE.
+             * so that we may hand it to the definition of 'bool'. This
+             * thread cannot reliably reference PyLong.TYPE.
              */
-            final PyType INT = f.fromSpec(PyLong.Spec.get());
-            f.fromSpec(PyBool.Spec.get(INT));
+            TYPE_int = f.fromSpec(PyLong.Spec.get());
+            TYPE_bool = f.fromSpec(PyBool.Spec.get(TYPE_int));
 
             /*
              * At this point, the type factory needs access to the

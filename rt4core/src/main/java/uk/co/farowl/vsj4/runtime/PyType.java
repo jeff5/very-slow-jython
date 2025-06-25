@@ -11,7 +11,6 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import uk.co.farowl.vsj4.runtime.kernel.BaseType;
 import uk.co.farowl.vsj4.runtime.kernel.Representation;
 import uk.co.farowl.vsj4.runtime.kernel.TypeFactory.Clash;
 import uk.co.farowl.vsj4.support.InterpreterError;
@@ -316,13 +315,12 @@ public interface PyType extends WithClass, FastCall {
      */
     public static PyType TYPE() {
         /*
-         * The type object "type" is created deep in the type system
-         * with the type factory itself, as might be expected. We
-         * carefully avoid calling this method from that constructor,
-         * but once TypeSystem.factory has been assigned, then the
-         * returned type object is guaranteed to be at least Java ready.
+         * The object "type" is created deep in the type system, during
+         * bootstrapping. The next statement will block any thread other
+         * than the one currently bootstrapping the type system, until
+         * that process is over.
          */
-        return TypeSystem.TYPE;
+        return TypeSystem.TYPE_type;
     }
 
     /**

@@ -42,7 +42,7 @@ public class PyLong implements /* PyDict.Key, */ WithClass {
     }
 
     /** The Python type of {@code int} objects. */
-    public static final PyType TYPE = TypeSystem.typeOf(42);
+    public static final PyType TYPE = TypeSystem.TYPE_int;
 
     /** The minimum Java {@code int} as a {@code BigInteger}. */
     static final BigInteger MIN_INT =

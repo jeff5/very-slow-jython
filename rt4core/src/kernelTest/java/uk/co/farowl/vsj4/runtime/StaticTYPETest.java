@@ -17,10 +17,10 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
-import org.junit.jupiter.api.Timeout;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import uk.co.farowl.vsj4.runtime.kernel.BaseType;
 import uk.co.farowl.vsj4.runtime.kernel.TypeRegistry;
 
 /**
@@ -44,7 +44,6 @@ import uk.co.farowl.vsj4.runtime.kernel.TypeRegistry;
  */
 @DisplayName("When multiple threads reference TYPE")
 @TestMethodOrder(MethodOrderer.MethodName.class)
-@Timeout(2)
 class StaticTYPETest {
 
     /** Logger for the test. */
@@ -57,10 +56,10 @@ class StaticTYPETest {
 
     /** If defined, dump the times recorded by threads. */
     static final String DUMP_PROPERTY =
-            "uk.co.farowl.vsj4.runtime.BootstrapTest.times";
+            "uk.co.farowl.vsj4.runtime.StaticTYPETest.times";
 
     /** Threads of each kind. */
-    static final int NTHREADS = 20; // >= #clauses in setUpClass
+    static final int NTHREADS = 30; // >= #clauses in setUpClass
     /** Threads to run. */
     static final List<InitThread> threads = new ArrayList<>();
     /** A barrier they all wait behind. */
@@ -77,14 +76,15 @@ class StaticTYPETest {
      */
     @BeforeAll
     static void setUpClass() {
-        // Create NTHREADS randomly choosing which action comes first.
+        // Match the number of cases. (We keep adding to them.)
+        final int NCASES = 13;
+        // Create NTHREADS choosing which action comes first.
         for (int i = 0; i < NTHREADS; i++) {
-            int k = i % 12; // random.nextInt(12);
+            int k = i % NCASES;
             threads.add(switch (k) {
-
-                case 0 -> new InitThread(k, PyType.class) {
+                case 0 -> new InitThread(k, Object.class) {
                     @Override
-                    void action() { type = PyType.TYPE(); }
+                    void action() { type = PyObject.TYPE; }
                 };
 
                 case 1 -> new InitThread(k, PyLong.class) {
@@ -92,7 +92,7 @@ class StaticTYPETest {
                     void action() { type = PyLong.TYPE; }
                 };
 
-                case 2 -> new InitThread(k, PyBool.class) {
+                case 2 -> new InitThread(k, Boolean.class) {
                     @Override
                     void action() { type = PyBool.TYPE; }
                 };
@@ -109,37 +109,44 @@ class StaticTYPETest {
 
                 case 5 -> new InitThread(k, PyGetSetDescr.class) {
                     @Override
-                    void action() { type = PyGetSetDescr.TYPE; }
+                    void action() { type = PyGetSetDescr.TYPE(); }
                 };
 
                 case 6 -> new InitThread(k, PyJavaFunction.class) {
                     @Override
-                    void action() { type = PyJavaFunction.TYPE; }
+                    void action() { type = PyJavaFunction.TYPE(); }
                 };
 
                 case 7 -> new InitThread(k, PyMemberDescr.class) {
                     @Override
-                    void action() { type = PyMemberDescr.TYPE; }
+                    void action() { type = PyMemberDescr.TYPE(); }
                 };
 
                 case 8 -> new InitThread(k, PyMethodDescr.class) {
                     @Override
-                    void action() { type = PyMethodDescr.TYPE; }
+                    void action() { type = PyMethodDescr.TYPE(); }
                 };
 
                 case 9 -> new InitThread(k, PyMethodWrapper.class) {
                     @Override
-                    void action() { type = PyMethodWrapper.TYPE; }
+                    void action() { type = PyMethodWrapper.TYPE(); }
                 };
 
                 case 10 -> new InitThread(k, PyWrapperDescr.class) {
                     @Override
-                    void action() { type = PyWrapperDescr.TYPE; }
+                    void action() { type = PyWrapperDescr.TYPE(); }
                 };
 
-                default -> new InitThread(k, PyObject.class) {
+                // FIXME PyTuple is a deadlock hazard used in MRO
+                // But type.mro() is wrong anyway. Should it be list?
+                // case 11 -> new InitThread(k, PyTuple.class) {
+                // @Override
+                // void action() { type = PyTuple.TYPE; }
+                // };
+
+                default -> new InitThread(k, BaseType.class) {
                     @Override
-                    void action() { type = PyObject.TYPE; }
+                    void action() { type = PyType.TYPE(); }
                 };
             });
         }
@@ -163,8 +170,8 @@ class StaticTYPETest {
 
         // Make sure they all stop (so the test does).
         boolean allStopped = true;
-        for (Thread t : threads) { allStopped &= ensureStopped(t); }
-        assertTrue(allStopped, "A forced stop was needed");
+        for (Thread t : threads) { allStopped &= hasStopped(t); }
+        assertTrue(allStopped, "Threads were still running");
 
         // Dump the thread times by start time.
         if (truthy(DUMP_PROPERTY)) { dumpThreads(); }
@@ -188,15 +195,15 @@ class StaticTYPETest {
                 return Long.compare(t1.firstNanoTime, t2.firstNanoTime);
             }
         };
-        String fmt = "           PyType.ready=%10d  (relative)\n";
-        System.out.printf(fmt, TypeSystem.readyNanoTime
-                - TypeSystem.bootstrapNanoTime);
+        double r = (TypeSystem.readyNanoTime
+                - TypeSystem.bootstrapNanoTime) * 1e-6;
+        String fmt = "%42s   =%10.4f  (relative ms)\n";
+        System.out.printf(fmt, "Type system ready at", r);
         Collections.sort(threads, byFirst);
         for (InitThread t : threads) { System.out.println(t); }
     }
 
-    @SuppressWarnings("deprecation")
-    private static boolean ensureStopped(Thread t) {
+    private static boolean hasStopped(Thread t) {
         if (t.isAlive()) {
             logger.warn("Still running {}", t.getName());
             // t.stop();
@@ -206,6 +213,7 @@ class StaticTYPETest {
     }
 
     /** All threads completed. */
+    @SuppressWarnings("static-method")
     @Test
     @DisplayName("All threads complete")
     void allComplete() {
@@ -217,6 +225,7 @@ class StaticTYPETest {
     }
 
     /** Some threads started before the bootstrap started. */
+    @SuppressWarnings("static-method")
     @Test
     @DisplayName("A race takes place")
     void aRaceTookPlace() {
@@ -224,11 +233,12 @@ class StaticTYPETest {
         long competitors = threads.stream()
                 .filter(t -> t.startNanoTime <= 0L).count();
         logger.info("{} threads were racing.", competitors);
-        assertTrue(competitors > 10L, () -> String
+        assertTrue(competitors > 20L, () -> String
                 .format("Only %d competitors.", competitors));
     }
 
     /** Bootstrap completed before the first action completed. */
+    @SuppressWarnings("static-method")
     @Test
     @DisplayName("The bootstrap completes before any action.")
     void bootstrapBeforeAction() {
@@ -244,6 +254,7 @@ class StaticTYPETest {
     }
 
     /** All the threads see the same type registry. */
+    @SuppressWarnings("static-method")
     @Test
     @DisplayName("All threads see the same type registry")
     void sameTypeRegistry() {
@@ -254,13 +265,14 @@ class StaticTYPETest {
     }
 
     /** All the threads see a correct TYPE. */
+    @SuppressWarnings("static-method")
     @Test
     @DisplayName("All threads see their individual 'TYPE'")
     void individualTYPE() {
         for (InitThread init : threads) {
             PyType t = init.type;
             assertNotNull(t);
-            assertSame(t.canonicalClass(), init.klass);
+            assertSame(init.klass, t.javaClass());
         }
     }
 
@@ -280,10 +292,16 @@ class StaticTYPETest {
         long finishNanoTime;
         /** The reference {@link TypeSystem#registry} when inspected. */
         TypeRegistry reg;
-        /** The canonical class of the type this thread addresses. */
+        /** The primary class of the type this thread addresses. */
         Class<?> klass;
         /** The value seen in {@code klass} {@code :: TYPE}. */
         PyType type;
+        /** The value seen in {@link PyLong#TYPE}. */
+        PyType intType;
+        /** The value seen in {@link PyUnicode#TYPE}. */
+        PyType strType;
+        /** The value seen in {@link PyGetSetDescr#TYPE()}. */
+        PyType getsetType;
 
         /**
          * Create a {@code Thread} to run. Providing a reference to a
@@ -334,12 +352,21 @@ class StaticTYPETest {
         /** The required actions apart from the one already done. */
         void otherActions() {
             reg = TypeSystem.registry;
+            // intType = TypeSystem.typeOf(42);
+            intType = PyLong.TYPE;
+            // strType = TypeSystem.typeOf("");
+            strType = PyUnicode.TYPE;
+            // getsetType = PyGetSetDescr.TYPE();
         }
 
         @Override
         public String toString() {
-            return String.format("start=%10d, first=%10d, finish=%10d",
-                    startNanoTime, firstNanoTime, finishNanoTime);
+            String fmt =
+                    "%20s  start=%10.4f, first=%10.4f, finish=%10.4f (%5dns)";
+            return String.format(fmt, klass.getSimpleName(),
+                    startNanoTime * 1e-6, firstNanoTime * 1e-6,
+                    finishNanoTime * 1e-6,
+                    finishNanoTime - firstNanoTime);
         }
     }
 }

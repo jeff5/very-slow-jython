@@ -60,7 +60,7 @@ public class PyUnicode implements WithClass, PyDict.Key {
     }
 
     /** The Python type of {@code str} objects. */
-    public static final PyType TYPE = TypeSystem.typeOf("");
+    public static final PyType TYPE = TypeSystem.TYPE_str;
 
     /** Value as a Java {@code int} array of code points. */
     private final int[] value;

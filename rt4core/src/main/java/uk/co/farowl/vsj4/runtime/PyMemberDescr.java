@@ -29,9 +29,15 @@ public abstract class PyMemberDescr extends DataDescriptor {
         }
     }
 
-    /** The Python type of {@code member_descriptor} objects. */
-    public static final PyType TYPE =
-            TypeSystem.typeForClass(PyMemberDescr.class);
+    /**
+     * Return the Python type of {@code member_descriptor} objects,
+     * {@code types.MemberDescriptorType}.
+     *
+     * @return {@code <class 'member_descriptor'>}
+     */
+    public static final PyType TYPE() {
+        return TypeSystem.TYPE_member_descriptor;
+    }
 
     /** Acceptable values in the {@link #flags}. */
     enum Flag {
@@ -76,7 +82,7 @@ public abstract class PyMemberDescr extends DataDescriptor {
     }
 
     @Override
-    public PyType getType() { return TYPE; }
+    public PyType getType() { return TYPE(); }
 
     private static VarHandle varHandle(Field f, Lookup lookup) {
         try {

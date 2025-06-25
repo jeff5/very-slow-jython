@@ -41,9 +41,15 @@ public abstract class PyGetSetDescr extends DataDescriptor {
         }
     }
 
-    /** The Python type of {@code getset_descriptor} objects. */
-    public static final PyType TYPE =
-            TypeSystem.typeForClass(PyGetSetDescr.class);
+    /**
+     * Return the Python type of {@code getset_descriptor} objects,
+     * {@code types.GetSetDescriptorType}.
+     *
+     * @return {@code <class 'getset_descriptor'>}
+     */
+    public static final PyType TYPE() {
+        return TypeSystem.TYPE_getset_descriptor;
+    }
 
     /** The method handle type (O)O. */
     // CPython: PyObject *(*getter)(PyObject *, void *)
@@ -114,7 +120,7 @@ public abstract class PyGetSetDescr extends DataDescriptor {
     }
 
     @Override
-    public PyType getType() { return TYPE; }
+    public PyType getType() { return TYPE(); }
 
     /**
      * Return a {@code MethodHandle} by which the Java implementation of
