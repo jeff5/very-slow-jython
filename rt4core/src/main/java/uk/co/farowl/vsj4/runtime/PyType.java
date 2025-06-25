@@ -309,22 +309,18 @@ public interface PyType extends WithClass, FastCall {
     // static methods -----------------------------------------------
 
     /**
-     * The Python {@code type} object. The type objects of many built-in
-     * types are available as a static final field {@code TYPE}. For
-     * technical reasons, we have to use a static method to get the
-     * value.
+     * Return the Python type of {@code type} objects.
      *
-     * @return The {@code type} object.
+     * @return {@code type}
      */
     public static PyType TYPE() {
         /*
-         * The type object "type" is created deep in the type system
-         * with the type factory itself, as might be expected. We
-         * carefully avoid calling this method from that constructor,
-         * but once TypeSystem.factory has been assigned, then the
-         * returned type object is guaranteed to be at least Java ready.
+         * The object "type" is created deep in the type system, during
+         * bootstrapping. The next statement will block any thread other
+         * than the one currently bootstrapping the type system, until
+         * that process is over.
          */
-        return TypeSystem.TYPE;
+        return TypeSystem.TYPE_type;
     }
 
     /**

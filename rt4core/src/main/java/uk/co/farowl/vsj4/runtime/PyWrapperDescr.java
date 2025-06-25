@@ -51,10 +51,26 @@ import uk.co.farowl.vsj4.support.internal.Util;
  */
 public abstract class PyWrapperDescr extends MethodDescriptor {
 
-    static final PyType TYPE = PyType.fromSpec( //
-            new TypeSpec("wrapper_descriptor", MethodHandles.lookup())
-                    .add(Feature.IMMUTABLE, Feature.METHOD_DESCR)
-                    .remove(Feature.BASETYPE));
+    /** Only referenced during bootstrap by {@link TypeSystem}. */
+    static class Spec {
+        /** @return the type specification. */
+        static TypeSpec get() {
+            return new TypeSystem.BootstrapSpec("wrapper_descriptor",
+                    MethodHandles.lookup(), PyWrapperDescr.class)
+                            .add(Feature.METHOD_DESCR)
+                            .remove(Feature.INSTANTIABLE);
+        }
+    }
+
+    /**
+     * Return the Python type of {@code wrapper_descriptor} objects,
+     * {@code types.WrapperDescriptorType}.
+     *
+     * @return {@code <class 'wrapper_descriptor'>}
+     */
+    public static final PyType TYPE() {
+        return TypeSystem.TYPE_wrapper_descriptor;
+    }
 
     /**
      * The {@link SpecialMethod} ({@code enum}) describing the generic
@@ -77,7 +93,7 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
     }
 
     @Override
-    public PyType getType() { return TYPE; }
+    public PyType getType() { return TYPE(); }
 
     // Exposed attributes ---------------------------------------------
 

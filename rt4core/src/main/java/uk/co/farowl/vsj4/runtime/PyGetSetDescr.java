@@ -31,11 +31,25 @@ import uk.co.farowl.vsj4.support.internal.EmptyException;
 // and PyGetSetDescrObject also in descrobject.h
 public abstract class PyGetSetDescr extends DataDescriptor {
 
-    static final Lookup LOOKUP = MethodHandles.lookup();
-    static final PyType TYPE =
-            PyType.fromSpec(new TypeSpec("getset_descriptor", LOOKUP)
-                    .add(Feature.IMMUTABLE, Feature.METHOD_DESCR)
-                    .remove(Feature.BASETYPE));
+    /** Only referenced during bootstrap by {@link TypeSystem}. */
+    static class Spec {
+        /** @return the type specification. */
+        static TypeSpec get() {
+            return new TypeSystem.BootstrapSpec("getset_descriptor",
+                    MethodHandles.lookup(), PyGetSetDescr.class)
+                            .remove(Feature.INSTANTIABLE);
+        }
+    }
+
+    /**
+     * Return the Python type of {@code getset_descriptor} objects,
+     * {@code types.GetSetDescriptorType}.
+     *
+     * @return {@code <class 'getset_descriptor'>}
+     */
+    public static final PyType TYPE() {
+        return TypeSystem.TYPE_getset_descriptor;
+    }
 
     /** The method handle type (O)O. */
     // CPython: PyObject *(*getter)(PyObject *, void *)
@@ -61,6 +75,7 @@ public abstract class PyGetSetDescr extends DataDescriptor {
          * fail (in theory).
          */
         try {
+            Lookup LOOKUP = MethodHandles.lookup();
             EMPTY_GETTER = LOOKUP.findStatic(PyGetSetDescr.class,
                     "emptyGetter", GETTER);
             EMPTY_SETTER = LOOKUP.findStatic(PyGetSetDescr.class,
@@ -105,7 +120,7 @@ public abstract class PyGetSetDescr extends DataDescriptor {
     }
 
     @Override
-    public PyType getType() { return TYPE; }
+    public PyType getType() { return TYPE(); }
 
     /**
      * Return a {@code MethodHandle} by which the Java implementation of

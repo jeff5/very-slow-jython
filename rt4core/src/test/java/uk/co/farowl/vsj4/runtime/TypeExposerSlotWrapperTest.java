@@ -132,7 +132,7 @@ class TypeExposerSlotWrapperTest {
         void expect(SpecialMethod slot) {
             assertEquals(slot, descr.sm);
             assertEquals(slot.methodName, descr.__name__());
-            assertEquals(PyWrapperDescr.TYPE, descr.getType());
+            assertEquals(PyWrapperDescr.TYPE(), descr.getType());
             assertEquals(ExampleObject.TYPE, descr.__objclass__());
         }
 

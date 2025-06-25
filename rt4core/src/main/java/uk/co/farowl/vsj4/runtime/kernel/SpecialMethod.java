@@ -1245,7 +1245,7 @@ public enum SpecialMethod {
          * @param access object providing access
          */
         public static void provideAccess(Required access) {
-            logger.atTrace().setMessage("Access provided to {}")
+            logger.atDebug().setMessage("Access provided to {}")
                     .addArgument(() -> access.getLookup().lookupClass()
                             .getName())
                     .log();
@@ -1502,7 +1502,7 @@ public enum SpecialMethod {
                 // Add to table
                 t.put(s.methodName, s);
                 // This is a good time to confirm initialisation
-                SMUtil.logger.atDebug()
+                SMUtil.logger.atTrace()
                         .setMessage("{} with signature {}{}")
                         .addArgument(s.methodName)
                         .addArgument(s.generic.type())

@@ -4,25 +4,20 @@ package uk.co.farowl.vsj4.runtime;
 
 /**
  * Public static methods associated with the Python type {@code object}.
- * The Python {@code object} type is represented by
+ * Instances of the Python {@code object} type are represented by
  * {@code java.lang.Object} and not by instances of this class.
  * <p>
  * The Java implementation class of a type defined in Python <i>will</i>
  * be derived from the canonical implementation class of the "solid
- * base" it inherits in Python. This may well be {@code Object}.
+ * base" it inherits in Python. This may well be
+ * {@code java.lang.Object}.
  */
 // Compare CPython PyBaseObject_Type in typeobject.c
 public final class PyObject {
 
     /** The type object {@code object}. */
-    public static final PyType TYPE =
-            /*
-             * This looks a bit weird, but we need to make sure PyType
-             * gets initialised, and the whole type system behind it,
-             * before the first type object becomes visible.
-             */
-            PyType.of(new Object());
+    public static final PyType TYPE = TypeSystem.TYPE_type.getBase();
 
-    /** One cannot make instances of this class. */
+    /** One cannot make instances of {@code PyObject}. */
     private PyObject() {}
 }

@@ -2,6 +2,9 @@
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
 
+import java.lang.invoke.MethodHandles;
+import java.math.BigInteger;
+
 import uk.co.farowl.vsj4.runtime.Exposed.Default;
 import uk.co.farowl.vsj4.runtime.Exposed.DocString;
 import uk.co.farowl.vsj4.runtime.Exposed.PythonNewMethod;
@@ -15,8 +18,27 @@ import uk.co.farowl.vsj4.runtime.Exposed.PythonNewMethod;
  */
 public final class PyBool {
 
+    /** Only referenced during bootstrap by {@link TypeSystem}. */
+    static class Spec {
+        /**
+         * The {@code get()} of {@code PyBool.Spec} has a special form
+         * that allows us to communicate its Python base {@code int}
+         * before that object can be reliably referenced as
+         * {@link PyLong#TYPE}.
+         *
+         * @param base type object ({@code int}) to cite as a base
+         * @return the type specification.
+         */
+        static TypeSpec get(PyType base) {
+            return new TypeSystem.BootstrapSpec("bool",
+                    MethodHandles.lookup(), Boolean.class)
+                            .methodImpls(PyBool.class) //
+                            .base(base);
+        }
+    }
+
     /** The Python type {@code bool}. */
-    public static final PyType TYPE = PyType.of(Boolean.TRUE);
+    public static final PyType TYPE = TypeSystem.TYPE_bool;
 
     private PyBool() {}  // enforces the doubleton :)
 

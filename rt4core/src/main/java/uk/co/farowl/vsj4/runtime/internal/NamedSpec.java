@@ -60,8 +60,8 @@ public abstract class NamedSpec {
      */
     protected InterpreterError specError(String err, Object... args) {
         StringBuilder sb = new StringBuilder(100);
-        sb.append(String.format(err, args)).append(" while defining '")
-                .append(name).append("'.");
+        sb.append(String.format(err, args)).append(" (defining '")
+                .append(name).append("').");
         return new InterpreterError(sb.toString());
     }
 
