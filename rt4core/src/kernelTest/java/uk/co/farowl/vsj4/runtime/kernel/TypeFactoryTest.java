@@ -38,7 +38,7 @@ class TypeFactoryTest {
     @SuppressWarnings({"deprecation", "static-method"})
     void object_exists() {
         TypeFactory factory = new TypeFactory();
-        PyType object = factory.typeForType().getBase();
+        PyType object = factory.createTypeForType().getBase();
         assertNotNull(object);
         assertInstanceOf(SimpleType.class, object);
         assertEquals("object", object.getName());
@@ -50,7 +50,7 @@ class TypeFactoryTest {
     @SuppressWarnings({"deprecation", "static-method"})
     void type_exists() {
         TypeFactory factory = new TypeFactory();
-        PyType type = factory.typeForType();
+        PyType type = factory.createTypeForType();
         assertNotNull(type);
         assertInstanceOf(SimpleType.class, type);
         assertEquals("type", type.getName());
@@ -62,7 +62,7 @@ class TypeFactoryTest {
     @SuppressWarnings({"deprecation", "unused", "static-method"})
     void type_type_unpublished() {
         TypeFactory factory = new TypeFactory();
-        PyType ignored = factory.typeForType();
+        PyType ignored = factory.createTypeForType();
         TypeRegistry registry = factory.getRegistry();
         Representation rep = registry.lookup(PyType.class);
         assertNull(rep);
@@ -74,7 +74,7 @@ class TypeFactoryTest {
     @SuppressWarnings({"deprecation", "unused", "static-method"})
     void object_type_unpublished() {
         TypeFactory factory = new TypeFactory();
-        PyType ignored = factory.typeForType();
+        PyType ignored = factory.createTypeForType();
         TypeRegistry registry = factory.getRegistry();
         Representation rep = registry.lookup(Object.class);
         assertNull(rep);

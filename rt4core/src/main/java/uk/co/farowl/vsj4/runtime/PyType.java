@@ -206,9 +206,7 @@ public interface PyType extends WithClass, FastCall {
 
     /**
      * Determine if this type is a Python sub-type of {@code b} (if
-     * {@code b} is on the MRO of this type). For technical reasons we
-     * parameterise with the subclass. (We need it to work with a
-     * private superclass or {@code PyType}.)
+     * {@code b} is on the MRO of this type).
      *
      * @param b to test
      * @return {@code true} if {@code this} is a sub-type of {@code b}

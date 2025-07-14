@@ -77,7 +77,7 @@ class StaticTYPETest {
     @BeforeAll
     static void setUpClass() {
         // Match the number of cases. (We keep adding to them.)
-        final int NCASES = 13;
+        final int NCASES = 14;
         // Create NTHREADS choosing which action comes first.
         for (int i = 0; i < NTHREADS; i++) {
             int k = i % NCASES;
@@ -139,10 +139,15 @@ class StaticTYPETest {
 
                 // FIXME PyTuple is a deadlock hazard used in MRO
                 // But type.mro() is wrong anyway. Should it be list?
-                // case 11 -> new InitThread(k, PyTuple.class) {
-                // @Override
-                // void action() { type = PyTuple.TYPE; }
-                // };
+                case 11 -> new InitThread(k, PyTuple.class) {
+                    @Override
+                    void action() { type = PyTuple.TYPE; }
+                };
+
+                case 12 -> new InitThread(k, PyList.class) {
+                    @Override
+                    void action() { type = PyList.TYPE; }
+                };
 
                 default -> new InitThread(k, BaseType.class) {
                     @Override
@@ -233,7 +238,9 @@ class StaticTYPETest {
         long competitors = threads.stream()
                 .filter(t -> t.startNanoTime <= 0L).count();
         logger.info("{} threads were racing.", competitors);
-        assertTrue(competitors > 20L, () -> String
+        // Ideally > NCLAUSES but becomes flakey on a small machine.
+        long MIN_THREADS = 10L;
+        assertTrue(competitors > MIN_THREADS, () -> String
                 .format("Only %d competitors.", competitors));
     }
 

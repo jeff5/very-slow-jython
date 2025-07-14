@@ -93,8 +93,6 @@ public class TypeFactory {
     /** An array containing just type object {@code object} */
     private BaseType[] OBJECT_ONLY;
 
-    /** Access rights to the runtime package. Effectively final. */
-    private Lookup runtimeLookup;
     /** Factory method to make type exposers. Effectively final. */
     private Function<BaseType, TypeExposer> exposerFactory;
 
@@ -123,8 +121,7 @@ public class TypeFactory {
     /**
      * Construct a {@code TypeFactory}. Normally this constructor is
      * used exactly once. Exceptionally, we create instances for test
-     * purposes. The parameter {@code runtimeLookup} allows the caller
-     * to give lookup rights to the kernel.
+     * purposes.
      *
      * @deprecated Do not create a {@code TypeFactory} other than the
      *     one {@code PyType} holds statically.
@@ -135,21 +132,27 @@ public class TypeFactory {
 
         this.registry = new Registry();
         this.workshop = new Workshop();
+
+        /*
+         * It is unsafe to create type objects yet as they extend
+         * Representation, static initialisation of which constructs
+         * this factory.
+         */
     }
 
     /**
      * Construct the {@code type} object {@code type}, and necessarily
-     * therefore, the one for for {@code object} which is its base. The
-     * type factory holds these internally, but does not publish them in
-     * the registry until
-     * {@link #createBootstrapTypes(Lookup, Function)} is called.
+     * therefore, the one for {@code object} which is its base. The type
+     * factory holds these internally, but does not publish them in the
+     * registry until {@link #createBootstrapTypes(Lookup, Function)} is
+     * called.
      *
      * @return the type object for {@code type}
      *
      * @deprecated Call exactly once in {@code TypeFactory}
      */
     @Deprecated  // ... to stop other use even in the runtime.
-    public SimpleType typeForType() {
+    public SimpleType createTypeForType() {
 
         // I will call this only once ...
         assert objectType == null && typeType == null;
@@ -186,9 +189,7 @@ public class TypeFactory {
         TypeSpec specOfType = new PrimordialTypeSpec(typeType, kernelLU)
                 .canonicalBase(SimpleType.class);
 
-        // TODO features, mro of object
-        // TODO features, mro of type
-
+        // An error during bootstrap says we were creating 'object'
         lastContext = specOfObject;
 
         try {
@@ -213,6 +214,22 @@ public class TypeFactory {
         this.OBJECT_ONLY = typeType.bases;
         assert OBJECT_ONLY.length == 1;
 
+        return typeType;
+    }
+
+    /**
+     * Get the type object of type. This is the same as
+     * {@link PyType#TYPE()}, but exists as soon as
+     * {@link #createTypeForType()} has run. This will succeed in
+     * circumstances where a simple call to {@link PyType#TYPE()} may
+     * fail because the the type system is not fully initialised, for
+     * example when making the bootstrap types Java ready.
+     *
+     * @return type object for {@code type}
+     */
+    public SimpleType getTypeForType() {
+        // Check we are not calling before createTypeForType
+        assert typeType != null;
         return typeType;
     }
 
@@ -518,19 +535,16 @@ public class TypeFactory {
      * {@code Representation} it finds get cached outside the protection
      * of the {@code TypeFactory} lock. It will be visible to all
      * threads. However, thread other than this one can proceed with
-     * such lookup until this method returns (releasing the fatory
+     * such lookup until this method returns (releasing the factory
      * lock), and the initialisation of the {@code TypeSystem} class
      * completes (releasing that lock).
      *
-     * @param runtimeLU access rights to the runtime package
      * @param exposerNew a way to make type exposers
      * @throws Clash when a representing class is already bound
      */
     public synchronized void publishBootstrapTypes(
-            MethodHandles.Lookup runtimeLU,
             Function<BaseType, TypeExposer> exposerNew) throws Clash {
 
-        runtimeLookup = runtimeLU;
         exposerFactory = exposerNew;
 
         assert reentrancyCount == 0;
@@ -872,10 +886,11 @@ public class TypeFactory {
              * Populate its dictionary with attributes from the type
              * exposer, and finalise other state from the specification.
              */
+            // Compare CPython type_ready in typeobject.c
             void readyType() {
 
                 // Set MRO
-                type.setMRO();
+                type.computeInstallMRO();
 
                 // Set feature flags
                 type.inheritFeatures();
@@ -1082,7 +1097,7 @@ public class TypeFactory {
             // I think the primordial types are only simple
             assert type instanceof SimpleType;
             this.primary(type.javaClass()).bases(type.getBases())
-            .add(Feature.IMMUTABLE);
+                    .add(Feature.IMMUTABLE);
         }
     }
 }

@@ -49,7 +49,8 @@ public abstract class KernelType extends Representation
      * <p>
      * It is the type earliest on the MRO after the current type, whose
      * implementation contains all the members necessary to implement
-     * the current type.
+     * the current type. It is {@code null} (exposed as {@code None})
+     * only on the type object for {@code object}.
      */
     protected BaseType base;
 
@@ -113,7 +114,7 @@ public abstract class KernelType extends Representation
     public PyType getBase() { return base; }
 
     @Override
-    public PyType getType() { return PyType.TYPE(); }
+    public PyType getType() { return getTypeForType(); }
 
     /**
      * Return a copy of the MRO of this type.

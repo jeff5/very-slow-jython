@@ -1,6 +1,5 @@
 package uk.co.farowl.vsj4.runtime;
 
-import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
 
 import org.slf4j.Logger;
@@ -115,14 +114,6 @@ class TypeSystem {
      */
     static final long readyNanoTime;
 
-    /**
-     * A lookup with package scope. This lookup object is provided to
-     * the type factory to grant it package-level access to the run-time
-     * system.
-     */
-    private static final Lookup RUNTIME_LOOKUP =
-            MethodHandles.lookup().dropLookupMode(Lookup.PRIVATE);
-
     /*
      * The next block intends to make all the bootstrap types Java
      * ready, then Python ready, before any type object becomes visible
@@ -140,7 +131,7 @@ class TypeSystem {
         TypeFactory f = Representation.factory;
 
         @SuppressWarnings("deprecation")
-        SimpleType t = Representation.factory.typeForType();
+        SimpleType t = Representation.factory.createTypeForType();
 
         try {
             /*
@@ -214,12 +205,10 @@ class TypeSystem {
             TYPE_bool = f.fromSpec(PyBool.Spec.get(TYPE_int));
 
             /*
-             * At this point, the type factory needs access to the
-             * implementations of types in this package, and to create
-             * exposers for them.
+             * We complete and publish the bootstrap types, for which
+             * the type factory needs to create exposers.
              */
-            f.publishBootstrapTypes(RUNTIME_LOOKUP,
-                    TypeExposerImplementation::new);
+            f.publishBootstrapTypes(TypeExposerImplementation::new);
 
         } catch (Clash clash) {
             // Maybe a bootstrap type was used prematurely?

@@ -85,6 +85,16 @@ public abstract class Representation {
         return registry.get(o.getClass());
     }
 
+    /**
+     * Get the Python type object {@code type}. Calls
+     * {@link TypeFactory#getTypeForType() factory.getTypeForType()}
+     *
+     * @return the Python type object {@code type}
+     */
+    static SimpleType getTypeForType() {
+        return factory.getTypeForType();
+    }
+
     /*
      * Give SpecialMethod access to private members (so it may write the
      * method handle caches), and to the runtime package in general. It
@@ -189,9 +199,9 @@ public abstract class Representation {
     }
 
     /**
-     * Fast check that an object of this type is exactly a Python
-     * {@code int}. We can do this without reference to the object
-     * itself, just from the representation.
+     * Fast check that an object having this as its Representation is
+     * exactly a Python {@code int}. We can do this without reference to
+     * the object itself, just from the representation.
      *
      * @implNote The result may be incorrect during type system
      *     bootstrap.
@@ -201,9 +211,9 @@ public abstract class Representation {
     public boolean isIntExact() { return this == PyLong.TYPE; }
 
     /**
-     * Fast check that an object of this type is exactly a Python
-     * {@code float}. We can do this without reference to the object
-     * itself, just from the representation.
+     * Fast check that an object having this as its Representation is
+     * exactly a Python {@code float}. We can do this without reference
+     * to the object itself, just from the representation.
      *
      * @implNote The result may be incorrect during type system
      *     bootstrap.

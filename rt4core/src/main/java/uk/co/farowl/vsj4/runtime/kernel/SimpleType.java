@@ -42,7 +42,8 @@ public non-sealed class SimpleType extends BaseType {
      * @param javaClass to which instances are assignable
      * @param bases of the type
      */
-    public SimpleType(String name, Class<?> javaClass, BaseType[] bases) {
+    public SimpleType(String name, Class<?> javaClass,
+            BaseType[] bases) {
         this(name, javaClass, javaClass, bases);
     }
 

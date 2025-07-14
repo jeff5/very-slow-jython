@@ -21,6 +21,7 @@ import java.util.Map;
 import java.util.function.Consumer;
 
 import uk.co.farowl.vsj4.runtime.ArgumentError;
+import uk.co.farowl.vsj4.runtime.Callables;
 import uk.co.farowl.vsj4.runtime.Exposed;
 import uk.co.farowl.vsj4.runtime.Feature;
 import uk.co.farowl.vsj4.runtime.MethodDescriptor;
@@ -33,6 +34,7 @@ import uk.co.farowl.vsj4.runtime.PyFloat;
 import uk.co.farowl.vsj4.runtime.PyList;
 import uk.co.farowl.vsj4.runtime.PyLong;
 import uk.co.farowl.vsj4.runtime.PyObject;
+import uk.co.farowl.vsj4.runtime.PySequence;
 import uk.co.farowl.vsj4.runtime.PyTuple;
 import uk.co.farowl.vsj4.runtime.PyType;
 import uk.co.farowl.vsj4.runtime.PyUnicode;
@@ -99,17 +101,24 @@ public abstract sealed class BaseType extends KernelType
     }
 
     @Override
-    public PyType[] getMRO() {
-        return Arrays.copyOf(mro, mro.length, PyType[].class);
+    public BaseType[] getMRO() {
+        return Arrays.copyOf(mro, mro.length, BaseType[].class);
     }
 
     /**
-     * Calculate and install the MRO from the bases. Used from type
-     * factory
+     * Compute and install the MRO from the bases. Used from type
+     * factory and during certain kinds of change to the type hierarchy.
      */
-    protected final void setMRO() {
-        // FIXME for lookup and call mro() in subclasses
-        mro = new PyTuple(mro()).toArray(new BaseType[0]);
+    // Compare CPython mro_internal in typeobject.c
+    final void computeInstallMRO() {
+        // TODO propagate MRO change to Python subclasses
+        try {
+            mro = mro_invoke();
+        } catch (Throwable e) {
+            // FIXME handle errors creating new MRO with roll-back
+            throw new InterpreterError(e, "Computing new MRO of '%s'",
+                    this.getName());
+        }
     }
 
     // Compare CPython PyType_IsSubtype in typeobject.c
@@ -592,10 +601,12 @@ public abstract sealed class BaseType extends KernelType
      *
      * @return a new MRO for the type
      */
+    // Compare CPython type_mro_impl in typeobject.c
     @Exposed.PythonMethod
-    protected PyType[] mro() {
-        // TODO: detect and call custom __mro__ method
-        return MROCalculator.getMRO(this, this.bases);
+    protected PyList mro() {
+        // Note: this is only the default behaviour (type)
+        PyType[] newMRO = MROCalculator.getMRO(this, this.bases);
+        return new PyList(newMRO);
     }
 
     // FastCall implementation ---------------------------------------
@@ -1088,5 +1099,135 @@ public abstract sealed class BaseType extends KernelType
             if (t == null) { return b == PyObject.TYPE; }
         }
         return true;
+    }
+
+    /**
+     * Invoke a custom {@code mro()}, if one has been defined for this
+     * type, or do the equivalent of {@link #mro()} if not. The method
+     * is safe to use during type system initialisation, when bootstrap
+     * types are still being created. A custom {@code mro()} cannot have
+     * been defined by then, and so the alternate path is always taken.
+     *
+     * @return a valid MRO for the type
+     * @throws Throwable on Python errors
+     */
+    // Compare CPython mro_invoke in typeobject.c
+    // Unlike CPython, we return an array, avoiding PyTuple.
+    private BaseType[] mro_invoke() throws Throwable {
+
+        BaseType[] newMRO = null;
+        SimpleType typeType = getTypeForType();
+        // FIXME getType() of concrete PyTypes should be concrete
+        // This will affect the synthesis of sub-type representations
+        BaseType metatype = BaseType.cast(getType());
+
+        if (metatype != typeType) {
+            LookupResult lur = metatype.lookup("mro", null);
+            if (lur != null && lur.where != typeType) {
+                /*
+                 * This is a metatype that redefines mro(). We call its
+                 * specific mro() as a Python method.
+                 */
+                Object mro_result = Callables.call(lur.obj, this);
+                // It returns some kind of iterable.
+                List<Object> result = PySequence.fastList(mro_result,
+                        () -> PyErr.format(PyExc.TypeError,
+                                "mro() should return an iterable",
+                                PyType.of(mro_result)));
+                newMRO = checkedMRO(result);
+            }
+        }
+
+        if (newMRO == null) {
+            /*
+             * This type is exactly 'type' (or has somehow undefined
+             * mro()). We shall do the equivalent of type.mro() but
+             * without building a PyList.
+             */
+            newMRO = MROCalculator.getMRO(this, this.bases);
+        }
+
+        return newMRO;
+    }
+
+    /**
+     * Build an array of bases to represent the MRO of this type, from
+     * the list returned by a custom {@code mro()}, after careful type
+     * and consistency checks.
+     *
+     * @param mro result of custom {@code mro()} call as list
+     * @return validated array of bases
+     */
+    // Compare CPython mro_check in typeobject.c
+    // Unlike CPython, we build an array here, avoiding PyTuple.
+    private BaseType[] checkedMRO(List<Object> mro) {
+
+        int n = mro.size(), index = 0;
+
+        if (n == 0) {
+            throw PyErr.format(PyExc.TypeError,
+                    "type MRO must not be empty");
+        }
+
+        BaseType[] new_mro = new BaseType[n];
+        BaseType solid = solid_base();
+
+        for (Object obj : mro) {
+            if (obj instanceof BaseType base) {
+                if (solid.isSubTypeOf(base.solid_base())) {
+                    // Admissible base: all other paths throw.
+                    new_mro[index++] = base;
+                } else {
+                    throw PyErr.format(PyExc.TypeError,
+                            "mro() returned base with unsuitable layout ('%.500s')",
+                            base.getName());
+                }
+            } else if (obj instanceof PyType) {
+                // Extra help for non-BaseType PyType
+                throw PyErr.format(PyExc.TypeError,
+                        "mro() returned a type not created by the runtime ('%.500s')",
+                        obj.getClass().getTypeName());
+            } else {
+                // obj isn't even pretending to be a Python type.
+                throw PyErr.format(PyExc.TypeError,
+                        "mro() returned a non-class ('%.500s')",
+                        PyType.of(obj).getName());
+            }
+        }
+
+        return new_mro;
+    }
+
+    /**
+     * Find the "solid base" of this type. The "solid base" of a type T
+     * is a type S that is the most distant ancestor of T along the
+     * chain of bases of T, including T itself, that has the same
+     * primary representation as T.
+     * <p>
+     * Put another way, S is the least-derived Python class that has the
+     * same (primary) representation class as T. CPython refers here to
+     * the "layout" of the type, meaning the memory layout of instances,
+     * but for us it is the Java class (or base of several classes) that
+     * matters.
+     * <p>
+     * Having the same representation means that methods defined in Java
+     * for S can be applied to instances (in Python) of T, because the
+     * Java class of every instance of T is a subclass in Java of the
+     * (primary) class of S. This property plays a role in determining
+     * what makes an acceptable set of bases for a Python type.
+     *
+     * @return the "solid base" of this type
+     */
+    // Compare CPython solid_base() in typeobject.c
+    private BaseType solid_base() {
+        // Walk the base chain and return just before the class change.
+        BaseType sb;
+        if (base != null) {
+            sb = base.solid_base();
+        } else {
+            // This must be the type object of object
+            return this;
+        }
+        return javaClass() == sb.javaClass() ? sb : this;
     }
 }
