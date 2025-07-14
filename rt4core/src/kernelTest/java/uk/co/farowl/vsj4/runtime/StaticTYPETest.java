@@ -58,8 +58,15 @@ class StaticTYPETest {
     static final String DUMP_PROPERTY =
             "uk.co.farowl.vsj4.runtime.StaticTYPETest.times";
 
-    /** Threads of each kind. */
-    static final int NTHREADS = 30; // >= #clauses in setUpClass
+    /** Threads in total. &gt;&gt; {@code setUpClass().NCASES} */
+    static final int NTHREADS = 100;
+    /**
+     * Check this many threads actually concurrent. Ideally
+     * &gt;{@code setUpClass().NCASES} but expectation depends on CPU.
+     */
+    static int MIN_THREADS =
+            Math.min(Runtime.getRuntime().availableProcessors(), 20);
+
     /** Threads to run. */
     static final List<InitThread> threads = new ArrayList<>();
     /** A barrier they all wait behind. */
@@ -137,8 +144,6 @@ class StaticTYPETest {
                     void action() { type = PyWrapperDescr.TYPE(); }
                 };
 
-                // FIXME PyTuple is a deadlock hazard used in MRO
-                // But type.mro() is wrong anyway. Should it be list?
                 case 11 -> new InitThread(k, PyTuple.class) {
                     @Override
                     void action() { type = PyTuple.TYPE; }
@@ -238,8 +243,7 @@ class StaticTYPETest {
         long competitors = threads.stream()
                 .filter(t -> t.startNanoTime <= 0L).count();
         logger.info("{} threads were racing.", competitors);
-        // Ideally > NCLAUSES but becomes flakey on a small machine.
-        long MIN_THREADS = 10L;
+        logger.info("Required at least {} racing.", MIN_THREADS);
         assertTrue(competitors > MIN_THREADS, () -> String
                 .format("Only %d competitors.", competitors));
     }
