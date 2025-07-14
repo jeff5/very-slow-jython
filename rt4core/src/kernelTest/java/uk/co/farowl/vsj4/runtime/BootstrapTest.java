@@ -71,8 +71,15 @@ class BootstrapTest {
     static final String DUMP_PROPERTY =
             "uk.co.farowl.vsj4.runtime.BootstrapTest.times";
 
-    /** Threads of each kind. */
-    static final int NTHREADS = 100; // suggest at least 15
+    /** Threads in total. &gt;&gt; {@code setUpClass()} cases. */
+    static final int NTHREADS = 100;
+    /**
+     * Check this many threads actually concurrent. Ideally
+     * &gt;{@code setUpClass()} cases but expectation depends on CPU.
+     */
+    static int MIN_THREADS =
+            Math.min(Runtime.getRuntime().availableProcessors(), 20);
+
     /** Threads to run. */
     static final List<InitThread> threads = new ArrayList<>();
     /** A barrier they all wait behind. */
@@ -193,7 +200,8 @@ class BootstrapTest {
         long competitors = threads.stream()
                 .filter(t -> t.startNanoTime <= 0L).count();
         logger.info("{} threads were racing.", competitors);
-        assertTrue(competitors > 10L, () -> String
+        logger.info("Required at least {} racing.", MIN_THREADS);
+        assertTrue(competitors > MIN_THREADS, () -> String
                 .format("Only %d competitors.", competitors));
     }
 
