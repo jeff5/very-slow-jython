@@ -1,3 +1,5 @@
+// Copyright (c)2025 Jython Developers.
+// Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime.subclass;
 
 import java.lang.reflect.Constructor;
@@ -14,19 +16,23 @@ import uk.co.farowl.vsj4.runtime.internal.NamedSpec;
 
 /**
  * A {@code SubclassSpec} is a specification for a Java class to
- * represent the instances of a type defined in Python. The
- * specification generally arises from the processing of a Python class
- * definition, or a three-argument call to
- * {@code type(name, bases, dict)}. It is not a factory for the actual
- * class object, creation of which requires more of the caller's
- * context.
+ * represent the instances of a type defined in Python. Such a
+ * specification is computed from a Python class definition, or a
+ * three-argument call to {@code type(name, bases, dict)}. It is not a
+ * factory for the actual class object, creation of which requires more
+ * of the caller's context.
  * <p>
- * The Java representation class specified is likely to be the
- * representation class of more than one Python type. At the time it is
- * specified, a matching representation may already exist. So our first
- * purpose for the {@code SubclassSpec} is to seek a match in the
- * {@code TypeFactory}, and only after that fails, to read it to create
- * the {@code Class} and {@code Representation}.
+ * When such a specification is computed, it may be identical in form to
+ * one that was computed earlier in the lifetime of the type system. In
+ * that case, instances of the Python class now being created will be
+ * class-assignable to the previous class, and vice-versa. For this to
+ * be possible in Jython, instances of each must have the same class in
+ * Java, that is, the Python types must share a representation.
+ * Therefore a {@code SubclassSpec} must be usable as a key in a cache
+ * of existing Java representation classes, for which we defines
+ * appropriate {@code equals()} and {@code hash()} methods. Only after
+ * that fails, do we read the specification to create new {@code Class}
+ * and {@code Representation} objects.
  */
 public class SubclassSpec extends NamedSpec implements Cloneable {
 
@@ -44,7 +50,7 @@ public class SubclassSpec extends NamedSpec implements Cloneable {
      * even an empty {@code __slots__} ensures {@code slots != NONAMES},
      * so we use this value as a marker.
      */
-    private List<String> slots=NONAMES;
+    private List<String> slots = NONAMES;
 
     /**
      * Create (or begin) a specification. Note that the name given here
@@ -58,9 +64,6 @@ public class SubclassSpec extends NamedSpec implements Cloneable {
     public SubclassSpec(String name, Class<?> base) {
         super(name);
         this.base = base;
-        // If base implements WithDict, subclass has instance dict
-        if (WithDict.class.isAssignableFrom(base)) { hasDict = true; }
-        // The base class may hold a type attribute
     }
 
     /**
@@ -86,12 +89,7 @@ public class SubclassSpec extends NamedSpec implements Cloneable {
             // Prevent further change to the specification.
             frozen = true;
 
-            if (slots == NONAMES) {
-                // No slots => __dict__. (Not the converse.)
-                hasDict = true;
-                slots = List.of();
-            } else {
-                // May or may not have a dictionary.
+            if (slots != NONAMES) {
                 // We have slots. Sort and freeze the list.
                 Collections.sort(slots);
                 slots = Collections.unmodifiableList(slots);
@@ -259,8 +257,12 @@ public class SubclassSpec extends NamedSpec implements Cloneable {
      */
     List<String> getSlots() { return slots; }
 
-    /** Specify that there shall be a dictionary. */
-    SubclassSpec addDict() {
+    /**
+     * Specify that there shall be a dictionary.
+     *
+     * @return {@code this}
+     */
+    public SubclassSpec addDict() {
         checkNotFrozen();
         hasDict = true;
         return this;
@@ -273,7 +275,7 @@ public class SubclassSpec extends NamedSpec implements Cloneable {
      * @param cond whether to add a request for a dictionary
      * @return {@code this}
      */
-    SubclassSpec addDictIf(boolean cond) {
+    public SubclassSpec addDictIf(boolean cond) {
         if (cond && !hasDict) { addDict(); }
         return this;
     }
@@ -284,6 +286,14 @@ public class SubclassSpec extends NamedSpec implements Cloneable {
      * @return whether to create a {@code __dict__}
      */
     boolean hasDict() { return hasDict; }
+
+    /**
+     * Whether {@code __slots__} was defined. If {@code false},
+     * {@link #getSlots()} will return an empty list.
+     *
+     * @return whether {@code __slots__} was defined.
+     */
+    boolean hasSlots() { return slots == NONAMES; }
 
     @Override
     public String toString() {

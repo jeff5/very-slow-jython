@@ -16,15 +16,15 @@ import uk.co.farowl.vsj4.runtime.PyType;
  * Test that the Python type system, {@link TypeFactory} and instances
  * of a few associated classes, may be brought into operation in a
  * consistent state. The {@code TypeFactory} is normally a singleton,
- * created during the static initialisation of {@link PyType}, but for
+ * created during the static initialisation of the type system, but for
  * the purpose of testing, we make and discard instances repeatedly.
  * <p>
  * The design keeps the number of <i>materially</i> different
  * initialisation paths to a minimum. In practice, we funnel all actions
  * that cause initialisation into essentially the same bootstrap
- * process, in the static initialisation of {@link PyType}. It is too
- * difficult to reason about otherwise. In this test we subvert that to
- * test copies of the parts separately.
+ * process, in the static initialisation of {@link TypeSystem}. It is
+ * too difficult to reason about otherwise. In this test we subvert that
+ * to test copies of the parts separately.
  * <p>
  * When testing, we arrange to run each test involving initialisation in
  * a new JVM. (See the {@code kernelTest} target in the build.)

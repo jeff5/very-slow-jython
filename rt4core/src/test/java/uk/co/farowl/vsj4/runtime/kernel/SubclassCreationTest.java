@@ -90,11 +90,15 @@ class SubclassCreationTest {
                     // Simple base, no slots
                     bareExample(HCD_F.class, "F", PyFloat.TYPE), //
                     // No bases, slots
-                    bareExample(HCS_Oa.class, "Oa", List.of(),
+                    bareExample(HCS_Oa.class, "Oa", List.of(), false,
                             List.of("a")), //
-                    // Simple base, slots
-                    bareExample(HCS_Fabc.class, "Fabc", PyFloat.TYPE,
-                            List.of("c", "a", "b")) //
+                    // Simple base, no dict, slots
+                    bareExample(HCS_Fabc.class, "Fabc",
+                            List.of(PyFloat.TYPE), false,
+                            List.of("c", "a", "b")), //
+                    // Meta-type, no dict, no slots
+                    bareExample(HCD_T.class, "T",
+                            List.of(PyType.TYPE()), false, null) //
             );
         }
 
@@ -128,7 +132,8 @@ class SubclassCreationTest {
         private static Arguments bareExample(Class<?> refClass,
                 String name, PyType base, List<String> slots) {
             if (base == null) { base = PyObject.TYPE; }
-            return bareExample(refClass, name, List.of(base), slots);
+            return bareExample(refClass, name, List.of(base),
+                    slots != null, slots);
         }
 
         /**
@@ -145,7 +150,8 @@ class SubclassCreationTest {
         private static Arguments bareExample(Class<?> refClass,
                 String name, PyType base) {
             if (base == null) { base = PyObject.TYPE; }
-            return bareExample(refClass, name, List.of(base), null);
+            return bareExample(refClass, name, List.of(base), true,
+                    null);
         }
 
         /**
@@ -161,23 +167,25 @@ class SubclassCreationTest {
          */
         private static Arguments bareExample(Class<?> refClass,
                 String name, List<PyType> bases) {
-            return bareExample(refClass, name, bases, null);
+            return bareExample(refClass, name, bases, true, null);
         }
 
         /**
          * Construct parameters for a test of subclass creation, with
-         * Python bases, and either {@code __slots__} or an instance
-         * dictionary. The reference result is expressed through a
-         * hand-crafted class.
+         * Python bases, optionally with {@code __slots__}, optionally
+         * with an instance dictionary. The reference result is
+         * expressed through a hand-crafted class.
          *
          * @param refClass the reference result
          * @param name of the Python type to create
          * @param bases of the Python type (empty means {@code object})
+         * @param addDict whether to add a dictionary
          * @param slots {@code __slots__} or {@code null}
          * @return parameters for the test
          */
         private static Arguments bareExample(Class<?> refClass,
-                String name, List<PyType> bases, List<String> slots) {
+                String name, List<PyType> bases, boolean addDict,
+                List<String> slots) {
 
             // Make a string title "class name(b0, b1, b2):"
             String title = generateClassDeclaration(name, bases, slots);
@@ -194,8 +202,9 @@ class SubclassCreationTest {
 
             // Create a specification
             SubclassSpec spec =
-                    new SubclassSpec(name, baseType.javaClass());
+                    new SubclassSpec(name, baseType.canonicalClass());
             spec.addInterfaces(interfaces);
+            spec.addDictIf(addDict);
             if (slots != null) { spec.addSlots(slots); }
 
             return arguments(refClass, title.toString(), spec, name);
@@ -317,7 +326,7 @@ class SubclassCreationTest {
             }
 
             // c should have the same interfaces as the reference.
-            List<Class<?>> extras = new LinkedList<>();
+            Map<String, Class<?>> extras = new HashMap<>();
             for (Class<?> i : c.getInterfaces()) {
                 // Compare the same-name reference interface
                 String name = i.getName();
@@ -326,7 +335,7 @@ class SubclassCreationTest {
                     assertSame(ref, i);
                     interfaces.remove(name);
                 } else {
-                    extras.add(i);
+                    extras.put(name, i);
                 }
             }
 
@@ -338,7 +347,7 @@ class SubclassCreationTest {
             // What landed in extras was unexpected in c.
             if (!extras.isEmpty()) {
                 fail(String.format("unexpected interface(s): %s",
-                        interfaces.keySet()));
+                        extras.keySet()));
             }
         }
 
@@ -725,11 +734,11 @@ class SubclassCreationTest {
             List<PyType> bases, CharSequence title) {
 
         PyType baseType = PyObject.TYPE;
-        Class<?> baseClass = baseType.javaClass();
+        Class<?> baseClass = baseType.canonicalClass();
         assert baseClass == Object.class;
 
         for (PyType b : bases) {
-            Class<?> canonical = b.javaClass();
+            Class<?> canonical = b.canonicalClass();
             if (canonical != baseClass) {
                 if (isBaseLike(canonical)) {
                     if (baseClass.isAssignableFrom(canonical)) {
@@ -870,16 +879,26 @@ class SubclassCreationTest {
      * x = MyClass()
      * </pre>
      * <p>
-     * {@code Meta} will be an instance of (exactly) {@code type}, that
-     * happens to name {@code type} as its base. {@code MyClass} will be
-     * an instance of this class for which {@code getType()} returns
-     * {@code Meta}. {@code x} will be an instance of a class extending
-     * {@code Object}, for which {@code getType()} returns
-     * {@code MyClass}
+     * {@code Meta} is an instance in Python of (exactly) {@code type},
+     * that happens to name {@code type} as a base. In Java it is an
+     * instance of {@link SimpleType}. As all type objects do, it
+     * designates and can instantiate, a Java representation class for
+     * its instances, modelled here by {@code HCD_T}.
      * <p>
-     * Note that this class inherits {@link WithDict} from
-     * {@link SimpleType} but does not implement
-     * {@link WithDictAssignment}.
+     * {@code MyClass} is an instance in Python of {@code Meta}, that
+     * has only {@code object} as a base. In Java, {@code MyClass} is an
+     * instance of {@code HCD_T}, which extends {@link SimpleType},
+     * because {@code type} was named in the bases of {@code Meta}. It
+     * designates and can instantiate, a Java representation class for
+     * its instances.
+     * <p>
+     * {@code x} is an instance in Python of {@code MyClass}, having
+     * only {@code object} as base. In Java, it is an instance of the
+     * class {@code MyClass} designates.
+     * <p>
+     * Note {@code HCD_T} inherits {@link WithDict} from
+     * {@link SimpleType}, and allows Python class assignment, but does
+     * not implement {@link WithDictAssignment}.
      */
     static class HCD_T extends SimpleType
             implements WithClassAssignment {

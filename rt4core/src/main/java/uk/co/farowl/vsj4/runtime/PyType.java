@@ -245,7 +245,7 @@ public interface PyType extends WithClass, FastCall {
      * only) representation class, but it is not safe to assume so
      * always. For {@code type} itself, the canonical class is called
      * {@code SimpleType}, and for subclasses defined in Python it may
-     * be the canonical representation of one of an ancestor class.
+     * be the canonical representation of an ancestor Python class.
      *
      * @return the canonical Java representation class of {@code self}
      */

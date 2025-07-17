@@ -143,9 +143,9 @@ public class TypeFactory {
     /**
      * Construct the {@code type} object {@code type}, and necessarily
      * therefore, the one for {@code object} which is its base. The type
-     * factory holds these internally, but does not publish them in the
-     * registry until {@link #createBootstrapTypes(Lookup, Function)} is
-     * called.
+     * factory holds these internally, but does not complete or publish
+     * them in the registry until
+     * {@link #publishBootstrapTypes(Function)} is called.
      *
      * @return the type object for {@code type}
      *
@@ -187,7 +187,7 @@ public class TypeFactory {
                 new PrimordialTypeSpec(objectType, kernelLU)
                         .methodImpls(PyObjectMethods.class);
         TypeSpec specOfType = new PrimordialTypeSpec(typeType, kernelLU)
-                .canonicalBase(SimpleType.class);
+                .canonicalBase(typeType.canonicalClass());
 
         // An error during bootstrap says we were creating 'object'
         lastContext = specOfObject;
@@ -534,7 +534,7 @@ public class TypeFactory {
      * Whenever some thread completes a lookup in the registry, the
      * {@code Representation} it finds get cached outside the protection
      * of the {@code TypeFactory} lock. It will be visible to all
-     * threads. However, thread other than this one can proceed with
+     * threads. However, no thread other than this one can proceed with
      * such lookup until this method returns (releasing the factory
      * lock), and the initialisation of the {@code TypeSystem} class
      * completes (releasing that lock).

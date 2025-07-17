@@ -1,3 +1,5 @@
+// Copyright (c)2025 Jython Developers.
+// Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime.subclass;
 
 import static org.objectweb.asm.Opcodes.*;
@@ -8,7 +10,6 @@ import java.io.OutputStream;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.reflect.Constructor;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -53,8 +54,6 @@ public class SubclassFactory {
      */
     static final Lookup LOOKUP = MethodHandles.lookup();
 
-    /** A prefix denoting the runtime e.g. "org/python/runtime/". */
-    private final String runtimePkg;
     /** A prefix used in {@link SubclassBuilder#begin()}. */
     private final String subclassPkg;
     /** A name template used in {@link SubclassBuilder#begin()}. */
@@ -85,9 +84,6 @@ public class SubclassFactory {
         // Convert package name for ASM: org/python/runtime/subclasses/
         String[] parts = getClass().getPackageName().split("\\.");
         this.subclassPkg = String.join("/", parts) + "/";
-        // Convert package name for ASM: org/python/runtime/
-        this.runtimePkg = String.join("/",
-                Arrays.copyOfRange(parts, 0, parts.length - 1)) + "/";
         // Pattern for class names
         this.subclassNameTemplate = subclassNameTemplate;
         // Cache for classes we made already
@@ -244,7 +240,8 @@ public class SubclassFactory {
             Type.getType(WithClassAssignment.class);
     private static final Type WITH_DICT_ASSIGNMENT_TYPE =
             Type.getType(WithDictAssignment.class);
-    private static final Type PY_EXCEPTION_TYPE = Type.getType(PyBaseException.class);
+    private static final Type PY_EXCEPTION_TYPE =
+            Type.getType(PyBaseException.class);
 
     /** A builder object for one subclass from a given specification. */
     class SubclassBuilder {
@@ -254,7 +251,27 @@ public class SubclassFactory {
         private final Type baseClass;
         private final String baseName;
         private final String[] exceptions;
-        final boolean baseManagesType;
+
+        /**
+         * Flag that we must add mechanisms to manage class assignment.
+         * Types with representations created here all support class
+         * assignment, even e.g. metatypes. So if the base class doesn't
+         * already do that, we add the mechanisms in the class we
+         * create.
+         */
+        final boolean manageClassAssignment;
+
+        /**
+         * Flag that we must add mechanisms to manage an assignable
+         * {@code __dict__}. An instance dictionary
+         * ({@code self.__dict__}) may have been specified. Or it may
+         * exist already (with its own policies) thanks to the base
+         * class. If one is specified and not supplied by the base we
+         * add the mechanisms in the class we create.
+         */
+        final boolean manageDictAssignment;
+
+
         // private final MethodNode staticInit;
 
         /**
@@ -269,13 +286,16 @@ public class SubclassFactory {
             Class<?> base = spec.getBase();
             this.baseClass = Type.getType(base);
             this.baseName = baseClass.getInternalName();
-            // Decide whether the base manages type or we have to
-            this.baseManagesType = WithClassAssignment.class
-                    .isAssignableFrom(base);
+
+            this.manageClassAssignment =
+                    !WithClassAssignment.class.isAssignableFrom(base);
+            this.manageDictAssignment = spec.hasDict()
+                    ? !WithDictAssignment.class.isAssignableFrom(base)
+                    : false;
+
             // Constructors and setType may throw:
-            this.exceptions = new String[] {
-                    PY_EXCEPTION_TYPE.getInternalName()
-            };
+            this.exceptions =
+                    new String[] {PY_EXCEPTION_TYPE.getInternalName()};
             // Get a new unique class name according to factory + spec
             String name = uniqueName(base.getSimpleName());
             // OK to set after the freeze as not part of identity.
@@ -294,14 +314,22 @@ public class SubclassFactory {
          */
         void build() {
             begin();
+            /*
+             * Constructors as required in the specification. These will
+             * have been deduced by the type object from the Java base.
+             */
             addConstructors();
-            if (!baseManagesType) {
+            // Add the methods to manage object type.
+            if (manageClassAssignment) {
                 addGetSet(TYPE_FIELD, GET_TYPE, SET_TYPE, CHECK_TYPE);
             }
-            if (spec.hasDict()) {
+            // Add the methods to manage an assignable dictionary.
+            if (manageDictAssignment) {
                 addGetSet(DICT_FIELD, GET_DICT, SET_DICT, CHECK_DICT);
             }
+            // Add an attribute for each name in __slots__.
             for (String name : spec.getSlots()) { addObjectAttr(name); }
+
             end();
         }
 
@@ -331,12 +359,12 @@ public class SubclassFactory {
                 cn.interfaces.add(Type.getInternalName(c));
             }
             // Possibly add replaceable dictionary
-            if (spec.hasDict()) {
+            if (manageDictAssignment) {
                 cn.interfaces.add(
                         WITH_DICT_ASSIGNMENT_TYPE.getInternalName());
             }
             // Add __class__ access if base is not already doing it
-            if (!baseManagesType)
+            if (manageClassAssignment)
                 cn.interfaces.add(
                         WITH_CLASS_ASSIGNMENT_TYPE.getInternalName());
         }
@@ -353,8 +381,9 @@ public class SubclassFactory {
         }
 
         /** @return true iff the first parameter is a PyType. */
-        private static boolean hasPyType(Constructor<?>c) {
-            return c.getParameterCount()>0 && c.getParameters()[0].getType()==PyType.class;
+        private static boolean hasPyType(Constructor<?> c) {
+            return c.getParameterCount() > 0
+                    && c.getParameters()[0].getType() == PyType.class;
         }
 
         /**
@@ -363,19 +392,18 @@ public class SubclassFactory {
          * superclass constructor.
          * <p>
          * If the superclass manages the type ({@code __class__}
-         *  attribute), each constructor
-         *  has {@code PyType} as its first
+         * attribute), each constructor has {@code PyType} as its first
          * parameter. The new constructor has exactly the same
-         * parameters and all the arguments are passed on to
-         * the superclass constructor.
-         * We require that the superclass constructor
-         *  check that the type is acceptable for the actual class.
+         * parameters and all the arguments are passed on to the
+         * superclass constructor. We require that the superclass
+         * constructor check that the type is acceptable for the actual
+         * class.
          * <p>
-         * If the superclass does not manage type, the constructor does not have {@code PyType} as
-         * its first parameter, we synthesise a constructor that does.
-         * In the body we check and store the type in the
-         * {@code __class__} attribute and pass on the remaining same
-         * parameters.
+         * If the superclass does not manage type, the constructor does
+         * not have {@code PyType} as its first parameter, we synthesise
+         * a constructor that does. In the body we check and store the
+         * type in the {@code __class__} attribute and pass on the
+         * remaining same parameters.
          *
          * @param baseConstructor constructor of the superclass.
          */
@@ -388,17 +416,7 @@ public class SubclassFactory {
 
             // Work out the parameters of the new constructor
             String descr;
-            if (baseManagesType) {
-                /*
-                 * When the base holds the actual type of the object,
-                 * its constructor does not have a PyType parameter,
-                 * while the synthesised constructor must.
-                 */
-                assert baseParams.length > 0;
-                assert PY_TYPE_TYPE.equals(baseParams[0]);
-                descr = baseDescr;
-
-            } else {
+            if (manageClassAssignment) {
                 /*
                  * When the base does not hold the actual type of the
                  * object, this constructor constructors have the actual
@@ -407,8 +425,16 @@ public class SubclassFactory {
                 Type[] params = Util.prepend(PY_TYPE_TYPE, baseParams);
                 descr = Type.getMethodType(Type.VOID_TYPE, params)
                         .getDescriptor();
+            } else {
+                /*
+                 * When the base holds the actual type of the object,
+                 * its constructor does not have a PyType parameter,
+                 * while the synthesised constructor must.
+                 */
+                assert baseParams.length > 0;
+                assert PY_TYPE_TYPE.equals(baseParams[0]);
+                descr = baseDescr;
             }
-
 
             MethodNode mn = new MethodNode(ACC_PUBLIC, "<init>", descr,
                     null, exceptions);
@@ -416,15 +442,7 @@ public class SubclassFactory {
             // Build the constructor code T(actualType, args...)
             InsnList ins = mn.instructions;
 
-            if (baseManagesType) {
-
-                // Call super(actualType, args...).
-                // Arguments begin at frame[1].
-                addCallSuperConstructor(ins, baseName, baseDescr,
-                        baseParams, 1);
-
-            } else {
-
+            if (manageClassAssignment) {
                 // Call super(args...). args begin at frame[2].
                 addCallSuperConstructor(ins, baseName, baseDescr,
                         baseParams, 2);
@@ -440,6 +458,12 @@ public class SubclassFactory {
                 FieldDescr field = TYPE_FIELD;
                 ins.add(new FieldInsnNode(PUTFIELD, cn.name, field.name,
                         field.descr));
+
+            } else {
+                // Call super(actualType, args...).
+                // Arguments begin at frame[1].
+                addCallSuperConstructor(ins, baseName, baseDescr,
+                        baseParams, 1);
             }
 
             ins.add(new InsnNode(RETURN));
