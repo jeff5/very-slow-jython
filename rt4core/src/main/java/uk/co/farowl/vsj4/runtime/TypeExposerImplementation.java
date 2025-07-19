@@ -151,7 +151,7 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
             /*
              * Note: method annotations (and special names) are not
              * treated as alternatives, to catch exposure of methods by
-             * multiple routes.
+             * multiple routes, which is an error we detect later.
              */
 
             // Check for instance method
@@ -182,10 +182,17 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
             Deleter del = m.getAnnotation(Deleter.class);
             if (del != null) { addDeleter(m, del); }
 
-            // If it has a special method name record a definition.
-            String name = m.getName();
-            SpecialMethod sm = SpecialMethod.forMethodName(name);
-            if (sm != null) { addWrapperSpec(m, sm); }
+            /*
+             * If it has a special method name record a definition
+             * without needing specific annotation. (This is excluded
+             * during tests applicable before the type system works,
+             * indicated by type==null.)
+             */
+            if (type != null) {
+                String name = m.getName();
+                SpecialMethod sm = SpecialMethod.forMethodName(name);
+                if (sm != null) { addWrapperSpec(m, sm); }
+            }
         }
     }
 

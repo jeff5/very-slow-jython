@@ -3,7 +3,9 @@
 package uk.co.farowl.vsj4.runtime;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
@@ -28,8 +30,8 @@ import uk.co.farowl.vsj4.runtime.Exposed.PythonNewMethod;
 import uk.co.farowl.vsj4.runtime.Exposed.PythonStaticMethod;
 import uk.co.farowl.vsj4.runtime.Exposed.Setter;
 import uk.co.farowl.vsj4.runtime.Exposer.CallableSpec;
-//import uk.co.farowl.vsj4.runtime.TypeExposer.GetSetSpec;
-//import uk.co.farowl.vsj4.runtime.TypeExposer.MemberSpec;
+import uk.co.farowl.vsj4.runtime.TypeExposerImplementation.GetSetSpec;
+import uk.co.farowl.vsj4.runtime.TypeExposerImplementation.MemberSpec;
 import uk.co.farowl.vsj4.support.MethodKind;
 import uk.co.farowl.vsj4.support.ScopeKind;
 
@@ -39,7 +41,7 @@ import uk.co.farowl.vsj4.support.ScopeKind;
  * correctly by a {@link Exposer} to a {@link TypeExposerImplementation}
  * containing appropriate attribute specifications. This tests a large
  * part of the exposure mechanism, without activating the wider Python
- * type system.
+ * type system, so it should run as a "kernel test".
  * <p>
  * Under an IDE, tests may fail reporting that the method signature has
  * argument names like {@code (arg0, arg1, arg2)} in place of
@@ -71,7 +73,6 @@ class TypeExposerTest {
         // A simple __new__ with signature: (type, /)
         @PythonNewMethod
         static Fake __new__(PyType type) { return new Fake(); }
-
 
         // Instance methods -------------------------------------------
 
@@ -244,12 +245,12 @@ class TypeExposerTest {
      * We collect the member specifications here during set-up for
      * examination in tests.
      */
-//    static Map<String, MemberSpec> members = new TreeMap<>();
+    static Map<String, MemberSpec> members = new TreeMap<>();
     /**
      * We collect the get-set attribute specifications here during
      * set-up for examination in tests.
      */
-//    static Map<String, GetSetSpec> getsets = new TreeMap<>();
+    static Map<String, GetSetSpec> getsets = new TreeMap<>();
 
     /**
      * Set-up method filling {@link #methods}, {@link #members} and
@@ -264,25 +265,26 @@ class TypeExposerTest {
 
         // Scan the primary class for definitions
         exposer.exposeMethods(Fake.class);
-        //exposer.exposeMembers(Fake.class);
+        exposer.exposeMembers(Fake.class);
 
         // Populate the dictionaries used in the tests.
         for (Exposer.Spec s : exposer.specs.values()) {
             if (s instanceof CallableSpec) {
                 CallableSpec ms = (CallableSpec)s;
                 methods.put(ms.name, ms);
-//            } else if (s instanceof MemberSpec) {
-//                MemberSpec ms = (MemberSpec)s;
-//                members.put(ms.name, ms);
-//            } else if (s instanceof GetSetSpec) {
-//                GetSetSpec gs = (GetSetSpec)s;
-//                getsets.put(gs.name, gs);
+            } else if (s instanceof MemberSpec) {
+                MemberSpec ms = (MemberSpec)s;
+                members.put(ms.name, ms);
+            } else if (s instanceof GetSetSpec) {
+                GetSetSpec gs = (GetSetSpec)s;
+                getsets.put(gs.name, gs);
             }
         }
     }
 
     /**
-     * Check that a method, member or get-set for a given name.
+     * Check that a method, member or get-set for a given name is in the
+     * specified dictionary of items found by the exposer.
      *
      * @param dict of members
      * @param name of member
@@ -354,141 +356,139 @@ class TypeExposerTest {
 
     // ----------------------------------------------------------------
 
-    // FIXME: Enable exposure of members when ready.
-//    @Test
-//    @DisplayName("has the expected number of members.")
-//    @SuppressWarnings("static-method")
-//    void numberOfMembers() {
-//        assertEquals(9, members.size(), "number of members");
-//    }
-//
-//    @ParameterizedTest(name = "{0}")
-//    @DisplayName("has a writable member ...")
-//    @ValueSource(strings = { //
-//            "i", //
-//            "x", //
-//            "text", // name for t
-//            "s", //
-//            "obj", //
-//    })
-//    @SuppressWarnings("static-method")
-//    void checkWritableMember(String name) {
-//        MemberSpec ms = find(members, name);
-//        assertFalse(ms.readonly, () -> name + " readonly");
-//    }
-//
-//    @ParameterizedTest(name = "{0}")
-//    @DisplayName("has a readonly member ...")
-//    @ValueSource(strings = { //
-//            "i2", //
-//            "x2", //
-//            "text2", //
-//            "strhex2", //
-//    })
-//    @SuppressWarnings("static-method")
-//    void checkReadonlyMember(String name) {
-//        MemberSpec ms = find(members, name);
-//        assertTrue(ms.readonly, () -> name + " readonly");
-//    }
-//
-//    @ParameterizedTest(name = "{0}")
-//    @DisplayName("has an optional member ...")
-//    @ValueSource(strings = { //
-//            "s", //
-//    })
-//    @SuppressWarnings("static-method")
-//    void checkOptionalMember(String name) {
-//        MemberSpec ms = find(members, name);
-//        assertTrue(ms.optional, () -> name + " optional");
-//    }
-//
-//    @ParameterizedTest(name = "{0}")
-//    @DisplayName("has a non-optional member ...")
-//    @ValueSource(strings = { //
-//            "i", //
-//            "x", //
-//            "text", // name for t
-//            "obj", //
-//            "i2", //
-//            "x2", //
-//            "text2", //
-//            "strhex2", //
-//    })
-//    @SuppressWarnings("static-method")
-//    void checkMandatoryMember(String name) {
-//        MemberSpec ms = find(members, name);
-//        assertFalse(ms.optional, () -> name + " optional");
-//    }
-//
-//    @ParameterizedTest(name = "{0}")
-//    @DisplayName("has a documented member ...")
-//    @ValueSource(strings = { //
-//            "x", //
-//    })
-//    @SuppressWarnings("static-method")
-//    void checkDocMember(String name) {
-//        MemberSpec ms = find(members, name);
-//        assertEquals(ms.doc, "Doc string for " + name);
-//    }
+    @Test
+    @DisplayName("has the expected number of members.")
+    @SuppressWarnings("static-method")
+    void numberOfMembers() {
+        assertEquals(9, members.size(), "number of members");
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @DisplayName("has a writable member ...")
+    @ValueSource(strings = { //
+            "i", //
+            "x", //
+            "text", // name for t
+            "s", //
+            "obj", //
+    })
+    @SuppressWarnings("static-method")
+    void checkWritableMember(String name) {
+        MemberSpec ms = find(members, name);
+        assertFalse(ms.readonly, () -> name + " readonly");
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @DisplayName("has a readonly member ...")
+    @ValueSource(strings = { //
+            "i2", //
+            "x2", //
+            "text2", //
+            "strhex2", //
+    })
+    @SuppressWarnings("static-method")
+    void checkReadonlyMember(String name) {
+        MemberSpec ms = find(members, name);
+        assertTrue(ms.readonly, () -> name + " readonly");
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @DisplayName("has an optional member ...")
+    @ValueSource(strings = { //
+            "s", //
+    })
+    @SuppressWarnings("static-method")
+    void checkOptionalMember(String name) {
+        MemberSpec ms = find(members, name);
+        assertTrue(ms.optional, () -> name + " optional");
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @DisplayName("has a non-optional member ...")
+    @ValueSource(strings = { //
+            "i", //
+            "x", //
+            "text", // name for t
+            "obj", //
+            "i2", //
+            "x2", //
+            "text2", //
+            "strhex2", //
+    })
+    @SuppressWarnings("static-method")
+    void checkMandatoryMember(String name) {
+        MemberSpec ms = find(members, name);
+        assertFalse(ms.optional, () -> name + " optional");
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @DisplayName("has a documented member ...")
+    @ValueSource(strings = { //
+            "x", //
+    })
+    @SuppressWarnings("static-method")
+    void checkDocMember(String name) {
+        MemberSpec ms = find(members, name);
+        assertEquals(ms.doc, "Doc string for " + name);
+    }
 
     // ----------------------------------------------------------------
 
-    // FIXME: Enable exposure of members when ready.
-//    @Test
-//    @DisplayName("has the expected number of get-set attributes.")
-//    @SuppressWarnings("static-method")
-//    void numberOfGetSets() {
-//        assertEquals(3, getsets.size(), "number of get-set attributes");
-//    }
-//
-//    @ParameterizedTest(name = "{0}")
-//    @DisplayName("has a readonly get-set ...")
-//    @ValueSource(strings = { //
-//            "count", //
-//    })
-//    @SuppressWarnings("static-method")
-//    void checkReadonlyGetSet(String name) {
-//        GetSetSpec gs = find(getsets, name);
-//        assertTrue(gs.readonly(), () -> name + " readonly");
-//    }
-//
-//    @ParameterizedTest(name = "{0}")
-//    @DisplayName("has a writable get-set ...")
-//    @ValueSource(strings = { //
-//            "foo", //
-//            "thing", //
-//    })
-//    @SuppressWarnings("static-method")
-//    void checkWritableGetSet(String name) {
-//        GetSetSpec gs = find(getsets, name);
-//        assertFalse(gs.readonly(), () -> name + " readonly");
-//        // There must be a setter for each implementation
-//        assertEquals(gs.getters.size(), gs.setters.size(),
-//                () -> name + " setter size mismatch");
-//    }
-//
-//    @ParameterizedTest(name = "{0}")
-//    @DisplayName("has a non-optional get-set ...")
-//    @ValueSource(strings = { //
-//            "thing", //
-//    })
-//    @SuppressWarnings("static-method")
-//    void checkMandatoryGetSet(String name) {
-//        GetSetSpec gs = find(getsets, name);
-//        assertTrue(gs.optional(), () -> name + " optional");
-//    }
-//
-//    @ParameterizedTest(name = "{0}")
-//    @DisplayName("has an optional get-set ...")
-//    @ValueSource(strings = { //
-//            "thing", //
-//    })
-//    @SuppressWarnings("static-method")
-//    void checkOptionalGetSet(String name) {
-//        GetSetSpec gs = find(getsets, name);
-//        assertTrue(gs.optional(), () -> name + " optional");
-//        // There must be a deleter for each implementation
-//        assertEquals(gs.getters.size(), gs.deleters.size(),
-//                () -> name + " deleter size mismatch");
-//    }
+    @Test
+    @DisplayName("has the expected number of get-set attributes.")
+    @SuppressWarnings("static-method")
+    void numberOfGetSets() {
+        assertEquals(3, getsets.size(), "number of get-set attributes");
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @DisplayName("has a readonly get-set ...")
+    @ValueSource(strings = { //
+            "count", //
+    })
+    @SuppressWarnings("static-method")
+    void checkReadonlyGetSet(String name) {
+        GetSetSpec gs = find(getsets, name);
+        assertTrue(gs.readonly(), () -> name + " readonly");
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @DisplayName("has a writable get-set ...")
+    @ValueSource(strings = { //
+            "foo", //
+            "thing", //
+    })
+    @SuppressWarnings("static-method")
+    void checkWritableGetSet(String name) {
+        GetSetSpec gs = find(getsets, name);
+        assertFalse(gs.readonly(), () -> name + " readonly");
+        // There must be a setter for each implementation
+        assertEquals(gs.getters.size(), gs.setters.size(),
+                () -> name + " setter size mismatch");
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @DisplayName("has a non-optional get-set ...")
+    @ValueSource(strings = { //
+            "thing", //
+    })
+    @SuppressWarnings("static-method")
+    void checkMandatoryGetSet(String name) {
+        GetSetSpec gs = find(getsets, name);
+        assertTrue(gs.optional(), () -> name + " optional");
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @DisplayName("has an optional get-set ...")
+    @ValueSource(strings = { //
+            "thing", //
+    })
+    @SuppressWarnings("static-method")
+    void checkOptionalGetSet(String name) {
+        GetSetSpec gs = find(getsets, name);
+        assertTrue(gs.optional(), () -> name + " optional");
+        // There must be a deleter for each implementation
+        assertEquals(gs.getters.size(), gs.deleters.size(),
+                () -> name + " deleter size mismatch");
+    }
 }
