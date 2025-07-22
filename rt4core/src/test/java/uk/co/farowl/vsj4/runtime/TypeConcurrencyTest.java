@@ -74,8 +74,8 @@ class TypeConcurrencyTest {
             Runtime.getRuntime().availableProcessors(), NTHREADS / 2);
 
     /** Random (or deterministic) order. */
-    // static final long seed = System.currentTimeMillis();
-    static final long seed = 1234L; // Somewhat repeatable
+    static final long seed = System.currentTimeMillis();
+    // static final long seed = 12345L; // Somewhat repeatable
 
     /** Threads to run. */
     static final List<AccessThread> threads = new ArrayList<>();
@@ -263,7 +263,7 @@ class TypeConcurrencyTest {
      */
     @SuppressWarnings("static-method")
     @Test
-    @DisplayName("__repr__ seen if present")
+    @DisplayName("__repr__ is seen")
     void checkRepr() throws PyAttributeError, Throwable {
         for (AccessThread at : threads) {
             PyType t = at.type;
@@ -272,7 +272,7 @@ class TypeConcurrencyTest {
              * lookup (see otherActions()) before t was Python ready.
              */
             assertSame(t.lookup("__repr__"), at.reprMethod,
-                    "check '__repr__' was seen");
+                    () -> "check '__repr__' in " + t.getName());
         }
     }
 
@@ -285,7 +285,7 @@ class TypeConcurrencyTest {
      */
     @SuppressWarnings("static-method")
     @Test
-    @DisplayName("__call__ seen if present")
+    @DisplayName("__call__ is seen")
     void checkCall() throws PyAttributeError, Throwable {
         for (AccessThread at : threads) {
             PyType t = at.type;
@@ -294,7 +294,7 @@ class TypeConcurrencyTest {
              * lookup (see otherActions()) before t was Python ready.
              */
             assertSame(t.lookup("__call__"), at.callMethod,
-                    "check '__call__' was seen");
+                    () -> "check '__call__' in " + t.getName());
         }
     }
 
@@ -316,9 +316,9 @@ class TypeConcurrencyTest {
              * lookup (see otherActions()) before t was Python ready.
              */
             assertSame(t.lookup("foo"), at.fooMethod,
-                    "check 'foo' was seen");
+                    () -> "check 'foo' in " + t.getName());
             assertSame(t.lookup("bar"), at.barMethod,
-                    "check 'bar' was seen");
+                    () -> "check 'bar' in " + t.getName());
         }
     }
 
@@ -424,7 +424,10 @@ class TypeConcurrencyTest {
             BaseType t = (BaseType)type;
             ready = t.hasFeature(KernelTypeFlag.READY);
             features = t.getFeatures();
+            reprMethod = t.lookup("__repr__");
+            callMethod = t.lookup("__call__");
             fooMethod = t.lookup("foo");
+            barMethod = t.lookup("bar");
         }
 
         /**
