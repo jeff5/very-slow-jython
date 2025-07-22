@@ -911,6 +911,9 @@ public class TypeFactory {
 
                 // Derive remaining feature flags
                 type.deriveFeatures(spec);
+
+                // Say we're done
+                type.kernelFeatures.add(KernelTypeFlag.READY);
             }
 
             /**

@@ -28,7 +28,7 @@ import uk.co.farowl.vsj4.runtime.kernel.TypeRegistry;
  * competition for the static TYPE members of bootstrap types. We test
  * that threads that access those members before the type system exists
  * will never see them {@code null}.
- *
+ * <p>
  * As before, the intent is that the first thread to ask anything of the
  * type system initialises it fully (as the <i>bootstrap thread</i>),
  * before its request is answered, while all other threads with a
@@ -80,6 +80,7 @@ class StaticTYPETest {
      * make observations of the type system that ought only to be
      * possible definitely after the type system initialises. Each will
      * note the high-resolution time at which it began and was able to
+     * complete its first action, and complete its other actions.
      */
     @BeforeAll
     static void setUpClass() {
@@ -243,9 +244,8 @@ class StaticTYPETest {
         long competitors = threads.stream()
                 .filter(t -> t.startNanoTime <= 0L).count();
         logger.info("{} threads were racing.", competitors);
-        logger.info("Required at least {} racing.", MIN_THREADS);
-        assertTrue(competitors > MIN_THREADS, () -> String
-                .format("Only %d competitors.", competitors));
+        assertFalse(competitors < MIN_THREADS, () -> String
+                .format("Detect < %d competitors.", MIN_THREADS));
     }
 
     /** Bootstrap completed before the first action completed. */
@@ -287,6 +287,24 @@ class StaticTYPETest {
         }
     }
 
+    /** All the threads see a correct PyLong.TYPE. */
+    @SuppressWarnings("static-method")
+    @Test
+    @DisplayName("All threads see the same 'int'")
+    void intType() {
+        PyType t = PyType.of(42);
+        for (InitThread init : threads) { assertSame(t, init.intType); }
+    }
+
+    /** All the threads see a correct PyUnicode.TYPE. */
+    @SuppressWarnings("static-method")
+    @Test
+    @DisplayName("All threads see the same 'str'")
+    void strType() {
+        PyType t = PyType.of("");
+        for (InitThread init : threads) { assertSame(t, init.strType); }
+    }
+
     /**
      * A thread that performs actions on the type system, so that we may
      * test the outcome is the same for all threads. We keep track of
@@ -297,15 +315,15 @@ class StaticTYPETest {
     static abstract class InitThread extends Thread {
         /** Time this thread started. */
         long startNanoTime;
-        /** Time this thread completed line one of {@code action()}. */
-        long firstNanoTime;
         /** Time this thread completed {@code action()}. */
+        long firstNanoTime;
+        /** Time this thread completed {@code otherActions()}. */
         long finishNanoTime;
         /** The reference {@link TypeSystem#registry} when inspected. */
         TypeRegistry reg;
         /** The primary class of the type this thread addresses. */
         Class<?> klass;
-        /** The value seen in {@code klass} {@code :: TYPE}. */
+        /** The value seen in {@code TYPE}. */
         PyType type;
         /** The value seen in {@link PyLong#TYPE}. */
         PyType intType;

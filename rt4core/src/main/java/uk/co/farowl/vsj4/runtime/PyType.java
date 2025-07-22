@@ -5,6 +5,7 @@ package uk.co.farowl.vsj4.runtime;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Constructor;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 
@@ -119,6 +120,14 @@ public interface PyType extends WithClass, FastCall {
     // Compare CPython _PyType_Lookup in typeobject.c
     // and find_name_in_mro in typeobject.c
     Object lookup(String name);
+
+    /**
+     * The features of this type as a set.
+     *
+     * @return features of this type
+     */
+    // Compare CPython PyType_GetFlags
+    EnumSet<TypeFlag> getFeatures();
 
     /**
      * Test for possession of a specified feature.

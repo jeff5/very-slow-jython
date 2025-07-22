@@ -122,7 +122,7 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
                         logger.atTrace().addArgument(type.getName())
                                 .addArgument(spec.name)
                                 .addArgument(spec.annoClassName())
-                                .log("-  Add {}.{} ({})");
+                                .log("- Add {}.{} ({})");
                         spec.checkFormation();
                         // Create attribute according to spec type
                         Object attr = spec.asAttribute(type, lookup);
@@ -314,7 +314,7 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
      */
     void scanJavaFields(Class<?> c) throws InterpreterError {
 
-        logger.atTrace().addArgument(c).log("Finding members in {}");
+        logger.atTrace().addArgument(c).log("Finding fields  in {}");
 
         // Iterate over fields looking for the relevant annotations
         for (Field f : c.getDeclaredFields()) {

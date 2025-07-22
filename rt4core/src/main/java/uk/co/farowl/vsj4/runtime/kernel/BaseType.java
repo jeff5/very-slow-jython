@@ -4,7 +4,6 @@ package uk.co.farowl.vsj4.runtime.kernel;
 
 import static uk.co.farowl.vsj4.runtime.internal._PyUtil.cantSetAttributeError;
 import static uk.co.farowl.vsj4.runtime.internal._PyUtil.mandatoryAttributeError;
-import static uk.co.farowl.vsj4.runtime.internal._PyUtil.noAttributeError;
 import static uk.co.farowl.vsj4.runtime.internal._PyUtil.readonlyAttributeError;
 
 import java.lang.invoke.MethodHandle;
@@ -14,6 +13,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -147,7 +147,15 @@ public abstract sealed class BaseType extends KernelType
             return type_is_subtype_base_chain(b);
     }
 
+    // Compare CPython PyType_GetFlags
+    @Override
+    public EnumSet<TypeFlag> getFeatures() {
+        // No synchronisaton since final before published
+        return features.clone();
+    }
+
     // unsigned long PyType_GetFlags(PyTypeObject *type)
+    // Maybe in addition to getFeatures() for CPython compatibility
 
     // int PyType_Ready(PyTypeObject *type)
     // Finalize a type object. This should be called on all type objects
@@ -483,7 +491,7 @@ public abstract sealed class BaseType extends KernelType
         }
 
         // All the look-ups and descriptors came to nothing :(
-        throw noAttributeError(this, name);
+        throw typeNoAttributeError(name);
     }
 
     /**
@@ -586,7 +594,7 @@ public abstract sealed class BaseType extends KernelType
         Object previous = _dict.remove(name);
         if (previous == null) {
             // A null return implies it didn't exist
-            throw noAttributeError(this, name);
+            throw typeNoAttributeError(name);
         }
         updateAfterSetAttr(name);
         return;
@@ -1229,5 +1237,19 @@ public abstract sealed class BaseType extends KernelType
             return this;
         }
         return javaClass() == sb.javaClass() ? sb : this;
+    }
+
+    /**
+     * Create a {@link PyAttributeError} with a message along the lines
+     * "type object 'T' has no attribute N", where T is the type name
+     * and N is the attribute name.
+     *
+     * @param name of attribute
+     * @return exception to throw
+     */
+    private PyAttributeError typeNoAttributeError(Object name) {
+        String fmt = "type object '%.50s' has no attribute '%.50s'";
+        return (PyAttributeError)PyErr.format(PyExc.AttributeError, fmt,
+                getName(), name);
     }
 }
