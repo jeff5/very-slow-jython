@@ -60,7 +60,7 @@ class TypeConcurrencyTest {
             LoggerFactory.getLogger(TypeConcurrencyTest.class);
 
     /** Threads in total. &gt;&gt; {@code setUpClass().NCASES} */
-    static final int NTHREADS = 10;
+    static final int NTHREADS = 20;
 
     /** If defined, dump the times recorded by threads. */
     static final String DUMP_PROPERTY =
@@ -70,8 +70,8 @@ class TypeConcurrencyTest {
      * Check this many threads actually concurrent. Ideally
      * &gt;{@code setUpClass().NCASES} but expectation depends on CPU.
      */
-    static int MIN_THREADS =
-            Math.min(Runtime.getRuntime().availableProcessors(), 10);
+    static int MIN_THREADS = Math.min(
+            Runtime.getRuntime().availableProcessors(), NTHREADS / 2);
 
     /** Random (or deterministic) order. */
     // static final long seed = System.currentTimeMillis();
@@ -179,7 +179,8 @@ class TypeConcurrencyTest {
         }
 
         // Dump the thread times by start time.
-        if (truthy(DUMP_PROPERTY)) { dumpThreads(); }
+        // if (truthy(DUMP_PROPERTY)) { dumpThreads(); }
+        dumpThreads();
     }
 
     /** Property is defined and nothing like "false". */
@@ -225,7 +226,9 @@ class TypeConcurrencyTest {
         // Enough relative start times should be negative
         long competitors = threads.stream()
                 .filter(t -> t.startNanoTime <= 0L).count();
-        logger.info("{} threads were racing.", competitors);
+        logger.info(
+                "{} threads were racing. (Min {} on this platform.)",
+                competitors, MIN_THREADS);
         assertFalse(competitors < MIN_THREADS, () -> String
                 .format("Detect < %d competitors.", MIN_THREADS));
     }
