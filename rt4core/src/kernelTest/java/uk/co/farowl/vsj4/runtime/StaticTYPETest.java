@@ -313,16 +313,18 @@ class StaticTYPETest {
      * reasonably printable.
      */
     static abstract class InitThread extends Thread {
+        /** The primary class of the type this thread addresses. */
+        final Class<?> klass;
+
         /** Time this thread started. */
         long startNanoTime;
         /** Time this thread completed {@code action()}. */
         long firstNanoTime;
         /** Time this thread completed {@code otherActions()}. */
         long finishNanoTime;
+
         /** The reference {@link TypeSystem#registry} when inspected. */
         TypeRegistry reg;
-        /** The primary class of the type this thread addresses. */
-        Class<?> klass;
         /** The value seen in {@code TYPE}. */
         PyType type;
         /** The value seen in {@link PyLong#TYPE}. */
@@ -333,8 +335,10 @@ class StaticTYPETest {
         PyType getsetType;
 
         /**
-         * Create a {@code Thread} to run. Providing a reference to a
-         * class here does <i>not</i> statically initialise it.
+         * Create a {@code Thread} to run. We specialise this with a
+         * specific definition of {@link #action()}. Providing a
+         * reference to a class here does <i>not</i> statically
+         * initialise it.
          *
          * @param choice of type for this thread
          * @param klass canonical class of TYPE accessed

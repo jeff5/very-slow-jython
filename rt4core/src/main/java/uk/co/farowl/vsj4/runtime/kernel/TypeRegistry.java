@@ -13,12 +13,13 @@ import uk.co.farowl.vsj4.support.InterpreterError;
  * Mapping from Java class to the {@link Representation} that provides
  * instances of the class with Python semantics. We refer to this as a
  * "type registry" because the {@code Representation} retrieved contains
- * some type information and leads directly to more.
+ * some type information and leads directly to more. Also
+ * "representation registry" is just too much of a tongue twister.
  * <p>
  * In normal operation (outside test cases) there is only one instance
- * of this class, owned by a {@link TypeFactory}, in turn created by
- * {@link PyType}. Note that only the owning factory has a write
- * interface to the registry.
+ * of this class, owned by a {@link TypeFactory}, in turn created by the
+ * type system. Note that only the owning factory has a write interface
+ * to the registry.
  */
 public abstract class TypeRegistry extends ClassValue<Representation> {
 
@@ -40,22 +41,23 @@ public abstract class TypeRegistry extends ClassValue<Representation> {
             new WeakHashMap<>();
 
     /**
-     * Find a {@code Representation} for the given class. There are five
-     * broad cases. {@code c} might be:
+     * Find a {@code Representation} to describe the given class in
+     * relation to the Python type system. There are these broad cases.
+     * {@code c} might be:
      * <ol>
-     * <li>the crafted canonical implementation of a Python type</li>
+     * <li>a crafted implementation of a Python type</li>
      * <li>an adopted implementation of some Python type</li>
-     * <li>the implementation of the base of Python sub-classes of a
-     * Python type</li>
+     * <li>the Java representation class of multiple Python classes of
+     * mutually replaceable {@code __class__}</li>
      * <li>a found Java type</li>
      * <li>the crafted base of Python sub-classes of a found Java
      * type</li>
      * </ol>
      * Cases 1, 3 and 5 may be recognised by marker interfaces on
      * {@code c}. Case 2 may only be distinguished from case 4 only
-     * because classes that are adopted implementations will have been
-     * posted to {@link #map} before the first call, when their
-     * {@link PyType}s were created.
+     * because classes that are adopted representations will have been
+     * registered as such, when their type was defined, before the
+     * question is first posed.
      */
     @Override
     protected Representation computeValue(Class<?> c) {

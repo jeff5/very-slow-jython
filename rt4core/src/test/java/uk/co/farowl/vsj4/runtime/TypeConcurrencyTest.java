@@ -50,6 +50,17 @@ import uk.co.farowl.vsj4.runtime.kernel.KernelTypeFlag;
  * satisfactory test, multiple threads should be racing before the first
  * thread completes its first action so we have a genuine race. (This is
  * less likely on hosts with few CPUs.)
+ *
+ * @implNote A comparison of tabulated times for this test run in
+ *     isolation (in an IDE, say) and in bulk regression tests (under
+ *     Gradle, say) will show a substantial difference in the time
+ *     elapsed between thread start and first action complete. During
+ *     this time, a type has to be constructed (e.g.
+ *     {@link MyList#type}). In an isolated test, this includes creating
+ *     the base type (here {@code list}), whereas in the batch tests it
+ *     tends to exist already. Do not including pre-existing types as
+ *     actual thread targets since their threads may complete without
+ *     racing.
  */
 @DisplayName("When multiple threads publish type objects")
 @TestMethodOrder(MethodOrderer.MethodName.class)
@@ -85,7 +96,7 @@ class TypeConcurrencyTest {
     static Random random = new Random(seed);
 
     /** Time the first thread completed its first action. */
-    static long referenceNanoTime;
+    static long refNanoTime;
 
     /**
      * We create multiple threads for each behavioural sequence and run
@@ -106,7 +117,7 @@ class TypeConcurrencyTest {
         for (int i = 0; i < NTHREADS; i++) {
             int k = i % NCASES;
             threads.add(switch (k) {
-                case 0 -> new AccessThread(k) {
+                case 0 -> new AccessThread(k, MyList.class) {
                     @Override
                     void action() throws Throwable {
                         type = MyList.TYPE;
@@ -116,7 +127,7 @@ class TypeConcurrencyTest {
                     }
                 };
 
-                case 1 -> new AccessThread(k) {
+                case 1 -> new AccessThread(k, MyList2.class) {
                     @Override
                     void action() throws Throwable {
                         type = MyList2.TYPE;
@@ -126,14 +137,15 @@ class TypeConcurrencyTest {
                     }
                 };
 
-                // --------------- not used from here: see NCASES
+                // --------------- not used from here: see NCASES.
+                // See implNote concerning pre-existing types.
 
-                case 2 -> new AccessThread(k) {
+                case 2 -> new AccessThread(k, PyNameError.class) {
                     @Override
-                    void action() { type = PyBaseException.TYPE; }
+                    void action() { type = PyNameError.TYPE; }
                 };
 
-                default -> new AccessThread(k) {
+                default -> new AccessThread(k, PyObject.class) {
                     @Override
                     void action() { type = PyObject.TYPE; }
                 };
@@ -173,9 +185,9 @@ class TypeConcurrencyTest {
         Collections.sort(threads, byFirst);
 
         // Make the winning thread the reference time for the test
-        referenceNanoTime = threads.get(0).firstNanoTime;
+        refNanoTime = threads.get(0).firstNanoTime;
         for (AccessThread at : threads) {
-            at.subtractTime(referenceNanoTime);
+            at.subtractTime(refNanoTime);
         }
 
         // Dump the thread times by start time.
@@ -194,6 +206,9 @@ class TypeConcurrencyTest {
      * output.
      */
     private static void dumpThreads() {
+        double r = (TypeSystem.readyNanoTime - refNanoTime) * 1e-6;
+        String fmt = "%42s   =%10.4f  (relative ms)\n";
+        System.out.printf(fmt, "Type system ready at", r);
         for (AccessThread t : threads) { System.out.println(t); }
     }
 
@@ -349,19 +364,22 @@ class TypeConcurrencyTest {
      * {@link #firstNanoTime} so that they are reasonably printable.
      */
     static abstract class AccessThread extends Thread {
+        /** The primary class of the type this thread addresses. */
+        final Class<?> klass;
+
         /** Time this thread started. */
         long startNanoTime;
         /** Time this thread completed {@code action()}. */
         long firstNanoTime;
         /** Time this thread completed {@code otherActions()}. */
         long finishNanoTime;
-        /** The value seen in {@code TYPE}. */
-        PyType type;
         /** Attribute name suffix unique-ish to thread. */
         final String tid;
         /** Attribute names added by this thread to its type. */
         final Map<String, Object> attrsAdded = new HashMap<>();
 
+        /** The value seen in {@code TYPE}. */
+        PyType type;
         /** Type was ready when inspected. */
         boolean ready;
         /** Type features (flags) when inspected. */
@@ -377,11 +395,14 @@ class TypeConcurrencyTest {
 
         /**
          * Create a {@code Thread} to run. We specialise this with a
-         * specific definition of {@link #action()}.
+         * specific definition of {@link #action()}. Providing a
+         * reference to a class here does <i>not</i> statically
+         * initialise it.
          *
          * @param choice of type for this thread
          */
-        AccessThread(int choice) {
+        AccessThread(int choice, Class<?> klass) {
+            this.klass = klass;
             this.tid = String.format("_%03d",
                     Thread.currentThread().getId() % 1000L);
         }

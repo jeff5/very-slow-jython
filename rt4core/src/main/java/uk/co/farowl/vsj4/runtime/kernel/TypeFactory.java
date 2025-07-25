@@ -243,8 +243,8 @@ public class TypeFactory {
 
     /**
      * Inner class to the factory that implements the registry
-     * interface. This allows the registry to have behaviour that access
-     * the factory that contains it.
+     * interface. This allows the registry to have behaviour that relies
+     * upon access to the factory that contains it.
      */
     private class Registry extends TypeRegistry {
 
