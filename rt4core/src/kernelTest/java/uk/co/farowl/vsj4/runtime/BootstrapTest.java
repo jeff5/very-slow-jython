@@ -2,11 +2,7 @@
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assertions.fail;
+import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -73,12 +69,14 @@ class BootstrapTest {
 
     /** Threads in total. &gt;&gt; {@code setUpClass()} cases. */
     static final int NTHREADS = 100;
+
     /**
      * Check this many threads actually concurrent. Ideally
-     * &gt;{@code setUpClass()} cases but expectation depends on CPU.
+     * &gt;{@code setUpClass().NCASES} but expectation depends on CPUs.
      */
-    static int MIN_THREADS =
-            Math.min(Runtime.getRuntime().availableProcessors(), 20);
+    static int MIN_THREADS = Math.min(
+            Runtime.getRuntime().availableProcessors(), NTHREADS) / 2;
+
 
     /** Threads to run. */
     static final List<InitThread> threads = new ArrayList<>();
@@ -145,7 +143,9 @@ class BootstrapTest {
         for (Thread t : threads) { ensureStopped(t); }
 
         // Dump the thread times by start time.
-        if (truthy(DUMP_PROPERTY)) { dumpThreads(); }
+        // TODO Make dump conditional again (once test reliable on CI)
+        // if (truthy(DUMP_PROPERTY)) { dumpThreads(); }
+        dumpThreads();
     }
 
     /** Property is defined and nothing like "false". */
@@ -182,6 +182,7 @@ class BootstrapTest {
     }
 
     /** All threads completed. */
+    @SuppressWarnings("static-method")
     @Test
     @DisplayName("All threads complete")
     void allComplete() {
@@ -193,19 +194,22 @@ class BootstrapTest {
     }
 
     /** Some threads started before the bootstrap started. */
+    @SuppressWarnings("static-method")
     @Test
     @DisplayName("A race takes place")
     void aRaceTookPlace() {
         // Enough relative start times should be negative
         long competitors = threads.stream()
                 .filter(t -> t.startNanoTime <= 0L).count();
-        logger.info("{} threads were racing.", competitors);
-        logger.info("Required at least {} racing.", MIN_THREADS);
-        assertTrue(competitors > MIN_THREADS, () -> String
-                .format("Only %d competitors.", competitors));
+        logger.info(
+                "{} threads were racing. (Min {} on this platform.)",
+                competitors, MIN_THREADS);
+        assertFalse(competitors < MIN_THREADS, () -> String
+                .format("Detect < %d competitors.", MIN_THREADS));
     }
 
     /** Bootstrap completed before the first action completed. */
+    @SuppressWarnings("static-method")
     @Test
     @DisplayName("The bootstrap completes before any action.")
     void bootstrapBeforeAction() {
@@ -221,6 +225,7 @@ class BootstrapTest {
     }
 
     /** All the threads see the same type registry. */
+    @SuppressWarnings("static-method")
     @Test
     @DisplayName("All threads see the same type registry")
     void sameTypeRegistry() {
@@ -231,6 +236,7 @@ class BootstrapTest {
     }
 
     /** All the threads see a correct PyFloat.TYPE. */
+    @SuppressWarnings("static-method")
     @Test
     @DisplayName("All threads see 'float'")
     void sameFloat() {

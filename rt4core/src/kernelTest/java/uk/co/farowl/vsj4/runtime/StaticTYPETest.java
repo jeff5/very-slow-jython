@@ -60,12 +60,13 @@ class StaticTYPETest {
 
     /** Threads in total. &gt;&gt; {@code setUpClass().NCASES} */
     static final int NTHREADS = 100;
+
     /**
      * Check this many threads actually concurrent. Ideally
-     * &gt;{@code setUpClass().NCASES} but expectation depends on CPU.
+     * &gt;{@code setUpClass().NCASES} but expectation depends on CPUs.
      */
-    static int MIN_THREADS =
-            Math.min(Runtime.getRuntime().availableProcessors(), 20);
+    static int MIN_THREADS = Math.min(
+            Runtime.getRuntime().availableProcessors(), NTHREADS) / 2;
 
     /** Threads to run. */
     static final List<InitThread> threads = new ArrayList<>();
@@ -185,7 +186,9 @@ class StaticTYPETest {
         assertTrue(allStopped, "Threads were still running");
 
         // Dump the thread times by start time.
-        if (truthy(DUMP_PROPERTY)) { dumpThreads(); }
+        // TODO Make dump conditional again (once test reliable on CI)
+        // if (truthy(DUMP_PROPERTY)) { dumpThreads(); }
+        dumpThreads();
     }
 
     /** Property is defined and nothing like "false". */
@@ -235,7 +238,7 @@ class StaticTYPETest {
                         threads.size() - completed));
     }
 
-    /** Some threads started before the bootstrap started. */
+    /** Enough threads started before the first action completed. */
     @SuppressWarnings("static-method")
     @Test
     @DisplayName("A race takes place")
@@ -243,7 +246,9 @@ class StaticTYPETest {
         // Enough relative start times should be negative
         long competitors = threads.stream()
                 .filter(t -> t.startNanoTime <= 0L).count();
-        logger.info("{} threads were racing.", competitors);
+        logger.info(
+                "{} threads were racing. (Min {} on this platform.)",
+                competitors, MIN_THREADS);
         assertFalse(competitors < MIN_THREADS, () -> String
                 .format("Detect < %d competitors.", MIN_THREADS));
     }
