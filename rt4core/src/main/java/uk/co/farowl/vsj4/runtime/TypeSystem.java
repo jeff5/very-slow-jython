@@ -74,7 +74,7 @@ class TypeSystem {
     static final TypeRegistry registry;
 
     /*
-     * We use these in corresponding TYPE() methods avoid a static
+     * We use these in corresponding TYPE fields avoid a static
      * initialisation deadlock during bootstrap.
      */
     /** The type object of {@code type} objects. */
@@ -92,7 +92,6 @@ class TypeSystem {
     /** The type object of {@code wrapper_descriptor} objects. */
     static final PyType TYPE_wrapper_descriptor;
 
-    // Do we use these?
     /** The type object of {@code int} objects. */
     static final PyType TYPE_int;
     /** The type object of {@code bool} objects. */
@@ -101,6 +100,8 @@ class TypeSystem {
     static final PyType TYPE_str;
     /** The type object of {@code float} objects. */
     static final PyType TYPE_float;
+    /** The type object of the {@code None} singleton. */
+    static final PyType TYPE_NoneType;
 
     /**
      * High-resolution time (the result of {@link System#nanoTime()}) at
@@ -198,6 +199,12 @@ class TypeSystem {
             TYPE_float = f.fromSpec(PyFloat.Spec.get());
             TYPE_int = f.fromSpec(PyLong.Spec.get());
             TYPE_bool = f.fromSpec(PyBool.Spec.get(TYPE_int));
+
+            /*
+             * In order to create MethodHandles when exposing types (see
+             * static initialisation of Clinic), we also need:
+             */
+            TYPE_NoneType = f.fromSpec(PyNone.Spec.get());
 
             /*
              * We complete and publish the bootstrap types, for which

@@ -39,12 +39,15 @@ public abstract class Singleton implements WithClass {
 
     // Special methods -----------------------------------------------
 
+    /*
+     * Special methods are public, so as to be visible from runtime
+     * package (not API).
+     */
+
     /**
      * {@code __repr__}
      *
      * @return {@code repr(this)} as defined in constructor.
      */
-    protected Object __repr__() {
-        return name;
-    }
+    public Object __repr__() { return name; }
 }
