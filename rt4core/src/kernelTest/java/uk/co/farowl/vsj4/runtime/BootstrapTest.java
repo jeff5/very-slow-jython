@@ -74,9 +74,9 @@ class BootstrapTest {
      * Check this many threads actually concurrent. Ideally
      * &gt;{@code setUpClass().NCASES} but expectation depends on CPUs.
      */
-    static int MIN_THREADS = Math.min(
-            Runtime.getRuntime().availableProcessors(), NTHREADS) / 2;
-
+    static int MIN_THREADS =
+            Math.min(Runtime.getRuntime().availableProcessors(),
+                    NTHREADS) / 2;
 
     /** Threads to run. */
     static final List<InitThread> threads = new ArrayList<>();
@@ -84,6 +84,8 @@ class BootstrapTest {
     static CyclicBarrier barrier;
     /** Source of random behaviour. */
     static Random random = new Random(seed);
+    /** Time the first thread completed its first action. */
+    static long refNanoTime;
 
     /**
      * We create multiple threads for each of several ways the type
@@ -140,7 +142,23 @@ class BootstrapTest {
         }
 
         // Make sure they all stop (so the test does).
-        for (Thread t : threads) { ensureStopped(t); }
+        boolean allStopped = true;
+        for (Thread t : threads) { allStopped &= hasStopped(t); }
+        assertTrue(allStopped, "Threads were still running");
+
+        // Now sort them by the time the first action completed
+        Comparator<InitThread> byFirst = new Comparator<>() {
+
+            @Override
+            public int compare(InitThread t1, InitThread t2) {
+                return Long.compare(t1.firstNanoTime, t2.firstNanoTime);
+            }
+        };
+        Collections.sort(threads, byFirst);
+
+        // Make the winning thread the reference time for the test
+        refNanoTime = threads.get(0).firstNanoTime;
+        for (InitThread it : threads) { it.subtractTime(refNanoTime); }
 
         // Dump the thread times by start time.
         // TODO Make dump conditional again (once test reliable on CI)
@@ -159,26 +177,19 @@ class BootstrapTest {
      * output.
      */
     private static void dumpThreads() {
-        Comparator<InitThread> byFirst = new Comparator<>() {
-
-            @Override
-            public int compare(InitThread t1, InitThread t2) {
-                return Long.compare(t1.firstNanoTime, t2.firstNanoTime);
-            }
-        };
-        String fmt = "Type system ready at   =%10d  (relative)\n";
-        System.out.printf(fmt, TypeSystem.readyNanoTime
-                - TypeSystem.bootstrapNanoTime);
-        Collections.sort(threads, byFirst);
+        double r = (TypeSystem.readyNanoTime - refNanoTime) * 1e-6;
+        String fmt = "%42s   =%10.4f  (relative ms)\n";
+        System.out.printf(fmt, "Type system ready at", r);
         for (InitThread t : threads) { System.out.println(t); }
     }
 
-    @SuppressWarnings("deprecation")
-    private static void ensureStopped(Thread t) {
+    private static boolean hasStopped(Thread t) {
         if (t.isAlive()) {
-            logger.warn("Forcing stop {}", t.getName());
-            t.stop();
+            logger.warn("Still running {}", t.getName());
+            // t.stop();
+            return false;
         }
+        return true;
     }
 
     /** All threads completed. */
@@ -213,8 +224,8 @@ class BootstrapTest {
     @Test
     @DisplayName("The bootstrap completes before any action.")
     void bootstrapBeforeAction() {
-        final long ready =
-                TypeSystem.readyNanoTime - TypeSystem.bootstrapNanoTime;
+        // Times on threads are relative to refNanoTime
+        final long ready = TypeSystem.readyNanoTime - refNanoTime;
         // All first actions should be after type system ready.
         long hasty = threads.stream()
                 .filter(t -> t.firstNanoTime < ready).count();
@@ -300,10 +311,6 @@ class BootstrapTest {
             firstNanoTime = System.nanoTime();
             otherActions();
             finishNanoTime = System.nanoTime();
-            // *Only afterwards* make relative to bootstrap time.
-            startNanoTime -= TypeSystem.bootstrapNanoTime;
-            firstNanoTime -= TypeSystem.bootstrapNanoTime;
-            finishNanoTime -= TypeSystem.bootstrapNanoTime;
         }
 
         /** The required actions apart from the one already done. */
@@ -313,10 +320,24 @@ class BootstrapTest {
             if (reg == null) { reg = TypeSystem.registry; }
         }
 
+        /**
+         * Adjust times backwards by the given amount.
+         *
+         * @param ref to subtract from each recorded nanosecond time
+         */
+        void subtractTime(long ref) {
+            startNanoTime -= ref;
+            firstNanoTime -= ref;
+            finishNanoTime -= ref;
+        }
+
         @Override
         public String toString() {
-            return String.format("start=%10d, first=%10d, finish=%10d",
-                    startNanoTime, firstNanoTime, finishNanoTime);
+            String fmt =
+                    "    start=%10.4f, first=%10.4f, finish=%10.4f (%5dns)";
+            return String.format(fmt, startNanoTime * 1e-6,
+                    firstNanoTime * 1e-6, finishNanoTime * 1e-6,
+                    finishNanoTime - firstNanoTime);
         }
     }
 }
