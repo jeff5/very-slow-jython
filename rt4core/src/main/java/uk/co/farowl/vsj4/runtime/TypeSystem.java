@@ -149,11 +149,11 @@ class TypeSystem {
             registry = f.getRegistry();
 
             /*
-             * Create partial types for all the bootstrap types. These
-             * are not Python ready. All the calls to f.fromSpec() count
-             * as "re-entrant", so the type objects they create are not
-             * published, and will not be visible to any other thread
-             * yet. The process of making them Python ready is deferred,
+             * Create partial types for all the bootstrap types. All the
+             * calls to f.fromSpec() here count as "re-entrant", so the
+             * type objects they create are not published, and will not
+             * be visible to any other thread yet. The process of making
+             * them Python ready is deferred to publishBootstrapTypes,
              * and they sit in the workshop until we have defined the
              * full set.
              */
@@ -163,12 +163,11 @@ class TypeSystem {
              * PyType.fromSpec(...)' in the static initialisation of the
              * defining class. This is not safe for types needed in the
              * construction of type objects themselves. The reason is
-             * that a competing thread could seize control of the static
-             * initialisation of such a class, and would block with the
-             * necessary class half-initilised. Instead, each defining
-             * class has a nested class, not visible in the API, that
-             * provides the specification, even if some other thread has
-             * locked the defining class of that type.
+             * that a competing thread could already have seized control
+             * of the static initialisation of such a class, which would
+             * block the bootstrap. Instead, each defining class
+             * contains a package-visible Spec class, that provides the
+             * specification, even in those circumstances.
              */
 
             /*
@@ -197,12 +196,6 @@ class TypeSystem {
 
             TYPE_str = f.fromSpec(PyUnicode.Spec.get());
             TYPE_float = f.fromSpec(PyFloat.Spec.get());
-
-            /*
-             * We create 'int' before 'bool' and keep the type object,
-             * so that we may hand it to the definition of 'bool'. This
-             * thread cannot reliably reference PyLong.TYPE.
-             */
             TYPE_int = f.fromSpec(PyLong.Spec.get());
             TYPE_bool = f.fromSpec(PyBool.Spec.get(TYPE_int));
 

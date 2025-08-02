@@ -288,7 +288,8 @@ class BootstrapTest {
                 action();
             } catch (Throwable e) {
                 logger.atWarn().setMessage("action() threw {}")
-                        .addArgument(e).log();
+                        .addArgument(e.getClass().getSimpleName())
+                        .log();
             }
             firstNanoTime = System.nanoTime();
             otherActions();

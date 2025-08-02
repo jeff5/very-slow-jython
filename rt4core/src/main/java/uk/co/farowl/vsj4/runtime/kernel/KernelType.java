@@ -300,6 +300,27 @@ public abstract class KernelType extends Representation
     }
 
     /**
+     * Check that this type is Python-ready, that is, it has been marked
+     * as fit to be handled outside the type system. An immutable type
+     * becomes ready at the end of construction and stays that way. A
+     * mutable type may go through periods when it is not Python-ready,
+     * while it is internally inconsistent, or inconsistent with related
+     * data. Correct synchronisation will ensure it does not escape in
+     * that condition.
+     * <p>
+     * Ideally, this method only appears in {@code assert} statements
+     * and unit tests. Operations on types that are not Python-ready
+     * should block until they are. If we have to consult this as a
+     * basis for run-time decisions, something is amiss with the design.
+     *
+     * @return target is a Python-ready
+     */
+    // Compare CPython PySequence_Check (on instance) in abstract.c
+    public boolean isReady() {
+        return kernelFeatures.contains(KernelTypeFlag.READY);
+    }
+
+    /**
      * Determine if this type is a Python sub-type of {@code b} (if
      * {@code b} is on the MRO of this type). For technical reasons we
      * parameterise with the subclass. (We need it to work with a

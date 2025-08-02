@@ -101,21 +101,29 @@ public class TypeFactory {
      * a reference to the specification that began the current round, as
      * a context for error reporting.
      */
-    private TypeSpec lastContext = null;
+    private TypeSpec lastContext;
 
     /**
-     * We count the number of reentrant calls here, and defer publishing
-     * any of the {@code Representation}s we create to the registry
-     * until the count reaches zero. (Note, we count <i>reentrant
-     * calls</i>, not the number of objects in play, as each call
-     * potentially creates several types by reentrant use of
-     * {@link #fromSpec(TypeSpec)}.) The count is -1 between phases of
-     * object creation, so 0 indicates "just arrived".
+     * We count the number of reentrant calls here, incrementing when we
+     * enter the factory by one of the creation entrypoints, and
+     * decrementing when we return from it. We defer publishing to the
+     * registry any of the {@code Representation}s we create until
+     * decrementing the count makes it zero. (Note, we count
+     * <i>reentrant calls</i>, not the number of objects in play, as
+     * each call potentially creates several types by reentrant use of
+     * {@link #fromSpec(TypeSpec)}.)
+     * <p>
+     * During type system bootstrap, the entry and exit are in different
+     * methods: {@link #createTypeForType()} is the entry and
+     * {@link #publishBootstrapTypes(Function)} is the matching exit.
+     * Intervening calls to {@link #fromSpec(TypeSpec)} will increment
+     * and decrement {@code reentrancyCount} leaving it positive.
      */
     private int reentrancyCount;
+
     /** Used to indent log messages by the reentrancy level. */
     private final Supplier<String> indent = () -> INDENT_RULER
-            .substring(0, Math.min(reentrancyCount + 1, 24) * 2);
+            .substring(0, Math.min(reentrancyCount, 24) * 2);
     private final static String INDENT_RULER = ". ".repeat(24);
 
     /**
@@ -161,7 +169,7 @@ public class TypeFactory {
          * The static bootstrap of the type system counts as "entry":
          * the corresponding "exit" is in createBootstrapTypes().
          */
-        reentrancyCount = 0;
+        reentrancyCount = 1;
 
         /*
          * Create type objects and specifications for type and object.
@@ -266,8 +274,8 @@ public class TypeFactory {
          * the batch succeed or fail together.
          * <p>
          * <b>Concurrency:</b> The representations are immediately
-         * available to other threads, so they and the type(s) behind
-         * them must be Python ready.
+         * available to other threads on return, so they and the type(s)
+         * behind them must be Python ready.
          *
          * @param assoc associations to add to the published map
          * @throws Clash when a representing class is already bound
@@ -317,79 +325,127 @@ public class TypeFactory {
             }
         }
 
+        /**
+         * {@inheritDoc}
+         * <p>
+         * The registry calls this when it did not find {@code c}
+         * published. The possible cases are:
+         * <ol>
+         * <li>This thread owns the factory, and is already working on a
+         * representation of {@code c}: we shall return it immediately.
+         * This may be an incomplete type, which is allowed because the
+         * call is a re-entrant one.</li>
+         * <li>This thread owns the factory, but {@code c} is new to it:
+         * we shall construct a representation and return it. This may
+         * be an incomplete type, which is allowed because the call is a
+         * re-entrant one.</li>
+         * <li>This thread must take ownership of the factory, but a
+         * previous owner published {@code c} during the wait. We shall
+         * return with that. The associated type will have been made
+         * Python ready by the time the factory was released.</li>
+         * <li>This thread must take ownership of the factory, and there
+         * is still no published representation for {@code c}. (The
+         * factory is empty.) We shall construct a representation for
+         * {@code c}, publish it with any other necessary types, and
+         * return that. The associated type will be Python ready.</li>
+         * </ol>
+         * This method is not {@code synchronized} on the registry,
+         * because that would lock the current owner of the factory
+         * inside, trying to publish.
+         */
         @Override
         Representation findOrCreate(Class<?> c) {
-
             // We are "just outside" the factory: take the lock
             synchronized (TypeFactory.this) {
                 Representation rep;
-                /*
-                 * We check the published map first. The current thread
-                 * either (1) already owned the factory lock, and simply
-                 * looked up a representation part way through its work,
-                 * or (2) has just acquired for the lock, and the
-                 * representation of c may have been published during
-                 * the wait.
-                 */
-                if ((rep = lookup(c)) == null) {
-                    /*
-                     * c is not published. We shall try to find a
-                     * representation in the process of being built, but
-                     * it will only be ok to return it if we are a
-                     * re-entrant call.
-                     */
-                    // FIXME reentrancyCount assertions routinely fail
-                    try {
-                        if (reentrancyCount != -1) {
-                            logger.atWarn().setMessage(
-                                    "Re-entering at level {} for {}")
-                                    .addArgument(reentrancyCount)
-                                    .addArgument(c).log();
+                logger.atDebug().setMessage(FINDING_REP)
+                        .addArgument(indent)
+                        .addArgument(() -> c.getTypeName()).log();
+                try {
+                    if (reentrancyCount > 0) {
+                        /*
+                         * This thread already owned the factory. It may
+                         * already be working on a representation for c.
+                         */
+                        if ((rep = resolve(c)) == null) {
+                            reentrancyCount += 1;
+                            /*
+                             * {@code c} is new to the type system:
+                             * construct a representation.
+                             */
+                            rep = create(c);
+                            reentrancyCount -= 1;
                         }
-                        // assert reentrancyCount == -1;
-                        // assert workshop.isEmpty();
-                        rep = _findOrCreate(c);
-                        if (reentrancyCount != -1) {
-                            logger.atWarn().setMessage(
-                                    "Returning at level {} with {}")
-                                    .addArgument(reentrancyCount)
-                                    .addArgument(rep).log();
+                        /*
+                         * We may have created incomplete types, which
+                         * is allowed because the call is a re-entrant
+                         * one.
+                         */
+                        assert reentrancyCount > 0;
+
+                    } else { // reentrancyCount==0
+                        assert workshop.isEmpty();
+                        /*
+                         * This thread just took ownership of the
+                         * factory. It may be that a representation for
+                         * c was published during the wait.
+                         */
+                        if ((rep = lookup(c)) == null) {
+                            reentrancyCount = 1;
+                            /*
+                             * No published representation for c:
+                             * construct one.
+                             */
+                            rep = create(c);
+                            // Publish c to the registry.
+                            finishAndPublish();
+                            reentrancyCount -= 1;
                         }
-                        // assert reentrancyCount == -1;
-                    } catch (Clash clash) {
-                        throw new InterpreterError(clash);
+                        // Associated types will be Python ready.
+                        assert reentrancyCount == 0;
+                        assert rep instanceof SharedRepresentation
+                                || rep.pythonType(null).isReady();
                     }
+
+                    return rep;
+                } catch (Clash clash) {
+                    throw new InterpreterError(clash);
                 }
-                return rep;
             }
         }
 
         /**
-         * This method must only be called with the factory lock held.
+         * Construct a representation for class {@code c} in the
+         * workshop. This method must only be called with the factory
+         * lock held and {@code reentrancyCount > 0}.
          *
          * @param c class to resolve
          * @return representation object for {@code c} or {@code null}.
          * @throws Clash when a representing class is already bound
          */
-        private Representation _findOrCreate(Class<?> c) throws Clash {
+        private Representation create(Class<?> c) throws Clash {
+
             Representation rep = null;
-            reentrancyCount += 1;
-            logger.atDebug().setMessage(FINDING_REP).addArgument(indent)
-                    .addArgument(() -> c.getTypeName()).log();
+
             /*
-             * Ensure c is statically initialised, all its superclasses
-             * and interfaces. This may result in reentrant calls to the
-             * factory that add c or an ancestor to the workshop, but do
-             * not publish anything while reentrancyCount > 0.
+             * Ensure c is statically initialised, and all its
+             * superclasses and interfaces. If the static initialiser of
+             * c creates a type (or one of its uninitialised ancestors
+             * does) this will result in reentrant calls to the factory
+             * that add c or an ancestor to the workshop. This will not
+             * publish anything since the call is re-entrant.
              */
+            assert reentrancyCount > 0;
             ensureInit(c);
 
-            // See if we can already resolve c to work in progress.
-            rep = resolve(c);
-
-            if (rep == null) {
-                // Make a type to represent the class.
-                // XXX What lookup should be used here?
+            if ((rep = resolve(c)) == null) {
+                /*
+                 * Initialisation did not make c resolvable. We treat
+                 * this as a "discovered" type, a Java class that was
+                 * not designed as a Python type.
+                 */
+                // TODO Elaborate the exposure of discovered types
+                // XXX What lookup should really be used here?
                 TypeSpec spec = new TypeSpec(c.getTypeName(),
                         MethodHandles.publicLookup()).primary(c);
                 rep = fromSpec(spec);
@@ -401,18 +457,6 @@ public class TypeFactory {
                 throw new InterpreterError(
                         String.format(fmt, c.getTypeName()));
             }
-
-            if (reentrancyCount == 0) {
-                /*
-                 * We are at the entry level. Everything we have created
-                 * must be made Python-ready and be published.
-                 */
-                finishWorkshopTasks();
-                workshop.publishAll();
-                lastContext = null;
-            }
-
-            reentrancyCount -= 1;
             return rep;
         }
 
@@ -483,30 +527,28 @@ public class TypeFactory {
      * @throws Clash when a representing class is already bound
      */
     public synchronized BaseType fromSpec(TypeSpec spec) throws Clash {
-        /*
-         * We are able to make (the right kind of) type object but
-         * cannot always guarantee to fill its dictionary. In that case,
-         * it would ideally not escape yet, but how?
-         */
+
         logger.atDebug().setMessage(CREATING_PARTIAL_TYPE)
                 .addArgument(indent).addArgument(spec.getName()).log();
-        if (reentrancyCount++ < 0) { lastContext = spec; }
+        if (reentrancyCount++ == 0) { lastContext = spec; }
         // Create a type and add it to the work in progress.
         BaseType type = workshop.addTaskFromSpec(spec);
+
         /*
-         * It is ok to return a type that is not Python ready from a
-         * reentrant call. Work is in hand to complete it.
+         * During type system bootstrap, we may return type objects that
+         * are not Python-ready. This is ok because they are confined to
+         * the bootstrap thread until it completes.
          */
-        if (reentrancyCount == 0) {
+        if (reentrancyCount == 1) {
             /*
-             * But at the top-level, everything we have created must be
-             * made Python-ready and be published.
+             * Everything we have created must be made Python-ready and
+             * be published to the registry. reentrancyCount == 1 as new
+             * types may still be found.
              */
-            finishWorkshopTasks();
-            workshop.publishAll();
-            lastContext = null;
+            finishAndPublish();
+            assert type.isReady();
         }
-        reentrancyCount -= 1;
+        --reentrancyCount;
         return type;
     }
 
@@ -547,37 +589,44 @@ public class TypeFactory {
 
         exposerFactory = exposerNew;
 
-        assert reentrancyCount == 0;
+        // This matches reentrancyCount = 1 in the createTypeForType.
+        assert reentrancyCount == 1;
 
         /*
          * We are at the top-level of initialising the factory and its
          * bootstrap types. Everything we have created must be made
          * Python-ready and be published.
          */
-        finishWorkshopTasks();
-        workshop.publishAll();
+        finishAndPublish();
+        reentrancyCount = 0;
 
-        // This matches reentrancyCount = 0 in the constructor.
-        assert reentrancyCount == 0;
-        reentrancyCount = -1;
-        lastContext = null;
-
+        // Finishing tasks should not have changed this
         logger.info("Bootstrap types ready.");
     }
 
     /**
-     * Make the types in the workshop Python ready by exposing their
-     * methods and fields. These types have accumulated since the
-     * external request that began the batch. (This request was a call
-     * to {@link #fromSpec(TypeSpec)}, seeking a {@link Representation}
-     * not yet in the registry, or the insertion of tasks for
-     * {@code type} and {@code object} upon creation of the factory
-     * itself. On return, the representations remain unpublished in the
-     * workshop.
-     *
-     * @throws Clash on a problem with an existing registry entry
+     * Everything currently in the workshop is made Python-ready and is
+     * published to the registry. This method must be called with the
+     * factory lock held. These types and representations have
+     * accumulated since the external request that began the batch.
+     * (This request was a call to {@link #fromSpec(TypeSpec)}, a
+     * registry lookup seeking a {@link Representation} that missed, or
+     * the insertion of tasks for bootstrap types when creating the type
+     * system itself.
+     * <p>
+     * We call this at the end of creating a representation or type when
+     * {@code reentrancyCount == 1}, and our next step will be to
+     * "leave" (unlock) the factory.
+     * <p>
+     * Where it is used, it is tempting to decrement and test
+     * {@code --reentrancyCount == 0}, but this is incorrect, because
+     * new representations may have to be generated in the process of
+     * finishing (exposing) types, and these must be recognised as
+     * re-entrant additions to the workshop.
      */
-    private void finishWorkshopTasks() throws Clash {
+    private void finishAndPublish() throws Clash {
+        assert reentrancyCount == 1;
+
         /*
          * Give all waiting types their Python nature. Note that this
          * action, to expose waiting types can result in re-entrant
@@ -585,6 +634,7 @@ public class TypeFactory {
          * initialisation of Java classes.
          */
         workshop.readyAllWaitingTypes();
+
         // Let's hope that emptied the shop ...
         int workshopCount = workshop.tasks.size();
         if (workshopCount != 0) {
@@ -593,6 +643,15 @@ public class TypeFactory {
                     .addArgument(lastContext.getName())
                     .addArgument(workshopCount).log();
         }
+
+        /*
+         * All the new representations and types are in the factory's
+         * unpublished map. Under lock, transfer them to the public
+         * registry.
+         */
+        workshop.publishAll();
+        assert workshop.isEmpty();
+        lastContext = null;
     }
 
     /**
