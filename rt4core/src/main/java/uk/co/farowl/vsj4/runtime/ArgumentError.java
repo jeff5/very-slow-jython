@@ -13,6 +13,8 @@ package uk.co.farowl.vsj4.runtime;
  * {@code ArgumentError} should be caught as soon as the necessary
  * context is available and converted to a Python exception.
  */
+// TODO Extend ArgumentError to type errors when invokeExact fails
+// Necessary context is the arguments, handle and ArgParser.
 public class ArgumentError extends Exception {
     private static final long serialVersionUID = 1L;
 

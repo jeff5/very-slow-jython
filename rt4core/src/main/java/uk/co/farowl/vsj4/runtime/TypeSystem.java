@@ -133,6 +133,10 @@ class TypeSystem {
         // Bring the type machinery to life.
         TypeFactory f = Representation.factory;
 
+        /*
+         * It is only safe to create our first types now that the
+         * Representation class has completed static initialisation.
+         */
         @SuppressWarnings("deprecation")
         SimpleType t = Representation.factory.createTypeForType();
 
@@ -329,6 +333,7 @@ class TypeSystem {
      * @param spec specifying the new type
      * @return the new type
      */
+    // FIXME Avoid throwing InterpreterError(clash). If used at all.
     static BaseType typeFromSpec(TypeSpec spec) {
         try {
             return factory.fromSpec(spec);

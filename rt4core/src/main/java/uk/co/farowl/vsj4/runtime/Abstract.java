@@ -604,6 +604,7 @@ public class Abstract {
 
         } else if (clsType.isSubTypeOf(PyTuple.TYPE)) {
             // cls is a tuple of (should be) types
+            // TODO Recursive call monitoring: needed in Jython?
             // try (RecursionState state = ThreadState
             // .enterRecursiveCall("in __instancecheck__")) {
             // Result is true if true for any type in cls
@@ -619,6 +620,7 @@ public class Abstract {
             Object checker = lookupSpecial(cls, "__instancecheck__");
             if (checker != null) {
                 // cls has an __instancecheck__ to consult.
+                // TODO Recursive call monitoring: needed in Jython?
                 // try (RecursionState state = ThreadState
                 // .enterRecursiveCall("in __instancecheck__")) {
                 return isTrue(Callables.call(checker, inst));
@@ -695,6 +697,7 @@ public class Abstract {
             return recursiveIsSubclass(derived, cls);
 
         } else if (clsType.isSubTypeOf(PyTuple.TYPE)) {
+            // TODO Recursive call monitoring: needed in Jython?
             // try (RecursionState state = ThreadState
             // .enterRecursiveCall(" in __subclasscheck__")) {
             for (Object item : (PyTuple)cls) {
@@ -709,6 +712,7 @@ public class Abstract {
             Object checker = lookupSpecial(cls, "__subclasscheck__");
 
             if (checker != null) {
+                // TODO Recursive call monitoring: needed in Jython?
                 // try (RecursionState state = ThreadState
                 // .enterRecursiveCall(" in __subclasscheck__")) {
                 return isTrue(Callables.call(checker, derived));
@@ -1146,49 +1150,6 @@ public class Abstract {
     /** Throw generic something went wrong internally (last resort). */
     static void badInternalCall() {
         throw new InterpreterError("bad internal call");
-    }
-
-    /**
-     * Convert any {@code Throwable} except an {@code Error} to a
-     * {@code RuntimeException}, as by
-     * {@link #asUnchecked(Throwable, String, Object...) asUnchecked(t,
-     * ...)} with a default message.
-     *
-     * @param t to propagate or encapsulate
-     * @return run-time exception to throw
-     */
-    static RuntimeException asUnchecked(Throwable t) {
-        return asUnchecked(t, "non-Python Exception");
-    }
-
-    /**
-     * Convert any {@code Throwable} except an {@code Error} to a
-     * {@code RuntimeException}, so that (if not already) it becomes an
-     * unchecked exception. An {@code Error} is re-thrown directly. We
-     * use this in circumstances where a method cannot be declared to
-     * throw the exceptions that methods within it are declared to
-     * throw, and no specific handling is available locally.
-     * <p>
-     * In particular, we use it where a call is made to
-     * {@code MethodHandle.invokeExact}. That is declared to throw
-     * {@code Throwable}, but we know that the {@code Throwable} will
-     * either be a {@code PyException} or will signify an interpreter
-     * error that the local code cannot be expected to handle.
-     *
-     * @param t to propagate or encapsulate
-     * @param during format string for detail message, typically like
-     *     "during map.get(%.50s)" where {@code args} contains the key.
-     * @param args to insert into format string.
-     * @return run-time exception to throw
-     */
-    static RuntimeException asUnchecked(Throwable t, String during,
-            Object... args) {
-        if (t instanceof RuntimeException)
-            return (RuntimeException)t;
-        else if (t instanceof Error)
-            throw (Error)t;
-        else
-            return new InterpreterError(t, during, args);
     }
 
     /**

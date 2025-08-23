@@ -271,7 +271,6 @@ public class SubclassFactory {
          */
         final boolean manageDictAssignment;
 
-
         // private final MethodNode staticInit;
 
         /**
@@ -418,18 +417,18 @@ public class SubclassFactory {
             String descr;
             if (manageClassAssignment) {
                 /*
-                 * When the base does not hold the actual type of the
-                 * object, this constructor constructors have the actual
-                 * PyType as their first parameter.
+                 * The base does not hold the actual type of the object.
+                 * Its constructor does not have the actual PyType as
+                 * its first parameter, but ours must.
                  */
                 Type[] params = Util.prepend(PY_TYPE_TYPE, baseParams);
                 descr = Type.getMethodType(Type.VOID_TYPE, params)
                         .getDescriptor();
             } else {
                 /*
-                 * When the base holds the actual type of the object,
-                 * its constructor does not have a PyType parameter,
-                 * while the synthesised constructor must.
+                 * The base holds the actual type of the object. Its
+                 * constructor has a PyType parameter, and so must the
+                 * synthesised constructor.
                  */
                 assert baseParams.length > 0;
                 assert PY_TYPE_TYPE.equals(baseParams[0]);

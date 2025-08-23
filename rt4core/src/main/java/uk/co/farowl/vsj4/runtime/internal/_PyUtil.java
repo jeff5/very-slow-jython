@@ -264,5 +264,4 @@ public class _PyUtil {
         return PyErr.format(PyExc.TypeError,
                 "can't set attributes of %.200s", obj);
     }
-
 }
