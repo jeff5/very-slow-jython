@@ -57,9 +57,53 @@ public class Callables extends Abstract {
     }
 
     /**
+     * Call an object with an array of arguments given by position and a
+     * dictionary of key-value pairs providing arguments given by
+     * keyword. This is primarily a convenience function to support
+     * converting CPython code.
+     *
+     * @param callable target
+     * @param positional positional arguments
+     * @param kwDict keyword arguments
+     * @return the return from the call to the object
+     * @throws PyBaseException (TypeError) if target is not callable
+     * @throws Throwable for errors raised in the function
+     */
+    // Compare CPython PyObject_Call in call.c
+    public static Object callArgsDict(Object callable,
+            Object[] positional, PyDict kwDict)
+            throws PyBaseException, Throwable {
+
+        Object[] args;
+        String[] kwnames;
+
+        if (kwDict == null || kwDict.isEmpty()) {
+            args = positional;
+            kwnames = null;
+
+        } else {
+            // Convert to arrays of arguments and names
+            int n = positional.length, m = kwDict.size(), i = 0;
+            args = new Object[n + m];
+            System.arraycopy(positional, 0, args, 0, n);
+            kwnames = new String[m];
+            for (Map.Entry<Object, Object> e : kwDict.entrySet()) {
+                Object name = e.getKey();
+                kwnames[i++] = PyUnicode.asString(name,
+                        Callables::keywordTypeError);
+                args[n++] = e.getValue();
+            }
+        }
+
+        return call(callable, args, kwnames);
+    }
+
+    /**
      * Call an object with the classic CPython call protocol, that is,
      * with a tuple of arguments given by position and a dictionary of
-     * key-value pairs providing arguments given by keyword.
+     * key-value pairs providing arguments given by keyword. This is
+     * primarily a convenience function to support converting CPython
+     * code.
      *
      * @param callable target
      * @param argTuple positional arguments
@@ -69,7 +113,8 @@ public class Callables extends Abstract {
      * @throws Throwable for errors raised in the function
      */
     // Compare CPython PyObject_Call in call.c
-    static Object call(Object callable, PyTuple argTuple, PyDict kwDict)
+    public static Object callTupleDict(Object callable,
+            PyTuple argTuple, PyDict kwDict)
             throws PyBaseException, Throwable {
 
         Object[] args;
@@ -98,7 +143,8 @@ public class Callables extends Abstract {
     /**
      * Call an object with the classic positional-only CPython call
      * protocol, that is, with a tuple of arguments given by position
-     * and no dictionary of key-value pairs.
+     * and no dictionary of key-value pairs. This is primarily a
+     * convenience function to support converting CPython code.
      *
      * @param callable target
      * @param argTuple positional arguments
@@ -107,7 +153,7 @@ public class Callables extends Abstract {
      * @throws Throwable for errors raised in the function
      */
     // Compare CPython PyObject_Call in call.c
-    static Object call(Object callable, PyTuple argTuple)
+    public static Object callTuple(Object callable, PyTuple argTuple)
             throws PyBaseException, Throwable {
         return call(callable, argTuple.toArray(), null);
     }
@@ -157,7 +203,7 @@ public class Callables extends Abstract {
             // argTuple = Sequence.tuple(args);
         }
 
-        return call(callable, ar, kw);
+        return callTupleDict(callable, ar, kw);
     }
 
     private static final String OBJECT_NOT_VECTORCALLABLE =

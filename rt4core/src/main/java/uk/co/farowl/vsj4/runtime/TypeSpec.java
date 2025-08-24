@@ -10,12 +10,23 @@ import java.util.Collections;
 import java.util.EnumSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
+import java.util.StringJoiner;
 
 import uk.co.farowl.vsj4.runtime.internal.NamedSpec;
 import uk.co.farowl.vsj4.runtime.kernel.BaseType;
 import uk.co.farowl.vsj4.runtime.kernel.SimpleType;
 import uk.co.farowl.vsj4.support.InterpreterError;
 
+// TODO Provide for Python exceptions without requiring the type system
+/*
+ * By this I mean, detect the sort of mis-specification that ought to be
+ * a TypeError in Python, but without compromising our ability to use a
+ * TypeSpec to specify bootstrap types. Idea: define a specification
+ * error exception that may be caught and converted to a Python
+ * exception in contexts where the type system is in working order, but
+ * will propagate out as an InterpreterError (say) otherwise.
+ */
 /**
  * A specification for a Python type that acts as a complex argument to
  * {@link PyType#fromSpec(TypeSpec)}. A Java class intended as the
@@ -80,7 +91,7 @@ public class TypeSpec extends NamedSpec {
      * It may be {@code null} in a type that adopts all its
      * representations.
      */
-    private Class<?> canonicalBase;
+    private Class<?> canonicalBase; // FIXME rename canonicalClass +API
 
     /**
      * The primary class that will represent the instances of the type
@@ -143,6 +154,14 @@ public class TypeSpec extends NamedSpec {
     private final List<Class<?>> classes = new ArrayList<>();
 
     /**
+     * Name-value bindings to add to the dictionary of the type when it
+     * is created. We represent this with {@code Object} keys for
+     * compatibility with the name-space of a class definition in Python
+     * (which is a {@code dict}).
+     */
+    private Map<Object, Object> namespace = null;
+
+    /**
      * Names of slots (fields) in the representation of the type being
      * specified. There is a difference between leaving this at null
      * (instances will get a dictionary) and an empty list (instances
@@ -183,11 +202,12 @@ public class TypeSpec extends NamedSpec {
      * should not be passed to untrusted code. The type system does not
      * hold onto the {@code TypeSpec} after completing the type object.
      *
-     * @param name of the type being specified (may be dotted name)
-     * @param lookup authorisation to access the implementation classes
+     * @param name of the type being specified (may be dotted name).
+     * @param lookup authorisation to access the implementation classes.
+     *     (May be null when defining a type entirely in Python.)
      */
     public TypeSpec(String name, Lookup lookup) {
-        this(name, lookup, true);
+        this(name, lookup, lookup != null);
     }
 
     /**
@@ -516,7 +536,7 @@ public class TypeSpec extends NamedSpec {
         } else if (base instanceof BaseType bt) {
             bases.add(bt);
         } else {
-            // PyType is sealed to permit only BaseType, so impossible:
+            // Permit only type objects made by the runtime
             throw specError("base is not BaseType", base.getName());
         }
         return this;
@@ -536,15 +556,34 @@ public class TypeSpec extends NamedSpec {
     }
 
     /**
-     * Specify some bases for the type. Successive bases given are
-     * cumulative and ordered.
+     * Specify some bases for the type as a collection. Successive bases
+     * given are cumulative and ordered. The use of a type parameter
+     * allows us to add collections of type of objects of known
+     * implementation, as they are internally to the type system.
      *
+     * @param <T> implements {@code PyType}
      * @param bases to append to the bases
      * @return {@code this}
      */
-    public TypeSpec bases(List<PyType> bases) {
+    public <T extends PyType> TypeSpec bases(List<T> bases) {
         // checkNotFrozen(); // Covered in base()
         for (PyType b : bases) { base(b); }
+        return this;
+    }
+
+    /**
+     * Specify content for the dictionary of the type
+     * ({@code __dict__}). The caller may have a reference to this
+     * mapping the time being, but the dictionary of the type is a
+     * distinct object. (Only keys that are Python {@code str} will make
+     * it in.)
+     *
+     * @param ns from which {@code __dict__} is initialised
+     * @return {@code this}
+     */
+    public TypeSpec namespace(Map<Object, Object> ns) {
+        checkNotFrozen();
+        namespace = ns;
         return this;
     }
 
@@ -739,9 +778,12 @@ public class TypeSpec extends NamedSpec {
         String pri = primary == null ? "" : primary.getSimpleName();
         String can = canonicalBase == null ? ""
                 : canonicalBase.getSimpleName();
-        return String.format(fmt, name, bases, features,
-                lookup.lookupClass().getSimpleName(), pri, can,
-                methodImpls);
+        String luc = lookup == null ? "null"
+                : lookup.lookupClass().getSimpleName();
+        StringJoiner mic = new StringJoiner(", ", "[", "]");
+        for (Class<?> c : methodImpls) { mic.add(c.getSimpleName()); }
+        return String.format(fmt, name, bases, features, luc, pri, can,
+                mic);
     }
 
     /**

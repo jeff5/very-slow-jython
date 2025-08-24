@@ -63,9 +63,21 @@ class SubclassCreationTest {
 
     /**
      * We create Java representations of classes directly, using only
-     * the code generation aspects of defining a subclass. See
-     * {@link DynamicBase} for a parallel test going via capabilities in
-     * the type object.
+     * the code generation aspects of defining a subclass. This is
+     * activity that occurs when a class is defined in Python, using the
+     * {@code class} keyword or the {@code type()} constructor (with 3
+     * arguments).
+     * <p>
+     * This allows us to test code generation, while we simulate (in
+     * {@link #bareExample(Class, String, List, boolean, List)}) actions
+     * that {@code type.__new__} and the type factory should carry out
+     * when not broken. Our reference result is one of the classes in
+     * this file named {@code HCD_*} or {@code HCS_*}, where we express
+     * in Java, the code equivalent to that which should be generated
+     * for the examples.
+     * <p>
+     * See {@link DynamicBase} for a parallel test going via
+     * capabilities in the type object.
      */
     @Nested
     @DisplayName("A synthetic Java representation  ...")
@@ -96,7 +108,7 @@ class SubclassCreationTest {
                     bareExample(HCS_Fabc.class, "Fabc",
                             List.of(PyFloat.TYPE), false,
                             List.of("c", "a", "b")), //
-                    // Meta-type, no dict, no slots
+                    // Meta-type, inherit dict, no slots
                     bareExample(HCD_T.class, "T",
                             List.of(PyType.TYPE()), false, null) //
             );
@@ -289,7 +301,8 @@ class SubclassCreationTest {
                 String name = f.getName();
                 Field ref = fields.get(name);
                 if (ref != null) {
-                    assertSame(ref.getType(), f.getType());
+                    assertSame(ref.getType(), f.getType(),
+                            name + ": type");
                     assertModifiersMatch(name, ref.getModifiers(),
                             f.getModifiers());
                     fields.remove(name);
@@ -310,7 +323,7 @@ class SubclassCreationTest {
             }
         }
 
-        @DisplayName("bears the expected interfaces")
+        @DisplayName("has the expected interfaces")
         @ParameterizedTest(name = "when defined by {1}")
         @MethodSource("bareExamples")
         void expectedInterfaces(Class<?> refClass, String title,
@@ -380,16 +393,17 @@ class SubclassCreationTest {
                 String name = m.getName();
                 Method ref = methods.get(name);
                 if (ref != null) {
-                    assertSame(ref.getReturnType(), m.getReturnType());
+                    assertSame(ref.getReturnType(), m.getReturnType(),
+                            name + ": return type");
                     assertModifiersMatch(name, ref.getModifiers(),
                             m.getModifiers());
                     // Parameters should match in number and type.
                     Class<?>[] mp = m.getParameterTypes();
                     Class<?>[] rp = ref.getParameterTypes();
                     int n = rp.length;
-                    assertEquals(n, mp.length);
+                    assertEquals(n, mp.length, name + ": parameters");
                     for (int i = 0; i < n; i++) {
-                        assertSame(rp[i], mp[i]);
+                        assertSame(rp[i], mp[i], name + ": param " + i);
                     }
                     methods.remove(name);
                 } else {
@@ -872,44 +886,68 @@ class SubclassCreationTest {
     }
 
     /**
-     * A hand-crafted model of the Java representation that should be
-     * formed when a Python class is defined by:<pre>
+     * {@code HCD_T} is a hand-crafted model of the Java representation
+     * that should be formed when a Python class is defined by:<pre>
      * class Meta(type): pass
-     * class MyClass(metaclass=Meta): pass
-     * x = MyClass()
-     * </pre>
+     * class M2o(metaclass=Meta): pass
+     * x = M2o()
+     * </pre> If we further define:<pre>
+     * class Peta(type): pass
+     * class P2o(metaclass=Peta): pass
+     * </pre> then class assignment is possible on the types:<pre>
+     * P2o.__class__ = Meta
+     * </pre> This tells us that the objects {@code M2o} (an instance in
+     * Python of {@code Meta}) and {@code P2o} (an instance in Python of
+     * {@code Peta}, initially) must be instances in Java of the same
+     * class, which is the shared representation that {@code Meta} and
+     * {@code Peta} designate for their instances. It must have a
+     * modifiable {@code __class__} attribute. The class {@code HCD_T}
+     * is a model for that class.
      * <p>
-     * {@code Meta} is an instance in Python of (exactly) {@code type},
-     * that happens to name {@code type} as a base. In Java it is an
-     * instance of {@link SimpleType}. As all type objects do, it
-     * designates and can instantiate, a Java representation class for
-     * its instances, modelled here by {@code HCD_T}.
+     * The Python type of {@code Meta} and {@code Peta} is exactly
+     * {@code type}, but in order to share a representation, these type
+     * objects must be implemented as {@link ReplaceableType}.
      * <p>
-     * {@code MyClass} is an instance in Python of {@code Meta}, that
-     * has only {@code object} as a base. In Java, {@code MyClass} is an
-     * instance of {@code HCD_T}, which extends {@link SimpleType},
-     * because {@code type} was named in the bases of {@code Meta}. It
-     * designates and can instantiate, a Java representation class for
-     * its instances.
+     * Further class assignments are also possible on the instances of
+     * {@code Meta} and {@code Peta}:<pre>
+     * y = P2o()
+     * y.__class__ = M2o
+     * class O2: pass
+     * x.__class__ = O2
+     * </pre> We infer that {@code x} (an instance in Python of
+     * {@code M2o}) and {@code y} (an instance in Python of {@code P2o},
+     * initially) must also be instances in Java of the same class,
+     * which is the shared representation designated by {@code M2o},
+     * {@code P2o} and {@code O2} for their instances. But this is just
+     * {@code HCD_O}.
      * <p>
-     * {@code x} is an instance in Python of {@code MyClass}, having
-     * only {@code object} as base. In Java, it is an instance of the
-     * class {@code MyClass} designates.
+     * The Python type of {@code M2o} is {@code Meta}, which is a
+     * subclass in Python of {@code type}, therefore the Java class of
+     * the object {@code M2o} subclasses a representation of
+     * {@code type}. As we have seen, {@code P2o} is an instance in Java
+     * of the same class. These type objects also designate the same
+     * Java class ({@code HCD_O}) to represent their instances, so they
+     * must also subclass {@link ReplaceableType}. Therefore
+     * {@code HCD_T} is a subclass of {@code ReplaceableType}.
      * <p>
      * Note {@code HCD_T} inherits {@link WithDict} from
-     * {@link SimpleType}, and allows Python class assignment, but does
-     * not implement {@link WithDictAssignment}.
+     * {@link ReplaceableType}, and allows Python class assignment, but
+     * does not implement {@link WithDictAssignment}.
      */
-    static class HCD_T extends SimpleType
+    static class HCD_T extends ReplaceableType
             implements WithClassAssignment {
 
-        /** Type of this object. */
+        /**
+         * Type of this object. Not just a {@code PyType} as we like to
+         * rely on a {@code BaseType} having a {@code BaseType} type.
+         */
         private PyType $type;
 
-        HCD_T(PyType metaType, String name) {
-            super(name, HCD_T.class,
+        HCD_T(PyType metaclass, String name) {
+            super(name,
+                    new SharedRepresentation(HCD_O.class, HCD_O.class),
                     new BaseType[] {(BaseType)PyType.TYPE()});
-            this.$type = checkClassAssignment(metaType);
+            this.$type = checkClassAssignment(metaclass);
         }
 
         @Override
@@ -917,9 +955,9 @@ class SubclassCreationTest {
 
         @Override
         public void setType(Object replacementType) {
+            // Maybe add mutability and other checks.
             $type = checkClassAssignment(replacementType);
         }
-
     }
 
     /**

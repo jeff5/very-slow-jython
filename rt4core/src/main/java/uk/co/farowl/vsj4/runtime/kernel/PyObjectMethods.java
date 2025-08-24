@@ -98,8 +98,8 @@ final class PyObjectMethods {
     static Object __new__(PyType cls) {
         /*
          * We normally arrive here from PyType.__call__, where this/self
-         * is the the type we're asked to construct, and gets passed
-         * here as the 'cls' argument.
+         * is the the Python type of which we are asked to construct an
+         * instance, and gets passed here as the 'cls' argument.
          */
         if (cls == PyObject.TYPE) {
             return new Object();

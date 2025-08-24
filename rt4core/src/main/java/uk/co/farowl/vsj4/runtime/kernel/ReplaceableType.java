@@ -8,12 +8,12 @@ import java.util.List;
  * A Python type object used where multiple Python types share a single
  * representation in Java, making them all acceptable for assignment to
  * the {@code __class__} member of Python instances of any of them. The
- * common representation encapsulates what Python terms the "layout
+ * common representation encapsulates what in Python terms the "layout
  * constraints". The Java implementation of Python instance methods in
  * such a type will have the common Java type (or a superclass) as their
  * {@code self} parameter.
  */
-public final class ReplaceableType extends BaseType {
+public non-sealed class ReplaceableType extends BaseType {
 
     /** The representation shared by this type and others. */
     final SharedRepresentation representation;

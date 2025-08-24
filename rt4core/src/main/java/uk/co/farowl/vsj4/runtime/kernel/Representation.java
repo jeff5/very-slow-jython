@@ -38,7 +38,7 @@ import uk.co.farowl.vsj4.runtime.kernel.SpecialMethod.Signature;
  */
 public abstract class Representation {
 
-    /** Logger for representation/type object activity in the kernel. */
+    /** Logger for representation object activity in the kernel. */
     protected static final Logger logger =
             LoggerFactory.getLogger(Representation.class);
 
@@ -86,13 +86,23 @@ public abstract class Representation {
     }
 
     /**
-     * Get the Python type object {@code type}. Calls
-     * {@link TypeFactory#getTypeForType() factory.getTypeForType()}
+     * Get the Python type object {@code type} directly from the
+     * factory.
      *
      * @return the Python type object {@code type}
      */
-    static SimpleType getTypeForType() {
-        return factory.getTypeForType();
+    static final SimpleType typeType() {
+        return factory.typeType();
+    }
+
+    /**
+     * Get the Python type object {@code object} directly from the
+     * factory.
+     *
+     * @return the Python type object {@code object}
+     */
+    static final SimpleType objectType() {
+        return factory.objectType();
     }
 
     /*

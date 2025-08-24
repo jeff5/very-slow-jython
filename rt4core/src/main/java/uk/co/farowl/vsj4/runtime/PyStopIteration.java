@@ -4,9 +4,6 @@ package uk.co.farowl.vsj4.runtime;
 
 import java.lang.invoke.MethodHandles;
 
-import uk.co.farowl.vsj4.runtime.Exposed.KeywordOnly;
-import uk.co.farowl.vsj4.runtime.Exposed.PositionalCollector;
-
 /** The Python {@code StopIteration} exception. */
 public class PyStopIteration extends PyBaseException {
 

@@ -115,8 +115,16 @@ public abstract class KernelType extends Representation
     @Override
     public PyType getBase() { return base; }
 
+    /**
+     * @implNote {@code type} will do as the default, but in
+     *     {@link SimpleType} and {@link ReplaceableType} we must store
+     *     and return an actual type, that may be some sub-type of
+     *     {@code type}, and therefore (by the way) an instance of a
+     *     Java sub-class of {@link BaseType}.
+     */
+    // FIXME: override in subclasses so not always exactly 'type'
     @Override
-    public PyType getType() { return getTypeForType(); }
+    public PyType getType() { return typeType(); }
 
     /**
      * Return a copy of the MRO of this type.
@@ -320,37 +328,7 @@ public abstract class KernelType extends Representation
         return kernelFeatures.contains(KernelTypeFlag.READY);
     }
 
-    /**
-     * Determine if this type is a Python sub-type of {@code b} (if
-     * {@code b} is on the MRO of this type). For technical reasons we
-     * parameterise with the subclass. (We need it to work with a
-     * private superclass or {@code PyType}.)
-     *
-     * @param b to test
-     * @return {@code true} if {@code this} is a sub-type of {@code b}
-     */
-    // Compare CPython PyType_IsSubtype in typeobject.c
-    // TODO: Make this take a PyType when we sort out the hierarchy
-    // Probably implement in BaseType
-    public boolean isSubTypeOf(KernelType b) { return false; }
-
     // Support for __new__ -------------------------------------------
-
-/// **
-// * The return from {@link #constructor()} holding a reflective
-// * constructor definition and a handle by which it may be called.
-// * <p>
-// * A custom {@code __new__} method in a defining Java class of a
-// * type generally has direct access to all the constructors it needs
-// * for its own type. When asked for an instance of a different type,
-// * it must be able to call the constructor of the Java
-// * representation class. The representation of the required type
-// * (the {@code cls} argument to {@code __new__}) will be a subclass
-// * in Java of the canonical representation of the type from which
-// * {@code __new__} was called.
-// */
-// public static record ConstructorAndHandle(
-// Constructor<?> constructor, MethodHandle handle) {}
 
     /**
      * Return the table holding constructors and their method handles
@@ -438,5 +416,6 @@ public abstract class KernelType extends Representation
      * @param selfClass to seek
      * @return index in {@link #selfClasses()}
      */
+    @SuppressWarnings("static-method")
     public int getSubclassIndex(Class<?> selfClass) { return 0; }
 }

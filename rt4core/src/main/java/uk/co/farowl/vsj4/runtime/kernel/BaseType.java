@@ -11,6 +11,7 @@ import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Modifier;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumSet;
@@ -19,10 +20,16 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import uk.co.farowl.vsj4.runtime.Abstract;
 import uk.co.farowl.vsj4.runtime.ArgumentError;
 import uk.co.farowl.vsj4.runtime.Callables;
 import uk.co.farowl.vsj4.runtime.Exposed;
+import uk.co.farowl.vsj4.runtime.Exposed.KeywordCollector;
 import uk.co.farowl.vsj4.runtime.Feature;
 import uk.co.farowl.vsj4.runtime.MethodDescriptor;
 import uk.co.farowl.vsj4.runtime.PyAttributeError;
@@ -42,6 +49,9 @@ import uk.co.farowl.vsj4.runtime.TypeFlag;
 import uk.co.farowl.vsj4.runtime.TypeSpec;
 import uk.co.farowl.vsj4.runtime.WithDict;
 import uk.co.farowl.vsj4.runtime.internal._PyUtil;
+import uk.co.farowl.vsj4.runtime.kernel.TypeFactory.Clash;
+import uk.co.farowl.vsj4.runtime.subclass.SubclassFactory;
+import uk.co.farowl.vsj4.runtime.subclass.SubclassSpec;
 import uk.co.farowl.vsj4.support.InterpreterError;
 import uk.co.farowl.vsj4.support.internal.EmptyException;
 
@@ -60,6 +70,14 @@ import uk.co.farowl.vsj4.support.internal.EmptyException;
  */
 public abstract sealed class BaseType extends KernelType
         permits SimpleType, ReplaceableType, AdoptiveType {
+
+    /** Logger for type object activity in the kernel. */
+    protected static final Logger logger =
+            LoggerFactory.getLogger(BaseType.class);
+
+    /** Subclass factory} to use in creating subclasses. */
+    static final SubclassFactory SUBCLASS_FACTORY =
+            new SubclassFactory("VSJ$%s$%d");
 
     /**
      * The {@code __mro__} of this type, that is, the method resolution
@@ -332,14 +350,142 @@ public abstract sealed class BaseType extends KernelType
      *
      * @param t presented to our API somewhere
      * @return {@code t} if it is a {@code BaseType}
-     * @throws ClassCastException {@code t} is not a {@code BaseType}
+     * @throws PyBaseException {@code t} is not a {@code BaseType}
      */
-    public static BaseType cast(PyType t) throws InterpreterError {
+    public static BaseType cast(Object t)
+            throws PyBaseException, ClassCastException {
         if (t instanceof BaseType bt) {
             return bt;
-        } else {
+        } else if (t instanceof PyType) {
             throw new ClassCastException(String.format(
                     "non-Jython PyType encountered: %s", t.getClass()));
+        } else {
+            throw Abstract.requiredTypeError("a type", t);
+        }
+    }
+
+    // Constructor from Python ----------------------------------------
+
+    /**
+     * Create a new instance of Python {@code type}, or of a subclass
+     * {@code M}. The actual Python type of the returned object may be a
+     * subclass {@code M} or a subclass of that, as required by the
+     * bases.
+     * <p>
+     * Note the following cases. Suppose {@code T} to be a superclass of
+     * {@code M}, and a subclass of {@code type}, that has not
+     * overridden {@code __new__}. We may arrive here:
+     * <ul>
+     * <li>directly as a call to {@code T.__new__(M, name, bases, ns)},
+     * or</li>
+     * <li>from a call {@code M(name, bases, ns)}, where {@code M} does
+     * not override {@code __call__} or {@code __new__}, which resolves
+     * {@code M.__new__} to call this method.</li>
+     * <li>indirectly, beginning with either
+     * {@code M.__new__(M, name, bases, ns)} or
+     * {@code M(name, bases, ns)}, but where {@code M} overrides
+     * {@code __new__}, and we arrive by one or more calls to
+     * {@code super().__new__(M, name, bases, ns)}.</li>
+     * </ul>
+     * The internal logic of {@code __new__} is subtle enough to do the
+     * right thing in these various cases.
+     * <p>
+     * Note that {@code class A: pass} produces a new instance of
+     * {@code type}, while {@code class T(A,B,metaclass=M)}: pass
+     * produces a new instance of {@code M}, which must be a Python
+     * sub-type of {@code type}.
+     *
+     * @param cls requested Python sub-class being created (a metaclass)
+     * @param name to be reported by the type object
+     * @param bases specified for the type object
+     * @param namespace initially specified elements for the namespace
+     *     of the class
+     * @param kwargs keyword arguments given to {@code __new__}
+     * @return a newly-created type.
+     * @throws PyBaseException (TypeError) When the type specification
+     *     implied by the arguments is not realisable for reasons given
+     *     in the exception.
+     * @throws Throwable from other errors
+     */
+    // Compare CPython type_new in typeobject.c
+    @Exposed.PythonNewMethod
+    public static Object __new__(PyType cls, String name, PyTuple bases,
+            PyDict namespace, @KeywordCollector PyDict kwargs)
+            throws PyBaseException, Throwable {
+        // FIXME type.__new__ currently ignoring keyword arguments
+
+        // Make a list of the bases, checking they are acceptable
+        List<BaseType> checkedBases = updateBases(bases, () -> PyErr
+                .format(PyExc.TypeError, MRO_ENTRIES_NOT_SUPPORTED));
+
+        // From cls and the bases, choose a common metaclass.
+        BaseType metaclass =
+                commonMetaclass(BaseType.cast(cls), checkedBases);
+
+        // FIXME Support the several cases within type.__new__
+
+        /*
+         * 1. metaclass is exactly type and so is the metaclass of every
+         * base: we produce a new instance of BaseType with a
+         * representation that subclasses the representation of every
+         * base.
+         */
+
+        /*
+         * 1. There is a common metaclass, that is a proper subclass of
+         * metaclass, for which __new__ is not type.__new__: we shall
+         * call that to create the new type, instead of creating a new
+         * type within this call. However, this in turn (directly or
+         * not) should call type.__new__ with cls as the common
+         * metaclass. Therefore we will arrive here again, maybe with
+         * different arguments.
+         */
+
+        /*
+         * 3. The common metaclass is exactly metaclass: we shall create
+         * a new type within this call, setting its type to metaclass,
+         * but we do not call metaclass.__new__, (even if
+         * metaclass.__new__ != type.__new__) as we assume we are
+         * already inside such a call.
+         */
+
+        /*
+         * 4. There is a common metaclass, which may be exactly
+         * metaclass, or a proper subclass of it, for which __new__ is
+         * type.__new__: we shall create a new type within this call,
+         * setting its type to the common metaclass.
+         */
+
+        /*
+         * When no bases are given, the effective base is just object.
+         * This is a special case of 2.
+         */
+
+        /*
+         * We must find or create a class capable of representing
+         * instances of this type.
+         */
+        BaseType bestBase = best_base(checkedBases);
+        SubclassSpec instanceSpec =
+                new SubclassSpec(name, bestBase.canonicalClass());
+        // TODO are constructors more a property of a Representation?
+        instanceSpec.addConstructors(bestBase);
+        // Creating the class give it to us with access privileges.
+        Lookup lu = SUBCLASS_FACTORY.findOrCreateSubclass(instanceSpec);
+
+        /*
+         * We create the type object required using the TypeFactory,
+         * with the new synthetic class as the representation.
+         */
+        TypeSpec spec = new TypeSpec(name, lu).bases(checkedBases)
+                .metaclass(metaclass).namespace(namespace)
+                .add(Feature.REPLACEABLE, Feature.BASETYPE);
+        try {
+            BaseType type = factory.fromSpec(spec);
+            return type;
+        } catch (Clash e) {
+            // TODO Interpret as a type error?
+            throw new InterpreterError(e);
         }
     }
 
@@ -630,16 +776,17 @@ public abstract sealed class BaseType extends KernelType
     @Override
     public Object call(Object[] args, String[] names)
             throws ArgumentError, Throwable {
+
+        assert (args != null);
+        int nk = names == null ? 0 : names.length;
+        int np = args.length - nk;
+
         /*
          * Special case: type(x) should return the Python type of x, but
          * only if this is exactly the type 'type'.
          */
-        if (this == PyType.TYPE()) {
+        if (this == typeType()) {
             // Deal with two special cases
-            assert (args != null);
-            int nk = names == null ? 0 : names.length;
-            int np = args.length - nk;
-
             if (np == 1 && nk == 0) {
                 // Call is exactly type(x) so this is a type enquiry
                 return PyType.of(args[0]);
@@ -1091,6 +1238,14 @@ public abstract sealed class BaseType extends KernelType
 
     // plumbing ------------------------------------------------------
 
+    private static final String MRO_ENTRIES_NOT_SUPPORTED =
+            "type() doesn't support MRO entry resolution; "
+                    + "use types.new_class()";
+    private static final String METACLASS_CONFLICT =
+            "metaclass conflict: " + "the metaclass of a derived class "
+                    + "must be a (non-strict) subclass "
+                    + "of the metaclasses of all its bases";
+
     /**
      * Determine if this type is a Python sub-type of {@code b} by
      * chaining through the {@link #base} property. (This is a fall-back
@@ -1101,6 +1256,11 @@ public abstract sealed class BaseType extends KernelType
      */
     // Compare CPython type_is_subtype_base_chain in typeobject.c
     private boolean type_is_subtype_base_chain(PyType b) {
+        // Useful to know when we resort to this
+        logger.atTrace()
+                .setMessage("ask {} is sub-type of {} from base chain")
+                .addArgument(() -> getName())
+                .addArgument(() -> b.getName());
         PyType t = this;
         while (t != b) {
             t = t.getBase();
@@ -1111,10 +1271,11 @@ public abstract sealed class BaseType extends KernelType
 
     /**
      * Invoke a custom {@code mro()}, if one has been defined for this
-     * type, or do the equivalent of {@link #mro()} if not. The method
-     * is safe to use during type system initialisation, when bootstrap
-     * types are still being created. A custom {@code mro()} cannot have
-     * been defined by then, and so the alternate path is always taken.
+     * type, or do the equivalent of {@link #mro()} if not.
+     * <p>
+     * The method is safe to use during type system initialisation where
+     * {@link #getType()}{@code ==type}, that is, this is not a Python
+     * metaclass.
      *
      * @return a valid MRO for the type
      * @throws Throwable on Python errors
@@ -1122,9 +1283,10 @@ public abstract sealed class BaseType extends KernelType
     // Compare CPython mro_invoke in typeobject.c
     // Unlike CPython, we return an array, avoiding PyTuple.
     private BaseType[] mro_invoke() throws Throwable {
-
+        logger.atDebug().setMessage("calculating __mro__ of {}")
+                .addArgument(name).log();
         BaseType[] newMRO = null;
-        SimpleType typeType = getTypeForType();
+        SimpleType typeType = typeType();
         // FIXME getType() of concrete PyTypes should be concrete
         // This will affect the synthesis of sub-type representations
         BaseType metatype = BaseType.cast(getType());
@@ -1136,6 +1298,8 @@ public abstract sealed class BaseType extends KernelType
                  * This is a metatype that redefines mro(). We call its
                  * specific mro() as a Python method.
                  */
+                logger.atDebug().setMessage("calling {}")
+                        .addArgument(lur.obj).log();
                 Object mro_result = Callables.call(lur.obj, this);
                 // It returns some kind of iterable.
                 List<Object> result = PySequence.fastList(mro_result,
@@ -1230,13 +1394,197 @@ public abstract sealed class BaseType extends KernelType
     private BaseType solid_base() {
         // Walk the base chain and return just before the class change.
         BaseType sb;
-        if (base != null) {
+        if (base != null) {  // TODO: is recursion sensible here? Loop?
             sb = base.solid_base();
         } else {
             // This must be the type object of object
             return this;
         }
         return javaClass() == sb.javaClass() ? sb : this;
+    }
+
+    /**
+     * Calculate the "best base" amongst multiple base classes. A type
+     * that has the given types as bases will have as its "best base"
+     * the first base with a representation in Java that is a sub-class
+     * of the representations of all the bases.
+     * <p>
+     * When defining a new type with these bases, the appropriate
+     * representation Java class may be that of the "best base", or it
+     * may be one that extends that representation, e.g to accommodate
+     * new members ({@code __slots__} or an instance dictionary). It
+     * follows, however, that the representation of the new type will be
+     * a Java subclass of the representations of all the bases, and
+     * therefore their operations apply to the new type.
+     * <p>
+     * If no such candidate is found amongst the bases, the
+     * representations are said to conflict, and the type cannot exist
+     * in this implementation. (CPython calls this a "layout conflict".
+     * We think the logic here is no more restrictive than in CPython.)
+     *
+     * @param bases of a potential new type
+     * @return the best amongst them as a base for representations
+     */
+    // Compare CPython best_base in typeobject.c
+    private static BaseType best_base(List<BaseType> bases) {
+        BaseType base = objectType(), winner = base;
+
+        for (PyType pt : bases) {
+            BaseType b = BaseType.cast(pt);
+            assert b.isReady();
+
+            // TODO: did we not check for BASETYPE already?
+            if (!b.hasFeature(TypeFlag.BASETYPE)) {
+                throw PyErr.format(PyExc.TypeError,
+                        "type '%.100s' is not an acceptable base type",
+                        b.getName());
+            }
+
+            // The candidate has the same representation as b
+            BaseType candidate = b.solid_base();
+
+            if (winner.isSubTypeOf(candidate)) {
+                // Don't change the candidate
+            } else if (candidate.isSubTypeOf(winner)) {
+                // candidate is more derived so is new winner
+                winner = candidate;
+                base = b;
+            } else {
+                throw PyErr.format(PyExc.TypeError,
+                        "bases have conflicting representations");
+            }
+        }
+
+        // base will be object type if bases was empty
+        return base;
+    }
+
+    /**
+     * Determine the proper metaclass to construct a new type, given
+     * that the metaclass and bases originally specified, in an
+     * expression like {@code class C(bases, metaclass=m):pass} or as
+     * the function called as {@code m(name, bases, {})}. The proper
+     * metaclass is a Python sub-class of the given metatype and the
+     * types of all the bases.
+     * <p>
+     * At the same time, we check for metaclass conflicts and bases that
+     * are not types at all.
+     *
+     * @param metaclass specified originally
+     * @param bases of the new type
+     * @return proper metaclass to create new type (not {@code null})
+     */
+    // Compare CPython _PyType_CalculateMetaclass in typeobject.c
+    private static BaseType commonMetaclass(BaseType metaclass,
+            List<BaseType> bases) {
+        for (BaseType base : bases) {
+            // FIXME: specialise getType to avoid the cast
+            // This means reworking type attribute in SubclassFactory
+            BaseType candidate = (BaseType)base.getType();
+            if (metaclass.isSubTypeOf(candidate)) {
+                // Don't change the winning metaclass
+            } else if (candidate.isSubTypeOf(metaclass)) {
+                // candidate is the new winner
+                metaclass = candidate;
+            } else {
+                throw PyErr.format(PyExc.TypeError, METACLASS_CONFLICT);
+            }
+        }
+        return metaclass;
+    }
+
+    /**
+     * Make a list of the bases from the {@code args}, checking that
+     * each is acceptable as a base (is a {@link BaseType} and allows
+     * itself to be a base in Python. This method may be used in
+     * {@code type.__new__} and also {@code builtins.__build_class__}.
+     * <p>
+     * In the latter context, objects are allowed that resolve to a
+     * tuple of bases using the {@code __mro_entries__} protocol, and
+     * this method makes that expansion. In the former context,
+     * {@code type.__new__} forbids this by providing a non null
+     * {@code exceptionSupplier}.
+     *
+     * @param spec to accumulate the bases.
+     * @param args purported bases.
+     * @param exceptionSupplier if not {@code null},
+     *     {@code __mro_entries__} protocol is forbidden.
+     * @throws PyBaseException (TypeError) when some object in
+     *     {@code args} cannot be a base.
+     * @throws Throwable from other errors in the implementation of the
+     *     tuple etc..
+     */
+    // Compare CPython update_bases in bltinmodule.c
+    // Compare CPython type_new_get_bases in typeobject.c
+    private static List<BaseType> updateBases(PyTuple args,
+            Supplier<PyBaseException> exceptionSupplier)
+            throws PyBaseException, Throwable {
+
+        // Almost always the same size as args.
+        List<BaseType> bases = new ArrayList<>(args.size());
+
+        for (Object arg : args) {
+
+            if (arg instanceof BaseType base) {
+                addChecked(bases, base);
+
+            } else {
+                // Non-type object: does it implement __mro_entries__?
+                Object meth = null, entries = null;
+                try {
+                    meth = Abstract.lookupAttr(arg, "__mro_entries__");
+                } catch (Throwable e) {
+                    // Treat as not found.
+                }
+
+                if (meth != null) {
+                    /*
+                     * We are expected to call __mro_entries__, and
+                     * replace arg with the entries it provides. But
+                     * first, is that allowed here?
+                     */
+                    if (exceptionSupplier != null) {
+                        // No: throw as specified by the caller.
+                        throw exceptionSupplier.get();
+                    } else {
+                        /*
+                         * __mro_entries__ expects the original args as
+                         * its argument and returns a tuple of types
+                         */
+                        entries = Callables.call(meth, args);
+
+                        // And should return a tuple of types.
+                        if (entries instanceof PyTuple t) {
+                            for (Object o : t) { addChecked(bases, o); }
+                        } else {
+                            throw PyErr.format(PyExc.TypeError,
+                                    "__mro_entries__ must return a tuple");
+                        }
+                    }
+                }
+            }
+        }
+        return bases;
+    }
+
+    private static void addChecked(List<BaseType> bases, Object o) {
+        if (o instanceof PyType base) {
+            // Diagnose foreign PyType implementations here
+            addChecked(bases, BaseType.cast(base));
+        } else {
+            throw PyErr.format(PyExc.TypeError, "bases must be types");
+        }
+    }
+
+    private static void addChecked(List<BaseType> bases,
+            BaseType base) {
+        if (base.hasFeature(TypeFlag.BASETYPE)) {
+            bases.add(base);
+        } else {
+            throw PyErr.format(PyExc.TypeError,
+                    "type '%.100s' is not an acceptable base type",
+                    base);
+        }
     }
 
     /**
