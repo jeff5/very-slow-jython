@@ -42,7 +42,8 @@ import uk.co.farowl.vsj4.runtime.subclass.SubclassSpec;
 import uk.co.farowl.vsj4.support.internal.Util;
 
 /**
- * This is a test of a process behind class definition in Python. We
+ * This is a test of a process behind class definition in Python, which
+ * is founded on {@link SubclassSpec} and {@link SubclassFactory}. We
  * create a specification, as we might when interpreting a class
  * definition, and generate a Java class in byte code that will
  * represent instances of the new Python class. We then compare
@@ -60,6 +61,17 @@ import uk.co.farowl.vsj4.support.internal.Util;
  * Python class is defined).
  */
 class SubclassCreationTest {
+
+    // FIXME add test for subclass of subclass defined as in Python
+    /*
+     * SOLUTION IMPLEMENTED: in the subclass factory, we make an
+     * additional cache entry to say that anything with the new class as
+     * base and exactly the same managed dict/class has the same
+     * representation. This turns up in BaseType.__new__.
+     *
+     * We do not test type.__new__ here, but lack a test for the kind of
+     * use is makes of SubclassSpec.
+     */
 
     /**
      * We create Java representations of classes directly, using only
@@ -102,15 +114,15 @@ class SubclassCreationTest {
                     // Simple base, no slots
                     bareExample(HCD_F.class, "F", PyFloat.TYPE), //
                     // No bases, slots
-                    bareExample(HCS_Oa.class, "Oa", List.of(), false,
+                    bareExample(HCS_Oa.class, "Oa", List.of(),
                             List.of("a")), //
                     // Simple base, no dict, slots
                     bareExample(HCS_Fabc.class, "Fabc",
-                            List.of(PyFloat.TYPE), false,
+                            List.of(PyFloat.TYPE),
                             List.of("c", "a", "b")), //
                     // Meta-type, inherit dict, no slots
                     bareExample(HCD_T.class, "T",
-                            List.of(PyType.TYPE()), false, null) //
+                            List.of(PyType.TYPE()), null) //
             );
         }
 
@@ -144,8 +156,7 @@ class SubclassCreationTest {
         private static Arguments bareExample(Class<?> refClass,
                 String name, PyType base, List<String> slots) {
             if (base == null) { base = PyObject.TYPE; }
-            return bareExample(refClass, name, List.of(base),
-                    slots != null, slots);
+            return bareExample(refClass, name, List.of(base), slots);
         }
 
         /**
@@ -162,8 +173,7 @@ class SubclassCreationTest {
         private static Arguments bareExample(Class<?> refClass,
                 String name, PyType base) {
             if (base == null) { base = PyObject.TYPE; }
-            return bareExample(refClass, name, List.of(base), true,
-                    null);
+            return bareExample(refClass, name, List.of(base), null);
         }
 
         /**
@@ -179,7 +189,7 @@ class SubclassCreationTest {
          */
         private static Arguments bareExample(Class<?> refClass,
                 String name, List<PyType> bases) {
-            return bareExample(refClass, name, bases, true, null);
+            return bareExample(refClass, name, bases, null);
         }
 
         /**
@@ -190,14 +200,12 @@ class SubclassCreationTest {
          *
          * @param refClass the reference result
          * @param name of the Python type to create
-         * @param bases of the Python type (empty means {@code object})
          * @param addDict whether to add a dictionary
          * @param slots {@code __slots__} or {@code null}
          * @return parameters for the test
          */
         private static Arguments bareExample(Class<?> refClass,
-                String name, List<PyType> bases, boolean addDict,
-                List<String> slots) {
+                String name, List<PyType> bases, List<String> slots) {
 
             // Make a string title "class name(b0, b1, b2):"
             String title = generateClassDeclaration(name, bases, slots);
@@ -216,7 +224,6 @@ class SubclassCreationTest {
             SubclassSpec spec =
                     new SubclassSpec(name, baseType.canonicalClass());
             spec.addInterfaces(interfaces);
-            spec.addDictIf(addDict);
             if (slots != null) { spec.addSlots(slots); }
 
             return arguments(refClass, title.toString(), spec, name);
@@ -318,8 +325,7 @@ class SubclassCreationTest {
             }
             // What landed in extras was unexpected in c.
             if (!extras.isEmpty()) {
-                fail(String.format("unexpected field(s): %s",
-                        fields.keySet()));
+                fail(String.format("unexpected field(s): %s", extras));
             }
         }
 
@@ -817,7 +823,10 @@ class SubclassCreationTest {
     static class HCD_O
             implements WithDictAssignment, WithClassAssignment {
 
-        /** Type of this object. */
+        /**
+         * Type of this object is managed here since it is not
+         * assignable in {@code object}.
+         */
         private PyType $type;
 
         /** Instance dictionary. */
@@ -857,10 +866,16 @@ class SubclassCreationTest {
     static class HCD_F extends PyFloat
             implements WithDictAssignment, WithClassAssignment {
 
-        /** Type of this object. */
+        /**
+         * Type of this object is managed here since it is not
+         * assignable in {@code float}.
+         */
         private PyType $type;
 
-        /** Instance dictionary. */
+        /**
+         * Add an instance dictionary because {@code float} does not
+         * have one.
+         */
         private PyDict $dict;
 
         HCD_F(PyType actualType, double value) {
@@ -938,8 +953,8 @@ class SubclassCreationTest {
             implements WithClassAssignment {
 
         /**
-         * Type of this object. Not just a {@code PyType} as we like to
-         * rely on a {@code BaseType} having a {@code BaseType} type.
+         * Type of this object is managed here since it is not
+         * assignable in {@code type}.
          */
         private PyType $type;
 
@@ -969,7 +984,10 @@ class SubclassCreationTest {
      */
     static class HCS_Oa implements WithClassAssignment {
 
-        /** Type of this object. */
+        /**
+         * Type of this object is managed here since it is not
+         * assignable in {@code object}.
+         */
         private PyType $type;
 
         /* Variables corresponding to {@code __slots__} names. */
@@ -999,7 +1017,10 @@ class SubclassCreationTest {
     static class HCS_Fabc extends PyFloat
             implements WithClassAssignment {
 
-        /** Type of this object. */
+        /**
+         * Type of this object is managed here since it is not
+         * assignable in {@code float}.
+         */
         private PyType $type;
 
         /* Variables corresponding to {@code __slots__} names. */

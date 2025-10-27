@@ -102,13 +102,14 @@ public class SubclassFactory {
     /**
      * Find a lookup object (created by a previous call), or create a
      * one now, that matches the specification for base, interfaces,
-     * slots and possession of a {@code __dict__} member.
+     * slots and possession of {@code __dict__} and managed
+     * {@code __class__} members.
      *
      * @param spec of the required class
-     * @return Java class representing the Python class described
+     * @return lookup on the Java representation class
      */
     public synchronized Lookup findOrCreateSubclass(SubclassSpec spec) {
-        Lookup lookup = subclasses.get(spec.freeze());
+        Lookup lookup = subclasses.get(spec); // hash calls freeze()
         if (lookup == null) {
             // Make a class
             SubclassBuilder sw = new SubclassBuilder(spec);
@@ -127,7 +128,7 @@ public class SubclassFactory {
                 }
             }
 
-            // Create (and cache) the representation class
+            // Create a representation class according to this spec
             try {
                 lookup = LOOKUP.defineHiddenClass(b, true);
             } catch (IllegalAccessException e) {
@@ -135,7 +136,24 @@ public class SubclassFactory {
                         "Failed to create subclass specified by %s",
                         spec);
             }
+
+            /*
+             * Cache the new representation so that an identical spec
+             * will lead to re-use of the same representation.
+             */
             subclasses.put(spec, lookup);
+
+            /*
+             * Create a second spec citing the new representation as a
+             * Java base but requiring no additional __dict__ and
+             * __class__ members. This is a specification that may
+             * result when a Python class with the new representation is
+             * sub-classed, and the subclass adds no members. It can and
+             * should be satisfied by re-use of the same representation.
+             */
+            SubclassSpec spec2 = new SubclassSpec(
+                    spec.getName() + "$sub", lookup.lookupClass());
+            subclasses.put(spec2, lookup);
         }
         return lookup;
     }
@@ -252,25 +270,6 @@ public class SubclassFactory {
         private final String baseName;
         private final String[] exceptions;
 
-        /**
-         * Flag that we must add mechanisms to manage class assignment.
-         * Types with representations created here all support class
-         * assignment, even e.g. metatypes. So if the base class doesn't
-         * already do that, we add the mechanisms in the class we
-         * create.
-         */
-        final boolean manageClassAssignment;
-
-        /**
-         * Flag that we must add mechanisms to manage an assignable
-         * {@code __dict__}. An instance dictionary
-         * ({@code self.__dict__}) may have been specified. Or it may
-         * exist already (with its own policies) thanks to the base
-         * class. If one is specified and not supplied by the base we
-         * add the mechanisms in the class we create.
-         */
-        final boolean manageDictAssignment;
-
         // private final MethodNode staticInit;
 
         /**
@@ -286,12 +285,6 @@ public class SubclassFactory {
             this.baseClass = Type.getType(base);
             this.baseName = baseClass.getInternalName();
 
-            this.manageClassAssignment =
-                    !WithClassAssignment.class.isAssignableFrom(base);
-            this.manageDictAssignment = spec.hasDict()
-                    ? !WithDictAssignment.class.isAssignableFrom(base)
-                    : false;
-
             // Constructors and setType may throw:
             this.exceptions =
                     new String[] {PY_EXCEPTION_TYPE.getInternalName()};
@@ -301,7 +294,7 @@ public class SubclassFactory {
             spec.setName(name);
             logger.atDebug().setMessage("Creating class for spec {}")
                     .addArgument(spec).log();
-            // We always need a static initialisation section
+            // We seem never to need a static initialisation section
             // this.staticInit = new MethodNode(ACC_STATIC, "<clinit>",
             // "()V", null, null);
             // this.cn.methods.add(this.staticInit);
@@ -319,11 +312,11 @@ public class SubclassFactory {
              */
             addConstructors();
             // Add the methods to manage object type.
-            if (manageClassAssignment) {
+            if (spec.manageClassAssignment()) {
                 addGetSet(TYPE_FIELD, GET_TYPE, SET_TYPE, CHECK_TYPE);
             }
             // Add the methods to manage an assignable dictionary.
-            if (manageDictAssignment) {
+            if (spec.manageDictAssignment()) {
                 addGetSet(DICT_FIELD, GET_DICT, SET_DICT, CHECK_DICT);
             }
             // Add an attribute for each name in __slots__.
@@ -358,12 +351,12 @@ public class SubclassFactory {
                 cn.interfaces.add(Type.getInternalName(c));
             }
             // Possibly add replaceable dictionary
-            if (manageDictAssignment) {
+            if (spec.manageDictAssignment()) {
                 cn.interfaces.add(
                         WITH_DICT_ASSIGNMENT_TYPE.getInternalName());
             }
             // Add __class__ access if base is not already doing it
-            if (manageClassAssignment)
+            if (spec.manageClassAssignment())
                 cn.interfaces.add(
                         WITH_CLASS_ASSIGNMENT_TYPE.getInternalName());
         }
@@ -377,12 +370,6 @@ public class SubclassFactory {
             for (Constructor<?> c : spec.getConstructors()) {
                 addConstructorWrapping(c);
             }
-        }
-
-        /** @return true iff the first parameter is a PyType. */
-        private static boolean hasPyType(Constructor<?> c) {
-            return c.getParameterCount() > 0
-                    && c.getParameters()[0].getType() == PyType.class;
         }
 
         /**
@@ -415,7 +402,7 @@ public class SubclassFactory {
 
             // Work out the parameters of the new constructor
             String descr;
-            if (manageClassAssignment) {
+            if (spec.manageClassAssignment()) {
                 /*
                  * The base does not hold the actual type of the object.
                  * Its constructor does not have the actual PyType as
@@ -441,7 +428,7 @@ public class SubclassFactory {
             // Build the constructor code T(actualType, args...)
             InsnList ins = mn.instructions;
 
-            if (manageClassAssignment) {
+            if (spec.manageClassAssignment()) {
                 // Call super(args...). args begin at frame[2].
                 addCallSuperConstructor(ins, baseName, baseDescr,
                         baseParams, 2);

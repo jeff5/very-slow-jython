@@ -68,8 +68,8 @@ import uk.co.farowl.vsj4.support.internal.EmptyException;
  * takes responsibility for attributes and lookup along the MRO. It
  * contains the apparatus to make the type "Python-ready".
  */
-public abstract sealed class BaseType extends KernelType
-        permits SimpleType, ReplaceableType, AdoptiveType {
+public abstract sealed class BaseType extends KernelType implements
+        WithDict permits SimpleType, ReplaceableType, AdoptiveType {
 
     /** Logger for type object activity in the kernel. */
     protected static final Logger logger =
@@ -210,6 +210,7 @@ public abstract sealed class BaseType extends KernelType
      *
      * @return dictionary of the {@code type} in a read-only view.
      */
+    @Override
     // @Getter("__dict__")
     @SuppressWarnings({"unchecked", "rawtypes"})
     public final Map<Object, Object> getDict() {
@@ -266,7 +267,7 @@ public abstract sealed class BaseType extends KernelType
          * present.
          */
 
-        // CPython checks here to see in this type is "ready".
+        // CPython checks here to see if this type is "ready".
         // Could we be "not ready" in some loop of types? Think not.
 
         LookupStatus status = LookupStatus.FINAL;
@@ -414,6 +415,9 @@ public abstract sealed class BaseType extends KernelType
             throws PyBaseException, Throwable {
         // FIXME type.__new__ currently ignoring keyword arguments
 
+        logger.atTrace().setMessage("defining class {}")
+                .addArgument(name).log();
+
         // Make a list of the bases, checking they are acceptable
         List<BaseType> checkedBases = updateBases(bases, () -> PyErr
                 .format(PyExc.TypeError, MRO_ENTRIES_NOT_SUPPORTED));
@@ -432,7 +436,7 @@ public abstract sealed class BaseType extends KernelType
          */
 
         /*
-         * 1. There is a common metaclass, that is a proper subclass of
+         * 2. There is a common metaclass, that is a proper subclass of
          * metaclass, for which __new__ is not type.__new__: we shall
          * call that to create the new type, instead of creating a new
          * type within this call. However, this in turn (directly or
@@ -466,12 +470,22 @@ public abstract sealed class BaseType extends KernelType
          * instances of this type.
          */
         BaseType bestBase = best_base(checkedBases);
+        logger.atTrace().setMessage("new class {} best base is {}")
+                .addArgument(name).addArgument(bestBase).log();
+
+        /*
+         * When nothing is added, we should find we can use the same
+         * representation as bestBase.
+         */
         SubclassSpec instanceSpec =
                 new SubclassSpec(name, bestBase.canonicalClass());
         // TODO are constructors more a property of a Representation?
         instanceSpec.addConstructors(bestBase);
-        // Creating the class give it to us with access privileges.
+
+        // Creating the class gives it to us with access privileges.
         Lookup lu = SUBCLASS_FACTORY.findOrCreateSubclass(instanceSpec);
+        logger.atTrace().setMessage("new class {} Java class is {}")
+                .addArgument(name).addArgument(lu).log();
 
         /*
          * We create the type object required using the TypeFactory,

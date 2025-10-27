@@ -996,6 +996,9 @@ public class TypeFactory {
                 type.inheritFeatures();
                 type.addFeatures(spec);
 
+                // TODO Avoid the exposer when type defined in Python.
+                // In practice, when type.__new__ wrote the spec.
+
                 // Construct an exposer for the type.
                 TypeExposer exposer = gatherJavaAttributes();
 

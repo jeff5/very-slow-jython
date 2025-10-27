@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.StringJoiner;
 
 import uk.co.farowl.vsj4.runtime.PyType;
+import uk.co.farowl.vsj4.runtime.WithClassAssignment;
 import uk.co.farowl.vsj4.runtime.PyType.ConstructorAndHandle;
 import uk.co.farowl.vsj4.runtime.WithDict;
 import uk.co.farowl.vsj4.runtime.internal.NamedSpec;
@@ -42,13 +43,18 @@ public class SubclassSpec extends NamedSpec implements Cloneable {
     private List<Class<?>> interfaces = EMPTY;
     /** Constructors on which to base those created here. */
     private List<Constructor<?>> constructors = new LinkedList<>();
-    /** Whether to create a {@code __dict__} member. */
-    private boolean hasDict;
+
+    /** Whether the class manages a writable {@code __dict__}. */
+    private boolean manageDict = false;
+    /** Whether the class manages a writable {@code __class__}. */
+    private boolean manageClass = false;
 
     /**
      * Names of slots to be added as members or {@link #NONAMES}. Note
      * even an empty {@code __slots__} ensures {@code slots != NONAMES},
-     * so we use this value as a marker.
+     * so we use this value as a marker. Python language rules applied
+     * in {@link #freeze()} may change this from what was specified by
+     * the client.
      */
     private List<String> slots = NONAMES;
 
@@ -79,21 +85,63 @@ public class SubclassSpec extends NamedSpec implements Cloneable {
         this(name, base.canonicalClass());
     }
 
+    /**
+     * Adjust the state and ensure it cannot be further changed in ways
+     * affecting sorting and lookup. Here we decide finally whether the
+     * Java class has to handle class assignment and the instance
+     * dictionary.
+     * <p>
+     * The final value of the slot list (after {@link #freeze()}) is
+     * modified from the slot names added during definition, by rules
+     * that are part of Python (e.g. removal of {@code "__dict__"},
+     * sorting). It will be exactly this set of named fields that are
+     * added to the Java class. The value of {@code __slots__} stored in
+     * the class definition is not affected.
+     */
     @Override
-    protected SubclassSpec freeze() {
+    protected final SubclassSpec freeze() {
         /*
          * If we are not frozen yet, it means we have yet to finalise
          * the interfaces and slots.
          */
         if (frozen == false) {
-            // Prevent further change to the specification.
-            frozen = true;
+            // Compare CPython ctx->may_add_dict in typeobject.c
+            boolean needDict = true;
 
             if (slots != NONAMES) {
-                // We have slots. Sort and freeze the list.
+                // We have slots. Lots of rules. Mostly:
+                needDict = false;
+
+                if (slots.remove("__dict__")) {
+                    // __slots__ *and* __dict__
+                    needDict = true;
+                }
+
+                // Sort and freeze the list.
                 Collections.sort(slots);
                 slots = Collections.unmodifiableList(slots);
             }
+
+            // FIXME : (maybe order and) freeze interfaces.
+
+            /*
+             * The specification calls for instances to have a __dict__
+             * member. We must manage __dict__ assignment in this class
+             * unless the base already manages a __dict__.
+             */
+            manageDict =
+                    needDict && !WithDict.class.isAssignableFrom(base);
+
+            /*
+             * Instances must support class assignment (of compatible
+             * classes). We must manage class assignment in this class
+             * unless the base already does that for us.
+             */
+            manageClass =
+                    !WithClassAssignment.class.isAssignableFrom(base);
+
+            // Prevent further change to the specification.
+            frozen = true;
         }
         return this;
     }
@@ -258,42 +306,44 @@ public class SubclassSpec extends NamedSpec implements Cloneable {
     List<String> getSlots() { return slots; }
 
     /**
-     * Specify that there shall be a dictionary.
-     *
-     * @return {@code this}
-     */
-    public SubclassSpec addDict() {
-        checkNotFrozen();
-        hasDict = true;
-        return this;
-    }
-
-    /**
-     * Specify that there shall be a dictionary if the argument is
-     * {@code true}. Otherwise the decision is unchanged.
-     *
-     * @param cond whether to add a request for a dictionary
-     * @return {@code this}
-     */
-    public SubclassSpec addDictIf(boolean cond) {
-        if (cond && !hasDict) { addDict(); }
-        return this;
-    }
-
-    /**
-     * Whether to create a {@code __dict__} member.
-     *
-     * @return whether to create a {@code __dict__}
-     */
-    boolean hasDict() { return hasDict; }
-
-    /**
      * Whether {@code __slots__} was defined. If {@code false},
      * {@link #getSlots()} will return an empty list.
      *
      * @return whether {@code __slots__} was defined.
      */
     boolean hasSlots() { return slots == NONAMES; }
+
+    /**
+     * Report whether the class being specified must add a field and
+     * mechanisms to manage {@code __class__} assignment. Types
+     * specified here all support class assignment, even e.g.
+     * meta-classes, but the class need only add a field and mechanisms
+     * when the base class doesn't already have them.
+     * <p>
+     * The result is not reliable until {@link #freeze()} is called.
+     *
+     * @return whether to add a {@code __class__} field.
+     */
+    boolean manageClassAssignment() { return manageClass; }
+
+    /**
+     * Report whether to create a {@code __dict__} member in instances.
+     * An instance dictionary is required, in most classes defined in
+     * Python, except as controlled by {@code __slots__}.
+     * <p>
+     * If an instance dictionary is required, the class need only add a
+     * field and mechanisms when the base class doesn't already have
+     * them. In that case, it will exist with its own access policies
+     * thanks to the base class.
+     * <p>
+     * The result is not reliable until {@link #freeze()} is called.
+     *
+     * @return whether to add a {@code __dict__} field.
+     */
+    boolean manageDictAssignment() {
+        freeze();
+        return manageDict;
+    }
 
     @Override
     public String toString() {
@@ -306,7 +356,7 @@ public class SubclassSpec extends NamedSpec implements Cloneable {
             for (Class<?> c : interfaces) { sj.add(c.getSimpleName()); }
             b.append(sj.toString());
         }
-        if (hasDict()) { b.append(" +dict"); }
+        if (manageDict) { b.append(" +dict"); }
         if (slots != NONAMES) {
             StringJoiner sj = new StringJoiner(", ", " +slots(", ") ");
             for (String s : slots) { sj.add(s); }
@@ -320,13 +370,11 @@ public class SubclassSpec extends NamedSpec implements Cloneable {
         freeze();
         if (obj instanceof SubclassSpec r) {
             r.freeze();
-            if (getBase() != r.getBase()) { return false; }
-            if (hasDict() != r.hasDict()) { return false; }
-            if (!getSlots().equals(r.getSlots())) { return false; }
-            if (!getInterfaces().equals(r.getInterfaces())) {
-                return false;
-            }
-            return true;
+            return (getBase() == r.getBase())
+                    && (manageDict == r.manageDict)
+                    && (manageClass == r.manageClass)
+                    && getSlots().equals(r.getSlots())
+                    && getInterfaces().equals(r.getInterfaces());
         }
         return false;
     }
@@ -335,9 +383,11 @@ public class SubclassSpec extends NamedSpec implements Cloneable {
     public int hashCode() {
         freeze();
         int h = getBase().hashCode();
-        if (hasDict()) { h *= 9; }
-        // Need not hash hasSlots().
+        if (manageDict) { h *= 9; }
+        if (manageClass) { h *= 9; }
+        // Need not hash hasSlots(), only names (not ordered).
         for (String s : getSlots()) { h += s.hashCode(); }
+        // Interfaces hash contribution not ordered.
         for (Class<?> i : getInterfaces()) { h += i.hashCode(); }
         return h;
     }
@@ -347,14 +397,14 @@ public class SubclassSpec extends NamedSpec implements Cloneable {
         SubclassSpec spec = new SubclassSpec(name, base);
         if (interfaces != EMPTY) { spec.addInterfaces(interfaces); }
         if (slots != NONAMES) { spec.addSlots(slots); }
-        spec.hasDict = hasDict;
         if (frozen) {
             /*
-             * Slightly tricky, however the changes wrought by freeze()
-             * should only compute missing values and not change the
-             * membership of any lists.
+             * Slightly tricky, because freeze() modifies __slots__ as
+             * it computes the missing values.
              */
             spec.freeze();
+            spec.manageDict = manageDict;
+            spec.manageClass = manageClass;
         }
         return spec;
     }
