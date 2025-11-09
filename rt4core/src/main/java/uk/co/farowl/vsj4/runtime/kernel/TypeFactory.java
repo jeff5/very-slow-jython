@@ -1214,7 +1214,7 @@ public class TypeFactory {
             // I think the primordial types are only simple
             assert type instanceof SimpleType;
             this.primary(type.javaClass()).bases(type.getBases())
-                    .add(Feature.IMMUTABLE);
+                    .add(Feature.IMMUTABLE, Feature.BASETYPE);
         }
     }
 }
