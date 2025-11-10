@@ -55,10 +55,10 @@ class TypeConcurrencyTest {
             LoggerFactory.getLogger(TypeConcurrencyTest.class);
 
     /** Threads in each batch. */
-    static final int BATCH_SIZE = 20; // ~100
+    static final int BATCH_SIZE = 25; // ~ 10s
 
     /** Number of batches. */
-    static final int BATCH_COUNT = 100; // ~ 10000
+    static final int BATCH_COUNT = 1000; // ~ 1000s
 
     /** Curtail the test when we have found this many failures. */
     static final int FAILURE_LIMIT = BATCH_SIZE + 5;
@@ -89,7 +89,7 @@ class TypeConcurrencyTest {
             tests[i] = new SBLitmusTest();
         }
 
-        logger.debug("TypeConcurrencyTest begun");
+        logger.info("TypeConcurrencyTest begun");
 
         // We use that storage repeatedly with new tests.
         for (int batch = 0; batch < BATCH_COUNT; batch++) {
@@ -129,7 +129,7 @@ class TypeConcurrencyTest {
 
     @AfterAll
     static void tearDownClass() {
-        logger.debug("TypeConcurrencyTest complete");
+        logger.info("TypeConcurrencyTest complete");
     }
 
     private static boolean hasStopped(Thread t) {

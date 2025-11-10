@@ -33,7 +33,11 @@ dependencies {
 }
 
 
-// Configure the jvm-test-suite plug-in
+/* Configure the jvm-test-suite plug-in
+ *
+ * We follow the Gradle 8.8 notes on the JVM Test Suite Plugin.
+ * and the example of configuring integration tests.
+ */
 testing {
     suites {
         // The pre-defined test suite.
@@ -58,9 +62,35 @@ testing {
         }
 
         /*
+         * A test suite for tests with many concurrent threads. Logging
+         * is minimised to prevent slowness, repetition, and accidental
+         * synchronisation.
+         */
+        concurrencyTest(JvmTestSuite) {
+            useJUnitJupiter()
+
+            dependencies {
+                implementation project()
+                implementation 'org.slf4j:slf4j-api:2.0.13'
+                // Include a logging provider (JDK 1.4)
+                runtimeOnly 'org.slf4j:slf4j-jdk14:2.0.13'
+            }
+
+            targets {
+                all {
+                    testTask.configure {
+                        // Log output is minimised with this config:
+                        systemProperty(
+                            'java.util.logging.config.file',
+                            getProject().file('config/concurrencyTest.logging.properties') )
+                        testLogging.showStandardStreams = true
+                    }
+                }
+            }
+        }
+
+        /*
          * A test suite where each test runs in its own JVM.
-         * We follow the Gradle 8.8 notes on the JVM Test Suite Plugin.
-         * and the example of configuring integration tests.
          */
         kernelTest(JvmTestSuite) {
             useJUnitJupiter()
@@ -92,11 +122,12 @@ testing {
     }
 }
 
-test.dependsOn(kernelTest)
+test.dependsOn(kernelTest, concurrencyTest)
 
 
 tasks.named('check') { 
     dependsOn(testing.suites.kernelTest)
+    dependsOn(testing.suites.concurrencyTest)
 }
 
 
@@ -315,7 +346,8 @@ task testJavadoc(type:Javadoc,
         description: 'Generate Javadoc for tests',
         dependsOn: internalJavadoc) {
 
-    source(sourceSets.test.allJava, sourceSets.kernelTest.allJava)
+    source(sourceSets.test.allJava, sourceSets.kernelTest.allJava,
+            sourceSets.concurrencyTest.allJava)
     title = "rt4core Unit Tests"
     destinationDir = file("${buildDir}/docs/testJavadoc")
 

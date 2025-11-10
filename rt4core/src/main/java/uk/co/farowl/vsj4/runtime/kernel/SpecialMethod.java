@@ -838,9 +838,8 @@ public enum SpecialMethod {
 
         } else {
             /*
-             * The retrieved dictionary is not a *method* descriptor,
-             * but it might still be a descriptor that we have to bind
-             * to self.
+             * The retrieved entry is not a *method* descriptor, but it
+             * might still be a descriptor that we have to bind to self.
              */
             try {
                 // Replace meth with result of descriptor binding.
