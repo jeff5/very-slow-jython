@@ -59,10 +59,10 @@ class TypeConcurrencyTest {
             LoggerFactory.getLogger(TypeConcurrencyTest.class);
 
     /** Threads in each batch. */
-    static final int BATCH_SIZE = 5; // ~ 10s
+    static final int BATCH_SIZE = 3; // ~ 10s
 
     /** Number of batches. */
-    static final int BATCH_COUNT = 3; // ~ 1000s
+    static final int BATCH_COUNT = 4; // ~ 1000s
 
     /** Curtail a test once we have found this many failures. */
     static final int FAILURE_LIMIT = BATCH_SIZE + 5;
@@ -226,7 +226,7 @@ class TypeConcurrencyTest {
             for (int i = 0; i < BATCH_SIZE; i++) {
                 tests.add(i, newInstance.get());
             }
-            String name = tests.get(0).getClass().getCanonicalName();
+            String name = tests.get(0).getClass().getSimpleName();
 
             logger.atInfo().setMessage("Race begun ({})")
                     .addArgument(name).log();
@@ -317,16 +317,16 @@ class TypeConcurrencyTest {
 
     /**
      * Extend {@link LitmusTest} for a single type object name space as
-     * the "store". The subclass should add attributes "A" and "B" in a
+     * the "store". The subclass should add attributes "X" and "Y" in a
      * race and expect a sequentially consistent result.
      */
-    static abstract class SingleTypeLitmusTest extends LitmusTest {
+    static abstract class DirectXY extends LitmusTest {
         /** Type object to use as a namespace. */
         PyType type;
         /** Variables set by the racing threads (registers). */
         Object r1, r2;
 
-        SingleTypeLitmusTest() {
+        DirectXY() {
             try {
                 this.type = (PyType)PyType.TYPE().call("LitmusTestType",
                         Py.tuple(PyObject.TYPE), Py.dict());
@@ -340,11 +340,11 @@ class TypeConcurrencyTest {
             r1 = r2 = null;
             exc1 = exc2 = null;
             try {
-                if (Abstract.lookupAttr(type, "A") != null) {
-                    Abstract.delAttr(type, "A");
+                if (Abstract.lookupAttr(type, "X") != null) {
+                    Abstract.delAttr(type, "X");
                 }
-                if (Abstract.lookupAttr(type, "B") != null) {
-                    Abstract.delAttr(type, "B");
+                if (Abstract.lookupAttr(type, "Y") != null) {
+                    Abstract.delAttr(type, "Y");
                 }
             } catch (Throwable e) {
                 fail("Unable to reset() type attributes");
@@ -354,19 +354,23 @@ class TypeConcurrencyTest {
 
         @Override
         public String toString() {
-            return String.format("[type=%s, r1=%s, r2=%s]", type, r1,
-                    r2);
+            Object x = null, y = null;
+            try {
+                x = Abstract.lookupAttr(type, "X");
+                y = Abstract.lookupAttr(type, "Y");
+            } catch (Throwable t) {}
+            return String.format("[t=%s, r1=%s, r2=%s, t.X=%s, t.Y=%s]",
+                    type, r1, r2, x, y);
         }
     }
 
     /**
-     * The Load Buffering litmus test interpreted for a single type
-     * object name space as the "store". We add attributes in a race and
-     * expect a sequentially consistent result.
+     * The Load Buffering litmus test interpreted for direct attribute
+     * access on a single type object as the "store".
      */
     @Nested
-    @DisplayName("Load Buffering (LB) single type")
-    class SingleTypeLB extends Examination {
+    @DisplayName("Load Buffering (direct LB)")
+    class ExamDirectXY_LB extends Examination {
 
         /** Failing litmus tests */
         static List<? extends LitmusTest> failures;
@@ -374,29 +378,27 @@ class TypeConcurrencyTest {
         /** Run the set-up and collect failing cases. */
         @BeforeAll
         static void setUpClass() throws Throwable {
-            failures = Examination.race(Litmus::new);
+            failures = Examination.race(DirectXY_LB::new);
         }
 
         @BeforeEach
         void getFailures() { setFailures(failures); }
 
         /**
-         * Define LB for type object name space as the "store". We add
-         * attributes in a race and expect a sequentially consistent
-         * result.
+         * Define LB for type object name space as the "store".
          */
-        static class Litmus extends SingleTypeLitmusTest {
+        static class DirectXY_LB extends DirectXY {
 
             @Override
             void t1() throws Throwable {
-                r1 = Abstract.lookupAttr(type, "A");
-                Abstract.setAttr(type, "B", 2);
+                r1 = Abstract.lookupAttr(type, "X");
+                Abstract.setAttr(type, "Y", 2);
             }
 
             @Override
             void t2() throws Throwable {
-                r2 = Abstract.lookupAttr(type, "B");
-                Abstract.setAttr(type, "A", 1);
+                r2 = Abstract.lookupAttr(type, "Y");
+                Abstract.setAttr(type, "X", 1);
             }
 
             @Override
@@ -410,13 +412,12 @@ class TypeConcurrencyTest {
     }
 
     /**
-     * The Storage Buffering litmus test interpreted for a single type
-     * object name space as the "store". We add attributes in a race and
-     * expect a sequentially consistent result.
+     * The Storage Buffering litmus test interpreted for direct
+     * attribute access on a single type object as the "store".
      */
     @Nested
-    @DisplayName("Store Buffering (SB) single type")
-    class SingleTypeSB extends Examination {
+    @DisplayName("Store Buffering (direct SB)")
+    class ExamDirectXY_SB extends Examination {
 
         /** Failing litmus tests */
         static List<? extends LitmusTest> failures;
@@ -424,34 +425,76 @@ class TypeConcurrencyTest {
         /** Run the set-up and collect failing cases. */
         @BeforeAll
         static void setUpClass() throws Throwable {
-            failures = Examination.race(Litmus::new);
+            failures = Examination.race(DirectXY_SB::new);
         }
 
         @BeforeEach
         void getFailures() { setFailures(failures); }
 
         /**
-         * Define SB for a type object name space as the "store". We add
-         * attributes in a race and expect a sequentially consistent
-         * result.
+         * Define SB for a type object name space as the "store".
          */
-        static class Litmus extends SingleTypeLitmusTest {
+        static class DirectXY_SB extends DirectXY {
             @Override
             void t1() throws Throwable {
-                Abstract.setAttr(type, "B", 2);
-                r1 = Abstract.lookupAttr(type, "A");
+                Abstract.setAttr(type, "X", 2);
+                r1 = Abstract.lookupAttr(type, "Y");
             }
 
             @Override
             void t2() throws Throwable {
-                Abstract.setAttr(type, "A", 1);
-                r2 = Abstract.lookupAttr(type, "B");
+                Abstract.setAttr(type, "Y", 1);
+                r2 = Abstract.lookupAttr(type, "X");
             }
 
             @Override
             boolean forbidden() {
-                // Sequentially consistent answer.
+                // r1, r2 cannot both be unset.
                 return r1 == null && r2 == null;
+            }
+        }
+    }
+
+    /**
+     * The Message Passing litmus test interpreted for direct attribute
+     * access on a single type object as the "store".
+     */
+    @Nested
+    @DisplayName("Message Passing (direct MP)")
+    class ExamDirectXY_MP extends Examination {
+
+        /** Failing litmus tests */
+        static List<? extends LitmusTest> failures;
+
+        /** Run the set-up and collect failing cases. */
+        @BeforeAll
+        static void setUpClass() throws Throwable {
+            failures = Examination.race(DirectXY_MP::new);
+        }
+
+        @BeforeEach
+        void getFailures() { setFailures(failures); }
+
+        /**
+         * Define MP for a type object name space as the "store".
+         */
+        static class DirectXY_MP extends DirectXY {
+            @Override
+            void t1() throws Throwable {
+                Abstract.setAttr(type, "X", 1);
+                Abstract.setAttr(type, "Y", 2);
+            }
+
+            @Override
+            void t2() throws Throwable {
+                r1 = Abstract.lookupAttr(type, "Y");
+                r2 = Abstract.lookupAttr(type, "X");
+            }
+
+            @Override
+            boolean forbidden() {
+                // If r1=t.Y is set, r2=t.X cannot be unset.
+                return r1 != null && r1.equals(2) && r2 == null;
             }
         }
     }

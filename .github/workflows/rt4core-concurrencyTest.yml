@@ -11,7 +11,7 @@ permissions:
     contents: read
 
 jobs:
-  rt4-unit-tests-Ubuntu-jdk-17:
+  rt4-unit-tests-Ubuntu-jdk-17-arm:
 
     runs-on: ubuntu-24.04-arm
 
