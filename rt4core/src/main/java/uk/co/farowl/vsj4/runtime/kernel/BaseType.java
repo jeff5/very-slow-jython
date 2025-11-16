@@ -1200,13 +1200,12 @@ public abstract sealed class BaseType extends KernelType implements
              * This method is really here for __new__ implementations,
              * and has to be public because they could be in any
              * package. So, stuff can go wrong. But how to explain to
-             * the hapless caller when something is really a Java API
-             * error?
+             * the hapless caller when something is probably a Java API
+             * error in the synthetic class?
              */
-            // TODO Need a Java API Error not InterpreterError
             throw PyErr.format(PyExc.TypeError,
-                    "Incorrect arguments to constructor of '%s'",
-                    getName());
+                    "No public constructor of '%s' matches %s",
+                    getName(), mt);
         }
         return ch;
     }

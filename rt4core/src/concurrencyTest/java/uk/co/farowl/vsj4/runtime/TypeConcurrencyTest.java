@@ -6,6 +6,8 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
+import java.lang.invoke.MethodHandles;
+import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
@@ -21,6 +23,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import uk.co.farowl.vsj4.runtime.Exposed.PythonMethod;
+import uk.co.farowl.vsj4.support.InterpreterError;
 
 /**
  * This test modifies the attributes of some (mutable) type objects and
@@ -59,10 +64,10 @@ class TypeConcurrencyTest {
             LoggerFactory.getLogger(TypeConcurrencyTest.class);
 
     /** Threads in each batch. */
-    static final int BATCH_SIZE = 3; // ~ 10s
+    static final int BATCH_SIZE = 25; // ~ 10s
 
     /** Number of batches. */
-    static final int BATCH_COUNT = 4; // ~ 1000s
+    static final int BATCH_COUNT = 1_000; // ~ 1000s
 
     /** Curtail a test once we have found this many failures. */
     static final int FAILURE_LIMIT = BATCH_SIZE + 5;
@@ -215,10 +220,6 @@ class TypeConcurrencyTest {
             // Failing litmus tests
             List<T> failures = new LinkedList<>();
 
-            // Ensure the type system exists
-            assertTrue(TypeSystem.bootstrapNanoTime > 0L,
-                    "Check type system booted");
-
             // Batch of tests to run concurrently.
             ArrayList<T> tests = new ArrayList<>(BATCH_SIZE);
             Thread[] threads = new Thread[BATCH_SIZE];
@@ -270,10 +271,48 @@ class TypeConcurrencyTest {
                 // Early exit if ample evidence.
                 if (failures.size() >= FAILURE_LIMIT) { break; }
             }
-            logger.atInfo().setMessage("Race ended").addArgument(name)
-                    .log();
+            logger.atInfo().setMessage("Race ended").log();
 
             return failures;
+        }
+
+        /**
+         * Dry-run components of the test in sequence without threading
+         * for debugging purposes. This is like {@link #race(Supplier)},
+         * but without threads and only one instance.
+         */
+        static <T extends LitmusTest> void
+                dryRun(Supplier<T> newInstance) {
+            // Ensure the type system exists
+            assertTrue(TypeSystem.bootstrapNanoTime > 0L,
+                    "Check type system booted");
+            T test = newInstance.get();
+
+            // Run both halves to completion in sequence
+            try {
+                test.t1();
+                test.t2();
+            } catch (Throwable t) {
+                t.printStackTrace();
+            }
+
+            logger.atDebug()
+                    .setMessage(
+                            "Dry run (%s) allowed()=%s forbidden()=%s")
+                    .addArgument(test.getClass().getSimpleName())
+                    .addArgument(test.allowed())
+                    .addArgument(test.forbidden()).log();
+
+            // Reset and run again the other way around
+            if (!test.reset()) { test = newInstance.get(); }
+            try {
+                test.t2();
+                test.t1();
+            } catch (Throwable t) {
+                t.printStackTrace();
+            }
+            // This may fail if reset() is buggy.
+            assertTrue(test.allowed() && !test.forbidden());
         }
 
         /**
@@ -298,10 +337,8 @@ class TypeConcurrencyTest {
         @DisplayName("No exceptions were thrown")
         void checkException() {
             for (LitmusTest t : failures) {
-                assertNull(t.exc1, () -> String
-                        .format("thread t1 threw %s", t.exc1));
-                assertNull(t.exc2, () -> String
-                        .format("thread t2 threw %s", t.exc2));
+                assertNull(t.exc1);
+                assertNull(t.exc2);
             }
         }
 
@@ -327,11 +364,12 @@ class TypeConcurrencyTest {
         Object r1, r2;
 
         DirectXY() {
+            String name = this.getClass().getSimpleName();
             try {
-                this.type = (PyType)PyType.TYPE().call("LitmusTestType",
+                this.type = (PyType)PyType.TYPE().call(name,
                         Py.tuple(PyObject.TYPE), Py.dict());
             } catch (Throwable e) {
-                fail("Constructing an instance");
+                fail("Constructing a type");
             }
         }
 
@@ -378,6 +416,7 @@ class TypeConcurrencyTest {
         /** Run the set-up and collect failing cases. */
         @BeforeAll
         static void setUpClass() throws Throwable {
+            dryRun(DirectXY_LB::new);
             failures = Examination.race(DirectXY_LB::new);
         }
 
@@ -406,7 +445,7 @@ class TypeConcurrencyTest {
                 // Sequentially consistent answer.
                 return r1 == null && r2 == null  //
                         || r1 == null && r2.equals(2)  //
-                        || r1.equals(1) && r2 == null;
+                        || r2 == null && r1.equals(1);
             }
         }
     }
@@ -425,6 +464,7 @@ class TypeConcurrencyTest {
         /** Run the set-up and collect failing cases. */
         @BeforeAll
         static void setUpClass() throws Throwable {
+            dryRun(DirectXY_SB::new);
             failures = Examination.race(DirectXY_SB::new);
         }
 
@@ -469,6 +509,7 @@ class TypeConcurrencyTest {
         /** Run the set-up and collect failing cases. */
         @BeforeAll
         static void setUpClass() throws Throwable {
+            dryRun(DirectXY_MP::new);
             failures = Examination.race(DirectXY_MP::new);
         }
 
@@ -498,4 +539,279 @@ class TypeConcurrencyTest {
             }
         }
     }
+
+    /**
+     * A Python type (defined in Java) from which we may lift the
+     * methods for the purpose of assigning them to a sub-type. This has
+     * to be public in Java because a representation of its Python
+     * subclass (created in a package belonging to the run-time) must
+     * extend this class.
+     */
+    public static class DummyMethods extends PyLong {
+        static PyType TYPE = PyType.fromSpec(
+                new TypeSpec("DummyMethods", MethodHandles.lookup())
+                        .base(PyLong.TYPE)
+                        .add(Feature.BASETYPE, Feature.IMMUTABLE));
+
+        /** Construct from integer. */
+        public DummyMethods(BigInteger i) {
+            super(i);
+        }
+
+        @PythonMethod
+        static Object neg(DummyMethods self) { return 42; }
+
+        @PythonMethod
+        static String str(DummyMethods self) { return "forty-two"; }
+    }
+
+    /**
+     * Extend {@link LitmusTest} for a single type object name space as
+     * the "store", but defining and calling special methods. The type
+     * is a sub-class of {@code int}. The subclass should add and call
+     * attributes {@code __neg__} and {@code __str__} in a race and
+     * expect a sequentially consistent result.
+     */
+    static abstract class DirectSM extends LitmusTest {
+        /** Type object to use as a namespace. */
+        final PyType type;
+        /** Object on which to call special method. */
+        final Object instance;
+        /** Variables set by the racing threads (registers). */
+        Object r1, r2;
+        /** Values to assign as special methods */
+        static MethodDescriptor NEG, STR;
+        static {
+            try {
+                NEG = (MethodDescriptor)Abstract
+                        .lookupAttr(DummyMethods.TYPE, "neg");
+                STR = (MethodDescriptor)Abstract
+                        .lookupAttr(DummyMethods.TYPE, "str");
+            } catch (Throwable t) {
+                fail("Accessing DummyMethods for test");
+            }
+        }
+
+        DirectSM() {
+            String name = this.getClass().getSimpleName();
+            PyType t = null;
+            Object i = null;
+            try {
+                t = (PyType)PyType.TYPE().call(name,
+                        Py.tuple(DummyMethods.TYPE), Py.dict());
+                i = t.call(1); // int(1)
+            } catch (Throwable e) {
+                e.printStackTrace();
+                fail("Constructing a type and an instance");
+            }
+            this.type = t;
+            this.instance = i;
+        }
+
+        @Override
+        boolean reset() {
+            try {
+                MethodDescriptor neg = (MethodDescriptor)Abstract
+                        .lookupAttr(type, "__neg__");
+                MethodDescriptor str = (MethodDescriptor)Abstract
+                        .lookupAttr(type, "__str__");
+                if (neg == NEG) { Abstract.delAttr(type, "__neg__"); }
+                if (str == STR) { Abstract.delAttr(type, "__str__"); }
+            } catch (Throwable e) {
+                fail("Unable to reset() type special methods");
+            }
+            r1 = r2 = null;
+            exc1 = exc2 = null;
+            return true;
+        }
+
+        @Override
+        public String toString() {
+            Object neg = null, str = null;
+            try {
+                neg = Abstract.lookupAttr(type, "__neg__");
+                str = Abstract.lookupAttr(type, "__str__");
+            } catch (Throwable t) {}
+            return String.format(
+                    "[t=%s, r1=%s, r2=%s, t.__neg__=%s, t.__str__=%s]",
+                    type, r1, r2, neg, str);
+        }
+    }
+
+    /**
+     * The Load Buffering litmus test interpreted for special method
+     * access on a single type object as the "store".
+     */
+    @Nested
+    @DisplayName("Load Buffering (special method LB)")
+    class ExamSpecialMethod_LB extends Examination {
+
+        /** Failing litmus tests */
+        static List<? extends LitmusTest> failures;
+
+        /** Run the set-up and collect failing cases. */
+        @BeforeAll
+        static void setUpClass() throws Throwable {
+            dryRun(DirectSM_LB::new);
+            failures = Examination.race(DirectSM_LB::new);
+        }
+
+        @BeforeEach
+        void getFailures() { setFailures(failures); }
+
+        /**
+         * Define LB for type object name space as the "store".
+         */
+        static class DirectSM_LB extends DirectSM {
+
+            @Override
+            void t1() throws Throwable {
+                r1 = PyNumber.negative(instance);
+                Abstract.setAttr(type, "__str__", STR);
+            }
+
+            @Override
+            void t2() throws Throwable {
+                r2 = Abstract.str(instance);
+                Abstract.setAttr(type, "__neg__", NEG);
+            }
+
+            @Override
+            boolean allowed() {
+                if (pythonEquals(-1, r1) && pythonEquals("1", r2)) {
+                    // Both reads occurred before either redefinition.
+                    return true;
+                } else if (pythonEquals("forty-two", r2)) {
+                    // __str__ was called after it was redefined
+                    // => __neg__ was redefined after it was called.
+                    return pythonEquals(-1, r1);
+                } else if (pythonEquals(42, r1)) {
+                    // __neg__ was called after it was redefined
+                    // => __str__ was redefined after it was called
+                    return pythonEquals("1", r2);
+                }
+                return false;
+            }
+        }
+    }
+
+    /**
+     * The Storage Buffering litmus test interpreted for special method
+     * access on a single type object as the "store".
+     */
+    @Nested
+    @DisplayName("Storage Buffering (special method SB)")
+    class ExamSpecialMethod_SB extends Examination {
+
+        /** Failing litmus tests */
+        static List<? extends LitmusTest> failures;
+
+        /** Run the set-up and collect failing cases. */
+        @BeforeAll
+        static void setUpClass() throws Throwable {
+            dryRun(DirectSM_SB::new);
+            failures = Examination.race(DirectSM_SB::new);
+        }
+
+        @BeforeEach
+        void getFailures() { setFailures(failures); }
+
+        /**
+         * Define SB for type object name space as the "store".
+         */
+        static class DirectSM_SB extends DirectSM {
+
+            @Override
+            void t1() throws Throwable {
+                Abstract.setAttr(type, "__str__", STR);
+                r1 = PyNumber.negative(instance);
+            }
+
+            @Override
+            void t2() throws Throwable {
+                Abstract.setAttr(type, "__neg__", NEG);
+                r2 = Abstract.str(instance);
+            }
+
+            @Override
+            boolean forbidden() {
+                // r1, r2 cannot both be from 'int' methods.
+                return pythonEquals(-1, r1) && pythonEquals("1", r2);
+            }
+        }
+    }
+
+    /**
+     * The Message Passing litmus test interpreted for special method
+     * access on a single type object as the "store".
+     */
+    @Nested
+    @DisplayName("Message Passing (special method MP)")
+    class ExamSpecialMethod_MP extends Examination {
+
+        /** Failing litmus tests */
+        static List<? extends LitmusTest> failures;
+
+        /** Run the set-up and collect failing cases. */
+        @BeforeAll
+        static void setUpClass() throws Throwable {
+            dryRun(DirectSM_MP::new);
+            failures = Examination.race(DirectSM_MP::new);
+        }
+
+        @BeforeEach
+        void getFailures() { setFailures(failures); }
+
+        /**
+         * Define LB for type object name space as the "store".
+         */
+        static class DirectSM_MP extends DirectSM {
+
+            @Override
+            void t1() throws Throwable {
+                Abstract.setAttr(type, "__str__", STR);
+                Abstract.setAttr(type, "__neg__", NEG);
+            }
+
+            @Override
+            void t2() throws Throwable {
+                r1 = PyNumber.negative(instance);
+                r2 = Abstract.str(instance);
+            }
+
+            @Override
+            boolean forbidden() {
+                // Did r1 see the modified __neg__?
+                if (pythonEquals(42, r1)) {
+                    // Then r2 must see the modified __str__.
+                    return pythonEquals("forty-two", r2);
+                }
+                // Otherwise ok
+                return false;
+            }
+        }
+    }
+
+    /**
+     * Test whether the object {@code o} is equal to the expected value
+     * according to Python (e.g. {@code True == 1} and strings may be
+     * equal even if one is a {@link PyUnicode}. An unchecked exception
+     * may be thrown if the comparison goes badly enough.
+     *
+     * @param x value expected
+     * @param o to test
+     * @return whether equal in Python
+     */
+    static boolean pythonEquals(Object x, Object o) {
+        try {
+                return Abstract.richCompareBool(x, o, Comparison.EQ);
+        } catch (RuntimeException | Error e) {
+            // Let unchecked exception fly
+            throw e;
+        } catch (Throwable t) {
+            // Wrap checked exception
+            throw new InterpreterError(t);
+        }
+    }
+
 }
