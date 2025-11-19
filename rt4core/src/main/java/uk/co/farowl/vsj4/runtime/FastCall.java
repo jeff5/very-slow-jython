@@ -335,50 +335,49 @@ public interface FastCall {
         return typeError(ae, s, p, p + n, null);
     }
 
-// XXX Depends on classes not yet ported to VSJ4. Revisit.
-// /**
-// * A class that wraps any {@code Object} so that it presents the
-// * {@link FastCall} interface. Any type of {@code call} will
-// * eventually try to invoke the {@code __call__} special method on
-// * the object passed to the constructor.
-// * <p>
-// * This will not make a slow {@code __call__} fast, but it
-// * <i>will</i> make a {@code FastCall} slow.
-// */
-// static class Slow implements FastCall {
-//
-// private final Object callable;
-//
-// Slow(Object callable) { this.callable = callable; }
-//
-// @Override
-// public Object call(Object[] args, String[] names)
-// throws ArgumentError, Throwable {
-// // Call it slowly.
-// return Callables.call(callable, args, names);
-// }
-//
-// @Override
-// public PyBaseException typeError(ArgumentError ae,
-// Object[] args, String[] names) {
-// /*
-// * The underlying callable has thrown an ArgumentError,
-// * which is quite unlikely unless it also implements
-// * FastCall.
-// */
-// if (callable instanceof FastCall) {
-// return ((FastCall)callable).typeError(ae, args, names);
-// } else {
-// // We'll do our best to make a message somehow.
-// String name;
-// try {
-// name = PyUnicode.asString(Abstract.repr(callable));
-// } catch (Throwable e) {
-// name = "callable";
-// }
-// // Probably meaningful interpretation of the error
-// return PyJavaFunction.typeError(name, ae, args, names);
-// }
-// }
-// }
+    /**
+     * A class that wraps any {@code Object} so that it presents the
+     * {@link FastCall} interface. Any type of {@code call} will
+     * eventually try to invoke the {@code __call__} special method on
+     * the object passed to the constructor.
+     * <p>
+     * This will not make a slow {@code __call__} fast, but it
+     * <i>will</i> make a {@code FastCall} slow.
+     */
+    static class Slow implements FastCall {
+
+        private final Object callable;
+
+        Slow(Object callable) { this.callable = callable; }
+
+        @Override
+        public Object call(Object[] args, String[] names)
+                throws ArgumentError, Throwable {
+            // Call it slowly.
+            return Callables.standardCall(callable, args, names);
+        }
+
+        @Override
+        public PyBaseException typeError(ArgumentError ae,
+                Object[] args, String[] names) {
+            /*
+             * The underlying callable has thrown an ArgumentError,
+             * which is quite unlikely unless it also implements
+             * FastCall.
+             */
+            if (callable instanceof FastCall) {
+                return ((FastCall)callable).typeError(ae, args, names);
+            } else {
+                // We'll do our best to make a message somehow.
+                String name;
+                try {
+                    name = PyUnicode.asString(Abstract.repr(callable));
+                } catch (Throwable e) {
+                    name = "callable";
+                }
+                // Probably meaningful interpretation of the error
+                return PyJavaFunction.typeError(name, ae, args, names);
+            }
+        }
+    }
 }

@@ -780,14 +780,14 @@ class TypeConcurrencyTest {
             }
 
             @Override
-            boolean forbidden() {
+            boolean allowed() {
                 // Did r1 see the modified __neg__?
                 if (pythonEquals(42, r1)) {
                     // Then r2 must see the modified __str__.
                     return pythonEquals("forty-two", r2);
                 }
                 // Otherwise ok
-                return false;
+                return true;
             }
         }
     }
@@ -804,7 +804,7 @@ class TypeConcurrencyTest {
      */
     static boolean pythonEquals(Object x, Object o) {
         try {
-                return Abstract.richCompareBool(x, o, Comparison.EQ);
+            return Abstract.richCompareBool(x, o, Comparison.EQ);
         } catch (RuntimeException | Error e) {
             // Let unchecked exception fly
             throw e;
