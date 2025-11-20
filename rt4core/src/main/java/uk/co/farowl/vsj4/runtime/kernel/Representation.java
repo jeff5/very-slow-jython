@@ -91,9 +91,7 @@ public abstract class Representation {
      *
      * @return the Python type object {@code type}
      */
-    static final SimpleType typeType() {
-        return factory.typeType();
-    }
+    static final SimpleType typeType() { return factory.typeType(); }
 
     /**
      * Get the Python type object {@code object} directly from the
@@ -128,8 +126,8 @@ public abstract class Representation {
      * The common type (class or interface) of Java classes representing
      * instances of the related Python {@code type}, and registered for
      * this {@code Representation}. If more than one Java class is
-     * registered to this representation, then in Java they must all
-     * inherit (extend or implement) the type recorded here.
+     * registered to this representation, then they must all inherit
+     * (extend or implement in Java) the type recorded here.
      * <p>
      * Classes representing instances of the related Python {@code type}
      * and <i>not</i> related by inheritance must be described in

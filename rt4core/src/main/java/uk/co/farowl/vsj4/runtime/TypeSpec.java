@@ -86,12 +86,12 @@ public class TypeSpec extends NamedSpec {
      * instances of the specified class as their the {@code self}
      * argument.
      *
-     * See {@link #canonicalBase(Class)}.
+     * See {@link #canonicalClass(Class)}.
      *
      * It may be {@code null} in a type that adopts all its
      * representations.
      */
-    private Class<?> canonicalBase; // FIXME rename canonicalClass +API
+    private Class<?> canonicalClass;
 
     /**
      * The primary class that will represent the instances of the type
@@ -127,7 +127,7 @@ public class TypeSpec extends NamedSpec {
     /**
      * A collection of classes that are allowed to appear as the "other"
      * parameter in binary operations, in addition to
-     * {@link #canonicalBase}, {@link #adopted} and {@link #accepted}.
+     * {@link #canonicalClass}, {@link #adopted} and {@link #accepted}.
      * The main use for this is to allow efficient mixed {@code float}
      * and {@code int} operations.
      */
@@ -268,12 +268,12 @@ public class TypeSpec extends NamedSpec {
             }
 
             // The canonical base defaults to the primary class
-            if (canonicalBase == null) {
-                canonicalBase = primary;
-            } else if (!primary.isAssignableFrom(canonicalBase)) {
+            if (canonicalClass == null) {
+                canonicalClass = primary;
+            } else if (!primary.isAssignableFrom(canonicalClass)) {
                 // It must be acceptable as a self-argument
                 throw specError(CANONICAL_INCONSISTENT,
-                        canonicalBase.getSimpleName(),
+                        canonicalClass.getSimpleName(),
                         primary.getSimpleName());
             }
 
@@ -393,7 +393,7 @@ public class TypeSpec extends NamedSpec {
     }
 
     /**
-     * The class that will be the base (in Java) of classes that
+     * Specify the class that will be the base (in Java) of classes that
      * represent the instances of subclasses (in Python) of the type
      * being defined. Methods defined by the type must be able to
      * receive instances of the specified class as their {@code self}
@@ -404,18 +404,18 @@ public class TypeSpec extends NamedSpec {
      * in turn defaults to the defining class, so this method need not
      * be called in simple cases. It is useful where a class different
      * from these defaults is the base for subclasses. For example, the
-     * canonical base of {@code type} (primary class {@link PyType} is
-     * {@link SimpleType}, to ensure that metatypes have that
-     * implementation.
+     * canonical base of {@code type} is {@link SimpleType}, to ensure
+     * that metatypes have that implementation, while the primary class
+     * {@link PyType}.
      *
      * @param klass is a base for instances of every subclass
      * @return {@code this}
      */
-    public TypeSpec canonicalBase(Class<?> klass) {
-        if (canonicalBase != null) {
+    public TypeSpec canonicalClass(Class<?> klass) {
+        if (canonicalClass != null) {
             throw repeatError("canonical base class");
         }
-        this.canonicalBase = klass;
+        this.canonicalClass = klass;
         return this;
     }
 
@@ -428,13 +428,14 @@ public class TypeSpec extends NamedSpec {
     public Class<?> getPrimary() { return primary; }
 
     /**
-     * Get the canonical base class to be the base of representations of
-     * subclasses of this type. This may be {@code null} before
-     * {@link #freeze()} is called.
+     * Get the class that will be the base (in Java) of classes that
+     * represent the instances of subclasses (in Python) of the type
+     * being defined. This may be {@code null} before {@link #freeze()}
+     * is called, and by default is the same as the primary class.
      *
      * @return canonical base for instances of every subclass
      */
-    public Class<?> getCanonicalBase() { return canonicalBase; }
+    public Class<?> getCanonicalClass() { return canonicalClass; }
 
     /**
      * Specify Java classes that must be adopted by the Python type as
@@ -716,7 +717,7 @@ public class TypeSpec extends NamedSpec {
      * {@code __rsub__(MyObject, Object)} that coerces its right-hand
      * argument on each call. (This method has to exist to satisfy the
      * Python data model.) The method may be defined in the
-     * {@link #canonicalBase(Class) canonical base} class, or
+     * {@link #canonicalClass(Class) canonical base} class, or
      * {@link #methodImpls(Class...) methodImpls}.
      * <p>
      * A separate class is necessary since the method definition for
@@ -776,8 +777,8 @@ public class TypeSpec extends NamedSpec {
     public String toString() {
         String fmt = "'%s' %s %s (lookup:%s pri:%s can:%s meth:%s)";
         String pri = primary == null ? "" : primary.getSimpleName();
-        String can = canonicalBase == null ? ""
-                : canonicalBase.getSimpleName();
+        String can = canonicalClass == null ? ""
+                : canonicalClass.getSimpleName();
         String luc = lookup == null ? "null"
                 : lookup.lookupClass().getSimpleName();
         StringJoiner mic = new StringJoiner(", ", "[", "]");

@@ -206,7 +206,7 @@ public class TypeFactory {
                 new PrimordialTypeSpec(objectType, kernelLU)
                         .methodImpls(PyObjectMethods.class);
         TypeSpec specOfType = new PrimordialTypeSpec(typeType, kernelLU)
-                .canonicalBase(typeType.canonicalClass());
+                .canonicalClass(typeType.canonicalClass());
 
         // An error during bootstrap says we were creating 'object'
         lastContext = specOfObject;
@@ -779,7 +779,7 @@ public class TypeFactory {
 
             // It has these (potentially > 1) representations:
             Class<?> primary = spec.getPrimary();
-            Class<?> canonical = spec.getCanonicalBase();
+            Class<?> canonical = spec.getCanonicalClass();
             List<Class<?>> adopted = spec.getAdopted();
             List<Class<?>> accepted = spec.getAccepted();
 

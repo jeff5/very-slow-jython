@@ -1224,7 +1224,7 @@ public abstract sealed class BaseType extends KernelType implements
         Map<MethodType, ConstructorAndHandle> table = new HashMap<>();
         // We allow public construction only of the canonical base.
         // (This is right for use by __new__ ... and generally?)
-        Class<?> baseClass = spec.getCanonicalBase();
+        Class<?> baseClass = spec.getCanonicalClass();
         Lookup lookup = spec.getLookup();
         final int accept = Modifier.PUBLIC | Modifier.PROTECTED;
         for (Constructor<?> cons : baseClass
