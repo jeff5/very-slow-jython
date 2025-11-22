@@ -123,6 +123,13 @@ public class SubclassSpec extends NamedSpec implements Cloneable {
             }
 
             // FIXME : (maybe order and) freeze interfaces.
+            /*
+             * Order of interfaces is *not* significant in Java and
+             * treating them as ordered in the MRO is perhaps behind
+             * certain problems in Jython 2 such as #70 and #391. Yet we
+             * must (I think) acknowledge them when looking for a
+             * representation, and probably as bases in Python.
+             */
 
             /*
              * The specification calls for instances to have a __dict__

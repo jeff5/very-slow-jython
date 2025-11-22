@@ -217,7 +217,10 @@ public abstract class PyJavaFunction implements WithClass, FastCall {
      * Construct a {@code PyJavaFunction} from an {@link ArgParser} and
      * {@code MethodHandle} for a {@code __new__} method. Although
      * {@code __new__} is a static method the {@code PyJavaFunction} we
-     * produce is bound to the defining {@code PyType self}.
+     * produce is bound (by setting {@link #self}) to the defining
+     * {@code PyType self}. The {@link #handle} derived from
+     * {@code method} is <i>not</i> bound to {@code self}, but
+     * <i>does</i> add a filter to check the type of the first argument.
      *
      * @param ap argument parser (provides argument names etc.)
      * @param method raw handle to the method defined
@@ -662,9 +665,8 @@ public abstract class PyJavaFunction implements WithClass, FastCall {
         }
 
         @Override
-        public Object call(Object self, Object a0, Object a1)
-                throws Throwable {
-            return handle.invokeExact(self, a0, a1);
+        public Object call(Object a0, Object a1) throws Throwable {
+            return handle.invokeExact(a0, a1);
         }
     }
 
