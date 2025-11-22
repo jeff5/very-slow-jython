@@ -1,6 +1,8 @@
-// Copyright (c)2024 Jython Developers.
+// Copyright (c)2025 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
+
+import uk.co.farowl.vsj4.support.internal.Util;
 
 /**
  * Convenience methods for creating and manipulating Python exceptions.
@@ -38,7 +40,7 @@ public class PyErr {
         try {
             return (PyBaseException)Callables.call(excType, msg);
         } catch (Throwable e) {
-            throw Abstract.asUnchecked(e);
+            throw Util.asUnchecked(e);
         }
     }
 }

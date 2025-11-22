@@ -4,7 +4,6 @@ package uk.co.farowl.vsj4.runtime.kernel;
 
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
-import java.math.BigInteger;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -21,17 +20,21 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import uk.co.farowl.vsj4.runtime.Feature;
-import uk.co.farowl.vsj4.runtime.PyBool;
-import uk.co.farowl.vsj4.runtime.PyFloat;
-import uk.co.farowl.vsj4.runtime.PyFloatMethods;
-import uk.co.farowl.vsj4.runtime.PyLong;
-import uk.co.farowl.vsj4.runtime.PyLongMethods;
+import uk.co.farowl.vsj4.runtime.PyObject;
 import uk.co.farowl.vsj4.runtime.PyType;
-import uk.co.farowl.vsj4.runtime.PyUnicode;
-import uk.co.farowl.vsj4.runtime.PyUnicodeMethods;
 import uk.co.farowl.vsj4.runtime.TypeSpec;
 import uk.co.farowl.vsj4.runtime.WithClass;
 import uk.co.farowl.vsj4.support.InterpreterError;
+
+// TODO Provide for Python exceptions without requiring the type system
+/*
+ * By this I mean, detect the sort of mis-specification that ought to be
+ * a TypeError in Python, but without compromising our ability to use
+ * the workshop to construct bootstrap types. Idea: define a
+ * specification error exception that may be caught and converted to a
+ * Python exception in contexts where the type system is in working
+ * order, but will propagate out as an InterpreterError (say) otherwise.
+ */
 
 /**
  * The {@code TypeFactory} is the home of Python type creation and
@@ -101,8 +104,6 @@ public class TypeFactory {
     /** An array containing just type object {@code object} */
     private BaseType[] OBJECT_ONLY;
 
-    /** Access rights to the runtime package. Effectively final. */
-    private Lookup runtimeLookup;
     /** Factory method to make type exposers. Effectively final. */
     private Function<BaseType, TypeExposer> exposerFactory;
 
@@ -111,28 +112,35 @@ public class TypeFactory {
      * a reference to the specification that began the current round, as
      * a context for error reporting.
      */
-    private TypeSpec lastContext = null;
+    private TypeSpec lastContext;
 
     /**
-     * We count the number of reentrant calls here, and defer publishing
-     * any of the {@code Representation}s we create to the registry
-     * until the count reaches zero. (Note, we count <i>reentrant
-     * calls</i>, not the number of objects in play, as each call
-     * potentially creates several types by reentrant use of
-     * {@link #fromSpec(TypeSpec)}.) The count is -1 between phases of
-     * object creation, so 0 indicates "just arrived".
+     * We count the number of reentrant calls here, incrementing when we
+     * enter the factory by one of the creation entrypoints, and
+     * decrementing when we return from it. We defer publishing to the
+     * registry any of the {@code Representation}s we create until
+     * decrementing the count makes it zero. (Note, we count
+     * <i>reentrant calls</i>, not the number of objects in play, as
+     * each call potentially creates several types by reentrant use of
+     * {@link #fromSpec(TypeSpec)}.)
+     * <p>
+     * During type system bootstrap, the entry and exit are in different
+     * methods: {@link #createTypeForType()} is the entry and
+     * {@link #publishBootstrapTypes(Function)} is the matching exit.
+     * Intervening calls to {@link #fromSpec(TypeSpec)} will increment
+     * and decrement {@code reentrancyCount} leaving it positive.
      */
     private int reentrancyCount;
+
     /** Used to indent log messages by the reentrancy level. */
     private final Supplier<String> indent = () -> INDENT_RULER
-            .substring(0, Math.min(reentrancyCount + 1, 24) * 2);
+            .substring(0, Math.min(reentrancyCount, 24) * 2);
     private final static String INDENT_RULER = ". ".repeat(24);
 
     /**
      * Construct a {@code TypeFactory}. Normally this constructor is
      * used exactly once. Exceptionally, we create instances for test
-     * purposes. The parameter {@code runtimeLookup} allows the caller
-     * to give lookup rights to the kernel.
+     * purposes.
      *
      * @deprecated Do not create a {@code TypeFactory} other than the
      *     one {@code PyType} holds statically.
@@ -143,21 +151,27 @@ public class TypeFactory {
 
         this.registry = new Registry();
         this.workshop = new Workshop();
+
+        /*
+         * It is unsafe to create type objects yet as they extend
+         * Representation, static initialisation of which constructs
+         * this factory.
+         */
     }
 
     /**
      * Construct the {@code type} object {@code type}, and necessarily
-     * therefore, the one for for {@code object} which is its base. The
-     * type factory holds these internally, but does not publish them in
-     * the registry until
-     * {@link #createBootstrapTypes(Lookup, Function)} is called.
+     * therefore, the one for {@code object} which is its base. The type
+     * factory holds these internally, but does not complete or publish
+     * them in the registry until
+     * {@link #publishBootstrapTypes(Function)} is called.
      *
      * @return the type object for {@code type}
      *
      * @deprecated Call exactly once in {@code TypeFactory}
      */
     @Deprecated  // ... to stop other use even in the runtime.
-    public SimpleType typeForType() {
+    public SimpleType createTypeForType() {
 
         // I will call this only once ...
         assert objectType == null && typeType == null;
@@ -166,7 +180,7 @@ public class TypeFactory {
          * The static bootstrap of the type system counts as "entry":
          * the corresponding "exit" is in createBootstrapTypes().
          */
-        reentrancyCount = 0;
+        reentrancyCount = 1;
 
         /*
          * Create type objects and specifications for type and object.
@@ -192,11 +206,9 @@ public class TypeFactory {
                 new PrimordialTypeSpec(objectType, kernelLU)
                         .methodImpls(PyObjectMethods.class);
         TypeSpec specOfType = new PrimordialTypeSpec(typeType, kernelLU)
-                .canonicalBase(SimpleType.class);
+                .canonicalClass(typeType.canonicalClass());
 
-        // TODO features, mro of object
-        // TODO features, mro of type
-
+        // An error during bootstrap says we were creating 'object'
         lastContext = specOfObject;
 
         try {
@@ -206,6 +218,7 @@ public class TypeFactory {
             // Additionally map *interface* PyType to type type.
             workshop.publishLocally(PyType.class, typeType);
         } catch (Clash clash) {
+            // FIXME Propagate out instead?
             // If we can't get this far ...
             throw new InterpreterError(clash);
         }
@@ -225,6 +238,38 @@ public class TypeFactory {
     }
 
     /**
+     * Get the type object {@code type}. This is the same as
+     * {@link PyType#TYPE()}, but exists as soon as
+     * {@link #createTypeForType()} has run. This will succeed in
+     * circumstances where a simple call to {@link PyType#TYPE()} may
+     * fail because the the type system is not fully initialised, for
+     * example when making the bootstrap types Java ready.
+     *
+     * @return type object for {@code type}
+     */
+    public SimpleType typeType() {
+        // Check we are not calling before createTypeForType
+        assert typeType != null;
+        return typeType;
+    }
+
+    /**
+     * Get the type object {@code object}. This is the same as
+     * {@link PyObject#TYPE}, but exists as soon as
+     * {@link #createTypeForType()} has run. This will succeed in
+     * circumstances where a simple use {@link PyObject#TYPE} may fail
+     * because the the type system is not fully initialised, for example
+     * when making the bootstrap types Java ready.
+     *
+     * @return type object for {@code type}
+     */
+    public SimpleType objectType() {
+        // Check we are not calling before createTypeForType
+        assert objectType != null;
+        return objectType;
+    }
+
+    /**
      * Return the registry where this factory posts its type and
      * representation information.
      *
@@ -234,8 +279,8 @@ public class TypeFactory {
 
     /**
      * Inner class to the factory that implements the registry
-     * interface. This allows the registry to have behaviour that access
-     * the factory that contains it.
+     * interface. This allows the registry to have behaviour that relies
+     * upon access to the factory that contains it.
      */
     private class Registry extends TypeRegistry {
 
@@ -257,8 +302,8 @@ public class TypeFactory {
          * the batch succeed or fail together.
          * <p>
          * <b>Concurrency:</b> The representations are immediately
-         * available to other threads, so they and the type(s) behind
-         * them must be Python ready.
+         * available to other threads on return, so they and the type(s)
+         * behind them must be Python ready.
          *
          * @param assoc associations to add to the published map
          * @throws Clash when a representing class is already bound
@@ -268,10 +313,7 @@ public class TypeFactory {
             /*
              * Checks we made in workshop.add should guarantee that no
              * class in the unpublished map is already in the published
-             * map. We're going to check it anyway. If this ever fails,
-             * something is wrong with the synchronisation that ensures
-             * only the thread that built the new entries can add new
-             * entries.
+             * map. We're going to check it anyway.
              */
             for (Class<?> c : assoc.keySet()) {
                 if (map.containsKey(c)) {
@@ -308,79 +350,127 @@ public class TypeFactory {
             }
         }
 
+        /**
+         * {@inheritDoc}
+         * <p>
+         * The registry calls this when it did not find {@code c}
+         * published. The possible cases are:
+         * <ol>
+         * <li>This thread owns the factory, and is already working on a
+         * representation of {@code c}: we shall return it immediately.
+         * This may be an incomplete type, which is allowed because the
+         * call is a re-entrant one.</li>
+         * <li>This thread owns the factory, but {@code c} is new to it:
+         * we shall construct a representation and return it. This may
+         * be an incomplete type, which is allowed because the call is a
+         * re-entrant one.</li>
+         * <li>This thread must take ownership of the factory, but a
+         * previous owner published {@code c} during the wait. We shall
+         * return with that. The associated type will have been made
+         * Python ready by the time the factory was released.</li>
+         * <li>This thread must take ownership of the factory, and there
+         * is still no published representation for {@code c}. (The
+         * factory is empty.) We shall construct a representation for
+         * {@code c}, publish it with any other necessary types, and
+         * return that. The associated type will be Python ready.</li>
+         * </ol>
+         * This method is not {@code synchronized} on the registry,
+         * because that would lock the current owner of the factory
+         * inside, trying to publish.
+         */
         @Override
         Representation findOrCreate(Class<?> c) {
-
-            // FIXME reentrancyCount constraints routinely not met
-
             // We are "just outside" the factory: take the lock
             synchronized (TypeFactory.this) {
                 Representation rep;
-                /*
-                 * We check the published map first. The current thread
-                 * either (1) already owned the factory lock, and simply
-                 * needs to look up a representation, or (2) has just
-                 * waited for the lock, and the published map may have
-                 * changed.
-                 */
-                if ((rep = lookup(c)) == null) {
-                    /*
-                     * c is not published. We shall try to find a
-                     * representation in the process of being built, but
-                     * it will only be ok to return it if we are a
-                     * re-entrant call.
-                     */
-                    try {
-                        if (reentrancyCount != -1) {
-                            logger.atWarn().setMessage(
-                                    "Re-entering at level {} for {}")
-                                    .addArgument(reentrancyCount)
-                                    .addArgument(c).log();
+                logger.atDebug().setMessage(FINDING_REP)
+                        .addArgument(indent)
+                        .addArgument(() -> c.getTypeName()).log();
+                try {
+                    if (reentrancyCount++ > 0) {
+                        /*
+                         * This thread already owned the factory. It may
+                         * already be working on a representation for c.
+                         */
+                        if ((rep = resolve(c)) == null) {
+                            /*
+                             * {@code c} is new to the type system:
+                             * construct a representation.
+                             */
+                            rep = create(c);
                         }
-                        assert reentrancyCount == -1;
+                        /*
+                         * We may have created incomplete types, which
+                         * is allowed because the call is a re-entrant
+                         * one.
+                         */
+                        assert reentrancyCount > 0;
+
+                    } else { // reentrancyCount was 0 at entry
+                        assert reentrancyCount == 1;
                         assert workshop.isEmpty();
-                        rep = _findOrCreate(c);
-                        if (reentrancyCount != -1) {
-                            logger.atWarn().setMessage(
-                                    "Returning at level {} with {}")
-                                    .addArgument(reentrancyCount)
-                                    .addArgument(rep).log();
+                        /*
+                         * This thread just took ownership of the
+                         * factory. It may be that a representation for
+                         * c was published during the wait.
+                         */
+                        if ((rep = lookup(c)) == null) {
+                            /*
+                             * No published representation for c:
+                             * construct one.
+                             */
+                            rep = create(c);
+                            // Publish c to the registry.
+                            finishAndPublish();
                         }
-                        assert reentrancyCount == -1;
-                    } catch (Clash clash) {
-                        throw new InterpreterError(clash);
+                        // Associated types will be Python ready.
+                        assert reentrancyCount == 1;
+                        assert rep instanceof SharedRepresentation
+                                || rep.pythonType(null).isReady();
                     }
+
+                    return rep;
+
+                } catch (Clash clash) {
+                    // FIXME Make this Clash less fatal
+                    throw new InterpreterError(clash);
+
+                } finally {
+                    reentrancyCount -= 1;
                 }
-                return rep;
             }
         }
 
         /**
-         * This method must only be called with the factory lock held.
+         * Construct a representation for class {@code c} in the
+         * workshop. This method must only be called with the factory
+         * lock held and {@code reentrancyCount > 0}.
          *
          * @param c class to resolve
          * @return representation object for {@code c} or {@code null}.
          * @throws Clash when a representing class is already bound
          */
-        private Representation _findOrCreate(Class<?> c) throws Clash {
-            Representation rep = null;
-            reentrancyCount += 1;
-            logger.atDebug().setMessage(FINDING_REP).addArgument(indent)
-                    .addArgument(() -> c.getTypeName()).log();
+        private Representation create(Class<?> c) throws Clash {
+            assert reentrancyCount > 0;
             /*
-             * Ensure c is statically initialised, all its superclasses
-             * and interfaces. This may result in reentrant calls to the
-             * factory that add c or an ancestor to the workshop, but do
-             * not publish anything while reentrancyCount > 0.
+             * Ensure c is statically initialised, and all its
+             * superclasses and interfaces. If the static initialiser of
+             * c creates a type (or one of its uninitialised ancestors
+             * does) this will result in reentrant calls to the factory
+             * that add c or an ancestor to the workshop. This will not
+             * publish anything since the call is re-entrant.
              */
             ensureInit(c);
 
-            // See if we can already resolve c to work in progress.
-            rep = resolve(c);
-
-            if (rep == null) {
-                // Make a type to represent the class.
-                // XXX What lookup should be used here?
+            Representation rep;
+            if ((rep = resolve(c)) == null) {
+                /*
+                 * Initialisation did not make c resolvable. We treat
+                 * this as a "discovered" type, a Java class that was
+                 * not designed as a Python type.
+                 */
+                // TODO Elaborate the exposure of discovered types
+                // XXX What lookup should really be used here?
                 TypeSpec spec = new TypeSpec(c.getTypeName(),
                         MethodHandles.publicLookup()).primary(c);
                 rep = fromSpec(spec);
@@ -392,18 +482,6 @@ public class TypeFactory {
                 throw new InterpreterError(
                         String.format(fmt, c.getTypeName()));
             }
-
-            if (reentrancyCount == 0) {
-                /*
-                 * We are at the entry level. Everything we have created
-                 * must be made Python-ready and be published.
-                 */
-                finishWorkshopTasks();
-                workshop.publishAll();
-                lastContext = null;
-            }
-
-            reentrancyCount -= 1;
             return rep;
         }
 
@@ -474,134 +552,110 @@ public class TypeFactory {
      * @throws Clash when a representing class is already bound
      */
     public synchronized BaseType fromSpec(TypeSpec spec) throws Clash {
-        /*
-         * We are able to make (the right kind of) type object but
-         * cannot always guarantee to fill its dictionary. In that case,
-         * it would ideally not escape yet, but how?
-         */
+
         logger.atDebug().setMessage(CREATING_PARTIAL_TYPE)
                 .addArgument(indent).addArgument(spec.getName()).log();
-        if (reentrancyCount++ < 0) { lastContext = spec; }
-        // Create a type and add it to the work in progress.
-        BaseType type = workshop.addTaskFromSpec(spec);
-        /*
-         * It is ok to return a type that is not Python ready from a
-         * reentrant call. Work is in hand to complete it.
-         */
-        if (reentrancyCount == 0) {
+        if (reentrancyCount++ == 0) { lastContext = spec; }
+        try {
+            // Create a type and add it to the work in progress.
+            BaseType type = workshop.addTaskFromSpec(spec);
+
             /*
-             * But at the top-level, everything we have created must be
-             * made Python-ready and be published.
+             * During type system bootstrap, we may return type objects
+             * that are not Python-ready. This is ok because they are
+             * confined to the bootstrap thread until it completes.
              */
-            finishWorkshopTasks();
-            workshop.publishAll();
-            lastContext = null;
+            if (reentrancyCount == 1) {
+                /*
+                 * Everything we have created must be made Python-ready
+                 * and be published to the registry. reentrancyCount
+                 * remains 1 while new types may still be found.
+                 */
+                finishAndPublish();
+                assert type.isReady();
+            }
+            return type;
+        } finally {
+            // Count down (even if throwing).
+            --reentrancyCount;
         }
-        reentrancyCount -= 1;
-        return type;
     }
 
     /**
-     * Create the type objects needed before the type system itself can
-     * work properly, and make them Python ready. These are the adoptive
-     * types and those types required to create descriptors. In the
-     * parameters, the caller grants the factory lookup rights to the
-     * {@code runtime} package.
+     * Complete the type objects currently in the {@code TypeFactory}
+     * workshop and publish their associated {@link Representation}s.
+     * This method is called once, within the static initialisation of
+     * the {@code TypeSystem} class.
      * <p>
-     * We include the adoptive types to ensure that each adopted Java
-     * class becomes bound to its {@link Representation} before it gets
-     * used from Python.
+     * Objects with these Python types are already in use in multiple
+     * threads. After all, {@code String} and {@code Object} are amongst
+     * them, not just implementation-specific classes like
+     * {@code PyFloat}. However, no thread other than this one is able
+     * to reach the corresponding {@code Representation} or type object,
+     * without blocking, since this thread owns the necessary locks,
+     * both the {@code TypeFactory} lock and the static initialisation
+     * lock of the {@code TypeSystem} class.
      * <p>
-     * This method finishes what the constructor began. The design of
-     * {@code TypeSystem} ensures all the steps are called before a type
-     * becomes visible outside the thread.
+     * During this call, the type exposer gives the waiting type objects
+     * the attributes (descriptors) that define the Python behaviours of
+     * their corresponding objects. Then they are published, meaning
+     * that their {@code Representation}s are posted to the type system
+     * registry.
+     * <p>
+     * Whenever some thread completes a lookup in the registry, the
+     * {@code Representation} it finds get cached outside the protection
+     * of the {@code TypeFactory} lock. It will be visible to all
+     * threads. However, no thread other than this one can proceed with
+     * such lookup until this method returns (releasing the factory
+     * lock), and the initialisation of the {@code TypeSystem} class
+     * completes (releasing that lock).
      *
-     * @param runtimeLU access rights to the runtime package
      * @param exposerNew a way to make type exposers
      * @throws Clash when a representing class is already bound
      */
-    public synchronized void createBootstrapTypes(
-            MethodHandles.Lookup runtimeLU,
+    public synchronized void publishBootstrapTypes(
             Function<BaseType, TypeExposer> exposerNew) throws Clash {
 
-        runtimeLookup = runtimeLU;
         exposerFactory = exposerNew;
 
-        /*
-         * Create specifications for the bootstrap types. When it is not
-         * fully thread-safe to invoke PyType.fromSpec in the static
-         * initialisation of the type, we create the type here. We use
-         * local variables because we only need these specifications
-         * transiently. A type listed here should not contain the idiom
-         * static TYPE = PyType.fromSpec(...), but provide its TYPE by
-         * enquiry in the registry or otherwise.
-         */
-
-        /*
-         * We create 'int' first as 'bool' must refer to it as a base.
-         */
-        final PyType PyLong_TYPE =
-                fromSpec(new BootstrapSpec("int", PyLong.class)
-                        .methodImpls(PyLongMethods.class)
-                        // .binops(PyLongBinops.class)
-                        .adopt(BigInteger.class, Integer.class)
-                        .accept(Boolean.class));
-
-        // The rest we can do in a batch.
-        final TypeSpec[] bootstrapSpecs = { //
-                // TODO Maybe explicitly bootstrap descriptor types
-                new BootstrapSpec("str", PyUnicode.class)
-                        .methodImpls(PyUnicodeMethods.class)
-                        .adopt(String.class),
-                new BootstrapSpec("float", PyFloat.class)
-                        .methodImpls(PyFloatMethods.class)
-                        // .binops(PyFloatBinops.class)
-                        .adopt(Double.class),
-                new BootstrapSpec("bool", Boolean.class)
-                        // PyBool is *not* a representation
-                        .methodImpls(PyBool.class).base(PyLong_TYPE),
-                //
-        };
-
-        // Immediately create those type objects Java ready.
-        for (TypeSpec spec : bootstrapSpecs) {
-            /*
-             * Each loop makes a reentrant call, adding the type and
-             * representations to work in progress.
-             */
-            fromSpec(spec);
-        }
-
-        assert reentrancyCount == 0;
+        // This matches reentrancyCount = 1 in the createTypeForType.
+        assert reentrancyCount == 1;
 
         /*
          * We are at the top-level of initialising the factory and its
          * bootstrap types. Everything we have created must be made
          * Python-ready and be published.
          */
-        finishWorkshopTasks();
-        workshop.publishAll();
+        finishAndPublish();
+        reentrancyCount = 0;
 
+        // Finishing tasks should not have changed this
         logger.info("Bootstrap types ready.");
-
-        // This matches reentrancyCount = 0 in the constructor.
-        reentrancyCount = -1;
-        lastContext = null;
     }
 
     /**
-     * Make the types in the workshop Python ready by exposing their
-     * methods and fields. These types have accumulated since the
-     * external request that began the batch. (This request was a call
-     * to {@link #fromSpec(TypeSpec)}, seeking a {@link Representation}
-     * not yet in the registry, or the insertion of tasks for
-     * {@code type} and {@code object} upon creation of the factory
-     * itself. On return, the representations remain unpublished in the
-     * workshop.
-     *
-     * @throws Clash on a problem with an existing registry entry
+     * Everything currently in the workshop is made Python-ready and is
+     * published to the registry. This method must be called with the
+     * factory lock held. These types and representations have
+     * accumulated since the external request that began the batch.
+     * (This request was a call to {@link #fromSpec(TypeSpec)}, a
+     * registry lookup seeking a {@link Representation} that missed, or
+     * the insertion of tasks for bootstrap types when creating the type
+     * system itself.
+     * <p>
+     * We call this at the end of creating a representation or type when
+     * {@code reentrancyCount == 1}, and our next step will be to
+     * "leave" (unlock) the factory.
+     * <p>
+     * Where it is used, it is tempting to decrement and test
+     * {@code --reentrancyCount == 0}, but this is incorrect, because
+     * new representations may have to be generated in the process of
+     * finishing (exposing) types, and these must be recognised as
+     * re-entrant additions to the workshop.
      */
-    private void finishWorkshopTasks() throws Clash {
+    private void finishAndPublish() throws Clash {
+        assert reentrancyCount == 1;
+
         /*
          * Give all waiting types their Python nature. Note that this
          * action, to expose waiting types can result in re-entrant
@@ -609,6 +663,7 @@ public class TypeFactory {
          * initialisation of Java classes.
          */
         workshop.readyAllWaitingTypes();
+
         // Let's hope that emptied the shop ...
         int workshopCount = workshop.tasks.size();
         if (workshopCount != 0) {
@@ -617,6 +672,15 @@ public class TypeFactory {
                     .addArgument(lastContext.getName())
                     .addArgument(workshopCount).log();
         }
+
+        /*
+         * All the new representations and types are in the factory's
+         * unpublished map. Under lock, transfer them to the public
+         * registry.
+         */
+        workshop.publishAll();
+        assert workshop.isEmpty();
+        lastContext = null;
     }
 
     /**
@@ -709,12 +773,13 @@ public class TypeFactory {
          * @throws Clash when a representing class is already bound
          */
         BaseType addTaskFromSpec(TypeSpec spec) throws Clash {
+
             // No further change once we start
             String name = spec.freeze().getName();
 
             // It has these (potentially > 1) representations:
             Class<?> primary = spec.getPrimary();
-            Class<?> canonical = spec.getCanonicalBase();
+            Class<?> canonical = spec.getCanonicalClass();
             List<Class<?>> adopted = spec.getAdopted();
             List<Class<?>> accepted = spec.getAccepted();
 
@@ -730,6 +795,9 @@ public class TypeFactory {
 
             // Result of the construction
             BaseType newType;
+
+            // FIXME Allow TypeSpec may be from type.__new__
+            // Features like metaclass
 
             if (spec.getFeatures().contains(Feature.REPLACEABLE)) {
                 assert primary != null;
@@ -747,11 +815,11 @@ public class TypeFactory {
                     sr = new SharedRepresentation(primary, canonical);
                     publishLocally(primary, sr);
                 } else if (existing instanceof SharedRepresentation s) {
-                    // It does exist and is a Shared type: just use it.
+                    // It does exist and is a sharable: just use it.
                     assert s.canonicalClass() == canonical;
                     sr = s;
                 } else {
-                    // A representation exists but is the wrong type.
+                    // A representation exists but we can't share it.
                     throw new Clash(spec, Clash.Mode.NOT_SHARABLE,
                             primary, existing);
                 }
@@ -834,6 +902,14 @@ public class TypeFactory {
             // Look up c in both published and unpublished maps.
             Representation existing = registry.find(c);
             if (existing != null) {
+                /*
+                 * Somehow we have created two Representation objects
+                 * for the same Java class, within a period of ownership
+                 * of the factory. Something is wrong in the logic of
+                 * the factory, or its defences against pathological
+                 * fromSpec() arguments, that we did not resolve c to
+                 * the existing (locally published) representation.
+                 */
                 throw alreadyBoundError(c, existing);
             }
             unpublished.put(c, r);
@@ -910,14 +986,18 @@ public class TypeFactory {
              * Populate its dictionary with attributes from the type
              * exposer, and finalise other state from the specification.
              */
+            // Compare CPython type_ready in typeobject.c
             void readyType() {
 
                 // Set MRO
-                type.setMRO();
+                type.computeInstallMRO();
 
                 // Set feature flags
                 type.inheritFeatures();
                 type.addFeatures(spec);
+
+                // TODO Avoid the exposer when type defined in Python.
+                // In practice, when type.__new__ wrote the spec.
 
                 // Construct an exposer for the type.
                 TypeExposer exposer = gatherJavaAttributes();
@@ -934,6 +1014,9 @@ public class TypeFactory {
 
                 // Derive remaining feature flags
                 type.deriveFeatures(spec);
+
+                // Say we're done
+                type.kernelFeatures.add(KernelTypeFlag.READY);
             }
 
             /**
@@ -987,13 +1070,17 @@ public class TypeFactory {
              */
             private Collection<Class<?>> definitionClasses() {
                 /*
+                 * Some classes are known not to contain definitions of
+                 * Python methods.
+                 */
+                Set<Class<?>> exclusions = new HashSet<>();
+                exclusions.addAll(NO_PYTHON_METHODS);
+
+                /*
                  * Any definitions in these classes will be in the
                  * dictionary of a base, so this type will inherit them
                  * along the MRO.
                  */
-                Set<Class<?>> exclusions = new HashSet<>();
-                exclusions.add(Object.class);
-
                 for (PyType t : spec.getBases()) {
                     exclusions.add(t.canonicalClass());
                 }
@@ -1004,14 +1091,12 @@ public class TypeFactory {
                  */
                 LinkedList<Class<?>> defs = new LinkedList<>();
 
-                // The primary is always added (unless Object)
-                Class<?> c = spec.getPrimary();
-                assert c != null;
                 // Work upwards from until we meet an excluded class
-                while (c!=null &&!exclusions.contains(c)) {
+                for (Class<?> c = spec.getPrimary();
+                        c != null && !exclusions.contains(c);
+                        c = c.getSuperclass()) {
                     // At front of list so subclasses will win
                     defs.addFirst(c);
-                    c = c.getSuperclass();
                 }
 
                 return defs;
@@ -1019,6 +1104,8 @@ public class TypeFactory {
         }
     }
 
+    private static final List<Class<?>> NO_PYTHON_METHODS =
+            List.of(Object.class, KernelType.class);
     private static final String FINDING_REP =
             "{}Finding representation for '{}'";
     private static final String CREATING_PARTIAL_TYPE =
@@ -1027,9 +1114,17 @@ public class TypeFactory {
             "{}Publishing '{}' -> '{}'";
 
     /**
-     * Exception reporting a duplicate {@code Representation} for the
-     * given class or some other inconsistency, such as a the wrong type
-     * of {@code Representation} found when one must be re-used.
+     * Checked exception reporting a duplicate {@code Representation}
+     * for the given class or some other inconsistency, such as a the
+     * wrong type of {@code Representation} found when one must be
+     * re-used.
+     * <p>
+     * We throw this when we detect we have created two
+     * {@link Representation} objects for the same Java class. Something
+     * is wrong in the logic of the factory, its guard against
+     * concurrent use, or its defences against a pathological
+     * {@link TypeSpec}, that we did not resolve a newly mentioned class
+     * to the existing representation.
      */
     public static class Clash extends Exception {
         private static final long serialVersionUID = 1L;
@@ -1043,15 +1138,14 @@ public class TypeFactory {
         final Representation existing;
 
         /** Types of clash. */
-        public enum Mode {
+        enum Mode {
             /** New representation requested but exists already. */
             EXISTING("class %s was already bound to %s"),
             /** Representation needed for sharing is not suitable. */
-            NOT_SHARABLE("class %s was bound to non-shared %s"),
-            /** Representation needed as "accepted self" is missing. */
-            MISSING("no representation for class %s");
+            NOT_SHARABLE("class %s was already bound to non-shared %s");
 
-            String fmt;
+            /** Format of message */
+            private String fmt;
 
             Mode(String fmt) { this.fmt = fmt; }
         }
@@ -1068,7 +1162,7 @@ public class TypeFactory {
          */
         Clash(TypeSpec context, Mode mode, Class<?> klass,
                 Representation existing) {
-            assert mode == Mode.MISSING || existing != null;
+            assert existing != null;
             this.context = context;
             this.mode = mode;
             this.klass = klass;
@@ -1084,7 +1178,7 @@ public class TypeFactory {
          * @param klass being registered
          * @param existing representation for that class
          */
-        private Clash(TypeSpec context, Class<?> klass,
+        Clash(TypeSpec context, Class<?> klass,
                 Representation existing) {
             this.context = context;
             this.mode = Mode.EXISTING;
@@ -1100,7 +1194,7 @@ public class TypeFactory {
         }
 
         private static final String PREAMBLE =
-                "Interpreting specification %s, the type system found ";
+                "Interpreting a specification of %s: ";
     }
 
     /**
@@ -1119,31 +1213,8 @@ public class TypeFactory {
             super(type.getName(), lookup);
             // I think the primordial types are only simple
             assert type instanceof SimpleType;
-            this.primary(type.javaClass()).bases(type.getBases());
-        }
-    }
-
-    /**
-     * A specification of a bootstrap a type object. We do this as a
-     * shorthand for {@link TypeFactory#createBootstrapTypes()}, as we
-     * find the same parameters repeatedly.
-     */
-    private class BootstrapSpec extends TypeSpec {
-        /**
-         * Create a specification using name and primary class. The
-         * lookup object used to expose methods will be a generic one
-         * supplied by the run-time package, that does not have access
-         * to {@code private} members of the {@code primary} class. For
-         * this reason, the special and other exposed methods of a
-         * bootstrap type must be visible at package scope in the
-         * run-time package.
-         *
-         * @param name of type
-         * @param primary used to represent and define methods
-         */
-        BootstrapSpec(String name, Class<?> primary) {
-            super(name, runtimeLookup, false);
-            this.primary(primary).add(Feature.IMMUTABLE);
+            this.primary(type.javaClass()).bases(type.getBases())
+                    .add(Feature.IMMUTABLE, Feature.BASETYPE);
         }
     }
 }

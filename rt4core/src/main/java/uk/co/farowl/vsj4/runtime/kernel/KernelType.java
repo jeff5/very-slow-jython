@@ -1,3 +1,5 @@
+// Copyright (c)2025 Jython Developers.
+// Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime.kernel;
 
 import java.lang.invoke.MethodType;
@@ -49,7 +51,8 @@ public abstract class KernelType extends Representation
      * <p>
      * It is the type earliest on the MRO after the current type, whose
      * implementation contains all the members necessary to implement
-     * the current type.
+     * the current type. It is {@code null} (exposed as {@code None})
+     * only on the type object for {@code object}.
      */
     protected BaseType base;
 
@@ -112,8 +115,16 @@ public abstract class KernelType extends Representation
     @Override
     public PyType getBase() { return base; }
 
+    /**
+     * @implNote {@code type} will do as the default, but in
+     *     {@link SimpleType} and {@link ReplaceableType} we must store
+     *     and return an actual type, that may be some sub-type of
+     *     {@code type}, and therefore (by the way) an instance of a
+     *     Java sub-class of {@link BaseType}.
+     */
+    // FIXME: override in subclasses so not always exactly 'type'
     @Override
-    public PyType getType() { return PyType.TYPE(); }
+    public PyType getType() { return typeType(); }
 
     /**
      * Return a copy of the MRO of this type.
@@ -297,36 +308,27 @@ public abstract class KernelType extends Representation
     }
 
     /**
-     * Determine if this type is a Python sub-type of {@code b} (if
-     * {@code b} is on the MRO of this type). For technical reasons we
-     * parameterise with the subclass. (We need it to work with a
-     * private superclass or {@code PyType}.)
+     * Check that this type is Python-ready, that is, it has been marked
+     * as fit to be handled outside the type system. An immutable type
+     * becomes ready at the end of construction and stays that way. A
+     * mutable type may go through periods when it is not Python-ready,
+     * while it is internally inconsistent, or inconsistent with related
+     * data. Correct synchronisation will ensure it does not escape in
+     * that condition.
+     * <p>
+     * Ideally, this method only appears in {@code assert} statements
+     * and unit tests. Operations on types that are not Python-ready
+     * should block until they are. If we have to consult this as a
+     * basis for run-time decisions, something is amiss with the design.
      *
-     * @param b to test
-     * @return {@code true} if {@code this} is a sub-type of {@code b}
+     * @return target is a Python-ready
      */
-    // Compare CPython PyType_IsSubtype in typeobject.c
-    // TODO: Make this take a PyType when we sort out the hierarchy
-    // Probably implement in BaseType
-    public boolean isSubTypeOf(KernelType b) { return false; }
+    // Compare CPython PySequence_Check (on instance) in abstract.c
+    public boolean isReady() {
+        return kernelFeatures.contains(KernelTypeFlag.READY);
+    }
 
     // Support for __new__ -------------------------------------------
-
-/// **
-// * The return from {@link #constructor()} holding a reflective
-// * constructor definition and a handle by which it may be called.
-// * <p>
-// * A custom {@code __new__} method in a defining Java class of a
-// * type generally has direct access to all the constructors it needs
-// * for its own type. When asked for an instance of a different type,
-// * it must be able to call the constructor of the Java
-// * representation class. The representation of the required type
-// * (the {@code cls} argument to {@code __new__}) will be a subclass
-// * in Java of the canonical representation of the type from which
-// * {@code __new__} was called.
-// */
-// public static record ConstructorAndHandle(
-// Constructor<?> constructor, MethodHandle handle) {}
 
     /**
      * Return the table holding constructors and their method handles
@@ -414,5 +416,6 @@ public abstract class KernelType extends Representation
      * @param selfClass to seek
      * @return index in {@link #selfClasses()}
      */
+    @SuppressWarnings("static-method")
     public int getSubclassIndex(Class<?> selfClass) { return 0; }
 }

@@ -20,7 +20,6 @@ import org.slf4j.LoggerFactory;
 import uk.co.farowl.vsj4.runtime.Abstract;
 import uk.co.farowl.vsj4.runtime.Callables;
 import uk.co.farowl.vsj4.runtime.ClassShorthand;
-import uk.co.farowl.vsj4.runtime.FastCall;
 import uk.co.farowl.vsj4.runtime.PyBaseException;
 import uk.co.farowl.vsj4.runtime.PyErr;
 import uk.co.farowl.vsj4.runtime.PyExc;
@@ -682,8 +681,8 @@ public enum SpecialMethod {
      * Each of the methods called {@code slot(self, ...)} looks up this
      * special method by name in the type of its {@code self} argument,
      * and calls it with the given arguments. A handle on the variant
-     * matching {@link #signature}, and bound to this special method, is
-     * placed in the {@link #generic} member during construction.
+     * matching {@link #signature}, and bound to this method, is placed
+     * in the {@link #generic} member during construction.
      * <p>
      * We in-line a specialised variant of attribute access in which we
      * avoid, if we can, binding a method object to {@code self}.
@@ -697,10 +696,14 @@ public enum SpecialMethod {
      * available. We use them in a similar way when a special method is
      * overridden in Python. (See private methods in {@link BaseType}.)
      * Ours are simpler than CPython's because we signal an empty slot
-     * by a lightweight {@link EmptyException}, rather than by
-     * {@code null}. We therefore do not need to reproduce the logic in
-     * the Abstract API, where the presence of a slot function fools it
-     * into thinking the special method is defined.
+     * by a lightweight {@link EmptyException}, rather than by returning
+     * {@code null}.
+     * <p>
+     * In CPython, when the Abstract API method has a choice to make,
+     * e.g. between {@code __add__} and {@code __radd__}, it inspects
+     * the type slot, but the presence of a slot function makes it look
+     * like the special method is defined even when it isn't. The slot
+     * function itself then has to replicate the logic.
      *
      * @param self first operand.
      * @param args other operands.
@@ -709,47 +712,36 @@ public enum SpecialMethod {
      * @throws PyBaseException from the call
      * @throws Throwable from the call
      */
-    // Compare CPython slot_* in typeobject.c
+    // Compare CPython slot_tp_call in typeobject.c
+    // See also lookup_method etc. in typeobject.c
     Object slot(Object self, Object[] args, String[] kwds)
             throws Throwable {
 
         PyType type = PyType.of(self);
         Object meth = type.lookup(methodName);
         if (meth == null) { throw SMUtil.EMPTY; }
-        // TODO inline equivalent code to other slot() functions
-        // return callAsMethod(type, meth, self, args, kwds);
 
         // What kind of object did we find? (Could be anything.)
-        Representation methRep = Representation.get(meth);
-        assert methRep != null;
+        Representation rep = Representation.get(meth);
+        PyType methType = rep.pythonType(meth);
 
-        if (methRep.pythonType(meth).isMethodDescr()) {
+        if (methType.isMethodDescr()) {
             /*
              * meth is a method descriptor. Avoid construction of a
-             * bound method, supplying self as the first argument in a
-             * new argument array. Keywords remain valid as they align
-             * to the end.
+             * bound method and supplying self separately to avoid
+             * creating a new argument array, if possible. Keywords
+             * remain valid as they align to the end.
              */
-            if (meth instanceof FastCall fast) {
-                return fast.call(self, args, kwds);
-            } else {
-                return _PyUtil.callPrepend(meth, self, args, kwds);
-            }
+            return _PyUtil.callPrepend(meth, self, args, kwds);
         } else {
             /*
              * The retrieved dictionary is not a *method* descriptor,
              * but it might still be a descriptor that we have to bind
              * to self.
              */
-            try {
+            if (methType.isDescr()) {
                 // Replace meth with result of descriptor binding.
-                // FIXME: undecided how exactly to call __get__ here
-                // meth = methRep.op_get().invokeExact(meth, self,
-                // type);
-                meth = op_get.handle(methRep).invokeExact(meth, self,
-                        type);
-            } catch (EmptyException e) {
-                // Not a descriptor at all.
+                meth = op_get.handle(rep).invokeExact(meth, self, type);
             }
             /*
              * meth is now the thing to call. We do not pass self here,
@@ -762,102 +754,158 @@ public enum SpecialMethod {
         }
     }
 
+    /**
+     * Looks up this special method by name in the type of {@code self},
+     * and call it with argument {@code (self)}. A handle matching
+     * {@link #signature}, and bound to this method, is placed in the
+     * {@link #generic} member during construction.
+     * <p>
+     * We avoid, if we can, binding a method object to {@code self}.
+     * Instead, we call the unbound method with the {@code self}
+     * argument placed first.
+     *
+     * @param self first operand.
+     * @return result of the call
+     * @throws Throwable from the call
+     */
+    // Compare CPython SLOT0 macro in typeobject.c
+    // See also vectorcall_method etc. in typeobject.c
     Object slot(Object self) throws Throwable {
         PyType type = PyType.of(self);
         Object meth = type.lookup(methodName);
         if (meth == null) { throw SMUtil.EMPTY; }
-        return callAsMethod(type, meth, self);
-    }
-
-    Object slot(Object self, Object w) throws Throwable {
-        PyType type = PyType.of(self);
-        Object meth = type.lookup(methodName);
-        if (meth == null) { throw SMUtil.EMPTY; }
-        return callAsMethod(type, meth, self, w);
-    }
-
-    Object slot(Object self, Object w, Object m) throws Throwable {
-        PyType type = PyType.of(self);
-        Object meth = type.lookup(methodName);
-        if (meth == null) { throw SMUtil.EMPTY; }
-        return callAsMethod(type, meth, self, w, m);
-    }
-
-    Object slot(Object self, Object obj, PyType t) throws Throwable {
-        PyType type = PyType.of(self);
-        Object meth = type.lookup(methodName);
-        if (meth == null) { throw SMUtil.EMPTY; }
-        return callAsMethod(type, meth, self, obj, t);
-    }
-
-    // TODO Do not need callAsMethod after inlining.
-    private static Object callAsMethod(PyType type, Object meth,
-            Object self, Object... args) throws Throwable {
-        return callAsMethod(type, meth, self, args, null);
-    }
-
-    /**
-     * Call the object we found by lookup on the type of {@code self},
-     * as part of invoking a one of the definitions of
-     * {@link #slot(Object, Object[], String[]) slot(...)}. These are
-     * the slot functions that fill the cache for a special method when
-     * we cannot find a more direct answer (see
-     * {@link SpecialMethod#generic}.
-     *
-     * @param type of {@code self}.
-     * @param meth looked up on {@code type} may be a descriptor.
-     * @param self first operand.
-     * @param args other operands.
-     * @param kwds naming the last {@code args} or {@code null}.
-     * @return result of the call
-     * @throws PyBaseException from the call
-     * @throws Throwable from the call
-     */
-    // Compare CPython vectorcall_unbound in typeobject.c
-    /*
-     * Also lookup_method and lookup_maybe_method. Actually, none of
-     * these is an equivalent. We do roughly the same work as CPython in
-     * our slot* functions, just in a different arrangement, avoiding
-     * the &unbound argument, which is awkward in Java..
-     */
-    private static Object callAsMethod(PyType type, Object meth,
-            Object self, Object[] args, String[] kwds)
-            throws PyBaseException, Throwable {
         // What kind of object did we find? (Could be anything.)
         Representation rep = Representation.get(meth);
         PyType methType = rep.pythonType(meth);
 
         if (methType.isMethodDescr()) {
-            /*
-             * meth is a method descriptor. Avoid construction of a
-             * bound method, supplying self as the first argument in a
-             * new argument array. Keywords remain valid as they align
-             * to the end.
-             */
-            return _PyUtil.callPrepend(meth, self, args, kwds);
-
+            return Callables.call(meth, self);
         } else {
-            /*
-             * The retrieved dictionary is not a *method* descriptor,
-             * but it might still be a descriptor that we have to bind
-             * to self.
-             */
-            try {
+            // We might still have have to bind meth to self.
+            if (methType.isDescr()) {
                 // Replace meth with result of descriptor binding.
-                // FIXME: undecided how exactly to call __get__ here
-                // meth = rep.op_get().invokeExact(meth, self, type);
                 meth = op_get.handle(rep).invokeExact(meth, self, type);
-            } catch (EmptyException e) {
-                // Not a descriptor at all.
             }
-            /*
-             * meth is now the thing to call. We do not pass self here,
-             * as meth has either bound self, or decided to ignore it
-             * (e.g. @staticmethod). It ought to be an instance of a
-             * class defining __call__. Or it may be something we can't
-             * actually call, in which case we'll find out next.
-             */
-            return Callables.call(meth, args, kwds);
+            // meth is now the thing to call.
+            return Callables.call(meth);
+        }
+    }
+
+    /**
+     * Looks up this special method by name in the type of {@code self},
+     * and call it with argument {@code (self, w)}. A handle matching
+     * {@link #signature}, and bound to this method, is placed in the
+     * {@link #generic} member during construction.
+     * <p>
+     * We avoid, if we can, binding a method object to {@code self}.
+     * Instead, we call the unbound method with the {@code self}
+     * argument placed first.
+     *
+     * @param self first operand.
+     * @param w second operand.
+     * @return result of the call
+     * @throws Throwable from the call
+     */
+    // Compare CPython SLOT1 macro in typeobject.c
+    // See also vectorcall_method etc. in typeobject.c
+    Object slot(Object self, Object w) throws Throwable {
+        PyType type = PyType.of(self);
+        Object meth = type.lookup(methodName);
+        if (meth == null) { throw SMUtil.EMPTY; }
+        // What kind of object did we find? (Could be anything.)
+        Representation rep = Representation.get(meth);
+        PyType methType = rep.pythonType(meth);
+
+        if (methType.isMethodDescr()) {
+            return Callables.call(meth, self, w);
+        } else {
+            // We might still have have to bind meth to self.
+            if (methType.isDescr()) {
+                // Replace meth with result of descriptor binding.
+                meth = op_get.handle(rep).invokeExact(meth, self, type);
+            }
+            // meth is now the thing to call.
+            return Callables.call(meth, w);
+        }
+    }
+
+    /**
+     * Looks up this special method by name in the type of {@code self},
+     * and call it with argument {@code (self, w, m)}. A handle matching
+     * {@link #signature}, and bound to this method, is placed in the
+     * {@link #generic} member during construction.
+     * <p>
+     * We avoid, if we can, binding a method object to {@code self}.
+     * Instead, we call the unbound method with the {@code self}
+     * argument placed first.
+     *
+     * @param self first operand.
+     * @param w second operand.
+     * @param m third operand.
+     * @return result of the call
+     * @throws Throwable from the call
+     */
+    // Compare CPython slot_tp_descr_set in typeobject.c
+    // See also vectorcall_method etc. in typeobject.c
+    Object slot(Object self, Object w, Object m) throws Throwable {
+        PyType type = PyType.of(self);
+        Object meth = type.lookup(methodName);
+        if (meth == null) { throw SMUtil.EMPTY; }
+        // What kind of object did we find? (Could be anything.)
+        Representation rep = Representation.get(meth);
+        PyType methType = rep.pythonType(meth);
+
+        if (methType.isMethodDescr()) {
+            return Callables.call(meth, self, w, m);
+        } else {
+            // We might still have have to bind meth to self.
+            if (methType.isDescr()) {
+                // Replace meth with result of descriptor binding.
+                meth = op_get.handle(rep).invokeExact(meth, self, type);
+            }
+            // meth is now the thing to call.
+            return Callables.call(meth, w, m);
+        }
+    }
+
+    /**
+     * Looks up this special method by name in the type of {@code self},
+     * and call it with argument {@code (self, obj, t)}. The signature
+     * differs from {@link #slot(Object, Object, Object)} in requiring a
+     * type in the third position, so that we may match the
+     * {@link #signature} when a handle bound to this method, is placed
+     * in the {@link #generic} member during construction.
+     * <p>
+     * We avoid, if we can, binding a method object to {@code self}.
+     * Instead, we call the unbound method with the {@code self}
+     * argument placed first.
+     *
+     * @param self first operand.
+     * @param obj second operand.
+     * @param t third operand.
+     * @return result of the call
+     * @throws Throwable from the call
+     */
+    // Compare CPython slot_tp_descr_get in typeobject.c
+    // See also vectorcall_method etc. in typeobject.c
+    Object slot(Object self, Object obj, PyType t) throws Throwable {
+        PyType type = PyType.of(self);
+        Object meth = type.lookup(methodName);
+        if (meth == null) { throw SMUtil.EMPTY; }
+        // What kind of object did we find? (Could be anything.)
+        Representation rep = Representation.get(meth);
+        PyType methType = rep.pythonType(meth);
+
+        if (methType.isMethodDescr()) {
+            return Callables.call(meth, self, obj, t);
+        } else {
+            // We might still have have to bind meth to self.
+            if (methType.isDescr()) {
+                // Replace meth with result of descriptor binding.
+                meth = op_get.handle(rep).invokeExact(meth, self, type);
+            }
+            // meth is now the thing to call.
+            return Callables.call(meth, obj, t);
         }
     }
 
@@ -1245,7 +1293,7 @@ public enum SpecialMethod {
          * @param access object providing access
          */
         public static void provideAccess(Required access) {
-            logger.atTrace().setMessage("Access provided to {}")
+            logger.atDebug().setMessage("Access provided to {}")
                     .addArgument(() -> access.getLookup().lookupClass()
                             .getName())
                     .log();
@@ -1502,7 +1550,7 @@ public enum SpecialMethod {
                 // Add to table
                 t.put(s.methodName, s);
                 // This is a good time to confirm initialisation
-                SMUtil.logger.atDebug()
+                SMUtil.logger.atTrace()
                         .setMessage("{} with signature {}{}")
                         .addArgument(s.methodName)
                         .addArgument(s.generic.type())

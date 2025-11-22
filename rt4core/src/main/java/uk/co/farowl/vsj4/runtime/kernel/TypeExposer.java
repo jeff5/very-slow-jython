@@ -35,7 +35,7 @@ public interface TypeExposer {
     void exposeMembers(Class<?> memberClass);
 
     /**
-     * A name-value pair that hold one entry intended for the dictionary
+     * A name-value pair that holds one entry intended for the dictionary
      * of the type.
      */
     public static record Entry(String name, Object value) {}

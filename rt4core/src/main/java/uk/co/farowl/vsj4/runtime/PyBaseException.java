@@ -115,20 +115,26 @@ public class PyBaseException extends RuntimeException
      */
     private boolean suppressContext;
 
-    // XXX current format and args could be applied to message.
-
     /**
      * Constructor specifying Python type and the argument tuple as the
-     * associated value. We do this for maximum similarity with CPython,
-     * where {@code __new__} does no more than allocate an object and
-     * all attribute values are decoded by {@code __init__}.
+     * associated value of the exception. We do this for maximum
+     * similarity with CPython, where {@code __new__} does no more than
+     * allocate an object and all attribute values are decoded by
+     * {@code __init__}.
+     * <p>
+     * The type of an exception may be changed, within limits. The
+     * initial {@code type} is checked to see that if shares this class
+     * as its representation. E.g. {@code UnboundLocalError} and
+     * {@code NameError} share the representation created by
+     * {@link PyNameError#TYPE}. Once the object is created,
+     * {@link #setType(Object)} makes effectively the same check.
      *
      * @param type Python type of the exception
      * @param args positional arguments
      */
     public PyBaseException(PyType type, PyTuple args) {
-        // Ensure Python type is valid for Java class.
-        this.type = checkClassAssignment(type);
+        // Ensure Python type is compatible with type family.
+        this.type = PyUtil.checkReplaceable(this.getClass(), type);
         this.args = args;
     }
 
@@ -147,7 +153,7 @@ public class PyBaseException extends RuntimeException
 
     @Override
     public void setType(Object replacementType) {
-        type = checkClassAssignment(replacementType);
+        type = PyUtil.checkReplaceable(getType(), replacementType);
     }
 
     // Exception API -------------------------------------------------

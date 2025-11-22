@@ -46,7 +46,7 @@ abstract class Descriptor implements WithClass {
      */
     // In CPython, called d_qualname.
     // TODO: Where is this used? Is it better computed?
-    private String qualname = null;
+    private String qualname;
 
     /**
      * Create the common part of {@code Descriptor} sub-classes.

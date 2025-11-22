@@ -7,6 +7,7 @@ import java.util.StringJoiner;
 
 import uk.co.farowl.vsj4.runtime.Abstract;
 import uk.co.farowl.vsj4.runtime.ArgumentError;
+import uk.co.farowl.vsj4.runtime.Callables;
 import uk.co.farowl.vsj4.runtime.FastCall;
 import uk.co.farowl.vsj4.runtime.Py;
 import uk.co.farowl.vsj4.runtime.PyAttributeError;
@@ -15,7 +16,6 @@ import uk.co.farowl.vsj4.runtime.PyErr;
 import uk.co.farowl.vsj4.runtime.PyExc;
 import uk.co.farowl.vsj4.runtime.PyType;
 import uk.co.farowl.vsj4.runtime.PyUtil;
-import uk.co.farowl.vsj4.support.internal.EmptyException;
 import uk.co.farowl.vsj4.support.internal.Util;
 
 /**
@@ -62,14 +62,16 @@ public class _PyUtil {
     }
 
     /**
-     * Call a Python object when the first argument {@code arg0} is
+     * Call a Python object when the first argument {@code self} is
      * provided "loose". This is a frequent need when that argument is
      * the {@code self} object in a method call. The call effectively
-     * prepends {@code arg0} to {@code args}. It does no attribute
+     * prepends {@code self} to {@code args}. It will use the
+     * {@link FastCall} interface to avoid actually prepending to an
+     * array if the {@code callable} supports it. It does no attribute
      * binding.
      *
      * @param callable a Python callable target
-     * @param arg0 the first argument
+     * @param self the first argument
      * @param args arguments from 1 (position then keyword)
      * @param names of the keyword arguments or {@code null}
      * @return the return from the call to the object
@@ -77,58 +79,45 @@ public class _PyUtil {
      * @throws Throwable for errors raised in the function
      */
     // Compare CPython _PyObject_Call_Prepend in call.c
-    public static Object callPrepend(Object callable, Object arg0,
+    public static Object callPrepend(Object callable, Object self,
             Object[] args, String[] names)
             throws PyBaseException, Throwable {
-
-        // Speed up the common idiom:
-        // if (names == null || names.length == 0) ...
-        if (names != null && names.length == 0) { names = null; }
 
         if (callable instanceof FastCall fast) {
             // Fast path recognising optimised callable
             try {
-                return fast.call(arg0, args, names);
+                if (names == null || names.length == 0) {
+                    // No arguments by keyword
+                    switch (args.length) {
+                        case 0:
+                            return fast.call(self);
+                        case 1:
+                            return fast.call(self, args[0]);
+                        case 2:
+                            return fast.call(self, args[0], args[1]);
+                        case 3:
+                            return fast.call(self, args[0], args[1],
+                                    args[2]);
+                        default:
+                            // Ensure args is treated as an array
+                            return fast.call(self, args, null);
+                    }
+                } else {
+                    // Some arguments by keyword
+                    return fast.call(self, args, names);
+                }
             } catch (ArgumentError ae) {
                 // TypeError needs full argument list to make sense.
-                Object[] a = Util.prepend(arg0, args);
+                Object[] a = Util.prepend(self, args);
                 throw fast.typeError(ae, a, names);
             }
+
         } else {
-            // Go via callable.__call__
-            Object[] a = Util.prepend(arg0, args);
-            return _PyUtil.standardCall(callable, a, names);
+            // Go via callable.__call__ special method
+            Object[] a = Util.prepend(self, args);
+            return Callables.standardCall(callable, a, names);
         }
     }
-
-    /**
-     * Call an object with the standard protocol, via the
-     * {@code __call__} special method.
-     *
-     * @param callable target
-     * @param args all the arguments (position then keyword)
-     * @param names of the keyword arguments or {@code null}
-     * @return the return from the call to the object
-     * @throws PyBaseException (TypeError) if target is not callable
-     * @throws Throwable for errors raised in the function
-     */
-    public static Object standardCall(Object callable, Object[] args,
-            String[] names) throws PyBaseException, Throwable {
-
-        try {
-            // Call via the special method
-            // XXX Stop gap code until support for special functions
-            // Object o = PyType.of(callable).lookup("__call__");
-
-            throw new EmptyException();
-
-        } catch (EmptyException e) {
-            throw Abstract.typeError(OBJECT_NOT_CALLABLE, callable);
-        }
-    }
-
-    private static final String OBJECT_NOT_CALLABLE =
-            "'%.200s' object is not callable";
 
     /**
      * Create a {@link PyAttributeError} with a message along the lines
@@ -253,6 +242,7 @@ public class _PyUtil {
         return (PyAttributeError)PyErr.format(PyExc.AttributeError, fmt,
                 type.getName(), name);
     }
+
     /**
      * Create a {@link PyBaseException TypeError} with a message along
      * the lines "can't set attributes of X" giving str of {@code name}.
@@ -264,5 +254,4 @@ public class _PyUtil {
         return PyErr.format(PyExc.TypeError,
                 "can't set attributes of %.200s", obj);
     }
-
 }

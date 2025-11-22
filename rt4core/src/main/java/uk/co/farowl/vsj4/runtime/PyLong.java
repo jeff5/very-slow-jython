@@ -7,6 +7,7 @@ import static java.math.BigInteger.ZERO;
 import static uk.co.farowl.vsj4.runtime.ClassShorthand.T;
 
 import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
 import java.math.BigInteger;
 
 import uk.co.farowl.vsj4.runtime.Exposed.Default;
@@ -25,9 +26,23 @@ import uk.co.farowl.vsj4.runtime.kernel.Representation;
 // TODO: adopt some more types of int
 // TODO: implement PyDict.Key
 public class PyLong implements /* PyDict.Key, */ WithClass {
-    /** The type {@code int}. */
-    // Bootstrap type so ask the type system to resolve it.
-    public static final PyType TYPE = PyType.of(42);
+
+    /** Only referenced during bootstrap by {@link TypeSystem}. */
+    static class Spec {
+        /** @return the type specification. */
+        static TypeSpec get() {
+            return new TypeSystem.BootstrapSpec("int",
+                    MethodHandles.lookup(), PyLong.class)
+                            .add(Feature.BASETYPE)
+                            .methodImpls(PyLongMethods.class)
+                            // .binops(PyLongBinops.class)
+                            .adopt(BigInteger.class, Integer.class)
+                            .accept(Boolean.class);
+        }
+    }
+
+    /** The Python type of {@code int} objects. */
+    public static final PyType TYPE = TypeSystem.TYPE_int;
 
     /** The minimum Java {@code int} as a {@code BigInteger}. */
     static final BigInteger MIN_INT =

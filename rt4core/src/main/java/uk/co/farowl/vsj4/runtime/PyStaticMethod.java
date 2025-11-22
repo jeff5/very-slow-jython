@@ -6,6 +6,7 @@ import java.lang.invoke.MethodHandles;
 import java.util.Map;
 
 import uk.co.farowl.vsj4.runtime.Exposed.Getter;
+import uk.co.farowl.vsj4.support.internal.Util;
 
 /**
  * The Python {@code staticmethod} class, that is most often encountered
@@ -115,7 +116,7 @@ public class PyStaticMethod implements WithDict {
                 v = Abstract.lookupAttr(wrapped, name);
                 if (v != null) { Abstract.setAttr(this, name, v); }
             } catch (Throwable e) {
-                throw Abstract.asUnchecked(e, "staticmethod wrapping");
+                throw Util.asUnchecked(e, "staticmethod wrapping");
             }
         }
     }

@@ -76,17 +76,18 @@ public class MROCalculator {
      * @param bases to analyse
      * @return the MRO as an array
      */
-    public static PyType[] getMRO(PyType type, PyType[] bases) {
+    // Compare CPython mro_implementation() in typeobject.c
+    public static BaseType[] getMRO(BaseType type, BaseType[] bases) {
         if (bases.length == 1) {
             // Fast path when there is a single base.
-            PyType base = bases[0];
+            BaseType base = bases[0];
             if (base.getBase() == null) {
                 // The one base is object
-                return new PyType[] {type, base};
+                return new BaseType[] {type, base};
             } else {
                 // The one base has an MRO of its own: prepend type.
-                PyType[] baseMRO = base.getMRO();
-                PyType[] mro = Util.prepend(type, baseMRO);
+                BaseType[] baseMRO = base.getMRO();
+                BaseType[] mro = Util.prepend(type, baseMRO);
                 return mro;
             }
         } else {
@@ -96,10 +97,11 @@ public class MROCalculator {
             if (mro == null) {
                 StringJoiner sj = new StringJoiner(",", "(", ")");
                 for (PyType b : bases) { sj.add(b.getName()); }
-                throw PyErr.format(PyExc.TypeError, NO_CONSISTENT_MRO, sj);
+                throw PyErr.format(PyExc.TypeError, NO_CONSISTENT_MRO,
+                        sj);
             }
             mro.add(0, type);
-            return mro.toArray(new PyType[mro.size()]);
+            return mro.toArray(new BaseType[mro.size()]);
         }
     }
 

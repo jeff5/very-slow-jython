@@ -42,7 +42,8 @@ import uk.co.farowl.vsj4.runtime.subclass.SubclassSpec;
 import uk.co.farowl.vsj4.support.internal.Util;
 
 /**
- * This is a test of a process behind class definition in Python. We
+ * This is a test of a process behind class definition in Python, which
+ * is founded on {@link SubclassSpec} and {@link SubclassFactory}. We
  * create a specification, as we might when interpreting a class
  * definition, and generate a Java class in byte code that will
  * represent instances of the new Python class. We then compare
@@ -61,11 +62,34 @@ import uk.co.farowl.vsj4.support.internal.Util;
  */
 class SubclassCreationTest {
 
+    // FIXME add test for subclass of subclass defined as in Python
+    /*
+     * SOLUTION IMPLEMENTED: in the subclass factory, we make an
+     * additional cache entry to say that anything with the new class as
+     * base and exactly the same managed dict/class has the same
+     * representation. This turns up in BaseType.__new__.
+     *
+     * We do not test type.__new__ here, but lack a test for the kind of
+     * use is makes of SubclassSpec.
+     */
+
     /**
      * We create Java representations of classes directly, using only
-     * the code generation aspects of defining a subclass. See
-     * {@link DynamicBase} for a parallel test going via capabilities in
-     * the type object.
+     * the code generation aspects of defining a subclass. This is
+     * activity that occurs when a class is defined in Python, using the
+     * {@code class} keyword or the {@code type()} constructor (with 3
+     * arguments).
+     * <p>
+     * This allows us to test code generation, while we simulate (in
+     * {@link #bareExample(Class, String, List, boolean, List)}) actions
+     * that {@code type.__new__} and the type factory should carry out
+     * when not broken. Our reference result is one of the classes in
+     * this file named {@code HCD_*} or {@code HCS_*}, where we express
+     * in Java, the code equivalent to that which should be generated
+     * for the examples.
+     * <p>
+     * See {@link DynamicBase} for a parallel test going via
+     * capabilities in the type object.
      */
     @Nested
     @DisplayName("A synthetic Java representation  ...")
@@ -92,9 +116,13 @@ class SubclassCreationTest {
                     // No bases, slots
                     bareExample(HCS_Oa.class, "Oa", List.of(),
                             List.of("a")), //
-                    // Simple base, slots
-                    bareExample(HCS_Fabc.class, "Fabc", PyFloat.TYPE,
-                            List.of("c", "a", "b")) //
+                    // Simple base, no dict, slots
+                    bareExample(HCS_Fabc.class, "Fabc",
+                            List.of(PyFloat.TYPE),
+                            List.of("c", "a", "b")), //
+                    // Meta-type, inherit dict, no slots
+                    bareExample(HCD_T.class, "T",
+                            List.of(PyType.TYPE()), null) //
             );
         }
 
@@ -166,13 +194,13 @@ class SubclassCreationTest {
 
         /**
          * Construct parameters for a test of subclass creation, with
-         * Python bases, and either {@code __slots__} or an instance
-         * dictionary. The reference result is expressed through a
-         * hand-crafted class.
+         * Python bases, optionally with {@code __slots__}, optionally
+         * with an instance dictionary. The reference result is
+         * expressed through a hand-crafted class.
          *
          * @param refClass the reference result
          * @param name of the Python type to create
-         * @param bases of the Python type (empty means {@code object})
+         * @param addDict whether to add a dictionary
          * @param slots {@code __slots__} or {@code null}
          * @return parameters for the test
          */
@@ -194,7 +222,7 @@ class SubclassCreationTest {
 
             // Create a specification
             SubclassSpec spec =
-                    new SubclassSpec(name, baseType.javaClass());
+                    new SubclassSpec(name, baseType.canonicalClass());
             spec.addInterfaces(interfaces);
             if (slots != null) { spec.addSlots(slots); }
 
@@ -280,7 +308,8 @@ class SubclassCreationTest {
                 String name = f.getName();
                 Field ref = fields.get(name);
                 if (ref != null) {
-                    assertSame(ref.getType(), f.getType());
+                    assertSame(ref.getType(), f.getType(),
+                            name + ": type");
                     assertModifiersMatch(name, ref.getModifiers(),
                             f.getModifiers());
                     fields.remove(name);
@@ -296,12 +325,11 @@ class SubclassCreationTest {
             }
             // What landed in extras was unexpected in c.
             if (!extras.isEmpty()) {
-                fail(String.format("unexpected field(s): %s",
-                        fields.keySet()));
+                fail(String.format("unexpected field(s): %s", extras));
             }
         }
 
-        @DisplayName("bears the expected interfaces")
+        @DisplayName("has the expected interfaces")
         @ParameterizedTest(name = "when defined by {1}")
         @MethodSource("bareExamples")
         void expectedInterfaces(Class<?> refClass, String title,
@@ -317,7 +345,7 @@ class SubclassCreationTest {
             }
 
             // c should have the same interfaces as the reference.
-            List<Class<?>> extras = new LinkedList<>();
+            Map<String, Class<?>> extras = new HashMap<>();
             for (Class<?> i : c.getInterfaces()) {
                 // Compare the same-name reference interface
                 String name = i.getName();
@@ -326,7 +354,7 @@ class SubclassCreationTest {
                     assertSame(ref, i);
                     interfaces.remove(name);
                 } else {
-                    extras.add(i);
+                    extras.put(name, i);
                 }
             }
 
@@ -338,7 +366,7 @@ class SubclassCreationTest {
             // What landed in extras was unexpected in c.
             if (!extras.isEmpty()) {
                 fail(String.format("unexpected interface(s): %s",
-                        interfaces.keySet()));
+                        extras.keySet()));
             }
         }
 
@@ -371,16 +399,17 @@ class SubclassCreationTest {
                 String name = m.getName();
                 Method ref = methods.get(name);
                 if (ref != null) {
-                    assertSame(ref.getReturnType(), m.getReturnType());
+                    assertSame(ref.getReturnType(), m.getReturnType(),
+                            name + ": return type");
                     assertModifiersMatch(name, ref.getModifiers(),
                             m.getModifiers());
                     // Parameters should match in number and type.
                     Class<?>[] mp = m.getParameterTypes();
                     Class<?>[] rp = ref.getParameterTypes();
                     int n = rp.length;
-                    assertEquals(n, mp.length);
+                    assertEquals(n, mp.length, name + ": parameters");
                     for (int i = 0; i < n; i++) {
-                        assertSame(rp[i], mp[i]);
+                        assertSame(rp[i], mp[i], name + ": param " + i);
                     }
                     methods.remove(name);
                 } else {
@@ -725,11 +754,11 @@ class SubclassCreationTest {
             List<PyType> bases, CharSequence title) {
 
         PyType baseType = PyObject.TYPE;
-        Class<?> baseClass = baseType.javaClass();
+        Class<?> baseClass = baseType.canonicalClass();
         assert baseClass == Object.class;
 
         for (PyType b : bases) {
-            Class<?> canonical = b.javaClass();
+            Class<?> canonical = b.canonicalClass();
             if (canonical != baseClass) {
                 if (isBaseLike(canonical)) {
                     if (baseClass.isAssignableFrom(canonical)) {
@@ -794,7 +823,10 @@ class SubclassCreationTest {
     static class HCD_O
             implements WithDictAssignment, WithClassAssignment {
 
-        /** Type of this object. */
+        /**
+         * Type of this object is managed here since it is not
+         * assignable in {@code object}.
+         */
         private PyType $type;
 
         /** Instance dictionary. */
@@ -834,10 +866,16 @@ class SubclassCreationTest {
     static class HCD_F extends PyFloat
             implements WithDictAssignment, WithClassAssignment {
 
-        /** Type of this object. */
+        /**
+         * Type of this object is managed here since it is not
+         * assignable in {@code float}.
+         */
         private PyType $type;
 
-        /** Instance dictionary. */
+        /**
+         * Add an instance dictionary because {@code float} does not
+         * have one.
+         */
         private PyDict $dict;
 
         HCD_F(PyType actualType, double value) {
@@ -863,34 +901,68 @@ class SubclassCreationTest {
     }
 
     /**
-     * A hand-crafted model of the Java representation that should be
-     * formed when a Python class is defined by:<pre>
+     * {@code HCD_T} is a hand-crafted model of the Java representation
+     * that should be formed when a Python class is defined by:<pre>
      * class Meta(type): pass
-     * class MyClass(metaclass=Meta): pass
-     * x = MyClass()
-     * </pre>
+     * class M2o(metaclass=Meta): pass
+     * x = M2o()
+     * </pre> If we further define:<pre>
+     * class Peta(type): pass
+     * class P2o(metaclass=Peta): pass
+     * </pre> then class assignment is possible on the types:<pre>
+     * P2o.__class__ = Meta
+     * </pre> This tells us that the objects {@code M2o} (an instance in
+     * Python of {@code Meta}) and {@code P2o} (an instance in Python of
+     * {@code Peta}, initially) must be instances in Java of the same
+     * class, which is the shared representation that {@code Meta} and
+     * {@code Peta} designate for their instances. It must have a
+     * modifiable {@code __class__} attribute. The class {@code HCD_T}
+     * is a model for that class.
      * <p>
-     * {@code Meta} will be an instance of (exactly) {@code type}, that
-     * happens to name {@code type} as its base. {@code MyClass} will be
-     * an instance of this class for which {@code getType()} returns
-     * {@code Meta}. {@code x} will be an instance of a class extending
-     * {@code Object}, for which {@code getType()} returns
-     * {@code MyClass}
+     * The Python type of {@code Meta} and {@code Peta} is exactly
+     * {@code type}, but in order to share a representation, these type
+     * objects must be implemented as {@link ReplaceableType}.
      * <p>
-     * Note that this class inherits {@link WithDict} from
-     * {@link SimpleType} but does not implement
-     * {@link WithDictAssignment}.
+     * Further class assignments are also possible on the instances of
+     * {@code Meta} and {@code Peta}:<pre>
+     * y = P2o()
+     * y.__class__ = M2o
+     * class O2: pass
+     * x.__class__ = O2
+     * </pre> We infer that {@code x} (an instance in Python of
+     * {@code M2o}) and {@code y} (an instance in Python of {@code P2o},
+     * initially) must also be instances in Java of the same class,
+     * which is the shared representation designated by {@code M2o},
+     * {@code P2o} and {@code O2} for their instances. But this is just
+     * {@code HCD_O}.
+     * <p>
+     * The Python type of {@code M2o} is {@code Meta}, which is a
+     * subclass in Python of {@code type}, therefore the Java class of
+     * the object {@code M2o} subclasses a representation of
+     * {@code type}. As we have seen, {@code P2o} is an instance in Java
+     * of the same class. These type objects also designate the same
+     * Java class ({@code HCD_O}) to represent their instances, so they
+     * must also subclass {@link ReplaceableType}. Therefore
+     * {@code HCD_T} is a subclass of {@code ReplaceableType}.
+     * <p>
+     * Note {@code HCD_T} inherits {@link WithDict} from
+     * {@link ReplaceableType}, and allows Python class assignment, but
+     * does not implement {@link WithDictAssignment}.
      */
-    static class HCD_T extends SimpleType
+    static class HCD_T extends ReplaceableType
             implements WithClassAssignment {
 
-        /** Type of this object. */
+        /**
+         * Type of this object is managed here since it is not
+         * assignable in {@code type}.
+         */
         private PyType $type;
 
-        HCD_T(PyType metaType, String name) {
-            super(name, HCD_T.class,
+        HCD_T(PyType metaclass, String name) {
+            super(name,
+                    new SharedRepresentation(HCD_O.class, HCD_O.class),
                     new BaseType[] {(BaseType)PyType.TYPE()});
-            this.$type = checkClassAssignment(metaType);
+            this.$type = checkClassAssignment(metaclass);
         }
 
         @Override
@@ -898,9 +970,9 @@ class SubclassCreationTest {
 
         @Override
         public void setType(Object replacementType) {
+            // Maybe add mutability and other checks.
             $type = checkClassAssignment(replacementType);
         }
-
     }
 
     /**
@@ -912,7 +984,10 @@ class SubclassCreationTest {
      */
     static class HCS_Oa implements WithClassAssignment {
 
-        /** Type of this object. */
+        /**
+         * Type of this object is managed here since it is not
+         * assignable in {@code object}.
+         */
         private PyType $type;
 
         /* Variables corresponding to {@code __slots__} names. */
@@ -942,7 +1017,10 @@ class SubclassCreationTest {
     static class HCS_Fabc extends PyFloat
             implements WithClassAssignment {
 
-        /** Type of this object. */
+        /**
+         * Type of this object is managed here since it is not
+         * assignable in {@code float}.
+         */
         private PyType $type;
 
         /* Variables corresponding to {@code __slots__} names. */

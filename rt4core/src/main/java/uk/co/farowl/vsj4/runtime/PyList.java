@@ -141,11 +141,18 @@ public class PyList implements List<Object>, WithClass {
      * @param start of slice
      * @param count of elements to take
      */
-    PyList(Object[] a, int start, int count) {
+    public PyList(Object[] a, int start, int count) {
         this(TYPE, count);
         int stop = start + count;
         for (int i = start; i < stop; i++) { add(a[i]); }
     }
+
+    /**
+     * Construct a {@code list} with initial contents from an array.
+     *
+     * @param a the array
+     */
+    public PyList(Object[] a) { this(a, 0, a.length); }
 
     /**
      * Return a Python {@code list} object, specifying initial contents.

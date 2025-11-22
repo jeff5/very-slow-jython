@@ -38,7 +38,7 @@ import uk.co.farowl.vsj4.runtime.kernel.SpecialMethod.Signature;
  */
 public abstract class Representation {
 
-    /** Logger for representation/type object activity in the kernel. */
+    /** Logger for representation object activity in the kernel. */
     protected static final Logger logger =
             LoggerFactory.getLogger(Representation.class);
 
@@ -85,6 +85,24 @@ public abstract class Representation {
         return registry.get(o.getClass());
     }
 
+    /**
+     * Get the Python type object {@code type} directly from the
+     * factory.
+     *
+     * @return the Python type object {@code type}
+     */
+    static final SimpleType typeType() { return factory.typeType(); }
+
+    /**
+     * Get the Python type object {@code object} directly from the
+     * factory.
+     *
+     * @return the Python type object {@code object}
+     */
+    static final SimpleType objectType() {
+        return factory.objectType();
+    }
+
     /*
      * Give SpecialMethod access to private members (so it may write the
      * method handle caches), and to the runtime package in general. It
@@ -108,8 +126,8 @@ public abstract class Representation {
      * The common type (class or interface) of Java classes representing
      * instances of the related Python {@code type}, and registered for
      * this {@code Representation}. If more than one Java class is
-     * registered to this representation, then in Java they must all
-     * inherit (extend or implement) the type recorded here.
+     * registered to this representation, then they must all inherit
+     * (extend or implement in Java) the type recorded here.
      * <p>
      * Classes representing instances of the related Python {@code type}
      * and <i>not</i> related by inheritance must be described in
@@ -189,9 +207,9 @@ public abstract class Representation {
     }
 
     /**
-     * Fast check that an object of this type is exactly a Python
-     * {@code int}. We can do this without reference to the object
-     * itself, just from the representation.
+     * Fast check that an object having this as its Representation is
+     * exactly a Python {@code int}. We can do this without reference to
+     * the object itself, just from the representation.
      *
      * @implNote The result may be incorrect during type system
      *     bootstrap.
@@ -201,9 +219,9 @@ public abstract class Representation {
     public boolean isIntExact() { return this == PyLong.TYPE; }
 
     /**
-     * Fast check that an object of this type is exactly a Python
-     * {@code float}. We can do this without reference to the object
-     * itself, just from the representation.
+     * Fast check that an object having this as its Representation is
+     * exactly a Python {@code float}. We can do this without reference
+     * to the object itself, just from the representation.
      *
      * @implNote The result may be incorrect during type system
      *     bootstrap.

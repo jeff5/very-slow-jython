@@ -33,11 +33,26 @@ import uk.co.farowl.vsj4.support.internal.Util;
 // and functions method_* in descrobject.c.
 public abstract class PyMethodDescr extends MethodDescriptor {
 
-    /** The type object of a {@code method_descriptor}. */
-    public static final PyType TYPE = PyType.fromSpec( //
-            new TypeSpec("method_descriptor", MethodHandles.lookup())
-                    .add(Feature.IMMUTABLE, Feature.METHOD_DESCR)
-                    .remove(Feature.BASETYPE));
+    /** Only referenced during bootstrap by {@link TypeSystem}. */
+    static class Spec {
+        /** @return the type specification. */
+        static TypeSpec get() {
+            return new TypeSystem.BootstrapSpec("method_descriptor",
+                    MethodHandles.lookup(), PyMethodDescr.class)
+                            .add(Feature.METHOD_DESCR)
+                            .remove(Feature.INSTANTIABLE);
+        }
+    }
+
+    /**
+     * Return the Python type of {@code method_descriptor} objects,
+     * {@code types.MethodDescriptorType}.
+     *
+     * @return {@code <class 'method_descriptor'>}
+     */
+    public static final PyType TYPE() {
+        return TypeSystem.TYPE_method_descriptor;
+    }
 
     /*
      * We depart from CPython in reifying information from the Java
@@ -86,7 +101,7 @@ public abstract class PyMethodDescr extends MethodDescriptor {
     }
 
     @Override
-    public PyType getType() { return TYPE; }
+    public PyType getType() { return TYPE(); }
 
     /**
      * Construct a Python {@code method} descriptor from an

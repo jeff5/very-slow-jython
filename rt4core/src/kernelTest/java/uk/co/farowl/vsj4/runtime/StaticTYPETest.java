@@ -20,44 +20,35 @@ import org.junit.jupiter.api.TestMethodOrder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import uk.co.farowl.vsj4.runtime.kernel.AdoptiveType;
+import uk.co.farowl.vsj4.runtime.kernel.BaseType;
 import uk.co.farowl.vsj4.runtime.kernel.TypeRegistry;
 
 /**
- * Test that the type system is initialised in a single bootstrap
- * thread. The design intent is that the first thread to ask anything of
- * the type system initialises it fully (as the <i>bootstrap
- * thread</i>), before its request is answered, while all other threads
- * with a request have to wait on {@link TypeSystem}. We are are
- * concerned about these possible failure modes:
- * <ol>
- * <li>Deadlock: a thread waiting for the bootstrap thread holds a lock
- * on objects that the bootstrap thread needs.</li>
- * <li>Incomplete publication: type objects become visible outside the
- * bootstrap thread in an incomplete state.</li>
- * <li>Incomplete bootstrap: the bootstrap thread completes type system
- * creation (and its initiating request) while type objects are still
- * not complete.</li>
- * </ol>
- * The last two look much the same to the test, since it is not aware
- * which thread actually performed the bootstrap.
+ * This is a variant of {@link BootstrapTest} focusing particularly on
+ * competition for the static TYPE members of bootstrap types. We test
+ * that threads that access those members before the type system exists
+ * will never see them {@code null}.
  * <p>
- * We test this by starting a lot of threads, as close to simultaneously
- * as we can manage, that access {@code TypeSystem} static members in a
- * variety of orders. Each thread records when it started and when it
- * got its first answer. {@code TypeSystem} itself keeps track of when
+ * As before, the intent is that the first thread to ask anything of the
+ * type system initialises it fully (as the <i>bootstrap thread</i>),
+ * before its request is answered, while all other threads with a
+ * request have to wait on {@link TypeSystem}.
+ * <p>
+ * We shall start a lot of threads, as close to simultaneously as we can
+ * manage, that each access the {@code TYPE} static member of a
+ * particular bootstrap type. Each thread records when it started and
+ * when it got its answer. {@code TypeSystem} itself keeps track of when
  * the bootstrap started and finished. The bootstrap should complete
- * before any thread gets its first answer, and (for a satisfactory
- * test) multiple threads should be racing before the bootstrap begins.
- * They should all get the same answers.
+ * before any thread gets its answer, and (for a satisfactory test)
+ * multiple threads should be racing before the bootstrap begins.
  */
-@DisplayName("When multiple threads use the type system")
+@DisplayName("When multiple threads reference TYPE")
 @TestMethodOrder(MethodOrderer.MethodName.class)
-class BootstrapTest {
+class StaticTYPETest {
 
     /** Logger for the test. */
     static final Logger logger =
-            LoggerFactory.getLogger(BootstrapTest.class);
+            LoggerFactory.getLogger(StaticTYPETest.class);
 
     /** Random (or deterministic) order. */
     static final long seed = System.currentTimeMillis();
@@ -65,18 +56,17 @@ class BootstrapTest {
 
     /** If defined, dump the times recorded by threads. */
     static final String DUMP_PROPERTY =
-            "uk.co.farowl.vsj4.runtime.BootstrapTest.times";
+            "uk.co.farowl.vsj4.runtime.StaticTYPETest.times";
 
-    /** Threads in total. &gt;&gt; {@code setUpClass()} cases. */
+    /** Threads in total. &gt;&gt; {@code setUpClass().NCASES} */
     static final int NTHREADS = 100;
 
     /**
      * Check this many threads actually concurrent. Ideally
      * &gt;{@code setUpClass().NCASES} but expectation depends on CPUs.
      */
-    static int MIN_THREADS =
-            Math.min(Runtime.getRuntime().availableProcessors(),
-                    NTHREADS) / 2;
+    static int MIN_THREADS = Math.min(
+            Runtime.getRuntime().availableProcessors(), NTHREADS) / 2;
 
     /** Threads to run. */
     static final List<InitThread> threads = new ArrayList<>();
@@ -84,8 +74,6 @@ class BootstrapTest {
     static CyclicBarrier barrier;
     /** Source of random behaviour. */
     static Random random = new Random(seed);
-    /** Time the first thread completed its first action. */
-    static long refNanoTime;
 
     /**
      * We create multiple threads for each of several ways the type
@@ -93,33 +81,84 @@ class BootstrapTest {
      * make observations of the type system that ought only to be
      * possible definitely after the type system initialises. Each will
      * note the high-resolution time at which it began and was able to
+     * complete its first action, and complete its other actions.
      */
     @BeforeAll
     static void setUpClass() {
-        // Create NTHREADS randomly choosing which action comes first.
+        // Match the number of cases. (We keep adding to them.)
+        final int NCASES = 14;
+        // Create NTHREADS choosing which action comes first.
         for (int i = 0; i < NTHREADS; i++) {
-            threads.add(switch (random.nextInt(4)) {
-
-                case 0 -> new InitThread() {
+            int k = i % NCASES;
+            threads.add(switch (k) {
+                case 0 -> new InitThread(k, Object.class) {
                     @Override
-                    void action() { reg = TypeSystem.registry; }
+                    void action() { type = PyObject.TYPE; }
                 };
 
-                case 1 -> new InitThread() {
+                case 1 -> new InitThread(k, PyLong.class) {
                     @Override
-                    void action() { floatType = PyFloat.TYPE; }
+                    void action() { type = PyLong.TYPE; }
                 };
 
-                case 2 -> new InitThread() {
+                case 2 -> new InitThread(k, Boolean.class) {
                     @Override
-                    void action() { objectType = PyObject.TYPE; }
+                    void action() { type = PyBool.TYPE; }
                 };
 
-                default -> new InitThread() {
+                case 3 -> new InitThread(k, PyFloat.class) {
                     @Override
-                    void action() throws Throwable {
-                        result = PyNumber.multiply(6, 7);
-                    }
+                    void action() { type = PyFloat.TYPE; }
+                };
+
+                case 4 -> new InitThread(k, PyUnicode.class) {
+                    @Override
+                    void action() { type = PyUnicode.TYPE; }
+                };
+
+                case 5 -> new InitThread(k, PyGetSetDescr.class) {
+                    @Override
+                    void action() { type = PyGetSetDescr.TYPE(); }
+                };
+
+                case 6 -> new InitThread(k, PyJavaFunction.class) {
+                    @Override
+                    void action() { type = PyJavaFunction.TYPE(); }
+                };
+
+                case 7 -> new InitThread(k, PyMemberDescr.class) {
+                    @Override
+                    void action() { type = PyMemberDescr.TYPE(); }
+                };
+
+                case 8 -> new InitThread(k, PyMethodDescr.class) {
+                    @Override
+                    void action() { type = PyMethodDescr.TYPE(); }
+                };
+
+                case 9 -> new InitThread(k, PyMethodWrapper.class) {
+                    @Override
+                    void action() { type = PyMethodWrapper.TYPE(); }
+                };
+
+                case 10 -> new InitThread(k, PyWrapperDescr.class) {
+                    @Override
+                    void action() { type = PyWrapperDescr.TYPE(); }
+                };
+
+                case 11 -> new InitThread(k, PyTuple.class) {
+                    @Override
+                    void action() { type = PyTuple.TYPE; }
+                };
+
+                case 12 -> new InitThread(k, PyList.class) {
+                    @Override
+                    void action() { type = PyList.TYPE; }
+                };
+
+                default -> new InitThread(k, BaseType.class) {
+                    @Override
+                    void action() { type = PyType.TYPE(); }
                 };
             });
         }
@@ -146,20 +185,6 @@ class BootstrapTest {
         for (Thread t : threads) { allStopped &= hasStopped(t); }
         assertTrue(allStopped, "Threads were still running");
 
-        // Now sort them by the time the first action completed
-        Comparator<InitThread> byFirst = new Comparator<>() {
-
-            @Override
-            public int compare(InitThread t1, InitThread t2) {
-                return Long.compare(t1.firstNanoTime, t2.firstNanoTime);
-            }
-        };
-        Collections.sort(threads, byFirst);
-
-        // Make the winning thread the reference time for the test
-        refNanoTime = threads.get(0).firstNanoTime;
-        for (InitThread it : threads) { it.subtractTime(refNanoTime); }
-
         // Dump the thread times by start time.
         // TODO Make dump conditional again (once test reliable on CI)
         // if (truthy(DUMP_PROPERTY)) { dumpThreads(); }
@@ -177,9 +202,18 @@ class BootstrapTest {
      * output.
      */
     private static void dumpThreads() {
-        double r = (TypeSystem.readyNanoTime - refNanoTime) * 1e-6;
+        Comparator<InitThread> byFirst = new Comparator<>() {
+
+            @Override
+            public int compare(InitThread t1, InitThread t2) {
+                return Long.compare(t1.firstNanoTime, t2.firstNanoTime);
+            }
+        };
+        double r = (TypeSystem.readyNanoTime
+                - TypeSystem.bootstrapNanoTime) * 1e-6;
         String fmt = "%42s   =%10.4f  (relative ms)\n";
         System.out.printf(fmt, "Type system ready at", r);
+        Collections.sort(threads, byFirst);
         for (InitThread t : threads) { System.out.println(t); }
     }
 
@@ -204,7 +238,7 @@ class BootstrapTest {
                         threads.size() - completed));
     }
 
-    /** Some threads started before the bootstrap started. */
+    /** Enough threads started before the first action completed. */
     @SuppressWarnings("static-method")
     @Test
     @DisplayName("A race takes place")
@@ -224,8 +258,8 @@ class BootstrapTest {
     @Test
     @DisplayName("The bootstrap completes before any action.")
     void bootstrapBeforeAction() {
-        // Times on threads are relative to refNanoTime
-        final long ready = TypeSystem.readyNanoTime - refNanoTime;
+        final long ready =
+                TypeSystem.readyNanoTime - TypeSystem.bootstrapNanoTime;
         // All first actions should be after type system ready.
         long hasty = threads.stream()
                 .filter(t -> t.firstNanoTime < ready).count();
@@ -246,16 +280,34 @@ class BootstrapTest {
         }
     }
 
-    /** All the threads see a correct PyFloat.TYPE. */
+    /** All the threads see a correct TYPE. */
     @SuppressWarnings("static-method")
     @Test
-    @DisplayName("All threads see 'float'")
-    void sameFloat() {
-        PyType f = PyFloat.TYPE;
-        assertInstanceOf(AdoptiveType.class, f);
+    @DisplayName("All threads see their individual 'TYPE'")
+    void individualTYPE() {
         for (InitThread init : threads) {
-            assertSame(f, init.floatType);
+            PyType t = init.type;
+            assertNotNull(t);
+            assertSame(init.klass, t.javaClass());
         }
+    }
+
+    /** All the threads see a correct PyLong.TYPE. */
+    @SuppressWarnings("static-method")
+    @Test
+    @DisplayName("All threads see the same 'int'")
+    void intType() {
+        PyType t = PyType.of(42);
+        for (InitThread init : threads) { assertSame(t, init.intType); }
+    }
+
+    /** All the threads see a correct PyUnicode.TYPE. */
+    @SuppressWarnings("static-method")
+    @Test
+    @DisplayName("All threads see the same 'str'")
+    void strType() {
+        PyType t = PyType.of("");
+        for (InitThread init : threads) { assertSame(t, init.strType); }
     }
 
     /**
@@ -266,27 +318,46 @@ class BootstrapTest {
      * reasonably printable.
      */
     static abstract class InitThread extends Thread {
+        /** The primary class of the type this thread addresses. */
+        final Class<?> klass;
+
         /** Time this thread started. */
         long startNanoTime;
-        /** Time this thread completed line one of {@code action()}. */
+        /** Time this thread completed {@code action()}. */
         long firstNanoTime;
         /** Time this thread completed {@code otherActions()}. */
         long finishNanoTime;
+
         /** The reference {@link TypeSystem#registry} when inspected. */
         TypeRegistry reg;
-        /** The type {@code object} when inspected. */
-        PyType objectType;
-        /** The type {@code float} when inspected. */
-        PyType floatType;
-        /** The result of an operation. */
-        Object result;
+        /** The value seen in {@code TYPE}. */
+        PyType type;
+        /** The value seen in {@link PyLong#TYPE}. */
+        PyType intType;
+        /** The value seen in {@link PyUnicode#TYPE}. */
+        PyType strType;
+        /** The value seen in {@link PyGetSetDescr#TYPE()}. */
+        PyType getsetType;
+
+        /**
+         * Create a {@code Thread} to run. We specialise this with a
+         * specific definition of {@link #action()}. Providing a
+         * reference to a class here does <i>not</i> statically
+         * initialise it.
+         *
+         * @param choice of type for this thread
+         * @param klass canonical class of TYPE accessed
+         */
+        InitThread(int choice, Class<?> klass) {
+            this.klass = klass;
+        }
 
         /**
          * Each implementation of {@code InitThread} retrieves the same
          * data, but chooses to do one action first by overriding this
          * method. {@link #otherActions()} then completes the work.
          */
-        abstract void action() throws Throwable;
+        abstract void action();
 
         @Override
         public void run() {
@@ -305,38 +376,34 @@ class BootstrapTest {
                 action();
             } catch (Throwable e) {
                 logger.atWarn().setMessage("action() threw {}")
-                        .addArgument(e.getClass().getSimpleName())
-                        .log();
+                        .addArgument(e).log();
             }
             firstNanoTime = System.nanoTime();
             otherActions();
             finishNanoTime = System.nanoTime();
+            // *Only afterwards* make relative to bootstrap time.
+            startNanoTime -= TypeSystem.bootstrapNanoTime;
+            firstNanoTime -= TypeSystem.bootstrapNanoTime;
+            finishNanoTime -= TypeSystem.bootstrapNanoTime;
         }
 
         /** The required actions apart from the one already done. */
         void otherActions() {
-            if (objectType == null) { objectType = PyObject.TYPE; }
-            if (floatType == null) { floatType = PyFloat.TYPE; }
-            if (reg == null) { reg = TypeSystem.registry; }
-        }
-
-        /**
-         * Adjust times backwards by the given amount.
-         *
-         * @param ref to subtract from each recorded nanosecond time
-         */
-        void subtractTime(long ref) {
-            startNanoTime -= ref;
-            firstNanoTime -= ref;
-            finishNanoTime -= ref;
+            reg = TypeSystem.registry;
+            // intType = TypeSystem.typeOf(42);
+            intType = PyLong.TYPE;
+            // strType = TypeSystem.typeOf("");
+            strType = PyUnicode.TYPE;
+            // getsetType = PyGetSetDescr.TYPE();
         }
 
         @Override
         public String toString() {
             String fmt =
-                    "    start=%10.4f, first=%10.4f, finish=%10.4f (%5dns)";
-            return String.format(fmt, startNanoTime * 1e-6,
-                    firstNanoTime * 1e-6, finishNanoTime * 1e-6,
+                    "%20s  start=%10.4f, first=%10.4f, finish=%10.4f (%5dns)";
+            return String.format(fmt, klass.getSimpleName(),
+                    startNanoTime * 1e-6, firstNanoTime * 1e-6,
+                    finishNanoTime * 1e-6,
                     finishNanoTime - firstNanoTime);
         }
     }

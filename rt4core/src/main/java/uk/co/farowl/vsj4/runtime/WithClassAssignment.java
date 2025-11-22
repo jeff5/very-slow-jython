@@ -26,36 +26,26 @@ public interface WithClassAssignment extends WithClass {
 
     /**
      * Called during {@code __class__} assignment (that is, during the
-     * implementation of {@link #setType(Object)}) to check that the
-     * object being assigned is acceptable. It is only acceptable if the
-     * representation class of the proposed type is exactly the class of
-     * this object. The declared type of {@code type} is {@code Object}
-     * to simplify exposure to Python via {@code __setattr__}.
+     * implementation of {@link #setType(Object)} or a constructor) to
+     * check that the object being assigned is acceptable. It is only
+     * acceptable if the replacement type and the existing type specify
+     * the same representation class for their instances. The declared
+     * type of {@code type} is {@code Object} to simplify exposure to
+     * Python via {@code __setattr__} but it has to be a (replaceable)
+     * Python {@code type} object.
      *
      * @param replacementType intended new type object
      * @return argument cast to {@link PyType} (if no error raised)
+     * @throws PyBaseException (TypeError) if replacement unacceptable
      */
     default PyType checkClassAssignment(Object replacementType) {
-        String msg;
-        if (replacementType == null) {
-            msg = "__class__ attribute cannot be deleted";
-        } else if (replacementType instanceof PyType t) {
-            if (this.getClass() == t.javaClass()) {
-                // t = replacementType is an acceptable type
-                return t;
-            }
-            // Failing to assign as representations differ
-            // Note current type may be null (e.g. in constructor).
-            PyType type = this.getType();
-            msg = String.format(
-                    "__class__ assignment: '%s' representation differs from %s",
-                    t.getName(), type == null ? "chosen implementation"
-                            : "that of '" + type.getName() + "'");
+        PyType type = getType();
+        if (type == null) {
+            // Possible when checking initial assignment to __class__
+            return PyUtil.checkReplaceable(getClass(), replacementType);
         } else {
-            msg = String.format(
-                    "__class__ must be set to a class, not a '%s' object",
-                    PyType.of(replacementType).getName());
+            return PyUtil.checkReplaceable(type, replacementType);
         }
-        throw PyErr.format(PyExc.TypeError, msg);
     }
+
 }

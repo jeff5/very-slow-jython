@@ -13,7 +13,7 @@ import java.util.List;
  * must have a {@code self} parameter that accepts the representation
  * class (or a superclass).
  */
-public non-sealed class SimpleType extends BaseType {
+public final class SimpleType extends BaseType {
 
     /** To return as {@link #canonicalClass()}. */
     private final Class<?> canonicalClass;
@@ -42,7 +42,8 @@ public non-sealed class SimpleType extends BaseType {
      * @param javaClass to which instances are assignable
      * @param bases of the type
      */
-    public SimpleType(String name, Class<?> javaClass, BaseType[] bases) {
+    public SimpleType(String name, Class<?> javaClass,
+            BaseType[] bases) {
         this(name, javaClass, javaClass, bases);
     }
 
@@ -64,7 +65,7 @@ public non-sealed class SimpleType extends BaseType {
      * @param object the type object for {@code object} (as base).
      */
     SimpleType(BaseType object) {
-        this("type", BaseType.class, SimpleType.class,
+        this("type", BaseType.class, ReplaceableType.class,
                 new BaseType[] {object});
     }
 

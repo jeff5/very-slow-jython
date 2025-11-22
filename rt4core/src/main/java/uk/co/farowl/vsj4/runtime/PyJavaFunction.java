@@ -28,13 +28,26 @@ import uk.co.farowl.vsj4.support.ScopeKind;
  */
 public abstract class PyJavaFunction implements WithClass, FastCall {
 
-    /** The type of Python object this class implements. */
-    static final PyType TYPE = PyType.fromSpec( //
-            new TypeSpec("builtin_function_or_method",
-                    MethodHandles.lookup()));
+    /** Only referenced during bootstrap by {@link TypeSystem}. */
+    static class Spec {
+        /** @return the type specification. */
+        static TypeSpec get() {
+            return new TypeSystem.BootstrapSpec(
+                    "builtin_function_or_method",
+                    MethodHandles.lookup(), PyJavaFunction.class)
+                            .remove(Feature.INSTANTIABLE);
+        }
+    }
 
-    @Override
-    public PyType getType() { return TYPE; }
+    /**
+     * Return the Python type of {@code builtin_function_or_method}
+     * objects, {@code types.BuiltinMethodType}.
+     *
+     * @return {@code <class 'builtin_function_or_method'>}
+     */
+    public static final PyType TYPE() {
+        return TypeSystem.TYPE_builtin_function_or_method;
+    }
 
     /** Name of the containing module (or {@code null}). */
     final String module;
@@ -96,6 +109,9 @@ public abstract class PyJavaFunction implements WithClass, FastCall {
         this.self = self;
         this.module = module;
     }
+
+    @Override
+    public PyType getType() { return TYPE(); }
 
     /**
      * Construct a {@code PyJavaFunction} from an {@link ArgParser} and
@@ -201,7 +217,10 @@ public abstract class PyJavaFunction implements WithClass, FastCall {
      * Construct a {@code PyJavaFunction} from an {@link ArgParser} and
      * {@code MethodHandle} for a {@code __new__} method. Although
      * {@code __new__} is a static method the {@code PyJavaFunction} we
-     * produce is bound to the defining {@code PyType self}.
+     * produce is bound (by setting {@link #self}) to the defining
+     * {@code PyType self}. The {@link #handle} derived from
+     * {@code method} is <i>not</i> bound to {@code self}, but
+     * <i>does</i> add a filter to check the type of the first argument.
      *
      * @param ap argument parser (provides argument names etc.)
      * @param method raw handle to the method defined
@@ -646,9 +665,8 @@ public abstract class PyJavaFunction implements WithClass, FastCall {
         }
 
         @Override
-        public Object call(Object self, Object a0, Object a1)
-                throws Throwable {
-            return handle.invokeExact(self, a0, a1);
+        public Object call(Object a0, Object a1) throws Throwable {
+            return handle.invokeExact(a0, a1);
         }
     }
 

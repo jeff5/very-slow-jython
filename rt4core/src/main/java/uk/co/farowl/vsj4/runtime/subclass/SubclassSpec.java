@@ -1,3 +1,5 @@
+// Copyright (c)2025 Jython Developers.
+// Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime.subclass;
 
 import java.lang.reflect.Constructor;
@@ -8,25 +10,30 @@ import java.util.List;
 import java.util.StringJoiner;
 
 import uk.co.farowl.vsj4.runtime.PyType;
+import uk.co.farowl.vsj4.runtime.WithClassAssignment;
 import uk.co.farowl.vsj4.runtime.PyType.ConstructorAndHandle;
 import uk.co.farowl.vsj4.runtime.WithDict;
 import uk.co.farowl.vsj4.runtime.internal.NamedSpec;
 
 /**
  * A {@code SubclassSpec} is a specification for a Java class to
- * represent the instances of a type defined in Python. The
- * specification generally arises from the processing of a Python class
- * definition, or a three-argument call to
- * {@code type(name, bases, dict)}. It is not a factory for the actual
- * class object, creation of which requires more of the caller's
- * context.
+ * represent the instances of a type defined in Python. Such a
+ * specification is computed from a Python class definition, or a
+ * three-argument call to {@code type(name, bases, dict)}. It is not a
+ * factory for the actual class object, creation of which requires more
+ * of the caller's context.
  * <p>
- * The Java representation class specified is likely to be the
- * representation class of more than one Python type. At the time it is
- * specified, a matching representation may already exist. So our first
- * purpose for the {@code SubclassSpec} is to seek a match in the
- * {@code TypeFactory}, and only after that fails, to read it to create
- * the {@code Class} and {@code Representation}.
+ * When such a specification is computed, it may be identical in form to
+ * one that was computed earlier in the lifetime of the type system. In
+ * that case, instances of the Python class now being created will be
+ * class-assignable to the previous class, and vice-versa. For this to
+ * be possible in Jython, instances of each must have the same class in
+ * Java, that is, the Python types must share a representation.
+ * Therefore a {@code SubclassSpec} must be usable as a key in a cache
+ * of existing Java representation classes, for which we defines
+ * appropriate {@code equals()} and {@code hash()} methods. Only after
+ * that fails, do we read the specification to create new {@code Class}
+ * and {@code Representation} objects.
  */
 public class SubclassSpec extends NamedSpec implements Cloneable {
 
@@ -36,15 +43,20 @@ public class SubclassSpec extends NamedSpec implements Cloneable {
     private List<Class<?>> interfaces = EMPTY;
     /** Constructors on which to base those created here. */
     private List<Constructor<?>> constructors = new LinkedList<>();
-    /** Whether to create a {@code __dict__} member. */
-    private boolean hasDict;
+
+    /** Whether the class manages a writable {@code __dict__}. */
+    private boolean manageDict = false;
+    /** Whether the class manages a writable {@code __class__}. */
+    private boolean manageClass = false;
 
     /**
      * Names of slots to be added as members or {@link #NONAMES}. Note
      * even an empty {@code __slots__} ensures {@code slots != NONAMES},
-     * so we use this value as a marker.
+     * so we use this value as a marker. Python language rules applied
+     * in {@link #freeze()} may change this from what was specified by
+     * the client.
      */
-    private List<String> slots=NONAMES;
+    private List<String> slots = NONAMES;
 
     /**
      * Create (or begin) a specification. Note that the name given here
@@ -58,9 +70,6 @@ public class SubclassSpec extends NamedSpec implements Cloneable {
     public SubclassSpec(String name, Class<?> base) {
         super(name);
         this.base = base;
-        // If base implements WithDict, subclass has instance dict
-        if (WithDict.class.isAssignableFrom(base)) { hasDict = true; }
-        // The base class may hold a type attribute
     }
 
     /**
@@ -76,26 +85,70 @@ public class SubclassSpec extends NamedSpec implements Cloneable {
         this(name, base.canonicalClass());
     }
 
+    /**
+     * Adjust the state and ensure it cannot be further changed in ways
+     * affecting sorting and lookup. Here we decide finally whether the
+     * Java class has to handle class assignment and the instance
+     * dictionary.
+     * <p>
+     * The final value of the slot list (after {@link #freeze()}) is
+     * modified from the slot names added during definition, by rules
+     * that are part of Python (e.g. removal of {@code "__dict__"},
+     * sorting). It will be exactly this set of named fields that are
+     * added to the Java class. The value of {@code __slots__} stored in
+     * the class definition is not affected.
+     */
     @Override
-    protected SubclassSpec freeze() {
+    protected final SubclassSpec freeze() {
         /*
          * If we are not frozen yet, it means we have yet to finalise
          * the interfaces and slots.
          */
         if (frozen == false) {
-            // Prevent further change to the specification.
-            frozen = true;
+            // Compare CPython ctx->may_add_dict in typeobject.c
+            boolean needDict = true;
 
-            if (slots == NONAMES) {
-                // No slots => __dict__. (Not the converse.)
-                hasDict = true;
-                slots = List.of();
-            } else {
-                // May or may not have a dictionary.
-                // We have slots. Sort and freeze the list.
+            if (slots != NONAMES) {
+                // We have slots. Lots of rules. Mostly:
+                needDict = false;
+
+                if (slots.remove("__dict__")) {
+                    // __slots__ *and* __dict__
+                    needDict = true;
+                }
+
+                // Sort and freeze the list.
                 Collections.sort(slots);
                 slots = Collections.unmodifiableList(slots);
             }
+
+            // FIXME : (maybe order and) freeze interfaces.
+            /*
+             * Order of interfaces is *not* significant in Java and
+             * treating them as ordered in the MRO is perhaps behind
+             * certain problems in Jython 2 such as #70 and #391. Yet we
+             * must (I think) acknowledge them when looking for a
+             * representation, and probably as bases in Python.
+             */
+
+            /*
+             * The specification calls for instances to have a __dict__
+             * member. We must manage __dict__ assignment in this class
+             * unless the base already manages a __dict__.
+             */
+            manageDict =
+                    needDict && !WithDict.class.isAssignableFrom(base);
+
+            /*
+             * Instances must support class assignment (of compatible
+             * classes). We must manage class assignment in this class
+             * unless the base already does that for us.
+             */
+            manageClass =
+                    !WithClassAssignment.class.isAssignableFrom(base);
+
+            // Prevent further change to the specification.
+            frozen = true;
         }
         return this;
     }
@@ -259,31 +312,45 @@ public class SubclassSpec extends NamedSpec implements Cloneable {
      */
     List<String> getSlots() { return slots; }
 
-    /** Specify that there shall be a dictionary. */
-    SubclassSpec addDict() {
-        checkNotFrozen();
-        hasDict = true;
-        return this;
-    }
+    /**
+     * Whether {@code __slots__} was defined. If {@code false},
+     * {@link #getSlots()} will return an empty list.
+     *
+     * @return whether {@code __slots__} was defined.
+     */
+    boolean hasSlots() { return slots == NONAMES; }
 
     /**
-     * Specify that there shall be a dictionary if the argument is
-     * {@code true}. Otherwise the decision is unchanged.
+     * Report whether the class being specified must add a field and
+     * mechanisms to manage {@code __class__} assignment. Types
+     * specified here all support class assignment, even e.g.
+     * meta-classes, but the class need only add a field and mechanisms
+     * when the base class doesn't already have them.
+     * <p>
+     * The result is not reliable until {@link #freeze()} is called.
      *
-     * @param cond whether to add a request for a dictionary
-     * @return {@code this}
+     * @return whether to add a {@code __class__} field.
      */
-    SubclassSpec addDictIf(boolean cond) {
-        if (cond && !hasDict) { addDict(); }
-        return this;
-    }
+    boolean manageClassAssignment() { return manageClass; }
 
     /**
-     * Whether to create a {@code __dict__} member.
+     * Report whether to create a {@code __dict__} member in instances.
+     * An instance dictionary is required, in most classes defined in
+     * Python, except as controlled by {@code __slots__}.
+     * <p>
+     * If an instance dictionary is required, the class need only add a
+     * field and mechanisms when the base class doesn't already have
+     * them. In that case, it will exist with its own access policies
+     * thanks to the base class.
+     * <p>
+     * The result is not reliable until {@link #freeze()} is called.
      *
-     * @return whether to create a {@code __dict__}
+     * @return whether to add a {@code __dict__} field.
      */
-    boolean hasDict() { return hasDict; }
+    boolean manageDictAssignment() {
+        freeze();
+        return manageDict;
+    }
 
     @Override
     public String toString() {
@@ -296,7 +363,7 @@ public class SubclassSpec extends NamedSpec implements Cloneable {
             for (Class<?> c : interfaces) { sj.add(c.getSimpleName()); }
             b.append(sj.toString());
         }
-        if (hasDict()) { b.append(" +dict"); }
+        if (manageDict) { b.append(" +dict"); }
         if (slots != NONAMES) {
             StringJoiner sj = new StringJoiner(", ", " +slots(", ") ");
             for (String s : slots) { sj.add(s); }
@@ -310,13 +377,11 @@ public class SubclassSpec extends NamedSpec implements Cloneable {
         freeze();
         if (obj instanceof SubclassSpec r) {
             r.freeze();
-            if (getBase() != r.getBase()) { return false; }
-            if (hasDict() != r.hasDict()) { return false; }
-            if (!getSlots().equals(r.getSlots())) { return false; }
-            if (!getInterfaces().equals(r.getInterfaces())) {
-                return false;
-            }
-            return true;
+            return (getBase() == r.getBase())
+                    && (manageDict == r.manageDict)
+                    && (manageClass == r.manageClass)
+                    && getSlots().equals(r.getSlots())
+                    && getInterfaces().equals(r.getInterfaces());
         }
         return false;
     }
@@ -325,9 +390,11 @@ public class SubclassSpec extends NamedSpec implements Cloneable {
     public int hashCode() {
         freeze();
         int h = getBase().hashCode();
-        if (hasDict()) { h *= 9; }
-        // Need not hash hasSlots().
+        if (manageDict) { h *= 9; }
+        if (manageClass) { h *= 9; }
+        // Need not hash hasSlots(), only names (not ordered).
         for (String s : getSlots()) { h += s.hashCode(); }
+        // Interfaces hash contribution not ordered.
         for (Class<?> i : getInterfaces()) { h += i.hashCode(); }
         return h;
     }
@@ -337,14 +404,14 @@ public class SubclassSpec extends NamedSpec implements Cloneable {
         SubclassSpec spec = new SubclassSpec(name, base);
         if (interfaces != EMPTY) { spec.addInterfaces(interfaces); }
         if (slots != NONAMES) { spec.addSlots(slots); }
-        spec.hasDict = hasDict;
         if (frozen) {
             /*
-             * Slightly tricky, however the changes wrought by freeze()
-             * should only compute missing values and not change the
-             * membership of any lists.
+             * Slightly tricky, because freeze() modifies __slots__ as
+             * it computes the missing values.
              */
             spec.freeze();
+            spec.manageDict = manageDict;
+            spec.manageClass = manageClass;
         }
         return spec;
     }

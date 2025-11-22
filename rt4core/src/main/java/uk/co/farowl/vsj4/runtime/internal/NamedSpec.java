@@ -2,6 +2,8 @@
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime.internal;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import uk.co.farowl.vsj4.support.InterpreterError;
@@ -12,10 +14,14 @@ import uk.co.farowl.vsj4.support.InterpreterError;
  */
 public abstract class NamedSpec {
 
-    /** Unmodifiable empty list. */
-    protected static final List<Class<?>> EMPTY = List.of();
-    /** Unmodifiable empty list. */
-    protected static final List<String> NONAMES = List.of();
+    /** Unmodifiable empty list (or sentinel for "never assigned"). */
+    protected static final List<Class<?>> EMPTY =
+            // Not List.of() because identity of object is significant.
+            Collections.unmodifiableList(new ArrayList<>());
+    /** Unmodifiable empty list (or sentinel for "never assigned"). */
+    protected static final List<String> NONAMES =
+            // Not List.of() because identity of object is significant.
+            Collections.unmodifiableList(new ArrayList<>());
 
     /** Simple name of the representation class. */
     protected String name;
@@ -37,13 +43,12 @@ public abstract class NamedSpec {
      */
     protected NamedSpec(String name) { this.name = name; }
 
-    /** Return name specified to constructor.
+    /**
+     * Return name specified to constructor.
      *
      * @return name of specified object
      */
-    public String getName() {
-        return name;
-    }
+    public String getName() { return name; }
 
     /** Check that {@link #freeze()} has not yet been called. */
     protected void checkNotFrozen() {
@@ -60,8 +65,8 @@ public abstract class NamedSpec {
      */
     protected InterpreterError specError(String err, Object... args) {
         StringBuilder sb = new StringBuilder(100);
-        sb.append(String.format(err, args)).append(" while defining '")
-                .append(name).append("'.");
+        sb.append(String.format(err, args)).append(" (defining '")
+                .append(name).append("').");
         return new InterpreterError(sb.toString());
     }
 

@@ -4,6 +4,8 @@ package uk.co.farowl.vsj4.runtime;
 
 import java.lang.invoke.MethodHandle;
 
+import uk.co.farowl.vsj4.runtime.kernel.BaseType;
+import uk.co.farowl.vsj4.runtime.kernel.ReplaceableType;
 import uk.co.farowl.vsj4.runtime.kernel.Representation;
 import uk.co.farowl.vsj4.support.internal.EmptyException;
 
@@ -185,5 +187,128 @@ public class PyUtil {
      */
     static Object noneIfNull(Object o) {
         return o == null ? Py.None : o;
+    }
+
+    /**
+     * A basic check for use during {@code __class__} assignment (that
+     * is, during the implementation of
+     * {@link WithClassAssignment#setType(Object)}), or in a
+     * constructor, that the type being assigned could be acceptable as
+     * the Python type. It is also the default implementation of
+     * {@link WithClassAssignment#checkClassAssignment(Object)}, which
+     * passes the existing type as first argument.
+     * <p>
+     * This method checks that the proposed replacement type and
+     * existing type specify the same representation class for their
+     * instances, and will raise a TypeError with a helpful message
+     * otherwise.
+     *
+     * @param type of the target of the change of Python class
+     * @param replacementType intended new type
+     * @return replacement type cast to {@link ReplaceableType}
+     * @throws PyBaseException if replacement is unacceptable
+     */
+    public static PyType checkReplaceable(PyType type,
+            Object replacementType) throws PyBaseException {
+        if (replacementType instanceof ReplaceableType t) {
+            // Require same primary class for old and new types
+            if (type.javaClass() == t.javaClass()) { return t; }
+        }
+        // Failing to assign for some reason we will now work out
+        throw classAssignmentError(type, replacementType);
+    }
+
+    /**
+     * A basic check for use during initial {@code __class__} assignment
+     * (that is, in a constructor), that the type being assigned could
+     * be acceptable as the Python type. It is part of the default
+     * implementation of
+     * {@link WithClassAssignment#checkClassAssignment(Object)}, which
+     * passes the target class as first argument.
+     * <p>
+     * During initial assignment (construction), the existing type may
+     * be undefined, but we shall have found a {@link Representation}
+     * from the class of the target. This method checks that the
+     * proposed replacement type and target have the same primary class,
+     * and will raise a TypeError with a helpful message otherwise.
+     *
+     * @param c class of the target of the change of Python class
+     * @param replacementType intended new type
+     * @return replacement type cast to {@link ReplaceableType}
+     * @throws PyBaseException if replacement is unacceptable
+     */
+    public static PyType checkReplaceable(Class<?> c,
+            Object replacementType) throws PyBaseException {
+        // c may be a subclass representation: need primary
+        Representation rep = TypeSystem.registry.get(c);
+        if (replacementType instanceof ReplaceableType t) {
+            // Require same primary class for old and new types
+            if (rep.javaClass() == t.javaClass()) { return t; }
+        }
+        // Failing to assign for some reason we will now work out
+        throw classAssignmentError(rep, replacementType);
+    }
+
+    /**
+     * Helper to {@code checkClassAssignment} returning a
+     * {@code TypeError} to throw.
+     *
+     * @param type of the target of the change of Python class
+     * @param replacementType intended new type
+     * @return {@code TypeError} to throw
+     */
+    private static PyBaseException classAssignmentError(PyType type,
+            Object replacementType) {
+        String msg;
+        if (replacementType == null) {
+            msg = "__class__ attribute cannot be deleted";
+        } else if (replacementType instanceof BaseType t) {
+            // but type.javaClass() != t.javaClass()
+            msg = String.format(
+                    "__class__ assignment: '%s' representation differs from that of '%s'",
+                    t.getName(), type.getName());
+        } else {
+            // Possibly PyType but doesn't count if not made by us.
+            msg = String.format(
+                    "__class__ must be set to a class, not a '%s' object",
+                    PyType.of(replacementType).getName());
+        }
+        return PyErr.format(PyExc.TypeError, msg);
+    }
+
+    /**
+     * Helper to {@code checkClassAssignment} returning a
+     * {@code TypeError} to throw. During initial assignment
+     * (construction), the existing type may be undefined, but we shall
+     * have found a {@link Representation} from the class of the target.
+     *
+     * @param rep representation or type of the target of the change of
+     *     Python class
+     * @param replacementType intended new type
+     * @return {@code TypeError} to throw
+     */
+    private static PyBaseException classAssignmentError(
+            Representation rep, Object replacementType) {
+        String msg;
+        if (replacementType == null) {
+            msg = "__class__ attribute cannot be deleted";
+        } else if (replacementType instanceof BaseType t) {
+            // but rep.javaClass() != t.javaClass()
+            String name;
+            if (rep instanceof PyType type) {
+                name = type.getName();
+            } else {
+                name = rep.toString();
+            }
+            msg = String.format(
+                    "__class__ assignment: '%s' representation differs from that of '%s'",
+                    t.getName(), name);
+        } else {
+            // Possibly PyType but doesn't count if not made by us.
+            msg = String.format(
+                    "__class__ must be set to a class, not a '%s' object",
+                    PyType.of(replacementType).getName());
+        }
+        return PyErr.format(PyExc.TypeError, msg);
     }
 }

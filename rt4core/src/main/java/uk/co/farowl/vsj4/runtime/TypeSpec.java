@@ -10,12 +10,23 @@ import java.util.Collections;
 import java.util.EnumSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
+import java.util.StringJoiner;
 
 import uk.co.farowl.vsj4.runtime.internal.NamedSpec;
 import uk.co.farowl.vsj4.runtime.kernel.BaseType;
 import uk.co.farowl.vsj4.runtime.kernel.SimpleType;
 import uk.co.farowl.vsj4.support.InterpreterError;
 
+// TODO Provide for Python exceptions without requiring the type system
+/*
+ * By this I mean, detect the sort of mis-specification that ought to be
+ * a TypeError in Python, but without compromising our ability to use a
+ * TypeSpec to specify bootstrap types. Idea: define a specification
+ * error exception that may be caught and converted to a Python
+ * exception in contexts where the type system is in working order, but
+ * will propagate out as an InterpreterError (say) otherwise.
+ */
 /**
  * A specification for a Python type that acts as a complex argument to
  * {@link PyType#fromSpec(TypeSpec)}. A Java class intended as the
@@ -75,12 +86,12 @@ public class TypeSpec extends NamedSpec {
      * instances of the specified class as their the {@code self}
      * argument.
      *
-     * See {@link #canonicalBase(Class)}.
+     * See {@link #canonicalClass(Class)}.
      *
      * It may be {@code null} in a type that adopts all its
      * representations.
      */
-    private Class<?> canonicalBase;
+    private Class<?> canonicalClass;
 
     /**
      * The primary class that will represent the instances of the type
@@ -116,7 +127,7 @@ public class TypeSpec extends NamedSpec {
     /**
      * A collection of classes that are allowed to appear as the "other"
      * parameter in binary operations, in addition to
-     * {@link #canonicalBase}, {@link #adopted} and {@link #accepted}.
+     * {@link #canonicalClass}, {@link #adopted} and {@link #accepted}.
      * The main use for this is to allow efficient mixed {@code float}
      * and {@code int} operations.
      */
@@ -125,8 +136,8 @@ public class TypeSpec extends NamedSpec {
     /**
      * The Python type being specified may be represented by a Python
      * sub-class of {@code type}, i.e. something other than
-     * {@link PyType#TYPE}. This will be represented by a sub-class of
-     * {@link PyType}.
+     * {@link PyType#TYPE_type}. This will be represented by a sub-class
+     * of {@link PyType}.
      */
     private PyType metaclass;
 
@@ -141,6 +152,14 @@ public class TypeSpec extends NamedSpec {
      * methods.
      */
     private final List<Class<?>> classes = new ArrayList<>();
+
+    /**
+     * Name-value bindings to add to the dictionary of the type when it
+     * is created. We represent this with {@code Object} keys for
+     * compatibility with the name-space of a class definition in Python
+     * (which is a {@code dict}).
+     */
+    private Map<Object, Object> namespace = null;
 
     /**
      * Names of slots (fields) in the representation of the type being
@@ -180,14 +199,15 @@ public class TypeSpec extends NamedSpec {
      * members.
      * <p>
      * A {@code TypeSpec} given private or package access to members
-     * should not be passed to untrusted code. {@code PyType} does not
+     * should not be passed to untrusted code. The type system does not
      * hold onto the {@code TypeSpec} after completing the type object.
      *
-     * @param name of the type being specified (may be dotted name)
-     * @param lookup authorisation to access {@code implClass}
+     * @param name of the type being specified (may be dotted name).
+     * @param lookup authorisation to access the implementation classes.
+     *     (May be null when defining a type entirely in Python.)
      */
     public TypeSpec(String name, Lookup lookup) {
-        this(name, lookup, true);
+        this(name, lookup, lookup != null);
     }
 
     /**
@@ -200,7 +220,7 @@ public class TypeSpec extends NamedSpec {
      * those explicitly.
      *
      * @param name of the type being specified (may be dotted name)
-     * @param lookup authorisation to access {@code implClass}
+     * @param lookup authorisation to access the implementation classes
      * @param defaultToLookup if false, do not look for methods in the
      *     lookup class itself
      */
@@ -248,12 +268,12 @@ public class TypeSpec extends NamedSpec {
             }
 
             // The canonical base defaults to the primary class
-            if (canonicalBase == null) {
-                canonicalBase = primary;
-            } else if (!primary.isAssignableFrom(canonicalBase)) {
+            if (canonicalClass == null) {
+                canonicalClass = primary;
+            } else if (!primary.isAssignableFrom(canonicalClass)) {
                 // It must be acceptable as a self-argument
                 throw specError(CANONICAL_INCONSISTENT,
-                        canonicalBase.getSimpleName(),
+                        canonicalClass.getSimpleName(),
                         primary.getSimpleName());
             }
 
@@ -373,7 +393,7 @@ public class TypeSpec extends NamedSpec {
     }
 
     /**
-     * The class that will be the base (in Java) of classes that
+     * Specify the class that will be the base (in Java) of classes that
      * represent the instances of subclasses (in Python) of the type
      * being defined. Methods defined by the type must be able to
      * receive instances of the specified class as their {@code self}
@@ -384,18 +404,18 @@ public class TypeSpec extends NamedSpec {
      * in turn defaults to the defining class, so this method need not
      * be called in simple cases. It is useful where a class different
      * from these defaults is the base for subclasses. For example, the
-     * canonical base of {@code type} (primary class {@link PyType} is
-     * {@link SimpleType}, to ensure that metatypes have that
-     * implementation.
+     * canonical base of {@code type} is {@link SimpleType}, to ensure
+     * that metatypes have that implementation, while the primary class
+     * {@link PyType}.
      *
      * @param klass is a base for instances of every subclass
      * @return {@code this}
      */
-    public TypeSpec canonicalBase(Class<?> klass) {
-        if (canonicalBase != null) {
+    public TypeSpec canonicalClass(Class<?> klass) {
+        if (canonicalClass != null) {
             throw repeatError("canonical base class");
         }
-        this.canonicalBase = klass;
+        this.canonicalClass = klass;
         return this;
     }
 
@@ -408,13 +428,14 @@ public class TypeSpec extends NamedSpec {
     public Class<?> getPrimary() { return primary; }
 
     /**
-     * Get the canonical base class to be the base of representations of
-     * subclasses of this type. This may be {@code null} before
-     * {@link #freeze()} is called.
+     * Get the class that will be the base (in Java) of classes that
+     * represent the instances of subclasses (in Python) of the type
+     * being defined. This may be {@code null} before {@link #freeze()}
+     * is called, and by default is the same as the primary class.
      *
      * @return canonical base for instances of every subclass
      */
-    public Class<?> getCanonicalBase() { return canonicalBase; }
+    public Class<?> getCanonicalClass() { return canonicalClass; }
 
     /**
      * Specify Java classes that must be adopted by the Python type as
@@ -516,7 +537,7 @@ public class TypeSpec extends NamedSpec {
         } else if (base instanceof BaseType bt) {
             bases.add(bt);
         } else {
-            // PyType is sealed to permit only BaseType, so impossible:
+            // Permit only type objects made by the runtime
             throw specError("base is not BaseType", base.getName());
         }
         return this;
@@ -536,15 +557,34 @@ public class TypeSpec extends NamedSpec {
     }
 
     /**
-     * Specify some bases for the type. Successive bases given are
-     * cumulative and ordered.
+     * Specify some bases for the type as a collection. Successive bases
+     * given are cumulative and ordered. The use of a type parameter
+     * allows us to add collections of type of objects of known
+     * implementation, as they are internally to the type system.
      *
+     * @param <T> implements {@code PyType}
      * @param bases to append to the bases
      * @return {@code this}
      */
-    public TypeSpec bases(List<PyType> bases) {
+    public <T extends PyType> TypeSpec bases(List<T> bases) {
         // checkNotFrozen(); // Covered in base()
         for (PyType b : bases) { base(b); }
+        return this;
+    }
+
+    /**
+     * Specify content for the dictionary of the type
+     * ({@code __dict__}). The caller may have a reference to this
+     * mapping the time being, but the dictionary of the type is a
+     * distinct object. (Only keys that are Python {@code str} will make
+     * it in.)
+     *
+     * @param ns from which {@code __dict__} is initialised
+     * @return {@code this}
+     */
+    public TypeSpec namespace(Map<Object, Object> ns) {
+        checkNotFrozen();
+        namespace = ns;
         return this;
     }
 
@@ -677,7 +717,7 @@ public class TypeSpec extends NamedSpec {
      * {@code __rsub__(MyObject, Object)} that coerces its right-hand
      * argument on each call. (This method has to exist to satisfy the
      * Python data model.) The method may be defined in the
-     * {@link #canonicalBase(Class) canonical base} class, or
+     * {@link #canonicalClass(Class) canonical base} class, or
      * {@link #methodImpls(Class...) methodImpls}.
      * <p>
      * A separate class is necessary since the method definition for
@@ -737,11 +777,14 @@ public class TypeSpec extends NamedSpec {
     public String toString() {
         String fmt = "'%s' %s %s (lookup:%s pri:%s can:%s meth:%s)";
         String pri = primary == null ? "" : primary.getSimpleName();
-        String can = canonicalBase == null ? ""
-                : canonicalBase.getSimpleName();
-        return String.format(fmt, name, bases, features,
-                lookup.lookupClass().getSimpleName(), pri, can,
-                methodImpls);
+        String can = canonicalClass == null ? ""
+                : canonicalClass.getSimpleName();
+        String luc = lookup == null ? "null"
+                : lookup.lookupClass().getSimpleName();
+        StringJoiner mic = new StringJoiner(", ", "[", "]");
+        for (Class<?> c : methodImpls) { mic.add(c.getSimpleName()); }
+        return String.format(fmt, name, bases, features, luc, pri, can,
+                mic);
     }
 
     /**

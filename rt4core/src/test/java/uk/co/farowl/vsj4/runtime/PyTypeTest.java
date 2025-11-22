@@ -21,6 +21,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import uk.co.farowl.vsj4.support.internal.Util;
+
 /**
  * Tests of some basic mechanisms in {@link PyType} when exercised from
  * Java. We make a unit test of this because at the stage where these
@@ -191,14 +193,15 @@ class PyTypeTest extends UnitTestSupport {
 
             return Stream.of(
                     // A specification for each test
-                    newExample(TYPE, "A", new PyType[] {OBJECT},
-                            new PyDict(), //
-                            t -> newTypeCheck("A", OBJECT, t)) // ,
-            // newExample(TYPE, "MyInt", new PyType[] {INT},
-            // new PyDict(),
-            // t -> newTypeCheck("MyInt", INT, t, 42)) // , //
+                    newExample(TYPE, "A", new PyType[] {}, new PyDict(), //
+                            t -> newTypeCheck("A", OBJECT, t)),
+                    newExample(TYPE, "A", new PyType[] {INT},
+                            new PyDict(),
+                            t -> newTypeCheck("A", INT, t, 42)) // ,
             );
         }
+
+        // TODO write a different stream of examples that throw errors
 
         /**
          * Construct an instance construction problem with a test on the
@@ -242,15 +245,13 @@ class PyTypeTest extends UnitTestSupport {
                 Object o = Callables.call(type, args, null);
                 assertPythonType(type, o);
             } catch (Throwable t) {
-                throw Abstract.asUnchecked(t);
+                throw Util.asUnchecked(t);
             }
         }
     }
 
     @Nested
     @DisplayName("type.__new__")
-    // FIXME align to required behaviour of type.__new__
-    @Disabled("Need to implement type.__new__()")
     class NewTypeTest extends AbstractNewTypeTest {
         /**
          * Test type construction by the 3-argument call to type.
@@ -279,7 +280,7 @@ class PyTypeTest extends UnitTestSupport {
         }
 
         /**
-         * Test type construction by the 3-argument call to type.
+         * Test invalid arguments to the 3-argument call to type.
          *
          * @param metatype to select the constructor
          * @param name of the new type
@@ -289,21 +290,38 @@ class PyTypeTest extends UnitTestSupport {
          * @param strMetatype string form of {@code metatype}
          * @throws Throwable unexpectedly
          */
+        @Disabled("ClassCastException in handle.invokeExact")
+        // FIXME approach needed to reporting bad casts in invokeExact
         @DisplayName("<metatype>(name, bases, namespace) type error")
         @ParameterizedTest(name = "{5}(\"{1}\", ...)")
         @MethodSource("newExamples")
         void newTypeError(PyType metatype, String name, PyTuple bases,
                 PyDict namespace, Consumer<PyType> test,
                 String strMetatype) throws Throwable {
-            assertThrows(PyBaseException.class,
-                    () -> Callables.call(metatype, name, 1, namespace));
+
+            // Supply a non-tuple as bases argument
             assertThrows(PyBaseException.class, () -> Callables
-                    .call(metatype, name, bases, Py.None));
+                    .call(metatype, name, NOT_TUPLE, namespace));
+
+            // Corrupt the list of bases with a non-type
+            int n = bases.size();
+            Object[] not_bases = bases.toArray(new Object[n + 1]);
+            not_bases[n] = 42;
+            PyTuple NOT_BASES = new PyTuple(not_bases);
+            assertThrows(PyBaseException.class, () -> Callables
+                    .call(metatype, name, NOT_BASES, namespace));
+
+            // Supply wrong kind of object as a namespace
+            assertThrows(PyBaseException.class, () -> Callables
+                    .call(metatype, name, bases, NOT_NAMESPACE));
         }
+
+        static final Object NOT_TUPLE = 1;
+        static final Object NOT_NAMESPACE = "not a namespace";
     }
 
-    // creation of a metatype
+    // TODO creation of a metatype
 
-    // construction with a metatype
+    // TODO construction with a metatype
 
 }

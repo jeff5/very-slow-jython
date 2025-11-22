@@ -5,6 +5,7 @@ package uk.co.farowl.vsj4.runtime;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Constructor;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 
@@ -13,7 +14,6 @@ import org.slf4j.LoggerFactory;
 
 import uk.co.farowl.vsj4.runtime.kernel.Representation;
 import uk.co.farowl.vsj4.runtime.kernel.TypeFactory.Clash;
-import uk.co.farowl.vsj4.support.InterpreterError;
 
 /**
  * Each Python {@code type} object is implemented by an <i>instance</i>
@@ -121,6 +121,14 @@ public interface PyType extends WithClass, FastCall {
     Object lookup(String name);
 
     /**
+     * The features of this type as a set.
+     *
+     * @return features of this type
+     */
+    // Compare CPython PyType_GetFlags
+    EnumSet<TypeFlag> getFeatures();
+
+    /**
      * Test for possession of a specified feature.
      *
      * @param feature to check for
@@ -206,9 +214,7 @@ public interface PyType extends WithClass, FastCall {
 
     /**
      * Determine if this type is a Python sub-type of {@code b} (if
-     * {@code b} is on the MRO of this type). For technical reasons we
-     * parameterise with the subclass. (We need it to work with a
-     * private superclass or {@code PyType}.)
+     * {@code b} is on the MRO of this type).
      *
      * @param b to test
      * @return {@code true} if {@code this} is a sub-type of {@code b}
@@ -245,9 +251,10 @@ public interface PyType extends WithClass, FastCall {
      * <p>
      * In many cases, the canonical class is exactly the primary (and
      * only) representation class, but it is not safe to assume so
-     * always. For {@code type} itself, the canonical class is called
-     * {@code SimpleType}, and for subclasses defined in Python it may
-     * be the canonical representation of one of an ancestor class.
+     * always. For {@code type} itself, the canonical class is a kernel
+     * class called {@code ReplaceableType}, and for subclasses defined
+     * in Python it may be the canonical representation of an ancestor
+     * Python class.
      *
      * @return the canonical Java representation class of {@code self}
      */
@@ -309,22 +316,18 @@ public interface PyType extends WithClass, FastCall {
     // static methods -----------------------------------------------
 
     /**
-     * The Python {@code type} object. The type objects of many built-in
-     * types are available as a static final field {@code TYPE}. For
-     * technical reasons, we have to use a static method to get the
-     * value.
+     * Return the Python type of {@code type} objects.
      *
-     * @return The {@code type} object.
+     * @return {@code type}
      */
     public static PyType TYPE() {
         /*
-         * The type object "type" is created deep in the type system
-         * with the type factory itself, as might be expected. We
-         * carefully avoid calling this method from that constructor,
-         * but once TypeSystem.factory has been assigned, then the
-         * returned type object is guaranteed to be at least Java ready.
+         * The object "type" is created deep in the type system, during
+         * bootstrapping. The next statement will block any thread other
+         * than the one currently bootstrapping the type system, until
+         * that process is over.
          */
-        return TypeSystem.TYPE;
+        return TypeSystem.TYPE_type;
     }
 
     /**
@@ -352,16 +355,25 @@ public interface PyType extends WithClass, FastCall {
      * </pre> The type system will add descriptors for the members of
      * the class identified by annotation or reserved names for exposure
      * to Python.
+     * <p>
+     * Exceptions thrown during the creation of the type propagate out
+     * to the caller. If possible they are presented as Python
+     * exceptions. In that case, there will usually be no change to the
+     * state of the type system.
      *
      * @param spec specifying the new type
      * @return the new type
+     * @throws PyBaseException from specification errors or failures
+     *     during construction
      */
-    public static PyType fromSpec(TypeSpec spec) {
+    public static PyType fromSpec(TypeSpec spec)
+            throws PyBaseException {
         try {
             return TypeSystem.factory.fromSpec(spec);
         } catch (Clash clash) {
-            logger.atError().log(clash.toString());
-            throw new InterpreterError(clash);
+            // Clash is an internal type: translate to TypeError
+            logger.atInfo().log(clash.toString());
+            throw PyErr.format(PyExc.TypeError, clash.getMessage());
         }
     }
 }
