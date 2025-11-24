@@ -17,12 +17,14 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-import uk.co.farowl.vsj4.runtime.Exposed.Deleter;
-import uk.co.farowl.vsj4.runtime.Exposed.DocString;
-import uk.co.farowl.vsj4.runtime.Exposed.FrozenArray;
-import uk.co.farowl.vsj4.runtime.Exposed.Getter;
-import uk.co.farowl.vsj4.runtime.Exposed.Setter;
 import uk.co.farowl.vsj4.runtime.internal._PyUtil;
+import uk.co.farowl.vsj4.type.Exposed;
+import uk.co.farowl.vsj4.type.Exposed.Deleter;
+import uk.co.farowl.vsj4.type.Exposed.DocString;
+import uk.co.farowl.vsj4.type.Exposed.Getter;
+import uk.co.farowl.vsj4.type.Exposed.Setter;
+import uk.co.farowl.vsj4.type.Feature;
+import uk.co.farowl.vsj4.type.TypeSpec;
 
 /**
  * Test that get-set attributes exposed by a Python <i>type</i> defined
@@ -180,7 +182,6 @@ class TypeExposerGetSetTest extends UnitTestSupport {
          * Strongly-typed primitive ({@code double}) array internally,
          * but {@code tuple} to Python.
          */
-        @FrozenArray
         double[] doubleArray;
 
         @Getter
@@ -203,7 +204,6 @@ class TypeExposerGetSetTest extends UnitTestSupport {
          * Strongly-typed {@code String} array internally, but
          * {@code tuple} to Python or {@code None} when deleted.
          */
-        @FrozenArray
         String[] nameArray;
 
         @Getter

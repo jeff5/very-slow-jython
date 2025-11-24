@@ -4,7 +4,11 @@ package uk.co.farowl.vsj4.runtime;
 
 import java.lang.invoke.MethodHandles;
 
-import uk.co.farowl.vsj4.runtime.Exposed.Member;
+import uk.co.farowl.vsj4.type.Exposed;
+import uk.co.farowl.vsj4.type.Exposed.Member;
+import uk.co.farowl.vsj4.type.Feature;
+import uk.co.farowl.vsj4.type.TypeSpec;
+import uk.co.farowl.vsj4.type.WithClass;
 
 /**
  * The Python {@code slice} object.

@@ -8,6 +8,7 @@ import java.util.Map;
 import uk.co.farowl.vsj4.runtime.kernel.Representation;
 import uk.co.farowl.vsj4.support.internal.EmptyException;
 import uk.co.farowl.vsj4.support.internal.Util;
+import uk.co.farowl.vsj4.type.FastCall;
 
 /** Support for the {@code __call__} protocol of Python objects. */
 // Compare CPython ~/Objects/call.c

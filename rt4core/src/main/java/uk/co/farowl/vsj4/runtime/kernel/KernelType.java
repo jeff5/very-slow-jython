@@ -8,8 +8,8 @@ import java.util.List;
 import java.util.Map;
 
 import uk.co.farowl.vsj4.runtime.PyType;
-import uk.co.farowl.vsj4.runtime.TypeFlag;
-import uk.co.farowl.vsj4.runtime.TypeSpec;
+import uk.co.farowl.vsj4.type.TypeFlag;
+import uk.co.farowl.vsj4.type.TypeSpec;
 
 /**
  * A base class for Python type objects.

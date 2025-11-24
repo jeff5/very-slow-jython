@@ -20,14 +20,6 @@ import java.util.TreeSet;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 
-import uk.co.farowl.vsj4.runtime.Exposed.Deleter;
-import uk.co.farowl.vsj4.runtime.Exposed.DocString;
-import uk.co.farowl.vsj4.runtime.Exposed.Getter;
-import uk.co.farowl.vsj4.runtime.Exposed.Member;
-import uk.co.farowl.vsj4.runtime.Exposed.PythonMethod;
-import uk.co.farowl.vsj4.runtime.Exposed.PythonNewMethod;
-import uk.co.farowl.vsj4.runtime.Exposed.PythonStaticMethod;
-import uk.co.farowl.vsj4.runtime.Exposed.Setter;
 import uk.co.farowl.vsj4.runtime.PyMemberDescr.Flag;
 import uk.co.farowl.vsj4.runtime.kernel.BaseType;
 import uk.co.farowl.vsj4.runtime.kernel.SpecialMethod;
@@ -35,6 +27,14 @@ import uk.co.farowl.vsj4.runtime.kernel.TypeExposer;
 import uk.co.farowl.vsj4.support.InterpreterError;
 import uk.co.farowl.vsj4.support.MethodKind;
 import uk.co.farowl.vsj4.support.ScopeKind;
+import uk.co.farowl.vsj4.type.Exposed.Deleter;
+import uk.co.farowl.vsj4.type.Exposed.DocString;
+import uk.co.farowl.vsj4.type.Exposed.Getter;
+import uk.co.farowl.vsj4.type.Exposed.Member;
+import uk.co.farowl.vsj4.type.Exposed.PythonMethod;
+import uk.co.farowl.vsj4.type.Exposed.PythonNewMethod;
+import uk.co.farowl.vsj4.type.Exposed.PythonStaticMethod;
+import uk.co.farowl.vsj4.type.Exposed.Setter;
 
 class TypeExposerImplementation extends Exposer implements TypeExposer {
 

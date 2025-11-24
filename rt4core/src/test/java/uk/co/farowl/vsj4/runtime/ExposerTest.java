@@ -14,7 +14,10 @@ import java.nio.charset.Charset;
 
 import org.junit.jupiter.api.Test;
 
-import uk.co.farowl.vsj4.runtime.Exposed.PythonMethod;
+import uk.co.farowl.vsj4.type.Exposed.PythonMethod;
+import uk.co.farowl.vsj4.type.Feature;
+import uk.co.farowl.vsj4.type.TypeSpec;
+import uk.co.farowl.vsj4.type.WithClass;
 
 /**
  * Unit tests for the {@link Exposer} and the {@link Descriptor}s it
@@ -183,8 +186,8 @@ class ExposerTest extends UnitTestSupport {
     void methodConstruct() throws PyAttributeError, Throwable {
 
         // We defined this Java method: should retrieve a descriptor
-        PyMethodDescr length = (PyMethodDescr)ObjectWithMethods.TYPE
-                .lookup("length");
+        PyMethodDescr length =
+                (PyMethodDescr)ObjectWithMethods.TYPE.lookup("length");
 
         assertNotNull(length);
         assertEquals("length", length.__name__());
@@ -244,8 +247,8 @@ class ExposerTest extends UnitTestSupport {
         ObjectWithMethods a = new ObjectWithMethods(hello);
 
         // We defined this Java method: should retrieve a descriptor
-        PyMethodDescr length = (PyMethodDescr)ObjectWithMethods.TYPE
-                .lookup("length");
+        PyMethodDescr length =
+                (PyMethodDescr)ObjectWithMethods.TYPE.lookup("length");
         // Get the bound method (bound to a)
         PyJavaFunction bm = (PyJavaFunction)length.__get__(a, null);
 

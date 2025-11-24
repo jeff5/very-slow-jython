@@ -4,6 +4,9 @@ package uk.co.farowl.vsj4.runtime;
 
 import java.lang.invoke.MethodHandles;
 
+import uk.co.farowl.vsj4.type.Feature;
+import uk.co.farowl.vsj4.type.TypeSpec;
+
 /** The Python {@code KeyError} exception. */
 public class PyKeyError extends PyBaseException {
     private static final long serialVersionUID = 1L;

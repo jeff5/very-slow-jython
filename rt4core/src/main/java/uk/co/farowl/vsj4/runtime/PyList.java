@@ -15,10 +15,12 @@ import java.util.StringJoiner;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
-import uk.co.farowl.vsj4.runtime.Exposed.PythonMethod;
 import uk.co.farowl.vsj4.runtime.PySlice.Indices;
 import uk.co.farowl.vsj4.runtime.PyUtil.NoConversion;
 import uk.co.farowl.vsj4.support.InterpreterError;
+import uk.co.farowl.vsj4.type.TypeSpec;
+import uk.co.farowl.vsj4.type.WithClass;
+import uk.co.farowl.vsj4.type.Exposed.PythonMethod;
 
 /**
  * The Python {@code list} object that is also a Java

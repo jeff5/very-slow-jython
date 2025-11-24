@@ -12,9 +12,9 @@ import org.slf4j.LoggerFactory;
 import uk.co.farowl.vsj4.runtime.PyFloat;
 import uk.co.farowl.vsj4.runtime.PyLong;
 import uk.co.farowl.vsj4.runtime.PyType;
-import uk.co.farowl.vsj4.runtime.TypeFlag;
-import uk.co.farowl.vsj4.runtime.WithClass;
 import uk.co.farowl.vsj4.runtime.kernel.SpecialMethod.Signature;
+import uk.co.farowl.vsj4.type.TypeFlag;
+import uk.co.farowl.vsj4.type.WithClass;
 
 /**
  * A {@code Representation} provides Python behaviour to a Java object

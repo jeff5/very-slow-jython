@@ -12,6 +12,11 @@ import uk.co.farowl.vsj4.runtime.internal._PyUtil;
 import uk.co.farowl.vsj4.support.InterpreterError;
 import uk.co.farowl.vsj4.support.MethodKind;
 import uk.co.farowl.vsj4.support.ScopeKind;
+import uk.co.farowl.vsj4.type.Exposed;
+import uk.co.farowl.vsj4.type.FastCall;
+import uk.co.farowl.vsj4.type.Feature;
+import uk.co.farowl.vsj4.type.TypeSpec;
+import uk.co.farowl.vsj4.type.WithClass;
 
 /**
  * The Python {@code builtin_function_or_method} object. Instances
@@ -374,35 +379,8 @@ public abstract class PyJavaFunction implements WithClass, FastCall {
     @Override
     public PyBaseException typeError(ArgumentError ae, Object[] args,
             String[] names) {
-        return typeError(__name__(), ae, args, names);
-    }
-
-    /**
-     * Translate a problem with the number and pattern of arguments, and
-     * a method name, to a Python {@link PyBaseException TypeError}.
-     *
-     * @param name of method
-     * @param ae previously thrown by this object
-     * @param args all arguments given, positional then keyword
-     * @param names of keyword arguments or {@code null}
-     * @return Python {@code TypeError} to throw
-     */
-    @SuppressWarnings("fallthrough")
-    static PyBaseException typeError(String name, ArgumentError ae,
-            Object[] args, String[] names) {
-        int n = args.length;
-        switch (ae.mode) {
-            case NOARGS:
-            case NUMARGS:
-            case MINMAXARGS:
-                return PyErr.format(PyExc.TypeError,
-                        "%s() %s (%d given)", name, ae, n);
-            case NOKWARGS:
-                assert names != null && names.length > 0;
-            default:
-                return PyErr.format(PyExc.TypeError, "%s() %s", name,
-                        ae);
-        }
+        // We can use the default message format, adding only the name.
+        return FastCall.typeError(__name__(), ae, args, names);
     }
 
     /**

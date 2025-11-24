@@ -2,6 +2,8 @@
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
 
+import uk.co.farowl.vsj4.type.TypeSpec;
+
 /**
  * Python type objects for exceptions. The built-in Python exception
  * types form an extensive hierarchy, but are represented in Java by a

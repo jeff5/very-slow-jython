@@ -2,17 +2,10 @@
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.runtime;
 
-/** Abstract base class for defining Python iterators. */
-abstract class AbstractPyIterator extends TypedPyObject {
+import uk.co.farowl.vsj4.type.WithClass;
 
-    /**
-     * Construct an instance of {@code PyIterator}, a Python
-     * {@code iterator} or a sub-class, from a given Python sequence
-     * (defining {@code __getitem__}).
-     *
-     * @param type actual type the instance should have
-     */
-    protected AbstractPyIterator(PyType type) { super(type); }
+/** Abstract base class for defining Python iterators. */
+abstract class AbstractPyIterator implements WithClass {
 
     /**
      * Get the iterator itself. A Python iterator {@code __iter__} is
@@ -23,7 +16,7 @@ abstract class AbstractPyIterator extends TypedPyObject {
      *
      * @return this iterator
      */
-    abstract Object __iter__();
+    final Object __iter__() { return this; }
 
     /**
      * Get the next item from the iteration. Each concrete sub-class
@@ -43,4 +36,8 @@ abstract class AbstractPyIterator extends TypedPyObject {
      * @throws Throwable from implementation
      */
     abstract Object __next__() throws PyBaseException, Throwable;
+
+    @Override
+    public String toString() { return PyUtil.defaultToString(this); }
+
 }

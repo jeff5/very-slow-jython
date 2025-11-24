@@ -14,6 +14,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 
 import uk.co.farowl.vsj4.runtime.kernel.SpecialMethod;
+import uk.co.farowl.vsj4.type.FastCall;
+import uk.co.farowl.vsj4.type.Feature;
+import uk.co.farowl.vsj4.type.TypeSpec;
 
 /**
  * Test that methods exposed by a Python <b>type</b> defined in Java,

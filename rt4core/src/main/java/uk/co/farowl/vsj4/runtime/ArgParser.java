@@ -13,6 +13,7 @@ import java.util.StringJoiner;
 import uk.co.farowl.vsj4.support.InterpreterError;
 import uk.co.farowl.vsj4.support.MethodKind;
 import uk.co.farowl.vsj4.support.ScopeKind;
+import uk.co.farowl.vsj4.type.Exposed;
 
 /**
  * This class provides a parser for the positional and keyword arguments

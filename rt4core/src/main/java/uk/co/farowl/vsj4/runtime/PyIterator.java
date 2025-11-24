@@ -8,6 +8,7 @@ import java.lang.invoke.MethodHandles;
 import uk.co.farowl.vsj4.runtime.kernel.KernelTypeFlag;
 import uk.co.farowl.vsj4.runtime.kernel.Representation;
 import uk.co.farowl.vsj4.runtime.kernel.SpecialMethod;
+import uk.co.farowl.vsj4.type.TypeSpec;
 
 /**
  * The Python iterator type provides iteration over any Python
@@ -41,7 +42,6 @@ public class PyIterator extends AbstractPyIterator {
      * @param seq on which this is an iterator
      */
     public PyIterator(Object seq) {
-        super(TYPE);
         this.index = 0;
         Representation rep = Abstract.representation(seq);
         if (rep.hasFeature(seq, KernelTypeFlag.HAS_GETITEM)) {
@@ -51,6 +51,11 @@ public class PyIterator extends AbstractPyIterator {
                     SpecialMethod.op_getitem.methodName);
         }
     }
+
+    @Override
+    public PyType getType() { return TYPE; }
+
+    // special methods -----------------------------------------------
 
     @Override
     Object __next__() throws Throwable {
@@ -65,7 +70,4 @@ public class PyIterator extends AbstractPyIterator {
         }
         throw new PyStopIteration();
     }
-
-    @Override
-    Object __iter__() { return this; }
 }

@@ -5,8 +5,12 @@ package uk.co.farowl.vsj4.runtime;
 import java.lang.invoke.MethodHandles;
 import java.util.Map;
 
-import uk.co.farowl.vsj4.runtime.Exposed.Getter;
 import uk.co.farowl.vsj4.support.internal.Util;
+import uk.co.farowl.vsj4.type.Exposed.Getter;
+import uk.co.farowl.vsj4.type.FastCall;
+import uk.co.farowl.vsj4.type.Feature;
+import uk.co.farowl.vsj4.type.TypeSpec;
+import uk.co.farowl.vsj4.type.WithDict;
 
 /**
  * The Python {@code staticmethod} class, that is most often encountered

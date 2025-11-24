@@ -1,6 +1,10 @@
 // Copyright (c)2025 Jython Developers.
 // Licensed to PSF under a contributor agreement.
-package uk.co.farowl.vsj4.runtime;
+package uk.co.farowl.vsj4.type;
+
+import uk.co.farowl.vsj4.runtime.PyBaseException;
+import uk.co.farowl.vsj4.runtime.PyType;
+import uk.co.farowl.vsj4.runtime.PyUtil;
 
 /**
  * An instance of a class implementing this interface allows assignment

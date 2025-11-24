@@ -10,12 +10,15 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.math.BigInteger;
 
-import uk.co.farowl.vsj4.runtime.Exposed.Default;
-import uk.co.farowl.vsj4.runtime.Exposed.DocString;
-import uk.co.farowl.vsj4.runtime.Exposed.PositionalOnly;
-import uk.co.farowl.vsj4.runtime.Exposed.PythonNewMethod;
 import uk.co.farowl.vsj4.runtime.PyUtil.NoConversion;
 import uk.co.farowl.vsj4.runtime.kernel.Representation;
+import uk.co.farowl.vsj4.type.Feature;
+import uk.co.farowl.vsj4.type.TypeSpec;
+import uk.co.farowl.vsj4.type.WithClass;
+import uk.co.farowl.vsj4.type.Exposed.Default;
+import uk.co.farowl.vsj4.type.Exposed.DocString;
+import uk.co.farowl.vsj4.type.Exposed.PositionalOnly;
+import uk.co.farowl.vsj4.type.Exposed.PythonNewMethod;
 
 /**
  * A Python {@code int} object may be represented by a

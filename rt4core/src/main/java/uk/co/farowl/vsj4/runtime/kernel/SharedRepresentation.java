@@ -7,12 +7,12 @@ import static uk.co.farowl.vsj4.support.JavaClassShorthand.O;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
-import java.lang.invoke.MethodType;
 import java.lang.invoke.MethodHandles.Lookup;
+import java.lang.invoke.MethodType;
 
 import uk.co.farowl.vsj4.runtime.PyType;
-import uk.co.farowl.vsj4.runtime.WithClass;
 import uk.co.farowl.vsj4.support.InterpreterError;
+import uk.co.farowl.vsj4.type.WithClass;
 
 /**
  * The {@link Representation} for a Python class defined in Python. Many

@@ -10,8 +10,13 @@ import java.lang.invoke.MethodHandles;
 import java.util.Map;
 import java.util.StringJoiner;
 
-import uk.co.farowl.vsj4.runtime.Exposed.KeywordCollector;
-import uk.co.farowl.vsj4.runtime.Exposed.PositionalCollector;
+import uk.co.farowl.vsj4.type.Exposed;
+import uk.co.farowl.vsj4.type.Exposed.KeywordCollector;
+import uk.co.farowl.vsj4.type.Exposed.PositionalCollector;
+import uk.co.farowl.vsj4.type.Feature;
+import uk.co.farowl.vsj4.type.TypeSpec;
+import uk.co.farowl.vsj4.type.WithClassAssignment;
+import uk.co.farowl.vsj4.type.WithDict;
 
 /**
  * The Python {@code BaseException}, and many common Python exceptions

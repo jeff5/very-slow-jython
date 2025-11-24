@@ -3,11 +3,11 @@
 package uk.co.farowl.vsj4.runtime;
 
 import java.lang.invoke.MethodHandles;
-import java.math.BigInteger;
 
-import uk.co.farowl.vsj4.runtime.Exposed.Default;
-import uk.co.farowl.vsj4.runtime.Exposed.DocString;
-import uk.co.farowl.vsj4.runtime.Exposed.PythonNewMethod;
+import uk.co.farowl.vsj4.type.Exposed.Default;
+import uk.co.farowl.vsj4.type.Exposed.DocString;
+import uk.co.farowl.vsj4.type.Exposed.PythonNewMethod;
+import uk.co.farowl.vsj4.type.TypeSpec;
 
 /**
  * The Python {@code bool} object. The only instances of {@code bool} in

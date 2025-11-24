@@ -1,9 +1,16 @@
-// Copyright (c)2024 Jython Developers.
+// Copyright (c)2025 Jython Developers.
 // Licensed to PSF under a contributor agreement.
-package uk.co.farowl.vsj4.runtime;
+package uk.co.farowl.vsj4.type;
 
 import java.util.Arrays;
 
+import uk.co.farowl.vsj4.runtime.Abstract;
+import uk.co.farowl.vsj4.runtime.ArgumentError;
+import uk.co.farowl.vsj4.runtime.Callables;
+import uk.co.farowl.vsj4.runtime.PyBaseException;
+import uk.co.farowl.vsj4.runtime.PyErr;
+import uk.co.farowl.vsj4.runtime.PyExc;
+import uk.co.farowl.vsj4.runtime.PyUnicode;
 import uk.co.farowl.vsj4.support.internal.Util;
 
 /**
@@ -264,7 +271,7 @@ public interface FastCall {
     }
 
     /**
-     * Translate an {@link ArgumentError} thrown inside a call to to a
+     * Translate an {@link ArgumentError} thrown inside a call to a
      * Python {@link PyBaseException TypeError} with proper context.
      * Typically, this adds a Python method name, owning type or module,
      * and the number of arguments given, to the basic information
@@ -286,7 +293,7 @@ public interface FastCall {
             String[] names);
 
     /**
-     * Translate an {@link ArgumentError} thrown inside a call to to a
+     * Translate an {@link ArgumentError} thrown inside a call to a
      * Python {@link PyBaseException TypeError} with proper context. As
      * {@link #typeError(ArgumentError, Object[], String[])} when there
      * were no arguments by keyword.
@@ -300,7 +307,7 @@ public interface FastCall {
     }
 
     /**
-     * Translate an {@link ArgumentError} thrown inside a call to to a
+     * Translate an {@link ArgumentError} thrown inside a call to a
      * Python {@link PyBaseException TypeError} with proper context. As
      * {@link #typeError(ArgumentError, Object[], String[])} for
      * {@link #vectorcall(Object[], int, int, String[])} arguments.
@@ -319,7 +326,7 @@ public interface FastCall {
     }
 
     /**
-     * Translate an {@link ArgumentError} thrown inside a call to to a
+     * Translate an {@link ArgumentError} thrown inside a call to a
      * Python {@link PyBaseException TypeError} with proper context. As
      * {@link #typeError(ArgumentError, Object[], int, int, String[])}
      * when there were no arguments by keyword.
@@ -336,6 +343,37 @@ public interface FastCall {
     }
 
     /**
+     * Translate an {@link ArgumentError} to a Python
+     * {@link PyBaseException TypeError} given the function name and the
+     * number and pattern of arguments passed. This default
+     * implementation matches the needs of a simple function-like
+     * callable identifiable by a {@code name} string.
+     *
+     * @param name of function
+     * @param ae previously thrown by this object
+     * @param args all arguments given, positional then keyword
+     * @param names of keyword arguments or {@code null}
+     * @return Python {@code TypeError} to throw
+     */
+    @SuppressWarnings("fallthrough")
+    public static PyBaseException typeError(String name,
+            ArgumentError ae, Object[] args, String[] names) {
+        int n = args.length;
+        switch (ae.mode) {
+            case NOARGS:
+            case NUMARGS:
+            case MINMAXARGS:
+                return PyErr.format(PyExc.TypeError,
+                        "%s() %s (%d given)", name, ae, n);
+            case NOKWARGS:
+                assert names != null && names.length > 0;
+            default:
+                return PyErr.format(PyExc.TypeError, "%s() %s", name,
+                        ae);
+        }
+    }
+
+    /**
      * A class that wraps any {@code Object} so that it presents the
      * {@link FastCall} interface. Any type of {@code call} will
      * eventually try to invoke the {@code __call__} special method on
@@ -344,11 +382,17 @@ public interface FastCall {
      * This will not make a slow {@code __call__} fast, but it
      * <i>will</i> make a {@code FastCall} slow.
      */
-    static class Slow implements FastCall {
+    public static class Slow implements FastCall {
 
         private final Object callable;
 
-        Slow(Object callable) { this.callable = callable; }
+        /**
+         * Wraps any {@code Object} so that it presents the
+         * {@link FastCall} interface.
+         *
+         * @param callable should implement {@code __call__}
+         */
+        public Slow(Object callable) { this.callable = callable; }
 
         @Override
         public Object call(Object[] args, String[] names)
@@ -365,8 +409,8 @@ public interface FastCall {
              * which is quite unlikely unless it also implements
              * FastCall.
              */
-            if (callable instanceof FastCall) {
-                return ((FastCall)callable).typeError(ae, args, names);
+            if (callable instanceof FastCall fast) {
+                return fast.typeError(ae, args, names);
             } else {
                 // We'll do our best to make a message somehow.
                 String name;
@@ -376,7 +420,7 @@ public interface FastCall {
                     name = "callable";
                 }
                 // Probably meaningful interpretation of the error
-                return PyJavaFunction.typeError(name, ae, args, names);
+                return FastCall.typeError(name, ae, args, names);
             }
         }
     }

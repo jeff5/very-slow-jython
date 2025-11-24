@@ -1,6 +1,6 @@
-// Copyright (c)2024 Jython Developers.
+// Copyright (c)2025 Jython Developers.
 // Licensed to PSF under a contributor agreement.
-package uk.co.farowl.vsj4.runtime;
+package uk.co.farowl.vsj4.type;
 
 import static java.lang.annotation.ElementType.FIELD;
 import static java.lang.annotation.ElementType.METHOD;
@@ -12,10 +12,15 @@ import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 
+import uk.co.farowl.vsj4.runtime.PyAttributeError;
+import uk.co.farowl.vsj4.runtime.PyBaseException;
+import uk.co.farowl.vsj4.runtime.PyDict;
+import uk.co.farowl.vsj4.runtime.PyTuple;
+
 /**
  * Annotations that may be placed on elements of a Java class intended
- * as the implementation of a Python type, and that the {@link Exposer}
- * will look for when during the definition of a {@link PyType}.
+ * as the implementation of a Python type, and that the type system will
+ * look for during the definition of a Python type.
  */
 public interface Exposed {
 
@@ -420,16 +425,4 @@ public interface Exposed {
          */
         String value() default "";
     }
-
-    /**
-     * Documentation-only annotation reminding us that <b>the defining
-     * class guarantees not to change the contents.</b> If a new value
-     * is assigned, it will be a new array. It is therefore safe to take
-     * a reference to this array and treat it as frozen (e.g. to expose
-     * it as a tuple). There is no enforcement of this contract at run
-     * time.
-     */
-    @Documented
-    @Target(FIELD)
-    @interface FrozenArray {}
 }

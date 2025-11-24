@@ -30,11 +30,11 @@ import org.slf4j.LoggerFactory;
 import uk.co.farowl.vsj4.runtime.PyBaseException;
 import uk.co.farowl.vsj4.runtime.PyDict;
 import uk.co.farowl.vsj4.runtime.PyType;
-import uk.co.farowl.vsj4.runtime.WithClassAssignment;
-import uk.co.farowl.vsj4.runtime.WithDictAssignment;
 import uk.co.farowl.vsj4.runtime.kernel.TypeFactory;
 import uk.co.farowl.vsj4.support.InterpreterError;
 import uk.co.farowl.vsj4.support.internal.Util;
+import uk.co.farowl.vsj4.type.WithClassAssignment;
+import uk.co.farowl.vsj4.type.WithDictAssignment;
 
 /**
  * A helper to the {@link TypeFactory} that is responsible for the

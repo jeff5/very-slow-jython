@@ -27,21 +27,21 @@ import java.util.function.Function;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import uk.co.farowl.vsj4.runtime.Exposed.Default;
-import uk.co.farowl.vsj4.runtime.Exposed.DocString;
-import uk.co.farowl.vsj4.runtime.Exposed.Getter;
-import uk.co.farowl.vsj4.runtime.Exposed.KeywordCollector;
-import uk.co.farowl.vsj4.runtime.Exposed.KeywordOnly;
-import uk.co.farowl.vsj4.runtime.Exposed.Name;
-import uk.co.farowl.vsj4.runtime.Exposed.PositionalCollector;
-import uk.co.farowl.vsj4.runtime.Exposed.PositionalOnly;
-import uk.co.farowl.vsj4.runtime.Exposed.PythonMethod;
-import uk.co.farowl.vsj4.runtime.Exposed.PythonStaticMethod;
 import uk.co.farowl.vsj4.runtime.kernel.BaseType;
 // import uk.co.farowl.vsj4.runtime.ModuleDef.MethodDef;
 import uk.co.farowl.vsj4.support.InterpreterError;
 import uk.co.farowl.vsj4.support.MethodKind;
 import uk.co.farowl.vsj4.support.ScopeKind;
+import uk.co.farowl.vsj4.type.Exposed.Default;
+import uk.co.farowl.vsj4.type.Exposed.DocString;
+import uk.co.farowl.vsj4.type.Exposed.Getter;
+import uk.co.farowl.vsj4.type.Exposed.KeywordCollector;
+import uk.co.farowl.vsj4.type.Exposed.KeywordOnly;
+import uk.co.farowl.vsj4.type.Exposed.Name;
+import uk.co.farowl.vsj4.type.Exposed.PositionalCollector;
+import uk.co.farowl.vsj4.type.Exposed.PositionalOnly;
+import uk.co.farowl.vsj4.type.Exposed.PythonMethod;
+import uk.co.farowl.vsj4.type.Exposed.PythonStaticMethod;
 
 /**
  * An object for tabulating the attributes of classes that define Python

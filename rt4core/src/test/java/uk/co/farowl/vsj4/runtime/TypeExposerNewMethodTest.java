@@ -12,11 +12,13 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-import uk.co.farowl.vsj4.runtime.Exposed.Default;
-import uk.co.farowl.vsj4.runtime.Exposed.PositionalOnly;
-import uk.co.farowl.vsj4.runtime.Exposed.PythonNewMethod;
 import uk.co.farowl.vsj4.support.MethodKind;
 import uk.co.farowl.vsj4.support.ScopeKind;
+import uk.co.farowl.vsj4.type.Exposed;
+import uk.co.farowl.vsj4.type.Exposed.Default;
+import uk.co.farowl.vsj4.type.Exposed.PositionalOnly;
+import uk.co.farowl.vsj4.type.Exposed.PythonNewMethod;
+import uk.co.farowl.vsj4.type.TypeSpec;
 
 /**
  * Test that {@code __new__} methods exposed by Python <b>types</b>

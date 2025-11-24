@@ -6,8 +6,8 @@ import java.util.Map;
 import java.util.WeakHashMap;
 
 import uk.co.farowl.vsj4.runtime.PyType;
-import uk.co.farowl.vsj4.runtime.TypeSpec;
 import uk.co.farowl.vsj4.support.InterpreterError;
+import uk.co.farowl.vsj4.type.TypeSpec;
 
 /**
  * Mapping from Java class to the {@link Representation} that provides

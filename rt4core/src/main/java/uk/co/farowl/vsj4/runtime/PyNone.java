@@ -5,6 +5,7 @@ package uk.co.farowl.vsj4.runtime;
 import java.lang.invoke.MethodHandles;
 
 import uk.co.farowl.vsj4.runtime.internal.Singleton;
+import uk.co.farowl.vsj4.type.TypeSpec;
 
 /** The Python {@code None} object. */
 public final class PyNone extends Singleton {

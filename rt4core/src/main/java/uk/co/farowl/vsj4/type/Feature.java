@@ -1,6 +1,6 @@
 // Copyright (c)2025 Jython Developers.
 // Licensed to PSF under a contributor agreement.
-package uk.co.farowl.vsj4.runtime;
+package uk.co.farowl.vsj4.type;
 
 /**
  * Enumeration of the features of a type that may be specified in a

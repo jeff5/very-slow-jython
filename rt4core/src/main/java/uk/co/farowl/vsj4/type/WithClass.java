@@ -1,6 +1,8 @@
-// Copyright (c)2024 Jython Developers.
+// Copyright (c)2025 Jython Developers.
 // Licensed to PSF under a contributor agreement.
-package uk.co.farowl.vsj4.runtime;
+package uk.co.farowl.vsj4.type;
+
+import uk.co.farowl.vsj4.runtime.PyType;
 
 /**
  * An instance of a class implementing {@code WithClass} reports an

@@ -10,6 +10,7 @@ import uk.co.farowl.vsj4.runtime.kernel.KernelTypeFlag;
 import uk.co.farowl.vsj4.runtime.kernel.Representation;
 import uk.co.farowl.vsj4.runtime.kernel.SpecialMethod;
 import uk.co.farowl.vsj4.support.internal.EmptyException;
+import uk.co.farowl.vsj4.type.TypeFlag;
 
 /**
  * Abstract API for operations on numeric types, corresponding to

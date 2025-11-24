@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import uk.co.farowl.vsj4.support.internal.Util;
+import uk.co.farowl.vsj4.type.TypeSpec;
 
 /**
  * Test some convenience methods offered from the {@link PyUtil} class.

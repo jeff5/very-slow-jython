@@ -6,6 +6,7 @@ import java.lang.invoke.MethodHandle;
 
 import uk.co.farowl.vsj4.runtime.ArgumentError.Mode;
 import uk.co.farowl.vsj4.runtime.kernel.BaseType;
+import uk.co.farowl.vsj4.type.FastCall;
 
 /**
  * Abstract base class for the descriptor of a method defined in Java.

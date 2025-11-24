@@ -14,11 +14,13 @@ import java.util.StringJoiner;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
-import uk.co.farowl.vsj4.runtime.Exposed.PythonMethod;
 import uk.co.farowl.vsj4.runtime.PySlice.Indices;
 import uk.co.farowl.vsj4.runtime.PyUtil.NoConversion;
 import uk.co.farowl.vsj4.support.InterpreterError;
 import uk.co.farowl.vsj4.support.internal.Util;
+import uk.co.farowl.vsj4.type.Exposed.PythonMethod;
+import uk.co.farowl.vsj4.type.TypeSpec;
+import uk.co.farowl.vsj4.type.WithClass;
 
 /** The Python {@code tuple} object. */
 public class PyTuple extends AbstractList<Object> implements WithClass {

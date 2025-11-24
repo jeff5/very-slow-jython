@@ -8,15 +8,15 @@ import static uk.co.farowl.vsj4.runtime.internal._PyUtil.readonlyAttributeError;
 
 import java.lang.invoke.MethodHandle;
 
-import uk.co.farowl.vsj4.runtime.Exposed;
 import uk.co.farowl.vsj4.runtime.PyAttributeError;
 import uk.co.farowl.vsj4.runtime.PyObject;
 import uk.co.farowl.vsj4.runtime.PyType;
 import uk.co.farowl.vsj4.runtime.PyUtil;
-import uk.co.farowl.vsj4.runtime.WithDict;
 import uk.co.farowl.vsj4.runtime.internal._PyUtil;
 import uk.co.farowl.vsj4.runtime.kernel.SpecialMethod.Signature;
 import uk.co.farowl.vsj4.support.internal.EmptyException;
+import uk.co.farowl.vsj4.type.Exposed;
+import uk.co.farowl.vsj4.type.WithDict;
 
 /**
  * The Python {@code object} type is represented by

@@ -18,22 +18,23 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-import uk.co.farowl.vsj4.runtime.Exposed.Deleter;
-import uk.co.farowl.vsj4.runtime.Exposed.DocString;
-import uk.co.farowl.vsj4.runtime.Exposed.Getter;
-import uk.co.farowl.vsj4.runtime.Exposed.KeywordCollector;
-import uk.co.farowl.vsj4.runtime.Exposed.Member;
-import uk.co.farowl.vsj4.runtime.Exposed.PositionalCollector;
-import uk.co.farowl.vsj4.runtime.Exposed.PositionalOnly;
-import uk.co.farowl.vsj4.runtime.Exposed.PythonMethod;
-import uk.co.farowl.vsj4.runtime.Exposed.PythonNewMethod;
-import uk.co.farowl.vsj4.runtime.Exposed.PythonStaticMethod;
-import uk.co.farowl.vsj4.runtime.Exposed.Setter;
 import uk.co.farowl.vsj4.runtime.Exposer.CallableSpec;
 import uk.co.farowl.vsj4.runtime.TypeExposerImplementation.GetSetSpec;
 import uk.co.farowl.vsj4.runtime.TypeExposerImplementation.MemberSpec;
 import uk.co.farowl.vsj4.support.MethodKind;
 import uk.co.farowl.vsj4.support.ScopeKind;
+import uk.co.farowl.vsj4.type.Exposed;
+import uk.co.farowl.vsj4.type.Exposed.Deleter;
+import uk.co.farowl.vsj4.type.Exposed.DocString;
+import uk.co.farowl.vsj4.type.Exposed.Getter;
+import uk.co.farowl.vsj4.type.Exposed.KeywordCollector;
+import uk.co.farowl.vsj4.type.Exposed.Member;
+import uk.co.farowl.vsj4.type.Exposed.PositionalCollector;
+import uk.co.farowl.vsj4.type.Exposed.PositionalOnly;
+import uk.co.farowl.vsj4.type.Exposed.PythonMethod;
+import uk.co.farowl.vsj4.type.Exposed.PythonNewMethod;
+import uk.co.farowl.vsj4.type.Exposed.PythonStaticMethod;
+import uk.co.farowl.vsj4.type.Exposed.Setter;
 
 /**
  * Test that the annotations defined in {@link Exposed}, and intended

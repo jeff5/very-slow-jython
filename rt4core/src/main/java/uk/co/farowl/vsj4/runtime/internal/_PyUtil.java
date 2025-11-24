@@ -8,7 +8,6 @@ import java.util.StringJoiner;
 import uk.co.farowl.vsj4.runtime.Abstract;
 import uk.co.farowl.vsj4.runtime.ArgumentError;
 import uk.co.farowl.vsj4.runtime.Callables;
-import uk.co.farowl.vsj4.runtime.FastCall;
 import uk.co.farowl.vsj4.runtime.Py;
 import uk.co.farowl.vsj4.runtime.PyAttributeError;
 import uk.co.farowl.vsj4.runtime.PyBaseException;
@@ -17,6 +16,7 @@ import uk.co.farowl.vsj4.runtime.PyExc;
 import uk.co.farowl.vsj4.runtime.PyType;
 import uk.co.farowl.vsj4.runtime.PyUtil;
 import uk.co.farowl.vsj4.support.internal.Util;
+import uk.co.farowl.vsj4.type.FastCall;
 
 /**
  * Utility methods that should be visible throughout the run time

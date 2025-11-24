@@ -19,15 +19,18 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.StreamSupport;
 
-import uk.co.farowl.vsj4.runtime.Exposed.Default;
-import uk.co.farowl.vsj4.runtime.Exposed.Name;
-import uk.co.farowl.vsj4.runtime.Exposed.PythonMethod;
 import uk.co.farowl.vsj4.runtime.PySequence.Delegate;
 import uk.co.farowl.vsj4.runtime.PySlice.Indices;
 import uk.co.farowl.vsj4.runtime.PyUtil.NoConversion;
 import uk.co.farowl.vsj4.stringlib.IntArrayBuilder;
 import uk.co.farowl.vsj4.stringlib.IntArrayReverseBuilder;
 import uk.co.farowl.vsj4.support.InterpreterError;
+import uk.co.farowl.vsj4.type.Exposed.Default;
+import uk.co.farowl.vsj4.type.Exposed.Name;
+import uk.co.farowl.vsj4.type.Exposed.PythonMethod;
+import uk.co.farowl.vsj4.type.Feature;
+import uk.co.farowl.vsj4.type.TypeSpec;
+import uk.co.farowl.vsj4.type.WithClass;
 
 /**
  * The Python {@code str} object is implemented by both
@@ -2632,12 +2635,13 @@ public class PyUnicode implements WithClass, PyDict.Key {
         private final CodepointIterator iterator;
 
         PyStrIterator(CodepointDelegate delegate) {
-            super(TYPE);
             this.iterator = delegate.iterator(0);
         }
 
         @Override
-        Object __iter__() { return this; }
+        public PyType getType() { return TYPE; }
+
+        // special methods -------------------------------------------
 
         @Override
         Object __next__() throws Throwable {

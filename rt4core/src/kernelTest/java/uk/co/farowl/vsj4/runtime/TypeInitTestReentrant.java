@@ -7,6 +7,8 @@ import java.lang.invoke.MethodHandles;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 
+import uk.co.farowl.vsj4.type.TypeSpec;
+
 /**
  * When a Python class defined in Java names another as a member, and
  * neither type has yet been created for Python, reentrant calls are

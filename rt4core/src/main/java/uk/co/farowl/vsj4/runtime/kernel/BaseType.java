@@ -28,9 +28,6 @@ import org.slf4j.LoggerFactory;
 import uk.co.farowl.vsj4.runtime.Abstract;
 import uk.co.farowl.vsj4.runtime.ArgumentError;
 import uk.co.farowl.vsj4.runtime.Callables;
-import uk.co.farowl.vsj4.runtime.Exposed;
-import uk.co.farowl.vsj4.runtime.Exposed.KeywordCollector;
-import uk.co.farowl.vsj4.runtime.Feature;
 import uk.co.farowl.vsj4.runtime.MethodDescriptor;
 import uk.co.farowl.vsj4.runtime.PyAttributeError;
 import uk.co.farowl.vsj4.runtime.PyBaseException;
@@ -45,15 +42,18 @@ import uk.co.farowl.vsj4.runtime.PySequence;
 import uk.co.farowl.vsj4.runtime.PyTuple;
 import uk.co.farowl.vsj4.runtime.PyType;
 import uk.co.farowl.vsj4.runtime.PyUnicode;
-import uk.co.farowl.vsj4.runtime.TypeFlag;
-import uk.co.farowl.vsj4.runtime.TypeSpec;
-import uk.co.farowl.vsj4.runtime.WithDict;
 import uk.co.farowl.vsj4.runtime.internal._PyUtil;
 import uk.co.farowl.vsj4.runtime.kernel.TypeFactory.Clash;
 import uk.co.farowl.vsj4.runtime.subclass.SubclassFactory;
 import uk.co.farowl.vsj4.runtime.subclass.SubclassSpec;
 import uk.co.farowl.vsj4.support.InterpreterError;
 import uk.co.farowl.vsj4.support.internal.EmptyException;
+import uk.co.farowl.vsj4.type.Exposed;
+import uk.co.farowl.vsj4.type.Feature;
+import uk.co.farowl.vsj4.type.TypeFlag;
+import uk.co.farowl.vsj4.type.TypeSpec;
+import uk.co.farowl.vsj4.type.WithDict;
+import uk.co.farowl.vsj4.type.Exposed.KeywordCollector;
 
 /**
  * A base shared by the concrete implementation classes of the Python

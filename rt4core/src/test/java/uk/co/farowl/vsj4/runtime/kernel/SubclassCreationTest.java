@@ -28,18 +28,18 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
 import uk.co.farowl.vsj4.runtime.Callables;
-import uk.co.farowl.vsj4.runtime.Feature;
 import uk.co.farowl.vsj4.runtime.PyDict;
 import uk.co.farowl.vsj4.runtime.PyFloat;
 import uk.co.farowl.vsj4.runtime.PyObject;
 import uk.co.farowl.vsj4.runtime.PyType;
-import uk.co.farowl.vsj4.runtime.TypeSpec;
-import uk.co.farowl.vsj4.runtime.WithClassAssignment;
-import uk.co.farowl.vsj4.runtime.WithDict;
-import uk.co.farowl.vsj4.runtime.WithDictAssignment;
 import uk.co.farowl.vsj4.runtime.subclass.SubclassFactory;
 import uk.co.farowl.vsj4.runtime.subclass.SubclassSpec;
 import uk.co.farowl.vsj4.support.internal.Util;
+import uk.co.farowl.vsj4.type.Feature;
+import uk.co.farowl.vsj4.type.TypeSpec;
+import uk.co.farowl.vsj4.type.WithClassAssignment;
+import uk.co.farowl.vsj4.type.WithDict;
+import uk.co.farowl.vsj4.type.WithDictAssignment;
 
 /**
  * This is a test of a process behind class definition in Python, which

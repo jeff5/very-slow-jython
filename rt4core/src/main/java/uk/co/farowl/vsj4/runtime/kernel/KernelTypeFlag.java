@@ -4,7 +4,7 @@ package uk.co.farowl.vsj4.runtime.kernel;
 
 import java.util.EnumSet;
 
-import uk.co.farowl.vsj4.runtime.TypeFlag;
+import uk.co.farowl.vsj4.type.TypeFlag;
 
 /**
  * Enumeration of the implementation-private features of a type. These
