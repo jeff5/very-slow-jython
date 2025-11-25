@@ -33,8 +33,8 @@ import uk.co.farowl.vsj4.core.PyType;
 import uk.co.farowl.vsj4.internal.Util;
 import uk.co.farowl.vsj4.kernel.TypeFactory;
 import uk.co.farowl.vsj4.support.InterpreterError;
-import uk.co.farowl.vsj4.type.WithClassAssignment;
-import uk.co.farowl.vsj4.type.WithDictAssignment;
+import uk.co.farowl.vsj4.types.WithClassAssignment;
+import uk.co.farowl.vsj4.types.WithDictAssignment;
 
 /**
  * A helper to the {@link TypeFactory} that is responsible for the

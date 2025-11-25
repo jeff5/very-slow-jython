@@ -18,9 +18,9 @@ import uk.co.farowl.vsj4.core.PySlice.Indices;
 import uk.co.farowl.vsj4.core.PyUtil.NoConversion;
 import uk.co.farowl.vsj4.internal.Util;
 import uk.co.farowl.vsj4.support.InterpreterError;
-import uk.co.farowl.vsj4.type.Exposed.PythonMethod;
-import uk.co.farowl.vsj4.type.TypeSpec;
-import uk.co.farowl.vsj4.type.WithClass;
+import uk.co.farowl.vsj4.types.TypeSpec;
+import uk.co.farowl.vsj4.types.WithClass;
+import uk.co.farowl.vsj4.types.Exposed.PythonMethod;
 
 /** The Python {@code tuple} object. */
 public class PyTuple extends AbstractList<Object> implements WithClass {

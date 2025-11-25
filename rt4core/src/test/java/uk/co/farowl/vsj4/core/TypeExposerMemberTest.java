@@ -16,10 +16,10 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-import uk.co.farowl.vsj4.type.Exposed;
-import uk.co.farowl.vsj4.type.Exposed.DocString;
-import uk.co.farowl.vsj4.type.Exposed.Member;
-import uk.co.farowl.vsj4.type.TypeSpec;
+import uk.co.farowl.vsj4.types.Exposed;
+import uk.co.farowl.vsj4.types.TypeSpec;
+import uk.co.farowl.vsj4.types.Exposed.DocString;
+import uk.co.farowl.vsj4.types.Exposed.Member;
 
 /**
  * Test that members exposed by a Python <b>type</b> defined in Java,

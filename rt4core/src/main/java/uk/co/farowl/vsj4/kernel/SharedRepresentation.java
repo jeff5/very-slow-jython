@@ -12,7 +12,7 @@ import java.lang.invoke.MethodType;
 
 import uk.co.farowl.vsj4.core.PyType;
 import uk.co.farowl.vsj4.support.InterpreterError;
-import uk.co.farowl.vsj4.type.WithClass;
+import uk.co.farowl.vsj4.types.WithClass;
 
 /**
  * The {@link Representation} for a Python class defined in Python. Many

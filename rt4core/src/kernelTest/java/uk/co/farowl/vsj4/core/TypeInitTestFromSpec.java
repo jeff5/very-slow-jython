@@ -7,7 +7,7 @@ import java.lang.invoke.MethodHandles;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 
-import uk.co.farowl.vsj4.type.TypeSpec;
+import uk.co.farowl.vsj4.types.TypeSpec;
 
 /**
  * Test that the Python type system comes into operation in a consistent

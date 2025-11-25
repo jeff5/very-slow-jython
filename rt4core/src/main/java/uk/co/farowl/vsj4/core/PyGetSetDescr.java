@@ -14,11 +14,11 @@ import uk.co.farowl.vsj4.internal.EmptyException;
 import uk.co.farowl.vsj4.kernel.BaseType;
 import uk.co.farowl.vsj4.kernel.Representation;
 import uk.co.farowl.vsj4.support.InterpreterError;
-import uk.co.farowl.vsj4.type.Exposed.Deleter;
-import uk.co.farowl.vsj4.type.Exposed.Getter;
-import uk.co.farowl.vsj4.type.Exposed.Setter;
-import uk.co.farowl.vsj4.type.Feature;
-import uk.co.farowl.vsj4.type.TypeSpec;
+import uk.co.farowl.vsj4.types.Feature;
+import uk.co.farowl.vsj4.types.TypeSpec;
+import uk.co.farowl.vsj4.types.Exposed.Deleter;
+import uk.co.farowl.vsj4.types.Exposed.Getter;
+import uk.co.farowl.vsj4.types.Exposed.Setter;
 
 /**
  * Descriptor for an attribute that has been defined by a series of

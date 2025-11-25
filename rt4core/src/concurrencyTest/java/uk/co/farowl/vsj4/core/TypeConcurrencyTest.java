@@ -25,9 +25,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import uk.co.farowl.vsj4.support.InterpreterError;
-import uk.co.farowl.vsj4.type.Exposed.PythonMethod;
-import uk.co.farowl.vsj4.type.Feature;
-import uk.co.farowl.vsj4.type.TypeSpec;
+import uk.co.farowl.vsj4.types.Feature;
+import uk.co.farowl.vsj4.types.TypeSpec;
+import uk.co.farowl.vsj4.types.Exposed.PythonMethod;
 
 /**
  * This test modifies the attributes of some (mutable) type objects and

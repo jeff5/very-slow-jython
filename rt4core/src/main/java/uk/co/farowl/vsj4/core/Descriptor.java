@@ -3,8 +3,8 @@
 package uk.co.farowl.vsj4.core;
 
 import uk.co.farowl.vsj4.kernel.BaseType;
-import uk.co.farowl.vsj4.type.Exposed;
-import uk.co.farowl.vsj4.type.WithClass;
+import uk.co.farowl.vsj4.types.Exposed;
+import uk.co.farowl.vsj4.types.WithClass;
 
 /**
  * The base class of many built-in descriptors. Descriptors are a

@@ -32,16 +32,16 @@ import uk.co.farowl.vsj4.kernel.BaseType;
 import uk.co.farowl.vsj4.support.InterpreterError;
 import uk.co.farowl.vsj4.support.MethodKind;
 import uk.co.farowl.vsj4.support.ScopeKind;
-import uk.co.farowl.vsj4.type.Exposed.Default;
-import uk.co.farowl.vsj4.type.Exposed.DocString;
-import uk.co.farowl.vsj4.type.Exposed.Getter;
-import uk.co.farowl.vsj4.type.Exposed.KeywordCollector;
-import uk.co.farowl.vsj4.type.Exposed.KeywordOnly;
-import uk.co.farowl.vsj4.type.Exposed.Name;
-import uk.co.farowl.vsj4.type.Exposed.PositionalCollector;
-import uk.co.farowl.vsj4.type.Exposed.PositionalOnly;
-import uk.co.farowl.vsj4.type.Exposed.PythonMethod;
-import uk.co.farowl.vsj4.type.Exposed.PythonStaticMethod;
+import uk.co.farowl.vsj4.types.Exposed.Default;
+import uk.co.farowl.vsj4.types.Exposed.DocString;
+import uk.co.farowl.vsj4.types.Exposed.Getter;
+import uk.co.farowl.vsj4.types.Exposed.KeywordCollector;
+import uk.co.farowl.vsj4.types.Exposed.KeywordOnly;
+import uk.co.farowl.vsj4.types.Exposed.Name;
+import uk.co.farowl.vsj4.types.Exposed.PositionalCollector;
+import uk.co.farowl.vsj4.types.Exposed.PositionalOnly;
+import uk.co.farowl.vsj4.types.Exposed.PythonMethod;
+import uk.co.farowl.vsj4.types.Exposed.PythonStaticMethod;
 
 /**
  * An object for tabulating the attributes of classes that define Python

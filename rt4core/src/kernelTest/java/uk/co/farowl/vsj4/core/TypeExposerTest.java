@@ -23,18 +23,18 @@ import uk.co.farowl.vsj4.core.TypeExposerImplementation.GetSetSpec;
 import uk.co.farowl.vsj4.core.TypeExposerImplementation.MemberSpec;
 import uk.co.farowl.vsj4.support.MethodKind;
 import uk.co.farowl.vsj4.support.ScopeKind;
-import uk.co.farowl.vsj4.type.Exposed;
-import uk.co.farowl.vsj4.type.Exposed.Deleter;
-import uk.co.farowl.vsj4.type.Exposed.DocString;
-import uk.co.farowl.vsj4.type.Exposed.Getter;
-import uk.co.farowl.vsj4.type.Exposed.KeywordCollector;
-import uk.co.farowl.vsj4.type.Exposed.Member;
-import uk.co.farowl.vsj4.type.Exposed.PositionalCollector;
-import uk.co.farowl.vsj4.type.Exposed.PositionalOnly;
-import uk.co.farowl.vsj4.type.Exposed.PythonMethod;
-import uk.co.farowl.vsj4.type.Exposed.PythonNewMethod;
-import uk.co.farowl.vsj4.type.Exposed.PythonStaticMethod;
-import uk.co.farowl.vsj4.type.Exposed.Setter;
+import uk.co.farowl.vsj4.types.Exposed;
+import uk.co.farowl.vsj4.types.Exposed.Deleter;
+import uk.co.farowl.vsj4.types.Exposed.DocString;
+import uk.co.farowl.vsj4.types.Exposed.Getter;
+import uk.co.farowl.vsj4.types.Exposed.KeywordCollector;
+import uk.co.farowl.vsj4.types.Exposed.Member;
+import uk.co.farowl.vsj4.types.Exposed.PositionalCollector;
+import uk.co.farowl.vsj4.types.Exposed.PositionalOnly;
+import uk.co.farowl.vsj4.types.Exposed.PythonMethod;
+import uk.co.farowl.vsj4.types.Exposed.PythonNewMethod;
+import uk.co.farowl.vsj4.types.Exposed.PythonStaticMethod;
+import uk.co.farowl.vsj4.types.Exposed.Setter;
 
 /**
  * Test that the annotations defined in {@link Exposed}, and intended

@@ -6,11 +6,11 @@ import java.lang.invoke.MethodHandles;
 import java.util.Map;
 
 import uk.co.farowl.vsj4.internal.Util;
-import uk.co.farowl.vsj4.type.Exposed.Getter;
-import uk.co.farowl.vsj4.type.FastCall;
-import uk.co.farowl.vsj4.type.Feature;
-import uk.co.farowl.vsj4.type.TypeSpec;
-import uk.co.farowl.vsj4.type.WithDict;
+import uk.co.farowl.vsj4.types.FastCall;
+import uk.co.farowl.vsj4.types.Feature;
+import uk.co.farowl.vsj4.types.TypeSpec;
+import uk.co.farowl.vsj4.types.WithDict;
+import uk.co.farowl.vsj4.types.Exposed.Getter;
 
 /**
  * The Python {@code staticmethod} class, that is most often encountered

@@ -12,11 +12,11 @@ import uk.co.farowl.vsj4.internal._PyUtil;
 import uk.co.farowl.vsj4.support.InterpreterError;
 import uk.co.farowl.vsj4.support.MethodKind;
 import uk.co.farowl.vsj4.support.ScopeKind;
-import uk.co.farowl.vsj4.type.Exposed;
-import uk.co.farowl.vsj4.type.FastCall;
-import uk.co.farowl.vsj4.type.Feature;
-import uk.co.farowl.vsj4.type.TypeSpec;
-import uk.co.farowl.vsj4.type.WithClass;
+import uk.co.farowl.vsj4.types.Exposed;
+import uk.co.farowl.vsj4.types.FastCall;
+import uk.co.farowl.vsj4.types.Feature;
+import uk.co.farowl.vsj4.types.TypeSpec;
+import uk.co.farowl.vsj4.types.WithClass;
 
 /**
  * The Python {@code builtin_function_or_method} object. Instances

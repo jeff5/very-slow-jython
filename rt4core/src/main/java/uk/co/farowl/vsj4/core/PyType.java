@@ -14,10 +14,10 @@ import org.slf4j.LoggerFactory;
 
 import uk.co.farowl.vsj4.kernel.Representation;
 import uk.co.farowl.vsj4.kernel.TypeFactory.Clash;
-import uk.co.farowl.vsj4.type.FastCall;
-import uk.co.farowl.vsj4.type.TypeFlag;
-import uk.co.farowl.vsj4.type.TypeSpec;
-import uk.co.farowl.vsj4.type.WithClass;
+import uk.co.farowl.vsj4.types.FastCall;
+import uk.co.farowl.vsj4.types.TypeFlag;
+import uk.co.farowl.vsj4.types.TypeSpec;
+import uk.co.farowl.vsj4.types.WithClass;
 
 /**
  * Each Python {@code type} object is implemented by an <i>instance</i>

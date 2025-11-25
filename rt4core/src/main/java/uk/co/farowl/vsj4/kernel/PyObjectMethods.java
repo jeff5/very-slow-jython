@@ -15,8 +15,8 @@ import uk.co.farowl.vsj4.core.PyUtil;
 import uk.co.farowl.vsj4.internal.EmptyException;
 import uk.co.farowl.vsj4.internal._PyUtil;
 import uk.co.farowl.vsj4.kernel.SpecialMethod.Signature;
-import uk.co.farowl.vsj4.type.Exposed;
-import uk.co.farowl.vsj4.type.WithDict;
+import uk.co.farowl.vsj4.types.Exposed;
+import uk.co.farowl.vsj4.types.WithDict;
 
 /**
  * The Python {@code object} type is represented by

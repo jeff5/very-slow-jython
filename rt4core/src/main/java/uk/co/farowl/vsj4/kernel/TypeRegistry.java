@@ -7,7 +7,7 @@ import java.util.WeakHashMap;
 
 import uk.co.farowl.vsj4.core.PyType;
 import uk.co.farowl.vsj4.support.InterpreterError;
-import uk.co.farowl.vsj4.type.TypeSpec;
+import uk.co.farowl.vsj4.types.TypeSpec;
 
 /**
  * Mapping from Java class to the {@link Representation} that provides

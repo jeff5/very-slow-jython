@@ -14,8 +14,8 @@ import uk.co.farowl.vsj4.kernel.TypeFactory;
 import uk.co.farowl.vsj4.kernel.TypeFactory.Clash;
 import uk.co.farowl.vsj4.kernel.TypeRegistry;
 import uk.co.farowl.vsj4.support.InterpreterError;
-import uk.co.farowl.vsj4.type.Feature;
-import uk.co.farowl.vsj4.type.TypeSpec;
+import uk.co.farowl.vsj4.types.Feature;
+import uk.co.farowl.vsj4.types.TypeSpec;
 
 /**
  * {@code TypeSystem} is the nexus of type object lookup and creation

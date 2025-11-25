@@ -23,8 +23,8 @@ import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
-import uk.co.farowl.vsj4.type.TypeSpec;
-import uk.co.farowl.vsj4.type.WithClass;
+import uk.co.farowl.vsj4.types.TypeSpec;
+import uk.co.farowl.vsj4.types.WithClass;
 
 /**
  * Test selected methods of {@link PyUnicode} on a variety of argument

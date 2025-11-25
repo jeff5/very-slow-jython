@@ -48,12 +48,12 @@ import uk.co.farowl.vsj4.kernel.TypeFactory.Clash;
 import uk.co.farowl.vsj4.subclass.SubclassFactory;
 import uk.co.farowl.vsj4.subclass.SubclassSpec;
 import uk.co.farowl.vsj4.support.InterpreterError;
-import uk.co.farowl.vsj4.type.Exposed;
-import uk.co.farowl.vsj4.type.Exposed.KeywordCollector;
-import uk.co.farowl.vsj4.type.Feature;
-import uk.co.farowl.vsj4.type.TypeFlag;
-import uk.co.farowl.vsj4.type.TypeSpec;
-import uk.co.farowl.vsj4.type.WithDict;
+import uk.co.farowl.vsj4.types.Exposed;
+import uk.co.farowl.vsj4.types.Feature;
+import uk.co.farowl.vsj4.types.TypeFlag;
+import uk.co.farowl.vsj4.types.TypeSpec;
+import uk.co.farowl.vsj4.types.WithDict;
+import uk.co.farowl.vsj4.types.Exposed.KeywordCollector;
 
 /**
  * A base shared by the concrete implementation classes of the Python

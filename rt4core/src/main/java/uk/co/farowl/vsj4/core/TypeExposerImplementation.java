@@ -27,14 +27,14 @@ import uk.co.farowl.vsj4.kernel.TypeExposer;
 import uk.co.farowl.vsj4.support.InterpreterError;
 import uk.co.farowl.vsj4.support.MethodKind;
 import uk.co.farowl.vsj4.support.ScopeKind;
-import uk.co.farowl.vsj4.type.Exposed.Deleter;
-import uk.co.farowl.vsj4.type.Exposed.DocString;
-import uk.co.farowl.vsj4.type.Exposed.Getter;
-import uk.co.farowl.vsj4.type.Exposed.Member;
-import uk.co.farowl.vsj4.type.Exposed.PythonMethod;
-import uk.co.farowl.vsj4.type.Exposed.PythonNewMethod;
-import uk.co.farowl.vsj4.type.Exposed.PythonStaticMethod;
-import uk.co.farowl.vsj4.type.Exposed.Setter;
+import uk.co.farowl.vsj4.types.Exposed.Deleter;
+import uk.co.farowl.vsj4.types.Exposed.DocString;
+import uk.co.farowl.vsj4.types.Exposed.Getter;
+import uk.co.farowl.vsj4.types.Exposed.Member;
+import uk.co.farowl.vsj4.types.Exposed.PythonMethod;
+import uk.co.farowl.vsj4.types.Exposed.PythonNewMethod;
+import uk.co.farowl.vsj4.types.Exposed.PythonStaticMethod;
+import uk.co.farowl.vsj4.types.Exposed.Setter;
 
 class TypeExposerImplementation extends Exposer implements TypeExposer {
 

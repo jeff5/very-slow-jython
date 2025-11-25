@@ -12,8 +12,8 @@ import java.util.StringJoiner;
 import uk.co.farowl.vsj4.core.PyType;
 import uk.co.farowl.vsj4.core.PyType.ConstructorAndHandle;
 import uk.co.farowl.vsj4.internal.NamedSpec;
-import uk.co.farowl.vsj4.type.WithClassAssignment;
-import uk.co.farowl.vsj4.type.WithDict;
+import uk.co.farowl.vsj4.types.WithClassAssignment;
+import uk.co.farowl.vsj4.types.WithDict;
 
 /**
  * A {@code SubclassSpec} is a specification for a Java class to

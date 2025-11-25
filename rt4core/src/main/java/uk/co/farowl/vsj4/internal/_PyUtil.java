@@ -15,7 +15,7 @@ import uk.co.farowl.vsj4.core.PyErr;
 import uk.co.farowl.vsj4.core.PyExc;
 import uk.co.farowl.vsj4.core.PyType;
 import uk.co.farowl.vsj4.core.PyUtil;
-import uk.co.farowl.vsj4.type.FastCall;
+import uk.co.farowl.vsj4.types.FastCall;
 
 /**
  * Utility methods that should be visible throughout the run time

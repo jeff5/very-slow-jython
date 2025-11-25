@@ -10,7 +10,7 @@ import uk.co.farowl.vsj4.kernel.BaseType;
 import uk.co.farowl.vsj4.kernel.KernelTypeFlag;
 import uk.co.farowl.vsj4.kernel.Representation;
 import uk.co.farowl.vsj4.kernel.SpecialMethod;
-import uk.co.farowl.vsj4.type.TypeFlag;
+import uk.co.farowl.vsj4.types.TypeFlag;
 
 /**
  * Abstract API for operations on numeric types, corresponding to

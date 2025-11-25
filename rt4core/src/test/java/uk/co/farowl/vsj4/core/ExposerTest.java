@@ -14,10 +14,10 @@ import java.nio.charset.Charset;
 
 import org.junit.jupiter.api.Test;
 
-import uk.co.farowl.vsj4.type.Exposed.PythonMethod;
-import uk.co.farowl.vsj4.type.Feature;
-import uk.co.farowl.vsj4.type.TypeSpec;
-import uk.co.farowl.vsj4.type.WithClass;
+import uk.co.farowl.vsj4.types.Feature;
+import uk.co.farowl.vsj4.types.TypeSpec;
+import uk.co.farowl.vsj4.types.WithClass;
+import uk.co.farowl.vsj4.types.Exposed.PythonMethod;
 
 /**
  * Unit tests for the {@link Exposer} and the {@link Descriptor}s it

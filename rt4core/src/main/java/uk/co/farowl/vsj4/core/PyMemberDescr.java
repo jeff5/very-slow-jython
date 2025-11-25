@@ -11,8 +11,8 @@ import java.util.EnumSet;
 import uk.co.farowl.vsj4.internal._PyUtil;
 import uk.co.farowl.vsj4.kernel.BaseType;
 import uk.co.farowl.vsj4.support.InterpreterError;
-import uk.co.farowl.vsj4.type.Feature;
-import uk.co.farowl.vsj4.type.TypeSpec;
+import uk.co.farowl.vsj4.types.Feature;
+import uk.co.farowl.vsj4.types.TypeSpec;
 
 /**
  * Descriptor for an attribute that has been defined (by a

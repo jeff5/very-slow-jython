@@ -18,13 +18,13 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import uk.co.farowl.vsj4.internal._PyUtil;
-import uk.co.farowl.vsj4.type.Exposed;
-import uk.co.farowl.vsj4.type.Exposed.Deleter;
-import uk.co.farowl.vsj4.type.Exposed.DocString;
-import uk.co.farowl.vsj4.type.Exposed.Getter;
-import uk.co.farowl.vsj4.type.Exposed.Setter;
-import uk.co.farowl.vsj4.type.Feature;
-import uk.co.farowl.vsj4.type.TypeSpec;
+import uk.co.farowl.vsj4.types.Exposed;
+import uk.co.farowl.vsj4.types.Feature;
+import uk.co.farowl.vsj4.types.TypeSpec;
+import uk.co.farowl.vsj4.types.Exposed.Deleter;
+import uk.co.farowl.vsj4.types.Exposed.DocString;
+import uk.co.farowl.vsj4.types.Exposed.Getter;
+import uk.co.farowl.vsj4.types.Exposed.Setter;
 
 /**
  * Test that get-set attributes exposed by a Python <i>type</i> defined

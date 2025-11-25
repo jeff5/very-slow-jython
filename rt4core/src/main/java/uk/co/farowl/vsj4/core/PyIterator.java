@@ -8,7 +8,7 @@ import java.lang.invoke.MethodHandles;
 import uk.co.farowl.vsj4.kernel.KernelTypeFlag;
 import uk.co.farowl.vsj4.kernel.Representation;
 import uk.co.farowl.vsj4.kernel.SpecialMethod;
-import uk.co.farowl.vsj4.type.TypeSpec;
+import uk.co.farowl.vsj4.types.TypeSpec;
 
 /**
  * The Python iterator type provides iteration over any Python

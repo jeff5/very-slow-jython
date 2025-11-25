@@ -22,9 +22,9 @@ import org.slf4j.LoggerFactory;
 import uk.co.farowl.vsj4.core.PyObject;
 import uk.co.farowl.vsj4.core.PyType;
 import uk.co.farowl.vsj4.support.InterpreterError;
-import uk.co.farowl.vsj4.type.Feature;
-import uk.co.farowl.vsj4.type.TypeSpec;
-import uk.co.farowl.vsj4.type.WithClass;
+import uk.co.farowl.vsj4.types.Feature;
+import uk.co.farowl.vsj4.types.TypeSpec;
+import uk.co.farowl.vsj4.types.WithClass;
 
 // TODO Provide for Python exceptions without requiring the type system
 /*

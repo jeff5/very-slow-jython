@@ -6,4 +6,4 @@
  * application that {@code requires} the module in its module
  * declaration.
  */
-package uk.co.farowl.vsj4.type;
+package uk.co.farowl.vsj4.types;

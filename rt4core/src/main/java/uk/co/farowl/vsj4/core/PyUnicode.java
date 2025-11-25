@@ -25,12 +25,12 @@ import uk.co.farowl.vsj4.core.PyUtil.NoConversion;
 import uk.co.farowl.vsj4.stringlib.IntArrayBuilder;
 import uk.co.farowl.vsj4.stringlib.IntArrayReverseBuilder;
 import uk.co.farowl.vsj4.support.InterpreterError;
-import uk.co.farowl.vsj4.type.Exposed.Default;
-import uk.co.farowl.vsj4.type.Exposed.Name;
-import uk.co.farowl.vsj4.type.Exposed.PythonMethod;
-import uk.co.farowl.vsj4.type.Feature;
-import uk.co.farowl.vsj4.type.TypeSpec;
-import uk.co.farowl.vsj4.type.WithClass;
+import uk.co.farowl.vsj4.types.Feature;
+import uk.co.farowl.vsj4.types.TypeSpec;
+import uk.co.farowl.vsj4.types.WithClass;
+import uk.co.farowl.vsj4.types.Exposed.Default;
+import uk.co.farowl.vsj4.types.Exposed.Name;
+import uk.co.farowl.vsj4.types.Exposed.PythonMethod;
 
 /**
  * The Python {@code str} object is implemented by both

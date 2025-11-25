@@ -35,11 +35,11 @@ import uk.co.farowl.vsj4.core.PyType;
 import uk.co.farowl.vsj4.internal.Util;
 import uk.co.farowl.vsj4.subclass.SubclassFactory;
 import uk.co.farowl.vsj4.subclass.SubclassSpec;
-import uk.co.farowl.vsj4.type.Feature;
-import uk.co.farowl.vsj4.type.TypeSpec;
-import uk.co.farowl.vsj4.type.WithClassAssignment;
-import uk.co.farowl.vsj4.type.WithDict;
-import uk.co.farowl.vsj4.type.WithDictAssignment;
+import uk.co.farowl.vsj4.types.Feature;
+import uk.co.farowl.vsj4.types.TypeSpec;
+import uk.co.farowl.vsj4.types.WithClassAssignment;
+import uk.co.farowl.vsj4.types.WithDict;
+import uk.co.farowl.vsj4.types.WithDictAssignment;
 
 /**
  * This is a test of a process behind class definition in Python, which

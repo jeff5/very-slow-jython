@@ -2,7 +2,7 @@
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.core;
 
-import uk.co.farowl.vsj4.type.WithClass;
+import uk.co.farowl.vsj4.types.WithClass;
 
 /** Abstract base class for defining Python iterators. */
 abstract class AbstractPyIterator implements WithClass {

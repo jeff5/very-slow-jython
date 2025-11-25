@@ -4,10 +4,10 @@ package uk.co.farowl.vsj4.core;
 
 import java.lang.invoke.MethodHandles;
 
-import uk.co.farowl.vsj4.type.Exposed.Default;
-import uk.co.farowl.vsj4.type.Exposed.DocString;
-import uk.co.farowl.vsj4.type.Exposed.PythonNewMethod;
-import uk.co.farowl.vsj4.type.TypeSpec;
+import uk.co.farowl.vsj4.types.TypeSpec;
+import uk.co.farowl.vsj4.types.Exposed.Default;
+import uk.co.farowl.vsj4.types.Exposed.DocString;
+import uk.co.farowl.vsj4.types.Exposed.PythonNewMethod;
 
 /**
  * The Python {@code bool} object. The only instances of {@code bool} in

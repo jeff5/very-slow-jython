@@ -15,11 +15,11 @@ import org.junit.jupiter.api.Test;
 
 import uk.co.farowl.vsj4.support.MethodKind;
 import uk.co.farowl.vsj4.support.ScopeKind;
-import uk.co.farowl.vsj4.type.Exposed;
-import uk.co.farowl.vsj4.type.Exposed.Default;
-import uk.co.farowl.vsj4.type.Exposed.PositionalOnly;
-import uk.co.farowl.vsj4.type.Exposed.PythonStaticMethod;
-import uk.co.farowl.vsj4.type.TypeSpec;
+import uk.co.farowl.vsj4.types.Exposed;
+import uk.co.farowl.vsj4.types.TypeSpec;
+import uk.co.farowl.vsj4.types.Exposed.Default;
+import uk.co.farowl.vsj4.types.Exposed.PositionalOnly;
+import uk.co.farowl.vsj4.types.Exposed.PythonStaticMethod;
 
 /**
  * Test that static methods exposed by a Python <b>type</b> defined in

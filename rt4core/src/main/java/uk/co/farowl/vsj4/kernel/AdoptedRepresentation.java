@@ -4,7 +4,7 @@ package uk.co.farowl.vsj4.kernel;
 
 import uk.co.farowl.vsj4.core.PyFloat;
 import uk.co.farowl.vsj4.core.PyLong;
-import uk.co.farowl.vsj4.type.TypeFlag;
+import uk.co.farowl.vsj4.types.TypeFlag;
 
 /**
  * A {@code Representation} that relates an adopted representation to

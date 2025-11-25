@@ -8,7 +8,7 @@ import uk.co.farowl.vsj4.internal.EmptyException;
 import uk.co.farowl.vsj4.kernel.BaseType;
 import uk.co.farowl.vsj4.kernel.ReplaceableType;
 import uk.co.farowl.vsj4.kernel.Representation;
-import uk.co.farowl.vsj4.type.WithClassAssignment;
+import uk.co.farowl.vsj4.types.WithClassAssignment;
 
 /**
  * Miscellaneous static helpers commonly needed to implement Python

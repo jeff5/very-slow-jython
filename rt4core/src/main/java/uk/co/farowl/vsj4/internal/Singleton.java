@@ -3,7 +3,7 @@
 package uk.co.farowl.vsj4.internal;
 
 import uk.co.farowl.vsj4.core.PyType;
-import uk.co.farowl.vsj4.type.WithClass;
+import uk.co.farowl.vsj4.types.WithClass;
 
 /**
  * A base class for Python singletons {@code None},

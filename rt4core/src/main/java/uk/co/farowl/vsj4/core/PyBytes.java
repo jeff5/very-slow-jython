@@ -17,8 +17,8 @@ import uk.co.farowl.vsj4.core.PySequence.Delegate;
 import uk.co.farowl.vsj4.core.PySlice.Indices;
 import uk.co.farowl.vsj4.core.PyUtil.NoConversion;
 import uk.co.farowl.vsj4.stringlib.ByteArrayBuilder;
-import uk.co.farowl.vsj4.type.TypeSpec;
-import uk.co.farowl.vsj4.type.WithClass;
+import uk.co.farowl.vsj4.types.TypeSpec;
+import uk.co.farowl.vsj4.types.WithClass;
 
 /** The Python {@code bytes} object. */
 public class PyBytes extends AbstractList<Integer>

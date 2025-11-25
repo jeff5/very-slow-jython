@@ -6,7 +6,7 @@ module uk.co.farowl.rt4core {
     exports uk.co.farowl.vsj4.core;
     exports uk.co.farowl.vsj4.support;
     exports uk.co.farowl.vsj4.stringlib;
-    exports uk.co.farowl.vsj4.type;
+    exports uk.co.farowl.vsj4.types;
 
     requires transitive org.slf4j;
     requires org.objectweb.asm;

@@ -5,11 +5,11 @@ package uk.co.farowl.vsj4.core;
 import java.lang.invoke.MethodHandles;
 
 import uk.co.farowl.vsj4.internal._PyUtil;
-import uk.co.farowl.vsj4.type.Exposed;
-import uk.co.farowl.vsj4.type.FastCall;
-import uk.co.farowl.vsj4.type.Feature;
-import uk.co.farowl.vsj4.type.TypeSpec;
-import uk.co.farowl.vsj4.type.WithClass;
+import uk.co.farowl.vsj4.types.Exposed;
+import uk.co.farowl.vsj4.types.FastCall;
+import uk.co.farowl.vsj4.types.Feature;
+import uk.co.farowl.vsj4.types.TypeSpec;
+import uk.co.farowl.vsj4.types.WithClass;
 
 /**
  * The Python type {@code types.MethodWrapperType} (seen also as

@@ -5,7 +5,7 @@ package uk.co.farowl.vsj4.core;
 import java.lang.invoke.MethodHandles;
 
 import uk.co.farowl.vsj4.internal.Singleton;
-import uk.co.farowl.vsj4.type.TypeSpec;
+import uk.co.farowl.vsj4.types.TypeSpec;
 
 /** The Python {@code NotImplemented} object. */
 public final class PyNotImplemented extends Singleton {

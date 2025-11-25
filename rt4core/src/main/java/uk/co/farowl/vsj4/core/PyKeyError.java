@@ -4,8 +4,8 @@ package uk.co.farowl.vsj4.core;
 
 import java.lang.invoke.MethodHandles;
 
-import uk.co.farowl.vsj4.type.Feature;
-import uk.co.farowl.vsj4.type.TypeSpec;
+import uk.co.farowl.vsj4.types.Feature;
+import uk.co.farowl.vsj4.types.TypeSpec;
 
 /** The Python {@code KeyError} exception. */
 public class PyKeyError extends PyBaseException {

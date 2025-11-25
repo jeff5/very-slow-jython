@@ -13,8 +13,8 @@ import uk.co.farowl.vsj4.core.PyFloat;
 import uk.co.farowl.vsj4.core.PyLong;
 import uk.co.farowl.vsj4.core.PyType;
 import uk.co.farowl.vsj4.kernel.SpecialMethod.Signature;
-import uk.co.farowl.vsj4.type.TypeFlag;
-import uk.co.farowl.vsj4.type.WithClass;
+import uk.co.farowl.vsj4.types.TypeFlag;
+import uk.co.farowl.vsj4.types.WithClass;
 
 /**
  * A {@code Representation} provides Python behaviour to a Java object
