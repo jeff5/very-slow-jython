@@ -5,7 +5,7 @@ package uk.co.farowl.vsj4.stringlib;
 import java.util.Iterator;
 import java.util.ListIterator;
 
-import uk.co.farowl.vsj4.runtime.PySequence;
+import uk.co.farowl.vsj4.core.PySequence;
 
 /**
  * The base of two classes that that provide elastic buffers of integer
