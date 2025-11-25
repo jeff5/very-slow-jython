@@ -2,7 +2,7 @@
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.type;
 
-import uk.co.farowl.vsj4.runtime.PyType;
+import uk.co.farowl.vsj4.core.PyType;
 
 /**
  * An instance of a class implementing {@code WithClass} reports an

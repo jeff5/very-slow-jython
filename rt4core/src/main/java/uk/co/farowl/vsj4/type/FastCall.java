@@ -4,14 +4,14 @@ package uk.co.farowl.vsj4.type;
 
 import java.util.Arrays;
 
-import uk.co.farowl.vsj4.runtime.Abstract;
-import uk.co.farowl.vsj4.runtime.ArgumentError;
-import uk.co.farowl.vsj4.runtime.Callables;
-import uk.co.farowl.vsj4.runtime.PyBaseException;
-import uk.co.farowl.vsj4.runtime.PyErr;
-import uk.co.farowl.vsj4.runtime.PyExc;
-import uk.co.farowl.vsj4.runtime.PyUnicode;
-import uk.co.farowl.vsj4.support.internal.Util;
+import uk.co.farowl.vsj4.core.Abstract;
+import uk.co.farowl.vsj4.core.ArgumentError;
+import uk.co.farowl.vsj4.core.Callables;
+import uk.co.farowl.vsj4.core.PyBaseException;
+import uk.co.farowl.vsj4.core.PyErr;
+import uk.co.farowl.vsj4.core.PyExc;
+import uk.co.farowl.vsj4.core.PyUnicode;
+import uk.co.farowl.vsj4.internal.Util;
 
 /**
  * Support direct calls from Java to the function represented by this

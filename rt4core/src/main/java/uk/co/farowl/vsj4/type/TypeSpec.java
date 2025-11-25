@@ -13,10 +13,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.StringJoiner;
 
-import uk.co.farowl.vsj4.runtime.PyType;
-import uk.co.farowl.vsj4.runtime.internal.NamedSpec;
-import uk.co.farowl.vsj4.runtime.kernel.BaseType;
-import uk.co.farowl.vsj4.runtime.kernel.SimpleType;
+import uk.co.farowl.vsj4.core.PyType;
+import uk.co.farowl.vsj4.internal.NamedSpec;
+import uk.co.farowl.vsj4.kernel.BaseType;
+import uk.co.farowl.vsj4.kernel.SimpleType;
 import uk.co.farowl.vsj4.support.InterpreterError;
 
 // TODO Provide for Python exceptions without requiring the type system

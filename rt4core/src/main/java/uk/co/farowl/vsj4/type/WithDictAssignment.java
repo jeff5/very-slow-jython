@@ -2,8 +2,8 @@
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.type;
 
-import uk.co.farowl.vsj4.runtime.PyDict;
-import uk.co.farowl.vsj4.runtime.PyType;
+import uk.co.farowl.vsj4.core.PyDict;
+import uk.co.farowl.vsj4.core.PyType;
 import uk.co.farowl.vsj4.support.InterpreterError;
 
 /**

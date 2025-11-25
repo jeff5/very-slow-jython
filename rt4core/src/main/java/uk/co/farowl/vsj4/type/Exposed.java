@@ -12,10 +12,10 @@ import java.lang.annotation.Documented;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 
-import uk.co.farowl.vsj4.runtime.PyAttributeError;
-import uk.co.farowl.vsj4.runtime.PyBaseException;
-import uk.co.farowl.vsj4.runtime.PyDict;
-import uk.co.farowl.vsj4.runtime.PyTuple;
+import uk.co.farowl.vsj4.core.PyAttributeError;
+import uk.co.farowl.vsj4.core.PyBaseException;
+import uk.co.farowl.vsj4.core.PyDict;
+import uk.co.farowl.vsj4.core.PyTuple;
 
 /**
  * Annotations that may be placed on elements of a Java class intended

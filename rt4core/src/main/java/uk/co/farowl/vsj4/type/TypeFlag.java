@@ -4,7 +4,7 @@ package uk.co.farowl.vsj4.type;
 
 import java.util.EnumSet;
 
-import uk.co.farowl.vsj4.runtime.PyType;
+import uk.co.farowl.vsj4.core.PyType;
 
 /**
  * Enumeration of the overt features of a type, as used on the type

@@ -2,9 +2,9 @@
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.type;
 
-import uk.co.farowl.vsj4.runtime.PyBaseException;
-import uk.co.farowl.vsj4.runtime.PyType;
-import uk.co.farowl.vsj4.runtime.PyUtil;
+import uk.co.farowl.vsj4.core.PyBaseException;
+import uk.co.farowl.vsj4.core.PyType;
+import uk.co.farowl.vsj4.core.PyUtil;
 
 /**
  * An instance of a class implementing this interface allows assignment

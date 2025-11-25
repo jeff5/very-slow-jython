@@ -112,7 +112,7 @@ testing {
                             'java.util.logging.config.file',
                             getProject().file('config/kernelTest.logging.properties') )
                         systemProperty(
-                            'uk.co.farowl.vsj4.runtime.BootstrapTest.times',
+                            'uk.co.farowl.vsj4.core.BootstrapTest.times',
                             'false')
                         testLogging.showStandardStreams = true
                     }
