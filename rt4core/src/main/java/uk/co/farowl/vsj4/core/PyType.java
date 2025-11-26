@@ -2,12 +2,8 @@
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.core;
 
-import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodType;
-import java.lang.reflect.Constructor;
 import java.util.EnumSet;
 import java.util.List;
-import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,6 +11,7 @@ import org.slf4j.LoggerFactory;
 import uk.co.farowl.vsj4.kernel.Representation;
 import uk.co.farowl.vsj4.kernel.TypeFactory.Clash;
 import uk.co.farowl.vsj4.types.FastCall;
+import uk.co.farowl.vsj4.types.NewInstance;
 import uk.co.farowl.vsj4.types.TypeFlag;
 import uk.co.farowl.vsj4.types.TypeSpec;
 import uk.co.farowl.vsj4.types.WithClass;
@@ -32,7 +29,7 @@ import uk.co.farowl.vsj4.types.WithClass;
  * holds the single static instance of the Python type factory, which
  * comes into being upon first use of the {@code PyType} class.
  */
-public interface PyType extends WithClass, FastCall {
+public interface PyType extends NewInstance, WithClass, FastCall {
 
     /** Logger for (the public face of) the type system. */
     static final Logger logger = LoggerFactory.getLogger(PyType.class);
@@ -273,49 +270,6 @@ public interface PyType extends WithClass, FastCall {
      * @return the bases of classes allowed as {@code self}
      */
     List<Class<?>> selfClasses();
-
-    // Support for __new__ -------------------------------------------
-
-    /**
-     * The return from {@link #constructor()} holding a reflective
-     * constructor definition and a handle by which it may be called.
-     * <p>
-     * A custom {@code __new__} method in a defining Java class of a
-     * type generally has direct access to all the constructors it needs
-     * for its own type. When asked for an instance of a different type,
-     * it must be able to call the constructor of the Java
-     * representation class. The representation of the required type
-     * (the {@code cls} argument to {@code __new__}) will be a subclass
-     * in Java of the canonical representation of the type from which
-     * {@code __new__} was called.
-     */
-    public static record ConstructorAndHandle(
-            Constructor<?> constructor, MethodHandle handle) {}
-
-    /**
-     * Return the table holding constructors and their method handles
-     * for instances of this type. This enables client code to iterate
-     * over available constructors without any copying. The table and
-     * its contents are immutable.
-     * <p>
-     * Note that in the key, the Java class of the return type is
-     * {@code Object}.
-     *
-     * @return the lookup for constructors and handles
-     */
-    abstract Map<MethodType, ConstructorAndHandle> constructorLookup();
-
-    /**
-     * Return a constructor of instances of this type, and its method
-     * handle, that accepts arguments matching the given types. The Java
-     * class of the return type of the handle is {@code Object}, since
-     * we cannot rely on the caller to know the specific class.
-     *
-     * @param param the intended argument types
-     * @return a constructor and a handle on it
-     */
-    // Compare CPython type slot tp_alloc (but only loosely).
-    abstract ConstructorAndHandle constructor(Class<?>... param);
 
     // static methods -----------------------------------------------
 

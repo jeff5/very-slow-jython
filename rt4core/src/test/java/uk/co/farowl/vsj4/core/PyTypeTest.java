@@ -189,6 +189,7 @@ class PyTypeTest extends UnitTestSupport {
          *
          * @return the examples for search tests.
          */
+        // TODO Test type.__new__ with multiple bases, metatype, etc..
         static Stream<Arguments> newExamples() {
 
             return Stream.of(

@@ -2,10 +2,8 @@
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.kernel;
 
-import java.lang.invoke.MethodType;
 import java.util.EnumSet;
 import java.util.List;
-import java.util.Map;
 
 import uk.co.farowl.vsj4.core.PyType;
 import uk.co.farowl.vsj4.types.TypeFlag;
@@ -327,36 +325,6 @@ public abstract class KernelType extends Representation
     public boolean isReady() {
         return kernelFeatures.contains(KernelTypeFlag.READY);
     }
-
-    // Support for __new__ -------------------------------------------
-
-    /**
-     * Return the table holding constructors and their method handles
-     * for instances of this type. This enables client code to iterate
-     * over available constructors without any copying. The table and
-     * its contents are immutable.
-     * <p>
-     * Note that in the key, the Java class of the return type is
-     * {@code Object}.
-     *
-     * @return the lookup for constructors and handles
-     */
-    @Override
-    public abstract Map<MethodType, ConstructorAndHandle>
-            constructorLookup();
-
-    /**
-     * Return a constructor of instances of this type, and its method
-     * handle, that accepts arguments matching the given types. The Java
-     * class of the return type of the handle is {@code Object}, since
-     * we cannot rely on the caller to know the specific class.
-     *
-     * @param param the intended argument types
-     * @return a constructor and a handle on it
-     */
-    // Compare CPython type slot tp_alloc (but only loosely).
-    @Override
-    public abstract ConstructorAndHandle constructor(Class<?>... param);
 
     /**
      * An immutable list of the {@link Representation}s of this type.

@@ -49,11 +49,11 @@ import uk.co.farowl.vsj4.subclass.SubclassFactory;
 import uk.co.farowl.vsj4.subclass.SubclassSpec;
 import uk.co.farowl.vsj4.support.InterpreterError;
 import uk.co.farowl.vsj4.types.Exposed;
+import uk.co.farowl.vsj4.types.Exposed.KeywordCollector;
 import uk.co.farowl.vsj4.types.Feature;
 import uk.co.farowl.vsj4.types.TypeFlag;
 import uk.co.farowl.vsj4.types.TypeSpec;
 import uk.co.farowl.vsj4.types.WithDict;
-import uk.co.farowl.vsj4.types.Exposed.KeywordCollector;
 
 /**
  * A base shared by the concrete implementation classes of the Python
@@ -1027,6 +1027,47 @@ public abstract sealed class BaseType extends KernelType implements
     }
 
     /**
+     * Discover the Java constructors of representations of this type
+     * and create method handles on them. This is what allows
+     * {@code __new__} in a Python superclass of this type to create an
+     * instance, even though it has no knowledge of the type at compile
+     * time.
+     *
+     * @param spec specification of this type
+     */
+    // FIXME Constructor lookup: Shared and Adoptive types.
+    // This only looks right for a SimpleType extending Representation
+    void fillConstructorLookup(TypeSpec spec) {
+        // Collect constructors in this table
+        Map<MethodType, ConstructorAndHandle> table = new HashMap<>();
+        // We allow public construction only of the canonical base.
+        // (This is right for use by __new__ ... and generally?)
+        Class<?> baseClass = spec.getCanonicalClass();
+        Lookup lookup = spec.getLookup();
+        final int accept = Modifier.PUBLIC | Modifier.PROTECTED;
+        for (Constructor<?> cons : baseClass
+                .getDeclaredConstructors()) {
+            int modifiers = cons.getModifiers();
+            try {
+                if ((modifiers & accept) != 0) {
+                    MethodHandle mh = lookup.unreflectConstructor(cons);
+                    // Neutralise the actual return type to Object
+                    MethodType mt = mh.type();
+                    mt = mt.changeReturnType(Object.class);
+                    mh = mh.asType(mt);
+                    table.put(mt, new ConstructorAndHandle(cons, mh));
+                }
+            } catch (IllegalAccessException e) {
+                throw new InterpreterError(e,
+                        "Failed to get handle for constructor %s",
+                        cons);
+            }
+        }
+        // Freeze the table as the constructor lookup
+        setConstructorLookup(table);
+    }
+
+    /**
      * Called from {@code type.__setattr__} and
      * {@code type.__delattr__(String)} after an attribute has been set
      * or deleted. This gives the type the opportunity to recompute
@@ -1165,88 +1206,6 @@ public abstract sealed class BaseType extends KernelType implements
                 sm.setCache(rep, descr.getHandle(index));
             }
         }
-    }
-
-    /**
-     * Collect the information necessary to synthesise and call a
-     * constructor for a Java subclass of the {@link #javaClass()} of
-     * this type.
-     */
-    private Map<MethodType, ConstructorAndHandle> constructorLookup;
-
-    /**
-     * Return the table holding constructors and their method handles
-     * for instances of this type. This enables client code to iterate
-     * over available constructors without any copying. The table and
-     * its contents are immutable.
-     * <p>
-     * Note that in the key, the Java class of the return type is
-     * {@code Object}.
-     *
-     * @return the lookup for constructors and handles
-     */
-    @Override
-    public Map<MethodType, ConstructorAndHandle> constructorLookup() {
-        return constructorLookup;
-    }
-
-    @Override
-    public ConstructorAndHandle constructor(Class<?>... param) {
-        // Neutralise the actual return type
-        MethodType mt = MethodType.methodType(Object.class, param);
-        ConstructorAndHandle ch = constructorLookup.get(mt);
-        if (ch == null) {
-            /*
-             * This method is really here for __new__ implementations,
-             * and has to be public because they could be in any
-             * package. So, stuff can go wrong. But how to explain to
-             * the hapless caller when something is probably a Java API
-             * error in the synthetic class?
-             */
-            throw PyErr.format(PyExc.TypeError,
-                    "No public constructor of '%s' matches %s",
-                    getName(), mt);
-        }
-        return ch;
-    }
-
-    /**
-     * Discover the Java constructors of representations of this type
-     * and create method handles on them. This is what allows
-     * {@code __new__} in a Python superclass of this type to create an
-     * instance, even though it has no knowledge of the type at compile
-     * time.
-     *
-     * @param spec specification of this type
-     */
-    void fillConstructorLookup(TypeSpec spec) {
-        // Collect constructors in this table
-        Map<MethodType, ConstructorAndHandle> table = new HashMap<>();
-        // We allow public construction only of the canonical base.
-        // (This is right for use by __new__ ... and generally?)
-        Class<?> baseClass = spec.getCanonicalClass();
-        Lookup lookup = spec.getLookup();
-        final int accept = Modifier.PUBLIC | Modifier.PROTECTED;
-        for (Constructor<?> cons : baseClass
-                .getDeclaredConstructors()) {
-            int modifiers = cons.getModifiers();
-            try {
-                if ((modifiers & accept) != 0) {
-                    MethodHandle mh = lookup.unreflectConstructor(cons);
-                    // Neutralise the actual return type to Object
-                    MethodType mt = mh.type();
-                    mt = mt.changeReturnType(Object.class);
-                    mh = mh.asType(mt);
-                    table.put(mt, new ConstructorAndHandle(cons, mh));
-                }
-            } catch (IllegalAccessException e) {
-                throw new InterpreterError(e,
-                        "Failed to get handle for constructor %s",
-                        cons);
-            }
-        }
-        // Freeze the table as the constructor lookup
-        constructorLookup = Collections.unmodifiableMap(table);
     }
 
     // plumbing ------------------------------------------------------
@@ -1406,14 +1365,15 @@ public abstract sealed class BaseType extends KernelType implements
     // Compare CPython solid_base() in typeobject.c
     private BaseType solid_base() {
         // Walk the base chain and return just before the class change.
-        BaseType sb;
-        if (base != null) {  // TODO: is recursion sensible here? Loop?
-            sb = base.solid_base();
-        } else {
-            // This must be the type object of object
-            return this;
+        BaseType type = this, base;
+        Class<?> c = javaClass();
+        while ((base = type.base) != null) {
+            // type has a base (=> type is not object).
+            if (c != (c = base.javaClass())) { break; }
+            // The base has the same representation
+            type = base;
         }
-        return javaClass() == sb.javaClass() ? sb : this;
+        return type;
     }
 
     /**
@@ -1488,6 +1448,7 @@ public abstract sealed class BaseType extends KernelType implements
      * @return proper metaclass to create new type (not {@code null})
      */
     // Compare CPython _PyType_CalculateMetaclass in typeobject.c
+    // Private for now but used from builtin.__build_class__
     private static BaseType commonMetaclass(BaseType metaclass,
             List<BaseType> bases) {
         for (BaseType base : bases) {

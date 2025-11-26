@@ -5,14 +5,20 @@ package uk.co.farowl.vsj4.kernel;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
+import java.lang.invoke.MethodType;
+import java.util.Collections;
+import java.util.Map;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import uk.co.farowl.vsj4.core.PyErr;
+import uk.co.farowl.vsj4.core.PyExc;
 import uk.co.farowl.vsj4.core.PyFloat;
 import uk.co.farowl.vsj4.core.PyLong;
 import uk.co.farowl.vsj4.core.PyType;
 import uk.co.farowl.vsj4.kernel.SpecialMethod.Signature;
+import uk.co.farowl.vsj4.types.NewInstance;
 import uk.co.farowl.vsj4.types.TypeFlag;
 import uk.co.farowl.vsj4.types.WithClass;
 
@@ -36,7 +42,7 @@ import uk.co.farowl.vsj4.types.WithClass;
  * types), this mapping will be developed as instances of the classes
  * are encountered in Python code.
  */
-public abstract class Representation {
+public abstract class Representation implements NewInstance {
 
     /** Logger for representation object activity in the kernel. */
     protected static final Logger logger =
@@ -45,7 +51,7 @@ public abstract class Representation {
     /**
      * The type factory to which the entire run-time system goes for
      * type objects. Do not use this object until
-     * {@code runtime.TypeSystem} has completed static initialisation.
+     * {@code core.TypeSystem} has completed static initialisation.
      */
     public static final TypeFactory factory;
 
@@ -76,7 +82,7 @@ public abstract class Representation {
      * for that class.
      * <p>
      * Because this uses the type factory, beware of using it before the
-     * static initialisation of {@code runtime.TypeSystem} is complete.
+     * static initialisation of {@code core.TypeSystem} is complete.
      *
      * @param o for which a representation of the class is needed
      * @return the representation
@@ -105,7 +111,7 @@ public abstract class Representation {
 
     /*
      * Give SpecialMethod access to private members (so it may write the
-     * method handle caches), and to the runtime package in general. It
+     * method handle caches), and to the core package in general. It
      * looks clunky, but seems the only way to supply the necessary
      * access and keep the module API clean.
      */
@@ -134,6 +140,14 @@ public abstract class Representation {
      * separate {@code Representation}s.
      */
     protected final Class<?> javaClass;
+
+    /**
+     * Holds the information necessary to synthesise and call a
+     * constructor for a Java subclass of the {@link #javaClass()} of
+     * this {@code Representation}.
+     */
+    private Map<MethodType, ConstructorAndHandle> constructorLookup =
+            Collections.emptyMap();
 
     /**
      * Create a {@code Representation} relating a (base) Java class to a
@@ -255,7 +269,7 @@ public abstract class Representation {
      * <p>
      * When a type accepts, as self-classes, the representations of some
      * other type (as when {@code int} accepts {@code Boolean}), there
-     * is no {@link Representation} of it in the accepting type. The
+     * is no {@code Representation} of it in the accepting type. The
      * correct index must be determined by finding a compatible class in
      * {@link AdoptiveType#selfClasses()}.
      *
@@ -267,7 +281,49 @@ public abstract class Representation {
     @SuppressWarnings("static-method")
     public int getIndex() { return 0; }
 
-    // ---------------------------------------------------------------
+    // Support for __new__ -------------------------------------------
+
+    /**
+     * {@inheritDoc} This is set by a call to
+     */
+    @Override
+    public Map<MethodType, ConstructorAndHandle> constructorLookup() {
+        return constructorLookup;
+    }
+
+    @Override
+    public ConstructorAndHandle constructor(Class<?>... param) {
+        // Neutralise the actual return type
+        MethodType mt = MethodType.methodType(Object.class, param);
+        ConstructorAndHandle ch = constructorLookup.get(mt);
+        if (ch == null) {
+            // TODO Improve communicating this error
+            /*
+             * This method is here for __new__ implementations, and has
+             * to be public because they could be in any package. So,
+             * stuff can go wrong. But how to explain to the hapless
+             * caller when something is probably a Java API error in the
+             * synthetic class?
+             */
+            throw PyErr.format(PyExc.TypeError,
+                    "No public Java constructor of '%s' matches %s",
+                    this, mt);
+        }
+        return ch;
+    }
+
+    /**
+     * Provide the information necessary to synthesise and call a
+     * constructor for a Java subclass of the {@link #javaClass()} of
+     * this {@code Representation}.
+     *
+     * @param table of constructor signatures and method handles
+     */
+    protected void setConstructorLookup(
+            Map<MethodType, ConstructorAndHandle> table) {
+        // Freeze the table as the constructor lookup
+        constructorLookup = Collections.unmodifiableMap(table);
+    }
 
     // Getters for special methods -----------------------------------
     /*

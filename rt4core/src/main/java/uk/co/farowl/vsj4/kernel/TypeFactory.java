@@ -247,7 +247,7 @@ public class TypeFactory {
      *
      * @return type object for {@code type}
      */
-    public SimpleType typeType() {
+    public final SimpleType typeType() {
         // Check we are not calling before createTypeForType
         assert typeType != null;
         return typeType;
@@ -263,7 +263,7 @@ public class TypeFactory {
      *
      * @return type object for {@code type}
      */
-    public SimpleType objectType() {
+    public final SimpleType objectType() {
         // Check we are not calling before createTypeForType
         assert objectType != null;
         return objectType;
@@ -1009,6 +1009,7 @@ public class TypeFactory {
                  */
                 type.populateDict(exposer, spec);
 
+                // FIXME Constructor lookup: Shared and Adoptive types.
                 // Discover the Java constructors
                 type.fillConstructorLookup(spec);
 
