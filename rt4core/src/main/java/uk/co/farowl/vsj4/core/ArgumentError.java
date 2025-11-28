@@ -94,6 +94,26 @@ public class ArgumentError extends Exception {
         this(Mode.choose(minArgs, maxArgs), minArgs, maxArgs);
     }
 
+    /**
+     * In cases where a call was made with an extra positional argument
+     * the user would not recognise, the message produced by
+     * {@link #toString()} will be one-off in its statement of the
+     * expected number (or allowable range) of arguments in the
+     * signature. Only some modes of {@code ArgumentError} need this
+     * adjustment (not {@link Mode#NOKWARGS} for example), and where no
+     * change is needed the return is just {@code this}.
+     *
+     * @return adjusted {@code ArgumentError}.
+     */
+    public ArgumentError dropPrefix() {
+        if (maxArgs < 1) {
+            return this;
+        } else {
+            return new ArgumentError(Math.max(minArgs - 1, 0),
+                    maxArgs - 1);
+        }
+    }
+
     @Override
     public String toString() {
         switch (mode) {

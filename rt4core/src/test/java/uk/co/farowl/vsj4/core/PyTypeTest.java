@@ -2,10 +2,7 @@
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.core;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertSame;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 import java.math.BigInteger;
@@ -178,8 +175,9 @@ class PyTypeTest extends UnitTestSupport {
     abstract static class AbstractNewTypeTest extends UnitTestSupport {
 
         private static final PyType INT = PyLong.TYPE;
+        private static final PyType LIST = PyList.TYPE;
         private static final PyType TYPE = PyType.TYPE();
-        private static PyType OBJECT = PyObject.TYPE;
+        private static final PyType OBJECT = PyObject.TYPE;
 
         /**
          * Provide a stream of metatypes and parameter sets to the tests
@@ -189,17 +187,89 @@ class PyTypeTest extends UnitTestSupport {
          *
          * @return the examples for search tests.
          */
-        // TODO Test type.__new__ with multiple bases, metatype, etc..
         static Stream<Arguments> newExamples() {
+
+            // class L(list): pass
+            PyType L = makeType(TYPE, "L", LIST);
+            // class L1(list): pass
+            // PyType L1 = makeType(TYPE, "L1", LIST);
+            // class L2(list): pass
+            PyType L2 = makeType(TYPE, "L2", LIST);
+            // class L3(L): pass
+            PyType L3 = makeType(TYPE, "L3", L);
+            // class Meta(type): pass
+            PyType META = makeType(TYPE, "Meta", new PyType[] {TYPE});
 
             return Stream.of(
                     // A specification for each test
-                    newExample(TYPE, "A", new PyType[] {}, new PyDict(), //
-                            t -> newTypeCheck("A", OBJECT, t)),
+
+                    // class A: pass
+                    newExample(TYPE, "A", new PyType[] {}, new PyDict(),
+                            t -> newTypeCheck(t, TYPE, "A", OBJECT),
+                            // A()
+                            t -> constructorCheck(t)),
+
+                    // class A(int): pass
                     newExample(TYPE, "A", new PyType[] {INT},
                             new PyDict(),
-                            t -> newTypeCheck("A", INT, t, 42)) // ,
+                            t -> newTypeCheck(t, TYPE, "A", INT),
+                            // A(42)
+                            t -> constructorCheck(t, 42)),
+
+                    // class L4A(L3, L2): pass
+                    newExample(TYPE, "L4A", new PyType[] {L3, L2},
+                            new PyDict(),
+                            t -> newTypeCheck(t, TYPE, "L4A", L3),
+                            // L4A()
+                            t -> constructorCheck(t)),
+
+                    // class L4(L3, L2, list): pass
+                    newExample(TYPE, "L4", new PyType[] {L3, L2, LIST},
+                            new PyDict(),
+                            t -> newTypeCheck(t, TYPE, "L4", L3),
+                            // L4()
+                            t -> constructorCheck(t)),
+
+                    // class Other(type): pass
+                    // class MyOtherClass(list, metaclass=Other): pass
+                    newExample(TYPE, "Other", new PyType[] {TYPE},
+                            new PyDict(),
+                            t -> newTypeCheck(t, TYPE, "Other", TYPE),
+                            t -> constructorCheck(t, "MyOtherClass",
+                                    Py.tuple(LIST), new PyDict())),
+
+                    // class MyClass(metaclass=Meta): pass
+                    newExample(META, "MyClass", new PyType[] {},
+                            new PyDict(),
+                            t -> newTypeCheck(t, META, "MyClass",
+                                    OBJECT),
+                            // MyClass()
+                            t -> constructorCheck(t)),
+
+                    // class MyClass(list, metaclass=Meta): pass
+                    newExample(META, "MyClass", new PyType[] {LIST},
+                            new PyDict(),
+                            t -> newTypeCheck(t, META, "MyClass", LIST),
+                            // MyClass()
+                            t -> constructorCheck(t)) // ,
             );
+        }
+
+        /**
+         * Create a new type for use in tests.
+         *
+         * @return new type or null on failure
+         */
+        private static PyType makeType(PyType metatype, String name,
+                PyType... bases) {
+            PyType type;
+            try {
+                type = (PyType)metatype.call(name, new PyTuple(bases),
+                        Py.dict());
+            } catch (Throwable e) {
+                type = null;
+            }
+            return type;
         }
 
         // TODO write a different stream of examples that throw errors
@@ -215,33 +285,48 @@ class PyTypeTest extends UnitTestSupport {
          * @param test to apply to the result
          * @return example data for a test
          */
+        @SafeVarargs
         private static Arguments newExample(PyType metatype,
                 String name, PyType[] bases, PyDict namespace,
-                Consumer<PyType> test) {
+                Consumer<PyType>... tests) {
+            assertNotNull(metatype, "check metatype exists");
             String strMetatype = metatype.getName();
             String strNamespace = namespace.toString();
             StringJoiner b = new StringJoiner(", ", "(", ")");
             for (PyType t : bases) { b.add(t.getName()); }
             return arguments(metatype, name, new PyTuple(bases),
-                    namespace, test, strMetatype, b.toString(),
+                    namespace, tests, strMetatype, b.toString(),
                     strNamespace);
         }
 
         /**
-         * Check a new type for expected attributes and behaviour.
+         * Check a new type for expected attributes.
          *
+         * @param type the new type
+         * @param cls type of the new type
          * @param name the type should bear
          * @param base of the new type
+         */
+        static void newTypeCheck(PyType type, PyType cls, String name,
+                PyType base) {
+            try {
+                // Properties the type should have
+                assertSame(cls, type.getType());
+                assertEquals(name, type.getName());
+                assertSame(base, type.getBase());
+            } catch (Throwable t) {
+                throw Util.asUnchecked(t);
+            }
+        }
+
+        /**
+         * Check result of constructing and object with the new type.
+         *
          * @param type the new type
          * @param args arguments when making an instance
          */
-        static void newTypeCheck(String name, PyType base, PyType type,
-                Object... args) {
+        static void constructorCheck(PyType type, Object... args) {
             try {
-                // Properties the type should have
-                assertEquals(name, type.getName());
-                assertSame(base, type.getBase());
-
                 // Make an instance of the new type
                 Object o = Callables.call(type, args, null);
                 assertPythonType(type, o);
@@ -268,16 +353,17 @@ class PyTypeTest extends UnitTestSupport {
          * @throws Throwable unexpectedly
          */
         @DisplayName("definition <metatype>(name, bases, namespace)")
-        @ParameterizedTest(name = "{5}(\"{1}\", {6}, {7}) tests ok")
+        @ParameterizedTest(
+                name = "{5}(\"{1}\", {6}, {7}) has expected properties")
         @MethodSource("newExamples")
         void newType(PyType metatype, String name, PyTuple bases,
-                PyDict namespace, Consumer<PyType> test,
+                PyDict namespace, Consumer<PyType>[] tests,
                 String strMetatype, String strBases,
                 String strNamespace) throws Throwable {
             PyType t = (PyType)Callables.call(metatype, name, bases,
                     namespace);
-            // Customised test specified by caller
-            test.accept(t);
+            // Customised tests specified by caller
+            for (Consumer<PyType> test : tests) { test.accept(t); }
         }
 
         /**

@@ -26,8 +26,8 @@ public non-sealed class ReplaceableType extends BaseType {
      * @param representation shared
      * @param bases of the new type
      */
-    ReplaceableType(String name, SharedRepresentation representation,
-            BaseType[] bases) {
+    public ReplaceableType(String name,
+            SharedRepresentation representation, BaseType[] bases) {
         super(name, representation.javaClass(), bases);
         this.representation = representation;
     }

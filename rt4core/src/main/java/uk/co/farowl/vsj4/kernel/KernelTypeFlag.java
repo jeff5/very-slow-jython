@@ -126,7 +126,14 @@ public enum KernelTypeFlag {
      * CPython.
      */
     // No equivalent in CPython
-    HAS_DELETE;
+    HAS_DELETE,
+    /**
+     * The type defines {@code __init__}. This is the basis of a quick
+     * test used in instance construction by a type. It is necessary
+     * because we do not have type slots in the same way as CPython.
+     */
+    // No equivalent in CPython
+    HAS_INIT;
 
     /**
      * {@code KernelTypeFlag}s inherited from the base type when
@@ -134,5 +141,5 @@ public enum KernelTypeFlag {
      */
     public static final EnumSet<KernelTypeFlag> HERITABLE =
             EnumSet.of(MATCH_SELF, HAS_GETITEM, HAS_ITER, HAS_NEXT,
-                    HAS_INDEX, HAS_GET, HAS_SET, HAS_DELETE);
+                    HAS_INDEX, HAS_GET, HAS_SET, HAS_DELETE, HAS_INIT);
 }

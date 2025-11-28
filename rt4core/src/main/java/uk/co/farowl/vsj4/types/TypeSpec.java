@@ -676,7 +676,7 @@ public class TypeSpec extends NamedSpec {
      * by an instance of this Python sub-class of {@code type}, that is,
      * something other than {@code PyType.TYPE}.
      *
-     * @param metaclass to specify (or null for {@code type}
+     * @param metaclass to specify (null means {@code type})
      * @return {@code this}
      */
     public TypeSpec metaclass(PyType metaclass) {
@@ -762,16 +762,11 @@ public class TypeSpec extends NamedSpec {
 
     /**
      * Return the meta-class of the type being created, or {@code null}
-     * if it is {@code type}.
+     * which must be interpreted as {@code type}.
      *
      * @return the proper meta-class
      */
-    public PyType getMetaclass() {
-        // XXX is there an always-safe way to return type as an object?
-        // XXX Test TypeRegistry readiness?
-        return metaclass;
-        // return metaclass != null ? metaclass : PyType.TYPE;
-    }
+    public PyType getMetaclass() { return metaclass; }
 
     // Something helpful in debugging
     @Override

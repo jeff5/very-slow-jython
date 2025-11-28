@@ -2,6 +2,9 @@
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.kernel;
 
+import static uk.co.farowl.vsj4.core.ClassShorthand.T;
+
+import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.util.Collection;
@@ -21,6 +24,7 @@ import org.slf4j.LoggerFactory;
 
 import uk.co.farowl.vsj4.core.PyObject;
 import uk.co.farowl.vsj4.core.PyType;
+import uk.co.farowl.vsj4.core.PyUtil;
 import uk.co.farowl.vsj4.support.InterpreterError;
 import uk.co.farowl.vsj4.types.Feature;
 import uk.co.farowl.vsj4.types.TypeSpec;
@@ -782,6 +786,8 @@ public class TypeFactory {
             Class<?> canonical = spec.getCanonicalClass();
             List<Class<?>> adopted = spec.getAdopted();
             List<Class<?>> accepted = spec.getAccepted();
+            PyType metaclass = spec.getMetaclass();
+            if (metaclass == null) { metaclass = typeType(); }
 
             // Get the list of Python bases, or implicitly object.
             List<PyType> baseList = spec.getBases();
@@ -803,6 +809,7 @@ public class TypeFactory {
                 assert primary != null;
                 assert adopted.isEmpty();
                 assert accepted.isEmpty();
+
                 /*
                  * The type is replaceable: the representation is the
                  * primary class, but it is allowable that it already
@@ -824,10 +831,33 @@ public class TypeFactory {
                             primary, existing);
                 }
 
-                // Create a type referencing the shared representation.
-                ReplaceableType rt =
-                        new ReplaceableType(name, sr, bases);
-                addTask(newType = rt, spec);
+                /*
+                 * Create a type referencing the shared representation.
+                 * This must be (in Java) an instance of the metaclass.
+                 */
+                if (metaclass == typeType()) {
+                    newType = new ReplaceableType(name, sr, bases);
+                } else {
+                    /*
+                     * We need an instance of a Python metaclass. It's
+                     * representation in Java must be a subclass of
+                     * ReplaceableType, constructible from the same
+                     * parameters preceded by an actual type.
+                     */
+                    MethodHandle cons;
+                    try {
+                        cons = metaclass.constructor(T, String.class,
+                                SharedRepresentation.class,
+                                BaseType[].class).handle();
+                        newType = BaseType.cast(cons.invokeExact(
+                                metaclass, name, sr, bases));
+                    } catch (Throwable e) {
+                        throw PyUtil.cannotConstructInstance(metaclass,
+                                typeType(), e);
+                    }
+                }
+
+                addTask(newType, spec);
 
             } else if (adopted.isEmpty() && accepted.isEmpty()) {
                 /*
@@ -836,6 +866,7 @@ public class TypeFactory {
                  * class.
                  */
                 assert primary != null;
+                assert metaclass == typeType();
                 SimpleType st =
                         new SimpleType(name, primary, canonical, bases);
                 publishLocally(primary, st);
@@ -850,6 +881,7 @@ public class TypeFactory {
                  * self-classes but no representation is created.
                  */
                 assert primary != null;
+                assert metaclass == typeType();
                 assert canonical == primary;
                 assert spec.getFeatures().contains(Feature.IMMUTABLE);
 
@@ -1009,7 +1041,6 @@ public class TypeFactory {
                  */
                 type.populateDict(exposer, spec);
 
-                // FIXME Constructor lookup: Shared and Adoptive types.
                 // Discover the Java constructors
                 type.fillConstructorLookup(spec);
 

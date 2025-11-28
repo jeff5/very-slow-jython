@@ -50,6 +50,7 @@ import uk.co.farowl.vsj4.subclass.SubclassSpec;
 import uk.co.farowl.vsj4.support.InterpreterError;
 import uk.co.farowl.vsj4.types.Exposed;
 import uk.co.farowl.vsj4.types.Exposed.KeywordCollector;
+import uk.co.farowl.vsj4.types.FastCall;
 import uk.co.farowl.vsj4.types.Feature;
 import uk.co.farowl.vsj4.types.TypeFlag;
 import uk.co.farowl.vsj4.types.TypeSpec;
@@ -102,6 +103,13 @@ public abstract sealed class BaseType extends KernelType implements
      * accessed via {@link #lookup(String)}.
      */
     protected final Map<String, Object> dict;
+
+    /**
+     * The resolved {@code __new__} method of this type object, which
+     * should be callable. See {@link #updateNewMethodCache()}.
+     */
+    // TODO consider thread safety of newMethodCache
+    private FastCall newMethodCache;
 
     /**
      * Constructor used by (permitted) subclasses of {@code PyType}.
@@ -329,6 +337,20 @@ public abstract sealed class BaseType extends KernelType implements
     public abstract List<Representation> representations();
 
     /**
+     * Return a Python callable that is the result of looking up
+     * {@code __new__} of this type and wrapping it (if necessary) so
+     * that it may be called from Java with the usual arguments
+     * {@code __new__(cls, name, bases, namespace, **kwargs)}.
+     *
+     * @return a new instance of this type
+     */
+    public FastCall newMethod() {
+        // FIXME remove when we propagate changes to sub-types:
+        if (newMethodCache == null) { updateNewMethodCache(); }
+        return newMethodCache;
+    }
+
+    /**
      * Determine (or create if necessary) the Python type for the given
      * object. In the run-time system, we use this in place of
      * {@link PyType#of(Object)}, so that we get the more specific type
@@ -369,32 +391,38 @@ public abstract sealed class BaseType extends KernelType implements
 
     /**
      * Create a new instance of Python {@code type}, or of a subclass
-     * {@code M}. The actual Python type of the returned object may be a
-     * subclass {@code M} or a subclass of that, as required by the
-     * bases.
+     * {@code M} of {@code type}. The actual Python type of the returned
+     * object may be a subclass of {@code M}, as required by the bases.
+     * In order to create a working type, {@code __new__} must also find
+     * or create the Java representation class of instances of the
+     * returned Python type.
+     * <p>
+     * The surface Python syntax <pre>
+     * class T(A, B): pass
+     * </pre> produces a new instance of {@code type}, while<pre>
+     * class T(A, B, metaclass=M): pass
+     * </pre> produces a new instance of {@code M}, which must be a
+     * Python sub-type of {@code type}. Both result in a call to
+     * {@code type.__new__}, differing in the {@code cls} argument.
      * <p>
      * Note the following cases. Suppose {@code T} to be a superclass of
      * {@code M}, and a subclass of {@code type}, that has not
      * overridden {@code __new__}. We may arrive here:
-     * <ul>
-     * <li>directly as a call to {@code T.__new__(M, name, bases, ns)},
-     * or</li>
-     * <li>from a call {@code M(name, bases, ns)}, where {@code M} does
-     * not override {@code __call__} or {@code __new__}, which resolves
-     * {@code M.__new__} to call this method.</li>
+     * <ol>
+     * <li>directly as a call to
+     * {@code T.__new__(M, name, bases, ns)},</li>
+     * <li>directly from a call {@code M(name, bases, ns)}, where
+     * {@code M} does not override {@code __call__} or {@code __new__},
+     * {@code M.__new__} resolves to this method.</li>
      * <li>indirectly, beginning with either
      * {@code M.__new__(M, name, bases, ns)} or
      * {@code M(name, bases, ns)}, but where {@code M} overrides
      * {@code __new__}, and we arrive by one or more calls to
      * {@code super().__new__(M, name, bases, ns)}.</li>
-     * </ul>
+     * </ol>
      * The internal logic of {@code __new__} is subtle enough to do the
      * right thing in these various cases.
-     * <p>
-     * Note that {@code class A: pass} produces a new instance of
-     * {@code type}, while {@code class T(A,B,metaclass=M)}: pass
-     * produces a new instance of {@code M}, which must be a Python
-     * sub-type of {@code type}.
+     *
      *
      * @param cls requested Python sub-class being created (a metaclass)
      * @param name to be reported by the type object
@@ -415,59 +443,40 @@ public abstract sealed class BaseType extends KernelType implements
             throws PyBaseException, Throwable {
         // FIXME type.__new__ currently ignoring keyword arguments
 
-        logger.atTrace().setMessage("defining class {}")
-                .addArgument(name).log();
+        logger.atTrace().setMessage("defining class {}{}")
+                .addArgument(name).addArgument(bases).log();
 
         // Make a list of the bases, checking they are acceptable
         List<BaseType> checkedBases = updateBases(bases, () -> PyErr
                 .format(PyExc.TypeError, MRO_ENTRIES_NOT_SUPPORTED));
 
-        // From cls and the bases, choose a common metaclass.
+        /*
+         * From cls and the bases, choose a common metaclass. This could
+         * be a subclass of the requested metaclass cls.
+         */
         BaseType metaclass =
                 commonMetaclass(BaseType.cast(cls), checkedBases);
 
-        // FIXME Support the several cases within type.__new__
+        if (metaclass != cls) {
 
-        /*
-         * 1. metaclass is exactly type and so is the metaclass of every
-         * base: we produce a new instance of BaseType with a
-         * representation that subclasses the representation of every
-         * base.
-         */
-
-        /*
-         * 2. There is a common metaclass, that is a proper subclass of
-         * metaclass, for which __new__ is not type.__new__: we shall
-         * call that to create the new type, instead of creating a new
-         * type within this call. However, this in turn (directly or
-         * not) should call type.__new__ with cls as the common
-         * metaclass. Therefore we will arrive here again, maybe with
-         * different arguments.
-         */
-
-        /*
-         * 3. The common metaclass is exactly metaclass: we shall create
-         * a new type within this call, setting its type to metaclass,
-         * but we do not call metaclass.__new__, (even if
-         * metaclass.__new__ != type.__new__) as we assume we are
-         * already inside such a call.
-         */
-
-        /*
-         * 4. There is a common metaclass, which may be exactly
-         * metaclass, or a proper subclass of it, for which __new__ is
-         * type.__new__: we shall create a new type within this call,
-         * setting its type to the common metaclass.
-         */
-
-        /*
-         * When no bases are given, the effective base is just object.
-         * This is a special case of 2.
-         */
+            if (metaclass.newMethod() != typeType().newMethod()) {
+                /*
+                 * The metaclass redefined __new__, so delegate to
+                 * metaclass.__new__. However, metaclass.__new__ should
+                 * eventually call type.__new__ with cls==metaclass,
+                 * skipping this clause. So although this looks like an
+                 * early exit, we shall execute all the code after this,
+                 * just in another frame.
+                 */
+                return metaclass.newMethod().call(metaclass, bases,
+                        namespace, kwargs);
+            }
+        }
 
         /*
          * We must find or create a class capable of representing
-         * instances of this type.
+         * instances of the new type. Begin by finding the best Python
+         * base for that.
          */
         BaseType bestBase = best_base(checkedBases);
         logger.atTrace().setMessage("new class {} best base is {}")
@@ -479,17 +488,18 @@ public abstract sealed class BaseType extends KernelType implements
          */
         SubclassSpec instanceSpec =
                 new SubclassSpec(name, bestBase.canonicalClass());
-        // TODO are constructors more a property of a Representation?
         instanceSpec.addConstructors(bestBase);
 
         // Creating the class gives it to us with access privileges.
         Lookup lu = SUBCLASS_FACTORY.findOrCreateSubclass(instanceSpec);
-        logger.atTrace().setMessage("new class {} Java class is {}")
+        logger.atTrace()
+                .setMessage("instances of {} are represented by {}")
                 .addArgument(name).addArgument(lu).log();
 
         /*
          * We create the type object required using the TypeFactory,
-         * with the new synthetic class as the representation.
+         * with the new synthetic class as the representation for its
+         * instances.
          */
         TypeSpec spec = new TypeSpec(name, lu).bases(checkedBases)
                 .metaclass(metaclass).namespace(namespace)
@@ -814,72 +824,94 @@ public abstract sealed class BaseType extends KernelType implements
         }
 
         // Call __new__ of the type described by this type object
-        // XXX Almost certainly cache this so we know the type.
-        Object new_ = lookup("__new__");
-        Object obj = _PyUtil.callPrepend(new_, this, args, names);
+        FastCall _new = newMethod();
+        Object obj = _PyUtil.callPrepend(_new, this, args, names);
 
         // Call obj.__init__ if it is defined and type(obj) == this
-        maybeInit(obj, args, names);
+        MethodHandle init = maybeInitHandle(obj);
+        if (init != null) {
+            try {
+                init.invoke(obj, args, names);
+            } catch (EmptyException ee) {}
+        }
+        return obj;
+    }
+
+    @Override
+    public Object call(Object x) throws Throwable {
+        if (this == PyType.TYPE()) {
+            // Call is exactly type(x) so this is a type enquiry
+            return PyType.of(x);
+        }
+        // Call __new__ of the type described by this type object
+        FastCall _new = newMethod();
+        Object obj = _new.call(this, x);
+
+        // Call obj.__init__ if it is defined and type(obj) == this
+        MethodHandle init = maybeInitHandle(obj);
+        if (init != null) {
+            Object[] args = {x};
+            String[] names = null;
+            try {
+                init.invoke(obj, args, names);
+            } catch (EmptyException ee) {}
+        }
+        return obj;
+    }
+
+    @Override
+    public Object call(Object a0, Object a1, Object a2)
+            throws Throwable {
+        // Note that this cannot be a type enquiry
+
+        // Call __new__ of the type described by this type object
+        FastCall _new = newMethod();
+        Object obj = _new.call(this, a0, a1, a2);
+
+        // Call obj.__init__ if it is defined and type(obj) == this
+        MethodHandle init = maybeInitHandle(obj);
+        if (init != null) {
+            Object[] args = {a0, a1, a2};
+            String[] names = null;
+            try {
+                init.invoke(obj, args, names);
+            } catch (EmptyException ee) {}
+        }
+
         return obj;
     }
 
     /**
-     * Call {@code obj.__init__(args, names)} after {@code __new__} if
-     * it is defined and if obj is an instance of this type (or of a
-     * sub-type). It is not an error for {@code __new__} not to return
-     * an instance of this type.
+     * Return a handle on the {@code __init__} method, if we should try
+     * to call it, or {@code null} if we shouldn't. We should call
+     * {@code obj.__init__} after {@code __new__} if it is defined and
+     * if {@code obj} is an instance of this type (or of a sub-type). It
+     * is not an error for {@code __new__} not to return an instance of
+     * this type or for {@code obj.__init__} not to be defined.
      *
      * @param obj returned from {@code __new__}
-     * @param args passed to __new__
-     * @param names passed to __new__
-     * @throws Throwable Python errors from {@code __init__}
+     * @return handle on {@code __init__} or {@code null}
      */
-    private void maybeInit(Object obj, Object[] args, String[] names)
-            throws Throwable {
+    private MethodHandle maybeInitHandle(Object obj) {
         assert obj != null;
         Representation rep = Representation.get(obj);
-        PyType objType = rep.pythonType(obj);
-        /*
-         * If obj is an instance of this type (or of a sub-type) call
-         * any __init__ defined for it.
-         */
-        if (objType.isSubTypeOf(this)) {
-            try {
-                // Call obj.__init__ (args, names)
-                MethodHandle init = SpecialMethod.op_init.handle(rep);
-                init.invoke(obj, args, names);
-            } catch (EmptyException ee) {
-                // Not an error for __init__ not to be defined
-            }
+        BaseType objType = rep.pythonType(obj);
+        // Does obj define __init__?
+        if (objType.hasFeature(KernelTypeFlag.HAS_INIT)) {
+            // Did __new__ return an object of the required type?
+            if (objType.isSubTypeOf(this)) { return rep.op_init(); }
         }
+        return null;
     }
-
-    // @Override
-    // public Object call(Object a0) throws Throwable {
-    // if (this == PyType.TYPE()) {
-    // // Call is exactly type(x) so this is a type enquiry
-    // return PyType.of(a0);
-    // }
-    // Object obj = newMethod.call(this, a0);
-    // maybeInit(obj, a0);
-    // return obj;
-    // }
-    //
-    // @Override
-    // public Object call(Object a0, Object a1) throws Throwable {
-    // // Note that this cannot be a type enquiry
-    // Object obj = newMethod.call(this, a0, a1);
-    // maybeInit(obj, a0, a1);
-    // return obj;
-    // }
 
     @Override
     public PyBaseException typeError(ArgumentError ae, Object[] args,
             String[] names) {
-        // Almost certainly not called, but let __new__ explain
-        // FIXME: reinstate newMethod.typeError
-        // return newMethod.typeError(ae, args, names);
-        return PyErr.format(PyExc.TypeError, "some type error");
+        // Note ae is one off here since call prepends this to args.
+        int n = args.length;
+        if (names != null) { n -= names.length; }
+        return PyErr.format(PyExc.TypeError, "%s() %s (%d given)",
+                getName(), ae.dropPrefix(), n);
     }
 
     // Support for Type Initialisation -------------------------------
@@ -1063,6 +1095,12 @@ public abstract sealed class BaseType extends KernelType implements
                         cons);
             }
         }
+        // Must be some constructors if we hope to sub-class
+        if (table.isEmpty() && this.hasFeature(TypeFlag.BASETYPE)) {
+            logger.atWarn().setMessage(
+                    "%s (%s) is base type but defines no public constructor")
+                    .addArgument(this).addArgument(javaClass());
+        }
         // Freeze the table as the constructor lookup
         setConstructorLookup(table);
     }
@@ -1102,6 +1140,7 @@ public abstract sealed class BaseType extends KernelType implements
                 case op_get -> KernelTypeFlag.HAS_GET;
                 case op_set -> KernelTypeFlag.HAS_SET;
                 case op_delete -> KernelTypeFlag.HAS_DELETE;
+                case op_init -> KernelTypeFlag.HAS_INIT;
                 default -> null;
             };
             // If sm corresponds to a feature flag
@@ -1117,7 +1156,7 @@ public abstract sealed class BaseType extends KernelType implements
 
         } else if ("__new__".equals(name)) {
             // Update affects __new__.
-            // updateNewCache();
+            updateNewMethodCache();
         }
     }
 
@@ -1204,6 +1243,24 @@ public abstract sealed class BaseType extends KernelType implements
                 int index = where.getSubclassIndex(c);
                 assert index < classes.size();
                 sm.setCache(rep, descr.getHandle(index));
+            }
+        }
+    }
+
+    /**
+     * Write the resolved value of __new__ into a cache.
+     */
+    private void updateNewMethodCache() {
+        LookupResult result = lookup("__new__", null);
+        if (result.where != this) {
+            // Avoid making a new object so == equality is valid.
+            newMethodCache = result.where.newMethod();
+        } else {
+            Object obj = result.obj;
+            if (obj instanceof FastCall fast) {
+                newMethodCache = fast;
+            } else {
+                newMethodCache = new FastCall.Slow(obj);
             }
         }
     }
@@ -1379,8 +1436,8 @@ public abstract sealed class BaseType extends KernelType implements
     /**
      * Calculate the "best base" amongst multiple base classes. A type
      * that has the given types as bases will have as its "best base"
-     * the first base with a representation in Java that is a sub-class
-     * of the representations of all the bases.
+     * the first base (in the list) with a representation in Java that
+     * is a sub-class in Java of the representations of all the bases.
      * <p>
      * When defining a new type with these bases, the appropriate
      * representation Java class may be that of the "best base", or it
@@ -1400,31 +1457,44 @@ public abstract sealed class BaseType extends KernelType implements
      */
     // Compare CPython best_base in typeobject.c
     private static BaseType best_base(List<BaseType> bases) {
-        BaseType base = objectType(), winner = base;
+        BaseType base = objectType();
 
-        for (PyType pt : bases) {
-            BaseType b = BaseType.cast(pt);
+        /*
+         * In the search, winner is always the Java representation class
+         * of base.
+         */
+        Class<?> winner = base.javaClass();
+
+        /*
+         * Scan the list and maintain in base the type whose Java
+         * representation is layout compatible with all the bases so
+         * far.
+         */
+        for (BaseType b : bases) {
             assert b.isReady();
 
-            // TODO: did we not check for BASETYPE already?
-            if (!b.hasFeature(TypeFlag.BASETYPE)) {
-                throw PyErr.format(PyExc.TypeError,
-                        "type '%.100s' is not an acceptable base type",
-                        b.getName());
-            }
+            /*
+             * CPython checks here for b has feature BASETYPE. We did
+             * that already in updateBases.
+             */
 
-            // The candidate has the same representation as b
-            BaseType candidate = b.solid_base();
+            /*
+             * CPython refers here to the solid base of b which is the
+             * most senior ancestor of b having the same memory layout.
+             * For us, memory layout means Java class.
+             */
+            Class<?> candidate = b.javaClass();
 
-            if (winner.isSubTypeOf(candidate)) {
-                // Don't change the candidate
-            } else if (candidate.isSubTypeOf(winner)) {
-                // candidate is more derived so is new winner
+            if (candidate.isAssignableFrom(winner)) {
+                // Don't change the winner: it is less derived
+            } else if (winner.isAssignableFrom(candidate)) {
+                // candidate is more derived so it is the new winner
                 winner = candidate;
                 base = b;
             } else {
                 throw PyErr.format(PyExc.TypeError,
-                        "bases have conflicting representations");
+                        "bases (%s, %s) have conflicting representations",
+                        b, base);
             }
         }
 
