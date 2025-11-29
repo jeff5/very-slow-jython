@@ -122,7 +122,7 @@ testing {
     }
 }
 
-test.dependsOn(kernelTest, concurrencyTest)
+test.dependsOn(kernelTest)
 
 
 tasks.named('check') { 

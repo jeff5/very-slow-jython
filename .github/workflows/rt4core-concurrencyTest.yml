@@ -1,7 +1,8 @@
-# Run concurrency unit tests on ARM in rt4 core sub-project (GitHub action)
-name: rt4 core unit tests (ARM)
+# Run concurrency unit tests rt4 core sub-project (GitHub action)
+name: rt4 core concurrency
 
-# The ARM memory model is weaker than the Intel-amd64 model.
+# The ARM memory model is weaker than the Intel-amd64 model,
+# so we run this on both.
 # A correctly synchronised program should always run identically.
 # An incorrectly synchronised one may exhibit different failures.
 
@@ -11,9 +12,9 @@ permissions:
     contents: read
 
 jobs:
-  rt4-unit-tests-Ubuntu-jdk-17-arm:
+  rt4-unit-tests-Ubuntu-jdk-17-concurreny:
 
-    runs-on: ubuntu-24.04-arm
+    runs-on: [ubuntu-24.04-arm, ubuntu-latest]
 
     steps:
       - run: echo "Branch ${{ github.ref }} of repository ${{ github.repository }}."
