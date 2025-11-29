@@ -27,6 +27,7 @@ import java.util.function.Function;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import uk.co.farowl.vsj4.core.ModuleDef.MethodDef;
 import uk.co.farowl.vsj4.kernel.BaseType;
 // import uk.co.farowl.vsj4.runtime.ModuleDef.MethodDef;
 import uk.co.farowl.vsj4.support.InterpreterError;
@@ -75,27 +76,6 @@ abstract class Exposer {
 
     /** @return which {@link ScopeKind} of {@code Exposer} is this? */
     abstract ScopeKind kind();
-
-    // XXX Move to ModuleExposer
-// /**
-// * On behalf of the given module defined in Java, build a
-// * description of the attributes discovered by introspection of the
-// * class provided.
-// * <p>
-// * Attributes are identified by annotations. (See {@link Exposed}.)
-// *
-// * @param definingClass to introspect for members
-// * @return exposure result
-// * @throws InterpreterError on errors of definition
-// */
-// static ModuleExposer exposeModule(Class<?> definingClass)
-// throws InterpreterError {
-// // Create an instance of Exposer to hold specs, type, etc.
-// ModuleExposer exposer = new ModuleExposer();
-// // Let the exposer control the logic
-// exposer.expose(definingClass);
-// return exposer;
-// }
 
     /**
      * Add to {@link #specs}, definitions found in the given class and
@@ -640,29 +620,28 @@ abstract class Exposer {
             return parser;
         }
 
-        // XXX Move to ModuleExposer
-// /**
-// * Produce a method definition from this specification that
-// * references a method handle on the (single) defining method
-// * and the parser created from this specification. This is used
-// * in the construction of a module defined in Java (a
-// * {@link ModuleDef}).
-// *
-// * @param lookup authorisation to access methods
-// * @return corresponding method definition
-// * @throws InterpreterError on lookup prohibited
-// */
-// MethodDef getMethodDef(Lookup lookup) throws InterpreterError {
-// assert methods.size() == 1;
-// Method m = methods.get(0);
-// MethodHandle mh;
-// try {
-// mh = lookup.unreflect(m);
-// } catch (IllegalAccessException e) {
-// throw cannotGetHandle(m, e);
-// }
-// return new MethodDef(getParser(), mh);
-// }
+        /**
+         * Produce a method definition from this specification that
+         * references a method handle on the (single) defining method
+         * and the parser created from this specification. This is used
+         * in the construction of a module defined in Java (a
+         * {@link ModuleDef}).
+         *
+         * @param lookup authorisation to access methods
+         * @return corresponding method definition
+         * @throws InterpreterError on lookup prohibited
+         */
+        MethodDef getMethodDef(Lookup lookup) throws InterpreterError {
+            assert methods.size() == 1;
+            Method m = methods.get(0);
+            MethodHandle mh;
+            try {
+                mh = lookup.unreflect(m);
+            } catch (IllegalAccessException e) {
+                throw cannotGetHandle(m, e);
+            }
+            return new MethodDef(getParser(), mh);
+        }
 
         /**
          * Add a method implementation. (A test that the signature is
