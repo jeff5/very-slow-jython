@@ -4,6 +4,7 @@ package uk.co.farowl.vsj4.core;
 
 import java.lang.invoke.MethodHandles;
 
+import uk.co.farowl.vsj4.types.Exposed;
 import uk.co.farowl.vsj4.types.Feature;
 import uk.co.farowl.vsj4.types.TypeSpec;
 
@@ -28,7 +29,8 @@ public class PyNameError extends PyBaseException {
     private static final long serialVersionUID = 1L;
 
     /** The problematic name (or {@code null}). */
-    // TODO Expose as get-set. Remove Java getter.
+    @Exposed.Member
+    @Exposed.DocString("missing name")
     private String name;
 
     /**
@@ -56,8 +58,4 @@ public class PyNameError extends PyBaseException {
         Object name = frame[0];
         this.name = name == Py.None ? null : PyUnicode.asString(name);
     }
-
-    /** @return {@code name} attribute. */
-    @Deprecated
-    public Object name() { return name == null ? Py.None : name; }
 }

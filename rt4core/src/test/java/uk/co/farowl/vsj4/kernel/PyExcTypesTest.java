@@ -151,10 +151,10 @@ class PyExcTypesTest {
     @Test
     void kwNameError() throws Throwable {
         PyNameError exc = (PyNameError)Callables.call(PyExc.NameError);
-        assertEquals(exc.name(), Py.None);
+        assertEquals(Abstract.getAttr(exc, "name"), Py.None);
         exc = (PyNameError)Callables.call(PyExc.NameError,
                 new Object[] {"a"}, new String[] {"name"});
-        assertEquals(exc.name(), "a");
+        assertEquals(Abstract.getAttr(exc, "name"), "a");
     }
 
     @SuppressWarnings("static-method")
@@ -163,14 +163,14 @@ class PyExcTypesTest {
     void kwAttributeError() throws Throwable {
         PyAttributeError exc =
                 (PyAttributeError)Callables.call(PyExc.AttributeError);
-        assertEquals(exc.name(), Py.None);
+        assertEquals(Abstract.getAttr(exc, "name"), Py.None);
         exc = (PyAttributeError)Callables.call(PyExc.AttributeError,
                 new Object[] {"a"}, new String[] {"name"});
-        assertEquals(exc.name(), "a");
+        assertEquals(Abstract.getAttr(exc, "name"), "a");
         exc = (PyAttributeError)Callables.call(PyExc.AttributeError,
                 new Object[] {42, "b"}, new String[] {"obj", "name"});
-        assertEquals(exc.name(), "b");
-        assertEquals(exc.obj(), 42);
+        assertEquals(Abstract.getAttr(exc, "name"), "b");
+        assertEquals(Abstract.getAttr(exc, "obj"), 42);
     }
 
     private static Object[] NO_ARGS = Util.EMPTY_ARRAY;

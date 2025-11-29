@@ -4,6 +4,7 @@ package uk.co.farowl.vsj4.core;
 
 import java.lang.invoke.MethodHandles;
 
+import uk.co.farowl.vsj4.types.Exposed;
 import uk.co.farowl.vsj4.types.Feature;
 import uk.co.farowl.vsj4.types.TypeSpec;
 
@@ -22,10 +23,13 @@ public class PyAttributeError extends PyBaseException {
     private static final long serialVersionUID = 1L;
 
     /** The problematic attribute name. */
-    // TODO Expose as get-set. Remove Java getter.
+    @Exposed.Member
+    @Exposed.DocString("missing attribute name")
     private String name;
+
     /** The object that didn't have {@code name} as an attribute. */
-    // TODO Expose as get-set. Remove Java getter.
+    @Exposed.Member
+    @Exposed.DocString("object")
     private Object obj;
 
     /**
