@@ -1134,6 +1134,8 @@ public abstract sealed class BaseType extends KernelType implements
             // Some special methods need:
             KernelTypeFlag feature = switch (sm) {
                 case op_getitem -> KernelTypeFlag.HAS_GETITEM;
+                case op_setitem -> KernelTypeFlag.HAS_SETITEM;
+                case op_delitem -> KernelTypeFlag.HAS_DELITEM;
                 case op_iter -> KernelTypeFlag.HAS_ITER;
                 case op_next -> KernelTypeFlag.HAS_NEXT;
                 case op_index -> KernelTypeFlag.HAS_INDEX;

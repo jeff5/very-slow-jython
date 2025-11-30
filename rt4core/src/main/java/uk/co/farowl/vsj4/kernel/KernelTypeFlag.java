@@ -73,65 +73,63 @@ public enum KernelTypeFlag {
     // Compare CPython Py_TPFLAGS_IS_ABSTRACT
     // Maybe not needed for Jython.
     ABSTRACT,
-
+    // TODO Consider a flag and Feature for MAPPING_PROTOCOL
+    // We need this to tell which __getitem__ etc. we have.
+    /*
+     * Many of these HAS_* flags are the basis of a quick test on a
+     * type. These are necessary because we do not have type slots in
+     * the same way as CPython. We cannot test the existence of a
+     * particular method by checking a special method slot for null. All
+     * such slots (named op_* in the Representation object) are filled.
+     * We can always call such a slot, and it may throw EmptyException.
+     * But wherever we want to know without doing that, we define a
+     * HAS_* that is set during attribute management in BaseType.
+     */
     /**
-     * The type defines {@code __get__}, which makes it a sequence (if
-     * it is not a dictionary). This is the basis of a quick test. It is
-     * necessary because we do not have type slots in the same way as
-     * CPython.
+     * The type defines {@code __getitem__}, which makes it a sequence
+     * (if it is not a dictionary).
+     *
      */
     // No equivalent in CPython
     HAS_GETITEM,
-    /**
-     * The type defines {@code __iter__}. This is the basis of a quick
-     * test. It is necessary because we do not have type slots in the
-     * same way as CPython.
-     */
+    /** The type defines {@code __setitem__}. */
+    // No equivalent in CPython
+    HAS_SETITEM,
+    /** The type defines {@code __delitem__}. */
+    // No equivalent in CPython
+    HAS_DELITEM,
+    /** The type defines {@code __iter__}. */
     // No equivalent in CPython
     HAS_ITER,
     /**
-     * The type defines {@code __next__}. This is the basis of a quick
-     * test. It is necessary because we do not have type slots in the
-     * same way as CPython.
+     * The type defines {@code __next__}.
      */
     // No equivalent in CPython
     HAS_NEXT,
     /**
-     * The type defines {@code __index__}. This is the basis of a quick
-     * test. It is necessary because we do not have type slots in the
-     * same way as CPython.
+     * The type defines {@code __index__}.
      */
     // No equivalent in CPython
     HAS_INDEX,
     /**
      * The type defines {@code __get__}, which makes it a descriptor.
-     * This is the basis of a quick test. It is necessary because we do
-     * not have type slots in the same way as CPython.
      */
     // No equivalent in CPython
     HAS_GET,
     /**
      * The type defines {@code __set__}, which makes it a data
-     * descriptor. It should also define {@code __get__}. This is the
-     * basis of a quick test. It is necessary because we do not have
-     * type slots in the same way as CPython.
+     * descriptor. It should also define {@code __get__}.
      */
     // No equivalent in CPython
     HAS_SET,
     /**
      * The type defines {@code __delete__}, which makes it a data
      * descriptor (for an optional attribute). It should also define
-     * {@code __get__}. This is the basis of a quick test. It is
-     * necessary because we do not have type slots in the same way as
-     * CPython.
+     * {@code __get__}.
      */
     // No equivalent in CPython
     HAS_DELETE,
-    /**
-     * The type defines {@code __init__}. This is the basis of a quick
-     * test used in instance construction by a type. It is necessary
-     * because we do not have type slots in the same way as CPython.
-     */
+    /** The type defines {@code __init__}. */
     // No equivalent in CPython
     HAS_INIT;
 

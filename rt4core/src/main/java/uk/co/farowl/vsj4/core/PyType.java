@@ -159,6 +159,15 @@ public interface PyType extends NewInstance, WithClass, FastCall {
     boolean isSequence();
 
     /**
+     * Fast check that an object of this type is a sequence, defined as
+     * not a subclass of {@code dict} and defining {@code __getitem__}.
+     *
+     * @return target is a sequence
+     */
+    // Compare CPython PyMapping_Check (on instance) in abstract.c
+    boolean isMapping();
+
+    /**
      * Fast check that an object of this type is iterable (defines
      * {@code __iter__}).
      *

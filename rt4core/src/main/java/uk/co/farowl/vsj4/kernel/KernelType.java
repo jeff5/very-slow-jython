@@ -230,8 +230,22 @@ public abstract class KernelType extends Representation
     // Compare CPython PySequence_Check (on instance) in abstract.c
     @Override
     public boolean isSequence() {
+        // TODO Consider a flag and Feature for MAPPING_PROTOCOL
         return kernelFeatures.contains(KernelTypeFlag.HAS_GETITEM)
                 && !features.contains(TypeFlag.DICT_SUBCLASS);
+    }
+
+    /**
+     * Fast check that an object of this type is a mapping, defined by
+     * {@code __getitem__}.
+     *
+     * @return target is a mapping
+     */
+    // Compare CPython PyMapping_Check (on instance) in abstract.c
+    @Override
+    public boolean isMapping() {
+        // TODO Consider a flag and Feature for MAPPING_PROTOCOL
+        return kernelFeatures.contains(KernelTypeFlag.HAS_GETITEM);
     }
 
     /**

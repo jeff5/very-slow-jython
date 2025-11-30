@@ -27,7 +27,7 @@ import uk.co.farowl.vsj4.kernel.Representation;
  */
 public class PySequence extends Abstract {
 
-    private PySequence() {}   // only static methods here
+    PySequence() {}   // only static methods here
 
     /**
      * {@code len(o)} with Python semantics.

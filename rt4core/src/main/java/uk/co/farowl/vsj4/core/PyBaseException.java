@@ -338,6 +338,14 @@ public class PyBaseException extends RuntimeException
             "ZeroDivisionError",
             "Second argument to a division or modulo operation was zero.");
 
+    /** {@code SystemError} extends {@link Exception}. */
+    static PyType SystemError = extendsException(Exception,
+            "SystemError",
+            """
+                    Internal error in the Python interpreter.
+                    Please report this to the Python maintainers, along with the traceback,
+                    the Python version, and the hardware/OS platform and version.""");
+
     /*
      * Warnings are Exception objects, but do not get thrown (I think),
      * being used as "categories" in the warnings module.

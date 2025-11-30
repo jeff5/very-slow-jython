@@ -99,6 +99,9 @@ public class PyExc {
             PyBaseException.ZeroDivisionError;
 
     /** {@code Warning} extends {@link Exception}. */
+    public static PyType SystemError = PyBaseException.SystemError;
+
+    /** {@code Warning} extends {@link Exception}. */
     public static PyType Warning = PyBaseException.Exception;
     /** {@code DeprecationWarning} extends {@link Warning}. */
     public static PyType DeprecationWarning = PyBaseException.Warning;

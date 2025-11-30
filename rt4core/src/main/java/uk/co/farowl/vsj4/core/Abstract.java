@@ -47,11 +47,11 @@ public class Abstract {
 
     /**
      * There are only static methods here, so no instances should be
-     * created. Formally make the constructor {@code protected} so we
-     * can sub-class and refer easily to methods here. (Otherwise
+     * created. Formally make the constructor {@code package private} so
+     * we can sub-class and refer easily to methods here. (Otherwise
      * {@code private} would be the right choice.)
      */
-    protected Abstract() {}
+    Abstract() {}
 
     /**
      * The equivalent of the Python expression {@code repr(o)}, and is
