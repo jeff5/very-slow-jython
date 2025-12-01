@@ -5,6 +5,7 @@ package uk.co.farowl.vsj4.core;
 import java.lang.invoke.MethodHandles;
 
 import uk.co.farowl.vsj4.types.TypeSpec;
+import uk.co.farowl.vsj4.types.WithClass;
 import uk.co.farowl.vsj4.types.Exposed.Default;
 import uk.co.farowl.vsj4.types.Exposed.DocString;
 import uk.co.farowl.vsj4.types.Exposed.PythonNewMethod;
@@ -16,7 +17,7 @@ import uk.co.farowl.vsj4.types.Exposed.PythonNewMethod;
  * sub-classes. (Rogue instances of Java {@code Boolean} will generally
  * behave as {@code False} or {@code True} but may fail identity tests.)
  */
-public final class PyBool {
+public final class PyBool implements WithClass {
 
     /** Only referenced during bootstrap by {@link TypeSystem}. */
     static class Spec {
@@ -41,6 +42,9 @@ public final class PyBool {
     public static final PyType TYPE = TypeSystem.TYPE_bool;
 
     private PyBool() {}  // enforces the doubleton :)
+
+    @Override
+    public PyType getType() { return TYPE; }
 
     // Constructor from Python ----------------------------------------
 

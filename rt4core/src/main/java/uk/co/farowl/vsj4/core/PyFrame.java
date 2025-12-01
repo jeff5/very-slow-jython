@@ -7,6 +7,7 @@ import java.util.Map;
 
 import uk.co.farowl.vsj4.types.Exposed;
 import uk.co.farowl.vsj4.types.TypeSpec;
+import uk.co.farowl.vsj4.types.WithClass;
 
 /**
  * A {@code PyFrame} is the context for the execution of code. Different
@@ -80,7 +81,7 @@ import uk.co.farowl.vsj4.types.TypeSpec;
  *
  * @param <C> The type of code that this frame executes
  */
-public abstract class PyFrame<C extends PyCode> {
+public abstract class PyFrame<C extends PyCode> implements WithClass {
 
     /** The Python type {@code frame}. */
     public static final PyType TYPE = PyType.fromSpec( //
@@ -124,6 +125,9 @@ public abstract class PyFrame<C extends PyCode> {
         this.func = func;
         this.code = func.code;
     }
+
+    @Override
+    public PyType getType() { return TYPE; }
 
     /**
      * Get the code object this frame is executing, exposed as read-only

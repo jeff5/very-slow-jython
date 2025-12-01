@@ -38,7 +38,7 @@ public class PyModule implements WithDict {
     public static final PyType TYPE = PyType.fromSpec( //
             new TypeSpec("module", MethodHandles.lookup()));
 
-    protected final PyType type;
+    private final PyType type;
 
     /** Name of this module. Not {@code null}. **/
     final String name;

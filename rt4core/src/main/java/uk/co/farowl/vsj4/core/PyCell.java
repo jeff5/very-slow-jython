@@ -7,13 +7,14 @@ import java.util.function.Supplier;
 
 import uk.co.farowl.vsj4.types.Exposed;
 import uk.co.farowl.vsj4.types.TypeSpec;
+import uk.co.farowl.vsj4.types.WithClass;
 
 /**
  * Holder for objects appearing in the closure of a function. There is
  * only a default constructor {@code PyCell()} because cells always
  * start life empty.
  */
-public class PyCell implements Supplier<Object> {
+public class PyCell implements Supplier<Object>, WithClass {
 
     /** The Python type {@code cell}. */
     public static final PyType TYPE = PyType.fromSpec( //
@@ -34,6 +35,9 @@ public class PyCell implements Supplier<Object> {
      * @param initial value
      */
     PyCell(Object initial) { this.obj = initial; }
+
+    @Override
+    public PyType getType() { return TYPE; }
 
     // Java API -------------------------------------------------------
 
@@ -59,17 +63,22 @@ public class PyCell implements Supplier<Object> {
         }
     }
 
+    /** Get the contents. */
     @Exposed.Getter
     private Object cell_contents() {
         return PyUtil.errorIfNull(obj,
                 () -> PyErr.format(PyExc.ValueError, "Cell is empty"));
     }
 
+    /**
+     * @param v to set as new contents.
+     */
     @Exposed.Setter("cell_contents")
-    public void set(Object v) { obj = v; }
+    void set(Object v) { obj = v; }
 
+    /** Delete the contents. */
     @Exposed.Deleter("cell_contents")
-    public void del() { obj = null; }
+    void del() { obj = null; }
 
     @Override
     public Object get() { return obj; }

@@ -11,6 +11,7 @@ import uk.co.farowl.vsj4.internal.Util;
 import uk.co.farowl.vsj4.types.Exposed.Getter;
 import uk.co.farowl.vsj4.types.Exposed.Member;
 import uk.co.farowl.vsj4.types.TypeSpec;
+import uk.co.farowl.vsj4.types.WithClass;
 
 /**
  * The Python {@code code} object. A {@code code} object describes the
@@ -31,7 +32,7 @@ import uk.co.farowl.vsj4.types.TypeSpec;
  * meaningful.
  */
 // Compare CPython PyCodeObject in codeobject.c
-public abstract class PyCode {
+public abstract class PyCode implements WithClass {
 
     /** The Python type {@code code}. */
     public static final PyType TYPE = PyType.fromSpec( //
@@ -187,6 +188,9 @@ public abstract class PyCode {
 
         this.traits = traitsFrom(flags);
     }
+
+    @Override
+    public PyType getType() { return TYPE; }
 
     /**
      * Traits characterising local variables of the frame this code
@@ -379,11 +383,9 @@ public abstract class PyCode {
 
     // slot methods --------------------------------------------------
 
-    @SuppressWarnings("unused")
-    private Object __repr__() { return toString(); }
+    Object __repr__() { return toString(); }
 
-    @SuppressWarnings("unused")
-    private Object __str__() { return toString(); }
+    Object __str__() { return toString(); }
 
     // Java API -------------------------------------------------------
 
@@ -515,7 +517,8 @@ public abstract class PyCode {
      * @param v to check is a Python {@code tuple}
      * @param arg name of argument (for message only)
      * @return {@code v}
-     * @throws TypeError if {@code v} cannot be cast to {@code tuple}
+     * @throws PyBaseException (TypeError) if {@code v} cannot be cast
+     *     to {@code tuple}
      */
     protected static PyTuple castTuple(Object v, String arg) {
         if (v instanceof PyTuple t)

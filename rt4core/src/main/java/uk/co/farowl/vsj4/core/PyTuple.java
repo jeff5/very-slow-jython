@@ -173,11 +173,13 @@ public class PyTuple extends AbstractList<Object> implements WithClass {
      * Construct a {@code PyTuple} from the elements of a stream, or if
      * the array is zero-length, return {@link #EMPTY}.
      *
+     * @param <E> component type
      * @param s source of element values for the new {@code tuple}
+     * @return a tuple with the given contents or {@link #EMPTY}
      */
     public static <E> PyTuple from(Stream<E> s) {
         Object[] a = s.toArray();
-        return s.count() == 0 ? EMPTY : new PyTuple(true, a);
+        return a.length == 0 ? EMPTY : new PyTuple(true, a);
     }
 
     /**
@@ -186,11 +188,12 @@ public class PyTuple extends AbstractList<Object> implements WithClass {
      * where the argument will often be empty, this has space and time
      * advantages over the constructor {@link #PyTuple(Object[])}.
      *
-     * @param c value of new tuple
+     * @param <E> component type
+     * @param a value of new tuple
      * @return a tuple with the given contents or {@link #EMPTY}
      */
-    public static <E> PyTuple from(E[] c) {
-        return c.length == 0 ? EMPTY : new PyTuple(c);
+    public static <E> PyTuple from(E[] a) {
+        return a.length == 0 ? EMPTY : new PyTuple(a);
     }
 
     // Java API ------------------------------------------------------
