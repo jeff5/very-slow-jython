@@ -17,9 +17,10 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import uk.co.farowl.vsj4.types.Exposed;
-import uk.co.farowl.vsj4.types.TypeSpec;
 import uk.co.farowl.vsj4.types.Exposed.DocString;
 import uk.co.farowl.vsj4.types.Exposed.Member;
+import uk.co.farowl.vsj4.types.TypeSpec;
+import uk.co.farowl.vsj4.types.WithClass;
 
 /**
  * Test that members exposed by a Python <b>type</b> defined in Java,
@@ -50,7 +51,8 @@ class TypeExposerMemberTest extends UnitTestSupport {
      * A Python type definition that exhibits a range of member
      * definitions explored in the tests.
      */
-    private static class ObjectWithMembers extends BaseMembers {
+    private static class ObjectWithMembers extends BaseMembers
+            implements WithClass {
 
         static PyType TYPE =
                 PyType.fromSpec(new TypeSpec("ObjectWithMembers",
@@ -101,6 +103,9 @@ class TypeExposerMemberTest extends UnitTestSupport {
             tup = PyTuple.of(i, x, t);
             strhex = newPyUnicode(Integer.toString(i, 16));
         }
+
+        @Override
+        public PyType getType() { return TYPE; }
     }
 
     /**

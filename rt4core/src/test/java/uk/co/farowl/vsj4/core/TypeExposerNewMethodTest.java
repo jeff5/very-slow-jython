@@ -16,6 +16,7 @@ import uk.co.farowl.vsj4.support.MethodKind;
 import uk.co.farowl.vsj4.support.ScopeKind;
 import uk.co.farowl.vsj4.types.Exposed;
 import uk.co.farowl.vsj4.types.TypeSpec;
+import uk.co.farowl.vsj4.types.WithClass;
 import uk.co.farowl.vsj4.types.Exposed.Default;
 import uk.co.farowl.vsj4.types.Exposed.PositionalOnly;
 import uk.co.farowl.vsj4.types.Exposed.PythonNewMethod;
@@ -232,7 +233,7 @@ class TypeExposerNewMethodTest extends UnitTestSupport {
         }
     }
 
-    static class TestTypeBase {
+    static abstract class TestTypeBase implements WithClass {
         final Object[] constructorArgs;
 
         TestTypeBase(Object... constructorArgs) {
@@ -251,6 +252,9 @@ class TypeExposerNewMethodTest extends UnitTestSupport {
 
         private TT0() {}
 
+        @Override
+        public PyType getType() { return TYPE; }
+
         @PythonNewMethod
         static TT0 __new__(PyType type) {
             if (type == TYPE)
@@ -262,7 +266,8 @@ class TypeExposerNewMethodTest extends UnitTestSupport {
         static class Derived extends TT0 {
             private PyType type;
 
-            PyType getType() { return type; }
+            @Override
+            public PyType getType() { return type; }
 
             protected Derived(PyType type) {
                 super();
@@ -346,6 +351,9 @@ class TypeExposerNewMethodTest extends UnitTestSupport {
 
         private TT1(double a) { super(a); }
 
+        @Override
+        public PyType getType() { return TYPE; }
+
         @PythonNewMethod
         static TT1 __new__(PyType type, double a) {
             if (type == TYPE)
@@ -357,7 +365,8 @@ class TypeExposerNewMethodTest extends UnitTestSupport {
         static class Derived extends TT1 {
             private PyType type;
 
-            PyType getType() { return type; }
+            @Override
+            public PyType getType() { return type; }
 
             protected Derived(PyType type, double a) {
                 super(a);
@@ -440,6 +449,9 @@ class TypeExposerNewMethodTest extends UnitTestSupport {
 
         private TT3(int a, String b, Object c) { super(a, b, c); }
 
+        @Override
+        public PyType getType() { return TYPE; }
+
         @PythonNewMethod
         static TT3 __new__(PyType type, int a, String b, Object c) {
             if (type == TYPE)
@@ -451,7 +463,8 @@ class TypeExposerNewMethodTest extends UnitTestSupport {
         static class Derived extends TT3 {
             private PyType type;
 
-            PyType getType() { return type; }
+            @Override
+            public PyType getType() { return type; }
 
             protected Derived(PyType type, int a, String b, Object c) {
                 super(a, b, c);
@@ -535,6 +548,9 @@ class TypeExposerNewMethodTest extends UnitTestSupport {
 
         private TT3pd(int a, String b, Object c) { super(a, b, c); }
 
+        @Override
+        public PyType getType() { return TYPE; }
+
         @PythonNewMethod
         static TT3pd __new__(PyType type, int a, @Default("2") String b,
                 @Default("3") Object c) {
@@ -547,7 +563,8 @@ class TypeExposerNewMethodTest extends UnitTestSupport {
         static class Derived extends TT3pd {
             private PyType type;
 
-            PyType getType() { return type; }
+            @Override
+            public PyType getType() { return type; }
 
             protected Derived(PyType type, int a, String b, Object c) {
                 super(a, b, c);
@@ -632,6 +649,9 @@ class TypeExposerNewMethodTest extends UnitTestSupport {
 
         private TT3pk(int a, String b, Object c) { super(a, b, c); }
 
+        @Override
+        public PyType getType() { return TYPE; }
+
         @PythonNewMethod // not positionalOnly=false to spare type
         static TT3pk __new__(@PositionalOnly PyType type, int a,
                 @Default("2") String b, @Default("3") Object c) {
@@ -644,7 +664,8 @@ class TypeExposerNewMethodTest extends UnitTestSupport {
         static class Derived extends TT3pk {
             private PyType type;
 
-            PyType getType() { return type; }
+            @Override
+            public PyType getType() { return type; }
 
             protected Derived(PyType type, int a, String b, Object c) {
                 super(a, b, c);
@@ -730,6 +751,9 @@ class TypeExposerNewMethodTest extends UnitTestSupport {
 
         private TT3p2(int a, String b, Object c) { super(a, b, c); }
 
+        @Override
+        public PyType getType() { return TYPE; }
+
         @PythonNewMethod
         static TT3p2 __new__(PyType type, int a,
                 @PositionalOnly String b, Object c) {
@@ -742,7 +766,8 @@ class TypeExposerNewMethodTest extends UnitTestSupport {
         static class Derived extends TT3p2 {
             private PyType type;
 
-            PyType getType() { return type; }
+            @Override
+            public PyType getType() { return type; }
 
             protected Derived(PyType type, int a, String b, Object c) {
                 super(a, b, c);

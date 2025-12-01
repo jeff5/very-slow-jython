@@ -8,6 +8,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 
 import uk.co.farowl.vsj4.types.TypeSpec;
+import uk.co.farowl.vsj4.types.WithClass;
 
 /**
  * When a Python class defined in Java names another as a member, and
@@ -30,10 +31,13 @@ class TypeInitTestReentrant extends TypeInitTest {
     static void setUpClass() { object = new MyOther(); }
 
     /** A simple type defined in Java. */
-    static class MyClass {
+    static class MyClass implements WithClass {
         /** Python type of MyClass. */
         static final PyType TYPE = PyType.fromSpec(
                 new TypeSpec("MyClass", MethodHandles.lookup()));
+
+        @Override
+        public PyType getType() { return TYPE; }
     }
 
     // XXX Add some specific tests.
@@ -45,11 +49,14 @@ class TypeInitTestReentrant extends TypeInitTest {
      * How about an exposed method taking or returning a
      * {@code MyClass}?
      */
-    static class MyOther {
+    static class MyOther implements WithClass {
         /** Static init of this class will require MyClass to init. */
         static MyClass friend = new MyClass();
         /** Python type of MyOther. */
         static final PyType TYPE = PyType.fromSpec(
                 new TypeSpec("MyOther", MethodHandles.lookup()));
+
+        @Override
+        public PyType getType() { return TYPE; }
     }
 }

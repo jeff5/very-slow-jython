@@ -19,12 +19,13 @@ import org.junit.jupiter.api.Test;
 
 import uk.co.farowl.vsj4.internal._PyUtil;
 import uk.co.farowl.vsj4.types.Exposed;
-import uk.co.farowl.vsj4.types.Feature;
-import uk.co.farowl.vsj4.types.TypeSpec;
 import uk.co.farowl.vsj4.types.Exposed.Deleter;
 import uk.co.farowl.vsj4.types.Exposed.DocString;
 import uk.co.farowl.vsj4.types.Exposed.Getter;
 import uk.co.farowl.vsj4.types.Exposed.Setter;
+import uk.co.farowl.vsj4.types.Feature;
+import uk.co.farowl.vsj4.types.TypeSpec;
+import uk.co.farowl.vsj4.types.WithClass;
 
 /**
  * Test that get-set attributes exposed by a Python <i>type</i> defined
@@ -330,7 +331,8 @@ class TypeExposerGetSetTest extends UnitTestSupport {
      * A Python type definition that exhibits a range of get-set
      * attribute definitions explored in the tests.
      */
-    private static class OWithGetSets extends BaseGetSets {
+    private static class OWithGetSets extends BaseGetSets
+            implements WithClass {
 
         static PyType TYPE = PyType
                 .fromSpec(new TypeSpec("OGS", MethodHandles.lookup()));
@@ -366,6 +368,9 @@ class TypeExposerGetSetTest extends UnitTestSupport {
         }
 
         @Override
+        public PyType getType() { return TYPE; }
+
+        @Override
         PyTuple getTup() { return tup; }
 
         @Override
@@ -376,7 +381,8 @@ class TypeExposerGetSetTest extends UnitTestSupport {
      * A Python type definition that adopts another class and exhibits a
      * range of get-set attribute definitions explored in the tests.
      */
-    private static class PWithGetSets extends BaseGetSets {
+    private static class PWithGetSets extends BaseGetSets
+            implements WithClass {
 
         static PyType TYPE = PyType
                 .fromSpec(new TypeSpec("PGS", MethodHandles.lookup()) //
@@ -423,6 +429,9 @@ class TypeExposerGetSetTest extends UnitTestSupport {
             t2 = t = s = String.format("%d", i);
             tup = PyTuple.of(i, x, t);
         }
+
+        @Override
+        public PyType getType() { return TYPE; }
 
         @Override
         PyTuple getTup() { return tup; }

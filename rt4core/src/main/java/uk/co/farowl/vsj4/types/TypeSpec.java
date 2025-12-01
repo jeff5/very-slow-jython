@@ -3,6 +3,7 @@
 package uk.co.farowl.vsj4.types;
 
 import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.invoke.VarHandle;
 import java.util.ArrayList;
@@ -285,7 +286,6 @@ public class TypeSpec extends NamedSpec {
                  * crafted type is registered to the same Python type as
                  * its ancestor in the type registry.
                  */
-                // TODO Allow found types not to implement WithClass.
                 if (primary == Object.class
                         || primary == Boolean.class) {
                     /*
@@ -293,6 +293,8 @@ public class TypeSpec extends NamedSpec {
                      * defining characteristic these types have in
                      * common?)
                      */
+                } else if (lookup == MethodHandles.publicLookup()) {
+                    // TODO Properly support found types
                 } else {
                     throw specError(IMPLEMENT_WITHCLASS,
                             primary.getName());

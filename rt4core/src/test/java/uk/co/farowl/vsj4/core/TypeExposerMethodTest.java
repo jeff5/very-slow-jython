@@ -16,11 +16,12 @@ import org.junit.jupiter.api.Test;
 import uk.co.farowl.vsj4.support.MethodKind;
 import uk.co.farowl.vsj4.support.ScopeKind;
 import uk.co.farowl.vsj4.types.Exposed;
-import uk.co.farowl.vsj4.types.Feature;
-import uk.co.farowl.vsj4.types.TypeSpec;
 import uk.co.farowl.vsj4.types.Exposed.Default;
 import uk.co.farowl.vsj4.types.Exposed.PositionalOnly;
 import uk.co.farowl.vsj4.types.Exposed.PythonMethod;
+import uk.co.farowl.vsj4.types.Feature;
+import uk.co.farowl.vsj4.types.TypeSpec;
+import uk.co.farowl.vsj4.types.WithClass;
 
 /**
  * Test that methods exposed by a Python <b>type</b> defined in Java,
@@ -189,10 +190,13 @@ class TypeExposerMethodTest extends UnitTestSupport {
      * either instance methods ({@code this} is {@code self}) or as
      * static methods ({@code self} is the first parameter).
      */
-    static class SimpleObject {
+    static class SimpleObject implements WithClass {
 
         static PyType TYPE = PyType.fromSpec(
                 new TypeSpec("Simple", MethodHandles.lookup()));
+
+        @Override
+        public PyType getType() { return TYPE; }
 
         /**
          * See {@link NoParams}: no parameters are allowed (after
@@ -281,7 +285,7 @@ class TypeExposerMethodTest extends UnitTestSupport {
      * instance methods ({@code this} is {@code self}) or as static
      * methods ({@code self} is the first parameter).
      */
-    static class ExampleObject {
+    static class ExampleObject implements WithClass {
 
         static PyType TYPE = PyType.fromSpec(
                 new TypeSpec("Example", MethodHandles.lookup())
@@ -402,6 +406,9 @@ class TypeExposerMethodTest extends UnitTestSupport {
                 Object c) {
             return Py.tuple(self, a, b, c);
         }
+
+        @Override
+        public PyType getType() { return TYPE; }
     }
 
     /**

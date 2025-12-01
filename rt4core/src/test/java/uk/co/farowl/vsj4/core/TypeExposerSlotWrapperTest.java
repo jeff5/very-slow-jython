@@ -17,6 +17,7 @@ import uk.co.farowl.vsj4.kernel.SpecialMethod;
 import uk.co.farowl.vsj4.types.FastCall;
 import uk.co.farowl.vsj4.types.Feature;
 import uk.co.farowl.vsj4.types.TypeSpec;
+import uk.co.farowl.vsj4.types.WithClass;
 
 /**
  * Test that methods exposed by a Python <b>type</b> defined in Java,
@@ -169,7 +170,7 @@ class TypeExposerSlotWrapperTest {
      * A Python type definition that defines some special methods to be
      * found by the exposer.
      */
-    static class ExampleObject {
+    static class ExampleObject implements WithClass {
 
         static PyType TYPE = PyType.fromSpec( //
                 new TypeSpec("Example", MethodHandles.lookup()) //
@@ -179,6 +180,9 @@ class TypeExposerSlotWrapperTest {
         private int value;
 
         ExampleObject(int value) { this.value = value; }
+
+        @Override
+        public PyType getType() { return TYPE; }
 
         /**
          * See {@link Test__str__}: a unary operation.
