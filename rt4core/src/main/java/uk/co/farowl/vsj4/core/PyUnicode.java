@@ -25,12 +25,12 @@ import uk.co.farowl.vsj4.core.PyUtil.NoConversion;
 import uk.co.farowl.vsj4.stringlib.IntArrayBuilder;
 import uk.co.farowl.vsj4.stringlib.IntArrayReverseBuilder;
 import uk.co.farowl.vsj4.support.InterpreterError;
-import uk.co.farowl.vsj4.types.Feature;
-import uk.co.farowl.vsj4.types.TypeSpec;
-import uk.co.farowl.vsj4.types.WithClass;
 import uk.co.farowl.vsj4.types.Exposed.Default;
 import uk.co.farowl.vsj4.types.Exposed.Name;
 import uk.co.farowl.vsj4.types.Exposed.PythonMethod;
+import uk.co.farowl.vsj4.types.Feature;
+import uk.co.farowl.vsj4.types.TypeSpec;
+import uk.co.farowl.vsj4.types.WithClass;
 
 /**
  * The Python {@code str} object is implemented by both
@@ -56,7 +56,8 @@ public class PyUnicode implements WithClass, PyDict.Key {
         static TypeSpec get() {
             return new TypeSystem.BootstrapSpec("str",
                     MethodHandles.lookup(), PyUnicode.class)
-                            .add(Feature.BASETYPE)
+                            .add(Feature.BASETYPE,
+                                    Feature.SEQUENCE_PROTOCOL)
                             .methodImpls(PyUnicodeMethods.class)
                             .adopt(String.class);
         }

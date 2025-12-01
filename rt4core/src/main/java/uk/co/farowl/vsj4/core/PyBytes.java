@@ -17,6 +17,7 @@ import uk.co.farowl.vsj4.core.PySequence.Delegate;
 import uk.co.farowl.vsj4.core.PySlice.Indices;
 import uk.co.farowl.vsj4.core.PyUtil.NoConversion;
 import uk.co.farowl.vsj4.stringlib.ByteArrayBuilder;
+import uk.co.farowl.vsj4.types.Feature;
 import uk.co.farowl.vsj4.types.TypeSpec;
 import uk.co.farowl.vsj4.types.WithClass;
 
@@ -26,7 +27,8 @@ public class PyBytes extends AbstractList<Integer>
 
     /** The type of Python object this class implements. */
     public static final PyType TYPE = PyType.fromSpec( //
-            new TypeSpec("bytes", MethodHandles.lookup()));
+            new TypeSpec("bytes", MethodHandles.lookup())
+                    .add(Feature.BASETYPE, Feature.SEQUENCE_PROTOCOL));
     private static final byte[] EMPTY_BYTE_ARRAY = new byte[] {};
     static final PyBytes EMPTY = new PyBytes(EMPTY_BYTE_ARRAY);
 

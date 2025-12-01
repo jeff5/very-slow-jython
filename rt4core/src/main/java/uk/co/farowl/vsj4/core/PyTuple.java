@@ -19,6 +19,7 @@ import uk.co.farowl.vsj4.core.PyUtil.NoConversion;
 import uk.co.farowl.vsj4.internal.Util;
 import uk.co.farowl.vsj4.support.InterpreterError;
 import uk.co.farowl.vsj4.types.Exposed.PythonMethod;
+import uk.co.farowl.vsj4.types.Feature;
 import uk.co.farowl.vsj4.types.TypeSpec;
 import uk.co.farowl.vsj4.types.WithClass;
 
@@ -27,7 +28,8 @@ public class PyTuple extends AbstractList<Object> implements WithClass {
 
     /** The Python type object for {@code tuple}. */
     public static final PyType TYPE = PyType.fromSpec( //
-            new TypeSpec("tuple", MethodHandles.lookup()));
+            new TypeSpec("tuple", MethodHandles.lookup())
+                    .add(Feature.BASETYPE, Feature.SEQUENCE_PROTOCOL));
 
     /** The elements of the {@code tuple}. */
     private final Object[] value;

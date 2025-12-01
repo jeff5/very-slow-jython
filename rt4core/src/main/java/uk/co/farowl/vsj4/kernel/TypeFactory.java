@@ -30,7 +30,7 @@ import uk.co.farowl.vsj4.types.Feature;
 import uk.co.farowl.vsj4.types.TypeSpec;
 import uk.co.farowl.vsj4.types.WithClass;
 
-// TODO Provide for Python exceptions without requiring the type system
+// TODO Provide for Python exceptions when type system not ready
 /*
  * By this I mean, detect the sort of mis-specification that ought to be
  * a TypeError in Python, but without compromising our ability to use
@@ -1046,6 +1046,9 @@ public class TypeFactory {
 
                 // Derive remaining feature flags
                 type.deriveFeatures(spec);
+
+                // Some pre-flight checks: fails with an exception.
+                type.checkConsistency(spec);
 
                 // Say we're done
                 type.kernelFeatures.add(KernelTypeFlag.READY);

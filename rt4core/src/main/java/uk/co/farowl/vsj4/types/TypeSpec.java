@@ -19,7 +19,7 @@ import uk.co.farowl.vsj4.kernel.BaseType;
 import uk.co.farowl.vsj4.kernel.SimpleType;
 import uk.co.farowl.vsj4.support.InterpreterError;
 
-// TODO Provide for Python exceptions without requiring the type system
+// TODO Provide for Python exceptions when type system not ready
 /*
  * By this I mean, detect the sort of mis-specification that ought to be
  * a TypeError in Python, but without compromising our ability to use a

@@ -62,7 +62,7 @@ public enum Feature {
     MAPPING(TypeFlag.MAPPING),
 
     /**
-     * An instance of this type is a method descriptor, that is, it
+     * An instance of the type is a method descriptor, that is, it
      * supports an optimised call pattern where a {@code self} argument
      * may be supplied "loose" when calling the method, with the same
      * meaning as if it were first bound and the bound object called.
@@ -80,7 +80,33 @@ public enum Feature {
      * equivalent to {@code func(*args, **kwds)}.</li>
      * </ul>
      */
-    METHOD_DESCR(TypeFlag.METHOD_DESCR);
+    // Compare CPython Py_TPFLAGS_METHOD_DESCRIPTOR
+    METHOD_DESCR(TypeFlag.METHOD_DESCR),
+
+    /**
+     * An instance of the type, which must define {@code __getitem__},
+     * will be treated as a sequence by the interpreter and not as a
+     * mapping. If a type defines {@code __getitem__} but does not add
+     * the feature {@code SEQUENCE_PROTOCOL}, its instances will be
+     * treated as a mapping and not a sequence.
+     * <p>
+     * In general, an indexing operation in Python leads to a call to
+     * implementation of {@code __getitem__}, which will treat an index,
+     * slice or key object (like a name) appropriately to its type. If
+     * the receiving object is a sequence, only a numerical index or
+     * slice will be valid. In a few places (e.g. in the implementation
+     * of {@code exec}) the interpreter is required to check before use
+     * that an object will accept object keys.
+     */
+    /*
+     * The sense of this Feature reflects the default of CPython, which
+     * accepts any type defined in Python with a __getitem__ is a
+     * mapping, that is, it creates the tp_as_mapping->mp_subscript
+     * slot.
+     */
+    // No equivalent flag in CPython
+    // Compare CPython tp_as_sequence, tp_as_mapping in typestruct.h
+    SEQUENCE_PROTOCOL(TypeFlag.SEQUENCE_PROTOCOL);
 
     /** Navigate from feature to corresponding type flag. */
     public final TypeFlag flag;

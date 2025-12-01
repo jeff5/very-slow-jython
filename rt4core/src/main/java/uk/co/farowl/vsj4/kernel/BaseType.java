@@ -1267,6 +1267,21 @@ public abstract sealed class BaseType extends KernelType implements
         }
     }
 
+    /**
+     * Various consistency checks on a completed type object.
+     *
+     * @param spec that led to this type object
+     */
+    // TODO Provide for Python exceptions when type system not ready
+    void checkConsistency(TypeSpec spec) {
+        if (hasFeature(TypeFlag.SEQUENCE_PROTOCOL)
+                && !hasFeature(KernelTypeFlag.HAS_GETITEM)) {
+            throw PyErr.format(PyExc.TypeError,
+                    SEQUENCE_WITHOUT_GETITEM, spec.getName(),
+                    Feature.SEQUENCE_PROTOCOL);
+        }
+    }
+
     // plumbing ------------------------------------------------------
 
     private static final String MRO_ENTRIES_NOT_SUPPORTED =
@@ -1276,6 +1291,8 @@ public abstract sealed class BaseType extends KernelType implements
             "metaclass conflict: " + "the metaclass of a derived class "
                     + "must be a (non-strict) subclass "
                     + "of the metaclasses of all its bases";
+    private static final String SEQUENCE_WITHOUT_GETITEM =
+            "type '%s' declared to have %s did not define __getitem__";
 
     /**
      * Determine if this type is a Python sub-type of {@code b} by

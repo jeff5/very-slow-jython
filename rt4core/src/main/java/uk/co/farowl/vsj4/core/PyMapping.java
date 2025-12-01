@@ -23,11 +23,11 @@ public class PyMapping extends PySequence {
     private PyMapping() {}   // only static methods here
 
     /**
-     * Check that an object o is a Python mapping, defined as supporting
-     * {@code __getitem__}.
+     * Check that an object o is a Python mapping. See
+     * {@link PyType#isMapping()}.
      *
      * @param o to test
-     * @return whether defines {@code __getitem__}
+     * @return whether {@code type(o)} is a mapping
      */
     // Compare CPython PyMapping_Check in abstract.c
     static boolean check(Object o) { return PyType.of(o).isMapping(); }

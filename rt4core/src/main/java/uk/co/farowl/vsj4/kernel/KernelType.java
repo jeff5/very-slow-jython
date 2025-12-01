@@ -113,14 +113,6 @@ public abstract class KernelType extends Representation
     @Override
     public PyType getBase() { return base; }
 
-    /**
-     * @implNote {@code type} will do as the default, but in
-     *     {@link SimpleType} and {@link ReplaceableType} we must store
-     *     and return an actual type, that may be some sub-type of
-     *     {@code type}, and therefore (by the way) an instance of a
-     *     Java sub-class of {@link BaseType}.
-     */
-    // FIXME: override in subclasses so not always exactly 'type'
     @Override
     public PyType getType() { return typeType(); }
 
@@ -221,31 +213,15 @@ public abstract class KernelType extends Representation
     @Override
     public abstract boolean isMutable();
 
-    /**
-     * Fast check that an object of this type is a sequence, defined as
-     * not a subclass of {@code dict} and defining {@code __getitem__}.
-     *
-     * @return target is a sequence
-     */
-    // Compare CPython PySequence_Check (on instance) in abstract.c
     @Override
     public boolean isSequence() {
-        // TODO Consider a flag and Feature for MAPPING_PROTOCOL
-        return kernelFeatures.contains(KernelTypeFlag.HAS_GETITEM)
-                && !features.contains(TypeFlag.DICT_SUBCLASS);
+        return features.contains(TypeFlag.SEQUENCE_PROTOCOL);
     }
 
-    /**
-     * Fast check that an object of this type is a mapping, defined by
-     * {@code __getitem__}.
-     *
-     * @return target is a mapping
-     */
-    // Compare CPython PyMapping_Check (on instance) in abstract.c
     @Override
     public boolean isMapping() {
-        // TODO Consider a flag and Feature for MAPPING_PROTOCOL
-        return kernelFeatures.contains(KernelTypeFlag.HAS_GETITEM);
+        return kernelFeatures.contains(KernelTypeFlag.HAS_GETITEM)
+                && !features.contains(TypeFlag.SEQUENCE_PROTOCOL);
     }
 
     /**

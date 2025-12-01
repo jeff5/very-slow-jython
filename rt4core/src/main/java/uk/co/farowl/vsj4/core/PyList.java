@@ -18,9 +18,10 @@ import java.util.function.Supplier;
 import uk.co.farowl.vsj4.core.PySlice.Indices;
 import uk.co.farowl.vsj4.core.PyUtil.NoConversion;
 import uk.co.farowl.vsj4.support.InterpreterError;
+import uk.co.farowl.vsj4.types.Exposed.PythonMethod;
+import uk.co.farowl.vsj4.types.Feature;
 import uk.co.farowl.vsj4.types.TypeSpec;
 import uk.co.farowl.vsj4.types.WithClass;
-import uk.co.farowl.vsj4.types.Exposed.PythonMethod;
 
 /**
  * The Python {@code list} object that is also a Java
@@ -43,8 +44,9 @@ import uk.co.farowl.vsj4.types.Exposed.PythonMethod;
 public class PyList implements List<Object>, WithClass {
 
     /** The Python type object for {@code list}. */
-    public static final PyType TYPE = PyType
-            .fromSpec(new TypeSpec("list", MethodHandles.lookup()));
+    public static final PyType TYPE = PyType.fromSpec( //
+            new TypeSpec("list", MethodHandles.lookup())
+                    .add(Feature.BASETYPE, Feature.SEQUENCE_PROTOCOL));
 
     /** The Python type of this instance. */
     protected final PyType type;

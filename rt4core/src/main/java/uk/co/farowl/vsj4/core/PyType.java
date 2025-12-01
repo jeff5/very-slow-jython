@@ -11,6 +11,7 @@ import org.slf4j.LoggerFactory;
 import uk.co.farowl.vsj4.kernel.Representation;
 import uk.co.farowl.vsj4.kernel.TypeFactory.Clash;
 import uk.co.farowl.vsj4.types.FastCall;
+import uk.co.farowl.vsj4.types.Feature;
 import uk.co.farowl.vsj4.types.NewInstance;
 import uk.co.farowl.vsj4.types.TypeFlag;
 import uk.co.farowl.vsj4.types.TypeSpec;
@@ -150,8 +151,11 @@ public interface PyType extends NewInstance, WithClass, FastCall {
     boolean isMutable();
 
     /**
-     * Fast check that an object of this type is a sequence, defined as
-     * not a subclass of {@code dict} and defining {@code __getitem__}.
+     * Fast check that an object of this type is a sequence, that is,
+     * its type declares itself to have
+     * {@link Feature#SEQUENCE_PROTOCOL} in a Java definition. I will
+     * also define {@code __getitem__} that should accept and index or
+     * slice.
      *
      * @return target is a sequence
      */
@@ -159,10 +163,11 @@ public interface PyType extends NewInstance, WithClass, FastCall {
     boolean isSequence();
 
     /**
-     * Fast check that an object of this type is a sequence, defined as
-     * not a subclass of {@code dict} and defining {@code __getitem__}.
+     * Fast check that an object of this type is a mapping, that is, it
+     * defines {@code __getitem__} and does not declare itself to have
+     * {@link Feature#SEQUENCE_PROTOCOL} in a Java definition.
      *
-     * @return target is a sequence
+     * @return target is a mapping
      */
     // Compare CPython PyMapping_Check (on instance) in abstract.c
     boolean isMapping();
