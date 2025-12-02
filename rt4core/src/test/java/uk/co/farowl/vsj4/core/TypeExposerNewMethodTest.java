@@ -263,6 +263,7 @@ class TypeExposerNewMethodTest extends UnitTestSupport {
                 return new Derived(type);
         }
 
+        // FIXME Old inadequate concept of Python subclass
         static class Derived extends TT0 {
             private PyType type;
 

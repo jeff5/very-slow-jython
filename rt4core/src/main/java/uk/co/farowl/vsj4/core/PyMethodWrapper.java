@@ -206,13 +206,13 @@ public class PyMethodWrapper implements WithClass, FastCall {
     // Special methods ------------------------------------------------
 
     // Compare CPython wrapper_repr in descrobject.c
-    private Object __repr__() {
+    Object __repr__() {
         return String.format("<method-wrapper '%s' of %s>",
                 descr.sm.methodName, _PyUtil.toAt(self));
     }
 
     // Compare CPython wrapper_richcompare in descrobject.c
-    private Object __eq__(Object b) {
+    Object __eq__(Object b) {
         // Both arguments should be exactly PyMethodWrapper
         if (b instanceof PyMethodWrapper) {
             PyMethodWrapper wb = (PyMethodWrapper)b;
@@ -222,7 +222,7 @@ public class PyMethodWrapper implements WithClass, FastCall {
     }
 
     // Compare CPython wrapper_richcompare in descrobject.c
-    private Object __ne__(Object b) {
+    Object __ne__(Object b) {
         // Both arguments should be exactly PyMethodWrapper
         if (b instanceof PyMethodWrapper) {
             PyMethodWrapper wb = (PyMethodWrapper)b;
@@ -232,7 +232,7 @@ public class PyMethodWrapper implements WithClass, FastCall {
     }
 
     // Compare CPython wrapper_hash in descrobject.c
-    private int __hash__() {
+    int __hash__() {
         int x = self.hashCode() ^ descr.hashCode();
         return x == -1 ? -2 : x;
     }
@@ -282,4 +282,8 @@ public class PyMethodWrapper implements WithClass, FastCall {
             String[] names) {
         return descr.typeError(ae, args, names);
     }
+
+    @Override
+    public String toString() { return PyUtil.defaultToString(this); }
+
 }
