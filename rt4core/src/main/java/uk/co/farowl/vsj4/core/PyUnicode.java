@@ -2389,7 +2389,7 @@ public class PyUnicode implements WithClass, PyDict.Key {
     }
 
     @PythonMethod(primary = false)
-    boolean isascii() { return range == Range.ASCII; }
+    public boolean isascii() { return range == Range.ASCII; }
 
     @PythonMethod
     static boolean isascii(String self) {

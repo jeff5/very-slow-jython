@@ -70,8 +70,8 @@ public class PyFloat implements WithClass {
 
     /**
      * Present the value as a Java {@code double} when the argument is
-     * expected to be a Python exactly {@code float} or a sub-class of
-     * it that represents its value in the same field.
+     * expected to be exactly an instance of Python {@code float} or of
+     * a consistent sub-class of it.
      *
      * @param v claimed {@code float}
      * @return {@code double} value
@@ -79,7 +79,7 @@ public class PyFloat implements WithClass {
      *     {@code v} is not a Python {@code float}
      */
     // Compare CPython floatobject.h: PyFloat_AS_DOUBLE
-    static double doubleValue(Object v) throws PyBaseException {
+    public static double doubleValue(Object v) throws PyBaseException {
         if (v instanceof Double)
             return ((Double)v).doubleValue();
         else if (v instanceof PyFloat)

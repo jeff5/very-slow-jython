@@ -128,7 +128,7 @@ public class PyBaseException extends RuntimeException
      * {@code __init__}.
      * <p>
      * The type of an exception may be changed, within limits. The
-     * initial {@code type} is checked to see that if shares this class
+     * initial {@code type} is checked to see that it shares this class
      * as its representation. E.g. {@code UnboundLocalError} and
      * {@code NameError} share the representation created by
      * {@link PyNameError#TYPE}. Once the object is created,
@@ -313,8 +313,10 @@ public class PyBaseException extends RuntimeException
     /** {@code TypeError} extends {@code Exception}. */
     static PyType TypeError = extendsException(Exception, "TypeError",
             "Inappropriate argument type.");
+    /** {@code EOFError} extends {@code Exception}. */
+    static PyType EOFError = extendsException(Exception, "EOFError",
+            "Read beyond end of file.");
     /** {@code LookupError} extends {@code Exception}. */
-
     static PyType LookupError = extendsException(Exception,
             "LookupError", "Base class for lookup errors.");
     /** {@code IndexError} extends {@code LookupError}. */

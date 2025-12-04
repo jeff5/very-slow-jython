@@ -151,7 +151,7 @@ public class PyUtil {
      * stack context, since it is used only as a sort of "alternative
      * return value".
      */
-    static class NoConversion extends Exception {
+    public static class NoConversion extends Exception {
         private static final long serialVersionUID = 1L;
 
         private NoConversion() { super(null, null, false, false); }
@@ -162,7 +162,7 @@ public class PyUtil {
      * methods to signal "cannot convert". No stack context is preserved
      * in the exception.
      */
-    static final NoConversion NO_CONVERSION = new NoConversion();
+    public static final NoConversion NO_CONVERSION = new NoConversion();
 
     // Helpers for methods and attributes -----------------------------
 

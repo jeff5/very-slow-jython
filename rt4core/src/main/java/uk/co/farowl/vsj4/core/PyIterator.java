@@ -63,8 +63,11 @@ public class PyIterator extends AbstractPyIterator {
             if (index >= 0) {
                 return getitem.invokeExact((Object)index++);
             }
+        } catch (PyStopIteration e) {
+            // Signal in index that we reached the end
+            index = -1;
         } catch (PyBaseException e) {
-            e.only(PyExc.IndexError, PyExc.StopIteration);
+            e.only(PyExc.IndexError);
             // Signal in index that we reached the end
             index = -1;
         }

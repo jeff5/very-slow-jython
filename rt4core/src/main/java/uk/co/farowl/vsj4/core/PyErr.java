@@ -2,6 +2,8 @@
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.core;
 
+import java.io.IOException;
+
 import uk.co.farowl.vsj4.internal.Util;
 
 /**
@@ -43,4 +45,29 @@ public class PyErr {
             throw Util.asUnchecked(e);
         }
     }
+
+    /**
+     * Create a Python exception for the caller to throw, specifically a
+     * Python {@code OSError} subclass and Java {@code IOException}.
+     *
+     * @param excType exception type
+     * @param ioe Java exception
+     * @return an exception to throw
+     */
+    // Compare CPython PyErr_Format in errors.c
+    public static PyOSError format(PyType excType, IOException ioe) {
+        // TODO implement OSError properly after exceptions.c
+        if (!excType.isSubTypeOf(PyExc.OSError)) {
+            throw Abstract.typeError(OSERROR_REQUIRED);
+        }
+        try {
+            return (PyOSError)Callables.call(excType, ioe);
+        } catch (Throwable e) {
+            throw Util.asUnchecked(e);
+        }
+    }
+
+    private static final String OSERROR_REQUIRED =
+            "OSError or a sub-class must be specified "
+                    + "when raising from a Java IOException";
 }

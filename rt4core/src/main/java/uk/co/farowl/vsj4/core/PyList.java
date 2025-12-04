@@ -344,8 +344,7 @@ public class PyList implements List<Object>, WithClass {
 
     @Override
     public String toString() {
-        // XXX Use repr for elements and guard against recursive
-        // references
+        // FIXME Use repr for elements and guard against recursion
         StringJoiner sj = new StringJoiner(", ", "[", "]");
         for (Object v : list) { sj.add(v.toString()); }
         return sj.toString();
