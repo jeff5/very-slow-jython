@@ -14,7 +14,9 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -348,18 +350,26 @@ class AbstractSequenceAPITest extends UnitTestSupport {
         }
     }
 
-    // /**
-    // * Test {@link PySequence#setItem(Object, int, Object)
-    // * PySequence.setItem}
-    // */
-    // void supports_setItem(String type, List<Object> ref, Object obj)
-    // throws Throwable{fail("not implemented");}
-    //
-    // /**
-    // * Test {@link PySequence#delItem(Object, int) PySequence.delItem}
-    // */
-    // void supports_delItem(String type, List<Object> ref, Object obj)
-    // throws Throwable{fail("not implemented");}
+    /**
+     * Test {@link PySequence#setItem(Object, int, Object)
+     * PySequence.setItem}
+     */
+    @Test
+    @Disabled("Test not implemented")
+    void supports_setItem(String type, List<Object> ref, Object obj)
+            throws Throwable {
+        fail("not implemented");
+    }
+
+    /**
+     * Test {@link PySequence#delItem(Object, int) PySequence.delItem}
+     */
+    @Test
+    @Disabled("Test not implemented")
+    void supports_delItem(String type, List<Object> ref, Object obj)
+            throws Throwable {
+        fail("not implemented");
+    }
 
     /**
      * Test {@link PySequence#getSlice(Object, int, int)
@@ -454,19 +464,27 @@ class AbstractSequenceAPITest extends UnitTestSupport {
         }
     }
 
-    // /**
-    // * Test {@link PySequence#setSlice(Object, int, int, Object)
-    // * PySequence.setSlice}
-    // */
-    // void supports_setSlice(String type, List<Object> ref, Object obj)
-    // throws Throwable {fail("not implemented");}
-    //
-    // /**
-    // * Test {@link PySequence#delSlice(Object, int, int)
-    // * PySequence.delSlice}
-    // */
-    // void supports_delSlice(String type, List<Object> ref, Object obj)
-    // throws Throwable {fail("not implemented");}
+    /**
+     * Test {@link PySequence#setSlice(Object, int, int, Object)
+     * PySequence.setSlice}
+     */
+    @Test
+    @Disabled("Test not implemented")
+    void supports_setSlice(String type, List<Object> ref, Object obj)
+            throws Throwable {
+        fail("not implemented");
+    }
+
+    /**
+     * Test {@link PySequence#delSlice(Object, int, int)
+     * PySequence.delSlice}
+     */
+    @Test
+    @Disabled("Test not implemented")
+    void supports_delSlice(String type, List<Object> ref, Object obj)
+            throws Throwable {
+        fail("not implemented");
+    }
 
     /**
      * Test {@link PySequence#tuple(Object) PySequence.tuple}
@@ -557,24 +575,36 @@ class AbstractSequenceAPITest extends UnitTestSupport {
         }
     }
 
-// /**
-// * Test {@link PySequence#count(Object, Object) PySequence.count}
-// */
-// void supports_count(String type, List<Object> ref, Object obj)
-// throws Throwable {fail("not implemented");}
-//
-// /**
-// * Test {@link PySequence#contains(Object, Object)
-// * PySequence.contains}
-// */
-// void supports_contains(String type, List<Object> ref, Object obj)
-// throws Throwable {fail("not implemented");}
-//
-// // Not to be confused with PyNumber.index
-// /**
-// * Test {@link PySequence#index(Object, Object) PySequence.index}
-// */
-// void supports_index(String type, List<Object> ref, Object obj)
-// throws Throwable {fail("not implemented");}
+    /**
+     * Test {@link PySequence#count(Object, Object) PySequence.count}
+     */
+    @Test
+    @Disabled("Test not implemented")
+    void supports_count(String type, List<Object> ref, Object obj)
+            throws Throwable {
+        fail("not implemented");
+    }
+
+    /**
+     * Test {@link PySequence#contains(Object, Object)
+     * PySequence.contains}
+     */
+    @Test
+    @Disabled("Test not implemented")
+    void supports_contains(String type, List<Object> ref, Object obj)
+            throws Throwable {
+        fail("not implemented");
+    }
+
+    // Not to be confused with PyNumber.index
+    /**
+     * Test {@link PySequence#index(Object, Object) PySequence.index}
+     */
+    @Test
+    @Disabled("Test not implemented")
+    void supports_index(String type, List<Object> ref, Object obj)
+            throws Throwable {
+        fail("not implemented");
+    }
 
 }

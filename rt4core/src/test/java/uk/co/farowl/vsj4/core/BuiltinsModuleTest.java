@@ -18,6 +18,7 @@ import java.util.HashMap;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -115,6 +116,11 @@ class BuiltinsModuleTest extends UnitTestSupport {
         }
 
         // TODO restore test exec(file)
+        @DisplayName("exec(file)")
+        @Test
+        @Disabled("CPython311Code not yet ported")
+        void testExecFile(String name) {}
+
 // /**
 // * A test of {@code builtins.exec} using code objects read from
 // * the {@code pythonExample} directory.
