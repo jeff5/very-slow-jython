@@ -31,6 +31,7 @@ import uk.co.farowl.vsj4.core.Callables;
 import uk.co.farowl.vsj4.core.MethodDescriptor;
 import uk.co.farowl.vsj4.core.PyAttributeError;
 import uk.co.farowl.vsj4.core.PyBaseException;
+import uk.co.farowl.vsj4.core.PyBytes;
 import uk.co.farowl.vsj4.core.PyDict;
 import uk.co.farowl.vsj4.core.PyErr;
 import uk.co.farowl.vsj4.core.PyExc;
@@ -42,6 +43,7 @@ import uk.co.farowl.vsj4.core.PySequence;
 import uk.co.farowl.vsj4.core.PyTuple;
 import uk.co.farowl.vsj4.core.PyType;
 import uk.co.farowl.vsj4.core.PyUnicode;
+import uk.co.farowl.vsj4.core.PyWrapperDescr;
 import uk.co.farowl.vsj4.internal.EmptyException;
 import uk.co.farowl.vsj4.internal._PyUtil;
 import uk.co.farowl.vsj4.kernel.TypeFactory.Clash;
@@ -79,6 +81,28 @@ public abstract sealed class BaseType extends KernelType implements
     /** Subclass factory} to use in creating subclasses. */
     static final SubclassFactory SUBCLASS_FACTORY =
             new SubclassFactory("VSJ$%s$%d");
+
+    /**
+     * Name of the type. This is the name exposed as {@link #getName()
+     * __name__}. In an immutable type, it is defined at the creation of
+     * the type.
+     */
+    // TODO Approach to __name, __qualname__, __module__.
+    /*
+     * The legacy handling of class names is a mess in CPython, but
+     * improved with the introduction of heap types. We can probably
+     * follow only the code path for heap types, if we are careful to
+     * set __module__ = 'builtins' for built-in types.
+     */
+    // Compare CPython _heaptypeobject.ht_name in cpython/object.h
+    private String name;
+
+    /**
+     * Qualified name of the type. This is the name exposed as
+     * {@code __qualname__}.
+     */
+    // Compare CPython _heaptypeobject.ht_qualname in cpython/object.h
+    private String qualname;
 
     /**
      * The {@code __mro__} of this type, that is, the method resolution
@@ -120,10 +144,32 @@ public abstract sealed class BaseType extends KernelType implements
      */
     protected BaseType(String name, Class<?> javaClass,
             BaseType[] bases) {
-        super(name, javaClass, bases);
+        super(javaClass, bases);
+        assert name != null;
+        this.name = name;
+        this.qualname = name;
         this._dict = new LinkedHashMap<>();
         // FIXME: define mappingproxy type for this use
         this.dict = Collections.unmodifiableMap(_dict);
+    }
+
+    @Override
+    @Exposed.Getter("__name__")
+    public String getName() { return name; }
+
+    @Exposed.Setter("__name__")
+    public void setName(String value) {
+        checkTypeMutable(value, "__name__");
+        name = value;
+    }
+
+    @Exposed.Getter("__qualname__")
+    public String getQualName() { return qualname; }
+
+    @Exposed.Setter("__qualname__")
+    public void setQualName(String value) {
+        checkTypeMutable(value, "__qualname__");
+        qualname = value;
     }
 
     @Override
@@ -163,10 +209,7 @@ public abstract sealed class BaseType extends KernelType implements
              * Deal with multiple inheritance without recursion by
              * walking the MRO tuple
              */
-            for (PyType base : mro) {
-                if (base == b)
-                    return true;
-            }
+            for (PyType base : mro) { if (base == b) { return true; } }
             return false;
         } else
             // a is not completely initialised yet; follow base
@@ -983,8 +1026,7 @@ public abstract sealed class BaseType extends KernelType implements
          */
         unused = setFeature(PyLong.class, KernelTypeFlag.MATCH_SELF)
                 || setFeature(PyFloat.class, KernelTypeFlag.MATCH_SELF)
-                // || setFeature(PyBytes.class,
-                // KernelTypeFlag.MATCH_SELF)
+                || setFeature(PyBytes.class, KernelTypeFlag.MATCH_SELF)
                 || setFeature(PyUnicode.class,
                         KernelTypeFlag.MATCH_SELF)
                 || setFeature(PyList.class, KernelTypeFlag.MATCH_SELF)
@@ -1122,8 +1164,8 @@ public abstract sealed class BaseType extends KernelType implements
          * We look up the current definition of name for this type,
          * which has recently changed. Note that even when removing the
          * name from the dictionary of this type, the effect may be to
-         * uncover new definition somewhere along the MRO, and so it
-         * becomes a change.
+         * uncover a definition that already exists somewhere along the
+         * MRO, and so it becomes a change.
          */
         LookupResult result = lookup(name, null);
         SpecialMethod sm = SpecialMethod.forMethodName(name);
@@ -1145,13 +1187,27 @@ public abstract sealed class BaseType extends KernelType implements
                 case op_init -> KernelTypeFlag.HAS_INIT;
                 default -> null;
             };
-            // If sm corresponds to a feature flag
+            // If sm corresponds to a feature flag in that case
             if (feature != null) {
                 if (result != null) {
                     // We are defining or changing sm
                     kernelFeatures.add(feature);
                 } else {
                     // We are deleting sm
+                    kernelFeatures.remove(feature);
+                }
+            }
+
+            // Special handling of name == __getattribute__
+            if (sm == SpecialMethod.op_getattribute) {
+                // We are setting __getattribute__ ...
+                feature = KernelTypeFlag.OBJECT_GETATTRIBUTE;
+                if (result.obj instanceof PyWrapperDescr wd
+                        && wd.__objclass__() == objectType()) {
+                    // ... to object.__getattribute__
+                    kernelFeatures.add(feature);
+                } else {
+                    // ... to something else
                     kernelFeatures.remove(feature);
                 }
             }
@@ -1647,6 +1703,30 @@ public abstract sealed class BaseType extends KernelType implements
             throw PyErr.format(PyExc.TypeError,
                     "type '%.100s' is not an acceptable base type",
                     base);
+        }
+    }
+
+    /**
+     * Throw a {@link PyExc#TypeError TypeError} if setting the named
+     * attribute is not permitted (due to the immutability of this
+     * type).
+     *
+     * @param value to set or null for delete
+     * @param name of attribute being set (for error message)
+     */
+    // Compare CPython check_set_special_type_attr in typeobject.c
+    private void checkTypeMutable(Object value,
+            String name) {
+        if (hasFeature(TypeFlag.IMMUTABLE)) {
+            String action = value == null ? "delete" : "set";
+            throw PyErr.format(PyExc.TypeError,
+                    "cannot %s '%s' attribute of immutable type '%s'",
+                    action, name, getName());
+        }
+        if (value == null) {
+            throw PyErr.format(PyExc.TypeError,
+                    "cannot delete '%s' attribute of type '%s'", name,
+                    getName());
         }
     }
 

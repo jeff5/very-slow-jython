@@ -8,12 +8,14 @@ import java.util.StringJoiner;
 import uk.co.farowl.vsj4.core.Abstract;
 import uk.co.farowl.vsj4.core.ArgumentError;
 import uk.co.farowl.vsj4.core.Callables;
+import uk.co.farowl.vsj4.core.Comparison;
 import uk.co.farowl.vsj4.core.Py;
 import uk.co.farowl.vsj4.core.PyAttributeError;
 import uk.co.farowl.vsj4.core.PyBaseException;
 import uk.co.farowl.vsj4.core.PyErr;
 import uk.co.farowl.vsj4.core.PyExc;
 import uk.co.farowl.vsj4.core.PyType;
+import uk.co.farowl.vsj4.core.PyUnicode;
 import uk.co.farowl.vsj4.core.PyUtil;
 import uk.co.farowl.vsj4.types.FastCall;
 
@@ -115,6 +117,53 @@ public class _PyUtil {
             // Go via callable.__call__ special method
             Object[] a = Util.prepend(self, args);
             return Callables.standardCall(callable, a, names);
+        }
+    }
+
+    /**
+     * Produce a {@code String} name for a function-like object or its
+     * {@code str()} if it doesn't even have a
+     * {@code __qualname__}.<pre>
+     *     def functionStr(func):
+     *         try:
+     *             qualname = func.__qualname__
+     *         except AttributeError:
+     *             return str(func)
+     *         try:
+     *             module = func.__module__
+     *             if module is not None and mod != 'builtins':
+     *                 return ".".join(module, qualname)
+     *         except AttributeError:
+     *             pass
+     *         return qualname
+     * </pre> This differs from its CPython counterpart
+     * {@code _PyObject_FunctionStr} by decisively not adding
+     * parentheses.
+     *
+     * @param func the function
+     * @return a name for {@code func}
+     */
+    // Compare CPython _PyObject_FunctionStr in object.c
+    public static String functionStr(Object func) {
+        Object name;
+        try {
+            Object qualname = Abstract.lookupAttr(func, "__qualname__");
+            if (qualname != null) {
+                Object module = Abstract.lookupAttr(func, "__module__");
+                if (module != null && module != Py.None
+                        && Abstract.richCompareBool("builtins", module,
+                                Comparison.NE)) {
+                    name = Callables.callMethod(".", "join", module,
+                            qualname);
+                }
+                name = qualname;
+            } else {
+                name = Abstract.str(func);
+            }
+            return PyUnicode.asString(name);
+        } catch (Throwable e) {
+            // Unlike CPython fall back on a generic answer
+            return "function";
         }
     }
 

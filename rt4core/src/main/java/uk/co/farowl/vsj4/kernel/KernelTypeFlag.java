@@ -92,6 +92,13 @@ public enum KernelTypeFlag {
      */
     // No equivalent in CPython
     HAS_GETITEM,
+    /**
+     * The type uses the same definition of {@code __getattribute__}, as
+     * {@code object}, which permits certain optimisations when an
+     * attribute is encountered that is a method descriptor.
+     */
+    // No equivalent in CPython
+    OBJECT_GETATTRIBUTE,
     /** The type defines {@code __setitem__}. */
     // No equivalent in CPython
     HAS_SETITEM,
@@ -139,5 +146,6 @@ public enum KernelTypeFlag {
      */
     public static final EnumSet<KernelTypeFlag> HERITABLE =
             EnumSet.of(MATCH_SELF, HAS_GETITEM, HAS_ITER, HAS_NEXT,
-                    HAS_INDEX, HAS_GET, HAS_SET, HAS_DELETE, HAS_INIT);
+                    HAS_INDEX, HAS_GET, HAS_SET, HAS_DELETE, HAS_INIT,
+                    OBJECT_GETATTRIBUTE);
 }

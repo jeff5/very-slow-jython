@@ -323,7 +323,7 @@ public abstract class PyCode implements WithClass {
      *
      * @return a {@link Layout} object describing the variables
      */
-    // CPython specific at first glance but not after reflection.
+    // CPython specific at first glance but not after some thought.
     // Compare CPython 3.11 localsplusnames and localspluskinds
     abstract Layout layout();
 

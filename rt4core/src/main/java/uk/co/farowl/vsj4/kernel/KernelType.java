@@ -19,9 +19,6 @@ import uk.co.farowl.vsj4.types.TypeSpec;
 public abstract class KernelType extends Representation
         implements PyType {
 
-    /** Name of the type (fully-qualified). */
-    protected final String name;
-
     /**
      * Feature flags collecting various boolean traits of this type,
      * such as immutability or being a subclass of {@code int}. Some of
@@ -65,33 +62,21 @@ public abstract class KernelType extends Representation
     /**
      * Constructor used by (permitted) subclasses of {@code PyType}.
      *
-     * @param name of the type (fully qualified)
      * @param javaClass implementing Python instances of the type
      * @param bases of the new type
      */
-    protected KernelType(String name, Class<?> javaClass,
-            BaseType[] bases) {
+    protected KernelType(Class<?> javaClass, BaseType[] bases) {
         super(javaClass);
         /*
          * These assertions mainly check our assumptions about the needs
          * of sub-types. They are retained only in testing.
          */
-        assert name != null;
         assert javaClass != null || this instanceof AdoptiveType;
         assert bases != null;
 
-        this.name = name;
         this.bases = bases;
         this.base = bases.length > 0 ? bases[0] : null;
     }
-
-    /**
-     * Return the name of the type.
-     *
-     * @return the name of the type
-     */
-    @Override
-    public String getName() { return name; }
 
     /**
      * A copy of the sequence of bases specified for the type,

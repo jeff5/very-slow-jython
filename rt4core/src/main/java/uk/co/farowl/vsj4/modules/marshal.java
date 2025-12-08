@@ -23,11 +23,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import uk.co.farowl.vsj4.core.Abstract;
-// import uk.co.farowl.vsj4.core.CPython311Code;
+import uk.co.farowl.vsj4.core.CPython311Code;
 import uk.co.farowl.vsj4.core.Py;
 import uk.co.farowl.vsj4.core.PyBaseException;
 import uk.co.farowl.vsj4.core.PyBool;
 import uk.co.farowl.vsj4.core.PyBytes;
+import uk.co.farowl.vsj4.core.PyCode;
 import uk.co.farowl.vsj4.core.PyDict;
 import uk.co.farowl.vsj4.core.PyErr;
 import uk.co.farowl.vsj4.core.PyExc;
@@ -256,7 +257,7 @@ public class marshal /* extends JavaModule */ {
         register(new ListCodec());
         register(new DictCodec());
 
-// register(new CodeCodec());
+        register(new CodeCodec());
 
         register(new RefCodec());
     }
@@ -1527,68 +1528,68 @@ public class marshal /* extends JavaModule */ {
     /**
      * {@link Codec} for Python {@code code}.
      */
-// private static class CodeCodec implements Codec {
-// @Override
-// public PyType type() { return PyCode.TYPE; }
-//
-// @Override
-// public void write(Writer w, Object v)
-// throws IOException, Throwable {
-// assert type().checkExact(v);
-// /*
-// * We intend different concrete sub-classes of PyCode, that
-// * create different frame types, but at the moment only one.
-// */
-// CPython311Code code = (CPython311Code)v;
-// w.writeByte(TYPE_CODE);
-// // XXX Write the fields (quite complicated)
-// }
-//
-// @Override
-// public Map<Integer, Decoder> decoders() {
-// return Map.of(TYPE_CODE, CodeCodec::read);
-// }
-//
-// private static CPython311Code read(Reader r, boolean ref) {
-//
-// // Get an index now to ensure encounter-order numbering
-// int idx = ref ? r.reserveRef() : -1;
-//
-// int argcount = r.readInt();
-// int posonlyargcount = r.readInt();
-// int kwonlyargcount = r.readInt();
-// int stacksize = r.readInt();
-//
-// int flags = r.readInt();
-// Object code = r.readObject();
-//
-// Object consts = r.readObject();
-// Object names = r.readObject();
-// Object localsplusnames = r.readObject();
-// Object localspluskinds = r.readObject();
-//
-// Object filename = r.readObject();
-// Object name = r.readObject();
-// Object qualname = r.readObject();
-//
-// int firstlineno = r.readInt();
-// Object linetable = r.readObject();
-// Object exceptiontable = r.readObject();
-//
-// // PySys_Audit("code.__new__", blah ...);
-//
-// CPython311Code v = CPython311Code.create( //
-// filename, name, qualname, flags, //
-// code, firstlineno, linetable, //
-// consts, names, //
-// localsplusnames, localspluskinds, //
-// argcount, posonlyargcount, kwonlyargcount,
-// stacksize, //
-// exceptiontable);
-//
-// return r.defineRef(v, idx);
-// }
-// }
+    private static class CodeCodec implements Codec {
+        @Override
+        public PyType type() { return PyCode.TYPE; }
+
+        @Override
+        public void write(Writer w, Object v)
+                throws IOException, Throwable {
+            assert type().checkExact(v);
+            /*
+             * We intend different concrete sub-classes of PyCode, that
+             * create different frame types, but at the moment only one.
+             */
+            CPython311Code code = (CPython311Code)v;
+            w.writeByte(TYPE_CODE);
+            // TODO Write the fields of code object (quite complicated)
+        }
+
+        @Override
+        public Map<Integer, Decoder> decoders() {
+            return Map.of(TYPE_CODE, CodeCodec::read);
+        }
+
+        private static CPython311Code read(Reader r, boolean ref) {
+
+            // Get an index now to ensure encounter-order numbering
+            int idx = ref ? r.reserveRef() : -1;
+
+            int argcount = r.readInt();
+            int posonlyargcount = r.readInt();
+            int kwonlyargcount = r.readInt();
+            int stacksize = r.readInt();
+
+            int flags = r.readInt();
+            Object code = r.readObject();
+
+            Object consts = r.readObject();
+            Object names = r.readObject();
+            Object localsplusnames = r.readObject();
+            Object localspluskinds = r.readObject();
+
+            Object filename = r.readObject();
+            Object name = r.readObject();
+            Object qualname = r.readObject();
+
+            int firstlineno = r.readInt();
+            Object linetable = r.readObject();
+            Object exceptiontable = r.readObject();
+
+            // PySys_Audit("code.__new__", blah ...);
+
+            CPython311Code v = CPython311Code.create( //
+                    filename, name, qualname, flags, //
+                    code, firstlineno, linetable, //
+                    consts, names, //
+                    localsplusnames, localspluskinds, //
+                    argcount, posonlyargcount, kwonlyargcount,
+                    stacksize, //
+                    exceptiontable);
+
+            return r.defineRef(v, idx);
+        }
+    }
 
     /**
      * Pseudo-{@link Codec} for records containing a reference, which

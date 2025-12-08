@@ -75,10 +75,9 @@ public class PyList implements List<Object>, WithClass {
      * @param type actual type
      * @param list storage object
      */
-    private PyList(PyType type, ArrayList<Object> list) {
+    private PyList(PyType type, List<Object> list) {
         this.type = type;
         this.list = list;
-        list.toArray();
     }
 
     /**
@@ -905,6 +904,7 @@ public class PyList implements List<Object>, WithClass {
          * java.util.Collections.SynchronizedRandomAccessList<E>, where
          * the problem is solved by sharing a mutex.
          */
+        // Note private constructor wraps same storage
         return new PyList(TYPE, list.subList(fromIndex, toIndex));
     }
 

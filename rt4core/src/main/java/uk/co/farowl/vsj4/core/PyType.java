@@ -36,7 +36,9 @@ public interface PyType extends NewInstance, WithClass, FastCall {
     static final Logger logger = LoggerFactory.getLogger(PyType.class);
 
     /**
-     * Return the name of the type.
+     * Return the name of the type. Equivalent to getting the type's
+     * {@code __name__} attribute, which may be changed by assignment
+     * in a mutable type.
      *
      * @return the name of the type
      */
