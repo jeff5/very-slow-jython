@@ -6,11 +6,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertSame;
-// import static
-// uk.co.farowl.vsj4.core.CPython311CodeTest.assertExpectedVariables;
-// import static uk.co.farowl.vsj4.core.CPython311CodeTest.readCode;
-// import static
-// uk.co.farowl.vsj4.core.CPython311CodeTest.readResultDict;
+import static uk.co.farowl.vsj4.core.CPython311CodeTest.assertExpectedVariables;
+import static uk.co.farowl.vsj4.core.CPython311CodeTest.readCode;
+import static uk.co.farowl.vsj4.core.CPython311CodeTest.readResultDict;
 
 import java.util.Arrays;
 import java.util.EnumSet;
@@ -18,10 +16,11 @@ import java.util.HashMap;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import uk.co.farowl.vsj4.internal.Util;
 
@@ -115,38 +114,32 @@ class BuiltinsModuleTest extends UnitTestSupport {
             interp.eval(c, globals, locals);
         }
 
-        // TODO restore test exec(file)
+        /**
+         * A test of {@code builtins.exec} using code objects read from
+         * the {@code pythonExample} directory.
+         *
+         * @param name of the module to load
+         */
         @DisplayName("exec(file)")
-        @Test
-        @Disabled("CPython311Code not yet ported")
-        void testExecFile(String name) {}
-
-// /**
-// * A test of {@code builtins.exec} using code objects read from
-// * the {@code pythonExample} directory.
-// *
-// * @param name of the module to load
-// */
-// @DisplayName("exec(file)")
-// @ParameterizedTest(name = "{0}.py")
-// @ValueSource(strings = {"load_store_name", "unary_op",
-// "binary_op", "attr_access_builtin",
-// "call_method_builtin", "function_def", "function_call"})
-// void testExecFile(String name) {
-// // A code object to exec
-// CPython311Code code = readCode(name);
-// // Invokes the exec method
-// ActionHolder c = new ActionHolder("exec-file") {
-// @Override
-// Object body() throws Throwable {
-// Object f = interp.getBuiltin("exec");
-// return Callables.call(f, code);
-// }
-// };
-// Object r = interp.eval(c, globals);
-// assertEquals(Py.None, r);
-// assertExpectedVariables(readResultDict(name), globals);
-// }
+        @ParameterizedTest(name = "{0}.py")
+        @ValueSource(strings = {"load_store_name", "unary_op",
+                "binary_op", "attr_access_builtin",
+                "call_method_builtin", "function_def", "function_call"})
+        void testExecFile(String name) {
+            // A code object to exec
+            CPython311Code code = readCode(name);
+            // Invokes the exec method
+            ActionHolder c = new ActionHolder("exec-file") {
+                @Override
+                Object body() throws Throwable {
+                    Object f = interp.getBuiltin("exec");
+                    return Callables.call(f, code);
+                }
+            };
+            Object r = interp.eval(c, globals);
+            assertEquals(Py.None, r);
+            assertExpectedVariables(readResultDict(name), globals);
+        }
 
         @Test
         @DisplayName("globals")
