@@ -162,9 +162,8 @@ public abstract class Representation implements NewInstance {
 
     /**
      * Get the Python type of the object <i>given that</i> this is the
-     * representation object for it. The argument {@code x} is only
-     * needed when this is not a {@code SharedRepresentation}
-     * representation: {@code null} may be passed in those cases. A
+     * representation object for it. The argument {@code x} is only used
+     * when this is a {@code SharedRepresentation} representation. A
      * shared representation is not associated with a unique type, so in
      * that case {@code x} is consulted for the type, while a
      * {@code null} returns a {@code null} result.

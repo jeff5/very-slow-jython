@@ -155,7 +155,7 @@ public interface PyType extends NewInstance, WithClass, FastCall {
     /**
      * Fast check that an object of this type is a sequence, that is,
      * its type declares itself to have
-     * {@link Feature#SEQUENCE_PROTOCOL} in a Java definition. I will
+     * {@link Feature#SEQUENCE_PROTOCOL} in a Java definition. It will
      * also define {@code __getitem__} that should accept and index or
      * slice.
      *

@@ -19,6 +19,7 @@ import uk.co.farowl.vsj4.internal.EmptyException;
 import uk.co.farowl.vsj4.kernel.BaseType;
 import uk.co.farowl.vsj4.kernel.KernelTypeFlag;
 import uk.co.farowl.vsj4.kernel.Representation;
+import uk.co.farowl.vsj4.types.TypeFlag;
 
 /**
  * Abstract API for operations on sequence types, corresponding to
@@ -30,20 +31,21 @@ public class PySequence extends Abstract {
     PySequence() {}   // only static methods here
 
     /**
-     * {@code len(o)} with Python semantics.
+     * Return whether the object (its type, rather) provides the
+     * sequence protocol. Note that it returns {@code true} for Python
+     * classes with a {@code __getitem__} method, unless they are dict
+     * subclasses, since in general it is impossible to determine what
+     * type of keys the class supports.
      *
-     * @param o object to operate on
-     * @return {@code len(o)}
-     * @throws Throwable from invoked method implementations
+     * @param s of which to test the type
+     * @return whether the object provides the sequence protocol
      */
-    // Compare CPython PyObject_Size in abstract.c
-    public static int size(Object o) throws Throwable {
-        // Note that the slot is called op_len but this method, size.
-        try {
-            return (int)representation(o).op_len().invokeExact(o);
-        } catch (EmptyException e) {
-            throw typeError(HAS_NO_LEN, o);
-        }
+    // Compare CPython PySequence_check in abstract.c
+    static boolean check(Object s) {
+        Representation rep = representation(s);
+        return rep.hasFeature(s, TypeFlag.SEQUENCE_PROTOCOL)
+                || (rep.hasFeature(rep, KernelTypeFlag.HAS_GETITEM)
+                        && !rep.hasFeature(s, TypeFlag.DICT_SUBCLASS));
     }
 
     /**
@@ -301,10 +303,98 @@ public class PySequence extends Abstract {
         }
     }
 
+    /**
+     * Return the number of occurrences of {@code value} in {@code o},
+     * that is, return the number of keys for which o[key] == value. On
+     * a list-like {@code o} this is equivalent to the Python expression
+     * {@code o.count(value)}, but for a string {@code o}, it is
+     * equivalent only if {@code value} is a single character of a type
+     * comparable with {@code o}.
+     *
+     * @param o sequence to search
+     * @param value to find
+     * @return count of {@code value} in {@code o}
+     * @throws PyBaseException on overflow or type errors
+     * @throws Throwable on other errors in iteration or comparison
+     */
+    public static int count(Object o, Object value)
+            throws PyBaseException, Throwable {
+        // Iterate and count the matches
+        int n = 0;
+        for (Object item : getIterable(o)) {
+            if (richCompareBool(value, item, Comparison.EQ)) {
+                if (n < Integer.MAX_VALUE) {
+                    n += 1;
+                } else {
+                    throw PyErr.format(PyExc.OverflowError, "count",
+                            "%s exceeds Java integer size");
+                }
+            }
+        }
+        return n;
+    }
+
+    /**
+     * Return the index of the first occurrences of {@code value} in
+     * {@code o}, that is, return the first key for which o[key] ==
+     * value. On failure to find, raise a Python {@code ValueError}. On
+     * a list-like {@code o} this is equivalent to the Python expression
+     * {@code o.index(value)}, but for a string {@code o}, it is
+     * equivalent only if {@code value} is a single character of a type
+     * comparable with {@code o}.
+     *
+     * @param o sequence to search
+     * @param value to find
+     * @return count of {@code value} in {@code o}
+     * @throws PyBaseException (ValueError) if not found, or overflow or
+     *     type errors as appropriate
+     * @throws Throwable on other errors in iteration or comparison
+     */
+    public static int index(Object o, Object value)
+            throws PyBaseException, Throwable {
+        // Iterate and count the items until a match
+        int n = 0;
+        for (Object item : getIterable(o)) {
+            if (richCompareBool(value, item, Comparison.EQ)) {
+                return n;
+            }
+            if (n < Integer.MAX_VALUE) {
+                n += 1;
+            } else {
+                throw PyErr.format(PyExc.OverflowError, "index",
+                        "%s exceeds Java integer size");
+            }
+        }
+        throw PyErr.format(PyExc.ValueError,
+                "sequence.index(x): x not in sequence");
+    }
+
+    /**
+     * Return whether {@code value} in {@code o}, that is, there is a
+     * key for which o[key] == value. On a list-like {@code o} this is
+     * equivalent to the Python expression {@code value in o}, but for a
+     * string {@code o}, it is equivalent only if {@code value} is a
+     * single character of a type comparable with {@code o}.
+     *
+     * @param o sequence to search
+     * @param value to find
+     * @return count of {@code value} in {@code o}
+     * @throws PyBaseException on overflow or type errors
+     * @throws Throwable on other errors in iteration or comparison
+     */
+    public static boolean contains(Object o, Object value)
+            throws PyBaseException, Throwable {
+        // Iterate until an item match
+        for (Object item : getIterable(o)) {
+            if (richCompareBool(value, item, Comparison.EQ)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     // Strings for constructing error messages ------------------------
 
-    static final String HAS_NO_LEN =
-            "object of type '%.200s' has no len()";
     private static final String NOT_SUBSCRIPTABLE =
             "'%.200s' object is not subscriptable";
     private static final String NOT_SLICEABLE =
@@ -996,8 +1086,8 @@ public class PySequence extends Abstract {
 
         // Create an iterator on o and a bound handle on __next__
         Object iter = getIterator(o);
-        Representation iterOps = representation(iter);
-        MethodHandle next = iterOps.op_next().bindTo(iter);
+        Representation iterRep = representation(iter);
+        MethodHandle next = iterRep.op_next().bindTo(iter);
 
         // Iterate o into the collection
         R r = factory.get();

@@ -15,6 +15,7 @@ import java.util.Spliterator;
 import java.util.Spliterators;
 import java.util.function.Function;
 import java.util.function.IntUnaryOperator;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.StreamSupport;
@@ -2631,7 +2632,7 @@ public class PyUnicode implements WithClass, PyDict.Key {
 
         static final PyType TYPE = PyType.fromSpec(
                 new TypeSpec("str_iterator", MethodHandles.lookup())
-                        .remove(Feature.BASETYPE));
+                        .remove(Feature.INSTANTIABLE));
 
         private final CodepointIterator iterator;
 
@@ -2642,14 +2643,16 @@ public class PyUnicode implements WithClass, PyDict.Key {
         @Override
         public PyType getType() { return TYPE; }
 
-        // special methods -------------------------------------------
+        @Override
+        public boolean hasNext() { return iterator.hasNext(); }
 
         @Override
-        Object __next__() throws Throwable {
+        <E extends RuntimeException> Object next(Supplier<E> exc)
+                throws E {
             if (iterator.hasNext()) {
                 return PyUnicode.fromCodePoint(iterator.next());
             }
-            throw new PyStopIteration();
+            throw exc.get();
         }
     }
 
@@ -2689,20 +2692,6 @@ public class PyUnicode implements WithClass, PyDict.Key {
         StringBuilder b = new StringBuilder();
         for (int c : delegate) { b.appendCodePoint(c); }
         return b.toString();
-    }
-
-    /**
-     * Test whether a string contains no characters above the BMP range,
-     * that is, any characters that require surrogate pairs to represent
-     * them. The method returns {@code true} if and only if the string
-     * consists entirely of BMP characters or is empty.
-     *
-     * @param s the string to test
-     * @return whether contains no non-BMP characters
-     */
-    private static boolean isBMP(String s) {
-        return s.codePoints().dropWhile(Character::isBmpCodePoint)
-                .findFirst().isEmpty();
     }
 
     /**

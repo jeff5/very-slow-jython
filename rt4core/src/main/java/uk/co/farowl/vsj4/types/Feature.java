@@ -90,13 +90,17 @@ public enum Feature {
      * the feature {@code SEQUENCE_PROTOCOL}, its instances will be
      * treated as a mapping and not a sequence.
      * <p>
+     * Only a type defined in Java has this possibility. A type defined
+     * in Python will be accepted as a mapping if it defines
+     * {@code __getitem__}.
+     * <p>
      * In general, an indexing operation in Python leads to a call to
      * implementation of {@code __getitem__}, which will treat an index,
      * slice or key object (like a name) appropriately to its type. If
      * the receiving object is a sequence, only a numerical index or
      * slice will be valid. In a few places (e.g. in the implementation
      * of {@code exec}) the interpreter is required to check before use
-     * that an object will accept object keys.
+     * that an object will accept object keys (is a mapping).
      */
     /*
      * The sense of this Feature reflects the default of CPython, which

@@ -3,6 +3,7 @@
 package uk.co.farowl.vsj4.core;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
@@ -35,46 +36,91 @@ class AbstractSequenceAPITest extends UnitTestSupport {
 
     /**
      * Provide a stream of examples as parameter sets to the tests of
-     * methods that search or concatenate their arguments. Each argument
-     * object provides a reference value and a test object compatible
-     * with the parameterised test methods.
+     * methods that concatenate their arguments (or slice one). Each
+     * argument object provides a reference value and a test object
+     * compatible with the parameterised test methods.
      *
-     * @return the examples for non-mutating tests.
+     * @return the examples for concatenate and slice tests.
      */
-    static Stream<Arguments> readableProvider() {
+    static Stream<Arguments> concatProvider() {
         return Stream.of(//
-                bytesExample("", "abc"), //
-                bytesExample("a", "bc"), //
-                bytesExample("café", " crème"), // bytes > 127
-                tupleExample(Collections.emptyList(), List.of(42)), //
-                tupleExample(List.of(42), Collections.emptyList()), //
-                tupleExample(
+                bytesConcat("", "abc"), //
+                bytesConcat("a", "bc"), //
+                bytesConcat("café", " crème"), // bytes > 127
+                tupleConcat(Collections.emptyList(), List.of(42)), //
+                tupleConcat(List.of(42), Collections.emptyList()), //
+                tupleConcat(
                         List.of(-1, 0, 1, 42 * 42, "y", -1e42, 42 * 42),
                         List.of("y", -1, 42 * 42)), //
-                tupleExample(List.of(Py.None, 1, PyLong.TYPE),
+                tupleConcat(List.of(Py.None, 1, PyLong.TYPE),
                         List.of("other", List.of(1, 2, 3))), //
-                stringExample("a", "bc"), //
-                stringExample("", "abc"), //
-                stringExample("Σωκρατικὸς", " λόγος"), //
-                unicodeExample("a", "bc"), //
-                unicodeExample("", "abc"), //
-                unicodeExample("Σωκρατικὸς", " λόγος"), //
-                unicodeExample("画蛇", "添足"), //
+                stringConcat("a", "bc"), //
+                stringConcat("", "abc"), //
+                stringConcat("Σωκρατικὸς", " λόγος"), //
+                unicodeConcat("a", "bc"), //
+                unicodeConcat("", "abc"), //
+                unicodeConcat("Σωκρατικὸς", " λόγος"), //
+                unicodeConcat("画蛇", "添足"), //
                 /*
                  * The following contain non-BMP characters 🐍=U+1F40D
                  * and 🦓=U+1F993, each of which Python must consider to
                  * be a single character.
                  */
                 // In the Java String realisation each is two chars
-                stringExample("one 🐍", "🦓 two"),  // 🐍=\ud83d\udc0d
-                stringExample("🐍🦓", ""), // 🐍=\ud83d\udc0d
+                stringConcat("one 🐍", "🦓 two"),  // 🐍=\ud83d\udc0d
+                stringConcat("🐍🦓", ""), // 🐍=\ud83d\udc0d
                 // In the PyUnicode realisation each is one int
-                unicodeExample("one 🐍", "🦓 two"), // 🐍=U+1F40D
-                unicodeExample("🐍🦓", ""),  // 🐍=U+1F40D
+                unicodeConcat("one 🐍", "🦓 two"), // 🐍=U+1F40D
+                unicodeConcat("🐍🦓", ""),  // 🐍=U+1F40D
                 // Surrogate concatenation should not create U+1F40D
-                stringExample("\udc0d A \ud83d", "\udc0d B"),
-                unicodeExample("\udc0d A \ud83d", "\udc0d B"));
+                stringConcat("\udc0d A \ud83d", "\udc0d B"),
+                unicodeConcat("\udc0d A \ud83d", "\udc0d B"));
     }
+
+    /**
+     * Provide a stream of examples as parameter sets to the tests of
+     * methods that count or find their arguments. Each argument object
+     * provides test objects compatible with the parameterised test
+     * methods.
+     *
+     * @return the examples for concatenate and slice tests.
+     */
+    static Stream<Arguments> findProvider() {
+
+        return Stream.of(//
+                // TODO: test sequence count/find operations
+                unicodeFind("abc", "b", 1, 1),
+                unicodeFind("abracadabra", "a", 5, 0), //
+                unicodeFind("abracadabra", "r", 2, 2), //
+                unicodeFind("abracadabra", "x", 0, 0), //
+                unicodeFind("abracadabra", "bra", 0, 0),//
+                unicodeFind("123", 3, 0, -1),//
+                unicodeFind("画蛇添足", "蛇", 1, 1), //
+                tupleFind(List.of(1, 2, 3), 2, 1, 1), //
+                tupleFind(List.of(), 42, 0, 0), //
+                tupleFind(List.of("a", "b", "c", "b"), "b", 2, 1), //
+                tupleFind(List.of(42.0, 42, "42"), 42, 2, 0), //
+                listFind(List.of(1, 2, 3), 2, 1, 1), //
+                listFind(List.of(), 42, 0, 0), //
+                listFind(List.of("a", "b", "c", "b"), "b", 2, 1), //
+                listFind(List.of(42.0, 42, "42"), 42, 2, 0));
+    }
+
+    /**
+     * Provide a stream of examples as parameter sets to the tests of
+     * methods that mutate their arguments (set or delete an item or
+     * slice). Each argument object provides test objects compatible
+     * with the parameterised test methods.
+     *
+     * @return the examples for mutation tests.
+     */
+    static Stream<Arguments> mutationProvider() {
+        return Stream.of(//
+        // TODO: test sequence mutation operations
+        );
+    }
+
+    // concat-family tests -------------------------------------------
 
     /**
      * Construct an example with two Python {@code bytes} objects, from
@@ -86,9 +132,9 @@ class AbstractSequenceAPITest extends UnitTestSupport {
      * @param t to encode to bytes ({@code other})
      * @return the example (a reference value, test object, and other)
      */
-    static Arguments bytesExample(String s, String t) {
+    static Arguments bytesConcat(String s, String t) {
         try {
-            return bytesExample(s.getBytes("UTF-8"),
+            return bytesConcat(s.getBytes("UTF-8"),
                     t.getBytes("UTF-8"));
         } catch (UnsupportedEncodingException e) {
             fail("failed to encode bytes");
@@ -106,7 +152,7 @@ class AbstractSequenceAPITest extends UnitTestSupport {
      * @param b the other bytes
      * @return the example (a reference value, test object, and other)
      */
-    static Arguments bytesExample(byte[] a, byte[] b) {
+    static Arguments bytesConcat(byte[] a, byte[] b) {
         ArrayList<Object> vv = new ArrayList<>(a.length);
         for (byte x : a) { vv.add(x & 0xff); }
         ArrayList<Object> ww = new ArrayList<>(b.length);
@@ -125,7 +171,7 @@ class AbstractSequenceAPITest extends UnitTestSupport {
      * @param b the objects for the other
      * @return the example (a reference value, test object, and other)
      */
-    static Arguments tupleExample(List<?> a, List<?> b) {
+    static Arguments tupleConcat(List<?> a, List<?> b) {
         Object v = new PyTuple(a), w = new PyTuple(b);
         return arguments(PyType.of(v).getName(), a, v, b, w);
     }
@@ -140,7 +186,7 @@ class AbstractSequenceAPITest extends UnitTestSupport {
      * @param b a second Python sequence as the other argument
      * @return the example (a reference value, test object, and other)
      */
-    static Arguments stringExample(String a, String b) {
+    static Arguments stringConcat(String a, String b) {
         // The sequence element of a str is a str of one char.
         List<Object> aa = listCodePoints(a);
         List<Object> bb = listCodePoints(b);
@@ -157,7 +203,7 @@ class AbstractSequenceAPITest extends UnitTestSupport {
      * @param b a second Python sequence as the other argument
      * @return the example (a reference value, test object, and other)
      */
-    static Arguments unicodeExample(String a, String b) {
+    static Arguments unicodeConcat(String a, String b) {
         // The sequence element of a str is a str of one code point.
         List<Object> vv = listCodePoints(a);
         List<Object> ww = listCodePoints(b);
@@ -184,7 +230,7 @@ class AbstractSequenceAPITest extends UnitTestSupport {
      */
     @DisplayName("PySequence.size")
     @ParameterizedTest(name = "{0}: size({2})")
-    @MethodSource("readableProvider")
+    @MethodSource("concatProvider")
     @SuppressWarnings("static-method")
     void supports_size(String type, List<Object> ref, Object obj)
             throws Throwable {
@@ -206,7 +252,7 @@ class AbstractSequenceAPITest extends UnitTestSupport {
      */
     @DisplayName("PySequence.getItem(int)")
     @ParameterizedTest(name = "{0}: getItem({2}, i)")
-    @MethodSource("readableProvider")
+    @MethodSource("concatProvider")
     @SuppressWarnings("static-method")
     void supports_getItem(String type, List<Object> ref, Object obj)
             throws Throwable {
@@ -236,7 +282,7 @@ class AbstractSequenceAPITest extends UnitTestSupport {
      */
     @DisplayName("PySequence.getItem(slice)")
     @ParameterizedTest(name = "{0}: getItem({2}, slice(p,q,s))")
-    @MethodSource("readableProvider")
+    @MethodSource("concatProvider")
     @SuppressWarnings("static-method")
     void supports_getItemSlice(String type, List<Object> ref,
             Object obj) throws Throwable {
@@ -304,7 +350,7 @@ class AbstractSequenceAPITest extends UnitTestSupport {
      */
     @DisplayName("PySequence.concat")
     @ParameterizedTest(name = "{0}: concat({2}, {4})")
-    @MethodSource("readableProvider")
+    @MethodSource("concatProvider")
     @SuppressWarnings("static-method")
     void supports_concat(String type, List<Object> ref, Object obj,
             List<Object> ref2, Object obj2) throws Throwable {
@@ -332,7 +378,7 @@ class AbstractSequenceAPITest extends UnitTestSupport {
      */
     @DisplayName("PySequence.repeat")
     @ParameterizedTest(name = "{0}: repeat({2}, n)")
-    @MethodSource("readableProvider")
+    @MethodSource("concatProvider")
     @SuppressWarnings("static-method")
     void supports_repeat(String type, List<Object> ref, Object obj)
             throws Throwable {
@@ -382,7 +428,7 @@ class AbstractSequenceAPITest extends UnitTestSupport {
      */
     @DisplayName("PySequence.getSlice")
     @ParameterizedTest(name = "{0}: getSlice({2}, p, q)")
-    @MethodSource("readableProvider")
+    @MethodSource("concatProvider")
     @SuppressWarnings("static-method")
     void supports_getSlice(String type, List<Object> ref, Object obj)
             throws Throwable {
@@ -496,7 +542,7 @@ class AbstractSequenceAPITest extends UnitTestSupport {
      */
     @DisplayName("PySequence.tuple")
     @ParameterizedTest(name = "{0}: tuple({2})")
-    @MethodSource("readableProvider")
+    @MethodSource("concatProvider")
     @SuppressWarnings("static-method")
     void supports_tuple(String type, List<Object> ref, Object obj)
             throws Throwable {
@@ -514,7 +560,7 @@ class AbstractSequenceAPITest extends UnitTestSupport {
      */
     @DisplayName("PySequence.list")
     @ParameterizedTest(name = "{0}: list({2})")
-    @MethodSource("readableProvider")
+    @MethodSource("concatProvider")
     @SuppressWarnings("static-method")
     void supports_list(String type, List<Object> ref, Object obj)
             throws Throwable {
@@ -549,7 +595,7 @@ class AbstractSequenceAPITest extends UnitTestSupport {
      */
     @DisplayName("PySequence.fastList (Java API)")
     @ParameterizedTest(name = "{0}: fastList({2})")
-    @MethodSource("readableProvider")
+    @MethodSource("concatProvider")
     @SuppressWarnings("static-method")
     void supports_fastList(String type, List<Object> ref, Object obj)
             throws Throwable {
@@ -575,36 +621,111 @@ class AbstractSequenceAPITest extends UnitTestSupport {
         }
     }
 
+    // find-family tests -------------------------------------------
+
+    /**
+     * Construct an example with a Python {@code str} and an
+     * {@code object} for testing {@code count}, {@code contains} and
+     * {@code index}, and the reference answers for {@code count} and
+     * {@code index}. {@code str} is implemented by a {@code PyUnicode}.
+     *
+     * @param o the String to treat as a Python sequence
+     * @param value to find
+     * @param count number of occurrences of {@code value}
+     * @param index of first occurrence (ignored if {@code count==0})
+     * @return the example (a reference value, test object, and others)
+     */
+    static Arguments unicodeFind(String o, Object value, int count,
+            int index) {
+        // The sequence element of a str is a str of one code point.
+        List<Object> oo = listCodePoints(o);
+        if (count == 0) { index = -1; }
+        return arguments("str(PyUnicode)", o, oo, value, count, index);
+    }
+
+    /**
+     * Construct an example with a Python {@code tuple} and an
+     * {@code object} for testing {@code count}, {@code contains} and
+     * {@code index}, and the reference answers for {@code count} and
+     * {@code index}.
+     *
+     * @param oo the values for the {@code tuple} Python sequence
+     * @param value to find
+     * @param count number of occurrences of {@code value}
+     * @param index of first occurrence (ignored if {@code count==0})
+     * @return the example (a reference value, test object, and others)
+     */
+    static Arguments tupleFind(List<Object> oo, Object value, int count,
+            int index) {
+        // The sequence element of a str is a str of one code point.
+        PyTuple o = PyTuple.from(oo);
+        if (count == 0) { index = -1; }
+        return arguments("tuple", o, oo, value, count, index);
+    }
+
+    /**
+     * Construct an example with a Python {@code list} and an
+     * {@code object} for testing {@code count}, {@code contains} and
+     * {@code index}, and the reference answers for {@code count} and
+     * {@code index}.
+     *
+     * @param oo the values for the {@code list} Python sequence
+     * @param value to find
+     * @param count number of occurrences of {@code value}
+     * @param index of first occurrence (ignored if {@code count==0})
+     * @return the example (a reference value, test object, and others)
+     */
+    static Arguments listFind(List<Object> oo, Object value, int count,
+            int index) {
+        // The sequence element of a str is a str of one code point.
+        PyList o = new PyList(oo);
+        if (count == 0) { index = -1; }
+        return arguments("list", o, oo, value, count, index);
+    }
+
     /**
      * Test {@link PySequence#count(Object, Object) PySequence.count}
      */
-    @Test
-    @Disabled("Test not implemented")
-    void supports_count(String type, List<Object> ref, Object obj)
-            throws Throwable {
-        fail("not implemented");
+    @DisplayName("PySequence.count")
+    @ParameterizedTest(name = "{0}: count({1}, {3})")
+    @MethodSource("findProvider")
+    @SuppressWarnings("static-method")
+    void supports_count(String type, Object o, List<Object> oo,
+            Object value, int count, int index) throws Throwable {
+        int r = PySequence.count(o, value);
+        assertEquals(count, r);
     }
 
     /**
      * Test {@link PySequence#contains(Object, Object)
      * PySequence.contains}
      */
-    @Test
-    @Disabled("Test not implemented")
-    void supports_contains(String type, List<Object> ref, Object obj)
-            throws Throwable {
-        fail("not implemented");
+    @DisplayName("PySequence.contains")
+    @ParameterizedTest(name = "{0}: contains({1}, {3})")
+    @MethodSource("findProvider")
+    @SuppressWarnings("static-method")
+    void supports_contains(String type, Object o, List<Object> oo,
+            Object value, int count, int index) throws Throwable {
+        boolean r = PySequence.contains(o, value);
+        assertEquals(count > 0, r);
     }
 
     // Not to be confused with PyNumber.index
     /**
      * Test {@link PySequence#index(Object, Object) PySequence.index}
      */
-    @Test
-    @Disabled("Test not implemented")
-    void supports_index(String type, List<Object> ref, Object obj)
-            throws Throwable {
-        fail("not implemented");
+    @DisplayName("PySequence.index")
+    @ParameterizedTest(name = "{0}: index({1}, {3})")
+    @MethodSource("findProvider")
+    @SuppressWarnings("static-method")
+    void supports_index(String type, Object o, List<Object> oo,
+            Object value, int count, int index) throws Throwable {
+        try {
+            int r = PySequence.index(o, value);
+            assertEquals(index, r);
+        } catch (PyBaseException e) {
+            assertSame(PyExc.ValueError, e.getType());
+        }
     }
 
 }

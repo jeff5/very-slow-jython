@@ -30,7 +30,9 @@ public class PyMapping extends PySequence {
      * @return whether {@code type(o)} is a mapping
      */
     // Compare CPython PyMapping_Check in abstract.c
-    static boolean check(Object o) { return PyType.of(o).isMapping(); }
+    public static boolean check(Object o) {
+        return PyType.of(o).isMapping();
+    }
 
     /**
      * Return the mapping object {@code o} as a Java {@code Map}. If
