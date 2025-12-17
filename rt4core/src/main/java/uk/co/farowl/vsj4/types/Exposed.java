@@ -185,7 +185,14 @@ public interface Exposed {
 
     /**
      * Specify the documentation string ({@code __doc__}) for a method,
-     * field, etc. defined in Java and exposed to Python.
+     * field, etc. defined in Java and exposed to Python. For reference,
+     * a multi-line documentation string is correctly specified like
+     * this:<pre>
+     * &#64;DocString("""
+     *     Return first index of value.
+     *
+     *     Raises ValueError if the value is not present.""")
+     * </pre>
      */
     @Documented
     @Retention(RUNTIME)

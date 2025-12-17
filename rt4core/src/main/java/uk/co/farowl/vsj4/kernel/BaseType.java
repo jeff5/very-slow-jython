@@ -1387,7 +1387,7 @@ public abstract sealed class BaseType extends KernelType implements
     // Compare CPython mro_invoke in typeobject.c
     // Unlike CPython, we return an array, avoiding PyTuple.
     private BaseType[] mro_invoke() throws Throwable {
-        logger.atDebug().setMessage("calculating __mro__ of {}")
+        logger.atTrace().setMessage("calculating __mro__ of {}")
                 .addArgument(name).log();
         BaseType[] newMRO = null;
         SimpleType typeType = typeType();

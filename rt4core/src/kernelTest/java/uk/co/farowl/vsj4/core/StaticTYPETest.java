@@ -377,7 +377,7 @@ class StaticTYPETest {
                 action();
             } catch (Throwable e) {
                 logger.atWarn().setMessage("action() threw {}")
-                        .addArgument(e).log();
+                        .addArgument(e.toString()).log();
             }
             firstNanoTime = System.nanoTime();
             otherActions();

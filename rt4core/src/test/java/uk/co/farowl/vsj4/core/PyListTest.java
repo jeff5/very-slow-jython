@@ -93,7 +93,7 @@ class PyListTest extends UnitTestSupport {
         void insert(List<Object> without, List<Object> with, List<Object> front, List<Object> back,
                 Object needle, int index) throws Throwable {
             PyList list = new PyList(without);
-            list.list_insert(index, needle);
+            list.insert(index, needle);
             assertEquals(with, list);
         }
 

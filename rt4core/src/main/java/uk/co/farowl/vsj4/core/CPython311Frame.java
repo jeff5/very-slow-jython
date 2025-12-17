@@ -238,6 +238,10 @@ class CPython311Frame extends PyFrame<CPython311Code> {
                         fastlocals[oparg] = s[--sp];
                         break;
 
+                    case Opcode311.POP_TOP:
+                        sp -= 1;
+                        break;
+
                     case Opcode311.PUSH_NULL:
                         s[sp++] = null;
                         break;
@@ -474,7 +478,7 @@ class CPython311Frame extends PyFrame<CPython311Code> {
                     case Opcode311.LIST_EXTEND: {
                         Object iterable = s[--sp];
                         PyList list = (PyList)s[sp - oparg];
-                        list.list_extend(iterable, () -> Abstract
+                        list.extend(iterable, () -> Abstract
                                 .typeError(VALUE_AFTER_STAR, iterable));
                         break;
                     }
