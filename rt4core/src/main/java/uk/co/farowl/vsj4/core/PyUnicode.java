@@ -241,13 +241,10 @@ public class PyUnicode implements WithClass, PyDict.Key {
 
     // Special methods -----------------------------------------------
 
-    @SuppressWarnings("unused")
     Object __str__() { return this; }
 
-    @SuppressWarnings("unused")
     static Object __str__(String self) { return self; }
 
-    @SuppressWarnings("unused")
     static Object __repr__(Object self) {
         try {
             // Ok, it should be more complicated but I'm in a hurry.
@@ -264,7 +261,6 @@ public class PyUnicode implements WithClass, PyDict.Key {
      */
     int __len__() { return value.length; }
 
-    @SuppressWarnings("unused")
     static int __len__(String self) {
         return self.codePointCount(0, self.length());
     }
@@ -275,7 +271,6 @@ public class PyUnicode implements WithClass, PyDict.Key {
      * {@code str} may be found as a match in hashed data structures,
      * whichever representation is used for the key or query.
      */
-    @SuppressWarnings("unused")
     int __hash__() {
         // Reproduce on value the hash defined for java.lang.String
         if (hash == 0 && value.length > 0) {
@@ -296,25 +291,20 @@ public class PyUnicode implements WithClass, PyDict.Key {
         return hash;
     }
 
-    @SuppressWarnings("unused")
     static int __hash__(String self) { return self.hashCode(); }
 
-    @SuppressWarnings("unused")
     Object __getitem__(Object item) throws Throwable {
         return delegate.__getitem__(item);
     }
 
-    @SuppressWarnings("unused")
     static Object __getitem__(String self, Object item)
             throws Throwable {
         StringAdapter delegate = adapt(self);
         return delegate.__getitem__(item);
     }
 
-    @SuppressWarnings("unused")
     boolean __contains__(Object o) { return contains(delegate, o); }
 
-    @SuppressWarnings("unused")
     static boolean __contains__(String self, Object o) {
         return contains(adapt(self), o);
     }
@@ -332,22 +322,18 @@ public class PyUnicode implements WithClass, PyDict.Key {
     private static final String IN_STRING_TYPE =
             "'in <string>' requires string as left operand, not %s";
 
-    @SuppressWarnings("unused")
     Object __add__(Object w) throws Throwable {
         return delegate.__add__(w);
     }
 
-    @SuppressWarnings("unused")
     static Object __add__(String v, Object w) throws Throwable {
         return adapt(v).__add__(w);
     }
 
-    @SuppressWarnings("unused")
     Object __radd__(Object v) throws Throwable {
         return delegate.__radd__(v);
     }
 
-    @SuppressWarnings("unused")
     static Object __radd__(String w, Object v) throws Throwable {
         return adapt(w).__radd__(v);
     }
@@ -360,18 +346,14 @@ public class PyUnicode implements WithClass, PyDict.Key {
         return adapt(self).__mul__(n);
     }
 
-    @SuppressWarnings("unused")
     Object __rmul__(Object n) throws Throwable { return __mul__(n); }
 
-    @SuppressWarnings("unused")
     static Object __rmul__(String self, Object n) throws Throwable {
         return __mul__(self, n);
     }
 
-    @SuppressWarnings("unused")
     Object __iter__() { return new PyStrIterator(delegate); }
 
-    @SuppressWarnings("unused")
     static Object __iter__(String self) {
         return new PyStrIterator(adapt(self));
     }
@@ -2327,7 +2309,6 @@ public class PyUnicode implements WithClass, PyDict.Key {
     private static boolean islower(PySequence.OfInt s) {
         boolean cased = false;
         for (int codepoint : s) {
-            ;
             if (Character.isUpperCase(codepoint)
                     || Character.isTitleCase(codepoint)) {
                 return false;
@@ -2347,7 +2328,6 @@ public class PyUnicode implements WithClass, PyDict.Key {
     private static boolean isupper(PySequence.OfInt s) {
         boolean cased = false;
         for (int codepoint : s) {
-            ;
             if (Character.isLowerCase(codepoint)
                     || Character.isTitleCase(codepoint)) {
                 return false;
@@ -2396,14 +2376,16 @@ public class PyUnicode implements WithClass, PyDict.Key {
      * @return {@code false} iff any character not ASCII.
      */
     @PythonMethod(primary = false)
+    // The instinctive pattern is to make the first one primary.
+    // But it shouldn't matter. Let's check that.
+    public boolean isascii() { return range == Range.ASCII; }
+
+    @PythonMethod
     @DocString("""
             Return False iff the string contains any non-ASCII characters.
 
             ASCII characters have code points in the range U+0000-U+007F.
             An empty string returns True.""")
-    public boolean isascii() { return range == Range.ASCII; }
-
-    @PythonMethod
     static boolean isascii(String self) {
         // We can test chars since any surrogate will fail.
         return self.chars().dropWhile(c -> c >>> 7 == 0).findFirst()
@@ -2419,7 +2401,6 @@ public class PyUnicode implements WithClass, PyDict.Key {
     private static boolean isdecimal(PySequence.OfInt s) {
         if (s.length() == 0) { return false; }
         for (int codepoint : s) {
-            ;
             if (Character.getType(
                     codepoint) != Character.DECIMAL_DIGIT_NUMBER) {
                 return false;
@@ -2437,7 +2418,6 @@ public class PyUnicode implements WithClass, PyDict.Key {
     private static boolean isdigit(PySequence.OfInt s) {
         if (s.length() == 0) { return false; }
         for (int codepoint : s) {
-            ;
             if (!Character.isDigit(codepoint)) { return false; }
         }
         return true;
@@ -2947,7 +2927,7 @@ public class PyUnicode implements WithClass, PyDict.Key {
         private boolean isBMP() { return length == s.length(); }
 
         @Override
-        public int length() { return length; };
+        public int length() { return length; }
 
         @Override
         public int getInt(int i) {
