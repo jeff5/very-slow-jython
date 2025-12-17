@@ -98,7 +98,7 @@ class ModuleExposerMethodTest extends UnitTestSupport {
          * Call the function using the {@code __call__} special method
          * and an unexpected keyword: where none is expected, for a
          * positional argument, or simply an unacceptable name. The
-         * function should throw {@link TypeError}.
+         * function should throw {@link PyExc#TypeError TypeError}.
          *
          * @throws Throwable unexpectedly
          */

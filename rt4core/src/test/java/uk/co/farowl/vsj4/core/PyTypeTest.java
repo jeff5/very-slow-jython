@@ -347,7 +347,7 @@ class PyTypeTest extends UnitTestSupport {
          * @param name of the new type
          * @param bases to the new type
          * @param namespace for the new type
-         * @param test to apply to the result
+         * @param tests to apply to the result
          * @param strMetatype string form of {@code metatype}
          * @param strBases string form of {@code bases}
          * @param strNamespace string form of {@code namespace}

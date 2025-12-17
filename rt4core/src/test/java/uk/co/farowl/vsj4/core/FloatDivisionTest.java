@@ -36,7 +36,10 @@ class FloatDivisionTest extends UnitTestSupport {
         }
     }
 
-    /** Test raising {@link ZeroDivisionError} from division. */
+    /**
+     * Test raising {@link PyExc#ZeroDivisionError ZeroDivisionError}
+     * from division.
+     */
     @SuppressWarnings("static-method")
     @Test
     void testDivideByZero() {
@@ -61,7 +64,10 @@ class FloatDivisionTest extends UnitTestSupport {
         }
     }
 
-    /** Test raising {@link ZeroDivisionError} from remainder. */
+    /**
+     * Test raising {@link PyExc#ZeroDivisionError ZeroDivisionError}
+     * from remainder.
+     */
     @SuppressWarnings("static-method")
     @Test
     void testModuloByZero() {
@@ -103,8 +109,8 @@ class FloatDivisionTest extends UnitTestSupport {
     }
 
     /**
-     * Test raising {@link ZeroDivisionError} from division and modulus
-     * combined.
+     * Test raising {@link PyExc#ZeroDivisionError ZeroDivisionError}
+     * from division and modulus combined.
      */
     @SuppressWarnings("static-method")
     @Test
@@ -154,7 +160,8 @@ class FloatDivisionTest extends UnitTestSupport {
         }
 
         /**
-         * A case where a {@link ZeroDivisionError} should be thrown.
+         * A case where a {@link PyExc#ZeroDivisionError
+         * ZeroDivisionError} should be thrown.
          *
          * @param x dividend
          * @param y divisor
@@ -187,7 +194,8 @@ class FloatDivisionTest extends UnitTestSupport {
         }
 
         /**
-         * Test that a {@link ZeroDivisionError} is be thrown.
+         * Test that a {@link PyExc#ZeroDivisionError ZeroDivisionError}
+         * is be thrown.
          *
          * @param result of the invocation
          */

@@ -83,12 +83,12 @@ class SubclassCreationTest {
      * arguments).
      * <p>
      * This allows us to test code generation, while we simulate (in
-     * {@link #bareExample(Class, String, List, boolean, List)}) actions
-     * that {@code type.__new__} and the type factory should carry out
-     * when not broken. Our reference result is one of the classes in
-     * this file named {@code HCD_*} or {@code HCS_*}, where we express
-     * in Java, the code equivalent to that which should be generated
-     * for the examples.
+     * {@link BareJavaRepresentation#bareExamples()}) actions that
+     * {@code type.__new__} and the type factory should carry out when
+     * not broken. Our reference result is one of the classes in this
+     * file named {@code HCD_*} or {@code HCS_*}, where we express in
+     * Java, the code equivalent to that which should be generated for
+     * the examples.
      * <p>
      * See {@link DynamicBase} for a parallel test going via
      * capabilities in the type object.

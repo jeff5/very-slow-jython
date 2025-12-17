@@ -88,7 +88,7 @@ class TypeExposerMethodTest extends UnitTestSupport {
          * Call the method using the {@code __call__} special method and
          * an unexpected keyword: where none is expected, for a
          * positional argument, or simply an unacceptable name. The
-         * method should throw {@link TypeError}.
+         * method should throw {@link PyExc#TypeError TypeError}.
          *
          * @throws Throwable unexpectedly
          */

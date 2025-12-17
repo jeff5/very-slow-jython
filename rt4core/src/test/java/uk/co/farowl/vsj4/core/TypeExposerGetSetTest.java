@@ -707,7 +707,7 @@ class TypeExposerGetSetTest extends UnitTestSupport {
          * Attempting to delete the get-set attribute, where it has a
          * setter but no deleter, from an instance of the object,
          * through {@link Abstract#delAttr(Object, String)}, raises
-         * {@link TypeError}.
+         * {@link PyExc#TypeError TypeError}.
          */
         @Test
         void rejects_abstract_delAttr() {
@@ -1684,7 +1684,7 @@ class TypeExposerGetSetTest extends UnitTestSupport {
          * Attempting to delete a get-set attribute, where it has no
          * setter or deleter (is read-only), from an instance of the
          * object, through {@link Abstract#delAttr(Object, String)},
-         * raises {@link PyAttributeError}.
+         * raises {@link PyAttributeError AttributeError }.
          */
         @Test
         void rejects_abstract_delAttr() {

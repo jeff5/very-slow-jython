@@ -27,6 +27,7 @@ import uk.co.farowl.vsj4.stringlib.IntArrayBuilder;
 import uk.co.farowl.vsj4.stringlib.IntArrayReverseBuilder;
 import uk.co.farowl.vsj4.support.InterpreterError;
 import uk.co.farowl.vsj4.types.Exposed.Default;
+import uk.co.farowl.vsj4.types.Exposed.DocString;
 import uk.co.farowl.vsj4.types.Exposed.Name;
 import uk.co.farowl.vsj4.types.Exposed.PythonMethod;
 import uk.co.farowl.vsj4.types.Feature;
@@ -2389,7 +2390,17 @@ public class PyUnicode implements WithClass, PyDict.Key {
         return true;
     }
 
+    /**
+     * {@code str.isascii}
+     *
+     * @return {@code false} iff any character not ASCII.
+     */
     @PythonMethod(primary = false)
+    @DocString("""
+            Return False iff the string contains any non-ASCII characters.
+
+            ASCII characters have code points in the range U+0000-U+007F.
+            An empty string returns True.""")
     public boolean isascii() { return range == Range.ASCII; }
 
     @PythonMethod

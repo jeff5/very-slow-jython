@@ -218,8 +218,8 @@ class TypeExposerMemberTest extends UnitTestSupport {
         abstract void abstract_setAttr_works() throws Throwable;
 
         /**
-         * The member raises {@link TypeError} when supplied a value of
-         * unacceptable type.
+         * The member raises {@link PyExc#TypeError TypeError} when
+         * supplied a value of unacceptable type.
          *
          * @throws Throwable unexpectedly
          */
@@ -233,7 +233,7 @@ class TypeExposerMemberTest extends UnitTestSupport {
 
         /**
          * Attempting to delete the member implemented by a primitive
-         * raises {@link TypeError}.
+         * raises {@link PyExc#TypeError TypeError}.
          */
         @Test
         void rejects_descr_delete() {
@@ -243,7 +243,7 @@ class TypeExposerMemberTest extends UnitTestSupport {
 
         /**
          * Attempting to delete the member implemented by a primitive
-         * raises {@link TypeError}.
+         * raises {@link PyExc#TypeError TypeError}.
          */
         @Test
         void rejects_abstract_delAttr() {

@@ -38,8 +38,8 @@ public class UnitTestSupport {
      *
      * @param v to convert
      * @return converted value
-     * @throws ArithmeticError if out of range
-     * @throws IllegalArgumentException if wrong type
+     * @throws PyBaseException (ArithmeticError) if out of range
+     * @throws PyBaseException (IllegalArgumentException) if wrong type
      */
     public static int toInt(Object v)
             throws PyBaseException, IllegalArgumentException {

@@ -100,7 +100,7 @@ class TypeExposerNewMethodTest extends UnitTestSupport {
         /**
          * Call the method using the {@code __call__} special method but
          * not even the first argument is provided. The method should
-         * throw {@link TypeError}.
+         * throw {@link PyExc#TypeError TypeError}.
          *
          * @throws Throwable unexpectedly
          */
@@ -117,7 +117,7 @@ class TypeExposerNewMethodTest extends UnitTestSupport {
          * Call the method using the {@code __call__} special method but
          * the first argument is not a {@code PyType} or that
          * {@code PyType} is not a sub-type of the defining type. The
-         * method should throw {@link TypeError}.
+         * method should throw {@link PyExc#TypeError TypeError}.
          *
          * @throws Throwable unexpectedly
          */
@@ -128,7 +128,7 @@ class TypeExposerNewMethodTest extends UnitTestSupport {
          * Call the method using the {@code __call__} special method and
          * an unexpected keyword: where none is expected, for a
          * positional argument, or simply an unacceptable name. The
-         * method should throw {@link TypeError}.
+         * method should throw {@link PyExc#TypeError TypeError}.
          *
          * @throws Throwable unexpectedly
          */

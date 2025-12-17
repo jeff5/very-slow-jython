@@ -22,6 +22,7 @@ public class PyOSError extends PyBaseException {
                     .add(Feature.REPLACEABLE, Feature.IMMUTABLE)
                     .doc("Base class for I/O related errors."));
 
+    /** OS-specific error code. */
     @Exposed.Member
     private Object errno;
 
