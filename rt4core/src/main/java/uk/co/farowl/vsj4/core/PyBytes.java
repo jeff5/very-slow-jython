@@ -409,8 +409,9 @@ public class PyBytes extends AbstractList<Integer>
      * Adapt a Python object to a sequence of Java {@code int} values or
      * throw an exception. If the method throws the special exception
      * {@link NoConversion}, the caller must catch it and deal with it,
-     * perhaps by throwing a {@link TypeError}. A binary operation will
-     * normally return {@link Py#NotImplemented} in that case.
+     * perhaps by throwing a {@link PyExc#TypeError TypeError}. A binary
+     * operation will normally return {@link Py#NotImplemented} in that
+     * case.
      * <p>
      * Note that implementing {@link PySequence.OfInt} is not enough,
      * which other types may, but be incompatible in Python.

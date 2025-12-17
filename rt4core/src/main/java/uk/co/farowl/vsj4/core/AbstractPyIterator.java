@@ -71,7 +71,6 @@ abstract class AbstractPyIterator
      * </pre>
      * @return the next object
      * @throws PyBaseException (StopIteration) signifying no more items
-     * @throws Throwable from implementation
      */
     Object __next__() { return next(PyStopIteration::new); }
 

@@ -1139,9 +1139,8 @@ public class PyList implements List<Object>, WithClass {
             List<Object> v = PySequence.fastList(value,
                     () -> PyErr.format(PyExc.TypeError,
                             "can only assign an iterable to a slice"));
-            if (v == PyList.this) { v = new ArrayList<>(list); } // self[slice]
-                                                                 // =
-                                                                 // self
+            // If assignment is self[slice] = self, work with a copy.
+            if (v == PyList.this) { v = new ArrayList<>(list); }
 
             // Now we have a List of values to assign
             final int N = v.size(), M = slice.slicelength, D = N - M;

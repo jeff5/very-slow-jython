@@ -856,7 +856,6 @@ public class Abstract {
      * @return an iterator on {@code o}
      * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
      *     the object cannot be iterated
-     * @throws Throwable from errors in {@code o.__iter__}
      */
     static Iterable<Object> getIterable(Object o) {
         return getIterable(o, () -> typeError(NOT_ITERABLE, o));
@@ -872,7 +871,6 @@ public class Abstract {
      * @param exc a supplier (e.g. lambda expression) for the exception
      * @return an iterator on {@code o} or null
      * @throws E to throw if an iterator cannot be formed
-     * @throws Throwable from errors in {@code o.__iter__}
      */
     static <E extends PyBaseException> Iterable<Object>
             getIterable(Object o, Supplier<E> exc) {

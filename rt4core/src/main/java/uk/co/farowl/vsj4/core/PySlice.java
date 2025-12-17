@@ -37,6 +37,7 @@ public class PySlice implements WithClass {
      * @param stop index or {@code null} (for {@code None}).
      * @param step or {@code null} (for {@code None}).
      */
+    // Compare CPython PySlice_New in sliceobject.c
     public PySlice(Object start, Object stop, Object step) {
         this.start = start != null ? start : Py.None;
         this.stop = stop != null ? stop : Py.None;
@@ -50,21 +51,24 @@ public class PySlice implements WithClass {
      * @param start index or {@code null} (for {@code None}).
      * @param stop index or {@code null} (for {@code None}).
      */
+    // Compare CPython _PySlice_FromIndices in sliceobject.c
     public PySlice(Object start, Object stop) {
         this(start, stop, null);
     }
 
     /**
-     * Create a Python {@code slice} from Java {@code int} arguments.
+     * Create a Python {@code slice} from a single {@code object}
+     * argument. The start and step are implicitly {@code None}.
      *
-     * @param start index of first item in slice.
-     * @param stop index of first item <b>not</b> in slice.
+     * @param stop index or {@code null} (for {@code None}).
      */
-    // Compare CPython _PySlice_FromIndices in sliceobject.c
-    public PySlice(int start, int stop) { this(start, stop, Py.None); }
+    public PySlice(Object stop) { this(null, stop, null); }
 
     @Override
     public PyType getType() { return TYPE; }
+
+    @Override
+    public String toString() { return PyUtil.defaultToString(this); }
 
     // @formatter:off
     /*
@@ -281,8 +285,8 @@ public class PySlice implements WithClass {
 
         @Override
         public String toString() {
-            return String.format("[%d:%d:%d] len= %d", start, stop,
-                    step, slicelength);
+            return String.format("[%d:%d:%d] len=%d", start, stop, step,
+                    slicelength);
         }
     }
 

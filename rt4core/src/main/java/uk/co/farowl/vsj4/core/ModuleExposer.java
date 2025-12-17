@@ -15,8 +15,8 @@ import uk.co.farowl.vsj4.types.Exposed.PythonStaticMethod;
  * A {@code ModuleExposer} provides access to the attributes of a module
  * defined in Java (a built-in or extension module). These are primarily
  * the {@link MethodDef}s derived from annotated methods in the defining
- * class. It is normally obtained by a call to
- * {@link Exposer#exposeModule(Class)}.
+ * class. {@link ModuleDef} uses an instance as it fills the module
+ * dictionary.
  */
 class ModuleExposer extends Exposer {
 

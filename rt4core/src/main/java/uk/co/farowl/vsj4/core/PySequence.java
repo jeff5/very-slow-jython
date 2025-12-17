@@ -92,8 +92,7 @@ public class PySequence extends Abstract {
             throws Throwable {
         // Decisions are based on types of o and key
         try {
-            Representation rep = representation(o);
-            return rep.op_getitem().invokeExact(o, key);
+            return representation(o).op_getitem().invokeExact(o, key);
         } catch (EmptyException e) {
             throw typeError(NOT_SUBSCRIPTABLE, o);
         }
@@ -115,11 +114,10 @@ public class PySequence extends Abstract {
     // Compare CPython PyObject_GetItem in abstract.c
     public static Object getSlice(Object o, int i1, int i2)
             throws Throwable {
+        Object key = new PySlice(i1, i2);
         // Decisions are based on type of o and known type of key
         try {
-            Object key = new PySlice(i1, i2);
-            Representation rep = representation(o);
-            return rep.op_getitem().invokeExact(o, key);
+            return representation(o).op_getitem().invokeExact(o, key);
         } catch (EmptyException e) {
             throw typeError(NOT_SLICEABLE, o);
         }
@@ -140,10 +138,32 @@ public class PySequence extends Abstract {
     public static void setItem(Object o, Object key, Object value)
             throws Throwable {
         // Decisions are based on types of o and key
-        Representation rep = representation(o);
         try {
-            rep.op_setitem().invokeExact(o, key, value);
-            return;
+            representation(o).op_setitem().invokeExact(o, key, value);
+        } catch (EmptyException e) {
+            throw typeError(DOES_NOT_SUPPORT_ITEM, o, "assignment");
+        }
+    }
+
+    /**
+     * {@code o[i1:12] = value} with Python semantics, where {@code o} may
+     * be a mapping or a sequence.
+     *
+     * @param o object to operate on
+     * @param i1 index of first item in slice
+     * @param i2 index of first item not in slice
+     * @param value to replace the slice
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) when
+     *     {@code o} does not allow subscripting
+     * @throws Throwable from invoked method implementations
+     */
+    // Compare CPython PyObject_SetSlice in abstract.c
+    public static void setSlice(Object o, int i1, int i2, Object value)
+            throws Throwable {
+        Object key = new PySlice(i1, i2);
+        // Decisions are based on types of o and key
+        try {
+            representation(o).op_setitem().invokeExact(o, key, value);
         } catch (EmptyException e) {
             throw typeError(DOES_NOT_SUPPORT_ITEM, o, "assignment");
         }
@@ -162,10 +182,30 @@ public class PySequence extends Abstract {
     // Compare CPython PyObject_DelItem in abstract.c
     public static void delItem(Object o, Object key) throws Throwable {
         // Decisions are based on types of o and key
-        Representation rep = representation(o);
         try {
-            rep.op_delitem().invokeExact(o, key);
-            return;
+            representation(o).op_delitem().invokeExact(o, key);
+        } catch (EmptyException e) {
+            throw typeError(DOES_NOT_SUPPORT_ITEM, o, "deletion");
+        }
+    }
+
+    /**
+     * {@code del o[i1:12]} with Python semantics, where {@code o} may be
+     * a mapping or a sequence.
+     *
+     * @param o object to operate on
+     * @param i1 index of first item in slice
+     * @param i2 index of first item not in slice
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) when
+     *     {@code o} does not allow subscripting
+     * @throws Throwable from invoked method implementations
+     */
+    // Compare CPython PyObject_DelSlice in abstract.c
+    public static void delSlice(Object o, int i1, int i2) throws Throwable {
+        Object key = new PySlice(i1, i2);
+        // Decisions are based on types of o and key
+        try {
+            representation(o).op_delitem().invokeExact(o, key);
         } catch (EmptyException e) {
             throw typeError(DOES_NOT_SUPPORT_ITEM, o, "deletion");
         }

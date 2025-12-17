@@ -251,11 +251,9 @@ abstract class Exposer {
      * <p>
      * In cases where more than one Java definition contributes to a
      * single exposed attribute, {@code Spec}s are updated as successive
-     * definitions are encountered.
-     * <p>
-     * When exposing attributes of a Python type, the actual object to
-     * be entered in a dictionary of a type or module is obtained by a
-     * call to {@link #asAttribute(PyType, Lookup)}.
+     * definitions are encountered. Subclasses of {@link Exposer} create
+     * the actual object to be entered in a dictionary of a type or
+     * module from these specifications.
      */
     abstract static class Spec implements Comparable<Spec> {
 
