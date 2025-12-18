@@ -145,7 +145,7 @@ public enum Comparison {
 
         @Override
         Object apply(Object v, Object w) throws Throwable {
-            return Py.NotImplemented; // XXX implement me!
+            return Py.NotImplemented; // TODO implement me!
         }
     },
 
@@ -161,15 +161,18 @@ public enum Comparison {
         }
     };
 
+    /** Representation of the operator. */
     final String text;
+
+    /** Corresponding special method. */
     final SpecialMethod slot;
 
-    Comparison(String text, SpecialMethod slot) {
+    private Comparison(String text, SpecialMethod slot) {
         this.text = text;
         this.slot = slot;
     }
 
-    Comparison(String text) { this(text, null); }
+    private Comparison(String text) { this(text, null); }
 
     /**
      * The text corresponding to the value, e.g. "!=" for {@code NE},

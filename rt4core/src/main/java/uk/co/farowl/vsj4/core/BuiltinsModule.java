@@ -75,6 +75,13 @@ class BuiltinsModule extends JavaModule {
         // add("zip", PyZip.TYPE);
     }
 
+    /**
+     * Return the absolute value of the argument.
+     *
+     * @param x argument
+     * @return the absolute value of the argument.
+     * @throws Throwable from implementation of {@code __abs__}
+     */
     @PythonStaticMethod
     @DocString("Return the absolute value of the argument.")
     static Object abs(Object x) throws Throwable {
@@ -249,6 +256,13 @@ class BuiltinsModule extends JavaModule {
         return ThreadState.get().getGlobals();
     }
 
+    /**
+     * Return the number of items in a container or string.
+     *
+     * @param v container or string
+     * @return number of items
+     * @throws Throwable from {@code __len__} implementation
+     */
     @PythonStaticMethod
     @DocString("Return the number of items in a container.")
     static Object len(Object v) throws Throwable {
@@ -389,9 +403,19 @@ class BuiltinsModule extends JavaModule {
     private static final String DEFAULT_WITHOUT_ITERABLE =
             "Cannot specify a default for %s() with multiple positional arguments";
 
+    /**
+     * Return the canonical string representation of the object.
+     *
+     * @param obj to represent
+     * @return as a string
+     * @throws Throwable from the implementation
+     */
     @PythonStaticMethod
-    @DocString("Return the canonical string representation of the object.\n"
-            + "For many object types, including most builtins, eval(repr(obj)) == obj.")
+    @DocString("""
+            Return the canonical string representation of the object.
+
+            For many object types, including most builtins,
+            eval(repr(obj)) == obj.""")
     static Object repr(Object obj) throws Throwable {
         return Abstract.repr(obj);
     }

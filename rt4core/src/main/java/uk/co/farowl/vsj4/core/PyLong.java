@@ -143,7 +143,7 @@ public class PyLong implements /* PyDict.Key, */ WithClass {
     // Special methods ------------------------------------------------
 
     @SuppressWarnings("unused")
-    static Object __repr__(Object self) {
+    private static Object __repr__(Object self) {
         assert TYPE.check(self);
         return asBigInteger(self).toString();
     }

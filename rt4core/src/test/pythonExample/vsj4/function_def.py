@@ -27,7 +27,7 @@ bar_defaults = bar.__name__
 bar_kwdefaults = bar.__name__
 bar_module = bar.__module__
 bar_module = bar.__module__
-# XXX dict.__contains__ missing and bug in Comparison.IN
+#TODO dict.__contains__ missing and bug in Comparison.IN
 #bar_globals_foo = foo in bar.__globals__
 
 

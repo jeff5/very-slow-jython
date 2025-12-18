@@ -157,19 +157,32 @@ public abstract sealed class BaseType extends KernelType implements
     @Exposed.Getter("__name__")
     public String getName() { return name; }
 
+    /**
+     * Set the name of the type, which may be changed by assignment in a
+     * mutable type.
+     *
+     * @param name of the type
+     */
     @Exposed.Setter("__name__")
-    public void setName(String value) {
-        checkTypeMutable(value, "__name__");
-        name = value;
+    public void setName(String name) {
+        checkTypeMutable(name, "__name__");
+        this.name = name;
     }
 
+    @Override
     @Exposed.Getter("__qualname__")
     public String getQualName() { return qualname; }
 
+    /**
+     * Set the qualified name of the type, which may be changed by
+     * assignment in a mutable type.
+     *
+     * @param qualname of the type
+     */
     @Exposed.Setter("__qualname__")
-    public void setQualName(String value) {
-        checkTypeMutable(value, "__qualname__");
-        qualname = value;
+    public void setQualName(String qualname) {
+        checkTypeMutable(qualname, "__qualname__");
+        this.qualname = qualname;
     }
 
     @Override
@@ -1715,8 +1728,7 @@ public abstract sealed class BaseType extends KernelType implements
      * @param name of attribute being set (for error message)
      */
     // Compare CPython check_set_special_type_attr in typeobject.c
-    private void checkTypeMutable(Object value,
-            String name) {
+    private void checkTypeMutable(Object value, String name) {
         if (hasFeature(TypeFlag.IMMUTABLE)) {
             String action = value == null ? "delete" : "set";
             throw PyErr.format(PyExc.TypeError,

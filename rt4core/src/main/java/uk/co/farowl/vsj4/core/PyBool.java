@@ -70,11 +70,13 @@ public final class PyBool implements WithClass {
 
     // special methods ------------------------------------------------
 
-    static Object __repr__(Boolean self) {
+    @SuppressWarnings("unused")
+    private static Object __repr__(Boolean self) {
         return self ? "True" : "False";
     }
 
-    static Object __and__(Boolean v, Object w) {
+    @SuppressWarnings("unused")
+    private static Object __and__(Boolean v, Object w) {
         if (w instanceof Boolean)
             return v ? w : v;
         else
@@ -82,7 +84,8 @@ public final class PyBool implements WithClass {
             return PyLongMethods.__and__(v, w);
     }
 
-    static Object __rand__(Boolean w, Object v) {
+    @SuppressWarnings("unused")
+    private static Object __rand__(Boolean w, Object v) {
         if (v instanceof Boolean)
             return w ? v : w;
         else
@@ -90,7 +93,8 @@ public final class PyBool implements WithClass {
             return PyLongMethods.__rand__(w, v);
     }
 
-    static Object __or__(Boolean v, Object w) {
+    @SuppressWarnings("unused")
+    private static Object __or__(Boolean v, Object w) {
         if (w instanceof Boolean)
             return v ? v : w;
         else
@@ -98,7 +102,8 @@ public final class PyBool implements WithClass {
             return PyLongMethods.__or__(v, w);
     }
 
-    static Object __ror__(Boolean w, Object v) {
+    @SuppressWarnings("unused")
+    private static Object __ror__(Boolean w, Object v) {
         if (v instanceof Boolean)
             return w ? w : v;
         else
@@ -106,17 +111,19 @@ public final class PyBool implements WithClass {
             return PyLongMethods.__ror__(w, v);
     }
 
-    static Object __xor__(Boolean v, Object w) {
-        if (w instanceof Boolean)
-            return v ^ ((Boolean)w);
+    @SuppressWarnings("unused")
+    private static Object __xor__(Boolean v, Object w) {
+        if (w instanceof Boolean wb)
+            return v ^ wb;
         else
             // w is not a bool, go arithmetic.
             return PyLongMethods.__xor__(v, w);
     }
 
-    static Object __rxor__(Boolean w, Object v) {
-        if (v instanceof Boolean)
-            return ((Boolean)v) ^ w;
+    @SuppressWarnings("unused")
+    private static Object __rxor__(Boolean w, Object v) {
+        if (v instanceof Boolean vb)
+            return vb ^ w;
         else
             // v is not a bool, go arithmetic.
             return PyLongMethods.__rxor__(w, v);

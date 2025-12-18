@@ -30,6 +30,8 @@ public class PyBytes extends AbstractList<Integer>
             new TypeSpec("bytes", MethodHandles.lookup())
                     .add(Feature.BASETYPE, Feature.SEQUENCE_PROTOCOL));
     private static final byte[] EMPTY_BYTE_ARRAY = new byte[] {};
+
+    /** Zero length {@code PyBytes} as sharable constant. */
     static final PyBytes EMPTY = new PyBytes(EMPTY_BYTE_ARRAY);
 
     /** The Python type of this instance. */

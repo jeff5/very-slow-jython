@@ -225,6 +225,11 @@ public abstract class PyFunction<C extends PyCode> implements WithDict {
     @Getter("__name__")
     String getName() { return name; }
 
+    /**
+     * Set the {@code __name__} attribute.
+     *
+     * @param name for function
+     */
     @Setter("__name__")
     void setName(Object name) {
         this.name = PyUnicode.asString(name,
@@ -236,9 +241,9 @@ public abstract class PyFunction<C extends PyCode> implements WithDict {
     String getQualname() { return qualname; }
 
     /**
-     * Set the the positional {@code __qualname__} string.
+     * Set the {@code __qualname__} string.
      *
-     * @param qualname to set
+     * @param qualname for function
      */
     @Setter("__qualname__")
     void setQualname(Object qualname) {
@@ -259,11 +264,19 @@ public abstract class PyFunction<C extends PyCode> implements WithDict {
     abstract void setDefaults(PyTuple defaults);
 
     /**
-     * @return the keyword dict {@code __kwdefaults__} or {@code None}.
+     * @return {@code __kwdefaults__} or {@code None}.
      */
     @Getter("__kwdefaults__")
     Object getKwdefaults() { return kwdefaults; }
 
+    /**
+     * Provide the keyword defaults dictionary. Subsequent changes to
+     * the dictionary will affect argument parsing, as required for a
+     * Python {@link PyFunction function}. (Concurrent access to the
+     * mapping is a client issue.)
+     *
+     * @param kwdefaults specifying {@code __kwdefaults__}
+     */
     @Setter("__kwdefaults__")
     abstract void setKwdefaults(PyDict kwdefaults);
 
@@ -314,16 +327,19 @@ public abstract class PyFunction<C extends PyCode> implements WithDict {
         }
     }
 
-    /** @return the {@code __dict__} attribute. */
+    /** @return the {@code __dict__} attribute */
     @Getter("__dict__")
     PyDict __dict__() { return dict; }
 
+    /**
+     * Set the {@code __dict__} attribute
+     *
+     * @param dict to set
+     */
     @Setter("__dict__")
     void __dict__(PyDict dict) { this.dict = dict; }
 
-    /**
-     * @return the {@code __annotations__} attribute as a {@code dict}.
-     */
+    /** @return the {@code __annotations__} attribute */
     @Getter("__annotations__")
     PyDict getAnnotations() {
         if (annotations == null) { annotations = Py.dict(); }
@@ -338,7 +354,7 @@ public abstract class PyFunction<C extends PyCode> implements WithDict {
      * @param anno specifying the annotations.
      */
     @Setter("__annotations__")
-    void setAnnotations(Object anno) {
+    private void setAnnotations(Object anno) {
         if (anno instanceof PyDict) {
             annotations = (PyDict)anno;
         } else if (anno instanceof PyTuple) {
@@ -350,7 +366,7 @@ public abstract class PyFunction<C extends PyCode> implements WithDict {
         }
     }
 
-    // slot methods --------------------------------------------------
+    // Special methods -----------------------------------------------
 
     /**
      * Canonical {@code __call__} slot with Jython conventions, making
@@ -365,16 +381,16 @@ public abstract class PyFunction<C extends PyCode> implements WithDict {
             throws Throwable;
 
     @SuppressWarnings("unused")
-    private Object __repr__() { return toString(); }
-
-    @SuppressWarnings("unused")
-    private Object __str__() { return toString(); }
+    private Object __repr__() {
+        return String.format("<function %.100s at %#x>", qualname,
+                Py.id(this));
+    }
 
     // FastCall support ----------------------------------------------
 
     // XXX ... is needed.
 
-    // plumbing ------------------------------------------------------
+    // Plumbing ------------------------------------------------------
 
     @Override
     public Map<Object, Object> getDict() { return dict; }
@@ -384,10 +400,7 @@ public abstract class PyFunction<C extends PyCode> implements WithDict {
 
     @Override
     // Compare CPython func_repr in funcobject.c
-    public String toString() {
-        return String.format("<function %.100s at %#x>", qualname,
-                Py.id(this));
-    }
+    public String toString() { return PyUtil.defaultToString(this); }
 
     /**
      * Get the interpreter that defines the import context, which was

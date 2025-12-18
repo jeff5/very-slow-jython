@@ -22,7 +22,10 @@ import uk.co.farowl.vsj4.types.WithClass;
  * {@code code}, we allow alternative implementations of it. In
  * particular, we provide for a code object that is the result of
  * compiling to JVM byte code, in addition to the expected support for
- * Python byte code.
+ * Python byte code. While we represent compiled code of any kind as a
+ * Python {@code code} object, not all attributes documented in the
+ * Python data model will be meaningful in every implementation of
+ * {@code PyCode}.
  * <p>
  * The abstract base {@code PyCode} has a need to store fewer attributes
  * than the concrete CPython {@code code} object, where the only
@@ -327,16 +330,37 @@ public abstract class PyCode implements WithClass {
     // Compare CPython 3.11 localsplusnames and localspluskinds
     abstract Layout layout();
 
-    // Attributes -----------------------------------------------------
+    // Attributes ----------------------------------------------------
 
+    /**
+     * Get required stack size of the code object for CPython bytecode.
+     * This attribute is only meaningful for CPython code.
+     *
+     * @return line-number lookup as a {@code bytes}
+     */
     @SuppressWarnings("static-method")
     @Getter
     int co_stacksize() { return 0; }
 
+    /**
+     * Return a {@code bytes} object representing the sequence of
+     * CPython bytecode instructions in the code. This attribute is only
+     * meaningful for CPython code.
+     *
+     * @return the bytecode
+     */
     @SuppressWarnings("static-method")
     @Getter
     PyBytes co_code() { return PyBytes.EMPTY; }
 
+    /**
+     * Get the string encoding the mapping from CPython bytecode offsets
+     * to line numbers in the source in a manner documented in the
+     * CPython source code :/. This attribute is only meaningful for
+     * CPython code.
+     *
+     * @return line-number lookup as a {@code bytes}
+     */
     @SuppressWarnings("static-method")
     @Getter
     PyBytes co_lnotab() { return PyBytes.EMPTY; }
@@ -381,17 +405,11 @@ public abstract class PyCode implements WithClass {
     @Getter
     PyTuple co_freevars() { return PyTuple.from(layout().freevars()); }
 
-    // slot methods --------------------------------------------------
+    // Special methods -----------------------------------------------
 
-    Object __repr__() { return toString(); }
-
-    Object __str__() { return toString(); }
-
-    // Java API -------------------------------------------------------
-
-    @Override
     // Compare CPython code_repr in codeobject.c
-    public String toString() {
+    @SuppressWarnings("unused")
+    private Object __repr__() {
         int lineno = firstlineno != 0 ? firstlineno : -1;
         String file = filename, q = "\"";
         if (file == null) { file = "???"; q = ""; }
@@ -399,6 +417,11 @@ public abstract class PyCode implements WithClass {
                 "<code object %s at %#x, file %s%s%s, line %d>", name,
                 Py.id(this), q, file, q, lineno);
     }
+
+    // Java API ------------------------------------------------------
+
+    @Override
+    public String toString() { return PyUtil.defaultToString(this); }
 
     /**
      * Create a {@code PyFunction} that will execute this
@@ -470,7 +493,7 @@ public abstract class PyCode implements WithClass {
                 + (flags >>> CO_VARKEYWORDS_SHIFT & 1);
     }
 
-    // Plumbing -------------------------------------------------------
+    // Plumbing ------------------------------------------------------
 
     /** Empty (zero-length) array of {@code String}. */
     protected static final String[] EMPTY_STRING_ARRAY =

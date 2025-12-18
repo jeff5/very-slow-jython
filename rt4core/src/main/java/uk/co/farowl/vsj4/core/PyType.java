@@ -37,12 +37,21 @@ public interface PyType extends NewInstance, WithClass, FastCall {
 
     /**
      * Return the name of the type. Equivalent to getting the type's
-     * {@code __name__} attribute, which may be changed by assignment
-     * in a mutable type.
+     * {@code __name__} attribute, which may be changed by assignment in
+     * a mutable type.
      *
      * @return the name of the type
      */
     String getName();
+
+    /**
+     * Return the qualified name of the type. Equivalent to getting the
+     * type's {@code __qualname__} attribute, which may be changed by
+     * assignment in a mutable type.
+     *
+     * @return the qualified name of the type
+     */
+    String getQualName();
 
     /**
      * A copy of the sequence of bases specified for the type,
