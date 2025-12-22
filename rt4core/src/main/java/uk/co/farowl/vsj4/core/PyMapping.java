@@ -18,7 +18,7 @@ import uk.co.farowl.vsj4.kernel.KernelTypeFlag;
  * CPython methods defined in {@code abstract.h} and with names like:
  * {@code PyMapping_*}.
  */
-public class PyMapping extends PySequence {
+public class PyMapping extends Abstract {
 
     private PyMapping() {}   // only static methods here
 

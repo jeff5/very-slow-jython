@@ -74,6 +74,141 @@ public class Abstract {
     }
 
     /**
+     * {@code o[key]} with Python semantics, where {@code o} may be a
+     * mapping or a sequence.
+     *
+     * @param o object to operate on
+     * @param key index
+     * @return {@code o[key]}
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) when
+     *     {@code o} does not allow subscripting
+     * @throws Throwable from invoked method implementations
+     */
+    // Compare CPython PyObject_GetItem in abstract.c
+    public static Object getItem(Object o, Object key)
+            throws Throwable {
+        // Decisions are based on types of o and key
+        try {
+            return representation(o).op_getitem().invokeExact(o, key);
+        } catch (EmptyException e) {
+            throw typeError(NOT_SUBSCRIPTABLE, o);
+        }
+    }
+
+    /**
+     * {@code o[i1:12]} with Python semantics, where {@code o} must be a
+     * sequence. Receiving objects will normally interpret indices as
+     * end-relative, and bounded to the sequence length.
+     *
+     * @param o sequence to operate on
+     * @param i1 index of first item in slice
+     * @param i2 index of first item not in slice
+     * @return {@code o[i1:i2]}
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) when
+     *     {@code o} does not allow subscripting
+     * @throws Throwable from invoked method implementations
+     */
+    // Compare CPython PyObject_GetItem in abstract.c
+    public static Object getSlice(Object o, int i1, int i2)
+            throws Throwable {
+        Object key = new PySlice(i1, i2);
+        // Decisions are based on type of o and known type of key
+        try {
+            return representation(o).op_getitem().invokeExact(o, key);
+        } catch (EmptyException e) {
+            throw typeError(NOT_SLICEABLE, o);
+        }
+    }
+
+    /**
+     * {@code o[key] = value} with Python semantics, where {@code o} may
+     * be a mapping or a sequence.
+     *
+     * @param o object to operate on
+     * @param key index
+     * @param value to put at index
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) when
+     *     {@code o} does not allow subscripting
+     * @throws Throwable from invoked method implementations
+     */
+    // Compare CPython PyObject_SetItem in abstract.c
+    public static void setItem(Object o, Object key, Object value)
+            throws Throwable {
+        // Decisions are based on types of o and key
+        try {
+            representation(o).op_setitem().invokeExact(o, key, value);
+        } catch (EmptyException e) {
+            throw typeError(DOES_NOT_SUPPORT_ITEM, o, "assignment");
+        }
+    }
+
+    /**
+     * {@code o[i1:12] = value} with Python semantics, where {@code o} may
+     * be a mapping or a sequence.
+     *
+     * @param o object to operate on
+     * @param i1 index of first item in slice
+     * @param i2 index of first item not in slice
+     * @param value to replace the slice
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) when
+     *     {@code o} does not allow subscripting
+     * @throws Throwable from invoked method implementations
+     */
+    // Compare CPython PyObject_SetSlice in abstract.c
+    public static void setSlice(Object o, int i1, int i2, Object value)
+            throws Throwable {
+        Object key = new PySlice(i1, i2);
+        // Decisions are based on types of o and key
+        try {
+            representation(o).op_setitem().invokeExact(o, key, value);
+        } catch (EmptyException e) {
+            throw typeError(DOES_NOT_SUPPORT_ITEM, o, "assignment");
+        }
+    }
+
+    /**
+     * {@code del o[key]} with Python semantics, where {@code o} may be
+     * a mapping or a sequence.
+     *
+     * @param o object to operate on
+     * @param key index at which to delete element
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) when
+     *     {@code o} does not allow subscripting
+     * @throws Throwable from invoked method implementations
+     */
+    // Compare CPython PyObject_DelItem in abstract.c
+    public static void delItem(Object o, Object key) throws Throwable {
+        // Decisions are based on types of o and key
+        try {
+            representation(o).op_delitem().invokeExact(o, key);
+        } catch (EmptyException e) {
+            throw typeError(DOES_NOT_SUPPORT_ITEM, o, "deletion");
+        }
+    }
+
+    /**
+     * {@code del o[i1:12]} with Python semantics, where {@code o} may be
+     * a mapping or a sequence.
+     *
+     * @param o object to operate on
+     * @param i1 index of first item in slice
+     * @param i2 index of first item not in slice
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) when
+     *     {@code o} does not allow subscripting
+     * @throws Throwable from invoked method implementations
+     */
+    // Compare CPython PyObject_DelSlice in abstract.c
+    public static void delSlice(Object o, int i1, int i2) throws Throwable {
+        Object key = new PySlice(i1, i2);
+        // Decisions are based on types of o and key
+        try {
+            representation(o).op_delitem().invokeExact(o, key);
+        } catch (EmptyException e) {
+            throw typeError(DOES_NOT_SUPPORT_ITEM, o, "deletion");
+        }
+    }
+
+    /**
      * The equivalent of the Python expression {@code repr(o)}, and is
      * called by the {@code repr()} built-in function.
      *
@@ -970,6 +1105,12 @@ public class Abstract {
 
     private static final String HAS_NO_LEN =
             "object of type '%.200s' has no len()";
+    private static final String NOT_SUBSCRIPTABLE =
+            "'%.200s' object is not subscriptable";
+    private static final String NOT_SLICEABLE =
+            "'%.200s' object is unsliceable";
+    private static final String DOES_NOT_SUPPORT_ITEM =
+            "'%.200s' object does not support item %s";
     private static final String IS_REQUIRED_NOT =
             "%.200s is required, not '%.100s'";
     private static final String RETURNED_NON_TYPE =
