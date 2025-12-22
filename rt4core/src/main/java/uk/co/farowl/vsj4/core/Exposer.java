@@ -374,6 +374,12 @@ abstract class Exposer {
         /** Collects the methods declared (often just one). */
         final List<Method> methods;
 
+        /**
+         * Constructor of the generic method specification.
+         *
+         * @param name of method
+         * @param scopeKind is a module or a type
+         */
         BaseMethodSpec(String name, ScopeKind scopeKind) {
             super(name, scopeKind);
             this.methods = new ArrayList<>(1);
@@ -1155,6 +1161,12 @@ abstract class Exposer {
      */
     static class MethodSpec extends CallableSpec {
 
+        /**
+         * Constructor of the method specification.
+         *
+         * @param name of method
+         * @param scopeKind is a module or a type
+         */
         MethodSpec(String name, ScopeKind scopeKind) {
             super(name, scopeKind);
         }

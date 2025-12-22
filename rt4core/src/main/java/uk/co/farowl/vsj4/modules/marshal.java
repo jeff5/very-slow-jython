@@ -62,6 +62,7 @@ public class marshal /* extends JavaModule */ {
     static // TODO make marshal a proper module (instance)
     final Logger logger = LoggerFactory.getLogger(marshal.class);
 
+    /** Version of the marshal protocol in use. */
     @Member("version")
     final static int VERSION = 4;
 

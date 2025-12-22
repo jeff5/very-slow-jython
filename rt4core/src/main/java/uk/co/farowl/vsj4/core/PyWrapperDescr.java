@@ -98,7 +98,7 @@ public abstract class PyWrapperDescr extends MethodDescriptor {
     @Override
     public PyType getType() { return TYPE(); }
 
-    // Exposed attributes ---------------------------------------------
+    // Exposed attributes --------------------------------------------
 
     // CPython get-set table (to convert to annotations):
     // private GetSetDef wrapperdescr_getset[] = {

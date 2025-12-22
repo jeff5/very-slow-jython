@@ -343,11 +343,20 @@ public abstract class PyJavaFunction implements WithClass, FastCall {
         }
     }
 
-    /*
-     * A simplified __call__ used in the narrative. To use, rename this
-     * to __call__, rename the real __call__ to something else, and
-     * force fromParser() and from() always to select General as the
-     * implementation type.
+    /**
+     * A simplified {@code __call__} used in the narrative. To use,
+     * rename this to {@code __call__}, rename the real {@code __call__}
+     * to something else, and force the
+     * {@link #from(PyMethodDescr, Object)} and {@code for*()} factory
+     * methods always to select {@link General} as the implementation
+     * type.
+     *
+     * @param args all arguments as supplied in the call
+     * @param names of keyword arguments
+     * @return result of calling the method represented
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     the pattern of arguments is unacceptable
+     * @throws Throwable from the implementation of the special method
      */
     Object simple__call__(Object[] args, String[] names)
             throws PyBaseException, Throwable {

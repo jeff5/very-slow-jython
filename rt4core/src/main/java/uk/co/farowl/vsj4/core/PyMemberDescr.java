@@ -11,6 +11,7 @@ import java.util.EnumSet;
 import uk.co.farowl.vsj4.internal._PyUtil;
 import uk.co.farowl.vsj4.kernel.BaseType;
 import uk.co.farowl.vsj4.support.InterpreterError;
+import uk.co.farowl.vsj4.types.Exposed;
 import uk.co.farowl.vsj4.types.Feature;
 import uk.co.farowl.vsj4.types.TypeSpec;
 
@@ -43,7 +44,29 @@ public abstract class PyMemberDescr extends DataDescriptor {
 
     /** Acceptable values in the {@link #flags}. */
     enum Flag {
-        READONLY, OPTIONAL, READ_RESTRICTED, WRITE_RESTRICTED
+        /**
+         * This member may be read but not written. It may be declared
+         * so in the decorator {@link Exposed.Member} or it may be
+         * inferred from the Java {@code final} field flag.
+         */
+        READONLY,
+        /**
+         * This member may be absent (or deleted). Only a field
+         * implemented by a reference type may be optional.
+         */
+        OPTIONAL,
+        /**
+         * In CPython, the RESTRICTED forms cause a call to
+         * {@code sys.audit} and are here for compatibility with that
+         * eventual idea.
+         */
+        READ_RESTRICTED,
+        /**
+         * In CPython, the RESTRICTED forms cause a call to
+         * {@code sys.audit} and are here for compatibility with that
+         * eventual idea.
+         */
+        WRITE_RESTRICTED
     }
 
     /**
@@ -60,9 +83,6 @@ public abstract class PyMemberDescr extends DataDescriptor {
     // Compare CPython PyMemberDef: int type; int offset;
     VarHandle field;
 
-    /** Documentation string for the member (or {@code null}). */
-    String doc;
-
     /**
      * Construct a {@code PyMemberDescr} from a client-supplied handle.
      * This allows all JVM-supported access modes, but you have to make
@@ -72,15 +92,13 @@ public abstract class PyMemberDescr extends DataDescriptor {
      * @param name by which the member is known to Python
      * @param handle to the Java member
      * @param flags characteristics controlling access
-     * @param doc documentation string
+     * @param doc documentation string (or {@code null})
      */
     PyMemberDescr(BaseType objclass, String name, VarHandle handle,
             EnumSet<Flag> flags, String doc) {
-        super(objclass, name);
+        super(objclass, name, doc);
         this.flags = flags;
         this.field = handle;
-        // Allow null to represent empty doc
-        this.doc = doc != null && doc.length() > 0 ? doc : null;
     }
 
     @Override
@@ -93,7 +111,6 @@ public abstract class PyMemberDescr extends DataDescriptor {
             throw new InterpreterError(e, "cannot get handle for '%s'",
                     f);
         }
-
     }
 
     /**
@@ -313,13 +330,6 @@ public abstract class PyMemberDescr extends DataDescriptor {
         delete(obj);
     }
 
-    // XXX GetSetDef in CPython, but @Member appropriate in our case
-    // Compare CPython member_get_doc in descrobject.c
-    static Object member_get_doc(PyMemberDescr descr) {
-        if (descr.doc == null) { return Py.None; }
-        return descr.doc;
-    }
-
     /**
      * Create a {@code PyMemberDescr} with behaviour specific to the
      * class of object being exposed.
@@ -404,7 +414,7 @@ public abstract class PyMemberDescr extends DataDescriptor {
          * {@code null}, If {@code true}, {@link #get(Object)} will
          * raise {@link PyAttributeError AttributeError}. If
          * {@code false}, {@link #get(Object)} will return {@code None}.
-         *
+         * <p>
          * Delete sets the attribute implementation to {@code null}.
          */
         final boolean optional;

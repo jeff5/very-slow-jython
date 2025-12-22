@@ -36,6 +36,10 @@ import uk.co.farowl.vsj4.types.Exposed.PythonNewMethod;
 import uk.co.farowl.vsj4.types.Exposed.PythonStaticMethod;
 import uk.co.farowl.vsj4.types.Exposed.Setter;
 
+/**
+ * Concrete implementation of the {@link TypeExposer} used by the kernel
+ * type factory
+ */
 class TypeExposerImplementation extends Exposer implements TypeExposer {
 
     /**
@@ -389,6 +393,11 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
         /** The member may be read but not written or deleted. */
         boolean readonly;
 
+        /**
+         * Begin a specification for member.
+         *
+         * @param name of the member
+         */
         MemberSpec(String name) {
             super(name, ScopeKind.TYPE);
             this.fields = new ArrayList<>(1);
@@ -415,14 +424,9 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
             }
 
             // Disallow optional if primitive (in Java)
-            if (optional) {
-                if (field.getType().isPrimitive()) {
-                    throw new InterpreterError(CANNOT_BE_OPTIONAL,
-                            "Primitive", getJavaName());
-                } else if (readonly) {
-                    throw new InterpreterError(CANNOT_BE_OPTIONAL,
-                            "Read-only", getJavaName());
-                }
+            if (optional && field.getType().isPrimitive()) {
+                throw new InterpreterError(CANNOT_BE_OPTIONAL,
+                        "Primitive", getJavaName());
             }
 
             // Add the only definition (do we actually need a list?)
@@ -527,6 +531,11 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
         /** Java class of attribute from setter parameter. */
         Class<?> klass = Object.class;
 
+        /**
+         * Begin a specification for an attribute (get-set).
+         *
+         * @param name of the attribute
+         */
         GetSetSpec(String name) {
             super(name, ScopeKind.TYPE);
             this.getters = methods;
@@ -827,6 +836,11 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
         /** The special method being defined. */
         final SpecialMethod sm;
 
+        /**
+         * Begin a specification for a special method.
+         *
+         * @param sm being defined for this type.
+         */
         WrapperSpec(SpecialMethod sm) {
             super(sm.methodName, ScopeKind.TYPE);
             this.sm = sm;
@@ -1001,6 +1015,12 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
         /** The defining Python type. */
         final private PyType type;
 
+        /**
+         * Begin a specification for a {@code __new__} method.
+         *
+         * @param name generally {@code __new__}
+         * @param type to create when called
+         */
         NewMethodSpec(String name, BaseType type) {
             super(name, ScopeKind.TYPE);
             this.type = type;

@@ -91,9 +91,6 @@ public abstract class PyGetSetDescr extends DataDescriptor {
         }
     }
 
-    /** Documentation string for this attribute. */
-    final String doc;
-
     /** Java class of attribute accepted by set method. */
     final Class<?> klass;
 
@@ -110,14 +107,13 @@ public abstract class PyGetSetDescr extends DataDescriptor {
      *
      * @param objclass to which descriptor applies
      * @param name of attribute
-     * @param doc documentation string
+     * @param doc documentation string (or {@code null})
      * @param klass Java class of attribute accepted by set method
      */
     // Compare CPython PyDescr_NewGetSet
     PyGetSetDescr(BaseType objclass, String name, String doc,
             Class<?> klass) {
-        super(objclass, name);
-        this.doc = doc;
+        super(objclass, name, doc);
         this.klass = klass;
     }
 
@@ -651,25 +647,24 @@ public abstract class PyGetSetDescr extends DataDescriptor {
         throw EMPTY;
     }
 
-    // Compare CPython getset_get_doc in descrobject.c
-    static Object getset_get_doc(PyGetSetDescr descr) {
-        if (descr.doc == null) { return Py.None; }
-        return descr.doc;
-    }
-
     /**
      * A mapping from symbolic names for the types of method handle in a
      * {@code PyGetSetDescr} to other properties like the method handle
      * type.
      */
+    // TODO This is little used: consider another way.
     enum Type {
-        Getter(PyGetSetDescr.GETTER), //
-        Setter(PyGetSetDescr.SETTER), //
-        Deleter(PyGetSetDescr.DELETER); //
+        /** An implementation of {@code __get__} */
+        Getter(PyGetSetDescr.GETTER),
+        /** An implementation of {@code __set__} */
+        Setter(PyGetSetDescr.SETTER),
+        /** An implementation of {@code __delete__} */
+        Deleter(PyGetSetDescr.DELETER);
 
+        /** The {@code MethodType} we should expect. */
         final MethodType methodType;
 
-        Type(MethodType mt) { this.methodType = mt; }
+        private Type(MethodType mt) { this.methodType = mt; }
 
         /**
          * Map the method handle type back to the

@@ -4,6 +4,7 @@ package uk.co.farowl.vsj4.core;
 
 import uk.co.farowl.vsj4.internal._PyUtil;
 import uk.co.farowl.vsj4.kernel.BaseType;
+import uk.co.farowl.vsj4.types.Exposed;
 
 /** Base class of built-in data descriptors. */
 public abstract class DataDescriptor extends Descriptor {
@@ -13,10 +14,18 @@ public abstract class DataDescriptor extends Descriptor {
      *
      * @param objclass to which the descriptor applies
      * @param name of the attribute
+     * @param doc documentation string (or {@code null})
      */
-    DataDescriptor(BaseType objclass, String name) {
+    DataDescriptor(BaseType objclass, String name, String doc) {
         super(objclass, name);
+        // Allow null to represent empty doc
+        this.doc = doc != null && doc.length() > 0 ? doc : null;
     }
+
+    /** Documentation string for the attribute (or {@code null}). */
+    // Compare CPython member_get_doc in descrobject.c
+    @Exposed.Member(value = "__doc__", optional = true)
+    final String doc;
 
     /**
      * The {@code __set__} special method of the Python descriptor

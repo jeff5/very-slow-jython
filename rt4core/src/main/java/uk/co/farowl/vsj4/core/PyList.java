@@ -205,34 +205,39 @@ public class PyList implements List<Object>, WithClass {
     */
     // @formatter:on
 
-    synchronized int __len__() { return size(); }
+    @SuppressWarnings("unused")
+    private synchronized int __len__() { return size(); }
 
-    synchronized Object __ne__(Object o) {
+    @SuppressWarnings("unused")
+    private synchronized Object __ne__(Object o) {
         return delegate.cmp(o, Comparison.NE);
     }
 
-    synchronized Object __eq__(Object o) {
+    @SuppressWarnings("unused")
+    private synchronized Object __eq__(Object o) {
         return delegate.cmp(o, Comparison.EQ);
     }
 
-    synchronized Object __lt__(Object o) {
+    @SuppressWarnings("unused")
+    private synchronized Object __lt__(Object o) {
         return delegate.cmp(o, Comparison.LT);
     }
 
-    synchronized Object __le__(Object o) {
+    @SuppressWarnings("unused")
+    private synchronized Object __le__(Object o) {
         return delegate.cmp(o, Comparison.LE);
     }
 
-    synchronized Object __gt__(Object o) {
+    @SuppressWarnings("unused")
+    private synchronized Object __gt__(Object o) {
         return delegate.cmp(o, Comparison.GT);
     }
 
-    synchronized Object __ge__(Object o) {
+    @SuppressWarnings("unused")
+    private synchronized Object __ge__(Object o) {
         return delegate.cmp(o, Comparison.GE);
     }
 
-    // @ExposedMethod(type = MethodType.BINARY, doc =
-    // BuiltinDocs.list___imul___doc)
     // @formatter:off
     /*
     synchronized Object __imul__(Object o) {
@@ -269,55 +274,62 @@ public class PyList implements List<Object>, WithClass {
     */
     // @formatter:on
 
-    synchronized Object __mul__(Object n) throws Throwable {
+    @SuppressWarnings("unused")
+    private synchronized Object __mul__(Object n) throws Throwable {
         return delegate.__mul__(n);
     }
 
-    synchronized Object __rmul__(Object n) throws Throwable {
+    @SuppressWarnings("unused")
+    private synchronized Object __rmul__(Object n) throws Throwable {
         return delegate.__mul__(n);
     }
 
-    synchronized Object __add__(Object o) throws Throwable {
+    @SuppressWarnings("unused")
+    private synchronized Object __add__(Object o) throws Throwable {
         return delegate.__add__(o);
     }
 
-    synchronized Object __radd__(Object o) throws Throwable {
+    @SuppressWarnings("unused")
+    private synchronized Object __radd__(Object o) throws Throwable {
         return delegate.__radd__(o);
     }
 
-    synchronized Object __iadd__(Object o) throws Throwable {
+    @SuppressWarnings("unused")
+    private synchronized Object __iadd__(Object o) throws Throwable {
         changed = true;
         extend(o);
         return this;
     }
 
-    synchronized boolean __contains__(Object o) throws Throwable {
+    @SuppressWarnings("unused")
+    private synchronized boolean __contains__(Object o) throws Throwable {
         return delegate.__contains__(o);
     }
 
-    synchronized void __delitem__(Object index) throws Throwable {
+    @SuppressWarnings("unused")
+    private synchronized void __delitem__(Object index) throws Throwable {
         changed = true;
         delegate.__delitem__(index);
     }
 
-    synchronized void __setitem__(Object index, Object value)
+    @SuppressWarnings("unused")
+    private synchronized void __setitem__(Object index, Object value)
             throws Throwable {
         changed = true;
         delegate.__setitem__(index, value);
     }
 
-    synchronized Object __getitem__(Object index) throws Throwable {
+    @SuppressWarnings("unused")
+    private synchronized Object __getitem__(Object index) throws Throwable {
         return delegate.__getitem__(index);
     }
 
     // @formatter:off
     /*
-    // @ExposedMethod(doc = BuiltinDocs.list___iter___doc)
     Object __iter__() {
         return new PyListIterator(this);
     }
 
-    // @ExposedMethod(doc = BuiltinDocs.list___reversed___doc)
     synchronized PyIterator __reversed__() {
         return new PyReversedIterator(this);
     }

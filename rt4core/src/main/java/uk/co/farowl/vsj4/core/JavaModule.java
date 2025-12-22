@@ -5,6 +5,7 @@ package uk.co.farowl.vsj4.core;
 /** Common mechanisms for all Python modules defined in Java. */
 public abstract class JavaModule extends PyModule {
 
+    /** Descriptive definition of the module */
     final ModuleDef definition;
 
     /**

@@ -15,6 +15,7 @@ import uk.co.farowl.vsj4.kernel.BaseType;
 import uk.co.farowl.vsj4.kernel.Representation;
 import uk.co.farowl.vsj4.support.InterpreterError;
 import uk.co.farowl.vsj4.support.MethodKind;
+import uk.co.farowl.vsj4.types.Exposed;
 import uk.co.farowl.vsj4.types.Feature;
 import uk.co.farowl.vsj4.types.TypeSpec;
 
@@ -283,6 +284,8 @@ public abstract class PyMethodDescr extends MethodDescriptor {
     abstract MethodHandle getHandle(Object self)
             throws PyBaseException, Throwable;
 
+    // Exposed attributes --------------------------------------------
+
     // CPython get-set table (to convert to annotations):
     // private GetSetDef method_getset[] = {
     // {"__doc__", (getter)method_get_doc},
@@ -291,29 +294,24 @@ public abstract class PyMethodDescr extends MethodDescriptor {
     // {0}
     // };
 
-    // CPython type object (to convert to special method names):
-    // PyType PyMethodDescr_Type = {
-    // PyVar_HEAD_INIT(&PyType_Type, 0)
-    // "method_descriptor",
-    // sizeof(PyMethodDescr),
-    // 0,
-    // offsetof(PyMethodDescr, vectorcall), /* tp_vectorcall_offset */
-    // (reprfunc)method_repr, /* tp_repr */
-    // PyVectorcall_Call, /* tp_call */
-    // PyObject_GenericGetAttr, /* tp_getattro */
-    // Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_GC |
-    // _Py_TPFLAGS_HAVE_VECTORCALL |
-    // Py_TPFLAGS_METHOD_DESCRIPTOR, /* tp_flags */
-    // descr_methods, /* tp_methods */
-    // descr_members, /* tp_members */
-    // method_getset, /* tp_getset */
-    // (descrgetfunc)method_get, /* tp_descr_get */
-    // };
+    // Compare CPython method_get_doc in descrobject.c
+    @Exposed.Getter
+    private Object __doc__() {
+        return Descriptor.getDocFromInternalDoc(name, argParser.doc());
+    }
 
-    // special methods ------------------------------------------------
+    // Compare CPython method_get_text_signature in descrobject.c
+    @Exposed.Getter
+    private Object __text_signature__() {
+        return Descriptor.getTextSignatureFromInternalDoc(name,
+                argParser.doc());
+    }
+
+    // Special methods -----------------------------------------------
 
     // Compare CPython method_repr in descrobject.c
-    Object __repr__() { return descrRepr("method"); }
+    @SuppressWarnings("unused")
+    private Object __repr__() { return descrRepr("method"); }
 
     /**
      * Invoke the Java method this method descriptor points to, using
@@ -355,11 +353,19 @@ public abstract class PyMethodDescr extends MethodDescriptor {
         }
     }
 
-    /*
-     * A simplified __call__ used in the narrative. To use, rename this
-     * to __call__, rename the real __call__ to something else, and
-     * force fromParser() always to select General as the implementation
-     * type.
+    /**
+     * A simplified {@code __call__} used in the narrative. To use,
+     * rename this to {@code __call__}, rename the real
+     * {@link #__call__(Object[], String[])} to something else, and
+     * force {@code fromParser()} always to select {@code General} as
+     * the implementation type.
+     *
+     * @param args all arguments as supplied in the call
+     * @param names of keyword arguments
+     * @return result of calling the method represented
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     the pattern of arguments is unacceptable
+     * @throws Throwable from the implementation of the special method
      */
     Object simple__call__(Object[] args, String[] names)
             throws PyBaseException, Throwable {
@@ -409,19 +415,6 @@ public abstract class PyMethodDescr extends MethodDescriptor {
             check(obj);
             return PyJavaFunction.from(this, obj);
         }
-    }
-
-    // exposed methods -----------------------------------------------
-
-    // Compare CPython method_get_doc in descrobject.c
-    Object get_doc() {
-        return Descriptor.getDocFromInternalDoc(name, argParser.doc());
-    }
-
-    // Compare CPython method_get_text_signature in descrobject.c
-    Object get_text_signature() {
-        return Descriptor.getTextSignatureFromInternalDoc(name,
-                argParser.doc());
     }
 
     // plumbing ------------------------------------------------------

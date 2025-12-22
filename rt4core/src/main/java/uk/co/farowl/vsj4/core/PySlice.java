@@ -4,11 +4,12 @@ package uk.co.farowl.vsj4.core;
 
 import java.lang.invoke.MethodHandles;
 
-import uk.co.farowl.vsj4.types.Exposed;
+import uk.co.farowl.vsj4.types.Exposed.DocString;
+import uk.co.farowl.vsj4.types.Exposed.Member;
+import uk.co.farowl.vsj4.types.Exposed.PythonMethod;
 import uk.co.farowl.vsj4.types.Feature;
 import uk.co.farowl.vsj4.types.TypeSpec;
 import uk.co.farowl.vsj4.types.WithClass;
-import uk.co.farowl.vsj4.types.Exposed.Member;
 
 /**
  * The Python {@code slice} object.
@@ -107,8 +108,28 @@ public class PySlice implements WithClass {
         return this == o ? false : compare(o, Comparison.NE);
     }
 
-    @Exposed.PythonMethod
-    final Object indices(Object length) throws Throwable {
+    /**
+     * Python {@code slice.indices}: interpret the slice in the context
+     * of a specific array or sequence length. We returning a
+     * {@code tuple} of {@code (start, stop, stride)} providing concrete
+     * (not end-relative) cardinal indices.
+     *
+     * @param length of array or sequence
+     * @return {@code tuple(start, stop, stride)}
+     * @throws PyBaseException on overflow or type errors
+     * @throws Throwable other errors in converting {@code length}
+     */
+    @PythonMethod
+    @DocString("""
+            S.indices(len) -> (start, stop, stride)
+
+            Assuming a sequence of length len, calculate the start and stop
+            indices, and the stride length of the extended slice described by
+            S. Out of bounds indices are clipped in a manner consistent with the
+            handling of normal slices.
+            """)
+
+    Object indices(Object length) throws PyBaseException, Throwable {
         Indices indices = new Indices(PyNumber.asSize(length,
                 (s) -> PyErr.format(PyExc.OverflowError, s)));
         return Py.tuple(indices.start, indices.stop, indices.step);
@@ -136,7 +157,13 @@ public class PySlice implements WithClass {
         return String.format("slice(%s, %s, %s)", start, stop, step);
     }
 
-    final Object __reduce__() {
+    /**
+     * Python {@code slice.__reduce__}
+     *
+     * @return a slice of pickle
+     */
+    @PythonMethod
+    Object __reduce__() {
         return Py.tuple(TYPE, Py.tuple(start, stop, step));
     }
 

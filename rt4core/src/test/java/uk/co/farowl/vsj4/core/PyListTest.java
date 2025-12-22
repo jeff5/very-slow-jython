@@ -105,7 +105,7 @@ class PyListTest extends UnitTestSupport {
             PyList list = new PyList(without);
             PyList rhs = new PyList(List.of(needle));
             PySlice slice = new PySlice(index, index);
-            list.__setitem__(slice, rhs);
+            PySequence.setItem(list, slice, rhs);
             assertEquals(with, list);
         }
     }

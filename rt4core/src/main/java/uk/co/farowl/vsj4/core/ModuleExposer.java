@@ -26,6 +26,8 @@ class ModuleExposer extends Exposer {
     /**
      * Construct the {@code ModuleExposer} instance for a particular
      * module.
+     *
+     * @param name of the module
      */
     ModuleExposer(String name) { this.name = name; }
 

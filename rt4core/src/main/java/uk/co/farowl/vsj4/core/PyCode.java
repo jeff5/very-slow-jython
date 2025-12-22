@@ -48,13 +48,83 @@ public abstract class PyCode implements WithClass {
      */
 
     /**
-     * Characteristics of a {@code PyCode} (as CPython co_flags). These
-     * are not all relevant to all code types.
+     * Characteristics of a {@code PyCode} (as CPython co_flags). They
+     * are significant characteristics of a function with this code
+     * objects as its body. These are not all relevant to all code
+     * types.
      */
-    // XXX Consider not having this, only flags.
+    // TODO Consider making a separate class for API use.
     enum Trait {
-        OPTIMIZED, NEWLOCALS, VARARGS, VARKEYWORDS, NESTED, GENERATOR,
-        COROUTINE, ITERABLE_COROUTINE, ASYNC_GENERATOR
+        /** The code uses fast local local variables, not a map. */
+        OPTIMIZED(CO_OPTIMIZED),
+        /** A new {@code dict} should be created for local variables. */
+        // Never acted on in CPython, but set for functions.
+        NEWLOCALS(CO_NEWLOCALS),
+        /** The function has a collector for positional arguments */
+        VARARGS(CO_VARARGS),
+        /** The function has a collector for keyword arguments */
+        VARKEYWORDS(CO_VARKEYWORDS),
+        /** The code is for a nested function. */
+        NESTED(CO_NESTED),
+        /**
+         * The code is for a generator function, i.e. a generator object
+         * is returned when the code object is executed.
+         */
+        GENERATOR(CO_GENERATOR),
+        /**
+         * The code is for a coroutine function (defined with
+         * {@code async def}). When the code object is executed it
+         * returns a coroutine object.
+         */
+        COROUTINE(CO_COROUTINE),
+        /**
+         * The flag is used to transform generators into generator-based
+         * coroutines. Generator objects with this flag can be used in
+         * {@code await} expression, and can {@code yield from}
+         * coroutine objects. See PEP 492 for more details.
+         */
+        ITERABLE_COROUTINE(CO_ITERABLE_COROUTINE),
+        /**
+         * The code object is an asynchronous generator function. When
+         * the code object is executed it returns an asynchronous
+         * generator object. See PEP 525 for more details.
+         */
+        ASYNC_GENERATOR(CO_ASYNC_GENERATOR);
+
+        private Trait(int flagbit) {
+            assert Integer.bitCount(flagbit) == 1;
+            this.co_flag = flagbit;
+        }
+
+        /** CPython equivalent bit-mask for use with co_flags. */
+        public final int co_flag;
+
+        /**
+         * Convert a CPython-style {@link #flags} specifier to
+         * {@link #traits}. We need this conversion because these bits
+         * are Python API.
+         *
+         * @param flags specifying traits
+         * @return corresponding traits (as a set)
+         */
+        static EnumSet<Trait> fromFlags(int flags) {
+            // List the bits set as traits.
+            ArrayList<Trait> traits = new ArrayList<>();
+            for (Trait t : Trait.values()) {
+                int m = t.co_flag;
+                if ((flags & m) != 0) { traits.add(t); flags &= ~m; }
+            }
+            // Check we translated all the bits
+            if (flags != 0) {
+                String msg = String.format(
+                        "Undefined bits 0x%04x set in 'flags' argument",
+                        flags);
+                throw new IllegalArgumentException(msg);
+            }
+            // Return as a set
+            return traits.isEmpty() ? EnumSet.noneOf(Trait.class)
+                    : EnumSet.copyOf(traits);
+        }
     }
 
     /** Characteristics of this {@code PyCode} (as CPython co_flags). */
@@ -107,10 +177,9 @@ public abstract class PyCode implements WithClass {
     public static final int CO_NESTED = 0x0010;
     /**
      * The code is for a generator function, i.e. a generator object is
-     * returned when the code object is executed..
+     * returned when the code object is executed.
      */
     public static final int CO_GENERATOR = 0x0020;
-
     /**
      * The code is for a coroutine function (defined with
      * {@code async def}). When the code object is executed it returns a
@@ -189,7 +258,7 @@ public abstract class PyCode implements WithClass {
         this.qualname = qualname;
         this.firstlineno = firstlineno;
 
-        this.traits = traitsFrom(flags);
+        this.traits = Trait.fromFlags(flags);
     }
 
     @Override
@@ -561,53 +630,5 @@ public abstract class PyCode implements WithClass {
     protected static String castString(Object v, String argName) {
         return PyUnicode.asString(v, o -> Abstract
                 .argumentTypeError("code", argName, "str", o));
-    }
-
-    /**
-     * Convert a CPython-style {@link #flags} specifier to
-     * {@link #traits}.
-     */
-    private static EnumSet<Trait> traitsFrom(int flags) {
-        ArrayList<Trait> traits = new ArrayList<>();
-        for (int m = 1; flags != 0; m <<= 1) {
-            switch (m & flags) {
-                case 0:
-                    break; // When bit not set in flag.
-                case CO_OPTIMIZED:
-                    traits.add(Trait.OPTIMIZED);
-                    break;
-                case CO_NEWLOCALS:
-                    traits.add(Trait.NEWLOCALS);
-                    break;
-                case CO_VARARGS:
-                    traits.add(Trait.VARARGS);
-                    break;
-                case CO_VARKEYWORDS:
-                    traits.add(Trait.VARKEYWORDS);
-                    break;
-                case CO_NESTED:
-                    traits.add(Trait.NESTED);
-                    break;
-                case CO_GENERATOR:
-                    traits.add(Trait.GENERATOR);
-                    break;
-                case CO_COROUTINE:
-                    traits.add(Trait.COROUTINE);
-                    break;
-                case CO_ITERABLE_COROUTINE:
-                    traits.add(Trait.ITERABLE_COROUTINE);
-                    break;
-                case CO_ASYNC_GENERATOR:
-                    traits.add(Trait.ASYNC_GENERATOR);
-                    break;
-                default:
-                    throw new IllegalArgumentException(
-                            "Undefined bit set in 'flags' argument");
-            }
-            // Ensure the bit we just tested is clear
-            flags &= ~m;
-        }
-        return traits.isEmpty() ? EnumSet.noneOf(Trait.class)
-                : EnumSet.copyOf(traits);
     }
 }

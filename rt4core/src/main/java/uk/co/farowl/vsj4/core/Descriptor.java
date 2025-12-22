@@ -90,7 +90,7 @@ abstract class Descriptor implements WithClass {
      */
     // @Exposed.Getter
     // Compare CPython descr_name in descrobject.c
-    public String __name__() { return name; }
+    String __name__() { return name; }
 
     /**
      * Return the qualified name of the member, attribute or method
@@ -106,7 +106,7 @@ abstract class Descriptor implements WithClass {
      */
     @Exposed.Getter("__qualname__")
     // Compare CPython descr_get_qualname in descrobject.c
-    public String __qualname__()
+    String __qualname__()
             throws PyAttributeError, PyBaseException, Throwable {
         if (qualname == null) { qualname = calculate_qualname(); }
         return qualname;
