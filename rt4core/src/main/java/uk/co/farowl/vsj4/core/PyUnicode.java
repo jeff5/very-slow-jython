@@ -73,7 +73,14 @@ public class PyUnicode implements WithClass, PyDict.Key {
 
     /** Enumeration to express the code point {@link #range}. */
     enum Range {
-        ASCII, LATIN, BMP, SMP;
+        /** Code points all belong to ASCII range (0-127). */
+        ASCII,
+        /** Code points all belong to Latin-1 range (0-255). */
+        LATIN,
+        /** Code points all belong to Basic Multilingual Plane. */
+        BMP,
+        /** Code points include Supplementary Multilingual Plane. */
+        SMP;
     }
 
     /**
@@ -118,7 +125,7 @@ public class PyUnicode implements WithClass, PyDict.Key {
 
     /**
      * Categorise the range of code points in the string, based on a
-     * maximum code point (if known)or inspection of the code point
+     * maximum code point (if known) or inspection of the code point
      * array.
      *
      * @param max known maximum code point (or {@code -1})
@@ -127,10 +134,16 @@ public class PyUnicode implements WithClass, PyDict.Key {
      */
     private static Range findRange(int max, int[] codePoints) {
         if (max < 0) {
-            for (int c : codePoints) { max = Math.max(max, c); }
+            // We can do this by finding the highest bit set
+            max = 0;
+            for (int c : codePoints) {
+                if ((max = max | c) > 0xffff) { return Range.SMP; }
+            }
         }
         if (max <= 0x7f) {
             return Range.ASCII;
+        } else if (max <= 0xff) {
+            return Range.LATIN;
         } else if (max <= 0x7fff) {
             return Range.BMP;
         } else {
@@ -241,11 +254,14 @@ public class PyUnicode implements WithClass, PyDict.Key {
 
     // Special methods -----------------------------------------------
 
-    Object __str__() { return this; }
+    @SuppressWarnings("unused")
+    private Object __str__() { return this; }
 
-    static Object __str__(String self) { return self; }
+    @SuppressWarnings("unused")
+    private static Object __str__(String self) { return self; }
 
-    static Object __repr__(Object self) {
+    @SuppressWarnings("unused")
+    private static Object __repr__(Object self) {
         try {
             // Ok, it should be more complicated but I'm in a hurry.
             return "'" + convertToString(self) + "'";
@@ -259,9 +275,11 @@ public class PyUnicode implements WithClass, PyDict.Key {
      *
      * @return length
      */
-    int __len__() { return value.length; }
+    @SuppressWarnings("unused")
+    private int __len__() { return value.length; }
 
-    static int __len__(String self) {
+    @SuppressWarnings("unused")
+    private static int __len__(String self) {
         return self.codePointCount(0, self.length());
     }
 
@@ -271,7 +289,8 @@ public class PyUnicode implements WithClass, PyDict.Key {
      * {@code str} may be found as a match in hashed data structures,
      * whichever representation is used for the key or query.
      */
-    int __hash__() {
+    @SuppressWarnings("unused")
+    private int __hash__() {
         // Reproduce on value the hash defined for java.lang.String
         if (hash == 0 && value.length > 0) {
             int h = 0;
@@ -291,21 +310,28 @@ public class PyUnicode implements WithClass, PyDict.Key {
         return hash;
     }
 
-    static int __hash__(String self) { return self.hashCode(); }
+    @SuppressWarnings("unused")
+    private static int __hash__(String self) { return self.hashCode(); }
 
-    Object __getitem__(Object item) throws Throwable {
+    @SuppressWarnings("unused")
+    private Object __getitem__(Object item) throws Throwable {
         return delegate.__getitem__(item);
     }
 
-    static Object __getitem__(String self, Object item)
+    @SuppressWarnings("unused")
+    private static Object __getitem__(String self, Object item)
             throws Throwable {
         StringAdapter delegate = adapt(self);
         return delegate.__getitem__(item);
     }
 
-    boolean __contains__(Object o) { return contains(delegate, o); }
+    @SuppressWarnings("unused")
+    private boolean __contains__(Object o) {
+        return contains(delegate, o);
+    }
 
-    static boolean __contains__(String self, Object o) {
+    @SuppressWarnings("unused")
+    private static boolean __contains__(String self, Object o) {
         return contains(adapt(self), o);
     }
 
@@ -322,39 +348,52 @@ public class PyUnicode implements WithClass, PyDict.Key {
     private static final String IN_STRING_TYPE =
             "'in <string>' requires string as left operand, not %s";
 
-    Object __add__(Object w) throws Throwable {
+    @SuppressWarnings("unused")
+    private Object __add__(Object w) throws Throwable {
         return delegate.__add__(w);
     }
 
-    static Object __add__(String v, Object w) throws Throwable {
+    @SuppressWarnings("unused")
+    private static Object __add__(String v, Object w) throws Throwable {
         return adapt(v).__add__(w);
     }
 
-    Object __radd__(Object v) throws Throwable {
+    @SuppressWarnings("unused")
+    private Object __radd__(Object v) throws Throwable {
         return delegate.__radd__(v);
     }
 
-    static Object __radd__(String w, Object v) throws Throwable {
+    @SuppressWarnings("unused")
+    private static Object __radd__(String w, Object v)
+            throws Throwable {
         return adapt(w).__radd__(v);
     }
 
-    Object __mul__(Object n) throws Throwable {
+    private Object __mul__(Object n) throws Throwable {
         return delegate.__mul__(n);
     }
 
-    static Object __mul__(String self, Object n) throws Throwable {
+    private static Object __mul__(String self, Object n)
+            throws Throwable {
         return adapt(self).__mul__(n);
     }
 
-    Object __rmul__(Object n) throws Throwable { return __mul__(n); }
+    @SuppressWarnings("unused")
+    private Object __rmul__(Object n) throws Throwable {
+        return __mul__(n);
+    }
 
-    static Object __rmul__(String self, Object n) throws Throwable {
+    @SuppressWarnings("unused")
+    private static Object __rmul__(String self, Object n)
+            throws Throwable {
         return __mul__(self, n);
     }
 
-    Object __iter__() { return new PyStrIterator(delegate); }
+    @SuppressWarnings("unused")
+    private Object __iter__() { return new PyStrIterator(delegate); }
 
-    static Object __iter__(String self) {
+    @SuppressWarnings("unused")
+    private static Object __iter__(String self) {
         return new PyStrIterator(adapt(self));
     }
 
@@ -377,6 +416,16 @@ public class PyUnicode implements WithClass, PyDict.Key {
         return strip(delegate, chars);
     }
 
+    /**
+     * Python {@link #strip(Object) str.strip}.
+     *
+     * @param self to be stripped
+     * @param chars characters to strip from either end of {@code self},
+     *     or {@code None}
+     * @return a new {@code str}, stripped of the specified characters
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) on
+     *     {@code chars} type errors
+     */
     @PythonMethod
     static Object strip(String self, @Default("None") Object chars)
             throws PyBaseException {
@@ -500,6 +549,17 @@ public class PyUnicode implements WithClass, PyDict.Key {
         return lstrip(delegate, chars);
     }
 
+    /**
+     * Python {@link #lstrip(Object) str.lstrip}.
+     *
+     * @param self to be stripped
+     * @param chars characters to strip from {@code self}, or
+     *     {@code None}
+     * @return a new {@code str}, left-stripped of the specified
+     *     characters
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) on
+     *     {@code chars} type errors
+     */
     @PythonMethod
     static Object lstrip(String self, @Default("None") Object chars)
             throws PyBaseException {
@@ -552,6 +612,17 @@ public class PyUnicode implements WithClass, PyDict.Key {
         return rstrip(delegate, chars);
     }
 
+    /**
+     * Python {@link #rstrip(Object) str.rstrip}.
+     *
+     * @param self to be stripped
+     * @param chars characters to strip from {@code self}, or
+     *     {@code None}
+     * @return a new {@code str}, right-stripped of the specified
+     *     characters
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) on
+     *     {@code chars} type errors
+     */
     @PythonMethod
     static Object rstrip(String self, @Default("None") Object chars)
             throws PyBaseException {
@@ -624,6 +695,17 @@ public class PyUnicode implements WithClass, PyDict.Key {
         return find(delegate, sub, start, end);
     }
 
+    /**
+     * Python {@link #find(Object, Object, Object) str.find}.
+     *
+     * @param self to be searched
+     * @param sub substring to find.
+     * @param start start of slice.
+     * @param end end of slice.
+     * @return index of {@code sub} in this object or -1 if not found.
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) on
+     *     {@code sub} type errors
+     */
     @PythonMethod(primary = false)
     static int find(String self, Object sub, Object start, Object end) {
         return find(adapt(self), sub, start, end);
@@ -709,6 +791,15 @@ public class PyUnicode implements WithClass, PyDict.Key {
         return rfind(delegate, sub, start, end);
     }
 
+    /**
+     * Python {@link #rfind(Object, Object, Object) str.rfind}.
+     *
+     * @param self to be searched
+     * @param sub substring to find.
+     * @param start start of slice.
+     * @param end end of slice.
+     * @return index of {@code sub} in this object or -1 if not found.
+     */
     @PythonMethod(primary = false)
     static int rfind(String self, Object sub, Object start,
             Object end) {
@@ -793,6 +884,13 @@ public class PyUnicode implements WithClass, PyDict.Key {
         return r != null ? r : Py.tuple(this, "", "");
     }
 
+    /**
+     * Python {@link #partition(Object) str.partition}.
+     *
+     * @param self to be split
+     * @param sep on which to split the string
+     * @return tuple of parts
+     */
     @PythonMethod(primary = false)
     static PyTuple partition(String self, Object sep) {
         PyTuple r = partition(adapt(self), sep);
@@ -879,6 +977,13 @@ public class PyUnicode implements WithClass, PyDict.Key {
         return r != null ? r : Py.tuple(this, "", "");
     }
 
+    /**
+     * Python {@link #rpartition(Object) str.rpartition}.
+     *
+     * @param self to be split
+     * @param sep on which to split the string
+     * @return tuple of parts
+     */
     @PythonMethod(primary = false)
     static PyTuple rpartition(String self, Object sep) {
         PyTuple r = rpartition(adapt(self), sep);
@@ -972,6 +1077,16 @@ public class PyUnicode implements WithClass, PyDict.Key {
         return split(delegate, sep, maxsplit);
     }
 
+    /**
+     * Python {@link #split(Object, int) str.split}.
+     *
+     * @param self to be split
+     * @param sep string to use as separator (or {@code null} if to
+     *     split on whitespace)
+     * @param maxsplit maximum number of splits to make (there may be
+     *     {@code maxsplit+1} parts) or {@code -1} for all possible.
+     * @return {@code str.split(self)}
+     */
     @PythonMethod(primary = false)
     static PyList split(String self, Object sep, int maxsplit) {
         return split(adapt(self), sep, maxsplit);
@@ -1189,6 +1304,16 @@ public class PyUnicode implements WithClass, PyDict.Key {
         return rsplit(delegate, sep, maxsplit);
     }
 
+    /**
+     * Python {@link #rsplit(Object, int) str.rsplit}.
+     *
+     * @param self to be split
+     * @param sep string to use as separator (or {@code null} if to
+     *     split on whitespace)
+     * @param maxsplit maximum number of splits to make (there may be
+     *     {@code maxsplit+1} parts) or {@code -1} for all possible.
+     * @return {@code PyList} of split sections
+     */
     @PythonMethod(primary = false)
     static PyList rsplit(String self, Object sep, int maxsplit) {
         return rsplit(adapt(self), sep, maxsplit);
@@ -1405,12 +1530,20 @@ public class PyUnicode implements WithClass, PyDict.Key {
      *     caused the split
      * @return the list of lines
      */
-    // Not yet converting boolean @PythonMethod
+    @PythonMethod
     PyList splitlines(boolean keepends) {
         return splitlines(delegate, keepends);
     }
 
-    // Not yet converting boolean @PythonMethod(primary = false)
+    /**
+     * Python {@link #splitlines(boolean) str.splitlines}.
+     *
+     * @param self to be split
+     * @param keepends the lines in the list retain the separator that
+     *     caused the split
+     * @return the list of lines
+     */
+    @PythonMethod(primary = false)
     static PyList splitlines(String self, boolean keepends) {
         return splitlines(adapt(self), keepends);
     }
@@ -1478,9 +1611,9 @@ public class PyUnicode implements WithClass, PyDict.Key {
      * {@link PyBaseException ValueError} if the substring is not found.
      *
      * @param sub substring to find.
-     * @param start start of slice.
-     * @param end end of slice.
-     * @return index of {@code sub} in this object or -1 if not found.
+     * @param start of slice.
+     * @param end of slice.
+     * @return index of {@code sub} in this object.
      * @throws PyBaseException ({@link PyExc#ValueError ValueError}) if
      *     {@code sub} is not found
      */
@@ -1490,6 +1623,17 @@ public class PyUnicode implements WithClass, PyDict.Key {
         return checkIndexReturn(find(delegate, sub, start, end));
     }
 
+    /**
+     * Python {@link #index(Object, Object, Object) str.index}.
+     *
+     * @param self to be searched
+     * @param sub substring to find.
+     * @param start of slice.
+     * @param end of slice.
+     * @return index of {@code sub} in this object.
+     * @throws PyBaseException ({@link PyExc#ValueError ValueError}) if
+     *     {@code sub} is not found
+     */
     @PythonMethod(primary = false)
     static int index(String self, Object sub, Object start,
             Object end) {
@@ -1499,11 +1643,13 @@ public class PyUnicode implements WithClass, PyDict.Key {
     /**
      * As {@link #rfind(Object, Object, Object)}, but throws
      * {@link PyBaseException ValueError} if the substring is not found.
+     * Optional arguments {@code start} and {@code end} are interpreted
+     * as in slice notation.
      *
      * @param sub substring to find.
-     * @param start start of slice.
-     * @param end end of slice.
-     * @return index of {@code sub} in this object or -1 if not found.
+     * @param start of slice.
+     * @param end of slice.
+     * @return index of {@code sub} in this object.
      * @throws PyBaseException ({@link PyExc#ValueError ValueError}) if
      *     {@code sub} is not found
      */
@@ -1513,9 +1659,18 @@ public class PyUnicode implements WithClass, PyDict.Key {
         return checkIndexReturn(rfind(delegate, sub, start, end));
     }
 
+    /**
+     * Python {@link #rindex(Object, Object, Object) str.rindex}.
+     *
+     * @param self to be searched
+     * @param sub substring to find.
+     * @param start of slice.
+     * @param end of slice.
+     * @return index of {@code sub} in this object.
+     */
     @PythonMethod(primary = false)
-    static int rindex(String self, Object sub, Object start,
-            Object end) {
+    static int rindex(String self, Object sub, Object start, Object end)
+            throws PyBaseException {
         return checkIndexReturn(rfind(adapt(self), sub, start, end));
     }
 
@@ -1526,8 +1681,8 @@ public class PyUnicode implements WithClass, PyDict.Key {
      * notation.
      *
      * @param sub substring to find.
-     * @param start start of slice.
-     * @param end end of slice.
+     * @param start of slice.
+     * @param end of slice.
      * @return count of occurrences.
      * @throws PyBaseException ({@link PyExc#TypeError TypeError}) on
      *     {@code sub} type errors
@@ -1538,12 +1693,33 @@ public class PyUnicode implements WithClass, PyDict.Key {
         return count(delegate, sub, start, end);
     }
 
+    /**
+     * Python {@link #count(Object, Object, Object) str.count}.
+     *
+     * @param self to be searched
+     * @param sub substring to find.
+     * @param start of slice.
+     * @param end of slice.
+     * @return count of occurrences.
+     */
     @PythonMethod(primary = false)
     static int count(String self, Object sub, Object start,
             Object end) {
         return count(adapt(self), sub, start, end);
     }
 
+    /**
+     * Common code between {@code String} and {@code PyUnicode}
+     * implementations of {@code count}. Optional arguments
+     * {@code start} and {@code end} are interpreted as in slice
+     * notation.
+     *
+     * @param s adapted {@code str} target of call
+     * @param sub substring to find.
+     * @param start of slice.
+     * @param end of slice.
+     * @return count of occurrences.
+     */
     private static int count(CodepointDelegate s, Object sub,
             Object start, Object end) {
         CodepointDelegate p = adaptSub("count", sub);
@@ -1556,13 +1732,12 @@ public class PyUnicode implements WithClass, PyDict.Key {
 
     /**
      * The inner implementation of {@code str.count}, returning the
-     * number of occurrences of a substring. It accepts slice-like
-     * arguments, which may be {@code None} or end-relative (negative).
+     * number of occurrences of a substring in a slice of the target.
      *
-     * @param sub substring to find.
-     * @param startObj start of slice.
-     * @param endObj end of slice.
-     * @return count of occurrences
+     * @param s adapted {@code str} target of call
+     * @param p substring to find.
+     * @param slice to search
+     * @return count of occurrences.
      */
     private static int count(CodepointDelegate s, CodepointDelegate p,
             PySlice.Indices slice) {
@@ -1631,6 +1806,16 @@ public class PyUnicode implements WithClass, PyDict.Key {
         return replace(delegate, old, rep, count);
     }
 
+    /**
+     * Python {@link #replace(Object, Object, int) str.replace}.
+     *
+     * @param self receiving object of method call
+     * @param old to replace where found.
+     * @param rep replacement text.
+     * @param count maximum number of replacements to make, or -1
+     *     meaning all of them.
+     * @return {@code str.replace(self)}
+     */
     @PythonMethod(primary = false)
     static Object replace(String self, Object old, Object rep,
             int count) {
@@ -1810,25 +1995,58 @@ public class PyUnicode implements WithClass, PyDict.Key {
      * str.strip() and str.title().
      */
 
+    /**
+     * Python {@code str.lower}.
+     *
+     * @return {@code str.lower(this)}
+     */
     @PythonMethod
     PyUnicode lower() { return mapChars(Character::toLowerCase); }
 
+    /**
+     * Python {@link #lower() str.lower}.
+     *
+     * @param self receiving object of method call
+     * @return {@code str.lower(self)}
+     */
     @PythonMethod(primary = false)
     static String lower(String self) {
         return mapChars(self, Character::toLowerCase);
     }
 
+    /**
+     * Python {@code str.upper}.
+     *
+     * @return {@code str.upper(this)}
+     */
     @PythonMethod
     PyUnicode upper() { return mapChars(Character::toUpperCase); }
 
+    /**
+     * Python {@link #upper() str.upper}.
+     *
+     * @param self receiving object of method call
+     * @return {@code str.upper(self)}
+     */
     @PythonMethod(primary = false)
     static String upper(String self) {
         return mapChars(self, Character::toUpperCase);
     }
 
+    /**
+     * Python {@code str.title}.
+     *
+     * @return {@code str.title(this)}
+     */
     @PythonMethod
     PyUnicode title() { return title(delegate); }
 
+    /**
+     * Python {@link #title() str.title}.
+     *
+     * @param self receiving object of method call
+     * @return {@code str.title(self)}
+     */
     @PythonMethod(primary = false)
     static PyUnicode title(String self) { return title(adapt(self)); }
 
@@ -1848,9 +2066,20 @@ public class PyUnicode implements WithClass, PyDict.Key {
         return new PyUnicode(buffer);
     }
 
+    /**
+     * Python {@code str.swapcase}.
+     *
+     * @return {@code str.swapcase(this)}
+     */
     @PythonMethod
     PyUnicode swapcase() { return mapChars(PyUnicode::swapcase); }
 
+    /**
+     * Python {@link #swapcase() str.swapcase}.
+     *
+     * @param self receiving object of method call
+     * @return {@code str.swapcase(self)}
+     */
     @PythonMethod(primary = false)
     static String swapcase(String self) {
         return mapChars(self, PyUnicode::swapcase);
@@ -1866,36 +2095,81 @@ public class PyUnicode implements WithClass, PyDict.Key {
         }
     }
 
+    /**
+     * Python {@code str.ljust}.
+     *
+     * @param width the minimum width to attain
+     * @param fillchar the code point value to use as the fill
+     * @return {@code str.ljust(this)}
+     */
     @PythonMethod
     Object ljust(int width, @Default(" ") Object fillchar) {
         return pad(false, delegate, true, width,
                 adaptFill("ljust", fillchar));
     }
 
+    /**
+     * Python {@link #ljust(int, Object) str.ljust}.
+     *
+     * @param self receiving object of method call
+     * @param width the minimum width to attain
+     * @param fillchar the code point value to use as the fill
+     * @return {@code str.ljust(self)}
+     */
     @PythonMethod(primary = false)
     static Object ljust(String self, int width, Object fillchar) {
         return pad(false, adapt(self), true, width,
                 adaptFill("ljust", fillchar));
     }
 
+    /**
+     * Python {@code str.rjust}.
+     *
+     * @param width the minimum width to attain
+     * @param fillchar the code point value to use as the fill
+     * @return {@code str.rjust(this)}
+     */
     @PythonMethod
     Object rjust(int width, @Default(" ") Object fillchar) {
         return pad(true, delegate, false, width,
                 adaptFill("rjust", fillchar));
     }
 
+    /**
+     * Python {@link #rjust(int, Object) str.rjust}.
+     *
+     * @param self receiving object of method call
+     * @param width the minimum width to attain
+     * @param fillchar the code point value to use as the fill
+     * @return {@code str.rjust(self)}
+     */
     @PythonMethod(primary = false)
     static Object rjust(String self, int width, Object fillchar) {
         return pad(true, adapt(self), false, width,
                 adaptFill("rjust", fillchar));
     }
 
+    /**
+     * Python {@code str.center}.
+     *
+     * @param width the minimum width to attain
+     * @param fillchar the code point value to use as the fill
+     * @return {@code str.center(this)}
+     */
     @PythonMethod
     Object center(int width, @Default(" ") Object fillchar) {
         return pad(true, delegate, true, width,
                 adaptFill("center", fillchar));
     }
 
+    /**
+     * Python {@link #center(int, Object) str.center}.
+     *
+     * @param self receiving object of method call
+     * @param width the minimum width to attain
+     * @param fillchar the code point value to use as the fill
+     * @return {@code str.center(self, fillchar)}
+     */
     @PythonMethod(primary = false)
     static Object center(String self, int width, Object fillchar) {
         return pad(true, adapt(self), true, width,
@@ -1911,11 +2185,11 @@ public class PyUnicode implements WithClass, PyDict.Key {
      * @param s the {@code self} string
      * @param right whether to pad at the right
      * @param width the minimum width to attain
-     * @param fill the code point value to use as the fill
+     * @param fillchar the code point value to use as the fill
      * @return the padded string (or {@code s.principal()})
      */
     private static Object pad(boolean left, CodepointDelegate s,
-            boolean right, int width, int fill) {
+            boolean right, int width, int fillchar) {
         // Work out how much (or whether) to pad at the left and right.
         int L = s.length(), pad = Math.max(width, L) - L;
         if (pad == 0) { return s.principal(); }
@@ -1928,7 +2202,7 @@ public class PyUnicode implements WithClass, PyDict.Key {
                 leftPad = pad;
                 rightPad = 0;
             } else {
-                // But sometimes you have to be Dutch
+                // But sometimes you have to go Dutch
                 leftPad = pad / 2 + (pad & width & 1);
                 rightPad = width - leftPad;
             }
@@ -1937,15 +2211,32 @@ public class PyUnicode implements WithClass, PyDict.Key {
         // Now, use a builder to create the result
         IntArrayBuilder buf = new IntArrayBuilder(width);
 
-        for (int i = 0; i < leftPad; i++) { buf.append(fill); }
+        for (int i = 0; i < leftPad; i++) { buf.append(fillchar); }
         buf.append(s);
-        for (int i = 0; i < rightPad; i++) { buf.append(fill); }
+        for (int i = 0; i < rightPad; i++) { buf.append(fillchar); }
         return new PyUnicode(buf);
     }
 
+    /**
+     * Python {@code str.zfill}.
+     *
+     * @param width the achieve by inserting zeros
+     * @return the filled string
+     */
     @PythonMethod
+    @DocString("""
+            Pad a numeric string with zeros on the left, to given width.
+
+            The string is never truncated.""")
     Object zfill(int width) { return zfill(delegate, width); }
 
+    /**
+     * Python {@link #zfill(int) str.zfill}.
+     *
+     * @param self receiving object of method call
+     * @param width the achieve by inserting zeros
+     * @return the filled string
+     */
     @PythonMethod(primary = false)
     static Object zfill(String self, int width) {
         return zfill(adapt(self), width);
@@ -1983,11 +2274,24 @@ public class PyUnicode implements WithClass, PyDict.Key {
         return new PyUnicode(buf);
     }
 
+    /**
+     * Python {@code str.expandtabs}.
+     *
+     * @param tabsize number of spaces to tab to
+     * @return tab-expanded string
+     */
     @PythonMethod
     Object expandtabs(@Default("8") int tabsize) {
         return expandtabs(delegate, tabsize);
     }
 
+    /**
+     * Python {@link #expandtabs(int) str.expandtabs}.
+     *
+     * @param self receiving object of method call
+     * @param tabsize number of spaces to tab to
+     * @return tab-expanded string
+     */
     @PythonMethod(primary = false)
     static Object expandtabs(String self, int tabsize) {
         return expandtabs(adapt(self), tabsize);
@@ -2021,9 +2325,20 @@ public class PyUnicode implements WithClass, PyDict.Key {
         return new PyUnicode(buf);
     }
 
+    /**
+     * Python {@code str.capitalize}.
+     *
+     * @return {@code str.capitalize(this)}
+     */
     @PythonMethod
     Object capitalize() { return capitalize(delegate); }
 
+    /**
+     * Python {@link #capitalize() str.capitalize}.
+     *
+     * @param self receiving object of method call
+     * @return {@code str.capitalize(self)}
+     */
     @PythonMethod(primary = false)
     static Object capitalize(String self) {
         return capitalize(adapt(self));
@@ -2054,11 +2369,30 @@ public class PyUnicode implements WithClass, PyDict.Key {
         }
     }
 
+    /**
+     * Python {@code str.join}.
+     *
+     * @param iterable of strings
+     * @return {@code str.join(self, iterable)}
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     {@code iterable} isn't an iterable of {@code str}
+     * @throws Throwable from errors iterating {@code iterable}
+     */
     @PythonMethod
     Object join(Object iterable) throws PyBaseException, Throwable {
         return join(delegate, iterable);
     }
 
+    /**
+     * Python {@link #join(Object) str.join}.
+     *
+     * @param self receiving the string (joiner)
+     * @param iterable of strings
+     * @return {@code str.join(self, iterable)}
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     {@code iterable} isn't an iterable of {@code str}
+     * @throws Throwable from errors iterating {@code iterable}
+     */
     @PythonMethod(primary = false)
     static Object join(String self, Object iterable)
             throws PyBaseException, Throwable {
@@ -2068,11 +2402,11 @@ public class PyUnicode implements WithClass, PyDict.Key {
     /**
      * Inner implementation of {@link #join() join}.
      *
-     * @param s the {@code self} string (separator)
+     * @param s the {@code self} string (joiner)
      * @param iterable of strings
-     * @return capitalised string
+     * @return {@code s.join(iterable)}
      * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
-     *     {@code iterable} isn't
+     *     {@code iterable} isn't an iterable of {@code str}
      * @throws Throwable from errors iterating {@code iterable}
      */
     private static Object join(CodepointDelegate s, Object iterable)
@@ -2182,6 +2516,16 @@ public class PyUnicode implements WithClass, PyDict.Key {
         return startswith(delegate, prefix, start, end);
     }
 
+    /**
+     * Python {@link #startswith(Object, Object, Object)
+     * str.startswith}.
+     *
+     * @param self receiving object of method call
+     * @param prefix string to check for (or a {@code PyTuple} of them).
+     * @param start start of slice.
+     * @param end end of slice.
+     * @return {@code str.startswith(this)}
+     */
     @PythonMethod(primary = false)
     static Object startswith(String self, Object prefix, Object start,
             Object end) {
@@ -2248,6 +2592,16 @@ public class PyUnicode implements WithClass, PyDict.Key {
         return endswith(delegate, suffix, start, end);
     }
 
+    /**
+     * Python {@link #endswith(Object, Object, Object) str.endswith}.
+     *
+     * @param self receiving object of method call
+     * @param suffix string to check for (or a {@code PyTuple} of them).
+     * @param start start of slice.
+     * @param end end of slice.
+     *
+     * @return {@code str.endswith(self)}
+     */
     @PythonMethod(primary = false)
     static Object endswith(String self, Object suffix, Object start,
             Object end) {
@@ -2299,10 +2653,20 @@ public class PyUnicode implements WithClass, PyDict.Key {
      * based on tests of character properties, for example
      * str.isascii(). They have a common pattern.
      */
-
+    /**
+     * Python {@code str.islower}.
+     *
+     * @return {@code str.islower(this)}
+     */
     @PythonMethod
     boolean islower() { return islower(delegate); }
 
+    /**
+     * Python {@link #islower() str.islower}.
+     *
+     * @param s receiving object of method call
+     * @return {@code str.islower(s)}
+     */
     @PythonMethod(primary = false)
     static boolean islower(String s) { return islower(adapt(s)); }
 
@@ -2319,9 +2683,20 @@ public class PyUnicode implements WithClass, PyDict.Key {
         return cased;
     }
 
+    /**
+     * Python {@code str.isupper}.
+     *
+     * @return {@code str.isupper(this)}
+     */
     @PythonMethod
-    final boolean isupper() { return isupper(delegate); }
+    boolean isupper() { return isupper(delegate); }
 
+    /**
+     * Python {@link #isupper() str.isupper}.
+     *
+     * @param s receiving object of method call
+     * @return {@code str.isupper(s)}
+     */
     @PythonMethod(primary = false)
     static boolean isupper(String s) { return isupper(adapt(s)); }
 
@@ -2338,9 +2713,20 @@ public class PyUnicode implements WithClass, PyDict.Key {
         return cased;
     }
 
+    /**
+     * Python {@code str.isalpha}.
+     *
+     * @return {@code str.isalpha(this)}
+     */
     @PythonMethod
-    final boolean isalpha() { return isalpha(delegate); }
+    boolean isalpha() { return isalpha(delegate); }
 
+    /**
+     * Python {@link #isalpha() str.isalpha}.
+     *
+     * @param s receiving object of method call
+     * @return {@code str.isalpha(s)}
+     */
     @PythonMethod(primary = false)
     static boolean isalpha(String s) { return isalpha(adapt(s)); }
 
@@ -2352,9 +2738,20 @@ public class PyUnicode implements WithClass, PyDict.Key {
         return true;
     }
 
+    /**
+     * Python {@code str.isalnum}.
+     *
+     * @return {@code str.isalnum(this)}
+     */
     @PythonMethod
-    final boolean isalnum() { return isalnum(delegate); }
+    boolean isalnum() { return isalnum(delegate); }
 
+    /**
+     * Python {@link #isalnum() str.isalnum}.
+     *
+     * @param s receiving object of method call
+     * @return {@code str.isalnum(s)}
+     */
     @PythonMethod(primary = false)
     static boolean isalnum(String s) { return isalnum(adapt(s)); }
 
@@ -2371,7 +2768,8 @@ public class PyUnicode implements WithClass, PyDict.Key {
     }
 
     /**
-     * {@code str.isascii}
+     * {@code str.isascii} is {@code false} iff the string contains any
+     * non-ASCII characters.
      *
      * @return {@code false} iff any character not ASCII.
      */
@@ -2380,21 +2778,39 @@ public class PyUnicode implements WithClass, PyDict.Key {
     // But it shouldn't matter. Let's check that.
     public boolean isascii() { return range == Range.ASCII; }
 
+    /**
+     * {@code str.isascii} is {@code false} iff the string contains any
+     * non-ASCII characters.
+     *
+     * @param s receiving object of method call
+     * @return {@code str.isascii(s)}
+     */
     @PythonMethod
     @DocString("""
             Return False iff the string contains any non-ASCII characters.
 
             ASCII characters have code points in the range U+0000-U+007F.
             An empty string returns True.""")
-    static boolean isascii(String self) {
+    static boolean isascii(String s) {
         // We can test chars since any surrogate will fail.
-        return self.chars().dropWhile(c -> c >>> 7 == 0).findFirst()
+        return s.chars().dropWhile(c -> c >>> 7 == 0).findFirst()
                 .isEmpty();
     }
 
+    /**
+     * Python {@code str.isdecimal}.
+     *
+     * @return {@code str.isdecimal(this)}
+     */
     @PythonMethod
-    final boolean isdecimal() { return isdecimal(delegate); }
+    boolean isdecimal() { return isdecimal(delegate); }
 
+    /**
+     * Python {@link #isdecimal() str.isdecimal}.
+     *
+     * @param s receiving object of method call
+     * @return {@code str.isdecimal(s)}
+     */
     @PythonMethod(primary = false)
     static boolean isdecimal(String s) { return isdecimal(adapt(s)); }
 
@@ -2409,9 +2825,20 @@ public class PyUnicode implements WithClass, PyDict.Key {
         return true;
     }
 
+    /**
+     * Python {@code str.isdigit}.
+     *
+     * @return {@code str.isdigit(this)}
+     */
     @PythonMethod
-    final boolean isdigit() { return isdigit(delegate); }
+    boolean isdigit() { return isdigit(delegate); }
 
+    /**
+     * Python {@link #isdigit() str.isdigit}.
+     *
+     * @param s receiving object of method call
+     * @return {@code str.isdigit(s)}
+     */
     @PythonMethod(primary = false)
     static boolean isdigit(String s) { return isdigit(adapt(s)); }
 
@@ -2423,9 +2850,20 @@ public class PyUnicode implements WithClass, PyDict.Key {
         return true;
     }
 
+    /**
+     * Python {@code str.isnumeric}.
+     *
+     * @return {@code str.isnumeric(this)}
+     */
     @PythonMethod
-    final boolean isnumeric() { return isnumeric(delegate); }
+    boolean isnumeric() { return isnumeric(delegate); }
 
+    /**
+     * Python {@link #isnumeric() str.isnumeric}.
+     *
+     * @param s receiving object of method call
+     * @return {@code str.isnumeric(s)}
+     */
     @PythonMethod(primary = false)
     static boolean isnumeric(String s) { return isnumeric(adapt(s)); }
 
@@ -2442,9 +2880,20 @@ public class PyUnicode implements WithClass, PyDict.Key {
         return true;
     }
 
+    /**
+     * Python {@code str.istitle}.
+     *
+     * @return {@code str.istitle(this)}
+     */
     @PythonMethod
-    final boolean istitle() { return istitle(delegate); }
+    boolean istitle() { return istitle(delegate); }
 
+    /**
+     * Python {@link #istitle() str.istitle}.
+     *
+     * @param s receiving object of method call
+     * @return {@code str.istitle(s)}
+     */
     @PythonMethod(primary = false)
     static boolean istitle(String s) { return istitle(adapt(s)); }
 
@@ -2469,9 +2918,20 @@ public class PyUnicode implements WithClass, PyDict.Key {
         return cased;
     }
 
+    /**
+     * Python {@code str.isspace}.
+     *
+     * @return {@code str.isspace(this)}
+     */
     @PythonMethod
-    final boolean isspace() { return isspace(delegate); }
+    boolean isspace() { return isspace(delegate); }
 
+    /**
+     * Python {@link #isspace() str.isspace}.
+     *
+     * @param s receiving object of method call
+     * @return {@code str.isspace(s)}
+     */
     @PythonMethod(primary = false)
     static boolean isspace(String s) { return isspace(adapt(s)); }
 
@@ -2483,9 +2943,14 @@ public class PyUnicode implements WithClass, PyDict.Key {
         return true;
     }
 
-    // TODO: implement __format__ and (revised) stringlib
+    // TODO implement __format__ and (revised) stringlib
+    /// **
+    // * Python {@code str.__format__}.
+    // *
+    // * @return {@code str.__format__(self)}
+    // */
     // @PythonMethod
-    // static final Object __format__(Object self, Object formatSpec) {
+    // static Object __format__(Object self, Object formatSpec) {
     //
     // String stringFormatSpec = asString(formatSpec,
     // o -> Abstract.argumentTypeError("__format__",
@@ -3151,6 +3616,15 @@ public class PyUnicode implements WithClass, PyDict.Key {
              */
             protected final int end;
 
+            /**
+             * Create an iterator for the surrounding
+             * {@link StringAdapter} when it contains only BMP code
+             * points or isolated surrogates.
+             *
+             * @param index at this position
+             * @param start of iterable range
+             * @param end of iterable range
+             */
             BMPIterator(int index, int start, int end) {
                 checkIndexRange(index, start, end, length);
                 this.start = start;
@@ -3269,6 +3743,14 @@ public class PyUnicode implements WithClass, PyDict.Key {
              */
             final private int charEnd;
 
+            /**
+             * Create an iterator for the surrounding
+             * {@link StringAdapter} when it contains SMP code points.
+             *
+             * @param index at this position
+             * @param start of iterable range
+             * @param end of iterable range
+             */
             SMPIterator(int index, int start, int end) {
                 super(index, start, end);
                 // Convert the arguments to character indices
@@ -3530,15 +4012,23 @@ public class PyUnicode implements WithClass, PyDict.Key {
         }
 
         /**
-         * A {@code ListIterator} for use when the string in the
-         * surrounding adapter instance contains only basic multilingual
-         * plane characters or isolated surrogates.
+         * A {@code ListIterator} for the surrounding
+         * {@link UnicodeAdapter}, which represents code points as an
+         * array of {@code int}.
          */
         class UnicodeIterator implements CodepointIterator {
 
             private int index;
             private final int start, end;
 
+            /**
+             * Create an iterator for the surrounding
+             * {@link UnicodeAdapter}.
+             *
+             * @param index at this position
+             * @param start of iterable range
+             * @param end of iterable range
+             */
             UnicodeIterator(int index, int start, int end) {
                 checkIndexRange(index, start, end, value.length);
                 this.start = start;
@@ -3961,7 +4451,7 @@ public class PyUnicode implements WithClass, PyDict.Key {
         }
     }
 
-    // TODO: implement __format__ and (revised) stringlib
+    // TODO implement __format__ and (revised) stringlib
     /// **
     // * A {@link AbstractFormatter}, constructed from a {@link Spec},
     // * with specific validations for {@code str.__format__}.
