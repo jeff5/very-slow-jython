@@ -1444,11 +1444,17 @@ public enum SpecialMethod {
             }
         }
 
-        /** Uninformative exception, mentioning the slot. */
+        /**
+         * Uninformative exception, mentioning the special method.
+         *
+         * @param sm special method receiving a bad operand
+         * @return an exception to throw
+         */
         @SuppressWarnings("unused")  // reflected in operandError
-        static PyBaseException defaultOperandError(SpecialMethod op) {
+        private static PyBaseException
+                defaultOperandError(SpecialMethod sm) {
             return PyErr.format(PyExc.TypeError,
-                    "bad operand type for %s", op.opName);
+                    "bad operand type for %s", sm.opName);
         }
     }
 

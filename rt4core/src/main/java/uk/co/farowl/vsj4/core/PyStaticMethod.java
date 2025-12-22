@@ -31,6 +31,7 @@ import uk.co.farowl.vsj4.types.Exposed.Getter;
  */
 public class PyStaticMethod implements WithDict {
 
+    /** The type {@code staticmethod}. */
     static final PyType TYPE = PyType.fromSpec( //
             new TypeSpec("staticmethod", MethodHandles.lookup())
                     .add(Feature.IMMUTABLE, Feature.BASETYPE));
@@ -84,11 +85,35 @@ public class PyStaticMethod implements WithDict {
                 Abstract.repr(getCallable()));
     }
 
+    /**
+     * Call the static method with positional arguments and optionally
+     * keywords arguments. This call delegates to the callable bound by
+     * the constructor {@link #PyStaticMethod(Object)}, and is the point
+     * at which we find out whether that is really callable.
+     *
+     * @param args positional arguments beginning with {@code self}
+     * @param names of keywords in the method call
+     * @return result of calling the wrapped method
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     {@code callable} is not callable.
+     * @throws Throwable from the implementation of the special method
+     */
+    // Compare CPython sm_call in funcobject.c
     Object __call__(Object[] args, String[] names)
             throws PyBaseException, Throwable {
         return Callables.call(getCallable(), args, names);
     }
 
+    /**
+     * Retrieve the callable, without any binding. By doing almost
+     * nothing here, we achieve the purpose of the wrapper (to prevent
+     * binding).
+     *
+     * @param obj ignored
+     * @param type ignored
+     * @return the callable supplied at construction
+     */
+    // Compare CPython sm_descr_get in funcobject.c
     Object __get__(Object obj, PyType type) {
         assert callable != null;
         return getCallable();
