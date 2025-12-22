@@ -273,7 +273,8 @@ class BuiltinsModuleTest extends UnitTestSupport {
          */
         public ActionHolder(String name) {
             // No arguments, variables, etc..
-            super(FILE, name, name, 0, 0, E, N, 0, 0, 0);
+            super(FILE, name, name, EnumSet.noneOf(CodeFlag.class), 0,
+                    E, N, 0, 0, 0);
         }
 
         @Override

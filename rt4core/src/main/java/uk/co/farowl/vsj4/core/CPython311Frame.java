@@ -9,7 +9,6 @@ import java.util.Map;
 
 import uk.co.farowl.vsj4.core.CPython311Code.CPythonLayout;
 import uk.co.farowl.vsj4.core.PyCode.Layout;
-import uk.co.farowl.vsj4.core.PyCode.Trait;
 import uk.co.farowl.vsj4.core.PyCode.VariableTrait;
 import uk.co.farowl.vsj4.core.PyDict.MergeMode;
 import uk.co.farowl.vsj4.internal.EmptyException;
@@ -60,11 +59,12 @@ class CPython311Frame extends PyFrame<CPython311Code> {
      * The func argument also locates the code object for the frame, the
      * properties of which determine many characteristics of the frame.
      * <ul>
-     * <li>If the {@code code} argument has the {@link Trait#NEWLOCALS}
-     * the {@code locals} argument is ignored.
+     * <li>If the {@code code} argument has the
+     * {@link CodeFlag#NEWLOCALS} the {@code locals} argument is
+     * ignored.
      * <ul>
      * <li>If the code does not additionally have the trait
-     * {@link Trait#OPTIMIZED}, a new empty {@code dict} will be
+     * {@link CodeFlag#OPTIMIZED}, a new empty {@code dict} will be
      * provided as {@link #locals}.</li>
      * <li>Otherwise, the code has the trait {@code OPTIMIZED}, and
      * {@link #locals} will be {@code null} until possibly set
@@ -97,10 +97,10 @@ class CPython311Frame extends PyFrame<CPython311Code> {
         int nfast = 0;
 
         // The need for a dictionary of locals depends on the code
-        EnumSet<PyCode.Trait> traits = code.traits;
-        if (traits.contains(Trait.NEWLOCALS)) {
+        EnumSet<CodeFlag> traits = code.flags;
+        if (traits.contains(CodeFlag.NEWLOCALS)) {
             // Ignore locals argument
-            if (traits.contains(Trait.OPTIMIZED)) {
+            if (traits.contains(CodeFlag.OPTIMIZED)) {
                 // We can create it later but probably won't need to
                 this.locals = null;
                 // Instead locals are in an array

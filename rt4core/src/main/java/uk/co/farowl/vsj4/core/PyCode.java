@@ -3,10 +3,10 @@
 package uk.co.farowl.vsj4.core;
 
 import java.lang.invoke.MethodHandles;
-import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.stream.Stream;
 
+import uk.co.farowl.vsj4.core.CodeFlag.PyCF;
 import uk.co.farowl.vsj4.internal.Util;
 import uk.co.farowl.vsj4.types.Exposed.Getter;
 import uk.co.farowl.vsj4.types.Exposed.Member;
@@ -47,88 +47,9 @@ public abstract class PyCode implements WithClass {
      * definition in CPython or Java byte code.
      */
 
-    /**
-     * Characteristics of a {@code PyCode} (as CPython co_flags). They
-     * are significant characteristics of a function with this code
-     * objects as its body. These are not all relevant to all code
-     * types.
-     */
-    // TODO Consider making a separate class for API use.
-    enum Trait {
-        /** The code uses fast local local variables, not a map. */
-        OPTIMIZED(CO_OPTIMIZED),
-        /** A new {@code dict} should be created for local variables. */
-        // Never acted on in CPython, but set for functions.
-        NEWLOCALS(CO_NEWLOCALS),
-        /** The function has a collector for positional arguments */
-        VARARGS(CO_VARARGS),
-        /** The function has a collector for keyword arguments */
-        VARKEYWORDS(CO_VARKEYWORDS),
-        /** The code is for a nested function. */
-        NESTED(CO_NESTED),
-        /**
-         * The code is for a generator function, i.e. a generator object
-         * is returned when the code object is executed.
-         */
-        GENERATOR(CO_GENERATOR),
-        /**
-         * The code is for a coroutine function (defined with
-         * {@code async def}). When the code object is executed it
-         * returns a coroutine object.
-         */
-        COROUTINE(CO_COROUTINE),
-        /**
-         * The flag is used to transform generators into generator-based
-         * coroutines. Generator objects with this flag can be used in
-         * {@code await} expression, and can {@code yield from}
-         * coroutine objects. See PEP 492 for more details.
-         */
-        ITERABLE_COROUTINE(CO_ITERABLE_COROUTINE),
-        /**
-         * The code object is an asynchronous generator function. When
-         * the code object is executed it returns an asynchronous
-         * generator object. See PEP 525 for more details.
-         */
-        ASYNC_GENERATOR(CO_ASYNC_GENERATOR);
-
-        private Trait(int flagbit) {
-            assert Integer.bitCount(flagbit) == 1;
-            this.co_flag = flagbit;
-        }
-
-        /** CPython equivalent bit-mask for use with co_flags. */
-        public final int co_flag;
-
-        /**
-         * Convert a CPython-style {@link #flags} specifier to
-         * {@link #traits}. We need this conversion because these bits
-         * are Python API.
-         *
-         * @param flags specifying traits
-         * @return corresponding traits (as a set)
-         */
-        static EnumSet<Trait> fromFlags(int flags) {
-            // List the bits set as traits.
-            ArrayList<Trait> traits = new ArrayList<>();
-            for (Trait t : Trait.values()) {
-                int m = t.co_flag;
-                if ((flags & m) != 0) { traits.add(t); flags &= ~m; }
-            }
-            // Check we translated all the bits
-            if (flags != 0) {
-                String msg = String.format(
-                        "Undefined bits 0x%04x set in 'flags' argument",
-                        flags);
-                throw new IllegalArgumentException(msg);
-            }
-            // Return as a set
-            return traits.isEmpty() ? EnumSet.noneOf(Trait.class)
-                    : EnumSet.copyOf(traits);
-        }
-    }
-
-    /** Characteristics of this {@code PyCode} (as CPython co_flags). */
-    final EnumSet<Trait> traits;
+    /** Characteristics of this {@code PyCode}. */
+    // Compare CPython co_flags in code.h
+    final EnumSet<CodeFlag> flags;
 
     /** Source file from which compiled. */
     @Member("co_filename")
@@ -139,9 +60,6 @@ public abstract class PyCode implements WithClass {
     /** Fully qualified name of function etc. */
     @Member("co_qualname")
     final String qualname;
-
-    /** {@code int} bitmap of code traits compatible with CPython. */
-    final int flags;
 
     /** Number of positional parameters (not counting {@code *args}). */
     @Member("co_argcount")
@@ -162,49 +80,11 @@ public abstract class PyCode implements WithClass {
     /** Names referenced in the code. Not {@code null}. */
     final String[] names;
 
-    // Bit masks appearing in flags.
-    // XXX Some of these should be CPython-specific.
-    /** The code uses fast local local variables, not a map. */
-    public static final int CO_OPTIMIZED = 0x0001;
-    /** A new {@code dict} should be created for local variables. */
-    // NEWLOCALS is never acted on in CPython (but set for functions)
-    public static final int CO_NEWLOCALS = 0x0002;
-    /** The function has a collector for excess positional arguments */
-    public static final int CO_VARARGS = 0x0004;
-    /** The function has a collector for excess keyword arguments */
-    public static final int CO_VARKEYWORDS = 0x0008;
-    /** The code is for a nested function. */
-    public static final int CO_NESTED = 0x0010;
-    /**
-     * The code is for a generator function, i.e. a generator object is
-     * returned when the code object is executed.
-     */
-    public static final int CO_GENERATOR = 0x0020;
-    /**
-     * The code is for a coroutine function (defined with
-     * {@code async def}). When the code object is executed it returns a
-     * coroutine object.
-     */
-    public static final int CO_COROUTINE = 0x0080;
-    /**
-     * The flag is used to transform generators into generator-based
-     * coroutines. Generator objects with this flag can be used in
-     * {@code await} expression, and can {@code yield from} coroutine
-     * objects. See PEP 492 for more details.
-     */
-    public static final int CO_ITERABLE_COROUTINE = 0x0100;
-    /**
-     * The code object is an asynchronous generator function. When the
-     * code object is executed it returns an asynchronous generator
-     * object. See PEP 525 for more details.
-     */
-    public static final int CO_ASYNC_GENERATOR = 0x0200;
-
     // Construct with arrays not tuples.
     /**
-     * Full constructor. The {@link #traits} of the code are supplied
+     * Full constructor. The {@link #flags} of the code are supplied
      * here as CPython reports them: as a bit array in an integer, but
-     * the constructor makes a conversion, and it is the {@link #traits}
+     * the constructor makes a conversion, and it is the {@link #flags}
      * which should be used at the Java level.
      * <p>
      * Where the parameters map directly to an attribute of the code
@@ -216,7 +96,7 @@ public abstract class PyCode implements WithClass {
      * @param filename {@code co_filename}
      * @param name {@code co_name}
      * @param qualname {@code co_qualname}
-     * @param flags {@code co_flags} a bitmap of traits
+     * @param flags {@code co_flags} a bitmap of code flags
      *
      * @param firstlineno {@code co_firstlineno}
      *
@@ -237,7 +117,7 @@ public abstract class PyCode implements WithClass {
             // Grouped as _PyCodeConstructor in pycore_code.h
             // Metadata
             String filename, String name, String qualname, //
-            int flags,
+            EnumSet<CodeFlag> flags,
             // The code (not seeing actual byte code in abstract base)
             int firstlineno, // ??? sensible given filename
             // Used by the code
@@ -257,8 +137,6 @@ public abstract class PyCode implements WithClass {
         this.name = name;
         this.qualname = qualname;
         this.firstlineno = firstlineno;
-
-        this.traits = Trait.fromFlags(flags);
     }
 
     @Override
@@ -474,6 +352,14 @@ public abstract class PyCode implements WithClass {
     @Getter
     PyTuple co_freevars() { return PyTuple.from(layout().freevars()); }
 
+    /**
+     * Get {@code co_flags} as an {@code int}.
+     *
+     * @return {@code co_flags} as a {@code int}
+     */
+    @Getter
+    int co_flags() { return PyCF.from(flags); }
+
     // Special methods -----------------------------------------------
 
     // Compare CPython code_repr in codeobject.c
@@ -541,11 +427,6 @@ public abstract class PyCode implements WithClass {
      */
     int totalargs() { return totalargs(argcount, flags); }
 
-    private static final int CO_VARARGS_SHIFT = // 2
-            Integer.numberOfTrailingZeros(CO_VARARGS);
-    private static final int CO_VARKEYWORDS_SHIFT =// 3
-            Integer.numberOfTrailingZeros(CO_VARKEYWORDS);
-
     /**
      * From the values of {@code co_argcount} and {@code co_flags} (in
      * practice, as they are de-marshalled), compute the total space in
@@ -554,12 +435,13 @@ public abstract class PyCode implements WithClass {
      * argument to certain constructors.
      *
      * @param argcount argument count excluding collector parameters.
-     * @param flags bit map of code traits
+     * @param flags characteristics of the code object
      * @return total space in frame for arguments
      */
-    static int totalargs(int argcount, int flags) {
-        return argcount + (flags >>> CO_VARARGS_SHIFT & 1)
-                + (flags >>> CO_VARKEYWORDS_SHIFT & 1);
+    static int totalargs(int argcount, EnumSet<CodeFlag> flags) {
+        if (flags.contains(CodeFlag.VARARGS)) { argcount++; }
+        if (flags.contains(CodeFlag.VARKEYWORDS)) { argcount++; }
+        return argcount;
     }
 
     // Plumbing ------------------------------------------------------

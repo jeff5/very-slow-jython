@@ -51,10 +51,7 @@ public class CPython311Code extends PyCode {
 
     /**
      * Full constructor based on CPython's
-     * {@code PyCode_NewWithPosOnlyArgs}. The {@link #traits} of the
-     * code are supplied here as CPython reports them: as a bit array in
-     * an integer, but the constructor makes a conversion, and it is the
-     * {@link #traits} which should be used at the Java level.
+     * {@code PyCode_NewWithPosOnlyArgs}.
      * <p>
      * Where the parameters map directly to an attribute of the code
      * object, that is the best way to explain them. Note that this
@@ -65,7 +62,7 @@ public class CPython311Code extends PyCode {
      * @param filename {@code co_filename}
      * @param name {@code co_name}
      * @param qualname {@code co_qualname}
-     * @param flags {@code co_flags} a bitmap of traits
+     * @param flags {@code co_flags} a set of code flags
      *
      * @param wordcode {@code co_code} as unsigned 16-bit words
      * @param firstlineno first source line of this code
@@ -95,7 +92,7 @@ public class CPython311Code extends PyCode {
             // Grouped as _PyCodeConstructor in pycore_code.h
             // Metadata
             String filename, String name, String qualname, //
-            int flags,
+            EnumSet<CodeFlag> flags,
             // The code
             short[] wordcode, int firstlineno, byte[] linetable,
             // Used by the code
@@ -127,10 +124,10 @@ public class CPython311Code extends PyCode {
      * here. This is primarily designed for use by the {@code marshal}
      * module.
      * <p>
-     * The {@link #traits} of the code are supplied here as CPython
-     * reports them: as a bitmap in an integer, but the constructor
-     * makes a conversion, and it is the {@link #traits} which should be
-     * used at the Java level.
+     * The {@link PyCode#flags} of the code are supplied here as CPython
+     * reports them: as a bitmap in an integer, but this method makes a
+     * conversion, and it is the {@code EnumSet} {@link PyCode#flags}
+     * that should be used at the Java level.
      * <p>
      * Where the parameters map directly to an attribute of the code
      * object, that is the best way to explain them. Note that this
@@ -141,7 +138,7 @@ public class CPython311Code extends PyCode {
      * @param filename ({@code str}) = {@code co_filename}
      * @param name ({@code str}) = {@code co_name}
      * @param qualname ({@code str}) = {@code co_qualname}
-     * @param flags ({@code int}) = @code co_flags} a bitmap of traits
+     * @param flags ({@code int}) = @code co_flags} a bitmap
      *
      * @param bytecode ({@code bytes}) = {@code co_code}
      * @param firstlineno ({@code int}) = {@code co_firstlineno}
@@ -190,17 +187,18 @@ public class CPython311Code extends PyCode {
                     "code: bad flags argument");
         }
 
+        String _filename = castString(filename, "filename");
+        String _name = castString(name, "name");
+        String _qualname = castString(qualname, "qualname");
+        EnumSet<CodeFlag> _flags = CodeFlag.setFromBits(flags);
+
         PyBytes _bytecode = castBytes(bytecode, "bytecode");
         PyTuple _consts = castTuple(consts, "consts");
         String[] _names = names(names, "names");
 
         // Compute a layout from localsplus* arrays
         CPythonLayout _layout = new CPythonLayout(localsplusnames,
-                localspluskinds, totalargs(argcount, flags));
-
-        String _name = castString(name, "name");
-        String _qualname = castString(qualname, "qualname");
-        String _filename = castString(filename, "filename");
+                localspluskinds, totalargs(argcount, _flags));
 
         PyBytes _linetable = castBytes(linetable, "linetable");
         PyBytes _exceptiontable =
@@ -208,7 +206,7 @@ public class CPython311Code extends PyCode {
 
         // Everything is the right type and size
         return new CPython311Code(//
-                _filename, _name, _qualname, flags, //
+                _filename, _name, _qualname, _flags, //
                 wordcode(_bytecode), firstlineno,
                 _linetable.asByteArray(), //
                 _consts.toArray(), _names, //
@@ -274,8 +272,8 @@ public class CPython311Code extends PyCode {
         int regargcount = argcount + kwonlyargcount;
         return new ArgParser(name, layout.localnames, regargcount,
                 posonlyargcount, kwonlyargcount,
-                traits.contains(PyCode.Trait.VARARGS),
-                traits.contains(PyCode.Trait.VARKEYWORDS));
+                flags.contains(CodeFlag.VARARGS),
+                flags.contains(CodeFlag.VARKEYWORDS));
     }
 
     @Override
