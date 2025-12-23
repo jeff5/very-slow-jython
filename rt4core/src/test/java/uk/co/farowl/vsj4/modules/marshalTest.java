@@ -29,10 +29,8 @@ import uk.co.farowl.vsj4.core.PySequence;
 import uk.co.farowl.vsj4.core.PyTuple;
 import uk.co.farowl.vsj4.core.PyType;
 import uk.co.farowl.vsj4.core.UnitTestSupport;
-import uk.co.farowl.vsj4.modules.marshal.BytesReader;
 import uk.co.farowl.vsj4.modules.marshal.BytesWriter;
 import uk.co.farowl.vsj4.modules.marshal.Reader;
-import uk.co.farowl.vsj4.modules.marshal.StreamReader;
 import uk.co.farowl.vsj4.modules.marshal.StreamWriter;
 import uk.co.farowl.vsj4.modules.marshal.Writer;
 import uk.co.farowl.vsj4.stringlib.ByteArrayBuilder;
@@ -53,6 +51,9 @@ class marshalTest extends UnitTestSupport {
      * reference is available serialised by CPython.
      */
     abstract static class AbstractElementTest {
+
+        /** Instance of the {@code marshal} module. */
+        marshal marshal = new marshal();
 
         /**
          * Test cases for serialising 16-bit ints.
@@ -167,7 +168,7 @@ class marshalTest extends UnitTestSupport {
         @ParameterizedTest(name = "r.readShort() = {0}")
         @MethodSource("int16")
         void int16read(Integer expected, byte[] b) {
-            Reader r = new BytesReader(b);
+            Reader r = marshal.new BytesReader(b);
             assertEquals(expected, r.readShort());
         }
 
@@ -175,7 +176,7 @@ class marshalTest extends UnitTestSupport {
         @ParameterizedTest(name = "r.readInt() = {0}")
         @MethodSource("int32")
         void int32read(Integer expected, byte[] b) {
-            Reader r = new BytesReader(b);
+            Reader r = marshal.new BytesReader(b);
             assertEquals(expected, r.readInt());
         }
 
@@ -183,7 +184,7 @@ class marshalTest extends UnitTestSupport {
         @ParameterizedTest(name = "r.readInt() = {0}")
         @MethodSource("int64")
         void int64read(Long expected, byte[] b) {
-            Reader r = new BytesReader(b);
+            Reader r = marshal.new BytesReader(b);
             assertEquals(expected, r.readLong());
         }
 
@@ -191,7 +192,7 @@ class marshalTest extends UnitTestSupport {
         @ParameterizedTest(name = "r.readBigInteger() = {0}")
         @MethodSource("bigint")
         void bigintread(BigInteger expected, byte[] b) {
-            Reader r = new BytesReader(b);
+            Reader r = marshal.new BytesReader(b);
             assertEquals(expected, r.readBigInteger());
         }
     }
@@ -209,7 +210,8 @@ class marshalTest extends UnitTestSupport {
         @ParameterizedTest(name = "r.readShort() = {0}")
         @MethodSource("int16")
         void int16read(Integer expected, byte[] b) {
-            Reader r = new StreamReader(new ByteArrayInputStream(b));
+            Reader r = marshal.new StreamReader(
+                    new ByteArrayInputStream(b));
             assertEquals(expected, r.readShort());
         }
 
@@ -217,7 +219,8 @@ class marshalTest extends UnitTestSupport {
         @ParameterizedTest(name = "r.readInt() = {0}")
         @MethodSource("int32")
         void int32read(Integer expected, byte[] b) {
-            Reader r = new StreamReader(new ByteArrayInputStream(b));
+            Reader r = marshal.new StreamReader(
+                    new ByteArrayInputStream(b));
             assertEquals(expected, r.readInt());
         }
 
@@ -225,7 +228,8 @@ class marshalTest extends UnitTestSupport {
         @ParameterizedTest(name = "r.readInt() = {0}")
         @MethodSource("int64")
         void int64read(Long expected, byte[] b) {
-            Reader r = new StreamReader(new ByteArrayInputStream(b));
+            Reader r = marshal.new StreamReader(
+                    new ByteArrayInputStream(b));
             assertEquals(expected, r.readLong());
         }
 
@@ -233,7 +237,8 @@ class marshalTest extends UnitTestSupport {
         @ParameterizedTest(name = "r.readBigInteger() = {0}")
         @MethodSource("bigint")
         void bigintread(BigInteger expected, byte[] b) {
-            Reader r = new StreamReader(new ByteArrayInputStream(b));
+            Reader r = marshal.new StreamReader(
+                    new ByteArrayInputStream(b));
             assertEquals(expected, r.readBigInteger());
         }
     }
@@ -343,6 +348,9 @@ class marshalTest extends UnitTestSupport {
 
     /** Base of tests that read objects serialised by CPython. */
     abstract static class AbstractLoadTest {
+
+        /** Instance of the {@code marshal} module. */
+        marshal marshal = new marshal();
 
         /**
          * Provide a stream of examples as parameter sets to the tests.

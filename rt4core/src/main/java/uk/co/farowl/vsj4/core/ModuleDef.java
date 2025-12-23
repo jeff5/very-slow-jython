@@ -5,6 +5,9 @@ package uk.co.farowl.vsj4.core;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles.Lookup;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import uk.co.farowl.vsj4.types.Exposed;
 
 /**
@@ -30,6 +33,9 @@ import uk.co.farowl.vsj4.types.Exposed;
  */
 public class ModuleDef {
     // Compare CPython PyModuleDef
+
+    /** Logger for the module definition. */
+    final Logger logger = LoggerFactory.getLogger(ModuleDef.class);
 
     /** Name of the module. */
     final String name;
@@ -57,7 +63,7 @@ public class ModuleDef {
      * @param name of the module (e.g. "sys" or "math")
      * @param lookup authorises access to the defining class.
      */
-    ModuleDef(String name, Lookup lookup) {
+    public ModuleDef(String name, Lookup lookup) {
         this.name = name;
         this.definingClass = lookup.lookupClass();
         ModuleExposer exposer = new ModuleExposer(name);
@@ -65,6 +71,8 @@ public class ModuleDef {
         // XXX ... and for fields.
         // XXX ... and for types defined in the module maybe? :o
         this.methods = exposer.getMethodDefs(lookup);
+        logger.atInfo().setMessage("Module definition '{}'")
+                .addArgument(name).log();
     }
 
     /**
@@ -84,6 +92,8 @@ public class ModuleDef {
         PyDict d = module.dict;
         for (MethodDef md : methods) {
             // Create function by binding to the module
+            logger.atTrace().setMessage("Add {}.{}").addArgument(name)
+                    .addArgument(md.argParser.name).log();
             PyJavaFunction func = PyJavaFunction.forModule(md.argParser,
                     md.handle, module, this.name);
             d.put(md.argParser.name, func);

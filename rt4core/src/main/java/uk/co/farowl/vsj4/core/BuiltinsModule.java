@@ -30,9 +30,8 @@ class BuiltinsModule extends JavaModule {
         super(DEFINITION);
     }
 
-    /** Execute the body of the module. */
     @Override
-    void exec() {
+    public void exec() {
         super.exec();
 
         /*

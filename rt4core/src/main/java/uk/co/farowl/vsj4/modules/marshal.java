@@ -8,6 +8,7 @@ import java.io.EOFException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.lang.invoke.MethodHandles;
 import java.math.BigInteger;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
@@ -24,6 +25,8 @@ import org.slf4j.LoggerFactory;
 
 import uk.co.farowl.vsj4.core.Abstract;
 import uk.co.farowl.vsj4.core.CPython311Code;
+import uk.co.farowl.vsj4.core.JavaModule;
+import uk.co.farowl.vsj4.core.ModuleDef;
 import uk.co.farowl.vsj4.core.Py;
 import uk.co.farowl.vsj4.core.PyBaseException;
 import uk.co.farowl.vsj4.core.PyBool;
@@ -47,7 +50,7 @@ import uk.co.farowl.vsj4.stringlib.ByteArrayBuilder;
 import uk.co.farowl.vsj4.stringlib.IntArrayBuilder;
 import uk.co.farowl.vsj4.types.Exposed.Default;
 import uk.co.farowl.vsj4.types.Exposed.Member;
-import uk.co.farowl.vsj4.types.Exposed.PythonStaticMethod;
+import uk.co.farowl.vsj4.types.Exposed.PythonMethod;
 
 /**
  * Write Python objects to files and read them back. This is primarily
@@ -56,15 +59,24 @@ import uk.co.farowl.vsj4.types.Exposed.PythonStaticMethod;
  * not commonly seen in {@code code} objects, are supported. Version 3
  * of this protocol properly supports circular links and sharing.
  */
-public class marshal /* extends JavaModule */ {
+public class marshal extends JavaModule {
 
     /** Logger for the marshal module. */
-    static // TODO make marshal a proper module (instance)
     final Logger logger = LoggerFactory.getLogger(marshal.class);
 
     /** Version of the marshal protocol in use. */
     @Member("version")
     final static int VERSION = 4;
+
+    /** Definition of the module (completed by the module exposer). */
+    static final ModuleDef DEFINITION =
+            new ModuleDef("marshal", MethodHandles.lookup());
+
+    /** Construct an instance of the module. */
+    public marshal() {
+        super(DEFINITION);
+        logger.atInfo().setMessage("Instance created").log();
+    }
 
     /*
      * High water mark to determine when the marshalled object is
@@ -275,8 +287,8 @@ public class marshal /* extends JavaModule */ {
      *     contains an object that has) an unsupported type
      * @throws PyBaseException (OSError) from file operations
      */
-    @PythonStaticMethod
-    public static void dump(Object value, Object file,
+    @PythonMethod
+    public void dump(Object value, Object file,
             @Default("4") int version) throws PyBaseException {
         logger.atDebug().setMessage("marshal.dump() to {}")
                 .addArgument(file).log();
@@ -305,8 +317,8 @@ public class marshal /* extends JavaModule */ {
      * @throws PyBaseException (EOFError) when a partial object is read
      * @throws PyBaseException (OSError) from file operations generally
      */
-    @PythonStaticMethod
-    public static Object load(Object file) {
+    @PythonMethod
+    public Object load(Object file) {
         logger.atDebug().setMessage("marshal.load() {}")
                 .addArgument(file).log();
         try (InputStream is = StreamReader.adapt(file)) {
@@ -330,8 +342,8 @@ public class marshal /* extends JavaModule */ {
      * @throws PyBaseException (ValueError) if the value has (or
      *     contains an object that has) an unsupported type
      */
-    @PythonStaticMethod
-    public static PyBytes dumps(Object value, @Default("4") int version)
+    @PythonMethod
+    public PyBytes dumps(Object value, @Default("4") int version)
             throws PyBaseException {
         logger.atDebug().setMessage("marshal.dumps()").log();
         ByteArrayBuilder bb = new ByteArrayBuilder();
@@ -355,8 +367,8 @@ public class marshal /* extends JavaModule */ {
      *     null element.
      * @throws PyBaseException (EOFError) when a partial object is read
      */
-    @PythonStaticMethod
-    public static Object loads(Object bytes) {
+    @PythonMethod
+    public Object loads(Object bytes) {
         logger.atDebug().setMessage("marshal.loads()").log();
         try {
             ByteBuffer bb = BytesReader.adapt(bytes);
@@ -646,7 +658,7 @@ public class marshal /* extends JavaModule */ {
      * their implementation of decoding methods registered against the
      * type codes they support. (See also {@link Codec#decoders()}.
      */
-    public abstract static class Reader {
+    public abstract class Reader {
 
         /**
          * Objects read from the source may have been marked (by the
@@ -914,7 +926,7 @@ public class marshal /* extends JavaModule */ {
      * {@code java.io.ByteArrayInputStream} needs no additional
      * buffering.
      */
-    public static class StreamReader extends Reader {
+    public class StreamReader extends Reader {
 
         /**
          * The source wrapped in a {@code DataInputStream} on which we
@@ -1003,7 +1015,7 @@ public class marshal /* extends JavaModule */ {
     /**
      * A {@link Reader} that has a {@code ByteBuffer} as its source.
      */
-    public static class BytesReader extends Reader {
+    public class BytesReader extends Reader {
 
         /**
          * The source as little-endian a {@code ByteBuffer} on which we

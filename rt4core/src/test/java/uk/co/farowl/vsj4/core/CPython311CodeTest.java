@@ -47,6 +47,13 @@ import uk.co.farowl.vsj4.types.WithClass;
 @DisplayName("Given programs compiled by CPython 3.11 ...")
 class CPython311CodeTest extends UnitTestSupport {
 
+    /** Instance of the {@code marshal} module. */
+    static final marshal MARSHAL;
+    static {
+        MARSHAL = new marshal();
+        MARSHAL.exec();
+    }
+
     @SuppressWarnings("static-method")
     @DisplayName("marshal can read a code object")
     @ParameterizedTest(name = "from {0}")
@@ -472,7 +479,7 @@ class CPython311CodeTest extends UnitTestSupport {
                 BufferedInputStream s = new BufferedInputStream(fs);) {
 
             // Wrap a marshal reader around the input stream
-            marshal.Reader reader = new marshal.StreamReader(s);
+            marshal.Reader reader = MARSHAL.new StreamReader(s);
 
             // First 4 bytes is a magic header
             int magic = reader.readShort();
@@ -516,7 +523,7 @@ class CPython311CodeTest extends UnitTestSupport {
                 BufferedInputStream s = new BufferedInputStream(fs);) {
 
             // Wrap a marshal reader around the input stream
-            marshal.Reader reader = new marshal.StreamReader(s);
+            marshal.Reader reader = MARSHAL.new StreamReader(s);
 
             // Should be a dict object
             Object o = reader.readObject();

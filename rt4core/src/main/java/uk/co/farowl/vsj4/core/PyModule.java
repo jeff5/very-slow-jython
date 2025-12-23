@@ -4,6 +4,9 @@ package uk.co.farowl.vsj4.core;
 
 import java.lang.invoke.MethodHandles;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import uk.co.farowl.vsj4.types.TypeSpec;
 import uk.co.farowl.vsj4.types.WithDict;
 
@@ -33,6 +36,9 @@ import uk.co.farowl.vsj4.types.WithDict;
  * interpreter.
  */
 public class PyModule implements WithDict {
+
+    /** Logger for the marshal module. */
+    final Logger logger = LoggerFactory.getLogger(PyModule.class);
 
     /** The type of Python object this class implements. */
     public static final PyType TYPE = PyType.fromSpec( //
@@ -71,7 +77,10 @@ public class PyModule implements WithDict {
      * entries to {@link #dict}. These become the members (globals) of
      * the module.
      */
-    void exec() {}
+    public void exec() {
+        logger.atInfo().setMessage("Executing body of module '{}'.")
+                .addArgument(name).log();
+    }
 
     @Override
     public PyType getType() { return type; }
@@ -103,5 +112,9 @@ public class PyModule implements WithDict {
      * @param name to use as key
      * @param o value for key
      */
-    void add(String name, Object o) { dict.put(name, o); }
+    void add(String name, Object o) {
+        logger.atTrace().setMessage("Add {}.{}").addArgument(this.name)
+                .addArgument(name).log();
+        dict.put(name, o);
+    }
 }

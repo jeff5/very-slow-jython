@@ -36,7 +36,7 @@ public abstract class JavaModule extends PyModule {
      * of PEP 489 phases, this is the {@code Py_mod_exec} phase.
      */
     @Override
-    void exec() {
+    public void exec() {
         super.exec();
         definition.addMembers(this);
     }
