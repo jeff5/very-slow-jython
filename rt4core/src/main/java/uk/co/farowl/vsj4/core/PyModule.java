@@ -104,7 +104,7 @@ public class PyModule implements WithDict {
      *
      * @param t the type
      */
-    void add(PyType t) { dict.put(t.getName(), t); }
+    protected void add(PyType t) { dict.put(t.getName(), t); }
 
     /**
      * Add an object by name to the module dictionary.
@@ -112,9 +112,10 @@ public class PyModule implements WithDict {
      * @param name to use as key
      * @param o value for key
      */
-    void add(String name, Object o) {
-        logger.atTrace().setMessage("Add {}.{}").addArgument(this.name)
-                .addArgument(name).log();
+    protected void add(String name, Object o) {
+        logger.atTrace().setMessage("Add {}.{} ({})")
+                .addArgument(this.name).addArgument(name)
+                .addArgument(PyType.of(o)).log();
         dict.put(name, o);
     }
 }

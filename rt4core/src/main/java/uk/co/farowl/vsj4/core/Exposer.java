@@ -29,7 +29,6 @@ import org.slf4j.LoggerFactory;
 
 import uk.co.farowl.vsj4.core.ModuleDef.MethodDef;
 import uk.co.farowl.vsj4.kernel.BaseType;
-// import uk.co.farowl.vsj4.runtime.ModuleDef.MethodDef;
 import uk.co.farowl.vsj4.support.InterpreterError;
 import uk.co.farowl.vsj4.support.MethodKind;
 import uk.co.farowl.vsj4.support.ScopeKind;
@@ -64,12 +63,12 @@ abstract class Exposer {
      * The table of intermediate descriptions for methods (instance,
      * static and class). They will eventually become either descriptors
      * in a built-in object type or methods bound to instances of a
-     * module type. Every entry here is also a value in {@link #specs}.
+     * module. Every entry here is also a value in {@link #specs}.
      */
     final Set<CallableSpec> methodSpecs;
 
     /** Construct the base with its table of entries. */
-    protected Exposer() {
+    Exposer() {
         this.specs = new HashMap<>();
         this.methodSpecs = new TreeSet<>();
     }
@@ -78,14 +77,38 @@ abstract class Exposer {
     abstract ScopeKind kind();
 
     /**
-     * Add to {@link #specs}, definitions found in the given class and
-     * annotated for exposure.
+     * Gather methods (including getters and setters of fields, if this
+     * is a type exposer) from the specified class. Definitions (a
+     * precursor of Python descriptors) accumulate in the exposer. A
+     * subsequent operation will return objects from them that can fill
+     * a module definition or type dictionary.
      *
-     * @param defsClass to introspect for definitions
-     * @throws InterpreterError on duplicates or unsupported types
+     * @param methodClass to scan for definitions
      */
-    abstract void scanJavaMethods(Class<?> defsClass)
-            throws InterpreterError;
+    public void scanJavaMethods(Class<?> methodClass) {
+
+        logger.atTrace().addArgument(methodClass)
+                .log("Finding methods in {}");
+
+        // Iterate over methods looking for those to expose
+        for (Method m : methodClass.getDeclaredMethods()) {
+            /*
+             * Note: method annotations are not treated as alternatives,
+             * to catch exposure of methods by multiple routes, which is
+             * an error we detect later.
+             */
+
+            // Check for instance method
+            PythonMethod pm =
+                    m.getDeclaredAnnotation(PythonMethod.class);
+            if (pm != null) { addMethodSpec(m, pm); }
+
+            // Check for static method
+            PythonStaticMethod psm =
+                    m.getDeclaredAnnotation(PythonStaticMethod.class);
+            if (psm != null) { addStaticMethodSpec(m, psm); }
+        }
+    }
 
     /**
      * Walk down to a given class through all super-classes that might
@@ -160,35 +183,6 @@ abstract class Exposer {
                 (String name) -> new StaticMethodSpec(name, kind()),
                 ms -> methodSpecs.add(ms), addMethod);
     }
-
-    /**
-     * Create an exception with a message along the lines "'NAME',
-     * already exposed as SPEC, cannot be NEW_SPEC" where the
-     * place-holders are filled from the corresponding arguments (or
-     * their names or type names).
-     *
-     * @param name being defined
-     * @param member field or method annotated
-     * @param newSpec of the new entry apparently requested
-     * @param priorSpec of the inconsistent, existing entry
-     * @return the required error
-     */
-    static InterpreterError duplicateError(String name, Member member,
-            Spec newSpec, Spec priorSpec) {
-        String memberName = member.getName();
-        String memberString = memberName == name ? ""
-                : " (called '" + memberName + "' in source)";
-        String priorSpecType = priorSpec.annoClassName();
-        String newSpecType = newSpec.annoClassName();
-        if (priorSpecType.equals(newSpecType)) {
-            newSpecType = "redefined";
-        }
-        return new InterpreterError(ALREADY_EXPOSED, name, memberString,
-                priorSpecType, newSpecType);
-    }
-
-    private static final String ALREADY_EXPOSED =
-            "'%s'%s, already exposed as %s, cannot be %s";
 
     /**
      * A helper that avoids repeating nearly the same code for adding
@@ -1300,4 +1294,35 @@ abstract class Exposer {
             return PythonStaticMethod.class;
         }
     }
+
+    // Plumbing ------------------------------------------------------
+
+    /**
+     * Create an exception with a message along the lines "'NAME',
+     * already exposed as SPEC, cannot be NEW_SPEC" where the
+     * place-holders are filled from the corresponding arguments (or
+     * their names or type names).
+     *
+     * @param name being defined
+     * @param member field or method annotated
+     * @param newSpec of the new entry apparently requested
+     * @param priorSpec of the inconsistent, existing entry
+     * @return the required error
+     */
+    static InterpreterError duplicateError(String name, Member member,
+            Spec newSpec, Spec priorSpec) {
+        String memberName = member.getName();
+        String memberString = memberName == name ? ""
+                : " (called '" + memberName + "' in source)";
+        String priorSpecType = priorSpec.annoClassName();
+        String newSpecType = newSpec.annoClassName();
+        if (priorSpecType.equals(newSpecType)) {
+            newSpecType = "redefined";
+        }
+        return new InterpreterError(ALREADY_EXPOSED, name, memberString,
+                priorSpecType, newSpecType);
+    }
+
+    private static final String ALREADY_EXPOSED =
+            "'%s'%s, already exposed as %s, cannot be %s";
 }

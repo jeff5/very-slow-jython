@@ -31,9 +31,7 @@ import uk.co.farowl.vsj4.types.Exposed.Deleter;
 import uk.co.farowl.vsj4.types.Exposed.DocString;
 import uk.co.farowl.vsj4.types.Exposed.Getter;
 import uk.co.farowl.vsj4.types.Exposed.Member;
-import uk.co.farowl.vsj4.types.Exposed.PythonMethod;
 import uk.co.farowl.vsj4.types.Exposed.PythonNewMethod;
-import uk.co.farowl.vsj4.types.Exposed.PythonStaticMethod;
 import uk.co.farowl.vsj4.types.Exposed.Setter;
 
 /**
@@ -70,8 +68,8 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
      * intermediate specification objects), but is not otherwise
      * accessed, since it is (necessarily) incomplete at this time. It
      * will be interrogated as to its implementing classes when we
-     * create descriptors, at the point {@link #exposeMethods(Class)}
-     * and {@link #exposeMembers(Class)} are called.
+     * create descriptors, at the point {@link #scanJavaMethods(Class)}
+     * and {@link #scanJavaFields(Class)} are called.
      *
      * @param type being exposed
      */
@@ -85,15 +83,64 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
     ScopeKind kind() { return ScopeKind.TYPE; }
 
     @Override
-    public void exposeMethods(Class<?> methodClass) {
-        // Scan the defining class for exposed and special methods
-        scanJavaMethods(methodClass);
+    public void scanJavaMethods(Class<?> methodClass)
+            throws InterpreterError {
+        super.scanJavaMethods(methodClass);
+
+        // Some annotations, and special methods, are only for types.
+        for (Method m : methodClass.getDeclaredMethods()) {
+
+            // TODO Check for class method
+            // PythonClassMethod pcm =
+            // m.getDeclaredAnnotation(PythonClassMethod.class);
+            // if (pcm != null) { addClassMethodSpec(m, pcm); }
+
+            // Check for getter, setter, deleter methods
+            Getter get = m.getAnnotation(Getter.class);
+            if (get != null) { addGetter(m, get); }
+            Setter set = m.getAnnotation(Setter.class);
+            if (set != null) { addSetter(m, set); }
+            Deleter del = m.getAnnotation(Deleter.class);
+            if (del != null) { addDeleter(m, del); }
+
+            /*
+             * If it has a special method name record a definition
+             * without needing specific annotation. (This is excluded
+             * during tests applicable before the type system works,
+             * indicated by type==null.)
+             */
+            if (type != null) {
+                String name = m.getName();
+                SpecialMethod sm = SpecialMethod.forMethodName(name);
+                if (sm != null) { addWrapperSpec(m, sm); }
+            }
+
+            // Check for __new__ method
+            PythonNewMethod pnm =
+                    m.getDeclaredAnnotation(PythonNewMethod.class);
+            if (pnm != null) { addNewMethodSpec(m, pnm); }
+        }
     }
 
+    /**
+     * Add to {@link #specs}, definitions of fields found in the given
+     * class and annotated for exposure.
+     *
+     * @param fieldClass to introspect for field definitions
+     * @throws InterpreterError on duplicates or unsupported types
+     */
     @Override
-    public void exposeMembers(Class<?> memberClass) {
-        // Scan the defining class for exposed fields
-        scanJavaFields(memberClass);
+    public void scanJavaFields(Class<?> fieldClass)
+            throws InterpreterError {
+
+        logger.atTrace().addArgument(fieldClass)
+                .log("Finding fields  in {}");
+
+        // Iterate over fields looking for the relevant annotations
+        for (Field f : fieldClass.getDeclaredFields()) {
+            Member m = f.getDeclaredAnnotation(Member.class);
+            if (m != null) { addMemberSpec(f, m); }
+        }
     }
 
     @Override
@@ -138,69 +185,6 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
     }
 
     /**
-     * Add to {@link #specs}, definitions based on methods found in the
-     * given class and either annotated for exposure or having the name
-     * of a special method.
-     *
-     * @param c to introspect for methods
-     * @throws InterpreterError on duplicates or unsupported types
-     */
-    @Override
-    void scanJavaMethods(Class<?> c) throws InterpreterError {
-
-        logger.atTrace().addArgument(c).log("Finding methods in {}");
-
-        // Iterate over methods looking for those to expose
-        for (Method m : c.getDeclaredMethods()) {
-            /*
-             * Note: method annotations (and special names) are not
-             * treated as alternatives, to catch exposure of methods by
-             * multiple routes, which is an error we detect later.
-             */
-
-            // Check for instance method
-            PythonMethod pm =
-                    m.getDeclaredAnnotation(PythonMethod.class);
-            if (pm != null) { addMethodSpec(m, pm); }
-
-            // Check for static method
-            PythonStaticMethod psm =
-                    m.getDeclaredAnnotation(PythonStaticMethod.class);
-            if (psm != null) { addStaticMethodSpec(m, psm); }
-
-            // Check for __new__ method
-            PythonNewMethod pnm =
-                    m.getDeclaredAnnotation(PythonNewMethod.class);
-            if (pnm != null) { addNewMethodSpec(m, pnm, type); }
-
-            // XXX Check for class method
-            // PythonClassMethod pcm =
-            // m.getDeclaredAnnotation(PythonClassMethod.class);
-            // if (pcm != null) { addClassMethodSpec(m, pcm); }
-
-            // XXX Check for getter, setter, deleter methods
-            Getter get = m.getAnnotation(Getter.class);
-            if (get != null) { addGetter(m, get); }
-            Setter set = m.getAnnotation(Setter.class);
-            if (set != null) { addSetter(m, set); }
-            Deleter del = m.getAnnotation(Deleter.class);
-            if (del != null) { addDeleter(m, del); }
-
-            /*
-             * If it has a special method name record a definition
-             * without needing specific annotation. (This is excluded
-             * during tests applicable before the type system works,
-             * indicated by type==null.)
-             */
-            if (type != null) {
-                String name = m.getName();
-                SpecialMethod sm = SpecialMethod.forMethodName(name);
-                if (sm != null) { addWrapperSpec(m, sm); }
-            }
-        }
-    }
-
-    /**
      * Process a method annotated as an exposed attribute get method,
      * into a specification, and find a {@link GetSetSpec} to the table
      * of specifications by name (or add one) to hold it.
@@ -209,7 +193,7 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
      * @param anno annotation encountered
      * @throws InterpreterError on duplicates or unsupported types
      */
-    private void addGetter(Method m, Getter anno) {
+    void addGetter(Method m, Getter anno) {
         addSpec(m, anno.value(), gss -> castGetSet(gss),
                 GetSetSpec::new, ms -> getSetSpecs.add(ms),
                 GetSetSpec::addGetter);
@@ -225,14 +209,14 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
      * @param anno annotation encountered
      * @throws InterpreterError on duplicates or unsupported types
      */
-    private void addSetter(Method m, Setter anno) {
+    void addSetter(Method m, Setter anno) {
         addSpec(m, anno.value(), gss -> castGetSet(gss),
                 GetSetSpec::new, ms -> getSetSpecs.add(ms),
                 GetSetSpec::addSetter);
     }
 
     /**
-     * Process a method annotated as an exposed attribute get method,
+     * Process a method annotated as an exposed attribute delete method,
      * into a specification, and find a {@link GetSetSpec} to the table
      * of specifications by name (or add one) to hold it.
      *
@@ -241,7 +225,7 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
      * @param anno annotation encountered
      * @throws InterpreterError on duplicates or unsupported types
      */
-    private void addDeleter(Method m, Deleter anno) {
+    void addDeleter(Method m, Deleter anno) {
         addSpec(m, anno.value(), gss -> castGetSet(gss),
                 GetSetSpec::new, ms -> getSetSpecs.add(ms),
                 GetSetSpec::addDeleter);
@@ -254,7 +238,7 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
      * @param spec to cast
      * @return {@code spec} or {@code null}
      */
-    private static GetSetSpec castGetSet(Spec spec) {
+    static GetSetSpec castGetSet(Spec spec) {
         return spec instanceof GetSetSpec ? (GetSetSpec)spec : null;
     }
 
@@ -267,9 +251,8 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
      * @param sm annotation encountered
      * @throws InterpreterError on duplicates or unsupported types
      */
-    private void addWrapperSpec(Method meth, SpecialMethod sm)
+    void addWrapperSpec(Method meth, SpecialMethod sm)
             throws InterpreterError {
-
         // For clarity, name lambda expression for cast
         Function<Spec, WrapperSpec> cast =
                 // Test and cast a found Spec to MethodSpec
@@ -283,16 +266,15 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
 
     /**
      * Process an annotation that identifies a {@code __new__} method of
-     * a Python type or module defined in Java, into a specification for
-     * a method, and add it to the table of specifications by name.
+     * a Python type defined in Java, into a specification for a method,
+     * and add it to the table of specifications by name.
      *
      * @param anno annotation encountered
      * @param meth method annotated
-     * @param type defining type ({@code __self__} in the exposed form)
      * @throws InterpreterError on duplicates or unsupported types
      */
-    void addNewMethodSpec(Method meth, PythonNewMethod anno,
-            BaseType type) throws InterpreterError {
+    void addNewMethodSpec(Method meth, PythonNewMethod anno)
+            throws InterpreterError {
         // For clarity, name lambda expressions for the actions
         BiConsumer<NewMethodSpec, Method> addMethod =
                 // Add method m to spec ms
@@ -307,24 +289,6 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
         addSpec(meth, anno.value(), cast,
                 (String name) -> new NewMethodSpec(name, type),
                 ms -> methodSpecs.add(ms), addMethod);
-    }
-
-    /**
-     * Add to {@link #specs}, definitions of fields found in the given
-     * class and annotated for exposure.
-     *
-     * @param c to introspect for field definitions
-     * @throws InterpreterError on duplicates or unsupported types
-     */
-    void scanJavaFields(Class<?> c) throws InterpreterError {
-
-        logger.atTrace().addArgument(c).log("Finding fields  in {}");
-
-        // Iterate over fields looking for the relevant annotations
-        for (Field f : c.getDeclaredFields()) {
-            Member m = f.getDeclaredAnnotation(Member.class);
-            if (m != null) { addMemberSpec(f, m); }
-        }
     }
 
     /**

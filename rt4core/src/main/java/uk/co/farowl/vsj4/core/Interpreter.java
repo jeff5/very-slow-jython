@@ -15,7 +15,7 @@ import uk.co.farowl.vsj4.support.InterpreterError;
  * through the {@code sys} module, rather than any class with
  * "interpreter" in the name.
  */
-class Interpreter {
+public class Interpreter {
 
     /**
      * The list of modules created by this interpreter, exposed as
@@ -30,7 +30,7 @@ class Interpreter {
     final PyModule builtinsModule;
 
     /** Create a new {@code Interpreter}. */
-    Interpreter() {
+    public Interpreter() {
         builtinsModule = new BuiltinsModule();
         builtinsModule.exec();
         // addModule(builtinsModule);
@@ -42,11 +42,23 @@ class Interpreter {
      *
      * @param m to add
      */
-    void addModule(PyModule m) {
+    public void addModule(PyModule m) {
         if (modules.putIfAbsent(m.name, m) != null)
             throw new InterpreterError(
                     "Interpreter.addModule: Module already added %s",
                     m.name);
+    }
+
+    /**
+     * Return a named module from the interpreter's list of modules
+     * (effectively the source of {@code sys.modules}).
+     *
+     * @param name to retrieve
+     */
+    public PyModule getModule(String name) {
+        Object o = modules.get(name);
+        if (o instanceof PyModule m) { return m; }
+        return null;  // XXX Make TypeError?
     }
 
     /**

@@ -114,7 +114,7 @@ class ModuleExposerTest extends UnitTestSupport {
         @DisplayName("finds the expected methods")
         void getMethodDefs() {
             ModuleExposer exposer = new ModuleExposer("fake_module");
-            exposer.exposeMethods(FakeModule.class);
+            exposer.scanJavaMethods(FakeModule.class);
             MethodDef[] mdArray =
                     exposer.getMethodDefs(FakeModule.LOOKUP);
             checkMethodDefArray(mdArray);

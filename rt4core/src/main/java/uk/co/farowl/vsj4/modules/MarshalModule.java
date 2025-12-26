@@ -49,33 +49,37 @@ import uk.co.farowl.vsj4.core.PyUtil.NoConversion;
 import uk.co.farowl.vsj4.stringlib.ByteArrayBuilder;
 import uk.co.farowl.vsj4.stringlib.IntArrayBuilder;
 import uk.co.farowl.vsj4.types.Exposed.Default;
-import uk.co.farowl.vsj4.types.Exposed.Member;
 import uk.co.farowl.vsj4.types.Exposed.PythonMethod;
 
 /**
  * Write Python objects to files and read them back. This is primarily
  * intended for writing and reading compiled Python code, even though
- * {@code dict}s, {@code list}s, {@code set}s a nd {@code frozenset}s,
+ * {@code dict}s, {@code list}s, {@code set}s and {@code frozenset}s,
  * not commonly seen in {@code code} objects, are supported. Version 3
  * of this protocol properly supports circular links and sharing.
  */
-public class marshal extends JavaModule {
+public class MarshalModule extends JavaModule {
 
     /** Logger for the marshal module. */
-    final Logger logger = LoggerFactory.getLogger(marshal.class);
+    final Logger logger = LoggerFactory.getLogger(MarshalModule.class);
 
     /** Version of the marshal protocol in use. */
-    @Member("version")
-    final static int VERSION = 4;
+    final int VERSION = 4;
 
     /** Definition of the module (completed by the module exposer). */
     static final ModuleDef DEFINITION =
             new ModuleDef("marshal", MethodHandles.lookup());
 
     /** Construct an instance of the module. */
-    public marshal() {
+    public MarshalModule() {
         super(DEFINITION);
         logger.atInfo().setMessage("Instance created").log();
+    }
+
+    @Override
+    public void exec() {
+        super.exec();
+        this.add("version", VERSION);
     }
 
     /*
@@ -666,7 +670,7 @@ public class marshal extends JavaModule {
          * are assigned an index (one up from zero) as they are
          * encountered. In other places within the same source, where
          * one of those occurs, a record beginning
-         * {@link marshal#TYPE_REF} is created with only the
+         * {@link MarshalModule#TYPE_REF} is created with only the
          * corresponding index as payload. This list is where we collect
          * those objects (in encounter order) so as to map an index to
          * an object.

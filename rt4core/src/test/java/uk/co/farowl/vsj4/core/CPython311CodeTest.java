@@ -28,7 +28,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 import uk.co.farowl.vsj4.core.PyDict.Key;
 import uk.co.farowl.vsj4.core.PyDict.KeyHolder;
-import uk.co.farowl.vsj4.modules.marshal;
+import uk.co.farowl.vsj4.modules.MarshalModule;
 import uk.co.farowl.vsj4.support.InterpreterError;
 import uk.co.farowl.vsj4.types.TypeSpec;
 import uk.co.farowl.vsj4.types.WithClass;
@@ -48,9 +48,9 @@ import uk.co.farowl.vsj4.types.WithClass;
 class CPython311CodeTest extends UnitTestSupport {
 
     /** Instance of the {@code marshal} module. */
-    static final marshal MARSHAL;
+    static final MarshalModule MARSHAL;
     static {
-        MARSHAL = new marshal();
+        MARSHAL = new MarshalModule();
         MARSHAL.exec();
     }
 
@@ -479,7 +479,7 @@ class CPython311CodeTest extends UnitTestSupport {
                 BufferedInputStream s = new BufferedInputStream(fs);) {
 
             // Wrap a marshal reader around the input stream
-            marshal.Reader reader = MARSHAL.new StreamReader(s);
+            MarshalModule.Reader reader = MARSHAL.new StreamReader(s);
 
             // First 4 bytes is a magic header
             int magic = reader.readShort();
@@ -523,7 +523,7 @@ class CPython311CodeTest extends UnitTestSupport {
                 BufferedInputStream s = new BufferedInputStream(fs);) {
 
             // Wrap a marshal reader around the input stream
-            marshal.Reader reader = MARSHAL.new StreamReader(s);
+            MarshalModule.Reader reader = MARSHAL.new StreamReader(s);
 
             // Should be a dict object
             Object o = reader.readObject();

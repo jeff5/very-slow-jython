@@ -4,12 +4,15 @@ package uk.co.farowl.vsj4.core;
 
 import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.reflect.Method;
+import java.util.Iterator;
 
+import uk.co.farowl.vsj4.core.Exposer.Spec;
 import uk.co.farowl.vsj4.core.ModuleDef.MethodDef;
+import uk.co.farowl.vsj4.kernel.SpecialMethod;
+import uk.co.farowl.vsj4.kernel.TypeExposer.Entry;
 import uk.co.farowl.vsj4.support.InterpreterError;
 import uk.co.farowl.vsj4.support.ScopeKind;
-import uk.co.farowl.vsj4.types.Exposed.PythonMethod;
-import uk.co.farowl.vsj4.types.Exposed.PythonStaticMethod;
+import uk.co.farowl.vsj4.types.Exposed.PythonNewMethod;
 
 /**
  * A {@code ModuleExposer} provides access to the attributes of a module
@@ -31,21 +34,6 @@ class ModuleExposer extends Exposer {
      */
     ModuleExposer(String name) { this.name = name; }
 
-    /**
-     * Gather methods (including getters and setters of fields) from the
-     * specified class. Definitions (a precursor of Python descriptors)
-     * accumulate in the exposer. A subsequent call to
-     * {@link #getMethodDefs(Lookup)} will return {@link MethodDef}
-     * objects from them.
-     *
-     * @param definingClass to scan for definitions
-     */
-    void exposeMethods(Class<?> definingClass) {
-        // Scan the defining class for definitions
-        scanJavaMethods(definingClass);
-    }
-
-    // TODO ModuleExposer.exposeFields.
     // TODO ModuleExposer.exposeTypes.
 
     @Override
@@ -72,28 +60,5 @@ class ModuleExposer extends Exposer {
             a[i++] = ms.getMethodDef(lookup);
         }
         return a;
-    }
-
-    /**
-     * For a Python module defined in Java, add to {@link specs}, the
-     * methods found in the given defining class and annotated for
-     * exposure.
-     *
-     * @param definingClass to introspect for definitions
-     * @throws InterpreterError on duplicates or unsupported types
-     */
-    @Override
-    void scanJavaMethods(Class<?> definingClass)
-            throws InterpreterError {
-
-        // Collect exposed functions (Java methods)
-        for (Method m : definingClass.getDeclaredMethods()) {
-            PythonMethod a =
-                    m.getDeclaredAnnotation(PythonMethod.class);
-            if (a != null) { addMethodSpec(m, a); }
-            PythonStaticMethod sm =
-                    m.getDeclaredAnnotation(PythonStaticMethod.class);
-            if (sm != null) { addStaticMethodSpec(m, sm); }
-        }
     }
 }

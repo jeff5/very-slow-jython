@@ -265,8 +265,8 @@ class TypeExposerTest {
                 new TypeExposerImplementation(null);
 
         // Scan the primary class for definitions
-        exposer.exposeMethods(Fake.class);
-        exposer.exposeMembers(Fake.class);
+        exposer.scanJavaMethods(Fake.class);
+        exposer.scanJavaFields(Fake.class);
 
         // Populate the dictionaries used in the tests.
         for (Exposer.Spec s : exposer.specs.values()) {

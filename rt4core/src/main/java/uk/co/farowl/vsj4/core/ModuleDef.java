@@ -67,10 +67,9 @@ public class ModuleDef {
         this.name = name;
         this.definingClass = lookup.lookupClass();
         ModuleExposer exposer = new ModuleExposer(name);
-        exposer.exposeMethods(definingClass);
-        // XXX ... and for fields.
-        // XXX ... and for types defined in the module maybe? :o
+        exposer.scanJavaMethods(definingClass);
         this.methods = exposer.getMethodDefs(lookup);
+        // XXX ... and for types defined in the module maybe? :o
         logger.atInfo().setMessage("Module definition '{}'")
                 .addArgument(name).log();
     }
@@ -89,14 +88,13 @@ public class ModuleDef {
      * @param module to populate
      */
     void addMembers(JavaModule module) {
-        PyDict d = module.dict;
         for (MethodDef md : methods) {
             // Create function by binding to the module
             logger.atTrace().setMessage("Add {}.{}").addArgument(name)
                     .addArgument(md.argParser.name).log();
             PyJavaFunction func = PyJavaFunction.forModule(md.argParser,
                     md.handle, module, this.name);
-            d.put(md.argParser.name, func);
+            module.add(md.argParser.name, func);
         }
     }
 

@@ -4,6 +4,7 @@ package uk.co.farowl.vsj4.modules;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
@@ -20,19 +21,23 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+import uk.co.farowl.vsj4.core.Abstract;
+import uk.co.farowl.vsj4.core.Interpreter;
 import uk.co.farowl.vsj4.core.Py;
+import uk.co.farowl.vsj4.core.PyAttributeError;
 import uk.co.farowl.vsj4.core.PyBytes;
 import uk.co.farowl.vsj4.core.PyDict;
 import uk.co.farowl.vsj4.core.PyExc;
 import uk.co.farowl.vsj4.core.PyList;
+import uk.co.farowl.vsj4.core.PyModule;
 import uk.co.farowl.vsj4.core.PySequence;
 import uk.co.farowl.vsj4.core.PyTuple;
 import uk.co.farowl.vsj4.core.PyType;
 import uk.co.farowl.vsj4.core.UnitTestSupport;
-import uk.co.farowl.vsj4.modules.marshal.BytesWriter;
-import uk.co.farowl.vsj4.modules.marshal.Reader;
-import uk.co.farowl.vsj4.modules.marshal.StreamWriter;
-import uk.co.farowl.vsj4.modules.marshal.Writer;
+import uk.co.farowl.vsj4.modules.MarshalModule.BytesWriter;
+import uk.co.farowl.vsj4.modules.MarshalModule.Reader;
+import uk.co.farowl.vsj4.modules.MarshalModule.StreamWriter;
+import uk.co.farowl.vsj4.modules.MarshalModule.Writer;
 import uk.co.farowl.vsj4.stringlib.ByteArrayBuilder;
 
 /**
@@ -43,8 +48,32 @@ import uk.co.farowl.vsj4.stringlib.ByteArrayBuilder;
  * We test the Java API only, consistent with our interest in reading
  * code for execution.
  */
-@DisplayName("Read and write objects with marshal")
+@DisplayName("The marshal module ...")
 class marshalTest extends UnitTestSupport {
+
+    @Test
+    @DisplayName("can be loaded by an interpreter")
+    @SuppressWarnings("static-method")
+    void loadIntoInterpreter() {
+        Interpreter interp = new Interpreter();
+        // Hand-crank adding the module
+        PyModule marshal = new MarshalModule();
+        interp.addModule(marshal);
+        assertSame(marshal, interp.getModule("marshal"));
+    }
+
+    @Test
+    @DisplayName("has expected attributes")
+    @SuppressWarnings("static-method")
+    void canBeAccessed() throws PyAttributeError, Throwable {
+        // Hand-crank adding and executing the module
+        PyModule marshal = new MarshalModule();
+        marshal.exec();
+        // Look up arbitrary functions
+        assertNotNull(Abstract.getAttr(marshal, "dumps"));
+        assertNotNull(Abstract.getAttr(marshal, "load"));
+        assertPythonEquals(4, Abstract.getAttr(marshal, "version"));
+    }
 
     /**
      * Base of tests that read or write elementary values where a
@@ -53,7 +82,7 @@ class marshalTest extends UnitTestSupport {
     abstract static class AbstractElementTest {
 
         /** Instance of the {@code marshal} module. */
-        marshal marshal = new marshal();
+        MarshalModule marshal = new MarshalModule();
 
         /**
          * Test cases for serialising 16-bit ints.
@@ -161,7 +190,7 @@ class marshalTest extends UnitTestSupport {
      * ({@link PyBytes} etc.), and native {@code byte[]}.
      */
     @Nested
-    @DisplayName("Read elementary values from bytes")
+    @DisplayName("reads elementary values from bytes")
     class ReadBytesElementary extends AbstractElementTest {
 
         @DisplayName("r.readShort()")
@@ -203,7 +232,7 @@ class marshalTest extends UnitTestSupport {
      * and native Java input streams.
      */
     @Nested
-    @DisplayName("Read elementary values from a stream")
+    @DisplayName("reads elementary values from a stream")
     class ReadStreamElementary extends AbstractElementTest {
 
         @DisplayName("r.readShort()")
@@ -250,7 +279,7 @@ class marshalTest extends UnitTestSupport {
      * bytes.
      */
     @Nested
-    @DisplayName("Write elementary values to bytes")
+    @DisplayName("writes elementary values to bytes")
     class WriteBytesElementary extends AbstractElementTest {
 
         @DisplayName("w.writeShort()")
@@ -302,7 +331,7 @@ class marshalTest extends UnitTestSupport {
      * to compare with the expected bytes.
      */
     @Nested
-    @DisplayName("Write elementary values to a stream")
+    @DisplayName("writes elementary values to a stream")
     class WriteStreamElementary extends AbstractElementTest {
 
         @DisplayName("w.writeShort()")
@@ -350,7 +379,7 @@ class marshalTest extends UnitTestSupport {
     abstract static class AbstractLoadTest {
 
         /** Instance of the {@code marshal} module. */
-        marshal marshal = new marshal();
+        MarshalModule marshal = new MarshalModule();
 
         /**
          * Provide a stream of examples as parameter sets to the tests.
@@ -569,7 +598,7 @@ class marshalTest extends UnitTestSupport {
      * Python buffer protocol.
      */
     @Nested
-    @DisplayName("Read object from bytes-like")
+    @DisplayName("reads objects from bytes-like")
     class MarshalLoadBytesTest extends AbstractLoadTest {
 
         @DisplayName("loads(b)")
@@ -601,7 +630,7 @@ class marshalTest extends UnitTestSupport {
      * it as a stream.
      */
     @Nested
-    @DisplayName("Read object from a stream")
+    @DisplayName("reads objects from a stream")
     class MarshalLoadStreamTest extends AbstractLoadTest {
 
         @DisplayName("load(f)")

@@ -36,7 +36,7 @@ class BuiltinsModuleTest extends UnitTestSupport {
     static final String FILE = "BuiltinsModuleTest.java";
 
     @Test
-    @DisplayName("exists on an interepreter")
+    @DisplayName("exists on an interpreter")
     @SuppressWarnings("static-method")
     void existsOnInterpreter() {
         Interpreter interp = new Interpreter();

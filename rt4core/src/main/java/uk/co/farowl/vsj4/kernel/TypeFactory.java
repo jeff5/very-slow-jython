@@ -1075,9 +1075,9 @@ public class TypeFactory {
                  */
                 for (Class<?> c : definitionClasses()) {
                     // Gather methods and get-sets
-                    exposer.exposeMethods(c);
+                    exposer.scanJavaMethods(c);
                     // ... and members (fields).
-                    exposer.exposeMembers(c);
+                    exposer.scanJavaFields(c);
                 }
 
                 /*
@@ -1086,7 +1086,7 @@ public class TypeFactory {
                  */
                 for (Class<?> c : spec.getMethodImpls()) {
                     // Scan class c for method/attribute definitions.
-                    exposer.exposeMethods(c);
+                    exposer.scanJavaMethods(c);
                 }
 
                 return exposer;
