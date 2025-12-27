@@ -20,9 +20,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.StringJoiner;
 import java.util.TreeSet;
-import java.util.function.BiConsumer;
-import java.util.function.Consumer;
-import java.util.function.Function;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -137,23 +134,32 @@ abstract class Exposer {
      * @param meth method annotated
      * @throws InterpreterError on duplicates or unsupported types
      */
-    void addMethodSpec(Method meth, PythonMethod anno)
+    private void addMethodSpec(Method meth, PythonMethod anno)
             throws InterpreterError {
-        // For clarity, name lambda expressions for the actions
-        BiConsumer<MethodSpec, Method> addMethod =
-                // Add method m to spec ms
-                (MethodSpec ms, Method m) -> {
-                    ms.add(m, anno.primary(), anno.positionalOnly(),
-                            MethodKind.INSTANCE);
-                };
-        Function<Spec, MethodSpec> cast =
-                // Test and cast a found Spec to MethodSpec
-                spec -> spec instanceof MethodSpec ? (MethodSpec)spec
-                        : null;
-        // Now use the generic create/update
-        addSpec(meth, anno.value(), cast,
-                (String name) -> new MethodSpec(name, kind()),
-                ms -> methodSpecs.add(ms), addMethod);
+        // Define custom actions for a PythonMethod
+        SpecAdder<MethodSpec, Method> adder = new SpecAdder<>() {
+
+            @Override
+            boolean check(Spec spec) {
+                return spec instanceof MethodSpec;
+            }
+
+            @Override
+            MethodSpec makeSpec(String name) {
+                return new MethodSpec(name, kind());
+            }
+
+            @Override
+            void addMember(Method m, MethodSpec s) {
+                s.add(m, anno.primary(), anno.positionalOnly(),
+                        MethodKind.INSTANCE);
+            }
+
+            @Override
+            void addSpec(MethodSpec s) { methodSpecs.add(s); }
+        };
+
+        adder.add(meth, anno.value());
     }
 
     /**
@@ -165,74 +171,32 @@ abstract class Exposer {
      * @param meth method annotated
      * @throws InterpreterError on duplicates or unsupported types
      */
-    void addStaticMethodSpec(Method meth, PythonStaticMethod anno)
-            throws InterpreterError {
-        // For clarity, name lambda expressions for the actions
-        BiConsumer<StaticMethodSpec, Method> addMethod =
-                // Add method m to spec ms
-                (StaticMethodSpec ms, Method m) -> {
-                    ms.add(m, true, anno.positionalOnly(),
-                            MethodKind.STATIC);
-                };
-        Function<Spec, StaticMethodSpec> cast =
-                // Test and cast a found Spec to StaticMethodSpec
-                spec -> spec instanceof StaticMethodSpec
-                        ? (StaticMethodSpec)spec : null;
-        // Now use the generic create/update
-        addSpec(meth, anno.value(), cast,
-                (String name) -> new StaticMethodSpec(name, kind()),
-                ms -> methodSpecs.add(ms), addMethod);
-    }
+    private void addStaticMethodSpec(Method meth,
+            PythonStaticMethod anno) throws InterpreterError {
+        // Define custom actions for a PythonStaticMethod
+        SpecAdder<StaticMethodSpec, Method> adder = new SpecAdder<>() {
 
-    /**
-     * A helper that avoids repeating nearly the same code for adding
-     * each particular sub-class of {@link Spec} when a method is
-     * encountered. The implementation finds or creates a {@code Spec}
-     * by the given name or method name. It then adds this {@code Spec}
-     * to {@link #specs}. The caller provides a factory method, in case
-     * a new {@code Spec} is needed, a method for adding the Spec to a
-     * type-specific list, and a method for adding the method to the
-     * {@code Spec}.
-     *
-     * @param <MS> the type of {@link Spec} being added or added to.
-     * @param m the method being adding to the {@code MS}
-     * @param name specified in the annotation or {@code null}
-     * @param cast to the {@code MS} if possible or {@code null}
-     * @param makeSpec constructor for an {@code MS}
-     * @param addSpec function to add the {@code MS} to the proper list
-     * @param addMethod function to update the {@code MS} with a method
-     */
-    <MS extends BaseMethodSpec> void addSpec(Method m, String name,
-            Function<Spec, MS> cast, //
-            Function<String, MS> makeSpec, //
-            Consumer<MS> addSpec, //
-            BiConsumer<MS, Method> addMethod) {
+            @Override
+            boolean check(Spec spec) {
+                return spec instanceof StaticMethodSpec;
+            }
 
-        // The name is as annotated or the "natural" one
-        if (name == null || name.length() == 0)
-            name = m.getName();
+            @Override
+            StaticMethodSpec makeSpec(String name) {
+                return new StaticMethodSpec(name, kind());
+            }
 
-        // Find any existing definition
-        Spec spec = specs.get(name);
-        MS entry;
-        if (spec == null) {
-            // A new entry is needed
-            entry = makeSpec.apply(name);
-            specs.put(entry.name, entry);
-            addSpec.accept(entry);
-            addMethod.accept(entry, m);
-        } else if ((entry = cast.apply(spec)) != null) {
-            // Existing entry will be updated
-            addMethod.accept(entry, m);
-        } else {
-            /*
-             * Existing entry is not compatible, but make a loose entry
-             * on which to base the error message.
-             */
-            entry = makeSpec.apply(name);
-            addMethod.accept(entry, m);
-            throw duplicateError(name, m, entry, spec);
-        }
+            @Override
+            void addMember(Method m, StaticMethodSpec s) {
+                s.add(m, true, anno.positionalOnly(),
+                        MethodKind.STATIC);
+            }
+
+            @Override
+            void addSpec(StaticMethodSpec s) { methodSpecs.add(s); }
+        };
+
+        adder.add(meth, anno.value());
     }
 
     /**
@@ -1292,6 +1256,106 @@ abstract class Exposer {
         @Override
         Class<? extends Annotation> annoClass() {
             return PythonStaticMethod.class;
+        }
+    }
+
+    /**
+     * Generic code to create a specification of an attribute or method
+     * to the tables of the exposer, expressed as an inner class, or to
+     * find an existing one and update it.
+     * <p>
+     * {@link SpecAdder#add(Member, String)} finds a {@code Spec} by the
+     * given name in {@link #specs}, or creates one by calling
+     * {@link SpecAdder#makeSpec(String) makeSpec} and adds it. If it
+     * found an existing specification, it checks the concrete type with
+     * {@link SpecAdder#check(Spec) check}. Then it updates it with the
+     * new member by calling {@link SpecAdder#addMember(Member, Spec)
+     * addMember} and adds it to the type-specific table through a call
+     * to {@link SpecAdder#addSpec(Spec) addSpec}.
+     * <p>
+     * {@link SpecAdder#add(Member, String) add} is provided, but the
+     * other four methods must be defined by the caller. We use an
+     * anonymous class at the call site to do this customisation.
+     *
+     * @param <S> type of specification that should be created
+     * @param <M> Java member type being described
+     */
+    abstract class SpecAdder<S extends Spec, M extends Member> {
+
+        /**
+         * Check a {@code Spec} found by lookup is of actual type
+         * {@code S}.
+         *
+         * @param spec to check
+         * @return {@code instanceof S}
+         */
+        abstract boolean check(Spec spec);
+
+        /**
+         * Create a new specification of type {@code S}.
+         *
+         * @param name of the attribute/method.
+         * @return a new S
+         */
+        abstract S makeSpec(String name);
+
+        /**
+         * Add a definition to an existing specification {@code S s}
+         * created or found by name. Generally, the implementation of
+         * this references attributes from the annotation encountered.
+         *
+         * @param m member annotated
+         * @param s specification to add
+         */
+        abstract void addMember(M m, S s);
+
+        /**
+         * Add a specification of actual type {@code S} to a specific
+         * matching collection.
+         *
+         * @param s new specification
+         */
+        abstract void addSpec(S s);
+
+        /**
+         * Process Java member of a Python type or module defined in
+         * Java, into a specification for an attribute or method, and
+         * add it to the tables of specifications by name. Optionally
+         * override the Java name, or leave {@code name} null or empty
+         * to accept the Java one.
+         *
+         * @param name to replace the Java one (or {@code null}/"")
+         * @param m member annotated
+         * @throws InterpreterError on duplicates or unsupported types
+         */
+        @SuppressWarnings("unchecked")
+        void add(M m, String name) {
+
+            // The name is as annotated or the "natural" one
+            if (name == null || name.length() == 0)
+                name = m.getName();
+
+            // Find/create and update a specification of 'name'
+            Spec spec;
+            S entry;
+            if ((spec = specs.get(name)) == null) {
+                // A new entry is needed
+                entry = makeSpec(name);
+                specs.put(entry.name, entry);
+                addSpec(entry);
+                addMember(m, entry);
+            } else if (check(spec)) {
+                // Existing entry will be updated (cast is safe)
+                addMember(m, (S)spec);
+            } else {
+                /*
+                 * Existing entry is not compatible, but make a loose
+                 * entry on which to base the error message.
+                 */
+                entry = makeSpec(name);
+                addMember(m, entry);
+                throw duplicateError(name, m, entry, spec);
+            }
         }
     }
 

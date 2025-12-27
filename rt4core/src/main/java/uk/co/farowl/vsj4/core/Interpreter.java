@@ -54,6 +54,7 @@ public class Interpreter {
      * (effectively the source of {@code sys.modules}).
      *
      * @param name to retrieve
+     * @return module named
      */
     public PyModule getModule(String name) {
         Object o = modules.get(name);

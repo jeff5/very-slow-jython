@@ -17,8 +17,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 import java.util.TreeSet;
-import java.util.function.BiConsumer;
-import java.util.function.Function;
 
 import uk.co.farowl.vsj4.core.PyMemberDescr.Flag;
 import uk.co.farowl.vsj4.kernel.BaseType;
@@ -193,10 +191,15 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
      * @param anno annotation encountered
      * @throws InterpreterError on duplicates or unsupported types
      */
-    void addGetter(Method m, Getter anno) {
-        addSpec(m, anno.value(), gss -> castGetSet(gss),
-                GetSetSpec::new, ms -> getSetSpecs.add(ms),
-                GetSetSpec::addGetter);
+    private void addGetter(Method m, Getter anno) {
+        // Define custom actions for a Getter
+        GetSetSpecAdder adder = new GetSetSpecAdder() {
+
+            @Override
+            void addMember(Method m, GetSetSpec s) { s.addGetter(m); }
+        };
+
+        adder.add(m, anno.value());
     }
 
     /**
@@ -209,10 +212,15 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
      * @param anno annotation encountered
      * @throws InterpreterError on duplicates or unsupported types
      */
-    void addSetter(Method m, Setter anno) {
-        addSpec(m, anno.value(), gss -> castGetSet(gss),
-                GetSetSpec::new, ms -> getSetSpecs.add(ms),
-                GetSetSpec::addSetter);
+    private void addSetter(Method m, Setter anno) {
+        // Define custom actions for a Setter
+        GetSetSpecAdder adder = new GetSetSpecAdder() {
+
+            @Override
+            void addMember(Method m, GetSetSpec s) { s.addSetter(m); }
+        };
+
+        adder.add(m, anno.value());
     }
 
     /**
@@ -225,21 +233,15 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
      * @param anno annotation encountered
      * @throws InterpreterError on duplicates or unsupported types
      */
-    void addDeleter(Method m, Deleter anno) {
-        addSpec(m, anno.value(), gss -> castGetSet(gss),
-                GetSetSpec::new, ms -> getSetSpecs.add(ms),
-                GetSetSpec::addDeleter);
-    }
+    private void addDeleter(Method m, Deleter anno) {
+        // Define custom actions for a Deleter
+        GetSetSpecAdder adder = new GetSetSpecAdder() {
 
-    /**
-     * Cast an arbitrary {@link Spec} to a {@link GetSetSpec} or return
-     * {@code null}.
-     *
-     * @param spec to cast
-     * @return {@code spec} or {@code null}
-     */
-    static GetSetSpec castGetSet(Spec spec) {
-        return spec instanceof GetSetSpec ? (GetSetSpec)spec : null;
+            @Override
+            void addMember(Method m, GetSetSpec s) { s.addDeleter(m); }
+        };
+
+        adder.add(m, anno.value());
     }
 
     /**
@@ -253,15 +255,28 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
      */
     void addWrapperSpec(Method meth, SpecialMethod sm)
             throws InterpreterError {
-        // For clarity, name lambda expression for cast
-        Function<Spec, WrapperSpec> cast =
-                // Test and cast a found Spec to MethodSpec
-                spec -> spec instanceof WrapperSpec ? (WrapperSpec)spec
-                        : null;
-        // Now use the generic create/update
-        addSpec(meth, sm.methodName, cast,
-                (String ignored) -> new WrapperSpec(sm), ms -> {},
-                WrapperSpec::add);
+        // Define custom actions for a SpecialMethod
+        SpecAdder<WrapperSpec, Method> adder = new SpecAdder<>() {
+
+            @Override
+            boolean check(Spec spec) {
+                return spec instanceof WrapperSpec;
+            }
+
+            @Override
+            WrapperSpec makeSpec(String name) {
+                return new WrapperSpec(sm);
+            }
+
+            @Override
+            void addMember(Method m, WrapperSpec s) { s.add(meth); }
+
+            @Override
+            void addSpec(WrapperSpec s) {}
+        };
+
+        adder.add(meth, sm.methodName);
+
     }
 
     /**
@@ -275,20 +290,29 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
      */
     void addNewMethodSpec(Method meth, PythonNewMethod anno)
             throws InterpreterError {
-        // For clarity, name lambda expressions for the actions
-        BiConsumer<NewMethodSpec, Method> addMethod =
-                // Add method m to spec ms
-                (NewMethodSpec ms, Method m) -> {
-                    ms.add(m, true, true, MethodKind.NEW);
-                };
-        Function<Spec, NewMethodSpec> cast =
-                // Test and cast a found Spec to NewMethodSpec
-                spec -> spec instanceof NewMethodSpec
-                        ? (NewMethodSpec)spec : null;
-        // Now use the generic create/update
-        addSpec(meth, anno.value(), cast,
-                (String name) -> new NewMethodSpec(name, type),
-                ms -> methodSpecs.add(ms), addMethod);
+        // Define custom actions for a PythonNewMethod
+        SpecAdder<NewMethodSpec, Method> adder = new SpecAdder<>() {
+
+            @Override
+            boolean check(Spec spec) {
+                return spec instanceof NewMethodSpec;
+            }
+
+            @Override
+            NewMethodSpec makeSpec(String name) {
+                return new NewMethodSpec(name, type);
+            }
+
+            @Override
+            void addMember(Method m, NewMethodSpec s) {
+                s.add(m, true, true, MethodKind.NEW);
+            }
+
+            @Override
+            void addSpec(NewMethodSpec s) { methodSpecs.add(s); }
+        };
+
+        adder.add(meth, anno.value());
     }
 
     /**
@@ -300,39 +324,31 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
      * @param anno annotation encountered
      * @throws InterpreterError on duplicates or unsupported types
      */
-    void addMemberSpec(Field f, Member anno) throws InterpreterError {
+    private void addMemberSpec(Field f, Member anno)
+            throws InterpreterError {
+        // Define custom actions for a Member
+        SpecAdder<MemberSpec, Field> adder = new SpecAdder<>() {
 
-        // The name is as annotated or the "natural" one
-        String name = anno.value();
-        if (name == null || name.length() == 0)
-            name = f.getName();
+            @Override
+            boolean check(Spec spec) {
+                return spec instanceof MemberSpec;
+            }
 
-        /*
-         * XXX we follow the same pattern as with other spec types, in
-         * accumulating multiple definitions in a list. Repeat
-         * definition is almost certainly an error, and at this time,
-         * MemberSpec.add treats it as such. This makes Member
-         * annotations incompatible with the idea of multiple accepted
-         * implementations of a type.
-         */
-        // Find any existing definition
-        Spec spec = specs.get(name);
-        MemberSpec memberSpec;
-        if (spec == null) {
-            // A new entry is needed
-            memberSpec = new MemberSpec(name);
-            specs.put(memberSpec.name, memberSpec);
-            memberSpecs.add(memberSpec);
-        } else if (spec instanceof MemberSpec) {
-            // Existing entry will be updated
-            memberSpec = (MemberSpec)spec;
-        } else {
-            // Existing entry is not compatible
-            memberSpec = new MemberSpec(name);
-            throw duplicateError(name, f, memberSpec, spec);
-        }
-        // Add the field, processing the additional properties
-        memberSpec.add(f, anno.optional(), anno.readonly());
+            @Override
+            MemberSpec makeSpec(String name) {
+                return new MemberSpec(name);
+            }
+
+            @Override
+            void addMember(Field f, MemberSpec s) {
+                s.add(f, anno.optional(), anno.readonly());
+            }
+
+            @Override
+            void addSpec(MemberSpec s) { memberSpecs.add(s); }
+        };
+
+        adder.add(f, anno.value());
     }
 
     @Override
@@ -1104,4 +1120,25 @@ class TypeExposerImplementation extends Exposer implements TypeExposer {
 // "ill-formed or inaccessible binary op '%s'", m);
 // }
 // }
+
+    /**
+     * Specialisation of {@link SpecAdder} to {@link GetSetSpec}, useful
+     * as three of the abstract methods have the same definition,
+     * leaving only
+     * {@link SpecAdder#addMember(java.lang.reflect.Member, Spec)
+     * addMember} to define.
+     */
+    abstract class GetSetSpecAdder
+            extends SpecAdder<GetSetSpec, Method> {
+        @Override
+        boolean check(Spec spec) { return spec instanceof GetSetSpec; }
+
+        @Override
+        GetSetSpec makeSpec(String name) {
+            return new GetSetSpec(name);
+        }
+
+        @Override
+        void addSpec(GetSetSpec s) { getSetSpecs.add(s); }
+    }
 }
