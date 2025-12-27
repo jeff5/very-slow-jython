@@ -3,10 +3,13 @@
 package uk.co.farowl.vsj4.core;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Iterator;
 import java.util.function.Supplier;
 
 import uk.co.farowl.vsj4.internal.EmptyException;
+import uk.co.farowl.vsj4.internal.Util;
 import uk.co.farowl.vsj4.internal._PyUtil;
+import uk.co.farowl.vsj4.kernel.KernelTypeFlag;
 import uk.co.farowl.vsj4.kernel.Representation;
 import uk.co.farowl.vsj4.kernel.SpecialMethod;
 import uk.co.farowl.vsj4.kernel.TypeRegistry;
@@ -47,11 +50,163 @@ public class Abstract {
 
     /**
      * There are only static methods here, so no instances should be
-     * created. Formally make the constructor {@code protected} so we
-     * can sub-class and refer easily to methods here. (Otherwise
+     * created. Formally make the constructor {@code package private} so
+     * we can sub-class and refer easily to methods here. (Otherwise
      * {@code private} would be the right choice.)
      */
-    protected Abstract() {}
+    Abstract() {}
+
+    /**
+     * {@code len(o)} with Python semantics.
+     *
+     * @param o object to operate on
+     * @return {@code len(o)}
+     * @throws Throwable from invoked method implementations
+     */
+    // Compare CPython PyObject_Size in abstract.c
+    public static int size(Object o) throws Throwable {
+        // Note that the slot is called op_len but this method, size.
+        try {
+            return (int)representation(o).op_len().invokeExact(o);
+        } catch (EmptyException e) {
+            throw typeError(HAS_NO_LEN, o);
+        }
+    }
+
+    /**
+     * {@code o[key]} with Python semantics, where {@code o} may be a
+     * mapping or a sequence.
+     *
+     * @param o object to operate on
+     * @param key index
+     * @return {@code o[key]}
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) when
+     *     {@code o} does not allow subscripting
+     * @throws Throwable from invoked method implementations
+     */
+    // Compare CPython PyObject_GetItem in abstract.c
+    public static Object getItem(Object o, Object key)
+            throws Throwable {
+        // Decisions are based on types of o and key
+        try {
+            return representation(o).op_getitem().invokeExact(o, key);
+        } catch (EmptyException e) {
+            throw typeError(NOT_SUBSCRIPTABLE, o);
+        }
+    }
+
+    /**
+     * {@code o[i1:12]} with Python semantics, where {@code o} must be a
+     * sequence. Receiving objects will normally interpret indices as
+     * end-relative, and bounded to the sequence length.
+     *
+     * @param o sequence to operate on
+     * @param i1 index of first item in slice
+     * @param i2 index of first item not in slice
+     * @return {@code o[i1:i2]}
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) when
+     *     {@code o} does not allow subscripting
+     * @throws Throwable from invoked method implementations
+     */
+    // Compare CPython PyObject_GetItem in abstract.c
+    public static Object getSlice(Object o, int i1, int i2)
+            throws Throwable {
+        Object key = new PySlice(i1, i2);
+        // Decisions are based on type of o and known type of key
+        try {
+            return representation(o).op_getitem().invokeExact(o, key);
+        } catch (EmptyException e) {
+            throw typeError(NOT_SLICEABLE, o);
+        }
+    }
+
+    /**
+     * {@code o[key] = value} with Python semantics, where {@code o} may
+     * be a mapping or a sequence.
+     *
+     * @param o object to operate on
+     * @param key index
+     * @param value to put at index
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) when
+     *     {@code o} does not allow subscripting
+     * @throws Throwable from invoked method implementations
+     */
+    // Compare CPython PyObject_SetItem in abstract.c
+    public static void setItem(Object o, Object key, Object value)
+            throws Throwable {
+        // Decisions are based on types of o and key
+        try {
+            representation(o).op_setitem().invokeExact(o, key, value);
+        } catch (EmptyException e) {
+            throw typeError(DOES_NOT_SUPPORT_ITEM, o, "assignment");
+        }
+    }
+
+    /**
+     * {@code o[i1:12] = value} with Python semantics, where {@code o} may
+     * be a mapping or a sequence.
+     *
+     * @param o object to operate on
+     * @param i1 index of first item in slice
+     * @param i2 index of first item not in slice
+     * @param value to replace the slice
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) when
+     *     {@code o} does not allow subscripting
+     * @throws Throwable from invoked method implementations
+     */
+    // Compare CPython PyObject_SetSlice in abstract.c
+    public static void setSlice(Object o, int i1, int i2, Object value)
+            throws Throwable {
+        Object key = new PySlice(i1, i2);
+        // Decisions are based on types of o and key
+        try {
+            representation(o).op_setitem().invokeExact(o, key, value);
+        } catch (EmptyException e) {
+            throw typeError(DOES_NOT_SUPPORT_ITEM, o, "assignment");
+        }
+    }
+
+    /**
+     * {@code del o[key]} with Python semantics, where {@code o} may be
+     * a mapping or a sequence.
+     *
+     * @param o object to operate on
+     * @param key index at which to delete element
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) when
+     *     {@code o} does not allow subscripting
+     * @throws Throwable from invoked method implementations
+     */
+    // Compare CPython PyObject_DelItem in abstract.c
+    public static void delItem(Object o, Object key) throws Throwable {
+        // Decisions are based on types of o and key
+        try {
+            representation(o).op_delitem().invokeExact(o, key);
+        } catch (EmptyException e) {
+            throw typeError(DOES_NOT_SUPPORT_ITEM, o, "deletion");
+        }
+    }
+
+    /**
+     * {@code del o[i1:12]} with Python semantics, where {@code o} may be
+     * a mapping or a sequence.
+     *
+     * @param o object to operate on
+     * @param i1 index of first item in slice
+     * @param i2 index of first item not in slice
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) when
+     *     {@code o} does not allow subscripting
+     * @throws Throwable from invoked method implementations
+     */
+    // Compare CPython PyObject_DelSlice in abstract.c
+    public static void delSlice(Object o, int i1, int i2) throws Throwable {
+        Object key = new PySlice(i1, i2);
+        // Decisions are based on types of o and key
+        try {
+            representation(o).op_delitem().invokeExact(o, key);
+        } catch (EmptyException e) {
+            throw typeError(DOES_NOT_SUPPORT_ITEM, o, "deletion");
+        }
+    }
 
     /**
      * The equivalent of the Python expression {@code repr(o)}, and is
@@ -780,51 +935,90 @@ public class Abstract {
      * @throws Throwable from errors in {@code o.__iter__}
      */
     // Compare CPython PyObject_GetIter in abstract.c
-    static Object getIterator(Object o)
+    static AbstractPyIterator getIterator(Object o)
             throws PyBaseException, Throwable {
-        return getIterator(o, null);
+        return getIterator(o, () -> typeError(NOT_ITERABLE, o));
     }
 
     /**
      * Equivalent to {@link #getIterator(Object)}, with the opportunity
-     * to specify the kind of Python exception to raise.
+     * to specify the kind of Python exception to raise when no iterator
+     * can be obtained.
      *
      * @param <E> the type of exception to throw
      * @param o the claimed iterable object
-     * @param exc a supplier (e.g. lambda expression) for the exception
-     * @return an iterator on {@code o}
+     * @param exc for the exception (e.g. lambda expression)
+     * @return an iterator on {@code o} or null
      * @throws E to throw if an iterator cannot be formed
      * @throws Throwable from errors in {@code o.__iter__}
      */
     // Compare CPython PyObject_GetIter in abstract.c
-    static <E extends PyBaseException> Object getIterator(Object o,
-            Supplier<E> exc) throws PyBaseException, Throwable {
-
+    static <E extends PyBaseException> AbstractPyIterator
+            getIterator(Object o, Supplier<E> exc)
+                    throws PyBaseException, Throwable {
         Representation orep = representation(o);
         try {
             // Call o.__iter__, which may be empty.
-            Object i = orep.op_iter().invokeExact(o);
-            // Did that return an iterator? Check i defines __next__.
-            Representation irep = representation(i);
-            if (irep.pythonType(i).isIterator()) {
-                return i;
-            } else if (exc == null) {
-                throw returnTypeError("iter", "iterator", i);
+            Object iter = orep.op_iter().invokeExact(o);
+            // iter may already be a suitable type (built-ins)
+            if (iter instanceof AbstractPyIterator pyiter) {
+                return pyiter;
             }
-        } catch (EmptyException e) {
-            // otype does not define __iter__: try __getitem__
-            if (orep.pythonType(o).isSequence()) {
-                // o defines __getitem__: make a (Python) iterator.
-                return new PyIterator(o);
-            }
-        }
+            return new PyIterator.Next(iter,
+                    () -> returnTypeError("iter", "iterator", iter));
+        } catch (EmptyException e) {}
 
-        // Out of possibilities: throw caller-defined exception
-        if (exc != null) {
-            throw exc.get();
+        // o does not define __iter__: try __getitem__
+        if (orep.hasFeature(o, KernelTypeFlag.HAS_GETITEM)) {
+            // o defines __getitem__: make a dual iterator.
+            return new PyIterator.GetItem(o);
         } else {
-            throw typeError(NOT_ITERABLE, o);
+            // Out of possibilities: throw caller-defined exception
+            throw exc.get();
         }
+    }
+
+    /**
+     * This is call turns a Python iterable into a Java
+     * {@code Iterable<Object>}. The idea is to permit an idiom
+     * like:<pre>
+     * for (Object item : getIterable(o)) { ... }
+     * </pre>Java will call {@link Iterable#iterator()} on the returned
+     * object, which is delegated to
+     * {@link #getIterator(Object, Supplier)}.
+     *
+     * @param o the claimed iterable object
+     * @return an iterator on {@code o}
+     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) if
+     *     the object cannot be iterated
+     */
+    static Iterable<Object> getIterable(Object o) {
+        return getIterable(o, () -> typeError(NOT_ITERABLE, o));
+    }
+
+    /**
+     * Equivalent to {@link #getIterable(Object)}, with the opportunity
+     * to specify the kind of Python exception to raise when obtaining
+     * an iterator from {@code o}.
+     *
+     * @param <E> the type of exception to throw
+     * @param o the claimed iterable object
+     * @param exc a supplier (e.g. lambda expression) for the exception
+     * @return an iterator on {@code o} or null
+     * @throws E to throw if an iterator cannot be formed
+     */
+    static <E extends PyBaseException> Iterable<Object>
+            getIterable(Object o, Supplier<E> exc) {
+        return new Iterable<Object>() {
+            @Override
+            public Iterator<Object> iterator() {
+                try {
+                    return getIterator(o, exc);
+                } catch (Throwable t) {
+                    throw Util.asUnchecked(t);
+                }
+            }
+        };
     }
 
     /**
@@ -909,17 +1103,22 @@ public class Abstract {
 
     // Convenience functions constructing errors --------------------
 
+    private static final String HAS_NO_LEN =
+            "object of type '%.200s' has no len()";
+    private static final String NOT_SUBSCRIPTABLE =
+            "'%.200s' object is not subscriptable";
+    private static final String NOT_SLICEABLE =
+            "'%.200s' object is unsliceable";
+    private static final String DOES_NOT_SUPPORT_ITEM =
+            "'%.200s' object does not support item %s";
     private static final String IS_REQUIRED_NOT =
             "%.200s is required, not '%.100s'";
     private static final String RETURNED_NON_TYPE =
             "%.200s returned non-%.200s (type %.200s)";
     private static final String ARGUMENT_MUST_BE =
             "%s()%s%s argument must be %s, not '%.200s'";
-    private static final String NOT_MAPPING = "%.200s is not a mapping";
     private static final String NOT_ITERABLE =
-            "%.200s object is not iterable";
-    private static final String DESCR_NOT_DEFINING =
-            "Type marked as %.20s descriptor does not define %.50s";
+            "argument of type '%.200s' is not iterable";
 
     /**
      * Return {@code true} iff {@code derived} is a Python sub-class of

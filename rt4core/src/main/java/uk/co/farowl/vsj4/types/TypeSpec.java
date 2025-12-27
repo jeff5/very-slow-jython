@@ -3,6 +3,7 @@
 package uk.co.farowl.vsj4.types;
 
 import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodHandles.Lookup;
 import java.lang.invoke.VarHandle;
 import java.util.ArrayList;
@@ -19,7 +20,7 @@ import uk.co.farowl.vsj4.kernel.BaseType;
 import uk.co.farowl.vsj4.kernel.SimpleType;
 import uk.co.farowl.vsj4.support.InterpreterError;
 
-// TODO Provide for Python exceptions without requiring the type system
+// TODO Provide for Python exceptions when type system not ready
 /*
  * By this I mean, detect the sort of mis-specification that ought to be
  * a TypeError in Python, but without compromising our ability to use a
@@ -278,6 +279,28 @@ public class TypeSpec extends NamedSpec {
                         primary.getSimpleName());
             }
 
+            // A primary class should probably be marked as WithClass
+            if (!WithClass.class.isAssignableFrom(primary)) {
+                /*
+                 * We insist on this marker so that a Java subclass of a
+                 * crafted type is registered to the same Python type as
+                 * its ancestor in the type registry.
+                 */
+                if (primary == Object.class
+                        || primary == Boolean.class) {
+                    /*
+                     * Types object and bool are excepted. (What is the
+                     * defining characteristic these types have in
+                     * common?)
+                     */
+                } else if (lookup == MethodHandles.publicLookup()) {
+                    // TODO Properly support found types
+                } else {
+                    throw specError(IMPLEMENT_WITHCLASS,
+                            primary.getName());
+                }
+            }
+
             /*
              * Form a list of classes ordered most to least specific. We
              * treat duplicates as errors. The partition of the list is
@@ -333,6 +356,8 @@ public class TypeSpec extends NamedSpec {
             "No primary representation was specified";
     private static final String CANONICAL_INCONSISTENT =
             "Canonical base %s inconsistent with primary %s";
+    private static final String IMPLEMENT_WITHCLASS =
+            "Java class '%s' should implement 'WithClass' interface";
     private static final String SUBCLASS_PRIMARY =
             "%s %s is subclass of primary %s";
     private static final String MULTIPLES_IMMUTABLE =

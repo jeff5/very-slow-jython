@@ -32,17 +32,25 @@ public class PyLongMethods {
 
     // ----------------------------------------------------- __pow__
     // Hand-crafted
-    static Object __pow__(Object v, Object w, Object modulus) {
-        modulus = (modulus == Py.None) ? null : modulus;
+    /**
+     * Ternary special method {@code __pow__}.
+     *
+     * @param x base
+     * @param y exponent
+     * @param z the modulus (or {@code null} for none)
+     * @return <i>x<sup>y</sup></i>mod <i>z</i> or <i>x<sup>y</sup></i>
+     */
+    static Object __pow__(Object x, Object y, Object z) {
+        z = (z == Py.None) ? null : z;
         try {
             // If any conversion fails __pow__ is not implemented
-            BigInteger y = toBig(w);
-            if (y.signum() < 0 && modulus == null) {
-                // No modulus and w<0: let PyFloat handle it
-                return floatPow(v, w, modulus);
+            BigInteger yy = toBig(y);
+            if (yy.signum() < 0 && z == null) {
+                // No modulus and y<0: let PyFloat handle it
+                return floatPow(x, y, z);
             } else {
-                BigInteger z = modulus == null ? null : toBig(modulus);
-                return pow(toBig(v), y, z);
+                BigInteger zz = z == null ? null : toBig(z);
+                return pow(toBig(x), yy, zz);
             }
         } catch (NoConversion e) {
             return Py.NotImplemented;
@@ -51,14 +59,21 @@ public class PyLongMethods {
 
     // ---------------------------------------------------- __rpow__
     // Hand-crafted
-    static Object __rpow__(Object w, Object v) {
+    /**
+     * Binary special method {@code __rpow__}.
+     *
+     * @param y exponent
+     * @param x base
+     * @return <i>x<sup>y</sup></i>
+     */
+    static Object __rpow__(Object y, Object x) {
         try {
             // If either conversion fails __rpow__ is not implemented
-            BigInteger y = toBig(w);
+            BigInteger yy = toBig(y);
             // For negative exponent, resort to float calculation
-            if (y.signum() < 0) { return floatPow(v, w, null); }
-            BigInteger x = toBig(v);
-            return pow(x, y, null);
+            if (yy.signum() < 0) { return floatPow(x, y, null); }
+            BigInteger xx = toBig(x);
+            return pow(xx, yy, null);
         } catch (NoConversion e) {
             return Py.NotImplemented;
         }
@@ -66,10 +81,24 @@ public class PyLongMethods {
 
     // -------------------------------------------------- __lshift__
     // Hand-crafted
+    /**
+     * Binary special method {@code __lshift__}.
+     *
+     * @param v operand
+     * @param w shift
+     * @return {@code v << w}
+     */
     static Object __lshift__(PyLong v, Object w) {
         return __lshift__(v.value, w);
     }
 
+    /**
+     * Binary special method {@code __lshift__}.
+     *
+     * @param v operand
+     * @param w shift
+     * @return {@code v << w}
+     */
     static Object __lshift__(BigInteger v, Object w) {
         try {
             int iw;
@@ -85,6 +114,13 @@ public class PyLongMethods {
         }
     }
 
+    /**
+     * Binary special method {@code __lshift__}.
+     *
+     * @param v operand
+     * @param w shift
+     * @return {@code v << w}
+     */
     static Object __lshift__(Integer v, Object w) {
         if (v == 0) {
             return 0;
@@ -94,12 +130,26 @@ public class PyLongMethods {
         }
     }
 
+    /**
+     * Binary special method {@code __lshift__}.
+     *
+     * @param v operand
+     * @param w shift
+     * @return {@code v << w}
+     */
     static Object __lshift__(Boolean v, Object w) {
         return v ? __lshift__(ONE, w) : 0;
     }
 
     // ------------------------------------------------- __rlshift__
     // Hand-crafted
+    /**
+     * Binary special method {@code __rlshift__}.
+     *
+     * @param w shift
+     * @param v operand
+     * @return {@code v << w}
+     */
     static Object __rlshift__(Object w, Object v) {
         try {
             return __lshift__(toBig(v), w);
@@ -110,10 +160,24 @@ public class PyLongMethods {
 
     // -------------------------------------------------- __rshift__
     // Hand-crafted
+    /**
+     * Binary special method {@code __rshift__}.
+     *
+     * @param v operand
+     * @param w shift
+     * @return {@code v >> w}
+     */
     static Object __rshift__(PyLong v, Object w) {
         return __rshift__(v.value, w);
     }
 
+    /**
+     * Binary special method {@code __rshift__}.
+     *
+     * @param v operand
+     * @param w shift
+     * @return {@code v >> w}
+     */
     static Object __rshift__(BigInteger v, Object w) {
         try {
             int iw;
@@ -129,6 +193,13 @@ public class PyLongMethods {
         }
     }
 
+    /**
+     * Binary special method {@code __rshift__}.
+     *
+     * @param v operand
+     * @param w shift
+     * @return {@code v >> w}
+     */
     static Object __rshift__(Integer v, Object w) {
         if (v == 0) {
             return 0;
@@ -138,12 +209,26 @@ public class PyLongMethods {
         }
     }
 
+    /**
+     * Binary special method {@code __rshift__}.
+     *
+     * @param v operand
+     * @param w shift
+     * @return {@code v >> w}
+     */
     static Object __rshift__(Boolean v, Object w) {
         return v ? __rshift__(ONE, w) : 0;
     }
 
     // ------------------------------------------------- __rrshift__
     // Hand-crafted
+    /**
+     * Binary special method {@code __rrshift__}.
+     *
+     * @param w shift
+     * @param v operand
+     * @return {@code v >> w}
+     */
     static Object __rrshift__(Object w, Object v) {
         try {
             return __rshift__(toBig(v), w);

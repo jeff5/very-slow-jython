@@ -92,6 +92,20 @@ public enum TypeFlag {
     // Compare CPython Py_TPFLAGS_METHOD_DESCRIPTOR
     METHOD_DESCR,
 
+    /**
+     * An instance of the type will be treated as a sequence by the
+     * interpreter. (It should define {@code __getitem__}.)
+     * <p>
+     * A type that defines {@code __getitem__} but does not add the
+     * feature {@code SEQUENCE_PROTOCOL} causes its instances to be
+     * treated as a mapping, in places where the distinction matters
+     * (e.g. in the implementation of {@code exec}). See also
+     * {@link Feature#SEQUENCE_PROTOCOL}.
+     */
+    // No equivalent flag in CPython
+    // Compare CPython tp_as_sequence, tp_as_mapping in typestruct.h
+    SEQUENCE_PROTOCOL,
+
     /** The type is a subclass of {@code int}. */
     // Compare CPython Py_TPFLAGS_LONG_SUBCLASS
     INT_SUBCLASS,
@@ -122,5 +136,6 @@ public enum TypeFlag {
      * a new type.
      */
     public static final EnumSet<TypeFlag> HERITABLE =
-            EnumSet.of(BASETYPE, REPLACEABLE, SEQUENCE, MAPPING);
+            EnumSet.of(BASETYPE, REPLACEABLE, SEQUENCE, MAPPING,
+                    SEQUENCE_PROTOCOL);
 }

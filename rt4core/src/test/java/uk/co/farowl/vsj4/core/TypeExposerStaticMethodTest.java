@@ -16,10 +16,11 @@ import org.junit.jupiter.api.Test;
 import uk.co.farowl.vsj4.support.MethodKind;
 import uk.co.farowl.vsj4.support.ScopeKind;
 import uk.co.farowl.vsj4.types.Exposed;
-import uk.co.farowl.vsj4.types.TypeSpec;
 import uk.co.farowl.vsj4.types.Exposed.Default;
 import uk.co.farowl.vsj4.types.Exposed.PositionalOnly;
 import uk.co.farowl.vsj4.types.Exposed.PythonStaticMethod;
+import uk.co.farowl.vsj4.types.TypeSpec;
+import uk.co.farowl.vsj4.types.WithClass;
 
 /**
  * Test that static methods exposed by a Python <b>type</b> defined in
@@ -98,7 +99,7 @@ class TypeExposerStaticMethodTest extends UnitTestSupport {
          * Call the method using the {@code __call__} special method and
          * an unexpected keyword: where none is expected, for a
          * positional argument, or simply an unacceptable name. The
-         * method should throw {@link TypeError}.
+         * method should throw {@link PyExc#TypeError TypeError}.
          *
          * @throws Throwable unexpectedly
          */
@@ -199,10 +200,13 @@ class TypeExposerStaticMethodTest extends UnitTestSupport {
      * signatures explored in the tests. All the methods {@code f*()}
      * are static methods to Python.
      */
-    static class SimpleObject {
+    static class SimpleObject implements WithClass {
 
         static PyType TYPE = PyType.fromSpec(
                 new TypeSpec("Simple", MethodHandles.lookup()));
+
+        @Override
+        public PyType getType() { return TYPE; }
 
         /**
          * See {@link NoParams}: no parameters are allowed.

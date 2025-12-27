@@ -30,7 +30,7 @@ import uk.co.farowl.vsj4.types.Feature;
 import uk.co.farowl.vsj4.types.TypeSpec;
 import uk.co.farowl.vsj4.types.WithClass;
 
-// TODO Provide for Python exceptions without requiring the type system
+// TODO Provide for Python exceptions when type system not ready
 /*
  * By this I mean, detect the sort of mis-specification that ought to be
  * a TypeError in Python, but without compromising our ability to use
@@ -1047,6 +1047,9 @@ public class TypeFactory {
                 // Derive remaining feature flags
                 type.deriveFeatures(spec);
 
+                // Some pre-flight checks: fails with an exception.
+                type.checkConsistency(spec);
+
                 // Say we're done
                 type.kernelFeatures.add(KernelTypeFlag.READY);
             }
@@ -1072,9 +1075,9 @@ public class TypeFactory {
                  */
                 for (Class<?> c : definitionClasses()) {
                     // Gather methods and get-sets
-                    exposer.exposeMethods(c);
+                    exposer.scanJavaMethods(c);
                     // ... and members (fields).
-                    exposer.exposeMembers(c);
+                    exposer.scanJavaFields(c);
                 }
 
                 /*
@@ -1083,7 +1086,7 @@ public class TypeFactory {
                  */
                 for (Class<?> c : spec.getMethodImpls()) {
                     // Scan class c for method/attribute definitions.
-                    exposer.exposeMethods(c);
+                    exposer.scanJavaMethods(c);
                 }
 
                 return exposer;

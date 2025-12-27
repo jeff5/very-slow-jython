@@ -70,8 +70,8 @@ public class PyFloat implements WithClass {
 
     /**
      * Present the value as a Java {@code double} when the argument is
-     * expected to be a Python exactly {@code float} or a sub-class of
-     * it that represents its value in the same field.
+     * expected to be exactly an instance of Python {@code float} or of
+     * a consistent sub-class of it.
      *
      * @param v claimed {@code float}
      * @return {@code double} value
@@ -79,7 +79,7 @@ public class PyFloat implements WithClass {
      *     {@code v} is not a Python {@code float}
      */
     // Compare CPython floatobject.h: PyFloat_AS_DOUBLE
-    static double doubleValue(Object v) throws PyBaseException {
+    public static double doubleValue(Object v) throws PyBaseException {
         if (v instanceof Double)
             return ((Double)v).doubleValue();
         else if (v instanceof PyFloat)
@@ -170,7 +170,7 @@ public class PyFloat implements WithClass {
         }
     }
 
-    // special methods -----------------------------------------------
+    // Special methods -----------------------------------------------
 
     // TODO: implement __format__ and (revised) stringlib
     // @SuppressWarnings("unused")
@@ -183,12 +183,18 @@ public class PyFloat implements WithClass {
     // private static final Spec SPEC_REPR = InternalFormat.fromText("
     // >r");
 
-    // __str__: let object.__str__ handle it (calls __repr__)
-
-    static Object __pow__(Object left, Object right, Object modulus) {
+    /**
+     * Ternary special method {@code __pow__}.
+     *
+     * @param x base
+     * @param y exponent
+     * @param z modulus
+     * @return <i>x<sup>y</sup></i>mod <i>z</i> or <i>x<sup>y</sup></i>
+     */
+    static Object __pow__(Object x, Object y, Object z) {
         try {
-            if (modulus == null || modulus == Py.None) {
-                return pow(toDouble(left), toDouble(right));
+            if (z == null || z == Py.None) {
+                return pow(toDouble(x), toDouble(y));
             } else {
                 // Note that we also call __pow__ from PyLong.__pow__
                 throw PyErr.format(PyExc.TypeError, POW_3RD_ARGUMENT);
@@ -198,9 +204,10 @@ public class PyFloat implements WithClass {
         }
     }
 
-    static Object __rpow__(Object right, Object left) {
+    @SuppressWarnings("unused")
+    private static Object __rpow__(Object y, Object x) {
         try {
-            return pow(toDouble(left), toDouble(right));
+            return pow(toDouble(x), toDouble(y));
         } catch (NoConversion e) {
             return Py.NotImplemented;
         }
@@ -210,7 +217,7 @@ public class PyFloat implements WithClass {
             "pow() 3rd argument not allowed "
                     + "unless all arguments are integers";
 
-    // float methods ------------------------------------------------
+    // float methods -------------------------------------------------
 
     // TODO: implement __format__ and (revised) stringlib
     // @PythonMethod
@@ -368,9 +375,9 @@ public class PyFloat implements WithClass {
     // }
     // }
 
-    // plumbing -------------------------------------------------------
+    // Plumbing ------------------------------------------------------
 
-    // Convert between float and other types (core use) ---------------
+    // Convert between float and other types (core use) --------------
 
     /*
      * These conversion methods are for use internal to the core, in the

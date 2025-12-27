@@ -2,10 +2,48 @@
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.core;
 
+import java.util.Iterator;
+import java.util.NoSuchElementException;
+import java.util.function.Supplier;
+
 import uk.co.farowl.vsj4.types.WithClass;
 
 /** Abstract base class for defining Python iterators. */
-abstract class AbstractPyIterator implements WithClass {
+abstract class AbstractPyIterator
+        implements WithClass, Iterator<Object> {
+
+    /**
+     * {@inheritDoc}
+     * <p>
+     * {@code hasNext()} may perform more than a simple test. Where this
+     * iterator wraps a Python object, it may call the {@code __next__}
+     * or {@code __getitem__} special method of that wrapped object to
+     * determine whether there is a value to return in the next call to
+     * {@link #next()}. In that case, implementations must cache that
+     * value so that {@link #next()} does not call {@code __next__} a
+     * second time.
+     */
+    @Override
+    public abstract boolean hasNext();
+
+    /**
+     * Inner implementation of both {@link #next()} and
+     * {@link #__next__()}. In cases where {@link #hasNext()} has to
+     * advance a wrapped generator, {@code next()} need only consume
+     * that cached value.
+     *
+     * @param <E> type of exception
+     * @param exc specified exception
+     * @return value of {@code next()} or {@code __next__()}
+     * @throws E when there is no next element
+     */
+    abstract <E extends RuntimeException> Object next(Supplier<E> exc)
+            throws E;
+
+    @Override
+    public Object next() { return next(NoSuchElementException::new); }
+
+    // special methods -----------------------------------------------
 
     /**
      * Get the iterator itself. A Python iterator {@code __iter__} is
@@ -33,11 +71,9 @@ abstract class AbstractPyIterator implements WithClass {
      * </pre>
      * @return the next object
      * @throws PyBaseException (StopIteration) signifying no more items
-     * @throws Throwable from implementation
      */
-    abstract Object __next__() throws PyBaseException, Throwable;
+    Object __next__() { return next(PyStopIteration::new); }
 
     @Override
     public String toString() { return PyUtil.defaultToString(this); }
-
 }

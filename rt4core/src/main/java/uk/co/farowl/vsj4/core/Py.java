@@ -35,7 +35,10 @@ public class Py {
     /** Python {@code None} object. */
     public static final PyNone None = PyNone.INSTANCE;
 
-    /** Python {@code None} object. */
+    /** Python {@code Ellipsis} object. */
+    public static final PyEllipsis Ellipsis = PyEllipsis.INSTANCE;
+
+    /** Python {@code NotImplemented} object. */
     public static final PyNotImplemented NotImplemented =
             PyNotImplemented.INSTANCE;
 

@@ -122,7 +122,7 @@ testing {
     }
 }
 
-test.dependsOn(kernelTest, concurrencyTest)
+test.dependsOn(kernelTest)
 
 
 tasks.named('check') { 
@@ -203,21 +203,21 @@ compileJava.dependsOn(generateJava)
 
 // Copy and compile Python source examples to the build tree
 
-//task compileTestPythonExamples(type: PythonExec,
-//        description: 'Copy and compile Python test examples') {
-//    // Clues for the incremental build
-//    inputs.files(
-//        fileTree(testPythonExampleInputDir) {
-//            include '**/*.py'
-//        })
-//    outputs.dir(testPythonExampleOutputDir)
-//    // Exec task is python -m compile_examples <src> <dst>
-//    args '-m'
-//    args 'compile_examples'
-//    args testPythonExampleInputDir
-//    args testPythonExampleOutputDir
-//}
-//processTestResources.dependsOn(compileTestPythonExamples)
+task compileTestPythonExamples(type: PythonExec,
+        description: 'Copy and compile Python test examples') {
+    // Clues for the incremental build
+    inputs.files(
+        fileTree(testPythonExampleInputDir) {
+            include '**/*.py'
+        })
+    outputs.dir(testPythonExampleOutputDir)
+    // Exec task is python -m compile_examples <src> <dst>
+    args '-m'
+    args 'compile_examples'
+    args testPythonExampleInputDir
+    args testPythonExampleOutputDir
+}
+processTestResources.dependsOn(compileTestPythonExamples)
 
 
 // Default javadoc (but it does not properly constrain visibility)

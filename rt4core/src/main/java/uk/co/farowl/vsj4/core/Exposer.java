@@ -20,15 +20,12 @@ import java.util.Map;
 import java.util.Set;
 import java.util.StringJoiner;
 import java.util.TreeSet;
-import java.util.function.BiConsumer;
-import java.util.function.Consumer;
-import java.util.function.Function;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import uk.co.farowl.vsj4.core.ModuleDef.MethodDef;
 import uk.co.farowl.vsj4.kernel.BaseType;
-// import uk.co.farowl.vsj4.runtime.ModuleDef.MethodDef;
 import uk.co.farowl.vsj4.support.InterpreterError;
 import uk.co.farowl.vsj4.support.MethodKind;
 import uk.co.farowl.vsj4.support.ScopeKind;
@@ -63,12 +60,12 @@ abstract class Exposer {
      * The table of intermediate descriptions for methods (instance,
      * static and class). They will eventually become either descriptors
      * in a built-in object type or methods bound to instances of a
-     * module type. Every entry here is also a value in {@link #specs}.
+     * module. Every entry here is also a value in {@link #specs}.
      */
     final Set<CallableSpec> methodSpecs;
 
     /** Construct the base with its table of entries. */
-    protected Exposer() {
+    Exposer() {
         this.specs = new HashMap<>();
         this.methodSpecs = new TreeSet<>();
     }
@@ -76,36 +73,39 @@ abstract class Exposer {
     /** @return which {@link ScopeKind} of {@code Exposer} is this? */
     abstract ScopeKind kind();
 
-    // XXX Move to ModuleExposer
-// /**
-// * On behalf of the given module defined in Java, build a
-// * description of the attributes discovered by introspection of the
-// * class provided.
-// * <p>
-// * Attributes are identified by annotations. (See {@link Exposed}.)
-// *
-// * @param definingClass to introspect for members
-// * @return exposure result
-// * @throws InterpreterError on errors of definition
-// */
-// static ModuleExposer exposeModule(Class<?> definingClass)
-// throws InterpreterError {
-// // Create an instance of Exposer to hold specs, type, etc.
-// ModuleExposer exposer = new ModuleExposer();
-// // Let the exposer control the logic
-// exposer.expose(definingClass);
-// return exposer;
-// }
-
     /**
-     * Add to {@link #specs}, definitions found in the given class and
-     * annotated for exposure.
+     * Gather methods (including getters and setters of fields, if this
+     * is a type exposer) from the specified class. Definitions (a
+     * precursor of Python descriptors) accumulate in the exposer. A
+     * subsequent operation will return objects from them that can fill
+     * a module definition or type dictionary.
      *
-     * @param defsClass to introspect for definitions
-     * @throws InterpreterError on duplicates or unsupported types
+     * @param methodClass to scan for definitions
      */
-    abstract void scanJavaMethods(Class<?> defsClass)
-            throws InterpreterError;
+    public void scanJavaMethods(Class<?> methodClass) {
+
+        logger.atTrace().addArgument(methodClass)
+                .log("Finding methods in {}");
+
+        // Iterate over methods looking for those to expose
+        for (Method m : methodClass.getDeclaredMethods()) {
+            /*
+             * Note: method annotations are not treated as alternatives,
+             * to catch exposure of methods by multiple routes, which is
+             * an error we detect later.
+             */
+
+            // Check for instance method
+            PythonMethod pm =
+                    m.getDeclaredAnnotation(PythonMethod.class);
+            if (pm != null) { addMethodSpec(m, pm); }
+
+            // Check for static method
+            PythonStaticMethod psm =
+                    m.getDeclaredAnnotation(PythonStaticMethod.class);
+            if (psm != null) { addStaticMethodSpec(m, psm); }
+        }
+    }
 
     /**
      * Walk down to a given class through all super-classes that might
@@ -134,23 +134,32 @@ abstract class Exposer {
      * @param meth method annotated
      * @throws InterpreterError on duplicates or unsupported types
      */
-    void addMethodSpec(Method meth, PythonMethod anno)
+    private void addMethodSpec(Method meth, PythonMethod anno)
             throws InterpreterError {
-        // For clarity, name lambda expressions for the actions
-        BiConsumer<MethodSpec, Method> addMethod =
-                // Add method m to spec ms
-                (MethodSpec ms, Method m) -> {
-                    ms.add(m, anno.primary(), anno.positionalOnly(),
-                            MethodKind.INSTANCE);
-                };
-        Function<Spec, MethodSpec> cast =
-                // Test and cast a found Spec to MethodSpec
-                spec -> spec instanceof MethodSpec ? (MethodSpec)spec
-                        : null;
-        // Now use the generic create/update
-        addSpec(meth, anno.value(), cast,
-                (String name) -> new MethodSpec(name, kind()),
-                ms -> methodSpecs.add(ms), addMethod);
+        // Define custom actions for a PythonMethod
+        SpecAdder<MethodSpec, Method> adder = new SpecAdder<>() {
+
+            @Override
+            boolean check(Spec spec) {
+                return spec instanceof MethodSpec;
+            }
+
+            @Override
+            MethodSpec makeSpec(String name) {
+                return new MethodSpec(name, kind());
+            }
+
+            @Override
+            void addMember(Method m, MethodSpec s) {
+                s.add(m, anno.primary(), anno.positionalOnly(),
+                        MethodKind.INSTANCE);
+            }
+
+            @Override
+            void addSpec(MethodSpec s) { methodSpecs.add(s); }
+        };
+
+        adder.add(meth, anno.value());
     }
 
     /**
@@ -162,103 +171,32 @@ abstract class Exposer {
      * @param meth method annotated
      * @throws InterpreterError on duplicates or unsupported types
      */
-    void addStaticMethodSpec(Method meth, PythonStaticMethod anno)
-            throws InterpreterError {
-        // For clarity, name lambda expressions for the actions
-        BiConsumer<StaticMethodSpec, Method> addMethod =
-                // Add method m to spec ms
-                (StaticMethodSpec ms, Method m) -> {
-                    ms.add(m, true, anno.positionalOnly(),
-                            MethodKind.STATIC);
-                };
-        Function<Spec, StaticMethodSpec> cast =
-                // Test and cast a found Spec to StaticMethodSpec
-                spec -> spec instanceof StaticMethodSpec
-                        ? (StaticMethodSpec)spec : null;
-        // Now use the generic create/update
-        addSpec(meth, anno.value(), cast,
-                (String name) -> new StaticMethodSpec(name, kind()),
-                ms -> methodSpecs.add(ms), addMethod);
-    }
+    private void addStaticMethodSpec(Method meth,
+            PythonStaticMethod anno) throws InterpreterError {
+        // Define custom actions for a PythonStaticMethod
+        SpecAdder<StaticMethodSpec, Method> adder = new SpecAdder<>() {
 
-    /**
-     * Create an exception with a message along the lines "'NAME',
-     * already exposed as SPEC, cannot be NEW_SPEC" where the
-     * place-holders are filled from the corresponding arguments (or
-     * their names or type names).
-     *
-     * @param name being defined
-     * @param member field or method annotated
-     * @param newSpec of the new entry apparently requested
-     * @param priorSpec of the inconsistent, existing entry
-     * @return the required error
-     */
-    static InterpreterError duplicateError(String name, Member member,
-            Spec newSpec, Spec priorSpec) {
-        String memberName = member.getName();
-        String memberString = memberName == name ? ""
-                : " (called '" + memberName + "' in source)";
-        String priorSpecType = priorSpec.annoClassName();
-        String newSpecType = newSpec.annoClassName();
-        if (priorSpecType.equals(newSpecType)) {
-            newSpecType = "redefined";
-        }
-        return new InterpreterError(ALREADY_EXPOSED, name, memberString,
-                priorSpecType, newSpecType);
-    }
+            @Override
+            boolean check(Spec spec) {
+                return spec instanceof StaticMethodSpec;
+            }
 
-    private static final String ALREADY_EXPOSED =
-            "'%s'%s, already exposed as %s, cannot be %s";
+            @Override
+            StaticMethodSpec makeSpec(String name) {
+                return new StaticMethodSpec(name, kind());
+            }
 
-    /**
-     * A helper that avoids repeating nearly the same code for adding
-     * each particular sub-class of {@link Spec} when a method is
-     * encountered. The implementation finds or creates a {@code Spec}
-     * by the given name or method name. It then adds this {@code Spec}
-     * to {@link #specs}. The caller provides a factory method, in case
-     * a new {@code Spec} is needed, a method for adding the Spec to a
-     * type-specific list, and a method for adding the method to the
-     * {@code Spec}.
-     *
-     * @param <MS> the type of {@link Spec} being added or added to.
-     * @param m the method being adding to the {@code MS}
-     * @param name specified in the annotation or {@code null}
-     * @param cast to the {@code MS} if possible or {@code null}
-     * @param makeSpec constructor for an {@code MS}
-     * @param addSpec function to add the {@code MS} to the proper list
-     * @param addMethod function to update the {@code MS} with a method
-     */
-    <MS extends BaseMethodSpec> void addSpec(Method m, String name,
-            Function<Spec, MS> cast, //
-            Function<String, MS> makeSpec, //
-            Consumer<MS> addSpec, //
-            BiConsumer<MS, Method> addMethod) {
+            @Override
+            void addMember(Method m, StaticMethodSpec s) {
+                s.add(m, true, anno.positionalOnly(),
+                        MethodKind.STATIC);
+            }
 
-        // The name is as annotated or the "natural" one
-        if (name == null || name.length() == 0)
-            name = m.getName();
+            @Override
+            void addSpec(StaticMethodSpec s) { methodSpecs.add(s); }
+        };
 
-        // Find any existing definition
-        Spec spec = specs.get(name);
-        MS entry;
-        if (spec == null) {
-            // A new entry is needed
-            entry = makeSpec.apply(name);
-            specs.put(entry.name, entry);
-            addSpec.accept(entry);
-            addMethod.accept(entry, m);
-        } else if ((entry = cast.apply(spec)) != null) {
-            // Existing entry will be updated
-            addMethod.accept(entry, m);
-        } else {
-            /*
-             * Existing entry is not compatible, but make a loose entry
-             * on which to base the error message.
-             */
-            entry = makeSpec.apply(name);
-            addMethod.accept(entry, m);
-            throw duplicateError(name, m, entry, spec);
-        }
+        adder.add(meth, anno.value());
     }
 
     /**
@@ -271,11 +209,9 @@ abstract class Exposer {
      * <p>
      * In cases where more than one Java definition contributes to a
      * single exposed attribute, {@code Spec}s are updated as successive
-     * definitions are encountered.
-     * <p>
-     * When exposing attributes of a Python type, the actual object to
-     * be entered in a dictionary of a type or module is obtained by a
-     * call to {@link #asAttribute(PyType, Lookup)}.
+     * definitions are encountered. Subclasses of {@link Exposer} create
+     * the actual object to be entered in a dictionary of a type or
+     * module from these specifications.
      */
     abstract static class Spec implements Comparable<Spec> {
 
@@ -396,6 +332,12 @@ abstract class Exposer {
         /** Collects the methods declared (often just one). */
         final List<Method> methods;
 
+        /**
+         * Constructor of the generic method specification.
+         *
+         * @param name of method
+         * @param scopeKind is a module or a type
+         */
         BaseMethodSpec(String name, ScopeKind scopeKind) {
             super(name, scopeKind);
             this.methods = new ArrayList<>(1);
@@ -640,29 +582,28 @@ abstract class Exposer {
             return parser;
         }
 
-        // XXX Move to ModuleExposer
-// /**
-// * Produce a method definition from this specification that
-// * references a method handle on the (single) defining method
-// * and the parser created from this specification. This is used
-// * in the construction of a module defined in Java (a
-// * {@link ModuleDef}).
-// *
-// * @param lookup authorisation to access methods
-// * @return corresponding method definition
-// * @throws InterpreterError on lookup prohibited
-// */
-// MethodDef getMethodDef(Lookup lookup) throws InterpreterError {
-// assert methods.size() == 1;
-// Method m = methods.get(0);
-// MethodHandle mh;
-// try {
-// mh = lookup.unreflect(m);
-// } catch (IllegalAccessException e) {
-// throw cannotGetHandle(m, e);
-// }
-// return new MethodDef(getParser(), mh);
-// }
+        /**
+         * Produce a method definition from this specification that
+         * references a method handle on the (single) defining method
+         * and the parser created from this specification. This is used
+         * in the construction of a module defined in Java (a
+         * {@link ModuleDef}).
+         *
+         * @param lookup authorisation to access methods
+         * @return corresponding method definition
+         * @throws InterpreterError on lookup prohibited
+         */
+        MethodDef getMethodDef(Lookup lookup) throws InterpreterError {
+            assert methods.size() == 1;
+            Method m = methods.get(0);
+            MethodHandle mh;
+            try {
+                mh = lookup.unreflect(m);
+            } catch (IllegalAccessException e) {
+                throw cannotGetHandle(m, e);
+            }
+            return new MethodDef(getParser(), mh);
+        }
 
         /**
          * Add a method implementation. (A test that the signature is
@@ -1178,6 +1119,12 @@ abstract class Exposer {
      */
     static class MethodSpec extends CallableSpec {
 
+        /**
+         * Constructor of the method specification.
+         *
+         * @param name of method
+         * @param scopeKind is a module or a type
+         */
         MethodSpec(String name, ScopeKind scopeKind) {
             super(name, scopeKind);
         }
@@ -1311,4 +1258,135 @@ abstract class Exposer {
             return PythonStaticMethod.class;
         }
     }
+
+    /**
+     * Generic code to create a specification of an attribute or method
+     * to the tables of the exposer, expressed as an inner class, or to
+     * find an existing one and update it.
+     * <p>
+     * {@link SpecAdder#add(Member, String)} finds a {@code Spec} by the
+     * given name in {@link #specs}, or creates one by calling
+     * {@link SpecAdder#makeSpec(String) makeSpec} and adds it. If it
+     * found an existing specification, it checks the concrete type with
+     * {@link SpecAdder#check(Spec) check}. Then it updates it with the
+     * new member by calling {@link SpecAdder#addMember(Member, Spec)
+     * addMember} and adds it to the type-specific table through a call
+     * to {@link SpecAdder#addSpec(Spec) addSpec}.
+     * <p>
+     * {@link SpecAdder#add(Member, String) add} is provided, but the
+     * other four methods must be defined by the caller. We use an
+     * anonymous class at the call site to do this customisation.
+     *
+     * @param <S> type of specification that should be created
+     * @param <M> Java member type being described
+     */
+    abstract class SpecAdder<S extends Spec, M extends Member> {
+
+        /**
+         * Check a {@code Spec} found by lookup is of actual type
+         * {@code S}.
+         *
+         * @param spec to check
+         * @return {@code instanceof S}
+         */
+        abstract boolean check(Spec spec);
+
+        /**
+         * Create a new specification of type {@code S}.
+         *
+         * @param name of the attribute/method.
+         * @return a new S
+         */
+        abstract S makeSpec(String name);
+
+        /**
+         * Add a definition to an existing specification {@code S s}
+         * created or found by name. Generally, the implementation of
+         * this references attributes from the annotation encountered.
+         *
+         * @param m member annotated
+         * @param s specification to add
+         */
+        abstract void addMember(M m, S s);
+
+        /**
+         * Add a specification of actual type {@code S} to a specific
+         * matching collection.
+         *
+         * @param s new specification
+         */
+        abstract void addSpec(S s);
+
+        /**
+         * Process Java member of a Python type or module defined in
+         * Java, into a specification for an attribute or method, and
+         * add it to the tables of specifications by name. Optionally
+         * override the Java name, or leave {@code name} null or empty
+         * to accept the Java one.
+         *
+         * @param name to replace the Java one (or {@code null}/"")
+         * @param m member annotated
+         * @throws InterpreterError on duplicates or unsupported types
+         */
+        @SuppressWarnings("unchecked")
+        void add(M m, String name) {
+
+            // The name is as annotated or the "natural" one
+            if (name == null || name.length() == 0)
+                name = m.getName();
+
+            // Find/create and update a specification of 'name'
+            Spec spec;
+            S entry;
+            if ((spec = specs.get(name)) == null) {
+                // A new entry is needed
+                entry = makeSpec(name);
+                specs.put(entry.name, entry);
+                addSpec(entry);
+                addMember(m, entry);
+            } else if (check(spec)) {
+                // Existing entry will be updated (cast is safe)
+                addMember(m, (S)spec);
+            } else {
+                /*
+                 * Existing entry is not compatible, but make a loose
+                 * entry on which to base the error message.
+                 */
+                entry = makeSpec(name);
+                addMember(m, entry);
+                throw duplicateError(name, m, entry, spec);
+            }
+        }
+    }
+
+    // Plumbing ------------------------------------------------------
+
+    /**
+     * Create an exception with a message along the lines "'NAME',
+     * already exposed as SPEC, cannot be NEW_SPEC" where the
+     * place-holders are filled from the corresponding arguments (or
+     * their names or type names).
+     *
+     * @param name being defined
+     * @param member field or method annotated
+     * @param newSpec of the new entry apparently requested
+     * @param priorSpec of the inconsistent, existing entry
+     * @return the required error
+     */
+    static InterpreterError duplicateError(String name, Member member,
+            Spec newSpec, Spec priorSpec) {
+        String memberName = member.getName();
+        String memberString = memberName == name ? ""
+                : " (called '" + memberName + "' in source)";
+        String priorSpecType = priorSpec.annoClassName();
+        String newSpecType = newSpec.annoClassName();
+        if (priorSpecType.equals(newSpecType)) {
+            newSpecType = "redefined";
+        }
+        return new InterpreterError(ALREADY_EXPOSED, name, memberString,
+                priorSpecType, newSpecType);
+    }
+
+    private static final String ALREADY_EXPOSED =
+            "'%s'%s, already exposed as %s, cannot be %s";
 }

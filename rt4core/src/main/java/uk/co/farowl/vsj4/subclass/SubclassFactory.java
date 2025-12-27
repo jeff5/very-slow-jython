@@ -161,6 +161,9 @@ public class SubclassFactory {
     /**
      * We name each class we synthesise after its Java base type, with a
      * one-up number.
+     *
+     * @param baseName name of the base (to extend)
+     * @return chosen unique name
      */
     synchronized String uniqueName(String baseName) {
         AtomicInteger id = unique.get(baseName);
@@ -184,6 +187,7 @@ public class SubclassFactory {
         /**
          * Create from name and type.
          *
+         * @param access access flags of the fields
          * @param name of field
          * @param type of field
          */
@@ -214,6 +218,7 @@ public class SubclassFactory {
         /**
          * Create from name and type.
          *
+         * @param c class in which named method is found
          * @param name of method
          * @param args types of arguments
          */

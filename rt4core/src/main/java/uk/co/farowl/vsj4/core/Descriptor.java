@@ -90,7 +90,7 @@ abstract class Descriptor implements WithClass {
      */
     // @Exposed.Getter
     // Compare CPython descr_name in descrobject.c
-    public String __name__() { return name; }
+    String __name__() { return name; }
 
     /**
      * Return the qualified name of the member, attribute or method
@@ -106,7 +106,7 @@ abstract class Descriptor implements WithClass {
      */
     @Exposed.Getter("__qualname__")
     // Compare CPython descr_get_qualname in descrobject.c
-    public String __qualname__()
+    String __qualname__()
             throws PyAttributeError, PyBaseException, Throwable {
         if (qualname == null) { qualname = calculate_qualname(); }
         return qualname;
@@ -243,16 +243,50 @@ abstract class Descriptor implements WithClass {
     @Override
     public String toString() { return PyUtil.defaultToString(this); }
 
+    /**
+     * Method {@code __text_signature__} string based on internal
+     * documentation.
+     *
+     * @param name of method, member or get-set
+     * @param doc from special method enum or descriptor
+     * @return appropriate {@code __text_signature__}
+     */
     // Compare CPython: _PyType_GetTextSignatureFromInternalDoc
-    // XXX Consider implementing in ArgParser instead
+    // Used by: method_get_text_signature,
+    // wrapperdescr_get_text_signature, wrapper_text_signature
+    // For us: PyMethodDescr, PyWrapperDescr, PyMethodWrapper
+    /*
+     * In CPython, this picks apart the string in the MethodDef, that
+     * was built by Argument Clinic or hand-crafted. We don't do that
+     * because we have ArgParser (except we have mistakenly aped
+     * typeobject.c in SpecialMethod).
+     */
+    // TODO Implement __text_signature__ from ArgParser instead.
+    // In order to do that, SpecialMethod must contain a parser.
     static Object getTextSignatureFromInternalDoc(String name,
             String doc) {
         // TODO Auto-generated method stub
         return Py.None;
     }
 
+    /**
+     * Method {@code __doc__} string based on internal documentation.
+     *
+     * @param name of method, member or get-set
+     * @param doc from special method or descriptor
+     * @return appropriate value of {@code __doc__}
+     */
     // Compare CPython _PyType_GetDocFromInternalDoc
-    // XXX Consider implementing in ArgParser instead
+    // Used by: method_get_doc, wrapperdescr_get_doc, wrapper_doc
+    // For us: PyMethodDescr, PyWrapperDescr, PyMethodWrapper
+    /*
+     * In CPython, this picks apart the string in the MethodDef, that
+     * was built by Argument Clinic or hand-crafted. We don't do that
+     * because we have ArgParser (except we have mistakenly aped
+     * typeobject.c in SpecialMethod).
+     */
+    // TODO Implement __doc__ from ArgParser instead
+    // In order to do that, SpecialMethod must contain a parser.
     static Object getDocFromInternalDoc(String name, String doc) {
         // TODO Auto-generated method stub
         return Py.None;

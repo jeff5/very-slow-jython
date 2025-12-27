@@ -20,11 +20,11 @@ import uk.co.farowl.vsj4.core.PySequence;
  */
 public abstract class AbstractIntArrayBuilder {
 
-    /** An empty array of int for builder initial state, etc.. */
-    protected static final int[] EMPTY_INT_ARRAY = new int[0];
+    /** Zero length array as sharable constant. */
+    public static final int[] EMPTY_INT_ARRAY = new int[0];
 
     /** Number of elements by default. */
-    protected static final int MINSIZE = 16;
+    static final int MINSIZE = 16;
 
     /**
      * The number of elements currently

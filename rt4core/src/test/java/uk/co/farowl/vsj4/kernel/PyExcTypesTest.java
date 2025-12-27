@@ -1,4 +1,4 @@
-// Copyright (c)2024 Jython Developers.
+// Copyright (c)2025 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.kernel;
 
@@ -42,6 +42,9 @@ import uk.co.farowl.vsj4.internal.Util;
  */
 @DisplayName("Selected Python exception types ...")
 class PyExcTypesTest {
+
+    // TODO implement OSError properly after exceptions.c
+    // and test a few cases here.
 
     /**
      * Provide a stream of examples as parameter sets to the tests.

@@ -68,13 +68,13 @@ final class PyObjectMethods {
      * Called by {@code str()} and the built-in functions
      * {@code format()} and {@code print()} to compute the "informal" or
      * nicely printable string representation of an object.
-     * {@code object.__str__}, i.e. the behaviour is the subclass does
-     * not define {@code __str__}, calls the {@code __repr__} of the
-     * object.
+     * {@code object.__str__}. If the subclass does not define
+     * {@code __str__} for itself, we land here and will call the
+     * {@code __repr__} of the object.
      *
      * @param self target of the operation
      * @return string form
-     * @throws Throwable
+     * @throws Throwable from errors in {@code __repr__}
      */
     // Compare CPython object_str in typeobject.c
     static Object __str__(Object self) throws Throwable {

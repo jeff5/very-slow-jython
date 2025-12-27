@@ -8,6 +8,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 
 import uk.co.farowl.vsj4.types.TypeSpec;
+import uk.co.farowl.vsj4.types.WithClass;
 
 /**
  * Test that the Python type system comes into operation in a consistent
@@ -22,13 +23,16 @@ class TypeInitTestFromSpec extends TypeInitTest {
     static MyType myType;
 
     /** Example user-defined type. */
-    static class MyType {
+    static class MyType implements WithClass {
         /** Construct trivially. */
         MyType() {}
 
         /** The Python type. */
         PyType TYPE = PyType.fromSpec(
                 new TypeSpec("MyType", MethodHandles.lookup()));
+
+        @Override
+        public PyType getType() { return TYPE; }
     }
 
     /** Start by using a Python type defined in Java. */

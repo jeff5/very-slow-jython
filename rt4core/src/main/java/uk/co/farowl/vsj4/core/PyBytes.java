@@ -17,6 +17,7 @@ import uk.co.farowl.vsj4.core.PySequence.Delegate;
 import uk.co.farowl.vsj4.core.PySlice.Indices;
 import uk.co.farowl.vsj4.core.PyUtil.NoConversion;
 import uk.co.farowl.vsj4.stringlib.ByteArrayBuilder;
+import uk.co.farowl.vsj4.types.Feature;
 import uk.co.farowl.vsj4.types.TypeSpec;
 import uk.co.farowl.vsj4.types.WithClass;
 
@@ -26,8 +27,11 @@ public class PyBytes extends AbstractList<Integer>
 
     /** The type of Python object this class implements. */
     public static final PyType TYPE = PyType.fromSpec( //
-            new TypeSpec("bytes", MethodHandles.lookup()));
+            new TypeSpec("bytes", MethodHandles.lookup())
+                    .add(Feature.BASETYPE, Feature.SEQUENCE_PROTOCOL));
     private static final byte[] EMPTY_BYTE_ARRAY = new byte[] {};
+
+    /** Zero length {@code PyBytes} as sharable constant. */
     static final PyBytes EMPTY = new PyBytes(EMPTY_BYTE_ARRAY);
 
     /** The Python type of this instance. */
@@ -407,8 +411,9 @@ public class PyBytes extends AbstractList<Integer>
      * Adapt a Python object to a sequence of Java {@code int} values or
      * throw an exception. If the method throws the special exception
      * {@link NoConversion}, the caller must catch it and deal with it,
-     * perhaps by throwing a {@link TypeError}. A binary operation will
-     * normally return {@link Py#NotImplemented} in that case.
+     * perhaps by throwing a {@link PyExc#TypeError TypeError}. A binary
+     * operation will normally return {@link Py#NotImplemented} in that
+     * case.
      * <p>
      * Note that implementing {@link PySequence.OfInt} is not enough,
      * which other types may, but be incompatible in Python.

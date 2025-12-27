@@ -10,7 +10,10 @@ package uk.co.farowl.vsj4.stringlib;
  */
 public final class ByteArrayBuilder
         extends AbstractIntArrayBuilder.Forward {
+
+    /** Zero length array as sharable constant. */
     static final byte[] EMPTY_BYTE_ARRAY = new byte[0];
+
     private byte[] value;
     private int len = 0;
     private byte max = 0;

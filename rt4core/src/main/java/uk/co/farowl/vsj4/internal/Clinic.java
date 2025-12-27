@@ -13,6 +13,7 @@ import org.slf4j.LoggerFactory;
 import uk.co.farowl.vsj4.core.Abstract;
 import uk.co.farowl.vsj4.core.Py;
 import uk.co.farowl.vsj4.core.PyBaseException;
+import uk.co.farowl.vsj4.core.PyBool;
 import uk.co.farowl.vsj4.core.PyErr;
 import uk.co.farowl.vsj4.core.PyExc;
 import uk.co.farowl.vsj4.core.PyFloat;
@@ -52,6 +53,7 @@ public class Clinic {
     // Handles for converters from Python to Java types for args
     private static final MethodHandle intArgMH;
     private static final MethodHandle doubleArgMH;
+    private static final MethodHandle booleanArgMH;
     private static final MethodHandle stringArgMH;
 
     // Handle used specifically to validate __new__ calls
@@ -64,19 +66,28 @@ public class Clinic {
     private static final MethodHandle doubleValueMH;
     private static final MethodHandle booleanValueMH;
 
-    /**
+    /*
      * Helpers used to construct {@code MethodHandle}s for type
-     * conversion.
+     * conversion. This static initialisation executes quite early in
+     * the exposure of bootstrap types. It is safe to look up method
+     * handles on bootstrap types, but we should not provoke
+     * initialisation of other classes.
      */
     static {
         try {
+            // Converters for primitives
             intArgMH = LOOKUP.findStatic(PyLong.class, "asInt",
                     MethodType.methodType(int.class, O));
             doubleArgMH = LOOKUP.findStatic(PyFloat.class, "asDouble",
                     MethodType.methodType(double.class, O));
+            booleanArgMH = LOOKUP.findStatic(Abstract.class, "isTrue",
+                    MethodType.methodType(boolean.class, O));
+
+            // Converters for objects
             stringArgMH = LOOKUP.findStatic(Clinic.class, "stringArg",
                     MethodType.methodType(String.class, O));
 
+            // A special check used only with __new__
             newValidationMH = LOOKUP.findStatic(Clinic.class,
                     "validatedNewArgument",
                     MethodType.methodType(T, T, O));
@@ -91,7 +102,10 @@ public class Clinic {
             booleanValueMH = LOOKUP.findStatic(Boolean.class, "valueOf",
                     MethodType.methodType(Boolean.class,
                             boolean.class));
-
+            /*
+             * The name "Argument Clinic", and our sign on message,
+             * reference a well-known Monty Python sketch.
+             */
             logger.info("I'd like to have an argument, please.");
 
         } catch (NoSuchMethodException | IllegalAccessException e) {
@@ -211,6 +225,8 @@ public class Clinic {
                 return Clinic.intArgMH;
             else if (c == double.class)
                 return Clinic.doubleArgMH;
+            else if (c == boolean.class)
+                return Clinic.booleanArgMH;
         } else {
             if (c == O)
                 // The method expects exactly an Object

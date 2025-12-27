@@ -161,11 +161,11 @@ public class SubclassSpec extends NamedSpec implements Cloneable {
     Class<?> getBase() { return base; }
 
     /**
-     * Set the name of the class being created. The name is not pat of
-     * the has (or test of equality) so it is not covered by
+     * Set the name of the class being created. The name is not part of
+     * the hash (or test of equality) so it is not covered by
      * {@link #freeze()}.
      *
-     * @param name
+     * @param name of class being created
      * @return {@code this}
      */
     SubclassSpec setName(String name) {

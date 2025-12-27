@@ -19,9 +19,6 @@ import uk.co.farowl.vsj4.types.TypeSpec;
 public abstract class KernelType extends Representation
         implements PyType {
 
-    /** Name of the type (fully-qualified). */
-    protected final String name;
-
     /**
      * Feature flags collecting various boolean traits of this type,
      * such as immutability or being a subclass of {@code int}. Some of
@@ -65,33 +62,21 @@ public abstract class KernelType extends Representation
     /**
      * Constructor used by (permitted) subclasses of {@code PyType}.
      *
-     * @param name of the type (fully qualified)
      * @param javaClass implementing Python instances of the type
      * @param bases of the new type
      */
-    protected KernelType(String name, Class<?> javaClass,
-            BaseType[] bases) {
+    protected KernelType(Class<?> javaClass, BaseType[] bases) {
         super(javaClass);
         /*
          * These assertions mainly check our assumptions about the needs
          * of sub-types. They are retained only in testing.
          */
-        assert name != null;
         assert javaClass != null || this instanceof AdoptiveType;
         assert bases != null;
 
-        this.name = name;
         this.bases = bases;
         this.base = bases.length > 0 ? bases[0] : null;
     }
-
-    /**
-     * Return the name of the type.
-     *
-     * @return the name of the type
-     */
-    @Override
-    public String getName() { return name; }
 
     /**
      * A copy of the sequence of bases specified for the type,
@@ -113,14 +98,6 @@ public abstract class KernelType extends Representation
     @Override
     public PyType getBase() { return base; }
 
-    /**
-     * @implNote {@code type} will do as the default, but in
-     *     {@link SimpleType} and {@link ReplaceableType} we must store
-     *     and return an actual type, that may be some sub-type of
-     *     {@code type}, and therefore (by the way) an instance of a
-     *     Java sub-class of {@link BaseType}.
-     */
-    // FIXME: override in subclasses so not always exactly 'type'
     @Override
     public PyType getType() { return typeType(); }
 
@@ -221,17 +198,15 @@ public abstract class KernelType extends Representation
     @Override
     public abstract boolean isMutable();
 
-    /**
-     * Fast check that an object of this type is a sequence, defined as
-     * not a subclass of {@code dict} and defining {@code __getitem__}.
-     *
-     * @return target is a sequence
-     */
-    // Compare CPython PySequence_Check (on instance) in abstract.c
     @Override
     public boolean isSequence() {
+        return features.contains(TypeFlag.SEQUENCE_PROTOCOL);
+    }
+
+    @Override
+    public boolean isMapping() {
         return kernelFeatures.contains(KernelTypeFlag.HAS_GETITEM)
-                && !features.contains(TypeFlag.DICT_SUBCLASS);
+                && !features.contains(TypeFlag.SEQUENCE_PROTOCOL);
     }
 
     /**

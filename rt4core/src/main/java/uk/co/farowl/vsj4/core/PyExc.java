@@ -57,6 +57,15 @@ public class PyExc {
     public static PyType StopIteration = PyStopIteration.TYPE;
 
     /**
+     * {@code OSError} extends {@code Exception} and is implemented by
+     * {@link PyOSError}.
+     */
+    public static PyType OSError = PyOSError.TYPE;
+
+    /** {@code EOFError} extends {@link Exception}. */
+    public static PyType EOFError = PyBaseException.EOFError;
+
+    /**
      * {@code NameError} extends {@code Exception} and is implemented by
      * {@link PyNameError}.
      */
@@ -97,6 +106,9 @@ public class PyExc {
     /** {@code ZeroDivisionError} extends {@link ArithmeticError}. */
     public static PyType ZeroDivisionError =
             PyBaseException.ZeroDivisionError;
+
+    /** {@code Warning} extends {@link Exception}. */
+    public static PyType SystemError = PyBaseException.SystemError;
 
     /** {@code Warning} extends {@link Exception}. */
     public static PyType Warning = PyBaseException.Exception;

@@ -1026,8 +1026,6 @@ class ArgParser {
 
         private static final String KEYWORD_NOT_STRING =
                 "%.200s(): keywords must be strings";
-        private static final String KEYWORD_NOT_COMPARABLE =
-                "Keyword names %s not comparable.";
         private static final String MULTIPLE_VALUES =
                 "%.200s(): multiple values for parameter '%s'";
         private static final String POSITIONAL_ONLY =
@@ -1035,20 +1033,21 @@ class ArgParser {
         private static final String UNEXPECTED_KEYWORD =
                 "%.200s(): unexpected keyword argument '%s'";
 
-        /*
-         * Compare CPython ceval.c::too_many_positional(). Unlike that
-         * function, on diagnosing a problem, we do not have to set a
-         * message and return status. Also, when called there is
-         * *always* a problem, and therefore an exception.
-         */
-        // XXX Do not report kw arguments given: unnatural constraint.
-        /*
+        /**
+         * Create an exception to throw when there are too many
+         * positional arguments. The method works hard to create a
+         * precise (and grammatical) message.
+         * <p>
          * The caller must defer the test until after kw processing,
          * just so the actual kw-args given can be reported accurately.
          * Otherwise, the test could be after (or part of) positional
          * argument processing.
+         *
+         * @param posGiven Number of positional arguments given.
+         * @return to throw.
          */
-        protected PyBaseException tooManyPositional(int posGiven) {
+        // Compare CPython ceval.c::too_many_positional().
+        PyBaseException tooManyPositional(int posGiven) {
             boolean posPlural = false;
             int kwGiven = 0;
             String posText, givenText;

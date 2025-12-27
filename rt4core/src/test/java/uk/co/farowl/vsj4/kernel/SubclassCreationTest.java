@@ -21,8 +21,10 @@ import java.util.Set;
 import java.util.StringJoiner;
 import java.util.stream.Stream;
 
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -81,12 +83,12 @@ class SubclassCreationTest {
      * arguments).
      * <p>
      * This allows us to test code generation, while we simulate (in
-     * {@link #bareExample(Class, String, List, boolean, List)}) actions
-     * that {@code type.__new__} and the type factory should carry out
-     * when not broken. Our reference result is one of the classes in
-     * this file named {@code HCD_*} or {@code HCS_*}, where we express
-     * in Java, the code equivalent to that which should be generated
-     * for the examples.
+     * {@link BareJavaRepresentation#bareExamples()}) actions that
+     * {@code type.__new__} and the type factory should carry out when
+     * not broken. Our reference result is one of the classes in this
+     * file named {@code HCD_*} or {@code HCS_*}, where we express in
+     * Java, the code equivalent to that which should be generated for
+     * the examples.
      * <p>
      * See {@link DynamicBase} for a parallel test going via
      * capabilities in the type object.
@@ -663,6 +665,10 @@ class SubclassCreationTest {
             assertSame(type, m[0]);
             assertSame(PyObject.TYPE, m[1]);
         }
+
+        @Test
+        @Disabled("Add tests of sub-sub-classes")
+        void missingTests() {}
     }
 
     /**

@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 
 import uk.co.farowl.vsj4.internal.Util;
 import uk.co.farowl.vsj4.types.TypeSpec;
+import uk.co.farowl.vsj4.types.WithClass;
 
 /**
  * Test some convenience methods offered from the {@link PyUtil} class.
@@ -238,9 +239,12 @@ public class PyUtilTest {
      * inherit from {@link PyObject}. The default toString should find
      */
     @SuppressWarnings({"static-method", "unused"})
-    private static class HasToString {
+    private static class HasToString implements WithClass {
         static PyType TYPE = PyType.fromSpec(
                 new TypeSpec("HasToString", MethodHandles.lookup()));
+
+        @Override
+        public PyType getType() { return TYPE; }
 
         // Undefine __str__ to fail the primary path in defaultToString
         Object __str__() throws Throwable {
@@ -274,11 +278,13 @@ public class PyUtilTest {
     }
 
     /** Python object that defines __str__. */
-    @SuppressWarnings("unused")
     private static class HasStr extends HasToString {
 
         static PyType TYPE = PyType.fromSpec(
                 new TypeSpec("HasStr", MethodHandles.lookup()));
+
+        @Override
+        public PyType getType() { return TYPE; }
 
         // Succeeds in primary path in defaultToString
         @Override
@@ -291,10 +297,12 @@ public class PyUtilTest {
      * {@code __repr__} are both faulty. Every other special method will
      * inherit from to {@link PyObject}.
      */
-    @SuppressWarnings("unused")
     private static class BadBad extends HasToString {
         static PyType TYPE = PyType.fromSpec(
                 new TypeSpec("BadBad", MethodHandles.lookup()));
+
+        @Override
+        public PyType getType() { return TYPE; }
 
         // Fails the primary path in defaultToString
         @Override

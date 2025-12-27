@@ -5,6 +5,7 @@ package uk.co.farowl.vsj4.core;
 import java.lang.invoke.MethodHandles;
 
 import uk.co.farowl.vsj4.types.TypeSpec;
+import uk.co.farowl.vsj4.types.WithClass;
 import uk.co.farowl.vsj4.types.Exposed.Default;
 import uk.co.farowl.vsj4.types.Exposed.DocString;
 import uk.co.farowl.vsj4.types.Exposed.PythonNewMethod;
@@ -16,7 +17,7 @@ import uk.co.farowl.vsj4.types.Exposed.PythonNewMethod;
  * sub-classes. (Rogue instances of Java {@code Boolean} will generally
  * behave as {@code False} or {@code True} but may fail identity tests.)
  */
-public final class PyBool {
+public final class PyBool implements WithClass {
 
     /** Only referenced during bootstrap by {@link TypeSystem}. */
     static class Spec {
@@ -42,6 +43,9 @@ public final class PyBool {
 
     private PyBool() {}  // enforces the doubleton :)
 
+    @Override
+    public PyType getType() { return TYPE; }
+
     // Constructor from Python ----------------------------------------
 
     /**
@@ -66,11 +70,13 @@ public final class PyBool {
 
     // special methods ------------------------------------------------
 
-    static Object __repr__(Boolean self) {
+    @SuppressWarnings("unused")
+    private static Object __repr__(Boolean self) {
         return self ? "True" : "False";
     }
 
-    static Object __and__(Boolean v, Object w) {
+    @SuppressWarnings("unused")
+    private static Object __and__(Boolean v, Object w) {
         if (w instanceof Boolean)
             return v ? w : v;
         else
@@ -78,7 +84,8 @@ public final class PyBool {
             return PyLongMethods.__and__(v, w);
     }
 
-    static Object __rand__(Boolean w, Object v) {
+    @SuppressWarnings("unused")
+    private static Object __rand__(Boolean w, Object v) {
         if (v instanceof Boolean)
             return w ? v : w;
         else
@@ -86,7 +93,8 @@ public final class PyBool {
             return PyLongMethods.__rand__(w, v);
     }
 
-    static Object __or__(Boolean v, Object w) {
+    @SuppressWarnings("unused")
+    private static Object __or__(Boolean v, Object w) {
         if (w instanceof Boolean)
             return v ? v : w;
         else
@@ -94,7 +102,8 @@ public final class PyBool {
             return PyLongMethods.__or__(v, w);
     }
 
-    static Object __ror__(Boolean w, Object v) {
+    @SuppressWarnings("unused")
+    private static Object __ror__(Boolean w, Object v) {
         if (v instanceof Boolean)
             return w ? w : v;
         else
@@ -102,17 +111,19 @@ public final class PyBool {
             return PyLongMethods.__ror__(w, v);
     }
 
-    static Object __xor__(Boolean v, Object w) {
-        if (w instanceof Boolean)
-            return v ^ ((Boolean)w);
+    @SuppressWarnings("unused")
+    private static Object __xor__(Boolean v, Object w) {
+        if (w instanceof Boolean wb)
+            return v ^ wb;
         else
             // w is not a bool, go arithmetic.
             return PyLongMethods.__xor__(v, w);
     }
 
-    static Object __rxor__(Boolean w, Object v) {
-        if (v instanceof Boolean)
-            return ((Boolean)v) ^ w;
+    @SuppressWarnings("unused")
+    private static Object __rxor__(Boolean w, Object v) {
+        if (v instanceof Boolean vb)
+            return vb ^ w;
         else
             // v is not a bool, go arithmetic.
             return PyLongMethods.__rxor__(w, v);

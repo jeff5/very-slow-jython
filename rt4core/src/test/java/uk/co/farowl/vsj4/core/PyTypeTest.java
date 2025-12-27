@@ -1,4 +1,4 @@
-// Copyright (c)2024 Jython Developers.
+// Copyright (c)2025 Jython Developers.
 // Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.core;
 
@@ -14,6 +14,7 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -346,7 +347,7 @@ class PyTypeTest extends UnitTestSupport {
          * @param name of the new type
          * @param bases to the new type
          * @param namespace for the new type
-         * @param test to apply to the result
+         * @param tests to apply to the result
          * @param strMetatype string form of {@code metatype}
          * @param strBases string form of {@code bases}
          * @param strNamespace string form of {@code namespace}
@@ -407,8 +408,12 @@ class PyTypeTest extends UnitTestSupport {
         static final Object NOT_NAMESPACE = "not a namespace";
     }
 
-    // TODO creation of a metatype
+    @Disabled("Implement more thorough test of a metatype")
+    @Test
+    void newTypeError() {
 
-    // TODO construction with a metatype
+        // TODO creation of a metatype
 
+        // TODO construction with a metatype
+    }
 }

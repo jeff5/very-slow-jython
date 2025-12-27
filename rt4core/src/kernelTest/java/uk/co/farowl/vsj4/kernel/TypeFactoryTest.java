@@ -22,7 +22,7 @@ import uk.co.farowl.vsj4.core.PyType;
  * The design keeps the number of <i>materially</i> different
  * initialisation paths to a minimum. In practice, we funnel all actions
  * that cause initialisation into essentially the same bootstrap
- * process, in the static initialisation of {@link TypeSystem}. It is
+ * process, in the static initialisation of {@code TypeSystem}. It is
  * too difficult to reason about otherwise. In this test we subvert that
  * to test copies of the parts separately.
  * <p>

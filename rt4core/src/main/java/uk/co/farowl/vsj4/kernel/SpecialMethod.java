@@ -616,7 +616,7 @@ public enum SpecialMethod {
      * invoked.
      *
      * @param rep target representation object
-     * @return current contents of this cache in {@code rep}
+     * @return this operation in {@code rep}
      */
     public MethodHandle handle(Representation rep) {
         // FIXME: Consider thread safety of slots
@@ -629,18 +629,27 @@ public enum SpecialMethod {
     }
 
     /**
-     * Get the {@code MethodHandle} of this slot's "alternate" operation
-     * from the given representation object. For a binary operation this
-     * is the reflected operation.
+     * Get the {@code MethodHandle} on the implementation of the
+     * "alternate" {@code SpecialMethod}'s operation from the given
+     * representation object. For a binary operation this is the
+     * reflected operation. This will either be directly from the cache
+     * on the representation, or a {@link #generic} handle that calls
+     * {@link #methodName} by look-up on the Python type when invoked.
      *
      * @param rep target representation object
-     * @return current contents of the alternate slot in {@code t}
+     * @return the alternate of this operation in {@code rep}
      * @throws NullPointerException if there is no alternate
      */
     public MethodHandle getAltSlot(Representation rep)
             throws NullPointerException {
-        // FIXME Assumes method has cache (and no redirection).
-        return (MethodHandle)alt.cache.get(rep);
+        // FIXME: Consider thread safety of slots
+        VarHandle cache = alt.cache;
+        if (cache != null) {
+            // The handle is cached on the Representation
+            return (MethodHandle)cache.get(rep);
+        } else {
+            return alt.generic;
+        }
     }
 
     /**
@@ -1435,11 +1444,17 @@ public enum SpecialMethod {
             }
         }
 
-        /** Uninformative exception, mentioning the slot. */
+        /**
+         * Uninformative exception, mentioning the special method.
+         *
+         * @param sm special method receiving a bad operand
+         * @return an exception to throw
+         */
         @SuppressWarnings("unused")  // reflected in operandError
-        static PyBaseException defaultOperandError(SpecialMethod op) {
+        private static PyBaseException
+                defaultOperandError(SpecialMethod sm) {
             return PyErr.format(PyExc.TypeError,
-                    "bad operand type for %s", op.opName);
+                    "bad operand type for %s", sm.opName);
         }
     }
 

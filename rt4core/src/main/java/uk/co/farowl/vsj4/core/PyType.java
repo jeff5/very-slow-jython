@@ -11,6 +11,7 @@ import org.slf4j.LoggerFactory;
 import uk.co.farowl.vsj4.kernel.Representation;
 import uk.co.farowl.vsj4.kernel.TypeFactory.Clash;
 import uk.co.farowl.vsj4.types.FastCall;
+import uk.co.farowl.vsj4.types.Feature;
 import uk.co.farowl.vsj4.types.NewInstance;
 import uk.co.farowl.vsj4.types.TypeFlag;
 import uk.co.farowl.vsj4.types.TypeSpec;
@@ -35,11 +36,22 @@ public interface PyType extends NewInstance, WithClass, FastCall {
     static final Logger logger = LoggerFactory.getLogger(PyType.class);
 
     /**
-     * Return the name of the type.
+     * Return the name of the type. Equivalent to getting the type's
+     * {@code __name__} attribute, which may be changed by assignment in
+     * a mutable type.
      *
      * @return the name of the type
      */
     String getName();
+
+    /**
+     * Return the qualified name of the type. Equivalent to getting the
+     * type's {@code __qualname__} attribute, which may be changed by
+     * assignment in a mutable type.
+     *
+     * @return the qualified name of the type
+     */
+    String getQualName();
 
     /**
      * A copy of the sequence of bases specified for the type,
@@ -150,13 +162,26 @@ public interface PyType extends NewInstance, WithClass, FastCall {
     boolean isMutable();
 
     /**
-     * Fast check that an object of this type is a sequence, defined as
-     * not a subclass of {@code dict} and defining {@code __getitem__}.
+     * Fast check that an object of this type is a sequence, that is,
+     * its type declares itself to have
+     * {@link Feature#SEQUENCE_PROTOCOL} in a Java definition. It will
+     * also define {@code __getitem__} that should accept and index or
+     * slice.
      *
      * @return target is a sequence
      */
     // Compare CPython PySequence_Check (on instance) in abstract.c
     boolean isSequence();
+
+    /**
+     * Fast check that an object of this type is a mapping, that is, it
+     * defines {@code __getitem__} and does not declare itself to have
+     * {@link Feature#SEQUENCE_PROTOCOL} in a Java definition.
+     *
+     * @return target is a mapping
+     */
+    // Compare CPython PyMapping_Check (on instance) in abstract.c
+    boolean isMapping();
 
     /**
      * Fast check that an object of this type is iterable (defines

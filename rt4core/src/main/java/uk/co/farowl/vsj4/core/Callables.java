@@ -555,9 +555,9 @@ public class Callables extends Abstract {
      * @throws PyAttributeError if the named callable cannot be found
      * @throws Throwable from the called method
      */
-    // Compare CPython _PyObject_CallMethodIdObjArgs in call.c
-    static Object callMethod(Object obj, String name, Object... args)
-            throws PyAttributeError, Throwable {
+    // Compare CPython _PyObject_CallMethod* in abstract.h
+    public static Object callMethod(Object obj, String name,
+            Object... args) throws PyAttributeError, Throwable {
         Object callable = getAttr(obj, name);
         return call(callable, args);
     }

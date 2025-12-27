@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test;
 
 import uk.co.farowl.vsj4.types.FastCall;
 import uk.co.farowl.vsj4.types.TypeSpec;
+import uk.co.farowl.vsj4.types.WithClass;
 
 /**
  * Test the {@link Callables} API class on a variety of types. We are
@@ -228,9 +229,12 @@ class AbstractCallablesAPITest extends UnitTestSupport {
      * A Python type implemented in Java that defines __call__, but
      * doesn't implement FastCall.
      */
-    static class SlowCallable {
+    static class SlowCallable implements WithClass {
         static PyType TYPE = PyType.fromSpec(
                 new TypeSpec("SlowCallable", MethodHandles.lookup()));
+
+        @Override
+        public PyType getType() { return TYPE; }
 
         /**
          * {@code __class__} simply plays back its arguments, positional

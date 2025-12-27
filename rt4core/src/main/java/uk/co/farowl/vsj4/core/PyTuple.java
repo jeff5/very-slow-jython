@@ -18,16 +18,18 @@ import uk.co.farowl.vsj4.core.PySlice.Indices;
 import uk.co.farowl.vsj4.core.PyUtil.NoConversion;
 import uk.co.farowl.vsj4.internal.Util;
 import uk.co.farowl.vsj4.support.InterpreterError;
+import uk.co.farowl.vsj4.types.Exposed.PythonMethod;
+import uk.co.farowl.vsj4.types.Feature;
 import uk.co.farowl.vsj4.types.TypeSpec;
 import uk.co.farowl.vsj4.types.WithClass;
-import uk.co.farowl.vsj4.types.Exposed.PythonMethod;
 
 /** The Python {@code tuple} object. */
 public class PyTuple extends AbstractList<Object> implements WithClass {
 
     /** The Python type object for {@code tuple}. */
     public static final PyType TYPE = PyType.fromSpec( //
-            new TypeSpec("tuple", MethodHandles.lookup()));
+            new TypeSpec("tuple", MethodHandles.lookup())
+                    .add(Feature.BASETYPE, Feature.SEQUENCE_PROTOCOL));
 
     /** The elements of the {@code tuple}. */
     private final Object[] value;
@@ -102,13 +104,6 @@ public class PyTuple extends AbstractList<Object> implements WithClass {
     public PyTuple(Collection<?> c) { this(true, c.toArray()); }
 
     /**
-     * Construct a {@code PyTuple} from the elements of a stream.
-     *
-     * @param s source of element values for this {@code tuple}
-     */
-    public PyTuple(Stream<?> s) { this(true, s.toArray()); }
-
-    /**
      * Construct a {@code PyTuple} from an array of {@link Object}s or
      * zero or more {@link Object} arguments provided as a slice of an
      * array. The argument is copied for use, so it is safe to modify
@@ -172,6 +167,33 @@ public class PyTuple extends AbstractList<Object> implements WithClass {
      */
     public static <E> PyTuple from(Collection<E> c) {
         return c.size() == 0 ? EMPTY : new PyTuple(c);
+    }
+
+    /**
+     * Construct a {@code PyTuple} from the elements of a stream, or if
+     * the array is zero-length, return {@link #EMPTY}.
+     *
+     * @param <E> component type
+     * @param s source of element values for the new {@code tuple}
+     * @return a tuple with the given contents or {@link #EMPTY}
+     */
+    public static <E> PyTuple from(Stream<E> s) {
+        Object[] a = s.toArray();
+        return a.length == 0 ? EMPTY : new PyTuple(true, a);
+    }
+
+    /**
+     * Construct a {@code PyTuple} from the elements of an array, or if
+     * the array is zero-length, return {@link #EMPTY}. In circumstances
+     * where the argument will often be empty, this has space and time
+     * advantages over the constructor {@link #PyTuple(Object[])}.
+     *
+     * @param <E> component type
+     * @param a value of new tuple
+     * @return a tuple with the given contents or {@link #EMPTY}
+     */
+    public static <E> PyTuple from(E[] a) {
+        return a.length == 0 ? EMPTY : new PyTuple(a);
     }
 
     // Java API ------------------------------------------------------

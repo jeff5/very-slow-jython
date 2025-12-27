@@ -172,7 +172,7 @@ public class PyMethodWrapper implements WithClass, FastCall {
      */
     @Exposed.Getter
     // Compare CPython wrapper_name in descrobject.c
-    public Object __name__() { return descr.sm.methodName; }
+    private Object __name__() { return descr.sm.methodName; }
 
     /** @return documentation string formatted for external reader. */
     @Exposed.Getter
@@ -199,19 +199,21 @@ public class PyMethodWrapper implements WithClass, FastCall {
      */
     @Exposed.Getter
     // Compare CPython wrapper_qualname in descrobject.c
-    public Object __qualname__() throws PyAttributeError, Throwable {
+    private Object __qualname__() throws PyAttributeError, Throwable {
         return descr.__qualname__();
     }
 
     // Special methods ------------------------------------------------
 
     // Compare CPython wrapper_repr in descrobject.c
+    @SuppressWarnings("unused")
     private Object __repr__() {
         return String.format("<method-wrapper '%s' of %s>",
                 descr.sm.methodName, _PyUtil.toAt(self));
     }
 
     // Compare CPython wrapper_richcompare in descrobject.c
+    @SuppressWarnings("unused")
     private Object __eq__(Object b) {
         // Both arguments should be exactly PyMethodWrapper
         if (b instanceof PyMethodWrapper) {
@@ -222,6 +224,7 @@ public class PyMethodWrapper implements WithClass, FastCall {
     }
 
     // Compare CPython wrapper_richcompare in descrobject.c
+    @SuppressWarnings("unused")
     private Object __ne__(Object b) {
         // Both arguments should be exactly PyMethodWrapper
         if (b instanceof PyMethodWrapper) {
@@ -232,6 +235,7 @@ public class PyMethodWrapper implements WithClass, FastCall {
     }
 
     // Compare CPython wrapper_hash in descrobject.c
+    @SuppressWarnings("unused")
     private int __hash__() {
         int x = self.hashCode() ^ descr.hashCode();
         return x == -1 ? -2 : x;
@@ -243,6 +247,19 @@ public class PyMethodWrapper implements WithClass, FastCall {
     // PyDescr_NAME(descr));
     // }
 
+    /**
+     * Invoke the associated method descriptor {@link #descr} the
+     * standard {@code __call__} arguments supplied, providing the bound
+     * object {@link #self} as the first argument.
+     *
+     * @param args all arguments beginning with {@code self}
+     * @param names of keyword arguments
+     * @return result of calling the bound method
+     * @throws PyBaseException (TypeError) if {@code self} is of the
+     *     wrong type or the pattern of arguments is unacceptable
+     *     (number, keyword use).
+     * @throws Throwable from the implementation of the method
+     */
     // Compare CPython wrapper_call in descrobject.c
     Object __call__(Object[] args, String[] names) throws Throwable {
         try {
@@ -282,4 +299,8 @@ public class PyMethodWrapper implements WithClass, FastCall {
             String[] names) {
         return descr.typeError(ae, args, names);
     }
+
+    @Override
+    public String toString() { return PyUtil.defaultToString(this); }
+
 }

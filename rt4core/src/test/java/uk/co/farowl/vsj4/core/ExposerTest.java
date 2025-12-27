@@ -76,7 +76,7 @@ class ExposerTest extends UnitTestSupport {
      * with special names.
      *
      * @throws Throwable unexpectedly
-     * @throws AttributeError unexpectedly
+     * @throws PyAttributeError unexpectedly
      */
     @Test
     @SuppressWarnings("static-method")
@@ -179,7 +179,7 @@ class ExposerTest extends UnitTestSupport {
      * annotated in the test class {@link ObjectWithMethods}.
      *
      * @throws Throwable unexpectedly
-     * @throws AttributeError unexpectedly
+     * @throws PyAttributeError unexpectedly
      */
     @Test
     @SuppressWarnings("static-method")

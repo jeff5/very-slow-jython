@@ -3,6 +3,8 @@
 package uk.co.farowl.vsj4.core;
 
 import java.lang.invoke.MethodHandle;
+import java.util.function.Function;
+import java.util.function.Supplier;
 
 import uk.co.farowl.vsj4.internal.EmptyException;
 import uk.co.farowl.vsj4.kernel.BaseType;
@@ -149,7 +151,7 @@ public class PyUtil {
      * stack context, since it is used only as a sort of "alternative
      * return value".
      */
-    static class NoConversion extends Exception {
+    public static class NoConversion extends Exception {
         private static final long serialVersionUID = 1L;
 
         private NoConversion() { super(null, null, false, false); }
@@ -160,7 +162,7 @@ public class PyUtil {
      * methods to signal "cannot convert". No stack context is preserved
      * in the exception.
      */
-    static final NoConversion NO_CONVERSION = new NoConversion();
+    public static final NoConversion NO_CONVERSION = new NoConversion();
 
     // Helpers for methods and attributes -----------------------------
 
@@ -188,6 +190,53 @@ public class PyUtil {
      */
     static Object noneIfNull(Object o) {
         return o == null ? Py.None : o;
+    }
+
+    /**
+     * Throw an exception if {@code v} is {@code null}.
+     *
+     * @param <T> type of {@code v}
+     * @param <E> type of exception to throw
+     * @param v to return if not {@code null}
+     * @param exc supplier of exception to throw
+     * @return {@code v}
+     * @throws E if {@code v} is {@code null}
+     */
+    static <T, E extends PyBaseException> T errorIfNull(T v,
+            Supplier<E> exc) throws E {
+        if (v != null) { return v; }
+        throw exc.get();
+    }
+
+    /**
+     * Present an array as a tuple, or if the expression variable is
+     * {@code null}, as a Python {@code None}.
+     *
+     * @param <E> element type of the array
+     * @param a array providing elements or {@code null}
+     * @return tuple from argument array or {@code None} if the array
+     *     was Java {@code null}.
+     */
+    public static <E> Object tupleOrNone(E[] a) {
+        return a == null ? Py.None : new PyTuple(a);
+    }
+
+    /**
+     * Return {@code v} if it is of the expected Python type, otherwise
+     * throw supplied exception.
+     *
+     * @param <T> type of {@code v}
+     * @param <E> type of exception to throw
+     * @param v to return if of expected type
+     * @param type expected
+     * @param exc supplier of exception to throw
+     * @return {@code v}
+     * @throws E if {@code v} is not of expected type
+     */
+    public static <T, E extends PyBaseException> T typeChecked(T v,
+            PyType type, Function<T, E> exc) {
+        if (type.check(v)) { return v; }
+        throw exc.apply(v);
     }
 
     /**

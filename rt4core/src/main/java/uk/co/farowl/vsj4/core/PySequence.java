@@ -15,10 +15,10 @@ import java.util.stream.StreamSupport;
 
 import uk.co.farowl.vsj4.core.PySlice.Indices;
 import uk.co.farowl.vsj4.core.PyUtil.NoConversion;
-import uk.co.farowl.vsj4.internal.EmptyException;
 import uk.co.farowl.vsj4.kernel.BaseType;
 import uk.co.farowl.vsj4.kernel.KernelTypeFlag;
 import uk.co.farowl.vsj4.kernel.Representation;
+import uk.co.farowl.vsj4.types.TypeFlag;
 
 /**
  * Abstract API for operations on sequence types, corresponding to
@@ -30,20 +30,21 @@ public class PySequence extends Abstract {
     private PySequence() {}   // only static methods here
 
     /**
-     * {@code len(o)} with Python semantics.
+     * Return whether the object (its type, rather) provides the
+     * sequence protocol. Note that it returns {@code true} for Python
+     * classes with a {@code __getitem__} method, unless they are dict
+     * subclasses, since in general it is impossible to determine what
+     * type of keys the class supports.
      *
-     * @param o object to operate on
-     * @return {@code len(o)}
-     * @throws Throwable from invoked method implementations
+     * @param s of which to test the type
+     * @return whether the object provides the sequence protocol
      */
-    // Compare CPython PyObject_Size in abstract.c
-    public static int size(Object o) throws Throwable {
-        // Note that the slot is called op_len but this method, size.
-        try {
-            return (int)representation(o).op_len().invokeExact(o);
-        } catch (EmptyException e) {
-            throw typeError(HAS_NO_LEN, o);
-        }
+    // Compare CPython PySequence_check in abstract.c
+    static boolean check(Object s) {
+        Representation rep = representation(s);
+        return rep.hasFeature(s, TypeFlag.SEQUENCE_PROTOCOL)
+                || (rep.hasFeature(rep, KernelTypeFlag.HAS_GETITEM)
+                        && !rep.hasFeature(s, TypeFlag.DICT_SUBCLASS));
     }
 
     /**
@@ -72,101 +73,6 @@ public class PySequence extends Abstract {
     public static Object concat(Object v, Object w) throws Throwable {
         // There is no equivalent slot to sq_concat
         return PyNumber.add(v, w);
-    }
-
-    /**
-     * {@code o[key]} with Python semantics, where {@code o} may be a
-     * mapping or a sequence.
-     *
-     * @param o object to operate on
-     * @param key index
-     * @return {@code o[key]}
-     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) when
-     *     {@code o} does not allow subscripting
-     * @throws Throwable from invoked method implementations
-     */
-    // Compare CPython PyObject_GetItem in abstract.c
-    public static Object getItem(Object o, Object key)
-            throws Throwable {
-        // Decisions are based on types of o and key
-        try {
-            Representation rep = representation(o);
-            return rep.op_getitem().invokeExact(o, key);
-        } catch (EmptyException e) {
-            throw typeError(NOT_SUBSCRIPTABLE, o);
-        }
-    }
-
-    /**
-     * {@code o[i1:12]} with Python semantics, where {@code o} must be a
-     * sequence. Receiving objects will normally interpret indices as
-     * end-relative, and bounded to the sequence length.
-     *
-     * @param o sequence to operate on
-     * @param i1 index of first item in slice
-     * @param i2 index of first item not in slice
-     * @return {@code o[i1:i2]}
-     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) when
-     *     {@code o} does not allow subscripting
-     * @throws Throwable from invoked method implementations
-     */
-    // Compare CPython PyObject_GetItem in abstract.c
-    public static Object getSlice(Object o, int i1, int i2)
-            throws Throwable {
-        // Decisions are based on type of o and known type of key
-        try {
-            Object key = new PySlice(i1, i2);
-            Representation rep = representation(o);
-            return rep.op_getitem().invokeExact(o, key);
-        } catch (EmptyException e) {
-            throw typeError(NOT_SLICEABLE, o);
-        }
-    }
-
-    /**
-     * {@code o[key] = value} with Python semantics, where {@code o} may
-     * be a mapping or a sequence.
-     *
-     * @param o object to operate on
-     * @param key index
-     * @param value to put at index
-     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) when
-     *     {@code o} does not allow subscripting
-     * @throws Throwable from invoked method implementations
-     */
-    // Compare CPython PyObject_SetItem in abstract.c
-    public static void setItem(Object o, Object key, Object value)
-            throws Throwable {
-        // Decisions are based on types of o and key
-        Representation rep = representation(o);
-        try {
-            rep.op_setitem().invokeExact(o, key, value);
-            return;
-        } catch (EmptyException e) {
-            throw typeError(DOES_NOT_SUPPORT_ITEM, o, "assignment");
-        }
-    }
-
-    /**
-     * {@code del o[key]} with Python semantics, where {@code o} may be
-     * a mapping or a sequence.
-     *
-     * @param o object to operate on
-     * @param key index at which to delete element
-     * @throws PyBaseException ({@link PyExc#TypeError TypeError}) when
-     *     {@code o} does not allow subscripting
-     * @throws Throwable from invoked method implementations
-     */
-    // Compare CPython PyObject_DelItem in abstract.c
-    public static void delItem(Object o, Object key) throws Throwable {
-        // Decisions are based on types of o and key
-        Representation rep = representation(o);
-        try {
-            rep.op_delitem().invokeExact(o, key);
-            return;
-        } catch (EmptyException e) {
-            throw typeError(DOES_NOT_SUPPORT_ITEM, o, "deletion");
-        }
     }
 
     /**
@@ -301,16 +207,95 @@ public class PySequence extends Abstract {
         }
     }
 
-    // Strings for constructing error messages ------------------------
+    /**
+     * Return the number of occurrences of {@code value} in {@code o},
+     * that is, return the number of keys for which o[key] == value. On
+     * a list-like {@code o} this is equivalent to the Python expression
+     * {@code o.count(value)}, but for a string {@code o}, it is
+     * equivalent only if {@code value} is a single character of a type
+     * comparable with {@code o}.
+     *
+     * @param o sequence to search
+     * @param value to find
+     * @return count of {@code value} in {@code o}
+     * @throws PyBaseException on overflow or type errors
+     * @throws Throwable on other errors in iteration or comparison
+     */
+    public static int count(Object o, Object value)
+            throws PyBaseException, Throwable {
+        // Iterate and count the matches
+        int n = 0;
+        for (Object item : getIterable(o)) {
+            if (richCompareBool(value, item, Comparison.EQ)) {
+                if (n < Integer.MAX_VALUE) {
+                    n += 1;
+                } else {
+                    throw PyErr.format(PyExc.OverflowError, "count",
+                            "%s exceeds Java integer size");
+                }
+            }
+        }
+        return n;
+    }
 
-    static final String HAS_NO_LEN =
-            "object of type '%.200s' has no len()";
-    private static final String NOT_SUBSCRIPTABLE =
-            "'%.200s' object is not subscriptable";
-    private static final String NOT_SLICEABLE =
-            "'%.200s' object is unsliceable";
-    static final String DOES_NOT_SUPPORT_ITEM =
-            "'%.200s' object does not support item %s";
+    /**
+     * Return the index of the first occurrences of {@code value} in
+     * {@code o}, that is, return the first key for which o[key] ==
+     * value. On failure to find, raise a Python {@code ValueError}. On
+     * a list-like {@code o} this is equivalent to the Python expression
+     * {@code o.index(value)}, but for a string {@code o}, it is
+     * equivalent only if {@code value} is a single character of a type
+     * comparable with {@code o}.
+     *
+     * @param o sequence to search
+     * @param value to find
+     * @return count of {@code value} in {@code o}
+     * @throws PyBaseException (ValueError) if not found, or overflow or
+     *     type errors as appropriate
+     * @throws Throwable on other errors in iteration or comparison
+     */
+    public static int index(Object o, Object value)
+            throws PyBaseException, Throwable {
+        // Iterate and count the items until a match
+        int n = 0;
+        for (Object item : getIterable(o)) {
+            if (richCompareBool(value, item, Comparison.EQ)) {
+                return n;
+            }
+            if (n < Integer.MAX_VALUE) {
+                n += 1;
+            } else {
+                throw PyErr.format(PyExc.OverflowError, "index",
+                        "%s exceeds Java integer size");
+            }
+        }
+        throw PyErr.format(PyExc.ValueError,
+                "sequence.index(x): x not in sequence");
+    }
+
+    /**
+     * Return whether {@code value} in {@code o}, that is, there is a
+     * key for which o[key] == value. On a list-like {@code o} this is
+     * equivalent to the Python expression {@code value in o}, but for a
+     * string {@code o}, it is equivalent only if {@code value} is a
+     * single character of a type comparable with {@code o}.
+     *
+     * @param o sequence to search
+     * @param value to find
+     * @return count of {@code value} in {@code o}
+     * @throws PyBaseException on overflow or type errors
+     * @throws Throwable on other errors in iteration or comparison
+     */
+    public static boolean contains(Object o, Object value)
+            throws PyBaseException, Throwable {
+        // Iterate until an item match
+        for (Object item : getIterable(o)) {
+            if (richCompareBool(value, item, Comparison.EQ)) {
+                return true;
+            }
+        }
+        return false;
+    }
 
     // Classes supporting implementations of sequence types -----------
 
@@ -996,8 +981,8 @@ public class PySequence extends Abstract {
 
         // Create an iterator on o and a bound handle on __next__
         Object iter = getIterator(o);
-        Representation iterOps = representation(iter);
-        MethodHandle next = iterOps.op_next().bindTo(iter);
+        Representation iterRep = representation(iter);
+        MethodHandle next = iterRep.op_next().bindTo(iter);
 
         // Iterate o into the collection
         R r = factory.get();

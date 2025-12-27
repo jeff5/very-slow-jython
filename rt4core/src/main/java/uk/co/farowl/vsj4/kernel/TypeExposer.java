@@ -19,26 +19,26 @@ public interface TypeExposer {
     /**
      * Gather methods (including getters and setters of fields) from the
      * specified class. Definitions (a precursor of Python descriptors)
-     * accumulate in the exposer.
+     * accumulate in the exposer implementation.
      *
      * @param methodClass to scan for definitions
      */
-    void exposeMethods(Class<?> methodClass);
+    void scanJavaMethods(Class<?> methodClass);
 
     /**
      * Gather members (fields exposed as Python attributes) from the
      * specified class. Definitions (a precursor of Python descriptors)
      * accumulate in the exposer.
      *
-     * @param memberClass to scan for definitions
+     * @param fieldClass to scan for definitions
      */
-    void exposeMembers(Class<?> memberClass);
+    void scanJavaFields(Class<?> fieldClass);
 
     /**
      * A name-value pair that holds one entry intended for the
      * dictionary of the type.
      */
-    public static record Entry(String name, Object value) {}
+    static record Entry(String name, Object value) {}
 
     /**
      * Get the definitions created in this {@code TypeExposer} as name
@@ -53,5 +53,5 @@ public interface TypeExposer {
      * @param lookup authorisation to access members
      * @return sequence of definitions found in the type
      */
-    public Iterable<Entry> entries(Lookup lookup);
+    Iterable<Entry> entries(Lookup lookup);
 }
