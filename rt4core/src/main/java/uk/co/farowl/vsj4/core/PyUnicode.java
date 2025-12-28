@@ -26,6 +26,7 @@ import uk.co.farowl.vsj4.core.PyUtil.NoConversion;
 import uk.co.farowl.vsj4.stringlib.IntArrayBuilder;
 import uk.co.farowl.vsj4.stringlib.IntArrayReverseBuilder;
 import uk.co.farowl.vsj4.support.InterpreterError;
+import uk.co.farowl.vsj4.support.MissingFeature;
 import uk.co.farowl.vsj4.types.Exposed.Default;
 import uk.co.farowl.vsj4.types.Exposed.DocString;
 import uk.co.farowl.vsj4.types.Exposed.Name;
@@ -2944,6 +2945,12 @@ public class PyUnicode implements WithClass, PyDict.Key {
     }
 
     // TODO implement __format__ and (revised) stringlib
+
+    @PythonMethod
+    static final Object __format__(Object self, Object formatSpec) {
+        throw new MissingFeature("str.__format__");
+    }
+
     /// **
     // * Python {@code str.__format__}.
     // *

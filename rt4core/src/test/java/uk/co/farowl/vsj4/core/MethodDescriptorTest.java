@@ -1,3 +1,5 @@
+// Copyright (c)2025 Jython Developers.
+// Licensed to PSF under a contributor agreement.
 package uk.co.farowl.vsj4.core;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;

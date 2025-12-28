@@ -12,13 +12,15 @@ import java.math.BigInteger;
 
 import uk.co.farowl.vsj4.core.PyUtil.NoConversion;
 import uk.co.farowl.vsj4.kernel.Representation;
-import uk.co.farowl.vsj4.types.Feature;
-import uk.co.farowl.vsj4.types.TypeSpec;
-import uk.co.farowl.vsj4.types.WithClass;
+import uk.co.farowl.vsj4.support.MissingFeature;
 import uk.co.farowl.vsj4.types.Exposed.Default;
 import uk.co.farowl.vsj4.types.Exposed.DocString;
 import uk.co.farowl.vsj4.types.Exposed.PositionalOnly;
+import uk.co.farowl.vsj4.types.Exposed.PythonMethod;
 import uk.co.farowl.vsj4.types.Exposed.PythonNewMethod;
+import uk.co.farowl.vsj4.types.Feature;
+import uk.co.farowl.vsj4.types.TypeSpec;
+import uk.co.farowl.vsj4.types.WithClass;
 
 /**
  * A Python {@code int} object may be represented by a
@@ -195,6 +197,12 @@ public class PyLong implements /* PyDict.Key, */ WithClass {
     // int methods ----------------------------------------------------
 
     // TODO: implement __format__ and (revised) stringlib
+
+    @PythonMethod
+    static final Object __format__(Object self, Object formatSpec) {
+        throw new MissingFeature("int.__format__");
+    }
+
     // @PythonMethod
     // static final Object __format__(Object self, Object formatSpec) {
     //
