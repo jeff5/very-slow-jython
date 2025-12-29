@@ -205,7 +205,6 @@ class FormatTest extends UnitTestSupport {
     /**
      * Test formatting an integer
      */
-    @Disabled("int.__format__ not yet implemented")
     @Nested
     @DisplayName("int.__format__")
     class IntFormatTest extends AbstractIntFormatTest {
@@ -223,11 +222,11 @@ class FormatTest extends UnitTestSupport {
 
         @DisplayName("int.__format__: unknown specifier")
         @ParameterizedTest(name = "int.__format__(x, \"{0}\")")
-        @ValueSource(strings = {"z", "#10z"})
+        @ValueSource(strings = {"y", "#10y"})
         void intFormatUnknown(String format) {
             assertRaises(PyExc.ValueError,
                     () -> PyLong.__format__(0, format),
-                    "Unknown format code 'z' for object of type 'int'");
+                    "Unknown format code 'y' for object of type 'int'");
         }
 
         @DisplayName("int.__format__: precision not allowed")
@@ -775,11 +774,11 @@ class FormatTest extends UnitTestSupport {
 
         @DisplayName("float.__format__: unknown specifier")
         @ParameterizedTest(name = "float.__format__(x, \"{0}\")")
-        @ValueSource(strings = {"z", "#10z"})
+        @ValueSource(strings = {"y", "#10y"})
         void floatFormatUnknown(String format) {
             assertRaises(PyExc.ValueError,
-                    () -> PyFloat.__format__(0, format),
-                    "Unknown format code 'z' for object of type 'float'");
+                    () -> PyFloat.__format__(0., format),
+                    "Unknown format code 'y' for object of type 'float'");
         }
 
         @DisplayName("float.__format__: ',n'-grouping not allowed")
@@ -787,7 +786,7 @@ class FormatTest extends UnitTestSupport {
         @ValueSource(strings = {"10,n", ",n"})
         void floatFormatNWithGrouping(String format) {
             assertRaises(PyExc.ValueError,
-                    () -> PyFloat.__format__(0, format),
+                    () -> PyFloat.__format__(0., format),
                     // CPython: "Cannot specify ',' with 'n'");
                     // But we prefer:
                     "Grouping (,) not allowed with float format specifier 'n'");
@@ -798,7 +797,7 @@ class FormatTest extends UnitTestSupport {
         @ValueSource(strings = {"10_n", "_n"})
         void floatFormatNWithGrouping2(String format) {
             assertRaises(PyExc.ValueError,
-                    () -> PyFloat.__format__(0, format),
+                    () -> PyFloat.__format__(0., format),
                     // CPython: "Cannot specify '_' with 'n'");
                     // But we prefer:
                     "Grouping (_) not allowed with float format specifier 'n'");

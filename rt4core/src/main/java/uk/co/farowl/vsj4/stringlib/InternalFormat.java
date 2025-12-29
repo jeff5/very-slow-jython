@@ -564,21 +564,6 @@ public class InternalFormat {
         }
 
         /**
-         * Convenience method returning a {@link FormatError} reporting:
-         * "Unknown format code 'X' for object of type 'T'"
-         *
-         * @param code the presentation type
-         * @param forType the type it was found applied to
-         * @return exception to throw
-         */
-        public static FormatError unknownFormat(char code,
-                String forType) {
-            String msg = "Unknown format code '" + code
-                    + "' for object of type '" + forType + "'";
-            return new FormatError(msg);
-        }
-
-        /**
          * Convenience method returning a {@link FormatError} reporting
          * that alternate form is not allowed in a format specifier for
          * the named type.
@@ -1033,8 +1018,7 @@ public class InternalFormat {
          * {@code format()} built-in, not format strings in general as
          * accepted by {@code str.format()}.
          *
-         * @return the {@code FormatSpec} equivalent to the string
-         *     given.
+         * @return the {@code FormatSpec} equivalent to the string.
          */
         /*
          * This method is the equivalent of CPython's
@@ -1180,11 +1164,7 @@ public class InternalFormat {
     /**
      * An exception signifying a problem with a format string. The
      * client code will normally convert this to a Python
-     * {@code ValueError}.
-     */
-    /*
-     * In Jython 2 we threw a ValueError directly, but would like to
-     * keep the formatter pure from Python object types,
+     * {@code ValueError} where it may have more context.
      */
     public static class FormatError extends Exception {
         private static final long serialVersionUID = 1L;
@@ -1197,13 +1177,25 @@ public class InternalFormat {
      * during a formatting operation. The client code will normally
      * convert this to a Python {@code OverflowError}.
      */
-    /*
-     * In Jython 2 we threw a OverflowError directly, but would like to
-     * keep the formatter pure from Python object types,
-     */
     public static class FormatOverflow extends FormatError {
         private static final long serialVersionUID = 1L;
 
         public FormatOverflow(String message) { super(message); }
+    }
+
+    /**
+     * An exception signifying an unknown format type during a
+     * formatting operation. The client code will normally convert this
+     * to a Python {@code ValueError} mentioning the actual type of the
+     * argument to {@code __format__}. (The paradigm supports subclasses
+     * overriding {@code __format__} and delegating codes they do not
+     * handle to the super-class.
+     */
+    public static class FormatUnknown extends FormatError {
+        private static final long serialVersionUID = 1L;
+
+        public FormatUnknown(char typeCode) {
+            super(String.format("Unknown format code '%c'", typeCode));
+        }
     }
 }

@@ -20,6 +20,7 @@ import uk.co.farowl.vsj4.stringlib.InternalFormat;
 import uk.co.farowl.vsj4.stringlib.InternalFormat.FormatError;
 import uk.co.farowl.vsj4.stringlib.InternalFormat.FormatOverflow;
 import uk.co.farowl.vsj4.stringlib.InternalFormat.FormatSpec;
+import uk.co.farowl.vsj4.stringlib.InternalFormat.FormatUnknown;
 import uk.co.farowl.vsj4.support.InterpreterError;
 import uk.co.farowl.vsj4.types.Exposed;
 import uk.co.farowl.vsj4.types.Exposed.PythonMethod;
@@ -248,6 +249,10 @@ public class PyFloat implements WithClass {
 
         } catch (FormatOverflow fe) {
             throw PyErr.format(PyExc.OverflowError, fe.getMessage());
+        } catch (FormatUnknown fe) {
+            throw PyErr.format(PyExc.ValueError,
+                    "%s for object of type '%s'", fe.getMessage(),
+                    PyType.of(self).getName());
         } catch (FormatError fe) {
             throw PyErr.format(PyExc.ValueError, fe.getMessage());
         } catch (NoConversion e) {
@@ -279,7 +284,6 @@ public class PyFloat implements WithClass {
 
     // formatter ------------------------------------------------------
 
-    // TODO: implement __format__ and (revised) stringlib
     /**
      * A {@link Formatter}, constructed from a {@link FormatSpec}, with
      * specific validations for {@code int.__format__}.
@@ -338,7 +342,7 @@ public class PyFloat implements WithClass {
             switch (spec.type) {
 
                 case 'n':
-                    if (spec.grouper != 0) {
+                    if (spec.group > 0) {
                         throw notAllowed("Grouping", spec.grouper,
                                 TYPE.getName(), spec.type);
                     }
@@ -367,7 +371,7 @@ public class PyFloat implements WithClass {
 
                 default:
                     // The type code was not recognised
-                    throw unknownFormat(spec.type, TYPE.getName());
+                    throw new FormatUnknown(spec.type);
             }
 
             /*

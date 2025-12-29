@@ -9,6 +9,7 @@ import java.math.RoundingMode;
 import uk.co.farowl.vsj4.stringlib.InternalFormat.FormatError;
 import uk.co.farowl.vsj4.stringlib.InternalFormat.FormatOverflow;
 import uk.co.farowl.vsj4.stringlib.InternalFormat.FormatSpec;
+import uk.co.farowl.vsj4.stringlib.InternalFormat.FormatUnknown;
 
 /**
  * A class that provides the implementation of floating-point
@@ -291,7 +292,7 @@ public abstract class FloatFormatter
                  * Should never get here, since this was checked in
                  * PyFloat.
                  */
-                throw unknownFormat(spec.type, "float");
+                throw new FormatUnknown(spec.type);
         }
 
         /*
